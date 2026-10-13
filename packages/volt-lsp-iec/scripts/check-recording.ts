@@ -87,7 +87,7 @@ function verify(vendor: "codesys" | "twincat"): number {
   const committed = existsSync(join(RECORDINGS, `${stem}.json`)) ? load(`${stem}.json`) : {}
   const width = targetWidth(t)
   const wrongTarget = width !== ORACLE_WIDTH
-  console.log(`target: __XINT is ${width} — ${wrongTarget ? "NOT the 64-bit oracle, do not adopt" : "a 64-bit target, as intended"}`)
+  console.log(`target: __XINT is ${width} — ${wrongTarget ? `NOT the 64-bit oracle, do not adopt${width === "unknown" ? " (or the IDE answered in another language than English, the oracle's - DIALECT V9)" : ""}` : "a 64-bit target, as intended"}`)
   const ok = Object.values(t).filter((r) => r.buildSuccess).length
   console.log(`${fresh}: ${Object.keys(t).length} fixtures, ${ok} build clean, ${Object.keys(t).length - ok} with diagnostics`)
 

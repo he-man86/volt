@@ -300,7 +300,34 @@
       version through its own scripting, object by object, or record what that version cannot hold. The 2026-10-13 matrix
       results for SP22 and 32-bit 3.5.21.60 ran on the upgraded SP21 project — provisional until this re-run.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
-- [ ] 2.7 CODESYS activation hints per feature set and locale; the installer tolerates WMI being unavailable.
+      **Built 2026-10-13 (step 2d, DIALECT V9):** `ide.ps1 -CodesysBitness 32|64` (a version in both refused without it;
+      an edition not installed refused by name); the harness prints and reports what it drove — `[e2e] serving project:
+      CodesysTestProject — CODESYS 3.5.21.60, platform 3.5.21.60, 32-bit (…)`, bitness from the IDE process (`bitnessOf`:
+      `wow64.dll`, unit +4), `VOLT_E2E_REPORT` JSON line. e2e on 32-bit 3.5.21.60 (3.5.21.40 fixture — provisional until 2.5b):
+      **281 / 72 skip / 14 fail**, every failure a LANGUAGE fact: this machine's CODESYS answers in GERMAN (Windows UI override
+      nl-NL, user language list `tr`; the 64-bit 3.5.21.40 too). Fixed, red first: `CodesysDriver.Refusal` read only English, so
+      "Der Name 'Vlt__Log' ist für dieses Objekt nicht gültig." went out `INTERNAL_ERROR` (3 e2e) → `CodesysRefusalWording`, the
+      vendor's resource formats in every shipped language, whole-message (`CodesysChildRefusalTests` +11, 11 red before; the old
+      English substring also matched "Scope is not valid for this object."); the e2e build-diagnostic checks matched English
+      sentences (7) → CODESYS diagnostics told by code (C0046/C0142/C0032). After: 32-bit 25/4 on the four files; 64-bit 3.5.21.40
+      full **291 / 72 / 4** — the 4 are `items/push-without-header-check`'s exact ENGLISH build messages (the recorded oracle) on a
+      German IDE. **Owner:** the oracle language is English — on this machine now CODESYS (and so `record:language`/`record:exec`)
+      would write German; set the Windows display language back (or CODESYS's) before recording. 32-bit SP18/SP22 not installed —
+      not run. Ide.Codesys 403/0.
+      **Unticked at gate 2c+3 (review):** the task names e2e on 32-bit SP18/21/22 and only 32-bit 3.5.21.60 ran. Still owed:
+      32-bit 3.5.18.30 and 3.5.22.40 (not installed here — owner installs, then `bun run release:matrix` makes their cells), and
+      a LIVE run of the whole-message refusal classifier on an ENGLISH CODESYS (both live runs were German; the English kind
+      refusal "Object … is not accepted by parent object …" is matched as a whole message from the resource string only).
+- [x] 2.7 CODESYS activation hints per feature set and locale; the installer tolerates WMI being unavailable.
+      **Built 2026-10-13 (step 2d, DIALECT V8):** activation hints — the connector's steps show CODESYS's menu in English and,
+      beside it, in the Windows UI language (`GetUserDefaultUILanguage`) where CODESYS ships it: `CodesysMenuPath`, CODESYS's own
+      strings from `Standard.opt.menu` + the ScriptEngine satellites (identical on SP21/SP21-32/SP22; SP18 German differs in one
+      word), plus the command's category for an OEM-trimmed menu (Tools → Customize). Feature sets: the ScriptEngine plugin reads
+      no feature setting — not gated. `CodesysMenuPathTests` 21/0. WMI: the installer no longer uses it — `installer/Processes.iss`
+      (kernel32 `CreateToolhelp32Snapshot` + `QueryFullProcessImageNameW`; a failed snapshot RAISES, never an empty list),
+      `Volt.iss` FindCli/StopOwn/ConnectorRunning on it; gate `InstallerNeedsNoWmiTests` (red on HEAD's WbemScripting). Measured: a
+      probe setup including `Processes.iss` listed 464 processes and read an ELEVATED one's path; `Volt.iss` compiles (ISCC 6).
+      **Not run:** `test:install` (installs on this machine) — promote.yml runs it on every release; WMI-disabled = VM row 8.
 - [ ] 2.8 Culture-invariant replacements at every site the 1.2 gate names (C# 39 = 29 + 10 default-comparer sorts since
       gate 1, TS 1; shipped Python 0 — IronPython's `str.lower()` is invariant, measured at gate 1), emptying the
       `CSharpCensus`/`TypeScriptCensus`, and the

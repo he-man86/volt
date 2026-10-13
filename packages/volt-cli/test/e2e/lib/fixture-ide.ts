@@ -190,6 +190,54 @@ export function resolveOnePipe(facts: Facts, opts: { instance: string; explicit?
 }
 
 /**
+ * The IDE process's bitness from its module names as a 64-BIT reader lists them: a WOW64 (32-bit) process carries
+ * `wow64.dll`, a 64-bit process never does (DIALECT V5 measured the 64-bit view of the 32-bit TcXaeShell: only the
+ * WOW64 layer). An empty list is no answer — refused, never read as either.
+ */
+export function bitnessOf(modules: string[]): 32 | 64 {
+	if (modules.length === 0) throw new FixtureRefusal("the IDE process listed no modules, so its bitness is unknown")
+	return modules.some((m) => m.toLowerCase() === "wow64.dll") ? 32 : 64
+}
+
+/** The bitness of the process serving `pipe` (`volt.bridge.<vendor>.<pid>`: the IDE's own pid on both vendors). */
+export function pipeBitness(pipe: string, vendor: Vendor): 32 | 64 {
+	const pid = pipePid(pipe, vendor)
+	if (pid === undefined) throw new FixtureRefusal(`'${pipe}' names no pid`)
+	const script =
+		"if (-not [Environment]::Is64BitProcess) { [Console]::Error.WriteLine('a 32-bit reader cannot see a 64-bit process'); exit 3 }; " +
+		`(Get-Process -Id ${pid} -ErrorAction Stop).Modules | ForEach-Object { $_.ModuleName }`
+	const r = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", timeout: 60_000 })
+	if (r.status !== 0) throw new FixtureRefusal(`could not read the modules of pid ${pid}: ${r.stderr || r.error}`)
+	return bitnessOf(r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean))
+}
+
+/** The IDE facts a run reports, as `health` states them. */
+type IdeHealth = { productName?: string | null; productVersion?: string | null; ideVersion?: string | null }
+const IDE_FACTS = ["productName", "productVersion", "ideVersion"] as const
+
+/**
+ * What a run drove, for `VOLT_E2E_REPORT` (the release matrix judges each cell by it). Every fact is required: one
+ * that `health` does not state, or a bitness that could not be read (passed as the refusal), is refused by name —
+ * never written as null, which would read as "some IDE" in a matrix cell.
+ */
+export function e2eReport(vendor: Vendor, project: string, pipe: string, health: IdeHealth, bits: 32 | 64 | FixtureRefusal) {
+	if (bits instanceof FixtureRefusal) throw new FixtureRefusal(`cannot report the IDE's bitness: ${bits.message}`)
+	const missing = IDE_FACTS.filter((k) => typeof health[k] !== "string" || health[k] === "")
+	if (missing.length > 0) throw new FixtureRefusal(`cannot report the IDE: health states no ${missing.join(", ")}`)
+	return { vendor, project, pipe, bits, productName: health.productName!, productVersion: health.productVersion!, ideVersion: health.ideVersion! }
+}
+
+/** The console's one line about the IDE: what health states and the bitness, a missing or unreadable fact NAMED. */
+export function ideLine(health: IdeHealth, bits: 32 | 64 | FixtureRefusal): string {
+	const missing = IDE_FACTS.filter((k) => typeof health[k] !== "string" || health[k] === "")
+	const stated = [health.productName, health.productVersion].filter((x): x is string => typeof x === "string" && x !== "").join(" ")
+	const parts = [stated || undefined, missing.includes("ideVersion") ? undefined : `platform ${health.ideVersion}`]
+		.filter((x): x is string => x !== undefined)
+	if (missing.length > 0) parts.push(`health states no ${missing.join(", ")}`)
+	return parts.join(", ") + (bits instanceof FixtureRefusal ? `; bitness unreadable (${bits.message})` : `, ${bits}-bit`)
+}
+
+/**
  * The environment for a Windows PowerShell child that calls `Add-Type`: its csc (.NET Framework) cannot write into a
  * folder the ANSI code page cannot spell — measured 2026-10-13 with TEMP under `volt-Тест-Юникод` on a code-page-1252
  * machine: "cannot write to the output file … the directory name is invalid" (environment-dependency-audit 2.5). So the

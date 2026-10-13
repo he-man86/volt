@@ -54,16 +54,22 @@ Not Volt's, but Volt-adjacent — **never** touched by the installer:
 ## Processes: stopped by path, the CLI waited on
 
 `CloseApplications=no` (the Restart Manager closes whatever holds a file — a running `volt.exe` among them). `[Code]`
-finds processes through ONE mechanism, WMI `Win32_Process`, path-scoped to folders under `{app}` — a dev tray or a
+finds processes through ONE mechanism, Windows' own process snapshot (`Processes.iss`: kernel32's
+`CreateToolhelp32Snapshot` for every image name, `QueryFullProcessImageNameW` for its path — never WMI, which a machine
+may have disabled; environment-dependency-audit 2.7), path-scoped to folders under `{app}` — a dev tray or a
 `volt.exe` from a checkout is never touched:
 
-1. **Wait for the CLI first.** A `volt.exe` in a `bin\` folder under `{app}` (or one whose path cannot be read at
-   all — an elevated CLI; fail closed) may be mid-`volt push` to a live PLC: it is **never killed**. Interactive:
+1. **Wait for the CLI first.** A `volt.exe` in a `bin\` folder under `{app}` (or one named `volt.exe` whose path cannot be read at
+   all; fail closed) may be mid-`volt push` to a live PLC: it is **never killed**. Interactive:
    a Retry/Cancel box naming it. Silent: poll up to `/VOLTWAIT=<s>` (default 3600), then give up — setup exits
    non-zero with nothing stopped, the uninstaller aborts with nothing removed.
 2. **Then stop Volt's own processes** (tray, TwinCAT worker, desktop, LSP) by path, in rounds of at most 30 s wall
    clock; a CLI that starts during the stop sends it back to step 1. The wait comes first because the TwinCAT worker
-   is the far end of the CLI's pipe.
+   is the far end of the CLI's pipe. **An elevated Volt process** (a tray or worker started "as administrator") is
+   seen — the snapshot reads its path, where WMI read none and the old stop walked past it into a locked file — but
+   this per-user setup may not stop it (`ERROR_ACCESS_DENIED`): the stop gives up at once and the setup (or the
+   uninstaller) says so by name, "… runs elevated … close it, or run the setup as administrator", with nothing
+   changed. `ConnectorRunning` counts an elevated tray as running too (it is). VM checklist row 7.
 3. **Relaunch the tray** at the end of every setup that reached `PrepareToInstall` (`DeinitializeSetup`), so a
    give-up, an abort or a rollback never leaves the machine without a tray and its TwinCAT worker. After a completed
    install `[Run]` already started it.

@@ -40,6 +40,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		expect(errors.length).toBeGreaterThan(0)
 
 		const hit = errors.find((d: any) =>
+			(d.code === "C0046" && d.message.includes("'y'")) ||
 			d.message.toLowerCase().includes("y") &&
 			(d.message.toLowerCase().includes("not defined") || d.message.toLowerCase().includes("undefined") || d.message.toLowerCase().includes("unknown")))
 		expect(hit).toBeDefined()
@@ -59,6 +60,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		expect(errors.length).toBeGreaterThan(0)
 
 		const hit = errors.find((d: any) =>
+			(d.code === "C0142" && d.message.includes("x")) ||
 			d.message.toLowerCase().includes("x") &&
 			(d.message.toLowerCase().includes("duplicate") || d.message.toLowerCase().includes("already") || d.message.toLowerCase().includes("redeclared") || d.message.toLowerCase().includes("ambiguous")))
 		expect(hit).toBeDefined()
@@ -79,6 +81,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		expect(errors.length).toBeGreaterThan(0)
 
 		const hit = errors.find((d: any) =>
+			d.code === "C0032" ||
 			d.message.toLowerCase().includes("cannot") ||
 			d.message.toLowerCase().includes("convert") ||
 			d.message.toLowerCase().includes("type") ||
@@ -102,8 +105,17 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	// message, not on the token: the compiler legitimately says more than one thing about a planted fault (measured,
 	// CODESYS SP21: `zzChild := 1;` also gives C0018 "'zzChild' is no valid assignment target", `Prop := zzChild;`
 	// also C0032 "Cannot convert type ..."), and every one of those is returned as the IDE gave it.
+	//
+	// IN THE IDE'S LANGUAGE (environment-dependency-audit 2.6): a German CODESYS (measured, 32-bit 3.5.21.60) writes
+	// "Bezeichner 'zzChild' nicht definiert" under the same code, C0046 — the message is the vendor's, carried verbatim,
+	// so CODESYS's diagnostic is told by its code; TwinCAT gives no code and its compiler stays English under a localized
+	// shell (DIALECT D42). Still the WHOLE sentence, verbatim (gate 2c+3 review: "contains the token" would pass a bridge
+	// that truncated or rewrote it): the vendor's C0046 sentence in a language it was MEASURED in — English, and German
+	// live on 3.5.21.60. A CODESYS in any other language fails here by name rather than being measured on a token.
+	const C0046 = (token: string) => [`Identifier '${token}' not defined`, `Bezeichner '${token}' nicht definiert`]
 	const undefinedIn = (r: any, token: string) =>
-		r.diagnostics.filter((d: any) => d.severity === "error" && d.message === `Identifier '${token}' not defined`)
+		r.diagnostics.filter((d: any) => d.severity === "error" &&
+			(d.code !== undefined ? d.code === "C0046" && C0046(token).includes(d.message) : d.message === `Identifier '${token}' not defined`))
 	const zz = (r: any) => undefinedIn(r, "zzChild")
 	for (const [label, children, member] of [
 		["a METHOD", METHOD("Compute", "Compute := d;\nzzChild := 1;"), "Compute"],

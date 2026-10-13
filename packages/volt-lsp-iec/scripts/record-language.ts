@@ -382,7 +382,9 @@ if (ONLY) {
     console.error(
       `
 REFUSED: ${TARGET_PROBE} says __XINT is ${width} on this session's target, not ${wanted} — this is not the ${TARGET_BITS}-bit target ` +
-        `(TwinCAT: serve Project${TARGET_BITS === 32 ? "14" : "13"}, \`ide.ps1 up -Vendor twincat -Fixture ${TARGET_BITS === 32 ? "14" : "13"}\`). Nothing was merged into ${stem}.json. ` +
+        `(TwinCAT: serve Project${TARGET_BITS === 32 ? "14" : "13"}, \`ide.ps1 up -Vendor twincat -Fixture ${TARGET_BITS === 32 ? "14" : "13"}\`). ` +
+        `An "unknown" width with a message in another language is a CODESYS that does not answer in ENGLISH, the oracle's ` +
+        `language (environment-dependency-audit 2.6, DIALECT V9) — switch it to English before recording. Nothing was merged into ${stem}.json. ` +
         `The probe recorded: ${JSON.stringify(tests[TARGET_PROBE] ?? "nothing")}`,
     )
     process.exit(1)

@@ -257,13 +257,13 @@ public sealed partial class CodesysDriver
     /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
     /// "The name 'Log' is not valid for this object." — a METHOD named <c>Log</c> under a function block (SP21, openspec
     /// <c>push-keeps-what-landed</c> 1.1, measured live 2026-10-03): the NAME is refused, whatever the declaration says.
-    /// Only measured wording; no guessed reserved-word list.</summary>
+    /// Only measured wording; no guessed reserved-word list — in every language CODESYS ships.</summary>
     public static (string Message, ChildRefusalCause Cause)? Refusal(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
-            if (e.Message.IndexOf("is not accepted by parent object", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Kind);
-            if (e.Message.IndexOf("is not valid for this object", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Name);
+            // In the IDE's own language (CodesysRefusalWording, DIALECT V9): a German CODESYS refuses in German.
+            if (CodesysRefusalWording.Of(e.Message) is { } cause) return (e.Message, cause);
         }
         return null;
     }

@@ -215,8 +215,12 @@ Fixed in `plcFolder`; the note is here because the SHAPE recurs.
 **It also decides where the PLC ROOT is**, and that failure does not look like a project difference either:
 the harness default folder `POUs` resolved to `POUs/POUs` on one of the two, and FIFTY-EIGHT tests failed with
 `ITcSmTreeItem:CreateChild failed: Could not find a part of the path ...\POUs\POUs\X.TcPOU` — a vendor error
-naming neither the cause nor the project. `requireHealthy` prints `[e2e] serving project: <name>` now, once per
-run, so the first line of any red run says which of the two it was.
+naming neither the cause nor the project. `requireHealthy` prints `[e2e] serving project: <name> — <product>
+<version>, platform <ideVersion>, <32|64>-bit (<pipe>)` now, once per run, so the first line of any red run says which
+of the two it was — and which IDE: the bitness is read from the IDE process (a WOW64 process carries `wow64.dll`), since
+the same CODESYS version installs 64- and 32-bit side by side (environment-dependency-audit 2.6). With
+`VOLT_E2E_REPORT=<file>` the same facts are appended as a JSON line — what `scripts/release-matrix.ts` checks each cell
+against.
 
 **And it changes what is COVERED, not only what is timed.** The same sweep skips **20** tests on Project13
 and **8** on Project14, because several suites gate on the project being big enough to be meaningful

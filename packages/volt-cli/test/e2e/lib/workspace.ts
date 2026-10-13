@@ -7,7 +7,9 @@
  */
 import { expect } from "bun:test"
 import { bridge, healthStatus } from "./bridge"
-import { currentPipe } from "./pipe"
+import { appendFileSync } from "node:fs"
+import { currentPipe, VENDOR } from "./pipe"
+import { e2eReport, FixtureRefusal, ideLine, pipeBitness } from "./fixture-ide"
 
 /** Every item this suite creates is named `VltE2E_*`, which is what makes an unattended sweep safe. */
 export const PREFIX = "VltE2E"
@@ -44,7 +46,19 @@ function announceProject(health: any): void {
 	if (announced) return
 	announced = true
 	const project = (health?.projects ?? []).find((p: any) => p?.project)?.project
-	if (project) console.log(`[e2e] serving project: ${project}`)
+	if (!project) return
+	// WHICH IDE the run measured, not only which project (environment-dependency-audit 2.6): the dev machine runs the
+	// same CODESYS version 64- and 32-bit, and a matrix cell is the platform version x bitness the run actually drove.
+	const pipe = currentPipe()
+	// The bitness is read from the IDE process's modules, which a non-elevated reader is DENIED for an IDE run as
+	// administrator (gate 2c+3 review): that is named on the line and the run goes on — the line is a log. Only a run
+	// that must REPORT what it drove (the matrix) refuses on it, in e2eReport.
+	let bits: 32 | 64 | FixtureRefusal
+	try { bits = pipeBitness(pipe, VENDOR) } catch (e) { if (!(e instanceof FixtureRefusal)) throw e; bits = e }
+	console.log(`[e2e] serving project: ${project} — ${ideLine(health ?? {}, bits)} (${pipe})`)
+	// The release matrix (scripts/release-matrix.ts) reads what each run drove from here, one JSON line per process.
+	const report = process.env.VOLT_E2E_REPORT
+	if (report) appendFileSync(report, JSON.stringify(e2eReport(VENDOR, project, pipe, health ?? {}, bits)) + "\n")
 }
 
 let swept = false

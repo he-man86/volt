@@ -148,78 +148,29 @@ begin
     and (CompareText(ExtractFileName(RemoveBackslash(ExtractFileDir(Path))), 'bin') = 0);
 end;
 
-{ A path as a WQL LIKE pattern inside a '...' literal: LIKE's own wildcards and set brackets made literal, then the
-  string escapes (backslash, quote). }
-function WqlLikeLiteral(S: String): String;
-begin
-  Result := S;
-  StringChangeEx(Result, '[', '[[]', True);
-  StringChangeEx(Result, '%', '[%]', True);
-  StringChangeEx(Result, '_', '[_]', True);
-  StringChangeEx(Result, '\', '\\', True);
-  StringChangeEx(Result, '''', '\''', True);
-end;
+{ The processes (Processes.iss: Windows' own snapshot — NOT WMI, which a machine may have disabled) running from under
+  <app>, with their paths — ONE mechanism for both finding and stopping, and path-scoped: a dev tray or a volt.exe
+  running from a checkout is never touched. }
+#include "Processes.iss"
 
-{ The processes running from under <app>, with their executable paths, from WMI (Win32_Process.ExecutablePath) —
-  ONE mechanism for both finding and stopping, and path-scoped: a dev tray or a volt.exe running from a checkout is
-  never touched. Filtered by WMI itself: fetching every process's properties through IDispatch measured ~20 s per
-  scan in the uninstaller. Callers still check UnderApp (the filter is an optimisation, not the rule). }
-function Processes: Variant;
-var Locator, Service: Variant;
-begin
-  Locator := CreateOleObject('WbemScripting.SWbemLocator');
-  Service := Locator.ConnectServer('.', 'root\CIMV2');
-  Result := Service.ExecQuery('SELECT ProcessId, ExecutablePath FROM Win32_Process WHERE ExecutablePath LIKE ''' +
-    WqlLikeLiteral(AddBackslash(AppDir)) + '%''');
-end;
-
-{ Wall-clock milliseconds, for the CLI wait: the WMI scans between two sleeps take time of their own. }
+{ Wall-clock milliseconds, for the CLI wait: the process scans between two sleeps take time of their own. }
 function GetTickCount: DWord; external 'GetTickCount@kernel32.dll stdcall';
 
-{ The path a process runs from. WMI's Win32_Process.ExecutablePath is null for a process this run cannot open for
-  PROCESS_QUERY_INFORMATION + PROCESS_VM_READ - an ELEVATED process of the same user among them (measured: a
-  `volt.exe` run from an admin terminal reads null there, and empty through .NET's MainModule).
-  QueryFullProcessImageName needs only PROCESS_QUERY_LIMITED_INFORMATION, which reads those. '' when even that is
-  refused. }
-function OpenProcess(Access: DWord; Inherit: BOOL; Pid: DWord): THandle; external 'OpenProcess@kernel32.dll stdcall';
-function QueryFullProcessImageName(Process: THandle; Flags: DWord; Name: String; var Size: DWord): BOOL; external 'QueryFullProcessImageNameW@kernel32.dll stdcall';
-function CloseHandle(Handle: THandle): BOOL; external 'CloseHandle@kernel32.dll stdcall';
-
-function ImagePath(Pid: Integer; Wmi: Variant): String;
-var H: THandle; Size: DWord; Buf: String;
-begin
-  Result := '';
-  if not VarIsNull(Wmi) then Result := Wmi;
-  if Result <> '' then Exit;
-  H := OpenProcess($1000, False, Pid); { PROCESS_QUERY_LIMITED_INFORMATION }
-  if H = 0 then Exit;
-  try
-    Size := 1024;
-    Buf := StringOfChar(#0, Size);
-    if QueryFullProcessImageName(H, 0, Buf, Size) then Result := Copy(Buf, 1, Size);
-  finally
-    CloseHandle(H);
-  end;
-end;
-
-{ The first CLI that may be running from under <app>: its pid and path. Every process NAMED volt.exe is examined -
-  not only those Processes finds by ExecutablePath, which never sees an elevated one - and one whose path cannot be
-  read at all counts as the CLI (fail closed): waiting on a stranger costs an update; stopping the TwinCAT worker
-  under a running `volt push` costs a PLC project. }
+{ The first CLI that may be running from under <app>: its pid and path. Every process NAMED volt.exe is examined, and
+  one whose path cannot be read at all counts as the CLI (fail closed): waiting on a stranger costs an update; stopping
+  the TwinCAT worker under a running `volt push` costs a PLC project. }
 function FindCli(var Pid: Integer; var Path: String): Boolean;
-var Locator, Service, Procs, P: Variant; I: Integer; Exe: String;
+var Procs: TVoltProcesses; I: Integer; Exe: String;
 begin
   Result := False;
-  Locator := CreateOleObject('WbemScripting.SWbemLocator');
-  Service := Locator.ConnectServer('.', 'root\CIMV2');
-  Procs := Service.ExecQuery('SELECT ProcessId, ExecutablePath FROM Win32_Process WHERE Name = ''volt.exe''');
-  for I := 0 to Procs.Count - 1 do
+  Procs := RunningProcesses;
+  for I := 0 to GetArrayLength(Procs) - 1 do
   begin
-    P := Procs.ItemIndex(I);
-    Exe := ImagePath(P.ProcessId, P.ExecutablePath);
+    if CompareText(Procs[I].Name, 'volt.exe') <> 0 then Continue;
+    Exe := Procs[I].Path;
     if (Exe = '') or (UnderApp(Exe) and IsCli(Exe)) then
     begin
-      Pid := P.ProcessId;
+      Pid := Procs[I].Pid;
       if Exe = '' then Path := '(path unreadable - waited on, never stopped)' else Path := Exe;
       Result := True;
       Exit;
@@ -236,14 +187,17 @@ end;
   or the desktop app calling the CLI) and connect to the TwinCAT worker this is about to stop: every round looks for
   a CLI again BEFORE it stops anything, and on finding one stops nothing more and sets CliStarted — the caller goes
   back to waiting. }
+var StopRefusal: String;   { why StopOwn gave up at once (an elevated Volt process), for the setup's message }
+
 function StopOwn(var CliStarted: Boolean): Boolean;
-var Procs, P: Variant; I, Found, CliPid: Integer; Started: DWord; Exe, Key, CliPath: String; Seen: TStringList;
+var Procs: TVoltProcesses; I, Found, CliPid: Integer; Started, Err: DWord; Exe, Key, CliPath: String; Seen: TStringList;
 begin
   CliStarted := False;
+  StopRefusal := '';
   Seen := TStringList.Create;
   try
-    { A wall-clock 30 s: counted rounds (60 x 500 ms) measured 44-51 s, each round's WMI queries taking time of
-      their own. }
+    { A wall-clock 30 s: counted rounds (60 x 500 ms) measured 44-51 s (with the WMI queries the
+      process snapshot replaced), each round's scan taking time of its own. }
     Started := GetTickCount;
     while GetTickCount - Started < 30000 do
     begin
@@ -260,18 +214,28 @@ begin
         Exit;
       end;
       Found := 0;
-      Procs := Processes;
-      for I := 0 to Procs.Count - 1 do
+      Procs := RunningProcesses;
+      for I := 0 to GetArrayLength(Procs) - 1 do
       begin
-        P := Procs.ItemIndex(I);
-        if VarIsNull(P.ExecutablePath) then Continue;
-        Exe := P.ExecutablePath;
-        if UnderApp(Exe) and not IsCli(Exe) then
+        Exe := Procs[I].Path;
+        if (Exe <> '') and UnderApp(Exe) and not IsCli(Exe) then
         begin
           Found := Found + 1;
-          Key := ExtractFileName(Exe) + ' (pid ' + IntToStr(P.ProcessId) + ')';
+          Key := ExtractFileName(Exe) + ' (pid ' + IntToStr(Procs[I].Pid) + ')';
+          Err := TerminatePid(Procs[I].Pid);
+          { An ELEVATED Volt process (started "as administrator"): WMI never read its path, so the old stop did not
+            see it and went on into a locked file; the snapshot reads it, and this per-user setup may not stop it.
+            Waiting cannot change that - give up now, naming it (gate 2c+3 review). }
+          if Err = ERROR_ACCESS_DENIED then
+          begin
+            StopRefusal := Key + ' runs elevated (as administrator) and this setup may not stop it - close it, or run the setup as administrator';
+            VLog('FAILED to stop Volt''s processes under ' + AppDir + ': ' + StopRefusal);
+            Result := False;
+            Exit;
+          end;
+          if (Err <> 0) and (Seen.IndexOf(Key) < 0) then
+            VLog('Windows refused to stop ' + Key + ': ' + SysErrorMessage(Err));
           if Seen.IndexOf(Key) < 0 then Seen.Add(Key);
-          P.Terminate(0);
         end;
       end;
       if Found = 0 then
@@ -344,15 +308,13 @@ end;
 
 { A tray (VoltConnector.exe) running from under <app>, any layout. }
 function ConnectorRunning: Boolean;
-var Procs, P: Variant; I: Integer; Exe: String;
+var Procs: TVoltProcesses; I: Integer; Exe: String;
 begin
   Result := False;
-  Procs := Processes;
-  for I := 0 to Procs.Count - 1 do
+  Procs := RunningProcesses;
+  for I := 0 to GetArrayLength(Procs) - 1 do
   begin
-    P := Procs.ItemIndex(I);
-    if VarIsNull(P.ExecutablePath) then Continue;
-    Exe := P.ExecutablePath;
+    Exe := Procs[I].Path;
     if UnderApp(Exe) and (CompareText(ExtractFileName(Exe), 'VoltConnector.exe') = 0) then
     begin
       Result := True;
@@ -514,7 +476,10 @@ begin
     Volt exactly as it was. The tray is relaunched by DeinitializeSetup on every outcome. }
   case WaitThenStop('update') of
     1: Result := 'Volt''s command-line tool (volt.exe) is running, so Volt was not updated. The update is offered again later.';
-    2: Result := 'Volt could not stop its own processes under ' + AppDir + ' - nothing was changed. See the setup log.';
+    2: if StopRefusal <> '' then
+         Result := 'Volt was not updated: ' + StopRefusal + '. Nothing was changed.'
+       else
+         Result := 'Volt could not stop its own processes under ' + AppDir + ' - nothing was changed. See the setup log.';
   end;
 end;
 
@@ -534,6 +499,8 @@ begin
     open, and an uninstall that could not stop one would remove part of <app> and report success. Both here, where
     the uninstall can still refuse; a stopped tray is relaunched if the user then declines (DeinitializeUninstall). }
   Result := WaitThenStop('uninstall') = 0;
+  if (not Result) and (StopRefusal <> '') and not UninstallSilent() then
+    MsgBox('Volt was not uninstalled: ' + StopRefusal + '.', mbError, MB_OK);
   { A give-up after a CLI started DURING the stop, or a failed stop, may have stopped the tray. }
   if not Result then RelaunchConnector;
 end;

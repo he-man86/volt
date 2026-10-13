@@ -10,7 +10,7 @@ import { describe, expect, it } from "bun:test"
 import { existsSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { compileTempEnv, FixtureRefusal, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
+import { bitnessOf, compileTempEnv, e2eReport, FixtureRefusal, ideLine, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
 
 const TEMP = "C:\\Users\\eng\\AppData\\Local\\Temp"
 const T0 = "638900000000000000" // .NET ticks — beyond 2^53, so they stay strings
@@ -144,6 +144,27 @@ describe("script pipe resolver (one pipe, never the first of several)", () => {
 	})
 })
 
+/**
+ * WHICH BITNESS A RUN MEASURED (environment-dependency-audit 2.6): the dev machine runs 64-bit AND 32-bit CODESYS
+ * (3.5.21.60 under Program Files (x86)), and a run that does not say which it drove cannot be a matrix cell. Read from
+ * the IDE process's modules as a 64-bit reader sees them: a WOW64 (32-bit) process carries `wow64.dll`, a 64-bit one
+ * never does (DIALECT V5: a 64-bit reader sees only the WOW64 layer of the 32-bit TcXaeShell).
+ */
+describe("ide bitness", () => {
+	it("a process with the WOW64 layer is 32-bit", () => {
+		expect(bitnessOf(["TcXaeShell.exe", "ntdll.dll", "wow64.dll", "wow64base.dll", "wow64con.dll", "wow64win.dll", "wow64cpu.dll"])).toBe(32)
+	})
+	it("a process without it is 64-bit", () => {
+		expect(bitnessOf(["CODESYS.exe", "ntdll.dll", "KERNEL32.DLL", "clr.dll"])).toBe(64)
+	})
+	it("the module name is matched without regard to case", () => {
+		expect(bitnessOf(["CODESYS.exe", "WOW64.DLL"])).toBe(32)
+	})
+	it("no modules at all is no answer, never a guess", () => {
+		expect(() => bitnessOf([])).toThrow(FixtureRefusal)
+	})
+})
+
 /** Windows PowerShell's Add-Type (csc) cannot write into a folder the ANSI code page cannot spell (measured with a
  *  Cyrillic TEMP, environment-dependency-audit 2.5): a child that compiles gets an ASCII TEMP, nothing else changes. */
 describe("compile temp", () => {
@@ -170,5 +191,33 @@ describe("compile temp", () => {
 	it("no ASCII folder at all is refused by name", () => {
 		const temp = "C:\\Users\\Тест\\AppData\\Local\\Temp"
 		expect(() => compileTempEnv({ TEMP: temp, ProgramData: "C:\\Данные" })).toThrow(FixtureRefusal)
+	})
+})
+
+/**
+ * WHAT A RUN REPORTS IT DROVE (gate 2c+3 review). The release matrix judges a cell by this report, so it is refused
+ * when a fact is missing — never written with a `?`/null in its place. The console line is only a log: a bitness that
+ * cannot be read there (an IDE run elevated, whose modules a non-elevated reader is denied) is named, and the run goes
+ * on; only a run that must REPORT (VOLT_E2E_REPORT, the matrix) stops on it.
+ */
+describe("e2e report", () => {
+	const health = { productName: "CODESYS", productVersion: "3.5.21.60", ideVersion: "3.5.21.60" }
+	it("carries the IDE the run drove", () => {
+		expect(e2eReport("codesys", "P", "volt.bridge.codesys.42", health, 32)).toEqual({
+			vendor: "codesys", project: "P", pipe: "volt.bridge.codesys.42", bits: 32,
+			productName: "CODESYS", productVersion: "3.5.21.60", ideVersion: "3.5.21.60",
+		})
+	})
+	it("a fact health does not state is refused by name, never written as null", () => {
+		expect(() => e2eReport("codesys", "P", "p", { ...health, ideVersion: undefined }, 64)).toThrow(/ideVersion/)
+		expect(() => e2eReport("codesys", "P", "p", { productVersion: "1", ideVersion: "1" }, 64)).toThrow(/productName/)
+	})
+	it("an unreadable bitness is refused for the report", () => {
+		expect(() => e2eReport("codesys", "P", "p", health, new FixtureRefusal("could not read the modules of pid 42: Access is denied"))).toThrow(/Access is denied/)
+	})
+	it("the console line names what is missing or unreadable instead of a placeholder", () => {
+		expect(ideLine(health, 64)).toBe("CODESYS 3.5.21.60, platform 3.5.21.60, 64-bit")
+		expect(ideLine({ productName: "CODESYS" }, new FixtureRefusal("Access is denied"))).toBe(
+			"CODESYS, health states no productVersion, ideVersion; bitness unreadable (Access is denied)")
 	})
 })

@@ -41,25 +41,37 @@ namespace Volt.Connector
         /// <summary>What to copy to the clipboard: the primary script path (for CODESYS's Execute-Script-File dialog).</summary>
         internal static string ClipboardText() => ScriptPath() ?? "start_volt_codesys.py";
 
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        private static extern ushort GetUserDefaultUILanguage();
+
         /// <summary>Human steps shown in the activation dialog / hint. Shows BOTH the visible Documents copy (the
         /// one to run) and the install-dir backup, so the user can find it either way.</summary>
         public static string Steps()
         {
             var primary = ScriptPath();
             var backup = BackupScriptPath();
+            // In the user's language too, where CODESYS ships it (CodesysMenuPath: CODESYS's own strings). The Windows
+            // display language, asked of Windows by name — the steps are FOR the user, the one place Volt wants a language.
+            // A BET, not a reading: CODESYS's own UI language is a setting not found yet (DIALECT V8/V9 — the dev machine's
+            // CODESYS answers German under a Dutch Windows), so the English path is always shown beside it.
+            var ui = System.Globalization.CultureInfo.GetCultureInfo(GetUserDefaultUILanguage());
+            var localized = CodesysMenuPath.Localized(ui);
+            var menuLine = localized != null ? $"{CodesysMenuPath.English}\n        ({localized})" : CodesysMenuPath.English;
             var backupLine = backup != null && !string.Equals(backup, primary, StringComparison.OrdinalIgnoreCase)
                 ? $"\nBackup copy (if you can’t find the above):\n  {backup}\n"
                 : "";
             return
                 "Activate Volt inside your open CODESYS — Volt never launches CODESYS:\n\n" +
                 "  1.  Open your project in CODESYS.\n" +
-                "  2.  Tools → Scripting → Execute Script File…\n" +
+                $"  2.  {menuLine}\n" +
                 $"  3.  Choose:  {primary ?? "start_volt_codesys.py  (shipped beside the connector)"}\n" +
                 backupLine +
                 "\nVolt then detects the project — connect to it from the Volt app or VS Code.\n" +
                 "To disconnect later: do it there, or run stop_volt_codesys.py the same way.\n" +
                 "(The tray only pauses a project that is already serving, via its row.)\n" +
-                "(“Copy script path” puts the primary path on your clipboard for the file dialog.)";
+                "(“Copy script path” puts the primary path on your clipboard for the file dialog.)\n" +
+                $"(No such menu? Your CODESYS may hide it: add “{CodesysMenuPath.CustomizeEntry(ui)}” " +
+                "to a menu through Tools → Customize.)";
         }
     }
 }

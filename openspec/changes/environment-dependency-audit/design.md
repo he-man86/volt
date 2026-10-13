@@ -170,3 +170,29 @@ Russian UI and the PLC's 4024 satellites none either: a Russian customer's pane 
 so the fixture copy and both temp hand-offs — under a Cyrillic folder: green but for two harness failures. The
 refusal belongs to Windows PowerShell's `Add-Type` (csc cannot write to a non-ANSI folder), which only dev tooling uses:
 `ide.ps1` and `tc-reopen.ts` compile in an ASCII folder. A non-ASCII *profile* is VM row 4.
+
+**2.6 (32-bit CODESYS) — selection, reporting, and the language finding (DIALECT V9).** `ide.ps1 -CodesysBitness`,
+the harness's `[e2e] serving project: … <bits>-bit` line (+ `VOLT_E2E_REPORT`), e2e on 32-bit 3.5.21.60. The run found
+no bitness defect and one LANGUAGE defect: CODESYS on this machine answers in German, and `CodesysDriver.Refusal` read
+only English — a name refusal reached the client `INTERNAL_ERROR`. Fixed with the vendor's own resource formats in
+every shipped language (`CodesysRefusalWording`, whole-message match). *Rejected:* reading the format from the running
+IDE's ResourceManager (an in-proc dependency on CODESYS's resource base names for a fact the satellites already state
+identically on all four versions); a substring per language (the English one matched an unrelated "Scope is not valid
+for this object."). 32-bit SP18/SP22 are not installed — not run.
+
+**2.7 (activation hints, WMI).** The connector's steps name the CODESYS menu in English and, beside it, in the user's
+Windows UI language where CODESYS ships it (`CodesysMenuPath`, CODESYS's own strings, DIALECT V8), plus the command's
+category for a trimmed (OEM) menu; the command is not feature-set gated (the ScriptEngine plugin reads no feature
+setting). The installer no longer uses WMI at all: `installer/Processes.iss` lists processes with kernel32's
+`CreateToolhelp32Snapshot` (image names, no process opened) and reads paths with `QueryFullProcessImageNameW`; a
+snapshot that cannot be taken raises by name, never an empty list. *Rejected:* catch the WMI failure and skip the
+process step (a running connector would then be overwritten — a fallback that hides the fact the step exists for);
+catch it and ask the user to close Volt (the recheck needs the same WMI). Measured: a probe setup including
+`Processes.iss` listed 464 processes and read the path of an ELEVATED one (CODESYSControlSysTray) that WMI's
+`ExecutablePath` reads null; `Volt.iss` compiles (ISCC 6). **The consequence for an elevated Volt process** (gate 2c+3
+review): WMI never saw one, so the old stop walked past it into a locked file; the snapshot sees it, and the per-user
+setup is denied `PROCESS_TERMINATE` — the stop now gives up at once on `ERROR_ACCESS_DENIED` and names it ("runs
+elevated … close it, or run the setup as administrator") instead of spinning 30 s. *Rejected:* skip what cannot be
+stopped (the old blindness, re-made on purpose: the update would then fail on the locked file or replace a running
+connector's files). Not run here: `test:install` (it installs on this machine)
+— it runs in `promote.yml` on every release; a WMI-disabled machine is VM row 8.

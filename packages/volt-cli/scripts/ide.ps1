@@ -56,6 +56,9 @@
                     German). The language TwinCAT's build writes its Output pane in follows it (environment-dependency-audit
                     2.4); a language whose shell resources are not installed is refused by name, not left to the shell
                     (which silently stays in English). Default: the shell's own setting.
+.PARAMETER CodesysBitness codesys only: 32 | 64 — which edition of -CodesysVersion, when it is installed both 64-bit
+                    (`Program Files`) and 32-bit (`Program Files (x86)`). Without it a version installed in both is
+                    refused by name; with it an edition that is not installed is refused by name (never the other one).
 .PARAMETER XaeBitness twincat only: 32 | 64 — which registered XAE shell to open, by its exe's PE machine (TcXaeShell 15
                     is x86; TwinCAT 3.1.4026 can install the x64 TcXaeShell64). Without it the 32-bit shell is preferred
                     (the committed fixtures are 4024 projects); with it a bitness no registered shell has is refused.
@@ -80,6 +83,7 @@ param(
     [string]$RunScript = "",
     [string]$BridgeDir = "",
     [string]$CodesysVersion = "3.5.21.40",
+    [ValidateSet("", "32", "64")] [string]$CodesysBitness = "",
     [int]$XaeLanguage = 0,
     [ValidateSet("", "32", "64")] [string]$XaeBitness = "",
     [switch]$NoBuild,
@@ -629,11 +633,19 @@ function Save-Projects([string[]]$paths) {
 function Up-Codesys {
     # A CODESYS version installs 64-bit under "Program Files" or 32-bit under "Program Files (x86)" (2026-10-13: the
     # dev machine gained 32-bit 3.5.21.60). The version names one edition; one installed in BOTH is refused by name
-    # rather than guessed (a bitness switch is environment-dependency-audit 2.6).
-    $candidates = @("C:\Program Files\CODESYS $CodesysVersion", "C:\Program Files (x86)\CODESYS $CodesysVersion") |
-        Where-Object { Test-Path (Join-Path $_ "CODESYS\Common\CODESYS.exe") }
-    if ($candidates.Count -gt 1) { throw "CODESYS $CodesysVersion is installed both 64-bit and 32-bit ($($candidates -join ', ')) - name one install" }
-    $install = if ($candidates.Count -eq 1) { @($candidates)[0] } else { "C:\Program Files\CODESYS $CodesysVersion" }
+    # rather than guessed, and -CodesysBitness picks one (environment-dependency-audit 2.6).
+    $roots = [ordered]@{ "64" = "C:\Program Files\CODESYS $CodesysVersion"; "32" = "C:\Program Files (x86)\CODESYS $CodesysVersion" }
+    $installed = @($roots.Keys | Where-Object { Test-Path (Join-Path $roots[$_] "CODESYS\Common\CODESYS.exe") })
+    if ($CodesysBitness) {
+        if ($installed -notcontains $CodesysBitness) { throw "CODESYS $CodesysVersion is not installed $CodesysBitness-bit (no $($roots[$CodesysBitness]); installed: $(if ($installed) { ($installed | ForEach-Object { "$_-bit" }) -join ', ' } else { 'neither' }))" }
+        $install = $roots[$CodesysBitness]
+    } elseif ($installed.Count -gt 1) {
+        throw "CODESYS $CodesysVersion is installed both 64-bit and 32-bit ($($roots.Values -join ', ')) - name one with -CodesysBitness 32|64"
+    } elseif ($installed.Count -eq 1) {
+        $install = $roots[$installed[0]]
+    } else {
+        throw "CODESYS $CodesysVersion is not installed (neither $($roots.Values -join ' nor '))"
+    }
     $exe     = Join-Path $install "CODESYS\Common\CODESYS.exe"
     Write-Host ("CODESYS edition: " + $(if ($install -like "*(x86)*") { "32-bit" } else { "64-bit" }))
     # The SHIPPED bridge: the merged one-assembly bundle (Volt.Ide.Codesys.csproj, target VoltBundle), never the
