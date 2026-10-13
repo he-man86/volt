@@ -1,6 +1,6 @@
 # Design — bridge-one-to-one
 
-> **State.** §1 (step 1, tasks 1.1-1.3) and §2 (step 2, tasks 2.1-2.3) hold the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
+> **State.** §1 (step 1, tasks 1.1-1.3), §2 (step 2, tasks 2.1-2.3) and §3 (step 3, tasks 3.1-3.5) hold the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
 > "candidate" there is decided in §1.
 
 ## 1. Design (decided 2026-10-13, step 1: tasks 1.1-1.3)
@@ -453,6 +453,47 @@ non-system placeholder library (red on both: `SYSTEM false`), an interface prope
 neither fixture serves a visualization or a text list (no witness; the offline twin is the gate until one does).
 **One decision taken to state the parity constant**, for the owner: `SYSTEM` is spelled only where it is TRUE (§1.2's
 flag rule; TwinCAT has no such member, C37), so a CODESYS non-system reference reads like TwinCAT's.
+
+## 3. Build (decided 2026-10-13, step 3: tasks 3.1-3.5)
+
+**Target.** The 2.2 red marks and the `completeness.known.ts` entries go green task by task, until only named refusals
+and niches are left; no step leaves a suite red.
+
+**The choice — the properties ride the ONE content record, and the class is chosen at the create.**
+- `ItemContent.Properties` / `Member.Properties`: required positional fields (no default). Read by the driver inside
+  `ReadContent`, written inside `WriteContent`; the push compares them in `OnlyChanged` (a properties-only edit is a
+  change, an unchanged body is still not written). The version is the file's, which now spells them — nothing to add.
+- `IProjectTree.CreateChild(parent, name, kindCode, seed, ObjectClass? cls)`: the class is a required argument (null =
+  the kind's plain class). CODESYS maps the class word to the measured path (C2r: check function and abstract method
+  constructed; persistent list, text-list enum, sender GVL, parameter list by factory); every other property is then
+  written by the `WriteContent` the push already runs after a create.
+- Rejected: `Properties = null` defaults (a driver that never read them compiles and pushes "not excluded"); a separate
+  `ReadProperties` / `WriteProperties` pair on `ICodeStore` (two reads of one object that can disagree — the two-record
+  bug `ItemContent` exists to close); create plain then convert (C2l: a class never changes in place — `create-each-class`).
+- **Rename / re-type (3.4)** — per owner and member kind, exactly ONE live member dropped and ONE added of that kind is a
+  rename: `IProjectTree.Rename` (GUID and class kept, C2n), then the write. More than one on either side stays delete +
+  create (no pairing guess; the text carries every spelled member and the create makes the class, so only the unspelled
+  GUID differs — owner default, §1.1). A same-name kind change is refused by name, the two-push remedy stated (C2l).
+  Rejected: pairing by body similarity (a guess); refusing every drop+add (blocks a real delete-and-add).
+
+**Order — each task compiles and keeps the suites green.** 3.1 contract + St reader/writer + LSP `object-properties.ts`
++ both drivers' READ (the required field forces it: CODESYS `BuildProperty` / class / comment / `NetVarProperties`;
+TwinCAT the measured empty record, a `.plcproj` build entry other than `SubType` or a non-SFC `<ObjectProperties>`
+refused by name) + the `format: 2` binding. 3.2 CODESYS writes + class creates. 3.3 TwinCAT: TaskDef members, library
+`SYSTEM` (deleted: spelled only where true), interface accessor declaration (the measured constant), the 611 vInfo
+quirk (`TcObjectModel.cs:405`: the property's TYPE, not its language). 3.4 rename/re-type. 3.5 the fallbacks of
+proposal (8): END line from the declaration's own keyword, GET/SET from `IsGet`, a missing aspect / null `Text` /
+`Guid.Empty` / handle 0 refused by name, a whitespace body spelled verbatim, `AbstractMemberFold` on a null/empty
+body only. Each task removes the marks it closes (`ExpectRed`, `it.failing`, known entries) and re-runs the oracle for
+the classes it touched.
+
+**Stays refused by name:** NVL create (C2r), TwinCAT `%CLASS CHECK` on create/class change and any `SpecialFunc` but
+`None` (C2s), every TwinCAT `%`-key and watchdog/event push, a non-empty task `*Parameters` list, standalone
+transitions and every 0-occurrence class (niche: accepted loss), a CODESYS bare `Watchdog: off`, a same-name re-type.
+
+**Migration.** `format: 2` (§1.2): a push from a pre-step-3 text is refused "re-pull: the text predates object
+properties"; the re-pull adds exactly the new lines (verified in 4.2). The `CreateChild` signature change touches every
+call site (17) in one commit.
 
 ## 0.1 Schema census (measured 2026-10-13)
 
