@@ -12,7 +12,8 @@ existing at all.
 |---|---|---|
 | `bun run build:installer` | `build-installer.ts` | **the product** → `dist/release/Volt-win-Setup.exe` |
 | `bun run test:install` | `test-install.ts` | install/uninstall/update ×N on a real machine, asserting after every step |
-| `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (triggers `promote.yml`) |
+| `bun run release:matrix` | `release-matrix.ts` | THE LIVE RELEASE GATE: e2e over every installed IDE variant, the matrix printed, a red cell fails |
+| `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (refuses without a green `release:matrix` on that build's commit; triggers `promote.yml`) |
 | `bun run check` | `check-wiring.ts` | is everything shipped built + internally consistent? |
 | `bun run console` | `packages/volt-cli/scripts/console.ts` | build the CLI + serve the interface console (the docs, and a client that can call all three surfaces) |
 
@@ -31,9 +32,14 @@ build-installer.ts --upload-only                publishes a PRERELEASE 0.1.<coun
 
 RELEASE — promote one of those builds to prod (`release.ts` → `promote.yml`):
 ```
-release.ts             triggers promote.yml for a chosen 0.1.<count> (via `gh`; nothing installs locally)
+release-matrix.ts      on the dev machine, at that build's commit: e2e over every installed IDE variant
+      ↓                (CI has no CODESYS/TwinCAT) → dist/release-matrix/result.json, green on that commit
+release.ts             checks that result, attaches it to the release as release-matrix.json, then triggers
+                       promote.yml for a chosen 0.1.<count> (via `gh`; nothing installs locally)
       ↓ (in CI, on a clean Windows runner)
 verify                 the build is a published prerelease AND its commit's ci.yml is green
+      ↓
+verify                 its attached release-matrix.json is green on its own commit (`release-matrix.ts --verify`)
       ↓
 gh release download    that build's OWN Volt-win-Setup.exe
       ↓
@@ -86,6 +92,48 @@ electron-builder), `--upload` / `--upload-only`.
 scripts (`packages/volt-cli/README.md`, "LD and FBD are off unless `VOLT_GRAPHICAL=1`"). To try a shipped build with
 it on, set it in the environment of the process that runs the bridge (CODESYS, or the TwinCAT worker), and of the
 editor for the LSP's own switch. `Volt.Repo.Gates/NetworkTextSwitchTests` fails if a shipping step starts setting it.
+
+## `release-matrix.ts` — the live release gate (`bun run release:matrix`)
+
+CI's runners have no CODESYS and no TwinCAT, so the e2e suite only ever ran by hand, on one IDE — and that is how two
+regressions shipped green: the TwinCAT bridge needed a proxy only Visual Studio registers (every test machine had
+Visual Studio), and an SP18 member absence failed 212 of 218 e2e tests while SP21 was green (openspec
+environment-dependency-audit). The matrix runs the WHOLE `packages/volt-cli/test/e2e` suite once per installed IDE
+variant — every `CODESYS <version>` under `Program Files` (64-bit) and `Program Files (x86)` (32-bit), every registered
+XAE shell by its exe's PE bitness — each served by `ide.ps1 up -Instance release-matrix` on that variant's own fixture,
+then prints the matrix and exits non-zero on any red cell. `release.ts` refuses to promote a build unless
+`dist/release-matrix/result.json` says green for that build's commit (a checkout with modified or untracked files
+outside `openspec/` records NOT green — an untracked source file is built into what ran), then attaches it to the release
+as `release-matrix.json`; `promote.yml` checks that attachment against the release's own commit
+(`release-matrix.ts --verify`), so the Actions door to a release cannot skip the matrix. A vendor with no install on
+the machine is one red cell (`codesys-none`, `twincat-none`), never a missing one. A cell is
+red, by name, when its version has no native fixture project (`CodesysTestProject.<version>.project`; until 2.5b makes
+them only 3.5.21.40 and 3.5.18.30 have one — owner: a project opened from another version's file is not native), when
+a TwinCAT cell would run where Visual Studio's 64-bit msenvp proxy is registered (DIALECT C2t — not the customer's
+machine), when the IDE does not come up, when any test fails, or when the harness's own report (`VOLT_E2E_REPORT`: the
+version and bitness the run drove, from `health` and the IDE process) names another IDE than the cell's.
+`--list` prints the cells; `--only <id,id>` and `--tests <path>` run a subset, printed as PARTIAL and never written as a
+result. Per-cell logs land in `dist/release-matrix/<cell>.log`. Long (the sum of full e2e runs); Windows only.
+
+## The VM checklist — before a release that touches a bridge or the installer
+
+What the dev machine cannot be. Each cell is one VM (or one machine) in that state, with the product INSTALLED from
+the release candidate's `Volt-win-Setup.exe`, the cell's checks run by hand, and the result recorded in the release's
+notes (date, build, pass/fail and what failed). The `release:matrix` above runs on the dev machine; these do not.
+
+| # | State | Checks |
+|---|---|---|
+| 1 | TwinCAT 3.1.4024 only — no Visual Studio, no Git for Windows (the field bug's machine) | the connector serves an XAE (no `IDE_UNSUPPORTED`); `volt init/pull/push/status`; a build with an error lists it |
+| 2 | Windows system locale tr-TR, then ru-RU (system locale + display language), real CODESYS and XAE | as 1, on each IDE; `volt pull` of a project with `VAR_IN_OUT` and `I`/`i` identifiers; a build with an error |
+| 3 | Windows 10 LTSC 2019 (.NET Framework 4.7.2, no 4.8) | the installer runs; the TwinCAT hierarchy read (`VoltTwincatExplorer.exe`, net472); no .NET install dialog |
+| 4 | A non-admin user whose name is Cyrillic (`C:\Users\Тест`: `%TEMP%`/`%APPDATA%` non-ASCII), system code page 1252 | install, connector, CODESYS activation, TwinCAT pull/push, a TwinCAT folder move and a graphical create (both hand XAE a `%TEMP%` path) |
+| 5 | No git on PATH | `volt init/pull/push` run on the bundled `bin\git` |
+| 6 | A CPU without AVX2 (or a VM that masks it) | the LSP (`volt-lsp-iec.exe`, bun `x64-baseline`) starts and answers |
+| 7 | CODESYS and XAE started "as administrator", Volt not (2.2) | CODESYS serves through `PipeAcl`; `volt status` names an elevated XAE (`UnreachableXae`); the UI's "An IDE Volt cannot reach" row; the e2e names the bitness unreadable and runs on; then start `VoltConnector.exe` elevated and run the per-user setup: it refuses at once, naming the elevated process (`installer/README.md`) |
+| 8 | WMI service disabled (`sc config winmgmt start= disabled`, reboot) | install, update and uninstall complete (the installer reads processes from kernel32's snapshot, `installer/Processes.iss`) |
+
+Last run: openspec `environment-dependency-audit` 3.2 records what the dev machine could stand in for and what is
+still owed to a VM.
 
 ## The wiring check
 

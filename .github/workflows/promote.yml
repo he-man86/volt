@@ -4,7 +4,8 @@
 # commit's ci.yml is green), GATES it (downloads ITS OWN installer and runs the install/uninstall/lifecycle checks
 # against it), then flips its GitHub release prerelease -> latest. The stable channel updater then serves it.
 #
-# Trigger: `bun run release [version]` (scripts/release.ts), or the Actions tab → this workflow → Run workflow.
+# Trigger: `bun run release [version]` (scripts/release.ts), or the Actions tab → this workflow → Run workflow — either
+# way only for a build that carries a green release-matrix.json (attached by release.ts; checked below).
 name: promote
 
 on:
@@ -58,6 +59,23 @@ jobs:
           concl=$(gh run list --workflow=ci.yml --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // "none"')
           [ "$concl" = "success" ] || { echo "::error::ci.yml for $sha is '$concl', not success — checks must be green to release"; exit 1; }
           echo "$v (commit $sha) — published prerelease, CI green"
+
+      # THE LIVE RELEASE GATE's proof (openspec environment-dependency-audit 3.1). This runner has no CODESYS and no
+      # TwinCAT, so the e2e over every installed IDE variant runs on the dev machine (`bun run release:matrix`), and
+      # `bun run release` attaches its result to the release as release-matrix.json. Checked HERE too, so starting this
+      # workflow from the Actions UI cannot skip it: no attached result, another commit, a dirty run or a red cell is
+      # refused by name — the same judgement release.ts makes (release-matrix-cells.ts proofRefusal).
+      - name: Verify — the release matrix ran green on this build's commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v='${{ inputs.version }}'
+          sha=$(git rev-list -n 1 "$v")
+          mkdir -p dist/release-matrix
+          gh release download "$v" --repo "$GITHUB_REPOSITORY" --pattern release-matrix.json --dir dist/release-matrix --clobber \
+            || { echo "::error::$v carries no release-matrix.json — run \`bun run release:matrix\` on $sha, then \`bun run release $v\`"; exit 1; }
+          bun scripts/release-matrix.ts --verify dist/release-matrix/release-matrix.json "$sha"
 
       - name: Download the build's own installer
         shell: bash

@@ -7,7 +7,9 @@
  *   bun run release            # promote the NEWEST dev prerelease to stable
  *   bun run release 0.1.842    # promote that specific build (maj.min.count)
  *
- * You can also trigger it with no command at all: GitHub → Actions → "promote" → Run workflow → type the version.
+ * You can also trigger it with no command at all: GitHub → Actions → "promote" → Run workflow → type the version —
+ * but only for a build that already carries a green `release-matrix.json` (this script attaches it; promote.yml
+ * refuses a release without one).
  *
  * Every push to dev already publishes a testable installer as a PRERELEASE, versioned <maj>.<min>.<commit-count> and
  * tagged, for the dev channel. Promotion re-verifies that build (published prerelease + its commit's CI green),
@@ -17,6 +19,11 @@
  * Needs the `gh` CLI, authenticated.
  */
 import { spawnSync } from "node:child_process"
+import { copyFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+import { proofRefusal } from "../packages/volt-cli/scripts/release-matrix-cells.js"
 
 const REPO = "he-man86/volt"
 
@@ -69,6 +76,33 @@ if (!view.ok) {
 const info = JSON.parse(view.out) as { isPrerelease: boolean; targetCommitish: string }
 if (!info.isPrerelease) {
   console.error(`✗ ${version} is already a stable release — nothing to promote.`)
+  process.exit(1)
+}
+
+// THE LIVE RELEASE GATE (openspec environment-dependency-audit 3.1): CI's runner has no CODESYS or TwinCAT, so the
+// e2e over every installed IDE variant runs on the dev machine — `bun run release:matrix` — and a build is promoted
+// only when that matrix ran green on THIS build's commit. A red cell, an older commit or no run is refused by name.
+const sha = gh(["api", `repos/${REPO}/commits/${version}`, "--jq", ".sha"])
+if (!sha.ok || !/^[0-9a-f]{40}$/.test(sha.out)) {
+  console.error(`✗ could not resolve ${version}'s commit (gh api repos/${REPO}/commits/${version})`)
+  process.exit(1)
+}
+const matrixFile = new URL("../dist/release-matrix/result.json", import.meta.url)
+if (!existsSync(matrixFile)) {
+  console.error(`✗ no release matrix result (dist/release-matrix/result.json) — check out ${sha.out} and run \`bun run release:matrix\``)
+  process.exit(1)
+}
+const refused = proofRefusal(JSON.parse(readFileSync(matrixFile, "utf8")), sha.out)
+if (refused) {
+  console.error(`✗ ${refused} (${version}) — check out ${sha.out} and run \`bun run release:matrix\``)
+  process.exit(1)
+}
+// The proof travels WITH the release: promote.yml refuses a release that carries no green `release-matrix.json` for its
+// own commit, so starting `promote` from the Actions UI cannot skip the matrix (gate 2c+3 review).
+const attached = join(mkdtempSync(join(tmpdir(), "volt-release-")), "release-matrix.json")
+copyFileSync(matrixFile, attached)
+if (!gh(["release", "upload", version, attached, "--repo", REPO, "--clobber"], false).ok) {
+  console.error(`✗ could not attach release-matrix.json to ${version} (gh release upload)`)
   process.exit(1)
 }
 

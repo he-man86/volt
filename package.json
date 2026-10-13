@@ -10,6 +10,7 @@
     "build:installer": "bun scripts/build-installer.ts",
     "console": "bun --filter @volt/cli console --",
     "release": "bun scripts/release.ts",
+    "release:matrix": "bun scripts/release-matrix.ts",
     "test:install": "bun scripts/test-install.ts",
     "test:ext": "bun scripts/test-extension.ts",
     "check": "bun install && bun scripts/check-wiring.ts",

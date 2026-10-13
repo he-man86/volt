@@ -337,10 +337,75 @@
 
 ## 3. Release gate and VM checklist
 
-- [ ] 3.1 `scripts/release-matrix` (name per scripts/README): e2e over every installed IDE variant, the matrix printed, a red
+- [x] 3.1 `scripts/release-matrix` (name per scripts/README): e2e over every installed IDE variant, the matrix printed, a red
       cell fails; used by the release steps instead of hand-run e2e.
+      **Built 2026-10-13 (step 3, design "3.1"):** `bun run release:matrix` (`scripts/release-matrix.ts`; decisions in
+      `packages/volt-cli/scripts/release-matrix-cells.ts`, `test/unit/release-matrix.test.ts` 8/0): cells found from the installs,
+      `ide.ps1 -Instance release-matrix` per cell on its own fixture, the whole e2e, the run's `VOLT_E2E_REPORT` checked against the
+      cell, matrix printed, `dist/release-matrix/result.json` for a clean commit; `release.ts` refuses a build whose commit has no
+      green result. This machine: `codesys-3.5.18.30-64` (codesysSP18), `codesys-3.5.21.40-64` (CodesysTestProject, made in 3.5.21.40),
+      `codesys-3.5.21.60-32` and `codesys-3.5.22.40-64` RED before running (no native fixture — 2.5b), `twincat-32`.
+      (Corrected at gate 2c+3: this note had listed `codesys-3.5.21.40-64` among the red ones; `codesysFixture` maps it to its
+      own project and the partial run below was GREEN on it.) Proven partial
+      (`--only codesys-3.5.21.40-64,codesys-3.5.21.60-32 --tests test/e2e/endpoints/refs.test.ts`): GREEN 3/0 with the report
+      naming 3.5.21.40 64-bit; RED by name for the 32-bit cell. A full matrix is NOT green today: 2.5b's fixtures, the German
+      CODESYS (2.6) and 3.5.18.30's expected LD/FBD refusals (2.0) each redden a cell.
 - [ ] 3.2 The VM checklist in `scripts/README.md` (TwinCAT-only 4024, tr-TR/ru-RU system locale, LTSC 2019, non-admin
       Cyrillic user, no git, no AVX2; CODESYS and XAE "as administrator" with Volt unelevated — 2.2's live check) — run once now, results recorded.
+      **Step 3, 2026-10-13 — checklist WRITTEN (`scripts/README.md`, 8 rows incl. WMI-disabled), VM run NOT done:** this machine
+      is Windows 11 Home (no Hyper-V), no VM image is here, and rows 4/7 need a second user and a UAC consent. What the dev
+      machine stood in for, run here: row 2 partly (CODESYS answering in German — 2.6; a German XAE — 2.4; tr-TR/ru-RU/de-DE
+      process cultures — 1.1); row 4 partly (Cyrillic TEMP + project path — 2.5); row 5 (`GitEnvironmentTests`, no git on PATH —
+      2.1); row 1's VS-free proxy state (C2t, kept by the owner). Owed to VMs: rows 1, 3, 4 (profile), 6, 7, 8.
+- [x] **Gate 2c+3 (2026-10-13) — review findings, each fixed with a failing test first, or answered:**
+      1. *`promote.yml` never checked the matrix (the Actions door skipped it)* — CONFIRMED and fixed: one judgement,
+         `proofRefusal` (`release-matrix-cells.ts`); `release.ts` attaches the result to the release as
+         `release-matrix.json`; `promote.yml` downloads it and runs `release-matrix.ts --verify <file> <sha>` against the
+         release's own commit — no attachment, another commit, a dirty run, a red cell or no cell is refused by name.
+         Red: `release-matrix.test.ts` "matrix proof" ×4. CLAUDE.md, scripts/README, design 3.1 say so.
+      2. *A vendor not installed was silently dropped* — CONFIRMED and fixed: no CODESYS is one red `codesys-none` cell,
+         no registered XAE shell one red `twincat-none` cell; the Program Files folders come from `%ProgramW6432%` /
+         `%ProgramFiles(x86)%` (refused by name when unset), not a hard-coded `C:\Program Files`. Red: "cells" +3.
+      3. *Untracked files did not make the checkout dirty* — CONFIRMED and fixed: `dirtyPaths` over
+         `git status --porcelain --untracked-files=all`, only `openspec/` (never built; other sessions keep proposals
+         there) outside the build. Red: "dirty checkout" ×3.
+      4. *An elevated Volt process now spun StopOwn 30 s and failed unannounced* — CONFIRMED (a behaviour change, the
+         right one: the old stop was blind to it and walked into a locked file) and made explicit: `TerminatePid` returns
+         the Windows error; on `ERROR_ACCESS_DENIED` StopOwn gives up at once and the setup/uninstaller names it ("…
+         runs elevated … close it, or run the setup as administrator"). Red: `InstallerNeedsNoWmiTests.An_elevated_Volt_process_is_refused_by_name_at_once`.
+         `Volt.iss` compiles (ISCC 6, full setup into scratch). installer/README + VM row 7 carry the check; not run live
+         (needs a UAC consent).
+      5. *`announceProject` aborted every e2e run when the IDE's modules were unreadable; `?`/null fallbacks* — CONFIRMED and
+         fixed: an unreadable bitness is NAMED on the console line and the run goes on (`ideLine`); a run that must report
+         (`VOLT_E2E_REPORT`, the matrix) refuses a missing fact or an unreadable bitness by name (`e2eReport`), never
+         writes null. Red: `fixture-ide.test.ts` "e2e report" ×4.
+      6. *The activation hint could name a menu the user does not see* — (1) and (3) fixed: German names the 3.5.18
+         wording too ("… (CODESYS 3.5.18: Skript-Datei ausführen)"); the Customize entry is category AND command in one
+         language (`CustomizeEntry`; the test-only `Category` deleted — `NoTestOnlyCodeInSrcTests`). Red: `CodesysMenuPathTests` +4/2 changed.
+         (2) answered, not fixed: CODESYS's UI-language setting is unmeasured (V9: none found), so the Windows UI language
+         stays a stated BET beside the always-shown English path (DIALECT V8, `CodesysActivation`); reading CODESYS's own
+         setting is owed — not cheap (no setting known).
+      7. *`LocalizedChrome` truncated a quoted banner line* — CONFIRMED and fixed: a separator is text BETWEEN two runs of
+         dashes/equals signs, a bare run stays source; and a third continuation line no longer joins on `\n` instead of the
+         pane's `\r\n` (found by the same test). Red: `TcBuildOutputTests.AQuotedBannerLineIsStillAContinuation` ×3. DIALECT D42.
+      8. *Ticks claimed more than ran* — CONFIRMED: 2.6 UNTICKED with what is owed (32-bit SP18/SP22, a live English CODESYS
+         for the whole-message classifier); the 3.1 note's red-before-running list corrected (`codesys-3.5.21.40-64` has its
+         own fixture and ran GREEN).
+      9. *The CODESYS C0046 check was weakened for English too* — CONFIRMED and fixed: the planted-child check holds the
+         WHOLE sentence again, in a language it was measured in (English, German), so a truncated or rewritten message
+         is red and any other language fails by name. Recorders: `record:language`'s target probe already reads a
+         non-English CODESYS as `unknown` and refuses a `RECORD_ONLY` merge — its refusal and `check-recording.ts` now name
+         the language; `record:exec` has no probe — owed (DIALECT V9). Not run live (no English CODESYS here, 2.6).
+      10. *Single-backslash test paths; a real `%ProgramData%` folder made by a unit test* — CONFIRMED and fixed: real
+         Windows path shapes (asserted), the replacement folder made under a scratch ProgramData and removed, + a refusal
+         case. `fixture-ide.test.ts` "compile temp" ×3.
+      **Numbers (gate 2c+3):** typecheck 5/5, lint 0 errors, `bun run check` 18/0; `Volt.sln` Debug build 0 warnings 0
+      errors (the Release build could not overwrite `Volt.Cli\bin\Release` — locked by a running `volt.exe` this run did
+      not start, left alone); C# Engine 2532 pass/1 skip, Cli 295, Connector 148, Ide.Twincat 502, Ide.Codesys (net48)
+      403, Contracts 37, Repo.Gates 245 — 0 fail; volt-cli `test/unit` 143/0; volt-control 139/0; volt-desktop 33/0;
+      volt-vscode 39/0; LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10154 pass / 34 skip / 428 todo /
+      0 fail (362 files, 988 s). Fixture map untouched (no fixture or transpiler change). Live e2e and `test:install` not
+      run (they need the IDEs / install on this machine).
 
 ## 4. Close
 

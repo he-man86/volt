@@ -196,3 +196,18 @@ elevated … close it, or run the setup as administrator") instead of spinning 3
 stopped (the old blindness, re-made on purpose: the update would then fail on the locked file or replace a running
 connector's files). Not run here: `test:install` (it installs on this machine)
 — it runs in `promote.yml` on every release; a WMI-disabled machine is VM row 8.
+
+## 3.1 — the release matrix
+
+`scripts/release-matrix.ts` (decisions in `packages/volt-cli/scripts/release-matrix-cells.ts`, unit-tested): cells
+FOUND from the installs (every CODESYS version × bitness folder, every registered XAE shell by PE bitness), each served
+by `ide.ps1 -Instance release-matrix` on its own fixture, the whole e2e suite, the run's own `VOLT_E2E_REPORT` checked
+against the cell (a run that drove another IDE is red), the matrix printed, `dist/release-matrix/result.json` written
+for the commit (never for a dirty checkout — modified or untracked files outside `openspec/` — or a `--only`/`--tests`
+subset). `release.ts` refuses to promote a build whose commit has no green result and attaches the result to the release
+(`release-matrix.json`); `promote.yml` verifies that attachment against the release's own commit with the same judgement
+(`proofRefusal`, `release-matrix.ts --verify`), so the Actions door cannot skip it (gate 2c+3 review). A vendor with no
+install is a red `codesys-none`/`twincat-none` cell, never a missing one — a matrix of one vendor's cells is not green. Red before running: a version without a native fixture (2.5b), a TwinCAT cell where
+Visual Studio's 64-bit msenvp proxy is registered. *Rejected:* running it in CI (no IDE on a runner), a configured cell
+list (an installed variant nobody listed would silently not be tested — the SP18 lesson), and reusing the 3.5.21.40
+fixture for other versions (owner: not native).
