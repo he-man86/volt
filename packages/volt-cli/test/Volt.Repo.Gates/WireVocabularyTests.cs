@@ -360,7 +360,8 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcPlcOpenWriter.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),
-        ("Volt.Ide.Twincat/Ide/TcHierarchy.cs", 5),   // every one caught by TcObjectModel.Explorer: IDE_UNSUPPORTED or ITEM_UNVERIFIED
+        ("Volt.Ide.Twincat.Explorer/Program.cs", 1),   // the x86 reader's own process: its answer line carries a code, never a frame
+        ("Volt.Ide.Twincat/Ide/TcHierarchy.cs", 7),   // every one caught by TcObjectModel.Explorer: IDE_UNSUPPORTED or ITEM_UNVERIFIED
         ("Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs", 3),   // +2: the manifest activation; caught the same way
         ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1),

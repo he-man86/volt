@@ -58,8 +58,7 @@ internal static class TcHierarchy
                 catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
                 { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} reader: {ex.Message}"); }
             case Reader.X86Helper:
-                var json = RunHelper(xae.IdeDir, "--xae-pid", xaePid.ToString(), "--plc-project", plcProject);
-                return JsonSerializer.Deserialize<ExplorerNode?>(json, Json);
+                return Served(xae.IdeDir, xaePid, plcProject);
             default:
                 throw new HierarchyUnreachableException(NoReader);
         }
@@ -80,7 +79,7 @@ internal static class TcHierarchy
                 }
                 catch (TcSolutionExplorer.ProxyManifestMissingException ex) { return ex.Message; }
             case Reader.X86Helper:
-                try { RunHelper(xae.IdeDir, "--check"); return null; }
+                try { Check(xae.IdeDir); return null; }
                 catch (HierarchyUnreachableException ex) { return ex.Message; }
             default:
                 return NoReader;
@@ -93,10 +92,75 @@ internal static class TcHierarchy
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
-    /// <summary>Runs the x86 reader; its stdout on exit 0. Exit <see cref="HelperProxyMissing"/>, or no helper at all,
-    /// is the IDE lacking what a reader needs (<see cref="HierarchyUnreachableException"/>); any other failure is a
-    /// failed read.</summary>
-    private static string RunHelper(string ideDir, params string[] args)
+    // The x86 reader this worker keeps, one per worker (one worker serves one XAE). Long-lived on purpose: a process per
+    // read cost ~450 ms against ~100 ms for the read itself, and the e2e latency gate caught it (an empty push, two reads,
+    // 972 ms against its 500 ms floor). It exits when this process does — its stdin closes.
+    private static Process? _served;
+    private static readonly object Gate = new();
+
+    /// <summary>One read through the served x86 reader (<c>VoltTwincatExplorer --serve</c>): the PLC project name in,
+    /// one answer line out — <c>0 &lt;json&gt;</c>, <c>2 &lt;message&gt;</c> (no proxy for the reader:
+    /// <see cref="HierarchyUnreachableException"/>), <c>1 &lt;message&gt;</c> (the read failed).</summary>
+    private static ExplorerNode? Served(string ideDir, int xaePid, string plcProject)
+    {
+        lock (Gate)
+        {
+            if (_served is not { HasExited: false })
+            {
+                _served?.Dispose();
+                _served = Start(ideDir, redirectError: false, "--serve", "--xae-pid", xaePid.ToString());
+            }
+            var p = _served;
+            p.StandardInput.WriteLine(plcProject);
+            p.StandardInput.Flush();
+            var reply = p.StandardOutput.ReadLineAsync();
+            if (!reply.Wait(HelperTimeoutMs))
+            {
+                Stop(p);
+                throw new TimeoutException($"{HelperExe} did not answer within {HelperTimeoutMs / 1000} s");
+            }
+            if (reply.Result is not { } answer)
+            {
+                Stop(p);
+                throw new InvalidOperationException($"{HelperExe} ended without an answer (exit {(p.HasExited ? p.ExitCode.ToString() : "?")})");
+            }
+            var space = answer.IndexOf(' ');
+            var (code, rest) = space < 0 ? (answer, "") : (answer.Substring(0, space), answer.Substring(space + 1));
+            return code switch
+            {
+                "0" => JsonSerializer.Deserialize<ExplorerNode?>(rest, Json),
+                "2" => throw new HierarchyUnreachableException($"{Proxy} is not available to the 32-bit reader: {rest}"),
+                _ => throw new InvalidOperationException($"{HelperExe}: {rest}"),
+            };
+        }
+    }
+
+    private static void Stop(Process p)
+    {
+        try { p.Kill(); } catch (InvalidOperationException) { /* exited meanwhile */ }
+        p.Dispose();
+        _served = null;
+    }
+
+    /// <summary><c>VoltTwincatExplorer --check</c>: exit 0 = a reader of XAE's bitness can unmarshal the hierarchy here;
+    /// exit 2 = it cannot (<see cref="HierarchyUnreachableException"/>); anything else is a check that failed.</summary>
+    private static void Check(string ideDir)
+    {
+        using var p = Start(ideDir, redirectError: true, "--check");
+        var stderr = p.StandardError.ReadToEndAsync();
+        if (!p.WaitForExit(HelperTimeoutMs))
+        {
+            try { p.Kill(); } catch (InvalidOperationException) { /* exited meanwhile */ }
+            throw new TimeoutException($"{HelperExe} --check did not answer within {HelperTimeoutMs / 1000} s");
+        }
+        if (p.ExitCode == 0) return;
+        if (p.ExitCode == HelperProxyMissing)
+            throw new HierarchyUnreachableException($"{Proxy} is not available to the 32-bit reader: {stderr.Result}");
+        throw new InvalidOperationException($"{HelperExe} --check failed (exit {p.ExitCode}): {stderr.Result}");
+    }
+
+    /// <summary>Starts the x86 reader beside this exe — or says it is missing, which no retry cures.</summary>
+    private static Process Start(string ideDir, bool redirectError, params string[] args)
     {
         if (!File.Exists(HelperPath))
             throw new HierarchyUnreachableException(
@@ -104,24 +168,14 @@ internal static class TcHierarchy
         var psi = new ProcessStartInfo(HelperPath)
         {
             UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
+            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = redirectError,
+            StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8,
         };
+        if (redirectError) psi.StandardErrorEncoding = Encoding.UTF8;
         psi.ArgumentList.Add("--ide-dir");
         psi.ArgumentList.Add(ideDir);
         foreach (var a in args) psi.ArgumentList.Add(a);
-        using var p = Process.Start(psi) ?? throw new InvalidOperationException($"{HelperExe} did not start");
-        var stderr = p.StandardError.ReadToEndAsync();
-        var stdout = p.StandardOutput.ReadToEndAsync();
-        if (!p.WaitForExit(HelperTimeoutMs))
-        {
-            try { p.Kill(); } catch (InvalidOperationException) { /* exited meanwhile */ }
-            throw new TimeoutException($"{HelperExe} did not answer within {HelperTimeoutMs / 1000} s");
-        }
-        if (p.ExitCode == 0) return stdout.Result;
-        if (p.ExitCode == HelperProxyMissing)
-            throw new HierarchyUnreachableException($"{Proxy} is not available to the 32-bit reader: {stderr.Result}");
-        throw new InvalidOperationException($"{HelperExe} failed (exit {p.ExitCode}): {stderr.Result}");
+        return Process.Start(psi) ?? throw new InvalidOperationException($"{HelperExe} did not start");
     }
 
     /// <summary>The XAE's exe folder and bitness, by its pid.</summary>
