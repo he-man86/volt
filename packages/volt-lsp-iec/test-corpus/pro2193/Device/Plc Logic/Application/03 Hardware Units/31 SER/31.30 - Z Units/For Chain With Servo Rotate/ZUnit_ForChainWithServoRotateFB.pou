@@ -31,6 +31,7 @@ VAR CONSTANT
 	MaxSides					: USINT	:= ZUnits.MaxSides;
 	MaxVacuums					: USINT	:= ZUnits.MaxVacuums;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
@@ -39,12 +40,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -65,6 +68,7 @@ SetError[2](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.FastStop,
 	active			=> );
+
 END_METHOD
 
 // Await stacking delay
@@ -75,6 +79,7 @@ END_VAR
 VAR_INST
 	Timer			: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -95,6 +100,7 @@ IF Timer.Set(TRUE, SEL(	firstStack,
 THEN
 	AwaitDelay := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Receive a product status
@@ -104,6 +110,7 @@ VAR_INPUT
 	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForZUnit));
 	product			: ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 takeoverPos	:= LIMIT(1, takeoverPos,	NumberOfTakeoverPositions);
@@ -117,6 +124,7 @@ productNo	:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForZUnit));
 // For this machine this solution is best. takeoverPos is not used now. I don't know the best way to make this generic for all machines
 
 ProductsInGripper[gripperPosition, productNo] := product;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -128,6 +136,7 @@ VAR
 	i, j						: USINT;
 	extendsAreIn				: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Cyclic();
 
@@ -223,10 +232,12 @@ FOR i := 2 TO NumberOfTakeoverPositions DO
 	Data.Takeover[i].rDec			:= Data.Takeover[1].rDec;
 	Data.Takeover[i].rVel			:= Data.Takeover[1].rVel;
 END_FOR
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
@@ -240,6 +251,7 @@ IonizingBar.Reset();
 ClearProducts.Array2D(ProductsInGripper);
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received. Returns index of products that are actually transferred.
@@ -255,6 +267,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
@@ -311,12 +324,14 @@ THEN
 
 	GetProducts	:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Initialize
 VAR
 	i, j	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -328,6 +343,7 @@ FOR i := 1 TO MaxSides DO
 		itfExtendsFlat[(i-1) * MaxVacuums + j]		:= Extend[i,j];
 	END_FOR
 END_FOR
+
 END_METHOD
 
 // Move down to place products on the stack
@@ -339,6 +355,7 @@ VAR_INST
 	localState			: SINT;
 	rPosition			: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -396,6 +413,7 @@ CASE localState OF
 		END_IF
 
 END_CASE
+
 END_METHOD
 
 // Start to move down. Wait above the stack if the conveyor is not ready.
@@ -411,6 +429,7 @@ END_VAR
 VAR
 	i, j					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT ReadyForStacking THEN
@@ -470,6 +489,7 @@ THEN
 	ReadyForStacking	:= FALSE;
 	MoveDown_Start		:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Move to a certain Takeover position
@@ -480,6 +500,7 @@ END_VAR
 VAR_INST
 	result					: ARRAY[1..3] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
@@ -520,6 +541,7 @@ CASE takeoverPosition OF
 	ELSE
 		;	// Invalid parameter
 END_CASE
+
 END_METHOD
 
 // Move up to final position
@@ -527,6 +549,7 @@ METHOD PUBLIC MoveUp : BOOL
 VAR_INST
 	result					: ARRAY[1..2] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -557,6 +580,7 @@ THEN
 	ReadyForTransfer	:= TRUE;
 	MoveUp := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Start to move up from the stack
@@ -568,6 +592,7 @@ VAR_INST
 	rPosition			: REAL;
 	rStartPosition		: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -609,6 +634,7 @@ OR Drive.PosReached(rPosition)
 THEN
 	MoveUp_Start := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Returns the products that are currently stacked by the Z Unit
@@ -622,6 +648,7 @@ VAR
 	takeover		: UINT;
 	product1		: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
@@ -639,6 +666,7 @@ IF clearData THEN
 END_IF
 
 // More info about method used: https://stackoverflow.com/questions/3803331/how-can-i-modulo-when-my-numbers-start-from-1-not-zero
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -649,6 +677,7 @@ END_VAR
 VAR
 	i, j				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -739,6 +768,7 @@ CASE localState OF
 	6:
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
@@ -748,6 +778,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
@@ -771,10 +802,12 @@ IF InSafePosForChain THEN
 
 	RetractWithProducts	:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // Reset vacuums when products are no longer on the suction cups
@@ -783,6 +816,7 @@ IF Arrays.Vacuum_ResetIfNotHigh(itfVacuumsFlat) = 0 THEN
 END_IF
 
 Stop	:= SUPER^.Stop();
+
 END_METHOD
 
 // Products were transferred, and the Z Unit is free to handle the products. Either start stacking, or move to next position.
@@ -793,6 +827,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -853,15 +888,18 @@ CASE iParameter OF
 END_CASE
 
 TransferComplete := CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY HasPayload : enumPayload
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF Arrays.Vacuum_All(
 							vacuumArray	:= itfVacuumsFlat,
@@ -882,28 +920,34 @@ THEN
 ELSE
 	HasPayload := enumPayload.None;
 END_IF
+
 END_GET
 END_PROPERTY
 
 // During transfer products on gripper
 PROPERTY HasProductForTransfer : ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HasProductForTransfer := _hasProductForTransfer[gripperPosition];
+
 END_GET
 END_PROPERTY
 
 // The Y Drive is somewhere outside of the mould, on the safety strip.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForChain : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	i, j	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 InSafePosForChain := TRUE;
 
@@ -917,15 +961,18 @@ END_FOR
 IF rotateMotor.InStackingPosition THEN
 	InSafePosForChain := TRUE;
 END_IF
+
 END_GET
 END_PROPERTY
 
 PROPERTY LastProductOnGripper : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	i, j : UINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Check if last product out of the mould is on the gripper.
 FOR i := 1 TO MaxSides DO
@@ -936,5 +983,6 @@ FOR i := 1 TO MaxSides DO
 		 END_IF
 	END_FOR
 END_FOR
+
 END_GET
 END_PROPERTY

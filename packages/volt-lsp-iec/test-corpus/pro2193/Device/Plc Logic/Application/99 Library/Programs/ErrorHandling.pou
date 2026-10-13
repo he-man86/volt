@@ -17,6 +17,7 @@ VAR
 
 	ReadActualError				: ReadActualErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT _initialized THEN
 	Initialize();
@@ -40,9 +41,11 @@ ReadActualError(
 	errorActive			=> errorActive,
 	requestedReaction	=> requestedReaction);
 
+
 END_PROGRAM
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 // Connect Lenze module handlers to this base module handler
 
@@ -57,4 +60,5 @@ GlobalVars_BFU.fbModuleManager.ModuleHandler.SetParent(
 PNOZMulti2.ModuleHandler.SetParent(
 	ModuleHandlerParent	:= ModuleHandler,
 	RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
+
 END_METHOD

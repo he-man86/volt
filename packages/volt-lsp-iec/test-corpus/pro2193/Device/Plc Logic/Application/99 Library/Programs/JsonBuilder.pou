@@ -26,6 +26,7 @@ VAR
 
 	taskInfo						: CmpIecTask.Task_Info2;
 END_VAR
+
 IMPLEMENTATION ST
 taskInfo	:= TaskGetInfo();
 
@@ -118,5 +119,6 @@ CASE chunk OF
 	6:
 		chunk := 0;
 END_CASE
+
 
 END_PROGRAM

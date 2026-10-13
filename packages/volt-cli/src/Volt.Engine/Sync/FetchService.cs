@@ -82,7 +82,7 @@ public static class FetchService
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
         // Items the walk SAW but could not read. They exist; they are simply not in this response.
-        var unreadableBareNames = new HashSet<string>(System.StringComparer.Ordinal);
+        var unreadableItems = new HashSet<UnreadableItem>();
         // …and the KINDS each was walked as, which the walk knows even when it cannot read the body. The removal
         // exemption is the unreadable ITEM's, and bare names repeat across kinds (`CM_Carrier.pou` beside
         // `CM_Carrier.visualization`): keyed by bare name alone, an unreadable FB shielded a visualization the
@@ -144,7 +144,7 @@ public static class FetchService
                 // content that defeated the read. The walked kind is the tree's, read without the body. The bare
                 // name alone is NOT enough — IEC makes names unique within a kind, not across kinds (CLAUDE.md,
                 // the item-name invariant) — so the removal pass matches both (`Removal`).
-                unreadableBareNames.Add(it.Name);
+                unreadableItems.Add(v.Unread!);
                 Removal.AddUnreadable(unreadableKinds, it.Name, kind);
                 unreadable++;
                 continue;
@@ -197,7 +197,7 @@ public static class FetchService
         // same rule as refs and the push gate (Versioning.CountUnclassifiable). When their kind is unknown the
         // removal exemption is their FOLDER (WalkResult puts it in UnwalkedFolders); when the vendor named their kind
         // family without a read (UnreadableObject.Kinds) it is `unreadableKinds`, and the folder stays walked.
-        foreach (var n in Versioning.CountUnclassifiable(walk, versions, unreadableKinds)) { unreadableBareNames.Add(n); unreadable++; }
+        foreach (var n in Versioning.CountUnclassifiable(walk, versions, unreadableKinds)) { unreadableItems.Add(n); unreadable++; }
 
         // The wire is keyed by NAME: `versions`/`Items` collapse same-name WALK items last-write-wins, so `changed`
         // must agree — otherwise a legitimately-repeated opaque name (IEC guarantees uniqueness only for SOURCE
@@ -315,7 +315,8 @@ public static class FetchService
             // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
-            Unreadable = unreadableBareNames.OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
+            Unreadable = unreadableItems.OrderBy(n => n.Name, System.StringComparer.Ordinal)
+                                        .ThenBy(n => n.Reason, System.StringComparer.Ordinal).ToList(),
             // The caveat travels WITH the answer. `removed` above already spares everything under these
             // folders; saying so is what lets a client keep the baseline entries it did not see as well.
             UnwalkedFolders = walk.UnwalkedFolders.ToList(),

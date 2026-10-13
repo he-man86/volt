@@ -7,14 +7,17 @@ VAR
 END_VAR
 
 // Use methods to interact with the FB.
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
 
 // Reset the timer.
 METHOD PUBLIC Reset
+
 IMPLEMENTATION ST
 TON1(IN := FALSE);
+
 END_METHOD
 
 // Set Brink timer
@@ -23,6 +26,7 @@ VAR_INPUT
 	In	: BOOL;	// Starts timer with rising edge, stops timer with falling edge
 	Pt	: REAL;	// Time to pass (in sec.), before Q is set
 END_VAR
+
 IMPLEMENTATION ST
 TON1(
 	IN := In,
@@ -31,15 +35,19 @@ TON1(
 	ET => );
 
 Set := TON1.Q;
+
 END_METHOD
 
 // Monitor the output Q of the timer
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC Q : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Q := TON1.Q;
+
 END_GET
 END_PROPERTY

@@ -8,3 +8,4 @@ STRUCT
 	rMoveToParkingDelay		: REAL;	// If > 0 then the Y axis delays moving towards the mould so a restart is possible. Value is calculated by PLC.
 END_STRUCT
 END_TYPE
+

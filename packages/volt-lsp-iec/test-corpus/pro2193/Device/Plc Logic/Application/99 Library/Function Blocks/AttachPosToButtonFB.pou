@@ -11,6 +11,7 @@ VAR
 	counter		: INT;
 	AttachTimer	: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 // Only attach hardware buttons when manual control is enabled.
 manualControlTrigger.Call(CLK := value.manualActive AND SER.ManualControlEnabled);
@@ -52,6 +53,7 @@ IF manualControlTrigger.Q_Falling THEN
 	Drive.SetManualRefPos(0);
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 //FB_Init is always available implicitly and it is used primarily for initialization.
@@ -66,6 +68,8 @@ VAR_INPUT
 
 	drive			: REFERENCE TO ServoDriveFB;
 END_VAR
+
 IMPLEMENTATION ST
 THIS^.Drive REF= drive;
+
 END_METHOD

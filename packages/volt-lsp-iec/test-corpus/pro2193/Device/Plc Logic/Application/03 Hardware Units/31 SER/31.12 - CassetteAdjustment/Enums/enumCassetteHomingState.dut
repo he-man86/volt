@@ -13,3 +13,4 @@ TYPE enumCassetteHomingState :
 	HomingStep5		:= 50
 );
 END_TYPE
+

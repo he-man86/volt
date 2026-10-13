@@ -5,6 +5,7 @@ END_VAR
 VAR
 	pAxisRef_i700: POINTER TO _AXIS_REF_i700;
 END_VAR
+
 IMPLEMENTATION ST
 //'L_GetSlot_i700'
 //
@@ -36,5 +37,6 @@ ELSIF (Axis.eDeviceOrigin = L_MC1P_DriveType.i500) THEN
 ELSE
 	L_GetSlot_i700:= 0; //No i700 axis
 END_IF
+
 
 END_FUNCTION

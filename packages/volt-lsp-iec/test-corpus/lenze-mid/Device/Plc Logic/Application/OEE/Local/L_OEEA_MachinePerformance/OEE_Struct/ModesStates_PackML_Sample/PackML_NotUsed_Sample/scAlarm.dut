@@ -6,3 +6,4 @@ STRUCT
 	MODULE : DINT;	// Not part of standatd PackML OPC-UA definition
 END_STRUCT
 END_TYPE
+

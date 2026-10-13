@@ -23,6 +23,7 @@ VAR
 	uiIndexQspRamp: UINT;
 	iSlotAxis: INT;
 END_VAR
+
 IMPLEMENTATION ST
 //'L_SetIntQspRamp_i700'
 //
@@ -148,5 +149,6 @@ MC_WriteParameter_QspRamp(
 	Busy=> , 
 	Error=> , 
 	ErrorID=> );
+
 
 END_FUNCTION_BLOCK

@@ -8,3 +8,4 @@ TYPE enumGateStates :
 	Locked			// Door is locked, and not allowed to open
 );
 END_TYPE
+

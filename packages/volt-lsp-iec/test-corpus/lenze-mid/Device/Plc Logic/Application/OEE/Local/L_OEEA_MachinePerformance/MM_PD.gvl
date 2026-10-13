@@ -100,3 +100,5 @@ VAR_GLOBAL PERSISTENT RETAIN
 	lrCountNOK			: ARRAY[1..L_OEEA_Lib.uiNoOfPartCounter] OF LREAL;		// Actual Scrap/Bad Partcounter		
 	
 END_VAR
+
+

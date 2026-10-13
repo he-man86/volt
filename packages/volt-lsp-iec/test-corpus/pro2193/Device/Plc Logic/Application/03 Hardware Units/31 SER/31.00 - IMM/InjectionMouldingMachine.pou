@@ -14,11 +14,13 @@ END_VAR
 VAR RETAIN PERSISTENT
 	{attribute 'symbol' := 'readwrite'}	Data						: IMM_Data;
 END_VAR
+
 IMPLEMENTATION ST
 Unit(
 	Data	:= Data);
 
 // Config
 Unit.EnableDetectMovementIMMInput	:= TRUE;
+
 
 END_PROGRAM

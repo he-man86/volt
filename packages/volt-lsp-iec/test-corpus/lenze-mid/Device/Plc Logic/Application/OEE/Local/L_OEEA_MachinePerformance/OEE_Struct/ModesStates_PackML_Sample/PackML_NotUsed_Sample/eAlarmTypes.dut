@@ -9,3 +9,4 @@ TYPE eAlarmTypes :
 	Error			:= 4	//
 );
 END_TYPE
+

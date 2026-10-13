@@ -2,5 +2,4 @@ LIBRARY CmpOPCUAProviderAlarmConfiguration Implementation
 NAMESPACE CmpOPCUAProviderAlarmConfiguration_Implementation
 RESOLUTION NotImplementedByDevice, 3.5.17.0 (System)
 PLACEHOLDER true
-SYSTEM false
 MATERIALIZATION 4

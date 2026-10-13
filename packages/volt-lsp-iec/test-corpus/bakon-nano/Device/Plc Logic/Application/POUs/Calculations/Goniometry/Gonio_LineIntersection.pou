@@ -13,6 +13,7 @@ VAR
 	numeratorX	: REAL;	
 	numeratorY	: REAL;	
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -33,5 +34,15 @@ intersection.Y := numeratorY / denominator;
 
 Gonio_LineIntersection:=TRUE;
 RETURN;
+
+
+
+
+
+
+
+
+
+
 
 END_FUNCTION

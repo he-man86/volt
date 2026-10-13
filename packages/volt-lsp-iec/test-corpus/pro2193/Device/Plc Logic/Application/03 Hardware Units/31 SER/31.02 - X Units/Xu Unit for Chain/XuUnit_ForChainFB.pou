@@ -10,6 +10,7 @@ END_VAR
 VAR CONSTANT
 	rDistanceFromChain	: REAL := 25;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
@@ -18,12 +19,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 // Move to a position just before the chain
 METHOD MoveToInFrontOfChain : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT EnableHalfwayPosition THEN
@@ -43,19 +46,23 @@ Drive.SetMovementProfileData(Data.Takeover[1]);
 MoveToInFrontOfChain := Drive.MoveAbsPos(Data.Takeover[1].Pos.value - rDistanceFromChain);
 
 CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // The X axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForChain : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 // Chain may already rotate when Xu unit is 15 mm back from Takeover pos
 InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.Takeover[1].Pos.value - rDistanceFromChain) OR_ELSE InSafePos;
 
 //InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.HalfwayPos.value) OR_ELSE InSafePos;
+
 END_GET
 END_PROPERTY

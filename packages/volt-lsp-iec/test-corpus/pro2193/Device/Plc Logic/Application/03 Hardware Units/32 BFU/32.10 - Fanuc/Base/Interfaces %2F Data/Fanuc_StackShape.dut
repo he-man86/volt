@@ -6,3 +6,4 @@ TYPE Fanuc_StackShape :
 	Rectangle	:= 1
 );
 END_TYPE
+

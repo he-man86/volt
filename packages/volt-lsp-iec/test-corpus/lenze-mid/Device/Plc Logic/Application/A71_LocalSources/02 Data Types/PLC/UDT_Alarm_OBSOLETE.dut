@@ -5,3 +5,4 @@ STRUCT
 	AlmTime			: INT;
 END_STRUCT
 END_TYPE
+

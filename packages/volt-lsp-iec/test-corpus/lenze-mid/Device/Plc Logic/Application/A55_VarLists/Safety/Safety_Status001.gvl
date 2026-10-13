@@ -33,3 +33,4 @@ EnableServiceMuting : BOOL;
 //SafetyStatus_00 : 
 EnableMuting : BOOL;
 END_VAR
+

@@ -24,6 +24,7 @@ VAR
 	rStepDistX 					: REAL;
 	rStepDistY 					: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 	rDiameterTaart	:= g_HMI_RCP_Parameters.rDiameterRound;
 	//nFirstPosFirstTray := g_sCuttingPositionsInfo.index;
@@ -119,5 +120,6 @@ IMPLEMENTATION ST
 		END_FOR
 	END_IF
 		
+
 
 END_FUNCTION

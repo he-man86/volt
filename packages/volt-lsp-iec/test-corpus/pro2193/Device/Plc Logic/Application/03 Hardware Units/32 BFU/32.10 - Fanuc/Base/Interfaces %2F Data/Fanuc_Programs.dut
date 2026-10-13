@@ -11,3 +11,4 @@ TYPE Fanuc_Programs :
 	ManualHoming := 900
 ) UINT;
 END_TYPE
+

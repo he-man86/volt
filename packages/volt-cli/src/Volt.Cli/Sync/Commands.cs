@@ -114,6 +114,7 @@ public static class Commands
         // The seed is a pull like any other, so it names what a pull names: every body it brought in read-only.
         var unsupported = UnsupportedNote(fetched.Changed);
         return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus,
+            fetched.Unreadable, fetched.UnwalkedFolders,
             unsupported is null ? null : $"pulled {ideFiles.Count} file(s) — workspace ready. {unsupported}");
     }
 

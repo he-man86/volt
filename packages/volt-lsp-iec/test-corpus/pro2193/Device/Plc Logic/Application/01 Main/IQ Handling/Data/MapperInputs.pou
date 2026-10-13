@@ -14,6 +14,7 @@ VAR_OUTPUT
 	bit7			: BIT;
 	bit8			: BIT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -33,5 +34,6 @@ bit5	:= slice.4;
 bit6	:= slice.5;
 bit7	:= slice.6;
 bit8	:= slice.7;
+
 
 END_FUNCTION_BLOCK

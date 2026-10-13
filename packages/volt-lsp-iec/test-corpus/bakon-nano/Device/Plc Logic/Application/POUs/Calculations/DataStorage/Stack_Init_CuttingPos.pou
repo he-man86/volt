@@ -7,6 +7,7 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -16,5 +17,6 @@ IQ_dataArrayInfo.upperbound	:= DINT_TO_INT(UPPER_BOUND(IQ_dataArray, 1));
 
 Stack_Init_CuttingPos:= TRUE;
 RETURN;
+
 
 END_FUNCTION

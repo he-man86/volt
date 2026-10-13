@@ -38,11 +38,12 @@ export interface Held {
 }
 export interface RefsAnswer {
   items: Record<string, string | null>
-  unreadable?: string[]
+  /** Each item the walk found and did not pull: its bare name and the bridge's reason. */
+  unreadable?: { name: string; reason: string }[]
 }
 export const heldIn = (r: RefsAnswer): Held => ({
   items: new Set(Object.keys(r.items)),
-  unreadable: new Set((r.unreadable ?? []).map((n) => n.toLowerCase())),
+  unreadable: new Set((r.unreadable ?? []).map((u) => u.name.toLowerCase())),
 })
 
 /** The delete ops that remove the items pushed as `wires` wherever `r` (refs now) holds them, and whether they need force. */
@@ -73,6 +74,6 @@ export function orphansIn(fixtureWires: Iterable<string>, r0: RefsAnswer): strin
   const wires = [...fixtureWires]
   return [
     ...wires.filter((w) => Object.keys(r0.items).some((n) => n === w || mayBeHeldAs(w, n))),
-    ...wires.filter((w) => (r0.unreadable ?? []).some((u) => u.toLowerCase() === bareOf(w))),
+    ...wires.filter((w) => (r0.unreadable ?? []).some((u) => u.name.toLowerCase() === bareOf(w))),
   ]
 }

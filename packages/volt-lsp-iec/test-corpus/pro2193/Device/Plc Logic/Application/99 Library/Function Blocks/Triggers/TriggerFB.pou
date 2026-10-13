@@ -7,6 +7,7 @@ VAR
 	xFallingEdge	: BOOL;	// The falling edge of the input signal
 	xEdge			: BOOL;	// Memory flag, to detect a change in input
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -16,9 +17,11 @@ METHOD PUBLIC AnyEdge : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Call(CLK);
 AnyEdge := Q_Rising OR Q_Falling;
+
 END_METHOD
 
 // Monitor an input for a rising and falling edge. Use properties Q_R and Q_F to get edges.
@@ -28,10 +31,12 @@ VAR_INPUT
 END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
+
 IMPLEMENTATION ST
 xRisingEdge		:= CLK AND NOT xEdge;
 xFallingEdge	:= NOT CLK AND xEdge;
 xEdge			:= CLK;
+
 END_METHOD
 
 // Triggers on falling edge of input. !!Only call this method once per PLC Cycle!!
@@ -39,9 +44,11 @@ METHOD PUBLIC Falling : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Call(CLK);
 Falling := Q_Falling;
+
 END_METHOD
 
 // Triggers on rising edge of input. !!Only call this method once per PLC Cycle!!
@@ -49,18 +56,23 @@ METHOD PUBLIC Rising : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Call(CLK);
 Rising := Q_Rising;
+
 END_METHOD
 
 // Falling edge of the input signal
 PROPERTY PUBLIC Q_Falling : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Q_Falling := xFallingEdge;
+
 END_GET
 END_PROPERTY
 
@@ -68,10 +80,13 @@ END_PROPERTY
 PROPERTY PUBLIC Q_Rising : BOOL
 
 // Attribute 'monitoring':='call' is not needed here.
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Q_Rising := xRisingEdge;
+
 END_GET
 END_PROPERTY

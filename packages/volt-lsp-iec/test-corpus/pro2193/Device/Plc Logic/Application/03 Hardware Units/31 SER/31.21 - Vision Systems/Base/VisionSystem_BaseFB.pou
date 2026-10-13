@@ -13,8 +13,10 @@ VAR
 	{attribute 'hide'}	_cameraResultReady			: BOOL;				// Private backing field for property
 	_results					: ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -22,6 +24,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -52,20 +55,25 @@ SetError[3](
 	severity		:= enumErrorSeverity.Warning,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD CancelTakePicture
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
+
 END_METHOD
 
 METHOD ABSTRACT TakePicture : enumResultTakePicture
+
 IMPLEMENTATION NONE
 %FOLDER Commands
 END_METHOD
 
 PROPERTY PUBLIC ABSTRACT Busy : BOOL
+
 %FOLDER Properties
 GET
 IMPLEMENTATION NONE
@@ -75,32 +83,40 @@ END_PROPERTY
 // Camera has a result ready. The data is in the Results property
 {attribute 'monitoring':='call'}
 PROPERTY CameraResultReady : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CameraResultReady := _cameraResultReady;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _cameraResultReady := CameraResultReady;
+
 END_SET
 END_PROPERTY
 
 // Results[0] holds overrideRejectStatus. Results[1..x] holds the data.
 PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Results := _results;
 
 // After reading the results, clear the CameraResultReady bool
 CameraResultReady := FALSE;
+
 END_GET
 END_PROPERTY

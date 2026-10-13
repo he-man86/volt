@@ -2,6 +2,7 @@ PROGRAM VisuDashboardNotifications
 VAR
 	
 END_VAR
+
 IMPLEMENTATION ST
 g_sHMI_DashboardNotifications.bCabinetError := g_sMACH.ERR.dwCat4_Error_a.6 
 											OR g_sMACH.ERR.dwCat4_Error_a.7	
@@ -40,5 +41,6 @@ g_sHMI_DashboardNotifications.bSafetyScreen := FALSE;
 g_sHMI_DashboardNotifications.bUltrasonicError := g_sMACH.ERR.dwCat4_Error_a.5;
 
 g_sHMI_DashboardNotifications.bUltrasonicWarning := g_sMACH.ERR.dwCat1_Error.10;
+
 
 END_PROGRAM

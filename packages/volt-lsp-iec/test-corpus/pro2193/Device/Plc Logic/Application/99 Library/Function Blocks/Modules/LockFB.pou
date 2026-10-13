@@ -10,14 +10,17 @@ END_VAR
 VAR_OUTPUT
 	callCounter						: UDINT;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
 
 // Force releasing the lock
 METHOD ForceRelease
+
 IMPLEMENTATION ST
 Release(currentLockHolder);
+
 END_METHOD
 
 // Release the lock by the current lock holder
@@ -25,6 +28,7 @@ METHOD Release : BOOL
 VAR_INPUT
 	locker		: STRING(80);		// The module that is releasing the lock
 END_VAR
+
 IMPLEMENTATION ST
 IF locker <> currentLockHolder THEN
 	RETURN;
@@ -40,6 +44,7 @@ currentLockHolderIsWithoutLock	:= FALSE;
 callCounter						:= 0;
 
 Release							:= TRUE;
+
 END_METHOD
 
 // Request a lock. Returns false if the lock is already taken by someone else.
@@ -47,6 +52,7 @@ METHOD Request : BOOL
 VAR_INPUT
 	locker		: STRING(80);		// The module that is requesting the lock
 END_VAR
+
 IMPLEMENTATION ST
 IF currentLockHolder = locker THEN		// Check if already locked by locker
 	Request := TRUE;					// Locking succeeded
@@ -65,6 +71,7 @@ END_IF
 IF Request THEN
 	callCounter := callCounter + 1;
 END_IF
+
 END_METHOD
 
 // Request a lock without actually locking. Use if a command should be overruled by a second command.
@@ -78,6 +85,7 @@ END_VAR
 // Just NOT lock a command if you don't need a lock.
 // If we really need it we could add optional bool parameter to Request method: WeakLock or something
 // Stefan 3-7-25
+
 IMPLEMENTATION ST
 IF currentLockHolder = locker THEN		// Check if already locked by locker
 	RequestWithoutLock := TRUE;			// Locking succeeded
@@ -97,27 +105,34 @@ END_IF
 IF RequestWithoutLock THEN
 	callCounter := callCounter + 1;
 END_IF
+
 END_METHOD
 
 // Return true the first cycle that the lock is granted.
 PROPERTY PUBLIC FirstCall : BOOL
 
 // No monitoring attribute because property is only high for 1 cycle.
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 FirstCall := callCounter = 1;
+
 END_GET
 END_PROPERTY
 
 // Return true when a lock is active
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsLocked : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsLocked := currentLockHolder <> '';
+
 END_GET
 END_PROPERTY

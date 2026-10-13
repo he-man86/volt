@@ -19,6 +19,7 @@ VAR CONSTANT
 	MaxOpenProductCarriersZ			: USINT		:= 9;
 	MaxOpenProductCarriersReject	: USINT		:= 1;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
@@ -26,6 +27,7 @@ SUPER^(
 	DataBrink			:= DataBrink,
 	coveredDistance		:= coveredDistance,
 );
+
 
 END_FUNCTION_BLOCK
 
@@ -37,6 +39,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Cyclic();
 
@@ -84,10 +87,12 @@ FOR i := 1 TO MaxOpenProductCarriersReject DO
 		inputOut				:= T_OpenProductCarrier_Reject_IsOut[i].Set(NOT OpenProductCarrierReject[i].inputIn, DataProject.rOpenProductCarrierOutDelay),
 		inputIn					:= );
 END_FOR
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers();
@@ -95,12 +100,14 @@ ZCloseProductCarriers();
 RejectCloseProductCarriers();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 METHOD PROTECTED IsSafeToMove : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 IsSafeToMove	:= SUPER^.IsSafeToMove();
 
@@ -124,6 +131,7 @@ FOR i := 1 TO MaxOpenProductCarriersReject DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_METHOD
 
 // Closes all Reject product carrier plates
@@ -131,6 +139,7 @@ METHOD PUBLIC RejectCloseProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
@@ -144,6 +153,7 @@ FOR i := 1 TO MaxOpenProductCarriersReject DO
 END_FOR
 
 RejectCloseProductCarriers	:= TRUE;
+
 END_METHOD
 
 // Opens all Reject product carrier plates
@@ -151,6 +161,7 @@ METHOD PUBLIC RejectOpenProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
@@ -164,16 +175,19 @@ FOR i := 1 TO MaxOpenProductCarriersReject DO
 END_FOR
 
 RejectOpenProductCarriers	:= TRUE;
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Reset	:=   XuCloseProductCarriers()
 	AND_THEN ZCloseProductCarriers()
 	AND_THEN RejectCloseProductCarriers()
 	AND_THEN SUPER^.Reset();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
@@ -181,6 +195,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR_INST
 	result		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers();
@@ -188,10 +203,12 @@ ZCloseProductCarriers();
 RejectCloseProductCarriers();
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 // Closes all Xu product carrier plates
 METHOD PUBLIC XuCloseProductCarriers : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers	:=  OpenProductCarrierXu[1].GoIn()
@@ -207,10 +224,12 @@ FOR i := 1 TO MaxOpenProductCarriersXu DO
 	XuCloseProductCarriers	R= NOT OpenProductCarrierXu[i].GoIn();
 END_FOR
 *)
+
 END_METHOD
 
 // Opens all Xu product carrier plates
 METHOD PUBLIC XuOpenProductCarriers : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 XuOpenProductCarriers	:=  OpenProductCarrierXu[1].GoOut()
@@ -226,6 +245,7 @@ FOR i := 1 TO MaxOpenProductCarriersXu DO
 	XuOpenProductCarriers	R= NOT OpenProductCarrierXu[i].GoOut();
 END_FOR
 *)
+
 END_METHOD
 
 // Closes all Z product carrier plates
@@ -233,6 +253,7 @@ METHOD PUBLIC ZCloseProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 ZCloseProductCarriers		:= TRUE;
@@ -240,6 +261,7 @@ ZCloseProductCarriers		:= TRUE;
 FOR i := 1 TO MaxOpenProductCarriersZ DO
 	ZCloseProductCarriers	R= NOT OpenProductCarrierZ[i].GoIn();
 END_FOR
+
 END_METHOD
 
 // Opens selected Z product carrier plates
@@ -250,6 +272,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 ZOpenProductCarriers			:= TRUE;
@@ -258,4 +281,5 @@ FOR i := 1 TO MaxOpenProductCarriersZ DO
 		ZOpenProductCarriers	R= NOT OpenProductCarrierZ[i].GoOut();
 	END_IF
 END_FOR
+
 END_METHOD

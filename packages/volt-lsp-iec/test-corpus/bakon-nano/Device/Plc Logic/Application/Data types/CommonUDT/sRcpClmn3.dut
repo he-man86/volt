@@ -5,3 +5,4 @@ STRUCT
 	Diagonal	: BOOL;
 END_STRUCT
 END_TYPE
+

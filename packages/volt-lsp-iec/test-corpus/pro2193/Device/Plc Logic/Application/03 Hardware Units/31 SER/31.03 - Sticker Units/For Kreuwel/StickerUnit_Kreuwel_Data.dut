@@ -6,3 +6,4 @@ STRUCT
 	pitch			: REAL := 4;		// length of the pitch between stickers
 END_STRUCT
 END_TYPE
+

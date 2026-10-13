@@ -29,6 +29,7 @@ VAR
 
 
 END_VAR
+
 IMPLEMENTATION ST
 //Read out values for light and dark
 tWhiteValue:=MOVE(iLightValue);
@@ -63,5 +64,8 @@ oCorrectionValue:=(oRealPercentage-tRealSetpoint)*iCorrectionScale;
 //No wrapper detection
 tRealNoWrapperOffsetPercentage:=TO_REAL(iNoWrapperOffsetPercentage01Perc);
 oDeviationNoWrapper:=TO_INT(tRealNoWrapperOffsetPercentage*(tRealWidthLight_Dark/1000));
+
+
+
 
 END_FUNCTION

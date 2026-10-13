@@ -5,3 +5,4 @@ TYPE Fanuc_Homing_OUT :
 	GoToServicePosition	:= 2
 ) UINT;
 END_TYPE
+

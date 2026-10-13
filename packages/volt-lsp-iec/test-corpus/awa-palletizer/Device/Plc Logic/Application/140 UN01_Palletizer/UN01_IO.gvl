@@ -44,3 +44,4 @@ VAR_GLOBAL
 	// Request box
 	QxDO03_InputEnable: BOOL := FALSE;
 END_VAR
+

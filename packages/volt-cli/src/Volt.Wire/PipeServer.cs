@@ -169,7 +169,29 @@ public sealed class PipeServer : IDisposable
                 catch { server.Dispose(); if (!_running) break; continue; }
 
                 if (!_running) { try { server.Dispose(); } catch { } break; }
-                ThreadPool.QueueUserWorkItem(_ => Serve(server));
+                // THE NEXT INSTANCE IS ARMED BEFORE THIS ONE IS SERVED: served first, a short request can finish and
+                // dispose its instance before the loop comes round to arm another, and in that gap the NAME does not
+                // exist — a client connecting then is told ENOENT, the pipe gone (seen 2026-10-13: the completeness
+                // oracle lost one subject's pull to `connect ENOENT` mid-run, the IDE alive; pinned by
+                // `PipeServeThreadTests.Back_to_back_calls_never_find_the_pipe_gone`). A failure to arm ends the loop as
+                // above, and the connection already accepted is still served.
+                try
+                {
+                    pending = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
+                        NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                }
+                catch (Exception ex)
+                {
+                    VoltLog.Warn($"pipe {_pipeName}: accept loop stopped — could not arm another instance: {ex.Message}");
+                    _running = false;
+                }
+                // A THREAD OF ITS OWN per connection, never the thread pool's (gate review of bridge-one-to-one step 4b,
+                // finding 7): the pool is the HOST's — CODESYS runs this bridge in-proc — and when its threads are all
+                // blocked a queued request waits for the pool to inject one, about one per half second. `health` must
+                // answer from cache even while the IDE is busy; served on a starved pool it did not, so a live bridge
+                // read as lost, and a suite run under load timed out on it. Connections are few (a poll every few
+                // seconds, one per CLI verb), so a thread each costs nothing that matters.
+                new Thread(() => Serve(server)) { IsBackground = true, Name = "volt-pipe-serve" }.Start();
             }
         }
         finally
@@ -181,7 +203,7 @@ public sealed class PipeServer : IDisposable
     }
 
     // Handle's own JIT binds the wire (WireJson.Read): if THAT fails — the 3.5.21.50 MissingFieldException shape —
-    // the exception is thrown here, at the call, on a thread-pool thread, where an unhandled one takes the whole
+    // the exception is thrown here, at the call, on the serve thread, where an unhandled one takes the whole
     // process down (CODESYS itself, in-proc). Caught and logged instead; the connection is dropped.
     private void Serve(NamedPipeServerStream server)
     {

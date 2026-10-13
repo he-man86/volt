@@ -2,8 +2,10 @@
 INTERFACE ISubjectProductionStatistic
 EXTENDS ISubjectBasePayload
 
+
 {attribute 'monitoring' := 'call'}
 PROPERTY PUBLIC Cavity : UINT
+
 GET
 END_GET
 SET
@@ -11,6 +13,7 @@ END_SET
 END_PROPERTY
 
 PROPERTY PUBLIC Data : UDINT
+
 GET
 END_GET
 SET
@@ -18,6 +21,7 @@ END_SET
 END_PROPERTY
 
 PROPERTY PUBLIC RejectReason : USINT
+
 GET
 END_GET
 SET
@@ -25,6 +29,7 @@ END_SET
 END_PROPERTY
 
 PROPERTY PUBLIC StatType : enumProductionStatsCavityType
+
 GET
 END_GET
 SET

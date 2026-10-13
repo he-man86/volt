@@ -109,6 +109,7 @@ VAR CONSTANT
 	uiCommunicationPort		: UINT	:= 9000;					// Send and Receive port
 	udiTimeout				: UDINT	:= 5_000_000;				// time (µs)
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT Initialize() THEN
 	RETURN;
@@ -162,6 +163,7 @@ ELSIF T_ReaderTimeOut.Q THEN	// Als de TCPReader niets heeft gelezen alle data l
 END_IF
 T_ReaderTimeOut(IN:= xEnableReader, PT := tTaskInterval * 5);
 
+
 END_PROGRAM
 
 METHOD PRIVATE Alarms
@@ -172,6 +174,7 @@ VAR_INST
 //	GeneralDiagAlarm		: SetErrorFB;
 //	GeneralRunAlarm			: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 eStopMainCabinet(
 	elementId			:= 1,
@@ -434,6 +437,7 @@ GeneralRunAlarm(
 	alarmDelay		:= 5.0,
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction);
+
 END_METHOD
 
 METHOD PRIVATE Initialize : BOOL
@@ -441,6 +445,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	initialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF initialized THEN
 	Initialize		:= TRUE;
@@ -467,17 +472,21 @@ T_ToggleWriter.IN		:= TRUE;
 
 initialized				:= TRUE;
 Initialize				:= TRUE;
+
 END_METHOD
 
 METHOD PRIVATE ReturnOutputFromNumber : BOOL
 VAR_INPUT
 	outputNumber	: USINT(0..127);
 END_VAR
+
 IMPLEMENTATION ST
 ReturnOutputFromNumber := BitLogic.Extract(dwSafetyPLCStatus[outputNumber / 32], outputNumber MOD 32);
+
 END_METHOD
 
 METHOD ValidateMessage : BOOL
+
 IMPLEMENTATION ST
 // Check if the read message is valid
 byChecksumReader		:= 0;
@@ -500,6 +509,7 @@ AND abyReadBuffer[42]	= 16#10
 THEN
 	ValidateMessage		:= TRUE;
 END_IF
+
 END_METHOD
 
 ACTION CreateTelegram
@@ -566,6 +576,7 @@ END_FOR
 	abyWriteBuffer[40]	:= 16#00;
 	abyWriteBuffer[41]	:= byChecksumWriter;			 // BCC
 	abyWriteBuffer[42]	:= 16#10;
+
 END_ACTION
 
 ACTION FunctionBlocks
@@ -625,6 +636,7 @@ ReadActualSeverity(
 	xWarningActive			=> warningActive,
 	SeverityStatus			=> ,
 	ReactionStatus			=> );
+
 END_ACTION
 
 ACTION MapTheOutputs
@@ -661,4 +673,5 @@ xEnableAir				:= ReturnOutputFromNumber(45);	// eth.o45
 xEnableAirBFU			:= ReturnOutputFromNumber(47);	// eth.o47
 xEnableAirDrawer[1]		:= ReturnOutputFromNumber(83);	// eth.o83
 //xEnableAirDrawer[2]		:= ReturnOutputFromNumber(96);	// eth.o96
+
 END_ACTION

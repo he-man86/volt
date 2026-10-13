@@ -100,11 +100,13 @@ VAR CONSTANT
 	maxNumberOfFuses			: USINT := 3;
 	autoSwitchFromCompleteToResetting	: BOOL	:= TRUE;	// I think It is nice to reset the machine after completing the automatic cycle. Then the SER is in Idle again. Test this and make this standard.
 END_VAR
+
 IMPLEMENTATION ST
 Initialize();
 PackML();
 Cyclic();
 Alarms();
+
 
 END_PROGRAM
 
@@ -115,6 +117,7 @@ END_PROGRAM
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Aborted
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait for user input, e.g. button press
@@ -125,6 +128,7 @@ GlobalVars.EnableMainvalve		:= FALSE;
 IF ErrorHandling.requestedReaction <> enumErrorReaction.FastStop THEN
 	currentOperationMode.Clear();		// State change to: Clearing		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
@@ -137,6 +141,7 @@ VAR_INST
 	eStopResult		: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 	EStopTimeout	: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // EStop requested
@@ -189,12 +194,14 @@ END_FOR
 IF allModulesDone OR EStopTimeout.Set(TRUE, 0.2) THEN
 	currentOperationMode.ActingStateCompleted();		// State change to: Aborted		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE Alarms
 VAR_INST
 	fuseOk			: ARRAY[1..maxNumberOfFuses] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -373,19 +380,23 @@ FOR i := 1 TO maxNumberOfFuses DO
 		reaction		:= enumErrorReaction.No_reaction,
 		active			=> );
 END_FOR
+
 END_METHOD
 
 // Acting State
 METHOD PRIVATE Clearing
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // No actions needed here
 
 currentOperationMode.ActingStateCompleted();		// State change to: Stopped		<-- Press F12 here
+
 END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Completed
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is done.
@@ -428,6 +439,7 @@ HardwareButtons.Homing.Flash();
 IF HardwareButtons.Homing.ButtonPushed OR autoSwitchFromCompleteToResetting THEN
 	currentOperationMode.Reset();		// State change to: Resetting		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
@@ -440,6 +452,7 @@ VAR_INST
 	completeResult	: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 	Timer			: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // End cycle is requested
@@ -490,6 +503,7 @@ IF allModulesDone THEN
 	moduleTimeoutMessage	:= '';
 	currentOperationMode.ActingStateCompleted();		// State change to: Completed		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE Cyclic
@@ -508,6 +522,7 @@ VAR_INST
 	ReadActualError					: ReadActualErrorFB;
 	ForwardSeverity					: L_IE1P.L_IE1P_ForwardSeverity;			// Forward alarms of children to parent
 END_VAR
+
 IMPLEMENTATION ST
 EnableFreqInvertersRelay();
 MainAirValve			();
@@ -822,10 +837,12 @@ ForwardSeverity(
 	xBusy						=> ,
 	xError						=> ,
 	eErrorID					=> );
+
 END_METHOD
 
 // Acting State - The unit/machine is in a stable acting state - unit/machine is producing.
 METHOD PRIVATE Execute
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 IF OperationMode = SER_OperationModeType.SemiAuto
@@ -860,6 +877,7 @@ IF NOT IMM.AutoOperation THEN
 		RETURN;
 	END_IF
 END_IF
+
 END_METHOD
 
 // Wait state – A state which represents an error state on the SER which
@@ -869,6 +887,7 @@ END_METHOD
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Held
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait for reset button ????
@@ -876,10 +895,12 @@ IMPLEMENTATION ST
 IF TRUE THEN
 	currentOperationMode.Unhold();		// State change to: UnHolding		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
 METHOD PRIVATE Holding
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // An error has occured, or a pause is requested
@@ -887,10 +908,12 @@ IMPLEMENTATION ST
 // State is finished when the SER is at the parking position in front of the mould
 
 currentOperationMode.ActingStateCompleted();		// State change to: Held		<-- Press F12 here
+
 END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Idle
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is homed and ready to start
@@ -947,6 +970,7 @@ Stacklight.Green.Flash();
 IF HardwareButtons.StartCycle.ButtonPushed THEN
 	currentOperationMode.Start();		// State change to: Starting		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE Initialize
@@ -954,6 +978,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
@@ -1021,9 +1046,11 @@ currentOperationMode		:= OperationModeManager.ActiveUnitMode;
 IMM := InjectionMouldingMachine.Unit;
 
 xInitialized := TRUE;
+
 END_METHOD
 
 METHOD PRIVATE PackML
+
 IMPLEMENTATION ST
 State(actState := TO_DINT(ActState));
 
@@ -1051,6 +1078,7 @@ CASE ActState OF
 	PACK_ML.State.Invalid:		;
 	ELSE						;
 END_CASE
+
 END_METHOD
 
 // Acting State
@@ -1064,6 +1092,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules, 1..2] OF BOOL;
 	resetResult		: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Homing button was pushed
@@ -1171,6 +1200,7 @@ IF allModulesDone THEN	// Homing all modules is done.
 	moduleTimeoutMessage := '';
 	currentOperationMode.ActingStateCompleted();		// State change to: Idle		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
@@ -1183,6 +1213,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 	startResult		: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait here for the SER to get the first labels ready for the first cycle.
@@ -1245,10 +1276,12 @@ IF allModulesDone THEN	// Starting all modules is done.
 	moduleTimeoutMessage := '';
 	currentOperationMode.ActingStateCompleted();		// State change to: Execute		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Stopped
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is just started up, or moved in manual mode.
@@ -1308,6 +1341,7 @@ AND NOT HardwareButtons.Stop.buttonInput	// Stop button looks like a black e-sto
 THEN
 	currentOperationMode.Reset();		// State change to: Resetting		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
@@ -1319,6 +1353,7 @@ END_VAR
 VAR_INST
 	stopResult		: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Stop requested
@@ -1372,6 +1407,7 @@ IF allModulesDone AND NOT IMM.AutoOperation THEN
 	moduleTimeoutMessage := '';
 	currentOperationMode.ActingStateCompleted();		// State change to: Stopped
 END_IF
+
 END_METHOD
 
 // Wait State – In this state the SER is not producing any
@@ -1384,6 +1420,7 @@ METHOD PRIVATE Suspended
 VAR_INST
 	Timer:BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 IF NOT IMM.AutoOperation THEN
@@ -1406,10 +1443,12 @@ THEN
 	Timer.Reset();
 	currentOperationMode.UnSuspend();		// State change to: UnSuspending		<-- Press F12 here
 END_IF
+
 END_METHOD
 
 // Acting State
 METHOD PRIVATE Suspending
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // The IMM is not in Automatic operation
@@ -1420,20 +1459,24 @@ Stacklight.Green.Flash();
 HardwareButtons.StartCycle.Flash();
 
 currentOperationMode.ActingStateCompleted();		// State change to: Suspended		<-- Press F12 here
+
 END_METHOD
 
 // Acting State
 METHOD PRIVATE UnHolding
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Resume the SER cycle.
 // No actions needed here
 
 currentOperationMode.ActingStateCompleted();		// State change to: Execute		<-- Press F12 here
+
 END_METHOD
 
 // Acting State
 METHOD PRIVATE UnSuspending
+
 IMPLEMENTATION ST
 %FOLDER PackML States
 // Resume the SER cycle.
@@ -1443,96 +1486,119 @@ HardwareButtons.StartCycle.Solid();
 Stacklight.Green.Solid();
 
 currentOperationMode.ActingStateCompleted();		// State change to: Execute		<-- Press F12 here
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY ActState : PACK_ML.State
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF currentOperationMode <> 0 THEN
 	ActState := currentOperationMode.CurrentState;
 ELSE
 	ActState := PACK_ML.State.Invalid;
 END_IF
+
 END_GET
 END_PROPERTY
 
 // SER is in automatic operation
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InAutomaticOperation : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InAutomaticOperation := InAutomaticOperationTrigger.xEdge;
+
 END_GET
 END_PROPERTY
 
 // Trigger when SER just stopped in auto. operation
 PROPERTY PUBLIC InAutomaticOperation_Falling : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InAutomaticOperation_Falling := InAutomaticOperationTrigger.Q_Falling;
+
 END_GET
 END_PROPERTY
 
 // Trigger when SER just started in auto. operation
 PROPERTY PUBLIC InAutomaticOperation_Rising : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InAutomaticOperation_Rising := InAutomaticOperationTrigger.Q_Rising;
+
 END_GET
 END_PROPERTY
 
 // General condition when manual control is enabled for the whole SER machine
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ManualControlEnabled : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ManualControlEnabled	:= NOT GlobalVars.EmergencyStopActive
 						AND ActState = PACK_ML.State.Stopped OR ActState = PACK_ML.State.Idle
 						AND xGatesAreClosed
 						AND DigIn.xSafetyGateRelay
 						AND DigIn.xAirPressureOK;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC OperationMode : SER_OperationModeType
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 OperationMode := _operationMode;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _operationMode := OperationMode;
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC SemiAutoNextStep : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF OperationMode = SER_OperationModeType.SemiAuto
 OR OperationMode = SER_OperationModeType.AutoTakeoutLabels
@@ -1554,5 +1620,6 @@ THEN
 ELSE
 	SemiAutoNextStep := TRUE;
 END_IF
+
 END_GET
 END_PROPERTY

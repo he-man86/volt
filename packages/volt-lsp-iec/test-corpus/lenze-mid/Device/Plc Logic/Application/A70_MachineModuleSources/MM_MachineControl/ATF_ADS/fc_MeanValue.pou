@@ -39,4 +39,6 @@ FOR tIndex:=tCountToIndexNumber TO 0 BY -1 DO
 END_FOR;
 oMeanValue := DINT_TO_INT(tMean / iLength);
 
+
+
 END_FUNCTION

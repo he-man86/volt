@@ -10,6 +10,7 @@ VAR CONSTANT
 	dotString					: STRING(1) := '.';
 	underscoreString			: STRING(1) := '_';
 END_VAR
+
 IMPLEMENTATION ST
 // Check if input string is not empty
 IF Stu.StrIsNullOrEmptyA(pInstanceName) THEN
@@ -54,5 +55,6 @@ WHILE (i := StrFindA(pst1 := pInstanceName, pst2 := ADR(dotString), uiSearchStar
 		iLengthToReplaceWith:= 1,
 		iPosition			:= i);	// i is position where the dot was found
 END_WHILE
+
 
 END_FUNCTION

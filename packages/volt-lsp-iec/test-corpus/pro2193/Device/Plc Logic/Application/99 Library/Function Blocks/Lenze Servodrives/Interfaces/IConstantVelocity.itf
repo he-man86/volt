@@ -1,10 +1,12 @@
 INTERFACE IConstantVelocity
 EXTENDS __SYSTEM.IQueryInterface
 
+
 // Stop all drive movements. Use to stop movement in velocity mode
 METHOD PUBLIC Halt : BOOL
 VAR_INPUT
 END_VAR
+
 END_METHOD
 
 // Move in velocity mode. Stop movements with method: Halt()
@@ -12,6 +14,7 @@ METHOD PUBLIC MoveVel : BOOL
 VAR_INPUT
 	Data : ProfileType;
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

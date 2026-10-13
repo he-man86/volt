@@ -25,3 +25,4 @@ STRUCT
 	arGroupOutputs		: ARRAY[7..40] OF UINT;
 END_STRUCT
 END_TYPE
+

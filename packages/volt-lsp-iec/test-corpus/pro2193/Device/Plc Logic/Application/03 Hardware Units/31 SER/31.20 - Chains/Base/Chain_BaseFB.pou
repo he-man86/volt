@@ -44,6 +44,7 @@ VAR CONSTANT
 	MaxLinks					: UINT	:= 32;
 //	MaxLinks					: UINT	:= 56;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -71,6 +72,7 @@ FOR i2 := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -
 	END_IF
 END_FOR
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
@@ -82,6 +84,7 @@ VAR
 	j							: USINT;
 	product						: REFERENCE TO ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -118,6 +121,7 @@ IF SetError[2].active THEN
 	UNTIL NOT __ISVALIDREF(product)
 	END_REPEAT
 END_IF
+
 END_METHOD
 
 // Check if there is any product present on the intake side
@@ -129,6 +133,7 @@ VAR
 	i							: UINT;
 	result						: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := PersistentVars.RecipeVars.chainPos_XuUnit[1] TO PersistentVars.RecipeVars.chainPos_XuUnit[GVL_Constants.ChainProductsForXuUnit] DO
 	IF Link[i].productCarrier.Product.Present THEN
@@ -144,18 +149,21 @@ END_IF
 FOR i := PersistentVars.RecipeVars.chainPos_XuUnit[1] TO PersistentVars.RecipeVars.chainPos_XuUnit[GVL_Constants.ChainProductsForXuUnit] DO
 	 Link[i].productCarrier.Product.UncountedReject	S= NOT Link[i].productCarrier.product.Present;
 END_FOR
+
 END_METHOD
 
 METHOD PUBLIC ClearProductCarrier
 VAR_INPUT
 	position	: UINT(1..MaxLinks);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF Link[position].productCarrierPresent THEN
 	Link[position].ProductCarrier.productPosition	:= 0;
 	ClearProducts.Single(Link[position].ProductCarrier.Product);
 END_IF
+
 END_METHOD
 
 // Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
@@ -167,6 +175,7 @@ END_VAR
 VAR_INST
 	encoderPosition	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].productCarrierPresent THEN
@@ -187,6 +196,7 @@ product.Present := TRUE;	// During semi-auto (without vacuums) sometimes there i
 
 Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].ProductCarrier.Product			:= product;
 Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].ProductCarrier.productPosition	:= encoderPosition;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -199,6 +209,7 @@ VAR
 	linkCounter, counter		: UINT;
 	i							: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 ReadMachineData(
 	Axis					:= AxisRef,
@@ -304,10 +315,12 @@ FOR i := 1 TO MaxLinks DO
 END_FOR
 
 ImageBufferTimer.Set(In := numberOfResultsPending > 0, Pt := Data.rTimeForCheckingImageBuffer);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 disableSensorCheckAlarm		:= FALSE;
@@ -317,6 +330,7 @@ IF NOT Drive.config.virtualMode THEN
 END_IF
 
 EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+
 END_METHOD
 
 METHOD PRIVATE GoodProduct : BOOL
@@ -326,6 +340,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF number = 0
 OR_ELSE number > MaxLinks
@@ -344,18 +359,22 @@ FOR i := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
 END_FOR
 
 GoodProduct		:= TRUE;
+
 END_METHOD
 
 METHOD PUBLIC InExactPosition : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 InExactPosition := InPosition(1) AND_THEN Drive.Standstill AND Drive.InPosition;
+
 END_METHOD
 
 METHOD PUBLIC InPosition : BOOL
 VAR_INPUT
 	hysteresis		: REAL;	// Max allowed difference
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF ModuloTools.PositionReached(
@@ -372,10 +391,12 @@ AND ModuloTools.PositionOnStep(
 THEN
 	InPosition := TRUE;
 END_IF
+
 END_METHOD
 
 // Increment an int that determens where the Z Unit takes products the next cycle
 METHOD PUBLIC IncrementActiveOrderSelect : USINT
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Increment.Subrange(
@@ -384,9 +405,11 @@ Increment.Subrange(
 	upper_limit		:= 2);
 
 IncrementActiveOrderSelect	:= activeOrderSelect;
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -395,6 +418,7 @@ Drive.config.homingMoveNegativeDistance	:= 0;
 Drive.config.homingMovePositiveDistance	:= 0;
 
 ResetAllProductCarriers					:= TRUE;
+
 END_METHOD
 
 // Set UncountedReject flag for all products on chain (or a specific product)
@@ -405,6 +429,7 @@ END_VAR
 VAR
 	i			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF position = 0 THEN	// Invalidate all products on chain
@@ -422,12 +447,14 @@ ELSE
 	END_IF
 
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED IsSafeToMove : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Check if all surrounding units are safe, before moving chain.
 FOR i := 1 TO 5 DO
@@ -439,6 +466,7 @@ FOR i := 1 TO 5 DO
 END_FOR
 
 IsSafeToMove := TRUE;
+
 END_METHOD
 
 // Move chain a fixed step
@@ -450,6 +478,7 @@ VAR_INST
 	targetPos	: REAL;
 	positionWhereInWindowTurnedOn:REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -492,6 +521,7 @@ THEN
 	positionWhereInWindowTurnedOn := Drive.actPos;
 	MoveStep		:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -509,6 +539,7 @@ VAR
 	distribution				: UINT;
 	i							: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -751,6 +782,7 @@ CASE localState OF
 	9:
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 {warning disable C0222} // Disables Precompiler error C0222: Outputs can't be of type REFERENCE TO
@@ -758,6 +790,7 @@ METHOD PUBLIC ReturnProduct : REFERENCE TO ProductType
 VAR_INPUT
 	position	: UINT(1..Chain_BaseFB.MaxLinks);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF Link[position].productCarrierPresent
@@ -767,6 +800,7 @@ THEN
 ELSE
 	ReturnProduct REF= 0;
 END_IF
+
 END_METHOD
 
 // Set position where Z Unit gets products for next 2 cycles
@@ -776,6 +810,7 @@ VAR
 	productOk	: ARRAY[16..21] OF BOOL;
 	productsOk	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Check all 10 first positions have a product. Then Xu has just placed the last products on the chain.
 FOR i := 1 TO 10 DO
@@ -806,6 +841,7 @@ CASE productsOk OF
 END_CASE
 
 activeOrderSelect	 := 1;
+
 END_METHOD
 
 METHOD PROTECTED ShiftLinks
@@ -818,6 +854,7 @@ VAR
 	count						: UINT;
 	i							: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 // How much links are moved when the chain moves 1 step.
 distribution	:= MaxLinks / TO_UINT(Data.NumberOfProductCarriers.value);
@@ -837,10 +874,12 @@ FOR count := 1 TO places * distribution DO
 	END_FOR
 	Link[1]	:= LinkTemp;	// Shift the last link back to the front. This way the product carrier reference is not lost.
 END_FOR
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 disableSensorCheckAlarm		:= FALSE;
@@ -850,6 +889,7 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+
 END_METHOD
 
 // Transfer of labels / products is completed. Magazine or Z Unit may start actions to get new labels / move to next position / stack products.
@@ -857,6 +897,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // Reset the ProductsNeeded flag. This way the Chain control knows that the Xu unit is done placing new products onto the chain.
@@ -870,28 +911,34 @@ IF iParameter = 3 THEN
 END_IF
 
 TransferComplete	:= TRUE;
+
 END_METHOD
 
 // Cycle length
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC CycleLength : LREAL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
+
 END_GET
 END_PROPERTY
 
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC HasPayload : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	i			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO MaxLinks DO
 	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
@@ -899,17 +946,20 @@ FOR i := 1 TO MaxLinks DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 // Intake is blocked. That means the chains needs new products at the intake.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IntakeIsBlocked : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	i			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Check if last products out of the mould are on the chain. In that case no not request more products.
 FOR i := 1 TO MaxLinks DO
@@ -948,6 +998,7 @@ END_FOR
 
 // No products at all of the intake positions. Intake is blocked.
 IntakeIsBlocked := TRUE;
+
 END_GET
 END_PROPERTY
 
@@ -955,12 +1006,14 @@ END_PROPERTY
 {warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC OldestProductWaitingForResult : REFERENCE TO ProductType
+
 %FOLDER Properties
 GET
 PUBLIC
 VAR
 	i			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
 	IF Link[i].productCarrierPresent
@@ -971,6 +1024,7 @@ FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1
 		RETURN;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
@@ -978,12 +1032,14 @@ END_PROPERTY
 {warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC OldestProductWaitingForTrigger : REFERENCE TO ProductType
+
 %FOLDER Properties
 GET
 PUBLIC
 VAR
 	i			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
 	IF Link[i].productCarrierPresent
@@ -993,36 +1049,44 @@ FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1
 		RETURN;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 // Products are needed at intake side of chain
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ProductsNeeded : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ProductsNeeded := _productsNeeded;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _productsNeeded := ProductsNeeded;
+
 END_SET
 END_PROPERTY
 
 //
 {attribute 'monitoring':='call'}
 PROPERTY PROTECTED RejectedProductOnChain : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	i			: UINT;
 	j			: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO MaxLinks DO
 	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
@@ -1034,57 +1098,70 @@ FOR i := 1 TO MaxLinks DO
 		END_FOR
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 // Position where the Z Unit gets products from Chain. 1 is Top positon (17-22). 4 is Bottom position (20-25).
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC SelectedZUnitPosition : USINT(1..ZUnits.NumberOfTakeoverPositions)
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 SelectedZUnitPosition	:= activeOrder[activeOrderSelect];
+
 END_GET
 END_PROPERTY
 
 // Image buffer is full for too long. Stop the chain and await all results
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC StopToCheckImageBuffer : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 StopToCheckImageBuffer := ImageBufferTimer.Q;
+
 END_GET
 END_PROPERTY
 
 // Trigger sensor is within a window
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC TriggerSensorValid : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TriggerSensorValid	:= ModuloTools.PositionOnStepWithOffset(
 									position		:= Drive.actPos,
 									stepDistance	:= Data.Step.Pos.value,
 									hysteresisStart	:= 10.0,
 									hysteresisEnd	:= 50.0);
+
 END_GET
 END_PROPERTY
 
 // TRUE: Z Unit is after Reject unit. FALSE: Reject unit is after Z Unit.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ZUnitIsAfterReject	:= PersistentVars.RecipeVars.chainPos_ZUnit[1] > PersistentVars.RecipeVars.chainPos_Reject[1];
+
 END_GET
 END_PROPERTY

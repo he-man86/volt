@@ -11,6 +11,7 @@ VAR
 	rr: REAL;
 	ss: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -33,5 +34,9 @@ ss := numerator2 / denominator;
 Gonio_LineCollision :=  (rr >= 0 AND rr <= 1) AND (ss >= 0 AND ss <= 1);
 
 RETURN;
+
+
+
+
 
 END_FUNCTION

@@ -15,8 +15,10 @@ VAR CONSTANT
 	PositiveLimit		: SINT := 40;
 	NegativeLimit		: SINT := -35;
 END_VAR
+
 IMPLEMENTATION ST
 Cyclic();
+
 
 END_FUNCTION_BLOCK
 
@@ -25,25 +27,30 @@ VAR_INPUT
 	motor		: enumMotorsType;
 	addition	: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 CASE motor OF
 	enumMotorsType.X1:	ActualPositionX1	:= ActualPositionX1	+ addition;
 	enumMotorsType.X2:	ActualPositionX2	:= ActualPositionX2	+ addition;
 	enumMotorsType.Y:	ActualPositionY		:= ActualPositionY	+ addition;
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC AddToTargetPositions
 VAR_INPUT
 	PositionChanges : CassettePosition;
 END_VAR
+
 IMPLEMENTATION ST
 TargetPositionX1	:= TargetPositionX1 + PositionChanges.X1;
 TargetPositionX2	:= TargetPositionX2 + PositionChanges.X2;
 TargetPositionY		:= TargetPositionY	+ PositionChanges.Y;
+
 END_METHOD
 
 METHOD PRIVATE CheckLimits
+
 IMPLEMENTATION ST
 %FOLDER Private
 IF HomingState = enumCassetteHomingState.Homed THEN
@@ -55,9 +62,11 @@ IF HomingState = enumCassetteHomingState.Homed THEN
 	NegativeLimitReachedX2	:= ActualPositionX2 <= NegativeLimit;
 	NegativeLimitReachedY	:= ActualPositionY	<= NegativeLimit;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE Cyclic
+
 IMPLEMENTATION ST
 %FOLDER Private
 CheckLimits();
@@ -74,6 +83,7 @@ VAR
 	DirectionForX1,		DirectionForX2,		DirectionForY		: enumDirection;
 	AdjustNeededForX1,	AdjustNeededForX2,	AdjustNeededForY	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // Copy id info to the profile
 GetAdjustmentProfile.Drawer		:= Drawer;
@@ -146,9 +156,11 @@ THEN
 	GetAdjustmentProfile.Direction		:= DirectionForY;
 	RETURN;
 END_IF
+
 END_METHOD
 
 METHOD PUBLIC NextHomingState
+
 IMPLEMENTATION ST
 CASE HomingState OF
 	enumCassetteHomingState.StopHoming:		HomingState := enumCassetteHomingState.NotHomed;
@@ -159,9 +171,11 @@ CASE HomingState OF
 	enumCassetteHomingState.HomingStep4:	HomingState := enumCassetteHomingState.HomingStep5;
 	enumCassetteHomingState.HomingStep5:	HomingState := enumCassetteHomingState.Homed;
 END_CASE
+
 END_METHOD
 
 METHOD ResetLimits
+
 IMPLEMENTATION ST
 PositiveLimitReachedX1	:= FALSE;
 PositiveLimitReachedX2	:= FALSE;
@@ -169,77 +183,94 @@ PositiveLimitReachedY	:= FALSE;
 NegativeLimitReachedX1	:= FALSE;
 NegativeLimitReachedX2	:= FALSE;
 NegativeLimitReachedY	:= FALSE;
+
 END_METHOD
 
 METHOD StartHoming
+
 IMPLEMENTATION ST
 ResetLimits();
 HomingState := enumCassetteHomingState.StartHoming;
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY ActualPositionX1 : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ActualPositionX1 := _ActualPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _ActualPosition.X1	:= ActualPositionX1;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X1]);
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY ActualPositionX2 : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ActualPositionX2 := _ActualPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _ActualPosition.X2	:= ActualPositionX2;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X2]);
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY ActualPositionY : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ActualPositionY := _ActualPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _ActualPosition.Y	:= ActualPositionY;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.Y]);
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AdjustmentNeeded : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AdjustmentNeeded := (		(ActualPositionX1	> TargetPositionX1	AND NOT NegativeLimitReachedX1)
 						OR	(ActualPositionX2	> TargetPositionX2	AND NOT NegativeLimitReachedX2)
@@ -248,21 +279,25 @@ AdjustmentNeeded := (		(ActualPositionX1	> TargetPositionX1	AND NOT NegativeLimi
 						OR	(ActualPositionX2	< TargetPositionX2	AND NOT PositiveLimitReachedX2)
 						OR	(ActualPositionY	< TargetPositionY	AND NOT PositiveLimitReachedY)
 					); //	AND HomingState <> enumCassetteHomingState.NotHomed;		// No adjustment possible when not homed and not homing
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY HomingState : enumCassetteHomingState
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HomingState := _HomingState;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _HomingState := HomingState;
 END_SET
@@ -270,16 +305,19 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LastRotateMotor : enumMotorsType
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 LastRotateMotor := _LastRotateMotor;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _LastRotateMotor := LastRotateMotor;
 END_SET
@@ -287,10 +325,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY NegativeLimitReachedX1 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 NegativeLimitReachedX1 := _NegativeLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
@@ -298,6 +338,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _NegativeLimitReached[enumMotorsType.X1] := NegativeLimitReachedX1;
 END_SET
@@ -305,10 +346,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY NegativeLimitReachedX2 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 NegativeLimitReachedX2 := _NegativeLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
@@ -316,6 +359,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _NegativeLimitReached[enumMotorsType.X2] := NegativeLimitReachedX2;
 END_SET
@@ -323,10 +367,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY NegativeLimitReachedY : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 NegativeLimitReachedY := _NegativeLimitReached[enumMotorsType.Y] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
@@ -334,6 +380,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _NegativeLimitReached[enumMotorsType.Y] := NegativeLimitReachedY;
 END_SET
@@ -341,10 +388,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY PositiveLimitReachedX1 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 PositiveLimitReachedX1 := _PositiveLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
@@ -352,6 +401,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _PositiveLimitReached[enumMotorsType.X1] := PositiveLimitReachedX1;
 END_SET
@@ -359,10 +409,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY PositiveLimitReachedX2 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 PositiveLimitReachedX2 := _PositiveLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
@@ -370,6 +422,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _PositiveLimitReached[enumMotorsType.X2] := PositiveLimitReachedX2;
 END_SET
@@ -377,10 +430,12 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY PositiveLimitReachedY : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 PositiveLimitReachedY := _PositiveLimitReached[enumMotorsType.Y];
 END_GET
@@ -388,6 +443,7 @@ SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _PositiveLimitReached[enumMotorsType.Y] := PositiveLimitReachedY;
 END_SET
@@ -395,16 +451,19 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY TargetPositionX1 : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TargetPositionX1 := _TargetPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _TargetPosition.X1 := TargetPositionX1;
 END_SET
@@ -412,16 +471,19 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY TargetPositionX2 : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TargetPositionX2 := _TargetPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _TargetPosition.X2 := TargetPositionX2;
 END_SET
@@ -429,16 +491,19 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY TargetPositionY : SINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TargetPositionY := _TargetPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _TargetPosition.Y := TargetPositionY;
 END_SET

@@ -4,3 +4,4 @@ STRUCT
 	Control 	:	sUDT_ServoComm_Drive_Control;			//output to plc
 END_STRUCT
 END_TYPE
+

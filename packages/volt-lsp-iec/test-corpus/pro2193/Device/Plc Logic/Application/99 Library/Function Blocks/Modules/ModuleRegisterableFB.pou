@@ -26,6 +26,7 @@ END_VAR
 VAR_STAT
 	moduleCurrentlyExecuting	: STRING(80);		// For debugging: In case of exception check this string to see what module is currently executing
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT _initialized THEN
 	_initialized := TRUE;
@@ -40,9 +41,11 @@ stu.StrCpyA(
 
 Cyclic();	// Do stuff every PLC cycle (like instantiate all fbs needed in the module).
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 END_METHOD
 
@@ -53,12 +56,14 @@ METHOD FB_Exit: BOOL
 VAR_INPUT
 	bInCopyCode: BOOL;  // TRUE: the exit method is called in order to leave the instance which will be copied afterwards (online change).
 END_VAR
+
 IMPLEMENTATION ST
 IF THIS^.ModuleManager <> 0 THEN
 	THIS^.ModuleManager.Unregister(THIS^);
 END_IF
 
 THIS^.ModuleParent	:= 0;
+
 END_METHOD
 
 //FB_Init is always available implicitly and it is used primarily for initialization.
@@ -74,6 +79,7 @@ VAR_INPUT
 	moduleManager	: IModuleManager;				// Give location of module manager (can be different for SER or BFU)
 	moduleParent	: L_IMHP.L_IMHP_IModuleHandler;	// (Optional) Give parent of this module. Use zero to use SER or BFU as parent.
 END_VAR
+
 IMPLEMENTATION ST
 THIS^.ModuleManager		:= moduleManager;
 
@@ -103,23 +109,29 @@ ModuleHandler.Layer		:= L_IMHP_Layer.Tech_Application;
 ModuleHandler.CompType	:= L_IMHP_ComponentType.GeneralMachineModule;
 
 // Warning: Only when module is of CompType = MachineModule or GeneralMachineModule, are active alarms kicked up to the parent module!
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 ModuleHandler.SetParent(
 					ModuleHandlerParent	:= ModuleParent,
 					RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
+
 END_METHOD
 
 // Automatically generated name of the instance
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InstanceName : STRING(80)
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InstanceName := _instanceName;
+
 END_GET
 END_PROPERTY
 
@@ -128,25 +140,31 @@ END_PROPERTY
 PROPERTY PUBLIC InstanceNo : UINT
 
 // Note: this number does not have to be unique for each module...
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InstanceNo := _instanceNo;
+
 END_GET
 END_PROPERTY
 
 // Location of the FB in memory (for debugging)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC MemoryAddress : STRING(8)
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 {IF defined (IsSimulationMode)}
 	MemoryAddress := DWORD_TO_HEXSTRING(TO_DWORD(ADR(THIS^)));
 {ELSE}
 	MemoryAddress := '';
 {END_IF}
+
 END_GET
 END_PROPERTY

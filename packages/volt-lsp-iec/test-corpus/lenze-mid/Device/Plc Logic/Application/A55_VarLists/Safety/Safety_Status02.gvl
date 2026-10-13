@@ -33,3 +33,4 @@ Door_switch15 : BOOL;
 //SafetyStatus_02 : 
 Door_switch16 : BOOL;
 END_VAR
+

@@ -12,6 +12,7 @@ VAR
 	colorOff		: enumColorList		:= enumColorList.Silver;
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
+
 IMPLEMENTATION ST
 // Illuminate button while pressed down
 IF button THEN
@@ -40,11 +41,14 @@ END_IF
 
 SUPER^();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
+
 IMPLEMENTATION ST
 Trig_Pushed.Call(CLK := buttonInput OR button);
+
 END_METHOD
 
 // Set the colors for the button
@@ -54,8 +58,10 @@ VAR_INPUT
 	colorOff		: enumColorList		:= enumColorList.Silver;
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
+
 IMPLEMENTATION ST
 THIS^.colorOn			:= colorOn;
 THIS^.colorOff			:= colorOff;
 THIS^.colorPushed		:= colorPushed;
+
 END_METHOD

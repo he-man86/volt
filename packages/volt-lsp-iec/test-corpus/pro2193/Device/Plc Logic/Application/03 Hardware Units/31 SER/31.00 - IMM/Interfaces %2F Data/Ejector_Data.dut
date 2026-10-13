@@ -6,3 +6,4 @@ STRUCT
 	xWaitForForwardSignal			: BOOL;		// Await the Ejector in Forward position input from the IMM
 END_STRUCT
 END_TYPE
+

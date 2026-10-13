@@ -1,6 +1,7 @@
 PROGRAM Calc_BottomPos
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 //Bereken diepste positie van Z-as (Hoogste) afhankelijk van geselecteerd product plaat.
 
@@ -55,5 +56,6 @@ IF g_HMI_MachCommand.bScanMode THEN
 END_IF
 
 g_sCalculated.rAboveProductPos := SEL(g_sMACH.MCL.bActCleaning,g_sCalculated.rAboveProductPos,0); //AC Correctie voor schoonmaak bedrijf waarbij er nog geen bottompos is ingesteld
+
 
 END_PROGRAM

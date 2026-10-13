@@ -22,3 +22,4 @@ STRUCT
 	ActualYSpeed : Int;
 END_STRUCT
 END_TYPE
+

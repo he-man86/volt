@@ -25,3 +25,4 @@ STRUCT
 	mouldCloseDelayOnDrawerChange	: REAL;		// Optional delay before closing the mould when a drawer change is active
 END_STRUCT
 END_TYPE
+

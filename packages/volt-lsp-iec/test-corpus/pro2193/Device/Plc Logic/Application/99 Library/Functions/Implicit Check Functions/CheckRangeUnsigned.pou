@@ -3,7 +3,9 @@ FUNCTION CheckRangeUnsigned : UDINT
 VAR_INPUT
 	value, lower, upper : UDINT;
 END_VAR
+
 IMPLEMENTATION ST
+%CLASS CHECK CheckRangeUnsigned
 IF value >= lower AND value <= upper THEN
 	CheckRangeUnsigned := value;
 ELSE
@@ -25,5 +27,6 @@ ELSE
 		ThrowException('RtsExceptions.RTSEXCPT_MISALIGNMENT');
 	END_IF
 END_IF
+
 
 END_FUNCTION

@@ -46,7 +46,7 @@ public class UnopenedItemTests
 
         var refs = RefsService.Handle(ide);
 
-        Assert.Equal(new[] { "Broken" }, refs.Unreadable);
+        Assert.Equal(new[] { "Broken" }, refs.Unreadable.Select(u => u.Name));
         Assert.Equal(new[] { "A.pou", "B.pou" }, refs.Items.Keys.OrderBy(k => k).ToArray());
         Assert.Empty(refs.UnwalkedFolders);
         Assert.Empty(ide.OpenedUnopened);
@@ -65,7 +65,7 @@ public class UnopenedItemTests
 
         Assert.Equal(new[] { "B.pou" }, refs.Removed);
         Assert.Equal(new[] { "B.pou" }, fetch.Removed);
-        Assert.Equal(new[] { "Broken" }, fetch.Unreadable);
+        Assert.Equal(new[] { "Broken" }, fetch.Unreadable.Select(u => u.Name));
         Assert.Empty(ide.OpenedUnopened);
     }
 

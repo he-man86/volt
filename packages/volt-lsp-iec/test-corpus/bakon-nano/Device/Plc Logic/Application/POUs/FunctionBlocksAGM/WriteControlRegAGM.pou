@@ -16,6 +16,7 @@ VAR_INPUT
 	bStopAGM: BOOL;
 	bTestAGM: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 (*de index 2000 het control register wordt beschreven*)
 

@@ -5,3 +5,4 @@ STRUCT
 //	delayBeforeStartingConveyor	: REAL;		// To bring boxes closer together on outfeed conveyor
 END_STRUCT
 END_TYPE
+

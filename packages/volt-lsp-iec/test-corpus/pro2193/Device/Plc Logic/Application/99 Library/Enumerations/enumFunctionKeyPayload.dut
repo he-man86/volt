@@ -9,3 +9,4 @@ TYPE enumFunctionKeyPayload :
 	Released			// Button is released after being held down
 );
 END_TYPE
+

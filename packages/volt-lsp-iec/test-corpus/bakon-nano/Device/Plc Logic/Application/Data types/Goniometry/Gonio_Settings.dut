@@ -18,3 +18,4 @@ STRUCT
 	precision		: REAL := 0.1;			//Corrections will be rounded tot this number.
 END_STRUCT
 END_TYPE
+

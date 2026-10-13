@@ -409,7 +409,7 @@ public class PushServiceTests
         var ide = new FakeIde(pou, act, trans);
 
         var refs = RefsService.Handle(ide);
-        Assert.Contains("SFC_PRG", refs.Unreadable);
+        Assert.Contains("SFC_PRG", refs.Unreadable.Select(u => u.Name));
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,

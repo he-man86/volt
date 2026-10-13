@@ -33,3 +33,4 @@ Door_switch31 : BOOL;
 //SafetyStatus_03 : 
 Custom_ATF_Disabled : BOOL;
 END_VAR
+

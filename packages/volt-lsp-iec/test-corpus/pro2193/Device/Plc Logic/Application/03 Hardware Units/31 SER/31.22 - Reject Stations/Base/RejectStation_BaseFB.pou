@@ -23,8 +23,10 @@ VAR
 	manualControlEnabled		: BOOL;
 	stopConveyorAfterTimer		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -34,13 +36,16 @@ VAR_INPUT
 	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForReject));
 	product			: ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 productNo						:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForReject));
 LastProductInShute[productNo]	:= product;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 Conveyor(
 	moduleHandler			:= ModuleHandler,
@@ -62,16 +67,19 @@ IF stopConveyorAfterTimer AND RunningTimer.Q THEN			// Await stacking timer befo
 	Conveyor.Reset();
 	stopConveyorAfterTimer := FALSE;
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
@@ -79,12 +87,14 @@ METHOD ABSTRACT GetProducts : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 IMPLEMENTATION NONE
 %FOLDER Commands
 END_METHOD
 
 // Start command for the conveyor to move the stacks
 METHOD PUBLIC MoveStep : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -98,6 +108,7 @@ IF CommandLock.FirstCall THEN
 END_IF
 
 MoveStep := CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -105,6 +116,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState					: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -121,16 +133,19 @@ CASE localState OF
 		Conveyor.Reset();
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 // Transfer of labels / products is completed. Magazine or Z Unit may start actions to get new labels / move to next position / stack products.
@@ -138,6 +153,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Conveyor.Set();
@@ -147,23 +163,29 @@ RunningTimer.Reset();
 stopConveyorAfterTimer			:= TRUE;
 
 TransferComplete				:= TRUE;
+
 END_METHOD
 
 // Manual control of hardware is enabled from external context
 {attribute 'monitoring':='call'}
 PROPERTY ExternalManualControlEnabled : BOOL
+
 %FOLDER Properties
 GET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ExternalManualControlEnabled := manualControlEnabled;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 manualControlEnabled := ExternalManualControlEnabled;
+
 END_SET
 END_PROPERTY

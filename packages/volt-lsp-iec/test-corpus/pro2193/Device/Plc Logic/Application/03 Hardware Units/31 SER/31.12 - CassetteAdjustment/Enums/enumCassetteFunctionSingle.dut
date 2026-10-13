@@ -15,3 +15,4 @@ TYPE enumCassetteFunctionSingle :
 	Stop		:= 10
 );
 END_TYPE
+

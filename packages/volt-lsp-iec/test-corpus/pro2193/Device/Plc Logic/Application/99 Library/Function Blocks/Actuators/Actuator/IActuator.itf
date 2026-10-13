@@ -2,14 +2,17 @@ INTERFACE IActuator
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD PUBLIC Reset
+
 END_METHOD
 
 // Set the output (=True)
 METHOD PUBLIC Set : BOOL
+
 END_METHOD
 
 // Set the output True or False
@@ -17,6 +20,7 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

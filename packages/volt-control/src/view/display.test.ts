@@ -84,13 +84,13 @@ test("an unwalked folder outranks drift, because the counts cannot be trusted", 
 test("an unreadable item is reported but does not take the actionable step away", () => {
   // It is absent from BOTH sides of the diff, so every count is exactly right and "pull" is still the advice.
   const drifting: WorkspaceState = {
-    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unreadable: ["Broken"] }),
+    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unreadable: [{ name: "Broken", reason: "read failed" }] }),
     health: connected,
   }
   expect(aggregate([drifting]).severity).toBe("drift")
 
   // …but with nothing else to say, it must never read as in sync.
-  const quiet: WorkspaceState = { status: status({ unreadable: ["Broken"] }), health: connected }
+  const quiet: WorkspaceState = { status: status({ unreadable: [{ name: "Broken", reason: "read failed" }] }), health: connected }
   const d = aggregate([quiet])
   expect(d.severity).toBe("partial")
   expect(d.tooltip).toContain("could not be read")

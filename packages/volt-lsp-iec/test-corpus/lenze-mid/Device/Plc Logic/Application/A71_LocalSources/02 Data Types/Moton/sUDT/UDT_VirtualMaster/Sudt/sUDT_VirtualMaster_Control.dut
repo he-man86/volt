@@ -7,3 +7,4 @@ STRUCT
 	DriveMasterSpeed: INT;
 END_STRUCT
 END_TYPE
+

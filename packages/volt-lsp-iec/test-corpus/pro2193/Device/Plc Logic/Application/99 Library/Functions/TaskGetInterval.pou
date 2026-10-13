@@ -9,6 +9,7 @@ VAR
 	handle			: SysTypes.RTS_IEC_HANDLE;
 	pIecTaskInfo	: POINTER TO CmpIecTask.Task_Info2;
 END_VAR
+
 IMPLEMENTATION ST
 handle				:= CmpIecTask.IecTaskGetCurrent(ADR(iecResult));			// Function to get own task handle
 
@@ -21,5 +22,6 @@ IF pIecTaskInfo = 0 THEN RETURN; END_IF
 
 taskName			:= pIecTaskInfo^.pszName^;
 TaskGetInterval		:= TO_TIME(pIecTaskInfo^.dwInterval / 1000);
+
 
 END_FUNCTION

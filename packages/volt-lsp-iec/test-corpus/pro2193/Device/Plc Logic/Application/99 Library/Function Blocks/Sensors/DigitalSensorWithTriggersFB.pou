@@ -6,27 +6,35 @@ EXTENDS DigitalSensorFB
 VAR
 	Trigger			: TriggerFB;
 END_VAR
+
 IMPLEMENTATION ST
 Trigger.Call(CLK := SensorInput = NOT _isInverted);
+
 
 END_FUNCTION_BLOCK
 
 PROPERTY Falling : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Falling := Trigger.Q_Falling;
+
 END_GET
 END_PROPERTY
 
 PROPERTY Rising : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Rising := Trigger.Q_Rising;
+
 END_GET
 END_PROPERTY

@@ -361,7 +361,7 @@
           "unreadable": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/UnreadableItem"
             }
           },
           "removed": {
@@ -390,6 +390,21 @@
           "unreadable",
           "removed",
           "unwalkedFolders"
+        ]
+      },
+      "UnreadableItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
         ]
       },
       "FetchRequest": {
@@ -457,7 +472,7 @@
           "unreadable": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/UnreadableItem"
             }
           },
           "removed": {

@@ -41,7 +41,11 @@ import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 // empty body; now it is refused `graphical-body` ("is abstract: it holds no code"). Measured per POU with
 // `scripts/probe-lowering-refusals.ts` before and after the 7 files: that is the only verdict that moved — four other
 // already-refused bases gain the `graphical-body` code, nothing else changes.
-const REACH = { bodies: 304, lowered: 53 }
+// bodies 304 -> 300 on 2026-10-13, a CORPUS change, not a lowering one (openspec bridge-one-to-one 4.2): the live re-pull
+// no longer materializes the 13 pro2193 objects that sit in folders excluded from build ("Turn Around Magazine", "Wrap
+// Magazine", "Peeling", "Stack Status" — design §3 (3): such a folder is refused by name and its objects are not walked),
+// 4 of them POUs with a body, none lowered. Restoring exactly those 13 files gives 304 / 53 again, so nothing else moved.
+const REACH = { bodies: 300, lowered: 53 }
 
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was

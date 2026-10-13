@@ -3,7 +3,9 @@ FUNCTION CheckDivDInt : DINT
 VAR_INPUT
 	divisor		: DINT;
 END_VAR
+
 IMPLEMENTATION ST
+%CLASS CHECK CheckDivInt32
 IF divisor <> 0 THEN
 	CheckDivDInt := divisor;
 ELSE
@@ -19,5 +21,6 @@ ELSE
 		ThrowException('RtsExceptions.RTSEXCPT_DIVIDEBYZERO');
 	END_IF
 END_IF
+
 
 END_FUNCTION

@@ -5,3 +5,4 @@ ID:           1028 0501
 Version:      3.19.0.2
 Order number: EPM-S500
 Description:  2 analog outputs, voltage 0..10V
+Disabled:     true

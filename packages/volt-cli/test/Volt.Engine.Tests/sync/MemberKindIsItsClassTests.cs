@@ -53,7 +53,7 @@ public class MemberKindIsItsClassTests
         var refs = RefsService.Handle(WithMethod("PROPERTY M : INT"));
 
         Assert.DoesNotContain("K.pou", refs.Items.Keys);
-        Assert.Contains("K", refs.Unreadable);
+        Assert.Contains("K", refs.Unreadable.Select(u => u.Name));
     }
 
     /// <summary>The check reads the member's text the way the child splitter does: comments, pragmas and attributes

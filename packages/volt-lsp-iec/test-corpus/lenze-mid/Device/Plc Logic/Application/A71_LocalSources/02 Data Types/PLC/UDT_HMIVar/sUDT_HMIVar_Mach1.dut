@@ -61,3 +61,4 @@ SpareByte : ARRAY[64..99] OF BYTE;
 
 END_STRUCT
 END_TYPE
+

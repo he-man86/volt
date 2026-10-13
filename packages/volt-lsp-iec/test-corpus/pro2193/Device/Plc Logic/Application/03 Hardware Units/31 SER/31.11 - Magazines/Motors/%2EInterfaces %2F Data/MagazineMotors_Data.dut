@@ -8,3 +8,4 @@ STRUCT
 	SlowStart				: SlowStartOptionType;	// Option to move extra slowly out of the label stockpile
 END_STRUCT
 END_TYPE
+

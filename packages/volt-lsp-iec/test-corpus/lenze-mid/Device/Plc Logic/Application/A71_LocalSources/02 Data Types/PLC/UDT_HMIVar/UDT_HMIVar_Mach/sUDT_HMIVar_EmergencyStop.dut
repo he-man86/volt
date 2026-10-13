@@ -21,3 +21,4 @@ EmergStop16 : Bool;
 
 END_STRUCT
 END_TYPE
+

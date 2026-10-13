@@ -127,6 +127,6 @@ public class PouEndLineTests
         var refs = RefsService.Handle(ide);
 
         Assert.DoesNotContain("Broken.pou", refs.Items.Keys);
-        Assert.Contains("Broken", refs.Unreadable);
+        Assert.Contains("Broken", refs.Unreadable.Select(u => u.Name));
     }
 }

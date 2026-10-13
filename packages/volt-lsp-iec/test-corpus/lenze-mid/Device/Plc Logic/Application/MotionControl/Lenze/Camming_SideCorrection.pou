@@ -6,8 +6,11 @@ VAR_OUTPUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^( ioDataExchange:=ioDataExchange, ioMasterAxis:=ioMasterAxis,ioSlaveAxis:=ioSlaveAxis);
+
+
 
 END_FUNCTION_BLOCK
 

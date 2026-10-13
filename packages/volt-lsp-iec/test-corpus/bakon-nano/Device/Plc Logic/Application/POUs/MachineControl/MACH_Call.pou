@@ -56,4 +56,5 @@ IMPLEMENTATION ST
 	{warning 'Disabled for compatibility - SVE'}
 	//g_Logger(directoryName := '/USBStorage/IPC/PLC/KC_Logs');
 
+
 END_PROGRAM

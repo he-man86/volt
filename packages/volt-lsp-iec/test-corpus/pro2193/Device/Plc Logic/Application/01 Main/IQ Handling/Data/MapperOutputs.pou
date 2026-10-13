@@ -12,6 +12,7 @@ VAR_INPUT
 	bit7			: BIT;
 	bit8			: BIT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -42,5 +43,6 @@ IF __ISVALIDREF(sliceInfo) THEN
 		sliceInfo.component[i].actValue	:= BitLogic.ExtractFromByte(slice, TO_BYTE(i-1));
 	END_FOR
 END_IF
+
 
 END_FUNCTION_BLOCK

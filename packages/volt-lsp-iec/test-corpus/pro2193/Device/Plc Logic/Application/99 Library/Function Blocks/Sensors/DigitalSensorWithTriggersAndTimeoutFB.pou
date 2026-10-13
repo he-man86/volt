@@ -12,6 +12,7 @@ END_VAR
 VAR
 	SignalTimeout		: SignalTimeoutFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -20,28 +21,35 @@ SignalTimeout(
 	input		:= SensorInput = NOT _isInverted,
 	alarmActive	=> alarmActive);
 
+
 END_FUNCTION_BLOCK
 
 // Sensor is active (Enable is high and SensorInput is opposite of the Invert signal)
 {attribute 'monitoring':='variable'}
 PROPERTY IsActive : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsActive := SignalTimeout.GetValue(TRUE);
+
 END_GET
 END_PROPERTY
 
 // Sensor is active (Enable is high and SensorInput is opposite of the Invert signal)
 {attribute 'monitoring':='variable'}
 PROPERTY IsInactive : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsInactive := SignalTimeout.GetValue(FALSE);
+
 END_GET
 END_PROPERTY

@@ -13,3 +13,4 @@ STRUCT
 	xBtnRemove : BOOL := FALSE;					// Remove pallet.	
 END_STRUCT
 END_TYPE
+

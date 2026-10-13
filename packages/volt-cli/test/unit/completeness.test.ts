@@ -351,6 +351,16 @@ describe("the verdict", () => {
     })
   })
 
+  // Gate review of step 4b (findings 2 and 4): an entry whose subjects ALL ran and still fail kept its key but lost its
+  // reason — dropped with its subjects, then re-made from the run's first finding. A reviewed reason ("niche: accepted
+  // loss (N occurrences …)") vanished on the next `--write-known`, and a narrowed entry kept a reason naming a subject
+  // it no longer held. A kept entry keeps its reason, whoever re-fails it.
+  it("keeps the reviewed reason of an entry whose every subject ran and still fails", () => {
+    const known = { [K("A.B.m")]: E(["x"], "niche: accepted loss (2 occurrences in the corpora)") }
+    const out = mergeKnown("codesys", known, [{ ...f("A.B.m", "x"), what: "the run's own wording" }], new Set(["x"]))
+    expect(out).toEqual({ [K("A.B.m")]: E(["x"], "niche: accepted loss (2 occurrences in the corpora)") })
+  })
+
   it("keeps every known entry in the <vendor>:<class>.<member> — <kind> form, with the subjects that fail it", () => {
     for (const [k, e] of Object.entries(KNOWN)) {
       expect(k).toMatch(/^(codesys|twincat):[^.]+\.[^.]+\..+ — .+/)
@@ -379,7 +389,7 @@ describe("picking subjects", () => {
       o("x1", "Lonely", POU, "app"),
     ]
     const items = { "FB_A.pou": "v", "FB_B.pou": "v", "FB_C.pou": "v", "GVL.gvl": "v", "Main.task": "v" }
-    const { subjects: picked, uncovered } = pickCodesys(objects, items, { "FB_B.pou": "Lib" })
+    const { subjects: picked, uncovered } = pickCodesys(objects, items, { "FB_B.pou": "Lib" }, [])
     expect(uncovered).toEqual([])
     expect(picked.map((s) => s.wire)).toEqual(["Main.task", "FB_A.pou", "FB_B.pou", "GVL.gvl"]) // every task first
     expect(picked[2]).toMatchObject({ folder: "Lib", why: "exclude:item" })
@@ -393,7 +403,7 @@ describe("picking subjects", () => {
       { name: "POUs", itemType: 601, path: "d", file: null },
     ]
     expect(
-      pickTwincat(objects, { "MAIN.pou": "v", "E.dut": "v", "PlcTask.task": "v" }, {}).subjects.map((s) => s.wire),
+      pickTwincat(objects, { "MAIN.pou": "v", "E.dut": "v", "PlcTask.task": "v" }, {}, []).subjects.map((s) => s.wire),
     ).toEqual(["E.dut", "MAIN.pou", "PlcTask.task"])
   })
 
@@ -405,10 +415,45 @@ describe("picking subjects", () => {
       [{ guid: "g", name: "X", class: "POUObject.SomeOtherPou", parent: "", props: ["BuildProperty"], build }],
       { "X.pou": "v", "Dev.device": "v" },
       {},
+      [],
     )
     expect(cs).toEqual({ subjects: [], uncovered: ["X.pou"] })
-    const tc = pickTwincat([{ name: "Y", itemType: 602, path: "a", file: "Y.TcPOUx" }], { "Y.pou": "v", "L.library": "v" }, {})
+    const tc = pickTwincat([{ name: "Y", itemType: 602, path: "a", file: "Y.TcPOUx" }], { "Y.pou": "v", "L.library": "v" }, {}, [])
     expect(tc).toEqual({ subjects: [], uncovered: ["Y.pou"] })
+  })
+
+  // Gate review of step 4b, finding 4: an item the pull REFUSES is no wire item, so it was no candidate — never judged,
+  // and its known entries (VltFixtureSfc's: a trailing newline, a held transition) outlived every run as claims nobody
+  // measured. Every refused item is a subject, as every task is: its refusal by name is what the run judges.
+  it("takes every item the pull refuses, by its unreadable name (CODESYS and TwinCAT)", () => {
+    const cs = pickCodesys(
+      [
+        { guid: "p1", name: "FB_A", class: POU, parent: "app", props: ["SVFoldersProperty"], build: null },
+        { guid: "p2", name: "Sfc", class: POU, parent: "app", props: ["SVFoldersProperty"], build: null },
+        { guid: "t1", name: "T", class: "TransitionObject.TransitionObject", parent: "p2", props: [], build: null },
+        { guid: "v1", name: "Sfc", class: "VisualObject.VisualObject", parent: "app", props: [], build: null },
+      ],
+      { "FB_A.pou": "v" },
+      {},
+      ["Sfc"],
+    )
+    expect(cs.subjects.map((s) => [s.wire, s.why])).toEqual([
+      ["FB_A.pou", "item:POUObject.POUObject"],
+      ["Sfc.pou", "every item the pull refuses"],
+    ])
+    const tc = pickTwincat(
+      [
+        { name: "MAIN", itemType: 602, path: "a", file: "MAIN.TcPOU" },
+        { name: "Broken", itemType: 602, path: "b", file: "Broken.TcPOU" },
+      ],
+      { "MAIN.pou": "v" },
+      {},
+      ["Broken"],
+    )
+    expect(tc.subjects.map((s) => [s.wire, s.why])).toEqual([
+      ["Broken.pou", "every item the pull refuses"],
+      ["MAIN.pou", "MAIN.TcPOU"],
+    ])
   })
 })
 

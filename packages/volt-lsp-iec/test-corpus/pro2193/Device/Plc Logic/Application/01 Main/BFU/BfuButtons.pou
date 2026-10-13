@@ -20,6 +20,7 @@ VAR
 		BFU.GateBFU.ButtonLock
 	];
 END_VAR
+
 IMPLEMENTATION ST
 Initialize();
 
@@ -41,6 +42,7 @@ END_IF
 GlobalVars_BFU.Reset S= Reset.ButtonPushed;
 GlobalVars_BFU.Reset R= Reset.ButtonReleased;
 
+
 END_PROGRAM
 
 METHOD PRIVATE Initialize
@@ -50,6 +52,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
@@ -65,6 +68,7 @@ Step.SetColors(			colorOn := enumColorList.Maroon);
 startLedTest := TRUE;
 
 xInitialized := TRUE;
+
 END_METHOD
 
 // Do little animation with the leds during startup :)
@@ -75,6 +79,7 @@ VAR_INST
 	i					: INT;
 	position			: INT := 1;
 END_VAR
+
 IMPLEMENTATION ST
 IF ledTestDuration.Set(In := startLedTest, Pt := 8) THEN
 	startLedTest := FALSE;
@@ -91,4 +96,5 @@ IF ledTestStep.Set(In := startLedTest, Pt := 0.3) THEN
 	ledTestStep.Reset();
 	Increment.Rollover(input := position, rollover := 5, incrementBy := 1, zeroValue := 1);
 END_IF
+
 END_METHOD

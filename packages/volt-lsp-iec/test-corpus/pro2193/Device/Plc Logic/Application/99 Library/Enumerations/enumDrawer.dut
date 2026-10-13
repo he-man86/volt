@@ -8,3 +8,4 @@ TYPE enumDrawer :
 	LastDrawer	:= 99	// Use to send the magazine arm to the last known active drawer
 ) USINT;
 END_TYPE
+

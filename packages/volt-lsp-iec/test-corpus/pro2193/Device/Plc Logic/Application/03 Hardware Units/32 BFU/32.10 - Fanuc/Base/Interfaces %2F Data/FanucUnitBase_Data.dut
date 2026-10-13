@@ -21,3 +21,4 @@ STRUCT
 	BoxSettings				: Fanuc_BoxSettings;
 END_STRUCT
 END_TYPE
+

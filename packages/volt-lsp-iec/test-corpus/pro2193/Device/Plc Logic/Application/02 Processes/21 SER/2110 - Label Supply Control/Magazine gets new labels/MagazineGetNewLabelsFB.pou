@@ -18,8 +18,10 @@ VAR
 		StateAutoLabelTakeout_Busy			:= 300
 	) DINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -28,6 +30,7 @@ VAR_INST
 	triggerIML			: RisingTriggerFB;
 	triggerState		: RisingTriggerFB;
 END_VAR
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
 
@@ -55,10 +58,12 @@ THEN
 	END_IF
 
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -66,10 +71,12 @@ CommandLock.ForceRelease();
 automaticOperationStarted	:= FALSE;
 ActState					:= StateNone;
 EStop						:= TRUE;
+
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
@@ -84,9 +91,11 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //		ShowNoProgramWarning();
 //		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+
 IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
@@ -109,6 +118,7 @@ CASE ActState OF
 			ActState := StateAutoLabelTakeout_AwaitStart;
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Return true if this module should start in this operation mode
@@ -116,6 +126,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CASE operationMode OF
@@ -129,12 +140,14 @@ CASE operationMode OF
 		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
 		ShouldStart := FALSE;
 END_CASE
+
 END_METHOD
 
 // This module will start some operations when the automatic cycle is started on the SER
 METHOD StartCycle : BOOL
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -156,10 +169,12 @@ END_IF
 IF ActState = StateNone THEN
 	StartCycle := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -167,12 +182,15 @@ CommandLock.ForceRelease();
 automaticOperationStarted	:= FALSE;
 ActState					:= StateNone;
 Stop						:= TRUE;
+
 END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 automaticOperationStarted	:= FALSE;
 StopCycle					:= ActState = StateNone;
+
 END_METHOD

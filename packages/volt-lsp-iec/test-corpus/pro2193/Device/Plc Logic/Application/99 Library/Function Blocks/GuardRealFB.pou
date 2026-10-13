@@ -12,6 +12,7 @@ VAR
 
 	manuallyUpdatePosInAutoMode	: REAL;	// Use by Brink programmers; to force change position during automatic operation of robot.
 END_VAR
+
 IMPLEMENTATION ST
 Alarms();
 
@@ -33,6 +34,7 @@ ELSE
 	prevValue := value.value;
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE Alarms
@@ -40,6 +42,7 @@ VAR_INST
 	PosTooSmallAlarm			: SetErrorFB;
 	PosTooBigAlarm				: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 PosTooSmallAlarm(
 	moduleHandler	:= moduleHandler,
@@ -73,6 +76,7 @@ PosChangeTooLargeAlarm(
 
 PosChangeTooLargeAlarm.alarmCondition	:= FALSE;
 value.limitActive						:= PosTooSmallAlarm.active OR PosTooBigAlarm.active;
+
 END_METHOD
 
 //FB_Init is always available implicitly and it is used primarily for initialization.
@@ -86,6 +90,8 @@ VAR_INPUT
 
 	moduleHandler	: L_IMHP.L_IMHP_IModuleHandler;
 END_VAR
+
 IMPLEMENTATION ST
 THIS^.moduleHandler := moduleHandler;
+
 END_METHOD

@@ -43,6 +43,7 @@ END_VAR
 VAR CONSTANT
 	NumberOfStatisticSets		: USINT := 3;
 END_VAR
+
 IMPLEMENTATION ST
 Initialize();
 
@@ -91,6 +92,7 @@ END_IF
 HandleCavityAliasChange();
 HandleRejectReasonAliasChange();
 
+
 END_FUNCTION_BLOCK
 
 // Add a product to the statistics
@@ -103,6 +105,7 @@ VAR
 	productCavityNo		: UINT;
 	refStat				: REFERENCE TO ProductionStatsCavityType;
 END_VAR
+
 IMPLEMENTATION ST
 // Check if cavity number is valid
 IF Product.CavNo < GVL_Constants.CavityStartIndex
@@ -165,6 +168,7 @@ FOR i := 1 TO NumberOfStatisticSets DO
 		END_IF
 	END_FOR
 END_FOR
+
 END_METHOD
 
 // Add a product array to the statistics
@@ -175,10 +179,12 @@ END_VAR
 VAR
 	di					: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR di := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
 	Count(aProductArray[di]);
 END_FOR
+
 END_METHOD
 
 // Add a 2 dimensional product array to the statistics
@@ -189,12 +195,14 @@ END_VAR
 VAR
 	di1, di2			: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR di1 := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
 	FOR di2 := LOWER_BOUND(aProductArray, 2) TO UPPER_BOUND(aProductArray, 2) DO
 		Count(aProductArray[di1, di2]);
 	END_FOR
 END_FOR
+
 END_METHOD
 
 METHOD PRIVATE FormatString : BOOL
@@ -204,6 +212,7 @@ VAR
 	_m		: Util.MINUTE;
 	_s		: Util.SECOND;
 END_VAR
+
 IMPLEMENTATION ST
 strRuntime		:= '';
 
@@ -231,28 +240,33 @@ IF _s < 10 THEN
 	strRuntime		:= CONCAT(strRuntime, '0');
 END_IF
 strRuntime			:= CONCAT(strRuntime, TO_STRING(_s));
+
 END_METHOD
 
 METHOD PRIVATE HandleCavityAliasChange : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 IF saveSelectedCavityAlias THEN
 	PersistentVars.cavityAliases[GVL_Constants.CavityStartIndex + selectedCavity] := newCavityAlias;
 	JsonBuilder.executeCavityAliasJson := TRUE;
 	saveSelectedCavityAlias := FALSE;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE HandleRejectReasonAliasChange : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 IF saveSelectedRejectReasonAlias THEN
 	PersistentVars.rejectReasonDescriptions[selectedRejectReason + 1] := newRejectReasonAlias;
 	JsonBuilder.executeRejectReasonAliasJson := TRUE;
 	saveSelectedRejectReasonAlias := FALSE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Initialize
@@ -260,6 +274,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	initialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF initialized THEN
 	RETURN;
@@ -284,6 +299,7 @@ initialized := TRUE;
 // Warning: do not place this code in a FB_Init method!
 // We are settings references here, the references are pointing to a StatisticsData[i] struct.
 // This struct is an var_in_out, and this variable is not yet defined during FB_Init.
+
 END_METHOD
 
 METHOD PRIVATE Reset
@@ -293,6 +309,7 @@ END_VAR
 VAR
 	refStat				: REFERENCE TO ProductionStatsCavityType;
 END_VAR
+
 IMPLEMENTATION ST
 FOR j := GVL_Constants.CavityStartIndex TO GVL_Constants.CavityEndIndex + 1 DO	// Go over all cavities, and do 1 extra loop for the totals.
 	IF j > GVL_Constants.CavityEndIndex THEN
@@ -315,4 +332,5 @@ MeasureTimeStopped[usiStatIndex].Reset();
 MeasureTimeResetting[usiStatIndex].Reset();
 MeasureTimeIdle[usiStatIndex].Reset();
 MeasureTimeAutomatic[usiStatIndex].Reset();
+
 END_METHOD

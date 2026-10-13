@@ -6,3 +6,4 @@ TYPE Fanuc_Homing_IN :
 	Error			:= 2	// Homing error, not in homing area
 ) UINT;
 END_TYPE
+

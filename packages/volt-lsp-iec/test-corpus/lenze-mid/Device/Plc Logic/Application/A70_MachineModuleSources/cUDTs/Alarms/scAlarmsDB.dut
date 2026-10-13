@@ -116,3 +116,4 @@ STRUCT
 	AlmTime		: ARRAY[0..100] OF WORD; //Alarm timer
 END_STRUCT
 END_TYPE
+

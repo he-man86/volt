@@ -33,3 +33,5 @@ ForceOutputs : BOOL;
 //SafetyControl_00 : 
 Set_Global_EstopError : BOOL;
 END_VAR
+
+

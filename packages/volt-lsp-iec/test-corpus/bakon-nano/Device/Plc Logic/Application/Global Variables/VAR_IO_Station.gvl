@@ -67,3 +67,4 @@ VAR_GLOBAL
 	g_iAQ_Spare_01								: INT;
 
 END_VAR
+

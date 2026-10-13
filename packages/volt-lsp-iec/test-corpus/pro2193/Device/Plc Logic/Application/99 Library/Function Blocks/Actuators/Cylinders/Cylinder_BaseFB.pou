@@ -27,6 +27,7 @@ END_VAR
 VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -42,6 +43,7 @@ GlobalVars.manualControlRequested S= inAdjustMode;
 
 Blinker(ENABLE := inAdjustMode, TIMELOW := tAdjustFrequency, TIMEHIGH := tAdjustFrequency);
 
+
 END_FUNCTION_BLOCK
 
 METHOD PUBLIC SetMonitoring
@@ -50,6 +52,7 @@ VAR_INPUT
 	plcDataTypeIn	: PlcDataType;
 	plcDataTypeOut	: PlcDataType;
 END_VAR
+
 IMPLEMENTATION ST
 IF errorId_SensorOut <> 0 THEN
 	MeasureMaxTimeIn.SetMonitoring(		itfAddLog, plcDataTypeIn);
@@ -58,12 +61,14 @@ END_IF
 IF errorId_SensorIn <> 0 THEN
 	MeasureMaxTimeOut.SetMonitoring(	itfAddLog, plcDataTypeOut);
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED SetSensorInAlarm
 VAR_INPUT
 	xSet	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SensorInAlarm(
 	moduleHandler	:= moduleHandler,
@@ -81,12 +86,14 @@ END_IF
 
 MeasureMaxTimeIn.Monitor(
 	in				:= xSet AND NOT inputIn AND errorId_SensorIn <> 0);
+
 END_METHOD
 
 METHOD PROTECTED SetSensorOutAlarm
 VAR_INPUT
 	xSet	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SensorOutAlarm(
 	moduleHandler	:= moduleHandler,
@@ -104,13 +111,16 @@ END_IF
 
 MeasureMaxTimeOut.Monitor(
 	in				:= xSet AND NOT inputOut AND errorId_SensorOut <> 0);
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY IsIn : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsIn := inputIn AND NOT inputOut;
 END_GET
@@ -118,9 +128,11 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsOut : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsOut := inputOut AND NOT inputIn;
 END_GET

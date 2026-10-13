@@ -15,6 +15,7 @@ END_VAR
 VAR
 	sTempPosition		: XYA_Target;
 END_VAR
+
 IMPLEMENTATION ST
 
 sTempPosition 			:= defaultXYA;
@@ -35,5 +36,6 @@ StorePos := SEL(I_bIsWaste,	Stack_Push_CuttingPos(I_dataArray := ADR(g_aCuttingP
 							Stack_Push_CuttingPos(I_dataArray := ADR(g_aWastePositions), 	IQ_dataArrayInfo := g_sWastePositionsInfo, 		IQ_item := sTempPosition));
 
 RETURN;
+
 
 END_FUNCTION

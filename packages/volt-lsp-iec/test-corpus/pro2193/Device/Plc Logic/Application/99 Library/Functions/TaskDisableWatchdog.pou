@@ -5,6 +5,7 @@ VAR
 	iecResult		: SysTypes.RTS_IEC_RESULT;
 	handle			: SysTypes.RTS_IEC_HANDLE;
 END_VAR
+
 IMPLEMENTATION ST
 handle				:= CmpIecTask.IecTaskGetCurrent(ADR(iecResult));			// Function to get own task handle
 
@@ -16,5 +17,6 @@ iecResult			:= CmpIecTask.IecTaskDisableWatchdog(hIecTask := handle);
 IF iecResult <> CmpErrors.Errors.ERR_OK THEN RETURN; END_IF
 
 TaskDisableWatchdog	:= TRUE;
+
 
 END_FUNCTION

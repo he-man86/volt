@@ -22,8 +22,10 @@ VAR
 	) DINT;
 
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -36,6 +38,7 @@ VAR_INST
 	xuUnitVacuum		: WORD;
 	product				: ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 // Xu unit has vacuum high that is needed for this Takeover position
 xuUnitVacuum	:= 0;
@@ -84,20 +87,25 @@ CASE iParameter OF
 		product					:= xuUnit.ProductData_Get(product := 3);
 		CheckIfTransferIsNeeded	R= product.ToShute;
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 EStop		:= TRUE;
+
 END_METHOD
 
 // Start transfer of products or labels between 2 units
@@ -105,6 +113,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -123,6 +132,7 @@ END_IF
 IF ActState = StateFinal THEN
 	ExecuteTransfer := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
@@ -131,6 +141,7 @@ VAR_INST
 	result				: ARRAY[1..2] OF BOOL;
 	almostSafe			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
@@ -301,6 +312,7 @@ CASE ActState OF
 	StateFinal:
 		ActState := StateNone;
 END_CASE
+
 END_METHOD
 
 // Prepare transfer of products while Y axis is still moving
@@ -308,6 +320,7 @@ METHOD PUBLIC PrepareTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -320,24 +333,30 @@ IF ActState = StateNone THEN
 END_IF
 
 PrepareTransfer := CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 Stop		:= TRUE;
+
 END_METHOD
 
 // Transfer has started and is doing something
 {attribute 'monitoring':='call'}
 PROPERTY TransferBusy : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TransferBusy	:= ActState <> StateNone;
+
 END_GET
 END_PROPERTY

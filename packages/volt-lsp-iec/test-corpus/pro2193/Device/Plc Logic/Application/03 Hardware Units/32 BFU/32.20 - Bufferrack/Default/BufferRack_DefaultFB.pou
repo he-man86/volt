@@ -15,8 +15,10 @@ VAR
 	alarmStackNotDetected		: BOOL;
 	alarmStackDetected			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -25,6 +27,7 @@ METHOD PUBLIC AddToStack
 VAR_INPUT
 	StackStatus : REFERENCE TO StackStatusType;	// Status of the stack that is being placed
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF StackStatus.Present THEN
@@ -37,12 +40,14 @@ IF StackStatus.Present THEN
 
 	StackIndex							:= StackIndex + 1;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -86,9 +91,11 @@ SetError[4](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 IF NOT BufferStackStatus.Present THEN
 	StackIndex := 0;
@@ -112,15 +119,18 @@ THEN
 		END_IF
 	END_IF
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 ClearProducts.Stack(BufferStackStatus);
 
 EStop			:= SUPER^.EStop();
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -128,6 +138,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -149,39 +160,49 @@ CASE localState OF
 	1:
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY StackIndex : USINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 StackIndex			:= BufferStackIndex;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BufferStackIndex	:= StackIndex;
 END_SET
 END_PROPERTY
 
 PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 StackStatus		REF= BufferStackStatus;
+
 END_GET
 END_PROPERTY

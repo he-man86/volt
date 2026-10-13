@@ -61,3 +61,4 @@ sModeColourCode : ARRAY [0..L_OEEA_Lib.uiNoOfProductionModes] OF STRING(6) := ['
 
 END_STRUCT
 END_TYPE
+

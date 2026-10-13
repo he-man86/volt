@@ -57,7 +57,7 @@ test("a killed run's leftover is swept as an orphan of the fixture, under its ow
 })
 
 test("an unreadable GVL is still deleted by a forced op under the pushed name", () => {
-  expect(deleteOpsFor(["G.gvl"], { items: {}, unreadable: ["G"] }, nothing)).toEqual({
+  expect(deleteOpsFor(["G.gvl"], { items: {}, unreadable: [{ name: "G", reason: "read failed" }] }, nothing)).toEqual({
     ops: [{ op: "deleteItem", name: "G.gvl", ifVersion: null }],
     force: true,
   })

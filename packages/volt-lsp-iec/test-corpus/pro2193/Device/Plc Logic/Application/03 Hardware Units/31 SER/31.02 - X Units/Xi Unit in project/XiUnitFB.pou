@@ -9,6 +9,7 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
@@ -16,5 +17,6 @@ SUPER^(
 	DataBrink			:= DataBrink,
 	coveredDistance		:= coveredDistance,
 );
+
 
 END_FUNCTION_BLOCK

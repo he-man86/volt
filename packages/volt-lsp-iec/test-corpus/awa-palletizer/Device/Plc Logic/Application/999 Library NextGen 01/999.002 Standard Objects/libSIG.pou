@@ -43,6 +43,7 @@ VAR
 	// Blinking
 	Blink: BLINK;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // This function controls a signal object.

@@ -19,6 +19,7 @@ VAR
 	xStartGoInDelay			: BOOL;
 	xStartGoOutDelay		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // Execute base cylinder fb
 SUPER^();
@@ -46,9 +47,11 @@ IF middleButton THEN
 	GlobalVars.manualControlRequested := TRUE;
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 // Set the alarm messages
 SetSensorOutAlarm(
@@ -62,17 +65,21 @@ SetSensorInAlarm(
 		xOutput	:= OutputIn.Map(),
 		xOutInv	:= OutputOut.Map(),
 		xSensor	:= inputIn));
+
 END_METHOD
 
 // Set both outputs (=True)
 METHOD PUBLIC FINAL GoForceMiddle : BOOL
+
 IMPLEMENTATION ST
 OutputIn.Set();
 OutputOut.Set();
+
 END_METHOD
 
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC GoIn : BOOL
+
 IMPLEMENTATION ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
@@ -95,16 +102,19 @@ ELSIF NOT xStartGoInDelay THEN
 
 	GoIn := IsIn;
 END_IF
+
 END_METHOD
 
 // Reset both outputs. The 5/3 valve goes to middle position.
 METHOD PUBLIC GoMiddle
+
 IMPLEMENTATION ST
 Reset();
 END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC GoOut : BOOL
+
 IMPLEMENTATION ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
@@ -127,6 +137,7 @@ ELSIF NOT xStartGoOutDelay THEN
 
 	GoOut := IsOut;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -134,6 +145,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
@@ -152,37 +164,48 @@ ELSIF minButtonPushed THEN
 ELSIF middleTrigger.Rising(CLK := middleButton) THEN
 	GoMiddle();
 END_IF
+
 END_METHOD
 
 {attribute 'hide'}
 METHOD Map : BOOL
+
 IMPLEMENTATION ST
 ThrowException('Use other mapping methods instead');
+
 END_METHOD
 
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapIn : BOOL
+
 IMPLEMENTATION ST
 MapIn := OutputIn.Map();
+
 END_METHOD
 
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapOut : BOOL
+
 IMPLEMENTATION ST
 MapOut := OutputOut.Map();
+
 END_METHOD
 
 // Reset the outputs (=False)
 METHOD Reset
+
 IMPLEMENTATION ST
 OutputIn.Reset();
 OutputOut.Reset();
+
 END_METHOD
 
 // Set the outputs (=True)
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 GoOut();
+
 END_METHOD
 
 METHOD PRIVATE SetAlarm : BOOL
@@ -191,6 +214,7 @@ VAR_INPUT
 	xOutInv		: BOOL;		// The output that moves the cylinder the other way.
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
+
 IMPLEMENTATION FBD UNSUPPORTED
 END_METHOD
 
@@ -199,6 +223,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
@@ -219,6 +244,7 @@ ELSIF NOT xStartGoInDelay AND NOT xStartGoOutDelay THEN
 	OutputOut.SetOrReset(xValue);
 	OutputIn.SetOrReset(NOT xValue);
 END_IF
+
 END_METHOD
 
 // Set both the outputs of the valve immediately
@@ -227,18 +253,23 @@ VAR_INPUT
 	xOutput2	: BOOL;		// Output when cylinder moves out
 	xOutput1	: BOOL;		// Output when cylinder moves in
 END_VAR
+
 IMPLEMENTATION ST
 OutputOut.SetOrReset(xOutput2);
 OutputIn.SetOrReset(xOutput1);
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY OnTargetPos : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 OnTargetPos	:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND
 			(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);
+
 END_GET
 END_PROPERTY

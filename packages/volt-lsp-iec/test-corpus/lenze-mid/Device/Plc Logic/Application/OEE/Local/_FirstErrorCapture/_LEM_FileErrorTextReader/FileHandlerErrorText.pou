@@ -58,6 +58,7 @@ tWaitBeforeRead, tWaitAfterDone	: TON;
 rtReadAfterStartUp	: R_TRIG;
 iReadLoop : INT;
 END_VAR
+
 IMPLEMENTATION ST
 
 // Call action sequences
@@ -65,6 +66,8 @@ actSequencer();
 actReadFromFile();
 
 FirstScanCycle:= TRUE;
+
+
 
 END_PROGRAM
 
@@ -159,4 +162,7 @@ CASE iStep OF
 		xReadCyclic:= FALSE;
 	END_IF;
 END_CASE
+
+
+
 END_ACTION

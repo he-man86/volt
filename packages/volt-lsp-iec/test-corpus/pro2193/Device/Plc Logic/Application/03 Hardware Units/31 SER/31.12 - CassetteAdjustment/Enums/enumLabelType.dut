@@ -9,3 +9,4 @@ TYPE enumLabelType :
 	FiveSide	:= 5
 );
 END_TYPE
+

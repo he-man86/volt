@@ -5,3 +5,4 @@ STRUCT
 	forceValue	: BOOL;
 END_STRUCT
 END_TYPE
+

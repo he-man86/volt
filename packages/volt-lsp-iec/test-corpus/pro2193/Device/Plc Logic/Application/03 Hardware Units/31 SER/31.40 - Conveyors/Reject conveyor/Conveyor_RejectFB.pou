@@ -14,8 +14,11 @@ VAR
 	stopConveyorAfterTimer		: BOOL;
 	moveConveyorAfterEStop		: BOOL := TRUE;
 END_VAR
+
 IMPLEMENTATION ST
+%ONLINE_CHANGE_RESERVE 200
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -23,6 +26,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 //	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 (*SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -34,9 +38,11 @@ IMPLEMENTATION ST
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
 *)
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 RejectConveyor(
 	moduleHandler		:= ModuleHandler,
@@ -60,10 +66,12 @@ IF stopConveyorAfterTimer AND RunningTimer.Q THEN			// Await stacking timer befo
 	stopConveyorAfterTimer := FALSE;
 	CommandLock.ForceRelease();			// Be carefull because this ForceRelease will restart any command that is currently active (like Reset())
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -73,10 +81,12 @@ moveConveyorAfterEStop			:= TRUE;
 RejectConveyor.Reset();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Start command for the conveyor to move the stacks
 METHOD PUBLIC MoveStep : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -92,6 +102,7 @@ END_IF
 IF RejectConveyor.ConveyorState = enumConveyorRunning_State.Standstill THEN
 	MoveStep := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -99,6 +110,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -133,10 +145,12 @@ CASE localState OF
 //			Reset := CommandLock.Release(__POUNAME());
 //		END_IF
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();		// Steal the lock from any command that may be active
@@ -144,4 +158,5 @@ CommandLock.ForceRelease();		// Steal the lock from any command that may be acti
 stopConveyorAfterTimer			:= TRUE;
 
 Stop := RejectConveyor.ConveyorState = enumConveyorRunning_State.Standstill;
+
 END_METHOD

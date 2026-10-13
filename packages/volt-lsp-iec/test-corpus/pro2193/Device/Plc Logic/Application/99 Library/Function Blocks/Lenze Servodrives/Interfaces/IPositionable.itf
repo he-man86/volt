@@ -1,11 +1,13 @@
 INTERFACE IPositionable
 EXTENDS __SYSTEM.IQueryInterface
 
+
 // Move to absolute position with profile data
 METHOD PUBLIC MoveAbs : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
+
 END_METHOD
 
 // Move to absolute position
@@ -13,6 +15,7 @@ METHOD PUBLIC MoveAbsPos : BOOL
 VAR_INPUT
 	position				: REAL;
 END_VAR
+
 END_METHOD
 
 // Move to relative position with profile data
@@ -20,6 +23,7 @@ METHOD PUBLIC MoveRel : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
+
 END_METHOD
 
 // Move to relative position
@@ -27,6 +31,7 @@ METHOD PUBLIC MoveRelPos : BOOL
 VAR_INPUT
 	distance	: REAL;
 END_VAR
+
 END_METHOD
 
 // Prepare vel, acc and dec values for later movements
@@ -34,6 +39,7 @@ METHOD PUBLIC SetMovementProfileData
 VAR_INPUT
 	Data		: ProfileType;
 END_VAR
+
 END_METHOD
 
 // Prepare vel, acc and dec values for later movements
@@ -43,6 +49,7 @@ VAR_INPUT
 	rAcc		: REAL;		// Acc in %
 	rDec		: REAL;		// Dec in %
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

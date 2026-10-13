@@ -2,6 +2,7 @@ PROGRAM Simulation
 VAR
 	ATD_Simulate: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF (ATD_Simulate) THEN
 Mach1_Safety.Status.Emergency_button01:=TRUE;
@@ -20,5 +21,8 @@ LST_InputsOutputs.I100_3_Selector_switch_auto_manual_OP0a:=FALSE;
 LST_InputsOutputs.I100_1_Pushbutton_start_OP0a:=TRUE;
 
 END_IF
+
+
+
 
 END_PROGRAM

@@ -8,3 +8,4 @@ TYPE enumMouldMeasurementResult :
 	Short			:= 3
 );
 END_TYPE
+

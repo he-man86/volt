@@ -53,6 +53,7 @@ END_VAR
 VAR_TEMP
 	uiPropertyIndex			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF xExecute
 AND NOT xExecute_old THEN
@@ -219,6 +220,7 @@ END_IF
 //Save execute
 xExecute_old := xExecute;
 
+
 END_FUNCTION_BLOCK
 
 {attribute 'conditionalshow'}
@@ -232,6 +234,7 @@ VAR_INST
 	sFind				: STRING(1);				//Used to search charachters such as {}[]
 	psFind				: POINTER TO STRING(1);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Load pointer
@@ -264,6 +267,7 @@ END_IF
 
 //Return value
 _mCheckForBrackets := iFindResult > 0;
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -271,6 +275,7 @@ METHOD INTERNAL _mCheckType_Boolean : BOOL
 VAR_INPUT
 	psContent			: POINTER TO STRING(c_uiPropertyStringSize);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
@@ -285,6 +290,7 @@ OR psContent^ = '0' THEN
 ELSE
 	_mCheckType_Boolean := FALSE;
 END_IF
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -296,6 +302,7 @@ VAR
 	udiForLoop			: UDINT;
 	pbyFind				: POINTER TO BYTE;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Reset
@@ -317,6 +324,7 @@ FOR udiForLoop := 0 TO (c_uiPropertyStringSize-1) DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -327,6 +335,7 @@ END_VAR
 VAR
 	psConcat		: POINTER TO STRING(1);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Load pointer
@@ -334,4 +343,5 @@ psConcat := ADR(sConcat);
 
 //Concat content
 StrConcatA(pstFrom:=psConcat, pstTo:=psJSON, iBufferSize:=TO_INT(c_uiJSONStringSize));
+
 END_METHOD

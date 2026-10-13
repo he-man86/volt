@@ -9,3 +9,4 @@ STRUCT
 	rHammerOffTime				: REAL := 0.5;
 END_STRUCT
 END_TYPE
+

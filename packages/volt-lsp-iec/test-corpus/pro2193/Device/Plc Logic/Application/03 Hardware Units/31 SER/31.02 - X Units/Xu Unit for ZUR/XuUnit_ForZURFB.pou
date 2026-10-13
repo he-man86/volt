@@ -14,6 +14,7 @@ END_VAR
 VAR
 	resettingNotPermittedAlarm	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
@@ -22,12 +23,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Alarms();
 
@@ -52,9 +55,11 @@ SetError[2](
 	active			=> );
 
 resettingNotPermittedAlarm := FALSE;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 SUPER^.Cyclic();
 
@@ -62,24 +67,29 @@ ReleaseProductsAir[1](	// Upper row
 	manualControlEnabled	:= SER.ManualControlEnabled);
 ReleaseProductsAir[2](	// Lower row
 	manualControlEnabled	:= SER.ManualControlEnabled);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 ReleaseProductsAir[1].Reset();
 ReleaseProductsAir[2].Reset();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 METHOD PUBLIC Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
 Drive.config.maxVelocity		:= 2;
 Drive.config.maxAcceleration	:= 40;
 Drive.config.maxJerk			:= 400;
+
 END_METHOD
 
 // Make the X drives go to the parking position on start of program
@@ -89,6 +99,7 @@ END_VAR
 VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF SUPER^.MoveToParking(almostSafe => almostSafe) THEN
@@ -97,6 +108,7 @@ IF SUPER^.MoveToParking(almostSafe => almostSafe) THEN
 
 	MoveToParking := TRUE;
 END_IF
+
 END_METHOD
 
 // Takeout the shot of products from the mould. Parameter indicates phase (optional)
@@ -107,6 +119,7 @@ END_VAR
 VAR_INST
 	Timer					: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Takeout from mould
 (*
@@ -137,6 +150,7 @@ AND Timer.Set(HasPayload = enumPayload._All OR (SER.OperationMode = SER_Operatio
 THEN
 	MoveTowardsMould := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Release a certain amount of products. Parameter indicates which products are released.
@@ -147,6 +161,7 @@ END_VAR
 VAR_INST
 	Timer			: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 (*
@@ -180,10 +195,12 @@ END_IF
 IF Timer.Set(In := TRUE, Pt := Data.rReleaseProductsDelay) THEN
 	ReleaseProducts := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+
 IMPLEMENTATION ST
 IF NOT YUnit.InSafePos AND NOT Drive.IsHomed THEN
 	resettingNotPermittedAlarm	:= TRUE;
@@ -194,24 +211,29 @@ ReleaseProductsAir[1].Reset();
 ReleaseProductsAir[2].Reset();
 
 Reset := SUPER^.Reset();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 ReleaseProductsAir[1].Reset();
 ReleaseProductsAir[2].Reset();
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY HasPayload : enumPayload
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 //IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
 	HasPayload := SUPER^.HasPayload;
@@ -236,41 +258,51 @@ ELSE
 	HasPayload := enumPayload.None;
 END_IF
 *)
+
 END_GET
 END_PROPERTY
 
 // The X axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePos := OnParkingPosSensor.IsActive AND Drive.PosReached(Data.ParkingPos.value);
+
 END_GET
 END_PROPERTY
 
 // The X axis is in a safe position to enter the mould.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePosForMouldEntry := SUPER^.InSafePosForMouldEntry AND HasPayload = enumPayload.None;
+
 END_GET
 END_PROPERTY
 
 // The Xu unit is in standstill on the Takeout position inside the mould.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsOnTakeoutPos := (*OnParkingPosSensor.IsInactive AND*) Drive.PosReached(Data.Takeout.Pos.value);
+
 END_GET
 END_PROPERTY

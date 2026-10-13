@@ -5,3 +5,4 @@ Stop : Int;
 SetSpeed : Int;
 END_STRUCT
 END_TYPE
+

@@ -8,3 +8,18 @@ VAR_GLOBAL
 	g_HMI_MachCommand		: sMACH_HMI_UnitCmd;
 	C_rMaxPowerUS1			: REAL;
 END_VAR
+%NETVAR Acknowledge: false
+%NETVAR Checksum: false
+%NETVAR EventVariable: ''
+%NETVAR Interval: T#50ms
+%NETVAR ListIdentifier: 1
+%NETVAR MinimumGap: T#20ms
+%NETVAR PackVariables: true
+%NETVAR ProtocolName: UDP
+%NETVAR TransmitCyclic: true
+%NETVAR TransmitOnChange: false
+%NETVAR TransmitOnEvent: false
+%NETVAR TaskName: LogicTask
+%NETVAR ImportFileName: ''
+%NETVAR ProtocolParameterValues: UDP=Broadcast Adr.=192.168.27.231; Port=1202
+%FILE_LINK ExportBeforeCompile '\\SRV2012\Home$$\pieter\Documents\Projecten\P10037 Hert nano met wasbak\21000149 Software\PLC\PLC_TO_CAN.gvl'

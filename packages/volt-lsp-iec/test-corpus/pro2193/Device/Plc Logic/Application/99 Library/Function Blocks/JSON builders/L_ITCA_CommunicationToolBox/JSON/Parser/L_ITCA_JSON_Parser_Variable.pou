@@ -60,6 +60,7 @@ VAR_TEMP
 	uiPropertyIndex			: UINT;
 	diForLoop				: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF xExecute
 AND NOT xExecute_old THEN
@@ -291,6 +292,7 @@ END_IF
 //Save execute
 xExecute_old := xExecute;
 
+
 END_FUNCTION_BLOCK
 
 {attribute 'conditionalshow'}
@@ -302,6 +304,7 @@ END_VAR
 VAR
 	psFind				: POINTER TO STRING(1);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Load pointer
@@ -309,6 +312,7 @@ psFind := ADR(sFind);
 
 //Check for content
 _mStrFindA := StrFindA(pst1:=psJSON, pst2:=psFind, uiSearchStart:=TO_UINT(iOffset));
+
 END_METHOD
 
 METHOD mGetValue
@@ -322,6 +326,7 @@ VAR
 	psValue_Method			: POINTER TO STRING(1);			//Pointer to value in object array
 	diForLoop : DINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF sSymbol <> '' THEN
 	//Loop properties of parser
@@ -341,4 +346,5 @@ IF sSymbol <> '' THEN
 		END_IF
 	END_FOR
 END_IF
+
 END_METHOD

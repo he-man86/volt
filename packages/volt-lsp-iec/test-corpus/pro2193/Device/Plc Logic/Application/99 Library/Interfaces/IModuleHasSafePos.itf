@@ -1,9 +1,11 @@
 // Used by modules like: Y Units, Xi Units, Xu Units.
 INTERFACE IModuleHasSafePos
 
+
 // The axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePos : BOOL
+
 GET
 END_GET
 END_PROPERTY

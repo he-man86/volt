@@ -14,6 +14,7 @@ VAR
 	taskInfo				: CmpIecTask.Task_Info2;
 
 END_VAR
+
 IMPLEMENTATION ST
 __TRY
 taskInfo	:= TaskGetInfo();
@@ -46,6 +47,7 @@ __CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.EdgePcTask])
 	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;
 __ENDTRY
 
+
 END_PROGRAM
 
 METHOD PRIVATE Initialize : BOOL
@@ -53,6 +55,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	initialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF initialized THEN
 	Initialize		:= TRUE;
@@ -67,4 +70,5 @@ THEN
 	initialized		:= TRUE;
 	Initialize		:= TRUE;
 END_IF
+
 END_METHOD

@@ -36,6 +36,7 @@ VAR
 	// Error
 	xSetpointError: BOOL := FALSE;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // This function scales a setpoint to analogue output value using a scaling factor.

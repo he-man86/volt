@@ -2,6 +2,5 @@ LIBRARY SysFile
 NAMESPACE SysFile
 RESOLUTION SysFile, 3.5.17.0 (System)
 PLACEHOLDER true
-SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System)
 MATERIALIZATION 4

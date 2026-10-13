@@ -6,3 +6,4 @@ STRUCT
 	Heater3: cUDT_MachData_Dryer_Heater;
 END_STRUCT
 END_TYPE
+

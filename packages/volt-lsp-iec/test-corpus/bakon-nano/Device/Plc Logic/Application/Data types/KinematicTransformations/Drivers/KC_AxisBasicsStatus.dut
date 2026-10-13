@@ -26,3 +26,4 @@ STRUCT
 	bDigIn2								: BOOL; (* V2 *)
 END_STRUCT
 END_TYPE
+

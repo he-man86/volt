@@ -4,3 +4,4 @@ STRUCT
 	p2 	: Gonio_Point;
 END_STRUCT
 END_TYPE
+

@@ -34,6 +34,7 @@ VAR
 	// Falling edge
 	FTRIG_edX : F_TRIG;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // This function controls a digital output.

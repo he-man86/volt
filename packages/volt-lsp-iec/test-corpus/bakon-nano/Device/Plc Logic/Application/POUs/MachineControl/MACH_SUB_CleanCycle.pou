@@ -10,6 +10,8 @@ VAR
 	tWatchDogTimer			: TON;
 	tStepTimer				: TOF;
 END_VAR
+
+
 IMPLEMENTATION ST
 (*************************************************************************
  *

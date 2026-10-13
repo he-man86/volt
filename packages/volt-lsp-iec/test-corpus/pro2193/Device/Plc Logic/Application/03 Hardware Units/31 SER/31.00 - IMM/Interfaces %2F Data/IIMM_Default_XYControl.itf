@@ -1,10 +1,12 @@
 INTERFACE IIMM_Default_XYControl
 EXTENDS IIMM_Default
 
+
 // Start the Ejector/Core pullers program.
 METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Front position.
 VAR_INPUT
 END_VAR
+
 %FOLDER Commands
 END_METHOD
 
@@ -13,11 +15,13 @@ METHOD PUBLIC GetProductData : ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Con
 VAR_INPUT
 	MouldLevel	: UINT(1..GVL_Constants.MaxMouldLevels);
 END_VAR
+
 %FOLDER Commands
 END_METHOD
 
 // Inhibit (disable) closing of the mould. The Y axis is going in.
 METHOD PUBLIC InhibitMouldClosing
+
 %FOLDER Commands
 END_METHOD
 
@@ -29,6 +33,7 @@ END_VAR
 VAR_OUTPUT
 	xMouldClosed				: BOOL;		// True if the mould close command was given to the IMM.
 END_VAR
+
 %FOLDER Commands
 END_METHOD
 
@@ -37,12 +42,14 @@ METHOD PUBLIC SynchronizeYUnits : BOOL
 VAR_INPUT
 	instanceNo : UINT;	// Instance number of the XY module that is synchronizing.
 END_VAR
+
 %FOLDER Commands
 END_METHOD
 
 // Returns true when the Xi axis is allowed to place labels in the mould cavities
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC AllowLabelsInCavities : BOOL
+
 %FOLDER Properties
 GET
 END_GET
@@ -51,6 +58,7 @@ END_PROPERTY
 // Returns true when the mould is completely opened
 {attribute 'monitoring':='variable'}
 PROPERTY PUBLIC RequestFullMouldOpen : BOOL
+
 %FOLDER Properties
 GET
 END_GET
@@ -59,6 +67,7 @@ END_PROPERTY
 // Returns true when the Y unit has permission to move into the mould area
 {attribute 'monitoring':='variable'}
 PROPERTY PUBLIC RequestMouldEntry : BOOL
+
 %FOLDER Properties
 GET
 END_GET

@@ -5,6 +5,7 @@ VAR_INPUT
 	s2	: STRING(255);
 	s3	: STRING(255);
 END_VAR
+
 IMPLEMENTATION ST
 Stu.StrCpyA(
 	pBuffer		:= ADR(CONCAT3),
@@ -14,5 +15,6 @@ Stu.StrCpyA(
 IF	Stu.StrConcatA(pstFrom := ADR(s2), pstTo := ADR(CONCAT3), iBufferSize := 255) THEN
 	Stu.StrConcatA(pstFrom := ADR(s3), pstTo := ADR(CONCAT3), iBufferSize := 255);
 END_IF
+
 
 END_FUNCTION

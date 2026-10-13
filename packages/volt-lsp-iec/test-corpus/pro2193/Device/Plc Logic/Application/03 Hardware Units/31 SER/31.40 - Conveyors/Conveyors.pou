@@ -37,6 +37,7 @@ VAR CONSTANT
 	usiNumberOfUnits			: USINT := 1;
 	iNumberOfAlternatingStacks	: INT	:= 1;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
@@ -51,5 +52,6 @@ FOR i := 1 TO usiNumberOfUnits DO
 	UnitReject[i](
 		Data				:= DataReject[i]);
 END_FOR
+
 
 END_PROGRAM

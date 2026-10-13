@@ -10,6 +10,7 @@ VAR
 	chunk					: UINT;
 	sw						: StopwatchFB;
 END_VAR
+
 IMPLEMENTATION ST
 IF execute THEN
 	IF NOT busy THEN
@@ -19,6 +20,7 @@ IF execute THEN
 ELSE
 	done			:= FALSE;
 END_IF
+
 
 END_FUNCTION_BLOCK
 
@@ -37,6 +39,7 @@ END_VAR
 // L_ITCA_JSON_Builder_Variable FB always finishes the same PLC cycle.
 // It could actually be a Function instead
 // JSON libs received from Lenze and stored here: N:\Software\Automation\Lenze\Libraries\Lenze JSON lib
+
 IMPLEMENTATION ST
 // Create content
 JSON_builder(
@@ -49,11 +52,14 @@ JSON_builder(
 
 JSON_builder(
 	xExecute					:= FALSE);
+
 END_METHOD
 
 // Enables the FB to recreate the JSON while execute input remains high
 METHOD PUBLIC Reset
+
 IMPLEMENTATION ST
 busy	:= FALSE;
 done	:= FALSE;
+
 END_METHOD

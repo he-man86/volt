@@ -2,8 +2,10 @@
 INTERFACE IXuUnit_Default_Transfer_Commands
 EXTENDS IXUnit_Shared_Commands
 
+
 // Releases all locks
 METHOD ForceReleaseLock
+
 END_METHOD
 
 // Check if a vacuum is high
@@ -11,6 +13,7 @@ METHOD PUBLIC HasVacuumHigh : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 END_METHOD
 
 // Return a single product that is currently transferred. Products ordered from left to right, top to bottom.
@@ -20,6 +23,7 @@ VAR_INPUT
 	clearLastProduct: BOOL := FALSE;	// Optional: Clear the LastProduct bit. Use when transferred products are not the last products on the gripper.
 	clearData		: BOOL := FALSE;	// Optional: Clear data of the products that are being transferred.
 END_VAR
+
 END_METHOD
 
 // Release a certain amount of products. Parameter indicates which products are released.
@@ -27,6 +31,7 @@ METHOD PUBLIC ReleaseProducts : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

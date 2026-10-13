@@ -6,13 +6,16 @@ IMPLEMENTS IActuator
 VAR_INPUT
 	xInvertOutput			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // Execute base cylinder fb
 SUPER^();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 // Set the alarm messages (inverted)
 IF xInvertOutput THEN
@@ -21,10 +24,12 @@ IF xInvertOutput THEN
 ELSE
 	SUPER^.Alarms();
 END_IF
+
 END_METHOD
 
 // The cylinder moves in. Returns true when cylinder is in. (Optionally inverted!)
 METHOD PUBLIC GoIn : BOOL
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	SUPER^.GoOut();
@@ -33,10 +38,12 @@ ELSE
 END_IF
 
 GoIn := IsIn;
+
 END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out. (Optionally inverted!)
 METHOD PUBLIC GoOut : BOOL
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	SUPER^.GoIn();
@@ -45,6 +52,7 @@ ELSE
 END_IF
 
 GoOut := IsOut;
+
 END_METHOD
 
 // Set the output True or False
@@ -52,52 +60,63 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	SUPER^.SetOrReset(NOT xValue);
 ELSE
 	SUPER^.SetOrReset(xValue);
 END_IF
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY IsIn : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	IsIn := SUPER^.IsOut;
 ELSE
 	IsIn := SUPER^.IsIn;
 END_IF
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsOut : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	IsOut := SUPER^.IsIn;
 ELSE
 	IsOut := SUPER^.IsOut;
 END_IF
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY OnTargetPos : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF xInvertOutput THEN
 	OnTargetPos := NOT SUPER^.OnTargetPos;
 ELSE
 	OnTargetPos := SUPER^.OnTargetPos;
 END_IF
+
 END_GET
 END_PROPERTY

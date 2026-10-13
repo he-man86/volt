@@ -32,6 +32,7 @@ VAR
 	ManualControlIsBlockedWarning			: ARRAY[1..6] OF SetErrorFB;
 
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -115,22 +116,28 @@ ManualControlIsBlockedWarning[6](
 	severity		:= enumErrorSeverity.Warning_Lock,
 	reaction		:= enumErrorReaction.No_reaction);
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
 Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
+
 END_METHOD
 
 // Manual control of hardware is enabled from external context
 {attribute 'monitoring':='call'}
 PROPERTY ExternalManualControlEnabled : BOOL
+
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 externalManualServoControlEnabled := ExternalManualControlEnabled;
+
 END_SET
 END_PROPERTY

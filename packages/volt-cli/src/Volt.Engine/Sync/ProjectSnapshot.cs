@@ -58,7 +58,7 @@ internal sealed class ProjectSnapshot
     /// <summary>Items the walk found but could not materialize, BY NAME. A count was enough for a log line; the
     /// names are what let a client say WHICH item did not come through — and an unreadable item is invisible
     /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
-    public List<string> Unreadable { get; } = new List<string>();
+    public List<UnreadableItem> Unreadable { get; } = new List<UnreadableItem>();
 
     /// <summary>The same unreadable items, bare name → the kinds each was walked as — what <see cref="Removal"/>
     /// needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
@@ -125,7 +125,7 @@ internal sealed class ProjectSnapshot
                 snap.Folders[mat.FullName] = folder;
                 if (keepText is not null && keepText(mat.FullName, v.Version)) snap.Texts[mat.FullName] = mat.Text;
             }
-            else { snap.Unreadable.Add(it.Name); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
+            else { snap.Unreadable.Add(v.Unread!); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
         }
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
         // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree.

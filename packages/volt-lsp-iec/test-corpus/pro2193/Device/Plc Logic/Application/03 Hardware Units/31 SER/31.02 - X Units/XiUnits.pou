@@ -28,6 +28,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= 12;
 	MaxChargers					: USINT	:= 2;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
@@ -40,5 +41,6 @@ FOR i := 1 TO usiNumberOfUnits DO
 		coveredDistance		:= coveredDistance[i],
 	);
 END_FOR
+
 
 END_PROGRAM

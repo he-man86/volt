@@ -212,14 +212,12 @@ namespace Volt.Ide.Codesys
         {
             switch (type)
             {
-                // The census read these three on the 436 plain POUs, and only POULevel on the 15 check functions (design
-                // §0.1: `POULevel Standard (436 + 15)`, the other two counted on POUObject alone) — each class is held to
-                // what was measured on it.
-                case "POUObjectCheckFunction":
-                    RequireConstant(iobj, "POULevel", "Standard", "451 of 451 POUs", what);
-                    break;
+                // The census read these three on the 436 plain POUs. A check function (POUObjectCheckFunction) archives
+                // none of them: its archive is `Implementation`, `Interface`, `SpecialFunc` (measured 2026-10-13, step 4b,
+                // SP21 Patch 4 — design §0.1 had listed POULevel on it, and requiring it left all 15 corpus check functions
+                // unreadable), so it has no constant to hold.
                 case "POUObject":
-                    RequireConstant(iobj, "POULevel", "Standard", "451 of 451 POUs", what);
+                    RequireConstant(iobj, "POULevel", "Standard", "436 of 436 POUs", what);
                     RequireConstant(iobj, "AddAttributeSubsequent", "false", "496 of 496 POUs and GVLs", what);
                     if (Count(ArchivedObject(iobj, "ChildObjectGuids", what)) is var n && n > 0)
                         throw OffConstant(what, "ChildObjectGuids", $"{n} GUID(s)", "empty on 436 of 436 POUs");

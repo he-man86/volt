@@ -26,3 +26,5 @@ VAR_GLOBAL
 	xResetFirstError	: BOOL;
 	
 END_VAR
+
+

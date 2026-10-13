@@ -47,3 +47,5 @@ TYPE enumRecipeCommandResult :
 
 ) UDINT;
 END_TYPE
+
+%CLASS TEXTLIST_ENUM

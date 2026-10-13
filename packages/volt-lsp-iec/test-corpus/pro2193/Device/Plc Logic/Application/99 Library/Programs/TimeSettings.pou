@@ -25,6 +25,7 @@ VAR
 	applicationCredits	: UINT;	// ???? DIT HOORT NIET HIER
 	timeZoneOld			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 //HandleInput();
 //StateMachine();
@@ -108,6 +109,7 @@ THEN
 	timeZoneOld := uiTimeZone;
 END_IF
 
+
 END_PROGRAM
 
 METHOD PRIVATE Read : BOOL
@@ -118,6 +120,7 @@ END_VAR
 VAR_OUTPUT
 	xDataValid	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Read Write parameter
 ParameterRead.xExecute			:= TRUE;
@@ -134,6 +137,7 @@ IF ParameterRead.xDone OR ParameterRead.xError OR ParameterRead.xAborted THEN
 								AND ParameterRead.udiDataRead = 8;
 	Read						:= TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE Write : BOOL
@@ -146,6 +150,7 @@ END_VAR
 VAR_OUTPUT
 	xSuccess	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Read Write parameter
 TimeZoneWrite.xExecute			:= TRUE;
@@ -161,4 +166,5 @@ IF TimeZoneWrite.xDone OR TimeZoneWrite.xError OR TimeZoneWrite.xAborted THEN
 	xSuccess					:= TimeZoneWrite.xDone;
 	Write						:= TRUE;
 END_IF
+
 END_METHOD

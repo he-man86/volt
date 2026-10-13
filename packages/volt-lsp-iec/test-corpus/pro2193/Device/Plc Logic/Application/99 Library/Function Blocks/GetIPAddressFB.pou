@@ -12,6 +12,7 @@ END_VAR
 // 0x2452:001 Active eng. port settings: IP address
 // 0x2452:002 Active eng. port settings: Subnet
 // 0x2452:003 Active eng. port settings: Gateway
+
 IMPLEMENTATION ST
 ParameterRead(
 	xExecute		:= execute,
@@ -45,5 +46,6 @@ ELSIF ParameterRead.xError OR ParameterRead.xAborted THEN
 	resultValid	:= FALSE;
 	currentIp	:= 'ERROR';
 END_IF
+
 
 END_FUNCTION_BLOCK

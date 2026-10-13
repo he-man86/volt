@@ -11,6 +11,7 @@ VAR
 	readyForResetAlarm		: SetErrorFB;
 	errorAlarm				: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -42,5 +43,6 @@ errorAlarm(
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 
 END_FUNCTION_BLOCK

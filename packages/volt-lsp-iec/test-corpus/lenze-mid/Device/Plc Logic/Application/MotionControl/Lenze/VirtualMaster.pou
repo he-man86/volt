@@ -28,6 +28,7 @@ END_VAR
 VAR RETAIN PERSISTENT
 	lrRetainPosition				: LREAL;
 END_VAR
+
 IMPLEMENTATION ST
 
 ReadInputs();
@@ -76,12 +77,14 @@ END_METHOD
 METHOD ReadInputs 
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 
 //activate internal control
 IF NOT internalControl THEN
 	Control_Local	:= ioDataExchange.Control;
 END_IF
+
 END_METHOD
 
 METHOD SetTorqueLimits 
@@ -236,6 +239,7 @@ END_METHOD
 METHOD VirtualMasterParameters
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 //General
 //ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
@@ -263,6 +267,8 @@ AxisControl.scPar.lrSyncAcc:=10;
 AxisControl.scPar.lrSyncDec:=10;
 AxisControl.scPar.lrSyncJerk:=0;
 AxisControl.scPar.lrStartPos:=0;
+
+
 END_METHOD
 
 METHOD WriteOutputs
@@ -271,6 +277,7 @@ END_VAR
 VAR_INST
 
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -282,4 +289,5 @@ ioDataExchange.Status.InPosition					;//writen in statemachine
 ioDataExchange.Status.VelocitySetpointReached		;//writen in statemachine
 ioDataExchange.Status.ActSpeed						:= AxisControl.lrActVel;
 ioDataExchange.Status.ActPos						:= AxisControl.lrActPos;
+
 END_METHOD

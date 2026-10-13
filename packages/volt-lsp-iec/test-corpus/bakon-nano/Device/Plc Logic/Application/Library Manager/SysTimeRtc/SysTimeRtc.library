@@ -2,6 +2,5 @@ LIBRARY SysTimeRtc
 NAMESPACE SysTimeRtc
 RESOLUTION SysTimeRtc, 3.5.20.0 (System)
 PLACEHOLDER true
-SYSTEM false
 DEPENDENCIES SysTimeCore, SysTypes2 Interfaces, * (System)
 MATERIALIZATION 4

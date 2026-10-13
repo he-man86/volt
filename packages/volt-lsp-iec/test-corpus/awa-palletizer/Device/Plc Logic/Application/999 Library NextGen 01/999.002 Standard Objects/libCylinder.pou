@@ -60,6 +60,7 @@ VAR
 	// Interlock causes no output
 	xInterlocked: BOOL := FALSE;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // This function controls a Cylinder object. 

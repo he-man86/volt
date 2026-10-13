@@ -19,6 +19,7 @@ VAR
 	T_Timer						: BTON;
 	GateStatus					: enumGateStates;
 END_VAR
+
 IMPLEMENTATION ST
 Tr_AcknowledgementRequest(CLK := xAcknowledgement);
 T_SafetyGateRelay.Set(xSafetyGateRelay, 0.5);
@@ -80,5 +81,6 @@ xAcknowledgement	:= FALSE;
 
 IMMRequestForOpening();
 IMMAcknowledgement();
+
 
 END_FUNCTION_BLOCK

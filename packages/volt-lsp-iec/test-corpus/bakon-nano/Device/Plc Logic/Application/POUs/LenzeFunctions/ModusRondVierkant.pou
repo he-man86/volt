@@ -72,6 +72,7 @@ VAR_OUTPUT
 	Q_nActLineNumber				: INT;
 	Q_byCounter						: BYTE;
 END_VAR
+
 IMPLEMENTATION ST
 MC_MoveAbsoluteZ(
 	Execute:= ,
@@ -491,5 +492,6 @@ ELSE
 						OR	((IQ_AxisZ.lrActPosition >= (I_strParameters.strZasParameters.rBottomZPos - g_HMI_RCP_Parameters.rUSHeightStop)) AND byStepper = 12);
 
 END_IF
+
 
 END_PROGRAM

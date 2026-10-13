@@ -47,11 +47,11 @@ public static class Versioning
     /// deleting either left <c>projectVersion</c> unchanged. The key is <see cref="UnclassifiableKey"/>: never a wire
     /// name, so the push's <c>ifVersion</c> gate cannot resolve an op onto it (an op on such a name is refused as
     /// unreadable by <c>PushConflicts</c>, by name).</para></summary>
-    public static System.Collections.Generic.IReadOnlyList<string> CountUnclassifiable(
+    public static System.Collections.Generic.IReadOnlyList<Volt.Contracts.UnreadableItem> CountUnclassifiable(
         WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions,
         System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>? unreadableKinds = null)
     {
-        var names = new System.Collections.Generic.List<string>();
+        var names = new System.Collections.Generic.List<Volt.Contracts.UnreadableItem>();
         var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
         foreach (var o in walk.UnreadableObjects)
         {
@@ -62,7 +62,7 @@ public static class Versioning
             // name of those kinds, as it does for an item that failed to materialize, since its folder counts as walked.
             if (unreadableKinds is not null && o.Kinds is { } kinds)
                 foreach (var k in kinds) Removal.AddUnreadable(unreadableKinds, o.Name, k);
-            names.Add(o.Name);
+            names.Add(new Volt.Contracts.UnreadableItem(o.Name, o.Reason));
         }
         return names;
     }
@@ -84,11 +84,11 @@ public static class Versioning
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug). The old bare catch hid a real materialize bug (FB-with-method /
         // interface) for a long time; a visible Warn is what caught it.
-        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, name); }
+        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, name, null); }
         catch (System.Exception ex)
         {
             VoltLog.Warn($"materialize failed name='{name}' kind='{kind}' — body skipped from pull: {ex.Message}");
-            return new VersionedItem(Unreadable, null, name);
+            return new VersionedItem(Unreadable, null, name, ex.Message);
         }
     }
 }
@@ -116,11 +116,12 @@ public static class Versioning
 /// lean on the very kind mapping that may be what defeated the read.</para></summary>
 public sealed class VersionedItem
 {
-    internal VersionedItem(string version, WorkspaceItem? materialized, string bareName)
+    internal VersionedItem(string version, WorkspaceItem? materialized, string bareName, string? reason)
     {
         Version = version;
         Materialized = materialized;
         Identity = materialized?.FullName ?? bareName;
+        Unread = reason is null ? null : new Volt.Contracts.UnreadableItem(bareName, reason);
     }
 
     /// <summary>The content version — <see cref="Versioning.Unreadable"/> when the body could not be read.</summary>
@@ -131,4 +132,8 @@ public sealed class VersionedItem
 
     /// <summary>The key EVERY version/folder map uses for this item. See the type doc — this is the whole point.</summary>
     public string Identity { get; }
+
+    /// <summary>The item as the read ops list it unreadable — its bare name and the refusal that left it out — or null
+    /// when it materialized.</summary>
+    public Volt.Contracts.UnreadableItem? Unread { get; }
 }

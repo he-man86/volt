@@ -36,8 +36,10 @@ VAR CONSTANT
 	PulseTime					: REAL				:= 0.4;
 	ReferencePos				: CassettePosition	:= (X1 := 42, X2 := 42, Y := 49);
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -52,6 +54,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 // Check if profile already exists in array, then overwrite. Else place profile at first empty position in the array.
@@ -63,6 +66,7 @@ FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_METHOD
 
 // Calculates position changes for a cassette based on the specified label movement direction or rotation.
@@ -82,6 +86,7 @@ VAR
 	PositionChanges			: CassettePosition;
 	i						: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF CassetteId = 0 THEN RETURN; END_IF
@@ -123,6 +128,7 @@ CASE LabelMovement OF
 END_CASE
 
 DrawerPlate[DrawerId].CassetteData[CassetteId].AddToTargetPositions(PositionChanges);
+
 END_METHOD
 
 // Determines the cassetteId based on the given cavity and label and adjusts the cassette
@@ -135,6 +141,7 @@ VAR_INPUT
 	LabelMovement			: enumMovementType;
 	Steps					: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 AdjustCassette(
@@ -142,6 +149,7 @@ AdjustCassette(
 	CassetteId		:= GetCassetteNumber(Cavity, Label),
 	LabelMovement	:= LabelMovement,
 	Steps			:= Steps);
+
 END_METHOD
 
 // Executes a 4-phase pulse sequence to control cassette movement based on direction and motor selection.
@@ -169,6 +177,7 @@ VAR
 	MovingX2		: BOOL;
 	MovingY			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 // Write helper booleans for direction and motors which have to move
@@ -220,11 +229,13 @@ CASE State OF
 			AdjustOneStep	:= TRUE;
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Alarms
 VAR_INST
 END_VAR
+
 IMPLEMENTATION ST
 END_METHOD
 
@@ -235,6 +246,7 @@ METHOD PRIVATE CheckConfig : BOOL
 VAR
 	i : USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 CheckConfig		:= TRUE;
@@ -258,6 +270,7 @@ END_FOR
 
 // Check if combination of enable valves and adjustment valves is not used more than once
 CheckConfig		R= CombinationUsedMoreThanOnce();
+
 END_METHOD
 
 // Executes the cassette homing sequence by progressing through defined states.
@@ -267,6 +280,7 @@ METHOD PRIVATE CheckHomingState
 VAR_INPUT
 	Cassette : REFERENCE TO CassetteFB;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 IF Cassette.HomingState = enumCassetteHomingState.StopHoming THEN
@@ -314,6 +328,7 @@ ELSIF Cassette.HomingState >= enumCassetteHomingState.HomingStep1 THEN
 		END_IF
 	END_IF
 END_IF
+
 END_METHOD
 
 // Checks for duplicate cassette configurations in the upper drawer.
@@ -324,6 +339,7 @@ VAR
 	i, j					: USINT;
 	CassetteI, CassetteJ	: REFERENCE TO CassetteDefinition;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 CombinationUsedMoreThanOnce := FALSE;
@@ -346,6 +362,7 @@ FOR i := 1 TO DrawerPlate[enumDrawer.Upper].NumberOfCassettes DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_METHOD
 
 // Use this method to define how the physical drawer and cassette system is built in the real world.
@@ -358,6 +375,7 @@ VAR
 	j		 : DINT;
 	k		 : enumMovementType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Config
 FOR DrawerId := enumDrawer.Upper TO enumDrawer.Lower DO
@@ -518,16 +536,19 @@ FOR DrawerId := enumDrawer.Upper TO enumDrawer.Lower DO
 	END_FOR
 
 END_FOR
+
 END_METHOD
 
 METHOD PUBLIC CopyActualPositionsToData : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Data := ActualCassettePosition;
 
 CopyActualPositionsToData := TRUE;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -537,6 +558,7 @@ END_VAR
 VAR_INST
 	lastSelectedDrawer	: enumDrawer;
 END_VAR
+
 IMPLEMENTATION ST
 JsonBuilder.executeCassetteJson[instanceNo] S= Visu.SelectedDrawer <> lastSelectedDrawer;
 lastSelectedDrawer := Visu.SelectedDrawer;
@@ -576,6 +598,7 @@ END_IF
 ManualFunctions();
 Execute();
 UpdateCassetteMotorPositions();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -583,6 +606,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants_Magazine.MaxEnableValves DO
@@ -603,10 +627,12 @@ Visu.AllCassetteFunction 	:= enumCassetteFunctionAll.None;
 Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Returns an empty array of MovementProfiles
 METHOD PRIVATE EmptyProfileArray : ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile
+
 IMPLEMENTATION ST
 %FOLDER Private
 END_METHOD
@@ -629,6 +655,7 @@ VAR
 	actDrawerPlate		: REFERENCE TO DrawerPlateType;
 	ProfileTemp			: MovementProfile;
 END_VAR
+
 IMPLEMENTATION ST
 actDrawerPlate		REF= DrawerPlate[activeDrawer];
 
@@ -717,6 +744,7 @@ CASE State OF
 		END_FOR
 		State	:= 0;
 END_CASE
+
 END_METHOD
 
 // Returns the cassetteId for the given cavity/label combination
@@ -728,6 +756,7 @@ END_VAR
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 FOR CassetteId := 1 TO DrawerPlate[1].NumberOfCassettes DO
@@ -736,6 +765,7 @@ FOR CassetteId := 1 TO DrawerPlate[1].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_METHOD
 
 // Inverts the given direction positive to negative and vice versa
@@ -743,6 +773,7 @@ METHOD PRIVATE GetOppositeDirection : enumDirection
 VAR_INPUT
 	Direction : enumDirection;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 GetOppositeDirection := SEL(Direction = enumDirection.Negative, enumDirection.Negative, enumDirection.Positive);
@@ -755,6 +786,7 @@ METHOD PRIVATE GetPositionChangeForHomingStep : CassettePosition
 VAR_INPUT
 	HomingState	: enumCassetteHomingState;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 CASE HomingState OF
@@ -783,9 +815,11 @@ CASE HomingState OF
 		GetPositionChangeForHomingStep.X2	:= 0;
 		GetPositionChangeForHomingStep.Y	:= 6;
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -796,6 +830,7 @@ ConfigError						:= NOT CheckConfig();
 
 Visu.SingleSelectedFunction		:= enumCassetteFunctionSingle.None;
 Visu.AllCassetteFunction		:= enumCassetteFunctionAll.None;
+
 END_METHOD
 
 METHOD PRIVATE InitializeAllCassettes : BOOL
@@ -808,6 +843,7 @@ END_VAR
 VAR_INST
 	localState	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 CASE localState OF
@@ -825,6 +861,7 @@ CASE localState OF
 			InitializeAllCassettes := NOT StopHoming;
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE InitializeSingleCassette : BOOL
@@ -834,6 +871,7 @@ END_VAR
 VAR_INST
 	localState	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 CASE localState OF
@@ -851,6 +889,7 @@ CASE localState OF
 			localstate	:= 0;
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Checks if movement in the specified direction would exceed the mechanical limits for X1, X2, or Y axes.
@@ -869,6 +908,7 @@ VAR
 	LimitY		: BOOL;
 	Limited		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 // Check if X1 has a positive or negative limit while moving in the corresponding direction
@@ -895,6 +935,7 @@ CASE Adjustment OF
 END_CASE
 
 LimitActiveForAdjustment := Limited;
+
 END_METHOD
 
 METHOD PRIVATE ManualFunctions : BOOL
@@ -907,6 +948,7 @@ VAR_INST
 	result			: ARRAY[1..2] OF BOOL;
 	trigger			: RisingTriggerFB;
 END_VAR
+
 IMPLEMENTATION ST
 // ============================================================================
 // Cassette Position Control and Adjustment Logic
@@ -1094,6 +1136,7 @@ END_CASE
 // ============================================================================
 // End of Cassette Control Logic
 // ============================================================================
+
 END_METHOD
 
 // Copy all the target positions from the data struct to the setpoints of the cassettes
@@ -1101,6 +1144,7 @@ METHOD PUBLIC MoveAllCassettesToDataPosition : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
@@ -1108,6 +1152,7 @@ FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 END_FOR
 
 MoveAllCassettesToDataPosition := AllCassettesReady;
+
 END_METHOD
 
 // Moves all cassettes to the zero position
@@ -1115,6 +1160,7 @@ METHOD MoveAllCassettesToMiddlePosition : BOOL
 VAR
 	i : USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
@@ -1122,6 +1168,7 @@ FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
 END_FOR
 
 MoveAllCassettesToMiddlePosition := AllCassettesReady;
+
 END_METHOD
 
  // Copy the target position from the data struct to the setpoints of the selected cassette
@@ -1129,6 +1176,7 @@ METHOD PUBLIC MoveSingleCassetteToDataPosition : BOOL
 VAR_INPUT
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= Data[activeDrawer, CassetteId].X1;
@@ -1136,6 +1184,7 @@ DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= Data[acti
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= Data[activeDrawer, CassetteId].Y;
 
 MoveSingleCassetteToDataPosition	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+
 END_METHOD
 
 // Moves the selected cassette to the zero position
@@ -1143,6 +1192,7 @@ METHOD PUBLIC MoveSingleCassetteToMiddlePosition : BOOL
 VAR_INPUT
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= 0;
@@ -1150,6 +1200,7 @@ DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= 0;
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= 0;
 
 MoveSingleCassetteToMiddlePosition	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+
 END_METHOD
 
 // Determines if two cassettes can be adjusted in parallel based on motor compatibility, direction, and homing state.
@@ -1166,6 +1217,7 @@ VAR
 	SecondCassette	: REFERENCE TO CassetteDefinition;
 	Homing			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 ParallelAdjustmentPossible	:= TRUE;
@@ -1201,26 +1253,31 @@ ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.Enable
 ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.EnableValve AND FirstCassette.AdjustmentValve[enumMotorsType.X2] <> SecondCassette.AdjustmentValve[enumMotorsType.X2];
 ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.EnableValve AND FirstCassette.AdjustmentValve[enumMotorsType.Y]  <> SecondCassette.AdjustmentValve[enumMotorsType.Y];
 IF NOT ParallelAdjustmentPossible AND ParallelAdjustmentNotPossibleReason = 0 THEN ParallelAdjustmentNotPossibleReason		:= 10; END_IF
+
 END_METHOD
 
 // Call this method when the config should be reloaded, for example after a program change.
 METHOD ReloadConfig : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 _initialized := FALSE;
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // A Stop command does not have any effect on cassette adjustment.
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 // Stop adjusting all cassettes by setting the actual value as target position.
@@ -1228,6 +1285,7 @@ METHOD StopAdjustingAllCassettes : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
@@ -1235,6 +1293,7 @@ FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 END_FOR
 
 StopAdjustingAllCassettes := AllCassettesReady;
+
 END_METHOD
 
 // Stop adjusting a single cassette by setting the actual value as target position.
@@ -1242,6 +1301,7 @@ METHOD StopAdjustingSingleCassette : BOOL
 VAR_INPUT
 	CassetteId				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
@@ -1253,6 +1313,7 @@ DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= ActualCas
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= ActualCassettePosition[activeDrawer, CassetteId].Y;
 
 StopAdjustingSingleCassette	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+
 END_METHOD
 
 // Detects rising edges on adjustment and enable valve outputs for all cassettes in the connected drawer.
@@ -1269,6 +1330,7 @@ VAR
 	adjustOut	: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF USINT;
 	enableOut	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO GVL_Constants_Magazine.MaxAdjustValves DO
 	IF risingAdjust[i].Rising(CLK := Adjust[i].Map()) THEN
@@ -1294,15 +1356,18 @@ FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		END_IF
 	END_FOR
 END_FOR
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY AllCassettesHomed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 AllCassettesHomed			:= TRUE;
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
@@ -1311,17 +1376,20 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AllCassettesHoming : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId		: USINT;
 	HomingState		: enumCassetteHomingState;
 END_VAR
+
 IMPLEMENTATION ST
 AllCassettesHoming			:= TRUE;
 HomingState					:= DrawerPlate[activeDrawer].CassetteData[1].HomingState;
@@ -1333,25 +1401,30 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AllCassettesReady : BOOL
+
 %FOLDER Properties
 GET
 IMPLEMENTATION ST
 AllCassettesReady	:= NOT AnyAdjustmentNeeded;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AnyAdjustmentNeeded : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded THEN
@@ -1359,16 +1432,19 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AnyHomingBusy : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
@@ -1376,16 +1452,19 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		RETURN;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AnyHomingNeeded : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState = enumCassetteHomingState.NotHomed THEN
@@ -1393,16 +1472,19 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AnyNegativeLimitReached : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedX1
@@ -1413,16 +1495,19 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY AnyPositiveLimitReached : BOOL
+
 %FOLDER Properties
 GET
 VAR
 	CassetteId	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedX1
@@ -1433,5 +1518,6 @@ FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 		EXIT;
 	END_IF
 END_FOR
+
 END_GET
 END_PROPERTY

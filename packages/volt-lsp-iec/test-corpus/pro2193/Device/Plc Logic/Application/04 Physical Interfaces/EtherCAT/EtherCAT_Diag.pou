@@ -11,6 +11,7 @@ VAR
 	StartupTimer		: BTON;
 	restartingEtherCAT	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // Do not call EtherCAT_Master() FB!
 
@@ -64,5 +65,6 @@ IF restartingEtherCAT AND (EtherCAT_Master.xDone OR EtherCAT_Master.xError) THEN
 	restartingEtherCAT			:= FALSE;
 	StartupTimer.Reset();
 END_IF
+
 
 END_PROGRAM

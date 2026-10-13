@@ -18,27 +18,34 @@ VAR
 		StateTakeoutDone					:= 400
 	) DINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 EStop		:= TRUE;
+
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
@@ -52,9 +59,11 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //		ShowNoProgramWarning();
 //		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+
 IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
@@ -83,6 +92,7 @@ CASE ActState OF
 	StateTakeoutDone:
 		ActState := StateNone;
 END_CASE
+
 END_METHOD
 
 // Start some action on the module
@@ -90,6 +100,7 @@ METHOD StartCommand : BOOL
 VAR_INPUT
 	iParameter : INT;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -111,13 +122,16 @@ END_IF
 IF ActState = StateTakeoutDone THEN
 	StartCommand := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 Stop		:= TRUE;
+
 END_METHOD

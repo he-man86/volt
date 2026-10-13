@@ -8,3 +8,4 @@ STRUCT
 	Active			: BOOL;
 END_STRUCT
 END_TYPE
+

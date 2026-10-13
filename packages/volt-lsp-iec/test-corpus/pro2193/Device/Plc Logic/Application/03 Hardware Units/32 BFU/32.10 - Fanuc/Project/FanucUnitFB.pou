@@ -10,10 +10,12 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	Data			:= Data,
 	GripperStatus	:= GripperStatus
 );
+
 
 END_FUNCTION_BLOCK

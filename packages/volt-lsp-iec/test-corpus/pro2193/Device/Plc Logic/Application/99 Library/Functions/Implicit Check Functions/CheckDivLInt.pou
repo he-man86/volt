@@ -3,7 +3,9 @@ FUNCTION CheckDivLInt : LINT
 VAR_INPUT
 	divisor		: LINT;
 END_VAR
+
 IMPLEMENTATION ST
+%CLASS CHECK CheckDivInt64
 IF divisor <> 0 THEN
 	CheckDivLInt := divisor;
 ELSE
@@ -19,5 +21,6 @@ ELSE
 		ThrowException('RtsExceptions.RTSEXCPT_DIVIDEBYZERO');
 	END_IF
 END_IF
+
 
 END_FUNCTION

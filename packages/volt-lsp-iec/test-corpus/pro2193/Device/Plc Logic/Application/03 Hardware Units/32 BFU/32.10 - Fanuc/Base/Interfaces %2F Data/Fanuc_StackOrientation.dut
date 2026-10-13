@@ -6,3 +6,4 @@ TYPE Fanuc_StackOrientation :
 	Vertical	:= 1
 );
 END_TYPE
+

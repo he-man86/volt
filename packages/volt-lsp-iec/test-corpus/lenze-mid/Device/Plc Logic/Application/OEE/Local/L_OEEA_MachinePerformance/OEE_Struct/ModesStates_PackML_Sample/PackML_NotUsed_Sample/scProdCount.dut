@@ -7,3 +7,4 @@ STRUCT
 	AccCount : DINT;
 END_STRUCT
 END_TYPE
+

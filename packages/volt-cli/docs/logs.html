@@ -71,7 +71,7 @@ refs: 138 items (140ms)</pre>
 <table>
   <tr><th>kind</th><th>means</th><th>what to do</th></tr>
   <tr><td class="name">unmapped-kind</td><td>An IDE item whose kind code is not in the <a href="items.html#kinds">item-kind table</a>.</td><td>Usually benign — but this is exactly how TwinCAT's DUT subtype codes were silently dropped for months. Debug prints the name and the raw code; check it against the table.</td></tr>
-  <tr><td class="name">unreadable</td><td>The item exists and its body could not be read. <b>The body did not reach the pull.</b></td><td>A real error. Logged at <b>Warn</b> with the name and reason, and the names are also on the wire.</td></tr>
+  <tr><td class="name">unreadable</td><td>The item exists and its body could not be read. <b>The body did not reach the pull.</b></td><td>A real error. Logged at <b>Warn</b> with the name and reason, and both are also on the wire — and printed by <code>volt init</code>, <code>volt pull</code> and <code>volt status</code>.</td></tr>
   <tr><td class="name">lib-render-null</td><td>A library sub-signature (a method or property, covered by its parent) or an unknown POU type.</td><td>Benign — the element rides in its parent.</td></tr>
   <tr><td class="name">lib-unmatched</td><td>A referenced-library element whose owning library matched no <code>.library</code> reference.</td><td>It is <b>not</b> dropped — look under <code>Library Manager/(unresolved)/…</code>.</td></tr>
 </table>
@@ -90,8 +90,9 @@ not the same as gone.</pre>
 
 <h2 id="missing">Diagnosing "my X isn't in the workspace"</h2>
 <ol>
-  <li><b>Check the wire first.</b> <code>fetch</code>'s <code>unreadable</code> list names items the walk found
-    and could not materialize. That is the one failure a client cannot otherwise see — the item still counts
+  <li><b>Check the output first.</b> <code>volt init</code>, <code>volt pull</code> and <code>volt status</code> print
+    <code>fetch</code>'s <code>unreadable</code> list: each item the walk found and did not materialize, with its
+    reason (a failed read, a vendor member no text spells, an object in a folder excluded from build). That is the one failure a client cannot otherwise see — the item still counts
     toward <code>projectVersion</code>, so it is not reported as deleted, but it has no file. A whole POU once
     vanished from git silently that way, over a single box whose enable pin read as a boolean.</li>
   <li><b>Search the log for the name</b> —
@@ -99,7 +100,7 @@ not the same as gone.</pre>
   <li><b>No hit at Info?</b> Turn on Debug and re-pull. The per-item skip lines name each dropped item and its
     raw kind code.</li>
   <li><b>Match the kind to the table above.</b> <code>lib-unmatched</code> means it is under
-    <code>(unresolved)</code>; <code>unreadable</code> means the Warn line has the reason; an unmapped kind
+    <code>(unresolved)</code>; <code>unreadable</code> means the printed list (and the Warn line) has the reason; an unmapped kind
     means the <a href="items.html">kind table</a> has a gap.</li>
 </ol>
 <div class="note">

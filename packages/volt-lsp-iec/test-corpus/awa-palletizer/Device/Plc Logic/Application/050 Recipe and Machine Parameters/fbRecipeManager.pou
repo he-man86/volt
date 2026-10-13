@@ -40,6 +40,7 @@ END_VAR
 VAR CONSTANT                             
 	gc_iSizeRecipesNames    	: INT := 16384;
 END_VAR
+
 IMPLEMENTATION ST
 
 xLoadedNewRecipe := FALSE;
@@ -151,5 +152,7 @@ F_TRIG_Save(CLK := HMI_stRecipeManagercmd.xsave);
 F_TRIG_Load(CLK := HMI_stRecipeManagercmd.xLoad);
                
 HMI_stRecipeManagercmd.xRcpVisuPlcAreEqual := fcCompareStructs(PT1:=ADR(ActiveRecipe) ,PT2:=ADR(HMI_stRecipeVisu), SIZE1:=TO_INT(SIZEOF(ActiveRecipe)), SIZE2:=TO_INT(SIZEOF(HMI_stRecipeVisu)));
+
+
 
 END_FUNCTION_BLOCK

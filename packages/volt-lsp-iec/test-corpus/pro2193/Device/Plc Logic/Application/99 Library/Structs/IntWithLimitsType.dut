@@ -8,3 +8,4 @@ STRUCT
 	{attribute 'symbol' := 'read'}		stepSize		: INT	:= 1;	// Max allowed change during automatic operation (default = 1)
 END_STRUCT
 END_TYPE
+

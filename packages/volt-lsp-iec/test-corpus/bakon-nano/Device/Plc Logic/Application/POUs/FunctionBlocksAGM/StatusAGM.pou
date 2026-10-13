@@ -6,6 +6,8 @@ VAR_OUTPUT
 	Q_dwErrorDetailsAGM	: DWORD;
 	Q_bError					: BOOL;
 END_VAR
+
+
 IMPLEMENTATION ST
 (*************************************************************************
  *

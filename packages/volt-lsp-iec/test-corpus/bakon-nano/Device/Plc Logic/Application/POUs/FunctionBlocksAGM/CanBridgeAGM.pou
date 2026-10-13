@@ -1,6 +1,7 @@
 PROGRAM CanBridgeAGM
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 //Set bus variables to local
 g_dwAGM1_PowerLoss 							:= CAN_TO_PLC.dwAGM1_PowerLoss;

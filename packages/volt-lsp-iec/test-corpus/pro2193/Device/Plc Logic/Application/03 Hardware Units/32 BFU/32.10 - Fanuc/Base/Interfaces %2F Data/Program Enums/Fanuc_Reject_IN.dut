@@ -6,3 +6,4 @@ TYPE Fanuc_Reject_IN :
 	AtHomePosition			:= 99	// At home position
 ) UINT;
 END_TYPE
+

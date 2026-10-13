@@ -22,3 +22,4 @@ Bit15_SafeTorqueOff : BOOL;
 
 END_STRUCT
 END_TYPE
+

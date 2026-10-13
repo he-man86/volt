@@ -75,8 +75,11 @@ public sealed class StatusData
     /// no pull ever read has no file and is simply ABSENT, indistinguishable from one that was never there; one a
     /// pull read before is HELD, its last-read file stale and unpushable, and equally unmentioned. It happened to a real project — one box whose <c>En</c> pin read as a boolean made a body
     /// unreadable and the whole POU vanished from git with no error anywhere (DIALECT C7). The bridge has
-    /// published the names since; no client showed them until now.</para></summary>
-    public List<string> Unreadable { get; set; } = new();
+    /// published the names since; no client showed them until now.</para>
+    ///
+    /// <para>Each with its REASON (gate review of bridge-one-to-one step 4b, finding 1): an object in a folder excluded
+    /// from build is left out of the pull by design, and a bare name could not say so.</para></summary>
+    public List<UnreadableItem> Unreadable { get; set; } = new();
 
     /// <summary>Folders the bridge could not ENUMERATE — normally empty. Non-empty means the item list is a
     /// partial view, so <see cref="Incoming"/> reports no deletions and neither should anything downstream:
@@ -144,9 +147,15 @@ public sealed class InitResult
     public int Corpus { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Note { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
+    /// <summary>What the seed did NOT bring, as the fetch named it (each item with its reason; the folders the walk could
+    /// not read) — set on ok, as a pull's status carries them.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<UnreadableItem>? Unreadable { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<string>? UnwalkedFolders { get; set; }
 
-    public static InitResult Ok(string project, string workspace, bool gitCreated, int pulled, int scaffold, int corpus, string? note = null) =>
-        new() { Kind = ResultKinds.Ok, Project = project, Workspace = workspace, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus, Note = note };
+    public static InitResult Ok(string project, string workspace, bool gitCreated, int pulled, int scaffold, int corpus,
+                                List<UnreadableItem> unreadable, List<string> unwalkedFolders, string? note = null) =>
+        new() { Kind = ResultKinds.Ok, Project = project, Workspace = workspace, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus,
+                Unreadable = unreadable, UnwalkedFolders = unwalkedFolders, Note = note };
     public static InitResult Error(string reason) => new() { Kind = ResultKinds.Error, Reason = reason };
 }
 

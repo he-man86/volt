@@ -347,6 +347,41 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>EVERY ITEM A PULL DID NOT BRING IS NAMED, WITH ITS REASON, BY THE VERB THAT LEFT IT OUT (openspec
+    /// <c>bridge-one-to-one</c> design §1.1 / §3 (3): "named in the pull report"; gate review of step 4b, finding 1).
+    /// `volt init` printed no unreadable list at all and `volt pull` / `volt status` printed bare names — a fresh
+    /// init of a project with objects in an excluded folder dropped them from git without a word, and the reason
+    /// (the bridge has it: "sits in the excluded folder …", "its CODESYS object property … has no text form") reached
+    /// only the bridge log.</summary>
+    [Fact]
+    public void Init_pull_and_status_name_each_item_not_pulled_with_its_reason()
+    {
+        var ide = ConnectedIde(Prg(),
+            new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcDut, "DUTs", true, DutStruct, null, null, "read failed (COM)"));
+        var (root, host, pipe) = Boot(ide);
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
+        try
+        {
+            var init = RunVolt(parent, pipe, "init");
+            Assert.True(init.Code == 0, $"init exit {init.Code}: {init.Err}");
+            Assert.True(init.Err.Contains("  ? X: 'X': read failed (COM)"), init.Err);
+
+            foreach (var verb in new[] { "pull", "status" })
+            {
+                var r = RunVolt(root, pipe, verb);
+                Assert.True(r.Code == 0, $"{verb} exit {r.Code}: {r.Err}");
+                Assert.Contains("  ? X: 'X': read failed (COM)", r.Err);
+            }
+
+            var json = RunVolt(root, pipe, "status", "--json");
+            using var sj = JsonDocument.Parse(json.Out.Trim());
+            var u = Assert.Single(sj.RootElement.GetProperty("unreadable").EnumerateArray());
+            Assert.Equal("X", u.GetProperty("name").GetString());
+            Assert.Equal("'X': read failed (COM)", u.GetProperty("reason").GetString());
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); TestUtil.ForceDelete(parent); }
+    }
+
     [Fact]
     public void Show_exit_codes_success_zero_absent_two_and_usage_one()
     {

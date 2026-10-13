@@ -10,3 +10,22 @@ VAR_GLOBAL
 	dwErrorDetailsAGM1			: DWORD;
 	bUltrasonic1				: BOOL;
 END_VAR
+%CLASS NVL
+%NETVAR ImportFromFile: true
+%NETVAR ImportFileName: \\SRV2012\Home$\pieter\Documents\Projecten\P10037 Hert nano met wasbak\21000149 Software\CAN Bridge\CAN_TO_PLC.gvl
+%NETVAR TaskName: LogicTask
+%NETVAR SenderGVLName: ''
+%NETVAR ImportNetVarProperties.Acknowledge: false
+%NETVAR ImportNetVarProperties.Checksum: false
+%NETVAR ImportNetVarProperties.EventVariable: ''
+%NETVAR ImportNetVarProperties.Interval: T#50ms
+%NETVAR ImportNetVarProperties.ListIdentifier: 2
+%NETVAR ImportNetVarProperties.MinimumGap: T#20ms
+%NETVAR ImportNetVarProperties.PackVariables: true
+%NETVAR ImportNetVarProperties.ProtocolName: UDP
+%NETVAR ImportNetVarProperties.TransmitCyclic: true
+%NETVAR ImportNetVarProperties.TransmitOnChange: false
+%NETVAR ImportNetVarProperties.TransmitOnEvent: false
+%NETVAR ImportNetVarProperties.TaskName: LogicTask
+%NETVAR ImportNetVarProperties.ImportFileName: ''
+%NETVAR ImportNetVarProperties.ProtocolParameterValues: UDP=Broadcast Adr.=192.168.27.230; Port=1202

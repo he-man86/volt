@@ -10,3 +10,4 @@ TYPE enumResultTakePicture :
 	Error
 ) SINT;
 END_TYPE
+

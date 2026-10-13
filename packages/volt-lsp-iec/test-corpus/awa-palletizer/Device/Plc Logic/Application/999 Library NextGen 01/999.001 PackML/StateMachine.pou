@@ -11,6 +11,7 @@ VAR
 	CmdAbortRT     : R_TRIG;
 	CmdAbortDoneRT : R_TRIG;	
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -25,6 +26,7 @@ END_VAR
 VAR_INPUT
 	xForce: BOOL := FALSE;
 END_VAR
+
 IMPLEMENTATION ST
 //
 // HMI input.
@@ -233,10 +235,13 @@ END_VAR
 VAR_IN_OUT
 	myState: strState;
 END_VAR
+
 IMPLEMENTATION ST
 IF myState.xCmdModeAutomatic THEN myState.enMode := enMode.AUTOMATIC; END_IF
 IF myState.xCmdModeManual    THEN myState.enMode := enMode.MANUAL;    END_IF
 IF myState.xCmdModeCleaning  THEN myState.enMode := enMode.CLEANING;  END_IF
+
+
 END_METHOD
 
 ACTION Aborted
@@ -244,6 +249,7 @@ IMPLEMENTATION ST
 //----------------------------------------------------------------------------------	 
 // Aborted
 //----------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Aborting
@@ -251,6 +257,8 @@ IMPLEMENTATION ST
 //----------------------------------------------------------------------------------	 
 // Aborting
 //----------------------------------------------------------------------------------
+
+
 END_ACTION
 
 ACTION Executing
@@ -258,6 +266,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Executing
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Idle
@@ -265,6 +274,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Idle
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Initialize
@@ -272,6 +282,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Initialize
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Resetting
@@ -279,6 +290,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Resetting
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Starting
@@ -286,6 +298,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Starting
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Stopped
@@ -293,6 +306,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Stopped
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Stopping
@@ -300,4 +314,5 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Stopping
 //-------------------------------------------------------------------------------------
+
 END_ACTION

@@ -6,6 +6,7 @@ VAR
 	rSizeTrimRight: REAL;
 	nPos: INT;
 END_VAR
+
 IMPLEMENTATION ST
 	nPos	:= 1;
 
@@ -141,5 +142,7 @@ IMPLEMENTATION ST
 	g_aCuttingPositions[nPos].Y_Target := 322.6307;
 	g_aCuttingPositions[nPos].A_Target := 45;
 	nPos	:= nPos + 1;
+
+
 
 END_PROGRAM

@@ -52,6 +52,7 @@ VAR
 	xStateError: BOOL := FALSE;
 	
 END_VAR
+
 IMPLEMENTATION ST
 // ### STATE LOGIC ###
 {region}		 

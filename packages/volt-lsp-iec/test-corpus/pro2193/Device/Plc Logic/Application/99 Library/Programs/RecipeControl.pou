@@ -60,6 +60,7 @@ VAR CONSTANT
 	MetaDataSaveUserVar		: STRING(25) := 'metadata_savedByUser';
 	MetaDataDescVar			: STRING(25) := 'metadata_description';
 END_VAR
+
 IMPLEMENTATION ST
 sw.Start();
 __TRY
@@ -178,6 +179,7 @@ __CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.RecipeTask])
 __ENDTRY
 sw.End();
 
+
 END_PROGRAM
 
 METHOD PRIVATE AutoSaveRecipes
@@ -185,6 +187,7 @@ VAR
 	i						: INT;
 	tempFileName			: STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO GVL_Constants.RecipeDefinitionsCount DO
 	tempFileName := CONCAT4(AutoSaveRecipeName, ' (', GVL_Constants.AllRecipeDefinitions[i], ')');
@@ -194,12 +197,14 @@ FOR i := 1 TO GVL_Constants.RecipeDefinitionsCount DO
 END_FOR
 
 // This reads the actual values from the PLC and saves it to a file. The file does not have the standard recipe format, so it will not show up as a recipe to load.
+
 END_METHOD
 
 METHOD PRIVATE DeleteRecipe
 VAR
 
 END_VAR
+
 IMPLEMENTATION ST
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
@@ -235,6 +240,7 @@ IF recipeCommandResult = enumRecipeCommandResult.Ok THEN
 	selectedRecipeName		:= '';
 	recipeCommand			:= 0;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE GetMetaDataForRecipe
@@ -244,6 +250,7 @@ END_VAR
 VAR
 	saveDateString			: STRING(40);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Refresh recipe data
 // Returns the recipe values from the corresponding recipe
@@ -277,12 +284,14 @@ RecipeHandler.GetRecipeValues(
 	iStartIndex				:= 2,		// Read third entry in the recipe file. We assume this is the description
 	iStringLength			:= 255
 );
+
 END_METHOD
 
 METHOD PRIVATE LoadRecipe
 VAR
 
 END_VAR
+
 IMPLEMENTATION ST
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
@@ -305,6 +314,7 @@ IF recipeCommandResult = enumRecipeCommandResult.Ok THEN
 	LogPlc.Info(CONCAT('Recipe loaded: ', selectedRecipeName));
 	recipeCommand := 0;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE RefreshData
@@ -325,6 +335,7 @@ VAR
 	pRecipeName				: POINTER TO STRING;
 	saveDateString			: STRING(40);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Refresh recipe data
 // Refresh recipes from files every second
@@ -409,12 +420,14 @@ FOR i := 9 TO 1 BY -1 DO
 	RefreshDataTime[i] := RefreshDataTime[i-1];
 END_FOR
 RefreshDataTime[0] := sw.End();
+
 END_METHOD
 
 METHOD PRIVATE RenameRecipe
 VAR
 	searchChar			: STRING(1) := '.';
 END_VAR
+
 IMPLEMENTATION ST
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
@@ -459,12 +472,14 @@ RenameFileFB(
 	sFileNameNew:= CONCAT5('/sdcard/plc/recipes/', newRecipeName,		'.', selectedRecipeDefinition, '.txtrecipe'));
 
 awaitRenameResult	:= TRUE;						// Await the result of RenameFileFB
+
 END_METHOD
 
 METHOD PRIVATE SaveRecipe
 VAR
 
 END_VAR
+
 IMPLEMENTATION ST
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
@@ -502,12 +517,14 @@ IF recipeCommandResult = enumRecipeCommandResult.Ok THEN
 ELSE
 	MetaData[selectedRecipeDefinitionId].saveDate := GVL_Constants.DateTimeEarliest;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE SaveRecipeAs
 VAR
 	searchChar			: STRING(1) := '.';
 END_VAR
+
 IMPLEMENTATION ST
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
@@ -555,4 +572,5 @@ IF recipeCommandResult = enumRecipeCommandResult.Ok THEN
 	activeRecipe[selectedRecipeDefinitionId]		:= newRecipeName;
 	recipeCommand									:= 0;
 END_IF
+
 END_METHOD

@@ -11,6 +11,7 @@ VAR
 	lower			: DINT;
 	upper 			: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 (*
 	Fills the array IQ_Table table with the rotations in degrees in order to cut in I_Divisions pieces.
@@ -767,5 +768,8 @@ END_IF
 
 Calc_RoundCakeDivisionsTable := I_Divisions / 2;
 RETURN;
+
+
+
 
 END_FUNCTION

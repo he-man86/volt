@@ -21,6 +21,7 @@ VAR
 	//TestMultiturn: L_SMC_Multiturn;
 	SetHomePosition : MC_SetPosition;
 END_VAR
+
 IMPLEMENTATION ST
 
 

@@ -17,3 +17,4 @@ STRUCT
 	sRecipeNames			:STRING(GLOBAL_CONSTANTS.iSizeRecipesNames);	//Combined recipe names	
 END_STRUCT
 END_TYPE
+

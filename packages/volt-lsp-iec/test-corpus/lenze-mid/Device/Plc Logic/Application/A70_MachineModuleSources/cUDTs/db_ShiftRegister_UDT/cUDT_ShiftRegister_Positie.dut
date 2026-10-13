@@ -4,3 +4,4 @@ STRUCT
 	Outfeed		: cUDT_ShiftRegister_Outfeed;	
 END_STRUCT
 END_TYPE
+

@@ -13,6 +13,7 @@ produces what — see [`../TESTING.md`](../TESTING.md). This file is only the ma
 | 1. the fixture contract | `conformance/{transpile-replay,transpile-replay-lowered,transpile-replay-refusals,map,lsp-replay}.test.ts` | for each fixture, does the thing its evidence rating claims actually hold? | the recorded CODESYS build **and** run |
 | 1b. the documented codes | `catalog/catalog.test.ts` | does every `Cnnnn` the catalog documents have a repro and a message? | `docs/codesys-reference/error-catalog.json` |
 | 2. real code | `corpus/{corpus,corpus-diagnostics,corpus-lowering}.test.ts`, one walk (`corpus/support/walk.ts`) | can the LSP read 29k files of real code, does it invent nothing, and is lowering total over them? | the projects' own recorded IDE builds |
+| 2a. the corpus's provenance | `corpus/corpus-provenance.test.ts` | is every corpus file the current bridge's answer, and is each one that is not recorded with its reason (`corpus/support/stale.ts`)? | the manifest writer's spelling |
 | 2b. the memory model | `conformance/properties.test.ts` | do the layout rules hold as properties, where no single recording can say? | none — they are properties |
 | 3. cross-backend | `conformance/backends.test.ts` | do the interpreter and the emitted Rust agree where no recording reaches? | each other |
 | 4. is enough being asked | `conformance/suite.test.ts` | does every cell, operator and construct have a fixture at all? | the language, our grammar, the vendor's index |

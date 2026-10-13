@@ -1,17 +1,21 @@
 INTERFACE IDrawer
 
+
 METHOD BrakeReleased : BOOL
 VAR_INPUT
 END_VAR
+
 END_METHOD
 
 METHOD LabelsTaken : BOOL
 VAR_INPUT
 END_VAR
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY IsEmpty : BOOL
+
 GET
 END_GET
 SET
@@ -20,24 +24,28 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsLocked : BOOL
+
 GET
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY Name : enumDrawer
+
 GET
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY ReleaseBrakeCounter : INT
+
 GET
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY ReleaseBrakeNeeded : BOOL
+
 GET
 END_GET
 END_PROPERTY

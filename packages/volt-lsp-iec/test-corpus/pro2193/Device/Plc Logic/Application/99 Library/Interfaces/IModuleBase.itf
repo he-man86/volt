@@ -2,6 +2,7 @@
 INTERFACE IModuleBase
 EXTENDS IAbleToRegister, __SYSTEM.IQueryInterface
 
+
 (* Command to reset the module (Statemachine to zero state) in case of E-Stop
 
 Add code here to handle emergency stops. For example:
@@ -26,10 +27,12 @@ EStop := TRUE;
 
  *)
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 END_METHOD
 
 END_INTERFACE

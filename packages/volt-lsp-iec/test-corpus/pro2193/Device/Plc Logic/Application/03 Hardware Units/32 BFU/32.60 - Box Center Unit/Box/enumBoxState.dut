@@ -8,3 +8,4 @@ TYPE enumBoxState :
 	ChangeNeeded	:= 3
 );
 END_TYPE
+

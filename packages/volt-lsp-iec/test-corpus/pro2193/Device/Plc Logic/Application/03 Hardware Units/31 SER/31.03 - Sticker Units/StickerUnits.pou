@@ -32,7 +32,9 @@ END_VAR
 VAR CONSTANT
 	usiNumberOfUnits			: USINT := 1;
 END_VAR
+
 IMPLEMENTATION ST
+%EXCLUDE_FROM_BUILD
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive			:= GlobalVars.EnableServoDrives,
@@ -49,5 +51,6 @@ IF debuggingActive THEN
 		END_IF
 	END_IF
 END_IF
+
 
 END_PROGRAM

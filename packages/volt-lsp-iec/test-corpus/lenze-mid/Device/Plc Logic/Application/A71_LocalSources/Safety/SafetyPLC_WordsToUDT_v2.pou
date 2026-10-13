@@ -3,7 +3,9 @@ VAR_IN_OUT
 	ioSafetyStatusUDT: udtSafety_Status;
 	ioSafetyControlUDT: udtSafety_Control;
 END_VAR
+
 IMPLEMENTATION ST
 ;
+
 
 END_FUNCTION_BLOCK

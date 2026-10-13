@@ -29,3 +29,4 @@ STRUCT
 	arrSheets : ARRAY[0..7] OF BOOL;
 END_STRUCT
 END_TYPE
+

@@ -15,6 +15,7 @@ VAR
 END_VAR
 VAR CONSTANT
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -22,12 +23,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 //	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 END_METHOD
 
@@ -36,6 +39,7 @@ VAR_INST
 	guardPosition				: ARRAY[1..2] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
+
 IMPLEMENTATION ST
 // Set limits for the positions, and guard the limits
 Data.Takeover.Pos.lowerLimit				:= DataBrink.rSWLimitNeg;
@@ -50,18 +54,22 @@ guardPosition[2](	value := Data.Stacking.Pos);
 
 attachPosition[1](	value := Data.Takeover.Pos);
 attachPosition[2](	value := Data.Stacking.Pos);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Drive.Quickstop(TRUE);
 
 EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -74,6 +82,7 @@ Drive.config.maxAcceleration				:= 100000;
 Drive.config.maxJerk						:= 1000000;
 
 ExternalManualControlEnabled				:= TRUE;
+
 END_METHOD
 
 // Returns true when a value is larger or equal than current act pos
@@ -82,10 +91,12 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 PosLargerOrEqual	:= Drive.actPos >= setPos - tolerance
 					AND Drive.IsHomed;
+
 END_METHOD
 
 // Returns true when a value is smaller or equal than current act pos
@@ -94,10 +105,12 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 PosSmallerOrEqual	:= Drive.actPos <= setPos + tolerance
 					AND Drive.IsHomed;
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -106,6 +119,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -131,6 +145,7 @@ CASE localState OF
 			Reset := CommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Rotate to any position. No lock and no return. Just fire and forget.
@@ -138,15 +153,18 @@ METHOD PUBLIC RotateToPosition
 VAR_INPUT
 	position	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Drive.SetMovementProfileData(Data.Stacking);
 
 Drive.MoveAbsPos(LIMIT(DataBrink.rSWLimitNeg, position, DataBrink.rSWLimitPos));
+
 END_METHOD
 
 // Rotate to Stacking position to get place products on conveyor
 METHOD PUBLIC RotateToStacking : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -160,10 +178,12 @@ END_IF
 IF Drive.MoveAbs(Data.Stacking) THEN
 	RotateToStacking := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Rotate to Takeover position to get products from chain
 METHOD PUBLIC RotateToTakeover : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -177,10 +197,12 @@ END_IF
 IF Drive.MoveAbs(Data.Takeover) THEN
 	RotateToTakeover := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
@@ -188,34 +210,41 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+
 END_METHOD
 
 // In Stacking position to get place products on conveyor
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InStackingPosition : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InStackingPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition
 					AND Drive.PosReached(Data.Stacking.Pos.value);
+
 END_GET
 END_PROPERTY
 
 // In Takeover position to get products from chain
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InTakeoverPosition : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InTakeoverPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition
 					AND Drive.PosReached(Data.Takeover.Pos.value);
+
 END_GET
 END_PROPERTY

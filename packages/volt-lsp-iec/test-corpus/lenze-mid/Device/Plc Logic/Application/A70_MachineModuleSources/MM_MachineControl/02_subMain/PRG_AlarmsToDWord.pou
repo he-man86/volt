@@ -1,6 +1,7 @@
 PROGRAM PRG_AlarmsToDWord
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 dwErrorWord1.0:=Mach1_Alarms.Alm001;
 dwErrorWord1.1:=Mach1_Alarms.Alm002;
@@ -105,5 +106,9 @@ dwErrorWord4.0:=Mach1_Alarms.Alm097;
 dwErrorWord4.1:=Mach1_Alarms.Alm098;
 dwErrorWord4.2:=Mach1_Alarms.Alm099;
 dwErrorWord4.3:=Mach1_Alarms.Alm100;
+
+
+
+
 
 END_PROGRAM

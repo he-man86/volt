@@ -10,3 +10,4 @@ STRUCT
 	homingSpeed	: REAL	:= 100;		// Speed of axis during homing	(1-100 %)
 END_STRUCT
 END_TYPE
+

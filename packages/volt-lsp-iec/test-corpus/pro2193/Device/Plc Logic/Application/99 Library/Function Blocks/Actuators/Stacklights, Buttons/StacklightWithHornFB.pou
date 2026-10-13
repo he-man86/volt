@@ -5,16 +5,20 @@ IMPLEMENTS IActuator
 VAR_INPUT
 	Horn			: LedFB;
 END_VAR
+
 IMPLEMENTATION ST
 // Instantiate the outputs
 SUPER^();
 Horn();
 
+
 END_FUNCTION_BLOCK
 
 // Reset all outputs on the stacklight
 METHOD Reset
+
 IMPLEMENTATION ST
 SUPER^.Reset();
 Horn.Off();
+
 END_METHOD

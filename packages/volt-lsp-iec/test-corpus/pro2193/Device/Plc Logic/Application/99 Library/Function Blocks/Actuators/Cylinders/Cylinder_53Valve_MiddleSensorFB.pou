@@ -10,23 +10,28 @@ VAR
 	SensorMiddleAlarm		: SetErrorFB;
 	{attribute 'symbol' := 'read'}		moveMiddleDuration		: REAL;		// The amount of time elapsed when cylinder moves
 END_VAR
+
 IMPLEMENTATION ST
 // Execute base cylinder fb
 SUPER^();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 // Set the extra alarm message
 SUPER^.Alarms();
 SetSensorMiddleAlarm(	(OutputIn.Map() = OutputOut.Map()) XOR xSensorMiddle);
+
 END_METHOD
 
 METHOD PROTECTED SetSensorMiddleAlarm
 VAR_INPUT
 	xSet	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SensorMiddleAlarm(
 	moduleHandler	:= moduleHandler,
@@ -41,13 +46,16 @@ SensorMiddleAlarm(
 IF alarmEnable AND xSet AND errorId_SensorIn <> 0 THEN
 	moveMiddleDuration	:= SensorMiddleAlarm.ElapsedTime;
 END_IF
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY IsIn : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsIn := inputIn AND NOT inputOut AND NOT xSensorMiddle;
 END_GET
@@ -55,9 +63,11 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsMiddle : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsMiddle := NOT inputOut AND NOT inputIn AND xSensorMiddle;
 END_GET
@@ -65,9 +75,11 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsOut : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsOut := inputOut AND NOT inputIn AND NOT xSensorMiddle;
 END_GET

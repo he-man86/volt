@@ -71,8 +71,8 @@ public class ResilienceTests
         var refs = RefsService.Handle(ide);
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
 
-        Assert.Equal(new[] { "Bad" }, refs.Unreadable);
-        Assert.Equal(new[] { "Bad" }, fetch.Unreadable);
+        Assert.Equal(new[] { "Bad" }, refs.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Bad" }, fetch.Unreadable.Select(u => u.Name));
 
         // …and it is still NOT a removal: an item Volt could not read has not gone anywhere, and reporting it as
         // removed would make the next pull delete the engineer's file.

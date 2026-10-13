@@ -7,3 +7,4 @@ TYPE EarlyEjectOption :
 	OnXuDrivePosition	:= 2
 );
 END_TYPE
+

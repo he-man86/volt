@@ -31,3 +31,5 @@ CMD_DateTime : Bool;
 Mach1: sUDT_HMIVar_Mach1;
 
 END_VAR
+
+

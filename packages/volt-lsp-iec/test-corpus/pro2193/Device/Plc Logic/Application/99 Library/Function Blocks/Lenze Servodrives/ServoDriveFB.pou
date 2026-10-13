@@ -70,8 +70,10 @@ VAR
 	plcDataTypeAxisErrorId		: PlcDataType;
 	plcDataTypeDriveErrorId		: PlcDataType;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -84,6 +86,7 @@ VAR_INST
 	Alarm_xDriveError		: SetErrorFB;
 	Alarm_InternalControl	: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 Alarm_xError(
@@ -147,6 +150,7 @@ Alarm_InternalControl(
 	severity		:= enumErrorSeverity.Warning,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PRIVATE CallABC
@@ -158,6 +162,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 AxisBasicControl(
@@ -269,6 +274,7 @@ IF AxisBasicControl.lrPos_Dist <> SetPosHistory[1] THEN
 	END_FOR
 	SetPosHistory[1]		:= AxisBasicControl.lrPos_Dist;
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE CallAdditionalFBs
@@ -278,6 +284,7 @@ VAR_INST
 	WriteSWLimits				: L_MC1P.L_MC1P_WriteSWLimit;
 	MeasureDistance				: TravelDistanceFB;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // Force re-homing the servo drive after changing the reference position.
@@ -360,10 +367,12 @@ MeasureDistance(
 	enable						:= AxisBasicControl.xIsHomed,
 	actPos						:= actPos,
 	totalDistance				:= coveredDistance);
+
 END_METHOD
 
 // Check if all references are valid.
 METHOD PRIVATE CheckValidRefs : BOOL;
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF NOT __ISVALIDREF(AxisRef) THEN
@@ -375,6 +384,7 @@ IF NOT __ISVALIDREF(DataBrink) THEN
 END_IF
 
 CheckValidRefs := TRUE;
+
 END_METHOD
 
 // Convert acc percentage to units/s
@@ -388,9 +398,11 @@ END_VAR
 // Thats why we do DataBrink.rAcc * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , acceleration is in °/s²
+
 IMPLEMENTATION ST
 %FOLDER Methods
 ConvertAccPercentToUnits := TO_LREAL(DataBrink.rAcc * config.unitConvertFactor * (rValue / 100));
+
 END_METHOD
 
 // Convert dec percentage to units/s
@@ -404,9 +416,11 @@ END_VAR
 // Thats why we do DataBrink.rDec * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , deceleration is in °/s²
+
 IMPLEMENTATION ST
 %FOLDER Methods
 ConvertDecPercentToUnits := TO_LREAL(DataBrink.rDec * config.unitConvertFactor * (rValue / 100));
+
 END_METHOD
 
 // Convert velocity percentage to units/s
@@ -420,12 +434,15 @@ END_VAR
 // Thats why we do DataBrink.rVel * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , velocity is in °/s
+
 IMPLEMENTATION ST
 %FOLDER Methods
 ConvertVelPercentToUnits := TO_LREAL(DataBrink.rVel * config.unitConvertFactor * (rValue / 100));
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
@@ -451,6 +468,7 @@ rActTorqueUtilisation	:= SEL(rRatedTorque > 0,	0, (actTorque	/ rRatedTorque)		* 
 
 // Reset ManualControlIsBlocked warnings after 5 seconds.
 manualControlIsBlocked	R= ResetManualControlIsBlocked.Set(In := manualControlIsBlocked, Pt := 5);
+
 END_METHOD
 
 // Profile parameters are accepted continuously. So during execution, the motion profile can be changed.
@@ -460,9 +478,11 @@ METHOD PUBLIC EnableContinuousUpdate
 VAR_INPUT
 	enable				: BOOL := TRUE;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 AxisBasicControl.xContinuousUpdate	:= enable;
+
 END_METHOD
 
 // Stop all drive movements. Use to stop movement in velocity mode
@@ -470,6 +490,7 @@ METHOD PUBLIC Halt : BOOL
 VAR_INST
 	notReadyForHalt			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stop
 IF NOT AxisEnabled
@@ -491,6 +512,7 @@ oldPosAbs							:= GVL_Constants.RealSmallest;	// Reset this variable, so the ne
 Halt	:=  AxisBasicControl.xFunDone
 		AND AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Stop
 		AND StandStill;
+
 END_METHOD
 
 // Start reference run with default parameters.
@@ -503,6 +525,7 @@ VAR_INST
 	localState			: SINT;
 	position			: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Homing
 IF NOT AxisEnabled
@@ -594,9 +617,11 @@ CASE localState OF
 			Home := HomeCommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 %FOLDER Methods
 SUPER^.Initialize();
@@ -609,12 +634,14 @@ IF AxisRef.ModuleHandler <> 0 THEN
 						ModuleHandlerParent	:= ModuleHandler,
 						RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE ManualControlBasic
 VAR_INPUT
 	payload : ISubjectHWButtonsPayload;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 CASE payload.ButtonType OF
@@ -643,12 +670,14 @@ CASE payload.ButtonType OF
 	ELSE
 		LogPlc.Warn(CONCAT(InstanceName, ': This type of button is not supported'));
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE ManualControlExtended
 VAR_INPUT
 	payload : ISubjectFunctionKeyPayload;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 CASE payload.ButtonType OF
@@ -731,6 +760,7 @@ CASE payload.ButtonType OF
 	ELSE
 		LogPlc.Warn(CONCAT(InstanceName, ': This type of button is not supported'));
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE Monitoring
@@ -739,6 +769,7 @@ VAR_INST
 	eAxisErrorID_old				: L_IE1P_Error;
 	dwDriveErrorID_old				: DWORD;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF itfAddLog = 0 THEN
@@ -772,6 +803,7 @@ IF AxisBasicControl.dwDriveErrorID <> dwDriveErrorID_old THEN
 		value		:= AxisBasicControl.dwDriveErrorID);
 END_IF
 {warning restore C0327}
+
 END_METHOD
 
 // Move to absolute position with profile data
@@ -779,11 +811,13 @@ METHOD PUBLIC MoveAbs : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 SetMovementProfileData(Data);
 
 MoveAbs		:= MoveAbsPos(Data.Pos.value);
+
 END_METHOD
 
 // Move to absolute position while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
@@ -791,10 +825,12 @@ METHOD PUBLIC MoveAbsContinuousUpdate : BOOL
 VAR_INPUT
 	position				: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveAbsContinuousUpdate		:= MoveAbsPos(position);
+
 END_METHOD
 
 // Move to absolute position
@@ -805,6 +841,7 @@ END_VAR
 
 // Warning! 2 MoveAbsPos() commands in consecutive PLC cycles will not work!!
 // Second command will be ignored because xMoveAbsExecute does not trigger
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
@@ -836,6 +873,7 @@ AND NOT AxisBasicControl.xMoveAbsExecute	// TEST: do not return true when a Exec
 THEN
 	MoveAbsPos	:=  TRUE;
 END_IF
+
 END_METHOD
 
 // Move to relative position with profile data
@@ -843,11 +881,13 @@ METHOD PUBLIC MoveRel : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 SetMovementProfileData(Data);
 
 MoveRel		:= MoveRelPos(Data.Pos.value);
+
 END_METHOD
 
 // Move to relative position while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
@@ -855,10 +895,12 @@ METHOD PUBLIC MoveRelContinuousUpdate : BOOL
 VAR_INPUT
 	distance	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveRelContinuousUpdate		:= MoveRelPos(distance);
+
 END_METHOD
 
 // Move to relative position
@@ -869,6 +911,7 @@ METHOD PUBLIC MoveRelPos : BOOL
 VAR_INPUT
 	distance	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
@@ -908,6 +951,7 @@ THEN
 	AxisBasicControl.xMoveRelExecute	:= FALSE;
 	MoveRelPos	:=  TRUE;
 END_IF
+
 END_METHOD
 
 // Move in velocity mode. Stop movements with method: Halt()
@@ -915,6 +959,7 @@ METHOD PUBLIC MoveVel : BOOL
 VAR_INPUT
 	Data : ProfileType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
@@ -936,6 +981,7 @@ AND AxisBasicControl.xConstantVelocity
 THEN
 	MoveVel	:=  TRUE;
 END_IF
+
 END_METHOD
 
 // Move in velocity mode while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
@@ -943,10 +989,12 @@ METHOD PUBLIC MoveVelContinuousUpdate : BOOL
 VAR_INPUT
 	Data : ProfileType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveVelContinuousUpdate		:= MoveVel(Data);
+
 END_METHOD
 
 // Reads a specific drive parameter
@@ -960,6 +1008,7 @@ END_VAR
 VAR_INST
 	ReadParameter	: L_MC1P.MC_ReadParameter;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // The "ReadCycle" property of the FB serves to set a higher cycle time for repeating a read request.
@@ -980,6 +1029,7 @@ IF ReadParameter.Valid THEN
 	ReadParameter(Axis := AxisRef, Enable := FALSE);
 	ParameterRead := TRUE;
 END_IF
+
 END_METHOD
 
 // Writes a specific drive parameter
@@ -991,6 +1041,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteParameter;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 WriteParameter(
@@ -1012,6 +1063,7 @@ IF WriteParameter.Done THEN
 		Value					:= 0.0);
 	ParameterWrite := TRUE;
 END_IF
+
 END_METHOD
 
 // Writes a specific boolean drive parameter
@@ -1023,6 +1075,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 WriteParameter(
@@ -1044,6 +1097,7 @@ IF WriteParameter.Done THEN
 		Value					:= FALSE);
 	ParameterWriteBool := TRUE;
 END_IF
+
 END_METHOD
 
 // Returns true when a value is larger or equal than current act pos
@@ -1052,10 +1106,12 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosLargerOrEqual	:= actPos >= setPos - tolerance
 					AND IsHomed;
+
 END_METHOD
 
 METHOD PUBLIC PosReached : BOOL
@@ -1063,10 +1119,12 @@ VAR_INPUT
 	rSetPos		: REAL;
 	tolerance	: REAL := 1.0;	// Max allowed difference
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosReached	:= PositionReachedValue(actPos, rSetPos, tolerance)
 			AND IsHomed;
+
 END_METHOD
 
 // Returns true when a value is smaller or equal than current act pos
@@ -1075,10 +1133,12 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosSmallerOrEqual	:= actPos <= setPos + tolerance
 					AND IsHomed;
+
 END_METHOD
 
 // Stop all drive movements in case of E.stop. Error Stop Deceleration and Error Stop Jerk are used.
@@ -1089,6 +1149,7 @@ END_VAR
 VAR_INST
 	notReadyForQS			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stop
 AxisBasicControl.lrVel				:= 0;
@@ -1110,6 +1171,7 @@ IF NOT AxisEnabled THEN
 END_IF
 
 AxisBasicControl.xQspApplication	:= TRUE;		// Stop is executed with Error Stop Deceleration and Error Stop Jerk.
+
 END_METHOD
 
 // Read / write parameters from drive every 10 seconds
@@ -1121,6 +1183,7 @@ VAR_INST
 	state			: INT;
 	T_Interval		: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 CASE state OF
@@ -1275,6 +1338,7 @@ CASE state OF
 	END_IF
 
 END_CASE
+
 END_METHOD
 
 // Manual operation of drive from CODESYS visu
@@ -1289,6 +1353,7 @@ END_VAR
 VAR CONSTANT
 	maxNumberOfServicePos		: USINT := 5;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 serviceModeManualF1(buttonType := enumHWButtons.F1);
@@ -1343,6 +1408,7 @@ ELSE
 	serviceModeSetPosDirect		:= FALSE;
 	i := 1;
 END_IF
+
 END_METHOD
 
 // Set a position where the drive needs to move towards during manual operation
@@ -1350,6 +1416,7 @@ METHOD PUBLIC SetManualRefPos
 VAR_INPUT
 	position		: REFERENCE TO PositionWithLimitsType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 IF __ISVALIDREF(position) THEN
@@ -1357,6 +1424,7 @@ IF __ISVALIDREF(position) THEN
 ELSE
 	refManualMovePos REF= 0;
 END_IF
+
 END_METHOD
 
 METHOD PUBLIC SetMonitoring
@@ -1369,6 +1437,7 @@ VAR_INPUT
 	axisErrorId			: PlcDataType;
 	driveErrorId		: PlcDataType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 THIS^.itfAddLog						:= itfAddLog;
@@ -1405,6 +1474,7 @@ MonitorCoveredDistance.Initialize(
 );
 {warning restore C0327}
 {warning restore SA0034}
+
 END_METHOD
 
 // Prepare vel, acc and dec values for later movements
@@ -1412,12 +1482,14 @@ METHOD PUBLIC SetMovementProfileData
 VAR_INPUT
 	Data		: ProfileType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 SetMovementProfileSeparate(
 	rVel := Data.rVel,
 	rAcc := Data.rAcc,
 	rDec := Data.rDec);
+
 END_METHOD
 
 // Prepare vel, acc and dec values for later movements
@@ -1427,6 +1499,7 @@ VAR_INPUT
 	rAcc		: REAL;		// Acc in %
 	rDec		: REAL;		// Dec in %
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Misc
 CheckValidRefs();
@@ -1434,6 +1507,7 @@ CheckValidRefs();
 AxisBasicControl.lrVel				:= ConvertVelPercentToUnits(rVel);
 AxisBasicControl.lrAcc				:= ConvertAccPercentToUnits(rAcc);
 AxisBasicControl.lrDec				:= ConvertDecPercentToUnits(rDec);
+
 END_METHOD
 
 // Set current position of drive to zero
@@ -1441,6 +1515,7 @@ METHOD PUBLIC SetPositionDirect : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Homing
 IF NOT AxisEnabled THEN
@@ -1476,6 +1551,7 @@ CASE localState OF
 			SetPositionDirect := HomeCommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 // The Update method is called when subjects have a new state
@@ -1487,6 +1563,7 @@ VAR
 	hwButtonPayload : ISubjectHWButtonsPayload;
 	functionKeyPayload : ISubjectFunctionKeyPayload;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 // Do nothing when manual control is not enabled
@@ -1508,16 +1585,19 @@ ELSIF __QUERYINTERFACE(payload, hwButtonPayload) THEN
 ELSE
 	LogPlc.Warn(CONCAT(InstanceName, ': This type of manual control is not supported'));
 END_IF
+
 END_METHOD
 
 // Read the actual velocity of the drive in %
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ActVel : REAL
+
 %FOLDER Properties
 GET
 VAR
 	rVelInMpS	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 // Get actual velocity in m/s
 rVelInMpS	:= TO_REAL(AxisBasicControl.lrActVel / config.unitConvertFactor);
@@ -1526,30 +1606,36 @@ rVelInMpS	:= TO_REAL(AxisBasicControl.lrActVel / config.unitConvertFactor);
 ActVel		:= SEL(	DataBrink.rVel > 0,
 					0.0,
 					(rVelInMpS / DataBrink.rVel) * 100.0);
+
 END_GET
 END_PROPERTY
 
 // Axis is available, ready for operation, and enabled / powered on.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC AxisEnabled : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AxisEnabled	:=	AxisBasicControl.xAxisAvailable
 			AND AxisBasicControl.xReadyForOperation
 			AND AxisBasicControl.xOperationEnabled;
+
 END_GET
 END_PROPERTY
 
 // Axis is available, ready for operation, and enabled / powered on.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC HomingSensor : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT __ISVALIDREF(AxisRef) THEN
 	HomingSensor := FALSE;
@@ -1571,16 +1657,19 @@ CASE AxisBasicControl.eAxisType OF
 	ELSE
 		HomingSensor := FALSE;
 END_CASE
+
 END_GET
 END_PROPERTY
 
 // Drive is in position. See target reached window parameters.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InPosition : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InPosition	:= AxisBasicControl.xInPosition;
 
@@ -1595,16 +1684,19 @@ InPosition	:= AxisBasicControl.xInPosition;
 //   * the home position is reset.
 
 // !!! xInPosition is reset when Enable is removed from the drive. So it is a bit useless for us :-(
+
 END_GET
 END_PROPERTY
 
 // Axis is available, ready for operation, and enabled / powered on.
 {attribute 'monitoring':='call'}
 PROPERTY IsHomed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsHomed := AxisBasicControl.xIsHomed;
 END_GET
@@ -1613,10 +1705,12 @@ END_PROPERTY
 // Axis is in standstill (velocity zero)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC Standstill : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Standstill	:= AxisBasicControl.xAxisAvailable
 			AND (AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.StandStill
@@ -1637,5 +1731,6 @@ Standstill	:= AxisBasicControl.xAxisAvailable
 // xStandstillActVelocity needs parameters to function!
 // Parameter: Window - standstill detection (subindex 132) is set to 10 units/sec.
 // Set parameter in config struct
+
 END_GET
 END_PROPERTY

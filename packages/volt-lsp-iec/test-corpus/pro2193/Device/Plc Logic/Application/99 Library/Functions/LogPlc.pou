@@ -5,6 +5,7 @@ PROGRAM LogPlc
 VAR
 	throwFatalMessages		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_PROGRAM
@@ -14,16 +15,19 @@ METHOD PUBLIC Debug
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 IF GlobalVars.EnableDebugLogging THEN
 	LogPlc.Info(message);
 END_IF
+
 END_METHOD
 
 METHOD PUBLIC Error
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogError,	// Severity = 'Trouble log'
@@ -31,12 +35,14 @@ L_LA.L_AddLog2(
 	sLogPayLoad		:= message,
 	dwErrorID		:= 0,
 	strLanguageTable:= '');
+
 END_METHOD
 
 METHOD PUBLIC Fatal
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogFatalError,
@@ -48,12 +54,14 @@ L_LA.L_AddLog2(
 IF throwFatalMessages THEN
 	Throw();
 END_IF
+
 END_METHOD
 
 METHOD PUBLIC Info
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogInformation,
@@ -61,6 +69,7 @@ L_LA.L_AddLog2(
 	sLogPayLoad		:= message,
 	dwErrorID		:= 0,
 	strLanguageTable:= '');
+
 END_METHOD
 
 METHOD INTERNAL Throw
@@ -68,6 +77,7 @@ VAR
 	pApp			: POINTER TO CmpApp.APPLICATION;
 	iecResult		: SysTypes.RTS_IEC_RESULT;
 END_VAR
+
 IMPLEMENTATION ST
 // Get handle to current PLC application
 pApp := CmpApp.AppGetCurrent(pResult := ADR(iecResult));
@@ -79,12 +89,14 @@ END_IF
 // Note: RTSEXCPT_WATCHDOG exceptions are the only type still working in C5x0 PLCs!
 // Other types of exceptions are not working. The PLC does not stop.
 // See email from Lenze on 2024-08-20
+
 END_METHOD
 
 METHOD PUBLIC Warn
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+
 IMPLEMENTATION ST
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogWarning,
@@ -92,4 +104,5 @@ L_LA.L_AddLog2(
 	sLogPayLoad		:= message,
 	dwErrorID		:= 0,
 	strLanguageTable:= '');
+
 END_METHOD

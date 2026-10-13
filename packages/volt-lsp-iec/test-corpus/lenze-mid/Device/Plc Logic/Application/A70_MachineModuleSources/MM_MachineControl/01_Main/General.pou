@@ -11,6 +11,7 @@ VAR
 	BLINK_0: BLINK;
 	restart1: BOOL;
 END_VAR
+
 IMPLEMENTATION LD
 NETWORK
   GeneralProgramFlags(EN := TRUE);

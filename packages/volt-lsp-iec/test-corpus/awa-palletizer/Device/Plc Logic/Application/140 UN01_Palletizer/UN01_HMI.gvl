@@ -22,3 +22,6 @@ VAR_GLOBAL
 	{attribute 'symbol' := 'readwrite'}
 	iTest:INT;
 END_VAR
+
+
+

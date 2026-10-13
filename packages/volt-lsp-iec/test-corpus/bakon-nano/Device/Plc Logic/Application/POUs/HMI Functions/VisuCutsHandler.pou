@@ -21,6 +21,7 @@ VAR
 	
 	sLocalRecipeVar		: sMACH_RCP_Parameters;
 END_VAR
+
 IMPLEMENTATION ST
 c_PI := 3.14159265359;
 sLocalRecipeVar := g_HMI_RCP_Parameters_Visu;
@@ -184,5 +185,6 @@ FOR vCutLineCounter := nDeleteDiagFrom TO 150 DO //dont display lines when the n
 	g_sHMI_VisuCutsArray[vCutLineCounter].length := '0px';
 	g_sHMI_VisuCutsArray[vCutLineCounter].rotation := 0.0;
 END_FOR
+
 
 END_PROGRAM

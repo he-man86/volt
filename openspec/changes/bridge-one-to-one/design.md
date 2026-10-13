@@ -147,7 +147,7 @@ text (below).
 | `NetVarProperties` on a `GVLObject` [1 sender] | `%NETVAR <member>: <value>` per member (Acknowledge, Checksum, EventVariable, Interval, ListIdentifier, MinimumGap, PackVariables, ProtocolName, TransmitCyclic, TransmitOnChange, TransmitOnEvent, TaskName, ImportFileName, ProtocolParameterValues as `<key>=<value>` pairs); `GuidTaskStartSlot` / `GuidTaskEndSlot`: vendor-minted identity (as the object GUID). Create: `SenderGVLObjectFactory` then the members written (`create-each-class`: the factory makes a `GVLObject` with `NetVarProperties`) |
 | `GVLObject.ParameterList` [0] | `%PARAMETER_LIST` — creatable (`ParameterGVLObjectFactory`, `create-each-class`) |
 | `FileLink` [1] (`LinkType`, `FileName`, `lTimeStamp`) | `%FILE_LINK ExportBeforeCompile '<path>'`; `lTimeStamp`: cache (the file's mtime) |
-| `POUImageProperty` [2 × 449 KB] | REFUSED by name (a binary image has no text form; pull warns item + property, a push never writes it, a create that needs it refuses) |
+| `POUImageProperty` [2 × 449 KB] | NOT SPELLED — niche: accepted loss (2 occurrences in the corpora; gate review of step 4b, finding 2). A binary image has no text form: the pull logs the item + property at Warn, an in-place push never writes it (the image stays), and a create from the text makes the POU WITHOUT it — no line marks it, so a create cannot refuse what the text does not show (a marker line would be a new text form the owner has not approved). The completeness oracle's known list carries it under that reason |
 | `SFCProperty` [2 + TwinCAT 2], `CFCProperty` [10], `SFCLibraryProperty` [0], `TransitionMonitoringProperty` [0], `ActionObjectDuplicationModeProperty` / `TransitionObjectDuplicationModeProperty` [0] | REFUSED by name — they belong to an UNSUPPORTED body (SFC / CFC) and travel with it (the body is never written) |
 | `ObjectAccessProperty` [0] (rights) | REFUSED by name |
 | `DeviceProperty` [186], `ModuleType` [8], `ImagePoolPropertiesObject` [9], `ApplicationInfoObjectProperty` / `BaseLibrariesProperty` / `MathLibrariesProperty` / `StringLibrariesProperty` / `VisualProperty` [≤1] | properties of NON-items (device, image pool, application, library manager, visualization): carried by their descriptor where it exists (device below, library manager below), else refused by name in the pull report |
@@ -184,7 +184,7 @@ fixture and a probe row measure the vendor's member (tasks 2.2 / 3.3 — the cen
 
 | class · member | disposition |
 |---|---|
-| POU `POULevel` [Standard 451/451] | the one measured value: no line; any other value refuses the item by name |
+| POU `POULevel` [Standard 436/436 POUs] | the one measured value: no line; any other value refuses the item by name. A check function (`POUObjectCheckFunction`, 15) does NOT archive it — its archive is `Implementation`, `Interface`, `SpecialFunc` (measured SP21 Patch 4, step 4b; the 451 once counted here included them), so it holds no `POULevel` to require |
 | POU / GVL `AddAttributeSubsequent` [false 496/496] | same: no line; true refuses by name |
 | POU `ChildObjectGuids` [empty 436/436] | same: non-empty refuses by name |
 | POU `SpecialFunc` | `%CLASS CHECK …` (above) |
@@ -258,7 +258,7 @@ fixture and a probe row measure the vendor's member (tasks 2.2 / 3.3 — the cen
 unspelled; CODESYS member insertion order unspelled (the text keeps its canonical order).
 
 **Refused by name, collected** (pull warns item + property; a push never writes it; a create that would need it
-refuses): `POUImageProperty`, the SFC/CFC properties with their bodies, `ObjectAccessProperty`, a folder's
+refuses): the SFC/CFC properties with their bodies, `ObjectAccessProperty`, a folder's
 `BuildProperty` [4], Task-Configuration system events [1], `EmbeddedFileObject` [2], standalone transitions [0], NVL
 create [1], a second persistent list per application, the 0-occurrence classes and properties, and every member whose
 measured constant a project breaks; on TwinCAT (gate 1) every object-property line and any `.plcproj` build entry
@@ -508,7 +508,7 @@ is refused by name** until the completeness oracle reproduces a re-created list 
 factory path stays measured, unused. (7c) **A create carrying `%NETVAR` (a sender) or `%PARAMETER_LIST` is refused by
 name in the pre-flight, as a create** (`ICodeStore.ValidateProperties(…, create)`): the sender's settings have no
 measured write and the push does not hand a factory to the create — niche: accepted loss (1 and 0 occurrences in the
-corpora). (2) **The measured constants are read**: `POULevel` (POU + check function), `AddAttributeSubsequent` (POU, GVL),
+corpora). (2) **The measured constants are read**: `POULevel` (POU; a check function archives none — corrected in 4.2), `AddAttributeSubsequent` (POU, GVL),
 `ChildObjectGuids` (POU), `persvarlist` (persistent list) and a body aspect's `ParameterInitializationMethodGenerator`
 — each off its value refuses the item by name. (3) **Non-items are named in the pull report** (`WalkResult.UnreadableObjects`):
 a FOLDER whose build property is off its default is refused and its objects are NOT walked (they are not built; nothing
@@ -662,7 +662,7 @@ CODESYS:
    not a Volt item**: len holds **1 system event** (`alSysEventList`: `PrepareStart` → `POE_systemStart`, active)
    that no text spells; `StackSize 0` / `UseConfigurableStackSize false` on 5/5.
 6. **Constant members (one value over every occurrence)** — 1.1 decides each (spell, or refuse the other value):
-   `POULevel Standard` (436 + 15), `AddAttributeSubsequent false` (POU 436, GVL 60), `ChildObjectGuids` empty (436),
+   `POULevel Standard` (436; the "+ 15" check functions do not archive it — corrected in 4.2), `AddAttributeSubsequent false` (POU 436, GVL 60), `ChildObjectGuids` empty (436),
    library item `Optional false`, `HideWhenReferencedAsDependency false`, `PublishSymbolsInContainer false`,
    `Params null` (264 of 264 items — every item walked).
 7. **Editor-cache candidates** (to MEASURE in 1.3, never assumed): `LineInfoPersistence` on every text aspect,
@@ -764,7 +764,7 @@ TwinCAT (Project14 — 13 PLC files in two PLC projects):
 | `SpecialFunc` | 436 | None ×436 |
 | `UniqueIdGenerator` | 436 | 304 distinct |
 
-**`POUObject.POUObjectCheckFunction`** — 15 (CTP 0 / bak 5 / awa 0 / pro 10 / len 0); archive members: SpecialFunc, POULevel, ChildObjectGuids, AddAttributeSubsequent, Implementation, Interface, UniqueIdGenerator
+**`POUObject.POUObjectCheckFunction`** — 15 (CTP 0 / bak 5 / awa 0 / pro 10 / len 0); archive members: SpecialFunc, POULevel, ChildObjectGuids, AddAttributeSubsequent, Implementation, Interface, UniqueIdGenerator — **corrected in 4.2 (2026-10-13)**: that list is the CLASS's declared members; an instance's archive (`IArchivable.SerializableValueNames`, SP21 Patch 4, measured on the fixture's `CheckDivDInt` and seen on all 15 by the live re-pull) names only `Implementation`, `Interface`, `SpecialFunc` — no `POULevel` row below for that reason. The driver required `POULevel` on it, so all 15 pulled unreadable (fixed, step 4b)
 
 | member | n | values |
 |---|---|---|

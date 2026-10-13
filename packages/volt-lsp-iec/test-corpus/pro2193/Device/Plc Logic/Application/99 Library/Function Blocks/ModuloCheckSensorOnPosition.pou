@@ -18,6 +18,7 @@ VAR
 	inWindowTrigger			: TriggerFB;
 	sensorDetected			: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT enable THEN
 	leftWindow		:= FALSE;
@@ -40,5 +41,6 @@ productDetected		:= leftWindow AND NOT sensorDetected;
 
 // When leaving the window, reset result
 sensorDetected		R= NOT inWindow;
+
 
 END_FUNCTION_BLOCK

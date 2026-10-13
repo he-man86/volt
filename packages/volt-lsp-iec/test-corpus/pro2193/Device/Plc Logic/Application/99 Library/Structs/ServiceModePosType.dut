@@ -6,3 +6,4 @@ STRUCT
 	sw		: StopwatchFB;
 END_STRUCT
 END_TYPE
+

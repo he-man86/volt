@@ -63,3 +63,4 @@ VAR_GLOBAL
 	(* #d52efabe-4e38-4380-a7b3-2e2ff2d23dbd# *)
 	Vacuum_Label_Errors : WORD:= 15379;
 END_VAR
+%LINK_ALWAYS

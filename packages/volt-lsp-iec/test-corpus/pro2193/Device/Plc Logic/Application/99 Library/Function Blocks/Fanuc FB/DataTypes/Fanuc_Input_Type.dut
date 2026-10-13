@@ -30,3 +30,4 @@ STRUCT
 	arGroupInputs		: ARRAY[7..22] OF UINT;
 END_STRUCT
 END_TYPE
+

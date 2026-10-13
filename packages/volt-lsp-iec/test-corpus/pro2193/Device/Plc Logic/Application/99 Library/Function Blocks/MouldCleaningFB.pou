@@ -11,6 +11,7 @@ END_VAR
 VAR
 	iCleanShots			: INT;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT Data.xEnable OR NOT PersistentVars.RecipeVars.EnableIML THEN
 	iCountDown	:= Data.iInterval;
@@ -18,10 +19,12 @@ IF NOT Data.xEnable OR NOT PersistentVars.RecipeVars.EnableIML THEN
 	xActive		:= FALSE;
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 // Returns true when labels should be placed in the mould
 METHOD CycleWithIML : BOOL
+
 IMPLEMENTATION ST
 IF NOT Data.xEnable THEN
 	CycleWithIML	:= TRUE;
@@ -43,13 +46,16 @@ ELSE
 END_IF
 
 CycleWithIML	:= NOT xActive;
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 iCountDown	:= Data.iInterval;
 iCleanShots	:= 0;
 xActive		:= FALSE;
 EStop		:= TRUE;
+
 END_METHOD

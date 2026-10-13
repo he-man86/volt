@@ -45,3 +45,4 @@ VAR_GLOBAL CONSTANT
 	DintLargest					: DINT			:=  2147483647;						// Upper limit of DINT datatype
 	pi							: REAL			:= 3.14159274101257324;				// π
 END_VAR
+

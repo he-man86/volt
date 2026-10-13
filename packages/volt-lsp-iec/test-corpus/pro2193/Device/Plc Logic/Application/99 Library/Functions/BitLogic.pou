@@ -5,6 +5,7 @@ PROGRAM BitLogic
 VAR
 	uInput		: PointerSizesUnion;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_PROGRAM
@@ -16,11 +17,13 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+
 IMPLEMENTATION ST
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);		// Subtracting 1 from a number flips all the bits after the rightmost set bit, including the rightmost set bit itself
 	CountByte	:= CountByte + 1;
 END_WHILE
+
 END_METHOD
 
 // Population count: Count the number of bits that are 1 in a dword
@@ -30,11 +33,13 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+
 IMPLEMENTATION ST
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);
 	CountDWord	:= CountDWord + 1;
 END_WHILE
+
 END_METHOD
 
 // Population count: Count the number of bits that are 1 in a word
@@ -44,11 +49,13 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+
 IMPLEMENTATION ST
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);
 	CountWord	:= CountWord + 1;
 END_WHILE
+
 END_METHOD
 
 // Extract a single bit from any integer type (usefull in FOR loops)
@@ -57,6 +64,7 @@ VAR_INPUT
 	in	: ANY_INT;		// extract bit from this integer
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+
 IMPLEMENTATION ST
 ValidateInput(in.diSize, N);
 
@@ -68,6 +76,7 @@ CASE in.diSize OF
 	4:	Extract := (SHR(uInput.p4_DWord^,	N) AND 16#00000001) > 0;
 	8:	Extract := (SHR(uInput.p8_LWord^,	N) AND 16#00000001) > 0;
 END_CASE
+
 END_METHOD
 
 // Extract a single bit from a byte type (usefull in FOR loops)
@@ -78,8 +87,10 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 ExtractFromByte := (SHR(in,	N) AND 16#00000001) > 0;
+
 END_METHOD
 
 // Extract a single bit from a DWORD type (usefull in FOR loops)
@@ -90,8 +101,10 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 ExtractFromDWord := (SHR(in, N) AND 16#00000000_00000000_00000000_00000001) > 0;
+
 END_METHOD
 
 // Extract a single bit from a WORD type (usefull in FOR loops)
@@ -102,8 +115,10 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 ExtractFromWord := (SHR(in, N) AND 16#00000000_00000001) > 0;
+
 END_METHOD
 
 // Load a bit into any integer at position N
@@ -113,6 +128,7 @@ VAR_INPUT
 	val	: BOOL;			// The value to set
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+
 IMPLEMENTATION ST
 ValidateInput(in.diSize, N);
 
@@ -124,6 +140,7 @@ CASE in.diSize OF
 	4:	uInput.p4_DWord^	:= SEL(val, uInput.p4_DWord^ AND (NOT SHL(DWORD#1, N)),	uInput.p4_DWord^ OR SHL(DWORD#1, N));
 	8:	uInput.p8_LWord^	:= SEL(val, uInput.p8_LWord^ AND (NOT SHL(LWORD#1, N)),	uInput.p8_LWord^ OR SHL(LWORD#1, N));
 END_CASE
+
 END_METHOD
 
 // Alternative to Load. Only works with SINT or BYTE. Result is copied to output.
@@ -135,11 +152,13 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 LoadToByte	:= TO_BYTE(Util.PUTBIT(
 						X	:= in,
 						N	:= N,
 						B	:= val));
+
 END_METHOD
 
 // Alternative to Load. Only works with DINT or DWORD. Result is copied to output.
@@ -151,11 +170,13 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 LoadToDWord	:= Util.PUTBIT(
 						X	:= in,
 						N	:= N,
 						B	:= val);
+
 END_METHOD
 
 // Alternative to Load. Only works with INT or WORD. Result is copied to output.
@@ -167,11 +188,13 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+
 IMPLEMENTATION ST
 LoadToWord	:= TO_WORD(Util.PUTBIT(
 						X	:= in,
 						N	:= N,
 						B	:= val));
+
 END_METHOD
 
 // Toggles a bit in any integer at position N
@@ -180,6 +203,7 @@ VAR_INPUT
 	in	: ANY_INT;		// extract bit from this integer
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+
 IMPLEMENTATION ST
 ValidateInput(in.diSize, N);
 
@@ -191,6 +215,7 @@ CASE in.diSize OF
 	4:	uInput.p4_DWord^	:= SHL(DWORD#1, N) XOR in.pValue^;
 	8:	uInput.p8_LWord^	:= SHL(LWORD#1, N) XOR in.pValue^;
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE ValidateInput
@@ -198,6 +223,7 @@ VAR_INPUT
 	diSize	: DINT;
 	N		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF diSize = 1 AND N > 7
 OR diSize = 2 AND N > 15
@@ -205,4 +231,5 @@ OR diSize = 4 AND N > 31
 THEN
 	ThrowException('Invalid parameter; index too large');
 END_IF
+
 END_METHOD

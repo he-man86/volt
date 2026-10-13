@@ -12,3 +12,4 @@ TYPE eModes :
     EmptyOut    	:= 7
 );
 END_TYPE
+

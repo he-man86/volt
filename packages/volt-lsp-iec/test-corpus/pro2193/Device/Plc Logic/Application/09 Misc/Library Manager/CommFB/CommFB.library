@@ -2,6 +2,5 @@ LIBRARY CommFB
 NAMESPACE CommFB
 RESOLUTION CommFB, 3.5.18.0 (3S - Smart Software Solutions GmbH)
 PLACEHOLDER true
-SYSTEM false
 DEPENDENCIES SysMem, IoDriver Profibus2 Interfaces, * (System)
 MATERIALIZATION 4

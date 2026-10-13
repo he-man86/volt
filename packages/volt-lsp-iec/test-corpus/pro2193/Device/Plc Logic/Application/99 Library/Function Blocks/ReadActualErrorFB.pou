@@ -12,6 +12,7 @@ VAR
 	ReadActualSeverity		: L_IE1P.L_IE1P_ReadActualSeverity;
 	ReadActualErrorCode		: L_IE1P.L_IE1P_ReadActualErrorCode;	// For debug
 END_VAR
+
 IMPLEMENTATION ST
 ReadActualSeverity(
 	xEnable					:= TRUE,
@@ -70,5 +71,6 @@ ReadActualErrorCode(
 	xWarningActive			=> ,
 	dwErrorCode				=> ,
 	eSeverity				=> );
+
 
 END_FUNCTION_BLOCK

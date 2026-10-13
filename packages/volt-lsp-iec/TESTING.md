@@ -77,6 +77,8 @@ test/
     corpus-diagnostics.test.ts  it invents nothing (vs each project's recorded IDE build; the one LSP diagnostic
                                 pass, support/diagnostics.ts),
     corpus-lowering.test.ts     and lowering is total over it (the same walk)
+    corpus-provenance.test.ts   every corpus file is the current bridge's answer, or listed with its reason
+                                (support/stale.ts: manifests in the retired spelling, objects a corpus lacks)
   catalog/
     catalog.test.ts          one test per documented Cnnnn
   frontend/                  the front-end MEASURED against the recordings (openspec frontend-conformance phase 0):

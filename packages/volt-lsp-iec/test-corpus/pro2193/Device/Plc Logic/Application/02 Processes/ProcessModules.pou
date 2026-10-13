@@ -184,6 +184,7 @@ END_VAR
 VAR CONSTANT
 	{attribute 'symbol' := 'none'}	numberOfXYControls		: USINT := 1;	// Number of complete Y/X Units (2 in case of stack moulds)
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT Initialize() THEN
 	RETURN;
@@ -306,6 +307,7 @@ ForwardSeverityBfu(
 	xError						=> ,
 	eErrorID					=> );
 
+
 END_PROGRAM
 
 METHOD PRIVATE Initialize : BOOL
@@ -313,6 +315,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	isInitialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF isInitialized THEN
 	Initialize	:= TRUE;
@@ -331,4 +334,5 @@ ModuleHandlerBfu.SetParent(
 
 isInitialized	:= TRUE;
 Initialize		:= TRUE;
+
 END_METHOD

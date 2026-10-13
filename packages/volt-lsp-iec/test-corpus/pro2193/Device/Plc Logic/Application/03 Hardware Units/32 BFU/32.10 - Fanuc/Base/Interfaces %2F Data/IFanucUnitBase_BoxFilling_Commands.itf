@@ -5,6 +5,7 @@ METHOD PUBLIC GetRotateSettingForStack : BOOL
 VAR_INPUT
 	stackNumber	: UINT;
 END_VAR
+
 END_METHOD
 
 METHOD PUBLIC PlaceStackInBox : enumResultGeneric		// Returns error when crashed in box
@@ -15,6 +16,7 @@ VAR_OUTPUT
 	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
 	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

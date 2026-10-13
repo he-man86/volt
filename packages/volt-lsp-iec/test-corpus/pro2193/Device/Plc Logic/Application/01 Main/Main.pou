@@ -3,6 +3,7 @@ VAR
 	StartupTimer	: BTON;
 	taskInfo				: CmpIecTask.Task_Info2;
 END_VAR
+
 IMPLEMENTATION ST
 __TRY
 taskInfo	:= TaskGetInfo();
@@ -28,5 +29,6 @@ __TRY ProcessModules();		__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes
 __TRY SER();				__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.SER])	GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY		// SER need to be last in the list, so all in_out variables are connected
 __TRY BFU();				__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.BFU])	GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY		// BFU need to be last in the list, so all in_out variables are connected
 __TRY IQ_Handling();		__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.IQ_Handling])	GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY		// Read and write all I/Q slices
+
 
 END_PROGRAM

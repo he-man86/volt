@@ -4,6 +4,7 @@ VAR
 	nPosCountGood	: INT;
 	n					: INT;
 END_VAR
+
 IMPLEMENTATION ST
 (* Delete all impossible cutting positions in array *)
 

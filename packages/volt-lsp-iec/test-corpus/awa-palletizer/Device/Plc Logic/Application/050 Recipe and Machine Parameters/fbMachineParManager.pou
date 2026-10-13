@@ -28,6 +28,7 @@ VAR
 	{attribute 'symbol' := 'readwrite'}
 	HMI_stRecipeManagercmd	: dutRecipeManagerCmd;
 END_VAR
+
 IMPLEMENTATION ST
 GetDateAndTime(
 xExecute:= HMI_stRecipeManagercmd.xSave, 
@@ -113,5 +114,6 @@ IF xSavePar THEN
 	END_IF 
 	xSavePar := FALSE;                                     
 END_IF
+
 
 END_FUNCTION_BLOCK

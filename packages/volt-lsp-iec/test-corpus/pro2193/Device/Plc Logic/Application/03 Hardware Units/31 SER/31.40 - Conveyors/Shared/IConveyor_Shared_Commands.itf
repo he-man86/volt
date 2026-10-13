@@ -1,20 +1,24 @@
 INTERFACE IConveyor_Shared_Commands
 EXTENDS IModuleWithCommandLock
 
+
 // The Z Unit has just finished stacking and the conveyor is allowed to move the stacks.
 {attribute 'monitoring':='call'}
 PROPERTY MovingStacksAllowed : BOOL
+
 GET
 END_GET
 SET
 VAR
 END_VAR
+
 END_SET
 END_PROPERTY
 
 // The actual stacking height of stack on the conveyor.
 {attribute 'monitoring':='call'}
 PROPERTY StackIndex : UINT
+
 GET
 END_GET
 END_PROPERTY

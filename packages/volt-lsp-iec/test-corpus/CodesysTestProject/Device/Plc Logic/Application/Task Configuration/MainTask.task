@@ -1,5 +1,5 @@
 Type:      Cyclic
 Interval:  t#20ms
 Priority:  1
-Watchdog:  off
+Watchdog:  off '' ms (sensitivity 1)
 Calls:     PLC_PRG

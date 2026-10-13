@@ -6,3 +6,4 @@ STRUCT
 	rDec			: REAL	:= 100;	// Decleration in percentage of max. dec. entered by user
 END_STRUCT
 END_TYPE
+

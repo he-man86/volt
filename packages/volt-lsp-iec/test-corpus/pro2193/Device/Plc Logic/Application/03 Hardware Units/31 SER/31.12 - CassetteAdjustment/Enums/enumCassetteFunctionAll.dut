@@ -9,3 +9,4 @@ TYPE enumCassetteFunctionAll :
 	Stop			:= 4
 );
 END_TYPE
+

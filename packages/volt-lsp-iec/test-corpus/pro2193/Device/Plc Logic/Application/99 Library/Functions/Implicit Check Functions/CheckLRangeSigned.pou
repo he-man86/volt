@@ -3,7 +3,9 @@ FUNCTION CheckLRangeSigned : LINT
 VAR_INPUT
 	value, lower, upper : LINT;
 END_VAR
+
 IMPLEMENTATION ST
+%CLASS CHECK CheckLRangeSigned
 IF value >= lower AND value <= upper THEN
 	CheckLRangeSigned := value;
 ELSE
@@ -25,5 +27,6 @@ ELSE
 		ThrowException('RtsExceptions.RTSEXCPT_MISALIGNMENT');
 	END_IF
 END_IF
+
 
 END_FUNCTION

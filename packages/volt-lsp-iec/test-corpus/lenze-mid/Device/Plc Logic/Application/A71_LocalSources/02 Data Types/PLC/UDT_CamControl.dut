@@ -7,3 +7,4 @@ IsActive : Bool;
 MachinePos_HMI : Int;
 END_STRUCT
 END_TYPE
+

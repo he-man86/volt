@@ -145,3 +145,5 @@ VAR_GLOBAL PERSISTENT RETAIN
 	// Generated instance path of persistent variable
 	BoxOutfeeds.Data: ARRAY [1..BoxOutfeeds.usiNumberOfUnits] OF BoxOutfeed_Default_DataType;
 END_VAR
+
+%CLASS PERSISTENT

@@ -8,3 +8,4 @@ TYPE enumOrientationType :
 	Left		:= 270
 );
 END_TYPE
+

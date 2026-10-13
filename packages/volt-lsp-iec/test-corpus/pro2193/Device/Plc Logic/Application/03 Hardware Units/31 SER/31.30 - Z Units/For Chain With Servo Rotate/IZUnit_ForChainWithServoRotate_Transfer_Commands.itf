@@ -2,12 +2,15 @@
 INTERFACE IZUnit_ForChainWithServoRotate_Transfer_Commands
 EXTENDS IZUnit_Transfer_Commands
 
+
 // Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
 METHOD PUBLIC RetractWithProducts : BOOL
+
 END_METHOD
 
 // During transfer products on gripper
 PROPERTY HasProductForTransfer : ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+
 GET
 END_GET
 END_PROPERTY

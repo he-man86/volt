@@ -8,3 +8,4 @@ TYPE enumConveyorRunning_State :
 	Decelerating
 );
 END_TYPE
+

@@ -9,3 +9,4 @@ TYPE enumProductionStatsCavityType :
 	RejectReason
 );
 END_TYPE
+

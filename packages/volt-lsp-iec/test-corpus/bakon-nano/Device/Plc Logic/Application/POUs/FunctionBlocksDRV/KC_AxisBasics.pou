@@ -34,6 +34,7 @@ VAR
 	timeReg : TOF;
 	timeReg2 : TOF;
 END_VAR
+
 IMPLEMENTATION ST
 (* Torque settings *)
 AxisTorquelimit(

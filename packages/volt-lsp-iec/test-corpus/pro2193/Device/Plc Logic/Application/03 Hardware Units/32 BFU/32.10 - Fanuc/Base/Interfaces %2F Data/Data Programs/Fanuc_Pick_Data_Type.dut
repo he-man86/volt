@@ -9,3 +9,4 @@ STRUCT
 	ShiftZ		: REAL;							// Shift distance in Z direction
 END_STRUCT
 END_TYPE
+

@@ -5,13 +5,16 @@ VAR
 	takeoverPosition		: INT;
 	{attribute 'hide'}	_alternateCycleCounter	: INT := 1;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
@@ -25,21 +28,27 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //		ShowNoProgramWarning();
 //		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 // Provide some number to do alternate cycles. Is zero when not in use.
 {attribute 'monitoring':='call'}
 PROPERTY AlternateCycleCounter : INT
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AlternateCycleCounter := _alternateCycleCounter;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _alternateCycleCounter := AlternateCycleCounter;
+
 END_SET
 END_PROPERTY

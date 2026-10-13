@@ -34,3 +34,4 @@ VAR_GLOBAL
 	// Light On/Off
 	SIG04_Reset: dutHMI;
 END_VAR
+

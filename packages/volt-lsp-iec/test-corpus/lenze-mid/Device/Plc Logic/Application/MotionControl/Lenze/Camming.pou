@@ -30,6 +30,7 @@ VAR_IN_OUT
 	ioMasterAxis					: AXIS_REF; 
 	ioSlaveAxis						: AXIS_REF; 
 END_VAR
+
 IMPLEMENTATION ST
 
 ReadInputs();
@@ -38,6 +39,7 @@ FlexCam();
 SetTorqueLimits();
 BrakeLogic();
 WriteOutputs();
+
 
 END_FUNCTION_BLOCK
 
@@ -275,6 +277,7 @@ END_METHOD
 METHOD FlexCamParameters
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 //General
 //ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
@@ -314,17 +317,20 @@ ELSE
 	AxisControl.scPar.eSyncMode:=L_TS2P_SyncModeFlexCam.InstantRelative;
 END_IF
 AxisControl.scPar.lrSlaveSyncOutPos:=AxisControl.lrSetPosOut;
+
 END_METHOD
 
 METHOD ReadInputs 
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 
 //activate internal control
 IF NOT internalControl THEN
 	Control_Local	:= ioDataExchange.Control;
 END_IF
+
 END_METHOD
 
 METHOD SetTorqueLimits 
@@ -391,6 +397,7 @@ END_VAR
 VAR_INST
 
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -402,4 +409,5 @@ ioDataExchange.Status.InSync						:= AxisControl.xSynchronised;
 ioDataExchange.Status.TorqueLimit					:= SetTorqueError.scErrorInformation.xError;
 ioDataExchange.Status.ActSpeed						:= AxisControl.lrActVel;
 ioDataExchange.Status.ActPos						:= AxisControl.lrActPos;
+
 END_METHOD

@@ -7,6 +7,7 @@ EXTENDS DigitalSensorFB
 VAR
 	_isEnabled		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -14,42 +15,53 @@ END_FUNCTION_BLOCK
 // Sensor is active (SensorInput is opposite of the Invert signal)
 {attribute 'monitoring':='call'}
 PROPERTY IsActive : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsActive := NOT IsEnabled OR_ELSE SUPER^.IsActive;
+
 END_GET
 END_PROPERTY
 
 // Sensor is enabled or disabled
 {attribute 'monitoring':='call'}
 PROPERTY IsEnabled : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsEnabled := _isEnabled;
+
 END_GET
 SET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _isEnabled := IsEnabled;
+
 END_SET
 END_PROPERTY
 
 // Sensor is inactive (SensorInput is false (or true when inverted))
 {attribute 'monitoring':='call'}
 PROPERTY IsInactive : BOOL
+
 GET
 PUBLIC
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsInactive := NOT IsEnabled OR_ELSE SUPER^.IsInactive;
+
 END_GET
 END_PROPERTY

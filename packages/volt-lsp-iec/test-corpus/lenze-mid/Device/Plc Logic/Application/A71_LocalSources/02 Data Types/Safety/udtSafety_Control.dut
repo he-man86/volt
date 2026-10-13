@@ -67,3 +67,4 @@ CTRL_Spare13 : BOOL;
 	
 END_STRUCT
 END_TYPE
+

@@ -54,6 +54,8 @@ VAR
 
 	wCount: WORD;
 END_VAR
+
+
 IMPLEMENTATION ST
 //*********************************************************************************************************	
 //Assignments of user program structure to internal library structures
@@ -80,6 +82,10 @@ act_Assign_OEE_Inputs_Constants();
 act_Assign_OEE_Properties();
 act_Assign_OEE_Inputs_Production_Data();
 call_OEE_Input_IF();
+
+
+
+
 
 END_PROGRAM
 
@@ -148,6 +154,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Error in safety system';
+
 END_ACTION
 
 ACTION act_Assign_Errors_10_19
@@ -222,6 +229,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Selector Manual/Auto ATF';
+
 END_ACTION
 
 ACTION act_Assign_Errors_20_29
@@ -296,6 +304,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
+
 END_ACTION
 
 ACTION act_Assign_Errors_30_39
@@ -370,6 +379,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
+
 END_ACTION
 
 ACTION act_Assign_Errors_40_49
@@ -444,6 +454,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Dryer opened';
+
 END_ACTION
 
 ACTION act_Assign_Errors_50_59
@@ -518,6 +529,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Inpusher trayfiller blocked';
+
 END_ACTION
 
 ACTION act_Assign_Errors_60_69
@@ -592,6 +604,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
+
 END_ACTION
 
 ACTION act_Assign_Errors_70_79
@@ -666,6 +679,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
+
 END_ACTION
 
 ACTION act_Assign_Errors_80_89
@@ -740,6 +754,7 @@ GVL_FirstErrCapture.ascErrorInfo[wCount].wErrorId:=wCount;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].dwErrorCategory:=0;
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sCategoryDesc:='General Error';
 GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Door 7';
+
 END_ACTION
 
 ACTION act_Assign_Errors_90_100
@@ -877,6 +892,13 @@ GVL_OEE_Var.scMachinedata.scProduction.eOEECalcMode := L_OEEA_Lib.enumOEECalcula
 //	ProductPartTarget :=1	// Using actual Product Targets from Active Product recipie
 //---------------------------------------------------------------------------------------------------------------------------------------
 GVL_OEE_Var.scMachinedata.scProduction.eOEEPartTargetMode := L_OEEA_Lib.enumOEEPartTargetMode.ProductPartTarget;
+
+
+
+
+
+
+
 END_ACTION
 
 ACTION act_Assign_OEE_Inputs_Production_Data
@@ -1000,6 +1022,14 @@ GVL_OEE_Var.scMachineData.scProductData.rChangeOverTime := MM_PD.scActiveProduct
 
 // Optional - If a uniqe PART ID per Part is needed, it can be assigne here - not used inside the standard  
 GVL_OEE_Var.scMachineData.scProductData.diPartID := GVL_OEE_Var.diUniquePartID;
+
+
+
+
+
+
+
+
 END_ACTION
 
 ACTION act_Assign_OEE_Properties

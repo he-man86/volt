@@ -7,3 +7,4 @@ STRUCT
 	workingLightsButton			: PushButtonLedFB;	// Button to enable machine working lights
 END_STRUCT
 END_TYPE
+

@@ -7,8 +7,10 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -18,6 +20,7 @@ VAR_INST
 	gateOpenPermission	: BOOL;
 	Blinker				: BLINK;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Cyclic();
 
@@ -55,4 +58,5 @@ THEN
 	drawer.GateCloseCancelled();
 	drawer.LockRelease(InstanceName);
 END_IF
+
 END_METHOD

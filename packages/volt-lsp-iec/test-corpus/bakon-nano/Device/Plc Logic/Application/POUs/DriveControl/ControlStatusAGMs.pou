@@ -93,4 +93,6 @@ g_iAQ_UltrasonicPower := TO_INT(dwUltrasonicPower1);
 (* Copy the change of the amplitude*)
 dwOldUltrasonicPower1:=SEL(g_HMI_MachCommand.bScanMode, g_HMI_RCP_Parameters.dwUltrasonicPower1,100);
 
+
+
 END_PROGRAM

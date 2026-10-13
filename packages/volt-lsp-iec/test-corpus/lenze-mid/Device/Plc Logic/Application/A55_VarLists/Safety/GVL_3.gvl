@@ -33,3 +33,4 @@ Emergency_output_upstream : BOOL;
 //SafetyStatus_01 : 
 Emergency_output_downstream : BOOL;
 END_VAR
+

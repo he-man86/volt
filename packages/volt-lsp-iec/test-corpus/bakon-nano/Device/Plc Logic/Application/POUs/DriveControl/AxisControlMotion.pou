@@ -18,6 +18,7 @@ VAR
 	gMachConfig_bXL_mem	: BOOL;
 	
 END_VAR
+
 IMPLEMENTATION ST
 //Set limits X
 fbSetSWLimits_X(
@@ -370,5 +371,6 @@ ECSM_AxisDiagnostic_MasterRondVierkant(
 	I_bVirtual := TRUE, 
 	AxisName:= MasterRondVierkant, 
 	AxisStatus=> );
+
 
 END_PROGRAM

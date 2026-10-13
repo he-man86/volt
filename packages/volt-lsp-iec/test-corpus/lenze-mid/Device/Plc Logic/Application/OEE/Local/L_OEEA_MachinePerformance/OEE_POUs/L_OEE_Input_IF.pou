@@ -68,6 +68,7 @@ VAR
 	xLaterShiftStartEnable : BOOL; 		// Shift calculation of planned production time starts with xShiftProductionActive = TRUE
 	uiCalWeek				: UINT;		// Actual calendar week
 END_VAR
+
 IMPLEMENTATION ST
 //********************************************************************************
 // Set ShiftName if Production Scheduler has been used
@@ -202,6 +203,7 @@ xSetProdSimEventOccurrence := TRUE;
  
 //IF SET TRUE then deactive Shift will calculate OEE KPI's
 xSetDeactiveShiftContiniousUpdate := FALSE;
+
 END_ACTION
 
 ACTION call_OEE_FB
@@ -221,6 +223,7 @@ PROPERTY xLaterShiftStartEnableDisable : BOOL
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xLaterShiftStartEnableDisable := xLaterShiftStartEnable;
@@ -228,6 +231,7 @@ END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xLaterShiftStartEnable := xLaterShiftStartEnableDisable;
@@ -239,6 +243,7 @@ PROPERTY PUBLIC xSetDeactiveShiftContiniousUpdate : BOOL
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xSetDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate;
@@ -246,6 +251,7 @@ END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
  xDeactiveShiftContiniousUpdate := xSetDeactiveShiftContiniousUpdate;
@@ -257,6 +263,7 @@ PROPERTY PUBLIC xSetProdSimEventOccurrence : BOOL
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xSetProdSimEventOccurrence := xProdSimEventOccurrence;
@@ -264,6 +271,7 @@ END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xProdSimEventOccurrence :=  xSetProdSimEventOccurrence ;
@@ -275,6 +283,7 @@ PROPERTY PUBLIC xTriggerManualShiftReset : BOOL
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xTriggerManualShiftReset := xManualShiftReset;
@@ -282,6 +291,7 @@ END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xManualShiftReset := xTriggerManualShiftReset;
@@ -293,6 +303,7 @@ PROPERTY PUBLIC xTriggerUpdateJsonOEEKPI : BOOL
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xTriggerUpdateJsonOEEKPI := xUpdateJsonOEEKPI;
@@ -300,6 +311,7 @@ END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 xUpdateJsonOEEKPI := xTriggerUpdateJsonOEEKPI;

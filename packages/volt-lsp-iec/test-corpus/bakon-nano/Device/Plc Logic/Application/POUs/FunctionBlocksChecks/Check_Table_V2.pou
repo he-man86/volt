@@ -20,6 +20,7 @@ VAR
 	bFirstCam: BOOL;
 	rPosFirstCam: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 rtSensor(CLK := I_bSensor);
 

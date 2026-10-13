@@ -6,14 +6,17 @@ IMPLEMENTS IVacuum
 VAR_INPUT
 	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Second vacuum sensor
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
 // This method wil override the original method in the base FB
+
 IMPLEMENTATION ST
 NoVacuumAlarm(
 	moduleHandler	:= moduleHandler,
@@ -31,13 +34,16 @@ END_IF
 
 MeasureMaxTime.Monitor(
 	in				:= Output.Map() AND (NOT input1 OR NOT input2));
+
 END_METHOD
 
 METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 VacuumHighTimer.Set(
 			In := input1 AND input2,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
+
 END_METHOD

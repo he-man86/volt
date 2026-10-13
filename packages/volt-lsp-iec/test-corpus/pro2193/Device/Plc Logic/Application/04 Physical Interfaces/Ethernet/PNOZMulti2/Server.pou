@@ -3,6 +3,7 @@ VAR
 	taskInfo				: CmpIecTask.Task_Info2;
 
 END_VAR
+
 IMPLEMENTATION ST
 __TRY
 	taskInfo	:= TaskGetInfo();
@@ -14,5 +15,6 @@ __CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.Ethernet])
 	GVL_Exceptions.xException := TRUE;
 	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;
 __ENDTRY
+
 
 END_PROGRAM

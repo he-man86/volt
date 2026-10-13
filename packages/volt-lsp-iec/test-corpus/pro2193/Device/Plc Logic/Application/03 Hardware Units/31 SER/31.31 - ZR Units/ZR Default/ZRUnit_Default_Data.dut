@@ -4,3 +4,4 @@ STRUCT
 	Stacking				: PositionWithProfileType;
 END_STRUCT
 END_TYPE
+

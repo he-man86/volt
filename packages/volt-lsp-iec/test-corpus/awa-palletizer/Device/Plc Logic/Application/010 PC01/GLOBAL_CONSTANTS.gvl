@@ -6,3 +6,4 @@ iProductPositions	: INT := 10;
 
 iSizeRecipesNames 	: INT := 5000;
 END_VAR
+

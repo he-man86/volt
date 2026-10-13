@@ -8,6 +8,7 @@ VAR
 	xOverride		: BOOL;
 	state			: enumLedState;
 END_VAR
+
 IMPLEMENTATION ST
 CASE state OF
 	enumLedState.Off, enumLedState.ForcedOff:
@@ -33,57 +34,73 @@ END_IF
 // Instantiate the output
 Output();
 
+
 END_FUNCTION_BLOCK
 
 // Start flashing the led
 METHOD PUBLIC Flash
+
 IMPLEMENTATION ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Flashing;
 END_IF
+
 END_METHOD
 
 // Force turn the led off
 METHOD PUBLIC LedTestOff
+
 IMPLEMENTATION ST
 state := enumLedState.ForcedOff;
+
 END_METHOD
 
 // Force turn the led on
 METHOD PUBLIC LedTestOn
+
 IMPLEMENTATION ST
 state := enumLedState.ForcedOn;
+
 END_METHOD
 
 // Stop forcing the led state
 METHOD PUBLIC LedTestStop
+
 IMPLEMENTATION ST
 state := enumLedState.Off;
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
+
 IMPLEMENTATION ST
 Map := Output.Map();
+
 END_METHOD
 
 // Turn the led off
 METHOD PUBLIC Off
+
 IMPLEMENTATION ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Off;
 END_IF
+
 END_METHOD
 
 // When button is pressed, set the led output without changing the state
 METHOD PROTECTED Override
+
 IMPLEMENTATION ST
 THIS^.xOverride := TRUE;
+
 END_METHOD
 
 // Reset the output (=False)
 {attribute 'hide'}
 METHOD Reset
+
 IMPLEMENTATION ST
 Off();
 END_METHOD
@@ -91,6 +108,7 @@ END_METHOD
 // Set the output (=True)
 {attribute 'hide'}
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 Solid();
 END_METHOD
@@ -99,8 +117,10 @@ METHOD PUBLIC SetFlashingFrequency
 VAR_INPUT
 	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
 END_VAR
+
 IMPLEMENTATION ST
 FrequencySelect		:= Value;
+
 END_METHOD
 
 // Set the output True or False
@@ -108,18 +128,22 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xValue THEN
 	state := enumLedState.Solid;
 ELSE
 	state := enumLedState.Off;
 END_IF
+
 END_METHOD
 
 // Turn the led on
 METHOD PUBLIC Solid
+
 IMPLEMENTATION ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Solid;
 END_IF
+
 END_METHOD

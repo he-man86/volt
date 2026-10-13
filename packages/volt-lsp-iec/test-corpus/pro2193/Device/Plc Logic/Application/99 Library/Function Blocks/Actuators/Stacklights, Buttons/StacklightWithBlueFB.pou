@@ -5,16 +5,20 @@ IMPLEMENTS IActuator
 VAR_INPUT
 	Blue			: LedFB;
 END_VAR
+
 IMPLEMENTATION ST
 // Instantiate the outputs
 SUPER^();
 Blue();
 
+
 END_FUNCTION_BLOCK
 
 // Reset all outputs on the stacklight
 METHOD Reset
+
 IMPLEMENTATION ST
 SUPER^.Reset();
 Blue.Off();
+
 END_METHOD

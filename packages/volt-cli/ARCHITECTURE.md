@@ -163,8 +163,9 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
   `bridge-one-to-one`; below), so a migration does not turn it into a built one and the LSP can tell an object
   with no compiler ground truth. An excluded FOLDER is no item: it is named in the pull report with a known kind,
   and each object in it is named unreadable with its kind — not published (nothing would read it as excluded), not
-  read as deleted, and an op on one is refused by name. A folder linked always, or holding defines, is named and
-  walked.
+  read as deleted, and an op on one is refused by name. Every `unreadable` entry carries its REASON on the wire, and
+  `volt init` / `pull` / `status` print each name with it, so an object left out by design is told from a failed read.
+  A folder linked always, or holding defines, is named and walked.
 - **Volt's text is the vendor's object, one to one** (openspec `bridge-one-to-one`). Every member of a vendor
   object is SPELLED, a MEASURED editor cache (never read into the text or written), or REFUSED BY NAME — nothing
   folded, guessed or defaulted. What a declaration and a body cannot hold travels as `%`-lines (`%CLASS`,

@@ -9,3 +9,4 @@ TYPE enumLedState :
 	ForcedOff	:= 4
 );
 END_TYPE
+

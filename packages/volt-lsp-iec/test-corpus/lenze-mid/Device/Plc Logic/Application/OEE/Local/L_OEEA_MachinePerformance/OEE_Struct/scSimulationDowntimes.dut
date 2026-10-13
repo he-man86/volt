@@ -45,3 +45,4 @@ STRUCT
 														iUnitProductID:=1,sUnitProduct:='Boxes',iUnitSpeedID:=1,sUnitSpeed:='Boxes/min.')]; 
 END_STRUCT
 END_TYPE
+

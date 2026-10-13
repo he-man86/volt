@@ -67,3 +67,5 @@
 	{warning 'Disabled for compatibility - SVE'}
 	//g_Logger						: PLC_Logger;
 END_VAR
+
+

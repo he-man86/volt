@@ -15,3 +15,4 @@ END_UNION
 END_TYPE
 
 // In a union, all variables start at the same address. So all pointers above are stored in the same memory location, and take up the same space as a single pointer.
+

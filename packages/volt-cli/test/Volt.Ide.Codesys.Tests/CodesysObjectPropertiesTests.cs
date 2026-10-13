@@ -41,11 +41,20 @@ namespace Volt.Ide.Codesys.Tests
     {
         public POUObjectCheckFunction(string d, object i, string check) : base(d, i) => KindOfCheckFunction = check;
         public string KindOfCheckFunction { get; }
-        /// <summary>Its archive: the one member the census measured on a check function (<c>POULevel</c>, 15 of 15).</summary>
-        public string POULevel { get; init; } = "Standard";
-        public string[] SerializableValueNames => new[] { "POULevel" };
-        public object? GetSerializableValue(string name) =>
-            name == "POULevel" ? POULevel : throw new System.ArgumentException(name);
+        /// <summary>Its archive, as SP21 Patch 4 answers it (measured 2026-10-13, step 4b: `IArchivable.SerializableValueNames`
+        /// of the fixture's <c>CheckDivDInt</c>, and the live pull of bakon-nano's 5 / pro2193's 10): <c>Implementation</c>,
+        /// <c>Interface</c>, <c>SpecialFunc</c> — NO <c>POULevel</c>, which the census (design §0.1) had listed and the
+        /// driver then required, so every check function was unreadable and silently left out of the pull.</summary>
+        public string[] SerializableValueNames => new[] { "Implementation", "Interface", "SpecialFunc" };
+        /// <summary>Every name the archive lists answers (gate review of step 4b, finding 6): the two aspects, and
+        /// <c>SpecialFunc</c> — the check it is, the value <c>KindOfCheckFunction</c> reads (design §1.1).</summary>
+        public object? GetSerializableValue(string name) => name switch
+        {
+            "Implementation" => Implementation,
+            "Interface" => Interface,
+            "SpecialFunc" => KindOfCheckFunction,
+            _ => throw new System.Collections.Generic.KeyNotFoundException(name),
+        };
     }
 
     /// <summary>A plain POU with its ARCHIVE — the vendor class name, and the three members the census measured at one
@@ -147,6 +156,18 @@ namespace Volt.Ide.Codesys.Tests
             var pou = new Node("CheckBounds", 1, new POUObjectCheckFunction("FUNCTION CheckBounds : DINT", St(), "CheckBounds"));
             var text = With(new PropManager((pou, Array.Empty<object>())), () => Pulled(pou));
             Assert.Contains("IMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n", text);
+        }
+
+        /// <summary>The double answers every member its archive names, as SP21 does (gate review of step 4b, finding 6): a
+        /// driver that enumerates the archive (as <c>RequireMeasuredBodyConstants</c> does on an aspect) must meet the same
+        /// object on the fake as on the vendor, so no test can be bent around a name the fake lists and will not answer.</summary>
+        [Fact]
+        public void The_check_function_double_answers_every_member_its_archive_names()
+        {
+            var check = new POUObjectCheckFunction("FUNCTION CheckBounds : DINT", St(), "CheckBounds");
+            foreach (var name in check.SerializableValueNames)
+                Assert.NotNull(check.GetSerializableValue(name));
+            Assert.Equal("CheckBounds", check.GetSerializableValue("SpecialFunc"));
         }
 
         /// <summary>A plain POU at every measured constant pulls with no property line.</summary>

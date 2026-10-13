@@ -32,6 +32,7 @@ VAR
 	intMemStartPosition		: INT; 
 	intMemStopPosition		: INT; 
 END_VAR
+
 IMPLEMENTATION ST
 //START point: If HighSpeedPos>Lowspeed pos = zero is crossed, add 360
 t_intPosLowSpeedStart := i_intPosLowSpeedStart; 
@@ -105,5 +106,7 @@ END_IF
 
 //Return 1 when in window
 o_xCamControlLS := xMemOutput AND i_xEnable; 
+
+
 
 END_FUNCTION_BLOCK

@@ -9,3 +9,4 @@ TYPE Fanuc_Pick_OUT :
 	GoToHomePos		:= 99	// Move to home position
 ) UINT;
 END_TYPE
+

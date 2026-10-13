@@ -8,3 +8,4 @@ TYPE enumSelectIQ :
 	Both	:= 2
 );
 END_TYPE
+

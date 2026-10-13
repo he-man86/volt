@@ -16,6 +16,7 @@ VAR
 	hardwareF1Pushed		: BOOL;
 	hardwareF2Pushed		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF manualControlEnabled THEN
 	minTrigger.Call(CLK := minButton OR hardwareF1Pushed);
@@ -53,6 +54,7 @@ IF attachTrigger.Q_Falling THEN
 	END_IF
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 {attribute 'analysis' := '-33'}
@@ -61,6 +63,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION NONE
 END_METHOD
 
@@ -72,6 +75,7 @@ END_VAR
 VAR
 	hwButtonPayload : ISubjectHWButtonsPayload;
 END_VAR
+
 IMPLEMENTATION ST
 IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
 
@@ -83,4 +87,5 @@ IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
 	END_CASE
 
 END_IF
+
 END_METHOD

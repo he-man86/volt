@@ -8,32 +8,38 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 // Instantiate the outputs
 Green();
 Amber();
 Red();
 
+
 END_FUNCTION_BLOCK
 
 // Maps the actuator to the physical output
 {attribute 'hide'}
 METHOD PUBLIC Map : BOOL
+
 IMPLEMENTATION ST
 // no implementation
 END_METHOD
 
 // Reset all outputs on the stacklight
 METHOD Reset
+
 IMPLEMENTATION ST
 Green.Off();
 Amber.Off();
 Red.Off();
+
 END_METHOD
 
 // Set the output (=True)
 {attribute 'hide'}
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 // no implementation
 END_METHOD
@@ -44,6 +50,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // no implementation
 END_METHOD

@@ -35,3 +35,4 @@ VAR_GLOBAL CONSTANT
 	C_LAST       	  				:INT	:=	999;
 
 END_VAR
+

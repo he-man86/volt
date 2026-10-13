@@ -8,3 +8,4 @@ TYPE enumSemiAutoModeType :
 	LabelAdjustment		// Only place labels in the mould to adjust label positioning.
 );
 END_TYPE
+

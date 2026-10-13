@@ -10,6 +10,7 @@ VAR CONSTANT
 	emptyProduct			: ProductType		:= (Present := FALSE);
 	emptyStack				: StackStatusType	:= (Present := FALSE, Initialized := TRUE);
 END_VAR
+
 IMPLEMENTATION ST
 
 END_PROGRAM
@@ -19,6 +20,7 @@ METHOD PUBLIC Array1D
 VAR_IN_OUT
 	aProducts			: ARRAY[*] OF ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
@@ -26,6 +28,7 @@ upper	:= UPPER_BOUND(aProducts, 1);
 FOR i := lower TO upper DO
 	Single(aProducts[i]);
 END_FOR
+
 END_METHOD
 
 // Clear a two-dimensional array of products
@@ -33,6 +36,7 @@ METHOD PUBLIC Array2D
 VAR_IN_OUT
 	aProducts			: ARRAY[*,*] OF ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
@@ -42,6 +46,7 @@ FOR i := lower TO upper DO
 		Single(aProducts[i, j]);
 	END_FOR
 END_FOR
+
 END_METHOD
 
 // Clear all products in a (stack) mould
@@ -52,10 +57,12 @@ END_VAR
 VAR
 	k					: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR k := 1 TO GVL_Constants.MaxMouldLevels DO
 	Array2D(aProducts[k]);
 END_FOR
+
 END_METHOD
 
 // Clear all data in a Product struct
@@ -63,8 +70,10 @@ METHOD PUBLIC Single
 VAR_IN_OUT
 	Product				: ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 Product	:= emptyProduct;
+
 END_METHOD
 
 // Clear all data in a Stack struct
@@ -72,10 +81,12 @@ METHOD PUBLIC Stack
 VAR_INPUT
 	clearStack			: REFERENCE TO StackStatusType;
 END_VAR
+
 IMPLEMENTATION ST
 IF __ISVALIDREF(clearStack) THEN
 	clearStack	:= emptyStack;
 END_IF
+
 END_METHOD
 
 // Clear an array of stacks
@@ -83,6 +94,7 @@ METHOD PUBLIC StackArray1D
 VAR_IN_OUT
 	aStacks			: ARRAY[*] OF StackStatusType;
 END_VAR
+
 IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
@@ -90,6 +102,7 @@ upper	:= UPPER_BOUND(aStacks, 1);
 FOR i := lower TO upper DO
 	Stack(aStacks[i]);
 END_FOR
+
 END_METHOD
 
 // Clear a two-dimensional array of stacks
@@ -97,6 +110,7 @@ METHOD PUBLIC StackArray2D
 VAR_IN_OUT
 	aStacks			: ARRAY[*,*] OF StackStatusType;
 END_VAR
+
 IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
@@ -106,4 +120,5 @@ FOR i := lower TO upper DO
 		Stack(aStacks[i, j]);
 	END_FOR
 END_FOR
+
 END_METHOD

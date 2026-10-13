@@ -11,3 +11,4 @@ TYPE enumMotorsType :
 	XY	:= 7	// X1, X2 and Y
 );
 END_TYPE
+

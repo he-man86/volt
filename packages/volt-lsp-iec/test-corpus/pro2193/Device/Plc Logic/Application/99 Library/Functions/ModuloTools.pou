@@ -4,6 +4,7 @@
 PROGRAM ModuloTools
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 END_PROGRAM
@@ -18,12 +19,14 @@ END_VAR
 VAR
 	delta			: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 // Difference of the 2 positions is how far the product has moved on the conveyor
 delta		:= actPos - productPos;
 
 // Correct distance for the rollover
 GetDistance	:= SetPosition(delta, rollover);
+
 END_METHOD
 
 // Check if a position lies within a window. Rollover is corrected.
@@ -46,6 +49,7 @@ result := ModuloTools.PositionInWindow(
 								setPos		:= targetPos + 1,
 								rollover	:= CycleLength));
 *)
+
 IMPLEMENTATION ST
 // There is no rollover in the window
 IF windowMin <= windowMax THEN
@@ -58,6 +62,7 @@ ELSIF position < TO_REAL(rollover) / 2 THEN
 ELSE
 	PositionInWindow	:= position > windowMin;
 END_IF
+
 END_METHOD
 
 // Check if position is on a step somewhere on the chain
@@ -70,6 +75,7 @@ END_VAR
 VAR
 	delta			: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 // Get the remainder of position / stepDistance. This is how much the position is different.
 delta := TO_REAL( TO_DINT(position * 10) MOD TO_DINT(stepDistance * 10) ) / 10;
@@ -82,6 +88,7 @@ delta := SEL(	delta < stepDistance - delta,
 // delta goes from - half-stepDistance to + half-stepDistance
 
 PositionOnStep := delta <= hysteresis;
+
 END_METHOD
 
 // Check if position is on a step with offset somewhere on the chain.
@@ -107,6 +114,7 @@ rejectSensorValid	:= Data.rejectSensorOffset = 0
 
 alarmActive			:= rejectSensorValid AND NOT sensorRowIsEmpty;
 *)
+
 IMPLEMENTATION ST
 // Get the remainder of position / stepDistance. This is how much the position is different.
 delta := TO_REAL( TO_DINT(position * 10) MOD TO_DINT(stepDistance * 10) ) / 10;
@@ -122,6 +130,7 @@ PositionOnStepWithOffset := PositionInWindow(
 								windowMax		:= SetPosition(
 														position	:= hysteresisEnd,
 														rollOver	:= stepDistance),);
+
 END_METHOD
 
 // Check if two positions match for a Modulo axis (within rHysteresis mm).
@@ -132,12 +141,14 @@ VAR_INPUT
 	rollover		: LREAL;		// Rollover (mm)
 	hysteresis		: REAL	:= 1;	// Max allowed difference
 END_VAR
+
 IMPLEMENTATION ST
 PositionReached	:= PositionInWindow(
 						actPos,
 						rollover,
 						SetPosition(setPos - hysteresis, rollover),
 						SetPosition(setPos + hysteresis, rollover));
+
 END_METHOD
 
 // Make sure that the set position is always between 0 and rollover.
@@ -149,6 +160,7 @@ END_VAR
 VAR
 	correctedPos	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 IF rollover < 0.001 THEN	// Exception happens when rollover is zero
 	SetPosition		:= 0.0;
@@ -166,4 +178,5 @@ WHILE correctedPos < 0.0 DO
 END_WHILE
 
 SetPosition			:= correctedPos;
+
 END_METHOD

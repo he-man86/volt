@@ -5,3 +5,4 @@ STRUCT
 	component	: ARRAY[1..8] OF SliceComponent_Type;
 END_STRUCT
 END_TYPE
+

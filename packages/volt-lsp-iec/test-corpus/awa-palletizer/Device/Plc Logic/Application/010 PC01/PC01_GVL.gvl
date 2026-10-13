@@ -25,3 +25,4 @@ VAR_GLOBAL
 	// Light On/Off
 	SIG04_Reset: libSIG;
 END_VAR
+

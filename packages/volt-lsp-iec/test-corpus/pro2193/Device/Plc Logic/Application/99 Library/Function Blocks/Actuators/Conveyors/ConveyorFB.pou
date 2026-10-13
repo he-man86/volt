@@ -15,6 +15,7 @@ VAR
 	beltStarted				: BTON;
 	beltStopped				: BTOF;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -23,9 +24,11 @@ Output();
 
 UpdateTimers();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 NotRunningAlarm(
 	moduleHandler	:= moduleHandler,
@@ -36,6 +39,7 @@ NotRunningAlarm(
 	severity		:= severity,
 	reaction		:= reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -43,6 +47,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 IF plusButtonPushed THEN
 	Set();
@@ -51,28 +56,35 @@ END_IF
 IF minButtonPushed THEN
 	Reset();
 END_IF
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+
 IMPLEMENTATION ST
 Map := Output.Map();
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+
 IMPLEMENTATION ST
 Output.Reset();
 
 UpdateTimers();
+
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 Output.Set();
 
 UpdateTimers();
+
 END_METHOD
 
 // Set the output True or False
@@ -80,23 +92,29 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Output.SetOrReset(xValue);
 
 UpdateTimers();
+
 END_METHOD
 
 METHOD PRIVATE UpdateTimers
+
 IMPLEMENTATION ST
 beltStarted.Set(Output.Map(), profile.rAcc);
 beltStopped.Set(Output.Map(), profile.rDec);
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ConveyorState : enumConveyorRunning_State
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT beltStopped.Q THEN
 	ConveyorState	:= enumConveyorRunning_State.Standstill;
@@ -107,5 +125,6 @@ ELSIF Output.Map() THEN
 ELSE
 	ConveyorState	:= enumConveyorRunning_State.Decelerating;
 END_IF
+
 END_GET
 END_PROPERTY

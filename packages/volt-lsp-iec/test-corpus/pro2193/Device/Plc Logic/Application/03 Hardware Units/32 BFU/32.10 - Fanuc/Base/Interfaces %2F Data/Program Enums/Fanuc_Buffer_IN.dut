@@ -7,3 +7,4 @@ TYPE Fanuc_Buffer_IN :
 	AtHomePos				:= 99	// At home position
 ) UINT;
 END_TYPE
+

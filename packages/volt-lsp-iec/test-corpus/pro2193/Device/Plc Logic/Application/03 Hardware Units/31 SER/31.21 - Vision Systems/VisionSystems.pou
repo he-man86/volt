@@ -24,6 +24,7 @@ END_VAR
 VAR CONSTANT
 	usiNumberOfUnits			: USINT := 1;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
@@ -34,5 +35,6 @@ END_FOR
 // By customer request. They set bypassMode on Mevisco in case they produce without cameras
 Data[1].overrideRejectStatus		:= FALSE;
 Data[1].overrideRunmodeReject		:= FALSE;
+
 
 END_PROGRAM

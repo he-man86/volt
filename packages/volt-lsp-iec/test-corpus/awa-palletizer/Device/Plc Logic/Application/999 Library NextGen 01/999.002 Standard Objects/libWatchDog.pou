@@ -19,6 +19,7 @@ VAR
 	// Time out time
 	TimeOut_TIME: TIME := T#5S;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // This function is a watchdog.

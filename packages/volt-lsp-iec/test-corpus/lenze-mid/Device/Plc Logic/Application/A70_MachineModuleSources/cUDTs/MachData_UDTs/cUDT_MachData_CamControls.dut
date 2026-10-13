@@ -25,3 +25,4 @@ MeasurementForSidecorrection_CP		: UDT_CamPulse;
 
 END_STRUCT
 END_TYPE
+

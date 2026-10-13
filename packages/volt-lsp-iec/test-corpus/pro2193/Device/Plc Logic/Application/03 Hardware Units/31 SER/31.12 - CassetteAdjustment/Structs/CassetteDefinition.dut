@@ -15,3 +15,4 @@ STRUCT
 	DirectionsForMovements	: ARRAY[enumMovementType.Up...enumMovementType.Left] OF enumDirection;
 END_STRUCT
 END_TYPE
+

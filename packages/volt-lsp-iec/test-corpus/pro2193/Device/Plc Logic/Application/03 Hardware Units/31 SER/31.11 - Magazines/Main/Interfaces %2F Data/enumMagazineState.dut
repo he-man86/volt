@@ -11,3 +11,4 @@ TYPE enumMagazineState :
 	Busy_Transfer						:= 5
 ) DINT;
 END_TYPE
+

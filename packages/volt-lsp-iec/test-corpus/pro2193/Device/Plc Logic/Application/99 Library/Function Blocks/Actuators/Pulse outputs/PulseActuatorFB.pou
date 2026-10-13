@@ -12,6 +12,7 @@ VAR
 	Blinker				: BLINK;
 	Trigger				: RisingTriggerFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -31,13 +32,16 @@ ELSIF Trigger.Q THEN
 	dwBuffer	:= SHR(dwBuffer, 1);
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 // Call once to add a pulse to the buffer
 METHOD PUBLIC AddPulse
+
 IMPLEMENTATION ST
 dwBuffer			:= SHL(dwBuffer, 1);
 dwBuffer.0			:= TRUE;
+
 END_METHOD
 
 // Call once to add pulses to the buffer
@@ -48,8 +52,10 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO number DO
 	AddPulse();
 END_FOR
+
 END_METHOD

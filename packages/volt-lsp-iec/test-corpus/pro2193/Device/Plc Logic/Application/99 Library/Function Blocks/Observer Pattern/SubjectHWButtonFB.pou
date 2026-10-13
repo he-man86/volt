@@ -8,6 +8,7 @@ VAR
 	_buttonType		: enumHWButtons;		// Private backing field for property
 	_state			: BOOL;					// Private backing field for property
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -15,32 +16,42 @@ END_FUNCTION_BLOCK
 // Binary state of the button: either pushed or not pushed
 {attribute 'monitoring' := 'call'}
 PROPERTY ButtonState : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ButtonState := _state;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _state := ButtonState;
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring' := 'call'}
 PROPERTY ButtonType : enumHWButtons
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ButtonType := _buttonType;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _buttonType := ButtonType;
+
 END_SET
 END_PROPERTY

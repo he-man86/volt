@@ -7,8 +7,10 @@ VAR
 	AssistCloseGate			: ActuatorFB;
 	AssistUnlock			: ActuatorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -17,6 +19,7 @@ VAR_INST
 	T_DoorCloseAssist		: BTON;
 	T_DoorOpenAssist		: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Cyclic();
 
@@ -48,22 +51,29 @@ ELSIF T_DoorCloseAssist.Set(In := ButtonLock.buttonInput AND xGateAllowedClosed,
 		AssistCloseGate.SetOrReset(GlobalVars.BlinkerNormal);
 	END_IF
 END_IF
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistCloseGate : BOOL
+
 IMPLEMENTATION ST
 MapAssistCloseGate := AssistCloseGate.Map();
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistOpenGate : BOOL
+
 IMPLEMENTATION ST
 MapAssistOpenGate := AssistOpenGate.Map();
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistUnlock : BOOL
+
 IMPLEMENTATION ST
 MapAssistUnlock := AssistUnlock.Map();
+
 END_METHOD

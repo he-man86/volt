@@ -34,6 +34,7 @@ VAR
 	dLeft			: REAL;
 	dRight			: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 
 //Check if the left and right margins make any sense
@@ -247,5 +248,8 @@ Gonio_CorrectOvershoot := NOT impossibleCut;
 
 
 RETURN;
+
+
+
 
 END_FUNCTION

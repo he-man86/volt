@@ -73,3 +73,4 @@ VAR_GLOBAL CONSTANT
 		(CassetteOrientation := enumOrientationType.Left,		LabelOrientation := enumOrientationType.Left,		Movement := enumMovementType.Right,	Motor := enumMotorsType.Y,	Direction := enumDirection.Positive)
 	];
 END_VAR
+

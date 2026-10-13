@@ -27,8 +27,10 @@ END_VAR
 VAR CONSTANT
 	OnTheFlyTriggerOffset		: UINT := 1;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -36,6 +38,7 @@ METHOD PROTECTED AwaitingActivatedUnits
 VAR_INST
 	result				: ARRAY[1..4] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -56,6 +59,7 @@ IF Arrays.Bool_All(result, TRUE) AND SER.SemiAutoNextStep THEN
 	END_IF
 
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED AwaitingCameraResult
@@ -67,6 +71,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -104,16 +109,20 @@ IF NoResultTimer.Set(In := TRUE, Pt := 2) THEN
 	product.ResultPending	:= FALSE;		// Will cause method to return at line 23
 	Increment.AnyInt(debugCounter);			// Todo: there is no alarm message yet when this happens !!
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED CameraTakingPicture
+
 IMPLEMENTATION ST
 %FOLDER States
 ActState := StateAwaitingCameraResult;
+
 END_METHOD
 
 // Image buffer must be empty at least once every 30 seconds
 METHOD PROTECTED CheckImageBuffer : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF State.Changed THEN
@@ -129,19 +138,23 @@ AND NOT camera.Busy						// camera buffer is empty and no more results are comin
 THEN
 	CheckImageBuffer		:= TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
 
 HandleCameraTrigger();
 
 HandleCameraResults();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -151,10 +164,12 @@ awaitingTrigger				:= FALSE;
 
 ActState					:= StateNone;
 EStop						:= TRUE;
+
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
@@ -168,11 +183,13 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //		ShowNoProgramWarning();
 //		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:							;
@@ -181,6 +198,7 @@ CASE ActState OF
 	StateAwaitingActivatedUnits:		AwaitingActivatedUnits();
 	StateMovingChain:					MovingChain();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED HandleCameraResults : BOOL
@@ -192,6 +210,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // Wait for vision system to have a result ready
@@ -222,6 +241,7 @@ FOR i := GVL_Constants.MaxRejectReasonsMisc + 1 TO GVL_Constants.MaxRejectReason
 END_FOR
 
 oldestProduct.ResultPending := FALSE;
+
 END_METHOD
 
 METHOD PROTECTED HandleCameraTrigger : BOOL
@@ -233,6 +253,7 @@ VAR_INST
 END_VAR
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 sensorValidTrigger.Call(CLK:= Chain.TriggerSensorValid);
@@ -287,6 +308,7 @@ IF awaitingTrigger THEN
 	END_IF
 
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED HandleIntake : BOOL
@@ -294,6 +316,7 @@ VAR_INST
 	transferInfeedRequired		: BOOL;
 	setProductsNeededOnce		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF State.Changed THEN
@@ -329,6 +352,7 @@ AND NOT __ISVALIDREF(chain.OldestProductWaitingForResult)	// For Mevisco camera 
 THEN
 	HandleIntake := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED HandleOuttake : BOOL
@@ -336,6 +360,7 @@ VAR_INST
 	transferRequired	: BOOL;
 	result				: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF State.Changed THEN
@@ -360,6 +385,7 @@ AND NOT __ISVALIDREF(chain.OldestProductWaitingForResult)	// For Mevisco camera 
 THEN
 	HandleOuttake		:= TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED HandleRejects : BOOL
@@ -367,6 +393,7 @@ VAR_INST
 	transferRequired	: BOOL;
 	result				: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF State.Changed THEN
@@ -385,12 +412,14 @@ END_IF
 IF result := transferRejects.ExecuteTransfer() THEN
 	HandleRejects		:= TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED MovingChain
 VAR_INST
 	product					: REFERENCE TO ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -403,6 +432,7 @@ END_IF
 IF chain.MoveStep() THEN
 	ActState := StateCameraTakingPicture;
 END_IF
+
 END_METHOD
 
 // Return true if this module should start in this operation mode
@@ -410,6 +440,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CASE operationMode OF
@@ -430,10 +461,12 @@ AND operationMode = SER_OperationModeType.SemiAuto
 THEN
 	chain.InvalidateProduct(0);	// Reject all products on the Chain
 END_IF
+
 END_METHOD
 
 // This module will start some operations when the automatic cycle is started on the SER
 METHOD StartCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -448,10 +481,12 @@ END_IF
 //IF ActState = StateNone THEN
 	StartCycle := CommandLock.Release(__POUNAME());
 //END_IF
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -461,14 +496,17 @@ awaitingTrigger				:= FALSE;
 
 ActState					:= StateNone;
 Stop						:= TRUE;
+
 END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = StateNone AND NOT chain.HasPayload THEN
 	automaticOperationStarted	:= FALSE;
 	StopCycle					:= TRUE;
 END_IF
+
 END_METHOD

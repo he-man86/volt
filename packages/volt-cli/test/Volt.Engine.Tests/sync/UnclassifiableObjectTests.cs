@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using Volt.Contracts;
 using Volt.Engine.Sync;
@@ -45,7 +46,7 @@ public class UnclassifiableObjectTests
 
         var refs = RefsService.Handle(ide);
 
-        Assert.Equal(new[] { "SER_OperationModeType" }, refs.Unreadable);
+        Assert.Equal(new[] { "SER_OperationModeType" }, refs.Unreadable.Select(u => u.Name));
         Assert.Contains("A.pou", refs.Items.Keys);
         Assert.Contains("B.pou", refs.Items.Keys);
         Assert.DoesNotContain("SER_OperationModeType.pou", refs.Items.Keys);
@@ -62,7 +63,7 @@ public class UnclassifiableObjectTests
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
 
-        Assert.Equal(new[] { "SER_OperationModeType" }, fetch.Unreadable);
+        Assert.Equal(new[] { "SER_OperationModeType" }, fetch.Unreadable.Select(u => u.Name));
         Assert.Empty(fetch.Removed);
         Assert.Empty(refs.Removed);
     }
@@ -106,7 +107,7 @@ public class UnclassifiableObjectTests
 
         Assert.Empty(fetch.Removed);
         Assert.Empty(refs.Removed);
-        Assert.Equal(new[] { "Device" }, refs.Unreadable);
+        Assert.Equal(new[] { "Device" }, refs.Unreadable.Select(u => u.Name));
     }
 
     /// <summary>The CODESYS walk's own children-enumeration failure at the root and an unclassifiable root object
@@ -144,7 +145,7 @@ public class UnclassifiableObjectTests
         var withBoth = RefsService.Handle(Ide(both: true));
         var withOne = RefsService.Handle(Ide(both: false));
 
-        Assert.Equal(new[] { "CM_Carrier", "CM_Carrier" }, withBoth.Unreadable);
+        Assert.Equal(new[] { "CM_Carrier", "CM_Carrier" }, withBoth.Unreadable.Select(u => u.Name));
         Assert.NotEqual(withOne.ProjectVersion, withBoth.ProjectVersion);
     }
 

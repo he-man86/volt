@@ -365,7 +365,7 @@ window.VOLT = {
             "unreadable": {
               "type": "array",
               "items": {
-                "type": "string"
+                "$ref": "#/components/schemas/UnreadableItem"
               }
             },
             "removed": {
@@ -394,6 +394,21 @@ window.VOLT = {
             "unreadable",
             "removed",
             "unwalkedFolders"
+          ]
+        },
+        "UnreadableItem": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "reason"
           ]
         },
         "FetchRequest": {
@@ -461,7 +476,7 @@ window.VOLT = {
             "unreadable": {
               "type": "array",
               "items": {
-                "type": "string"
+                "$ref": "#/components/schemas/UnreadableItem"
               }
             },
             "removed": {

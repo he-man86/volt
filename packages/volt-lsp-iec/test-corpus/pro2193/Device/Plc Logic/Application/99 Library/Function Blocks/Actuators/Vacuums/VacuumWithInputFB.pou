@@ -13,6 +13,7 @@ VAR
 	MeasureMaxTime			: StopwatchFB;
 	vacuumState				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -41,11 +42,13 @@ ELSE
 	END_CASE
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
 // Remember that this method may be replaced by another when deriving from this base FB.
+
 IMPLEMENTATION ST
 NoVacuumAlarm(
 	moduleHandler	:= moduleHandler,
@@ -63,6 +66,7 @@ END_IF
 
 MeasureMaxTime.Monitor(
 	in				:= Output.Map() AND NOT input1);
+
 END_METHOD
 
 METHOD PUBLIC SetMonitoring
@@ -70,15 +74,19 @@ VAR_INPUT
 	itfAddLog		: EdgePcLogging.IAddLog;
 	plcDataType		: PlcDataType;
 END_VAR
+
 IMPLEMENTATION ST
 MeasureMaxTime.SetMonitoring(itfAddLog, plcDataType);
+
 END_METHOD
 
 METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 VacuumHighTimer.Set(
 			In := input1,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
+
 END_METHOD

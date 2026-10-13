@@ -23,6 +23,7 @@ VAR
 	maxStickersAfterSensor		: BYTE;
 	moveRollDownAfterTimer		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -30,12 +31,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -58,6 +61,7 @@ SetError[2](
 	severity		:= enumErrorSeverity.Warning,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PUBLIC ApplySticker : BOOL
@@ -67,6 +71,7 @@ VAR_INST
 	result						: ARRAY[1..2] OF BOOL;
 	tryAgainCounter				: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -138,12 +143,14 @@ CASE localState OF
 	22:
 		ApplySticker := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
 VAR_INST
 	MoveRollDown		: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 Drive.config.virtualMode	:= NOT PersistentVars.RecipeVars.EnableSticker;
 
@@ -232,10 +239,12 @@ ReadMachineData(
 	eTraversingRange		=> ,
 	lrCycleLength			=> ,
 	xVirtual				=> );
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT Drive.config.virtualMode THEN
@@ -248,9 +257,11 @@ WindingDrive.Reset();
 RollUpDown.Reset();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 METHOD PUBLIC Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -267,6 +278,7 @@ TriggerRef.TouchProbeChannel		:= 1;		// TP Channel 1: DigIn 1
 TriggerRef.TouchProbeSignal			:= 1;		// Digital input
 TriggerRef.TouchProbeEdge			:= 2;		// Trigger with falling (negative) edge
 TriggerRef.TouchProbeMode			:= 1;		// Single measurement
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -275,6 +287,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -307,10 +320,12 @@ CASE localState OF
 		Drive.globalSpeedOverrideEnable := TRUE;
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 TouchProbe.Execute	:= FALSE;
@@ -323,16 +338,20 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+
 END_METHOD
 
 // Cycle length
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC CycleLength : DINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CycleLength := SEL(ReadMachineData.xValid, -1, TO_DINT(ReadMachineData.lrCycleLength));
+
 END_GET
 END_PROPERTY

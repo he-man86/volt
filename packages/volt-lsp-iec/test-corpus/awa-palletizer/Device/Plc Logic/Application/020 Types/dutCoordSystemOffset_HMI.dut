@@ -13,3 +13,4 @@ STRUCT
 	xBtnCancel : BOOL := FALSE;;	
 END_STRUCT
 END_TYPE
+

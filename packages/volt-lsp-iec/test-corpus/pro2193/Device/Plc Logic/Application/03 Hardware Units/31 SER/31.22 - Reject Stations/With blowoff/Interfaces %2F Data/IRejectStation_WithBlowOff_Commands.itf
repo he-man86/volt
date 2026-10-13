@@ -2,4 +2,5 @@
 INTERFACE IRejectStation_WithBlowOff_Commands
 EXTENDS IRejectStation_Base_Commands
 
+
 END_INTERFACE

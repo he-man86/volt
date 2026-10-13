@@ -5,3 +5,4 @@ STRUCT
 	_Z	: Fanuc_HighLowUInt_Type;
 END_STRUCT
 END_TYPE
+

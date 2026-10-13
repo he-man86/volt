@@ -5,15 +5,18 @@ IMPLEMENTS IActuator
 VAR
 	{attribute 'symbol' := 'read'}	OutputReverse			: ActuatorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(profile := profile);
 
 // Instantiate the output
 OutputReverse();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 NotRunningAlarm(
 	moduleHandler	:= moduleHandler,
@@ -24,6 +27,7 @@ NotRunningAlarm(
 	severity		:= severity,
 	reaction		:= reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -31,6 +35,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 IF plusButtonPushed THEN
 	IF Output.Map() THEN	// Conveyor moving forward
@@ -47,32 +52,41 @@ IF minButtonPushed THEN
 		Reverse();
 	END_IF
 END_IF
+
 END_METHOD
 
 // Maps the actuator to start conveyor in reverse
 METHOD MapReverse : BOOL
+
 IMPLEMENTATION ST
 MapReverse := OutputReverse.Map();
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+
 IMPLEMENTATION ST
 SUPER^.Reset();
 OutputReverse.Reset();
+
 END_METHOD
 
 METHOD Reverse : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Set();
 OutputReverse.Set();
+
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 SUPER^.Set();
 OutputReverse.Reset();
+
 END_METHOD

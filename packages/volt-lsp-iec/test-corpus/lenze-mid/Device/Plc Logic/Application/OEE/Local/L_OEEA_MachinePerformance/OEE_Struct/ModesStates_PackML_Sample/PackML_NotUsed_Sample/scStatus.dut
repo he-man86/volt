@@ -4,3 +4,4 @@ TYPE scStatus :
 			UnitModeCurrent					: eModes;
 	END_STRUCT
 END_TYPE
+

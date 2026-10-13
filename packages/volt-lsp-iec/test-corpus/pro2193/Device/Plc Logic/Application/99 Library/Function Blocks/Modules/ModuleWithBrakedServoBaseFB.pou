@@ -8,6 +8,7 @@ END_VAR
 VAR
 	{attribute 'symbol' := 'read'}	DriveBrakeLogic				: ServoDriveBrakeLogicFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -20,5 +21,6 @@ ButtonReleaseBrake();
 DriveBrakeLogic(
 	AxisRef				:= AxisRef,
 	xBrakeReleaseIn		:= ButtonReleaseBrake.buttonInput);
+
 
 END_FUNCTION_BLOCK

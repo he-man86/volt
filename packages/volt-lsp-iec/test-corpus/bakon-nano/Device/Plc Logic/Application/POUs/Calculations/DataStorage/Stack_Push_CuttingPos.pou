@@ -10,6 +10,7 @@ END_VAR
 VAR
 
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -26,5 +27,6 @@ I_dataArray[IQ_dataArrayInfo.index - IQ_dataArrayInfo.lowerBound] := IQ_item;
 IQ_dataArrayInfo.index := IQ_dataArrayInfo.index + 1;
 Stack_Push_CuttingPos := TRUE;
 RETURN;
+
 
 END_FUNCTION

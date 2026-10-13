@@ -8,3 +8,4 @@ VAR_GLOBAL
 
 	fbModuleManager			: ModuleManagerFB(name := 'BFU');	// Keep a record of different kinds of modules in the machine.
 END_VAR
+

@@ -6,3 +6,4 @@ STRUCT
 	HighLimit		: INT;
 END_STRUCT
 END_TYPE
+

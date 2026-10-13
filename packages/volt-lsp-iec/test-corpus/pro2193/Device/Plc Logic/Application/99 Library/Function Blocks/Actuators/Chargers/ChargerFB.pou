@@ -22,6 +22,7 @@ VAR CONSTANT
 	rMaxChargingTime		: REAL	:= 1.0;		// Max duration of charger output (in sec.)
 	iMaxCyclesBadCharge		: USINT	:= 3;		// Sound alarm when input check fails for this many cycles.
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -31,9 +32,11 @@ END_IF
 
 rLabelChargedOkTime := NeedChargeTime.Measure(In := Output.Map() AND NOT xChargerCycleOk);
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 ChargerFaultAlarm(
 	moduleHandler	:= moduleHandler,
@@ -48,6 +51,7 @@ ChargerFaultAlarm(
 IF ChargerFaultAlarm.active THEN
 	iChargerFault	:= 0;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -55,6 +59,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 IF plusButtonPushed THEN
 	Set();
@@ -63,26 +68,32 @@ END_IF
 IF minButtonPushed THEN
 	Reset();
 END_IF
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+
 IMPLEMENTATION ST
 Map := Output.Map();
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD MapAnalogOut : WORD
+
 IMPLEMENTATION ST
 IF xAutoCycleActive OR Output.Map() THEN
 	MapAnalogOut	:= RANGE_TO_WORD(input := rSetPointCharger.value, input_LO := 0.0, input_HI := rSetPointCharger.upperLimit);
 ELSE
 	MapAnalogOut	:= WORD#0;
 END_IF
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+
 IMPLEMENTATION ST
 // Check if the charger is turned on
 IF Output.Map() THEN
@@ -95,10 +106,12 @@ IF Output.Map() THEN
 END_IF
 
 Output.Reset();
+
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 IF T_MaxChargerTime.Q THEN
 	RETURN;
@@ -109,6 +122,7 @@ IF rSetPointCharger.value < 0.01 THEN
 END_IF
 
 Output.Set();
+
 END_METHOD
 
 // Set the output True or False
@@ -116,10 +130,12 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xValue THEN
 	Set();
 ELSE
 	Reset();
 END_IF
+
 END_METHOD

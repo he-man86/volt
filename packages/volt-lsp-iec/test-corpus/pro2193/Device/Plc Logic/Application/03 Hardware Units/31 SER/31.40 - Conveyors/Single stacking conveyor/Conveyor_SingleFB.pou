@@ -27,8 +27,10 @@ END_VAR
 VAR CONSTANT
 	iNumberOfAlternatingStacks	: INT	:= Conveyors.iNumberOfAlternatingStacks;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -36,6 +38,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -66,12 +69,14 @@ SetError[3](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
 VAR_INST
 	RunningTimer				: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 Stacking(
 	moduleHandler		:= ModuleHandler,
@@ -101,10 +106,12 @@ IF conveyorIsMovingContinuously THEN
 		Stacking.Set();
 	END_IF
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 moveConveyorAfterEStop			:= TRUE;
@@ -113,12 +120,14 @@ conveyorIsMovingContinuously	:= FALSE;
 Stacking.Reset();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 METHOD PUBLIC GetCurrentMaxStackingHeight : UINT
 VAR_INPUT
 	firstStackAfterCycleStart	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 // Optionally use a different stacking height for the first stack.
@@ -133,22 +142,26 @@ IF Data.maxStackingHeight[iAlternatingStackIndex] > StackIndex THEN
 END_IF
 
 GetCurrentMaxStackingHeight		:= actMaxStackingHeight;
+
 END_METHOD
 
 METHOD IncreaseStackIndex
 VAR_INPUT
 	products : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 StackIndex				:= StackIndex + 1;
 ProductsOnTopOfStack	:= products;
+
 END_METHOD
 
 // Toggle the move continuously mode on or off
 METHOD PUBLIC MoveContinuouslyToggle
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT conveyorIsMovingContinuously THEN
@@ -157,10 +170,12 @@ IF NOT conveyorIsMovingContinuously THEN
 ELSE
 	Stop();
 END_IF
+
 END_METHOD
 
 // Start command for the conveyor to move the stacks
 METHOD PUBLIC MoveStep : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -177,10 +192,12 @@ stopConveyorAfterTimer			:= TRUE;
 IF Stacking.ConveyorState = enumConveyorRunning_State.Standstill THEN
 	MoveStep := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF moveConveyorAfterEStop						// Estop was pressed, or machine was just started
@@ -192,15 +209,19 @@ THEN
 ELSE
 	Reset	:= TRUE;//No resetting needed
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED ResetStackIndex
+
 IMPLEMENTATION ST
 StackIndex				:= 0;
 CurrentStackFull		:= FALSE;
+
 END_METHOD
 
 METHOD PRIVATE StartConveyor
+
 IMPLEMENTATION ST
 // Increase the alternating stack index by 1 (to create odd / even stacks)
 Increment.Subrange(
@@ -220,44 +241,54 @@ ClearProducts.Array1D(_productsOnTopOfStack);
 MovingStacksAllowed := FALSE;
 
 Stacking.Set();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 conveyorIsMovingContinuously	:= FALSE;
 stopConveyorAfterTimer			:= TRUE;
 
 Stop := Stacking.ConveyorState = enumConveyorRunning_State.Standstill AND SUPER^.Stop();
+
 END_METHOD
 
 // Conveyor process determent that the current stack is full and no more products are allowed
 {attribute 'monitoring':='call'}
 PROPERTY CurrentStackFull : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CurrentStackFull := _currentStackFull;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _currentStackFull := CurrentStackFull;
+
 END_SET
 END_PROPERTY
 
 // Get highest stacking height (including the height of the actual stack)
 {attribute 'monitoring':='call'}
 PROPERTY HighestStackIndex : UINT
+
 %FOLDER Properties
 GET
 VAR
 	i		: INT;
 END_VAR
+
 IMPLEMENTATION ST
 
 HighestStackIndex			:= MAX(StackIndex, Data.firstCycleStackHeight);
@@ -265,41 +296,51 @@ HighestStackIndex			:= MAX(StackIndex, Data.firstCycleStackHeight);
 FOR i := 1 TO iNumberOfAlternatingStacks DO
 	HighestStackIndex		:= MAX(HighestStackIndex, Data.maxStackingHeight[i]);
 END_FOR
+
 END_GET
 END_PROPERTY
 
 // The Z Unit has just finished stacking and the conveyor is allowed to move the stacks.
 {attribute 'monitoring':='call'}
 PROPERTY MovingStacksAllowed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 MovingStacksAllowed := _movingStacksAllowed;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _movingStacksAllowed := MovingStacksAllowed;
+
 END_SET
 END_PROPERTY
 
 // The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
 //{attribute 'monitoring':='call'} Monitoring attribute is not supported for this property :(
 PROPERTY ProductsOnTopOfStack : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ProductsOnTopOfStack := _productsOnTopOfStack;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _productsOnTopOfStack := ProductsOnTopOfStack;
 END_SET
@@ -308,33 +349,41 @@ END_PROPERTY
 // The actual stacking height of stack on the conveyor.
 {attribute 'monitoring':='call'}
 PROPERTY StackIndex : UINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 StackIndex := actStackingHeight;
+
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 actStackingHeight := StackIndex;
+
 END_SET
 END_PROPERTY
 
 // The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
 {attribute 'monitoring':='call'}
 PROPERTY StackingAllowed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 StackingAllowed := (AreaFree.IsActive OR StackIndex > 0 OR HMI.testMachineWithoutConveyors)
 					AND Stacking.ConveyorState = enumConveyorRunning_State.Standstill
 					AND NOT MovingStacksAllowed
 					AND NOT CurrentStackFull;
+
 END_GET
 END_PROPERTY

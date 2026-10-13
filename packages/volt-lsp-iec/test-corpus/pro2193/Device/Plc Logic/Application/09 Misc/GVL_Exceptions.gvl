@@ -4,3 +4,4 @@ VAR_GLOBAL
 	aeExceptionCodes: ARRAY[0..50] OF __SYSTEM.ExceptionCode;
 	iCounter	: UDINT;
 END_VAR
+

@@ -303,7 +303,9 @@ export function mergeKnown(vendor: Vendor, known: Known, findings: Finding[], ra
   for (const f of findings) {
     const k = knownKey(vendor, f)
     const e = out[k]
-    if (!e) out[k] = { why: f.what, subjects: [f.subject] }
+    // An entry this run re-fails keeps its (reviewed) reason even when all its subjects ran (gate review of step 4b);
+    // only an entry the list never had takes the run's first finding.
+    if (!e) out[k] = { why: known[k]?.why ?? f.what, subjects: [f.subject] }
     else if (!e.subjects.includes(f.subject)) out[k] = { why: e.why, subjects: [...e.subjects, f.subject].sort() }
   }
   return Object.fromEntries(Object.entries(out).sort(([x], [y]) => x.localeCompare(y)))
@@ -360,6 +362,7 @@ export function pickCodesys(
   objects: CsObject[],
   items: Record<string, string>,
   folders: Record<string, string>,
+  refusedNames: readonly string[],
 ): Picked {
   const byGuid = new Map(objects.map((o) => [o.guid, o]))
   const ownerOf = (o: CsObject): CsObject | undefined => {
@@ -426,8 +429,19 @@ export function pickCodesys(
       why: fresh.sort().join(", "),
     })
   }
+  // Every item the pull REFUSES is a subject too (gate review of step 4b, finding 4): it is no wire item, so the cover
+  // above never sees it, and its known entries outlived every run unjudged. Its refusal by name is what the run judges.
+  for (const o of objects) {
+    if (!o.class || !(o.class in CS_ITEM_EXT) || !refusedNames.includes(o.name)) continue
+    const wire = `${o.name}.${CS_ITEM_EXT[o.class]}`
+    if (wire in items || out.some((s) => s.wire === wire)) continue
+    out.push({ name: o.name, wire, folder: "", guid: o.guid, cls: o.class, why: REFUSED_SUBJECT })
+  }
   return { subjects: out, uncovered }
 }
+
+/** Why a subject the pull refuses was taken. */
+const REFUSED_SUBJECT = "every item the pull refuses"
 
 type TcObject = { name: string; itemType: number; path: string; file: string | null }
 
@@ -435,14 +449,16 @@ export function pickTwincat(
   objects: TcObject[],
   items: Record<string, string>,
   folders: Record<string, string>,
+  refusedNames: readonly string[],
 ): Picked {
   const out: Omit<Subject, "id">[] = []
   for (const o of objects) {
     const ext = o.file ? o.file.slice(o.file.lastIndexOf(".") + 1) : ""
     if (!(ext in TC_ITEM_EXT)) continue
     const wire = `${o.name}.${TC_ITEM_EXT[ext]}`
-    if (!(wire in items) || out.some((s) => s.wire === wire)) continue
-    out.push({ name: o.name, wire, folder: folders[wire] ?? "", cls: ext, why: o.file! })
+    const refused = !(wire in items) && refusedNames.includes(o.name)
+    if ((!(wire in items) && !refused) || out.some((s) => s.wire === wire)) continue
+    out.push({ name: o.name, wire, folder: folders[wire] ?? "", cls: ext, why: refused ? REFUSED_SUBJECT : o.file! })
   }
   const uncovered = uncoveredOf(items, Object.values(TC_ITEM_EXT), new Set(out.map((s) => s.wire)))
   return { subjects: out.sort((x, y) => x.wire.localeCompare(y.wire)), uncovered }
@@ -594,8 +610,11 @@ async function main(): Promise<number> {
       const r = await wire.refs()
       const objects = (await read(core, "objects")) as any[]
       if (dump) writeFileSync(`${dump}.${project.replace(/\W+/g, "_")}.json`, JSON.stringify(objects, null, 1))
+      const refused: string[] = (r.unreadable ?? []).map((u: { name: string }) => u.name)
       const picked =
-        vendor === "codesys" ? pickCodesys(objects, r.items, r.folders) : pickTwincat(objects, r.items, r.folders)
+        vendor === "codesys"
+          ? pickCodesys(objects, r.items, r.folders, refused)
+          : pickTwincat(objects, r.items, r.folders, refused)
       uncovered.push(...picked.uncovered.map((w) => `${project}/${w}`))
       const subjects = picked.subjects
         .map((s) => ({ ...s, id: `${project}/${s.wire}` }))

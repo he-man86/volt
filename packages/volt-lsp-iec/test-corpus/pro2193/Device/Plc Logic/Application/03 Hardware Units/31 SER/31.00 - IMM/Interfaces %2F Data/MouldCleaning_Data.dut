@@ -5,3 +5,4 @@ STRUCT
 	iDuration	: INT;		// Number of produced shots without IML
 END_STRUCT
 END_TYPE
+

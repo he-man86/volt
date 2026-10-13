@@ -19,6 +19,7 @@ https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-ran
 
 Update 24-03-2023: Added logic from SCALE_R function in Oscat library.
 *)
+
 IMPLEMENTATION ST
 inputRange	:= input_HI - input_LO;
 outputRange	:= output_HI - output_LO;
@@ -28,5 +29,6 @@ IF inputRange = 0 THEN // Never divide by zero
 ELSE
 	RANGE_TO_RANGE := outputRange / inputRange * (LIMIT(input_LO, input, input_HI) - input_LO) + output_LO;
 END_IF
+
 
 END_FUNCTION

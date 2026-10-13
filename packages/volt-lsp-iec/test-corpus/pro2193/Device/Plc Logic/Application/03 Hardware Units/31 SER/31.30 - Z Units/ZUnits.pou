@@ -29,6 +29,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= GVL_Constants.ChainProductsForZUnit;
 	NumberOfTakeoverPositions	: USINT	:= 4;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
@@ -42,5 +43,6 @@ FOR i := 1 TO usiNumberOfUnits DO
 		coveredDistance		:= coveredDistance[i],
 	);
 END_FOR
+
 
 END_PROGRAM

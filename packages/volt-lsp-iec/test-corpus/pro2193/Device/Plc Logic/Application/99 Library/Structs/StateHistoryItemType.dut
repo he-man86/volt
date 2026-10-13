@@ -7,3 +7,4 @@ STRUCT
 	timeExitState		: TOD;		// Time of transition from this state to the next
 END_STRUCT
 END_TYPE
+

@@ -24,3 +24,4 @@ STRUCT
 	vcOptimalREAL				: INT	:= __SYSTEM.Constants.vcOptimalREAL;
 END_STRUCT
 END_TYPE
+

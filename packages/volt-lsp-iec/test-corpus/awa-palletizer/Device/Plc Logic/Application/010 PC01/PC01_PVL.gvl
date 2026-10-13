@@ -6,3 +6,4 @@ VAR_GLOBAL RETAIN PERSISTENT
 	// Generated instance path of persistent variable
 	pgRecipeHandler.RecipeManager.HMI_stRecipeVisu: dutRecipe;
 END_VAR
+%CLASS PERSISTENT

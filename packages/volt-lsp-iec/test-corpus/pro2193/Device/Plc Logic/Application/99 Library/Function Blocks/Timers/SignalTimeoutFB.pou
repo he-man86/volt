@@ -13,6 +13,7 @@ VAR
 	requested	: BOOL;			// Toggle bit for detecting every GetValue call
 	timer		: BTON;			// Alarm timer
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT requested THEN
 	timer.Reset();
@@ -21,6 +22,7 @@ END_IF
 
 requested := FALSE;
 
+
 END_FUNCTION_BLOCK
 
 // Starts the timeout timer, and returns the input signal
@@ -28,8 +30,10 @@ METHOD GetValue : BOOL
 VAR_INPUT
 	expected : BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 alarmActive	:= timer.Set(In := input <> expected, Pt := timeOut);
 requested	:= TRUE;
 GetValue	:= input;
+
 END_METHOD

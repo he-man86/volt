@@ -4,3 +4,4 @@ STRUCT
 	BrakeTime			: REAL; // Waiting time after brakes are reset
 END_STRUCT
 END_TYPE
+

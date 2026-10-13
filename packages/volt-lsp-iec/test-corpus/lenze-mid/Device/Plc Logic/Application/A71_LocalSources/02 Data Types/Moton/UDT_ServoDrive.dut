@@ -6,3 +6,4 @@ STRUCT
 	CAM		: sUDT_ServoDrive_CAM;
 END_STRUCT
 END_TYPE
+

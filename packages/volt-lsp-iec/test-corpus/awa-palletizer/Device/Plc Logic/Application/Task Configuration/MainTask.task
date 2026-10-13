@@ -1,5 +1,5 @@
 Type:      Cyclic
 Interval:  t#4ms
 Priority:  1
-Watchdog:  off
+Watchdog:  off 3200 µs (sensitivity 1)
 Calls:     pgHMI, pgPC01, pgRecipeHandler

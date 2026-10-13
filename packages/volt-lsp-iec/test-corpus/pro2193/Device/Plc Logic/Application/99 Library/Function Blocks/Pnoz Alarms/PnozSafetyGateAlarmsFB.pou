@@ -15,6 +15,7 @@ VAR
 	contactFailedAlarm		: SetErrorFB;
 	errorTestPulseAlarm		: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -48,5 +49,6 @@ errorTestPulseAlarm(
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 
 END_FUNCTION_BLOCK

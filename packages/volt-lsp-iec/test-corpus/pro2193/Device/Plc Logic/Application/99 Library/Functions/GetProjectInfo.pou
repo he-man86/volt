@@ -8,6 +8,7 @@ VAR
 	pAppInfo	: POINTER TO CmpApp.APPLICATION_INFO;
 	iecResult	: SysTypes.RTS_IEC_RESULT;
 END_VAR
+
 IMPLEMENTATION ST
 // Get handle to current PLC application
 pApp		:= CmpApp.AppGetCurrent(pResult := ADR(iecResult));
@@ -35,5 +36,6 @@ END_IF
 IF LEN(GetProjectInfo.lastChanges) > 3 THEN
 	GetProjectInfo.lastChanges	:= RIGHT(GetProjectInfo.lastChanges, LEN(GetProjectInfo.lastChanges) - 3);
 END_IF
+
 
 END_FUNCTION

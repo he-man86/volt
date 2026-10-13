@@ -4,6 +4,7 @@ FUNCTION_BLOCK RisingTriggerFB
 VAR
 	r_trig			: Standard.R_TRIG;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -15,10 +16,12 @@ VAR_INPUT
 END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
+
 IMPLEMENTATION ST
 r_trig(
 	CLK	:= CLK,
 	Q   => );
+
 END_METHOD
 
 // Triggers on rising edge of input. !!Only call this method once per PLC Cycle!!
@@ -26,19 +29,24 @@ METHOD PUBLIC Rising : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Call(CLK);
 Rising := Q;
+
 END_METHOD
 
 // Rising edge of the input signal
 PROPERTY PUBLIC Q : BOOL
 
 // Attribute 'monitoring':='call' is not needed here.
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Q := r_trig.Q;
+
 END_GET
 END_PROPERTY

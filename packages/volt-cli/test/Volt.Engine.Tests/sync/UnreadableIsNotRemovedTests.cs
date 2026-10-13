@@ -70,7 +70,7 @@ public class UnreadableIsNotRemovedTests
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}] unreadable: [{string.Join(", ", res.Unreadable)}]");
 
-        Assert.Equal(new[] { "CM_Carrier" }, res.Unreadable.ToArray());
+        Assert.Equal(new[] { "CM_Carrier" }, res.Unreadable.Select(u => u.Name).ToArray());
         Assert.DoesNotContain("CM_Carrier.pou", res.Removed);
         Assert.Contains("CM_Carrier.visualization", res.Removed);
     }
@@ -114,8 +114,8 @@ public class UnreadableIsNotRemovedTests
 
         Assert.Empty(refs.Items);
         Assert.Empty(fetch.Items);
-        Assert.Equal(new[] { "FB_Broken" }, refs.Unreadable.ToArray());
-        Assert.Equal(new[] { "FB_Broken" }, fetch.Unreadable.ToArray());
+        Assert.Equal(new[] { "FB_Broken" }, refs.Unreadable.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { "FB_Broken" }, fetch.Unreadable.Select(u => u.Name).ToArray());
     }
 
     /// <summary>A PARTIAL walk reports NO deletions at all.

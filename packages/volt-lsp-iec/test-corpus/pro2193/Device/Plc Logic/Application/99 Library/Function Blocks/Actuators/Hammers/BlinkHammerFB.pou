@@ -5,6 +5,7 @@ EXTENDS BLINK
 VAR_OUTPUT
 	xEdge	: BOOL;		// Provide a rising edge trigger when the output switches on
 END_VAR
+
 IMPLEMENTATION ST
 xEdge := FALSE;					// Reset the trigger output
 CLOCK();						// call TP Timer
@@ -19,5 +20,6 @@ ELSIF NOT CLOCK.Q THEN			// Wait until timer is expired before resetting output
 	CLOCK(IN := FALSE);
 	OUT := FALSE;				// Reset output
 END_IF
+
 
 END_FUNCTION_BLOCK

@@ -10,3 +10,4 @@ BunchMagazineEmptyTime : DINT;//Time := T#1M;
 
 END_STRUCT
 END_TYPE
+

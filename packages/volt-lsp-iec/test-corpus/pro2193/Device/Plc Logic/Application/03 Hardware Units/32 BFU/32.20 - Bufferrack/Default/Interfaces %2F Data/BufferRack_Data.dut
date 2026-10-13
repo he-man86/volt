@@ -3,3 +3,4 @@ STRUCT
 	NumberOfProductsOnStack	: UINT;
 END_STRUCT
 END_TYPE
+

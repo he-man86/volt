@@ -10,3 +10,4 @@ TYPE enumMovementType :
 	RotateCcw	:= 6
 );
 END_TYPE
+

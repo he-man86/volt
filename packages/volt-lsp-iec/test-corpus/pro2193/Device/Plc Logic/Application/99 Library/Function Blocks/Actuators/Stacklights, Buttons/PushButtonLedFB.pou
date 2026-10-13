@@ -10,6 +10,7 @@ VAR
 	{attribute 'hide'}
 	Trig_Pushed				: TriggerFB;
 END_VAR
+
 IMPLEMENTATION ST
 CallTrigger();
 
@@ -27,40 +28,53 @@ END_IF
 
 SUPER^();
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
+
 IMPLEMENTATION ST
 Trig_Pushed.Call(CLK := buttonInput);
+
 END_METHOD
 
 METHOD PROTECTED HandlePushed
+
 IMPLEMENTATION ST
 //savedState := State;
 //Solid();
+
 END_METHOD
 
 METHOD PROTECTED HandleReleased
+
 IMPLEMENTATION ST
 //State := savedState;
+
 END_METHOD
 
 // Give a signal on rising edge when the button is pushed.
 PROPERTY PUBLIC ButtonPushed : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ButtonPushed := Trig_Pushed.Q_Rising;
+
 END_GET
 END_PROPERTY
 
 // Give a signal on faling edge when the button is released.
 PROPERTY PUBLIC ButtonReleased : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ButtonReleased := Trig_Pushed.Q_Falling;
+
 END_GET
 END_PROPERTY

@@ -10,3 +10,4 @@ Calculation 	: sUDT_CamControlLS_Calculation;
 MachinePos_HMI	: INT;
 END_STRUCT
 END_TYPE
+

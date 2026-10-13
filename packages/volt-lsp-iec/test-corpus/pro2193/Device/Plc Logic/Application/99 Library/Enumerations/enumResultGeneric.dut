@@ -9,3 +9,4 @@ TYPE enumResultGeneric :
 	Error		:= 2
 ) SINT;
 END_TYPE
+

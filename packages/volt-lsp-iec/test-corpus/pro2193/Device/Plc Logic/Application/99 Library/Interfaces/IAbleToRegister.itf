@@ -2,9 +2,11 @@
 INTERFACE IAbleToRegister
 EXTENDS __SYSTEM.IQueryInterface
 
+
 // Automatically generated name of the instance
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InstanceName : STRING(80)
+
 GET
 END_GET
 END_PROPERTY
@@ -14,6 +16,7 @@ END_PROPERTY
 PROPERTY PUBLIC InstanceNo : UINT
 
 // Note: this number does not have to be unique for each module...
+
 GET
 END_GET
 END_PROPERTY
@@ -21,6 +24,7 @@ END_PROPERTY
 // Location of the FB in memory (for debugging)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC MemoryAddress : STRING(8)
+
 GET
 END_GET
 END_PROPERTY

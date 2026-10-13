@@ -7,3 +7,4 @@ TYPE Fanuc_Place_OUT :
 	GoToHomePos				:= 99	// Move to between place position
 ) UINT;
 END_TYPE
+

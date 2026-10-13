@@ -270,4 +270,5 @@ END_IF
 	FB_Visu(scActPositionIn:= , scParamRobot:= scParamRobot);
 *)
 
+
 END_FUNCTION_BLOCK

@@ -15,6 +15,7 @@ VAR_IN_OUT
 	Q_bStart_AGM			: BOOL;
 	Q_bTest_AGM				: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT I_bCMD_Enable THEN
 	Q_bStart_AGM		:=FALSE;

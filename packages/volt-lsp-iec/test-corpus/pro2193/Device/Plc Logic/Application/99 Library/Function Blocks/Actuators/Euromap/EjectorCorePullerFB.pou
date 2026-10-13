@@ -16,12 +16,15 @@ VAR
 	NotBackAlarm			: SetErrorFB;
 	NotForwardAlarm			: SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 NotBackAlarm(
 	moduleHandler	:= moduleHandler,
@@ -42,12 +45,14 @@ NotForwardAlarm(
 	severity		:= severity,
 	reaction		:= reaction,
 	active			=> );
+
 END_METHOD
 
 // Enable the 'Back' output, so the IMM has permission to move the ejector / core puller back
 // HIGH signal when the handling device / robot enables the movement for ejector back.
 // The signal must remain HIGH at least until "Ejector back" signal is given by injection moulding machine.
 METHOD PUBLIC EnableBack : BOOL
+
 IMPLEMENTATION ST
 IF NOT xInvertOutput THEN
 	EnableBackOutput.Set();
@@ -58,12 +63,14 @@ ELSE
 END_IF
 
 EnableBack		:= IsBack;
+
 END_METHOD
 
 // Enable the 'Forward' output, so the IMM has permission to move the ejector / core puller forward
 // HIGH signal when the handling device / robot enables the movement for ejector forward.
 // The signal must remain HIGH at least until "Ejector forward" signal is given by the injection moulding machine.
 METHOD PUBLIC EnableForward : BOOL
+
 IMPLEMENTATION ST
 IF NOT xInvertOutput THEN
 	EnableBackOutput.Reset();
@@ -74,13 +81,16 @@ ELSE
 END_IF
 
 EnableForward	:= IsForward;
+
 END_METHOD
 
 // Disable both outputs. No movement is allowed by the IMM.
 METHOD PUBLIC Inhibit
+
 IMPLEMENTATION ST
 EnableBackOutput.Reset();
 EnableForwardOutput.Reset();
+
 END_METHOD
 
 {attribute 'analysis' := '-33'}
@@ -89,36 +99,47 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 // No manual control for IMM enable signals
+
 END_METHOD
 
 {attribute 'hide'}
 METHOD Map : BOOL
+
 IMPLEMENTATION ST
 ThrowException('Use other mapping methods instead');
+
 END_METHOD
 
 METHOD PUBLIC MapEnableBack : BOOL
+
 IMPLEMENTATION ST
 MapEnableBack	:= EnableBackOutput.Map();
+
 END_METHOD
 
 METHOD PUBLIC MapEnableForward : BOOL
+
 IMPLEMENTATION ST
 MapEnableForward	:= EnableForwardOutput.Map();
+
 END_METHOD
 
 // Release both outputs, so the IMM is in full control of the ejectors / core pullers.
 METHOD PUBLIC Release
+
 IMPLEMENTATION ST
 EnableBackOutput.Set();
 EnableForwardOutput.Set();
+
 END_METHOD
 
 // Reset the output (=False)
 {attribute 'hide'}
 METHOD Reset
+
 IMPLEMENTATION ST
 EnableBack();
 END_METHOD
@@ -126,6 +147,7 @@ END_METHOD
 // Set the output (=True)
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
+
 IMPLEMENTATION ST
 EnableForward();
 END_METHOD
@@ -136,12 +158,14 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xValue THEN
 	Set();
 ELSE
 	Reset();
 END_IF
+
 END_METHOD
 
 // HIGH signal when the ejector has been finally (e.g. after the number OF its set cycles) retracted regardless OF the moving platen position.
@@ -149,11 +173,14 @@ END_METHOD
 // when the ejector sequence is selected. It is recommended to have HIGH signal when the ejector sequence is not in use.
 {attribute 'monitoring':='call'}
 PROPERTY IsBack : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsBack := SEL(xInvertOutput, inputIsBack, NOT inputIsBack);
+
 END_GET
 END_PROPERTY
 
@@ -161,10 +188,13 @@ END_PROPERTY
 // It is recommended to have HIGH signal when the ejector sequence is not in use.
 {attribute 'monitoring':='call'}
 PROPERTY IsForward : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsForward := SEL(xInvertOutput, inputIsForward, NOT inputIsForward);
+
 END_GET
 END_PROPERTY

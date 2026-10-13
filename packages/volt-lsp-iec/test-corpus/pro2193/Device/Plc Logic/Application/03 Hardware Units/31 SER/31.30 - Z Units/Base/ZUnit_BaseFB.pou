@@ -17,12 +17,14 @@ END_VAR
 VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= ZUnits.NumberOfTakeoverPositions;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
 	coveredDistance		:= coveredDistance,
 );
+
 
 END_FUNCTION_BLOCK
 
@@ -36,6 +38,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 ReadMachineData(
 	Axis					:= AxisRef,
@@ -85,10 +88,12 @@ guardPosition[3](value := PersistentVars.RecipeVars.productHeight);
 guardPosition[4](value := Data.EarlyProductReleaseDistance);
 
 attachPosition[1](value := Data.FirstPart.Pos);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 ReadyForTransfer	:= FALSE;
@@ -97,17 +102,21 @@ ReadyForStacking	:= FALSE;
 Drive.Quickstop(TRUE);
 
 EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
 DriveBrakeLogic.config.holdingTorque		:= -6;
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
@@ -115,53 +124,66 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+
 END_METHOD
 
 // Product transfer is complete, ready for stacking (or something else)
 {attribute 'monitoring':='call'}
 PROPERTY ReadyForStacking : BOOL;
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ReadyForStacking	:= _readyForStacking;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _readyForStacking	:= ReadyForStacking;
+
 END_SET
 END_PROPERTY
 
 // Z unit is ready to receive products
 {attribute 'monitoring':='call'}
 PROPERTY ReadyForTransfer : BOOL;
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ReadyForTransfer	:= _readyForTransfer;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _readyForTransfer	:= ReadyForTransfer;
+
 END_SET
 END_PROPERTY
 
 // Torque is mirrored when drive is mounted CW or CCW. Correct for this. Use torque for crash detection of Z Unit
 {attribute 'monitoring':='call'}
 PROPERTY TorqueCorrected : REAL;
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF ReadMachineData.xValid AND_THEN ReadMachineData.xOrientation THEN
 	TorqueCorrected	:= Drive.actTorque * -1;
@@ -172,5 +194,6 @@ END_IF
 
 // In memory of Henrie Meijer
 // He always pushed to get this function in the software
+
 END_GET
 END_PROPERTY

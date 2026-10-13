@@ -5,3 +5,4 @@ STRUCT
 	description		: STRING(255);	// Description of the recipe
 END_STRUCT
 END_TYPE
+

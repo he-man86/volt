@@ -18,6 +18,7 @@ VAR CONSTANT
 	maxMeasurements		: SINT := 17;
 	arrayDefault		: STRING(10) := 'y*os2# bK(';	// Random string to seed the array with
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -36,6 +37,7 @@ END_VAR
 //		roundingDigits	: USINT := 3;	// Ok
 //		roundingDigits	: USINT(0..4);	// Ok
 //		roundingDigits	: USINT(0..4) := 3;	// Exception!
+
 IMPLEMENTATION ST
 // Round new measurement and add to array
 latestMeasurement			:= Round(measurement, roundingDigits);
@@ -49,6 +51,7 @@ Increment.Subrange(latestIndex, 0, maxMeasurements);
 
 // Output data to monitoring system (optional)
 CallAddLogLREAL(measurement);
+
 END_METHOD
 
 METHOD PRIVATE UpdateOutputString
@@ -56,6 +59,7 @@ VAR
 	i				: SINT;
 	length			: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 jsonString^ := '[';
 
@@ -76,4 +80,5 @@ END_IF
 length	:= Stu.StrLenA(jsonString);
 jsonString^[length - 1]	:= enumASCII.CLOSE_BRACKET;
 jsonString^[length]		:= enumASCII.NULL;
+
 END_METHOD

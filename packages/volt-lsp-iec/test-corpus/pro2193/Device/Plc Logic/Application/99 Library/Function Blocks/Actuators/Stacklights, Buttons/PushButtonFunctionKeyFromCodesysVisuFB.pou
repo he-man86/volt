@@ -27,6 +27,7 @@ END_VAR
 
 // Implicit Enumeration: The implicit enumeration allows for an easy way to declare a new enumeration variable which is valid only within the local POU.
 // https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_datatype_implicit_enumeration-1853150.html
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -38,6 +39,7 @@ IF AwaitTapTimer.Set(FunctionKeyState = AwaitingDoubleTap, AwaitTapTimeout) THEN
 	FunctionKeyState := Released;
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 // Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
@@ -45,8 +47,10 @@ METHOD PUBLIC Attach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 Attach := Subject.Attach(observer);
+
 END_METHOD
 
 // Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
@@ -54,11 +58,14 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 Detach := Subject.Detach(observer);
+
 END_METHOD
 
 METHOD PROTECTED HandleHeld
+
 IMPLEMENTATION ST
 IF FunctionKeyState = Tapped THEN
 	FunctionKeyState := Held;
@@ -75,9 +82,11 @@ ELSIF FunctionKeyState = DoubleTapped THEN
 	Subject.Notify();
 
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED HandlePushed
+
 IMPLEMENTATION ST
 SUPER^.HandlePushed();
 
@@ -91,9 +100,11 @@ Subject.ButtonType	:= buttonType;
 //Subject.ButtonState	:= TRUE;
 Subject.ExtState	:= enumFunctionKeyPayload.Tapped;
 Subject.Notify();
+
 END_METHOD
 
 METHOD PROTECTED HandleReleased
+
 IMPLEMENTATION ST
 SUPER^.HandleReleased();
 
@@ -110,15 +121,19 @@ Subject.ButtonType	:= buttonType;
 //Subject.ButtonState	:= FALSE;
 Subject.ExtState	:= enumFunctionKeyPayload.Released;
 Subject.Notify();
+
 END_METHOD
 
 // The actual number of observers that are receiving events
 {attribute 'monitoring' := 'call'}
 PROPERTY ObserverCount : UINT
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ObserverCount := Subject.ObserverCount;
+
 END_GET
 END_PROPERTY

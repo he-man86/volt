@@ -71,6 +71,7 @@ VAR
 	InputControl			: ARRAY[GVL_IQ.InputSliceStart..GVL_IQ.InputSliceEnd] OF MapperInputs;
 	OutputControl			: ARRAY[GVL_IQ.OutputSliceStart..GVL_IQ.OutputSliceEnd] OF MapperOutputs;
 END_VAR
+
 IMPLEMENTATION ST
 {IF defined (IsSimulationMode)}
 	//RETURN;
@@ -89,6 +90,7 @@ G5_mapping();
 AQ_21.AO1	:= TO_INT(XiUnits.Unit[1].Charger[1].MapAnalogOut());
 AQ_21.AO2	:= TO_INT(XiUnits.Unit[1].Charger[2].MapAnalogOut());
 
+
 END_PROGRAM
 
 METHOD PRIVATE CopyHomingSensors
@@ -97,6 +99,7 @@ VAR
 	servoDriveNamed			: IAbleToRegister;
 	i, i0, index			: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // Copy homing sensors of all servo motors
@@ -149,9 +152,11 @@ FOR i := 1 TO GlobalVars_BFU.fbModuleManager.servoDrivesCount DO
 END_FOR
 
 {END_IF}
+
 END_METHOD
 
 METHOD PRIVATE CopyPilzSafetyStatus
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // Onderstaande code is tijdelijk!!! dit moet mooier.
@@ -193,6 +198,7 @@ ELSIF selectedSlice = IQSlices.PilzSafety2 THEN
 	selectedSliceInfo.component[8].actValue	:= FALSE;
 
 END_IF
+
 END_METHOD
 
 METHOD PRIVATE GenerateSliceDictionary
@@ -206,6 +212,7 @@ END_VAR
 VAR CONSTANT
 	maxLength		: INT := 1000;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 sliceDictionary		:= '{';
@@ -230,6 +237,7 @@ IF NOT StrConcatA(pstFrom := ADR(element), pstTo := ADR(sliceDictionary), iBuffe
 END_IF
 
 sliceDictionaryLength	:= StrLenA(ADR(sliceDictionary));
+
 END_METHOD
 
 METHOD PRIVATE Initialize
@@ -237,6 +245,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 IF xInitialized THEN
@@ -246,6 +255,7 @@ END_IF
 GenerateSliceDictionary();
 
 xInitialized := TRUE;
+
 END_METHOD
 
 METHOD PRIVATE SelectSlice
@@ -257,6 +267,7 @@ END_VAR
 VAR
 	i							: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods
 // When forcing outputs is enabled, copy the current state of the output to the force button
@@ -309,6 +320,7 @@ IF selectedSliceTrigger.Rising(CLK := selectedSlice <> previousSlice) THEN
 
 	previousSlice := selectedSlice;
 END_IF
+
 END_METHOD
 
 ACTION G1_mapping
@@ -618,6 +630,7 @@ OutputControl[IQSlices.DQ_20](
 	bit7		:= VisionSystems.Unit[1].Activate_BypassMode.Map(),			// Mevisco - Activate bypass mode
 	bit8		:= VisionSystems.Unit[1].Cavity_Reset.Map(),				// Mevisco - Cavity reset
 );
+
 END_ACTION
 
 ACTION G3_Mapping
@@ -764,6 +777,7 @@ OutputControl[IQSlices.DQ_36](
 	bit7		:= ,
 	bit8		:= Magazines.Unit[1].IonizingBar.Map(),			// M-axis - Ionisation
 );
+
 END_ACTION
 
 ACTION G4_Mapping
@@ -936,6 +950,7 @@ OutputControl[IQSlices.DQ_46](
 	bit7		:= Chains.Unit[1].OpenProductCarrierReject[1].Map(),	// C1-axis - Product carrier reject (normal retracted)
 	bit8		:= RejectStations.Unit[1].BlowOff.Map(),				// C1-axis - Blow off products (reject)
 );
+
 END_ACTION
 
 ACTION G5_Mapping
@@ -1063,4 +1078,5 @@ OutputControl[IQSlices.DQ_54](
 	bit1		:= BFU.MainAirValve.Map(),									// General - Main airvalve BFU
 	bit2		:= ,
 );
+
 END_ACTION

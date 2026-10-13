@@ -21,6 +21,7 @@ VAR CONSTANT
 	MaxChargers					: USINT	:= XiUnits.MaxChargers;
 	EnableHalfwayPosition		: BOOL	:= TRUE;	// Drive moves to a position when the Y drive moves onto the safety strip
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -28,12 +29,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -54,6 +57,7 @@ SetError[2](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.FastStop,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -66,6 +70,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO MaxChargers DO
 	Data.rSetPointCharger[i].lowerLimit	:= 0.0;
@@ -154,6 +159,7 @@ IF EnableHalfwayPosition THEN
 END_IF
 attachPosition[3](value := Data.LabelInsert.Pos);
 attachPosition[4](value := Data.LabelPickup.Pos);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -161,6 +167,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxChargers DO
@@ -173,6 +180,7 @@ Arrays.Vacuum_ReleaseAll(itfVacuums);
 Drive.Quickstop(TRUE);
 
 EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+
 END_METHOD
 
 // Gets labels by starting a vacuum. Parameter indicates which vacuum (inlay-core) to start
@@ -180,6 +188,7 @@ METHOD PUBLIC GetLabels : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -194,12 +203,14 @@ IF vacuumIndex = AllVacuums THEN
 ELSIF Arrays.Vacuum_SetSelected(itfVacuums, vacuumIndex) THEN
 	GetLabels := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Initialize
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -207,12 +218,14 @@ SUPER^.Initialize();
 FOR i := 1 TO MaxVacuums DO
 	itfVacuums[i]				:= Vacuum[i];
 END_FOR
+
 END_METHOD
 
 // Move to a position somewhere halfway, while the Y axis is still exiting the mould.
 METHOD MoveToHalfway : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT EnableHalfwayPosition THEN
@@ -230,6 +243,7 @@ Drive.SetMovementProfileData(Data.LabelPickup);
 MoveToHalfway := Drive.MoveAbsPos(Data.HalfwayPos.value);
 
 CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // Make the X drives go to the parking position on start of program
@@ -239,6 +253,7 @@ END_VAR
 VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -256,6 +271,7 @@ almostSafe	:= NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos
 IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
 	MoveToParking := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Move to a Takeover position. Parameter indicates number of Takeover position
@@ -263,6 +279,7 @@ METHOD PUBLIC MoveToTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -280,6 +297,7 @@ CASE takeoverPosition OF
 	ELSE
 		;	// Invalid parameter
 END_CASE
+
 END_METHOD
 
 // Place the labels into the cavities of the mould
@@ -292,6 +310,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -371,6 +390,7 @@ CASE localState OF
 			PlaceInMould := CommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -379,6 +399,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -408,6 +429,7 @@ CASE localState OF
 		LockCores.Reset();
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
@@ -415,6 +437,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxChargers DO
@@ -427,15 +450,18 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+
 END_METHOD
 
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY HasPayload : enumPayload
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF Arrays.Vacuum_All(
 		vacuumArray	:= itfVacuums,
@@ -454,17 +480,21 @@ THEN
 ELSE
 	HasPayload := enumPayload.None;
 END_IF
+
 END_GET
 END_PROPERTY
 
 // The X axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
+
 END_GET
 END_PROPERTY

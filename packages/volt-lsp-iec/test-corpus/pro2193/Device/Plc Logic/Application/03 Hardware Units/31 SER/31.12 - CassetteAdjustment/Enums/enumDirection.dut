@@ -6,3 +6,4 @@ TYPE enumDirection :
 	Negative := 2
 );
 END_TYPE
+

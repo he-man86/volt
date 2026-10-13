@@ -24,3 +24,4 @@ TYPE enumColorList :
 	LightBlue	:= 17		// #0000FF	0,0,255			// Standard blue is renamed to LightBlue
 );
 END_TYPE
+

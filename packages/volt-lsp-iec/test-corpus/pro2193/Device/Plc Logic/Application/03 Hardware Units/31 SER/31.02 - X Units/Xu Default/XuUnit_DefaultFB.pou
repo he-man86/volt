@@ -25,6 +25,7 @@ VAR CONSTANT
 	EnableHalfwayPosition		: BOOL	:= TRUE;	// Drive moves to a position when the Y drive moves onto the safety strip
 	EnableEarlyProductRelease	: BOOL	:= FALSE;	// Products are released on a position during movement of Xu drive
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -32,12 +33,14 @@ SUPER^(
 	coveredDistance		:= coveredDistance,
 );
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -48,6 +51,7 @@ SetError[1](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= SEL(SER.InAutomaticOperation, enumErrorReaction.No_reaction, enumErrorReaction.Stop),
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -60,6 +64,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO MaxVacuums DO
 	Vacuum[i](
@@ -126,10 +131,12 @@ attachPosition[4](value := Data.Takeout.Pos);
 IF EnableEarlyProductRelease THEN
 	attachPosition[5](value := Data.ReleaseProductPos);
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Drive.Quickstop(TRUE);
@@ -141,13 +148,16 @@ Arrays.Vacuum_ReleaseAll(itfVacuums);
 SUPER^.EStop();
 
 EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+
 END_METHOD
 
 // Releases all locks
 METHOD ForceReleaseLock
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
+
 END_METHOD
 
 // Check if a vacuum is high
@@ -155,6 +165,7 @@ METHOD PUBLIC HasVacuumHigh : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF vacuumIndex = AllVacuums THEN
@@ -170,12 +181,14 @@ ELSIF Arrays.Vacuum_Selected(
 THEN
 	HasVacuumHigh	:= TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Initialize
 VAR
 	i		: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -183,10 +196,12 @@ SUPER^.Initialize();
 FOR i := 1 TO MaxVacuums DO
 	itfVacuums[i]				:= Vacuum[i];
 END_FOR
+
 END_METHOD
 
 // Takeout the shot of products from the mould
 METHOD PUBLIC MoveBackFromMould : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands/Takeout from mould
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -224,12 +239,14 @@ THEN
 	movementInsideMouldActive	:= FALSE;
 	MoveBackFromMould := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Move to a position somewhere halfway, while the Y axis is still exiting the mould.
 METHOD MoveToHalfway : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT EnableHalfwayPosition THEN
@@ -249,6 +266,7 @@ Drive.SetMovementProfileData(Data.Takeover[1]);
 MoveToHalfway := Drive.MoveAbsPos(Data.HalfwayPos.value);
 
 CommandLock.Release(__POUNAME());
+
 END_METHOD
 
 // Make the X drives go to the parking position on start of program
@@ -258,6 +276,7 @@ END_VAR
 VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -273,6 +292,7 @@ almostSafe	:= NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos
 IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
 	MoveToParking := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Move to a Takeover position. Parameter indicates number of Takeover position
@@ -280,6 +300,7 @@ METHOD PUBLIC MoveToTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -300,6 +321,7 @@ CASE takeoverPosition OF
 	ELSE
 		;	// Invalid parameter
 END_CASE
+
 END_METHOD
 
 // Takeout the shot of products from the mould. Parameter indicates phase (optional)
@@ -310,6 +332,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Takeout from mould
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -345,6 +368,7 @@ AND HasPayload = enumPayload._All
 THEN
 	MoveTowardsMould := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Return a single product that is currently transferred. Products ordered from left to right, top to bottom.
@@ -359,6 +383,7 @@ VAR
 	inX				: UINT;
 	inY				: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
@@ -383,6 +408,7 @@ END_IF
 // More info about method used: https://stackoverflow.com/questions/3803331/how-can-i-modulo-when-my-numbers-start-from-1-not-zero
 
 // First return top row from left to right, then middle row(s), then bottom row.
+
 END_METHOD
 
 // Copy the product data from the IMM of the produced shot.
@@ -390,9 +416,11 @@ METHOD PUBLIC ProductData_Set
 VAR_INPUT
 	ProductsInMould	: ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Takeout from mould
 THIS^.ProductsInGripper	:= ProductsInMould;
+
 END_METHOD
 
 // Release a certain amount of products. Parameter indicates which products are released.
@@ -400,6 +428,7 @@ METHOD PUBLIC ReleaseProducts : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -418,6 +447,7 @@ ELSIF Arrays.Vacuum_ReleaseSelected(itfVacuums, vacuumIndex) THEN	// Release a s
 	// The Xu Unit does not know which product belongs to which vacuum.
 	ReleaseProducts := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -427,6 +457,7 @@ VAR_INST
 	result				: UINT;
 	i					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -479,10 +510,12 @@ CASE localState OF
 
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
@@ -492,33 +525,41 @@ END_IF
 SUPER^.Stop();
 
 Stop := Drive.Standstill OR NOT Drive.AxisEnabled;
+
 END_METHOD
 
 // Enable or disable certain vacuums circuits
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC EnableVacuums : WORD
+
 %FOLDER Config
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 EnableVacuums := _enableVacuums;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _enableVacuums := EnableVacuums;
+
 END_SET
 END_PROPERTY
 
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY HasPayload : enumPayload
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IF Arrays.Vacuum_Enabled_All(
 							vacuumArray	:= itfVacuums,
@@ -541,41 +582,51 @@ THEN
 ELSE
 	HasPayload := enumPayload.None;
 END_IF
+
 END_GET
 END_PROPERTY
 
 // The X axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
+
 END_GET
 END_PROPERTY
 
 // The X axis is in a safe position to enter the mould.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePosForMouldEntry := InSafePos AND HasPayload = enumPayload.None;
+
 END_GET
 END_PROPERTY
 
 // The Xu unit is in standstill on the Takeout position inside the mould.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsOnTakeoutPos := Drive.HomingSensor AND Drive.PosReached(Data.Takeout.Pos.value);
+
 END_GET
 END_PROPERTY

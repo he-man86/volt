@@ -12,3 +12,4 @@ VAR_GLOBAL
 	g_uControl_R_Axis		:KC_AxisBasicsControl;
 	g_uStatus_R_Axis		:KC_AxisBasicsStatus;
 END_VAR
+

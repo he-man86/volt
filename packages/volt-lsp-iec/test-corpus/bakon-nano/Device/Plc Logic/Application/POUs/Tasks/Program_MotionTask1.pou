@@ -6,6 +6,7 @@ VAR
 	L_SuspendWatchdog1 : L_SuspendWatchdog;
 	initializeArrays : BOOL := true;
 END_VAR
+
 IMPLEMENTATION ST
 
 IF initializeArrays THEN

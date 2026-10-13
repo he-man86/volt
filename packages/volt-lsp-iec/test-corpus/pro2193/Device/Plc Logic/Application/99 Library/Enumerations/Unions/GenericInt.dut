@@ -5,3 +5,4 @@ UNION
 	unsignedInt		: CAA.UNSIGNED;
 END_UNION
 END_TYPE
+

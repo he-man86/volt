@@ -73,8 +73,10 @@ VAR
 		StateYUnitOnSafetyStrip				:= 620
 	) DINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -83,6 +85,7 @@ VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 	savedState					: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -131,9 +134,11 @@ SetError[4](
 	active			=> );
 
 alarmNoLabelsForMould	R= SetError[4].active;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
 
@@ -153,20 +158,24 @@ yUnit.ExternalManualControlEnabled	:= xiUnit.InSafePos AND xuUnit.InSafePos;
 // Enable manual control of Xi/Xu Units when Y Unit is safe.
 xiUnit.ExternalManualControlEnabled	:= yUnit.InSafePosForXUnits;
 xuUnit.ExternalManualControlEnabled	:= yUnit.InSafePosForXUnits;
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 EStop		:= TRUE;
+
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
@@ -186,9 +195,11 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	ELSE
 		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+
 IMPLEMENTATION ST
 // SingleCavSingleTakeover
 CASE ActState OF
@@ -233,10 +244,13 @@ CASE ActState OF
 	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
 	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
+
 IMPLEMENTATION ST
+%EXCLUDE_FROM_BUILD
 // FourCavDualTakeover
 CASE ActState OF
 	StateNone:	;
@@ -258,10 +272,13 @@ CASE ActState OF
 	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
 	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence3
+
 IMPLEMENTATION ST
+%EXCLUDE_FROM_BUILD
 // FourCavDualTakeover
 CASE ActState OF
 	StateNone:	;
@@ -283,13 +300,16 @@ CASE ActState OF
 	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
 	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC GetSampleShotRequest : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 GetSampleShotRequest	:= xSampleshotBusy;
 xSampleshotBusy			:= FALSE;
+
 END_METHOD
 
 // Return true if this module should start in this operation mode
@@ -297,6 +317,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // Only start automatic cycle when X/Y control is enabled.
@@ -317,10 +338,12 @@ CASE operationMode OF
 		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
 		ShouldStart := FALSE;
 END_CASE
+
 END_METHOD
 
 // Start automatic operations now! Returns true when module is started.
 METHOD StartCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -353,23 +376,28 @@ IF startingCycleDone THEN
 	startingCycleDone		:= FALSE;
 	StartCycle				:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 Stop		:= TRUE;
+
 END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 StopCycle				:= ActState = StateNone;
+
 END_METHOD
 
 METHOD PROTECTED Takeover1PosActions : BOOL
@@ -377,6 +405,7 @@ VAR_INST
 	transferProductsRequired	: BOOL;
 	transferLabelsRequired		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -402,9 +431,11 @@ END_IF
 IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
 	Takeover1PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(1)
@@ -414,11 +445,14 @@ THEN
 ELSE
 	Takeover1PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence2 : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
+%EXCLUDE_FROM_BUILD
 IF transferProducts.CheckIfTransferIsNeeded(1)
 AND transferProducts.AlternateCycleCounter = 1
 THEN
@@ -426,22 +460,27 @@ THEN
 ELSE
 	Takeover1PosCheck_Sequence2 := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence3 : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
+%EXCLUDE_FROM_BUILD
 IF transferProducts.CheckIfTransferIsNeeded(1) THEN
 	Takeover1PosCheck_Sequence3 := enumResultGeneric.Success;
 ELSE
 	Takeover1PosCheck_Sequence3 := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover1PosMove : BOOL
 VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -464,6 +503,7 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover1PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover2PosActions : BOOL
@@ -471,6 +511,7 @@ VAR_INST
 	transferProductsRequired	: BOOL;
 	transferLabelsRequired		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -496,9 +537,11 @@ END_IF
 IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
 	Takeover2PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover2PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(2)
@@ -508,12 +551,14 @@ THEN
 ELSE
 	Takeover2PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover2PosMove : BOOL
 VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -536,6 +581,7 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover2PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover3PosActions : BOOL
@@ -543,6 +589,7 @@ VAR_INST
 	transferProductsRequired	: BOOL;
 	transferLabelsRequired		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -568,9 +615,11 @@ END_IF
 IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
 	Takeover3PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover3PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(3)
@@ -580,12 +629,14 @@ THEN
 ELSE
 	Takeover3PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover3PosMove : BOOL
 VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -608,9 +659,11 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover3PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover4PosActions : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -622,9 +675,11 @@ result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(3);
 IF result[1] AND SER.SemiAutoNextStep THEN
 	Takeover4PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover4PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(3) THEN
@@ -632,9 +687,11 @@ IF transferToRejectShute.CheckIfTransferIsNeeded(3) THEN
 ELSE
 	Takeover4PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover4PosMove : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -647,9 +704,11 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover4PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover5PosActions : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -661,9 +720,11 @@ result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(2);
 IF result[1] AND SER.SemiAutoNextStep THEN
 	Takeover5PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover5PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(2) THEN
@@ -671,9 +732,11 @@ IF transferToRejectShute.CheckIfTransferIsNeeded(2) THEN
 ELSE
 	Takeover5PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover5PosMove : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -686,9 +749,11 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover5PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover6PosActions : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -700,9 +765,11 @@ result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(1);
 IF result[1] AND SER.SemiAutoNextStep THEN
 	Takeover6PosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover6PosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(1) THEN
@@ -710,9 +777,11 @@ IF transferToRejectShute.CheckIfTransferIsNeeded(1) THEN
 ELSE
 	Takeover6PosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Takeover6PosMove : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -725,9 +794,11 @@ AND SER.SemiAutoNextStep
 THEN
 	Takeover6PosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED TakeoverLabelPosActions : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := transferLabels.ExecuteTransfer(1)))
@@ -735,9 +806,11 @@ AND SER.SemiAutoNextStep
 THEN
 	TakeoverLabelPosActions := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED TakeoverLabelPosCheck : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 IF transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 0 THEN
@@ -745,12 +818,14 @@ IF transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 0 T
 ELSE
 	TakeoverLabelPosCheck := enumResultGeneric.Error;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED TakeoverLabelPosMove : BOOL
 VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -767,9 +842,11 @@ AND SER.SemiAutoNextStep
 THEN
 	TakeoverLabelPosMove := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED WaitForMouldClosed : enumResultGeneric
+
 IMPLEMENTATION ST
 %FOLDER States
 // Stop automatic cycle when cleaning mode is active.
@@ -787,12 +864,14 @@ AND NOT IMM.AutoOperation
 THEN								// Mould did not close, so end of cycle is active. Stop state machine.
 	WaitForMouldClosed := enumResultGeneric.Error;			//ActState := StateNone;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED WaitForMouldOpen : BOOL
 VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 // Do not start moving towards mould if any X axes is not in position
@@ -822,12 +901,14 @@ AND NOT yUnit.IsDecelerating
 THEN
 	WaitForMouldOpen := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED XUnitsDoInMouldActions : BOOL
 VAR_INST
 	allowLabelsInCavities	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -893,9 +974,11 @@ IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
 END_IF
 
 *)
+
 END_METHOD
 
 METHOD PROTECTED XUnitsToParking : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF  (result[1] OR_ELSE (result[1] := xiUnit.MoveToParking()))
@@ -906,9 +989,11 @@ AND NOT transferToRejectShute.TransferBusy
 THEN
 	XUnitsToParking := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitEnterMouldArea : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -923,9 +1008,11 @@ AND NOT yUnit.InSafePos				// Y drive moved off the safety strip
 THEN
 	YUnitEnterMouldArea := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitInPositionInMouldArea : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 // Xu Unit moves to halfway position during movement of Y Unit.
@@ -936,9 +1023,11 @@ AND SER.SemiAutoNextStep
 THEN
 	YUnitInPositionInMouldArea := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitLeaveMouldArea : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 // Do not start moving if any X axes is not in position
@@ -965,12 +1054,14 @@ IF IMM.ReleaseMouldClosing(
 THEN
 	YUnitLeaveMouldArea := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitOnSafetyStrip : BOOL
 VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -997,4 +1088,5 @@ THEN
 	xuUnit.MoveToHalfway();
 	YUnitOnSafetyStrip := TRUE;
 END_IF
+
 END_METHOD

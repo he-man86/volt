@@ -169,4 +169,13 @@ DiffLogger.orig := __VARINFO(g_HMI_RCP_Parameters.nCleanWithScraper); DiffLogger
 DiffLogger.orig := __VARINFO(g_HMI_RCP_Parameters.bMirrorDiagonals); DiffLogger.copy := __VARINFO(           g_sRCPParCopy.bMirrorDiagonals); DiffLogger(	Logger := ADR(g_Logger), copyStr := TO_STRING(           g_sRCPParCopy.bMirrorDiagonals), origStr := TO_STRING(g_HMI_RCP_Parameters.bMirrorDiagonals));
 *)
 
+
+
+
+
+
+
+
+
+
 END_PROGRAM

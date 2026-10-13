@@ -33,12 +33,15 @@ VAR
 		StateUnitsOnStickerPosEnd			:= 710
 	) DINT;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Execute_Sequence1
+
 IMPLEMENTATION ST
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN
@@ -70,9 +73,11 @@ CASE ActState OF
 	StateUnitsOnStickerPosStart:		Increment.State(ActState,		UnitsOnStickerPosStart(),		StateUnitsOnStickerPosEnd);
 	StateUnitsOnStickerPosEnd:			Increment.State(ActState,		UnitsOnStickerPosEnd(),			StateTakeover1PosCheck);
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
+
 IMPLEMENTATION ST
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN
@@ -104,6 +109,7 @@ CASE ActState OF
 	StateUnitsOnStickerPosStart:		Increment.State(ActState,		UnitsOnStickerPosStart(),		StateUnitsOnStickerPosEnd);
 	StateUnitsOnStickerPosEnd:			Increment.State(ActState,		UnitsOnStickerPosEnd(),			StateTakeover1PosCheck);
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED UnitsOnStickerPosEnd : BOOL
@@ -111,6 +117,7 @@ VAR_INST
 	monitorForTakeover5Pos	: BOOL;
 	applyStickerFromHere	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
@@ -138,9 +145,11 @@ AND SER.SemiAutoNextStep
 THEN
 	UnitsOnStickerPosEnd := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED UnitsOnStickerPosStart : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 IF  (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(4)))
@@ -149,9 +158,11 @@ AND SER.SemiAutoNextStep
 THEN
 	UnitsOnStickerPosStart := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitLeaveMouldArea : BOOL
+
 IMPLEMENTATION ST
 %FOLDER States
 // Is sticker unit enabled?
@@ -180,12 +191,14 @@ IF IMM.ReleaseMouldClosing(
 THEN
 	YUnitLeaveMouldArea := TRUE;
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED YUnitOnSafetyStrip : BOOL
 VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER States
 // Is sticker unit enabled?
@@ -213,4 +226,5 @@ THEN
 	//xuUnit.MoveToHalfway(); Niet naar halverwege pos wanneer sticker unit actief is
 	YUnitOnSafetyStrip := TRUE;
 END_IF
+
 END_METHOD

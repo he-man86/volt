@@ -5,3 +5,4 @@ ID:           1028 0401
 Version:      3.19.0.1
 Order number: EPM-S400
 Description:  2 analog inputs, voltage measurement 0..10V
+Disabled:     true

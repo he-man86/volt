@@ -13,3 +13,4 @@ TYPE enumFooterNames :
 	ServoDriveMagazine	:= 6
 ) SINT;
 END_TYPE
+

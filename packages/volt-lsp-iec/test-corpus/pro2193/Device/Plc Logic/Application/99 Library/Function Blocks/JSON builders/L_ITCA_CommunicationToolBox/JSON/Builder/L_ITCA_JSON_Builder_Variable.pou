@@ -52,6 +52,7 @@ END_VAR
 VAR_TEMP
 	uiPropertyIndex				: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF xExecute AND NOT xExecute_old THEN
 
@@ -235,6 +236,7 @@ END_IF
 //Save execute
 xExecute_old := xExecute;
 
+
 END_FUNCTION_BLOCK
 
 {attribute 'conditionalshow'}
@@ -246,6 +248,7 @@ END_VAR
 VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 pByte := psContent;		// Set pointer to start of string
@@ -261,6 +264,7 @@ WHILE pByte^ <> enumASCII.NULL DO		// Loop string until terminator
 	END_IF
 	pByte := pByte + 1;
 END_WHILE
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -268,6 +272,7 @@ METHOD INTERNAL _mCheckType_Boolean : BOOL
 VAR_INPUT
 	psContent	: POINTER TO STRING(5);	//Max length is 5 (FALSE/false)
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
@@ -280,6 +285,7 @@ OR psContent^ = '0'
 THEN
 	_mCheckType_Boolean := TRUE;
 END_IF
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -290,6 +296,7 @@ END_VAR
 VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 _mCheckType_Number := TRUE;
@@ -306,6 +313,7 @@ WHILE pByte^ <> enumASCII.NULL DO		// Loop string until terminator
 	END_IF
 	pByte := pByte + 1;
 END_WHILE
+
 END_METHOD
 
 {attribute 'conditionalshow'}
@@ -313,8 +321,10 @@ METHOD INTERNAL _mStrConcatA //Concats string to sContent
 VAR_INPUT
 	sConcat		: STRING(1);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Internal
 //Concat content
 StrConcatA(pstFrom := ADR(sConcat), pstTo := psJSON, iBufferSize := TO_INT(udiJSONStringLength));
+
 END_METHOD

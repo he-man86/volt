@@ -6,3 +6,4 @@ STRUCT
 	Direction			: enumDirection;	// Direction of the movement of the cassette
 END_STRUCT
 END_TYPE
+

@@ -13,3 +13,4 @@ STRUCT
 	Combined						: BOOL;		// Stack is complete, multiple stacks are combined at a buffer rack
 END_STRUCT
 END_TYPE
+

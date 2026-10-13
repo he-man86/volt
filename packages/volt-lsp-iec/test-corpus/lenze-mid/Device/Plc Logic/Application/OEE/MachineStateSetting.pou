@@ -15,6 +15,7 @@
 PROGRAM MachineStateSetting
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 
 //*******************************PackML Sample****************************************************************************************
@@ -77,5 +78,8 @@ END_IF;
 
 		 
 		 
+
+
+
 
 END_PROGRAM

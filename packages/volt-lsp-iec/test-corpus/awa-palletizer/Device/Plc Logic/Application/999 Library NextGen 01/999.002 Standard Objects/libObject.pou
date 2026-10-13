@@ -25,6 +25,7 @@ VAR_INPUT
 	// Emergency stop is active
 	xCmdEStopActive: BOOL := FALSE;
 END_VAR
+
 IMPLEMENTATION ST
 //------------------------------------------------------------------------------------------
 // General object definition.
@@ -39,6 +40,7 @@ METHOD isClassType : BOOL
 VAR_INPUT
 	pClassType: enClassType;
 END_VAR
+
 IMPLEMENTATION ST
 isClassType := (myClassType = pClassType);
 END_METHOD

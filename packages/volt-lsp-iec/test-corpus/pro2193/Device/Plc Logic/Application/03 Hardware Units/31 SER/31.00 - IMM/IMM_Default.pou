@@ -132,8 +132,10 @@ VAR//VISU
 	{attribute 'symbol' := 'read'}		euromapTestResultOk				: BOOL;					// Active test step result is Ok
 	{attribute 'symbol' := 'readwrite'}	euromapTestNextStep				: BOOL;					// Button to start / resume testing
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -141,6 +143,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError		: ARRAY[1..8] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 SetError[1](
@@ -224,6 +227,7 @@ SetError[8](
 	active			=> );
 
 setAlarmProductsMissing	R= GlobalVars.Reset;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -233,6 +237,7 @@ VAR_INST
 	TriggerEnterMouldArea		: TriggerFB;
 	DelayedMouldClosingTimer	: BTON;		// Mould will close after timer
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 EjectStateMachine();
@@ -341,6 +346,7 @@ END_IF
 
 cycleTimeTakeout	:= cycleTimeTakeoutFB.latestMeasurement;
 cycleTimeTotal		:= cycleTimeTotalFB.latestMeasurement;
+
 END_METHOD
 
 (* Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -367,18 +373,21 @@ EStop := TRUE;
 
  *)
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER IModuleBase
 InhibitAll();
 MouldCleaning.EStop();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Start the Ejector/Core pullers program.
 METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Front position.
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
@@ -393,6 +402,7 @@ END_IF
 
 // Return result when done
 EjectShot := iEjectState = 2;
+
 END_METHOD
 
 METHOD PRIVATE EjectStateMachine
@@ -401,6 +411,7 @@ END_VAR
 VAR_INST
 	T_Timer	: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 // The option to start the ejectors early on a position, is only valid if you have a single Y Unit.
@@ -500,6 +511,7 @@ CASE iEjectState OF
 			iEjectState := 0;
 		END_IF
 END_CASE
+
 END_METHOD
 
 // During testing, only 1 euromap input may be high at any time. If more than 1 is high this method returns FALSE
@@ -510,6 +522,7 @@ END_VAR
 VAR
 	inputsHigh					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private/Euromap Tester
 inputsHigh	:= 0;
@@ -526,6 +539,7 @@ IF CorePullers.inputIsBack		THEN Increment.AnyInt(inputsHigh); END_IF
 IF CorePullers.inputIsForward	THEN Increment.AnyInt(inputsHigh); END_IF
 
 EuromapInputCount := inputsHigh = requestednumberOfInputsHigh;
+
 END_METHOD
 
 METHOD PRIVATE EuromapTester
@@ -533,6 +547,7 @@ VAR_INST
 	NextStepTrigger		: RisingTriggerFB;
 	NextStepTimer		: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private/Euromap Tester
 NextStepTrigger.Call(euromapTestNextStep);
@@ -774,9 +789,11 @@ CASE euromapTestProgress OF
 		END_IF
 
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE FollowSERState
+
 IMPLEMENTATION ST
 %FOLDER Private
 CASE SER.ActState OF
@@ -806,6 +823,7 @@ CASE SER.ActState OF
 	PACK_ML.State.Complete:
 		InhibitAll();
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE GenerateProductData
@@ -814,6 +832,7 @@ VAR
 	ZeroBasedCavNumbering	: USINT;
 	Product					: REFERENCE TO ProductType;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private
 // Get sample shot request status from all XY Controls (cache this value locally, so method is executed once per module)
@@ -895,6 +914,7 @@ FOR ui := 1 TO GlobalVars.ActMouldLevels DO
 	END_FOR
 
 END_FOR
+
 END_METHOD
 
 // Get product data of all products per mould level
@@ -902,18 +922,21 @@ METHOD PUBLIC GetProductData : ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Con
 VAR_INPUT
 	MouldLevel	: UINT(1..GVL_Constants.MaxMouldLevels);
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 GetProductData	:= ProductsInMould[MouldLevel];
 
 // Clear the product data of the mould level that we return.
 ClearProducts.Array2D(ProductsInMould[MouldLevel]);
+
 END_METHOD
 
 // Inhibit all outputs to the IMM. The IMM may not move.
 METHOD PRIVATE InhibitAll
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private/All Outputs
 MouldAreaFree.Reset();
@@ -922,6 +945,7 @@ EnableFullMouldOpening.Reset();
 OperationWithRobot.Reset();
 Ejectors.Inhibit();
 CorePullers.Inhibit();
+
 END_METHOD
 
 // Inhibit (disable) closing of the mould. The Y axis is going in.
@@ -929,6 +953,7 @@ METHOD PUBLIC InhibitMouldClosing
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 EnableMouldClosure.Reset();
@@ -938,12 +963,14 @@ MouldAreaFree.Reset();
 FOR i := 1 TO ProcessModules.numberOfXYControls DO
 	syncedXYControls[i] := FALSE;
 END_FOR
+
 END_METHOD
 
 // Release all outputs to the IMM. The IMM may move freely.
 METHOD PRIVATE ReleaseAll
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Private/All Outputs
 MouldAreaFree.Set();
@@ -952,6 +979,7 @@ EnableFullMouldOpening.Set();
 OperationWithRobot.Set();
 Ejectors.Release();
 CorePullers.Release();
+
 END_METHOD
 
 // Monitor when the Y axis has cleared the mould area. Enable mould closing by IMM.
@@ -968,6 +996,7 @@ VAR
 	anyDrawerIsChanging			: BOOL := FALSE;
 	i							: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF  Data.xEarlyMouldClosingEnable
@@ -1045,19 +1074,23 @@ END_IF
 cycleTimeTakeoutFB.AddMeasurement(TO_REAL(TICKU.GetElapsedTimeInUSec(TickMouldIsOpened)) / 1_000_000);
 
 ReleaseMouldClosing		:= TRUE;
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+
 IMPLEMENTATION ST
 %FOLDER IModuleResettable
 InhibitAll();
 
 Reset := TRUE;
+
 END_METHOD
 
 // Check if the mould closes every cycle
 METHOD PROTECTED SetMouldWasClosed
+
 IMPLEMENTATION ST
 %FOLDER Private
 IF NOT SER.InAutomaticOperation THEN
@@ -1070,6 +1103,7 @@ AND	xMouldClosed
 THEN
 	mouldWasClosed			:= TRUE;
 END_IF
+
 END_METHOD
 
 // Return true if this module should start in this operation mode
@@ -1077,6 +1111,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER IModuleStartable
 CASE operationMode OF
@@ -1090,10 +1125,12 @@ CASE operationMode OF
 		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
 		ShouldStart := FALSE;
 END_CASE
+
 END_METHOD
 
 // Start automatic operations now! Returns true when module is started.
 METHOD StartCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER IModuleStartable
 OperationWithRobot.Reset();
@@ -1104,10 +1141,12 @@ CorePullers.EnableBack();
 iEjectState	:= 0;
 
 StartCycle	:= TRUE;
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER IModuleBase
 IF MouldIsOpen THEN
@@ -1116,13 +1155,16 @@ IF MouldIsOpen THEN
 END_IF
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER IModuleStartable
 StopCycle				:= TRUE;
+
 END_METHOD
 
 // This method returns true as soon as every XYControl called it.
@@ -1133,6 +1175,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // Find the XYControl with the correct instance number and store the number locally.
@@ -1145,16 +1188,19 @@ END_FOR
 
 // Now loop through all XYControls and check if they all called this method.
 SynchronizeYUnits := Arrays.Bool_All(syncedXYControls, TRUE);
+
 END_METHOD
 
 // Returns true when the Xi axis is allowed to place labels in the mould cavities
 // Only ask once per IMM cycle!
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC AllowLabelsInCavities : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AllowLabelsInCavities	:=  (NOT HasLabels OR SER.OperationMode = SER_OperationModeType.SemiAuto)
 						AND (ShotCounter > Data.usiFirstShotsWithoutIML OR SER.OperationMode = SER_OperationModeType.SemiAuto);
@@ -1165,100 +1211,124 @@ AllowLabelsInCavities	:=  MouldCleaning.CycleWithIML()
 						AND (ShotCounter > Data.usiFirstShotsWithoutIML OR SER.OperationMode = SER_OperationModeType.SemiAuto);
 
 *)
+
 END_GET
 END_PROPERTY
 
 //
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC AutoOperation : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AutoOperation := xAutoOperation OR euromapTestInProgress;
+
 END_GET
 END_PROPERTY
 
 //
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC DoorsClosed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 DoorsClosed := xDoorsClosed;
+
 END_GET
 END_PROPERTY
 
 // Enable or disable alarm message when input is low
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC EnableDetectMovementIMMInput : BOOL
+
 %FOLDER Config
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 EnableDetectMovementIMMInput := _enableDetectMovementIMM;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _enableDetectMovementIMM := EnableDetectMovementIMMInput;
+
 END_SET
 END_PROPERTY
 
 // The mould has labels in the cavities
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC HasLabels : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HasLabels := _labelsInCavities;
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _labelsInCavities			:= HasLabels;
+
 END_SET
 END_PROPERTY
 
 // Trigger when the mould is completely open
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC MouldIsOpen : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 MouldIsOpen := TriggerMouldOpened.Q_Rising;
+
 END_GET
 END_PROPERTY
 
 // Trigger when the mould starts to open
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC MouldIsOpening : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 MouldIsOpening := TriggerMouldClosed.Q_Falling;
+
 END_GET
 END_PROPERTY
 
 // Returns true when the mould is completely opened
 {attribute 'monitoring':='variable'}
 PROPERTY PUBLIC RequestFullMouldOpen : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 // Mould is fully opened.
 IF  xMouldOpen
@@ -1273,16 +1343,19 @@ AND (mouldWasClosed OR SER.OperationMode = SER_OperationModeType.SemiAuto)	// Mo
 THEN
 	RequestFullMouldOpen := TRUE;
 END_IF
+
 END_GET
 END_PROPERTY
 
 // Returns true when the Y unit has permission to move into the mould area
 {attribute 'monitoring':='variable'}
 PROPERTY PUBLIC RequestMouldEntry : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 // Use Early Mould Entry option and start moving before the mould is fully opened.
 IF  Data.xIntermediateOpenEnable
@@ -1300,5 +1373,6 @@ ELSIF RequestFullMouldOpen THEN
 	RequestMouldEntry := TRUE;
 
 END_IF
+
 END_GET
 END_PROPERTY

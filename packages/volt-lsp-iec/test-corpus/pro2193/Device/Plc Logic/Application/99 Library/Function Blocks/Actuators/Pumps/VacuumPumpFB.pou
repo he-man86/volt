@@ -43,6 +43,7 @@ END_VAR
 VAR CONSTANT
 	udiVacuumPumpServiceInterval: UDINT := 3000;	// Service interval for vacuum pumps. Default is 3000 hours or 1 year, whichever comes first.
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -83,9 +84,11 @@ VacuumPump.MeasureOnTime.SetExternalCyclesReference(TotalNumberOfStarts);
 // ---------- Switch pump from low to high vacuum tank (optional) ------------
 SwitchVacuumTanks.SetOrReset(xLowVacuumtankFull AND xVacuumpumpRunning);		// When the Low vacuumtank has reached level, switch the pump to the High vacuumtank.
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+
 IMPLEMENTATION ST
 PhaseCheckAlarm(
 	moduleHandler	:= moduleHandler,
@@ -136,28 +139,36 @@ HighTankDoesNotFillAlarm(
 	severity		:= severity,
 	reaction		:= reaction,
 	active			=> );
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
+
 IMPLEMENTATION ST
 Map := VacuumPump.Map();
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapSwitchTanks : BOOL
+
 IMPLEMENTATION ST
 MapSwitchTanks := SwitchVacuumTanks.Map();
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD PUBLIC Reset
+
 IMPLEMENTATION ST
 VacuumPump.Reset();
+
 END_METHOD
 
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
+
 IMPLEMENTATION ST
 // no implementation
 END_METHOD
@@ -167,6 +178,7 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 // no implementation
 END_METHOD

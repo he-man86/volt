@@ -57,8 +57,12 @@ public abstract class ReadResponse
     /// there: a client that never read it has no file for it and the POU is simply ABSENT, with no error anywhere
     /// (a client that read it before keeps its last file, held and stale). That happened to a real project: one box whose <c>En</c> pin
     /// read as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para></summary>
+    ///
+    /// <para>Each entry carries its REASON (gate review of step 4b, finding 1): the name alone said an item was left out
+    /// and not why — an object in a folder excluded from build, one holding a vendor member no text spells, a read that
+    /// failed — so every client printed bare names and the reason reached only the bridge log.</para>
     [JsonPropertyName("unreadable")]
-    public List<string> Unreadable { get; set; } = new();
+    public List<UnreadableItem> Unreadable { get; set; } = new();
 
     /// <summary>Names in the client's baseline (<c>knownItems</c>) that are GONE from the IDE — the one removal
     /// decision, made here in the engine for every read op, so no client derives a deletion from absence with a
@@ -88,4 +92,21 @@ public abstract class ReadResponse
 
     [JsonPropertyName("projectName")]
     public string? ProjectName { get; set; }
+}
+
+/// <summary>An item the walk found and did not materialize: its BARE name (it has no full name — the kind mapping may be
+/// what defeated the read) and why, in the words of the refusal that left it out.</summary>
+public sealed record UnreadableItem
+{
+    public UnreadableItem() { }
+
+    public UnreadableItem(string name, string reason) { Name = name; Reason = reason; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; init; } = "";
+
+    public override string ToString() => $"{Name} — {Reason}";
 }

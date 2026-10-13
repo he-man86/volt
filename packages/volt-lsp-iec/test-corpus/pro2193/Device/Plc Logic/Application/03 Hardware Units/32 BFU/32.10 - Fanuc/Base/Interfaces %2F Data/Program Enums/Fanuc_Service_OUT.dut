@@ -6,3 +6,4 @@ TYPE Fanuc_Service_OUT :
 		Done				:= 1		// Move to service pos program finished
 ) UINT;
 END_TYPE
+

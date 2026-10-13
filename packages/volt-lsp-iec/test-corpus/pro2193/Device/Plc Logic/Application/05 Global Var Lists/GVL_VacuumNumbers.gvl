@@ -24,3 +24,4 @@ END_VAR
 // vacuumIndex.Vacuum01 := true;
 
 // No 'qualified_only' attribute! Or bitaccess doesn't work.
+

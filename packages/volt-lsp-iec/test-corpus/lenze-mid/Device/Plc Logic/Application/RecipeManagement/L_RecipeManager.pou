@@ -109,4 +109,6 @@ ELSE
 	dwReturnValue:=0;
 END_IF
 
+
+
 END_FUNCTION_BLOCK

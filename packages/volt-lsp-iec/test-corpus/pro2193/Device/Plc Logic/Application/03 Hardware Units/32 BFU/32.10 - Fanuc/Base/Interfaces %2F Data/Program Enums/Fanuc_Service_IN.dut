@@ -7,3 +7,4 @@ TYPE Fanuc_Service_IN :
 	Error		:= 2	// Error while moving to service pos
 ) UINT;
 END_TYPE
+

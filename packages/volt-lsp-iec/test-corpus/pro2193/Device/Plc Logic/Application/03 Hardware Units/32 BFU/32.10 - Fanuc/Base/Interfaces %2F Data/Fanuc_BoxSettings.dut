@@ -6,3 +6,4 @@ STRUCT
 	StackShape			: Fanuc_StackShape;
 END_STRUCT
 END_TYPE
+

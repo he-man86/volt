@@ -5,6 +5,7 @@ PROGRAM Increment
 VAR
 	uInput		: PointerSizesUnion;
 END_VAR
+
 IMPLEMENTATION ST
 
 END_PROGRAM
@@ -16,6 +17,7 @@ VAR_INPUT
 	incrementBy	: INT		:= 1;		// Input increments with this value (optional; defaults to 1)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
@@ -29,6 +31,7 @@ CASE input.diSize OF
 	4:	uInput.p4_Dint^	:= uInput.p4_Dint^	+ incrementBy;
 	8:	uInput.p8_Lint^	:= uInput.p8_Lint^	+ incrementBy;
 END_CASE
+
 END_METHOD
 
 // Increment any floating point with x when a condition is true
@@ -38,6 +41,7 @@ VAR_INPUT
 	incrementBy	: REAL		:= 1.0;		// Input increments with this value (optional; defaults to 1)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
@@ -49,6 +53,7 @@ CASE input.diSize OF
 	4:	uInput.p4_Real^		:= uInput.p4_Real^	+ incrementBy;
 	8:	uInput.p8_LReal^	:= uInput.p8_LReal^	+ incrementBy;
 END_CASE
+
 END_METHOD
 
 // Increment any integer with x when a condition is true, rollover to Zero when larger than a maximum
@@ -60,6 +65,7 @@ VAR_INPUT
 	zeroValue	: INT		:= 0;		// Input resets to this value (optional; defaults to 0)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
@@ -83,6 +89,7 @@ END_CASE
 //
 // iState will be:
 // 1, 2, 3, 4, 5, 2, 3, 4, 5, 2, 3, etc.
+
 END_METHOD
 
 // Await the result of a boolean condition and then change the state to a new state
@@ -92,6 +99,7 @@ VAR_INPUT
 	condition	: BOOL;					// Only increment when the condition is true
 	newState	: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
@@ -105,6 +113,7 @@ CASE input.diSize OF
 	4:	uInput.p4_Dint^	:= newState;
 	8:	uInput.p8_Lint^	:= newState;
 END_CASE
+
 END_METHOD
 
 // Await the result of a enum condition and then change the state to a new state
@@ -115,6 +124,7 @@ VAR_INPUT
 	newSuccessState	: DINT;
 	newErrorState	: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 IF condition = enumResultGeneric.NoResult THEN
 	RETURN;
@@ -128,6 +138,7 @@ CASE input.diSize OF
 	4:	uInput.p4_Dint^	:=			SEL(condition = enumResultGeneric.Success, newErrorState, newSuccessState);
 	8:	uInput.p8_Lint^	:=			SEL(condition = enumResultGeneric.Success, newErrorState, newSuccessState);
 END_CASE
+
 END_METHOD
 
 // Increment any subrange number with x when a condition is true, rollover to lower_limit when larger than upper_limit
@@ -141,6 +152,7 @@ VAR_INPUT
 END_VAR
 
 // (Method is needed because subrange type numbers are not part of ANY_INT. That is why we need input of type ANY)
+
 IMPLEMENTATION ST
 IF input.TypeClass <> TYPE_CLASS.TYPE_SUBRANGE THEN
 	RETURN;
@@ -158,4 +170,5 @@ CASE input.diSize OF
 	4:	uInput.p4_Dint^	:=			SEL(uInput.p4_Dint^	+ incrementBy > upper_limit, uInput.p4_Dint^	+ incrementBy, lower_limit);
 	8:	uInput.p8_Lint^	:=			SEL(uInput.p8_Lint^	+ incrementBy > upper_limit, uInput.p8_Lint^	+ incrementBy, lower_limit);
 END_CASE
+
 END_METHOD

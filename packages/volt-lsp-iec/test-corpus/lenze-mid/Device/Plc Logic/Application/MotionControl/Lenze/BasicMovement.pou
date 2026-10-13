@@ -24,6 +24,7 @@ END_VAR
 VAR_IN_OUT
 	ioSlaveAxis						: AXIS_REF; 
 END_VAR
+
 IMPLEMENTATION ST
 
 ReadInputs();
@@ -32,6 +33,7 @@ BasicMotion();
 SetTorqueLimits();
 BrakeLogic();
 WriteOutputs();
+
 
 END_FUNCTION_BLOCK
 
@@ -193,6 +195,7 @@ END_METHOD
 METHOD BasicMotionParameters
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 //General
 //ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
@@ -237,12 +240,14 @@ END_METHOD
 METHOD ReadInputs 
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 
 //activate internal control
 IF NOT internalControl THEN
 	Control_Local	:= ioDataExchange.Control;
 END_IF
+
 END_METHOD
 
 METHOD SetTorqueLimits 
@@ -309,6 +314,7 @@ END_VAR
 VAR_INST
 
 END_VAR
+
 IMPLEMENTATION ST
 
 
@@ -320,4 +326,5 @@ ioDataExchange.Status.InPosition					;//writen in statemachine
 ioDataExchange.Status.VelocitySetpointReached		;//writen in statemachine
 ioDataExchange.Status.ActSpeed						:= AxisControl.lrActVel;
 ioDataExchange.Status.ActPos						:= AxisControl.lrActPos;
+
 END_METHOD

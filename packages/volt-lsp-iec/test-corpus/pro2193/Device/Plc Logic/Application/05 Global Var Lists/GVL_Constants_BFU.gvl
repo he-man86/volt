@@ -10,3 +10,4 @@ VAR_GLOBAL CONSTANT
 	MaxNumberOfServoDrives		: UINT	:= 20;		// Maximum amount of servo drives
 	MaxNumberOfGates			: UINT	:= 10;		// Maximum amount of safety gates
 END_VAR
+

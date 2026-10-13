@@ -3,5 +3,6 @@ NAMESPACE IoStandard
 RESOLUTION IoStandard, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM true
+LINKALLCONTENT
 DEPENDENCIES Base Interfaces, * (System), SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), CmpIoMgr Implementation, CmpIoMgr Interfaces, * (System)
 MATERIALIZATION 4

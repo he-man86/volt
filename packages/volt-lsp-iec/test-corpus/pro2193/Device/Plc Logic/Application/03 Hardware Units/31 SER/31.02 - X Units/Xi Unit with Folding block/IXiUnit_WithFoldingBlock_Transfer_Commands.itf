@@ -2,11 +2,13 @@
 INTERFACE IXiUnit_WithFoldingBlock_Transfer_Commands
 EXTENDS IXiUnit_Default_Transfer_Commands
 
+
 // Move to a Takeover position. Parameter indicates number of Takeover position
 METHOD PUBLIC MoveToAgainstFoldingBlock : BOOL
 VAR_INPUT
 	iParameter : INT;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+
 END_METHOD
 
 END_INTERFACE

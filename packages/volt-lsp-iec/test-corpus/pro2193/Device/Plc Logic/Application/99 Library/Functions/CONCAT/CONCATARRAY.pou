@@ -9,6 +9,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+
 IMPLEMENTATION ST
 lower		:= LOWER_BOUND(str, 1);
 upper		:= UPPER_BOUND(str, 1);
@@ -36,5 +37,6 @@ FOR di := lower + 1 TO upper DO
 		RETURN;		// Stop concatenating the string when StrConcatA fails
 	END_IF
 END_FOR
+
 
 END_FUNCTION

@@ -10,6 +10,7 @@ VAR
 	taskInfo				: CmpIecTask.Task_Info2;
 	watchdogCounter			: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 __TRY
 taskInfo	:= TaskGetInfo();
@@ -42,6 +43,7 @@ __CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.DashboardTask])
 	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;
 __ENDTRY
 
+
 END_PROGRAM
 
 METHOD PRIVATE Initialize
@@ -49,6 +51,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	initialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF initialized THEN
 	RETURN;
@@ -290,4 +293,5 @@ monitoringService.RegisterReal(	PlcDataType.Camera_Time_Active,						Camera.T_Ac
 monitoringService.RegisterReal(	PlcDataType.RejectStation_Time_Active,				RejectStation.T_Active[1].rStoredTimeMax,		0);
 monitoringService.RegisterReal(	PlcDataType.Conveyors_Time_Active,					Conveyor.T_Active[1].rStoredTimeMax,			0);
 *)
+
 END_METHOD

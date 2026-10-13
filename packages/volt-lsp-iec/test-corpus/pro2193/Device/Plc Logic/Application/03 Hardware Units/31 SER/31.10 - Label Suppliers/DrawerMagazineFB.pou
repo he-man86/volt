@@ -40,6 +40,7 @@ VAR CONSTANT
 	MaxBlowBetweenLabels		: USINT	:= 2;
 	MaxBrakeLabel				: USINT	:= 2;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -56,12 +57,14 @@ ELSE
 	activeDrawerForMonitoring	:= enumDrawer.NoDrawer;
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -104,6 +107,7 @@ SetError[4](
 	severity		:= enumErrorSeverity.Warning,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -113,6 +117,7 @@ VAR
 	i			: USINT;
 	drawerId	: enumDrawer;
 END_VAR
+
 IMPLEMENTATION ST
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i](
@@ -185,6 +190,7 @@ AND DrawerHoodSafetyMagnet.ButtonLock.ButtonReleased	// On release trigger
 THEN
 	InactiveDrawerItf.IsEmpty := FALSE;
 END_IF
+
 END_METHOD
 
 METHOD DrawerChange : BOOL
@@ -197,6 +203,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -230,6 +237,7 @@ THEN
 	enableCloseHoodWarning	:= FALSE;
 	DrawerChange := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD DrawerLock : BOOL
@@ -238,6 +246,7 @@ END_VAR
 VAR_INST
 	Timer			: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -254,11 +263,13 @@ IF Timer.Set(LockPins.IsOut, 0.5) THEN
 	enableCloseHoodWarning	:= FALSE;
 	DrawerLock := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD DrawerUnlock : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -274,6 +285,7 @@ IF LockPins.IsIn THEN
 	enableCloseHoodWarning	:= FALSE;
 	DrawerUnlock := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -281,6 +293,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
@@ -294,18 +307,22 @@ END_FOR
 enableCloseHoodWarning	:= FALSE;
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
+
 IMPLEMENTATION ST
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
+
 END_METHOD
 
 // Drawer helps to close the gate
 METHOD PUBLIC GateCloseRequested
+
 IMPLEMENTATION ST
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
@@ -323,18 +340,22 @@ IF Drawers[enumDrawer.Upper].IsLocked THEN
 ELSIF Drawers[enumDrawer.Lower].IsLocked THEN
 	DrawerChangeCylinder.GoOut();
 END_IF
+
 END_METHOD
 
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
+
 IMPLEMENTATION ST
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
+
 END_METHOD
 
 // Drawer helps to open the gate
 METHOD PUBLIC GateOpenRequested
+
 IMPLEMENTATION ST
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
@@ -352,24 +373,29 @@ IF Drawers[enumDrawer.Upper].IsLocked THEN
 ELSIF Drawers[enumDrawer.Lower].IsLocked THEN
 	DrawerChangeCylinder.GoIn();
 END_IF
+
 END_METHOD
 
 METHOD HoldBrakes : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands/Supply
 HoldBrakes			:= MoveAllBrakesIn();
+
 END_METHOD
 
 METHOD PROTECTED MoveAllBrakesIn : BOOL
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 MoveAllBrakesIn			:= TRUE;
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
 	MoveAllBrakesIn		R= NOT BrakeLabel[i].IsIn;
 END_FOR
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -381,6 +407,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -421,6 +448,7 @@ CASE localState OF
 	2:
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
@@ -428,6 +456,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
@@ -441,6 +470,7 @@ END_FOR
 enableCloseHoodWarning	:= FALSE;
 
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 METHOD StopBlowBetweenLabels : BOOL
@@ -449,12 +479,14 @@ END_VAR
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Supply
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i].Reset();
 END_FOR
 StopBlowBetweenLabels := TRUE;
+
 END_METHOD
 
 METHOD PUBLIC TransferLabels : BOOL
@@ -467,6 +499,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -496,11 +529,13 @@ THEN
 
 	TransferLabels			:= CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Returns the active drawer which is ready for label pickup, or 0 when no drawer is ready
 {attribute 'monitoring':='call'}
 PROPERTY ActiveDrawerItf : IDrawer
+
 %FOLDER Properties
 GET
 VAR
@@ -508,6 +543,7 @@ END_VAR
 
 // Determine the active and inactive drawer
 // Get interface to the currently active drawer
+
 IMPLEMENTATION ST
 // Safety sensor must be active and lockpins must be activated
 IF DrawerInSafePosition.IsInactive OR NOT LockPins.MapOut() THEN
@@ -530,39 +566,48 @@ THEN
 ELSE
 	ActiveDrawerItf := 0;
 END_IF
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY HoodIsAcknowledged : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HoodIsAcknowledged := DrawerHoodSafetyMagnet.GateState = enumGateStates.Acknowledged;
+
 END_GET
 END_PROPERTY
 
 // Used by modules like: Z and M units, true when module is in a position where gate is free to open.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForGate : BOOL
+
 %FOLDER Commands/Gate Requests
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePosForGate := DrawerInSafePosition.IsActive AND (DrawerChangeCylinder.IsIn OR DrawerChangeCylinder.IsOut);
+
 END_GET
 END_PROPERTY
 
 // Returns the active drawer which is ready for label pickup, or 0 when no drawer is ready
 {attribute 'monitoring':='call'}
 PROPERTY InactiveDrawerItf : IDrawer
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 // Get interface to the currently inactive drawer
 
@@ -580,5 +625,6 @@ ELSIF ActiveDrawerItf.Name = enumDrawer.Lower THEN
 ELSE
 	InactiveDrawerItf := 0;
 END_IF
+
 END_GET
 END_PROPERTY

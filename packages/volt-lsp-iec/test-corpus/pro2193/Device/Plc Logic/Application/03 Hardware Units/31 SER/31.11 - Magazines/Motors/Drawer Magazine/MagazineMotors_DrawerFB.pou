@@ -71,9 +71,11 @@ VAR
 	serviceModeAutoEnable		: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF BOOL;			// When high, start moving to first position
 	serviceModeAutoPos			: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2, 1..ServiceMode.maxNumberOfServicePos] OF ServiceModePosType := [(xEnable := TRUE), (xEnable := TRUE)];
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 waarhangikuit:=1;
+
 
 END_FUNCTION_BLOCK
 
@@ -81,15 +83,18 @@ END_FUNCTION_BLOCK
 METHOD Abort : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xAbort			:= TRUE;
 
 Abort						:= NOT TM_PickPlace.xPathHold;
+
 END_METHOD
 
 // Check if all references are valid.
 METHOD PRIVATE CheckValidRefs : BOOL;
+
 IMPLEMENTATION ST
 %FOLDER Methods/Private
 IF NOT __ISVALIDREF(A1Axis) THEN
@@ -106,12 +111,14 @@ IF NOT __ISVALIDREF(DataBrink) THEN
 END_IF
 
 CheckValidRefs := TRUE;
+
 END_METHOD
 
 METHOD PRIVATE ClearProfilePoints
 VAR
 	i	: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods/Private
 FOR i := 1 TO 10 BY 1 DO
@@ -125,6 +132,7 @@ FOR i := 1 TO 10 BY 1 DO
 	TM_PickPlace.scPar.ascProfilePar[i].lrPathAcc			:= 0;
 	TM_PickPlace.scPar.ascProfilePar[i].lrPathDec			:= 0;
 END_FOR
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -138,6 +146,7 @@ VAR_INST
 	attachTrigger					: TriggerFB;
 	guardPosition					: ARRAY[1..4] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 END_VAR
+
 IMPLEMENTATION ST
 // Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
 // After this time the power is cut from the drive and it cannnot slow down anymore.
@@ -542,10 +551,12 @@ Data.ProfileWaitingToTakeover.rDec	:= LIMIT(0.1,	Data.ProfileWaitingToTakeover.r
 Data.ProfileWaitingToTakeover.rVel	:= LIMIT(0.01,	Data.ProfileWaitingToTakeover.rVel,	2.5);
 
 Data.VelocitySlowUpFromLabel		:= LIMIT(0.01,	Data.VelocitySlowUpFromLabel,		0.5);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Quickstop(FALSE);
@@ -554,6 +565,7 @@ IF (Standstill OR NOT AxisEnabled) AND_THEN Abort() THEN
 	EStop := SUPER^.EStop();
 END_IF
 waarhangikuit:=2;
+
 END_METHOD
 
 // Returns true if the motor is in the required position
@@ -562,6 +574,7 @@ VAR_INPUT
 	position	: MagazineMotors_Positions;
 	tolerance	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CASE position OF
@@ -614,6 +627,7 @@ CASE position OF
 											tolerance);
 
 END_CASE
+
 END_METHOD
 
 // Returns true if the motor is in the required position
@@ -623,13 +637,16 @@ VAR_INPUT
 	Zpos		: REAL;
 	tolerance	: REAL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 InPositionAtPos	:=	PositionReachedValue(actXPos, XPos, tolerance)
 				AND PositionReachedValue(actZPos, ZPos, tolerance);
+
 END_METHOD
 
 METHOD PROTECTED Initialize
+
 IMPLEMENTATION ST
 SUPER^.Initialize();
 
@@ -641,21 +658,25 @@ IF MAxesGroup.ModuleHandler <> 0 THEN
 						ModuleHandlerParent	:= ModuleHandler,
 						RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
 END_IF
+
 END_METHOD
 
 // Stops the movement on the path. Only possible when state is MOVE_PP
 METHOD Interrupt : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= TRUE;
 
 Interrupt					:= IsInterrupted;
+
 END_METHOD
 
 METHOD ProfileHomeToSafePosition : BOOL
 VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Profiles
 // Clear all points
@@ -674,6 +695,7 @@ point.lrBlendingRadius		:= 0.0;
 point.lrPathAcc				:= 10_000;
 point.lrPathDec				:= 10_000;
 point.lrPathVel				:= 500;		// mm/s
+
 END_METHOD
 
 METHOD ProfileSafeDistanceAboveDrawer : BOOL
@@ -683,6 +705,7 @@ END_VAR
 VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Profiles
 // Clear all points
@@ -702,6 +725,7 @@ point.lrBlendingRadius		:= 0.0;
 point.lrPathAcc				:= Data.ProfileMovingUp.rAcc * 1000;
 point.lrPathDec				:= Data.ProfileMovingUp.rDec * 1000;
 point.lrPathVel				:= Data.ProfileMovingUp.rVel * 1000;
+
 END_METHOD
 
 METHOD ProfileToHorizontal : BOOL
@@ -711,6 +735,7 @@ END_VAR
 VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Profiles
 // Clear all points
@@ -759,6 +784,7 @@ point.lrBlendingRadius		:= 0.0;
 point.lrPathAcc				:= Data.ProfileMovingDown.rAcc * 1000;
 point.lrPathDec				:= Data.ProfileMovingDown.rDec * 1000;
 point.lrPathVel				:= Data.ProfileMovingDown.rVel * 1000;
+
 END_METHOD
 
 // Move to any position that is vertical. For example  Waiting -> Takeover or Drawer -> Waiting
@@ -771,6 +797,7 @@ VAR
 	point		: REFERENCE TO L_TT1P_scProfilePar;
 	pointNumber	: INT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands/Profiles
 // Clear all points
@@ -846,6 +873,7 @@ ELSE									// Assume arm is vertical, so we move a small step up or down
 END_IF
 
 Increment.AnyInt(pointNumber);
+
 END_METHOD
 
 // Stop all drive movements in case of E.stop. Error Stop Deceleration and Error Stop Jerk are used.
@@ -853,11 +881,13 @@ METHOD PUBLIC Quickstop
 VAR_INPUT
 	requireRehomingDrive	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xStopALL		:= TRUE;
 
 // The xStopALL input is also active with "Internal Control" enabled!!
+
 END_METHOD
 
 // Get a specific digital input of the drive where the homing sensor is connected
@@ -865,9 +895,11 @@ METHOD PRIVATE ReadDigitalInput : BOOL
 VAR_INPUT
 	Axis : REFERENCE TO AXIS_REF;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods/Private
 ReadDigitalInput := L_MC1P.L_MC1P_GetDigInputsFromDrive(Axis) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -876,6 +908,7 @@ VAR_INST
 	localState					: SINT;
 	ui							: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -975,14 +1008,17 @@ CASE localState OF
 			Reset := CommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD Resume : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= FALSE;
 
 Resume						:= IsMoving;
+
 END_METHOD
 
 // Manual operation of drive from CODESYS visu
@@ -997,6 +1033,7 @@ END_VAR
 VAR CONSTANT
 	maxNumberOfServicePos		: USINT := 2;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Methods/Private
 // TODO: Test and finish this.
@@ -1038,9 +1075,11 @@ FOR axis := PickPlaceAxesNames.A1 TO PickPlaceAxesNames.A2 DO
 		i[axis] := 1;
 	END_IF
 END_FOR
+
 END_METHOD
 
 METHOD PUBLIC SetDefaultData
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // DataBrink.rVel						:= 350;
@@ -1077,6 +1116,7 @@ Data.SafeDistanceAboveDrawers		:= 100;
 
 //Data.SlowSpeed						:= 100;
 //Data.HighSpeed						:= 2500;
+
 END_METHOD
 
 // Start some action on the module
@@ -1087,6 +1127,7 @@ END_VAR
 VAR_INST
 	wasBusy		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 // Path hold means that a profile is still active in the TM. This happens after a Stop() command.
@@ -1102,10 +1143,12 @@ IF wasBusy AND TM_PickPlace.xDone THEN
 	TM_PickPlace.xExecutePickAndPlace	:= FALSE;
 	wasBusy								:= FALSE;
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 TM_PickPlace.xPathHalt := TRUE;
@@ -1122,6 +1165,7 @@ Stop := (Standstill OR NOT AxisEnabled) AND SUPER^.Stop();
 
 // The "STOP" status is set, i.e. movements are cancelled and the axes are brought to a standstill accurate to the path (following the travel profile) with the deceleration defined via the lrPathHaltDec parameter.
 // The technology module remains in the "STOP" state as long as xPathStop, xStopALL or xPathHalt is set to TRUE.
+
 END_METHOD
 
 // The Update method is called when subjects have a new state
@@ -1133,6 +1177,7 @@ VAR
 	hwButtonPayload : ISubjectHWButtonsPayload;
 	functionKeyPayload : ISubjectFunctionKeyPayload;
 END_VAR
+
 IMPLEMENTATION ST
 // Do nothing when manual control is not enabled
 IF NOT SER.ManualControlEnabled
@@ -1191,112 +1236,140 @@ IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
 		enumHWButtons.F2:			TM_PickPlace.xJogPos	:= hwButtonPayload.ButtonState;
 	END_CASE
 END_IF
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC AxisEnabled : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 AxisEnabled	:=  TM_PickPlace.xAxesEnabled
 			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xAxisEnabled
 			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xAxisEnabled;
+
 END_GET
 END_PROPERTY
 
 // Manual control of hardware is enabled from external context
 {attribute 'monitoring':='call'}
 PROPERTY ExternalManualControlEnabled : BOOL
+
 %FOLDER Properties
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 manualControlEnabled := ExternalManualControlEnabled;
+
 END_SET
 END_PROPERTY
 
 // Homing (or reference) sensor of the servo drive
 {attribute 'monitoring' := 'call'}
 PROPERTY HomingSensorM1 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HomingSensorM1	:= NOT ReadDigitalInput(A1Axis);
+
 END_GET
 END_PROPERTY
 
 // Homing (or reference) sensor of the servo drive
 {attribute 'monitoring' := 'call'}
 PROPERTY HomingSensorM2 : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 HomingSensorM2	:= NOT ReadDigitalInput(A2Axis);
+
 END_GET
 END_PROPERTY
 
 // The axis is homed, and in a safe (parking) position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePos : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePos	:= actXPos > GVL_Constants.ArmLength - 40
 			OR actZPos < Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers + 1;
+
 END_GET
 END_PROPERTY
 
 // Axis is available, ready for operation, and enabled / powered on.
 {attribute 'monitoring':='call'}
 PROPERTY IsHomed : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsHomed := TM_PickPlace.xAxesGroupHomed;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsInterrupted : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsInterrupted := TM_PickPlace.eTMState = L_TT1P_States.PATH_INTERRUPT AND TM_PickPlace.xPathHold;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsMoving : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsMoving := TM_PickPlace.eTMState = L_TT1P_States.MOVE_PP;
+
 END_GET
 END_PROPERTY
 
 // Axis is in standstill (velocity zero)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC Standstill : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 Standstill	:= TM_PickPlace.eTMState = L_TT1P_States.STOP OR TM_PickPlace.eTMState = L_TT1P_States.READY;
+
 END_GET
 END_PROPERTY

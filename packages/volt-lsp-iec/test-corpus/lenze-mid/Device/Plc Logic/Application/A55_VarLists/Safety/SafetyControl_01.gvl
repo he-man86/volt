@@ -33,3 +33,4 @@ CTRL_Spare12 : BOOL;
 //SafetyControl_01 : 
 CTRL_Spare13 : BOOL;
 END_VAR
+

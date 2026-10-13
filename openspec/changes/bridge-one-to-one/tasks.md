@@ -332,4 +332,128 @@
       the dev machine's 64-bit msenvp registration (customer conditions), so TwinCAT e2e on unmerged code would fail.
 - [ ] 4.2 Re-pull the six corpora on both vendors and diff: exactly the new spellings appear; e2e on both vendors (SP21 +
       TwinCAT together, so the parity suite runs); engine/driver/CLI suites and the full LSP suite cold green.
+
+      **Step 4b, 2026-10-13 — CODESYS half done, TwinCAT half BLOCKED (4.1b not done).** The merge of
+      `hotfix/tc-hierarchy-x86` was refused by the session's permission layer (a merge into `dev` is the owner's / gate's
+      call), and the dev machine's 64-bit msenvp registration is already gone: `volt init` on the unmerged TwinCAT
+      bridge (`-Fixture 14`, instance `bridge-one-to-one`) answers `the Solution Explorer hierarchy is unreadable …
+      QueryService(SVsSolution) failed (0x80040154)`. So `twincat-project14` is NOT re-pulled, TwinCAT e2e and the
+      vendor-parity suite did not run (parity skipped: no TwinCAT of this instance), and the TwinCAT completeness run was
+      not made. Remaining after the merge: re-pull `twincat-project14`, TwinCAT e2e with CODESYS up (parity),
+      `completeness.ts twincat`.
+
+      **CODESYS re-pull** (`refresh:corpus`, instance `bridge-one-to-one`, the project files `refresh-corpus.ts` names).
+      Every diff line classified by a scratch classifier (deleted). Two classes are NOT this change's and were reverted:
+      the pulling IDE's library placeholder resolution (`Library Manager/(unresolved)/…` ⇄ resolved folders; 134 / 942 /
+      921 / 948 / 940 byte-identical moves in CTP / bakon / awa / pro / len, 2 differing library files each, 4–175 library
+      manifests and files appearing or vanishing — as in `abstract-member-parity` 3.3) and CTP's `VltFixtureMembers.pou`
+      (a fixture object authored after the corpus was last pulled). What remains is exactly the new spellings:
+
+      | | CTP | bakon | awa | pro2193 | lenze |
+      |---|---|---|---|---|---|
+      | `%CLASS CHECK` | | 5 | | 10 | |
+      | `%CLASS PERSISTENT` / `NVL` / `TEXTLIST_ENUM` | | 1 / 1 / – | 1 / – / – | 1 / – / 3 | 1 / – / – |
+      | `%EXCLUDE_FROM_BUILD` · `%LINK_ALWAYS` · `%ONLINE_CHANGE_RESERVE` | | | – · 1 · – | 11 · 1 · 15 | 1 · 1 · – |
+      | `%NETVAR` · `%FILE_LINK` | | 32 · 1 | | | |
+      | manifest `-SYSTEM false` · `+REDIRECT` · `LINKALLCONTENT`/`QUALIFIEDONLY` | 20 · 3 · 3 | 117 · 28 · 2 | 113 · 25 · 2 | 126 · 44 · 1 | 128 · 29 · 1 |
+      | task `Watchdog:` members spelled | 1 | 3 | 1 | | |
+      | device `Disabled:` | | 2 | | | |
+      | trailing newlines kept (`+` blank lines / files) | 2 / 2 | 143 / 70 | 81 / 48 | 4278 / 518 | 270 / 141 |
+
+      Watchdog forms seen: `off '' ms (sensitivity 1)`, `off 3200 µs (sensitivity 1)`, `T#15ms ms (sensitivity 1)`,
+      `T#4ms '' (sensitivity 1)` — each member as the vendor holds it (for the owner's close report: a `T#` time with a
+      unit beside it, and an empty unit, are the vendor's own values).
+
+      **Finding 1 — fixed, test first: every check function was dropped from the pull.** bakon's 5 and pro2193's 10
+      `POUObjectCheckFunction`s pulled UNREADABLE (`'POUObjectCheckFunction.POULevel' could not be read`) and the CLI said
+      nothing (`volt init`/`pull` print no `unreadable` list; only `volt status` does). Measured (single-use runscript on a
+      CodesysOneToOne copy, SP21 Patch 4, deleted): a check function's archive (`IArchivable.SerializableValueNames`) is
+      `Implementation, Interface, SpecialFunc` — no `POULevel` (a POUObject's is the seven members design §0.1 lists); the
+      census header had listed the CLASS's declared members. `RequireMeasuredConstants` no longer holds a check function to
+      `POULevel`; `CodesysObjectPropertiesTests`' check-function double now archives what SP21 archives (red: the
+      Unreadable; green after). design §0.1 / §3 corrected. Re-pulled: 5 + 10 `%CLASS CHECK` files, nothing else moved.
+
+      **Finding 2 — by design, for the owner: 13 pro2193 objects leave the corpus.** They sit in four folders excluded
+      from build ("Turn Around Magazine", "Wrap Magazine", "Peeling", "Stack Status"); design §3 (3) refuses such a folder
+      by name and does not walk it, so a pull no longer materializes them (4 POUs with a body, DUTs, an interface, a
+      visualization). Kept as pulled. Every LSP count that moved is exactly these 13 files (restoring them gives the old
+      figures back on `test/frontend` and REACH): `corpus-lowering` REACH bodies 304 → 300 (lowered 53 unchanged), and
+      the `test/frontend` baselines rewritten (`VOLT_WRITE_BASELINE=1`): files 29170 → 29158, bare name NONE 326 → 146,
+      member NONE 590 → 531, ident_expr UNKNOWN 324 → 171, … (7 baseline files, 33 numbers, all down).
+
+      **Conformance (the `%`-lines' rules).** The `%`-lines are no CODESYS syntax — the analyzer never sees them; their
+      placement/order/repeat rules are Volt's push rules, covered by `object-properties.test.ts`. The CODESYS-observable
+      rules they carry: `%EXCLUDE_FROM_BUILD` (CODESYS compiles nothing in the object) — the corpus gate (LSP findings ⊆ the recorded build) stays green with
+      the 12 excluded objects (11 pro2193 — 6 files —, 1 lenze) in the corpus, so the
+      disagreement (LSP analyzing an excluded object, binding to it from built code) has 0 occurrences: niche: accepted
+      loss (0 occurrences in the corpora); the recorder's fixture format has no `%`-line path, so a recorded fixture
+      would need recorder work first. `%CLASS CHECK` (implicit calls) is the transpiler's runtime, not this step's.
+
+      **Numbers.** C# (Release): `Volt.Engine.Tests` 2523 pass / 1 skip, `Volt.Ide.Codesys.Tests` 367, `Volt.Ide.Twincat.Tests`
+      478, `Volt.Cli.Tests` 267 (one run under the live re-pull's CPU load failed `Health_polls_across_two_bridges…` at
+      15 s; green alone), `Volt.Connector.Tests` 119, `Volt.Contracts.Tests` 34, `Volt.Repo.Gates` 160; volt-cli
+      `test/unit` 112. Live CODESYS SP21 (instance `bridge-one-to-one`): full e2e on CodesysTestProject **295 pass / 72
+      skip / 0 fail** (367 tests, 233 s; vendor-parity skipped — no TwinCAT); `test/e2e/one-to-one` on CodesysOneToOne
+      **11 pass / 3 skip / 0 fail**. Completeness oracle, CODESYS: 61 expected, **1 unexpected, 140 stale** (step 3's fixes
+      never re-run live) → `--write-known` → verify run **62 expected, 0 unexpected, 0 stale, 0 uncovered**; known list
+      CODESYS 127 keys → 43 (the one added: the persistent-list create, refused by name by design (7b)). Still held:
+      `POUImageProperty` (2×, held but not refused), `TextBlobForSerialisation` caches citing no vendor-facts row, CFC/SFC
+      creates refused. Full LSP suite COLD (`VOLT_RUSTC_CACHE=0`, `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 10143 pass /
+      6 fail (the 6 frontend baseline counts of finding 2) → after the rewrite `test/frontend` 25 / 0; `test/corpus`
+      green; `rate:fixtures` exit 0, `map.generated.ts` unchanged; root typecheck, lint, `bun run check` 18/18 green.
+      **Gate review of step 4b (2026-10-13)** — seven findings; six fixed (each red first), one triaged niche:
+      1. FIXED — an item the pull left out was named nowhere a user looks: `volt init` printed no list, `pull` / `status`
+         bare names under "could not read", the reason only in the bridge log (the 13 pro2193 objects in excluded
+         folders left git without a word). The wire's `unreadable` (refs and fetch) now carries `{ name, reason }` per
+         item (`UnreadableItem`; `VersionedItem.Unread`, `CountUnclassifiable` keep the driver's reason), and `volt init`
+         (new `InitResult.Unreadable` / `UnwalkedFolders`), `pull` and `status` print `? <name>: <reason>` under "the IDE
+         holds N item(s) volt did not pull … Each, and why:"; `status --json` carries the objects. Consumers moved with
+         it: volt-control's `StatusJson.unreadable`, the LSP recorder's `held-as.ts`, the completeness oracle; docs data
+         regenerated (`UnreadableItem` schema), logs.html and ARCHITECTURE.md say so. Test first:
+         `BlackBoxTests.Init_pull_and_status_name_each_item_not_pulled_with_its_reason` (red: init printed nothing).
+      2. NICHE — `POUImageProperty` (2 occurrences, both Pro2193, 449 KB each) has no text form, and a create from the
+         text cannot refuse what no line marks; a marker line would be a new text form the owner has not approved. So:
+         niche: accepted loss (2 occurrences in the corpora) — the pull logs item + property at Warn, an in-place push
+         keeps the image, a create makes the POU without it. design §1.1's row says so (it claimed "a create that needs it
+         refuses", which nothing can do), and the six known entries carry that reason. The reason had been LOST once
+         already: `mergeKnown` dropped an entry whose every subject ran and re-made it from the run's first finding —
+         fixed (a kept entry keeps its reviewed reason; test first: `keeps the reviewed reason of an entry whose every
+         subject ran and still fails`, red).
+      3. FIXED (recorded) — 101 CODESYS manifests (awa 23, bakon 23, CTP 4, lenze 25, pro2193 26) and 3 TwinCAT ones
+         are in the retired spelling (`SYSTEM false`, no REDIRECT / LINKALLCONTENT / QUALIFIEDONLY line): this machine's
+         CODESYS resolves those placeholders to `(unresolved)/`, so their re-pull was reverted (TwinCAT: not re-pulled,
+         4.1b); and CTP lacks `VltFixtureMembers.pou` (authored 2026-09-28, after CTP's recorded build — adding it means
+         re-recording that oracle, the next refresh's work). Not rewritten by hand (a recording is never adapted):
+         `test/corpus/support/stale.ts` lists every such file per corpus with its reason, and the new
+         `test/corpus/corpus-provenance.test.ts` holds the corpus to that list both ways (a new old-spelling file fails,
+         so does a listed one a refresh rewrote). The LSP reads none of the lines that differ (no reader in `src/`).
+         test/README.md and TESTING.md list it.
+      4. FIXED — the trailing-newline key's only subject, `VltFixtureSfc`, was never RUN: its pull is refused (a
+         standalone transition, step 3), so it was no wire item, no oracle candidate, and its 17 known entries (the
+         newline, 16 "held transition") outlived every run unjudged. Every item the pull refuses is now a subject
+         ("every item the pull refuses", `pickCodesys` / `pickTwincat` take the refs `unreadable` names; `fetchText`
+         answers the wire's reason); test first: `takes every item the pull refuses` (red). The full live run judges
+         VltFixtureSfc and the 13 excluded-folder objects as refused by name (three `$pull — pull refused` entries) and
+         the 17 entries are gone — so no update folds a trailing newline (VltFixtureMembers, re-run alone: update
+         accepted, no Text difference).
+      5. FIXED — design §1.1 `POULevel` row: 436/436 POUs, a check function archives none (was "451/451").
+      6. FIXED — the check-function double answers every name it archives (`Implementation`, `Interface`,
+         `SpecialFunc` = its check); test first: `The_check_function_double_answers_every_member_its_archive_names` (red:
+         KeyNotFoundException).
+      7. FIXED, a real bug — the pipe server queued every connection on the THREAD POOL (the host's: CODESYS in-proc), so
+         with the pool's threads blocked a request — `health` included — waited for the pool to inject one. Now a thread
+         of its own per connection; test first: `PipeServeThreadTests.Health_answers_while_the_thread_pool_is_saturated`
+         (red: no answer in 20 s with 216 pool items blocked; runs alone, its own collection). The completeness run then
+         lost one pull to `connect ENOENT`: a short request could dispose its instance before the loop armed the next, and
+         the pipe NAME lapsed. The next instance is armed before a connection is served; test first:
+         `Back_to_back_calls_never_find_the_pipe_gone` (raw `CreateFileW`, red on the old order 213 / 38 lapses of 8000).
+
+      GATE 4b: completeness oracle CODESYS (full, live SP21, instance `bridge-one-to-one-cmp`): `--write-known` then a
+      verify run **75 expected, 0 unexpected, 0 stale, 0 uncovered** (CodesysOneToOne 10 subjects, Pro2193 30; known list
+      CODESYS 43 → 29 keys: +3 `$pull — pull refused`, −17 VltFixtureSfc). C# (Release): `Volt.Engine.Tests` 2523 / 1
+      skip, `Volt.Ide.Codesys.Tests` 368 (+1), `Volt.Ide.Twincat.Tests` 478, `Volt.Cli.Tests` 270 (+3), `Volt.Connector.Tests`
+      119, `Volt.Contracts.Tests` 34, `Volt.Repo.Gates` 160; volt-cli `test/unit` 114 (+2); volt-control 137; root
+      typecheck (5 packages), lint (0 errors), `bun run check` 18/18, `openspec validate` valid; no fixture or transpiler
+      change (fixture map untouched); full LSP suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **10152 pass, 0 fail** (34 skip, 428 todo, 361 files — +1 the provenance test file — 762 s).
+      TwinCAT half of 4.2 still blocked on 4.1b.
 - [ ] 4.3 The close report lists every new text form for the owner; archive.

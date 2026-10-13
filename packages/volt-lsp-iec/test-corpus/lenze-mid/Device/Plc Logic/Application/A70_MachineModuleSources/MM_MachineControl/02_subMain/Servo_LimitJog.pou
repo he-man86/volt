@@ -12,6 +12,8 @@ VAR_IN_OUT
 	ioUDT_ServoDrive			: UDT_ServoDrive;
 	ioUDT_JogLimitFree			: UDT_ServoJogLimitFree;
 END_VAR
+
+
 IMPLEMENTATION LD
 NETWORK TITLE: "NETWORK 3 (p1): Check for limit switch"
   ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;

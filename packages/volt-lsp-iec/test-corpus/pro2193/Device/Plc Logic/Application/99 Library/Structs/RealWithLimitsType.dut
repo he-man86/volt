@@ -12,3 +12,4 @@ END_TYPE
 
 // TODO: Remove the RealWithLimitsType struct.
 // Create Metadata struct for lowerLimit, upperLimit, stepSize and limitActive vars
+

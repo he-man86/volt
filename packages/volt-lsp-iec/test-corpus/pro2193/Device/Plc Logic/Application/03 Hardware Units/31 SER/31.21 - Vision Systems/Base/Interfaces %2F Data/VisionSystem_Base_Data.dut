@@ -4,3 +4,4 @@ STRUCT
 	overrideRunmodeReject		: BOOL;		// Do not reject products when vision system in not in runmode (unchecked products are stacked normally).
 END_STRUCT
 END_TYPE
+

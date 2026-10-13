@@ -1,14 +1,17 @@
 // Commands specific for an Xu Unit
 INTERFACE IXuUnit_Default_Config
 
+
 // Enable or disable certain vacuums circuits
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC EnableVacuums : WORD
+
 GET
 END_GET
 SET
 VAR
 END_VAR
+
 END_SET
 END_PROPERTY
 

@@ -6,3 +6,4 @@ TYPE Fanuc_Place_IN :
 	AtHomePos				:= 99	// At home position
 ) UINT;
 END_TYPE
+

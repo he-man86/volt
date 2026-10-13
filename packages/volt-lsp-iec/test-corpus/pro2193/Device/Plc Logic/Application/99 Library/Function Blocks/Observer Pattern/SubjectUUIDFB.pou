@@ -6,6 +6,7 @@ IMPLEMENTS ISubject, ISubjectBasePayload
 VAR
 	storedUUID				: STRING(40);
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -14,6 +15,7 @@ METHOD PROTECTED AttachAllowed : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT SUPER^.AttachAllowed(observer) THEN
 	AttachAllowed := FALSE;
@@ -44,6 +46,7 @@ END_IF
 // both UUIDs match, so the new observer is on the same manual control screen. Attaching is allowed.
 
 AttachAllowed := TRUE;
+
 END_METHOD
 
 // Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
@@ -51,15 +54,18 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^.Detach(observer);
 
 IF HMI.UUIDActiveScreen = '' THEN
 	storedUUID := '';
 END_IF
+
 END_METHOD
 
 METHOD PUBLIC Notify
+
 IMPLEMENTATION ST
 //Manual control screen was closed or changed, remove all observers!
 IF storedUUID <> HMI.UUIDActiveScreen THEN
@@ -74,4 +80,5 @@ END_IF
 IF HMI.UUIDActiveScreen <> '' THEN
 	SUPER^.Notify();
 END_IF
+
 END_METHOD

@@ -10,3 +10,4 @@ STRUCT
 	History				: DWORD;		// History of latest 32 products
 END_STRUCT
 END_TYPE
+

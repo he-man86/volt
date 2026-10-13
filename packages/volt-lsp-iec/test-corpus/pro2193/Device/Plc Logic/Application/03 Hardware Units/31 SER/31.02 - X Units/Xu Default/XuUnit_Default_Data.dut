@@ -11,3 +11,4 @@ STRUCT
 		ReleaseProductPos		: PositionWithLimitsType;
 END_STRUCT
 END_TYPE
+

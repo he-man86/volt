@@ -7,3 +7,4 @@ TYPE enumBoxItem :
 	ProductLayer	:= 2
 ) UINT;
 END_TYPE
+

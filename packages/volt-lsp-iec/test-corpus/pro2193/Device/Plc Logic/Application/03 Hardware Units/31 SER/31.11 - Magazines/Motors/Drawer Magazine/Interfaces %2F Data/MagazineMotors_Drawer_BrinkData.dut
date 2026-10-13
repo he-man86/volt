@@ -8,3 +8,4 @@ STRUCT
 	rSWLimitNeg_Z	: REAL	:= 700;																// Negative software limit of virtual Z axis		(mm or °)
 END_STRUCT
 END_TYPE
+

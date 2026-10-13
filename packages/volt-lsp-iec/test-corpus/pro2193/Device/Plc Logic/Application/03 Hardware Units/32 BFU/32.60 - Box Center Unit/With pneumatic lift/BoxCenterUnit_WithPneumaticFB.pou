@@ -27,8 +27,11 @@ VAR
 	// Internal property vars
 	{attribute 'hide'}	_LastSheetPosition		: REAL;
 END_VAR
+
 IMPLEMENTATION ST
+%ONLINE_CHANGE_RESERVE 200
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -37,15 +40,18 @@ METHOD PUBLIC AddToBox : BOOL
 VAR_INPUT
 	item : enumBoxItem;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 AddToBox	:= Box.AddItem(item);
+
 END_METHOD
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -56,17 +62,21 @@ SetError[1](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Box.BoxRemoved();
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
 VAR_INST
 END_VAR
+
 IMPLEMENTATION ST
 NumberOfLayersInBox		:= LayerIndex;		// For visu
 
@@ -118,10 +128,12 @@ OpenBoxShortSide(
 	inputIn					:= Arrays.Bool_All(OpenBoxShortSideIn, TRUE),
 	rGiveAirToBothOutputs	:= 0.3,
 	xEnableOutputs			:= BFU.MainAirValve.Map());
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 OpenBoxReset();
@@ -130,24 +142,30 @@ Lift.Reset();
 Box.BoxRemoved();
 
 EStop := SUPER^.EStop();
+
 END_METHOD
 
 METHOD PROTECTED OpenBoxGoIn : BOOL
+
 IMPLEMENTATION ST
 OpenBoxGoIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
+
 END_METHOD
 
 METHOD PROTECTED OpenBoxReset : BOOL
+
 IMPLEMENTATION ST
 OpenBoxLongSide.Reset();
 OpenBoxShortSide.Reset();
 OpenBoxReset := TRUE;
+
 END_METHOD
 
 METHOD PUBLIC PrepareBoxForFilling : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -175,6 +193,7 @@ CASE localState OF
 			PrepareBoxForFilling := CommandLock.Release(__POUNAME());
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC ReleaseBox : BOOL
@@ -182,6 +201,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -224,6 +244,7 @@ CASE localState OF
 			Increment.AnyInt(localState, -2);
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -232,6 +253,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -285,14 +307,17 @@ CASE localState OF
 			Increment.AnyInt(localState, -2);
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD SetBoxStateToChangeNeeded : BOOL
 VAR_INPUT
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
@@ -300,28 +325,35 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR_INST
 	result		: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Stop := SUPER^.Stop();
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxAreaFreeForFanuc : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxAreaFreeForFanuc := Lift.IsOut;	// down
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxCanBeFilled : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxCanBeFilled := BoxAreaFreeForFanuc
 			AND	OpenBoxLongSide.IsOut
@@ -329,37 +361,46 @@ BoxCanBeFilled := BoxAreaFreeForFanuc
 			AND BoxInFillPosition.IsActive
 			AND (Box.State = enumBoxState.ProductsNeeded OR Box.State = enumBoxState.SheetNeeded)
 			AND NOT BoxIsFull;
+
 END_GET
 END_PROPERTY
 
 PROPERTY PUBLIC BoxInFillPosition : IDigitalSensor
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxInFillPosition	:= sensorBoxInFillPosition;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxIsFull : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
+
 END_GET
 END_PROPERTY
 
 // Indicates the next item which is needed in the box, or none when box is not ready.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CASE Box.State OF
 	enumBoxState.ProductsNeeded:
@@ -369,16 +410,20 @@ CASE Box.State OF
 	ELSE
 		BoxItemNeeded	:= enumBoxItem.None;
 END_CASE
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LayerIndex : UINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 LayerIndex := Box.ActualNumberOfLayers;
+
 END_GET
 END_PROPERTY

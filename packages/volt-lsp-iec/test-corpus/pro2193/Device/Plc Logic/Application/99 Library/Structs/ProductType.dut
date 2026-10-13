@@ -17,3 +17,4 @@ STRUCT
 	ToShute				: BOOL;					// Shots during startup of cycle are rejected in a shute
 END_STRUCT
 END_TYPE
+

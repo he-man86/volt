@@ -3,7 +3,9 @@ FUNCTION CheckDivReal : REAL
 VAR_INPUT
 	divisor		: REAL;
 END_VAR
+
 IMPLEMENTATION ST
+%CLASS CHECK CheckDivReal32
 IF divisor <> 0 THEN
 	CheckDivReal := divisor;
 ELSE
@@ -19,5 +21,6 @@ ELSE
 		ThrowException('RtsExceptions.RTSEXCPT_DIVIDEBYZERO');
 	END_IF
 END_IF
+
 
 END_FUNCTION

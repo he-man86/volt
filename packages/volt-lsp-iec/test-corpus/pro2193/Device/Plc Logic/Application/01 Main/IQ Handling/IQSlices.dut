@@ -91,3 +91,5 @@ TYPE IQSlices :
 	FinalElement
 ) UINT;
 END_TYPE
+
+%CLASS TEXTLIST_ENUM

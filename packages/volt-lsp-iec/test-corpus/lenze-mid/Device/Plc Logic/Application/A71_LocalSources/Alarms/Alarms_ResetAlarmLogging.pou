@@ -9,6 +9,8 @@ VAR
 	TimeAdress	: POINTER TO WORD;
 	AlarmNr: DWORD;
 END_VAR
+
+
 IMPLEMENTATION ST
 BaseAdress:=	ADR(AlarmDB);								//start address of AlarmDB
 
@@ -20,5 +22,14 @@ TimeAdress:= 	BaseAdress+406+ (AlarmNr*2); //400		//offset: 0..100 x word =
 CountAdress^:=0;
 TimeAdress^:=0;
 END_FOR;
+
+
+
+
+
+
+
+
+
 
 END_FUNCTION

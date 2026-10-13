@@ -2,6 +2,5 @@ LIBRARY SysSocket
 NAMESPACE SysSocket
 RESOLUTION SysSocket, 3.5.19.0 (System)
 PLACEHOLDER true
-SYSTEM false
 DEPENDENCIES SysSocket Interfaces, * (System), SysSocket Implementation
 MATERIALIZATION 4

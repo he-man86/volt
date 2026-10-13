@@ -4,6 +4,7 @@ VAR
 	bHoldPointOnReq	: BOOL;
 	bHoldPointOnErr3	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 (*************************************************************************
  *

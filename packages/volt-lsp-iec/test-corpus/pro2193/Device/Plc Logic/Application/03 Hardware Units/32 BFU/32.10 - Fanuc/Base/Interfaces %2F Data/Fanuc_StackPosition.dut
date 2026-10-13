@@ -7,3 +7,4 @@ STRUCT
 	Config				: UINT;							// Configuration for placement of the stack
 END_STRUCT
 END_TYPE
+

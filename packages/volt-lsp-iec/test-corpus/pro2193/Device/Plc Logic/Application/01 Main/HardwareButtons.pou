@@ -40,6 +40,7 @@ END_VAR
 VAR CONSTANT
 	speedFooterShowTime	: REAL	:= 5;	// Show footer for 5 seconds
 END_VAR
+
 IMPLEMENTATION ST
 Initialize();
 
@@ -122,6 +123,7 @@ IF SpeedFooterTimeout.Set(In := speedFooterShow, Pt := speedFooterShowTime) THEN
 	HMI.FooterName		:= enumFooterNames.None;
 END_IF
 
+
 END_PROGRAM
 
 METHOD PRIVATE Initialize
@@ -131,6 +133,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
@@ -139,6 +142,7 @@ END_IF
 startLedTest := TRUE;
 
 xInitialized := TRUE;
+
 END_METHOD
 
 // Do little animation with the leds during startup :)
@@ -149,6 +153,7 @@ VAR_INST
 	i					: INT;
 	position			: INT := 1;
 END_VAR
+
 IMPLEMENTATION ST
 IF ledTestDuration.Set(In := startLedTest, Pt := 8) THEN
 	startLedTest := FALSE;
@@ -170,4 +175,5 @@ IF ledTestStep.Set(In := startLedTest, Pt := 0.3) THEN
 	ledTestStep.Reset();
 	Increment.Rollover(input := position, rollover := 6, incrementBy := 1, zeroValue := 1);
 END_IF
+
 END_METHOD

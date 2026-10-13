@@ -10,3 +10,5 @@ TYPE SER_OperationModeType :
 	AutoTakeoutLabels	:= 5	// Only take out labels out of magazine.
 );
 END_TYPE
+
+%CLASS TEXTLIST_ENUM

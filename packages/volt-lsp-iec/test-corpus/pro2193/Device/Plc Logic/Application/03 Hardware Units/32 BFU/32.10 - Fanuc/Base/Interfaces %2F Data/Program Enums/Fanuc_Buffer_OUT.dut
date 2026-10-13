@@ -11,3 +11,4 @@ TYPE Fanuc_Buffer_OUT :
 	GoToHomePos			:= 99	// Move to home position
 ) UINT;
 END_TYPE
+

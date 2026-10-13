@@ -9,3 +9,4 @@ TYPE enumEnableFunction :
 	Disabled	:= 2
 ) SINT;
 END_TYPE
+

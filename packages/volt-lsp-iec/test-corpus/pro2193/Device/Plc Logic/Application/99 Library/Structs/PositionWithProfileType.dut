@@ -6,3 +6,4 @@ STRUCT
 	Pos	: PositionWithLimitsType;	// Position value in mm. entered by user
 END_STRUCT
 END_TYPE
+

@@ -22,11 +22,13 @@ VAR
 	) DINT;
 
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
 // Enable manual control of Reject cylinders when chain is in safe position.
 reject.ExternalManualControlEnabled := chain.InExactPosition();
+
 
 END_FUNCTION_BLOCK
 
@@ -38,6 +40,7 @@ VAR_INST
 	product				: REFERENCE TO ProductType;
 	i, j				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Go from first Reject vacuum, to the last.
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
@@ -66,20 +69,25 @@ FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 
 	CheckIfTransferIsNeeded	S= gettingProduct[i];
 END_FOR
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 EStop		:= TRUE;
+
 END_METHOD
 
 // Start transfer of products or labels between 2 units
@@ -87,6 +95,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+
 IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -105,6 +114,7 @@ END_IF
 IF ActState = StateFinal THEN
 	ExecuteTransfer := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
@@ -116,6 +126,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
@@ -187,24 +198,30 @@ CASE ActState OF
 	StateFinal:
 		ActState := StateNone;
 END_CASE
+
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
 Stop		:= TRUE;
+
 END_METHOD
 
 // Transfer has started and is doing something
 {attribute 'monitoring':='call'}
 PROPERTY TransferBusy : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 TransferBusy	:= ActState <> StateNone;
+
 END_GET
 END_PROPERTY

@@ -2,8 +2,10 @@
 INTERFACE IYUnit_Default_Commands
 EXTENDS IModuleBase, IModuleHasSafePos, IModuleHasTakeoutPos, IModuleManualControlEnabled
 
+
 // Make the Y drive go to the takeout position inside the mould area
 METHOD PUBLIC MoveInMould : BOOL
+
 END_METHOD
 
 // Move to a Label Takeover position. Parameter indicates number of Label Takeover position
@@ -11,6 +13,7 @@ METHOD PUBLIC MoveToLabelTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: USINT	:= 0;	// 0: Parameter not in use, 1: Label Takeover pos 1, etc.
 END_VAR
+
 END_METHOD
 
 // Move to a Takeover position. Parameter indicates number of Takeover position
@@ -18,20 +21,24 @@ METHOD PUBLIC MoveToTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: USINT;	// 0: invalid, 1: Takeover pos 1, etc.
 END_VAR
+
 END_METHOD
 
 // Make the Y drive go to the parking position on start of program
 METHOD PUBLIC MoveToWaiting : BOOL
+
 END_METHOD
 
 // The Y Drive is in a position where the X units are allowed to move (in manual mode)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForXUnits : BOOL
+
 GET
 END_GET
 END_PROPERTY
 
 PROPERTY PUBLIC IsDecelerating : BOOL
+
 GET
 END_GET
 END_PROPERTY
@@ -40,6 +47,7 @@ END_PROPERTY
 // Otherwise returns number of first Takeover position that Label Takeover is equal to.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsLabelTakeoutEqual : USINT
+
 GET
 END_GET
 END_PROPERTY

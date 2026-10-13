@@ -81,6 +81,7 @@ END_VAR
 VAR
 	iState: INT;
 END_VAR
+
 IMPLEMENTATION ST
 // ### LOGIC ###
 {region}

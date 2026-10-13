@@ -133,3 +133,4 @@ TYPE enumASCII :
 	DEL				:= 127
 ) BYTE;
 END_TYPE
+

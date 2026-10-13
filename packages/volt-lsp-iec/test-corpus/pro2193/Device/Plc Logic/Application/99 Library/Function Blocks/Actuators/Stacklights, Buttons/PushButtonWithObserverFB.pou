@@ -8,8 +8,10 @@ END_VAR
 VAR
 	Subject					: SubjectHWButtonFB;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -18,8 +20,10 @@ METHOD PUBLIC Attach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 Attach := Subject.Attach(observer);
+
 END_METHOD
 
 // Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
@@ -27,35 +31,44 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+
 IMPLEMENTATION ST
 Detach := Subject.Detach(observer);
+
 END_METHOD
 
 METHOD PROTECTED HandlePushed
+
 IMPLEMENTATION ST
 SUPER^.HandlePushed();
 
 Subject.ButtonType	:= buttonType;
 Subject.ButtonState	:= TRUE;
 Subject.Notify();
+
 END_METHOD
 
 METHOD PROTECTED HandleReleased
+
 IMPLEMENTATION ST
 SUPER^.HandleReleased();
 
 Subject.ButtonType	:= buttonType;
 Subject.ButtonState	:= FALSE;
 Subject.Notify();
+
 END_METHOD
 
 // The actual number of observers that are receiving events
 {attribute 'monitoring' := 'call'}
 PROPERTY ObserverCount : UINT
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ObserverCount := Subject.ObserverCount;
+
 END_GET
 END_PROPERTY

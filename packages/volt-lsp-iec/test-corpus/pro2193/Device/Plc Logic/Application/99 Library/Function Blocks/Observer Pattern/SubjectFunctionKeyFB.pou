@@ -7,6 +7,7 @@ IMPLEMENTS ISubject, ISubjectFunctionKeyPayload
 VAR
 	_extState		: enumFunctionKeyPayload;	// Private backing field for property
 END_VAR
+
 IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
@@ -14,16 +15,21 @@ END_FUNCTION_BLOCK
 // Extended state of the button: tapped, or held, or double-tap-held
 {attribute 'monitoring' := 'call'}
 PROPERTY ExtState : enumFunctionKeyPayload
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ExtState := _extState;
+
 END_GET
 SET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _extState := ExtState;
+
 END_SET
 END_PROPERTY

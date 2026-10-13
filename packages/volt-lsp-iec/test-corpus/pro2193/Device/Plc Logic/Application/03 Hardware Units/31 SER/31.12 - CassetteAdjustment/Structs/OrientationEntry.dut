@@ -7,3 +7,4 @@ STRUCT
 	Direction				: enumDirection;
 END_STRUCT
 END_TYPE
+

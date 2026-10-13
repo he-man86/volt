@@ -3,6 +3,8 @@ VAR
 	myState 		: strState;			// Unit state
 	iIndex			: INT;
 END_VAR
+
+
 IMPLEMENTATION ST
 {region}
 	 
@@ -120,6 +122,7 @@ IMPLEMENTATION ST
 //----------------------------------------------------------------------------------	 
 // Aborted
 //----------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Aborting
@@ -137,6 +140,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Executing
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Idle
@@ -144,6 +148,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Idle
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Initialize
@@ -205,6 +210,8 @@ UN01_HMI.EM02_PalletPositionActuals_HMI[2].strName := 'Pallet 2';
 
 UN01_HMI.EM02_PalletPositionActuals_HMI[3].iPalletPositionNr := 3;
 UN01_HMI.EM02_PalletPositionActuals_HMI[3].strName := 'Pallet 3';
+
+
 END_ACTION
 
 ACTION Resetting
@@ -234,6 +241,7 @@ IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Stopped
 //-------------------------------------------------------------------------------------
+
 END_ACTION
 
 ACTION Stopping

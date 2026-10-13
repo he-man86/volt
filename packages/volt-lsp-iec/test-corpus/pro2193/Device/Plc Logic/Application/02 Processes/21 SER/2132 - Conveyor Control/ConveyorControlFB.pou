@@ -33,8 +33,10 @@ VAR CONSTANT
 	// When Z Unit leaves the stack, allow the stack to be moved for this time. (time depends on expected total cycle time)
 	MovingStacksAllowedTime				: REAL	:= 2;
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
+
 
 END_FUNCTION_BLOCK
 
@@ -47,6 +49,7 @@ VAR
 	maxHeight		: UINT;
 	i				: USINT;
 END_VAR
+
 IMPLEMENTATION ST
 // Check status of the top layer of products on the stack
 // Are the last products out of the mould on the stack?
@@ -99,6 +102,7 @@ END_FOR
 
 // No moving needed.
 CheckStackingHeight := FALSE;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -107,6 +111,7 @@ VAR_INST
 	MoveStacksAllowedTime		: BTON;
 	stackHeightResetRequested	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 ButtonStartNewStack();
 
@@ -171,10 +176,12 @@ THEN
 	stackHeightResetRequested	:= FALSE;
 	ActState := StateAwaitConveyorLock;
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -184,10 +191,12 @@ lastProductsPlacedOnStack	:= FALSE;
 
 ActState	:= StateNone;
 EStop		:= TRUE;
+
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+
 IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
@@ -201,12 +210,14 @@ CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //		ShowNoProgramWarning();
 //		Execute_Sequence1();
 END_CASE
+
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
 VAR_INST
 	result						: ARRAY[1..1] OF BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 State(actState	:= ActState);
 
@@ -236,6 +247,7 @@ CASE ActState OF
 		conveyor.LockRelease(__POUNAME());
 		ActState := StateNone;
 END_CASE
+
 END_METHOD
 
 // Return true if this module should start in this operation mode
@@ -243,6 +255,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CASE operationMode OF
@@ -256,10 +269,12 @@ CASE operationMode OF
 		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
 		ShouldStart := FALSE;
 END_CASE
+
 END_METHOD
 
 // This module will start some operations when the automatic cycle is started on the SER
 METHOD StartCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -281,10 +296,12 @@ END_IF
 IF ActState = StateMovingStackDone THEN
 	StartCycle := CommandLock.Release(__POUNAME());
 END_IF
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -294,11 +311,14 @@ lastProductsPlacedOnStack	:= FALSE;
 
 ActState	:= StateNone;
 Stop		:= TRUE;
+
 END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 StopCycle				:= lastProductsPlacedOnStack AND ActState = StateNone;
+
 END_METHOD

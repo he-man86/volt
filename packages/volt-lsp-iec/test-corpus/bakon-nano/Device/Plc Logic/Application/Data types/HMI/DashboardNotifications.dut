@@ -13,3 +13,4 @@ STRUCT
 	bHeightMotorError		: BOOL;
 END_STRUCT
 END_TYPE
+

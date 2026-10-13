@@ -9,11 +9,14 @@ VAR_INPUT
 	severity				: enumErrorSeverity := enumErrorSeverity.Fault;
 	reaction				: enumErrorReaction;	// Severity of alarm messages.
 END_VAR
+
 IMPLEMENTATION ST
 Alarms();
+
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED ABSTRACT Alarms
+
 IMPLEMENTATION NONE
 END_METHOD

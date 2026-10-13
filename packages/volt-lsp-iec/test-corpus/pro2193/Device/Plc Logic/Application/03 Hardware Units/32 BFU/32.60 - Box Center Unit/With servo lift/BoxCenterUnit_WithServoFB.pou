@@ -28,12 +28,15 @@ END_VAR
 VAR CONSTANT
 	ReleaseFlapsPosition		: REAL	:= 150.0;			// Position to move flaps in and move stopper out
 END_VAR
+
 IMPLEMENTATION ST
+%ONLINE_CHANGE_RESERVE 200
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
 	coveredDistance		:= coveredDistance,
 );
+
 
 END_FUNCTION_BLOCK
 
@@ -42,15 +45,18 @@ METHOD PUBLIC AddToBox : BOOL
 VAR_INPUT
 	item : enumBoxItem;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 AddToBox	:= Box.AddItem(item);
+
 END_METHOD
 
 METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+
 IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -61,18 +67,23 @@ SetError[1](
 	severity		:= enumErrorSeverity.Fault,
 	reaction		:= enumErrorReaction.No_reaction,
 	active			=> );
+
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
+
 IMPLEMENTATION ST
 %FOLDER Commands
 Box.BoxRemoved();
+
 END_METHOD
 
 METHOD PUBLIC ClampBox : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 ClampBox	:= OpenBoxLongSide.GoOut() AND OpenBoxShortSide.GoOut();
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -80,6 +91,7 @@ VAR_INST
 	guardPosition				: ARRAY[1..2] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
+
 IMPLEMENTATION ST
 NumberOfLayersInBox := LayerIndex;
 
@@ -130,10 +142,12 @@ OpenBoxShortSide(
 	inputIn					:= Arrays.Bool_All(OpenBoxShortSideIn, TRUE),
 	rGiveAirToBothOutputs	:= 0.3,
 	xEnableOutputs			:= BFU.MainAirValve.Map());
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -146,18 +160,22 @@ OpenBoxShortSide.Reset();
 Box.BoxRemoved();
 
 EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+
 END_METHOD
 
 METHOD PUBLIC MoveFlapsIn : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 MoveFlapsIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
+
 END_METHOD
 
 METHOD PUBLIC PrepareBoxForFilling : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -175,6 +193,7 @@ CASE localState OF
 		PrepareBoxForFilling := CommandLock.Release(__POUNAME());
 	END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC ReleaseBox : BOOL
@@ -182,6 +201,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -223,6 +243,7 @@ CASE localState OF
 			Increment.AnyInt(localState, -2);
 		END_IF
 END_CASE
+
 END_METHOD
 
 // Command to reset the module. Servodrives are homed.
@@ -230,6 +251,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+
 IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
@@ -277,16 +299,20 @@ CASE localState OF
 		Drive.globalSpeedOverrideEnable := TRUE;
 		Reset := CommandLock.Release(__POUNAME());
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC SetBoxStateToChangeNeeded : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
+
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+
 IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
@@ -296,49 +322,60 @@ IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode T
 END_IF
 
 Stop := Drive.Standstill OR NOT Drive.AxisEnabled;
+
 END_METHOD
 
 METHOD PUBLIC UnclampBox : BOOL
+
 IMPLEMENTATION ST
 %FOLDER Commands
 OpenBoxLongSide.Reset();
 OpenBoxShortSide.Reset();
 UnclampBox := TRUE;
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxCanBeFilled : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxCanBeFilled := LiftIsInbox
 			AND	OpenBoxLongSide.IsOut AND OpenBoxShortSide.IsOut
 			AND BoxInFillPosition.IsActive
 			AND (Box.State = enumBoxState.ProductsNeeded OR Box.State = enumBoxState.SheetNeeded)
 			AND NOT BoxIsFull;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxIsFull : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
+
 END_GET
 END_PROPERTY
 
 // Indicates the next item which is needed in the box, or none when box is not ready.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 CASE Box.State OF
 	enumBoxState.ProductsNeeded:
@@ -348,49 +385,62 @@ CASE Box.State OF
 	ELSE
 		BoxItemNeeded	:= enumBoxItem.None;
 END_CASE
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY InSafePosToMoveFlapsIn : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 InSafePosToMoveFlapsIn	:= Drive.PosSmallerOrEqual(ReleaseFlapsPosition);
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LayerIndex : UINT
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 LayerIndex := Box.ActualNumberOfLayers;
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LiftIsInBox : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 LiftIsInBox		:= Drive.PosReached(Data.InBoxPosition.Pos.value);
+
 END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LiftIsOutOfBox : BOOL
+
 %FOLDER Properties
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 LiftIsOutOfBox	:= Drive.PosReached(Data.OutBoxPosition.Pos.value);
+
 END_GET
 END_PROPERTY

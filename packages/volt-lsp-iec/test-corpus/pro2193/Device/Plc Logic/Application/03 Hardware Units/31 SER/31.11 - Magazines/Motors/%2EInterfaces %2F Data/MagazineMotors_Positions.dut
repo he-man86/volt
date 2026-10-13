@@ -14,3 +14,4 @@ TYPE MagazineMotors_Positions :
 	waitingPosition		// In case of wrap-label, magazine moves here before placing labels on inlay-cores
 );
 END_TYPE
+

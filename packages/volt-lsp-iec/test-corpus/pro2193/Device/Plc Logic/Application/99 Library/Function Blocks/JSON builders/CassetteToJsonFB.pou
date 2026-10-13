@@ -10,6 +10,7 @@ VAR_IN_OUT
 	ActualCassettePosition	: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes] OF CassettePosition;
 	JSON					: STRING(25000);
 END_VAR
+
 IMPLEMENTATION ST
 SUPER^();
 
@@ -22,6 +23,7 @@ IF busy THEN
 	sw.End();
 END_IF
 
+
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE CreateCassetteJson
@@ -33,6 +35,7 @@ END_VAR
 VAR_INST
 	asProperties		: ARRAY[0..8, 0..1] OF STRING(50);
 END_VAR
+
 IMPLEMENTATION ST
 // Fill data
 asProperties[0, 0]		:= 'Id';	asProperties[0, 1]		:= TO_STRING(CassetteDefinition[cassette].CassetteId);
@@ -51,12 +54,14 @@ CreateJson(
 	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
 	psJSON						:= pJson,
 	udiJSONStringLength			:= jsonSize);
+
 END_METHOD
 
 METHOD PRIVATE CreateFinalJson : BOOL
 VAR_INST
 	asProperties		: ARRAY[1..GVL_Constants_Magazine.MaxCassettes, 0..1] OF STRING(300);
 END_VAR
+
 IMPLEMENTATION ST
 CASE chunk OF
 	0:
@@ -77,6 +82,7 @@ CASE chunk OF
 
 		CreateFinalJson					:= TRUE;
 END_CASE
+
 END_METHOD
 
 METHOD PRIVATE CreatePositionJson
@@ -88,6 +94,7 @@ END_VAR
 VAR_INST
 	asProperties		: ARRAY[0..2, 0..1] OF STRING(5);
 END_VAR
+
 IMPLEMENTATION ST
 //Fill data
 asProperties[0,0]		:= 'X1';	asProperties[0,1]		:= TO_STRING(position.X1);
@@ -100,4 +107,5 @@ CreateJson(
 	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
 	psJSON						:= pJson,
 	udiJSONStringLength			:= jsonSize);
+
 END_METHOD

@@ -4,3 +4,4 @@ STRUCT
 	AboveBoxZ	: REAL;							// Safe distance above box
 END_STRUCT
 END_TYPE
+

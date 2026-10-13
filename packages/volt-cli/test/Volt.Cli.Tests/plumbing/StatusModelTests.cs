@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Volt.Cli.Sync;
 using Xunit;
 
@@ -81,10 +82,10 @@ public class StatusModelTests
             {
                 Online = true,
                 Items = new() { ["A.pou"] = "h1" },          // incoming: the sidecar is empty, so this is an add
-                Unreadable = new List<string> { "Broken" },
+                Unreadable = new List<Volt.Contracts.UnreadableItem> { new("Broken", "read failed") },
             });
 
-            Assert.Equal(new[] { "Broken" }, s.Unreadable);
+            Assert.Equal(new[] { "Broken" }, s.Unreadable.Select(u => u.Name));
             Assert.Equal("volt pull", s.Recommend);         // the actionable step survives
         }
         finally { TestUtil.ForceDelete(root); }

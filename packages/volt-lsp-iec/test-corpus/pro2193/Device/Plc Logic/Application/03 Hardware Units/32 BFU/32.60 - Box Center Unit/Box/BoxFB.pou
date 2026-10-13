@@ -4,8 +4,10 @@ VAR
 	{attribute 'hide'}	_ActualNumberOfLayers	: UINT;
 	{attribute 'hide'}	_maxNumberOfLayers		: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 Cyclic();
+
 
 END_FUNCTION_BLOCK
 
@@ -13,6 +15,7 @@ METHOD PUBLIC AddItem : BOOL
 VAR_INPUT
 	item		: enumBoxItem;
 END_VAR
+
 IMPLEMENTATION ST
 CASE item OF
 	enumBoxItem.None:
@@ -42,17 +45,21 @@ CASE item OF
 			AddItem					:= TRUE;
 		END_IF
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
+
 IMPLEMENTATION ST
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= 0;
 
 State					:= enumBoxState.None;
+
 END_METHOD
 
 METHOD PROTECTED Cyclic
+
 IMPLEMENTATION ST
 CASE State OF
 	enumBoxState.None:
@@ -67,20 +74,24 @@ CASE State OF
 	enumBoxState.ProductsNeeded:
 			;
 END_CASE
+
 END_METHOD
 
 METHOD PUBLIC InitNewBox
 VAR_INPUT
 	setNumberOfLayers	: UINT;
 END_VAR
+
 IMPLEMENTATION ST
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= setNumberOfLayers;
 
 State					:= enumBoxState.ProductsNeeded;	// Always start empty box with products
+
 END_METHOD
 
 METHOD PUBLIC SetToChangeNeeded : BOOL
+
 IMPLEMENTATION ST
 CASE State OF
 	enumBoxState.ProductsNeeded, enumBoxState.SheetNeeded:
@@ -89,55 +100,71 @@ CASE State OF
 	ELSE
 		SetToChangeNeeded			:= FALSE;
 END_CASE
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY ActualNumberOfLayers : UINT
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 ActualNumberOfLayers := _ActualNumberOfLayers;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _ActualNumberOfLayers := ActualNumberOfLayers;
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY MaxNumberOfLayers : UINT
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 MaxNumberOfLayers := _maxNumberOfLayers;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _maxNumberOfLayers := MaxNumberOfLayers;
+
 END_SET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY State : enumBoxState
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 State := _state;
+
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 _state := State;
+
 END_SET
 END_PROPERTY

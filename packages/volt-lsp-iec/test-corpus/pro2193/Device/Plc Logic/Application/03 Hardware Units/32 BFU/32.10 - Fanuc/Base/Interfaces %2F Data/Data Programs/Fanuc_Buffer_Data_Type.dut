@@ -8,3 +8,4 @@ STRUCT
 	PickStackOffsetZ	: REAL;							// Pick offset complete stack from buffer
 END_STRUCT
 END_TYPE
+

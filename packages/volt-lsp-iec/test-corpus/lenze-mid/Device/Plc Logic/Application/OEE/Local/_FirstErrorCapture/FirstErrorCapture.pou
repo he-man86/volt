@@ -53,6 +53,8 @@ END_VAR
 VAR CONSTANT
 	uiMaxError : UINT := 99;		// Max. Numbers of L_SetErrorSingleInfo fb or errors withing the whole PLC Project
 END_VAR
+
+
 IMPLEMENTATION ST
 
 //Assignment of scFirstErrorData := GVL_FirstErrCapture.scFirstErrorData;

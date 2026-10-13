@@ -41,3 +41,4 @@ VAR_GLOBAL
 	EnableLoggingAllStateChanges		: BOOL := FALSE;	// Create a log message for every state change
 	activeAlarmInstance					: STRING(80);		// For debugging: show id of module that has an alarm active
 END_VAR
+

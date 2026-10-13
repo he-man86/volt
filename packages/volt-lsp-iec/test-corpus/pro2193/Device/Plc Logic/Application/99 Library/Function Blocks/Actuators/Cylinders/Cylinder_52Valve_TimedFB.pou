@@ -25,6 +25,7 @@ END_VAR
 VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
+
 IMPLEMENTATION ST
 // Execute base fb
 SUPER^();
@@ -47,22 +48,27 @@ GlobalVars.manualControlRequested S= inAdjustMode;
 
 Blinker(ENABLE := inAdjustMode, TIMELOW := tAdjustFrequency, TIMEHIGH := tAdjustFrequency);
 
+
 END_FUNCTION_BLOCK
 
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC FINAL GoIn : BOOL
+
 IMPLEMENTATION ST
 Reset();
 
 GoIn := IsIn;
+
 END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC FINAL GoOut : BOOL
+
 IMPLEMENTATION ST
 Set();
 
 GoOut := IsOut;
+
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -70,6 +76,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+
 IMPLEMENTATION ST
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
@@ -78,24 +85,31 @@ ELSIF plusButtonPushed THEN
 ELSIF minButtonPushed THEN
 	GoIn();
 END_IF
+
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+
 IMPLEMENTATION ST
 Map := Output.Map();
+
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+
 IMPLEMENTATION ST
 Output.Reset();
+
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+
 IMPLEMENTATION ST
 Output.Set();
+
 END_METHOD
 
 // Set the output True or False
@@ -103,15 +117,19 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+
 IMPLEMENTATION ST
 Output.SetOrReset(xValue);
+
 END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY IsIn : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsIn := timeGoIn.Q;
 END_GET
@@ -119,9 +137,11 @@ END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY IsOut : BOOL
+
 GET
 VAR
 END_VAR
+
 IMPLEMENTATION ST
 IsOut := timeGoOut.Q;
 END_GET
