@@ -14,6 +14,14 @@
       principal (safe.directory) and a path past MAX_PATH (core.longpaths).
 
 ## 2. Fix
+n- [ ] 2.0 **Regression found by the 2026-10-13 e2e matrix (CODESYS SP18 3.5.18.30):** 212 of 218 failures are one message —
+      `UNSUPPORTED: the library manager: the CODESYS member 'LibManObject.ParameterTable' could not be read` — so a member
+      ABSENT from an older SP's object model fails nearly every op (lifecycle, whole project, refs), where two days earlier
+      SP18 passed 164 tests and failed only LD/FBD writes. Rule: a member the version's object model does not have is not an
+      unread value — nothing to spell (record per-SP member availability as a `vendor-facts` row); and a member that
+      exists but cannot be read holds back THAT item with its reason (`unreadable`), never the op. Red test first (a FakeIde
+      library manager without the member); then SP18 e2e: only the expected LD/FBD write refusals remain. Same check for
+      every member bridge-one-to-one started reading (census which exist in SP18 / SP21 / SP22 / 32-bit 3.5.21.60).
 
 - [ ] 2.1 Bundle MinGit (owner decision) in the FULL installer payload `bin\git\` only — NOT in the bridge-only packages
       PLCAssist distributes (owner: "git should only be bundled for the complete CLI"); a gate asserts the bridge packages
