@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    VoltTwincatExplorer.exe - the TwinCAT worker's reader of a 32-bit XAE's Solution Explorer (DIALECT C2i, "what the
+    read requires"). The hierarchy interfaces cross the process boundary through msenvp.dll's proxy, which must match
+    the READER's bitness; TcXaeShell 15 is 32-bit and ships only an x86 copy (registration-free, its own manifest), and
+    only Visual Studio registers a 64-bit one. So the x64 worker asks this x86 process, which reads with XAE's own
+    proxy and answers the hierarchy as JSON on stdout (TcHierarchy, the worker's side).
+
+    net48 because .NET Framework 4.8 is part of Windows: no runtime ships with it, and it is one exe with no
+    dependency beyond the framework. It compiles the worker's reader source itself, never a Volt assembly.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget>
+    <!-- Restored for x86 whatever RID the worker's publish restores with (build-cli.ps1: -r win-x64). -->
+    <RuntimeIdentifiers>win-x86</RuntimeIdentifiers>
+    <AssemblyName>VoltTwincatExplorer</AssemblyName>
+    <RootNamespace>Volt.Ide.Twincat</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Volt.Ide.Twincat\Ide\TcSolutionExplorer.cs" Link="Shared\TcSolutionExplorer.cs" />
+    <Compile Include="..\Volt.Ide.Twincat\Ide\RotInstances.cs" Link="Shared\RotInstances.cs" />
+    <Compile Include="..\Volt.Ide.Twincat\Ide\ComMessageFilter.cs" Link="Shared\ComMessageFilter.cs" />
+    <Compile Include="..\Polyfills.cs" Link="Shared\Polyfills.cs" />
+    <!-- RotInstances reads the DTE's window late-bound (dynamic). -->
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+</Project>

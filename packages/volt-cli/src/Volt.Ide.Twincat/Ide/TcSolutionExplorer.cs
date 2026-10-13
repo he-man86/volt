@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Runtime.InteropServices;
-using Volt.Contracts;
-using Volt.Engine;
-using Volt.Engine.Ide;
-using Volt.Engine.Item;
 
+// COMPILED TWICE: into the TwinCAT worker, and into VoltTwincatExplorer.exe (net48, x86), the reader of a 32-bit XAE
+// (TcHierarchy says when which). So it depends on nothing but the framework: no Volt assembly, no newer-than-net48 API.
 namespace Volt.Ide.Twincat;
 
 /// <summary>One node of XAE's Solution Explorer, as the VS hierarchy reports it: the node's NAME
@@ -17,138 +15,9 @@ namespace Volt.Ide.Twincat;
 /// node — its name, its caption, its child list — that failed, or is null. The reader records a failure rather than
 /// throwing, because nodes Volt never classifies refuse reads Volt does not need (measured on Project14:
 /// <c>GetCanonicalName</c> answers <c>E_NOTIMPL</c> for the PLC project node itself); for a node the snapshot does
-/// classify, it refuses the node by name (<see cref="ExplorerSnapshot.From"/>).</para></summary>
+/// classify, it refuses the node by name (<c>ExplorerSnapshot.From</c>).</para></summary>
 internal sealed record ExplorerNode(string Name, string? Canonical, string Caption, IReadOnlyList<ExplorerNode> Children,
                                     string? Unread = null);
-
-/// <summary>
-/// Which children of the PLC tree Volt must never touch, read WITHOUT touching any of them (DIALECT C2i).
-///
-/// <para>After a solution load, the first <c>Child(i)</c> or <c>LookupChild</c> on the tree item of a POU whose text the
-/// IDE does not read as a POU kills TcXaeShell (access violation in <c>TwinCAT System Manager.dll</c>); a <c>try</c> in
-/// Volt receives <c>0x800706BE</c> after XAE has died, so there is nothing to guard on this side. The Solution Explorer
-/// hierarchy lists those items without harm, and its caption says whether the IDE parsed one: a <c>.TcPOU</c> node is
-/// captioned <c>name (PRG|FB|FUN)</c> while it does, and its bare name otherwise (5 of 5 such POUs, 0 of 21 other
-/// items; the caption follows a text write at once). Only the suffix's PRESENCE is read, never its spelling.</para>
-///
-/// <para>This is the only place the caption is read. Untested here and recorded as such: an XAE option or UI
-/// language that shows no suffix on ANY POU would flag every POU — every op would then refuse loudly by name, and
-/// nothing would crash.</para>
-/// </summary>
-internal sealed class ExplorerSnapshot
-{
-    private readonly Dictionary<string, Guarded> _guarded;
-    private readonly Dictionary<string, int> _listed;
-    private readonly HashSet<string> _pous;
-
-    /// <summary>A folder holding at least one POU Volt must not touch: every child name in hierarchy order, and the
-    /// names that are not to be opened.</summary>
-    public sealed record Guarded(IReadOnlyList<string> Names, IReadOnlySet<string> Untouchable);
-
-    private ExplorerSnapshot(Dictionary<string, Guarded> guarded, Dictionary<string, int> listed, HashSet<string> pous)
-    { _guarded = guarded; _listed = listed; _pous = pous; }
-
-    /// <summary>True when the project has no POU Volt must not touch — every real project measured — and the tree is
-    /// read exactly as before, with no extra call.</summary>
-    public bool Clean => _guarded.Count == 0;
-
-    /// <summary>The guarded folder at <paramref name="relPath"/> (tree names below the PLC project, joined with
-    /// <c>^</c>; <c>""</c> is the project itself), or null when that folder holds nothing to avoid.</summary>
-    public Guarded? At(string relPath) => _guarded.TryGetValue(relPath, out var g) ? g : null;
-
-    /// <summary>How many children the hierarchy lists for the node at <paramref name="relPath"/>; null when it lists no
-    /// such node. Every node outside a POU is counted, so a folder the PLC tree has and the hierarchy does not — or holds
-    /// more children than it lists — is visible as exactly that, and is never taken for a folder with nothing to avoid
-    /// (the snapshot can only flag what it lists).</summary>
-    public int? ListedChildren(string relPath) => _listed.TryGetValue(relPath, out var n) ? n : null;
-
-    /// <summary>Is the node at <paramref name="relPath"/> inside (or itself) a POU? A POU's subtree holds its members,
-    /// never a top-level POU, so nothing beneath one needs the hierarchy's word. A node the hierarchy LISTS outside a
-    /// POU is not inside one, whatever its path: a folder beside a POU of its name has the POU's path, and was waved
-    /// through the count check by it (5Qa review).</summary>
-    public bool InsidePou(string relPath)
-    {
-        if (_listed.ContainsKey(relPath)) return false;
-        for (var path = relPath; path.Length > 0; path = path.Substring(0, Math.Max(0, path.LastIndexOf('^'))))
-            if (_pous.Contains(path)) return true;
-        return false;
-    }
-
-    /// <summary>Every flagged POU, as its path below the PLC project (<c>folder^name</c>).</summary>
-    public IEnumerable<string> UntouchablePaths =>
-        _guarded.SelectMany(g => g.Value.Untouchable.Select(n => g.Key.Length == 0 ? n : g.Key + "^" + n));
-
-    /// <summary>The snapshot of the PLC project whose hierarchy node is <paramref name="plcProject"/>.</summary>
-    /// <param name="stillUntouchable">POU paths flagged earlier in this session and not since replaced by Volt: they stay
-    /// flagged whatever their caption says now (<c>TcObjectModel.Explorer</c> says why).</param>
-    /// <param name="inThisLoad">Asked only of a bare-captioned POU (by its path below the PLC project): is it a tree item
-    /// of THIS load, which XAE survives a touch of? Answered by the system manager's path lookup
-    /// (<c>TcObjectModel.Explorer</c>); without it every bare-captioned POU is untouchable.</param>
-    public static ExplorerSnapshot From(ExplorerNode plcProject, IReadOnlyCollection<string>? stillUntouchable = null,
-                                        Func<string, bool>? inThisLoad = null)
-    {
-        var guarded = new Dictionary<string, Guarded>(StringComparer.Ordinal);
-        var listed = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pous = new HashSet<string>(StringComparer.Ordinal);
-        Collect(plcProject, "", guarded, listed, pous,
-                new HashSet<string>(stillUntouchable ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase),
-                inThisLoad ?? (_ => false));
-        return new ExplorerSnapshot(guarded, listed, pous);
-    }
-
-    private static void Collect(ExplorerNode node, string path, Dictionary<string, Guarded> guarded,
-                                Dictionary<string, int> listed, HashSet<string> pous, HashSet<string> still,
-                                Func<string, bool> inThisLoad)
-    {
-        // A NODE THAT WAS NOT FULLY READ CANNOT BE VOUCHED FOR: a caption read as "" would pass a broken POU for a
-        // parsed one, and a child list cut short would hide one. Refused, named — never read as "nothing to avoid".
-        if (node.Unread is { } unread)
-            throw new BridgeException(ConflictCodes.ItemUnverified,
-                $"the Solution Explorer did not read '{(path.Length == 0 ? node.Name : path)}' in full ({unread}); Volt does " +
-                "not walk the TwinCAT tree on a hierarchy that cannot vouch for every POU (DIALECT C2i)");
-        listed[path] = node.Children.Count;
-        var untouchable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var child in node.Children)
-        {
-            var childPath = path.Length == 0 ? child.Name : path + "^" + child.Name;
-            if (child.Unread is not null) Collect(child, childPath, guarded, listed, pous, still, inThisLoad);   // refuses it, named
-            // Whether it is a POU at all is read from its canonical name: unread, it cannot be classified.
-            if (child.Canonical is null)
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"the Solution Explorer did not read the canonical name of '{childPath}'; Volt cannot tell whether it is " +
-                    "a POU that crashes TcXaeShell, so it does not walk the TwinCAT tree (DIALECT C2i)");
-            if ((IsPou(child) && still.Contains(childPath)) || (IsUnparsedPou(child) && !inThisLoad(childPath)))
-            { untouchable.Add(child.Name); pous.Add(childPath); continue; }
-            // A POU's own children are its members, which the tree reaches only through the POU itself.
-            if (IsPou(child)) pous.Add(childPath);
-            // A DUT and a folder may share a name (DIALECT D34), so two nodes have one path. A childless one (the DUT,
-            // a GVL) states nothing a folder's count needs and must not overwrite it: it hid the folder's POUs (5Qa e2e).
-            else if (child.Children.Count > 0 || !listed.ContainsKey(childPath)) Collect(child, childPath, guarded, listed, pous, still, inThisLoad);
-        }
-        if (untouchable.Count > 0)
-            guarded[path] = new Guarded(node.Children.Select(c => c.Name).ToList(), untouchable);
-    }
-
-    private static bool IsPou(ExplorerNode n) =>
-        n.Canonical!.EndsWith(".TcPOU", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>A <c>.TcPOU</c> node captioned with its bare name: the IDE does not read its text as a POU.</summary>
-    private static bool IsUnparsedPou(ExplorerNode n) =>
-        IsPou(n) && string.Equals(n.Caption, n.Name, StringComparison.Ordinal);
-
-    /// <summary>What a walk and a refusal say about such a POU — the FACT, and no client instruction: the same words
-    /// reach a refusal raised inside a push's apply loop, which can now arrive on an accepted push, and the CLI adds its
-    /// own advice from the code (openspec <c>push-keeps-what-landed</c> 2.5; "Push the fixed text with --force" was
-    /// here).</summary>
-    public static string Reason(string name) =>
-        $"TwinCAT does not read '{name}' as a POU; touching its tree item crashes TcXaeShell after a load " +
-        "(DIALECT C2i), so Volt does not read it.";
-
-    /// <summary>The wire kind a <c>.TcPOU</c> is, known without opening it: a POU is ONE kind, <c>X.pou</c> (openspec
-    /// <c>push-without-header-check</c> 5.Q), so an untouchable POU is named under exactly one name and the CLI matches
-    /// it to its file. (It was three candidates — program, function block, function — while the extension said which.)</summary>
-    public static readonly IReadOnlyList<string> PouKinds = new[] { ItemKind.Kinds.Pou };
-}
 
 /// <summary>
 /// Reads the Solution Explorer hierarchy of a TwinCAT XAE, out of process, through the DTE's OLE
@@ -156,9 +25,102 @@ internal sealed class ExplorerSnapshot
 /// <c>probe-tc-kind-source.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-kind-source.ps1</c>)). The interfaces are declared here with <c>[ComImport]</c>, only up to the
 /// last vtable slot used, so no TcXaeShell assembly is loaded into the worker. Cost measured on a 143-node solution:
 /// 73–142 ms per read (≈700 ms on the first read in a fresh process).
+///
+/// <para><b>Unlike every other call Volt makes into XAE, these are not IDispatch:</b> IVsSolution, IEnumHierarchies and
+/// IVsHierarchy cross the process boundary through the proxy/stub in <c>msenvp.dll</c> (PSFactoryBuffer
+/// <c>{E6D78900-BB40-4039-9C54-593A242B65DA}</c>), and that proxy must be of the READER's bitness (DIALECT C2i,
+/// "what the read requires"). TcXaeShell 15 is 32-bit and ships its own x86 copy, registration-free, beside it:
+/// <c>Common7\IDE\Automation\msenvp.dll</c> + <c>msenvp.dll.manifest</c>. The read activates that manifest
+/// (<see cref="ReadPlcProject"/>), so a reader of the IDE's bitness needs nothing registered; only Visual Studio
+/// registers a 64-bit copy, which is why a 64-bit reader worked on a machine with VS 2022 and nowhere else.</para>
 /// </summary>
 internal static class TcSolutionExplorer
 {
+    private const int RegdbEClassNotReg = unchecked((int)0x80040154);
+    private const int RegdbEIidNotReg = unchecked((int)0x80040155);
+
+    /// <summary>XAE's own registration-free proxy manifest, beside the IDE exe in <paramref name="ideDir"/>.</summary>
+    private static string ManifestPath(string ideDir) => Path.Combine(Path.Combine(ideDir, "Automation"), "msenvp.dll.manifest");
+
+    /// <summary>Is this HRESULT the proxy being absent — the class or interface not registered for the reader's
+    /// bitness (the field's <c>0x80040154</c>) — rather than a read that failed?</summary>
+    public static bool IsProxyMissing(int hr) => hr == RegdbEClassNotReg || hr == RegdbEIidNotReg;
+
+    /// <summary>Can THIS process unmarshal the three interfaces, with XAE's manifest (in <paramref name="ideDir"/>)
+    /// active when it ships one? <c>CoGetPSClsid</c> + an in-proc <c>CoGetClassObject</c> on the proxy class, per
+    /// interface — no call into XAE. 0 when it can, else the first failing HRESULT and what failed.</summary>
+    public static (int Hr, string What) ProxyCheck(string? ideDir)
+    {
+        using (Activate(ideDir))
+            foreach (var t in new[] { typeof(IVsSolution), typeof(IEnumHierarchies), typeof(IVsHierarchy) })
+            {
+                var iid = t.GUID;
+                var hr = CoGetPSClsid(ref iid, out var clsid);
+                if (hr != 0) return (hr, $"CoGetPSClsid({t.Name})");
+                var unknown = new Guid("00000000-0000-0000-C000-000000000046");
+                hr = CoGetClassObject(ref clsid, ClsctxInprocServer, IntPtr.Zero, ref unknown, out var factory);
+                if (hr != 0) return (hr, $"CoGetClassObject({clsid:B}) for {t.Name}");
+                Marshal.Release(factory);
+            }
+        return (0, "");
+    }
+
+    private const uint ClsctxInprocServer = 1;
+    [DllImport("ole32.dll")] private static extern int CoGetPSClsid(ref Guid riid, out Guid pClsid);
+    [DllImport("ole32.dll")] private static extern int CoGetClassObject(ref Guid rclsid, uint dwClsContext, IntPtr pServerInfo,
+                                                                        ref Guid riid, out IntPtr ppv);
+
+    /// <summary>Activates XAE's proxy manifest on this thread until disposed; null (nothing to activate) when
+    /// <paramref name="ideDir"/> holds none — an IDE that ships no private copy, read with what COM has registered.</summary>
+    private static IDisposable? Activate(string? ideDir)
+    {
+        if (ideDir is null || !File.Exists(ManifestPath(ideDir))) return null;
+        var manifest = ManifestPath(ideDir);
+        var ctx = new ActCtxW
+        {
+            cbSize = Marshal.SizeOf(typeof(ActCtxW)), dwFlags = ActCtxFlagAssemblyDirectoryValid,
+            lpSource = manifest, lpAssemblyDirectory = Path.GetDirectoryName(manifest),
+        };
+        var handle = CreateActCtxW(ref ctx);
+        if (handle == new IntPtr(-1))
+            throw new COMException($"CreateActCtx({manifest}) failed (Win32 {Marshal.GetLastWin32Error()})");
+        if (!ActivateActCtx(handle, out var cookie))
+        {
+            var error = Marshal.GetLastWin32Error();
+            ReleaseActCtx(handle);
+            throw new COMException($"ActivateActCtx({manifest}) failed (Win32 {error})");
+        }
+        return new Activation(handle, cookie);
+    }
+
+    private sealed class Activation : IDisposable
+    {
+        private readonly IntPtr _handle, _cookie;
+        public Activation(IntPtr handle, IntPtr cookie) { _handle = handle; _cookie = cookie; }
+        public void Dispose() { DeactivateActCtx(0, _cookie); ReleaseActCtx(_handle); }
+    }
+
+    private const uint ActCtxFlagAssemblyDirectoryValid = 0x004;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ActCtxW
+    {
+        public int cbSize;
+        public uint dwFlags;
+        public string? lpSource;
+        public ushort wProcessorArchitecture;
+        public ushort wLangId;
+        public string? lpAssemblyDirectory;
+        public string? lpResourceName;
+        public string? lpApplicationName;
+        public IntPtr hModule;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern IntPtr CreateActCtxW(ref ActCtxW actctx);
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool ActivateActCtx(IntPtr hActCtx, out IntPtr lpCookie);
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool DeactivateActCtx(uint dwFlags, IntPtr ulCookie);
+    [DllImport("kernel32.dll")] private static extern void ReleaseActCtx(IntPtr hActCtx);
+
     private const uint VsItemIdRoot = 0xFFFFFFFE;
     private const uint VsItemIdNil = 0xFFFFFFFF;
     private const int VshPropIdCaption = -2003;
@@ -172,8 +134,14 @@ internal static class TcSolutionExplorer
 
     /// <summary>The hierarchy node of the PLC project named <paramref name="plcProjectName"/> (the PLC tree's nested
     /// project, e.g. <c>Untitled2 Project</c>), with every node beneath it; null when the hierarchy has no such node.
-    /// Throws when the hierarchy itself cannot be read.</summary>
-    public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName)
+    /// Throws when the hierarchy itself cannot be read. <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy
+    /// manifest there is active for the whole read, so every interface the read unmarshals finds it.</summary>
+    public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string? ideDir)
+    {
+        using (Activate(ideDir)) return Read(dte, plcProjectName);
+    }
+
+    private static ExplorerNode? Read(object dte, string plcProjectName)
     {
         var sp = (IOleServiceProvider)dte;
         var sid = SidVsSolution;

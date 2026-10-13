@@ -19,7 +19,7 @@ this table name the same paths.
 |---|---|---|---|
 | `%LOCALAPPDATA%\Programs\Volt\bin\` | `volt.exe` (single-file, self-contained) + `volt-lsp-iec.exe` — exactly these two; the only folder on PATH | Inno `[Files]` | **yes** — `[UninstallDelete]` (the folder whole) |
 | `%LOCALAPPDATA%\Programs\Volt\desktop\` | the Electron app, `VoltDesktop.exe` (`en-US` locale only) | Inno `[Files]` | yes — `[UninstallDelete]` |
-| `%LOCALAPPDATA%\Programs\Volt\connector\` | `VoltConnector.exe` (tray) + `VoltBridgeTwincat.exe` (TwinCAT worker), ONE .NET runtime | Inno `[Files]` | yes — `[UninstallDelete]` |
+| `%LOCALAPPDATA%\Programs\Volt\connector\` | `VoltConnector.exe` (tray) + `VoltBridgeTwincat.exe` (TwinCAT worker), ONE .NET runtime; `VoltTwincatExplorer.exe` (the worker's x86 net48 reader of a 32-bit XAE's Solution Explorer) | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\codesys\` | `Volt.Ide.Codesys.dll` + `start_volt_codesys.py` / `stop_volt_codesys.py` | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`) | Inno | yes |
 | `Documents\Volt\start_volt_codesys.py`, `stop_volt_codesys.py` | the VISIBLE copy of the CODESYS scripts (users run them from CODESYS' Scripting menu); the copy finds the DLL at the fixed `Programs\Volt\codesys` (`_INSTALL_SUBDIR`) | connector at startup (`VoltEnv.PublishCodesysScripts`, from `..\codesys`) | yes — `[UninstallDelete]` (the two files, then the folder if empty) |

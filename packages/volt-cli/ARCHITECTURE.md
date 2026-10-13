@@ -25,6 +25,7 @@ src/Volt.Engine.Host      netstandard2.0  BridgePipeHost: the ONE place a wire o
                                           references no transport.
 src/Volt.Ide.Codesys  net48 library   CODESYS bridge — driver + pipe host, loaded IN-PROCESS by the IDE.
 src/Volt.Ide.Twincat  net10 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM.
+src/Volt.Ide.Twincat.Explorer  net48 x86 exe  the worker's reader of a 32-bit XAE's Solution Explorer: the hierarchy proxy must match the reader's bitness (DIALECT C2t).
 src/Volt.Cli              net10 exe        the `volt` CLI — the pipe CLIENT (see README.md).
 src/Volt.Connector.Core  net10 library the connector's UI-free model (DetectedProject / IProjectSource /
                                           ConnectionManager) AND the TwinCAT worker fleet. Here, not in the tray,

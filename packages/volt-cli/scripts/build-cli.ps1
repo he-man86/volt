@@ -3,7 +3,9 @@
 #   dist\Cli\volt.exe     the PLC CLI (Volt.Cli) - ONE self-contained single-file exe, the only thing besides the LSP
 #                         that lands on PATH ({app}\bin)
 #   dist\Connector\       the tray connector (VoltConnector.exe) + the TwinCAT pipe worker (VoltBridgeTwincat.exe) on
-#                         ONE shared self-contained runtime ({app}\connector)
+#                         ONE shared self-contained runtime ({app}\connector), with the worker's x86 hierarchy reader
+#                         VoltTwincatExplorer.exe (net48 - .NET Framework ships with Windows; it rides in the worker's
+#                         publish output, DIALECT C2i "what the read requires")
 #   dist\Codesys\         Volt.Ide.Codesys.dll (net48 in-proc, ONE merged assembly - the csproj's VoltBundle target)
 #                         + start/stop_volt_codesys.py ({app}\codesys)
 # Every publish: SatelliteResourceLanguages=en (the 52 WinForms/runtime satellite DLLs in 13 locales nobody reads)
@@ -110,7 +112,8 @@ if ($differ.Count -gt 0) {
     exit 1
 }
 Remove-Item -Recurse -Force "$DIST\Twincat"
-Write-Output "  OK -> dist\Connector\ (VoltConnector.exe + VoltBridgeTwincat.exe; $shared shared files, identical but the connector's WindowsDesktop facade(s): $($superseded -join ', '))"
+if (-not (Test-Path "$DIST\Connector\VoltTwincatExplorer.exe")) { Write-Output "  REFUSED: the worker's publish left no VoltTwincatExplorer.exe - the TwinCAT worker cannot read a 32-bit XAE's Solution Explorer without it"; exit 1 }
+Write-Output "  OK -> dist\Connector\ (VoltConnector.exe + VoltBridgeTwincat.exe + VoltTwincatExplorer.exe; $shared shared files, identical but the connector's WindowsDesktop facade(s): $($superseded -join ', '))"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
 Write-Output "`n[4/4] Volt.Ide.Codesys (in-proc DLL)"

@@ -9,7 +9,7 @@
  *
  * Output:
  *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two, the PATH dir
- *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime
+ *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime (+ VoltTwincatExplorer.exe, net48 x86)
  *   dist/volt/codesys/    Volt.Ide.Codesys.dll + start/stop_volt_codesys.py
  *
  * No .vsix: the extension ships from the Marketplace (openspec vscode-extension-marketplace), not the installer.
@@ -167,6 +167,7 @@ const required = skipCli
       "bin/volt-lsp-iec.exe",
       "connector/VoltConnector.exe",
       "connector/VoltBridgeTwincat.exe",
+      "connector/VoltTwincatExplorer.exe",
       "connector/Volt.Engine.Host.dll",
       "codesys/Volt.Ide.Codesys.dll",
       "codesys/start_volt_codesys.py",
