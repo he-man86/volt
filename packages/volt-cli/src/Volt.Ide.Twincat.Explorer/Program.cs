@@ -9,7 +9,7 @@ namespace Volt.Ide.Twincat;
 /// <c>VoltTwincatExplorer --ide-dir &lt;dir&gt; --xae-pid &lt;pid&gt; --plc-project &lt;name&gt;</c>: reads the PLC project's
 /// Solution Explorer node of that XAE and writes it to stdout as JSON (<c>null</c> when the hierarchy has no such node).
 /// <c>--check --ide-dir &lt;dir&gt;</c>: answers only whether this process can unmarshal the hierarchy interfaces, with no
-/// call into XAE. Exit 0 = done; <see cref="ProxyMissing"/> = the proxy is absent for this bitness (stderr names the
+/// call into XAE. Exit 0 = done; <see cref="ProxyMissing"/> = XAE ships no proxy manifest, or its proxy cannot be loaded here (stderr names the
 /// call and its HRESULT); <see cref="Failed"/> = any other failure (stderr says what). The worker's side is
 /// <c>TcHierarchy</c>, which owns the contract on both ends.
 /// </summary>
@@ -21,7 +21,8 @@ internal static class ExplorerProgram
     private static int Main(string[] args)
     {
         Console.OutputEncoding = new UTF8Encoding(false);
-        var ideDir = Arg(args, "--ide-dir");
+        const string usage = "usage: VoltTwincatExplorer --ide-dir <dir> --xae-pid <pid> --plc-project <name> | --check --ide-dir <dir>";
+        if (Arg(args, "--ide-dir") is not { } ideDir) { Console.Error.Write(usage); return Failed; }
         try
         {
             if (Array.IndexOf(args, "--check") >= 0)
@@ -32,10 +33,7 @@ internal static class ExplorerProgram
                 return TcSolutionExplorer.IsProxyMissing(hr) ? ProxyMissing : Failed;
             }
             if (!int.TryParse(Arg(args, "--xae-pid"), out var pid) || Arg(args, "--plc-project") is not { } plcProject)
-            {
-                Console.Error.Write("usage: VoltTwincatExplorer --ide-dir <dir> --xae-pid <pid> --plc-project <name> | --check --ide-dir <dir>");
-                return Failed;
-            }
+            { Console.Error.Write(usage); return Failed; }
             ComMessageFilter.Register();
             var dte = RotInstances.BindByPid(pid);
             if (dte is null) { Console.Error.Write($"no running TwinCAT XAE with pid {pid} in the Running Object Table"); return Failed; }
@@ -48,7 +46,8 @@ internal static class ExplorerProgram
         catch (Exception ex)
         {
             Console.Error.Write(ex.Message);
-            return ex is COMException com && TcSolutionExplorer.IsProxyMissing(com.HResult) ? ProxyMissing : Failed;
+            return ex is TcSolutionExplorer.ProxyManifestMissingException
+                   || (ex is COMException com && TcSolutionExplorer.IsProxyMissing(com.HResult)) ? ProxyMissing : Failed;
         }
     }
 

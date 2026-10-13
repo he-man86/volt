@@ -30,12 +30,21 @@ internal sealed record ExplorerNode(string Name, string? Canonical, string Capti
 /// IVsHierarchy cross the process boundary through the proxy/stub in <c>msenvp.dll</c> (PSFactoryBuffer
 /// <c>{E6D78900-BB40-4039-9C54-593A242B65DA}</c>), and that proxy must be of the READER's bitness (DIALECT C2i,
 /// "what the read requires"). TcXaeShell 15 is 32-bit and ships its own x86 copy, registration-free, beside it:
-/// <c>Common7\IDE\Automation\msenvp.dll</c> + <c>msenvp.dll.manifest</c>. The read activates that manifest
-/// (<see cref="ReadPlcProject"/>), so a reader of the IDE's bitness needs nothing registered; only Visual Studio
-/// registers a 64-bit copy, which is why a 64-bit reader worked on a machine with VS 2022 and nowhere else.</para>
+/// <c>Common7\IDE\Automation\msenvp.dll</c> + <c>msenvp.dll.manifest</c> (a 64-bit VS 2022-based shell carries an
+/// amd64 one at the same place, measured on VS 2022 itself). The read ALWAYS activates the IDE's own manifest
+/// (<see cref="ReadPlcProject"/>) and refuses without it (<see cref="ProxyManifestMissingException"/>): whatever COM has
+/// registered is never what the read rests on — the only 64-bit copy anyone registers is Visual Studio's, which is
+/// why a 64-bit reader worked on a machine with VS 2022 and nowhere else.</para>
 /// </summary>
 internal static class TcSolutionExplorer
 {
+    /// <summary>The IDE ships no proxy manifest where its shell keeps it: no reader can rest on its own proxy.</summary>
+    public sealed class ProxyManifestMissingException : Exception
+    {
+        public ProxyManifestMissingException(string manifest)
+            : base($"the IDE ships no proxy manifest for its hierarchy interfaces where its shell keeps one ({manifest})") { }
+    }
+
     private const int RegdbEClassNotReg = unchecked((int)0x80040154);
     private const int RegdbEIidNotReg = unchecked((int)0x80040155);
 
@@ -47,9 +56,10 @@ internal static class TcSolutionExplorer
     public static bool IsProxyMissing(int hr) => hr == RegdbEClassNotReg || hr == RegdbEIidNotReg;
 
     /// <summary>Can THIS process unmarshal the three interfaces, with XAE's manifest (in <paramref name="ideDir"/>)
-    /// active when it ships one? <c>CoGetPSClsid</c> + an in-proc <c>CoGetClassObject</c> on the proxy class, per
-    /// interface — no call into XAE. 0 when it can, else the first failing HRESULT and what failed.</summary>
-    public static (int Hr, string What) ProxyCheck(string? ideDir)
+    /// active? <c>CoGetPSClsid</c> + an in-proc <c>CoGetClassObject</c> on the proxy class, per interface — no call
+    /// into XAE. 0 when it can, else the first failing HRESULT and what failed; throws
+    /// <see cref="ProxyManifestMissingException"/> when the IDE ships no manifest.</summary>
+    public static (int Hr, string What) ProxyCheck(string ideDir)
     {
         using (Activate(ideDir))
             foreach (var t in new[] { typeof(IVsSolution), typeof(IEnumHierarchies), typeof(IVsHierarchy) })
@@ -70,12 +80,11 @@ internal static class TcSolutionExplorer
     [DllImport("ole32.dll")] private static extern int CoGetClassObject(ref Guid rclsid, uint dwClsContext, IntPtr pServerInfo,
                                                                         ref Guid riid, out IntPtr ppv);
 
-    /// <summary>Activates XAE's proxy manifest on this thread until disposed; null (nothing to activate) when
-    /// <paramref name="ideDir"/> holds none — an IDE that ships no private copy, read with what COM has registered.</summary>
-    private static IDisposable? Activate(string? ideDir)
+    /// <summary>Activates XAE's proxy manifest on this thread until disposed.</summary>
+    private static IDisposable Activate(string ideDir)
     {
-        if (ideDir is null || !File.Exists(ManifestPath(ideDir))) return null;
         var manifest = ManifestPath(ideDir);
+        if (!File.Exists(manifest)) throw new ProxyManifestMissingException(manifest);
         var ctx = new ActCtxW
         {
             cbSize = Marshal.SizeOf(typeof(ActCtxW)), dwFlags = ActCtxFlagAssemblyDirectoryValid,
@@ -136,7 +145,7 @@ internal static class TcSolutionExplorer
     /// project, e.g. <c>Untitled2 Project</c>), with every node beneath it; null when the hierarchy has no such node.
     /// Throws when the hierarchy itself cannot be read. <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy
     /// manifest there is active for the whole read, so every interface the read unmarshals finds it.</summary>
-    public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string? ideDir)
+    public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string ideDir)
     {
         using (Activate(ideDir)) return Read(dte, plcProjectName);
     }

@@ -33,20 +33,36 @@ internal static class TcHierarchy
 
     private static string HelperPath => Path.Combine(AppContext.BaseDirectory, HelperExe);
 
+    /// <summary>Which process reads the hierarchy of an XAE of this bitness, from a worker of that bitness: the reader's
+    /// bitness must be the XAE's, because the proxy it loads is the XAE's own (DIALECT C2t). Pure, so the choice is
+    /// tested offline for every cell (<c>TcHierarchySelectionTests</c>) — the 64-bit XAE (TcXaeShell64) included,
+    /// which no machine here runs.</summary>
+    internal enum Reader { InProcess, X86Helper, None }
+
+    internal static Reader ReaderFor(bool xaeIs32Bit, bool workerIs64Bit) =>
+        xaeIs32Bit == !workerIs64Bit ? Reader.InProcess
+        : xaeIs32Bit ? Reader.X86Helper
+        : Reader.None;   // a 64-bit XAE and a 32-bit worker: Volt ships no 64-bit reader beside an x86 worker
+
     /// <summary>The PLC project's hierarchy node of XAE <paramref name="xaePid"/> — see <c>TcSolutionExplorer.ReadPlcProject</c>.
     /// Throws <see cref="HierarchyUnreachableException"/> when no reader can unmarshal it, anything else when the read
     /// failed.</summary>
     public static ExplorerNode? Read(int xaePid, object dte, string plcProject)
     {
         var xae = Xae(xaePid);
-        if (!NeedsHelper(xae.Is32Bit))
+        switch (ReaderFor(xae.Is32Bit, Environment.Is64BitProcess))
         {
-            try { return TcSolutionExplorer.ReadPlcProject(dte, plcProject, xae.IdeDir); }
-            catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
-            { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} reader: {ex.Message}"); }
+            case Reader.InProcess:
+                try { return TcSolutionExplorer.ReadPlcProject(dte, plcProject, xae.IdeDir); }
+                catch (TcSolutionExplorer.ProxyManifestMissingException ex) { throw new HierarchyUnreachableException(ex.Message); }
+                catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
+                { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} reader: {ex.Message}"); }
+            case Reader.X86Helper:
+                var json = RunHelper(xae.IdeDir, "--xae-pid", xaePid.ToString(), "--plc-project", plcProject);
+                return JsonSerializer.Deserialize<ExplorerNode?>(json, Json);
+            default:
+                throw new HierarchyUnreachableException(NoReader);
         }
-        var json = RunHelper(xae.IdeDir, "--xae-pid", xaePid.ToString(), "--plc-project", plcProject);
-        return JsonSerializer.Deserialize<ExplorerNode?>(json, Json);
     }
 
     /// <summary>What a reader of this XAE lacks, without calling into it — null when nothing is missing. The worker
@@ -54,18 +70,26 @@ internal static class TcHierarchy
     public static string? Missing(int xaePid)
     {
         var xae = Xae(xaePid);
-        if (!NeedsHelper(xae.Is32Bit))
+        switch (ReaderFor(xae.Is32Bit, Environment.Is64BitProcess))
         {
-            var (hr, what) = TcSolutionExplorer.ProxyCheck(xae.IdeDir);
-            return hr == 0 ? null : $"{Proxy} is not available to this {Bits} reader: {what} failed (0x{hr:X8})";
+            case Reader.InProcess:
+                try
+                {
+                    var (hr, what) = TcSolutionExplorer.ProxyCheck(xae.IdeDir);
+                    return hr == 0 ? null : $"{Proxy} is not available to this {Bits} reader: {what} failed (0x{hr:X8})";
+                }
+                catch (TcSolutionExplorer.ProxyManifestMissingException ex) { return ex.Message; }
+            case Reader.X86Helper:
+                try { RunHelper(xae.IdeDir, "--check"); return null; }
+                catch (HierarchyUnreachableException ex) { return ex.Message; }
+            default:
+                return NoReader;
         }
-        try { RunHelper(xae.IdeDir, "--check"); return null; }
-        catch (HierarchyUnreachableException ex) { return ex.Message; }
     }
 
-    private static string Bits => Environment.Is64BitProcess ? "64-bit" : "32-bit";
+    private const string NoReader = "the XAE is 64-bit and this bridge is a 32-bit process, and no 64-bit hierarchy reader ships with it";
 
-    private static bool NeedsHelper(bool xaeIs32Bit) => xaeIs32Bit && Environment.Is64BitProcess;
+    private static string Bits => Environment.Is64BitProcess ? "64-bit" : "32-bit";
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 

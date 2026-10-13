@@ -55,6 +55,10 @@ public class NoTestOnlyCodeInSrcTests
                                "pipes instead of a live machine — its production caller passes the real list " +
                                "from the same file",
 
+        ["ReaderFor"] = "the hierarchy-reader RULE (reader bitness = XAE bitness, DIALECT C2t), split out so every " +
+                        "cell — a 64-bit TcXaeShell64 included, which no machine here runs — is driven offline; its " +
+                        "production callers (TcHierarchy.Read / Missing) pass the live bitnesses from the same file",
+
         ["CheckOnce"] = "the update CHECK against a feed, split out for the same reason as ChooseBridgePipe: it takes " +
                         "the feed URL as a parameter so UpdaterVerificationTests can serve a localhost release whose " +
                         "digest does not match (openspec installer-rebuild). Its production callers, Start and " +
