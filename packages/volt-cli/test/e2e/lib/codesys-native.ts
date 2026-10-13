@@ -49,14 +49,17 @@ export function nativeImplementations(xml: string): string[] {
 	return out
 }
 
-/** The bodies the served CODESYS holds for `bare` (and every object under it), byte for byte. Throws naming the
+/** The served CODESYS's OWN serialization of `bare` and every object under it (`export_native`, recursive) — the
+ *  object's archive as the IDE writes it: its class's type GUID, its object properties, its members. Throws naming the
  *  reason when the probe refuses, and after a bounded wait when it never answers — a launcher without the probe. */
-export async function codesysImplementations(bare: string): Promise<string[]> {
+export async function codesysNativeExport(bare: string): Promise<string> {
 	const folder = probeFolder()
 	mkdirSync(folder, { recursive: true })
 	const id = randomUUID().replace(/-/g, "")
 	const tmp = join(folder, `request.${id}.tmp`)
-	writeFileSync(tmp, `${id}\n${bare}\n`)
+	writeFileSync(tmp, `${id}
+${bare}
+`)
 	renameSync(tmp, join(folder, "request"))            // whole, or not at all: the probe reads it on its next tick
 
 	const done = join(folder, `${id}.done`)
@@ -73,10 +76,15 @@ export async function codesysImplementations(bare: string): Promise<string[]> {
 	}
 	try {
 		if (existsSync(error)) throw new Error(`the CODESYS native-export probe refused '${bare}': ${readFileSync(error, "utf8")}`)
-		const found = nativeImplementations(readFileSync(exported, "utf8"))
-		if (found.length === 0) throw new Error(`the native export of '${bare}' holds no Implementation`)
-		return found
+		return readFileSync(exported, "utf8")
 	} finally {
 		for (const f of [done, error, exported]) rmSync(f, { force: true })
 	}
+}
+
+/** The bodies the served CODESYS holds for `bare` (and every object under it), byte for byte. */
+export async function codesysImplementations(bare: string): Promise<string[]> {
+	const found = nativeImplementations(await codesysNativeExport(bare))
+	if (found.length === 0) throw new Error(`the native export of '${bare}' holds no Implementation`)
+	return found
 }

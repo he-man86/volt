@@ -343,6 +343,117 @@ watchdog/event pushes, standalone transitions, every 0-occurrence class (niche: 
 Each step-3 task removes the marks of the findings it closes; 4.2 requires `completeness.known.ts` empty except
 entries whose reason is a named refusal or a niche.
 
+### 2.R What step 2 built and measured (2026-10-13, instance `bridge-one-to-one`, CODESYS SP21 Patch 4, TcXaeShell 15.0)
+
+**The oracle (2.1).** `scripts/completeness.ts` + `scripts/disposition.table.ts` (§1.1 as data: spelled / cache / identity /
+refused / scope / measure; `*` wildcards; a member not listed fails as undecided) + `scripts/completeness.known.ts`;
+the cores gained two reads, `archive` (CODESYS: object + `IMetaObject` + every `IObjectProperty`, flattened in the
+census notation, plus `$class` and each `TextDocument.Text`; TwinCAT: the backing file's elements/attributes + its
+`.plcproj` `<Compile>` entry) and `objects` (the subject pick); `adopt` takes a guid or the wire kind's classes. Subjects
+are a greedy cover of every feature the project holds (item class, member class, property class, non-default build
+flag on an item / a member) plus every task. Offline logic: `test/unit/completeness.test.ts` (18 tests). Final runs,
+each twice (`--write-known`, then a verify run: 0 unexpected, 0 stale):
+
+| vendor | projects | subjects | failing members (= known) | of which |
+|---|---|---|---|---|
+| CODESYS | CodesysOneToOne copy (28 objects; CodesysTestProject at the time of this run), Pro2193 copy (3363) | 10 + 18 | **120 over 18 classes** | differs after the create 60 (build properties lost: `ExcludeFromBuild` / `LinkAlways` / `MemoryReserveForOnlineChange` on items AND members, the call comment, the external event, the text list), class lost 4 (`POUObjectCheckFunction`, `TextListEnumerationObject`, `VarPersistentObject`, `AbstractPOUMethodObject` → plain), text differs 16 (every one a folded trailing newline, finding 9), cache unmeasured 18, held-but-not-refused 20 (`POUImageProperty` ×4, the standalone transition ×16), differs after the UPDATE 1 (`Event`: an in-place write of an ExternalEvent task MOVES its event into `Event`, finding 4), create refused 1 (unsupported bodies) |
+| TwinCAT | Project14 copy (30 items) | 12 (every source file + the task) | **4 over 4 classes** | `ObjectProperties` (the SFC archive) held but the pull names no `ObjectProperties` ×2, a trailing newline folded ×1, create refused for unsupported/graphical bodies ×1; tasks, DUTs, GVL and ST POUs reproduce every member through an update and a create |
+
+**Measured by the oracle, new** (each a finding for step 3, not a decision taken here): `TextBlobForSerialisation` is
+null as the census read every object and holds the WRITTEN TEXT after any scripting write of the document — cited as
+cache row `text-blob-serialisation`, which no row measures yet (as `file-link-timestamp` and `nvl-import-timestamp`);
+`SVFoldersProperty.ParentObjects` holds the containing folders' GUIDs (a re-made POU-internal folder is a new object) —
+identity; `dymmattributecount` (the persistent-list cache candidate) is equal after an update and unmeasurable after a
+create today (the create makes a plain GVL) — the decision waits for 3.2's class create, as §1.1 says. CODESYS tasks
+reproduce every `TaskObject` member through delete + create EXCEPT the external event and the call comment.
+**Not exercised** (no committed fixture holds the class): `NVLObject`, a sender GVL with `NetVarProperties`, a
+`FileLink` GVL (bak only, not committed), a parameter list (0 in the corpora) — their red tests are the FakeIde ones.
+
+**The red tests (2.2).** `ObjectProperties` (`Volt.Engine/Item/ObjectProperties.cs`, not yet on `ItemContent`), a
+`FakeIde.Item.Properties` slot (kept on in-place writes, not made by a create), `ExpectRed.Until(task, finding, body)`
+(`test/shared/ExpectRed.cs`; `VOLT_EXPECT_RED_TRACE=<file>` writes each red body's reason). `Volt.Engine.Tests/one-to-one`:
+80 tests, **76 red** (finding 1: 19, 2: 3, 3: 38, 4: 12, 5: 1, 8: 3) + 4 green guards (a `%`-line that is no closed key —
+`%QB1`, `%qx0.0`, `%CLASSIC` — stays code; an abstract method's EMPTY body still pulls NONE). Drivers:
+`CodesysOneToOneRedTests` 11 red (text-list class, external event, disabled-watchdog values ×2, missing task member,
+bare `Watchdog: off`, GET/SET by `IsGet`, whitespace body, null `Text`, guid/handle defaults, library defaults),
+`TcOneToOneRedTests` 4 red (TaskDef members, whitespace body, null declaration / implementation). Live
+(`test/e2e/one-to-one/one-to-one.test.ts`, `it.failing`): CODESYS **10** (check function class on pull and on create —
+asserted on the IDE's own `export_native`, since a `%CLASS` line the push writes into a body reads back verbatim —, text-list
+enum, persistent list + second refused, NVL create refused, abstract member rename keeps its object (native GUIDs),
+excluded POU, External event, call comment, standalone transition), TwinCAT **2** (`%CLASS CHECK` and
+`%EXCLUDE_FROM_BUILD` refused by name — measured accepted today and written into the body as code); all red, verified
+live. Fixture objects authored by `scripts/author-one-to-one-fixture.py` into a fixture of their own,
+`test/fixtures/CodesysOneToOne.project` (a copy of CodesysTestProject; review fix, below)
+(build clean): `CheckDivDInt` (not `CheckBounds`: `create-each-class` creates that one in a fresh copy of this fixture),
+`VltOto_TextEnum`, `VltOto_AbsBase.Pick`, `VltOto_Excluded`, `VltOto_ExtTask` (calls `VltOto_ExtCalled`: a task calling
+nothing is a build warning), `VltOto_CommentTask` → `VltOto_Called // runs first`, `VltOto_Trans`; NO persistent list
+(one per application — `create-each-class` creates one, and a second would turn its committed fact into a refusal).
+
+**Review fixes (step 2, 2026-10-13).** (a) **The authored objects moved out of `CodesysTestProject.project`** into
+`test/fixtures/CodesysOneToOne.project`, and CodesysTestProject went back to its committed bytes: that file is the HOST
+project of the LSP oracle recorders (`record-exec.ts`'s default, `record:language` through `ide.ps1`) — the check function
+`CheckDivDInt` would intercept every DINT division of every recorded fixture (a division by zero answering x/1 instead of
+stopping the task) and collide with `implicit-checks.ts`'s own `CheckDivDInt` — and the fixture the committed vendor-facts
+rows were measured on (`task-config-survives-delete` / `task-create` / `task-writable` read the Task Configuration's
+children: two more tasks would rewrite C22's last-task evidence). The live one-to-one suite and the completeness oracle
+serve CodesysOneToOne (`ide.ps1 -Fixture`, `vendor-facts.ts ide(…, "CodesysOneToOne")`). (b) **A known failure is keyed by
+member AND kind** (`<vendor>:<class>.<member> — <kind>`; value-free kinds: `changed by the create`, `a trailing newline
+folded by the update`, `lost by the create`, `create refused (<subject>): <codes>`, …): a known folded newline no longer
+hides a dropped line, and an unsupported body's refused create no longer hides any other subject's. (c) **A refused UPDATE
+is a finding** (`<class>.$update — update refused (<subject>): <codes>`) — a refused write reads back unchanged. (d) **An
+unreadable archive value is `{"$unreadable": why}`** (a raised `GetSerializableValue`, `meta.Properties` included; past
+the walk's depth; a CLR object with no archive whose ToString names only its class — one whose ToString says more,
+`System.Version` / `DateTime` / …, is that text) and a finding wherever the member is compared. (e) **No `Implementation.*`
+scope wildcard on CODESYS** (the core reads a graphical body as its class alone, so it matched exactly the ST members it
+skipped); TwinCAT's scope is the `NWL` / `CFC` / `SFC` elements only. (f) **`SYSTEM true` pinned** on the CODESYS driver
+(`A_system_placeholder_reference_pulls_SYSTEM_true`, `WireParityCases.SystemPlaceholderLibrary`), the other half of "spelled
+only where true". (g) **`ExpectRed` is red only for an assertion** (`Xunit.Sdk.XunitException`) **or the product exception a
+mark names** (`Until<TaskDescriptorException>`, the 8 descriptor-label marks); any other exception fails the test
+(`ExpectRedTests`); the TwinCAT TaskDef mark asserts exactly one more line, an AutoStart label carrying `false`. (h) **The
+abstract-member rename test runs LAST** in its block and a guard test first fails a served copy an earlier run already
+renamed (today's delete + create re-makes `Pick` plain — verified live: the second run on one copy fails the guard).
+The oracle re-run on both vendors after (a)-(e): CODESYS **130** member/kind pairs (the 120 members above, split by kind and subject: the trailing newline also folded by the CREATE on 7 classes, 3 more refused creates — `VltFixtureCfc`, `VltFixtureSfc` and Pro2193's `SetErrorFB` beside `VltFixtureMembers` —, and the external event also moved by the CREATE: `TaskObject.Event — changed by the create`), TwinCAT **8** (5 refused creates instead of 1 key: `ladderLabel`, `VltFixtureCfc`, `VltFixtureMembers`, `VltFixtureSfc` UNSUPPORTED, and `POUexecute` `NETWORK_UNSUPPORTED` — a refusal the old key hid); no unreadable value and no undecided `Implementation` member on either vendor; `--write-known`, then a verify run each: 0 unexpected, 0 stale.
+
+**Review fixes (gate step 2, 2026-10-13)** — all seven findings held; none skipped; each got its failing test first
+(`test/unit/completeness.test.ts` 18 → 32, `ExpectRedTests` 4 → 5). (1) **A known entry lists the SUBJECTS that fail it**
+(`<project>/<wire>`: `CodesysOneToOne/…`, `Pro2193/…`, `Project14/…` — two projects may hold one name), and the verdict
+is per subject: a failure of a subject the entry does not list is unexpected, a listed subject the run RAN that passes
+is stale, a subject not run is judged for nothing — whatever the kind (the old rule read a subject only out of refusal
+kinds, so `--only VltOto_ExtTask.task` called VltOto_CommentTask's call-comment entries stale). (2) **A refusal's kind
+keeps its markers** (`create refused: UNSUPPORTED [partiallyApplied] [remains]`, `[renamedTo]` value-free) and the
+subject left the kind (it is the entry's subject list); a refused create that left the item listed on the wire is
+adopted and its archive judged member by member (`refusedCreateFindings`). (3) **The TwinCAT archive reads the file
+byte-exact**: `XmlTextReader` with `Normalization = false` (no CRLF → LF), whitespace kept, a `#text` the element's
+Text / CDATA / significant-whitespace nodes verbatim, UTF-8 only (another declared encoding, or invalid bytes, refused
+by name); the framing `[xml]` dropped is three decided members, `$file#bom`, `$file#declaration`, `$file#comments`
+(spelled: the IDE writes them; a push must reproduce them). (4) **`--write-known` rewrites only the subjects the run
+ran** (`mergeKnown`; other subjects' entries and the other vendor's kept). (5) **No silent empty read**: CODESYS
+`_snames` tells "no archive" (no `SerializableValueNames` member) from one that raises or is null (`_Unreadable`); an
+object or meta whose names cannot be read carries `$names` / `meta.$names` = `$unreadable`, a node whose children
+cannot be listed `$children` = `$unreadable`, `meta.Properties` is read by reflection that fails loud; the oracle
+checks unreadable BEFORE undecided, so those markers fail as `unreadable`; the `objects` read fails loud on an
+unreadable property list or build flag (CODESYS) or an unreadable file (TwinCAT `ObjectsRead`: no `catch { $null }`).
+(6) **The dead per-member compare of a clean refused create is gone** (the refusal is the one finding — every member
+went with the object); a wire item of a judged kind (`.pou` `.dut` `.itf` `.gvl` `.task`) that no class
+`CS_ITEM_EXT` / `TC_ITEM_EXT` knows maps to is reported `UNCOVERED` and fails the run. (7) **`ExpectRed.Until<TRed>`
+takes the reason** (`because`, a substring of the refusal's message: `'Core' is not a task field`): the same exception
+type thrown for another reason — a label written twice, a missing `Type:`, another unknown label — propagates.
+Re-run on instance `bridge-one-to-one` (`--write-known` from an empty list, then a verify run; then `codesys --only
+VltOto_ExtTask.task`): CODESYS 28 subjects, **127 member/kind keys over 18 classes** (the 130 above with the four
+subject-named refused-create keys now one `create refused: UNSUPPORTED` key listing its subjects), TwinCAT 12
+subjects, **5 keys** (the 8 above, same merge) — the key set identical to the previous list once the subject left the
+refusal kinds; **234 subject pairs** (verify runs: CODESYS 226 expected, TwinCAT 8; 0 unexpected, 0 stale, 0 uncovered; the `--only` run: 3 expected, 0 stale, exit 0); no unreadable value, no uncovered item, no partial create, and no new TwinCAT
+finding from the byte-exact read (Project14's files keep CRLF through an update and a create; the one folded
+trailing newline now reads `\r\n`).
+
+**The parity gate (2.3).** `test/shared/WireParityCases.cs` (one constant per case) asserted by
+`CodesysWireParityTests` / `TcWireParityTests`: stub manifests (CODESYS green, TwinCAT red ×2: `Name=<name>`), a
+non-system placeholder library (red on both: `SYSTEM false`), an interface property GET (green on both). Live
+(`vendor-parity.test.ts`): library SYSTEM `.failing` (red, verified), interface GET green on both, stub manifests SKIPPED —
+neither fixture serves a visualization or a text list (no witness; the offline twin is the gate until one does).
+**One decision taken to state the parity constant**, for the owner: `SYSTEM` is spelled only where it is TRUE (§1.2's
+flag rule; TwinCAT has no such member, C37), so a CODESYS non-system reference reads like TwinCAT's.
+
 ## 0.1 Schema census (measured 2026-10-13)
 
 ### Method

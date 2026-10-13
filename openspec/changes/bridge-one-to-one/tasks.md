@@ -145,12 +145,61 @@
 
 ## 2. Oracles, red first
 
-- [ ] 2.1 A completeness oracle per item kind: vendor object → text → push into a blank copy → re-read reproduces every
+- [x] 2.1 A completeness oracle per item kind: vendor object → text → push into a blank copy → re-read reproduces every
       non-cache member; a member the table does not list fails by name.
-- [ ] 2.2 Red tests, one per audit finding (proposal 1-8), on FakeIde and on live e2e fixtures (CheckBounds, NVL, persistent
+
+      `scripts/completeness.ts` + `disposition.table.ts` (§1.1 as data) + `completeness.known.ts`; the cores gained
+      `archive` and `objects` reads (design §2.R). Run 2026-10-13 on instance `bridge-one-to-one`, each vendor twice (write,
+      then verify: 0 unexpected, 0 stale): CODESYS 28 subjects (CodesysTestProject + Pro2193 copies) → **120 failing
+      members over 18 classes** (60 lost by a create — build properties on items and members, the call comment, the
+      external event, the text list —, 4 classes lost, 16 folded trailing newlines, 20 held-but-not-refused, 18 unmeasured
+      caches, 1 update that MOVES an external event into `Event`); TwinCAT 12 subjects (Project14) → **4**. Offline logic
+      `test/unit/completeness.test.ts` (18). Not exercised: NVL, sender GVL, FileLink, parameter list (no committed
+      fixture holds them).
+
+      **Review fixes (gate step 2, 2026-10-13)** — all seven findings held; none skipped; each got its failing test
+      first (`test/unit/completeness.test.ts` 18 → 32 tests, `ExpectRedTests` 4 → 5). Details: design.md §2.R.
+      1. Stale judged per SUBJECT: `completeness.known.ts` entries list the subjects (`<project>/<wire>`) that fail
+         them; an `--only` run judges no other subject's entry, whatever its kind (live: `codesys --only
+         VltOto_ExtTask.task` → 3 expected, 0 stale, exit 0).
+      2. A refusal's kind keeps its markers (`[partiallyApplied]` / `[remains]` / `[renamedTo]`); a refused create
+         that leaves the item behind is adopted and judged (`refusedCreateFindings`).
+      3. TwinCAT archive byte-exact: no end-of-line normalization (`XmlTextReader.Normalization = false`), UTF-8 only,
+         `$file#bom` / `$file#declaration` / `$file#comments` decided (spelled).
+      4. `--write-known` rewrites only the subjects the run ran (`mergeKnown`).
+      5. No silent empty read: `$names` / `meta.$names` / `$children` = `$unreadable` (CODESYS `_snames` / `_children`
+         / `meta.Properties` by reflection that fails loud), checked before undecided; the `objects` read fails loud
+         on both vendors (TwinCAT `ObjectsRead` lost its `catch { $null }`).
+      6. The dead compare of a clean refused create removed; a judged-kind wire item no known class maps to is
+         `UNCOVERED` and fails the run.
+      7. `ExpectRed.Until<TRed>(task, finding, because, body)`: the named exception is the red only when its message
+         holds the reason (the 8 descriptor-label marks name `'<label>' is not a task field`).
+
+      Re-run on instance `bridge-one-to-one` (`--write-known` from an empty list, then a verify run each): CODESYS 28
+      subjects → **127 keys / 226 subject pairs**, TwinCAT 12 → **5 keys / 8 pairs** — the previous 130 + 8 keys
+      exactly, with the subject moved out of the four refused-create kinds; 0 unexpected, 0 stale, 0 uncovered, no
+      unreadable value, no partial create, no new TwinCAT finding from the byte-exact read.
+      Gate (oracle/test-tool step: no fixture or transpiler change, fixture map untouched): typecheck green (5
+      packages), `openspec validate` valid, full LSP suite with `VOLT_REQUIRE_FULL=1` and `VOLT_FIXTURES` unset
+      **10146 pass, 0 fail** (34 skip, 428 todo, 360 files, 786 s), volt-cli `test/unit` 112/112, C# `Volt.Engine.Tests`
+      2456 pass, 0 fail (1 skip), `Volt.Ide.Codesys.Tests` 334, `Volt.Ide.Twincat.Tests` 461, `Volt.Cli.Tests` 266,
+      `Volt.Connector.Tests` 119, `Volt.Contracts.Tests` 34, `Volt.Repo.Gates` 160 — all green.
+- [x] 2.2 Red tests, one per audit finding (proposal 1-8), on FakeIde and on live e2e fixtures (CheckBounds, NVL, persistent
       list, text-list enum, abstract member rename, excluded POU, ExternalEvent task, call comment, transition).
-- [ ] 2.3 A wire-parity gate: the same declaration gives byte-identical text on both vendors (stub manifests, library
+
+      `ObjectProperties` record + `FakeIde.Item.Properties` + `ExpectRed` (test/shared). Engine
+      `test/Volt.Engine.Tests/one-to-one`: 76 red + 4 green guards; drivers: CODESYS 11 red, TwinCAT 4 red; live
+      `test/e2e/one-to-one`: CODESYS 10 `.failing`, TwinCAT 2 — all verified red live. Fixture objects authored by
+      `scripts/author-one-to-one-fixture.py` into a copy of CodesysTestProject committed as `test/fixtures/CodesysOneToOne.project`
+      (never CodesysTestProject itself: the LSP recorders' host and the vendor-facts rows' fixture — design §2.R review fixes; build clean; the check function is `CheckDivDInt`, no
+      persistent list — design §2.R says why). (6) closed by measurement: no test.
+- [x] 2.3 A wire-parity gate: the same declaration gives byte-identical text on both vendors (stub manifests, library
       SYSTEM, interface accessors).
+
+      `test/shared/WireParityCases.cs` asserted by both drivers' doubles (stub manifests TwinCAT red ×2, library SYSTEM
+      red on both, interface GET green on both); live `vendor-parity.test.ts`: library SYSTEM `.failing`, interface GET
+      green, stub manifests skipped (no witness in either fixture). Decision for the owner: `SYSTEM` spelled only when
+      true (design §2.R).
 
 ## 3. Build (refactor freely — owner)
 

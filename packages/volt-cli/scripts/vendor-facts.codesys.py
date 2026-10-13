@@ -13,7 +13,8 @@
 #
 # It implements the table's closed vocabulary ONCE (vendor-facts.table.ts): the steps that are not a push (create, find,
 # setText, rename, move, delete, open, close, build, reload, invoke, tryNames) and every read (member, class, guid,
-# parent, children, signature, parse, same, diagnostics, process, tried). No fact has a code path of its own here.
+# parent, children, signature, parse, same, diagnostics, process, tried, and the completeness oracle's archive and objects).
+# No fact has a code path of its own here.
 #
 # A VENDOR exception during a step is the step's outcome - `refused: <its words>` - because that IS the fact. A probe
 # fault (an unknown op, a handle that is not there, a malformed path) is a ProbeError and becomes <seq>.error: the runner
@@ -816,8 +817,313 @@ def _process(what):
     raise ProbeError("CODESYS has no '%s' process read" % what)
 
 
+# ---- the archive (openspec bridge-one-to-one 2.1: the completeness oracle) ----------------------------------------
+#
+# The vendor's OWN archive of an object - what CODESYS writes into the `.project` - read the way the 0.1 census read it
+# (the census walk made permanent): `SerializableValueNames` / `GetSerializableValue` of the object, of its IMetaObject
+# and of every IObjectProperty in `meta.Properties`, recursively into archived sub-objects. Flattened to member PATHS in
+# the census notation (`meta.Properties[BuildProperty].ExcludeFromBuild`, `TextListObject.TextList[3].TextID`,
+# `Interface.TextDocument.LineInfoPersistence`), one value each: a GUID `{"$guid": ...}`, an enum its name, an archived
+# object `<its class>` (then its members), a list `<its class>` + `#count` + `[i]`, a dictionary the same keyed by its
+# keys, a byte array `bytes(<n>) <sha1>`. Two additions the archive does not hold: `$class` (the object's class) and a
+# TextDocument's `Text` (the text the aspect holds - what Volt spells; it travels outside the archive). A graphical
+# implementation (NWL / CFC / SFC) is its class alone: its members are `ld-fbd-coverage`'s.
+#
+# A value the walk cannot READ is never flattened to a placeholder that compares equal whatever it holds: it is
+# `{"$unreadable": "<why>"}`, which the oracle fails by name wherever the member is compared - a GetSerializableValue
+# that raised (`meta.Properties` included), a value below the walk's depth, and a CLR object with no archive that is no
+# list either and whose ToString names only its class. One whose ToString says more (System.Version, DateTime,
+# TimeSpan, ...) is that text: `<its class> <ToString>`. The same holds one level up: an object whose archive NAMES
+# cannot be read is `$names` (`meta.$names` for its IMetaObject) = `$unreadable`, never an archive of `$class` alone that
+# compares equal before and after; a node whose children cannot be listed carries `$children` = `$unreadable`, never an
+# empty subtree on both sides; a member read by reflection that is missing or raises is `$unreadable`, never `[]` / 0.
+
+_ARCHIVE_DEPTH = 8
+_OPAQUE_IMPL = ("NWLImplementationObject", "CFCImplementationObject", "SFCImplementationObject")
+
+
+def _cls(o):
+    n = _type_name(o)
+    return n[len("_3S.CoDeSys."):] if n.startswith("_3S.CoDeSys.") else n
+
+
+class _Unreadable(Exception):
+    """A member the walk could not read - its message is the `$unreadable` reason."""
+
+
+def _member(o, name):
+    """A property by reflection (the type's, else an interface's - explicit implementations live only there). Raises
+    _Unreadable when no such property exists or reading it raises: never None for a failure (vp.prop answers None for
+    both, which is indistinguishable from a null value)."""
+    try:
+        t = o.GetType()
+    except Exception as e:
+        raise _Unreadable("<%s>: no CLR type (%s)" % (type(o).__name__, e))
+    p = t.GetProperty(name, vp.bf())
+    if p is None:
+        for i in t.GetInterfaces():
+            p = i.GetProperty(name)
+            if p is not None:
+                break
+    if p is None:
+        raise _Unreadable("<%s> has no %s" % (t.FullName, name))
+    try:
+        return p.GetValue(o, None)
+    except Exception as e:
+        raise _Unreadable("<%s>.%s raised: %s" % (t.FullName, name, e))
+
+
+def _has_member(o, name):
+    try:
+        t = o.GetType()
+    except Exception:
+        return False
+    if t.GetProperty(name, vp.bf()) is not None:
+        return True
+    return any(i.GetProperty(name) is not None for i in t.GetInterfaces())
+
+
+def _snames(o):
+    """The archive's member names; None when the value HAS no archive (no SerializableValueNames member: a list, a
+    dictionary, a plain CLR value). Raises _Unreadable when it has one that cannot be read (raised, or null)."""
+    if not _has_member(o, "SerializableValueNames"):
+        return None
+    names = _member(o, "SerializableValueNames")
+    if names is None:
+        raise _Unreadable("<%s>.SerializableValueNames is null" % _cls(o))
+    return [str(n) for n in names]
+
+
+def _unreadable(why):
+    return {"$unreadable": why}
+
+
+def _sget(o, n):
+    ok, v = vp.call(o, "GetSerializableValue", [n])
+    if not ok:
+        return _unreadable("GetSerializableValue(%s) raised: %s" % (n, v))
+    return v
+
+
+def _sha1(data):
+    h = System.Security.Cryptography.SHA1.Create().ComputeHash(data)
+    return "".join("%02x" % b for b in h)
+
+
+def _flat(path, v, out, depth):
+    if v is None:
+        out[path] = None
+        return
+    if isinstance(v, dict):
+        out[path] = v                           # {"$unreadable": ...} from _sget
+        return
+    if isinstance(v, bool):
+        out[path] = v
+        return
+    if isinstance(v, (int, long, float)):
+        out[path] = v
+        return
+    if isinstance(v, basestring):
+        out[path] = unicode(v)
+        return
+    try:
+        t = v.GetType()
+    except Exception as e:
+        out[path] = _unreadable("<%s>: no CLR type (%s)" % (type(v).__name__, e))
+        return
+    if t == clr.GetClrType(System.Boolean):
+        out[path] = bool(v)
+        return
+    if t == clr.GetClrType(System.Guid):
+        out[path] = {"$guid": str(v)}
+        return
+    if t.IsEnum:
+        out[path] = str(v)
+        return
+    if t.IsPrimitive or t == clr.GetClrType(System.Decimal):
+        out[path] = _render(v)
+        return
+    if t == clr.GetClrType(System.String):
+        out[path] = unicode(v)
+        return
+    if t.IsArray and t.GetElementType() == clr.GetClrType(System.Byte):
+        out[path] = "bytes(%d) %s" % (v.Length, _sha1(v))
+        return
+    cn = _cls(v)
+    if depth >= _ARCHIVE_DEPTH:
+        out[path] = _unreadable("<%s>: deeper than %d" % (cn, _ARCHIVE_DEPTH))
+        return
+    try:
+        names = _snames(v)
+    except _Unreadable as e:
+        out[path] = _unreadable(str(e))
+        return
+    if names is not None:
+        out[path] = "<%s>" % cn
+        if any(cn.endswith(x) for x in _OPAQUE_IMPL):
+            return
+        for n in names:
+            _flat(path + "." + n, _sget(v, n), out, depth + 1)
+        if path.endswith("TextDocument"):
+            out[path + ".Text"] = unicode(vp.prop(v, "Text"))
+        return
+    if isinstance(v, System.Collections.IDictionary):
+        out[path] = "<%s>" % cn
+        keys = list(v.Keys)
+        out[path + "#count"] = len(keys)
+        for k in keys:
+            _flat("%s[%s]" % (path, str(k)), v[k], out, depth + 1)
+        return
+    if isinstance(v, System.Collections.IEnumerable):
+        items = list(v)
+        out[path] = "<%s>" % cn
+        out[path + "#count"] = len(items)
+        for i, x in enumerate(items):
+            _flat("%s[%d]" % (path, i), x, out, depth + 1)
+        return
+    # No archive, no list: the value is what its ToString says - when that says more than the class's name.
+    try:
+        text = unicode(v.ToString())
+    except Exception as e:
+        out[path] = _unreadable("<%s>: no archive, not a list, and ToString raised: %s" % (cn, e))
+        return
+    if text in (t.FullName, t.Name, cn):
+        out[path] = _unreadable("<%s>: no archive, not a list, and its ToString names only its class" % cn)
+        return
+    out[path] = "<%s> %s" % (cn, text)
+
+
+def _archive_names(o, marker, out):
+    """The archive names of the object or its meta, or [] with `marker` = `$unreadable` (never an empty archive in
+    silence: no names, or names that raise, is a finding wherever the oracle compares it)."""
+    try:
+        names = _snames(o)
+    except _Unreadable as e:
+        out[marker] = _unreadable(str(e))
+        return []
+    if names is None:
+        out[marker] = _unreadable("<%s>: no archive (no SerializableValueNames)" % _cls(o))
+        return []
+    return names
+
+
+def _archive_object(o):
+    meta, obj = _iobject(o)
+    out = {"$class": _cls(obj)}
+    for n in _archive_names(meta, "meta.$names", out):
+        val = _sget(meta, n)
+        if n == "Properties" and not isinstance(val, dict):
+            # The archive holds them as a dictionary keyed by the property's type GUID; the meta object hands them out
+            # as a list - each property by its class, which names it (one property of a class per object).
+            try:
+                props = _member(meta, "Properties")
+            except _Unreadable as e:
+                out["meta.Properties"] = _unreadable(str(e))
+                continue
+            props = list(props) if props is not None else None
+            if props is None:
+                out["meta.Properties"] = None
+                continue
+            out["meta.Properties#count"] = len(props)
+            out["meta.Properties[]"] = sorted(_cls(p) for p in props)
+            for p in props:
+                _flat("meta.Properties[%s]" % p.GetType().Name, p, out, 1)
+        else:
+            _flat("meta." + n, val, out, 1)
+    for n in _archive_names(obj, "$names", out):
+        _flat(n, _sget(obj, n), out, 1)
+    return out
+
+
+def _children(node):
+    """(children, None), or (None, why) when the node's children cannot be listed - never [] for a failure."""
+    try:
+        return list(node.get_children()), None
+    except Exception as e:
+        return None, "get_children raised: %s" % e
+
+
+def _archive(on):
+    """The subject's archive and every descendant's, keyed by its path of names below the subject ("" = the subject).
+    Two siblings of one name (a task calling one program twice) are told apart by `#<n>`."""
+    res = {"": _archive_object(_resolve(on))}
+
+    def rec(node, prefix):
+        kids, why = _children(node)
+        if kids is None:
+            res[prefix[:-1] if prefix else ""]["$children"] = _unreadable(why)
+            return
+        seen = {}
+        for c in kids:
+            n = c.get_name()
+            seen[n] = seen.get(n, 0) + 1
+            key = prefix + n + ("" if seen[n] == 1 else "#%d" % seen[n])
+            res[key] = _archive_object(c)
+            rec(c, key + "/")
+    rec(_resolve(on), "")
+    return res
+
+
+def _objects():
+    """Every object of the open project the object manager lists: its name, class, guid, parent guid, its property
+    classes and - where it has one - its BuildProperty's flags. What the completeness runner picks its subjects from."""
+    om = vp.object_manager()
+    ok, guids = vp.call(om, "GetAllObjects", [_project_handle()])
+    if not ok:
+        raise ProbeError("GetAllObjects: %s" % guids)
+    out = []
+    for g in guids:
+        meta = _meta(g)
+        if meta is None:
+            continue
+        obj = vp.prop(meta, "Object")
+        # Read by reflection that FAILS LOUD: a property list or a build flag that cannot be read would silently drop
+        # a feature from the subject pick (vp.prop answers None for a failure).
+        try:
+            props = list(_member(meta, "Properties") or [])
+            build = None
+            for p in props:
+                if p.GetType().Name == "BuildProperty":
+                    build = {"exclude": bool(_member(p, "ExcludeFromBuild")),
+                             "linkAlways": bool(_member(p, "LinkAlways")),
+                             "reserve": int(str(_member(p, "MemoryReserveForOnlineChange")))}
+        except _Unreadable as e:
+            raise ProbeError("objects: %s (%s): %s" % (vp.prop(meta, "Name"), g, e))
+        out.append({"guid": str(g), "name": vp.prop(meta, "Name"), "class": _cls(obj) if obj is not None else None,
+                    "parent": str(_sget(meta, "ParentGuid")), "props": sorted(set(p.GetType().Name for p in props)),
+                    "build": build})
+    return out
+
+
+def _adopt(req):
+    """Keep `as` for the object named `name` - by its `guid` when the runner names one (two objects may share a name
+    across classes), else by its `cls` when it names one, else the one `_find` answers."""
+    guid = req.get("guid")
+    cls = req.get("cls")
+    if not guid and cls:
+        # By name AND class (one of `cls`: the classes of the wire kind - a create may make another class of it): a
+        # task and a device may share a name (Pro2193's 'Ethernet').
+        hits = [o for o in _proj().find(req["name"], True) if o.get_name() == req["name"] and _cls(_iobject(o)[1]) in cls]
+        if len(hits) != 1:
+            raise ProbeError("adopt '%s' (%s): %d objects of that name and class" % (req["name"], cls, len(hits)))
+        _keep(req["as"], hits[0], "adopted")
+        return
+    if not guid:
+        _keep(req["as"], _find(req["name"], None), "adopted")
+        return
+    for o in _proj().find(req["name"], True):
+        if str(_guid(o)) == guid:
+            _keep(req["as"], o, "adopted")
+            return
+    raise ProbeError("adopt '%s': no object named so has guid %s" % (req["name"], guid))
+
+
 def _read(r):
     op, on = r["op"], r.get("on")
+    if op == "archive":
+        return _archive(on)
+    if op == "objects":
+        return _objects()
     if op == "member":
         v = _eval(r["path"], on)
         if r["key"] not in _CACHE:
@@ -905,7 +1211,7 @@ def _handle(req):
     if kind == "path":
         return {"value": _path(req["on"])}
     if kind == "adopt":
-        _keep(req["as"], _find(req["name"], None), "adopted")
+        _adopt(req)
         return {}
     if kind == "cleanup":
         _cleanup()

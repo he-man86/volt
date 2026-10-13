@@ -10,7 +10,7 @@
 #
 # It implements the table's closed vocabulary ONCE, the same interface as the CODESYS core (vendor-facts.codesys.py):
 # the steps that are not a push (create, find, setText, rename, move, delete, reload, invoke, tryNames) and the reads
-# (member, class, guid, parent, children, xml, same, process, tried). `build` and `diagnostics` are the runner's on
+# (member, class, guid, parent, children, xml, same, process, tried, and the completeness oracle's archive and objects). `build` and `diagnostics` are the runner's on
 # TwinCAT (the bridge's own build: a DTE build out of process leaves every Output pane empty). No fact has a code path
 # of its own here.
 #
@@ -527,6 +527,128 @@ function XmlRead($item, [string]$xpath, $file) {
     $script:RV = $list
 }
 
+# ---- the archive (openspec bridge-one-to-one 2.1: the completeness oracle) ----
+# The vendor's OWN archive of an item - the FILE TwinCAT stores it in (its backing .TcPOU/.TcDUT/.TcGVL/.TcIO/.TcTTO,
+# every element and attribute) and its `.plcproj` `<Compile>` entry - the 0.1 census walk made permanent. Paths in the
+# census notation: `TcPlcObject/POU/@SpecialFunc`, `TcPlcObject/POU/Declaration#text`; an element with a `Name`
+# attribute is `Method[Run]`, a repeated unnamed sibling `LineId[2]`; a graphical implementation (anything but ST under
+# `Implementation`) is its element alone (ld-fbd-coverage's); an `ObjectProperties` carrier its element and the SHA-1 of
+# its inner XML. `$class` is `<extension>.<object element>` (`TcPOU.POU`). Into $script:RV, keyed "" (one file holds the
+# item and its members).
+#
+# BYTE FIDELITY of the stored text (review fix, gate step 2): the file is parsed WITHOUT end-of-line normalization
+# (`[xml]` turns every CRLF of a text and a CDATA into LF, so a push that rewrote a CRLF body as LF compared equal), and
+# the framing `[xml]` drops is read as members of its own: `$file#bom`, `$file#declaration` (encoding included) and
+# `$file#comments`. A `#text` is the element's Text / CDATA / significant-whitespace nodes, verbatim - the formatting
+# whitespace between elements is no content.
+function Sha1([string]$s) {
+    $h = [Security.Cryptography.SHA1]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($s))
+    return -join ($h | ForEach-Object { $_.ToString("x2") })
+}
+
+function TextOf($el) {
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($n in $el.ChildNodes) {
+        if ($n.NodeType -eq "Text" -or $n.NodeType -eq "CDATA" -or $n.NodeType -eq "SignificantWhitespace") {
+            [void]$sb.Append($n.Value)
+        }
+    }
+    return $sb.ToString()
+}
+
+# A file as the vendor stored it: UTF-8 only (any other declared encoding is refused by name), invalid bytes refused,
+# no end-of-line normalization, whitespace kept. Answers the document and its BOM.
+function ReadXmlExact([string]$path) {
+    $bytes = [IO.File]::ReadAllBytes($path)
+    $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+    $skip = $(if ($bom) { 3 } else { 0 })
+    try { $text = (New-Object System.Text.UTF8Encoding($false, $true)).GetString($bytes, $skip, $bytes.Length - $skip) }
+    catch { Fault "$([IO.Path]::GetFileName($path)) is not UTF-8: $($_.Exception.Message)" }
+    $r = New-Object System.Xml.XmlTextReader (New-Object System.IO.StringReader $text)
+    $r.Normalization = $false
+    $r.WhitespaceHandling = [System.Xml.WhitespaceHandling]::All
+    $r.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.PreserveWhitespace = $true
+    try { $doc.Load($r) } finally { $r.Close() }
+    $decl = $doc.ChildNodes | Where-Object { $_.NodeType -eq "XmlDeclaration" } | Select-Object -First 1
+    if ($decl -and $decl.Encoding -and $decl.Encoding -notmatch '^(?i)utf-8$') {
+        Fault "$([IO.Path]::GetFileName($path)) declares encoding '$($decl.Encoding)': only UTF-8 is read"
+    }
+    return @{ doc = $doc; bom = $bom; declaration = $(if ($decl) { $decl.OuterXml } else { $null }) }
+}
+
+function FlatXml($el, [string]$path, $out) {
+    $out[$path] = "(element)"
+    foreach ($a in $el.Attributes) { $out["$path/@$($a.Name)"] = [string]$a.Value }
+    $kids = @($el.ChildNodes | Where-Object { $_.NodeType -eq "Element" })
+    if ($kids.Count -eq 0) { $out["$path#text"] = TextOf $el; return }
+    if ($el.LocalName -eq "ObjectProperties") { $out["$path#xml"] = Sha1 $el.InnerXml; return }
+    $isImpl = $el.LocalName -eq "Implementation"
+    $count = @{}
+    foreach ($k in $kids) { $count[$k.LocalName] = 1 + [int]$count[$k.LocalName] }
+    $seen = @{}
+    foreach ($k in $kids) {
+        $seg = $k.LocalName
+        $nm = $k.GetAttribute("Name")
+        if ($nm) { $seg = "$seg[$nm]" }
+        elseif ($count[$k.LocalName] -gt 1) { $i = [int]$seen[$k.LocalName]; $seen[$k.LocalName] = $i + 1; $seg = "$seg[$i]" }
+        if ($isImpl -and $k.LocalName -ne "ST") { $out["$path/$seg"] = "(element)"; continue }
+        FlatXml $k "$path/$seg" $out
+    }
+}
+
+function PlcProjFile {
+    $plc = [string](PlcItem).Name
+    $dir = Split-Path -Parent $script:dte.Solution.FullName
+    $projs = @(Get-ChildItem -Path $dir -Recurse -Filter "$plc.plcproj" -File)
+    if ($projs.Count -ne 1) { Fault "$($projs.Count) files under $dir are named $plc.plcproj" }
+    return $projs[0]
+}
+
+function ArchiveRead($item) {
+    # What the IDE holds in memory reaches the file on save; the push writes through the IDE.
+    $script:dte.ExecuteCommand("File.SaveAll")
+    $file = BackingFile $item
+    if (-not $file -or -not (Test-Path $file)) { Fault "$($item.Name) has no backing file to read ($file)" }
+    $exact = ReadXmlExact $file
+    $doc = $exact.doc
+    $out = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    $out['$file#bom'] = [bool]$exact.bom
+    $out['$file#declaration'] = $exact.declaration
+    $out['$file#comments'] = [string[]]@($doc.SelectNodes("//comment()") | ForEach-Object { $_.Value })
+    $root = $doc.DocumentElement
+    $obj = @($root.ChildNodes | Where-Object { $_.NodeType -eq "Element" })[0]
+    $out['$class'] = "$([IO.Path]::GetExtension($file).TrimStart('.')).$($obj.LocalName)"
+    FlatXml $root $root.LocalName $out
+    $proj = PlcProjFile
+    $rel = ([IO.Path]::GetFullPath($file)).Substring(([IO.Path]::GetFullPath($proj.DirectoryName)).TrimEnd('\').Length + 1)
+    $pdoc = (ReadXmlExact $proj.FullName).doc
+    $entries = @($pdoc.SelectNodes("//*[local-name()='Compile']") | Where-Object { $_.GetAttribute("Include") -eq $rel })
+    if ($entries.Count -ne 1) { Fault "$($item.Name): $($entries.Count) Compile entries of $($proj.Name) name '$rel'" }
+    FlatXml $entries[0] "plcproj/Compile" $out
+    $all = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    $all[""] = $out
+    $script:RV = $all
+}
+
+# Every item below the PLC project root: name, tree code, path and the file it is stored in (null for one with none).
+function ObjectsRead {
+    $list = New-Object System.Collections.ArrayList
+    foreach ($c in (Walk (Single (Root)) 0)) {
+        $file = $null
+        # A file that cannot be read FAILS the read, naming the item - never an item silently dropped from the pick.
+        if ([int]$c.ItemType -ne 650) {
+            try { $file = FileOf $c } catch { Fault "objects: $($c.PathName): its FullPath cannot be read: $($_.Exception.Message)" }
+        }
+        # A task item (621) publishes no FullPath: its file is its .plcproj entry (BackingFile, which refuses by name).
+        if (-not $file -and [int]$c.ItemType -eq 621) { $file = BackingFile $c }
+        [void]$list.Add(@{ name = [string]$c.Name; itemType = [int]$c.ItemType; path = [string]$c.PathName
+                           file = $(if ($file) { [IO.Path]::GetFileName([string]$file) } else { $null }) })
+    }
+    $script:RV = $list
+}
+
 function GuidOf($item) {
     $file = FileOf $item
     if (-not $file -or -not (Test-Path $file)) { Fault "$($item.Name) has no backing file to read its Id from ($file)" }
@@ -578,6 +700,8 @@ function Do-Read($r) {
             $script:RV = $names
         }
         "xml" { XmlRead (Single (Resolve $on)) $r["xpath"] $r["file"] }
+        "archive" { ArchiveRead (Single (Resolve $on)) }
+        "objects" { ObjectsRead }
         "same" {
             if (-not $script:Cache.ContainsKey($r["as"])) { Fault "same: no earlier member read '$($r["as"])' in this row" }
             EvalPath $r["path"] $on

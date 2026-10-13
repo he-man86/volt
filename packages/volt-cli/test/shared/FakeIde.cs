@@ -55,6 +55,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         /// write that sends no body.</summary>
         public bool NoSlot { get; init; }
 
+        /// <summary>The object's PROPERTIES as the vendor holds them (openspec <c>bridge-one-to-one</c> §1.2: its class,
+        /// build properties, comment, network-variable settings, file link) — null for an object that has none, which
+        /// is <see cref="Volt.Engine.Item.ObjectProperties.None"/> to a reader. Kept on every in-place write, rename and
+        /// move, and NOT made by <c>CreateChild</c> (a create makes the plain object), so a push that replaced an object
+        /// instead of writing it shows as lost properties.
+        /// <para>Step 2 (oracles, red first): nothing reads or writes them yet — <c>ItemContent</c> has no field for
+        /// them until 3.1 — so every test that asks the pull to spell them, or the push to apply them, is red
+        /// (<c>ExpectRed</c>) until 3.1-3.5.</para></summary>
+        public Volt.Engine.Item.ObjectProperties? Properties { get; init; }
+
         /// <summary>A plain textual (ST) item — materializes via the declaration/implementation transports.
         ///
         /// <para>The TREE CODE — which CLASS of object the fixture describes — is derived from the declaration HERE,
@@ -1073,6 +1083,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// plain class, and for an item that is not there.</summary>
     public string? ClassOf(string bareName) => _items.SingleOrDefault(i => i.Name == bareName)?.Class;
 
+    /// <summary>The object properties (<see cref="Item.Properties"/>) the IDE holds for the item called
+    /// <paramref name="bareName"/> — null for an object with none, and for an item that is not there.</summary>
+    public Volt.Engine.Item.ObjectProperties? PropertiesOf(string bareName) =>
+        _items.SingleOrDefault(i => i.Name == bareName)?.Properties;
+
     /// <summary>The body the IDE STORES for an item — its own bytes, not what a read materializes from them. A body Volt
     /// does not show reads back as its UNSUPPORTED line whatever the fake stores, so "the push never wrote it" is only
     /// visible here.</summary>
@@ -1135,7 +1150,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
                            Held(Volt.Engine.Format.St.ImplementationMarker.Written(m.Body), bodies,
                                 new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
-                           null, null) { Class = existing?.Class, Children = existing?.Children };   // written in place: the class (C2l) and the accessors are kept
+                           null, null) { Class = existing?.Class, Properties = existing?.Properties, Children = existing?.Children };   // written in place: the class (C2l), the properties and the accessors are kept
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
 

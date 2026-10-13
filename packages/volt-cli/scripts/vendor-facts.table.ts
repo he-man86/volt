@@ -7,7 +7,7 @@
  *
  *   steps   create · find · setText · rename · move · delete · open · close · build · reload · invoke · tryNames
  *   reads   member · class · guid · parent · children · signature · parse · xml · same · diagnostics · process · absent
- *           · tried · fetched
+ *           · tried · fetched · archive · objects
  *
  * Every write names its path, `via: "push"` (one declarative op over the instance's pipe through the SHIPPED bridge —
  * what `volt push` sends; the runner does it) or `via: "script"` (the vendor API: CODESYS scripting, TwinCAT COM; the
@@ -174,6 +174,14 @@ export type Read = ReadBase &
      *  over the pipe, never by a core. The subject is a wire item (a POU, DUT, GVL or interface), not a member: a member's
      *  text is its owner's. */
     | { op: "fetched" }
+    /** The vendor's OWN archive of the subject and every descendant (openspec <c>bridge-one-to-one</c> 2.1, the
+     *  completeness oracle; the 0.1 census walk made permanent): CODESYS the object's, its IMetaObject's and every
+     *  IObjectProperty's `SerializableValueNames`, TwinCAT the backing file's elements and attributes plus its `.plcproj`
+     *  entry — flattened to `{ "<descendant path>": { "<member path>": value } }`, `""` the subject. */
+    | { op: "archive" }
+    /** Every object of the open project, with its class (CODESYS) or tree code (TwinCAT) — what the completeness runner
+     *  picks its subjects from. */
+    | { op: "objects" }
   )
 
 export type Row = {

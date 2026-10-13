@@ -21,6 +21,9 @@
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
+    <!-- The red-first mark (openspec bridge-one-to-one 2) and the wire-parity constants both drivers' doubles assert. -->
+    <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
+    <Compile Include="..\shared\WireParityCases.cs" Link="WireParityCases.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
     <!-- The one in-memory driver double, for the fetch tests that feed it this vendor's REAL parsed signatures
          (TcDirectedLibraryReadTests). -->

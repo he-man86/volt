@@ -1,4 +1,4 @@
-﻿# Live-bridge e2e — running it
+# Live-bridge e2e — running it
 
 This suite drives a **live IDE bridge** over the named pipe (the same wire the CLI uses). It is a **local tier**,
 not CI: it needs a real CODESYS or TcXaeShell running, so it can't run headless on a build agent. The *same* suite
@@ -76,6 +76,7 @@ Instead of running against whatever you happen to have open, the suite targets c
 | Fixture | Vendor | Use |
 |---|---|---|
 | `CodesysTestProject.project`, `testproject1.project` | CODESYS | single / multi-instance |
+| `CodesysOneToOne.project` | CODESYS | CodesysTestProject + the IDE-authored `bridge-one-to-one` objects (`one-to-one/`, the completeness oracle) |
 | `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild` (ST FB + **CFC method child**), `FB_FolderChild` (**action inside a folder**) |
 | `TwinCAT Project13/`, `TwinCAT Project14/` | TwinCAT | single / **multi-XAE** |
 
@@ -290,6 +291,17 @@ on a copy) and `scripts/author-hidden-member-fixture-tc.ps1` (TwinCAT, over the 
 The committed `.TcPOU` holds the SFC action as TwinCAT saves it after its first write: a freshly created SFC gains its
 default step attributes on that save (vendor-lazy, not a Volt write), so a baseline read before it compared a file the
 IDE had not written yet. It too must survive a fixture regeneration.
+
+**`one-to-one/one-to-one.test.ts` needs the bridge-one-to-one objects**, which live in a CODESYS fixture of their own,
+`test/fixtures/CodesysOneToOne.project` — serve it with `ide.ps1 up -Vendor codesys -Instance <name> -Fixture
+test/fixtures/CodesysOneToOne.project` (openspec `bridge-one-to-one` 2.2). Never author them into
+`CodesysTestProject.project`: it is the LSP oracle recorders' host project (a check function there intercepts every
+recorded DINT division) and the fixture the vendor-facts rows were measured on (extra tasks change the task rows). The objects: `CheckDivDInt` (a check function), `VltOto_TextEnum` (a text-list enum), `VltOto_AbsBase`
+with the abstract method `Pick`, `VltOto_Excluded` (excluded from the build), the tasks `VltOto_ExtTask` (ExternalEvent)
+and `VltOto_CommentTask` (a commented call of `VltOto_Called`), and the standalone transition `VltOto_Trans` under
+`VltFixtureSfc`. Authored by the IDE through its own Add Object path, `scripts/author-one-to-one-fixture.py` (`--runscript`
+on a copy of CodesysTestProject, saved as CodesysOneToOne and committed — Volt's push makes the plain class, the defect the tests pin). Its tests are expected
+failures (`it.failing`) until step 3 closes each; without the objects the CODESYS part skips, loudly.
 
 **`graphical/hidden-members.test.ts` needs a third: `VltFixtureMembers`**, an ST function block with a CFC method
 and an SFC action (Volt shows neither) beside an ST method, in both fixture projects. It proves the hidden MEMBERS

@@ -54,6 +54,17 @@ const cs = pipeFor("codesys")
 const tc = pipeFor("twincat")
 const BOTH = cs !== undefined && tc !== undefined
 
+/** Whether either fixture serves an item of a stub kind (a visualization, a text list) — the stub-manifest parity case's
+ *  witness (openspec bridge-one-to-one 2.3). Neither committed fixture holds one today (2026-10-13), so that case skips
+ *  naming why; the offline twin (`WireParityCases`, both drivers' doubles) is its gate until a fixture holds one. */
+const STUB_WITNESS = BOTH
+	? (await Promise.all([cs!, tc!].map(async (p) => Object.keys((await clientFor(p).refs()).items ?? {}))))
+			.flat()
+			.some((n) => /\.(visualization|text_list)$/.test(n))
+	: false
+if (BOTH && !STUB_WITNESS)
+	console.log("vendor-parity: the stub-manifest case SKIPPED — neither fixture serves a visualization or a text list")
+
 // Not a capability claim, and not permanent: this is the one suite that needs BOTH IDEs, and a normal run has
 // one. It prints why rather than vanishing — a silent skip is how the TwinCAT move test stayed off for an entire
 // implementation. Run it with `scripts/ide.ps1 up -Vendor codesys` AND `scripts/ide.ps1 up -Vendor twincat` together
@@ -190,6 +201,47 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			expect(text.split("\n").filter((l) => l === "IMPLEMENTATION NONE")).toHaveLength(3)
 			expect(text).toContain(`FUNCTION_BLOCK ABSTRACT ${bare}`)
 			expect(text).toContain("IMPLEMENTATION ST\nx := x + 1;")   // the abstract FB's own body is no member site
+		} finally {
+			await Promise.all([removeIfPresent(a, name), removeIfPresent(b, name)])
+		}
+	})
+
+	// ── openspec bridge-one-to-one 2.3: the wire-parity gate's live half (the offline twin is WireParityCases, asserted
+	// by both drivers' doubles). Red-marked until step 3 closes each; a fix that makes one pass fails it — drop `.failing`.
+
+	/** Every item of `ext` the bridge serves, with its text. */
+	async function served(c: PipeClient, ext: string): Promise<{ name: string; text: string }[]> {
+		const names = Object.keys((await c.refs()).items ?? {}).filter((n) => n.endsWith(`.${ext}`))
+		if (names.length === 0) return []
+		const f = await c.fetch({ knownItems: {}, onlyItems: names })
+		return (f.changed as any[]).filter((i) => i.name.endsWith(`.${ext}`)).map((i) => ({ name: i.name, text: i.sourceText }))
+	}
+
+	// A stub manifest is ONE form on both vendors: the kind alone (`ItemKind.EmptyManifest`). TwinCAT wrote `Name=<name>`.
+	;(STUB_WITNESS ? it.failing : it.skip)("every stub manifest (visualization, text list) is the kind alone, on both vendors", async () => {
+		for (const c of [a, b])
+			for (const [ext, kind] of [["visualization", "visualization"], ["text_list", "text_list"]] as const)
+				for (const row of await served(c, ext))
+					expect(`${row.name}: ${row.text.replace(/\r\n/g, "\n")}`).toBe(`${row.name}: ${kind}\n`)
+	})
+
+	// `SYSTEM` is CODESYS's member alone (TwinCAT has none, tc-library-system, C37): spelled only where it is true, so a
+	// non-system reference pulls the same on both vendors. TwinCAT hard-coded `SYSTEM false`; CODESYS spells `false` too.
+	it.failing("no library manifest spells SYSTEM false, and TwinCAT's spells no SYSTEM line at all", async () => {
+		for (const row of await served(a, "library")) expect(`${row.name}: ${/^SYSTEM false$/m.test(row.text)}`).toBe(`${row.name}: false`)
+		for (const row of await served(b, "library")) expect(`${row.name}: ${/^SYSTEM /m.test(row.text)}`).toBe(`${row.name}: false`)
+	})
+
+	// An interface property's GET: CODESYS holds an empty declaration, TwinCAT its measured constant PUBLIC/VAR/END_VAR,
+	// spelled as that same empty declaration (tc-itf-accessor-decl, D21/D41) — one text on both vendors.
+	it("an interface with a property GET pulls byte-identically on both vendors", async () => {
+		const bare = `${PREFIX}_par_itf`
+		const name = `${bare}.itf`
+		const src = `INTERFACE ${bare}\n\nPROPERTY Speed : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n`
+		try {
+			const [ra, rb] = await Promise.all([roundTrip(a, name, src), roundTrip(b, name, src)])
+			expect(rb.sourceText).toBe(ra.sourceText)
+			expect(ra.sourceText.replace(/\r\n/g, "\n")).toBe(src)
 		} finally {
 			await Promise.all([removeIfPresent(a, name), removeIfPresent(b, name)])
 		}

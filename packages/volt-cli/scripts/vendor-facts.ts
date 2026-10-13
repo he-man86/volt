@@ -59,6 +59,9 @@ const FIXTURES = join(HERE, "..", "test", "fixtures")
 /** The committed fixtures an `open` step may name. Only a committed fixture can be opened (design 0.1). */
 const FIXTURE_FILES: Record<string, string> = {
   CodesysTestProject: "CodesysTestProject.project",
+  // CodesysTestProject + the IDE-authored bridge-one-to-one objects (scripts/author-one-to-one-fixture.py) — its own
+  // file, so the rows measured on CodesysTestProject and the LSP recorders it hosts never see them.
+  CodesysOneToOne: "CodesysOneToOne.project",
   Pro2193: "Pro2193-94-95-96_COdesys.project",
 }
 /** Per-request timeouts. A request past it aborts the run — there is no retry. */
@@ -208,7 +211,7 @@ export type CoreRequest =
   | { kind: "step"; row: string; step: Step; fixturePath?: string }
   | { kind: "read"; row: string; read: ConcreteRead }
   | { kind: "path"; row: string; on: string }
-  | { kind: "adopt"; row: string; as: string; name: string }
+  | { kind: "adopt"; row: string; as: string; name: string; guid?: string; cls?: string[] }
   | { kind: "cleanup"; row: string }
 /** `made`: a create step whose object EXISTS although the step raised (its declaration write threw after the create) —
  *  the subject is kept, so reads reach the object that is there and cleanup removes it. */
@@ -225,6 +228,13 @@ export interface WireSide {
   cleanup(ctx: RowContext): Promise<void>
   /** After the IDE replaced its project (open, close, reload): make the bridge bind the project it now has. */
   rebind?(): Promise<void>
+  /** The shipped bridge's own ops, for a runner that addresses items by wire name rather than by a row's handles (the
+   *  completeness oracle, openspec bridge-one-to-one 2.1): each waits until a project is served, as the steps do. */
+  raw?: {
+    refs(): Promise<any>
+    fetchText(wire: string): Promise<string>
+    push(op: Record<string, unknown>): Promise<any>
+  }
 }
 export type RowDeps = { vendor: Vendor; core: (req: CoreRequest) => Promise<CoreAnswer>; wire: WireSide }
 
@@ -466,7 +476,7 @@ export function diffSnapshots(committed: Record<string, unknown>, measured: Reco
 // ── the live sides ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** A fresh copy of a committed fixture, under this instance's copy root (so the instance's resolver still owns it). */
-function fixtureCopy(vendor: Vendor, fixture: string): string {
+export function fixtureCopy(vendor: Vendor, fixture: string): string {
   const file = FIXTURE_FILES[fixture]
   if (!file) throw new Error(`no committed fixture '${fixture}'`)
   const dir = join(copyRoot(tmpdir(), vendor, INSTANCE), "vendor-facts")
@@ -491,7 +501,10 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 export const requestTimeout = (req: CoreRequest) =>
   req.kind === "step" && req.step.op === "tryNames"
     ? TIMEOUT_MS + 5_000 * req.step.names.length
-    : (req.kind === "step" && LONG_OPS.has(req.step.op)) || req.kind === "cleanup"
+    : (req.kind === "step" && LONG_OPS.has(req.step.op)) ||
+        req.kind === "cleanup" ||
+        // The completeness oracle's whole-project reads: every object of a 3363-object project (Pro2193) is minutes.
+        (req.kind === "read" && (req.read.op === "objects" || req.read.op === "archive"))
       ? LONG_TIMEOUT_MS
       : TIMEOUT_MS
 
@@ -518,7 +531,7 @@ export function windowsOf(pid: number): string {
 
 /** The CODESYS core: request files in `%LOCALAPPDATA%\volt-bridge\vendor-facts\<pid>\`, answered on the IDE's UI
  *  thread by `vendor-facts.codesys.py`. */
-function codesysCore(pid: number): { request: (req: CoreRequest) => Promise<CoreAnswer>; ready: () => Promise<void> } {
+export function codesysCore(pid: number): { request: (req: CoreRequest) => Promise<CoreAnswer>; ready: () => Promise<void> } {
   const dir = join(process.env.LOCALAPPDATA ?? "", "volt-bridge", "vendor-facts", String(pid))
   let seq = 0
   const wait = async (file: string, ms: number, what: string) => {
@@ -555,7 +568,7 @@ function codesysCore(pid: number): { request: (req: CoreRequest) => Promise<Core
 
 /** The TwinCAT core: ONE PowerShell process for the session, one JSON request per stdin line, one answer per stdout
  *  line marked `@@vf ` (anything else it prints is log). */
-function twincatCore(xaePid: number) {
+export function twincatCore(xaePid: number) {
   const ps = spawn(
     "powershell",
     [
@@ -750,6 +763,17 @@ export function wireSide(
     }
   }
   return {
+    raw: {
+      refs: async () => {
+        await serving()
+        return refs()
+      },
+      fetchText: async (wire) => {
+        await serving()
+        return fetchText(wire)
+      },
+      push,
+    },
     async step(s, ctx) {
       await serving()
       const r = await refs()
@@ -823,7 +847,9 @@ export function wireSide(
 
 // ── main ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-function ide(action: "up" | "down", vendor: Vendor): void {
+/** `codesysFixture`: the committed CODESYS fixture `up` serves (a `FIXTURE_FILES` name) — `ide.ps1`'s own default,
+ *  CodesysTestProject, when omitted. The completeness oracle serves `CodesysOneToOne`. */
+export function ide(action: "up" | "down", vendor: Vendor, codesysFixture?: string): void {
   const args = [
     "-NoProfile",
     "-ExecutionPolicy",
@@ -837,7 +863,14 @@ function ide(action: "up" | "down", vendor: Vendor): void {
     INSTANCE,
   ]
   if (action === "up") {
-    if (vendor === "codesys") args.push("-RunScript", join(HERE, "vendor-facts.codesys.py"))
+    if (vendor === "codesys") {
+      args.push("-RunScript", join(HERE, "vendor-facts.codesys.py"))
+      if (codesysFixture !== undefined) {
+        const file = FIXTURE_FILES[codesysFixture]
+        if (!file) throw new Error(`no committed fixture '${codesysFixture}'`)
+        args.push("-Fixture", join(FIXTURES, file))
+      }
+    }
     else args.push("-Fixture", "14")
     args.push("-Wait")
   }
