@@ -1,6 +1,6 @@
 # Design — bridge-one-to-one
 
-> **State.** §1 (step 1, tasks 1.1-1.3) holds the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
+> **State.** §1 (step 1, tasks 1.1-1.3) and §2 (step 2, tasks 2.1-2.3) hold the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
 > "candidate" there is decided in §1.
 
 ## 1. Design (decided 2026-10-13, step 1: tasks 1.1-1.3)
@@ -291,6 +291,57 @@ the TwinCAT core's XML read now answers an attribute's value (PowerShell's adapt
 | `editor-caches` | both | C35 | CODESYS `LineInfoPersistence` a key derived from the object GUID, `UniqueIdGenerator` a string, `Timestamp` Int64 — filled by a scripting create, build clean; TwinCAT writes its own `<LineIds>` into the saved file, build succeeds | caches: never spelled or written |
 | `watchdog-off-values` | both | C36 | CODESYS: a disabled watchdog keeps time `123`, unit `µs` (set off the default `ms`; gate 1) and sensitivity `3` across reload; the fixture's task as found: disabled, time `''`, unit `ms`, sensitivity `1`; TwinCAT `TaskDef` has 13 members and no watchdog / event | `Watchdog: off <time> <unit> (sensitivity <n>)`, `''` for an empty member; TwinCAT watchdog/event push refused |
 | `tc-library-system` | TwinCAT (CODESYS: census) | C37 | no system member on a TwinCAT placeholder (`LibItemName`, `PlaceholderName`, `Namespace`, `RelativePath`, `DefaultResolution`, `EffectiveResolution`); gate 1: the system xpaths (element and attribute) run on EACH of `Tc2_Standard`, `Tc2_System`, `Tc3_Module` and on `References` answer nothing, their `PlcLibPlaceholder` / `VSProperties` subtrees read whole; the fixtures' `.plcproj`s hold no system element (offline) | `SYSTEM` is CODESYS's; TwinCAT's hard-coded `false` deleted, a pushed `SYSTEM` line refused |
+
+## 2. Oracles, red first (decided 2026-10-13, step 2: tasks 2.1-2.3)
+
+**Target.** Before step 3 changes a line, every finding of the proposal (1-8) and every undecided member is a RED test
+that names it; step 3 turns them green one by one. A red test is an expected failure (bun `test.failing`; C#
+`ExpectRed.Until("<task>", finding)`, a helper that FAILS when its body passes — "finding N holds now, remove the
+mark"), so the suites stay green while the debt is visible and a fix cannot leave a stale mark behind.
+
+**2.1 Completeness oracle — the vendor's own archive, before and after, member by member.** Per item kind, on a fixture
+object of each class: read archive A (CODESYS: `SerializableValueNames` / `GetSerializableValue` of the object, its
+`IMetaObject` and every `IObjectProperty` — the census walk made permanent as a vendor-core `archive` read; TwinCAT: the
+saved file's elements and attributes plus its `.plcproj` entry), pull the item over the pipe, then push its text twice
+— as an UPDATE (same text onto the object) and as a CREATE (the object deleted, the text pushed under its name in the
+same project copy) — re-reading archive B after each. Every member of A is looked up in the disposition table
+(`scripts/disposition.table.ts`, §1.1 as data: `vendor → class → member → spelled <text form> | cache <vendor-facts
+row> | refused <reason>`): spelled must be equal in B, cache is skipped only when its cited row exists, refused must
+have refused the pull or push WITH the member's name; a member the table does not list fails as `<class>.<member>:
+undecided`. Runner `scripts/completeness.ts <vendor>` reuses the vendor-facts cores and instance handling (its own
+`ide.ps1` instance, `VOLT_VENDOR_FACTS_INSTANCE=bridge-one-to-one`); expected failures in
+`completeness.known.ts` keyed `<class>.<member>` with their finding — a listed entry that passes fails the run.
+Rejected: a second blank project per vendor (a fixture item references its neighbours' types, so a lone create in an
+empty project does not build, and it doubles IDE starts); comparing pulled TEXT only (text → text is blind to exactly
+the members the text does not carry — the proposal's whole defect); a new bridge `archive` op (test-only surface on the
+shipped wire — the vendor core already reads the IDE).
+
+**2.2 Red tests per finding, two layers** (the volt-cli two-layer rule). FakeIde (`Volt.Engine.Tests`, push/fetch
+services): 2.2 adds ONLY the `ObjectProperties` record (§1.2) and a FakeIde slot holding it, so the tests compile and
+fail until 3.1-3.5 read and write it — no reader, writer or driver change. One test per finding: class kept on create
+(1), re-type/rename keeps the object or refuses by name (2), excluded/link-always round-trip on `ItemContent` and
+`Member` (3), `External event:` / call comment / watchdog-off values (4), transition (5, refused by name: standalone 0 in
+the corpora), each fallback of (8) refused by name. (6) is closed by measurement (`tc-dut-create-reload`): no test.
+Live e2e (`test/e2e/one-to-one/*.test.ts`, `VOLT_E2E_INSTANCE=bridge-one-to-one`): CheckBounds, NVL, persistent list,
+text-list enum, abstract member rename, excluded POU, ExternalEvent task, call comment, transition — fixture objects
+authored through the vendor's own Add Object path by a single-use authoring script, saved by the IDE and committed
+(never hand-edited XML: vendor-serialization identity gate); the NVL (factory refused, C2r) on a copy of the corpus
+project that holds `CAN_TO_PLC`, or its test is the create refusal by name.
+
+**2.3 Wire-parity gate — live diff plus an offline twin.** `test/e2e/vendor-parity.test.ts` (both IDEs, already
+diffs `sourceText` exactly) gains stub manifest (visualization, text list), library `SYSTEM` and interface-accessor
+cases, red-marked. Because that suite needs two IDEs and never runs in CI, each driver's offline tests
+(`Volt.Ide.Codesys.Tests` / `Volt.Ide.Twincat.Tests`, their doubles) assert the SAME expected string from one shared
+constant per case. Rejected: offline only (doubles assert what we believe the vendor holds — fakes can assert a bug
+away); live only (invisible in CI).
+
+**Stays refused by name** (the oracle passes a refusal only when it names the member): NVL create (C2r), TwinCAT
+`%CLASS CHECK` on create/class change and any `SpecialFunc` but `None` (C2s), TwinCAT object-property keys and
+watchdog/event pushes, standalone transitions, every 0-occurrence class (niche: accepted loss).
+
+**Migration.** None in the text: step 2 adds tests, the record type, the authoring script, fixtures and the runner.
+Each step-3 task removes the marks of the findings it closes; 4.2 requires `completeness.known.ts` empty except
+entries whose reason is a named refusal or a niche.
 
 ## 0.1 Schema census (measured 2026-10-13)
 
