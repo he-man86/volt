@@ -14,7 +14,9 @@ formats, `TcXaeShell64` detection):
   `:215`); nothing ships or checks it, so on a CODESYS/TwinCAT-only PC every `volt init/pull/push/status` — and desktop
   sync and agents through volt-control — fails with a bare "cannot find the file". No `safe.directory` (git ≥2.35.2
   refuses a repo owned by Administrators or on a share) and no `core.longpaths` (deep `Library Manager/…` under OneDrive).
-  **Owner decision 2026-10-12/13: bundle MinGit** (Git for Windows' official redistributable), always used by Volt.
+  **Owner decision 2026-10-13: bundle MinGit** (Git for Windows' official redistributable) **for the full CLI install only** —
+  not in the bridge packages PLCAssist distributes (the bridge never runs git: "git should only be bundled for the
+  complete CLI, not for what PLCAssist uses").
 - **Breaks in a configuration:** the IDE elevated while Volt is not (TwinCAT: an elevated XAE's ROT entries are invisible,
   `RotInstances.cs:111-133`; CODESYS: the pipe's default DACL, `Volt.Wire/PipeServer.cs:78,157`); a 64-bit TwinCAT shell
   (4026, `TcXaeShell64`) never measured, its hierarchy read unknown; localized TwinCAT build output parsed in English
