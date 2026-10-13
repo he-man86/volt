@@ -137,14 +137,10 @@ export const KNOWN: Known = {
   },
   "twincat:TcPOU.POU.TcPlcObject/POU[]/Action[]/ObjectProperties#xml — held but not refused": {
     subjects: ["Project14/VltFixtureMembers.pou"],
-    why: "held (Project14/VltFixtureMembers.pou TcPlcObject/POU[VltFixtureMembers]/Action[SfcRun]/ObjectProperties#xml = \"1d0df49182a1337e5da11f1e7394d5cdca22b21b\") but neither the pull nor the push refused 'ObjectProperties'",
-  },
-  "twincat:TcPOU.POU.TcPlcObject/POU[]/Declaration#text — a trailing newline folded by the update": {
-    subjects: ["Project14/VltFixtureMembers.pou"],
-    why: "differs after the update (Project14/VltFixtureMembers.pou TcPlcObject/POU[VltFixtureMembers]/Declaration#text): at character 95 of 97 -> 95: \"Tick : INT;\\r\\nEND_VAR\\r\\n\" -> \"Tick : INT;\\r\\nEND_VAR\"",
+    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are IMPLEMENTATION SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
   },
   "twincat:TcPOU.POU.TcPlcObject/POU[]/ObjectProperties#xml — held but not refused": {
     subjects: ["Project14/VltFixtureSfc.pou"],
-    why: "held (Project14/VltFixtureSfc.pou TcPlcObject/POU[VltFixtureSfc]/ObjectProperties#xml = \"704d587efe658c250d4af60f25263e9c8b872741\") but neither the pull nor the push refused 'ObjectProperties'",
+    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are IMPLEMENTATION SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
   },
 }

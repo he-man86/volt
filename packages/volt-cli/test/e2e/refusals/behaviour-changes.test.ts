@@ -137,7 +137,7 @@ const ROWS: Row[] = [
 			const r = await pushFresh(b, [{ op: "set", name: `${bare}.gvl`, toFolder: "", sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			const refs = await refsOf(b)
-			expect(refs.unreadable ?? []).not.toContain(bare)
+			expect((refs.unreadable ?? []).map((u: { name: string }) => u.name)).not.toContain(bare)
 			const back = noBlanks((await fetchOne(b, `${bare}.gvl`)).sourceText)
 			expect(back).toBe(noBlanks(text))
 			return { text: back }
@@ -199,7 +199,7 @@ const ROWS: Row[] = [
 		run: async (b) => {
 			const refs = await refsOf(b)
 			expect(refs.items["VltFixtureCfc.pou"], `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
-			expect(refs.unreadable ?? []).not.toContain("VltFixtureCfc")
+			expect((refs.unreadable ?? []).map((u: { name: string }) => u.name)).not.toContain("VltFixtureCfc")
 			const text = (await fetchOne(b, "VltFixtureCfc.pou")).sourceText as string
 			expect(text).toContain("\nIMPLEMENTATION CFC UNSUPPORTED\n")
 			// Whole: the declaration (its header and its VAR block) stands above the marker — a marker alone is the drop

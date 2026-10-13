@@ -45,7 +45,11 @@ import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 // no longer materializes the 13 pro2193 objects that sit in folders excluded from build ("Turn Around Magazine", "Wrap
 // Magazine", "Peeling", "Stack Status" — design §3 (3): such a folder is refused by name and its objects are not walked),
 // 4 of them POUs with a body, none lowered. Restoring exactly those 13 files gives 304 / 53 again, so nothing else moved.
-const REACH = { bodies: 300, lowered: 53 }
+// 300 / 53 -> 301 / 54 on 2026-10-13, a CORPUS change again (bridge-one-to-one 4.2, the TwinCAT half): the re-pull of
+// twincat-project14 brings `POUs/VltFixtureMembers.pou` (authored in fixture 14 at step 2), an FB whose ST body
+// (`nTick := nTick + 1;`) lowers; its CFC method is `UNSUPPORTED` and holds no body. The other files the re-pull touched
+// are manifest/stub/settings lines that carry no body.
+const REACH = { bodies: 301, lowered: 54 }
 
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was

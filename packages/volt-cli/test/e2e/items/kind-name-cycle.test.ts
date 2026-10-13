@@ -107,7 +107,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		const mine = (n: string) => n.startsWith(`${PREFIX}_${KEY}`)
 		const ops = [
 			...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-			...(refs.unreadable ?? []).filter(mine).map((n: string) => {
+			...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
 				const s = shapes.find((x) => S(x.key) === n)
 				if (!s) throw new Error(`'${n}' is unreadable and is no shape of this file`)
 				return { op: "deleteItem", name: `${n}.${s.ext}`, ifVersion: null }
@@ -142,7 +142,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		const refs = await bridge.refs()
 		const live = Object.keys(refs.items).filter((n) => n.startsWith(`${PREFIX}_${KEY}`)).sort()
 		expect(live).toEqual(expectedFiles.filter((n) => !unreadable.includes(n.slice(0, n.lastIndexOf(".")))))
-		expect((refs.unreadable ?? []).filter((n: string) => n.startsWith(`${PREFIX}_${KEY}`)).sort()).toEqual([...unreadable].sort())
+		expect((refs.unreadable ?? []).map((u: { name: string }) => u.name).filter((n: string) => n.startsWith(`${PREFIX}_${KEY}`)).sort()).toEqual([...unreadable].sort())
 		for (const s of shapes) {
 			const onDisk = norm(readFileSync(join(dir, wire(s)), "utf8"))
 			expect(onDisk, `${wire(s)} on disk`).toBe(norm(text(s)))

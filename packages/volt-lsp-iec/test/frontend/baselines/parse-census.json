@@ -5,7 +5,7 @@
     "corpus bakon-nano (codesys, build succeeded): files": 6460,
     "corpus lenze-mid (codesys, build succeeded): files": 7599,
     "corpus pro2193 (codesys, build succeeded): files": 7747,
-    "corpus twincat-project14 (twincat, build succeeded): files": 244,
+    "corpus twincat-project14 (twincat, build succeeded): files": 245,
     "fixtures codesys: builds, no LSP parse error": 3405,
     "fixtures codesys: known divergence (support/divergences.ts), not measured": 207,
     "fixtures codesys: parse errors codesys recorded": 2826,

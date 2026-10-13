@@ -2,6 +2,5 @@ LIBRARY Tc3_Module
 NAMESPACE Tc3_Module
 RESOLUTION Tc3_Module, 3.4.5.0 (Beckhoff Automation GmbH)
 PLACEHOLDER true
-SYSTEM false
 DEPENDENCIES Tc2_Standard
 MATERIALIZATION 4

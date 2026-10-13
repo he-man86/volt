@@ -80,7 +80,7 @@ export async function sweep(b: Bridge): Promise<void> {
 	const mine = (n: string) => n.startsWith(REF_PREFIX)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-		...(refs.unreadable ?? []).filter(mine).map((n: string) => ({ op: "deleteItem", name: `${n}.pou`, ifVersion: null })),
+		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: `${n}.pou`, ifVersion: null })),
 	]
 	if (ops.length === 0) return
 	const r = await b.call("push", { expectedProjectVersion: refs.projectVersion, force: true, ops })

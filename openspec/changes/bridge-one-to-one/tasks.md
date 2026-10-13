@@ -333,7 +333,7 @@
       **Done 2026-10-13 (main session, after the agent's merge was refused by the permission layer):** merged as 2122cdff68, no
       conflicts; C# suites on the merged code: Repo.Gates 162, Engine 2527 (+1 skip), Twincat 490, Codesys 368, Cli 270,
       Connector 120 — all green. The TwinCAT half of 4.2 can now run.
-- [ ] 4.2 Re-pull the six corpora on both vendors and diff: exactly the new spellings appear; e2e on both vendors (SP21 +
+- [x] 4.2 Re-pull the six corpora on both vendors and diff: exactly the new spellings appear; e2e on both vendors (SP21 +
       TwinCAT together, so the parity suite runs); engine/driver/CLI suites and the full LSP suite cold green.
 
       **Step 4b, 2026-10-13 — CODESYS half done, TwinCAT half BLOCKED (4.1b not done).** The merge of
@@ -458,5 +458,40 @@
       119, `Volt.Contracts.Tests` 34, `Volt.Repo.Gates` 160; volt-cli `test/unit` 114 (+2); volt-control 137; root
       typecheck (5 packages), lint (0 errors), `bun run check` 18/18, `openspec validate` valid; no fixture or transpiler
       change (fixture map untouched); full LSP suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **10152 pass, 0 fail** (34 skip, 428 todo, 361 files — +1 the provenance test file — 762 s).
-      TwinCAT half of 4.2 still blocked on 4.1b.
+      TwinCAT half of 4.2 still blocked on 4.1b (done since: step 4c below).
+
+      **Step 4c, 2026-10-13 — the TwinCAT half, on the merged code (2122cdff68).** C# rebuilt Release after the merge.
+      **TwinCAT re-pull** (`refresh:corpus twincat-project14 twincat`, `ide.ps1 -Vendor twincat -Fixture 14 -Instance
+      bridge-one-to-one`): 252 items, and exactly the new spellings — the three manifests lose `SYSTEM false` (C37: no SYSTEM
+      line on TwinCAT), the two stubs lose TwinCAT's `Name=` (`External Types.external_types` → `external_types`,
+      `Untitled2.tmc` → `tmc_file`: the one `ItemKind.EmptyManifest` form). Two files appear that are not this change's
+      spelling but the bridge's answer: `Project Settings.projectsettings` (twincat-project-settings, archived 2026-10-03,
+      never re-pulled since) and `POUs/VltFixtureMembers.pou` (authored in fixture 14 at step 2). Unlike CTP's (reverted,
+      `MISSING_OBJECTS`), the TwinCAT one is KEPT: the corpus gate (LSP findings ⊆ the recorded TwinCAT build) stays green
+      with it, so no oracle re-record is needed. `stale.ts` loses its `twincat-project14` group (the provenance test holds
+      it both ways); `corpus-lowering` REACH 300 / 53 → 301 / 54 (that FB's ST body lowers; comment in the test); the
+      `test/frontend` baselines rewritten for the one file (files 29158 → 29159, twincat 244 → 245, bare name resolved
+      +4, expressions +6, literal UNKNOWN +1; 4 baseline files).
+
+      **Finding — fixed: the live e2e consumers still read `unreadable` as bare strings** after step 4b's wire change to
+      `{ name, reason }`. TwinCAT's refusal matrix failed 7 rows in `sweep` (`n.startsWith is not a function`), which left
+      `VltE2E_ref_*` objects behind and broke the NOT_ATTEMPTED parity row and, next run, `vendor-parity`'s "nothing
+      unreadable" — CODESYS never has an unreadable `VltE2E_ref_*`, so 4b's CODESYS-only run could not see it. Fixed at
+      every e2e site (`refusals/table.ts` sweep, `kind-name-cycle`, `push-without-header-check`, `behaviour-changes` — two
+      `not.toContain` that passed vacuously against objects —, `one-to-one`'s `toContain("VltFixtureSfc")`), mapping
+      `.name`; red was the live run itself.
+
+      **Live (SP21 Patch 4 + TcXaeShell 15.0, both up, instance `bridge-one-to-one`)**: full e2e on CodesysTestProject +
+      Project14 **354 pass / 33 skip / 0 fail** (387 tests, vendor parity RUN: 16 pass, the stub-manifest case skipped —
+      neither fixture serves a visualization or text list); `test/e2e/one-to-one` on CodesysOneToOne **11 / 3 skip / 0**.
+      **Completeness oracle, TwinCAT** (instance `bridge-one-to-one-cmp`): 7 expected, 0 unexpected, **1 stale** (the
+      trailing newline `VltFixtureMembers` folded — C35's trim is deleted) → `--write-known` → verify run **7 expected, 0
+      unexpected, 0 stale, 0 uncovered**. The two TwinCAT SFC `ObjectProperties` "held but not refused" entries now carry
+      their triage: niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures).
+
+      GATE 4c: root typecheck (5 packages), lint (exit 0), `bun run check` 18/18, `openspec validate --all` valid; C#
+      (Release) `Volt.Engine.Tests` 2527 / 1 skip, `Volt.Ide.Codesys.Tests` 368, `Volt.Ide.Twincat.Tests` 490,
+      `Volt.Cli.Tests` 270, `Volt.Connector.Tests` 120, `Volt.Contracts.Tests` 35, `Volt.Repo.Gates` 162; volt-cli
+      `test/unit` 114; `rate:fixtures` exit 0, `map.generated.ts` unchanged; full LSP suite COLD (`VOLT_RUSTC_CACHE=0`,
+      `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) **10152 pass, 0 fail** (34 skip, 428 todo, 361 files, 1262 s).
 - [ ] 4.3 The close report lists every new text form for the owner; archive.

@@ -39,7 +39,7 @@ async function sweep(): Promise<void> {
 	const mine = (n: string) => n.startsWith(`${PREFIX}_${KEY}`)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-		...(refs.unreadable ?? []).filter(mine).map((n: string) => {
+		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
 			const ext = pushedAs.get(n)
 			if (!ext) throw new Error(`'${n}' is unreadable and is no shape of this file — no kind to delete it under`)
 			return { op: "deleteItem", name: `${n}.${ext}`, ifVersion: null }
@@ -49,7 +49,7 @@ async function sweep(): Promise<void> {
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, force: true, ops })
 	if (!r.accepted) throw new Error(`sweep could not delete ${ops.length} item(s): ${JSON.stringify(r.conflicts).slice(0, 300)}`)
 	const left = await bridge.refs()
-	const stuck = [...Object.keys(left.items ?? {}), ...(left.unreadable ?? [])].filter(mine)
+	const stuck = [...Object.keys(left.items ?? {}), ...(left.unreadable ?? []).map((u: { name: string }) => u.name)].filter(mine)
 	if (stuck.length) throw new Error(`sweep left ${JSON.stringify(stuck)} in the project`)
 }
 

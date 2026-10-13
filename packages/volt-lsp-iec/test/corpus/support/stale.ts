@@ -137,14 +137,6 @@ export const STALE_MANIFESTS: Readonly<Record<string, { why: string; files: read
       "Device/Plc Logic/Application/09 Misc/Library Manager/VisuUtils/VisuUtils.library",
     ],
   },
-  "twincat-project14": {
-    why: "not re-pulled since the TwinCAT library manifest spelling changed: step 4b's TwinCAT half is blocked on 4.1b (the hotfix/tc-hierarchy-x86 merge)",
-    files: [
-      "References/Tc2_Standard/Tc2_Standard.library",
-      "References/Tc2_System/Tc2_System.library",
-      "References/Tc3_Module/Tc3_Module.library",
-    ],
-  },
 }
 
 /** Objects the bridge pulls that a corpus does NOT hold, per corpus, each with its reason. */
