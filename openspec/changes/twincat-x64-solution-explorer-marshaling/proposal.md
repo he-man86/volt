@@ -177,6 +177,67 @@ minimum while that is being built, not an end state; "install Visual Studio 2022
    cannot vouch for an item. The "Installing VS 2022 adds it" workaround is inferred from this machine, not tested
    on a clean one.
 
+## Decision (volt, 2026-10-13): read the hierarchy from a process of XAE's own bitness
+
+**Built: `VoltTwincatExplorer.exe`, a .NET Framework (net472) x86 helper beside the worker** (`src/Volt.Ide.Twincat.Explorer`). It
+compiles the worker's own reader source (`TcSolutionExplorer.cs`, `RotInstances.cs`, `ComMessageFilter.cs` — no Volt
+assembly), binds the DTE from the ROT by the XAE pid exactly as the worker does, **activates XAE's own
+`Common7\IDE\Automation\msenvp.dll.manifest` around the read** (`CreateActCtx` with the assembly directory), and writes
+the PLC project's `ExplorerNode` tree as JSON on stdout. The worker (`TcHierarchy`) keeps one running and asks it
+for every hierarchy read when XAE is 32-bit and the worker 64-bit, and reads in-process (same manifest activation)
+when the bitnesses match.
+The result goes through the existing `ReadExplorer` seam, so `ExplorerSnapshot` and every C2i rule are unchanged.
+
+Why this, and not the others:
+- **x86 helper over an x86 worker.** The worker shares ONE self-contained win-x64 runtime with the connector
+  (`build-cli.ps1` refuses differing bytes between the two); an x86 worker needs its own x86 runtime (a second
+  self-contained .NET runtime in the installer, not measured, and a second copy of every Volt assembly) and moves the whole worker (archives, network text, relay) to a
+  2 GB address space for one read. The helper is one 22 KB exe on .NET Framework 4.7.2, which every supported Windows
+  10/11 carries (not 4.8: Windows 10 LTSC 2019 lacks it, and a 4.8 build's config makes the runtime shim raise a
+  modal install dialog a hidden child would hang on — environment audit), so nothing is bundled.
+- **Not the IDispatch `UIHierarchy` route:** unmeasured on collapsed nodes, cost and caption suffix, and
+  `DTE.Commands`-style enumeration hung before (2026-09-03). It would be a new reader of C2i's facts; the helper is the
+  measured reader, moved to the right bitness.
+- **The manifest activation makes the global 32-bit registration irrelevant** for the three interfaces: XAE ships the
+  x86 proxy registration-free and the helper uses that copy, so 0.3 (whether a fresh 4024 writes the global 32-bit
+  registration) no longer decides anything. The manifest is REQUIRED: an IDE that ships none at
+  `Common7\IDE\Automation\msenvp.dll.manifest` is `IDE_UNSUPPORTED`, named — the read never falls back to whatever
+  COM has registered, because the only 64-bit copy anyone registers is Visual Studio's. The one exception (environment
+  audit): a manifest that is there but that Windows will not ACTIVATE (`CreateActCtx`/`ActivateActCtx` fail) is read
+  with the registered proxy rather than failing as a plain COMException (which read as `ITEM_UNVERIFIED`); if that is
+  absent too, both reasons are named and it is `IDE_UNSUPPORTED` (`TcProxyActivationTests`).
+- **The reader is picked by the XAE PROCESS's bitness (`IsWow64Process` on the attached pid), not assumed x86**
+  (owner, 2026-10-13: TwinCAT 3.1.4026 can run a 64-bit TcXaeShell64, and an x86 reader there would be the mirror of
+  this bug). `TcHierarchy.ReaderFor`: 32-bit XAE from the x64 worker → the x86 helper; 64-bit XAE from the x64
+  worker → in-process, with THAT shell's own amd64 manifest; a 64-bit XAE from a 32-bit worker → no reader, named.
+  Every cell is tested offline (`TcHierarchySelectionTests`). The 64-bit cell is **unproven live**: no 64-bit XAE is
+  installed here, and TwinCAT 4026 was not installed side by side in this run (4024 is what every fixture and the
+  other session's work run on). What stands for it: Visual Studio 2022's 64-bit shell, which a 64-bit XAE shell is
+  built on, carries `Common7\IDE\Automation\msenvp.dll.manifest` with `processorArchitecture="amd64"`, listing the
+  three interfaces (39 / 21 / 7 methods), beside an x64 `msenvp.dll` 17.0.34221.15 — the same layout the x86 read
+  uses. The 64-bit shell is also FOUND now: the ROT match accepts `TcXaeShell64.DTE` (it was the literal
+  `TcXaeShell.DTE`, so the connector would never have spawned a worker for a 64-bit XAE), the connector's window
+  diagnosis looks for both process names, and `ide.ps1` resolves the installed shell(s) from the `TcXaeShell*.DTE.*`
+  ProgIDs instead of one hard-coded x86 path.
+- **Cost, measured on the Project14 fixture with two XAE windows in the ROT, and why the helper is long-lived:** a
+  process per read (first build) cost 405–492 ms a read (`--check` alone, i.e. process start: 40–53 ms), `refs`
+  445–470 ms warm against 199–200 ms for the old in-process x64 read — and the TwinCAT e2e latency gate failed on it
+  (an empty push, two reads: 972 ms against its 500 ms floor). So the worker keeps ONE helper (`--serve`: a PLC project
+  name per stdin line, one coded answer line back; the DTE bound once, dropped on any failure; it exits with the
+  worker). Then: `refs` 146–160 ms warm (1863 ms the first, which starts the helper), empty push 385 ms, the latency
+  suite 4/4.
+- Not done, as the proposal ranked: Microsoft's x64 msenvp.dll is not shipped or registered; `.plcproj` is not read.
+
+**Named error (1.1), whatever the machine:** a hierarchy no reader here can unmarshal (`HierarchyUnreachableException`:
+the helper missing, or `REGDB_E_CLASSNOTREG`/`REGDB_E_IIDNOTREG` from the reader) sets `IIdeSession.Unsupported`, so
+every op but `health` answers `IDE_UNSUPPORTED` and `health.unsupported` carries the sentence, e.g. "TcXaeShell 15.0
+(TwinCAT 3.1.4024.75): the proxy of the Visual Studio hierarchy interfaces (msenvp.dll, PSFactoryBuffer
+{E6D78900-BB40-4039-9C54-593A242B65DA}) is not available to the 32-bit reader: CoGetClassObject(…) failed
+(0x80040154), so the bridge cannot read XAE's Solution Explorer and serves nothing (DIALECT C2i)." The worker asks it
+once at start without calling into XAE (`--check`: `CoGetPSClsid` + in-proc `CoGetClassObject` per interface, under
+the manifest), and the first read that meets it sets the same. A read that reached the hierarchy and failed stays
+`ITEM_UNVERIFIED`.
+
 ## Impact
 
 - `Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs`, `TcObjectModel.cs` (`Explorer()`), `BeckhoffDriver` (an

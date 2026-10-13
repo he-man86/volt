@@ -436,5 +436,5 @@ internal sealed class NetworkLexer
     // the same pattern this reads it back by.
     private static readonly Regex AddressAt = new(@"\G" + NetworkSpelling.AddressPattern, RegexOptions.Compiled);
     private static readonly Regex NumberAt = new(@"\G" + NetworkSpelling.NumberPattern, RegexOptions.Compiled);
-    private static readonly Regex EndExecute = new(@"^\s*(END_EXECUTE)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex EndExecute = new(@"^\s*(END_EXECUTE)\b", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 }

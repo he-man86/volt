@@ -621,7 +621,7 @@ public static class NetworkTextWriter
             {
                 // The body ends at the first line whose first word is END_EXECUTE; a snippet holding one would end
                 // early on the way back.
-                if (Regex.IsMatch(line, @"^\s*END_EXECUTE\b", RegexOptions.IgnoreCase))
+                if (Regex.IsMatch(line, @"^\s*END_EXECUTE\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
                     throw Unrepresentable("a snippet line starting with END_EXECUTE",
                         $"an Execute box in network {_net.Order} holds the line '{line.Trim()}'.");
                 // A lone CR ends a line wherever it stands, as in a comment; the reader refuses one inside a line.

@@ -9,7 +9,7 @@
  *
  * Output:
  *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two, the PATH dir
- *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime
+ *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime (+ VoltTwincatExplorer.exe, net48 x86)
  *   dist/volt/codesys/    Volt.Ide.Codesys.dll + start/stop_volt_codesys.py
  *
  * No .vsix: the extension ships from the Marketplace (openspec vscode-extension-marketplace), not the installer.
@@ -63,8 +63,12 @@ function compile(entry: string, name: string): void {
   // STRIPS double quotes from an arg — `__VOLT_VERSION__="1.2.3"` reached bun as an unquoted, invalid define and
   // silently fell back to "(dev)" (caught only because the build asserts the stamp). Single quotes pass through
   // cmd.exe untouched and are a valid JS string literal for esbuild's define. Verified through a shell:true spawn.
+  //
+  // BASELINE on Windows: bun's default x64 target needs AVX2, so the LSP crashed at start on the Atom/Celeron CPUs of
+  // industrial panel PCs — a PLC engineer's machine more often than a developer's. The baseline build runs on any x64.
   const version = VOLT_VERSION
-  if (!run("bun", ["build", "--compile", `--define`, `__VOLT_VERSION__='${version}'`, "--outfile", resolve(bin, name + ext), entry])) {
+  const target = process.platform === "win32" ? ["--target=bun-windows-x64-baseline"] : []
+  if (!run("bun", ["build", "--compile", ...target, `--define`, `__VOLT_VERSION__='${version}'`, "--outfile", resolve(bin, name + ext), entry])) {
     console.error(`✗ failed to compile ${name}`)
     process.exit(1)
   }
@@ -167,6 +171,7 @@ const required = skipCli
       "bin/volt-lsp-iec.exe",
       "connector/VoltConnector.exe",
       "connector/VoltBridgeTwincat.exe",
+      "connector/VoltTwincatExplorer.exe",
       "connector/Volt.Engine.Host.dll",
       "codesys/Volt.Ide.Codesys.dll",
       "codesys/start_volt_codesys.py",

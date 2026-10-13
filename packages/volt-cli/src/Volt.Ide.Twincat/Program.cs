@@ -173,7 +173,7 @@ foreach (var a in args)
                 ("xae base   ", "TwinCAT XAE|System Manager"),
             })
             {
-                var hit = mods.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.ModuleName, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                var hit = mods.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.ModuleName, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant))
                               .Select(m => m.ModuleName).Distinct().Take(6).ToList();
                 Console.WriteLine($"{label}: {(hit.Count == 0 ? "(not loaded)" : string.Join(", ", hit))}");
             }
@@ -332,6 +332,14 @@ var sta = new Thread(() =>
     // yet, stay degraded — the driver re-acquires the same pid on a content op / recovery.
     try { driver.Connect(xaePid); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE pid {xaePid} ({ex.Message})"); }
+    // Can XAE's Solution Explorer be read from here at all (DIALECT C2i)? Asked once, so health says it before any op.
+    // A check that cannot RUN is no verdict: the first read decides then, with the same sentence.
+    try
+    {
+        driver.CheckHierarchy();
+        if (driver.Unsupported is { } why) VoltLog.Error($"twincat: {why}");
+    }
+    catch (Exception ex) { VoltLog.Warn($"twincat: the hierarchy start check did not run ({ex.GetType().Name}: {ex.Message}); the first read decides"); }
     driver.RunStaMessageLoop(cts.Token);
 })
 { IsBackground = true };

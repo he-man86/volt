@@ -250,9 +250,38 @@ internal sealed partial class TcObjectModel
                 "This folder is not read.");
     }
 
-    /// <summary>Reads the PLC project's Solution Explorer node; replaceable so the offline suite can hand in a
-    /// hierarchy (the DTE there is a plain double, not an OLE service provider).</summary>
-    internal Func<object, string, ExplorerNode?> ReadExplorer { get; set; } = TcSolutionExplorer.ReadPlcProject;
+    /// <summary>Reads the PLC project's Solution Explorer node — by a reader of the XAE's own bitness
+    /// (<see cref="TcHierarchy"/>); replaceable so the offline suite can hand in a hierarchy (the DTE there is a plain
+    /// double, not an OLE service provider).</summary>
+    internal Func<object, string, ExplorerNode?> ReadExplorer { get; set; }
+
+    public TcObjectModel() { ReadExplorer = (dte, plcProject) => TcHierarchy.Read(_xaePid, dte, plcProject); }
+
+    /// <summary>Why this bridge serves nothing, or null: the IDE's hierarchy cannot be read by any reader Volt has
+    /// (<see cref="HierarchyUnreachableException"/>), and Volt does not walk the TwinCAT tree without it (C2i). Set by
+    /// the start check (<see cref="CheckHierarchy"/>) or the first read that meets it, and kept: what is missing is
+    /// the machine's, and no retry installs it.</summary>
+    public string? Unsupported { get; private set; }
+
+    /// <summary>Asks, without calling into XAE, whether a reader of this XAE's hierarchy can exist here — once, at
+    /// the worker's start, so <c>health</c> states it before any op runs into it.</summary>
+    public void CheckHierarchy()
+    {
+        if (TcHierarchy.Missing(_xaePid) is { } missing) Unsupported = Sentence(missing);
+    }
+
+    private BridgeException Unreachable(string missing)
+    {
+        Unsupported = Sentence(missing);
+        return new BridgeException(BridgeErrorCodes.IdeUnsupported, Unsupported);
+    }
+
+    /// <summary>The one sentence <c>health</c> and every refused op carry (<c>BridgeErrorCodes.IdeUnsupported</c>):
+    /// the IDE, as its identity reads (V5), and what it lacks.</summary>
+    private string Sentence(string missing) =>
+        $"{_productName ?? "TwinCAT XAE"} {_productVersion ?? "(version unread)"}" +
+        (_ideVersion is { } build ? $" (TwinCAT {build})" : "") +
+        $": {missing}, so the bridge cannot read XAE's Solution Explorer and serves nothing (DIALECT C2i).";
 
     private ExplorerSnapshot? _explorer;
     private string? _plcRootPath;
@@ -290,6 +319,7 @@ internal sealed partial class TcObjectModel
         var plcProject = GetName(PlcRoot());
         ExplorerNode? node;
         try { node = ReadExplorer(_dte!, plcProject); }
+        catch (HierarchyUnreachableException ex) { throw Unreachable(ex.Message); }
         catch (Exception ex)
         {
             throw new BridgeException(ConflictCodes.ItemUnverified,

@@ -45,10 +45,11 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 2))),
         new("another project is served", "the bound project is not the one named: rebind, never merge", "WRONG_PROJECT", At(
             ("Volt.Engine/BridgeException.cs", 1))),
-        new("the bridge cannot serve this IDE process (it lacks a capability, or Volt's assemblies loaded twice)",
+        new("the bridge cannot serve this IDE process (it lacks a capability, or Volt's assemblies loaded twice, or no reader here can unmarshal its Solution Explorer)",
             "every op but health: the IDE has to change (upgraded, or restarted), not the call",
             "IDE_UNSUPPORTED", At(
-            ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
+            ("Volt.Engine.Host/BridgePipeHost.cs", 1),
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),
         new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",
             "IDE_BUSY", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
@@ -138,8 +139,8 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/ProjectDeclarations.cs", 1),
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 1),
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 6),
-            ("Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs", 2))),
+            ("Volt.Ide.Twincat/Ide/ExplorerSnapshot.cs", 2),
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 6))),
         new("the push stopped before this op", "re-send it unchanged", "NOT_ATTEMPTED", At(
             ("Volt.Engine/Sync/PushService.cs", 1))),
 
@@ -359,7 +360,9 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcPlcOpenWriter.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),
-        ("Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs", 1),
+        ("Volt.Ide.Twincat.Explorer/Program.cs", 1),   // the x86 reader's own process: its answer line carries a code, never a frame
+        ("Volt.Ide.Twincat/Ide/TcHierarchy.cs", 7),   // every one caught by TcObjectModel.Explorer: IDE_UNSUPPORTED or ITEM_UNVERIFIED
+        ("Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs", 2),   // +1: a refused manifest activation named on the proxy failure; caught the same way
         ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1),
         ("Volt.Relay/RelayTunnel.cs", 2),

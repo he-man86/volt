@@ -29,6 +29,7 @@ src/
                                             Sync/ (git-native client: the volt/ide merge tree, status, materialize)
   Volt.Ide.Codesys/     net48 lib       CodesysDriver + pipe host — loaded in-proc by the CODESYS script host
   Volt.Ide.Twincat/     net10 exe        BeckhoffDriver + the worker the connector spawns (XAE via COM)
+  Volt.Ide.Twincat.Explorer/ net48 x86 exe  VoltTwincatExplorer: the worker's reader of a 32-bit XAE's Solution Explorer (DIALECT C2t)
   Volt.Connector.Core/  net10 lib        the connector's UI-free model + the TwinCAT worker fleet (unit-tested)
   Volt.Connector/       net10 winexe     the tray shell over that model, and the install/auto-update agent
 test/

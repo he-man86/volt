@@ -1397,7 +1397,7 @@ public static class StReader
 
 	/// <summary>A line of CODE opening a VAR block (<c>VAR</c>, <c>VAR_INPUT</c>, <c>VAR_INST</c>, <c>VAR CONSTANT</c>, …).</summary>
 	private static readonly System.Text.RegularExpressions.Regex VarOpener =
-		new(@"^\s*VAR(_[A-Z]+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+		new(@"^\s*VAR(_[A-Z]+)*\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
 	/// <summary>An accessor whose body reached <paramref name="reached"/> before its own END line. Inside a body only that
 	/// END closes it (a GET/SET there is text), so the block above the next accessor was never closed — refused naming

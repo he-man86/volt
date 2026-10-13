@@ -27,6 +27,11 @@ DefaultDirName={localappdata}\Programs\Volt
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
+; Every binary Volt ships is x64 (the .NET runtime, the LSP; the one x86 exe is the TwinCAT hierarchy reader, which
+; runs under WOW64). Without these Inno treats the install as 32-bit: {sys}/registry redirection, and Setup would
+; start on an x86 Windows it cannot serve. x64compatible = x64, and ARM64 Windows with its x64 emulation.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
 OutputBaseFilename=Volt-win-Setup
 Compression=lzma2

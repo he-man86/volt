@@ -40,6 +40,13 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override string? ProductName => _om.ProductName;
     public override string? ProductVersion => _om.ProductVersion;
     public override string? ProductVendor => _om.ProductVendor;
+    /// <summary>Set when XAE's Solution Explorer cannot be read by any reader here (DIALECT C2i, "what the read
+    /// requires"): every op but <c>health</c> then answers <c>IDE_UNSUPPORTED</c> with this sentence.</summary>
+    public override string? Unsupported => _om.Unsupported;
+
+    /// <summary>The start check behind <see cref="Unsupported"/> (<c>TcObjectModel.CheckHierarchy</c>); run by the
+    /// worker on the STA thread right after <see cref="Connect"/>.</summary>
+    public void CheckHierarchy() => _om.CheckHierarchy();
 
     /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it),
     /// and serve what it has open — its first TwinCAT project (<see cref="TcObjectModel.AttachFirstProject"/>), as the

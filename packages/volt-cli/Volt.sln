@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Relay", "src\Volt.Rela
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Relay.Tests", "test\Volt.Relay.Tests\Volt.Relay.Tests.csproj", "{7652FC93-58E1-4003-AAF8-0A29655E3575}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Volt.Ide.Twincat.Explorer", "src\Volt.Ide.Twincat.Explorer\Volt.Ide.Twincat.Explorer.csproj", "{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -283,6 +285,18 @@ Global
 		{7652FC93-58E1-4003-AAF8-0A29655E3575}.Release|x64.Build.0 = Release|Any CPU
 		{7652FC93-58E1-4003-AAF8-0A29655E3575}.Release|x86.ActiveCfg = Release|Any CPU
 		{7652FC93-58E1-4003-AAF8-0A29655E3575}.Release|x86.Build.0 = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|x64.Build.0 = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Debug|x86.Build.0 = Debug|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|x64.ActiveCfg = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|x64.Build.0 = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|x86.ActiveCfg = Release|Any CPU
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -307,5 +321,6 @@ Global
 		{E58AB15E-6752-4F71-A942-BC828437593E} = {F37F11CB-8B0C-479F-A505-1DA0B7F2C490}
 		{7456E90A-5F38-4F56-B393-71C68628B341} = {9890F01D-3779-448E-8658-8712E33F1BF8}
 		{7652FC93-58E1-4003-AAF8-0A29655E3575} = {F37F11CB-8B0C-479F-A505-1DA0B7F2C490}
+		{E0AA4E4D-39D3-4ADC-81DA-91EE63FF7D67} = {9890F01D-3779-448E-8658-8712E33F1BF8}
 	EndGlobalSection
 EndGlobal

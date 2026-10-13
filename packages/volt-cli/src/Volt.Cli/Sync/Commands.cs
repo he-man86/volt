@@ -142,7 +142,7 @@ public static class Commands
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim().Trim('.', ' ');
         if (s.Length == 0) return "volt-workspace";
         // Reserved device names (CON, NUL, COM1…) can't be a folder on Windows even with an extension — escape them.
-        if (System.Text.RegularExpressions.Regex.IsMatch(s, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (System.Text.RegularExpressions.Regex.IsMatch(s, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant))
             s = "_" + s;
         return s;
     }
