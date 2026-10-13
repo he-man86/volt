@@ -173,6 +173,10 @@
       with its reason and the e2e expects that refusal (not a failure). `ide.ps1` picks the fixture by `-CodesysVersion`
       (explicit `-Fixture` still wins); the e2e harness records the project and version it ran. Replace the hand-made
       `codesysSP18.project` by the generated one. Re-run the e2e matrix on every version with its own project.
+      **Owner: "you can't reuse them"** — never a project opened from another version's file (an upgrade on open is not a
+      native project). If importing the SP21 export into an older version is not valid either, build the content in that
+      version through its own scripting, object by object, or record what that version cannot hold. The 2026-10-13 matrix
+      results for SP22 and 32-bit 3.5.21.60 ran on the upgraded SP21 project — provisional until this re-run.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
 - [ ] 2.7 CODESYS activation hints per feature set and locale; the installer tolerates WMI being unavailable.
 - [ ] 2.8 Culture-invariant replacements at every site the 1.2 gate names (C# 39 = 29 + 10 default-comparer sorts since
