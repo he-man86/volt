@@ -141,6 +141,10 @@ msenvp.dll PSFactoryBuffer `{E6D78900…}` is registered. TwinCAT 4024's own set
 
 ## What we ask
 
+**The requirement (PLCAssist owner, 2026-10-13): the TwinCAT bridge works on a plain TwinCAT install** — TwinCAT XAE /
+TcXaeShell as Beckhoff's setup leaves it, no Visual Studio, nothing extra registered. A named error (1.1) is the
+minimum while that is being built, not an end state; "install Visual Studio 2022" is not an acceptable answer.
+
 1. **Verify** on a TwinCAT-only machine (step 1, 2 or 3 above). If the hypothesis is wrong, record what the machine
    shows and stop. Then the 0x80040154 has another cause, and we would like it named.
 2. **If confirmed, make the tree read work without an x64 Visual Studio.** Our ranking, which is yours to overrule:
