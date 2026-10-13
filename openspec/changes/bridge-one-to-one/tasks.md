@@ -325,11 +325,14 @@
       `Volt.Repo.Gates` 160; volt-cli `test/unit` 112; no fixture or transpiler change (fixture map untouched); full LSP
       suite with `VOLT_REQUIRE_FULL=1` and `VOLT_FIXTURES` unset **10149 pass, 0 fail** (34 skip, 428 todo, 360 files,
       1071 s).
-- [ ] 4.1b **Merge `hotfix/tc-hierarchy-x86` into dev BEFORE 4.2** (owner, 2026-10-13: the TwinCAT field fix — the Solution
+- [x] 4.1b **Merge `hotfix/tc-hierarchy-x86` into dev BEFORE 4.2** (owner, 2026-10-13: the TwinCAT field fix — the Solution
       Explorer hierarchy is read by the x86 helper `VoltTwincatExplorer.exe` with XAE's own msenvp manifest; no Visual
       Studio dependency). Merge it (resolve the overlap in `StReader.cs` / `StDeclaration.cs`: the hotfix only adds
       `RegexOptions.CultureInvariant`), rebuild, and run 4.2's TwinCAT e2e on the merged code. The owner will then remove
       the dev machine's 64-bit msenvp registration (customer conditions), so TwinCAT e2e on unmerged code would fail.
+      **Done 2026-10-13 (main session, after the agent's merge was refused by the permission layer):** merged as 2122cdff68, no
+      conflicts; C# suites on the merged code: Repo.Gates 162, Engine 2527 (+1 skip), Twincat 490, Codesys 368, Cli 270,
+      Connector 120 — all green. The TwinCAT half of 4.2 can now run.
 - [ ] 4.2 Re-pull the six corpora on both vendors and diff: exactly the new spellings appear; e2e on both vendors (SP21 +
       TwinCAT together, so the parity suite runs); engine/driver/CLI suites and the full LSP suite cold green.
 
