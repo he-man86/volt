@@ -39,11 +39,21 @@
       Community 2022 17.7.6 still starts without the 64-bit registration (start window up and responding, no
       Application error events). Per-bitness `CoGetPSClsid`/`CoGetClassObject` HRESULTs not re-probed: the two
       workers' answers are the discriminating measurement.
-- [ ] 0.3 Also record whether a fresh TwinCAT 4024 install writes the GLOBAL 32-bit msenvp registration, or only
+- [x] 0.3 Also record whether a fresh TwinCAT 4024 install writes the GLOBAL 32-bit msenvp registration, or only
       XAE's private manifest. That decides between an x86 client alone and an x86 client + `CreateActCtx`.
-      **Open, and no longer decisive:** the fix activates XAE's own manifest on every read (proposal, Decision), so
+      **No longer decisive:** the fix activates XAE's own manifest on every read (proposal, Decision), so
       it does not depend on the global 32-bit registration. Proving that discriminatingly (an x86 reader with that
       registration absent) needs the same elevated change, or a fresh TwinCAT-only machine.
+      **Answered from the installer record (2026-10-13, read-only; not a fresh install):** BOTH. The global x86
+      registration (`00:\CLSID\{E6D78900…}` and `…\MSEnv\msenvp.dll`, Windows Installer components
+      `DF500C6C…`/`9CFCC652…`) belongs to product `vs_minshellinteropmsi` 15.8.27825 (Intel), cached
+      `fbbae29.msi` written 2023-08-12 15:37:35 — in the same minute as the VS 2017 isolated-shell prerequisites
+      `Microsoft Help Viewer 2.3` and `.NET Framework 4 Multi-Targeting Pack` (15:37:38) and four minutes before
+      `Beckhoff TwinCAT Multiuser Git` (15:41:16), all from a bootstrapper's `%TEMP%\{…}\{…}` source like the XAE
+      Shell's own; VS 2022 (2023-11-13) came later and brought only the x64 copy. So the TwinCAT XAE setup chain
+      writes the global 32-bit registration, and the XAE Shell product (`F222B9DA…`, 1.20.0.0) owns the private
+      `Automation\msenvp.dll` + `.manifest` too. The x86 reader would work on either; the `CreateActCtx` stays as
+      the one path that depends on nothing outside XAE's own folder.
 - [x] 0.4 Verdict in this file, with the evidence: CONFIRMED (missing 64-bit proxy), REFUTED (name the actual cause of
       0x80040154), or OUTSIDE VOLT (the customer's install is broken in a way a stock TwinCAT machine is not).
       **Stop condition:** refuted or outside volt → record it, tell PLCAssist, and stop here. Section 1 only runs on
@@ -89,6 +99,12 @@
       (after the rebase onto dev `ecd5feaf16`) Twincat 490, Engine 2525 (+1 skipped), Cli 267, Codesys 367, Connector 120, Relay 62, Contracts 35, Repo.Gates 162 — all green; `bun run check` 18/18. **TwinCAT-only state done** (0.2: 64-bit registration removed, e2e 296 / 70 / 0 through the helper). **Open:** a 64-bit XAE
       (TcXaeShell64, TwinCAT 4026) live, and `bun run test:install` — it refuses to start while any
       `VoltBridgeTwincat.exe` runs, and another session's worker (on its own fixture XAE) was running throughout.
+      **2026-10-13 late, still open:** no TcXaeShell64 / TwinCAT 4026 is installed on this machine (only
+      `Program Files (x86)\Beckhoff\TcXaeShell`, 3.1.4024.74) — the same install environment-dependency-audit 2.3
+      waits on (`bun run release:matrix --only twincat-64`). `bun run build:installer` green from a clean worktree of
+      `a1284015e4` (0.1.17658; Volt.Cli.Tests 295/0 inside it; the main tree's build was locked by another session's
+      `volt.exe console`, pid 47860), but `bun run test:install --older stable` refused: "volt.exe already running
+      (pid 47860 …) — every setup would wait on it; stop it first". That process is not this session's to stop.
 
 ## 2. Close
 
