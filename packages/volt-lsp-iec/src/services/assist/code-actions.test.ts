@@ -68,6 +68,11 @@ function applyEdits(source: string, edits: readonly TextEdit[]): string {
   return out
 }
 
+/** The actions for `diag` asked alone — the document holding no other finding of its code, so no fix-all beside them. */
+function alone(doc: Document, diag: ReturnType<typeof toLspDiagnostic>): CodeAction[] {
+  return codeActions(doc, [diag], () => [diag])
+}
+
 /** The edits of `action` on `uri` — and nothing on any other document (a quick fix stays in the reporting file, §1). */
 function editsOn(action: CodeAction, uri: string): readonly TextEdit[] {
   const changes = action.edit?.changes ?? {}
@@ -121,7 +126,7 @@ test("code-actions: a diagnostic without fixes in its data gets no action — no
   const offered = withFindings("qf_c0032_before_wrap", "codesys", "C0032", (found, doc) => {
     const { data: _dropped, ...bare } = toLspDiagnostic(target(found, "qf_c0032_before_wrap"))
     expect(_dropped).toBeDefined()
-    return codeActions(doc, [bare]).map((a) => a.title)
+    return codeActions(doc, [bare], () => [bare]).map((a) => a.title)
   })
   expect(offered).toEqual([])
 })
@@ -140,7 +145,7 @@ for (const after of AFTERS) {
       const beforeRecording = BUILDS[vendor].tests[before]!
       const { message, edited } = withFindings(before, vendor, code, (found, doc) => {
         const finding = target(found, before)
-        const actions = codeActions(doc, [toLspDiagnostic(finding)])
+        const actions = alone(doc, toLspDiagnostic(finding))
         const action = actions.find((a) => a.title === title)
         if (action === undefined) throw new Error(`${vendor}: no action '${title}' — offered: ${actions.map((a) => `'${a.title}'`).join(", ") || "none"}`)
         expect(action.isPreferred === true).toBe(preferred === true)
@@ -167,7 +172,7 @@ for (const t of ABSENT) {
     expect(vendors.length).toBeGreaterThan(0)
     for (const vendor of vendors) {
       const offered = withFindings(t.name, vendor, code, (found, doc) =>
-        found.flatMap((f) => codeActions(doc, [toLspDiagnostic(f)]).map((a) => a.title)))
+        found.flatMap((f) => alone(doc, toLspDiagnostic(f)).map((a) => a.title)))
       expect(offered.filter((a) => title === undefined || a.startsWith(title))).toEqual([])
     }
   })
@@ -184,7 +189,7 @@ function offeredOn(vars: string, body: string, code: string, after = ""): { doc:
   const found = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => wireCode(d.code) === code)
   expect(found.length).toBeGreaterThan(0) // the case reports the code at all
-  return { doc, actions: found.flatMap((f) => codeActions(doc, [toLspDiagnostic(f)])) }
+  return { doc, actions: found.flatMap((f) => alone(doc, toLspDiagnostic(f))) }
 }
 
 // `a := b := c` stores c into b and b into a: wrapping the OUTER link's value (`b`, a target) gives `a := TO_X(b) := c`,
@@ -240,8 +245,8 @@ test("code-actions: a fix whose span no longer holds the text it was made for is
   })()
   expect(published.length).toBe(1)
   const edited: Document = { uri: doc.uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }
-  expect(codeActions(doc, published.map(toLspDiagnostic)).map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)"])
-  expect(codeActions(edited, published.map(toLspDiagnostic))).toEqual([])
+  expect(codeActions(doc, published.map(toLspDiagnostic), () => published.map(toLspDiagnostic)).map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)"])
+  expect(codeActions(edited, published.map(toLspDiagnostic), () => published.map(toLspDiagnostic))).toEqual([])
 })
 
 // ─── the gate of step 2.1 ─────────────────────────────────────────────────────────────────────────────────────────
@@ -316,7 +321,7 @@ function offeredIn(source: string, code: string): { doc: Document; actions: Code
   const found = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => wireCode(d.code) === code)
   expect(found.length).toBeGreaterThan(0)
-  return { doc, actions: found.flatMap((f) => codeActions(doc, [toLspDiagnostic(f)])) }
+  return { doc, actions: found.flatMap((f) => alone(doc, toLspDiagnostic(f))) }
 }
 
 // `IF a b THEN` is "'THEN' expected instead of 'b'" — a stray token BEFORE a later THEN, which another THEN does not cure

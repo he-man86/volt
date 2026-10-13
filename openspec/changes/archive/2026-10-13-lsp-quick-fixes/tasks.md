@@ -366,5 +366,26 @@
 
 ## 3. Close
 
-- [ ] 3.1 Coverage: share of corpus diagnostics (by occurrence) that now offer a fix, before/after. Docs (`docs/behavior.md`
+- [x] 3.1 Coverage: share of corpus diagnostics (by occurrence) that now offer a fix, before/after. Docs (`docs/behavior.md`
       or the services section of architecture.md); full suite cold green; archive.
+      **Done 2026-10-13.** Coverage (`fix-census.ts`, re-run at close): findings offering a fix — corpus **8 → 15 of 243**
+      (3.3 % → 6.2 %; the 8 before were the unproven re-deriving wrap, the 15 after are each recorded building), fixtures
+      **CS 721 → 1103 of 5962, TC 697 → 990 of 7415** (18.5 %, 13.4 %); every one now compiler-proven by a recorded
+      AFTER, none before. The corpus share stays small for the reason 0.1 gave: a committed project holds no errors.
+      **Final review (SPEC and LAYERING lenses, whole change)** — three findings, all fixed:
+      - *`FixEdit.uri` never written* (spec/layering) — every fix is a local edit (design.md §1), yet the type carried an
+        optional other-document `uri` that three readers branched on. Removed (`diagnostic-item.ts`, `code-actions.ts`);
+        the renderer writes every edit to the reporting document. Typecheck is the test (a producer naming a `uri` no
+        longer compiles); `editsOn` still asserts no other document is edited.
+      - *`codeActions(…, all = () => diagnostics)`* — a production default that answered fix-all over the client's RANGE
+        instead of the document, used only by tests. `all` is now required; the tests and `fix-census.ts` pass it.
+      - *Spec delta and `docs/behavior.md` described the wrap rule only* — the built fix-all, workspace member symbols,
+        instance/program/SUPER^ calls in the call hierarchy and the override-chain rename were in no requirement, and
+        behavior.md still said workspace/symbol returns "top-level symbols". The delta now has three requirements
+        (quick fix, fix all, navigation breadth); behavior.md gains "A quick fix the compiler accepts" and "Rename spans
+        an override chain" and states the call-hierarchy and workspace-symbol breadth; architecture.md E names fixes.ts,
+        near-miss.ts, `ParseError.missing`, fix-all and the override chain.
+      Layering: `check-layering` clean (the parser records `missing`, analysis renders the fix, services render the
+      action — downward only). Gate: typecheck and lint clean; **full LSP suite COLD** (`VOLT_RUSTC_CACHE=0
+      VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10 146 pass, 0 fail, 34 skip, 428 todo, 10 608 tests across 360 files,
+      1182 s; fixture map unchanged.

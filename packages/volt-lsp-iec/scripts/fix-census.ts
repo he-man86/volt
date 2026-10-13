@@ -85,7 +85,7 @@ for (const p of corpusProjects()) {
       r.corpus++
       r.corpusProjects.add(p.name)
       if (pool.take(d.message)) r.corpusConfirmed++
-      if (codeActions(doc, [d]).length > 0) r.corpusFixable++
+      if (codeActions(doc, [d], () => [d]).length > 0) r.corpusFixable++
       if (r.example === "") r.example = d.message.replace(/\s+/g, " ").slice(0, 90)
     }
   }
@@ -105,7 +105,8 @@ for (const vendor of ["codesys", "twincat"] as const satisfies readonly Vendor[]
       const out: [DiagnosticItem, number][] = []
       for (const doc of replayDocuments(files))
         for (const it of computeDiagnostics({ uri: doc.uri, parseResult: doc.parseResult, source: doc.source, project, config })) {
-          out.push([it, codeActions(doc, [toLspDiagnostic(it)]).length])
+          const d = toLspDiagnostic(it)
+          out.push([it, codeActions(doc, [d], () => [d]).length])
         }
       for (const doc of networkDocuments(files))
         for (const it of computeNetworkTextDiagnostics({ uri: doc.uri, parseResult: doc.parseResult }, project, messagesFor(vendor))) out.push([it, 0])

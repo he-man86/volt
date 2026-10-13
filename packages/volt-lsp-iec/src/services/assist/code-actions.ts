@@ -30,7 +30,7 @@ export const FIX_ALL_KIND = `${CodeActionKind.SourceFixAll}.volt`
 export function codeActions(
   doc: Document,
   diagnostics: readonly Diagnostic[],
-  all: () => readonly Diagnostic[] = () => diagnostics,
+  all: () => readonly Diagnostic[],
   only?: readonly string[],
 ): CodeAction[] {
   const wants = (kind: string): boolean => only === undefined || only.some((o) => kind === o || kind.startsWith(`${o}.`))
@@ -95,13 +95,11 @@ function fixAllAction(doc: Document, title: string, kind: string, all: { fixed: 
 
 /**
  * Does `doc` still hold, at each edit's range, the text the fix was made for? A client may hand back a diagnostic
- * published before its latest edit; applied to the new text, its ranges would overwrite whatever now sits there. An edit
- * in ANOTHER document cannot be checked here — that text is not at hand — so a fix with one is not offered (every quick
- * fix stays in the reporting file, design.md §1).
+ * published before its latest edit; applied to the new text, its ranges would overwrite whatever now sits there. Every
+ * edit is in the reporting document (design.md §1) — the one at hand.
  */
 function current(doc: Document, fix: Fix): boolean {
   return fix.edits.every((e) => {
-    if (e.uri !== undefined && e.uri !== doc.uri) return false
     const { start, end } = rangeFromSpan(e.span)
     const [from, to] = [offsetFromPosition(doc.source, start), offsetFromPosition(doc.source, end)]
     return from >= 0 && to >= from && doc.source.slice(from, to) === e.replaces
@@ -115,13 +113,12 @@ function fixesOf(diag: Diagnostic): readonly Fix[] {
 }
 
 function render(doc: Document, diag: Diagnostic, fix: Fix): CodeAction {
-  const changes: Record<string, TextEdit[]> = {}
-  for (const e of fix.edits) (changes[e.uri ?? doc.uri] ??= []).push({ range: rangeFromSpan(e.span), newText: e.newText })
+  const edits: TextEdit[] = fix.edits.map((e) => ({ range: rangeFromSpan(e.span), newText: e.newText }))
   return {
     title: fix.title,
     kind: CodeActionKind.QuickFix,
     diagnostics: [diag],
     ...(fix.preferred === true ? { isPreferred: true } : {}),
-    edit: { changes },
+    edit: { changes: { [doc.uri]: edits } },
   }
 }

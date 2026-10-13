@@ -29,9 +29,9 @@ export interface Fix {
   fixAll?: true
 }
 
-/** One text edit of a fix; `uri` absent = the reporting document. */
+/** One text edit of a fix, in the reporting document: every quick fix is a local edit (design.md §1), so an edit names no
+ *  document of its own. */
 export interface FixEdit {
-  uri?: string
   span: Span
   /** The text `span` held when the fix was made. A client may hand back a diagnostic published before its latest edit;
    *  the renderer offers the fix only while the document still holds this text there (`services/assist/code-actions`). */
@@ -76,7 +76,6 @@ export function withdrawBlockedFixes(items: readonly DiagnosticItem[]): Diagnost
     const blocked = (fix: Fix): boolean =>
       fix.edits.some(
         (e) =>
-          e.uri === undefined &&
           e.replaces !== "" &&
           e.newText.includes(e.replaces) &&
           errors.some((d) => d !== item && d.span.start >= e.span.start && d.span.end <= e.span.end && !sameFinding(d, item)),

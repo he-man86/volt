@@ -466,9 +466,25 @@ References, rename, and document-highlight SHALL resolve the symbol at the curso
 - **WHEN** call-hierarchy is computed for a method invoked as `fb.method()`
 - **THEN** that call site is included
 
+### Requirement: Rename spans an override chain
+
+A METHOD or PROPERTY is one name across the members that override or implement each other — its bases' member of that name, the members of the interfaces the FB or any base implements (and their bases), and every derived or implementing FB's. A rename of any of them SHALL rename the whole chain, declarations and uses, since renaming one alone leaves the rest disagreeing (C0094 / C0089 / C0087). A member whose chain reaches a LIBRARY member SHALL be refused by name, at prepare-rename and at rename: no edit of the project can rename that (`services/navigation/override-chain.ts`, openspec lsp-quick-fixes design.md §6 B6).
+
+#### Scenario: Renaming the base renames the override
+- **WHEN** method `Step` of FB `Base` is renamed, and `Derived EXTENDS Base` overrides `Step`
+- **THEN** both declarations and every call of either are renamed
+
+#### Scenario: A chain reaching a library is refused
+- **WHEN** a method implements a library interface's method and the user asks to rename it
+- **THEN** the request fails, naming the library member
+
 ### Requirement: Call hierarchy is exposed
 
-The language server SHALL support call hierarchy: `textDocument/prepareCallHierarchy` at a callable SHALL return its hierarchy item; `callHierarchy/incomingCalls` SHALL return the callers whose call site resolves — type-aware — to that exact callable; `callHierarchy/outgoingCalls` SHALL return the callables invoked in its body. A same-named method on a different type SHALL NOT be reported as a caller.
+The language server SHALL support call hierarchy: `textDocument/prepareCallHierarchy` at a callable SHALL return its hierarchy item; `callHierarchy/incomingCalls` SHALL return the callers whose call site resolves — type-aware — to that exact callable; `callHierarchy/outgoingCalls` SHALL return the callables invoked in its body. A same-named method on a different type SHALL NOT be reported as a caller. The callables are functions, function blocks, methods, actions, PROGRAMs and properties (a property's outgoing calls are its accessors'); a call of a function-block INSTANCE (`inst()`, `GVL.inst()`, `arr[1]()`) or of `SUPER^`/`THIS^` SHALL count as a call of that function block's body (openspec lsp-quick-fixes design.md §6, `services/navigation/hierarchy.ts` `calledSymbol`).
+
+#### Scenario: An instance call is a call of its function block
+- **WHEN** `incomingCalls` is requested for FB `Motor`, and a program calls its instance `m1()`
+- **THEN** that program is reported as a caller, with the call site `m1`
 
 #### Scenario: Incoming calls are type-aware
 - **WHEN** `prepareCallHierarchy` targets method `Step` on FB `A`, and both `A.Step()` and an unrelated `B.Step()` exist
@@ -492,7 +508,11 @@ The language server SHALL support type hierarchy: `textDocument/prepareTypeHiera
 
 ### Requirement: Workspace symbol search is exposed
 
-The language server SHALL support `workspace/symbol`: given a query string, it SHALL return matching top-level symbols across the indexed workspace as `SymbolInformation`, using the same symbol-kind mapping as document symbols.
+The language server SHALL support `workspace/symbol`: given a query string, it SHALL return matching top-level symbols across the indexed workspace as `SymbolInformation`, using the same symbol-kind mapping as document symbols — and their members: a POU's methods, properties and actions, an interface's methods and properties, an enum's values, each with its owner as `containerName`. A library's top-level symbol carries its library as the container; a library's members are not listed. Locals, parameters and struct fields are not workspace symbols (`services/structure/workspace-symbol.ts`).
+
+#### Scenario: A method is found under its owner
+- **WHEN** the query matches a method `Execute` declared in forty FBs
+- **THEN** forty entries are returned, each naming its FB as `containerName`
 
 #### Scenario: A type is found by name across files
 - **WHEN** the client issues `workspace/symbol` with a query matching a DUT declared in an unopened file
@@ -501,6 +521,18 @@ The language server SHALL support `workspace/symbol`: given a query string, it S
 #### Scenario: Query narrows the result set
 - **WHEN** the query matches a subset of symbol names
 - **THEN** only matching symbols are returned
+
+### Requirement: A quick fix the compiler accepts
+
+Every quick fix the language server offers SHALL produce text the vendor compiler builds clean for the fixture that reports its diagnostic, as recorded (a BEFORE fixture with the finding, an AFTER fixture with the fix applied, both recorded with `record:language`; `services/assist/code-actions.test.ts` holds every pair); a fix without such a recording SHALL NOT be offered. A fix is DATA on the finding (`DiagnosticItem.fixes`), produced by the check that reports it from the facts it already resolved; the code-action service only renders it and derives nothing. A fix SHALL NOT be offered when its edit range no longer holds the text it was made for, nor when its edit keeps text holding another error (that error survives, so the result cannot build clean). A fix is `isPreferred` only where no other edit builds clean with a different meaning. Fixes marked safe together (the preferred conversion wraps) SHALL also be offered as "Fix all '<code>' in the file" and as the source action `source.fixAll.volt` — each finding's first such fix, none overlapping another. Network-text findings offer no fix yet (openspec lsp-quick-fixes).
+
+#### Scenario: Declaring an unresolved identifier
+- **WHEN** the user applies the fix for an unresolved identifier
+- **THEN** the variable is declared with its inferred type and the recorded build of the result is clean
+
+#### Scenario: A stale fix is not offered
+- **WHEN** a client hands back a diagnostic published before its latest edit, and the fix's range now holds other text
+- **THEN** no action is offered for it
 
 ### Requirement: Bare enum members have full navigation
 

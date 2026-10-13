@@ -84,11 +84,11 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     messages/  every message text, one slice per check group, one template per message for both vendors
     pipeline/  the registry, its run order and the context a check is handed, and one document's findings composed
     reachability/  which units and members are dead — the server suppresses diagnostics on them
-    shared/  rules more than one check applies, and the diagnostic item
+    shared/  rules more than one check applies, the diagnostic item and its fixes, the fix text edits, the near-miss engine
   services/  E — the LSP features over the layers below
     assist/  hover (the built-in hover text among it), completion, signature help, inlay hints, code lens, code actions
     formatting/  the formatter
-    navigation/  definition, type definition, the reference set, implementation, hierarchy
+    navigation/  definition, type definition, the reference set, implementation, hierarchy, the override chain a rename spans
     network/  the services over a network-text body, and the references, highlight and rename that span both languages
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
@@ -286,7 +286,13 @@ diagnostic that comes back without that data gets no action, nor does a fix whos
 it was made for (`FixEdit.replaces`: a diagnostic published before the client's latest edit; openspec lsp-quick-fixes
 design.md §2). A fix whose edit rewrites text holding another error is withdrawn after the policy
 (`withdrawBlockedFixes`): that error survives the edit, so the result cannot build clean. A client that does not declare
-`publishDiagnostics.dataSupport` is told once, at `initialize`, that it will get no quick fix.
+`publishDiagnostics.dataSupport` is told once, at `initialize`, that it will get no quick fix. Every fix edit is in the
+reporting document (a `FixEdit` names no other). The checks build their edits with `analysis/shared/fixes.ts` and their
+"did you mean" candidates with `analysis/shared/near-miss.ts` (one engine); the parser records what a syntax error is
+missing (`ParseError.missing`) and `checks/syntax/parse-errors` turns it into the insert. Fixes marked `fixAll` are also
+answered as "Fix all '<code>' in the file" and as `source.fixAll.volt`, over the document's own findings, computed only
+when asked. A rename of a method or property spans its override chain (`navigation/override-chain`), refused by name
+when the chain reaches a library member.
 
 ### Built-in hover, and network text in every layer
 There is no catalog layer. What the compiler provides is the front-end's (`types/builtins.ts` `builtinName`, the
