@@ -14,7 +14,7 @@
       principal (safe.directory) and a path past MAX_PATH (core.longpaths).
 
 ## 2. Fix
-n- [ ] 2.0 **Regression found by the 2026-10-13 e2e matrix (CODESYS SP18 3.5.18.30):** 212 of 218 failures are one message —
+- [ ] 2.0 **Regression found by the 2026-10-13 e2e matrix (CODESYS SP18 3.5.18.30):** 212 of 218 failures are one message —
       `UNSUPPORTED: the library manager: the CODESYS member 'LibManObject.ParameterTable' could not be read` — so a member
       ABSENT from an older SP's object model fails nearly every op (lifecycle, whole project, refs), where two days earlier
       SP18 passed 164 tests and failed only LD/FBD writes. Rule: a member the version's object model does not have is not an
