@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 # Build the unified Volt CLI toolchain into the three INSTALLED folders (openspec installer-rebuild, design 2):
 #   dist\Cli\volt.exe     the PLC CLI (Volt.Cli) - ONE self-contained single-file exe, the only thing besides the LSP
-#                         that lands on PATH ({app}\bin)
+#                         that lands on PATH ({app}\bin); beside it git\, the CLI's own MinGit ({app}\bin\git, not on
+#                         PATH) - the full CLI only, never a bridge bundle
 #   dist\Connector\       the tray connector (VoltConnector.exe) + the TwinCAT pipe worker (VoltBridgeTwincat.exe) on
 #                         ONE shared self-contained runtime ({app}\connector), with the worker's x86 hierarchy reader
 #                         VoltTwincatExplorer.exe (net48 - .NET Framework ships with Windows; it rides in the worker's
@@ -61,12 +62,14 @@ New-Item -ItemType Directory -Force "$DIST\Cli", "$DIST\Twincat", "$DIST\Codesys
 Write-Output "`n[1/4] Volt.Cli (volt.exe, single-file)"
 & $DOTNET publish "$ROOT\src\Volt.Cli\Volt.Cli.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none /p:PublishSingleFile=true -c Release -o "$DIST\Cli" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
-$cliFiles = @(Get-ChildItem "$DIST\Cli" -Recurse -File | ForEach-Object { $_.FullName.Substring("$DIST\Cli\".Length) })
-if ($cliFiles.Count -ne 1 -or $cliFiles[0] -ne "volt.exe") {
-    Write-Output "  REFUSED: the single-file publish left [$($cliFiles -join ', ')] in dist\Cli, not exactly volt.exe - {app}\bin is on PATH and holds volt.exe + volt-lsp-iec.exe only"
+# Beside it, git\: the CLI's OWN git (MinGit, src\Volt.Cli\MinGit.targets - openspec environment-dependency-audit 2.1),
+# which volt.exe runs by path. It lands in {app}\bin\git\ - a folder, so not on PATH (only {app}\bin is).
+$cliTop = @(Get-ChildItem "$DIST\Cli" | ForEach-Object { $_.Name } | Sort-Object)
+if (($cliTop -join '|') -ne 'git|volt.exe' -or -not (Test-Path "$DIST\Cli\volt.exe" -PathType Leaf) -or -not (Test-Path "$DIST\Cli\git\cmd\git.exe" -PathType Leaf)) {
+    Write-Output "  REFUSED: the single-file publish left [$($cliTop -join ', ')] in dist\Cli, not exactly volt.exe + git\ (with git\cmd\git.exe) - {app}\bin is on PATH and holds volt.exe + volt-lsp-iec.exe + the CLI's git\ only"
     exit 1
 }
-Write-Output "  OK -> dist\Cli\volt.exe"
+Write-Output "  OK -> dist\Cli\volt.exe + dist\Cli\git\ (the bundled MinGit)"
 
 
 # --- Connector (the one tray app) + the TwinCAT worker, ONE runtime -----------
@@ -127,9 +130,15 @@ Remove-Item -Recurse -Force "$DIST\CodesysBuild"
 Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
 Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll, one assembly + the two scripts)"
 
+# --- The bridge bundles carry NO git -------------------------------
+# dist\Connector and dist\Codesys are also what PLCAssist distributes, bridge-only. A bridge never runs git, and git ships
+# with the complete CLI only (owner, openspec environment-dependency-audit 2.1; Volt.Repo.Gates/BundledGitGateTests).
+$bridgeGit = @(foreach ($d in "Connector", "Codesys") { Get-ChildItem "$DIST\$d" -Recurse -Force | Where-Object { $_.Name -ieq "git.exe" -or ($_.PSIsContainer -and $_.Name -ieq "git") } | ForEach-Object { $_.FullName.Substring("$DIST\".Length) } })
+if ($bridgeGit.Count -gt 0) { Write-Output "  REFUSED: a bridge bundle carries git: $($bridgeGit -join ', ') - git ships with the full CLI only (dist\Cli\git)"; exit 1 }
+
 Write-Output "`n========================================"
 Write-Output " Build complete"
-Write-Output "   dist\Cli\volt.exe            -> {app}\bin"
+Write-Output "   dist\Cli\volt.exe + git\     -> {app}\bin"
 Write-Output "   dist\Connector\              -> {app}\connector"
 Write-Output "   dist\Codesys\                -> {app}\codesys"
 Write-Output "========================================"

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Volt.Contracts;
 
@@ -21,15 +22,37 @@ namespace Volt.Connector
         private readonly ProbeHealth _probe = new();       // speaks only when the probe starts or stops working
         private readonly Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> _listPids;
 
-        public TwincatFleet() : this(TwincatXaeProbe.ListPids) { }
+        /// <summary>The XAE shells on this machine with their elevation — none when the connector itself runs elevated
+        /// (it then sees an elevated XAE in the ROT like any other).</summary>
+        private readonly Func<System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)>> _shells;
+        private readonly System.Collections.Generic.HashSet<int> _elevatedOutOfSight = new();
+
+        public TwincatFleet() : this(TwincatXaeProbe.ListPids, MachineShells) { }
+
+        private static System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)> MachineShells() =>
+            Volt.Wire.ProcessElevation.Self()
+                ? Array.Empty<(int, bool?)>()
+                : Volt.Wire.ProcessElevation.Of(Vendors.TwincatShellProcesses);
 
         /// <summary>The pid probe, as a seam. It is the ONE part of this loop a test cannot drive: it spawns a
         /// COM-isolated subprocess and reads its stdout, so without this the composition below — the thing the
         /// class was extracted from the tray to make testable — could only be exercised by having real XAE
         /// windows open. Everything else (the reap policy, the supervisor, the probe-health edge detector) is
         /// already reachable; only the pid source was not.</summary>
-        internal TwincatFleet(Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> listPids) =>
+        internal TwincatFleet(Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> listPids)
+            : this(listPids, () => Array.Empty<(int, bool?)>()) { }
+
+        /// <summary>…and the shells, as a seam: which XAE runs elevated is a fact about real processes.</summary>
+        internal TwincatFleet(Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> listPids,
+            Func<System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)>> shells)
+        {
             _listPids = listPids;
+            _shells = shells;
+        }
+
+        /// <summary>The XAE pids this fleet has named as elevated and out of the probe's sight (environment-dependency-audit
+        /// 2.2) — each named once in the log, for as long as the connector runs.</summary>
+        public System.Collections.Generic.IReadOnlyCollection<int> ElevatedOutOfSight => _elevatedOutOfSight;
 
         /// <summary>The worker id for one XAE window — the SAME string across spawn, reap and restart, so it is
         /// spelled exactly once.</summary>
@@ -58,6 +81,15 @@ namespace Volt.Connector
                     : transition);
 
             if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
+
+            // AN XAE THE PROBE CANNOT SEE. Windows hides an elevated process's ROT entries from an unelevated one, so an
+            // XAE run "as administrator" never reaches this list, gets no worker, and nothing said why — the engineer saw
+            // a TwinCAT window and no bridge. Named once per pid; the CLI names it to the user (BridgeResolver.UnreachableXae).
+            foreach (var (pid, elevated) in _shells())
+                if (elevated == true && !pids.Contains(pid) && _elevatedOutOfSight.Add(pid))
+                    VoltLog.Warn($"TwinCAT XAE pid {pid} runs elevated (\"as administrator\") and the connector does not — Windows "
+                        + "hides it from the worker probe, so it gets no TwinCAT bridge. Start XAE without \"Run as administrator\", "
+                        + "or run the connector elevated too.");
             var reap = _policy.Reap(pids);
             foreach (var pid in pids)
                 _supervisor.EnsureWorker(new WorkerSpec(WorkerId(pid), probeExe, $"{WorkerCli.XaePid} {pid}"));

@@ -47,7 +47,7 @@ const proj = {
 // The parity point behind the vscode fix: the desktop init surface shows the detected project NAME. The unbound
 // snapshot carries the picker as `surface` (partitioned by @volt/control) — an unbound folder is a `create` surface.
 test("unbound snapshot carries the detected projects as a create surface (so the init surface can name them)", () => {
-  const snap = snapshot({ projects: [proj], status: undefined, connectorUp: true } as never)
+  const snap = snapshot({ projects: [proj], status: undefined, refused: [], connectorUp: true } as never)
   expect(snap.bound).toBe(false)
   expect(snap.surface.create.map((p) => p.projectName)).toEqual(["MyMachine"])
 })
@@ -62,8 +62,8 @@ test("unbound snapshot carries the detected projects as a create surface (so the
 // unchecked. The premise was wrong on grounds independent of the code, which is the only licence to change a
 // test here; the field itself is now gone.
 test("the snapshot distinguishes 'connector down' from 'connector up, no project'", () => {
-  expect(snapshot({ projects: [], status: undefined, connectorUp: false } as never).onboarding).toBe("no-connector")
-  expect(snapshot({ projects: [], status: undefined, connectorUp: true } as never).onboarding).toBe("no-project")
+  expect(snapshot({ projects: [], status: undefined, refused: [], connectorUp: false } as never).onboarding).toBe("no-connector")
+  expect(snapshot({ projects: [], status: undefined, refused: [], connectorUp: true } as never).onboarding).toBe("no-project")
 })
 
 test("unbound snapshot exposes empty drift arrays the renderer reads unconditionally", () => {
@@ -101,7 +101,7 @@ test("...and is stable under reordering, since it is a set comparison", () => {
 // on "Looking for…" forever; one field with three states cannot have that bug, because the seed differs from either
 // answer and so the first probe always pushes.
 test("before the first probe, the snapshot says 'probing' rather than 'no connector'", () => {
-  expect(snapshot({ projects: [], status: undefined, connectorUp: undefined } as never).onboarding).toBe("probing")
+  expect(snapshot({ projects: [], status: undefined, refused: [], connectorUp: undefined } as never).onboarding).toBe("probing")
 })
 
 // openspec codesys-minimum-version: the refusal is decided by @volt/control and rides the snapshot to the sandboxed
@@ -110,7 +110,7 @@ test("before the first probe, the snapshot says 'probing' rather than 'no connec
 const REASON = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
 
 test("a project on an unsupported IDE carries its refusal into the snapshot", () => {
-  const snap = snapshot({ projects: [{ ...proj, unsupported: REASON }], status: undefined, connectorUp: true } as never)
+  const snap = snapshot({ projects: [{ ...proj, unsupported: REASON }], status: undefined, refused: [], connectorUp: true } as never)
   expect(snap.surface.create[0]?.refusal).toEqual({ caption: "IDE not supported", reason: REASON })
 })
 
@@ -123,10 +123,16 @@ test("the detected-project key changes when a project's IDE becomes unsupported"
 test("each project carries its IDE identity line into the snapshot", () => {
   // a current bridge: it always states its release (design A) — without one the row reads as an older bridge
   const p = { ...proj, productVendor: "Beckhoff", productName: "TcXaeShell", productVersion: "15.0", ideVersion: "3.1.4024.74", vendor: "twincat", bridgeVersion: "0.1.17258" }
-  const snap = snapshot({ projects: [p], status: undefined, connectorUp: true } as never)
+  const snap = snapshot({ projects: [p], status: undefined, refused: [], connectorUp: true } as never)
   expect(snap.surface.create[0]?.identity).toBe("Beckhoff TcXaeShell 15.0 — TwinCAT 3.1.4024.74")
 })
 
 test("the detected-project key changes when a project's IDE identity arrives", () => {
   expect(detectedKey([{ ...proj, productName: "CODESYS" }] as never)).not.toBe(detectedKey([{ ...proj }] as never))
+})
+
+// Gate 2b (environment-dependency-audit 2.2): the refused IDEs ride the snapshot to the renderer, bound or not.
+test("snapshot carries the refused IDEs to the renderer", () => {
+  const refused = [{ key: "refused:volt.bridge.codesys.7", label: "An IDE Volt cannot reach", caption: "access denied", reason: "R" }]
+  expect(snapshot({ projects: [], status: undefined, refused, connectorUp: true } as never).refused).toEqual(refused)
 })

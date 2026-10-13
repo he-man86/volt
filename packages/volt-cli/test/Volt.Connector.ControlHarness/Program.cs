@@ -42,7 +42,7 @@ var conn = new ConnectionManager(
 ConnectorView View() => new(conn.Projects
     .Select(p => new ProjectView(p.Id, p.Vendor, p.Dirty, p.Status, p.Attach.Project, p.Pipe, p.IdeVersion, p.Unsupported,
         p.ProductName, p.ProductVersion, p.ProductVendor, p.BridgeVersion))
-    .ToList());
+    .ToList(), conn.Refused);
 
 // The ambient read refreshes UNCONDITIONALLY (the product's 1s staleness floor is a load shield for many polling
 // clients; here a test rewrites the scenario file and reads it back in the same millisecond).

@@ -144,6 +144,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # The CLI's bundled MinGit (src/Volt.Cli/MinGit.targets fetches + SHA-256-verifies it on a cold cache): keyed by the pin.
+      - uses: actions/cache@v4
+        with:
+          path: packages/volt-cli/.cache/mingit
+          key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
       - name: Build the whole toolchain (all TFMs — CLI, IDE hosts, connector)
         run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
       - name: Test — pipe transport + ported sync + black-box + CODESYS multi-instance
@@ -185,6 +190,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - if: matrix.suite == 'cli'
+        uses: actions/cache@v4
+        with:
+          path: packages/volt-cli/.cache/mingit
+          key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
       - if: matrix.suite == 'cli'
         name: Build the whole toolchain
         run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo

@@ -53,7 +53,10 @@ namespace Volt.Connector
             IReadOnlyCollection<string> Wanted,
             /// <summary>Did ANY source's bridge answer this tick — the one bit the flat rows can't express (a bridge up
             /// with no project open yields zero rows, same as a bridge that is down). Drives the "up, waiting" colour.</summary>
-            bool AnyReachable);
+            bool AnyReachable,
+            /// <summary>The bridge pipes that refused this process this tick (<see cref="SourceScan.Refused"/>), every
+            /// source's — carried to the control plane so a refused IDE is named, not missing.</summary>
+            IReadOnlyList<RefusedBridge> Refused);
 
         private readonly IReadOnlyList<IProjectSource> _sources;
         private readonly Dictionary<string, IProjectSource> _byVendor;
@@ -105,11 +108,16 @@ namespace Volt.Connector
                 // restarts us mid-session. Field incident 2026-07-28: after an update a project sat `healthy` with
                 // every client closed, and nothing could ever gate it again. Restoring the set restores the edge.
                 Wanted: restored,
-                AnyReachable: false);
+                AnyReachable: false,
+                Refused: Array.Empty<RefusedBridge>());
         }
 
         /// <summary>The merged list the unified selector shows — one entry per detected project, all vendors.</summary>
         public IReadOnlyList<DetectedProject> Projects => _state.Projects;
+
+        /// <summary>The bridge pipes that refused this process on the last scan — IDEs that are there and cannot be
+        /// listed (another user's, or elevated on an older bridge); named by the control plane, never connectable.</summary>
+        public IReadOnlyList<RefusedBridge> Refused => _state.Refused;
 
         public IReadOnlyList<IProjectSource> Sources => _sources;
 
@@ -370,7 +378,7 @@ namespace Volt.Connector
             var scans = await Task.WhenAll(_sources.Select(async src =>
             {
                 try { return await src.ScanAsync().ConfigureAwait(false); }
-                catch { return new SourceScan(Array.Empty<DetectedProject>(), Reachable: false); }
+                catch { return new SourceScan(Array.Empty<DetectedProject>(), Reachable: false, Refused: Array.Empty<RefusedBridge>()); }
             })).ConfigureAwait(false);
             var anyReachable = Array.Exists(scans, x => x.Reachable);
 
@@ -388,7 +396,8 @@ namespace Volt.Connector
             }
 
             var serving = merged.ToDictionary(p => p.Id, p => p.Serving);
-            _state = prior with { Projects = merged, Serving = serving, AnyReachable = anyReachable };
+            _state = prior with { Projects = merged, Serving = serving, AnyReachable = anyReachable,
+                Refused = scans.SelectMany(x => x.Refused).ToList() };
             _lastRefreshUtc = DateTime.UtcNow;
         }
 

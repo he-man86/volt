@@ -188,6 +188,41 @@ public class PerPipeProjectSourceTests
         Assert.True(scan.Reachable);            // ...but the pipe was discovered, so the source itself is reachable
     }
 
+    // Gate 2b (environment-dependency-audit 2.2): a pipe that REFUSES the connector (another user's IDE, an elevated
+    // one on an older bridge) has no project to list — but it must not vanish with nothing but a log line: the scan
+    // carries it, named, so the connection view can say why that IDE is missing. A pipe that went away stays silent.
+    [Fact]
+    public async Task A_refusing_pipe_is_carried_as_a_named_refusal_not_dropped()
+    {
+        var ok = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "Mine" } ] }""");
+        var src = new PerPipeProjectSource("codesys", "CODESYS",
+            () => new[] { "volt.bridge.codesys.1", "volt.bridge.codesys.2" },
+            pipe => pipe == "volt.bridge.codesys.2" ? new RefusingWire(pipe) : ok);
+
+        var scan = await src.ScanAsync();
+
+        Assert.Equal("Mine", Assert.Single(scan.Projects).ProjectName);
+        var refused = Assert.Single(scan.Refused);
+        Assert.Equal("codesys", refused.Vendor);
+        Assert.Equal("volt.bridge.codesys.2", refused.Pipe);
+        Assert.Contains("refused this process", refused.Reason);
+    }
+
+    [Fact]
+    public async Task A_pipe_that_went_away_is_no_refusal()
+    {
+        var gone = new FakeBridgeWire();
+        gone.Throw.Add("health");
+        var scan = await One("codesys", "CODESYS", gone, "volt.bridge.codesys.1").ScanAsync();
+        Assert.Empty(scan.Refused);
+    }
+
+    private sealed class RefusingWire(string pipe) : IBridgeWire
+    {
+        public Task<JsonElement> CallAsync(string op, object? body = null) =>
+            Task.FromException<JsonElement>(new Volt.Wire.PipeAccessDeniedException(pipe, new UnauthorizedAccessException()));
+    }
+
     // ── Flatten's row-level behaviour, ported from the deleted WireContractParityTests ───────────────────
     // That file existed to pin the connector's hand-written MIRROR of the health row against the bridge's
     // declaration; the mirror is gone (one declaration now, in Volt.Wire.Wire) and with it the premise.

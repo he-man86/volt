@@ -46,9 +46,18 @@ namespace Volt.Connector
             // rows for that pipe). Each row is self-describing (serving/status/dirty ride through onto the
             // DetectedProject), so there is no second probe: a live pipe existing IS the reachability bit.
             var pipes = _livePipes();
+            var refused = new System.Collections.Concurrent.ConcurrentBag<RefusedBridge>();
             var perPipe = await Task.WhenAll(pipes.Select(async pipe =>
             {
                 try { return WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe); }
+                catch (PipeAccessDeniedException e)
+                {
+                    // Not a host that went away: an IDE that is THERE and refuses us. It has no rows to give, so it is
+                    // carried named — the connection view says why that IDE is missing (environment-dependency-audit 2.2).
+                    VoltLog.Warn($"health on {pipe} refused: {e.Message}");
+                    refused.Add(new RefusedBridge(Vendor, pipe, e.Message));
+                    return new List<DetectedProject>();
+                }
                 catch (Exception e)
                 {
                     // Usually that host went away mid-scan — but a hung IDE or a version-skewed frame lands here too,
@@ -58,7 +67,8 @@ namespace Volt.Connector
                     return new List<DetectedProject>();
                 }
             }));
-            return new SourceScan(perPipe.SelectMany(x => x).ToList(), Reachable: pipes.Count > 0);
+            return new SourceScan(perPipe.SelectMany(x => x).ToList(), Reachable: pipes.Count > 0,
+                Refused: refused.OrderBy(r => r.Pipe, StringComparer.Ordinal).ToList());
         }
 
         public Task BindAsync(DetectedProject project)

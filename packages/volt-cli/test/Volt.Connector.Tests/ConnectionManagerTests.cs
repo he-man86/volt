@@ -21,6 +21,7 @@ internal sealed class FakeProjectSource : IProjectSource
     public List<DetectedProject> Projects { get; } = new();
     /// <summary>Whether the bridge answered this tick — the one bit the rows can't express (up-but-empty vs down).</summary>
     public bool Reachable { get; set; } = true;
+    public List<RefusedBridge> Refused { get; } = new();
     public bool ThrowOnEnumerate { get; set; }
     /// <summary>Delay this source's scan (models a slow/hung bridge).</summary>
     public int ScanDelayMs { get; set; }
@@ -48,7 +49,7 @@ internal sealed class FakeProjectSource : IProjectSource
         ScanEntered?.Signal();
         if (ScanRelease != null) await ScanRelease;
         else if (ScanDelayMs > 0) await Task.Delay(ScanDelayMs);
-        return new SourceScan(Projects.ToList(), Reachable);
+        return new SourceScan(Projects.ToList(), Reachable, Refused.ToList());
     }
 
     public Task BindAsync(DetectedProject project) { Bound.Add(project); return Task.CompletedTask; }
@@ -101,6 +102,18 @@ public class ConnectionManagerTests
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();
         Assert.Equal(expected, mgr.Aggregate());
+    }
+
+    [Fact]
+    public async Task A_refused_bridge_of_any_source_is_carried_to_the_view()
+    {
+        // Gate 2b (environment-dependency-audit 2.2): a pipe that refused the connector names its IDE in the view.
+        var s1 = new FakeProjectSource("codesys", "CODESYS");
+        s1.Refused.Add(new RefusedBridge("codesys", "volt.bridge.codesys.7", "refused"));
+        var s2 = new FakeProjectSource("twincat", "TwinCAT");
+        var mgr = Mgr(s1, s2);
+        await mgr.RefreshAsync();
+        Assert.Equal("volt.bridge.codesys.7", Assert.Single(mgr.Refused).Pipe);
     }
 
     [Fact]

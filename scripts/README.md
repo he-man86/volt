@@ -22,7 +22,7 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 
 DEV BUILD — on demand (Actions → `release` → Run workflow, `release.yml`):
 ```
-build-payload.ts        →  dist/volt/     bin/ connector/ codesys/ (no .vsix — the installer no longer sideloads the extension)
+build-payload.ts        →  dist/volt/     bin/ (+ bin/git, the CLI's MinGit) connector/ codesys/ (no .vsix — the installer no longer sideloads the extension)
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
@@ -70,7 +70,8 @@ scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
 
 **`binary-targets.ts` is a step of `build-payload.ts`** (its self-check, after the by-name file list): it reads the PE
 header of every `.exe`/`.dll` in the payload and refuses one built for a CPU its place does not allow — the in-proc
-CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), `VoltTwincatExplorer.exe` x86 (XAE's own x86 proxy), everything
+CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), `VoltTwincatExplorer.exe` x86 (XAE's own x86 proxy),
+MinGit's `bin/git/usr/libexec/getprocaddr32.exe` x86 (its helper for interrupting a 32-bit child), everything
 else x64/AnyCPU (openspec environment-dependency-audit 1.2). Run it directly (`bun scripts/binary-targets.ts [dir]`)
 on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe` is x86, and allowed). What a PE header cannot say (the LSP's `-baseline` bun target, the installer's
 `ArchitecturesAllowed`) is held as text by `Volt.Repo.Gates/ShippedBinaryTargetTests`.

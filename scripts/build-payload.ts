@@ -8,7 +8,8 @@
  *   bun scripts/build-payload.ts --no-cli  # skip the C# toolchain (non-Windows / no .NET SDK) — LSP only
  *
  * Output:
- *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two, the PATH dir
+ *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two files, the PATH dir —
+ *                         + git/, the CLI's own MinGit (a folder: not on PATH; the full CLI only, never a bridge bundle)
  *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime (+ VoltTwincatExplorer.exe, net48 x86)
  *   dist/volt/codesys/    Volt.Ide.Codesys.dll + start/stop_volt_codesys.py
  *
@@ -158,9 +159,11 @@ if (!skipCli) {
   }
   const cliDist = resolve(repo, "packages/volt-cli/dist")
   cpSync(resolve(cliDist, "Cli", "volt.exe"), resolve(bin, "volt.exe"))
+  // The CLI's own git (MinGit, packages/volt-cli/src/Volt.Cli/MinGit.targets): volt.exe runs bin/git/cmd/git.exe by path.
+  cpSync(resolve(cliDist, "Cli", "git"), resolve(bin, "git"), { recursive: true })
   cpSync(resolve(cliDist, "Connector"), resolve(out, "connector"), { recursive: true })
   cpSync(resolve(cliDist, "Codesys"), resolve(out, "codesys"), { recursive: true })
-  console.log("  ✓ volt.exe → dist/volt/bin, connector → dist/volt/connector, codesys → dist/volt/codesys")
+  console.log("  ✓ volt.exe + git/ → dist/volt/bin, connector → dist/volt/connector, codesys → dist/volt/codesys")
 }
 
 // Self-check: the payload is the install tree, so it is checked as one — by name, every required file. bin\ is
@@ -170,6 +173,9 @@ const required = skipCli
   : [
       "bin/volt.exe",
       "bin/volt-lsp-iec.exe",
+      "bin/git/cmd/git.exe",
+      "bin/git/LICENSE.txt",
+      "bin/git/VOLT-SOURCE.txt",
       "connector/VoltConnector.exe",
       "connector/VoltBridgeTwincat.exe",
       "connector/VoltTwincatExplorer.exe",
@@ -184,9 +190,22 @@ if (absent.length > 0) {
   process.exit(1)
 }
 const binFiles = readdirSync(bin).sort()
-const binWanted = (skipCli ? ["volt-lsp-iec" + ext] : ["volt-lsp-iec.exe", "volt.exe"]).sort()
+const binWanted = (skipCli ? ["volt-lsp-iec" + ext] : ["git", "volt-lsp-iec.exe", "volt.exe"]).sort()
 if (binFiles.join("|") !== binWanted.join("|")) {
   console.error(`✗ dist/volt/bin holds [${binFiles.join(", ")}], not exactly [${binWanted.join(", ")}] — it is the PATH dir`)
+  process.exit(1)
+}
+// git ships with the full CLI ONLY: connector/ and codesys/ are also the bridge bundles PLCAssist distributes, and a
+// bridge never runs git (owner, openspec environment-dependency-audit 2.1). build-cli.ps1 refuses the same.
+const bridgeGit = ["connector", "codesys"].flatMap((d) =>
+  existsSync(resolve(out, d))
+    ? readdirSync(resolve(out, d), { recursive: true, encoding: "utf8" })
+        .filter((f) => /(^|[\\/])git(\.exe)?$/i.test(f))
+        .map((f) => `${d}/${f}`)
+    : [],
+)
+if (bridgeGit.length > 0) {
+  console.error(`✗ a bridge bundle carries git: ${bridgeGit.join(", ")} — git ships with the full CLI only (bin/git)`)
   process.exit(1)
 }
 

@@ -7,7 +7,15 @@ namespace Volt.Connector
     /// reachable at all. Reachability is the ONE bit the flat rows can't express — a bridge that is up with no
     /// project open yields zero rows, exactly like a bridge that is down — so it rides alongside the rows instead
     /// of a second `health` round-trip. Everything else (serving, degraded, dirty) is already ON each row.</summary>
-    public sealed record SourceScan(IReadOnlyList<DetectedProject> Projects, bool Reachable);
+    /// <para><c>Refused</c>: the live pipes that REFUSED this process (another Windows user's IDE, or an elevated one
+    /// on a bridge older than <c>PipeAcl</c>) — no project row can come from them, since their <c>health</c> never
+    /// answered, but the connection view names them instead of letting the IDE silently vanish (environment-dependency-
+    /// audit 2.2). A pipe that merely went away is not one.</para>
+    public sealed record SourceScan(IReadOnlyList<DetectedProject> Projects, bool Reachable, IReadOnlyList<RefusedBridge> Refused);
+
+    /// <summary>A bridge pipe that exists and refused this process — named by its pipe, with the refusal's own sentence
+    /// (<c>PipeAccessDeniedException</c>). It travels to the control plane as is (<c>ConnectorView.Refused</c>).</summary>
+    public sealed record RefusedBridge(string Vendor, string Pipe, string Reason);
 
     /// <summary>
     /// The connection model's SOURCE seam: enumerate the projects that can be connected to, bind one, and report

@@ -55,6 +55,12 @@ ChangesEnvironment=yes
 ; upgrade deletes. Files a later build drops are still removed: [UninstallDelete] takes the four folders whole.
 UninstallLogMode=overwrite
 
+[InstallDelete]
+; The CLI's own git (MinGit) is ONE tree: [Files] below only adds and overwrites, so an update that bumps the pin would
+; leave every file only the older MinGit had beside the new ones — a mixed git. Cleared first, at install time (after
+; PrepareToInstall waited for a running CLI). Held by Volt.Repo.Gates/BundledGitGateTests and test:install step 3.
+Type: filesandordirs; Name: "{app}\bin\git"
+
 [Files]
 ; dist/stage IS the install tree: four folders, copied 1:1.
 Source: "{#StageDir}\bin\*";       DestDir: "{app}\bin";       Flags: recursesubdirs createallsubdirs ignoreversion

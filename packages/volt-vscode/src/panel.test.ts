@@ -31,7 +31,7 @@ const proj = (over: Record<string, unknown> = {}) => {
 // fills that gap — an unbound folder with detected projects renders an INDENTED list: a "Detected project(s)"
 // header with each project NESTED (children) as a named, clickable-to-set-up row.
 test("unbound + a detected project → indented under a header, a named row that inits ITSELF", () => {
-  const [header] = bridgeRoots([], [proj()], true)
+  const [header] = bridgeRoots([], [proj()], true, [])
   expect(header?.label).toBe("Detected project")
   const node = header?.children?.[0]
   expect(node?.label).toBe("MyMachine")
@@ -44,20 +44,20 @@ test("unbound + a detected project → indented under a header, a named row that
 })
 
 test("two detected projects → both nested under the header as a list", () => {
-  const [header] = bridgeRoots([], [proj({ projectName: "P13" }), proj({ projectName: "P14" })], true)
+  const [header] = bridgeRoots([], [proj({ projectName: "P13" }), proj({ projectName: "P14" })], true, [])
   expect(header?.label).toBe("Detected projects")
   expect(header?.children?.map((c) => c.label)).toEqual(["P13", "P14"])
 })
 
 test("unbound + nothing detected → says so, and what to do about it", () => {
-  const [node] = bridgeRoots([], [], true)
+  const [node] = bridgeRoots([], [], true, [])
   expect(node?.label).toBe("No PLC project detected")
 })
 
 // "Connector down" and "connector up, no project open" used to render identically — the fix for one is to start
 // Volt, for the other to open a project, so they must never look the same.
 test("unbound + connector down → names the connector, not the project list", () => {
-  const [node] = bridgeRoots([], [], false)
+  const [node] = bridgeRoots([], [], false, [])
   expect(node?.label).toBe("The Volt Connector isn't running")
 })
 
@@ -83,19 +83,19 @@ test("bound + ready + ideChanged → a 'Refresh to check' hint (no auto-walk)", 
 // Offline, the reconnect surface IS the detected-project list: the matching project is a plain Reconnect
 // (volt.connect); a different-named one is a Rebind (the rename path); nothing detected → a hint, no action.
 test("bound + offline → the matching detected project is a Reconnect row (volt.connect)", () => {
-  const roots = bridgeRoots([offlineView as never], [proj()], true)
+  const roots = bridgeRoots([offlineView as never], [proj()], true, [])
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(false) // already disconnected
 })
 
 test("bound + offline + a DIFFERENT-named project → a Rebind row (volt.rebindProject with that project)", () => {
-  const roots = bridgeRoots([offlineView as never], [proj({ projectName: "MyMachine_v2" })], true)
+  const roots = bridgeRoots([offlineView as never], [proj({ projectName: "MyMachine_v2" })], true, [])
   const rebind = roots.find((n) => n.command?.command === "volt.rebindProject")
   expect(rebind?.command?.arguments?.[0]).toMatchObject({ projectName: "MyMachine_v2" })
 })
 
 test("bound + offline + nothing detected → an 'open your project' hint, no connect/rebind action", () => {
-  const roots = bridgeRoots([offlineView as never], [], true)
+  const roots = bridgeRoots([offlineView as never], [], true, [])
   expect(roots.some((n) => n.command?.command === "volt.connect" || n.command?.command === "volt.rebindProject")).toBe(false)
   expect(roots.some((n) => String(n.label).includes("Open your project"))).toBe(true)
 })
@@ -103,7 +103,7 @@ test("bound + offline + nothing detected → an 'open your project' hint, no con
 // Disconnect is a REAL disconnect now (the bridge refuses sync until you reconnect), so it earns a button —
 // the mirror of Reconnect, on the same row set, instead of hiding in the command palette.
 test("bound + online → Bridge view offers Disconnect (volt.disconnect)", () => {
-  const roots = bridgeRoots([onlineView as never], [], true)
+  const roots = bridgeRoots([onlineView as never], [], true, [])
   expect(roots.some((n) => n.command?.command === "volt.disconnect")).toBe(true)
   expect(roots.some((n) => n.command?.command === "volt.connect")).toBe(false)
 })
@@ -134,7 +134,7 @@ test("outgoing diff = VOLTIDE (synced baseline) ↔ WORKSPACE (working file)", (
 // their IDE to fix a problem that had not been established. The desktop had invented this state locally
 // (`awaiting`); the extension had not, which is the divergence `onboardingMode` exists to prevent.
 test("before the first probe, the view says it is still looking rather than blaming the IDE", () => {
-  const [node] = bridgeRoots([], [], undefined)
+  const [node] = bridgeRoots([], [], undefined, [])
 
   expect(node?.label).toContain("Looking for open PLC projects")
 })
@@ -144,7 +144,7 @@ test("before the first probe, the view says it is still looking rather than blam
 const REASON = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
 
 test("unbound + a project on an unsupported IDE → the row says why and sets nothing up", () => {
-  const [header] = bridgeRoots([], [proj({ status: "idle", unsupported: REASON })], true)
+  const [header] = bridgeRoots([], [proj({ status: "idle", unsupported: REASON })], true, [])
   const node = header?.children?.[0]
   expect(node?.label).toBe("MyMachine")
   expect(node?.description).toBe("IDE not supported")
@@ -154,7 +154,7 @@ test("unbound + a project on an unsupported IDE → the row says why and sets no
 })
 
 test("bound + offline + its project on an unsupported IDE → the reconnect row says why and reconnects nothing", () => {
-  const nodes = bridgeRoots([offlineView as never], [proj({ status: "idle", unsupported: REASON })], true)
+  const nodes = bridgeRoots([offlineView as never], [proj({ status: "idle", unsupported: REASON })], true, [])
   const row = nodes.find((n) => n.key.startsWith("reconnect:"))
   expect(row?.description).toBe("IDE not supported")
   expect(row?.tooltip).toBe(`${REASON}\nunknown vendor unknown product unknown version — CODESYS version unknown`)
@@ -163,6 +163,18 @@ test("bound + offline + its project on an unsupported IDE → the reconnect row 
 
 // openspec ide-identity-report 2.5: the set-up row names the IDE the project is open in, from the bridge's own words.
 test("unbound + a detected project → the set-up row names its IDE", () => {
-  const [header] = bridgeRoots([], [proj({ productVendor: "CODESYS Development GmbH", productName: "CODESYS", productVersion: "3.5.21.40", ideVersion: "3.5.21.40" })], true)
+  const [header] = bridgeRoots([], [proj({ productVendor: "CODESYS Development GmbH", productName: "CODESYS", productVersion: "3.5.21.40", ideVersion: "3.5.21.40" })], true, [])
   expect(header?.children?.[0]?.tooltip).toContain("CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4")
+})
+
+// Gate 2b (environment-dependency-audit 2.2): an IDE whose pipe refused the connector is named in the Bridge view,
+// with the reason and no command — beside the onboarding list and in a bound workspace's offline reconnect list.
+test("a refused IDE is drawn as a no-command row with its reason, bound or not", () => {
+  const refused = [{ key: "refused:volt.bridge.codesys.7", label: "An IDE Volt cannot reach", caption: "access denied", reason: "R" }]
+  const unbound = bridgeRoots([], [], true, refused)
+  const row = unbound.find((n) => n.key === "refused:volt.bridge.codesys.7")
+  expect(row?.label).toBe("An IDE Volt cannot reach")
+  expect(row?.tooltip).toBe("R")
+  expect(row?.command).toBeUndefined()
+  expect(bridgeRoots([offlineView as never], [], true, refused).some((n) => n.key === "refused:volt.bridge.codesys.7")).toBe(true)
 })

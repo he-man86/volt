@@ -12,6 +12,10 @@ public sealed class BridgeError : Exception
     /// <see cref="BridgeResolver.AmbiguousBridge"/> — it never travels on the wire, because there is no wire.</summary>
     public const string UnreachableCode = "BRIDGE_UNREACHABLE";
 
+    /// <summary>The pipe is there and refused this process — another user's IDE, or an elevated one (openspec
+    /// environment-dependency-audit 2.2). CLI-local, like <see cref="UnreachableCode"/>; the message names the cause.</summary>
+    public const string AccessDeniedCode = "BRIDGE_ACCESS_DENIED";
+
     public string Code { get; }
     public BridgeError(string code, string message) : base(message) => Code = code;
 }
@@ -70,6 +74,7 @@ public sealed class BridgeClient
     private JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null)
     {
         try { return _pipe.Call(op, body, onProgress); }
+        catch (PipeAccessDeniedException e) { throw new BridgeError(BridgeError.AccessDeniedCode, e.Message); }
         catch (Exception e) when (e is IOException or TimeoutException)
         {
             throw new BridgeError(BridgeError.UnreachableCode,

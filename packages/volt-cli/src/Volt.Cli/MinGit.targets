@@ -1,0 +1,56 @@
+<Project>
+  <!--
+    THE CLI'S OWN GIT (openspec environment-dependency-audit 2.1, owner decision 2026-10-13). `volt` runs git for every
+    verb; a CODESYS- or TwinCAT-only PC has none. So the CLI carries MinGit — Git for Windows' official redistributable,
+    unmodified — in `git\` beside volt.exe ({app}\bin\git\, NOT on PATH: only {app}\bin is), and `Sync/Git.cs` runs THAT
+    copy by its path, never a PATH lookup.
+
+    ONLY the full CLI carries it. The bridge bundles PLCAssist distributes (build-cli.ps1's dist\Connector, dist\Codesys)
+    never run git ("git should only be bundled for the complete CLI"); no bridge project references Volt.Cli, and
+    Volt.Repo.Gates/BundledGitTests holds that, and build-cli.ps1 refuses a bridge folder with a git in it.
+
+    The pin is HERE and nowhere else: build-payload.ts, test-install.ts and the gates read it from this file. The zip is
+    fetched once into packages/volt-cli/.cache/mingit/<version>/ (git-ignored), verified against its SHA-256 before it is
+    unpacked, and then copied into every build output that runs the CLI (Volt.Cli, and through the reference Volt.Cli.Tests
+    — so a test runs the same resolution a user does) and beside the published volt.exe.
+
+    Why this version: git >= 2.28 for `init` with an initial branch, and a git that honours `-c safe.directory=…` on the command
+    line — measured 2026-10-13: 2.37.1 does not (only system/global config), MinGit 2.56.0.2 does.
+  -->
+  <PropertyGroup>
+    <MinGitVersion>2.56.0.2</MinGitVersion>
+    <MinGitTag>v2.56.0.windows.2</MinGitTag>
+    <MinGitSha256>da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be</MinGitSha256>
+    <MinGitZip>MinGit-$(MinGitVersion)-64-bit.zip</MinGitZip>
+    <MinGitUrl>https://github.com/git-for-windows/git/releases/download/$(MinGitTag)/$(MinGitZip)</MinGitUrl>
+    <MinGitCache>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '.cache', 'mingit'))</MinGitCache>
+    <MinGitDir>$(MinGitCache)$(MinGitVersion)\</MinGitDir>
+  </PropertyGroup>
+
+  <!-- Fetch → verify → unpack into a folder of this build's own, then rename it into place: two builds at once (another
+       workflow on the same machine) never see a half-unpacked git. The rename losing to the other build is fine — it
+       unpacked the same verified zip. -->
+  <Target Name="VoltFetchMinGit" Condition="'$(OS)' == 'Windows_NT' And !Exists('$(MinGitDir)cmd\git.exe')">
+    <PropertyGroup>
+      <_MinGitTmp>$(MinGitCache)tmp-$([System.Guid]::NewGuid().ToString('N'))\</_MinGitTmp>
+    </PropertyGroup>
+    <DownloadFile SourceUrl="$(MinGitUrl)" DestinationFolder="$(_MinGitTmp)" DestinationFileName="$(MinGitZip)" Retries="3" />
+    <VerifyFileHash File="$(_MinGitTmp)$(MinGitZip)" Hash="$(MinGitSha256)" Algorithm="SHA256" />
+    <Unzip SourceFiles="$(_MinGitTmp)$(MinGitZip)" DestinationFolder="$(_MinGitTmp)git" />
+    <WriteLinesToFile File="$(_MinGitTmp)git\VOLT-SOURCE.txt" Overwrite="true" Lines="MinGit $(MinGitVersion) - Git for Windows $(MinGitTag), the official redistributable, UNMODIFIED.;Shipped with Volt so the volt CLI runs on a machine without Git for Windows. Volt runs it by path%3B it is not on PATH.;Licence: GNU General Public License v2 - LICENSE.txt in this folder (and the per-component licences under ucrt64\share\licenses).;Binary: $(MinGitUrl);SHA-256 of that zip: $(MinGitSha256);Corresponding source: https://github.com/git-for-windows/git/tree/$(MinGitTag);Release notes and the source of every bundled component: https://github.com/git-for-windows/git/releases/tag/$(MinGitTag)" />
+    <Exec Command="move &quot;$(_MinGitTmp)git&quot; &quot;$(MinGitDir.TrimEnd('\'))&quot;" ContinueOnError="true" StandardOutputImportance="low" />
+    <RemoveDir Directories="$(_MinGitTmp)" ContinueOnError="true" />
+    <Error Condition="!Exists('$(MinGitDir)cmd\git.exe')" Text="MinGit $(MinGitVersion) is not at $(MinGitDir)cmd\git.exe after the fetch — the CLI cannot be built without its git" />
+  </Target>
+
+  <Target Name="VoltIncludeMinGit" BeforeTargets="AssignTargetPaths" DependsOnTargets="VoltFetchMinGit" Condition="'$(OS)' == 'Windows_NT'">
+    <ItemGroup>
+      <!-- Two steps: a metadata reference in a target BATCHES, and an unqualified %(Filename) would batch over every
+           None item of the project (it copied MinGit.targets itself as git\MinGit.targets). Qualified, it batches over
+           these files alone. -->
+      <_VoltMinGitFile Include="$(MinGitDir)**\*" />
+      <None Include="@(_VoltMinGitFile)" Link="git\%(_VoltMinGitFile.RecursiveDir)%(_VoltMinGitFile.Filename)%(_VoltMinGitFile.Extension)"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    </ItemGroup>
+  </Target>
+</Project>

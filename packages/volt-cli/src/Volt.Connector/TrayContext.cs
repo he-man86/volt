@@ -148,7 +148,8 @@ namespace Volt.Connector
                 p.Id, p.Vendor, p.Dirty,
                 p.Status, // serving derives from status (!= "idle") on the client
                 p.Attach.Project, p.Pipe, p.IdeVersion, p.Unsupported,
-                p.ProductName, p.ProductVersion, p.ProductVendor, p.BridgeVersion)).ToList());
+                p.ProductName, p.ProductVersion, p.ProductVendor, p.BridgeVersion)).ToList(),
+            _conn.Refused);
 
         // A session declares its FULL interest set; the manager reconciles the bridges and re-scans, so the snapshot
         // we return already reflects what those bridges now serve — the client reads its own row from it in one call.

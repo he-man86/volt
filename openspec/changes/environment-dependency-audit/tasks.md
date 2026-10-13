@@ -195,13 +195,71 @@
       Connector 122/0, Ide.Twincat 492/0; typecheck green. SP18 e2e (3.5.18.30, `codesysSP18.project`): 169 pass /
       72 skip / 108 fail — unchanged from 2.0 (106 `graphical/*` + D27 + whole-project, the expected refusals).
 
-- [ ] 2.1 Bundle MinGit (owner decision) in the FULL installer payload `bin\git\` only — NOT in the bridge-only packages
+- [x] 2.1 Bundle MinGit (owner decision) in the FULL installer payload `bin\git\` only — NOT in the bridge-only packages
       PLCAssist distributes (owner: "git should only be bundled for the complete CLI"); a gate asserts the bridge packages
       carry no git. The CLI always runs it with safe.directory/longpaths per call;
       license + source pointer; installer and `test:install` assert it. A git that cannot start or refuses is NAMED
       (gate 1 holds that for a broken repo; the `GitEnvironmentTests` marks pin git's own words), never "not a Volt workspace".
-- [ ] 2.2 Elevation: detect and name an elevated IDE (TwinCAT ROT miss + process present; CODESYS pipe access denied);
+      **Built 2026-10-13 (design.md "2.1"):** MinGit 2.56.0.2 pinned + SHA-256 in `src/Volt.Cli/MinGit.targets` (fetched
+      into git-ignored `.cache/mingit`, verified before unzip, copied as `git\` beside volt.exe in build and publish
+      outputs; `VOLT-SOURCE.txt` beside MinGit's `LICENSE.txt`). `Git.cs` runs `git\cmd\git.exe` by path (absent → named,
+      "reinstall Volt"), per call `core.longpaths=true` and, for `-C <root>`, `safe.directory=<root>` +
+      `GIT_CEILING_DIRECTORIES` — NOT `*`: measured, a broken `.git` with `*` let git answer from a `C:\.git` above the
+      workspace (red test first). The three `GitEnvironmentTests` marks and the `NoDeveloperToolComponentTests` mark
+      removed (green); new: a volt.exe without its `git\` names it and never uses PATH (black box), the bundled git is the
+      pin, licence+source present, `BundledGitGateTests` (only Volt.Cli bundles git; no bridge project's closure reaches
+      it; build/payload/install refusals present; pin verified before unzip). `build-cli.ps1` (dist\Cli = volt.exe + git\;
+      refuses git in dist\Connector|Codesys — ran green end to end, Cli 281/0 Release), `build-payload.ts` (bin/git,
+      required files, bridge refusal), `binary-targets.ts` (MinGit's `getprocaddr32.exe` x86 — the one non-x64 PE of 187),
+      `test-install.ts` (bin = git + the two exes; git reports the pin; licence/source; none under connector/codesys),
+      installer README row, CI cache keyed by the pin. `test:install` itself not run here (it installs on this machine).
+- [x] 2.2 Elevation: detect and name an elevated IDE (TwinCAT ROT miss + process present; CODESYS pipe access denied);
       a measured PipeSecurity for the CODESYS pipe admitting the same user unelevated.
+      **Built 2026-10-13 (design.md "2.2"):** measured — default pipe SD `O:<user>D:(SY FA)(BA FA)(owner FA)(WD FR)(AN FR)`;
+      an elevated same-user token (CODESYSControlSysTray, GatewaySysTray) has owner Administrators, High IL, and IS
+      readable for `TokenElevation` from an unelevated process. `Volt.Wire/PipeAcl`: every bridge pipe instance
+      `D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;<TokenUser>)S:(ML;;NW;;;ME)`, remote clients rejected (read back on net10 and net48
+      = that, kernel adds `S:AI`). Client: `PipeAccessDeniedException` (named) → CLI `BRIDGE_ACCESS_DENIED`; the resolver's
+      project probe no longer reads a refusal as "not open". TwinCAT: no pipe + an elevated (or unreadable: another user)
+      TcXaeShell[64] → `BridgeResolver.UnreachableXae` names it instead of "start the Volt Connector"; the fleet logs each
+      such pid once (`ElevatedOutOfSight`). `Vendors.TwincatShellProcesses` is the one list. Tests: `PipeAccessTests`
+      (shared, net10 + net48: the ACL; the elevated-default SD refuses the same user read-write and the client names it —
+      red before), resolver ×4, fleet ×1. The ACL path keeps the managed constructor's name rules (empty, reserved
+      "anonymous" → ArgumentException; `PipeTransportTests` bind-failure test green). Live, unelevated: CODESYS 3.5.21.40
+      (`ide.ps1 -Instance environment-dependency-audit`) served `volt.bridge.codesys.<pid>` in-proc through the ACL; e2e
+      `endpoints/fetch`, `endpoints/push-keeps-what-landed-cli`, `conflict-resolve` (the CLI on its bundled git) 10/0.
+      **Not measured live:** an elevated CODESYS/XAE beside unelevated Volt — needs a
+      UAC consent (an unattended attempt to get an elevated process was refused); added to 3.2's checklist.
+- [x] **Gate 2b (2026-10-13) — review findings, each fixed with a failing test first:**
+      1. *One refusing pipe stopped the whole resolve* — CONFIRMED and fixed: `ChooseBridgePipe` collects
+         `BRIDGE_ACCESS_DENIED` per pipe and picks the match; a refusal is named only when no pipe matches. Red:
+         `BridgeResolverTests.A_refusing_pipe_beside_the_matching_one_does_not_stop_the_resolve`, `…_is_named_when_no_pipe_matches`.
+      2. *`UnreachableXae` dropped the connector advice* — CONFIRMED and fixed: this user's unelevated XAE(s) stay in the
+         message with "start the Volt Connector" beside an elevated or foreign one. The 2.2 test pinned the drop
+         (`DoesNotContain("4712")`) — wrong premise, assertion removed. Red: `An_unelevated_XAE_beside_an_unreachable_one_keeps_the_connector_advice`
+         (elevated and foreign), plus `Only_unreachable_XAEs_say_nothing_about_the_connector`.
+      3. *The UI never named a refused CODESYS pipe* — CONFIRMED and fixed end to end: `SourceScan.Refused` →
+         `ConnectionManager.Refused` → `ConnectorView.Refused` (`{vendor, pipe, reason}`, always present) → volt-control
+         `refusedIdes` → a no-action row ("An IDE Volt cannot reach — access denied" + the reason) in the VS Code Bridge
+         view and the desktop panel, unbound and in the offline reconnect list. No invented project row (it has no name).
+         Tests: PerPipeProjectSource ×2, ConnectionManager ×1, ControlServer wire shape ×1, volt-control ×1, vscode panel ×1,
+         desktop snapshot ×1 + render ×1; the control e2e's exact-view expectation now includes `refused: []`.
+      4. *Bundled git read the machine's system config; LFS answered per machine* — CONFIRMED and fixed: every call
+         sets `GIT_CONFIG_NOSYSTEM=1` (MinGit's `etc/gitconfig` includes Git for Windows' system config) and
+         `filter.lfs.{process,clean,smudge}=` + `required=true`, so a `filter=lfs` path is refused by git by name on every
+         machine (measured: it was stored raw without the system config, and went through only where a git-lfs was on PATH).
+         Red: `GitEnvironmentTests.Pull_reads_no_system_git_config` (an unparsable `GIT_CONFIG_SYSTEM`: "bad config line 1"),
+         `A_path_under_an_lfs_filter_is_refused_by_name` (exited 0 before). Design 2.1 has the rejected alternatives.
+      5. *An update mixed two MinGit trees* — CONFIRMED and fixed: `installer/Volt.iss` `[InstallDelete]` clears
+         `{app}\bin\git` before `[Files]`; `test-install.ts` step 3 plants a file the old tree had and fails if it survives.
+         Red: `BundledGitGateTests.An_update_clears_the_bundled_git_before_it_installs_the_new_one`. `test:install` itself not
+         run here (it installs on this machine).
+      **Numbers (gate 2b):** typecheck 5/5, lint 0 errors, `bun run check` 18/0; C# Engine 2532 pass/1 skip, Cli 295,
+      Connector 127, Ide.Twincat 492, Ide.Codesys (net48) 390, Contracts 37, Repo.Gates 242 — 0 fail; volt-cli `test/unit`
+      114/0; volt-control 139/0 (incl. control e2e 11/0); volt-desktop 33/0; volt-vscode 39/0; LSP full suite
+      (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10154 pass / 34 skip / 428 todo / 0 fail (362 files, 857 s) — a first
+      run beside the C# suites failed `scripts/check-size.test.ts` once at 6.3 s (green alone in 2.5 s and in the unloaded
+      rerun; no LSP file changed). Fixture map untouched (no fixture or transpiler change).
 - [ ] 2.3 TwinCAT 64-bit shell: measure 4026's hierarchy read (install 4026 side by side if needed — owner allows) and make it
       work without Visual Studio; DIALECT row.
 - [ ] 2.4 Localized TwinCAT build output: record German and Russian XAE output; language-neutral parse or state what is lost.
@@ -232,7 +290,7 @@
 - [ ] 3.1 `scripts/release-matrix` (name per scripts/README): e2e over every installed IDE variant, the matrix printed, a red
       cell fails; used by the release steps instead of hand-run e2e.
 - [ ] 3.2 The VM checklist in `scripts/README.md` (TwinCAT-only 4024, tr-TR/ru-RU system locale, LTSC 2019, non-admin
-      Cyrillic user, no git, no AVX2) — run once now, results recorded.
+      Cyrillic user, no git, no AVX2; CODESYS and XAE "as administrator" with Volt unelevated — 2.2's live check) — run once now, results recorded.
 
 ## 4. Close
 

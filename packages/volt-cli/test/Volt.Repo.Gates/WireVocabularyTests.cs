@@ -366,7 +366,8 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1),
         ("Volt.Relay/RelayTunnel.cs", 2),
-        ("Volt.Wire/PipeServer.cs", 2));
+        ("Volt.Wire/PipeServer.cs", 2),
+        ("Volt.Wire/PipeAcl.cs", 1));   // a pipe bind the OS refused (environment-dependency-audit 2.2): it reaches PipeServer.Start's caller, the host, which reports it — never a frame
 
     /// <summary>A <c>throw new</c> of a BCL exception type that carries no wire code.</summary>
     private static readonly Regex UncodedThrow = new(

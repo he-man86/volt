@@ -15,6 +15,8 @@
  *   - `unins000.exe` at the root of an INSTALLED {app} is Inno Setup's uninstaller, which Inno builds x86 whatever the
  *     install mode (measured: `Setup.e32`, the stub it copies there, is x86). It is not in the payload; it is allowed so
  *     the check runs on an installed tree.
+ *   - `bin/git/usr/libexec/getprocaddr32.exe` is MinGit's (the CLI's bundled git, unmodified) helper for interrupting a
+ *     32-bit child process: x86 by its purpose.
  *   - everything else is x64 or AnyCPU — an x86 binary anywhere else is a 32-bit process nobody chose (an AnyCPU exe
  *     with 32BITPREFERRED included), an ARM64 one does not run on the machines Volt installs on.
  * What a PE header cannot say — the LSP's bun target being the `-baseline` build (no AVX2: a panel PC's Atom/Celeron) —
@@ -73,6 +75,9 @@ export function allowed(path: string): readonly Target[] {
   if (path.startsWith("codesys/") && path.toLowerCase().endsWith(".dll")) return ["AnyCPU"] // in-proc beside the bridge
   if (path === "connector/VoltTwincatExplorer.exe") return ["x86"]
   if (path === "unins000.exe") return ["x86"] // Inno Setup's uninstaller, in an installed {app}
+  // MinGit's helper that reads a 32-bit process's Ctrl+C entry point (how git interrupts a 32-bit child) — x86 by its
+  // purpose; the bundled git is unmodified (bin/git, openspec environment-dependency-audit 2.1; measured on 2.56.0.2).
+  if (path === "bin/git/usr/libexec/getprocaddr32.exe") return ["x86"]
   return ["x64", "AnyCPU"]
 }
 

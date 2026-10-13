@@ -26,7 +26,7 @@ public sealed record DiffRow(string Kind, string Path = "", string OldPath = "",
 public sealed record MergeOutcome(string Kind, IReadOnlyList<string> Paths);
 
 /// <summary>
-/// git plumbing — the only place we shell out to <c>git</c>. Two families: object-store ops take the absolute
+/// git plumbing — the only place we shell out to <c>git</c>, and always to Volt's own (<see cref="BundledExe"/>). Two families: object-store ops take the absolute
 /// git dir (build the refs/remotes/volt/ide tree in the object DB); worktree ops take the project root
 /// (status/merge/diff need the working tree). IDE commits use a FIXED author/committer + epoch so the same IDE
 /// state yields the same SHA.
@@ -55,21 +55,91 @@ public static class Git
 
     private sealed record Result(string StdOut, int Code, string StdErr);
 
-    private static Result Run(string[] args, byte[]? input = null, IDictionary<string, string>? env = null, bool allowFail = false)
+    /// <summary>The git the CLI runs: ITS OWN copy, <c>git\cmd\git.exe</c> in the executable's folder — MinGit, bundled by <c>MinGit.targets</c> into the full CLI install (<c>{app}\bin\git\</c>)
+    /// and into every build output that runs the CLI. Never a PATH lookup: a CODESYS- or TwinCAT-only PC has no git, and
+    /// one that has an old one (&lt;2.28 has no <c>init --initial-branch</c>; 2.37 ignores <c>-c safe.directory</c>)
+    /// would answer differently from the one Volt was tested with (openspec environment-dependency-audit 2.1). Absent, it
+    /// is a <see cref="GitError"/> NAMING it — never "cannot find the file", never read as "not a Volt workspace".</summary>
+    private static string BundledExe()
     {
-        var psi = new ProcessStartInfo("git")
+        var exe = Path.Combine(AppContext.BaseDirectory, "git", "cmd", "git.exe");
+        if (!File.Exists(exe))
+            throw new GitError("(start)", -1,
+                $"Volt's bundled git is missing: {exe} does not exist. The volt CLI runs its own git and never one from PATH — reinstall Volt.");
+        return exe;
+    }
+
+    /// <summary>The bundled git, started for <paramref name="args"/> with what every call needs set PER CALL — never
+    /// written into any git config:
+    /// <list type="bullet">
+    /// <item><c>core.longpaths=true</c> — Git for Windows refuses a path past MAX_PATH (260) without it; a deep
+    ///   <c>Library Manager/…</c> under OneDrive passes that easily.</item>
+    /// <item>for a worktree op (<c>-C &lt;root&gt;</c>): <c>safe.directory=&lt;root&gt;</c> — git ≥2.35.2 refuses a repo
+    ///   another principal owns ("dubious ownership"): a project on a share, or one an elevated tool created under
+    ///   Administrators. The user named that folder as the workspace, so it — and ONLY it — is trusted. Not <c>*</c>:
+    ///   measured 2026-10-13, a broken <c>&lt;root&gt;/.git</c> sent git's discovery up the path to a <c>C:\.git</c>
+    ///   another principal owns, and with <c>*</c> git ANSWERED from it. For the same reason
+    ///   <c>GIT_CEILING_DIRECTORIES</c> stops discovery at the root: Volt state lives at <c>&lt;root&gt;/.git</c> and
+    ///   nowhere above it (<see cref="IsRepoRoot"/>). An object-store op names its git dir (<c>--git-dir</c>), which git
+    ///   does not ownership-check (measured), and <c>init</c> creates the repo.</item>
+    /// </list></summary>
+    private static ProcessStartInfo StartInfo(string[] args, bool stdin, bool textOut)
+    {
+        var psi = new ProcessStartInfo(BundledExe())
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = input != null,
+            RedirectStandardInput = stdin,
             UseShellExecute = false,
-            StandardOutputEncoding = new UTF8Encoding(false),
-            StandardErrorEncoding = new UTF8Encoding(false),
         };
+        if (textOut)
+        {
+            psi.StandardOutputEncoding = new UTF8Encoding(false);
+            psi.StandardErrorEncoding = new UTF8Encoding(false);
+        }
+        psi.ArgumentList.Add("-c");
+        psi.ArgumentList.Add("core.longpaths=true");
+        // NO system config (gate 2b). MinGit's own etc/gitconfig INCLUDES C:/Program Files[ (x86)]/Git/etc/gitconfig, so an
+        // installed Git for Windows would steer the pinned git (autocrlf, fsmonitor, filters) — the answer would depend on
+        // the machine again. Nothing in it is Volt's: line endings are the workspace's `.gitattributes` (eol=lf), the user's
+        // identity is global config, which stays read.
+        psi.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+        // MinGit ships no git-lfs. A path under `filter=lfs` is REFUSED by git, by name ("clean filter 'lfs' failed"), on
+        // every machine — not stored raw where nothing configures lfs, nor as a pointer where a global `git lfs install`
+        // and a git-lfs on PATH happen to exist. The empty commands override any global definition.
+        foreach (var lfs in new[] { "filter.lfs.process=", "filter.lfs.clean=", "filter.lfs.smudge=", "filter.lfs.required=true" })
+        {
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add(lfs);
+        }
+        if (args.Length >= 2 && args[0] == "-C")
+        {
+            var root = Path.GetFullPath(args[1]);
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add("safe.directory=" + root);
+            var above = Path.GetDirectoryName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (above != null) psi.Environment["GIT_CEILING_DIRECTORIES"] = above;
+        }
         foreach (var a in args) psi.ArgumentList.Add(a);
+        return psi;
+    }
+
+    /// <summary>Start the bundled git; a start that fails is named with the exe it tried.</summary>
+    private static Process Start(ProcessStartInfo psi, string[] args)
+    {
+        try { return Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, $"could not start {psi.FileName}"); }
+        catch (System.ComponentModel.Win32Exception e)
+        {
+            throw new GitError(string.Join(" ", args), -1, $"could not start Volt's bundled git ({psi.FileName}): {e.Message}");
+        }
+    }
+
+    private static Result Run(string[] args, byte[]? input = null, IDictionary<string, string>? env = null, bool allowFail = false)
+    {
+        var psi = StartInfo(args, stdin: input != null, textOut: true);
         if (env != null) foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
 
-        using var p = Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, "could not start git");
+        using var p = Start(psi, args);
         // Read stdout+stderr concurrently while writing stdin, so a large push body can't deadlock on a full pipe.
         var outTask = p.StandardOutput.ReadToEndAsync();
         var errTask = p.StandardError.ReadToEndAsync();
@@ -394,10 +464,8 @@ public static class Git
     /// <summary>Raw bytes of <c>&lt;ref&gt;:&lt;repoPath&gt;</c> (show a file at HEAD / MERGE_HEAD / a merge-base).</summary>
     public static byte[]? GitShowBytes(string root, string @ref, string repoPath)
     {
-        var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
         var args = new[] { "-C", root, "show", $"{@ref}:{repoPath}" };
-        foreach (var a in args) psi.ArgumentList.Add(a);
-        using var p = Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, "could not start git");
+        using var p = Start(StartInfo(args, stdin: false, textOut: false), args);
         using var ms = new MemoryStream();
         var errTask = p.StandardError.BaseStream.CopyToAsync(Stream.Null);
         p.StandardOutput.BaseStream.CopyTo(ms);
@@ -415,11 +483,8 @@ public static class Git
         var result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         if (specs.Count == 0) return result;
 
-        var psi = new ProcessStartInfo("git")
-        { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, UseShellExecute = false };
         var args = new[] { "-C", root, "cat-file", "--batch" };
-        foreach (var a in args) psi.ArgumentList.Add(a);
-        using var p = Process.Start(psi) ?? throw new GitError(string.Join(" ", args), -1, "could not start git");
+        using var p = Start(StartInfo(args, stdin: true, textOut: false), args);
         using var outMs = new MemoryStream();
         using var errMs = new MemoryStream();
         var copyTask = p.StandardOutput.BaseStream.CopyToAsync(outMs);

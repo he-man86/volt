@@ -165,4 +165,22 @@ public class TwincatFleetTests : IDisposable
         Assert.Equal(0, probe.Calls);
         Assert.False(fleet.IsWorkerRunning(WorkerIdFor(8008)));
     }
+
+    /// <summary>An XAE run "as administrator" never reaches the (unelevated) ROT probe, so it gets no worker; the fleet
+    /// names it once — not every tick, not one the probe sees, not an unelevated one still starting up
+    /// (environment-dependency-audit 2.2).</summary>
+    [Fact]
+    public async Task An_elevated_XAE_the_probe_cannot_see_is_named_once()
+    {
+        var probe = new FakeProbe { Answer = new[] { 100 } };
+        var shells = new (int, bool?)[] { (100, true), (200, true), (300, false), (400, null) };
+        using var fleet = new TwincatFleet(probe.ListPids, () => shells);
+        var exe = WorkerExe();
+
+        await fleet.Tick(exe, TimeSpan.FromSeconds(5));
+        await fleet.Tick(exe, TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 200 }, fleet.ElevatedOutOfSight);
+        Assert.False(fleet.IsWorkerRunning(WorkerIdFor(200)));
+    }
 }

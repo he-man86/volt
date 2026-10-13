@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type Refusal, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type Refusal, type RefusedIde, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -81,6 +81,7 @@ export class VoltViews implements vscode.Disposable {
 	// list changes (they arrive on separate events — status refresh vs the 10s bridge poll).
 	private lastViews: WorkspaceView[] = []
 	private detected: DetectedProject[] = []
+	private refused: RefusedIde[] = []
 	// UNDEFINED until the first probe answers, not `true`. Initialising it optimistically made a fresh
 	// window assert "No PLC project detected — open one in your IDE" before anything had been asked:
 	// `update()` runs before the first probe resolves, and `onboardingMode(true, 0)` is "no-project".
@@ -114,16 +115,17 @@ export class VoltViews implements vscode.Disposable {
 		const views = [...statuses.values()].map(viewOf)
 		this.lastViews = views
 		this.sync.setRoots(syncRoots(views))
-		this.bridge.setRoots(bridgeRoots(views, this.detected, this.connectorUp))
+		this.bridge.setRoots(bridgeRoots(views, this.detected, this.connectorUp, this.refused))
 	}
 
 	/** The connector's detected-project list + whether the connector answered at all (unbound onboarding). Names
 	 *  the projects in the Bridge view so the user sees WHICH one "Initialize" will bind, and tells "connector
 	 *  down" apart from "connector up, no project open" — two states that used to look identical. */
-	setDetected(projects: DetectedProject[], connectorUp: boolean): void {
+	setDetected(projects: DetectedProject[], connectorUp: boolean, refused: RefusedIde[]): void {
 		this.detected = projects
 		this.connectorUp = connectorUp
-		this.bridge.setRoots(bridgeRoots(this.lastViews, this.detected, this.connectorUp))
+		this.refused = refused
+		this.bridge.setRoots(bridgeRoots(this.lastViews, this.detected, this.connectorUp, this.refused))
 	}
 
 	refreshDiagnostics(): void {
@@ -298,7 +300,9 @@ function diagnosticRoots(): VoltNode[] {
 
 // ── Bridge: the connection lifecycle, start to finish ────────────────────────
 // Exported for the panel smoke test (the view-model builder is pure; only the widget layer needs the host).
-export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[], connectorUp?: boolean): VoltNode[] {
+// `refused`: the IDEs whose bridge refused the connector (@volt/control's refusedIdes) — drawn wherever the detected
+// list is, as no-action rows with the reason, so an IDE that is open but unreachable is named, not missing (gate 2b).
+export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[], connectorUp: boolean | undefined, refused: RefusedIde[]): VoltNode[] {
 	const nodes: VoltNode[] = []
 	for (const v of views) {
 		const hd = v.health
@@ -344,6 +348,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 				const surface = connectSurface(opts)
 				for (const o of [...surface.primary, ...surface.alternates]) nodes.push(reconnectNode(o))
 			}
+			nodes.push(...refused.map(refusedIdeNode))
 		}
 	}
 	if (nodes.length > 0) return nodes
@@ -385,6 +390,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					collapsed: vscode.TreeItemCollapsibleState.Expanded,
 					children: connectOptions(detected, undefined).map(detectedNode),
 				},
+				...refused.map(refusedIdeNode),
 			]
 		case "no-project":
 			return [
@@ -395,8 +401,15 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					tooltip: "Open a PLC project in your IDE, or start it from the Volt Connector (tray) — it then appears here to set up.",
 					icon: new vscode.ThemeIcon("circle-slash"),
 				},
+				...refused.map(refusedIdeNode),
 			]
 	}
+}
+
+// An IDE whose bridge refused the connector: it has no project name (its health never answered), so it is drawn by
+// @volt/control's label with the reason in the tooltip and NO command — nothing about it can be connected.
+function refusedIdeNode(r: RefusedIde): VoltNode {
+	return { key: r.key, label: r.label, description: r.caption, tooltip: r.reason, icon: new vscode.ThemeIcon("error") }
 }
 
 // A row in the offline reconnect list. `connect` (matches the binding) → a plain reconnect; `rebind` (a different

@@ -145,6 +145,36 @@ export function connectSurface(options: ConnectOption[]): ConnectSurface {
  *  bound workspace's live status is its own row. */
 export interface ConnectorView {
   projects: DetectedProject[]
+  /** The IDEs whose bridge pipe REFUSED the connector (C# `RefusedBridge`): another Windows user's IDE, or an elevated
+   *  one on an older bridge (environment-dependency-audit 2.2). Their `health` never answered, so they have no project
+   *  name and are not `projects` rows; read them through {@link refusedIdes}. Always present, empty when none. */
+  refused: RefusedBridge[]
+}
+
+export interface RefusedBridge {
+  vendor: Vendor
+  pipe: string
+  /** The refusal's own sentence — names the pipe and the cause (another user / elevated on an older bridge). */
+  reason: string
+}
+
+/** A refused IDE as BOTH shells draw it: a row with no action (nothing can be connected), labelled without a project
+ *  name (there is none to give) and carrying the connector's reason. Shared so the two shells say the same thing. */
+export interface RefusedIde {
+  key: string
+  label: string
+  caption: string
+  reason: string
+}
+
+export function refusedIdes(view: ConnectorView | undefined): RefusedIde[] {
+  if (view === undefined) return [] // the connector is down: nothing was refused, nothing was asked
+  return view.refused.map((r) => ({
+    key: `refused:${r.pipe}`,
+    label: "An IDE Volt cannot reach",
+    caption: "access denied",
+    reason: r.reason,
+  }))
 }
 
 // While the connector feed runs, its sync poll IS the view (declare + renew + read in one call) and nothing else

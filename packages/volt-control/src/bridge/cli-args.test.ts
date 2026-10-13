@@ -146,6 +146,7 @@ test("fetchStatus sends --local only in local mode", async () => {
       ok: true,
       json: async () => ({
         projects: [{ id: "codesys::P:", vendor: "codesys", dirty: false, status: "healthy", projectName: "P" }],
+        refused: [],
       }),
     }) as Response) as typeof fetch
   try {

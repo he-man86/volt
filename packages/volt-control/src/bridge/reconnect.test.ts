@@ -31,7 +31,7 @@ function mockSessionConnector(serving: boolean): void {
       const projects: ConnectorView["projects"] = serving
         ? [{ id: "codesys::MyMachine:", vendor: "codesys", dirty: false, connected: true, status: "healthy", projectName: "MyMachine" }]
         : []
-      return { ok: true, status: 200, json: async () => ({ projects }) } as Response
+      return { ok: true, status: 200, json: async () => ({ projects, refused: [] }) } as Response
     }
     throw new Error(`unexpected ${u}`)
   }) as typeof fetch

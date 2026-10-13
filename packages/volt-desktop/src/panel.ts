@@ -10,6 +10,7 @@ import {
   connectSurface,
   ideIdentity,
   connectorStatus,
+  refusedIdes,
   collectDiagnostics,
   describeDiagnostics,
   onboardingMode,
@@ -22,6 +23,7 @@ import {
   type ConnectOption,
   type Refusal,
   type OnboardingMode,
+  type RefusedIde,
 } from "@volt/control"
 import { writeRecent } from "./recent.js"
 import type { Shell } from "./context.js"
@@ -42,7 +44,7 @@ type Surface = { create: LabeledProject[]; primary: LabeledProject[]; alternates
 // There is no separate `awaiting` field: the cold start IS an `OnboardingMode` ("probing"), so the renderer reads
 // one enum rather than crossing a flag with a mode. The desktop carried that flag privately and the extension did
 // not, which is how the two shells came to disagree about a fresh window — exactly what the shared enum prevents.
-type Snap = { surface: Surface; onboarding: OnboardingMode } & (
+type Snap = { surface: Surface; onboarding: OnboardingMode; refused: RefusedIde[] } & (
   | { bound: false; incoming: DriftItem[]; outgoing: DriftItem[] }
   | ({ bound: true } & WorkspaceView)
 )
@@ -62,11 +64,13 @@ export function snapshot(shell: Shell): Snap {
   // shells hold the same three-state field and read the same enum, so the one place that decides "connector down"
   // vs "no project" vs "not asked yet" is @volt/control.
   const onboarding = onboardingMode(shell.connectorUp, shell.projects.length)
-  if (!vs) return { bound: false, incoming: [], outgoing: [], surface, onboarding }
+  const refused = shell.refused
+  if (!vs) return { bound: false, incoming: [], outgoing: [], surface, onboarding, refused }
   return {
     bound: true,
     surface,
     onboarding,
+    refused,
     ...projectWorkspace({
       workspaceRoot: vs.workspaceRoot,
       status: vs.cached,
@@ -98,6 +102,7 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // surface can tell "connector not running" apart from "connector up, no IDE project open".
   const view = await connectorStatus()
   const next = view?.projects ?? []
+  const refused = refusedIdes(view)
   const up = view !== undefined
   // THE KEY COVERS WHAT THE PICKER DRAWS, not just identity. It was ids alone — but `projectBtn` also draws
   // `dirty` as a trailing asterisk, and `dirty` is re-read on every health poll, so a project that became dirty
@@ -117,8 +122,11 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // The first probe always pushes: `shell.connectorUp` seeds UNDEFINED, so it differs from either answer and the
   // cold-start "Looking for…" always resolves — including on a machine with the connector down and no projects,
   // where nothing else here changes.
-  if (up === shell.connectorUp && key(next) === key(shell.projects)) return
+  // `refused`: the picker draws each refused IDE's reason, so a change in it is a change drawn.
+  const refusedKey = (rs: RefusedIde[]): string => rs.map((r) => `${r.key}:${r.reason}`).join("|")
+  if (up === shell.connectorUp && key(next) === key(shell.projects) && refusedKey(refused) === refusedKey(shell.refused)) return
   shell.projects = next
+  shell.refused = refused
   shell.connectorUp = up
   pushStatus(shell)
 }

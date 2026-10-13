@@ -12,4 +12,8 @@ public static class Vendors
 
     public const string CodesysDisplay = "CODESYS";
     public const string TwincatDisplay = "TwinCAT";
+
+    /// <summary>The XAE shells' process names: TcXaeShell 15 (32-bit) and TwinCAT 4026's 64-bit TcXaeShell64 — read by the
+    /// connector's window diagnosis and by the CLI naming an elevated XAE it cannot reach.</summary>
+    public static readonly string[] TwincatShellProcesses = { "TcXaeShell", "TcXaeShell64" };
 }

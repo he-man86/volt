@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { boundStatus, connectOptions, connectSurface, connectorStatus, detectedProjects, type ConnectorView } from "./connector.js"
+import { boundStatus, connectOptions, connectSurface, connectorStatus, detectedProjects, refusedIdes, type ConnectorView } from "./connector.js"
 import { boundWorkspace as ws } from "../test-support.js"
 
 const realFetch = globalThis.fetch
@@ -20,6 +20,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 
 const VIEW: ConnectorView = {
   projects: [{ id: "codesys:::MyMachine:", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
+  refused: [],
 }
 
 
@@ -29,7 +30,7 @@ const boundWorkspace = (vendor: string, projectName: string) => ws({ vendor, pro
 // The row's `status` decides connection state (default "healthy"/serving — these fixtures describe live projects
 // unless a test is specifically about a bridge that isn't serving, i.e. "idle").
 const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, vendor, dirty: false, status, projectName: projectName ?? name })
-const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
+const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"], refused: [] })
 
 // The connection picker's per-project action — replaces the old accept-rename flow: a renamed project is just a
 // `rebind` row. Unbound ⇒ every row is a first-time `init`; matched ⇒ `connect`; anything else ⇒ `rebind`.
@@ -212,4 +213,12 @@ test("connectOptions carries each project's IDE identity line, refused rows too"
   const [p, r] = connectOptions([plain, refused] as never, undefined)
   expect(p?.identity).toBe("CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4")
   expect(r?.identity).toBe("unknown vendor CODESYS 3.5.17.0 — CODESYS 3.5 SP17 Patch 0")
+})
+
+// Gate 2b (environment-dependency-audit 2.2): an IDE whose pipe refused the connector has no project name — it is
+// drawn as a no-action row carrying the connector's reason, not dropped; a down connector refused nothing.
+test("refusedIdes names each refused bridge with its reason and no project name", () => {
+  const rows = refusedIdes({ projects: [], refused: [{ vendor: "codesys", pipe: "volt.bridge.codesys.7", reason: "R" }] })
+  expect(rows).toEqual([{ key: "refused:volt.bridge.codesys.7", label: "An IDE Volt cannot reach", caption: "access denied", reason: "R" }])
+  expect(refusedIdes(undefined)).toEqual([])
 })

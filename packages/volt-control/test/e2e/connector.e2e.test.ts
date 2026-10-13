@@ -192,6 +192,6 @@ suite("volt-control ↔ real ControlServer (session model)", () => {
 	test("the client reads no projects when the connector serves an empty view (not an error)", async () => {
 		writeView([])
 		expect(await detectedProjects()).toEqual([])
-		expect(await connectorStatus()).toEqual({ projects: [] })
+		expect(await connectorStatus()).toEqual({ projects: [], refused: [] }) // the wire always states refused (gate 2b)
 	})
 })

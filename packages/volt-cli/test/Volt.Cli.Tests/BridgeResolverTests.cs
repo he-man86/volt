@@ -111,4 +111,80 @@ public class BridgeResolverTests
         var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(pipes, "Plant", false, projects, "TwinCAT"));
         Assert.Equal("AMBIGUOUS_BRIDGE", ex.Code);
     }
+
+    // ── an XAE no worker can reach (environment-dependency-audit 2.2) ────────────────────────────────────────────
+
+    [Fact]
+    public void An_elevated_XAE_seen_from_an_unelevated_CLI_is_named_not_sent_to_the_connector()
+    {
+        var why = BridgeResolver.UnreachableXae(new (int, bool?)[] { (4711, true), (4712, false) }, selfElevated: false);
+        Assert.NotNull(why);
+        Assert.Contains("pid 4711", why);
+        Assert.Contains("runs elevated", why);
+    }
+
+    // Gate 2b: an unelevated XAE of this user beside an elevated/foreign one still has no worker when the connector is
+    // stopped — its remedy (start the connector) must survive in the message, not be dropped for the other one's.
+    [Theory]
+    [InlineData(true)]   // beside an elevated XAE
+    [InlineData(null)]   // beside another user's XAE (terminal server)
+    public void An_unelevated_XAE_beside_an_unreachable_one_keeps_the_connector_advice(bool? other)
+    {
+        var why = BridgeResolver.UnreachableXae(new (int, bool?)[] { (4711, other), (4712, false) }, selfElevated: false);
+        Assert.NotNull(why);
+        Assert.Contains("pid 4711", why);
+        Assert.Contains("pid 4712", why);
+        Assert.Contains("start the Volt Connector", why);
+    }
+
+    [Fact]
+    public void Only_unreachable_XAEs_say_nothing_about_the_connector()
+    {
+        var why = BridgeResolver.UnreachableXae(new (int, bool?)[] { (4711, true), (99, null) }, selfElevated: false);
+        Assert.NotNull(why);
+        Assert.DoesNotContain("start the Volt Connector", why);
+    }
+
+    // ── a pipe that refuses this process (environment-dependency-audit 2.2, gate 2b) ─────────────────────────────
+
+    private static Func<string, IReadOnlyList<string>> Refusing(string refused, Dictionary<string, string[]> others) =>
+        p => p == refused ? throw new BridgeError(BridgeError.AccessDeniedCode, $"refused {p}") : Projects(others)(p);
+
+    [Fact]
+    public void A_refusing_pipe_beside_the_matching_one_does_not_stop_the_resolve()
+    {
+        var pick = BridgeResolver.ChooseBridgePipe(new[] { "a", "b" }, "Plant", false,
+            Refusing("a", new() { ["b"] = new[] { "Plant" } }), "CODESYS");
+        Assert.Equal("b", pick);
+    }
+
+    [Fact]
+    public void A_refusing_pipe_is_named_when_no_pipe_matches()
+    {
+        var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(new[] { "a", "b" }, "Plant", false,
+            Refusing("a", new() { ["b"] = new[] { "Other" } }), "CODESYS"));
+        Assert.Equal(BridgeError.AccessDeniedCode, ex.Code);
+        Assert.Contains("refused a", ex.Message);
+        Assert.Contains("'Plant'", ex.Message);
+    }
+
+    [Fact]
+    public void An_XAE_whose_token_cannot_be_read_is_named_as_another_users()
+    {
+        var why = BridgeResolver.UnreachableXae(new (int, bool?)[] { (99, null) }, selfElevated: false);
+        Assert.NotNull(why);
+        Assert.Contains("pid 99", why);
+        Assert.Contains("another Windows user", why);
+        Assert.DoesNotContain("elevated", why);
+    }
+
+    [Theory]
+    [InlineData(false)]   // no XAE, or only unelevated ones: the connector is the answer, as before
+    [InlineData(true)]    // an elevated CLI: elevation is not what keeps the worker away
+    public void Elevation_is_named_only_when_it_is_the_reason(bool selfElevated)
+    {
+        var shells = selfElevated ? new (int, bool?)[] { (1, true) } : new (int, bool?)[] { (1, false) };
+        Assert.Null(BridgeResolver.UnreachableXae(shells, selfElevated));
+        Assert.Null(BridgeResolver.UnreachableXae(System.Array.Empty<(int, bool?)>(), false));
+    }
 }

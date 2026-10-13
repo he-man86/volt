@@ -30,7 +30,8 @@ public sealed class PipeClient
     public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 2000)
     {
         using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
-        client.Connect(connectTimeoutMs);
+        try { client.Connect(connectTimeoutMs); }
+        catch (UnauthorizedAccessException e) { throw new PipeAccessDeniedException(_pipeName, e); }
 
         var reqBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new PipeRequest
         {

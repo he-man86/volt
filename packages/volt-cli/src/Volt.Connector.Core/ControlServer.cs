@@ -41,7 +41,11 @@ namespace Volt.Connector
     /// a bound workspace's live status is its own row (serving/dirty/status). There is no separate per-vendor bridge
     /// view or aggregate word: the tray derives its colour internally (<see cref="ConnectionManager.Aggregate"/>),
     /// and every client just finds its row.</summary>
-    public sealed record ConnectorView(IReadOnlyList<ProjectView> Projects);
+    /// <param name="Refused">The IDEs whose bridge pipe REFUSED the connector (<see cref="RefusedBridge"/>: another
+    /// Windows user's, or elevated on an older bridge) — no project name exists for them, so they are not rows of
+    /// <c>Projects</c>; a client names each with its reason instead of letting the IDE vanish (environment-dependency-
+    /// audit 2.2). Always present, empty when none.</param>
+    public sealed record ConnectorView(IReadOnlyList<ProjectView> Projects, IReadOnlyList<RefusedBridge> Refused);
 
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension (and the desktop app) can

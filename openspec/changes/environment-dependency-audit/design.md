@@ -66,3 +66,84 @@ walk. Then census → table + V7 → route `ArchivedObject`/`Declared`/`LibMembe
   versions on load), so on SP18 those are read and named. The rule this adds to the table: a row says the MEMBER is
   absent; the reading site must state where its fact lives instead, or show (from the vendor's own assembly) that it has
   none — as the stack settings, which SP18 does not have under any name.
+
+## 2.1 — The CLI's own git (MinGit), full install only
+
+**Choice.** MinGit 2.56.0.2 (Git for Windows' official redistributable, unmodified), pinned with its SHA-256 in ONE file,
+`packages/volt-cli/src/Volt.Cli/MinGit.targets`, which fetches it once into `packages/volt-cli/.cache/mingit/<version>/`
+(git-ignored; download → `VerifyFileHash` → unzip into a build-private folder → rename into place, so two builds at once
+never see half a git) and copies it as `git\` beside volt.exe in every build output that runs the CLI (Volt.Cli, and
+through the reference Volt.Cli.Tests) and beside the published single-file exe (`dist\Cli\git\` → `{app}\bin\git\`).
+`Sync/Git.cs` runs `git\cmd\git.exe` in the executable's folder by its path — never a PATH lookup; absent, it is named
+("Volt's bundled git is missing: … — reinstall Volt"). `VOLT-SOURCE.txt` beside MinGit's own `LICENSE.txt` names the
+binary URL, its SHA-256 and the corresponding source tag (GPLv2).
+
+**Per call, never in any config:** `-c core.longpaths=true` always; for a worktree op (`-C <root>`) `-c safe.directory=<root>`
+and `GIT_CEILING_DIRECTORIES=<parent of root>`. Measured 2026-10-13: MinGit 2.56 honours `-c safe.directory` (2.37.1 did
+not), case- and slash-insensitively; an explicit `--git-dir` is not ownership-checked (object-store ops need nothing).
+
+**Rejected.**
+- *`safe.directory=*`* — measured: a broken `<root>/.git` sent discovery up the path to a `C:\.git` on the dev machine
+  owned by another principal, and with `*` git ANSWERED from it ("not a Volt workspace" for a bound project; under a bound
+  ancestor it would have read the ancestor's binding). The named root alone refuses that repo; the ceiling stops the
+  walk at the root (red test `BundledGitTests.A_broken_workspace_repo_never_resolves_to_the_repo_above_it`).
+- *Git on PATH when present, MinGit otherwise* — a fallback: a 2.37 on PATH ignores `-c safe.directory`, so the answer
+  would depend on what else the machine has.
+- *Commit the zip / vendor it in the repo* — 40 MB of binary history per bump; the pin + hash is the same guarantee.
+- *Bundle it in `connector\`/`codesys\` too* — owner: those are the bridge bundles PLCAssist ships, and a bridge never runs
+  git. Held three ways: `BundledGitGateTests` (only Volt.Cli imports MinGit.targets; no bridge project's reference closure
+  reaches it), `build-cli.ps1` and `build-payload.ts` refuse a bridge folder with a git, `test-install.ts` asserts none
+  under `{app}\connector|codesys`.
+
+*Gate 2b — the pinned git reads no system config, refuses LFS, and an update replaces its tree whole.* MinGit's own
+`etc/gitconfig` INCLUDES `C:/Program Files[ (x86)]/Git/etc/gitconfig`, so an installed Git for Windows steered the pinned
+git; every call now sets `GIT_CONFIG_NOSYSTEM=1` (nothing there is Volt's: line endings are the workspace's
+`.gitattributes` `eol=lf`; the user's identity is global config, which stays read). The same system file set
+`filter.lfs.required=true` and MinGit ships no git-lfs — measured: with it, `add` succeeded where a git-lfs happened to be
+on PATH; without the system config, a `filter=lfs` path went in RAW. Per call, `filter.lfs.{process,clean,smudge}=` (empty,
+overriding a global `git lfs install`) + `required=true`: such a path is refused by git, by name ("smudge/clean filter lfs
+failed"), on every machine. Rejected: bundling git-lfs (no Volt workspace has asked for it; a PLC project under LFS is
+niche) and `required=false` (stores raw content where the user's own git would write a pointer — a silent divergence).
+The installer clears `{app}\bin\git` before `[Files]` (`[InstallDelete]`) — `[Files]` only adds and overwrites, so a
+bumped pin would leave the old MinGit's extra files beside the new ones; test:install step 3 plants such a file.
+
+`binary-targets.ts` allows one x86 file in it: `bin/git/usr/libexec/getprocaddr32.exe` (MinGit's helper for interrupting
+a 32-bit child — measured: the only non-x64 PE of 187 in MinGit 2.56.0.2).
+
+## 2.2 — Elevation: a pipe that admits its user; an XAE nobody can see, named
+
+**Measured 2026-10-13 (unelevated; the elevated side read from elevated same-user processes already running).**
+- A pipe created with no security attributes (.NET Framework 4.8 — the in-proc CODESYS runtime):
+  `O:<user>D:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;<owner>)(A;;FR;;;WD)(A;;FR;;;AN)`, no label.
+- The token of an elevated process of the same user (CODESYSControlSysTray, GatewaySysTray): `TokenElevation=1`, owner
+  `S-1-5-32-544` (Administrators), integrity High (S-1-16-12288); this process: owner = the user, Medium. And an
+  unelevated process CAN open such a token for `TOKEN_QUERY` (through `PROCESS_QUERY_LIMITED_INFORMATION`).
+- Hence an elevated CODESYS's default pipe gives FA to Administrators only (deny-only in the user's unelevated token) and
+  FR to Everyone: the unelevated CLI/connector/desktop opening it read-write is refused (access denied).
+
+**Choice.** `Volt.Wire/PipeAcl`: every instance `PipeServer` creates is `CreateNamedPipeW` with
+`D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;<TokenUser SID>)S:(ML;;NW;;;ME)` — the user by SID (equal in both tokens, unlike the
+owner), Medium no-write-up stated (not left to the label a High creator would get), no Everyone/Anonymous read, remote
+clients rejected. Read back from the live pipe on net10 and net48 it is exactly that, the kernel adding `S:AI`.
+A client refused anyway (another user's IDE, an elevated IDE on an older bridge) gets `PipeAccessDeniedException`, named,
+→ CLI `BRIDGE_ACCESS_DENIED`; the resolver's per-pipe project probe no longer reads a refusal as "not open".
+TwinCAT: an elevated XAE's ROT entries are invisible to an unelevated worker probe, so no pipe exists to be refused; the
+CLI with no TwinCAT pipe reads the TcXaeShell[64] processes' elevation and names an elevated one (or one whose token it
+cannot read: another user) instead of "start the Volt Connector"; the connector's fleet logs each such pid once.
+
+**Rejected.** *`PipeOptions.CurrentUserOnly`* — not on net48, and on .NET it keys on the token OWNER, which elevation turns
+into Administrators. *`System.IO.Pipes.AccessControl`* — a package dependency for the merged single-assembly CODESYS bridge,
+for what one P/Invoke does on both runtimes. *Everyone read kept* — nothing reads a bridge pipe without writing.
+
+*Gate 2b — a refusal never hides a match, and every remedy survives.* The resolver probes every pipe and COLLECTS
+refusals: a refusing pipe beside the one holding the bound project no longer stops the resolve (it did — `projectsOf`
+threw out of the `Where`); a refusal is named (`BRIDGE_ACCESS_DENIED`, each refusal's sentence) only when no pipe
+matches. `UnreachableXae` keeps this user's unelevated XAE(s) in the message with "start the Volt Connector" beside the
+elevated/foreign one (it dropped them, and the test pinned the drop). The connector carries a refused pipe as
+`SourceScan.Refused` → `ConnectorView.Refused` (`{vendor, pipe, reason}`, always present) → volt-control `refusedIdes`
+(label "An IDE Volt cannot reach", caption "access denied", the reason) → both shells draw it as a no-action row beside
+the detected list (unbound onboarding and the offline reconnect list). No project row is invented for it: its `health`
+never answered, so it has no name.
+
+**Not measured live:** an elevated CODESYS serving through this ACL to an unelevated `volt`, and an elevated XAE beside an
+unelevated connector — each needs one run "as administrator" (a UAC consent no unattended step gives). On 3.2's checklist.

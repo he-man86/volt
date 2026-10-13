@@ -1,9 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Volt.Tests.Shared;
 using Xunit;
 
 namespace Volt.Repo.Gates;
@@ -51,29 +50,15 @@ public class NoDeveloperToolComponentTests
                      && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
 
     /// <summary>Every process a shipped path starts by a bare name is one Windows carries (or a start named in
-    /// <see cref="Deliberate"/>). Today the CLI starts <c>git</c> by name (<c>Git.cs:60,397,418</c>): on a CODESYS- or
-    /// TwinCAT-only PC every <c>volt init/pull/push/status</c> fails — red until 2.1 bundles MinGit and the CLI runs that
-    /// copy by its path.</summary>
+    /// <see cref="Deliberate"/>, each of which must still exist — a deliberate start nobody makes is a stale exemption).
+    /// Red at 1.2 on the CLI's three <c>git</c> starts (<c>Git.cs</c>): on a CODESYS- or TwinCAT-only PC every
+    /// <c>volt init/pull/push/status</c> failed. Since 2.1 the CLI runs its bundled MinGit by path (<c>Git.cs</c>, <c>git\cmd\git.exe</c> beside volt.exe).</summary>
     [Fact]
-    public void Every_process_started_by_name_is_one_Windows_carries() =>
-        ExpectRed.Until("2.1", "the CLI starts `git` by name, from the machine's PATH",
-            () =>
-            {
-                var byName = ProcessesStartedByName().Where(p => !Deliberate.ContainsKey(p)).ToList();
-                Assert.True(byName.Count == 0, "started by name:\n  " + string.Join("\n  ", byName));
-            });
-
-    /// <summary>Beside the red above, nothing else: a NEW tool started by name fails now, not when 2.1 closes the red.
-    /// Pinned: the three <c>git</c> starts of the 0.1 census, and the starts named in <see cref="Deliberate"/> — each of
-    /// which must still exist (a deliberate start nobody makes is a stale exemption).</summary>
-    [Fact]
-    public void Nothing_but_git_is_started_by_name()
+    public void Every_process_started_by_name_is_one_Windows_carries()
     {
-        const string git = "src/Volt.Cli/Sync/Git.cs: git";
         var found = ProcessesStartedByName();
-        var other = found.Where(p => p != git && !Deliberate.ContainsKey(p)).ToList();
-        Assert.True(other.Count == 0, "a shipped path starts a tool by name, from the machine's PATH:\n  " + string.Join("\n  ", other));
-        Assert.True(found.Count(p => p == git) <= 3, "more `git` starts by name than the 0.1 census's three");
+        var byName = found.Where(p => !Deliberate.ContainsKey(p)).ToList();
+        Assert.True(byName.Count == 0, "a shipped path starts a tool by name, from the machine's PATH:\n  " + string.Join("\n  ", byName));
         var stale = Deliberate.Keys.Where(k => !found.Contains(k)).ToList();
         Assert.True(stale.Count == 0, "a deliberate by-name start no shipped path makes any more — take it out:\n  " + string.Join("\n  ", stale));
     }

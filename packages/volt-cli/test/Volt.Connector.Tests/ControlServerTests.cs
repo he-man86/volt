@@ -32,7 +32,7 @@ public class ControlServerTests : IDisposable
         Func<string, Task>? closeSession = null,
         Action<string>? restart = null)
     {
-        var empty = new ConnectorView(Array.Empty<ProjectView>());
+        var empty = new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>());
         _server = new ControlServer(
             snapshot ?? (() => Task.FromResult(empty)),
             restart ?? (_ => { }),
@@ -66,7 +66,7 @@ public class ControlServerTests : IDisposable
     public async Task Sync_passes_the_declared_interests_and_returns_the_reconciled_view()
     {
         IReadOnlyCollection<Interest>? received = null;
-        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "codesys", false, "healthy", "A") });
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "codesys", false, "healthy", "A") }, Array.Empty<RefusedBridge>());
         Start(sync: (id, interests) => { received = interests; return Task.FromResult(view); });
 
         var r = await Post("session/sess1/sync", "{\"interests\":[{\"vendor\":\"codesys\",\"projectName\":\"A\"}]}");
@@ -83,7 +83,7 @@ public class ControlServerTests : IDisposable
     public async Task Sync_with_an_empty_set_declares_no_interests()
     {
         IReadOnlyCollection<Interest>? received = null;
-        Start(sync: (id, interests) => { received = interests; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
+        Start(sync: (id, interests) => { received = interests; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>())); });
 
         await Post("session/sess1/sync", "{\"interests\":[]}");
 
@@ -97,7 +97,7 @@ public class ControlServerTests : IDisposable
         // status the moment the 200 arrives must see the RECONCILED view, not the one from before its declare.
         var landed = new TaskCompletionSource<bool>();
         var started = new TaskCompletionSource<bool>();
-        Start(sync: async (_, _) => { started.TrySetResult(true); await landed.Task; return new ConnectorView(Array.Empty<ProjectView>()); });
+        Start(sync: async (_, _) => { started.TrySetResult(true); await landed.Task; return new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>()); });
 
         var response = Post("session/s/sync", "{\"interests\":[]}");
         Assert.True(await Task.WhenAny(started.Task, Task.Delay(5000)) == started.Task, "the handler never ran");
@@ -124,11 +124,24 @@ public class ControlServerTests : IDisposable
     [Fact]
     public async Task Status_returns_the_detected_project_list()
     {
-        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "codesys", false, "idle", "A") });
+        var view = new ConnectorView(new[] { new ProjectView("codesys:A", "codesys", false, "idle", "A") }, Array.Empty<RefusedBridge>());
         Start(snapshot: () => Task.FromResult(view));
 
         var root = JsonDocument.Parse(await (await _http.GetAsync(Url("status"))).Content.ReadAsStringAsync()).RootElement;
         Assert.Equal("A", root.GetProperty("projects")[0].GetProperty("projectName").GetString());
+    }
+
+    [Fact]
+    public async Task Status_names_a_refused_bridge_with_its_reason()
+    {
+        // Gate 2b: the wire shape volt-control reads (`refused: [{ vendor, pipe, reason }]`, always present).
+        var view = new ConnectorView(Array.Empty<ProjectView>(), new[] { new RefusedBridge("codesys", "volt.bridge.codesys.7", "why") });
+        Start(snapshot: () => Task.FromResult(view));
+        var root = JsonDocument.Parse(await (await _http.GetAsync(Url("status"))).Content.ReadAsStringAsync()).RootElement;
+        var r = Assert.Single(root.GetProperty("refused").EnumerateArray());
+        Assert.Equal("codesys", r.GetProperty("vendor").GetString());
+        Assert.Equal("volt.bridge.codesys.7", r.GetProperty("pipe").GetString());
+        Assert.Equal("why", r.GetProperty("reason").GetString());
     }
 
     [Fact]
@@ -139,7 +152,7 @@ public class ControlServerTests : IDisposable
         const int n = 8;
         var entered = new CountdownEvent(n);
         var release = new TaskCompletionSource();
-        var view = new ConnectorView(Array.Empty<ProjectView>());
+        var view = new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>());
         Start(snapshot: async () => { entered.Signal(); await release.Task; return view; });
 
         var polls = Enumerable.Range(0, n).Select(_ => _http.GetAsync(Url("status"))).ToArray();
@@ -174,7 +187,7 @@ public class ControlServerTests : IDisposable
     {
         // The CSRF guard: a page in the user's browser must not drive the connector. First-party callers send no Origin.
         var synced = false;
-        Start(sync: (_, _) => { synced = true; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>())); });
+        Start(sync: (_, _) => { synced = true; return Task.FromResult(new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>())); });
 
         var req = new HttpRequestMessage(HttpMethod.Post, Url("session/s/sync")) { Content = new StringContent("{\"interests\":[]}", Encoding.UTF8, "application/json") };
         req.Headers.Add("Origin", "https://evil.example");

@@ -33,10 +33,10 @@
  * on a machine where Volt is already installed (it could not tell its own leftovers from yours).
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 
 if (process.platform !== "win32") {
   console.error("test:install is Windows-only (the installer + HKCU checks are Windows).")
@@ -66,8 +66,14 @@ const stamped = [
   desktopExe,
   join(installDir, "codesys", "Volt.Ide.Codesys.dll"),
 ]
-/** PATH carries exactly this directory and it holds exactly these — nothing else lands on an agent's PATH. */
-const binExpected = ["volt-lsp-iec.exe", "volt.exe"]
+/** PATH carries exactly this directory and it holds exactly these — nothing else lands on an agent's PATH. `git` is a
+ *  FOLDER (the CLI's own MinGit), so its executables are not on PATH. */
+const binExpected = ["git", "volt-lsp-iec.exe", "volt.exe"]
+/** The CLI's bundled git (openspec environment-dependency-audit 2.1): volt.exe runs THIS copy by path. The pin is read
+ *  from the one file that states it, so the gate cannot drift from the build. */
+const gitExe = join(binDir, "git", "cmd", "git.exe")
+const minGitTag = readFileSync(resolve(repo, "packages/volt-cli/src/Volt.Cli/MinGit.targets"), "utf8").match(/<MinGitTag>v([^<]+)<\/MinGitTag>/)?.[1]
+if (!minGitTag) throw new Error("packages/volt-cli/src/Volt.Cli/MinGit.targets states no <MinGitTag> — cannot tell which git the install must carry")
 
 const runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 const runValueName = "VoltConnector"
@@ -486,6 +492,20 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, 
   // Only the CLI and the LSP on PATH — not the 198-file runtime the CLI used to drag along.
   const bin = existsSync(binDir) ? readdirSync(binDir).map((n) => n.toLowerCase()).sort() : []
   if (bin.join("|") !== binExpected.join("|")) fail(step, `{app}\\bin holds [${bin.slice(0, 8).join(", ")}${bin.length > 8 ? `, … ${bin.length} total` : ""}], not exactly [${binExpected.join(", ")}]`)
+  // The CLI's own git: there, the pinned version, with its licence and source pointer — and in no bridge folder.
+  if (!existsSync(gitExe)) fail(step, "{app}\\bin\\git\\cmd\\git.exe missing — the CLI cannot run without its bundled git")
+  else {
+    const gitv = (spawnSync(gitExe, ["--version"], { encoding: "utf8", timeout: 30_000 }).stdout ?? "").trim()
+    if (gitv !== `git version ${minGitTag}`) fail(step, `{app}\\bin\\git says "${gitv}", not "git version ${minGitTag}" (MinGit.targets)`)
+    else ok(`${step}: the bundled git reports ${minGitTag}`)
+  }
+  for (const f of ["LICENSE.txt", "VOLT-SOURCE.txt"])
+    if (!existsSync(join(binDir, "git", f))) fail(step, `{app}\\bin\\git\\${f} missing — MinGit ships with its licence and source pointer`)
+  for (const d of ["connector", "codesys"]) {
+    const dir = join(installDir, d)
+    const gits = existsSync(dir) ? readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((f) => /(^|[\\/])git(\.exe)?$/i.test(f)) : []
+    if (gits.length > 0) fail(step, `{app}\\${d} carries git (${gits.join(", ")}) — git ships with the full CLI only`)
+  }
 
   // PATH: the exact entry, once; nothing else under {app}; every other entry exactly as it was.
   const entries = userPathEntries()
@@ -655,7 +675,15 @@ const steps: [string, () => Promise<void>][] = [
     await assertInstalled("2 update", run, broadcast, true)
   }],
   ["3 update again", async () => {
+    // A file only an OLDER MinGit had must not survive an update beside the new one (environment-dependency-audit 2b):
+    // [Files] only adds and overwrites, so the installer clears {app}\bin\git first ([InstallDelete]). The planted
+    // file stands for what a bumped pin no longer ships.
+    const stale = join(binDir, "git", "usr", "volt-stale-mingit-file.txt")
+    mkdirSync(dirname(stale), { recursive: true })
+    writeFileSync(stale, "a file the installed MinGit no longer ships\n")
     const { run, broadcast } = await install(setup, "3 update again")
+    if (existsSync(stale)) fail("3 update again", `${stale} survived the update — {app}\\bin\\git mixes two MinGit trees`)
+    else ok("3 update again: {app}\\bin\\git was cleared before the new MinGit landed")
     await assertInstalled("3 update again", run, broadcast)
   }],
   ["4 update with the CLI alive (gives up)", async () => {

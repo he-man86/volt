@@ -27,6 +27,9 @@ src/
   Volt.Engine.Host/         netstandard2.0  BridgePipeHost: op → service, marshalled onto the IDE thread.
   Volt.Cli/                 net10 exe        the `volt` CLI (init/pull/push/status/build/show/merge/rebind) +
                                             Sync/ (git-native client: the volt/ide merge tree, status, materialize)
+                                            — runs ITS OWN git, MinGit beside volt.exe (git\cmd\git.exe; pinned,
+                                            SHA-256-verified and fetched into .cache/mingit by MinGit.targets), never
+                                            one from PATH; the bridge bundles carry none
   Volt.Ide.Codesys/     net48 lib       CodesysDriver + pipe host — loaded in-proc by the CODESYS script host
   Volt.Ide.Twincat/     net10 exe        BeckhoffDriver + the worker the connector spawns (XAE via COM)
   Volt.Ide.Twincat.Explorer/ net48 x86 exe  VoltTwincatExplorer: the worker's reader of a 32-bit XAE's Solution Explorer (DIALECT C2t)

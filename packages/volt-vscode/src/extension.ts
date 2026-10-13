@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
+import { VoltStatus, aggregate, connectorStatus, refusedIdes, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -42,7 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// the detected-project ROWS dead on click whenever the key was stale or false — VS Code silently does
 		// nothing when a TreeItem's command is disabled, so "click to set up" did exactly that: nothing. The
 		// command reports "No PLC project detected…" itself, which beats a button that ignores you.
-		views?.setDetected(projects, view !== undefined)
+		views?.setDetected(projects, view !== undefined, refusedIdes(view))
 	}
 	// The list rides the connector feed's ONE clock — no second timer for a value the session client already has.
 	const bridgeSub = onConnectorView.event(() => void refreshBridgeLive())

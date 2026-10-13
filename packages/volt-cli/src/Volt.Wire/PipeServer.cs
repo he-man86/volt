@@ -75,8 +75,7 @@ public sealed class PipeServer : IDisposable
         // reported success — CODESYS's PipeHost.Start returned "Volt bridge started on pipe …" into the IDE message
         // window and wrote "bridge ready" to the log, over a pipe nothing was listening on. Both hosts already have
         // a catch arm around this call; the reason now reaches it.
-        var first = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
-            NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var first = PipeAcl.CreateServer(_pipeName);
         _running = true;
         new Thread(() => AcceptLoop(first)) { IsBackground = true, Name = "volt-pipe-accept" }.Start();
     }
@@ -154,8 +153,7 @@ public sealed class PipeServer : IDisposable
                 {
                     try
                     {
-                        server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
-                            NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                        server = PipeAcl.CreateServer(_pipeName);
                     }
                     catch (Exception ex)
                     {
@@ -177,8 +175,7 @@ public sealed class PipeServer : IDisposable
                 // above, and the connection already accepted is still served.
                 try
                 {
-                    pending = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
-                        NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    pending = PipeAcl.CreateServer(_pipeName);
                 }
                 catch (Exception ex)
                 {

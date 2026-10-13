@@ -13,3 +13,6 @@ dist/
 
 # TS deps for the e2e parity suite (test/e2e) — installed by the root bun workspace
 node_modules/
+
+# The verified MinGit download the CLI build bundles (src/Volt.Cli/MinGit.targets)
+.cache/

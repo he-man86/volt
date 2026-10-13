@@ -22,4 +22,6 @@
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
   </ItemGroup>
+  <!-- The CLI's own git, beside volt.exe (git\) — the full CLI only, never a bridge bundle (MinGit.targets). -->
+  <Import Project="MinGit.targets" />
 </Project>

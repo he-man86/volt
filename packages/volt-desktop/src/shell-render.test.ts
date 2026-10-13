@@ -97,6 +97,7 @@ const bound = {
   health: { label: "Connected", tone: "ok", online: true },
   affordance: { caption: "connected", action: "disconnect" },
   surface: { create: [], primary: [], alternates: [] },
+  refused: [],
   onboarding: "choose-project",
   ideChanged: false,
 }
@@ -267,4 +268,22 @@ test("the diagnostics headline is the summary the main process shipped, not one 
 
   expect(s.html()).toContain("1 error, 0 warnings")
   expect(s.html()).not.toContain("undefined")
+})
+
+// Gate 2b (environment-dependency-audit 2.2): an IDE whose bridge refused the connector has no project name; it is
+// drawn with @volt/control's label and its reason as text, disabled, both unbound and in the offline reconnect list.
+test("a refused IDE is named with its reason, and cannot be clicked", () => {
+  const refused = [{ key: "refused:volt.bridge.codesys.7", label: "An IDE Volt cannot reach", caption: "access denied", reason: "pipe refused: another user" }]
+  for (const snap of [
+    { ...bound, bound: false, initialized: false, onboarding: "no-project", refused },
+    { ...bound, mode: "offline", health: { label: "Disconnected", tone: "error", online: false }, affordance: { caption: "not connected", action: "connect" }, refused },
+  ]) {
+    const s = shell()
+    s.setSnap(snap)
+    s.render()
+    const out = s.html()
+    expect(out).toContain("An IDE Volt cannot reach — access denied")
+    expect(out).toContain("pipe refused: another user")
+    expect(out).not.toContain("data-pact")
+  }
 })

@@ -52,7 +52,7 @@ sealed class FileProjectSource : IProjectSource
                     Status(r), r.Unsupported, r.ProductName, r.ProductVersion, r.ProductVendor, r.BridgeVersion))
                 .ToList();
             // Always reachable: the "bridge" is a file. Zero rows here means the scenario has none, not a down pipe.
-            return Task.FromResult(new SourceScan(mine, Reachable: true));
+            return Task.FromResult(new SourceScan(mine, Reachable: true, Refused: Array.Empty<RefusedBridge>()));
         }
     }
 

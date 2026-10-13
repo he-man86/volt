@@ -57,6 +57,7 @@ const view = (serving: boolean): ConnectorView => ({
   projects: [
     { id: "codesys::MyMachine:", vendor: "codesys", dirty: false, status: serving ? "healthy" : "idle", projectName: "MyMachine" },
   ],
+  refused: [],
 })
 
 /** A NEW connector: the session API works and /sync answers a view. */

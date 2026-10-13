@@ -34,6 +34,8 @@
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <Compile Include="..\shared\WireParityCases.cs" Link="WireParityCases.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
+    <!-- Who a bridge pipe admits (environment-dependency-audit 2.2): net10 here, net48 in the CODESYS suite. -->
+    <Compile Include="..\shared\PipeAccessTests.cs" Link="PipeAccessTests.cs" />
   </ItemGroup>
 
   <!-- The SHIPPED bundle (the bridge's merged single assembly, Volt.Ide.Codesys.csproj's VoltBundle target), copied in

@@ -196,7 +196,7 @@
 <aside id="panel"></aside>
 
 <script>
-  let snap = { bound: false, onboarding: "probing", initialized: false, incoming: [], outgoing: [], surface: { create: [], primary: [], alternates: [] } }
+  let snap = { bound: false, onboarding: "probing", initialized: false, incoming: [], outgoing: [], surface: { create: [], primary: [], alternates: [] }, refused: [] }
   let diag = null // { loading } | { errors, warnings, files } | { error }
   // Which rail tab is lit + scrolled to. Defaults to the connection: it's the first thing to set up, and the first
   // thing to check when sync stops. Every section is always rendered — the rail navigates, it doesn't show/hide.
@@ -279,6 +279,11 @@
   // The IDE the project is open in, under its name (openspec ide-identity-report) — @volt/control's one line, as TEXT.
   const identityNote = (p) => `<div class="note" style="padding:0">${esc(p.identity)}</div>`
   const projectList = (projects) => `<div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
+  // The IDEs whose bridge refused the connector (environment-dependency-audit 2.2): no project name exists for them,
+  // so @volt/control's label + caption on a disabled button and its reason as TEXT under it — nothing to dispatch.
+  const refusedList = (refused) => refused.length === 0 ? "" : `<div class="init-row">` + refused.map((r) =>
+    `<button class="btn" title="${esc(r.reason)}" disabled><svg class="bolt"><use href="#bolt"/></svg>${esc(r.label)} — ${esc(r.caption)}</button>` +
+    `<div class="note" style="padding:0">${esc(r.reason)}</div>`).join("") + `</div>`
   // The two connection surfaces. The GROUPING is @volt/control's (snapshot passes s.surface already partitioned +
   // ordered — create vs reconnect, matching project first); the shell only draws it + supplies copy, never re-decides
   // which project is primary. CREATE (unbound folder): the outcome is named up front so "pick a project" reads as
@@ -361,7 +366,8 @@
       s.onboarding === "probing" ? awaitingNote
       : (s.onboarding === "choose-project" ? createSurface(s.surface)
         : s.onboarding === "no-connector" ? `<div class="note">The Volt Connector isn't running — start it from the Start Menu so it can find your open PLC projects.</div>`
-        : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`) + openExisting
+        : `<div class="note">No PLC project detected — open one in your IDE (or start it from the Volt Connector), then create a Volt workspace from it here.</div>`) +
+      refusedList(s.refused) + openExisting
     let bridgeBody
     if (!s.bound) bridgeBody = emptyStateBody()
     // Bound to a folder that isn't a Volt workspace yet: same create/onboarding body as unbound. No folder row — the
@@ -394,6 +400,7 @@
         actions = hasProjects
           ? reconnectSurface(s.surface)
           : `<div class="note">No project detected — open it in the IDE (or start the Volt Connector) to reconnect.</div>`
+        actions += refusedList(s.refused)
       }
       bridgeBody = idRow + reconcile + actions
     }
