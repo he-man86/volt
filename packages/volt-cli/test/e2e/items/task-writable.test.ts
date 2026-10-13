@@ -25,8 +25,18 @@
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR } from "../harness"
 
-// CODESYS drills tasks out of a `Task Configuration` container; a TwinCAT task sits at the PLC project root.
-const TASK_FOLDER = VENDOR === "twincat" ? "" : "Device/Plc Logic/Application/Task Configuration"
+// CODESYS drills tasks out of a task-configuration container; a TwinCAT task sits at the PLC project root. The folder is
+// READ from where the fixture's own task lives, never spelled: the container's name is the project's - `Task
+// Configuration` from the template of 3.5.21.40, `TaskConfiguration` in the 3.5.18.30 fixture (its scripting names it so
+// and refuses the other name, environment-dependency-audit 2.5b), `Taskkonfiguration` from a German template.
+async function taskFolder(): Promise<string> {
+	const r = await bridge.refs()
+	const task = Object.keys(r.items ?? {}).find((n) => n.endsWith(".task"))
+	expect(task, "the fixture project has no task to place a new one beside").toBeDefined()
+	const folder = (r.folders ?? {})[task!]
+	expect(typeof folder, `refs names no folder for ${task}`).toBe("string")
+	return folder as string
+}
 
 describe(`items / a task is writable (${BASE})`, () => {
 	setDefaultTimeout(180_000)
@@ -127,7 +137,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		// the line states them and a bare `off` is refused there by name (openspec bridge-one-to-one §3).
 		const watchdog = VENDOR === "codesys" ? "off '' ms (sensitivity 1)" : "off"
 		const body = `Type:      Cyclic\nInterval:  100 ms\nPriority:  ${await freePriority()}\nWatchdog:  ${watchdog}\n`
-		const created = await pushOps([{ op: "set", name, toFolder: TASK_FOLDER, sourceText: body, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name, toFolder: await taskFolder(), sourceText: body, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		// It is a real task the IDE now schedules, not a file on the side: it comes back through `refs` and

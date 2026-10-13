@@ -9,11 +9,19 @@
 import { expect } from "bun:test"
 import { call, callOn, VENDOR } from "./pipe"
 
+/** Every refusal reason a push answered with, in order — read by `platform.ts`, which must tell a version's expected
+ *  refusal from any other failure even when a test's own assertion message does not quote it. */
+export const pushReasons: string[] = []
+
 export const bridge = {
 	health: (): Promise<any> => call("health"),
 	refs: (): Promise<any> => call("refs"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => call("fetch", req),
-	push: (req: { ops: unknown[]; expectedProjectVersion?: string; force?: boolean }): Promise<any> => call("push", req),
+	push: (req: { ops: unknown[]; expectedProjectVersion?: string; force?: boolean }): Promise<any> =>
+		call("push", req).then((r: any) => {
+			for (const c of r?.conflicts ?? []) if (typeof c?.reason === "string") pushReasons.push(c.reason)
+			return r
+		}),
 	build: (): Promise<any> => call("build", {}),
 	// `init` was its own op until it turned out to be `fetch { init: true }` with the identity guard missing.
 	init: (): Promise<any> => call("fetch", { init: true }),

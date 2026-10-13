@@ -11,16 +11,13 @@ export type Report = { vendor: string; bits: number; ideVersion: string | null; 
 export type Verdict = { cell: Cell; green: boolean; why: string; outcome?: Outcome }
 
 /**
- * The fixture project NATIVE to a CODESYS version, or undefined. `CodesysTestProject.<version>.project` (2.5b) wins;
- * until it exists for a version, the two projects that were made IN their version stand: the default fixture is
- * 3.5.21.40's, `codesysSP18.project` was made in 3.5.18.30.
+ * The fixture project NATIVE to a CODESYS version, or undefined: `CodesysTestProject.<version>.project`, made IN that
+ * version by `scripts/author-version-fixture.py` (2.5b) - the file `ide.ps1` serves for that `-CodesysVersion`. One
+ * name per version; the source project it is generated from is no cell's fixture.
  */
 export function codesysFixture(version: string, files: string[]): string | undefined {
 	const own = `CodesysTestProject.${version}.project`
-	if (files.includes(own)) return own
-	if (version === "3.5.21.40" && files.includes("CodesysTestProject.project")) return "CodesysTestProject.project"
-	if (version === "3.5.18.30" && files.includes("codesysSP18.project")) return "codesysSP18.project"
-	return undefined
+	return files.includes(own) ? own : undefined
 }
 
 /**
@@ -78,6 +75,10 @@ export function judge(cell: Cell, outcome: Outcome | undefined, reports: Report[
 	const wrong = drove.filter((r) => r.bits !== cell.bits || (cell.version !== undefined && r.ideVersion !== cell.version))
 	if (wrong.length > 0)
 		return { cell, green: false, why: `the run drove ${wrong.map((r) => `${r.ideVersion} ${r.bits}-bit`).join(", ")}, not this cell`, outcome }
+	const project = cell.fixture?.replace(/\.project$/, "")
+	const other = project === undefined ? [] : drove.filter((r) => r.project !== project)
+	if (other.length > 0)
+		return { cell, green: false, why: `the run served ${other.map((r) => r.project).join(", ")}, not this cell's ${project}`, outcome }
 	if (outcome.fail > 0 || outcome.exit !== 0)
 		return { cell, green: false, why: `${outcome.fail} failed (exit ${outcome.exit})`, outcome }
 	return { cell, green: true, why: `${outcome.pass} pass, ${outcome.skip} skip`, outcome }

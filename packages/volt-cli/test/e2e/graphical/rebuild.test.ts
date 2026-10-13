@@ -21,11 +21,17 @@
  * The change gate is what keeps this bounded: a network whose text is unchanged is never rebuilt, so the cost
  * is paid only by the network actually edited. This test pays it on purpose.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import {
+
 	bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy,
 	savePlcPrg, restorePlcPrg, fixPlcPrg, expectVendorDifference, BASE,
 } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(180_000)
 

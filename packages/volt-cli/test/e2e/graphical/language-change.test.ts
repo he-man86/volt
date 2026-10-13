@@ -9,8 +9,13 @@
  * language; on TwinCAT it is refused UNSUPPORTED, naming both languages and the route that exists, and the item is
  * untouched. (Section 8's out-of-scope note keeps the NETWORK_* matrix for the LD/FBD change; this is 4.7's own pair.)
  */
-import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, clearTestInstances, createItem, fetchItem, pushOps, requireHealthy, ensureCompiles, BASE, VENDOR } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(240_000)
 

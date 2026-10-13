@@ -2,8 +2,13 @@
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
  * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, expectNoOperandsLost, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, FOLDER, BASE, VENDOR } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).

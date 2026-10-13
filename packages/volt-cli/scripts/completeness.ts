@@ -568,7 +568,7 @@ async function main(): Promise<number> {
   if (missing.length)
     console.log(`[completeness] cache entries citing no vendor-facts row (each fails where met): ${missing.join(", ")}`)
 
-  ide("up", vendor, vendor === "codesys" ? "CodesysOneToOne" : undefined)
+  ide("up", vendor, "CodesysOneToOne")
   let stopCore = () => {}
   const findings: Finding[] = []
   const measurements: Measurement[] = []

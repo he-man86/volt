@@ -60,6 +60,12 @@ internal sealed class ProjectSnapshot
     /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
     public List<UnreadableItem> Unreadable { get; } = new List<UnreadableItem>();
 
+    /// <summary>THE order every read op names its unreadable items in — by name, then reason, ordinally — so refs and
+    /// fetch answer one list (environment-dependency-audit 2.5b: with two unreadable items on 3.5.18.30 refs kept the
+    /// walk's order and fetch sorted, and a client comparing them saw a disagreement that was not there).</summary>
+    public static List<UnreadableItem> WireOrder(IEnumerable<UnreadableItem> items) =>
+        items.OrderBy(n => n.Name, StringComparer.Ordinal).ThenBy(n => n.Reason, StringComparer.Ordinal).ToList();
+
     /// <summary>The same unreadable items, bare name → the kinds each was walked as — what <see cref="Removal"/>
     /// needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
     public Dictionary<string, HashSet<string>> UnreadableKinds { get; } = new(StringComparer.Ordinal);
@@ -130,6 +136,9 @@ internal sealed class ProjectSnapshot
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
         // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree.
         snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions, snap.UnreadableKinds));
+        var named = WireOrder(snap.Unreadable);
+        snap.Unreadable.Clear();
+        snap.Unreadable.AddRange(named);
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         return snap;
     }

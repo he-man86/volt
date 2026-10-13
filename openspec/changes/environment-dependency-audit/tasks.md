@@ -287,7 +287,7 @@
       in an ASCII folder (unit tests +2); no product C# compiles at run time. Once (first German+Cyrillic run) XAE crashed with
       C2i's signature during the first `volt init`; not reproduced (German/ASCII full 296/0, English/Cyrillic full, German/Cyrillic
       retry 15/15). A non-ASCII PROFILE is VM row 4.
-- [ ] 2.5b **One fixture project per CODESYS version (owner 2026-10-13: "you need to have 1 project for each CS version").**
+- [x] 2.5b **One fixture project per CODESYS version (owner 2026-10-13: "you need to have 1 project for each CS version").**
       Export `test/fixtures/CodesysTestProject.project` from SP21 as PLCopen XML through CODESYS scripting (keeps the
       IDE-made CFC/SFC/LD/FBD bodies a Volt push cannot recreate), create an empty project in EACH installed version (SP18
       3.5.18.30, SP21 3.5.21.40, SP21 32-bit 3.5.21.60, SP22 3.5.22.40) and import it there through scripting, saved in that
@@ -299,6 +299,54 @@
       native project). If importing the SP21 export into an older version is not valid either, build the content in that
       version through its own scripting, object by object, or record what that version cannot hold. The 2026-10-13 matrix
       results for SP22 and 32-bit 3.5.21.60 ran on the upgraded SP21 project — provisional until this re-run.
+      **Built 2026-10-14 (design "2.5b"):** `scripts/author-version-fixture.py` (committed, scripts/README): `export` in
+      3.5.21.40 - the application's 6 top-level objects as PLCopen XML (folder structure, declarations as plain text) +
+      the tasks (PLCopen carries NO Task Configuration) + an inventory (path, type guid, device id, library references with
+      resolution/redirection, task settings, a hash of every declaration/implementation text); `import` in each version -
+      `projects.create`, that version's OWN `CODESYS Control Win V3 x64` (4096/`0000 0004` at the CODESYS version's number:
+      the device repository is shared by all four installs, so "newest" would be SP22's), the XML imported into its
+      application, the tasks built member for member, the source's placeholder redirections applied, SAVED, then built
+      (0 messages on all four) and inventoried. `CodesysTestProject.{3.5.18.30,3.5.21.40,3.5.21.60,3.5.22.40}.project`
+      committed; `codesysSP18.project` deleted (hand-made, and not native either: its device was SP22's x86 `0000 0001`
+      3.5.22.40) with its references (release-matrix-cells, DIALECT V7 note).
+      **Differences from the source (inventory + re-export diff), each with its reason:** 3.5.21.40 - none (the XML
+      re-export differs only in library order). 3.5.22.40 / 3.5.21.60 - the device's own version; the device-resolved
+      system libraries at that version (SP22: 3SLicense/CAA Device Diagnosis/IoStandard 3.5.22.0; 3.5.21.60: 3SLicense
+      3.5.21.50) - what that version's template references. 3.5.18.30 - (1) the container is `TaskConfiguration`: SP18's
+      `create_task_configuration` names it so and `rename("Task Configuration")` raises "Der Name ... ist fuer dieses
+      Objekt nicht gueltig" (the e2e `task-writable` now READS the task folder from refs instead of spelling it - also right
+      for a German template's `Taskkonfiguration`); (2) SP18's import drops the placeholder redirections (`StringUtils`/
+      `Util` unresolved, `Standard` -> 3.5.22.0) - set with the reference's `set_redirection`, now equal to the source;
+      (3) system libraries at SP18's (3SLicense/CAA DD 3.5.18.0, CAA DD not qualified-only, IecSfc 4.1.0.0); (4)
+      `VltFixtureSfc` holds no `do_checks_for_implicit_code` interface attribute and the SFC bodies no `MetaSteps` -
+      measured: a FRESH SFC POU made by SP18's scripting has neither, SP21's has both (MetaSteps = V7's
+      `SFCProperty.SFCMetaSteps`, absent on SP18); nothing in Volt reads either; (5) SP18 archives library parameter
+      DEFAULTS per reference (Analyzation 6, Util 1): measured on a project SP18's own scripting made from scratch
+      (device + `add_placeholder` Analyzation -> 6 values), so it is SP18's, not the import's - the bridge names the
+      Library Manager unreadable ("sets 7 library parameter value(s) ... no PARAMETER line spells them yet").
+      **Finding for the owner:** on SP18 any project referencing a parameterized library has its Library Manager named
+      unreadable; Volt cannot tell a stored default from a set value there. A build on SP18 writes those defaults too
+      (V7's `GetParameterValues`), so the script saves BEFORE it builds.
+      `ide.ps1` serves `CodesysTestProject.<-CodesysVersion>.project` when it exists (explicit `-Fixture` wins; otherwise a
+      warning names the fallback); `vendor-facts.ts`/`completeness.ts` now NAME their fixture (their rows were measured on
+      `CodesysTestProject`); the release matrix takes only `CodesysTestProject.<version>.project` and a run that served
+      another project is red (`judge`; red first: 3 of `release-matrix.test.ts`; unit 144/0). The harness line names
+      project + version + bitness (`[e2e] serving project: CodesysTestProject.3.5.18.30 - CODESYS 3.5.18.30, platform
+      3.5.18.30, 64-bit`). **Per-version expectations** (`test/e2e/lib/platform.ts`, the only way a test knows the CODESYS
+      version): a named gap passes a test only when it ENDS in that gap's refusal (in its error or a push answer it got -
+      any other failure stays one): `codesys-3.5.18.30-no-ldfbd-write` (every graphical file's `it`, and
+      `hidden-network-body`'s setup), `codesys-3.5.18.30-no-project-settings` and
+      `codesys-3.5.18.30-library-parameter-defaults` (`whole-project`: exactly those items with exactly those reasons).
+      Found by the SP18 run and fixed red first: refs named unreadable items in walk order, fetch sorted -
+      `ProjectSnapshot.WireOrder` is now the one order (`UnclassifiableObjectTests` +1, red `["Zeta","Alpha"]`); Engine
+      2533/0/1 skip.
+      **e2e (`ide.ps1 -Instance env-fx`, each version on its own project, full CODESYS suite):** 3.5.18.30 64-bit
+      **291 pass / 72 skip / 4 fail**, 110 expectations met (108 no-ldfbd-write incl. 4 not run after their setup met it,
+      1 no-project-settings, 1 library-parameter-defaults); 3.5.21.40 64-bit **291 / 72 / 4**; 3.5.21.60 32-bit
+      **291 / 72 / 4**; 3.5.22.40 64-bit **291 / 72 / 4**. The 4 on every version are `items/push-without-header-check`'s
+      ENGLISH build-message oracle on this machine's GERMAN CODESYS (2.6; owner: record in English) - a language fact, not
+      a version one. Before the expectations SP18 was 183 / 72 / 109. IDEs down after each run (`ide.ps1 down`). C#:
+      Repo.Gates 243/0, Ide.Codesys 403/0, Cli 295/0, Connector 148/0.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
       **Built 2026-10-13 (step 2d, DIALECT V9):** `ide.ps1 -CodesysBitness 32|64` (a version in both refused without it;
       an edition not installed refused by name); the harness prints and reports what it drove — `[e2e] serving project:

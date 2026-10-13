@@ -27,7 +27,8 @@
 .PARAMETER Action  up (default) | down | pipe | logs
 .PARAMETER Vendor  codesys | twincat
 .PARAMETER Fixture Vendor-interpreted selector for WHICH committed fixture to serve:
-                     codesys — a .project path (default: test/fixtures/CodesysTestProject.project)
+                     codesys — a .project path (default: test/fixtures/CodesysTestProject.<CodesysVersion>.project,
+                               the project native to that version; CodesysTestProject.project where none exists)
                      twincat — "13" | "14" | "both" (default), or a .sln path
 .PARAMETER InPlace Serve the committed tree ITSELF instead of a copy. The default is a copy under the system
                    temp dir, because THE IDE WRITES THE PROJECT IT HAS OPEN: every recording and every e2e run
@@ -652,7 +653,15 @@ function Up-Codesys {
     # build output beside it, whose loose Volt/System.Text.Json DLLs no user ever receives.
     $dll     = Join-Path $ROOT "src\Volt.Ide.Codesys\bin\Release\net48\bundle\Volt.Ide.Codesys.dll"
     $scriptPy = if ($RunScript) { $RunScript } else { Join-Path $PSScriptRoot "run_pipe_production.py" }
-    $project = if ($Fixture) { $Fixture } else { Join-Path $FIXTURES "CodesysTestProject.project" }
+    # The fixture NATIVE to the version served (environment-dependency-audit 2.5b; owner: "you need to have 1 project for
+    # each CS version" / "you can't reuse them"): `CodesysTestProject.<version>.project`, made in that version by
+    # scripts/author-version-fixture.py. A version without one serves the source project, which only 3.5.21.40 made -
+    # any other version opens it upgraded, and the line below says so. An explicit -Fixture always wins.
+    $native = Join-Path $FIXTURES "CodesysTestProject.$CodesysVersion.project"
+    $project = if ($Fixture) { $Fixture } elseif (Test-Path $native) { $native } else {
+        Write-Warning "no fixture native to CODESYS $CodesysVersion ($native) - serving CodesysTestProject.project, made in 3.5.21.40 (scripts/author-version-fixture.py makes one)"
+        Join-Path $FIXTURES "CodesysTestProject.project"
+    }
 
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
     if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }   # the CALLER's path, before the copy

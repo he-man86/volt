@@ -15,8 +15,13 @@
  * CODESYS keeps the wire under the VarId the text gave it; TwinCAT's importer folds it into one assign. What must hold
  * on both is that the value and both consumers SURVIVE and that pull → push is a FIXED POINT.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / fan-out (${BASE})`, () => {
 	setDefaultTimeout(120_000)

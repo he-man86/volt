@@ -324,8 +324,7 @@ public static class FetchService
             // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
-            Unreadable = unreadableItems.OrderBy(n => n.Name, System.StringComparer.Ordinal)
-                                        .ThenBy(n => n.Reason, System.StringComparer.Ordinal).ToList(),
+            Unreadable = ProjectSnapshot.WireOrder(unreadableItems),
             // The caveat travels WITH the answer. `removed` above already spares everything under these
             // folders; saying so is what lets a client keep the baseline entries it did not see as well.
             UnwalkedFolders = walk.UnwalkedFolders.ToList(),

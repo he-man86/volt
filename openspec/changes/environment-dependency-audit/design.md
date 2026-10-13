@@ -197,6 +197,25 @@ stopped (the old blindness, re-made on purpose: the update would then fail on th
 connector's files). Not run here: `test:install` (it installs on this machine)
 — it runs in `promote.yml` on every release; a WMI-disabled machine is VM row 8.
 
+## 2.5b — a fixture project native to each CODESYS version
+
+**Choice.** One script, `scripts/author-version-fixture.py`, makes `CodesysTestProject.<version>.project` IN each
+version: export the source's application from 3.5.21.40 (its own version) as PLCopen XML, then in each version an empty
+project from that version's scripting, that version's own device, the import, and through scripting whatever PLCopen does
+not carry (the tasks; the placeholder redirections SP18's import drops). An inventory per object (texts hashed, device,
+libraries, tasks) is the comparison; every difference is recorded with its reason (tasks.md 2.5b). Saved before the
+verifying build, because a build on SP18 writes library parameter defaults into the references.
+
+**Expectations, not skips.** `test/e2e/lib/platform.ts` names what a version lacks (`PLATFORM_GAPS`: id, platforms, the
+product's refusal, the record). A test under a gap runs as written; on a listed version it passes only by ending in THAT
+refusal. *Rejected:* `describe.skipIf(platform)` (a skip proves nothing, and a gap that closed would go on skipping);
+asserting the refusal per test by hand (104 graphical tests, each a second copy of the version list).
+
+**Rejected.** *Opening the 3.5.21.40 file in the other versions* (owner: "you can't reuse them" - an upgrade on open is
+not a customer's project); *native export/import* - the task names PLCopen, and a native export from a newer version is
+not an older version's format; *renaming SP18's `TaskConfiguration`* - its scripting refuses the name, so the fixture
+holds what SP18 makes and the test reads the folder.
+
 ## 3.1 — the release matrix
 
 `scripts/release-matrix.ts` (decisions in `packages/volt-cli/scripts/release-matrix-cells.ts`, unit-tested): cells

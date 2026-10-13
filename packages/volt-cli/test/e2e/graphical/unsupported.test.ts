@@ -28,8 +28,13 @@
  * pass during `fetch`, one unrenderable operator took the whole fetch down: 593 items to zero. Return-less
  * library functions are now skipped and counted (DIALECT D20).</p>
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, fetchItem, requireHealthy, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(30000)
 

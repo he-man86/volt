@@ -16,8 +16,13 @@
  * number of networks the importer will build. If a TwinCAT update ever changed this grouping, every such splice would silently renumber an
  * engineer's networks, so it is asserted rather than remembered.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements

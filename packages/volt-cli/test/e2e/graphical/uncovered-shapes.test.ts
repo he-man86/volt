@@ -15,11 +15,17 @@
  * fix was verified against a pulled corpus, which can only prove Volt agrees with itself; it was never once
  * created at a live IDE and pulled back.
  */
-import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import {
+
 	id, fid, bridge, requireHealthy, BASE, expectRoundTrip, expectRoundTripOrRefusal, diagnostics,
 	removeItem, createItem, fetchItem, pushOps, versionOf, plcFolder, FOLDER, VENDOR,
 } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	setDefaultTimeout(180_000)

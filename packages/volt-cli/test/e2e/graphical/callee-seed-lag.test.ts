@@ -16,8 +16,13 @@
  * <p>The day TwinCAT takes it (a remedy for the lag, or a different seed), the TwinCAT arm FAILS — "take it off" — and
  * the fixtures' `vendorRefuses` goes with it.</p>
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(180_000)
 

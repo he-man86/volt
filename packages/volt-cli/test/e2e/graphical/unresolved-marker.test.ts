@@ -23,8 +23,13 @@
  * unchanged, so the IDE can go on telling them so. Silently repairing it would hide their mistake; silently
  * dropping it would hide their drawing.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / the ??? marker (${BASE})`, () => {
 	setDefaultTimeout(180_000)

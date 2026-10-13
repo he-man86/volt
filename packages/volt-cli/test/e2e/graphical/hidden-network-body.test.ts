@@ -13,11 +13,16 @@
  * element id re-minted), moves those bytes; one that emptied or flattened it changes the network text too. And a
  * VISIBLE ladder edit must move the bytes, or a comparison that holds proves nothing about the reader.</p>
  */
-import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, afterAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
 import { id, fid, bridge, fetchItem, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(120_000)
 
@@ -56,7 +61,8 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 	/** The bodies the IDE holds for the item, byte for byte (see the file header). */
 	const heldBytes = (lang: string) => heldImplementations(bareOf(lang), project)
 
-	beforeAll(async () => {
+	// Its setup CREATES the LD/FBD items: on a version that cannot take one, that is the expectation (lib/platform.ts).
+	it.beforeAll(async () => {
 		await requireHealthy()
 		const health = await bridge.health()
 		// This suite needs the IDE's ladder READABLE, i.e. network text on in the bridge; a production bridge would pull

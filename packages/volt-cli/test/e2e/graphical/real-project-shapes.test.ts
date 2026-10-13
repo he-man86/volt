@@ -21,8 +21,13 @@
  * point — a refusal costs an engineer a detour through the IDE, while a silent reshape costs them a drawing
  * they will not know changed.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, VENDOR, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(30000)
 

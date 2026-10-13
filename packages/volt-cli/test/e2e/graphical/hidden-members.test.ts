@@ -15,10 +15,15 @@
  * a hidden member's folder — and asserts the push is accepted and the hidden bodies are byte for byte what they were
  * before ANY push, read from the vendor's own serialization (`lib/held-body.ts`). Every case puts the fixture back.</p>
  */
-import { describe, it, expect, beforeAll, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject } from "../lib/tc-files"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(90000)
 

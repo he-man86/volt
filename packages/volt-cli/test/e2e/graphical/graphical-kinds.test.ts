@@ -21,8 +21,13 @@
  *   3. it COMPILES. A body can round-trip perfectly and still be invalid — that is exactly how a push-created
  *      graphical POU once landed with an empty VAR section, its contacts referencing undeclared variables.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR, expectNoOperandsLost } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 // A TwinCAT full build is ~9s, past bun's 5s default, and the compile assertions here build the project.
 setDefaultTimeout(30000)

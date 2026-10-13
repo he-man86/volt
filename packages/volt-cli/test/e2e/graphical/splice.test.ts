@@ -12,9 +12,14 @@
  * text while rewriting the attributes would look identical. Closing that needs the exported document, from a
  * bridge-side dump or an IDE-side export.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, ensureCompiles,
          savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(60000)
 

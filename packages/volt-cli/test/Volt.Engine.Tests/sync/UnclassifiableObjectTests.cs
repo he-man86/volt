@@ -68,6 +68,29 @@ public class UnclassifiableObjectTests
         Assert.Empty(refs.Removed);
     }
 
+    /// <summary>REFS AND FETCH NAME THE SAME UNREADABLE LIST, IN THE SAME ORDER (environment-dependency-audit 2.5b): the
+    /// e2e `whole project` compares the two lists and on 3.5.18.30 — the first fixture with TWO unreadable items (the
+    /// Project Settings and the Library Manager) — they disagreed: fetch sorted by name, refs kept the walk's order.
+    /// Here the walk meets `Zeta` (top level) before `Alpha` (in a folder).</summary>
+    [Fact]
+    public void Refs_and_fetch_name_several_unreadable_objects_in_one_order()
+    {
+        var ide = new FakeIde();
+        foreach (var (name, folder) in new[] { ("Zeta", ""), ("Alpha", "Data") })
+            PushService.Handle(ide, new PushRequest
+            {
+                ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
+                Ops = new List<PushOp> { new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null } },
+            });
+        ide.UnclassifiableItems = new[] { "Zeta", "Alpha" };
+
+        var refs = RefsService.Handle(ide).Unreadable.Select(u => u.Name).ToList();
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Unreadable.Select(u => u.Name).ToList();
+
+        Assert.Equal(new[] { "Alpha", "Zeta" }, fetch);
+        Assert.Equal(fetch, refs);
+    }
+
     /// <summary>It still EXISTS, so it still counts: the aggregate version is not the one of a project WITHOUT the
     /// object (an unreadable object is not a deleted one), and refs, fetch and the push gate agree on it (the
     /// version-map parity every walk keeps).</summary>

@@ -12,8 +12,13 @@
  * <p>The shape is chosen so BOTH drivers refuse it for the same reason and in near-identical words, which is
  * what makes one test the parity gate rather than two vendor tests that happen to agree.</p>
  */
-import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, requireHealthy, pushOps, cleanup, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / the push pre-flight (${BASE})`, () => {
 	setDefaultTimeout(180_000)

@@ -16,8 +16,13 @@
  * Both are questions about the IMPORTER, and only a live IDE has one. Neither test asserts a chosen shape of the
  * XML — they assert what came back through the vendor's own resolution, which is the only thing that matters.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, BASE, VENDOR } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / create shapes (${BASE})`, () => {
 	setDefaultTimeout(120_000)

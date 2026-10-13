@@ -7,9 +7,14 @@
  * whether the member could be set on an update was not measured. This is the measurement: the line is flipped, the push
  * is accepted, and the next pull states the new view — the IDE holds it, not just Volt's text.
  */
-import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, BASE, VENDOR } from "../harness"
 import { ensureCompiles, withMainProgramRestored } from "../lib/compile"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(180_000)
 

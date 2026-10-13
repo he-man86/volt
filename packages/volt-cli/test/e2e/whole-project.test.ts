@@ -28,6 +28,7 @@ import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bu
 import { bridge, requireHealthy, BASE, libraryRoots, inLibrary, cleanup, createItem, fid, id } from "./harness"
 import { structDut, enumDut, unionDut, aliasDut } from "./fixtures"
 import { isPouFile } from "@volt/control"
+import { lacks, PLATFORM_GAPS, servedPlatform } from "./lib/platform"
 
 /** The kinds an engineer edits — the ones a push may write — are asked of the ONE writable-source table the
  *  clients share (`@volt/control`'s `isPouFile`, cross-checked against the engine's by `bun run check`), never a
@@ -59,8 +60,18 @@ describe(`whole project (${BASE})`, () => {
 		const refs: any = await bridge.refs()
 		const fetched: any = await bridge.fetch({ knownItems: {} })
 
-		expect(refs.unreadable ?? [], `refs could not materialize: ${JSON.stringify(refs.unreadable)}`).toEqual([])
-		expect(fetched.unreadable ?? [], `fetch could not materialize: ${JSON.stringify(fetched.unreadable)}`).toEqual([])
+		// A version that lacks a fact names exactly that item unreadable, with exactly that refusal (lib/platform.ts):
+		// 3.5.18.30 cannot give Volt its Project Settings, and it archives library parameter DEFAULTS Volt does not
+		// spell. Anything else unreadable there is still a failure.
+		const gaps: [any, string][] = [[PLATFORM_GAPS.projectSettings, "Project Settings"], [PLATFORM_GAPS.libraryParameterDefaults, "Library Manager"]]
+		const held: [any, string][] = []
+		for (const g of gaps) if (await lacks(g[0])) held.push(g)
+		const expectedGap = (u: any) => held.find(([g, item]) => u?.name === item && String(u?.reason).includes(g.refusal))
+		const lost = (us: any[] | undefined) => (us ?? []).filter((u) => !expectedGap(u))
+		for (const u of refs.unreadable ?? [])
+			if (expectedGap(u)) console.log(`[e2e] expected on CODESYS ${await servedPlatform()}: ${expectedGap(u)![0].id} (${expectedGap(u)![0].record})`)
+		expect(lost(refs.unreadable), `refs could not materialize: ${JSON.stringify(refs.unreadable)}`).toEqual([])
+		expect(lost(fetched.unreadable), `fetch could not materialize: ${JSON.stringify(fetched.unreadable)}`).toEqual([])
 
 		// …and the two agree, so a client cannot get a clean answer from one and a loss from the other.
 		expect(fetched.unreadable ?? []).toEqual(refs.unreadable ?? [])

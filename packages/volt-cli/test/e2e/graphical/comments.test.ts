@@ -11,8 +11,13 @@
  * The FIXED POINT is the real assertion here. Anything that re-writes the vendor's copy on a push that changed
  * nothing shows up as drift on the next pull.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / titles and comments (${BASE})`, () => {
 	setDefaultTimeout(180_000)

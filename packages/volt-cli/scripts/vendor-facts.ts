@@ -851,9 +851,11 @@ export function wireSide(
 
 // ── main ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** `codesysFixture`: the committed CODESYS fixture `up` serves (a `FIXTURE_FILES` name) — `ide.ps1`'s own default,
- *  CodesysTestProject, when omitted. The completeness oracle serves `CodesysOneToOne`. */
-export function ide(action: "up" | "down", vendor: Vendor, codesysFixture?: string): void {
+/** `codesysFixture`: the committed CODESYS fixture `up` serves (a `FIXTURE_FILES` name) — CodesysTestProject, the
+ *  project every committed row was measured on, when omitted (NAMED, not left to `ide.ps1`'s default, which serves the
+ *  per-version `CodesysTestProject.<version>.project` since environment-dependency-audit 2.5b). The completeness
+ *  oracle serves `CodesysOneToOne`. */
+export function ide(action: "up" | "down", vendor: Vendor, codesysFixture = "CodesysTestProject"): void {
   const args = [
     "-NoProfile",
     "-ExecutionPolicy",
@@ -869,11 +871,9 @@ export function ide(action: "up" | "down", vendor: Vendor, codesysFixture?: stri
   if (action === "up") {
     if (vendor === "codesys") {
       args.push("-RunScript", join(HERE, "vendor-facts.codesys.py"))
-      if (codesysFixture !== undefined) {
-        const file = FIXTURE_FILES[codesysFixture]
-        if (!file) throw new Error(`no committed fixture '${codesysFixture}'`)
-        args.push("-Fixture", join(FIXTURES, file))
-      }
+      const file = FIXTURE_FILES[codesysFixture]
+      if (!file) throw new Error(`no committed fixture '${codesysFixture}'`)
+      args.push("-Fixture", join(FIXTURES, file))
     }
     else args.push("-Fixture", "14")
     args.push("-Wait")

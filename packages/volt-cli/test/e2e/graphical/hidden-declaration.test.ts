@@ -13,11 +13,16 @@
  * are the bodies as the IDE holds them (CODESYS saves no file on push). The offline writers' guarantee is proven
  * separately against doubles (`TcHiddenBodyWriteTests`, `CodesysHiddenBodyWriteTests`).</p>
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
 import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 setDefaultTimeout(60000)
 

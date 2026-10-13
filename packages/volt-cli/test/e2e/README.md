@@ -75,7 +75,8 @@ Instead of running against whatever you happen to have open, the suite targets c
 
 | Fixture | Vendor | Use |
 |---|---|---|
-| `CodesysTestProject.project`, `testproject1.project` | CODESYS | single / multi-instance |
+| `CodesysTestProject.project`, `testproject1.project` | CODESYS | single / multi-instance; `CodesysTestProject.project` (made in 3.5.21.40) is the SOURCE of the per-version projects |
+| `CodesysTestProject.<version>.project` | CODESYS | the source made NATIVE to each installed version (`scripts/author-version-fixture.py`): what `ide.ps1 up -CodesysVersion <v>` serves by default and the release matrix runs; 3.5.18.30's holds its own differences (`lib/platform.ts`) |
 | `CodesysOneToOne.project` | CODESYS | CodesysTestProject + the IDE-authored `bridge-one-to-one` objects (`one-to-one/`, the completeness oracle) |
 | `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild` (ST FB + **CFC method child**), `FB_FolderChild` (**action inside a folder**) |
 | `TwinCAT Project13/`, `TwinCAT Project14/` | TwinCAT | single / **multi-XAE** |

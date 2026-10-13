@@ -6,21 +6,24 @@
 import { describe, expect, it } from "bun:test"
 import { codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, type Cell } from "../../scripts/release-matrix-cells"
 
-const FIXTURES = ["CodesysTestProject.project", "codesysSP18.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.22.40.project"]
+const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
 describe("cells", () => {
 	it("one CODESYS cell per installed version and bitness, its own fixture or red by name", () => {
 		const cells = codesysCells(["CODESYS 3.5.18.30", "CODESYS 3.5.21.40", "CODESYS 3.5.22.40", "Common Files"], ["CODESYS 3.5.21.60"], FIXTURES)
 		expect(cells.map((c) => [c.id, c.fixture ?? null])).toEqual([
-			["codesys-3.5.18.30-64", "codesysSP18.project"],
-			["codesys-3.5.21.40-64", "CodesysTestProject.project"],
+			["codesys-3.5.18.30-64", "CodesysTestProject.3.5.18.30.project"],
+			["codesys-3.5.21.40-64", null],
 			["codesys-3.5.21.60-32", null],
 			["codesys-3.5.22.40-64", "CodesysTestProject.3.5.22.40.project"],
 		])
 		expect(cells.find((c) => c.id === "codesys-3.5.21.60-32")!.refusal).toContain("no fixture project native to CODESYS 3.5.21.60")
 	})
-	it("a version's own fixture wins over the legacy one", () => {
+	// 2.5b: every version has its own generated project (scripts/author-version-fixture.py); the source project
+	// CodesysTestProject.project is no cell's fixture, though 3.5.21.40 made it - one rule, one file name per version.
+	it("only a version's own fixture counts", () => {
 		expect(codesysFixture("3.5.21.40", [...FIXTURES, "CodesysTestProject.3.5.21.40.project"])).toBe("CodesysTestProject.3.5.21.40.project")
+		expect(codesysFixture("3.5.21.40", FIXTURES)).toBeUndefined()
 		expect(codesysFixture("3.5.21.60", FIXTURES)).toBeUndefined()   // never another version's file (owner: "you can't reuse them")
 	})
 	it("a TwinCAT cell per shell bitness, red where Visual Studio's 64-bit proxy is registered", () => {
@@ -42,9 +45,9 @@ describe("cells", () => {
 		expect(cells[0].refusal).toContain("no CODESYS is installed")
 	})
 	it("a missing vendor reddens the whole matrix", () => {
-		const verdicts = [...codesysCells(["CODESYS 3.5.21.40"], [], FIXTURES), ...twincatCells([], false)].map((c) =>
-			judge(c, { pass: 1, fail: 0, skip: 0, exit: 0 }, [{ vendor: "codesys", bits: 64, ideVersion: "3.5.21.40", project: "P" }]))
-		expect(verdicts.map((v) => [v.cell.id, v.green])).toEqual([["codesys-3.5.21.40-64", true], ["twincat-none", false]])
+		const verdicts = [...codesysCells(["CODESYS 3.5.22.40"], [], FIXTURES), ...twincatCells([], false)].map((c) =>
+			judge(c, { pass: 1, fail: 0, skip: 0, exit: 0 }, [{ vendor: "codesys", bits: 64, ideVersion: "3.5.22.40", project: "CodesysTestProject.3.5.22.40" }]))
+		expect(verdicts.map((v) => [v.cell.id, v.green])).toEqual([["codesys-3.5.22.40-64", true], ["twincat-none", false]])
 	})
 })
 
@@ -89,8 +92,8 @@ describe("matrix proof", () => {
 })
 
 describe("verdict", () => {
-	const cell: Cell = { id: "codesys-3.5.21.40-64", vendor: "codesys", version: "3.5.21.40", bits: 64, fixture: "CodesysTestProject.project" }
-	const drove = [{ vendor: "codesys", bits: 64, ideVersion: "3.5.21.40", project: "CodesysTestProject" }]
+	const cell: Cell = { id: "codesys-3.5.21.40-64", vendor: "codesys", version: "3.5.21.40", bits: 64, fixture: "CodesysTestProject.3.5.21.40.project" }
+	const drove = [{ vendor: "codesys", bits: 64, ideVersion: "3.5.21.40", project: "CodesysTestProject.3.5.21.40" }]
 	const summary = "\n 296 pass\n 70 skip\n 0 fail\n 1200 expect() calls\nRan 366 tests across 80 files. [1200.00s]\n"
 
 	it("bun's summary is read", () => {
@@ -109,6 +112,11 @@ describe("verdict", () => {
 	it("red when the run drove another version or bitness", () => {
 		expect(judge(cell, parseSummary(summary, 0), [{ ...drove[0], bits: 32 }]).why).toContain("3.5.21.40 32-bit, not this cell")
 		expect(judge(cell, parseSummary(summary, 0), [{ ...drove[0], ideVersion: "3.5.21.60" }]).green).toBe(false)
+	})
+	// 2.5b: the right IDE serving ANOTHER project (an upgraded one, or a `-Fixture` override) is not the cell either.
+	it("red when the run served another project than the cell's fixture", () => {
+		expect(judge(cell, parseSummary(summary, 0), [{ ...drove[0], project: "CodesysTestProject" }]).why)
+			.toContain("served CodesysTestProject, not this cell's CodesysTestProject.3.5.21.40")
 	})
 	it("a cell refused up front is red with its reason, whatever ran", () => {
 		expect(judge({ ...cell, refusal: "why" }, parseSummary(summary, 0), drove)).toMatchObject({ green: false, why: "why" })

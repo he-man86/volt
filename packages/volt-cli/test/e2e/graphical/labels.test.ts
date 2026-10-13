@@ -11,8 +11,13 @@
  * have passed. This asserts the round trip and the FIXED POINT, which is what proves the label survived rather
  * than merely appeared once.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
+import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, expectRoundTrip, BASE } from "../harness"
+
+import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
+const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 describe(`graphical / labels and jumps (${BASE})`, () => {
 	setDefaultTimeout(180_000)
