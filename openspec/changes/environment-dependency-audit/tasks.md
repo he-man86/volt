@@ -165,6 +165,14 @@
       work without Visual Studio; DIALECT row.
 - [ ] 2.4 Localized TwinCAT build output: record German and Russian XAE output; language-neutral parse or state what is lost.
 - [ ] 2.5 Non-ASCII `%TEMP%`/project paths handed to XAE: measure; fix or refuse by name.
+- [ ] 2.5b **One fixture project per CODESYS version (owner 2026-10-13: "you need to have 1 project for each CS version").**
+      Export `test/fixtures/CodesysTestProject.project` from SP21 as PLCopen XML through CODESYS scripting (keeps the
+      IDE-made CFC/SFC/LD/FBD bodies a Volt push cannot recreate), create an empty project in EACH installed version (SP18
+      3.5.18.30, SP21 3.5.21.40, SP21 32-bit 3.5.21.60, SP22 3.5.22.40) and import it there through scripting, saved in that
+      version's format as `test/fixtures/CodesysTestProject.<version>.project`. What a version cannot import is recorded
+      with its reason and the e2e expects that refusal (not a failure). `ide.ps1` picks the fixture by `-CodesysVersion`
+      (explicit `-Fixture` still wins); the e2e harness records the project and version it ran. Replace the hand-made
+      `codesysSP18.project` by the generated one. Re-run the e2e matrix on every version with its own project.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
 - [ ] 2.7 CODESYS activation hints per feature set and locale; the installer tolerates WMI being unavailable.
 - [ ] 2.8 Culture-invariant replacements at every site the 1.2 gate names (C# 39 = 29 + 10 default-comparer sorts since
