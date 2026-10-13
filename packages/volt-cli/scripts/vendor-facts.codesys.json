@@ -118,6 +118,60 @@
 			"reload: accepted"
 		]
 	},
+	"abstract-member-equivalence": {
+		"class.a1": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"class.a2": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"diagnostics@a1-built": [
+			{
+				"code": "C0433",
+				"severity": "Error",
+				"text": "The ABSTRACT method VltE_Base.A1 must not contain any statements"
+			}
+		],
+		"diagnostics@implemented": [],
+		"diagnostics@missing": [
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0431",
+				"severity": "Error",
+				"text": "There is no implementation for ABSTRACT method 'A1' defined in function block 'VltE_Base'"
+			},
+			{
+				"code": "C0431",
+				"severity": "Error",
+				"text": "There is no implementation for ABSTRACT method 'A2' defined in function block 'VltE_Base'"
+			}
+		],
+		"fetched": "FUNCTION_BLOCK ABSTRACT VltE_Base\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT A1 : INT\nIMPLEMENTATION NONE\nEND_METHOD\n\nMETHOD ABSTRACT A2 : INT\nIMPLEMENTATION NONE\nEND_METHOD\n",
+		"implementation.a1": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation.a2": null,
+		"signature.a1": "Method/Abstract",
+		"signature.a2": "Method/Abstract",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create base: accepted",
+			"create a1: accepted",
+			"create a2: accepted",
+			"create derived: accepted",
+			"find main: accepted",
+			"setText main: accepted",
+			"build: accepted",
+			"create o1: accepted",
+			"create o2: accepted",
+			"build: accepted",
+			"setText a1: accepted",
+			"build: accepted"
+		]
+	},
 	"accessor-decl": {
 		"accessor-declaration.get": "VAR\nEND_VAR\n",
 		"accessor-declaration.set": "VAR\nEND_VAR\n",
@@ -187,6 +241,63 @@
 		"max-warnings": 100,
 		"replace-constants": true,
 		"steps": []
+	},
+	"create-each-class": {
+		"check-kind@created": "CheckBounds",
+		"check-kind@reloaded": "CheckBounds",
+		"class.abs@created": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.abs@reloaded": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.check@created": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.check@reloaded": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.param@created": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.param@reloaded": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.pers@created": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.pers@reloaded": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.sender@created": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.sender@reloaded": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.tle@created": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.tle@reloaded": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"decl.abs": "METHOD ABSTRACT Pick : INT\n",
+		"decl.check": "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR\n",
+		"decl.param": "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\nEND_VAR",
+		"decl.pers": "{attribute 'qualified_only'}\nVAR_GLOBAL PERSISTENT RETAIN\nEND_VAR",
+		"decl.sender": "{attribute 'qualified_only'}\nVAR_GLOBAL\nEND_VAR",
+		"decl.tle": "TYPE VltF_TextEnum :\n(\n\tRed := 0,\n\tGreen := 5,\n\tBlue\n);\nEND_TYPE\n",
+		"diagnostics": [],
+		"fetched.absfb": "FUNCTION_BLOCK ABSTRACT VltF_AbsBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD\n",
+		"fetched.check": "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR\nIMPLEMENTATION ST\nIF index < lower THEN\n\tCheckBounds := lower;\nELSIF index > upper THEN\n\tCheckBounds := upper;\nELSE\n\tCheckBounds := index;\nEND_IF\n\nEND_FUNCTION\n",
+		"fetched.param": "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\nEND_VAR\n",
+		"fetched.pers": "{attribute 'qualified_only'}\nVAR_GLOBAL PERSISTENT RETAIN\nEND_VAR\n",
+		"fetched.sender": "{attribute 'qualified_only'}\nVAR_GLOBAL\nEND_VAR\n",
+		"fetched.tle": "TYPE VltF_TextEnum :\n(\n\tRed := 0,\n\tGreen := 5,\n\tBlue\n);\nEND_TYPE\n",
+		"implementation.abs": null,
+		"implementation.check": "_3S.CoDeSys.STObject.STImplementationObject",
+		"netvar-properties.param": null,
+		"netvar-properties.sender": "_3S.CoDeSys.GVLObject.NetVarProperties",
+		"netvar-protocol": "",
+		"parameter-list.param": true,
+		"parameter-list.sender": false,
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create check: accepted",
+			"create pers: accepted",
+			"create pers2: refused: BaseException: Cannot insert 'VltF_Persistent2' below 'Application [Device: PLC Logic]'.",
+			"create tle: accepted",
+			"create sender: accepted",
+			"create param: accepted",
+			"create nvl: refused: BaseException: Object reference not set to an instance of an object.",
+			"create absfb: accepted",
+			"create abs: accepted",
+			"build: accepted",
+			"reload: accepted"
+		],
+		"textlist-row-0-id@created": "Red",
+		"textlist-row-0-id@reloaded": "Red",
+		"textlist-row-1-default": "5",
+		"textlist-row-2-id": "Blue",
+		"textlist-row-3-id": "",
+		"textlist-rows@created": 4,
+		"textlist-rows@reloaded": 4
 	},
 	"diagnostic-child-guid": {
 		"diagnostics": [
@@ -4168,6 +4279,23 @@
 			"setText iq (push): accepted"
 		]
 	},
+	"editor-caches": {
+		"decl-line-info@made": "System.String",
+		"decl-line-info@reloaded": "System.String",
+		"diagnostics": [],
+		"fetched": "PROGRAM VltF_Cache\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_PROGRAM\n",
+		"impl-line-info@made": "System.String",
+		"impl-line-info@reloaded": "System.String",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create p: accepted",
+			"build: accepted",
+			"reload: accepted"
+		],
+		"timestamp-type": "System.Int64",
+		"unique-id-generator@made": "System.String",
+		"unique-id-generator@reloaded": "System.String"
+	},
 	"empty-folder-survives": {
 		"children": [],
 		"steps": [
@@ -4175,6 +4303,29 @@
 			"create pou: accepted",
 			"delete pou: accepted",
 			"delete folder: accepted"
+		]
+	},
+	"folder-order": {
+		"children@created": [
+			"VltF_Zed",
+			"VltF_Abc",
+			"VltF_Sub",
+			"VltF_Mid"
+		],
+		"children@reloaded": [
+			"VltF_Zed",
+			"VltF_Abc",
+			"VltF_Sub",
+			"VltF_Mid"
+		],
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create folder: accepted",
+			"create z: accepted",
+			"create a: accepted",
+			"create sub: accepted",
+			"create m: accepted",
+			"reload: accepted"
 		]
 	},
 	"ide-identity": {
@@ -5531,6 +5682,30 @@
 		"type-guid.p_prg@created": null,
 		"type-guid.v_enum@changed": null,
 		"type-guid.v_enum@created": null
+	},
+	"member-order": {
+		"children@created": [
+			"Zeta",
+			"Mid",
+			"Alpha",
+			"Beta"
+		],
+		"children@reloaded": [
+			"Zeta",
+			"Mid",
+			"Alpha",
+			"Beta"
+		],
+		"fetched": "FUNCTION_BLOCK VltF_Order\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Alpha : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nMETHOD Zeta : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nACTION Mid\nIMPLEMENTATION ST\nEND_ACTION\n\nPROPERTY Beta : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create fb: accepted",
+			"create m1: accepted",
+			"create m2: accepted",
+			"create m3: accepted",
+			"create m4: accepted",
+			"reload: accepted"
+		]
 	},
 	"merged-classes": {
 		"check-kind@found": "CheckBounds",
@@ -8680,5 +8855,111 @@
 		"watchdog-sensitivity@watchdog-sensitivity": "2",
 		"watchdog-time@found": "",
 		"watchdog-time@watchdog-time": "100"
+	},
+	"textlist-enum-edit": {
+		"class": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"decl": "TYPE VltF_TextEdit :\n(\n\tRed := 0,\n\tCyan\n);\nEND_TYPE",
+		"removed-entries-items": [],
+		"removed-entries@created": 0,
+		"removed-entries@reloaded": 0,
+		"removed-entries@removed": 0,
+		"removed-entries@renamed": 0,
+		"row-0-TextDefault@created": "0",
+		"row-0-TextDefault@reloaded": "0",
+		"row-0-TextDefault@removed": "0",
+		"row-0-TextDefault@renamed": "0",
+		"row-0-TextID@created": "Red",
+		"row-0-TextID@reloaded": "Red",
+		"row-0-TextID@removed": "Red",
+		"row-0-TextID@renamed": "Red",
+		"row-1-TextDefault@created": "5",
+		"row-1-TextDefault@reloaded": "",
+		"row-1-TextDefault@removed": "",
+		"row-1-TextDefault@renamed": "",
+		"row-1-TextID@created": "Green",
+		"row-1-TextID@reloaded": "Cyan",
+		"row-1-TextID@removed": "Blue",
+		"row-1-TextID@renamed": "Cyan",
+		"row-2-TextDefault@created": "",
+		"row-2-TextDefault@reloaded": "",
+		"row-2-TextDefault@removed": "",
+		"row-2-TextDefault@renamed": "",
+		"row-2-TextID@created": "Blue",
+		"row-2-TextID@reloaded": "",
+		"row-2-TextID@removed": "",
+		"row-2-TextID@renamed": "",
+		"row-3-TextDefault@created": "",
+		"row-3-TextDefault@reloaded": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"row-3-TextDefault@removed": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"row-3-TextDefault@renamed": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"row-3-TextID@created": "",
+		"row-3-TextID@reloaded": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"row-3-TextID@removed": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"row-3-TextID@renamed": {
+			"raised": "BaseException: index out of range: 3"
+		},
+		"rows@created": 4,
+		"rows@reloaded": 3,
+		"rows@removed": 3,
+		"rows@renamed": 3,
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create tle: accepted",
+			"setText tle (push): accepted",
+			"setText tle (push): accepted",
+			"reload: accepted"
+		]
+	},
+	"trailing-newline-cache": {
+		"decl.p@reloaded": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
+		"decl.p@written": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
+		"decl.q@reloaded": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR",
+		"decl.q@written": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR",
+		"fetched.p": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n",
+		"fetched.q": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n",
+		"impl.p@reloaded": "x := 1;\n\n\n",
+		"impl.p@written": "x := 1;\n\n\n",
+		"impl.q@reloaded": "x := 1;",
+		"impl.q@written": "x := 1;",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create p: accepted",
+			"create q: accepted",
+			"reload: accepted"
+		]
+	},
+	"watchdog-off-values": {
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find task: accepted",
+			"invoke script.watchdog.enabled: accepted",
+			"invoke script.watchdog.time: accepted",
+			"invoke script.watchdog.time_unit: accepted",
+			"invoke script.watchdog.sensitivity: accepted",
+			"invoke script.watchdog.enabled: accepted",
+			"reload: accepted"
+		],
+		"watchdog-enabled@disabled": false,
+		"watchdog-enabled@found": false,
+		"watchdog-enabled@reloaded": false,
+		"watchdog-sensitivity@disabled": "3",
+		"watchdog-sensitivity@found": "1",
+		"watchdog-sensitivity@reloaded": "3",
+		"watchdog-time-unit@disabled": "µs",
+		"watchdog-time-unit@found": "ms",
+		"watchdog-time-unit@reloaded": "µs",
+		"watchdog-time@disabled": "123",
+		"watchdog-time@found": "",
+		"watchdog-time@reloaded": "123"
 	}
 }

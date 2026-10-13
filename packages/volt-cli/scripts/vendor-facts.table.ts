@@ -82,6 +82,19 @@ export type Step = StepBase &
         language?: "ST" | "FBD" | "LD"
         decl?: string
         impl?: string
+        /** A property's data type (CODESYS `create_property`'s type, TwinCAT 611's vInfo); `INT` on CODESYS when not
+         *  named, and on TwinCAT the driver's own vInfo — the body language, which TwinCAT reads AS the type
+         *  (bridge-one-to-one gate 1: `PROPERTY PUBLIC Beta : ST`). A property create only. */
+        dataType?: string
+        /** CODESYS only (openspec `bridge-one-to-one` 1.3): a class no scripting `create_*` names, made the way the
+         *  vendor's own Add Object makes it. `factory`: that `IObjectFactory` (full CLR name) — `Create()`, then
+         *  `ObjectMgr.AddObject` under the parent, then its `ObjectCreated`. `vendorClass`: that class by its
+         *  parameterless constructor, each `Interface` / `Implementation` aspect it holds null taken from the POU
+         *  factory's own `DoCreate` (ST, standard level, `decl`), the `init` members set, then `AddObject`. The kind
+         *  stays the wire kind the object answers as. */
+        factory?: string
+        vendorClass?: string
+        init?: Record<string, Arg>
       }
     | { op: "create"; as: string; kind: Kind; name: string; parent: Handle; via: "push"; source: string }
     /** An EXISTING object by its exact name, in the open project or below `under`. What no create can make is found,
@@ -727,6 +740,9 @@ function prioritySteps(): Step[] {
 }
 
 // ── the rows ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The text-list enum edit row's four moments (openspec `bridge-one-to-one` gate 1). */
+const EDITS = ["created", "removed", "renamed", "reloaded"] as const
 
 export const ROWS: Row[] = [
   {
@@ -3007,6 +3023,873 @@ export const ROWS: Row[] = [
       { vendor: "twincat", key: "pou-children", at: "into-pou", on: "pou", op: "children" },
       { vendor: "twincat", key: "references-children", at: "into-references", on: "references", op: "children" },
       { vendor: "twincat", key: "root-children", at: ["into-pou", "into-references"], on: "root", op: "children" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 1: can a create make each class Volt folds — through the
+    // vendor's own factory or class, the way its Add Object does — and do the class, its special member and the text
+    // survive a reload? A refused create is the vendor's answer, recorded. The text-list enum's rows after a
+    // declaration write answer `textlist-enum-rows-derived` (design §1): rebuilt from the declaration, or not.
+    id: "create-each-class",
+    dialect: ["C2r"],
+    vendors: {
+      codesys: true,
+      twincat: {
+        absent:
+          "TwinCAT's special classes are `tc-special-classes`; it has no persistent-list, NVL or text-list-enum class (0 in its corpus, DIALECT C2n)",
+      },
+    },
+    steps: [
+      { op: "open", fixture: "CodesysTestProject" },
+      {
+        op: "create",
+        as: "check",
+        kind: "function",
+        name: "CheckBounds",
+        parent: "root",
+        via: "script",
+        vendorClass: "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+        init: { KindOfCheckFunction: { enum: "_3S.CoDeSys.POUObject.CheckFunctionSelection.CheckBounds" } },
+        decl: "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR\n",
+        impl: "IF index < lower THEN\n\tCheckBounds := lower;\nELSIF index > upper THEN\n\tCheckBounds := upper;\nELSE\n\tCheckBounds := index;\nEND_IF\n",
+      },
+      {
+        op: "create",
+        as: "pers",
+        kind: "gvl",
+        name: "VltF_Persistent",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.GVLObject.VarPersistentObjectFactory",
+      },
+      // A second persistent list in the same application.
+      {
+        op: "create",
+        as: "pers2",
+        kind: "gvl",
+        name: "VltF_Persistent2",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.GVLObject.VarPersistentObjectFactory",
+      },
+      {
+        op: "create",
+        as: "tle",
+        kind: "dut",
+        name: "VltF_TextEnum",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.TextList.TextListEnumerationObjectFactory",
+        decl: "TYPE VltF_TextEnum :\n(\n\tRed := 0,\n\tGreen := 5,\n\tBlue\n);\nEND_TYPE\n",
+      },
+      {
+        op: "create",
+        as: "sender",
+        kind: "gvl",
+        name: "VltF_Sender",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.GVLObject.SenderGVLObjectFactory",
+      },
+      {
+        op: "create",
+        as: "param",
+        kind: "gvl",
+        name: "VltF_Params",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.GVLObject.ParameterGVLObjectFactory",
+      },
+      {
+        op: "create",
+        as: "nvl",
+        kind: "gvl",
+        name: "VltF_Nvl",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.NVLObject.NVLObjectFactory",
+      },
+      {
+        op: "create",
+        as: "absfb",
+        kind: "function_block",
+        name: "VltF_AbsBase",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK ABSTRACT VltF_AbsBase\nVAR\nEND_VAR\n",
+      },
+      {
+        tag: "created",
+        op: "create",
+        as: "abs",
+        kind: "method",
+        name: "Pick",
+        parent: "absfb",
+        via: "script",
+        vendorClass: "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+        decl: "METHOD ABSTRACT Pick : INT\n",
+      },
+      { tag: "built", op: "build" },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      {
+        key: "class",
+        at: ["created", "reloaded"],
+        on: ["check", "pers", "tle", "sender", "param", "abs"],
+        op: "class",
+      },
+      { key: "check-kind", at: ["created", "reloaded"], on: "check", op: "member", path: "object.KindOfCheckFunction" },
+      { key: "parameter-list", at: "reloaded", on: ["sender", "param"], op: "member", path: "object.ParameterList" },
+      {
+        key: "netvar-properties",
+        at: "reloaded",
+        on: ["sender", "param"],
+        op: "member",
+        path: "object.NetVarProperties.$type",
+      },
+      {
+        key: "netvar-protocol",
+        at: "reloaded",
+        on: "sender",
+        op: "member",
+        path: "object.NetVarProperties.ProtocolName",
+      },
+      // textlist-enum-rows-derived: the rows after the declaration write, and after a reload.
+      {
+        key: "textlist-rows",
+        at: ["created", "reloaded"],
+        on: "tle",
+        op: "member",
+        path: "object.TextListObject.TextList.$count",
+      },
+      {
+        key: "textlist-row-0-id",
+        at: ["created", "reloaded"],
+        on: "tle",
+        op: "member",
+        path: 'object.TextListObject.TextList[0].GetSerializableValue("TextID")',
+      },
+      {
+        key: "textlist-row-1-default",
+        at: "reloaded",
+        on: "tle",
+        op: "member",
+        path: 'object.TextListObject.TextList[1].GetSerializableValue("TextDefault")',
+      },
+      {
+        key: "textlist-row-2-id",
+        at: "reloaded",
+        on: "tle",
+        op: "member",
+        path: 'object.TextListObject.TextList[2].GetSerializableValue("TextID")',
+      },
+      {
+        key: "textlist-row-3-id",
+        at: "reloaded",
+        on: "tle",
+        op: "member",
+        path: 'object.TextListObject.TextList[3].GetSerializableValue("TextID")',
+      },
+      {
+        key: "decl",
+        at: "reloaded",
+        on: ["check", "pers", "tle", "sender", "param", "abs"],
+        op: "member",
+        path: "script.textual_declaration.text",
+      },
+      {
+        key: "implementation",
+        at: "reloaded",
+        on: ["check", "abs"],
+        op: "member",
+        path: "object.Implementation.$type",
+      },
+      { key: "diagnostics", at: "built", op: "diagnostics" },
+      // What the shipped bridge pulls for each today (the fold the change removes).
+      { key: "fetched", at: "reloaded", on: ["check", "pers", "tle", "sender", "param", "absfb"], op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` gate 1 (review): the text-list enum's rows after Volt's OWN edits — an enumerator
+    // REMOVED and one RENAMED through the shipped push — and across a reload: are the rows rebuilt from the declaration
+    // and nothing else kept, and does `RemovedTextListEntries` (which the design refuses when non-empty) fill? Every
+    // row's TextID AND TextDefault, so the row-to-enumerator pairing is read whole, not one column per row.
+    id: "textlist-enum-edit",
+    dialect: ["C2r"],
+    vendors: {
+      codesys: true,
+      twincat: { absent: "TwinCAT has no text-list-enum class (0 in its corpus, DIALECT C2n)" },
+    },
+    steps: [
+      { op: "open", fixture: "CodesysTestProject" },
+      {
+        tag: "created",
+        op: "create",
+        as: "tle",
+        kind: "dut",
+        name: "VltF_TextEdit",
+        parent: "root",
+        via: "script",
+        factory: "_3S.CoDeSys.TextList.TextListEnumerationObjectFactory",
+        decl: "TYPE VltF_TextEdit :\n(\n\tRed := 0,\n\tGreen := 5,\n\tBlue\n);\nEND_TYPE\n",
+      },
+      {
+        tag: "removed",
+        op: "setText",
+        on: "tle",
+        via: "push",
+        source: "TYPE VltF_TextEdit :\n(\n\tRed := 0,\n\tBlue\n);\nEND_TYPE\n",
+      },
+      {
+        tag: "renamed",
+        op: "setText",
+        on: "tle",
+        via: "push",
+        source: "TYPE VltF_TextEdit :\n(\n\tRed := 0,\n\tCyan\n);\nEND_TYPE\n",
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      { key: "rows", at: [...EDITS], on: "tle", op: "member", path: "object.TextListObject.TextList.$count" },
+      {
+        key: "removed-entries",
+        at: [...EDITS],
+        on: "tle",
+        op: "member",
+        path: 'object.GetSerializableValue("RemovedTextListEntries").$count',
+      },
+      ...[0, 1, 2, 3].flatMap((i): Read[] =>
+        (["TextID", "TextDefault"] as const).map(
+          (col): Read => ({
+            key: `row-${i}-${col}`,
+            at: [...EDITS],
+            on: "tle",
+            op: "member",
+            path: `object.TextListObject.TextList[${i}].GetSerializableValue("${col}")`,
+          }),
+        ),
+      ),
+      {
+        key: "removed-entries-items",
+        at: "reloaded",
+        on: "tle",
+        op: "member",
+        path: 'object.GetSerializableValue("RemovedTextListEntries")',
+      },
+      { key: "class", at: "reloaded", on: "tle", op: "class" },
+      { key: "decl", at: "reloaded", on: "tle", op: "member", path: "script.textual_declaration.text" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 2: is an `AbstractPOUMethodObject` the same thing to the
+    // compiler as a `POUMethodObject` whose text says ABSTRACT? Both in one abstract FB, a derived FB that overrides
+    // neither (then both), code under each, and the signatures. Equal = the class follows the text (no `%CLASS`).
+    id: "abstract-member-equivalence",
+    dialect: ["C2r"],
+    vendors: {
+      codesys: true,
+      twincat: {
+        absent: "TwinCAT has one method class (609); ABSTRACT is its text only (DIALECT C2n, abstract-member-slot)",
+      },
+    },
+    steps: [
+      { op: "open", fixture: "CodesysTestProject" },
+      {
+        op: "create",
+        as: "base",
+        kind: "function_block",
+        name: "VltE_Base",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK ABSTRACT VltE_Base\nVAR\nEND_VAR\n",
+      },
+      // A1: the scripting create (POUMethodObject) with ABSTRACT text; A2: the vendor's abstract class.
+      {
+        op: "create",
+        as: "a1",
+        kind: "method",
+        name: "A1",
+        parent: "base",
+        via: "script",
+        decl: "METHOD ABSTRACT A1 : INT\n",
+      },
+      {
+        op: "create",
+        as: "a2",
+        kind: "method",
+        name: "A2",
+        parent: "base",
+        via: "script",
+        vendorClass: "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+        decl: "METHOD ABSTRACT A2 : INT\n",
+      },
+      {
+        op: "create",
+        as: "derived",
+        kind: "function_block",
+        name: "VltE_Derived",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK VltE_Derived EXTENDS VltE_Base\nVAR\nEND_VAR\n",
+      },
+      { op: "find", as: "main", name: "PLC_PRG" },
+      {
+        tag: "made",
+        op: "setText",
+        on: "main",
+        via: "script",
+        decl: "PROGRAM PLC_PRG\nVAR\n\td : VltE_Derived;\n\tx : INT;\nEND_VAR\n",
+        impl: "d();\nx := d.A1() + d.A2();\n",
+      },
+      { tag: "missing", op: "build" },
+      {
+        op: "create",
+        as: "o1",
+        kind: "method",
+        name: "A1",
+        parent: "derived",
+        via: "script",
+        decl: "METHOD A1 : INT\n",
+        impl: "A1 := 1;\n",
+      },
+      {
+        op: "create",
+        as: "o2",
+        kind: "method",
+        name: "A2",
+        parent: "derived",
+        via: "script",
+        decl: "METHOD A2 : INT\n",
+        impl: "A2 := 2;\n",
+      },
+      { tag: "implemented", op: "build" },
+      // Code under the abstract member that has a body slot (A1; A2 has none).
+      { tag: "a1-code", op: "setText", on: "a1", via: "script", impl: "A1 := 3;\n" },
+      { tag: "a1-built", op: "build" },
+    ],
+    reads: [
+      { key: "class", at: "made", on: ["a1", "a2"], op: "class" },
+      { key: "implementation", at: "made", on: ["a1", "a2"], op: "member", path: "object.Implementation.$type" },
+      { key: "signature", at: "implemented", on: ["a1", "a2"], op: "signature" },
+      { key: "diagnostics", at: ["missing", "implemented", "a1-built"], op: "diagnostics" },
+      { key: "fetched", at: "implemented", on: "base", op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 1 on TwinCAT: does a TwinCAT POU carry a special class —
+    // `SpecialFunc` in its file — and does a create named like a check function get one? Through the vendor API and
+    // through the shipped push, saved and read back from the file and the automation XML.
+    id: "tc-special-classes",
+    dialect: ["C2s"],
+    vendors: { twincat: true, codesys: { absent: "CODESYS's special classes are `create-each-class`" } },
+    steps: [
+      {
+        op: "create",
+        as: "scripted",
+        kind: "function",
+        name: "CheckBounds",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR\n",
+        impl: "CheckBounds := index;\n",
+      },
+      {
+        tag: "created",
+        op: "create",
+        as: "pushed",
+        kind: "function",
+        name: "CheckRangeSigned",
+        parent: "root",
+        via: "push",
+        source: `FUNCTION CheckRangeSigned : DINT\nVAR_INPUT\n\tvalue, lower, upper : DINT;\nEND_VAR\n${MARK}\nCheckRangeSigned := value;\n\nEND_FUNCTION\n`,
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      {
+        key: "special-func",
+        at: "reloaded",
+        on: ["scripted", "pushed"],
+        op: "xml",
+        file: true,
+        xpath: "/TcPlcObject/POU/@SpecialFunc",
+      },
+      { key: "automation-xml", at: "created", on: "scripted", op: "xml", xpath: "/TreeItem/*" },
+      { key: "automation-pou-def", at: "created", on: "scripted", op: "xml", xpath: "/TreeItem/PlcPouDef/*" },
+      { key: "item-type", at: "reloaded", on: ["scripted", "pushed"], op: "member", path: "item.ItemType" },
+      { key: "fetched", at: "reloaded", on: "scripted", op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 6 (DIALECT C2e): the shipped push creates every DUT on the 606
+    // seed. After a reload: which tree code, the same object, the same text? (`dut-subtype-in-place` reads the codes;
+    // this row adds identity and the pulled text across the reload.)
+    id: "tc-dut-create-reload",
+    dialect: ["C2e"],
+    vendors: {
+      twincat: true,
+      codesys: {
+        absent:
+          "CODESYS creates every DUT `create_dut(Structure)` and its class carries no shape; the text decides it in the live session (C2e, C2g)",
+      },
+    },
+    steps: [
+      {
+        op: "create",
+        as: "e",
+        kind: "dut",
+        name: "VltF_CrEnum",
+        parent: "root",
+        via: "push",
+        source: DUT.enum("VltF_CrEnum"),
+      },
+      {
+        op: "create",
+        as: "u",
+        kind: "dut",
+        name: "VltF_CrUnion",
+        parent: "root",
+        via: "push",
+        source: DUT.union("VltF_CrUnion"),
+      },
+      {
+        op: "create",
+        as: "a",
+        kind: "dut",
+        name: "VltF_CrAlias",
+        parent: "root",
+        via: "push",
+        source: DUT.alias("VltF_CrAlias"),
+      },
+      {
+        tag: "created",
+        op: "create",
+        as: "s",
+        kind: "dut",
+        name: "VltF_CrStruct",
+        parent: "root",
+        via: "push",
+        source: DUT.struct("VltF_CrStruct"),
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      { key: "item-type", at: ["created", "reloaded"], on: ["e", "u", "a", "s"], op: "member", path: "item.ItemType" },
+      { key: "guid", at: ["created", "reloaded"], on: ["e", "u", "a", "s"], op: "guid" },
+      { key: "fetched", at: ["created", "reloaded"], on: ["e", "u", "a", "s"], op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 7 (DIALECT D21): what a TwinCAT interface property's accessors
+    // hold as a declaration — read from the saved FILE, never over COM (D21: the accessor's DeclarationText crashes
+    // TcXaeShell) — and what the shipped bridge pulls for it.
+    id: "tc-itf-accessor-decl",
+    dialect: ["D21"],
+    vendors: {
+      twincat: true,
+      codesys: { absent: "CODESYS's interface accessor declaration is `interface-accessor-write` (D41)" },
+    },
+    steps: [
+      {
+        tag: "created",
+        op: "create",
+        as: "itf",
+        kind: "interface",
+        name: "IVltF_AccDecl",
+        parent: "root",
+        via: "push",
+        source:
+          "INTERFACE IVltF_AccDecl\n\nPROPERTY P : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\n",
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      {
+        key: "file.get",
+        at: "reloaded",
+        on: "itf",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='P']/Get/Declaration",
+      },
+      {
+        key: "file.set",
+        at: "reloaded",
+        on: "itf",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='P']/Set/Declaration",
+      },
+      {
+        key: "file.get-elements",
+        at: "reloaded",
+        on: "itf",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='P']/Get/*",
+      },
+      { key: "fetched", at: ["created", "reloaded"], on: "itf", op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3 (proposal 9): does the vendor keep the ORDER members were created in — a pull
+    // re-sorts them today — across a save and reopen?
+    id: "member-order",
+    dialect: ["C34"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      {
+        op: "create",
+        as: "fb",
+        kind: "function_block",
+        name: "VltF_Order",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK VltF_Order\nVAR\n\tx : INT;\nEND_VAR\n",
+      },
+      {
+        op: "create",
+        as: "m1",
+        kind: "method",
+        name: "Zeta",
+        parent: "fb",
+        via: "script",
+        decl: "METHOD Zeta : INT\n",
+      },
+      { op: "create", as: "m2", kind: "action", name: "Mid", parent: "fb", via: "script" },
+      {
+        op: "create",
+        as: "m3",
+        kind: "method",
+        name: "Alpha",
+        parent: "fb",
+        via: "script",
+        decl: "METHOD Alpha : INT\n",
+      },
+      // The type named on both vendors: TwinCAT's 611 takes its vInfo as the property's TYPE, and the driver's own
+      // vInfo (the body language) made `PROPERTY PUBLIC Beta : ST` (bridge-one-to-one gate 1).
+      {
+        tag: "created",
+        op: "create",
+        as: "m4",
+        kind: "property",
+        name: "Beta",
+        parent: "fb",
+        via: "script",
+        dataType: "INT",
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      { key: "children", at: ["created", "reloaded"], on: "fb", op: "children" },
+      { key: "fetched", at: "reloaded", on: "fb", op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3 (proposal 9): the order of a folder's items as created (not alphabetical), across
+    // a save and reopen.
+    id: "folder-order",
+    dialect: ["C34"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      { op: "create", as: "folder", kind: "folder", name: "VltF_OrderDir", parent: "root", via: "script" },
+      {
+        op: "create",
+        as: "z",
+        kind: "program",
+        name: "VltF_Zed",
+        parent: "folder",
+        via: "script",
+        decl: DECL.program("VltF_Zed"),
+      },
+      {
+        op: "create",
+        as: "a",
+        kind: "program",
+        name: "VltF_Abc",
+        parent: "folder",
+        via: "script",
+        decl: DECL.program("VltF_Abc"),
+      },
+      { op: "create", as: "sub", kind: "folder", name: "VltF_Sub", parent: "folder", via: "script" },
+      {
+        tag: "created",
+        op: "create",
+        as: "m",
+        kind: "program",
+        name: "VltF_Mid",
+        parent: "folder",
+        via: "script",
+        decl: DECL.program("VltF_Mid"),
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [{ key: "children", at: ["created", "reloaded"], on: "folder", op: "children" }],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3 (proposal 8/9): does the vendor keep a declaration's and a body's TRAILING
+    // newlines (Volt trims them) — and a text with none — across a save and reopen?
+    id: "trailing-newline-cache",
+    dialect: ["C35"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      {
+        op: "create",
+        as: "p",
+        kind: "program",
+        name: "VltF_Trail",
+        parent: "root",
+        via: "script",
+        decl: "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
+        impl: "x := 1;\n\n\n",
+      },
+      {
+        tag: "written",
+        op: "create",
+        as: "q",
+        kind: "program",
+        name: "VltF_NoTrail",
+        parent: "root",
+        via: "script",
+        decl: "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR",
+        impl: "x := 1;",
+      },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      {
+        vendor: "codesys",
+        key: "decl",
+        at: ["written", "reloaded"],
+        on: ["p", "q"],
+        op: "member",
+        path: "script.textual_declaration.text",
+      },
+      {
+        vendor: "codesys",
+        key: "impl",
+        at: ["written", "reloaded"],
+        on: ["p", "q"],
+        op: "member",
+        path: "script.textual_implementation.text",
+      },
+      {
+        vendor: "twincat",
+        key: "decl",
+        at: ["written", "reloaded"],
+        on: ["p", "q"],
+        op: "member",
+        path: "item.DeclarationText",
+      },
+      {
+        vendor: "twincat",
+        key: "impl",
+        at: ["written", "reloaded"],
+        on: ["p", "q"],
+        op: "member",
+        path: "item.ImplementationText",
+      },
+      { key: "fetched", at: "reloaded", on: ["p", "q"], op: "fetched" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 4: a DISABLED watchdog's time, UNIT and sensitivity — kept
+    // behind the flag across a save and reopen (CODESYS)? The unit is a non-default one (µs, 4 of 13 corpus tasks), so a
+    // fold to the default would show (gate 1). The fixture's own task, as found, is the corpus's empty-time case (CTP).
+    // TwinCAT: which members a task's TaskDef holds at all.
+    id: "watchdog-off-values",
+    dialect: ["C36"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      { vendor: "codesys", tag: "found", op: "find", as: "task", name: "MainTask" },
+      { vendor: "codesys", op: "invoke", on: "task", path: "script.watchdog.enabled", set: true },
+      { vendor: "codesys", op: "invoke", on: "task", path: "script.watchdog.time", set: "123" },
+      { vendor: "codesys", op: "invoke", on: "task", path: "script.watchdog.time_unit", set: "µs" },
+      { vendor: "codesys", op: "invoke", on: "task", path: "script.watchdog.sensitivity", set: "3" },
+      { vendor: "codesys", tag: "disabled", op: "invoke", on: "task", path: "script.watchdog.enabled", set: false },
+      { vendor: "codesys", tag: "reloaded", op: "reload" },
+      { vendor: "twincat", tag: "found", op: "find", as: "sys", name: "PlcTask", under: "tree:TIRT" },
+    ],
+    reads: [
+      {
+        vendor: "codesys",
+        key: "watchdog-enabled",
+        at: ["found", "disabled", "reloaded"],
+        on: "task",
+        op: "member",
+        path: "script.watchdog.enabled",
+      },
+      {
+        vendor: "codesys",
+        key: "watchdog-time",
+        at: ["found", "disabled", "reloaded"],
+        on: "task",
+        op: "member",
+        path: "script.watchdog.time",
+      },
+      {
+        vendor: "codesys",
+        key: "watchdog-time-unit",
+        at: ["found", "disabled", "reloaded"],
+        on: "task",
+        op: "member",
+        path: "script.watchdog.time_unit",
+      },
+      {
+        vendor: "codesys",
+        key: "watchdog-sensitivity",
+        at: ["found", "disabled", "reloaded"],
+        on: "task",
+        op: "member",
+        path: "script.watchdog.sensitivity",
+      },
+      { vendor: "twincat", key: "taskdef", at: "found", on: "sys", op: "xml", xpath: "/TreeItem/TaskDef/*" },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3, proposal finding 7: does TwinCAT state a library reference's SYSTEM flag (the
+    // driver hard-codes false; CODESYS reads `SystemLibrary`, 142 true of 264)?
+    id: "tc-library-system",
+    dialect: ["C37"],
+    vendors: {
+      twincat: true,
+      codesys: {
+        absent: "CODESYS reads `SystemLibrary` on every library-manager item (census, design §0.1 finding 8)",
+      },
+    },
+    // Gate 1: every placeholder the fixture references — Tc2_System and Tc3_Module too, the libraries TwinCAT itself
+    // treats as system — read whole (the PlcLibPlaceholder and VSProperties subtrees, not their `<…>` summary), and the
+    // system xpath run on EACH placeholder's own XML, not only on the References node's.
+    steps: [
+      { op: "find", as: "references", name: "References" },
+      { op: "find", as: "standard", name: "Tc2_Standard", under: "references" },
+      { op: "find", as: "system", name: "Tc2_System", under: "references" },
+      { tag: "found", op: "find", as: "module", name: "Tc3_Module", under: "references" },
+    ],
+    reads: [
+      { key: "references-xml", at: "found", on: "references", op: "xml", xpath: "/TreeItem/*" },
+      { key: "children", at: "found", on: "references", op: "children" },
+      { key: "library-xml", at: "found", on: "standard", op: "xml", xpath: "/TreeItem/*" },
+      {
+        key: "placeholder-reference",
+        at: "found",
+        on: "standard",
+        op: "xml",
+        xpath: "/TreeItem/PlcLibPlaceholder/PlaceholderReference/*",
+      },
+      {
+        key: "placeholder-subtree",
+        at: "found",
+        on: ["standard", "system", "module"],
+        op: "xml",
+        xpath: "/TreeItem/PlcLibPlaceholder//*",
+      },
+      {
+        key: "vs-properties",
+        at: "found",
+        on: ["standard", "system", "module"],
+        op: "xml",
+        xpath: "/TreeItem/VSProperties//*",
+      },
+      {
+        key: "system-elements",
+        at: "found",
+        on: ["references", "standard", "system", "module"],
+        op: "xml",
+        xpath: "//*[contains(local-name(),'System')]",
+      },
+      {
+        key: "system-attributes",
+        at: "found",
+        on: ["standard", "system", "module"],
+        op: "xml",
+        xpath: "//@*[contains(local-name(),'System')]",
+      },
+    ],
+  },
+  {
+    // openspec `bridge-one-to-one` 1.3 (design §1 "caches"): the members the vendor keeps for its EDITOR — line-info
+    // persistence, the per-object id counter, TwinCAT's LineIds — on an object made by the vendor API with no editor:
+    // what it holds, whether the build takes the object as it is, and what a save and reopen leave. An object the
+    // vendor builds without them, and that it fills itself, is a cache: Volt never spells or writes one.
+    id: "editor-caches",
+    dialect: ["C35"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      {
+        tag: "made",
+        op: "create",
+        as: "p",
+        kind: "program",
+        name: "VltF_Cache",
+        parent: "root",
+        via: "script",
+        decl: "PROGRAM VltF_Cache\nVAR\n\tx : INT;\nEND_VAR\n",
+        impl: "x := x + 1;\n",
+      },
+      { tag: "built", op: "build" },
+      { tag: "reloaded", op: "reload" },
+    ],
+    reads: [
+      {
+        vendor: "codesys",
+        key: "decl-line-info",
+        at: ["made", "reloaded"],
+        on: "p",
+        op: "member",
+        path: 'object.Interface.TextDocument.GetSerializableValue("LineInfoPersistence").$type',
+      },
+      {
+        vendor: "codesys",
+        key: "impl-line-info",
+        at: ["made", "reloaded"],
+        on: "p",
+        op: "member",
+        path: 'object.Implementation.TextDocument.GetSerializableValue("LineInfoPersistence").$type',
+      },
+      {
+        vendor: "codesys",
+        key: "unique-id-generator",
+        at: ["made", "reloaded"],
+        on: "p",
+        op: "member",
+        path: 'object.GetSerializableValue("UniqueIdGenerator").$type',
+      },
+      {
+        vendor: "codesys",
+        key: "timestamp-type",
+        at: "made",
+        on: "p",
+        op: "member",
+        path: 'meta.GetSerializableValue("Timestamp").$type',
+      },
+      { vendor: "codesys", key: "diagnostics", at: "built", op: "diagnostics" },
+      { vendor: "twincat", key: "diagnostics", at: "built", op: "diagnostics" },
+      {
+        vendor: "twincat",
+        key: "file.line-ids",
+        at: "reloaded",
+        on: "p",
+        op: "xml",
+        file: true,
+        xpath: "//LineIds/LineId/@*",
+      },
+      {
+        vendor: "twincat",
+        key: "file.elements",
+        at: "reloaded",
+        on: "p",
+        op: "xml",
+        file: true,
+        xpath: "/TcPlcObject/POU/*",
+      },
+      { key: "fetched", at: "reloaded", on: "p", op: "fetched" },
     ],
   },
 ]

@@ -3,53 +3,294 @@
 > **State.** §1 (step 1, tasks 1.1-1.3) holds the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
 > "candidate" there is decided in §1.
 
-## 1. Design (decided 2026-10-13)
+## 1. Design (decided 2026-10-13, step 1: tasks 1.1-1.3)
 
-**Target.** Every vendor member is spelled, a measured cache, or refused by name (§0.1 census counts in brackets).
+**Target.** Every vendor member is SPELLED, a MEASURED CACHE, or REFUSED BY NAME. Default spelled. `[n]` = §0.1 census
+count over the six corpora; a `vendor-facts` fact is cited by its row id (`packages/volt-cli/scripts/vendor-facts.table.ts`,
+recorded in `vendor-facts.<vendor>.json`, §1.3).
 
-**The carrier — chosen: a closed, typed `ObjectProperties` record on `ItemContent` and `Member`, spelled as `%`-lines,
-the directive form `%FOLDER` already is.** Each property is a named field; the vendor-neutral name is the text form; a
-driver that reads a vendor member no field names refuses the item by name (the completeness oracle's failure).
-Rejected: `{attribute …}` pragmas in the declaration (CODESYS compiles them — the property would become code);
-a sidecar file per item (two files per wire key); an open key/value bag mirroring the vendor archive (vendor
-representation above the seam, and the vendors' values differ for the same class — `SFCProperty` 3.4.2.0 vs 4.4.0.0).
+### 1.2 The contract (decided first: the table below names its forms)
 
-**Grammar.** One property per line, `%KEY` (flag) or `%KEY value`; a string value is an ST string literal (`$`-escapes,
-one line). Placement is `%FOLDER`'s rule for every object: directly under the object's `IMPLEMENTATION` line, else
-closing its declaration; `%CLASS` first, then `%FOLDER`, then the table's order. A flag's absence spells the one
-value measured on every occurrence (false); the READ still requires the vendor member present — missing refuses.
-The LSP's `frontend/syntax/format` peels them as it peels `%FOLDER`.
+**The carrier — a closed, typed `ObjectProperties` record on `ItemContent` and `Member`, spelled as `%`-lines, the
+directive form `%FOLDER` already is.** Each property is a named field; the vendor-neutral name is the text form; a
+driver that reads a vendor member no field names refuses the ITEM by name (pull: listed unreadable with the member's
+name; this is also the completeness oracle's failure, 2.1). Rejected: `{attribute …}` pragmas in the declaration
+(CODESYS compiles them — the property would become code); a sidecar file per item (two files per wire key); an open
+key/value bag mirroring the vendor archive (vendor representation above the seam, and the vendors' values differ for
+the same class — `SFCProperty` 3.4.2.0 vs 4.4.0.0).
 
-| member (vendor) | disposition — text form |
-|---|---|
-| class: check function [15], NVL [1], persistent [4], text-list enum [3] | `%CLASS CHECK <SpecialFunc>`, `%CLASS NVL`, `%CLASS PERSISTENT`, `%CLASS TEXTLIST_ENUM`; create makes the class (`create-each-class`) or refuses by name |
-| `AbstractPOUMethodObject` [10] | derived from `ABSTRACT` in the declaration if `abstract-member-equivalence` proves it, else `%CLASS ABSTRACT`; `AbstractMemberFold` deleted either way |
-| `BuildProperty` (7 members) on items + members [56] | `%EXCLUDE_FROM_BUILD` [11], `%LINK_ALWAYS` [3], `%EXTERNAL`, `%ENABLE_SYSTEM_CALL`, `%ONLINE_CHANGE_RESERVE <n>` [15], `%COMPILER_DEFINES '…'`, `%UNDEFINES '…'` |
-| `DocumentationProperty` [0], `NetVarProperties` [2], `FileLink` [1] | `%COMMENT '…'`, `%NETVAR <key>: <value>` (one per member), `%FILE_LINK <LinkType> '<path>'` |
-| text-list enum rows [109] | cache if `textlist-enum-rows-derived` shows CODESYS rebuilds them from the declaration; else spelled. Language texts [0]: refused by name |
-| accessor `IsGet` | the `GET`/`SET` keyword, now READ from `IsGet` (name rule deleted) |
-| task: external event [0], call comment [0], disabled-watchdog values [3], TwinCAT TaskDef members | labels `External event:`, `Calls:` entry `Name // comment`, `Watchdog: off <time> <unit> <sens>`; `Core` / `TaskGroup` / `AllowEmpty` / `Implicit` / `WithinSPSTimeSlicing` / `SynchTask` (constant 13/13) labelled only off their measured value |
-| library `LinkAllContent` [5], `QualifiedOnly` [1], `ParameterTable` [3], redirections [193]; TwinCAT `SYSTEM` | manifest lines `LINKALLCONTENT`, `QUALIFIEDONLY`, `PARAMETER`, `REDIRECT`; TwinCAT reads `SYSTEM` (`tc-library-system`) |
-| device `Disable` [2] | `.device` descriptor `Disabled:` |
-| interface property accessor declarations (TwinCAT) | read like CODESYS (`tc-itf-accessor-decl`) |
-| stub manifest | ONE form on both vendors: `ItemKind.EmptyManifest` (`kind\n`); TwinCAT's `Name=` dropped (the name is the file) |
-| TwinCAT DUT create (606 seed) | the pulled subtype, or refused by name (`tc-dut-create-reload`) |
-| member order, trailing newlines, folder order | written in vendor order (the re-sort deleted) unless `member-order` / `folder-order` prove order a cache; newline per `trailing-newline-cache` |
-| caches, to be proved in 1.3: `LineInfoPersistence`, `Timestamp`, `UniqueIdGenerator`, TwinCAT `LineIds`, `.TcTTO` GUIDs, object GUID | measured cache (a row each), never written |
+```csharp
+// Volt.Engine/Item/ObjectProperties.cs — one record, vendor-neutral; null/false/empty = the line is absent.
+public sealed record ObjectProperties(
+    ObjectClass? Class,                       // %CLASS …           null = the kind's plain class
+    bool ExcludeFromBuild,                    // %EXCLUDE_FROM_BUILD
+    bool LinkAlways,                          // %LINK_ALWAYS
+    bool External,                            // %EXTERNAL
+    bool EnableSystemCall,                    // %ENABLE_SYSTEM_CALL
+    int OnlineChangeReserve,                  // %ONLINE_CHANGE_RESERVE <n>      (0 = absent)
+    string? CompilerDefines,                  // %COMPILER_DEFINES '<text>'
+    IReadOnlyList<string> Undefines,          // %UNDEFINE '<name>'             one line each
+    string? Comment,                          // %COMMENT '<text>'
+    bool ParameterList,                       // %PARAMETER_LIST
+    IReadOnlyList<NetVarSetting> NetVar,      // %NETVAR <Key>: <value>         one line each; WITHOUT %CLASS NVL = a sender
+                                              //   GVL's NetVarProperties, UNDER %CLASS NVL = the receiver's own members
+    FileLink? FileLink);                      // %FILE_LINK <LinkType> '<path>'
+public sealed record ObjectClass(string Word, string? Argument);   // CHECK CheckBounds · PERSISTENT · TEXTLIST_ENUM · NVL
+public sealed record NetVarSetting(string Key, string Value);      // the vendor member name, its value as the vendor renders it
+public sealed record FileLink(string LinkType, string Path);
+// ItemContent(…, ObjectProperties Properties)  and  Member(…, ObjectProperties Properties): REQUIRED, never defaulted —
+// a driver that has not read them cannot build the record (no `= ObjectProperties.None` parameter default).
+```
 
-**Refused by name** (pull warns naming item + property; a push never writes it; a create that would need it refuses):
-`POUImageProperty` [2, 449 KB binary], `SFCProperty` / `CFCProperty` (they belong to the UNSUPPORTED body),
-`ObjectAccessProperty` [0, rights], a folder's `BuildProperty` [4 excluded folders — folders are not items; listed for
-the owner], Task-Configuration system events [1, not an item], `EmbeddedFileObject` [2], standalone SFC transitions
-[0; deviates from task 1.2's member blocks — "niche: accepted loss (0 occurrences in the corpora)"; the embedded ones
-travel inside the unsupported SFC body]. Every fallback of proposal 8 is deleted: a missing fact refuses by name.
+`ObjectProperties.None` exists for a kind that has no vendor carrier at all (a task, a library reference, a device —
+their members travel in their descriptor, below); a source driver never passes it for an object it did not read.
 
-**Re-type / rename** keeps the object: rename through the vendor's rename (GUID kept); a re-type only where the
-vendor allows it in place (`abstract-member-equivalence`), else refused by name — never delete + create.
+**Grammar** (one EBNF for the St reader, the St writer and the LSP's `frontend/syntax/format`):
+
+```
+props      = { prop-line } ;                       (* in the order of the table below; each key at most once,
+                                                       except %UNDEFINE and %NETVAR, which repeat in vendor order *)
+prop-line  = "%" key [ " " value ] newline ;       (* the line opens with "%" + a KEY, nothing before it, and the key
+                                                       ends at a space or the line's end; any other "%…" line is CODE *)
+key        = "CLASS" | "EXCLUDE_FROM_BUILD" | "LINK_ALWAYS" | "EXTERNAL" | "ENABLE_SYSTEM_CALL"
+           | "ONLINE_CHANGE_RESERVE" | "COMPILER_DEFINES" | "UNDEFINE" | "COMMENT" | "PARAMETER_LIST"
+           | "NETVAR" | "FILE_LINK" ;
+value      = class-value | integer | st-string | netvar | file-link ;
+class-value= word [ " " word ] ;                   (* CHECK <CheckFunctionSelection member> | PERSISTENT | … *)
+st-string  = "'" { st-char } "'" ;                 (* an ST STRING literal: $-escapes ($', $$, $N, $T, $R, $L, $hh), one line *)
+netvar     = name ":" " " text ;                   (* the vendor member name, then its value as the vendor renders it *)
+file-link  = word " " st-string ;
+```
+
+* **What is a property line (gate 1, review)**: ONLY a line that opens with `%` followed by one of the closed keys
+  above (or `FOLDER`), the key ending at a space or the line's end — exactly how `StReader.FolderOn` (`:1181`) tells
+  `%FOLDER ` today. Every other line that opens with `%` is CODE: valid ST opens lines with `%` — a direct-address
+  assignment `%QB1 := x;`, `%qx0.0 := TRUE;` (the corpora hold 4: bakon-nano `OutputControl.pou:50-54`) — and such a
+  line can stand exactly where properties are peeled (a body's first line, under `IMPLEMENTATION`). So there is no
+  "unknown key" and no "lower-case key" refusal: `%QB1` and `%class` are code, which the compiler judges. A direct
+  address can never collide with a key (IEC addresses are `%I` / `%Q` / `%M` + a size letter or a digit; no key is
+  `I`, `Q` or `M` followed by one of those). The LSP's `readPropertyLine` uses the same closed list.
+* **Order**: `%CLASS` first, then `%FOLDER` (a member's), then the keys in the grammar's order. One canonical
+  spelling: the writer emits exactly that; the reader refuses another order, a repeated key and a value on a flag
+  (or a flag-less key with no value), each by line (the LSP reports the same, as it reports a misplaced `%FOLDER`
+  today).
+* **Placement** — `%FOLDER`'s rule, extended to items: directly under the object's `IMPLEMENTATION` line (an item's or
+  a member's body), else closing its declaration (a DUT, a GVL, an interface, a property, an interface member, an
+  `IMPLEMENTATION NONE` member's declaration — the `PeelFolderClosing` site). Anywhere else the push refuses the line
+  by name (`StReader.RefuseLinesInDeclarations`), as it refuses a misplaced `%FOLDER` today.
+* **A flag's absence** is the value measured on every object that has no such vendor property (false / 0 / empty); the
+  READ still requires the vendor member present wherever the vendor archives it — a `BuildProperty` whose member is
+  missing refuses its item by name (no `?? false`).
+* **Presence of a defaulted carrier** (an object with a `BuildProperty` whose seven members are all default, 31 of the
+  56, vs an object with none): not spelled — decided by the completeness oracle (2.1): a create without the property
+  must read back every member with the same value, and the build must answer the same; if either differs, a
+  `%BUILD_PROPERTIES` flag is added (then a design change recorded here).
+* LSP: `frontend/syntax/format/folder.ts` generalizes to `object-properties.ts` (`peelProperties` under the boundary,
+  `readPropertyLine` + `closesDeclaration` at the declaration's end, `reportMisplacedProperty`), with the same tests
+  `folder.test.ts` has, one per key; the analyzer ignores the lines (they are not code).
 
 **Migration.** A format extension: a re-pull writes the new lines. An OLD text lacks them and would push "not
-excluded" over an excluded object, so the binding records the text-format version and a push from an older one
-refuses by name ("re-pull: the text predates object properties"). New forms go to the owner in the close report.
+excluded" over an excluded object, so the binding records the text-format version (`.git/volt` `format: 2`) and a push
+from an older one refuses by name ("re-pull: the text predates object properties"). New forms go to the owner in the
+close report (the list at the end of 1.1).
+
+**Task descriptor** (`TaskDescriptorFormat`): labels added — `External event: <name>` (its own field; the event fold
+is deleted), the watchdog's three members spelled as the vendor holds them, enabled or not — `Watchdog: <time>
+<unit> (sensitivity <n>)` and, disabled, `Watchdog: off <time> <unit> (sensitivity <n>)` (measured kept behind the
+flag, the UNIT included: §1.3 `watchdog-off-values`, `123 µs` / `3` across a reload), `Calls: A // <comment>, B` (a call's comment after `//`, only when non-empty), and one label per
+other `TaskObject` member only where it differs from the value measured on 13/13 (`Core -1`, `Core2 -2`,
+`TaskGroup 'IEC-Tasks'`, `AllowEmpty false`, `Implicit false`, `WithinSPSTimeSlicing true`, `SynchTask ''`) — the
+label then states the vendor value (`Core: 1`). A non-empty `*Parameters` list (0 of 13) refuses the task by name.
+
+**One watchdog spelling (gate 1, review)**: `<time>` and `<unit>` are two vendor members and are spelled as two
+tokens, each exactly as the vendor holds it — `<unit>` is never implied by a default (`3200 µs` must not push back
+as `3200` in `ms`, a 1000× change) and never dropped after a `T#` literal (`Descriptor.Unitize`'s two folds are
+deleted for the watchdog); an EMPTY member is spelled `''` (the census's CTP watchdog — time `''`, unit `ms`,
+sensitivity `1`, disabled — reads `Watchdog: off '' ms (sensitivity 1)`; the one task with unit `""` reads
+`… <time> '' …`). Units measured: `ms` ×8, `µs` ×4, `""` ×1. A bare `Watchdog: off` is the TwinCAT form only (its
+task has no watchdog member, C36); on CODESYS a bare `off` is refused by name (the values behind the flag are content).
+
+**Transitions**: a standalone `TransitionObject` (0 in the corpora) is refused by name — a deviation from task 1.2's
+member blocks, recorded "niche: accepted loss (0 occurrences in the corpora)"; the embedded ones travel inside the
+unsupported SFC body, whose `SFCProperty` is refused with it (below).
+
+**Re-type / rename** keeps the object: a rename goes through the vendor's rename (GUID kept); a re-type of a member
+only where the vendor keeps the object (C2l: a class never changes in place) — so a re-type is refused by name, never
+delete + create. `abstract-member-equivalence` (§1.3) makes METHOD ↔ METHOD ABSTRACT no re-type: the class follows the
+text (below).
+
+### 1.1 The disposition table
+
+**Every object (both vendors).**
+
+| member | disposition |
+|---|---|
+| name | the file / member name (identity, CLAUDE.md invariant) |
+| CODESYS `meta.ParentGuid` + `SVFoldersProperty`; TwinCAT the tree path / `.plcproj` folder | spelled: the folder (file path; a member's `%FOLDER`) |
+| object GUID (`meta.Guid`, TwinCAT `@Id`) | NOT spelled — vendor-minted IDENTITY, not content: kept by every in-place write, rename and move (C2n), new on every create on both vendors (a create cannot be told a GUID through Volt's paths). **Owner decision, default named:** stays unspelled; a migration into another project mints new GUIDs as the IDE's own copy/paste does |
+| `meta.TypeGuid` / `EmbeddedTypeGuids` | derived from the class (`%CLASS` / the kind) |
+| `meta.Timestamp` [409 distinct of 436], `UniqueIdGenerator`, `LineInfoPersistence` on every text aspect, TwinCAT `<LineIds>` [8] | MEASURED CACHE (`editor-caches`): never written, never read into the text |
+| sibling ORDER in a folder | CODESYS: STORED — creation order, kept across reload (`folder-order`: `Zed, Abc, Sub, Mid`); TwinCAT: DERIVED — folders first, then by name, before and after reload (`Sub, Abc, Mid, Zed`; `SubObjectsSortedByName True` 2/2). No text place for it (one file per item). **Owner decision, default named:** not spelled — a create appends, as the IDE's own Add Object does; CODESYS's stored order recorded as a known divergence until the owner decides |
+| member ORDER inside an item | CODESYS: STORED — creation order, kept across reload (`member-order`: `Zeta, Mid, Alpha, Beta`); TwinCAT: DERIVED — by name, kind-blind (`Alpha, Beta, Mid, Zeta`). Spelling CODESYS's order would give one declaration two texts (the spec's wire-parity requirement). **Owner decision, default named:** not spelled — the text keeps its one canonical order (`StWriter` kind, then name), CODESYS's stored order recorded as a known divergence; a create appends |
+| declaration / body TEXT, every character | stored verbatim, trailing newlines included (`trailing-newline-cache`, BOTH vendors: `…END_VAR\n\n\n` and `…END_VAR` are both kept across reload, and both pull identically today — a fold): SPELLED — the text between boundaries is the vendor text verbatim plus exactly ONE separator newline before the next boundary/END line; the reader strips exactly one. Every `TrimEnd('\n')` of §0.2 finding 9 is deleted |
+
+**Object properties (CODESYS `meta.Properties`, TwinCAT `<ObjectProperties>`).**
+
+| property · member | disposition — text form |
+|---|---|
+| `BuildProperty.ExcludeFromBuild` [11 true + 4 folders] | `%EXCLUDE_FROM_BUILD`; on a FOLDER [4]: refused by name (folders are not items) — listed for the owner |
+| `BuildProperty.LinkAlways` [3] | `%LINK_ALWAYS` |
+| `BuildProperty.External` [0] · `EnableSystemCall` [0] | `%EXTERNAL` · `%ENABLE_SYSTEM_CALL` |
+| `BuildProperty.MemoryReserveForOnlineChange` [15 × 200] | `%ONLINE_CHANGE_RESERVE 200` |
+| `BuildProperty.CompilerDefines` [0 on items; 2 on Applications] · `Undefines` [0] | `%COMPILER_DEFINES '…'` · `%UNDEFINE '…'`; on an Application (not an item): refused by name in the pull report |
+| `DocumentationProperty.Documentation` [0] | `%COMMENT '…'` |
+| `NetVarProperties` on a `GVLObject` [1 sender] | `%NETVAR <member>: <value>` per member (Acknowledge, Checksum, EventVariable, Interval, ListIdentifier, MinimumGap, PackVariables, ProtocolName, TransmitCyclic, TransmitOnChange, TransmitOnEvent, TaskName, ImportFileName, ProtocolParameterValues as `<key>=<value>` pairs); `GuidTaskStartSlot` / `GuidTaskEndSlot`: vendor-minted identity (as the object GUID). Create: `SenderGVLObjectFactory` then the members written (`create-each-class`: the factory makes a `GVLObject` with `NetVarProperties`) |
+| `GVLObject.ParameterList` [0] | `%PARAMETER_LIST` — creatable (`ParameterGVLObjectFactory`, `create-each-class`) |
+| `FileLink` [1] (`LinkType`, `FileName`, `lTimeStamp`) | `%FILE_LINK ExportBeforeCompile '<path>'`; `lTimeStamp`: cache (the file's mtime) |
+| `POUImageProperty` [2 × 449 KB] | REFUSED by name (a binary image has no text form; pull warns item + property, a push never writes it, a create that needs it refuses) |
+| `SFCProperty` [2 + TwinCAT 2], `CFCProperty` [10], `SFCLibraryProperty` [0], `TransitionMonitoringProperty` [0], `ActionObjectDuplicationModeProperty` / `TransitionObjectDuplicationModeProperty` [0] | REFUSED by name — they belong to an UNSUPPORTED body (SFC / CFC) and travel with it (the body is never written) |
+| `ObjectAccessProperty` [0] (rights) | REFUSED by name |
+| `DeviceProperty` [186], `ModuleType` [8], `ImagePoolPropertiesObject` [9], `ApplicationInfoObjectProperty` / `BaseLibrariesProperty` / `MathLibrariesProperty` / `StringLibrariesProperty` / `VisualProperty` [≤1] | properties of NON-items (device, image pool, application, library manager, visualization): carried by their descriptor where it exists (device below, library manager below), else refused by name in the pull report |
+| every other loaded property class (CNC, CAM, Composer, C-source, Profibus, Profinet, DataSources, Trend; §0.1 0-occurrence table) [0] | REFUSED by name (0 in the corpora; "niche: accepted loss (0 occurrences)") |
+
+**TwinCAT and the object-property lines (gate 1, review).** The table above is CODESYS's `meta.Properties`. TwinCAT
+has no measured member for any of the keys: its corpus holds 0 build properties (`.plcproj` `Compile` entries carry
+only `SubType Code`, 13/13), `<ObjectProperties>` holds only the SFC archive (refused with its body), and no
+`vendor-facts` row has read or written a TwinCAT exclude-from-build, link-always or comment. So, on TwinCAT, until a
+fixture and a probe row measure the vendor's member (tasks 2.2 / 3.3 — the census names `.plcproj`
+`ExcludeFromBuild` / `LinkAlways` as the candidates):
+
+| direction | TwinCAT disposition |
+|---|---|
+| PUSH of a text carrying `%EXCLUDE_FROM_BUILD`, `%LINK_ALWAYS`, `%EXTERNAL`, `%ENABLE_SYSTEM_CALL`, `%ONLINE_CHANGE_RESERVE`, `%COMPILER_DEFINES`, `%UNDEFINE`, `%COMMENT`, `%PARAMETER_LIST`, `%NETVAR` or `%FILE_LINK` | REFUSED by name, the item and the key ("TwinCAT: no measured member for %KEY") — never dropped, so a CODESYS text pushed to a TwinCAT binding cannot silently lose its exclude-from-build |
+| PULL of an item whose `.plcproj` `Compile` entry holds any child element other than `SubType`, or whose `<ObjectProperties>` holds anything but the SFC archive | the item REFUSED by name (listed unreadable with the element's name) — an excluded TwinCAT object never reads as a built one |
+| a key measured later | promoted to spelled by the probe row that measures it (a design change recorded here), both directions at once |
+
+**Classes (`%CLASS`).** The vendor's class is spelled where the text cannot tell it; a create makes it or refuses by name.
+
+| class [n] | disposition (create: `create-each-class`, §1.3) |
+|---|---|
+| `POUObject` [436], `POUMethodObject` [1288], `PropertyObject` [373], `PropertyAccessorObject` [340], `ActionObject` [47], `DUTObject` [287], `InterfaceObject` [97], `GVLObject` [60], `FolderObject` [464] | the kind's plain class: no `%CLASS` line |
+| `InterfaceMethodObject` [182], `InterfacePropertyAccessorObject` [112] | derived from the parent (an interface's member): no line |
+| interface accessor DECLARATION (gate 1, review; `tc-itf-accessor-decl`, D21, D41) | CODESYS: spelled verbatim (the corpora pull 93 of 95 `GET`s empty, 2 with `VAR`/`END_VAR`; D41 measured a scripting-made one empty and writable). TwinCAT: the IDE stores `PUBLIC` / `VAR` / `END_VAR` on every interface accessor it creates (measured, `tc-itf-accessor-decl`) and NO automation path writes or even reads it (D21: `0x800706BE` on `DeclarationText`), so that stored text is a MEASURED CONSTANT of the vendor, like `POULevel Standard`: it is spelled as the EMPTY declaration — the text a CODESYS interface accessor made by the same push holds (D41) — so the same interface pulls byte-identically on both vendors (the spec's wire parity); a TwinCAT accessor whose stored declaration (read from the `.TcIO`) is anything else REFUSES the item by name on pull, and a pushed non-empty interface accessor declaration is refused by name on TwinCAT (`InterfaceAccessorGuard.RefuseIfChanged`, today) and written on CODESYS. Neither a wire divergence (the `PUBLIC` line spelled on one vendor) nor a silent fold (an unmeasured text dropped). The parity gate 2.3 asserts it |
+| `POUObjectCheckFunction` [15] — `SpecialFunc` (= `KindOfCheckFunction`, 10 of the 10 `CheckFunctionSelection` values seen) | `%CLASS CHECK <CheckBounds|CheckPointer|CheckRangeSigned|CheckRangeUnsigned|CheckLRangeSigned|CheckLRangeUnsigned|CheckDivInt32|CheckDivInt64|CheckDivReal32|CheckDivReal64>`; created as the vendor class with its `KindOfCheckFunction` (measured: class + kind kept across reload, build clean). TwinCAT (`tc-special-classes`, §1.3; gate 1): the PULL refuses by name any `SpecialFunc` other than `None` — no TwinCAT check function was ever observed (8/8 loaded POUs `None`, the XAE's implicit-checks dialog unmeasured), so its value vocabulary is unknown and is not guessed; the PUSH refuses `%CLASS CHECK` only where it would CREATE the class or CHANGE an existing object's class (no automation path makes it) — an UPDATE of an object that already holds that class is not refused (it cannot arise until the pull spells one; when a fixture measures the vocabulary, the pull spells it and updates keep the class, as CODESYS's do) |
+| `VarPersistentObject` [4] | `%CLASS PERSISTENT`; update / rename / move keep it. CREATE (gate 1, one decision): the factory path is measured creatable (`VarPersistentObjectFactory`, `create-each-class`), but the list's `dymmattributecount` is unmeasured (members table below), so step 3 builds the create through that factory ONLY if the completeness oracle 2.1 (which runs before step 3) reproduces a re-created list — declaration and build — and otherwise refuses the create by name. Either way a SECOND one per application is refused by the vendor ("Cannot insert … below 'Application …'") — the push refuses it by name first |
+| `TextListEnumerationObject` [3] | `%CLASS TEXTLIST_ENUM`; created by `TextListEnumerationObjectFactory`; its text list rows are a MEASURED CACHE (`textlist-enum-rows-derived`; `create-each-class` for the first write, `textlist-enum-edit` for Volt's own later edits, gate 1): one row per enumerator, `TextID` = the enumerator, `TextDefault` = its initializer text (`""` when it has none), plus ONE trailing row `""`/`""` — `(Red := 0, Green := 5, Blue)` gives `Red/0`, `Green/5`, `Blue/""`, `""/""` (4 rows, both columns read on every row). A push that REMOVES `Green` leaves `Red/0`, `Blue/""`, `""/""` (3 rows: `Green`'s row gone, not emptied); one that then RENAMES `Blue` → `Cyan` rewrites that row's ID (`Cyan/""`); after the reload the same 3 rows — rebuilt from the declaration, nothing of `Green` kept, and `RemovedTextListEntries` stays EMPTY (count 0) through every edit and the reload. So the rows hold nothing the declaration does not, and Volt's own remove / rename never fills `RemovedTextListEntries`. Language texts [0] and `RemovedTextListEntries` [0]: refused by name if non-empty — a non-empty one comes only from the vendor's own text-list editor (translations, an entry removed there), content Volt has no text form for |
+| `NVLObject` [1] (receiver: `ImportFromFile`, `ImportFileName`, `ImportNetVarProperties`, `TaskName`, `SenderGVLName`, `ReferenceGuidGVL`) | `%CLASS NVL` + its members as `%NETVAR` lines — one meaning per context (gate 1): a `%NETVAR` line without `%CLASS NVL` is a SENDER GVL's `NetVarProperties` member; under `%CLASS NVL` it is a RECEIVER member (`ImportFromFile`, `ImportFileName`, `TaskName`, `SenderGVLName`, and the imported sender settings as `ImportNetVarProperties.<member>`). `ReferenceGuidGVL` and `GuidTaskSlot` are NOT spelled: vendor-minted GUIDs (the sender list's identity, the task slot's), under the object-GUID rule above — kept by every in-place write, never written by Volt; a CREATE is refused by name — its factory needs its wizard (`NVLObjectFactory.Create()` → NullReferenceException, measured); update / rename / move keep it (C2n). `ImportFileTimestamp`: cache (the import file's mtime) |
+| `AbstractPOUMethodObject` [10] | derived from the text: `abstract-member-equivalence` measured it the same thing to the compiler as a `POUMethodObject` with ABSTRACT text (signature `Method/Abstract` both, C0431 both when unimplemented, both pull `IMPLEMENTATION NONE`); the only difference is the body slot, which `IMPLEMENTATION NONE` spells. A create of `METHOD ABSTRACT` with no code makes the vendor's abstract class (creatable, measured); `AbstractMemberFold` stays — it is now a measured equivalence, not a guess (proposal finding 8) — NARROWED (gate 1) to a body that is null or EMPTY (nothing between the boundary and the END line but the one separator newline, as `abstract-member-equivalence` measured: the slotted `A1` was created with no body text). Its `HoldsNoCode` = `IsNullOrWhiteSpace` (`AbstractMemberFold.cs:51`) would fold a whitespace-only body (`\n\n` stored in a `POUMethodObject`'s ST slot) to `IMPLEMENTATION NONE` and erase stored characters, against the "every character" row; such a body is spelled verbatim under `IMPLEMENTATION ST`, like any other stored whitespace. No fold of stored content remains |
+| `AbstractFunctionblockPropertyAccessorObject` [0], `TasklocalGVLObject` [0], `TransitionObject` [0] | REFUSED by name ("niche: accepted loss (0 occurrences in the corpora)") |
+
+**Members of the source classes (CODESYS archive names; §0.1 tables).**
+
+| class · member | disposition |
+|---|---|
+| POU `POULevel` [Standard 451/451] | the one measured value: no line; any other value refuses the item by name |
+| POU / GVL `AddAttributeSubsequent` [false 496/496] | same: no line; true refuses by name |
+| POU `ChildObjectGuids` [empty 436/436] | same: non-empty refuses by name |
+| POU `SpecialFunc` | `%CLASS CHECK …` (above) |
+| `Interface` / `Implementation` aspects | the declaration / the body (and its language, `IMPLEMENTATION <LANG>`) |
+| NWL `BranchCounter` / `ValidIds` / `DefaultViewMode` / `ImplId` | `ld-fbd-coverage`'s (out of scope here) |
+| `Implementation.ParameterInitializationMethodGenerator` [null 3/3] | null measured on every occurrence: non-null refuses by name |
+| accessor `IsGet` [340 + 112] | the `GET` / `SET` keyword, READ from `IsGet` (the name rule `RefineAccessor` deleted) |
+| `VarPersistentObject` `guidinit` / `guidcyclic` | vendor-minted identity (as the object GUID) |
+| `VarPersistentObject` `dymmattributecount` [33/6/100/14] | CACHE candidate (a counter the vendor keeps): measured by the completeness oracle 2.1 (a re-created list reproduces the declaration and builds); the create decision follows it (the classes table's `VarPersistentObject` row: factory create if 2.1 reproduces, else refused-on-create); never refused on update |
+| `VarPersistentObject` `persvarlist` [null 4/4] | null measured: non-null refuses by name |
+| `FolderObject.StructuredViewGuid` | vendor-minted |
+| `TaskPOUCallObject.Commet` [sic], `Id` | `Commet`: spelled as the call's comment (`Calls: A // …`) where it differs from `PouObject.Comment` — measured equal (`""` 19/19); `Id`: vendor-minted |
+
+**Tasks (`TaskObject` [13], TwinCAT `TaskDef` / `.TcTTO`).**
+
+| member | disposition |
+|---|---|
+| `Kindoftask`, `Interval`, `Priority`, `Event`, watchdog enabled/time/unit/sensitivity | spelled (today's labels) |
+| `ExternalEvent` [0] | `External event:` — its own label (the fold into `Event:` deleted) |
+| watchdog values while DISABLED [3] | `Watchdog: off <time> <unit> (sensitivity <n>)` — measured KEPT behind the flag across reload, the non-default unit too (`watchdog-off-values`: `123` `µs` / `3` stayed); an empty member `''` (§1.2 "One watchdog spelling") |
+| `PouList[].Comment` [19 × ""] | `Calls: A // comment` |
+| `Core`, `Core2`, `TaskGroup`, `AllowEmpty`, `Implicit`, `WithinSPSTimeSlicing`, `SynchTask` [constant 13/13] | a label only where the value differs from the measured one (above) |
+| `CustomParameters` / `IntervalParameters` / `EventParameters` / `ExternalEventParameters` / `FreewheelingParameters` [empty 13/13] | non-empty refuses the task by name |
+| `TaskGuid`, `EventPOUGuid` | vendor-minted |
+| Task Configuration `alSysEventList` [1 system event, len], `StackSize` / `UseConfigurableStackSize` [constant 5/5] | the Task Configuration is no item: a system event is REFUSED by name in the pull report (listed for the owner); non-default stack settings likewise |
+| TwinCAT `TaskDef` (`watchdog-off-values`, TwinCAT `taskdef`: `Priority`, `CycleTime`, `AmsPort`, `AutoStart`, `IoAtBegin`, `ExceedWarning`, `CreateSymbols`, `ExtSync`, `TickModulo`, `InputUpdatePreTicks`, `DisableFpExceptions`, `WatchdogStackCapacity`, `CpuAffinity`) | `Priority` / `CycleTime`: today's labels; `AmsPort`: vendor-assigned; every other member a label of its own where it differs from the value measured on the corpus task (`true`, `false`, `0`, `false`, `false`, `0`, `0`, `false`, `0`, `#x0`). TwinCAT HAS NO WATCHDOG member: `Watchdog:` other than the bare `off`, an event and an external event refuse a TwinCAT push by name; the hard-coded `Type: Cyclic` / `Watchdog: null` (`TcTaskSchedule.cs:44/62`) is replaced by that refusal |
+| TwinCAT `.TcTTO` `TaskFBGuid`, `CycleUpdate`, `PostCycleUpdate`, `Fb_init`, `Fb_exit` | vendor-minted GUIDs of the task's implicit objects |
+
+**Library manager (`LibManObject` [9], items [264]; TwinCAT `References`).**
+
+| member | disposition — manifest line |
+|---|---|
+| `Name` / `Namespace` / `PlaceholderName` / `DefaultResolution` / effective resolution / `SystemLibrary` | today's lines; every `?? ""` / `is bool b && b` default deleted — a missing member refuses the reference by name. TwinCAT `SYSTEM`: per `tc-library-system` (§1.3) |
+| `LinkAllContent` [5] · `QualifiedOnly` [1] | `LINKALLCONTENT` · `QUALIFIEDONLY` |
+| `Optional`, `HideWhenReferencedAsDependency`, `PublishSymbolsInContainer` [false 264/264], `Params` [null 264/264] | the measured value: no line; another refuses by name |
+| `ParameterTable` [3 managers, 24 values] | `PARAMETER <library> <name> := <value>` |
+| `PlaceholderRedirectionTable` [193] | `REDIRECT <placeholder> <resolution>` |
+| `ResolverGuid`, `Id` | vendor-minted |
+| TwinCAT placeholder `VSProperties` `HideReference`, `PublishAll`, `QualifiedlAccessOnly` [sic], `Optional` [`False` on the fixture's 3; gate 1, `tc-library-system`], its `ParameterList` (`Tc2_System`: 6 `PARAM.*`) | read-only measured; which CODESYS member each one IS is not measured (a name match is not a fact), so step 3.3 decides it with a probe row that writes one: until then a TwinCAT reference with any of the four other than `False` refuses by name, and the parameter list is spelled `PARAMETER <library> <name> := <value>` only once 3.3 measures its write (else refused by name). No SYSTEM line on TwinCAT (C37) |
+
+**Non-source items and stubs.**
+
+| member | disposition |
+|---|---|
+| stub manifest (visualization, text list, image pool, recipe, trace, symbol config, …) | ONE form on both vendors: `ItemKind.EmptyManifest` (`kind\n`); TwinCAT's `Name=` dropped (the name is the file). Their archives are REFUSED by name in the pull report (opaque — Volt never writes them) |
+| device `Disable` [2] | `.device` descriptor `Disabled: true`; `Exclude` [0]: `Excluded: true`; the "first that answers" name read deleted (the vendor member is named) |
+| `EmbeddedFileObject` [2], `ApplicationObject` [5], `PlcLogicObject` [5], `ProjectInfoObject` [1], `WorkspaceObject` [5] | not items: listed in the pull report by name (unchanged), never written |
+| every 0-occurrence object class of §0.1 (alarm, CNC, CAM, Composer, C-source, data sources, redundancy, trend, unit conversion, web/target visu, hidden/transient variants) | REFUSED by name if met ("niche: accepted loss (0 occurrences in the corpora)") |
+
+**TwinCAT files** (the census element table, §0.1).
+
+| element / attribute | disposition |
+|---|---|
+| `TcPlcObject/@Version`, `@ProductVersion` | the IDE's file-format stamp: written by the IDE on save, never by Volt (cache of the writing IDE) |
+| `POU/@Id`, `DUT/@Id`, `GVL/@Id`, member `@Id` | vendor-minted identity |
+| `POU/@SpecialFunc` [None 8/8] | per `tc-special-classes` (§1.3) |
+| `Declaration`, `Implementation/ST|NWL|…` | the text (verbatim, as above) |
+| `LineIds` | measured cache (`editor-caches`) |
+| `ObjectProperties` (`SFCProperty` [2], empty [1]) | REFUSED with the SFC body (above); an empty carrier is no property |
+| `.plcproj` `Compile/SubType Code` [13/13], `SubObjectsSortedByName True` [2/2], `Folder` | the folder tree; the constants are the measured values |
+| `.plcproj` `PlaceholderReference` (`DefaultResolution`, `Namespace`) | the library manifest |
+
+**New text forms, for the owner's close report**: `%CLASS CHECK <check>`, `%CLASS PERSISTENT`, `%CLASS TEXTLIST_ENUM`,
+`%CLASS NVL`, `%EXCLUDE_FROM_BUILD`, `%LINK_ALWAYS`, `%EXTERNAL`, `%ENABLE_SYSTEM_CALL`, `%ONLINE_CHANGE_RESERVE <n>`,
+`%COMPILER_DEFINES '…'`, `%UNDEFINE '…'`, `%COMMENT '…'`, `%PARAMETER_LIST`, `%NETVAR <member>: <value>`,
+`%FILE_LINK <type> '<path>'`; task labels `External event:`, `Watchdog: off <time> <unit> (sensitivity <n>)` (the enabled form `<time> <unit>` too; an empty member `''`),
+`Calls: A // <comment>`, `Core:` / `Core2:` / `Task group:` / `Allow empty:` / `Implicit:` / `Within SPS time slicing:` /
+`Synch task:` (only off their measured value); manifest lines `LINKALLCONTENT`, `QUALIFIEDONLY`, `PARAMETER`,
+`REDIRECT`; device `Disabled:` / `Excluded:`; and the text itself verbatim (trailing newlines kept).
+**Owner decisions with a named default** (proceeding on the default): the object GUID unspelled; folder sibling order
+unspelled; CODESYS member insertion order unspelled (the text keeps its canonical order).
+
+**Refused by name, collected** (pull warns item + property; a push never writes it; a create that would need it
+refuses): `POUImageProperty`, the SFC/CFC properties with their bodies, `ObjectAccessProperty`, a folder's
+`BuildProperty` [4], Task-Configuration system events [1], `EmbeddedFileObject` [2], standalone transitions [0], NVL
+create [1], a second persistent list per application, the 0-occurrence classes and properties, and every member whose
+measured constant a project breaks; on TwinCAT (gate 1) every object-property line and any `.plcproj` build entry
+but `SubType`, a `SpecialFunc` other than `None`, a `%CLASS CHECK` create or class change, an interface accessor
+declaration other than its measured constant, a library VSProperty off `False`; on CODESYS a bare `Watchdog: off`. Every fallback of proposal finding 8 is deleted: a missing fact refuses by name.
+
+### 1.3 The measurements (vendor-facts rows, recorded 2026-10-13)
+
+Ten rows (the nine task 1.3 names + `editor-caches`, the design's "caches, a row each" as one row of reads; gate 1 added `textlist-enum-edit` and extended `watchdog-off-values`, `tc-library-system` and `member-order`), recorded
+by `bun scripts/vendor-facts.ts <vendor> --write --only …` on the change's own instance
+(`VOLT_VENDOR_FACTS_INSTANCE=bridge-one-to-one`), CODESYS SP21 Patch 4 on a CodesysTestProject copy, TcXaeShell 15.0 on
+a Project14 copy, then re-run without `--write`: the second run agreed fact for fact. Discovery for `create-each-class`
+used single-use scratch runscripts (own `--noUI` CODESYS, project copies; not kept). The table gained one vocabulary
+item, a design finding of the table's own rule ("if a fact does not fit the vocabulary, that is a design finding"): a
+script `create` may name `factory` / `vendorClass` (+ `init`) — CODESYS only, the vendor's own Add Object path — and
+the TwinCAT core's XML read now answers an attribute's value (PowerShell's adapter answered `""`). DIALECT rows:
+**C2r** (new), **C2s** (new), **C34**-**C37** (new), **C2e** and **D21** (marker + finding).
+
+| row | vendors | DIALECT | measured | decides (§1.1) |
+|---|---|---|---|---|
+| `create-each-class` | CODESYS | C2r | check function (constructed class + `DoCreate` aspects + `KindOfCheckFunction`), persistent list (factory; a 2nd per application refused by the vendor), text-list enum (factory), sender GVL (factory → `GVLObject` + `NetVarProperties`), parameter list (factory → `ParameterList true`), abstract method (constructed) — each kept as its class across a reload, build clean; NVL factory refused (`NullReferenceException`, needs its wizard). Text-list rows rebuilt from the declaration (4 rows for 3 enumerators: the trailing `""` row) — `textlist-enum-rows-derived` = cache. Today's pull folds every class away | `%CLASS` creates / NVL-create refusal / text-list rows a cache |
+| `textlist-enum-edit` (gate 1) | CODESYS (TwinCAT absent: no such class) | C2r | rows `Red/0`, `Green/5`, `Blue/""`, `""/""` (both columns read on every row); a push removing `Green` → `Red/0`, `Blue/""`, `""/""`; renaming `Blue` → `Cyan` rewrites the ID; the same 3 rows after a reload; `RemovedTextListEntries` count 0 throughout | the rows a cache (rebuilt on every write, nothing else kept); a non-empty `RemovedTextListEntries` / language text refuses by name (only the vendor's own text-list editor makes one) |
+| `abstract-member-equivalence` | CODESYS (TwinCAT absent: one method class) | C2r | `POUMethodObject`+ABSTRACT ≡ `AbstractPOUMethodObject`: signature `Method/Abstract` both, `C0431` both, clean when overridden, both pull `IMPLEMENTATION NONE`; code under the slotted one: `C0433` at build | the class follows the text; `AbstractMemberFold` stays as a measured equivalence |
+| `tc-special-classes` | TwinCAT (CODESYS: `create-each-class`) | C2s | `CheckBounds` by `CreateChild` 603 and `CheckRangeSigned` by the push: `SpecialFunc="None"` in the file, no `SpecialFunc` member in the automation XML | TwinCAT `%CLASS CHECK` refused by name on a create or a class change (never on an update); the pull reads the file attribute and refuses any value but `None` by name (vocabulary unmeasured; gate 1) |
+| `tc-dut-create-reload` | TwinCAT | C2e | push-created enum/union/alias/struct on the 606 seed → 605/607/623/606 after reload, same `Id`, same pulled text | the 606 seed stays (finding 6 closed by measurement) |
+| `tc-itf-accessor-decl` | TwinCAT (CODESYS: D41) | D21 | push-created interface accessors save `<Declaration>` `PUBLIC` / `VAR` / `END_VAR`; the pull shows presence only | a measured constant of TwinCAT's (no write or read path, D21), spelled as the empty declaration CODESYS holds for the same interface (D41); any other stored text refuses the item by name (§1.1 classes, gate 1) |
+| `member-order` | both | C34 | CODESYS creation order kept (`Zeta, Mid, Alpha, Beta`); TwinCAT by name (`Alpha, Beta, Mid, Zeta`). Gate 1: the property is now created with its type on both (`dataType: "INT"`); before, TwinCAT took the driver's vInfo (the body language) as the TYPE (`PROPERTY PUBLIC Beta : ST`, `TcObjectModel.cs:405`, a quirk for 3.3); a TwinCAT 611 create makes no accessors (CODESYS's makes GET/SET) | not spelled (owner decision, default) |
+| `folder-order` | both | C34 | CODESYS creation order kept; TwinCAT folders first then by name | not spelled (owner decision, default) |
+| `trailing-newline-cache` | both | C35 | both vendors keep `\n\n\n` and no-newline texts verbatim across reload; the pull folds them | SPELLED: text verbatim + one separator newline |
+| `editor-caches` | both | C35 | CODESYS `LineInfoPersistence` a key derived from the object GUID, `UniqueIdGenerator` a string, `Timestamp` Int64 — filled by a scripting create, build clean; TwinCAT writes its own `<LineIds>` into the saved file, build succeeds | caches: never spelled or written |
+| `watchdog-off-values` | both | C36 | CODESYS: a disabled watchdog keeps time `123`, unit `µs` (set off the default `ms`; gate 1) and sensitivity `3` across reload; the fixture's task as found: disabled, time `''`, unit `ms`, sensitivity `1`; TwinCAT `TaskDef` has 13 members and no watchdog / event | `Watchdog: off <time> <unit> (sensitivity <n>)`, `''` for an empty member; TwinCAT watchdog/event push refused |
+| `tc-library-system` | TwinCAT (CODESYS: census) | C37 | no system member on a TwinCAT placeholder (`LibItemName`, `PlaceholderName`, `Namespace`, `RelativePath`, `DefaultResolution`, `EffectiveResolution`); gate 1: the system xpaths (element and attribute) run on EACH of `Tc2_Standard`, `Tc2_System`, `Tc3_Module` and on `References` answer nothing, their `PlcLibPlaceholder` / `VSProperties` subtrees read whole; the fixtures' `.plcproj`s hold no system element (offline) | `SYSTEM` is CODESYS's; TwinCAT's hard-coded `false` deleted, a pushed `SYSTEM` line refused |
 
 ## 0.1 Schema census (measured 2026-10-13)
 

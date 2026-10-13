@@ -78,14 +78,70 @@
 
 ## 1. Design
 
-- [ ] 1.1 design.md: the disposition table — every member → spelled (its text form) / editor cache (its measurement) /
+- [x] 1.1 design.md: the disposition table — every member → spelled (its text form) / editor cache (its measurement) /
       refused by name; default SPELLED; 0-occurrence members decided too. The new `%`-line forms listed for the owner's
       close report.
-- [ ] 1.2 The contract: an `ObjectProperties` carrier on `ItemContent` and `Member`; the `%`-line grammar (St reader,
+
+      design.md §1.1 (2026-10-13): every census member decided per group — every object, object properties,
+      classes (`%CLASS`), source-class members, tasks, library manager, non-items/stubs, TwinCAT files; 0-occurrence
+      classes and properties refused by name ("niche: accepted loss (0 occurrences)"); the new forms and three owner
+      decisions with a named default (object GUID, folder sibling order, CODESYS member order: not spelled) listed
+      for the close report.
+- [x] 1.2 The contract: an `ObjectProperties` carrier on `ItemContent` and `Member`; the `%`-line grammar (St reader,
       writer and the LSP's format layer); task `External event:` and call comments; transition member blocks.
-- [ ] 1.3 The measurements as `vendor-facts` rows, both vendors: `tc-special-classes`, `tc-dut-create-reload`,
+
+      design.md §1.2: the `ObjectProperties` record (fields, required on `ItemContent` / `Member`), the `%`-line EBNF
+      shared by St reader/writer and the LSP format layer (order, placement, refusals), migration (`format: 2`), task
+      labels (`External event:`, `Watchdog: off …`, `Calls: A // comment`, off-default members), transitions —
+      standalone ones refused by name instead of member blocks (0 in the corpora, recorded niche) — and re-type/rename.
+- [x] 1.3 The measurements as `vendor-facts` rows, both vendors: `tc-special-classes`, `tc-dut-create-reload`,
       `tc-itf-accessor-decl`, `create-each-class`, `member-order`, `trailing-newline-cache`, `folder-order`,
       `watchdog-off-values`, `abstract-member-equivalence`; DIALECT rows updated.
+
+      Recorded 2026-10-13 on instance `bridge-one-to-one` (SP21 Patch 4; TcXaeShell 15.0), a second run each agreed
+      fact for fact: the nine rows + `editor-caches` (the design's cache rows) + `tc-library-system`; 211 CODESYS and
+      229 TwinCAT snapshot lines added, none changed. Table vocabulary: a script `create` may name `factory` /
+      `vendorClass` + `init` (CODESYS only, validated, unit-tested); the TwinCAT core reads an XML attribute's value.
+      DIALECT: C2r, C2s, C34-C37 new; C2e, D21 marker + finding. Results and decisions: design.md §1.3.
+
+      **Review fixes (gate step 1, 2026-10-13)** — all eleven findings held; none skipped. Seven are design decisions
+      (no code yet, so no failing test to write first); four needed a measurement, re-recorded on instance
+      `bridge-one-to-one` (CODESYS SP21 Patch 4, TcXaeShell 15.0) and re-run without `--write`: agreed fact for fact.
+      The one table-vocabulary change (`dataType` on a property create) got its failing unit test first.
+      1. `%`-lines vs direct addresses: only `%` + a closed key (ending at a space or the line's end) is a property
+         line; any other `%…` line is code (the corpora's 4 `%QB1 := …` lines, bakon-nano `OutputControl.pou:50-54`);
+         the unknown-key and lower-case-key refusals deleted (§1.2).
+      2. Watchdog: ONE spelling, `[off ]<time> <unit> (sensitivity <n>)`, `''` for an empty member, bare `off`
+         TwinCAT-only. Measured (`watchdog-off-values` extended): unit `µs` set before disabling is kept @disabled and
+         @reloaded; the fixture task as found is the empty-time case (`''`, `ms`, `1`, disabled).
+      3. TwinCAT and the object-property lines: no measured member, so a push carrying any key is refused by name and
+         a pull of an item with a `.plcproj` build entry other than `SubType` (or a non-SFC `<ObjectProperties>`) is
+         refused by name, until a probe row measures it (§1.1).
+      4. TwinCAT `%CLASS CHECK`: refused only on a create or a class change; the pull refuses any `SpecialFunc` but
+         `None` by name (vocabulary unmeasured) — §1.1, §1.3, DIALECT C2s.
+      5. Text-list rows (new row `textlist-enum-edit`): both columns of every row read; a push removing `Green` drops
+         its row, renaming `Blue` → `Cyan` rewrites its ID, the same 3 rows after reload, `RemovedTextListEntries`
+         count 0 throughout — the cache decision holds; DIALECT C2r.
+      6. `tc-library-system` re-read on each of `Tc2_Standard`, `Tc2_System`, `Tc3_Module` (subtrees whole, element
+         and attribute xpaths on each): no system member on any; `.plcproj`s checked offline; the VSProperties
+         `HideReference` / `PublishAll` / `QualifiedlAccessOnly` / `Optional` and `Tc2_System`'s parameter list newly
+         seen and decided (refused off `False` until 3.3 measures a write); DIALECT C37.
+      7. TwinCAT interface accessor `PUBLIC`/`VAR`/`END_VAR`: a measured constant (no write/read path, D21) spelled as
+         the empty declaration CODESYS holds (D41) — wire parity; any other stored text refused by name; D21.
+      8. `AbstractMemberFold` narrowed to a null/EMPTY body; a whitespace-only body is spelled verbatim (§1.1).
+      9. Persistent list create: one decision — through the factory only if oracle 2.1 reproduces it, else refused.
+      10. `%NETVAR`: sender members without `%CLASS NVL`, receiver members under it; `ReferenceGuidGVL` /
+          `GuidTaskSlot` unspelled (vendor-minted GUIDs).
+      11. `member-order` TwinCAT: the property now created with its type (`dataType: "INT"`, validator + unit test);
+          TwinCAT reads `PROPERTY PUBLIC Beta : INT`, makes no accessors (CODESYS makes GET/SET); the driver's 611 vInfo
+          quirk (`TcObjectModel.cs:405`) recorded for 3.3; DIALECT C34.
+
+      Snapshots: CODESYS +1 row (`textlist-enum-edit`), `watchdog-off-values` +7 keys (52 lines differ); TwinCAT
+      `member-order.fetched` (`: ST` → `: INT`) and `tc-library-system` +12 keys (16 differ). Gate (docs + probe step:
+      no fixture or transpiler change, fixture map untouched): typecheck green (5 packages), `openspec validate` valid,
+      full LSP suite with `VOLT_REQUIRE_FULL=1` and `VOLT_FIXTURES` unset **10146 pass, 0 fail** (34 skip, 428 todo,
+      360 files, 798 s), volt-cli `test/unit` 80/80, C# `Volt.Repo.Gates` 160/160, `Volt.Engine.Tests` 2371 pass,
+      0 fail (1 skip).
 
 ## 2. Oracles, red first
 

@@ -214,6 +214,8 @@ function CodeOf($step, [string]$parentKind) {
     if (-not $CODES.ContainsKey($kind)) { Fault "TwinCAT has no create for kind '$kind'" }
     $lang = if ($step["language"]) { [string]$step["language"] } else { "ST" }
     $vInfo = switch ($kind) { "function" { $M } "task_plc" { $M } "task_system" { $M } "interface" { $null } default { $lang } }
+    # A property's vInfo is its TYPE to TwinCAT: a step that names one passes it (else the driver's language, as above).
+    if ($kind -eq "property" -and $step["dataType"]) { $vInfo = [string]$step["dataType"] }
     return @($CODES[$kind], $vInfo)
 }
 
@@ -515,7 +517,9 @@ function XmlRead($item, [string]$xpath, $file) {
         $x = [xml](Get-Content -Raw -Encoding UTF8 $path)
     } else { $x = [xml]$item.ProduceXml() }
     $nodes = @($x.SelectNodes($xpath))
-    $text = { param($n) if (@($n.ChildNodes | Where-Object { $_.NodeType -eq "Element" }).Count -gt 0) { "<$($n.LocalName)>" } else { $n.InnerText } }
+    # An attribute reads its Value: PowerShell's XML adapter answers an XmlAttribute's InnerText empty (measured
+    # 2026-10-13, openspec bridge-one-to-one 1.3 - `@SpecialFunc` read "" where the file says "None").
+    $text = { param($n) if ($n -is [System.Xml.XmlAttribute]) { $n.Value } elseif (@($n.ChildNodes | Where-Object { $_.NodeType -eq "Element" }).Count -gt 0) { "<$($n.LocalName)>" } else { $n.InnerText } }
     if ($nodes.Count -eq 0) { $script:RV = $null; return }
     if ($nodes.Count -eq 1) { $script:RV = [string](& $text $nodes[0]); return }
     $list = New-Object System.Collections.ArrayList

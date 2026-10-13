@@ -184,7 +184,10 @@ _LANG = {"ST": "st", "FBD": "fbd", "LD": "ld"}
 
 
 def _create(step):
-    o = _make(_resolve(step["parent"]), step["kind"], step["name"], step)
+    if step.get("factory") or step.get("vendorClass"):
+        o = _make_vendor(_resolve(step["parent"]), step)
+    else:
+        o = _make(_resolve(step["parent"]), step["kind"], step["name"], step)
     _keep(step["as"], o, "script")
     if step.get("decl") is not None:
         o.textual_declaration.replace(step["decl"])
@@ -221,7 +224,7 @@ def _make(parent, kind, name, step):
     elif kind == "method":
         o = parent.create_method(name)
     elif kind == "property":
-        o = parent.create_property(name, "INT")
+        o = parent.create_property(name, step.get("dataType") or "INT")
     elif kind == "action":
         o = parent.create_action(name)
     elif kind == "transition":
@@ -231,6 +234,51 @@ def _make(parent, kind, name, step):
     if o is None:
         raise ProbeError("create %s '%s' returned nothing and no child of that name exists" % (kind, name))
     return o
+
+
+def _new(type_name):
+    t = _find_type(type_name)
+    if t is None:
+        raise ProbeError("no type '%s' is loaded in this IDE" % type_name)
+    return System.Activator.CreateInstance(t)
+
+
+def _make_vendor(parent, step):
+    """An object of a class no scripting create_* names, made the way the vendor's own Add Object makes it (design
+    finding of openspec bridge-one-to-one 1.3): `factory` - that IObjectFactory's Create(), ObjectMgr.AddObject under the
+    parent, then its ObjectCreated; `vendorClass` - that class by its parameterless constructor, each Interface /
+    Implementation aspect it holds null taken from the POU factory's own DoCreate (an ST POU, Standard level, the step's
+    declaration), the `init` members set, then AddObject. A vendor exception is the step's outcome."""
+    om = vp.object_manager()
+    ph, pg = _project_handle(), _guid(parent)
+    name = step["name"]
+    if step.get("factory"):
+        f = _new(step["factory"])
+        o = f.Create()
+        g = om.AddObject(ph, pg, System.Guid.NewGuid(), o, name, -1)
+        f.ObjectCreated(ph, g)
+    else:
+        o = _new(step["vendorClass"])
+        t = o.GetType()
+        holes = [p for p in ("Interface", "Implementation")
+                 if t.GetProperty(p, vp.bf()) is not None and t.GetProperty(p, vp.bf()).GetValue(o, None) is None]
+        if holes:
+            pf = _new("_3S.CoDeSys.POUObject.POUObjectFactory")
+            st = _new("_3S.CoDeSys.STObject.STImplementationObjectFactory")
+            lvl = System.Enum.Parse(_find_type("_3S.CoDeSys.POUObject.POULevel"), "Standard")
+            src = pf.GetType().GetMethod("DoCreate", vp.bf()).Invoke(pf, System.Array[System.Object]([step.get("decl") or "", st, lvl]))
+            for p in holes:
+                t.GetProperty(p, vp.bf()).SetValue(o, src.GetType().GetProperty(p, vp.bf()).GetValue(src, None), None)
+        for k in sorted((step.get("init") or {}).keys()):
+            p = t.GetProperty(k, vp.bf())
+            if p is None:
+                raise ProbeError("%s has no member '%s' to initialize" % (t.FullName, k))
+            p.SetValue(o, _value(step["init"][k]), None)
+        om.AddObject(ph, pg, System.Guid.NewGuid(), o, name, -1)
+    made = _child_named(parent, name)
+    if made is None:
+        raise ProbeError("create %s '%s': the vendor added it, but the parent has no child of that name" % (step["kind"], name))
+    return made
 
 
 _TRIED = []      # the last tryNames step's (name, outcome) pairs, for the `tried` read right after it

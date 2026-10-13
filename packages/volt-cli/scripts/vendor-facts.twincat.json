@@ -1195,6 +1195,37 @@
 			"reload: accepted"
 		]
 	},
+	"editor-caches": {
+		"diagnostics": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"fetched": "PROGRAM VltF_Cache\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_PROGRAM\n",
+		"file.elements": [
+			"Declaration=PROGRAM VltF_Cache\nVAR\n\tx : INT;\nEND_VAR\n",
+			"Implementation=<Implementation>",
+			"LineIds=<LineIds>"
+		],
+		"file.line-ids": [
+			"Id=9",
+			"Count=0",
+			"Id=4",
+			"Count=0"
+		],
+		"steps": [
+			"create p: accepted",
+			"build: accepted",
+			"reload: accepted"
+		]
+	},
 	"empty-folder-survives": {
 		"children": [],
 		"steps": [
@@ -1210,6 +1241,28 @@
 			"create o1: accepted",
 			"create o2: accepted",
 			"create f2: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: A file or folder with the name 'VltF_Collide2' already exists on disk at this location. Please choose another name."
+		]
+	},
+	"folder-order": {
+		"children@created": [
+			"VltF_Sub",
+			"VltF_Abc",
+			"VltF_Mid",
+			"VltF_Zed"
+		],
+		"children@reloaded": [
+			"VltF_Sub",
+			"VltF_Abc",
+			"VltF_Mid",
+			"VltF_Zed"
+		],
+		"steps": [
+			"create folder: accepted",
+			"create z: accepted",
+			"create a: accepted",
+			"create sub: accepted",
+			"create m: accepted",
+			"reload: accepted"
 		]
 	},
 	"graphical-callee-seed": {
@@ -1687,6 +1740,29 @@
 			"setText d_enum: accepted",
 			"setText p_prg: accepted",
 			"build: accepted",
+			"reload: accepted"
+		]
+	},
+	"member-order": {
+		"children@created": [
+			"Alpha",
+			"Beta",
+			"Mid",
+			"Zeta"
+		],
+		"children@reloaded": [
+			"Alpha",
+			"Beta",
+			"Mid",
+			"Zeta"
+		],
+		"fetched": "FUNCTION_BLOCK VltF_Order\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Alpha : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nMETHOD Zeta : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nACTION Mid\nIMPLEMENTATION ST\nEND_ACTION\n\nPROPERTY PUBLIC Beta : INT\nEND_PROPERTY\n",
+		"steps": [
+			"create fb: accepted",
+			"create m1: accepted",
+			"create m2: accepted",
+			"create m3: accepted",
+			"create m4: accepted",
 			"reload: accepted"
 		]
 	},
@@ -4564,6 +4640,271 @@
 		"taskdef@=<5>": "0",
 		"taskdef@=abc": "0"
 	},
+	"tc-dut-create-reload": {
+		"fetched.a@created": "TYPE VltF_CrAlias : STRING(80);\nEND_TYPE\n",
+		"fetched.a@reloaded": "TYPE VltF_CrAlias : STRING(80);\nEND_TYPE\n",
+		"fetched.e@created": "TYPE VltF_CrEnum :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE\n",
+		"fetched.e@reloaded": "TYPE VltF_CrEnum :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE\n",
+		"fetched.s@created": "TYPE VltF_CrStruct :\nSTRUCT\n\talpha : INT;\n\tbeta : BOOL;\nEND_STRUCT\nEND_TYPE\n",
+		"fetched.s@reloaded": "TYPE VltF_CrStruct :\nSTRUCT\n\talpha : INT;\n\tbeta : BOOL;\nEND_STRUCT\nEND_TYPE\n",
+		"fetched.u@created": "TYPE VltF_CrUnion :\nUNION\n\ti : INT;\n\trv : REAL;\nEND_UNION\nEND_TYPE\n",
+		"fetched.u@reloaded": "TYPE VltF_CrUnion :\nUNION\n\ti : INT;\n\trv : REAL;\nEND_UNION\nEND_TYPE\n",
+		"guid.a@created": "guid-3",
+		"guid.a@reloaded": "guid-3",
+		"guid.e@created": "guid-1",
+		"guid.e@reloaded": "guid-1",
+		"guid.s@created": "guid-4",
+		"guid.s@reloaded": "guid-4",
+		"guid.u@created": "guid-2",
+		"guid.u@reloaded": "guid-2",
+		"item-type.a@created": 606,
+		"item-type.a@reloaded": 623,
+		"item-type.e@created": 606,
+		"item-type.e@reloaded": 605,
+		"item-type.s@created": 606,
+		"item-type.s@reloaded": 606,
+		"item-type.u@created": 606,
+		"item-type.u@reloaded": 607,
+		"steps": [
+			"create e (push): accepted",
+			"create u (push): accepted",
+			"create a (push): accepted",
+			"create s (push): accepted",
+			"reload: accepted"
+		]
+	},
+	"tc-itf-accessor-decl": {
+		"fetched@created": "INTERFACE IVltF_AccDecl\n\nPROPERTY P : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+		"fetched@reloaded": "INTERFACE IVltF_AccDecl\n\nPROPERTY P : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+		"file.get": "PUBLIC\nVAR\nEND_VAR",
+		"file.get-elements": "PUBLIC\nVAR\nEND_VAR",
+		"file.set": "PUBLIC\nVAR\nEND_VAR",
+		"steps": [
+			"create itf (push): accepted",
+			"reload: accepted"
+		]
+	},
+	"tc-library-system": {
+		"children": [
+			"Tc2_Standard",
+			"Tc2_System",
+			"Tc3_Module"
+		],
+		"library-xml": [
+			"ItemName=Tc2_Standard",
+			"PathName=TIPC^Untitled2^Untitled2 Project^References^Tc2_Standard",
+			"ItemType=657",
+			"ItemId=2",
+			"ItemSubType=0",
+			"ItemSubTypeName=TREEITEMTYPE_PLCLIBPLACEHOLDER",
+			"ChildCount=0",
+			"PlcLibPlaceholder=<PlcLibPlaceholder>",
+			"VSProperties=<VSProperties>"
+		],
+		"placeholder-reference": [
+			"LibItemName=#Tc2_Standard",
+			"PlaceholderName=Tc2_Standard",
+			"Namespace=Tc2_Standard",
+			"RelativePath=c:\\twincat\\3.1\\components\\plc\\managed libraries\\beckhoff automation gmbh\\tc2_standard\\3.4.5.0\\tc2_standard.compiled-library-ge33",
+			"DefaultResolution=Tc2_Standard, * (Beckhoff Automation GmbH)",
+			"EffectiveResolution=<EffectiveResolution>"
+		],
+		"placeholder-subtree.module": [
+			"PlaceholderReference=<PlaceholderReference>",
+			"LibItemName=#Tc3_Module",
+			"PlaceholderName=Tc3_Module",
+			"Namespace=Tc3_Module",
+			"RelativePath=c:\\twincat\\3.1\\components\\plc\\managed libraries\\beckhoff automation gmbh\\tc3_module\\3.4.5.0\\tc3_module.compiled-library-ge33",
+			"DefaultResolution=Tc3_Module, * (Beckhoff Automation GmbH)",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc3_Module",
+			"Version=3.4.5.0",
+			"Distributor=Beckhoff Automation GmbH",
+			"Dependencies=<Dependencies>",
+			"Dependency=<Dependency>",
+			"PlaceholderName=Tc2_Standard",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc2_Standard",
+			"Version=3.4.5.0",
+			"Distributor=Beckhoff Automation GmbH"
+		],
+		"placeholder-subtree.standard": [
+			"PlaceholderReference=<PlaceholderReference>",
+			"LibItemName=#Tc2_Standard",
+			"PlaceholderName=Tc2_Standard",
+			"Namespace=Tc2_Standard",
+			"RelativePath=c:\\twincat\\3.1\\components\\plc\\managed libraries\\beckhoff automation gmbh\\tc2_standard\\3.4.5.0\\tc2_standard.compiled-library-ge33",
+			"DefaultResolution=Tc2_Standard, * (Beckhoff Automation GmbH)",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc2_Standard",
+			"Version=3.4.5.0",
+			"Distributor=Beckhoff Automation GmbH"
+		],
+		"placeholder-subtree.system": [
+			"PlaceholderReference=<PlaceholderReference>",
+			"LibItemName=#Tc2_System",
+			"PlaceholderName=Tc2_System",
+			"Namespace=Tc2_System",
+			"RelativePath=c:\\twincat\\3.1\\components\\plc\\managed libraries\\beckhoff automation gmbh\\tc2_system\\3.10.1.0\\tc2_system.compiled-library-ge33",
+			"DefaultResolution=Tc2_System, * (Beckhoff Automation GmbH)",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc2_System",
+			"Version=3.10.1.0",
+			"Distributor=Beckhoff Automation GmbH",
+			"Dependencies=<Dependencies>",
+			"Dependency=<Dependency>",
+			"PlaceholderName=Tc2_Standard",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc2_Standard",
+			"Version=3.4.5.0",
+			"Distributor=Beckhoff Automation GmbH",
+			"Dependency=<Dependency>",
+			"PlaceholderName=Tc3_Module",
+			"EffectiveResolution=<EffectiveResolution>",
+			"LibraryName=Tc3_Module",
+			"Version=3.4.5.0",
+			"Distributor=Beckhoff Automation GmbH",
+			"ParameterList=<ParameterList>",
+			"Parameter=<Parameter>",
+			"Name=PARAM.TABLE_UPPER_BOUND",
+			"Value=15",
+			"Parameter=<Parameter>",
+			"Name=PARAM.STRING_LENGTH_EXP",
+			"Value=255",
+			"Parameter=<Parameter>",
+			"Name=PARAM.STRING_LENGTH_ADDRESS",
+			"Value=20",
+			"Parameter=<Parameter>",
+			"Name=PARAM.STRING_LENGTH_COMMENT",
+			"Value=255",
+			"Parameter=<Parameter>",
+			"Name=PARAM.STRING_LENGTH_OUTSTRING",
+			"Value=255",
+			"Parameter=<Parameter>",
+			"Name=PARAM.TABLE_SHOW_VALID_ITEMS",
+			"Value=FALSE"
+		],
+		"references-xml": [
+			"ItemName=References",
+			"PathName=TIPC^Untitled2^Untitled2 Project^References",
+			"ItemType=617",
+			"ItemId=1",
+			"ItemSubType=0",
+			"ItemSubTypeName=TREEITEMTYPE_PLCLIBMAN",
+			"ChildCount=3",
+			"PlcLibDef=<PlcLibDef>",
+			"VSProperties="
+		],
+		"steps": [
+			"find references: accepted",
+			"find standard: accepted",
+			"find system: accepted",
+			"find module: accepted"
+		],
+		"system-attributes.module": null,
+		"system-attributes.standard": null,
+		"system-attributes.system": null,
+		"system-elements.module": null,
+		"system-elements.references": null,
+		"system-elements.standard": null,
+		"system-elements.system": null,
+		"vs-properties.module": [
+			"VSProperty=<VSProperty>",
+			"Name=Resolution",
+			"Value=Tc3_Module, * (Beckhoff Automation GmbH) [Default]",
+			"VSProperty=<VSProperty>",
+			"Name=LibraryName",
+			"Value=Tc3_Module",
+			"VSProperty=<VSProperty>",
+			"Name=Namespace",
+			"Value=Tc3_Module",
+			"VSProperty=<VSProperty>",
+			"Name=HideReference",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=PublishAll",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=QualifiedlAccessOnly",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Optional",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Description",
+			"Value=TwinCAT TcCOM Module Library",
+			"VSProperty=<VSProperty>",
+			"Name=Defines",
+			"Value=",
+			"VSProperty=<VSProperty>",
+			"Name=Effective Version",
+			"Value=3.4.5.0"
+		],
+		"vs-properties.standard": [
+			"VSProperty=<VSProperty>",
+			"Name=Resolution",
+			"Value=Tc2_Standard, * (Beckhoff Automation GmbH) [Default]",
+			"VSProperty=<VSProperty>",
+			"Name=LibraryName",
+			"Value=Tc2_Standard",
+			"VSProperty=<VSProperty>",
+			"Name=Namespace",
+			"Value=Tc2_Standard",
+			"VSProperty=<VSProperty>",
+			"Name=HideReference",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=PublishAll",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=QualifiedlAccessOnly",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Optional",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Description",
+			"Value=Functions and functionblocks defined in the IEC61131-3 standard",
+			"VSProperty=<VSProperty>",
+			"Name=Defines",
+			"Value=",
+			"VSProperty=<VSProperty>",
+			"Name=Effective Version",
+			"Value=3.4.5.0"
+		],
+		"vs-properties.system": [
+			"VSProperty=<VSProperty>",
+			"Name=Resolution",
+			"Value=Tc2_System, * (Beckhoff Automation GmbH) [Default]",
+			"VSProperty=<VSProperty>",
+			"Name=LibraryName",
+			"Value=Tc2_System",
+			"VSProperty=<VSProperty>",
+			"Name=Namespace",
+			"Value=Tc2_System",
+			"VSProperty=<VSProperty>",
+			"Name=HideReference",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=PublishAll",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=QualifiedlAccessOnly",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Optional",
+			"Value=False",
+			"VSProperty=<VSProperty>",
+			"Name=Description",
+			"Value=TwinCAT PLC Library for various system services like ADS, file handling etc. and definition of system structures",
+			"VSProperty=<VSProperty>",
+			"Name=Defines",
+			"Value=",
+			"VSProperty=<VSProperty>",
+			"Name=Effective Version",
+			"Value=3.10.1.0"
+		]
+	},
 	"tc-project-object": {
 		"full-name-ext": ".tsproj",
 		"kind": "{B1E792BE-AA5F-4E3C-8C82-674BF9C0715B}",
@@ -4587,6 +4928,36 @@
 		"steps": [],
 		"warning-as-error": null,
 		"warning-list": null
+	},
+	"tc-special-classes": {
+		"automation-pou-def": [
+			"DeclarationExport=<DeclarationExport>",
+			"IECLanguage=ST",
+			"ImplementationExport=<ImplementationExport>",
+			"ReturnType=DINT",
+			"DocumentExport=<DocumentExport>"
+		],
+		"automation-xml": [
+			"ItemName=CheckBounds",
+			"PathName=TIPC^Untitled2^Untitled2 Project^CheckBounds",
+			"ItemType=603",
+			"ItemId=31",
+			"ItemSubType=0",
+			"ItemSubTypeName=TREEITEMTYPE_PLCPOUFUNC",
+			"ChildCount=0",
+			"PlcPouDef=<PlcPouDef>",
+			"VSProperties=<VSProperties>"
+		],
+		"fetched": "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR\nIMPLEMENTATION ST\nCheckBounds := index;\n\nEND_FUNCTION\n",
+		"item-type.pushed": 603,
+		"item-type.scripted": 603,
+		"special-func.pushed": "None",
+		"special-func.scripted": "None",
+		"steps": [
+			"create scripted: accepted",
+			"create pushed (push): accepted",
+			"reload: accepted"
+		]
 	},
 	"tc-task-items": {
 		"children": [],
@@ -4612,5 +4983,42 @@
 			"invoke item.ConsumeXml: accepted"
 		],
 		"tto-cycle-us": "10000"
+	},
+	"trailing-newline-cache": {
+		"decl.p@reloaded": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
+		"decl.p@written": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
+		"decl.q@reloaded": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR",
+		"decl.q@written": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR",
+		"fetched.p": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n",
+		"fetched.q": "PROGRAM VltF_NoTrail\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n",
+		"impl.p@reloaded": "x := 1;\n\n\n",
+		"impl.p@written": "x := 1;\n\n\n",
+		"impl.q@reloaded": "x := 1;",
+		"impl.q@written": "x := 1;",
+		"steps": [
+			"create p: accepted",
+			"create q: accepted",
+			"reload: accepted"
+		]
+	},
+	"watchdog-off-values": {
+		"steps": [
+			"find sys: accepted"
+		],
+		"taskdef": [
+			"Priority=20",
+			"AmsPort=350",
+			"CycleTime=100000",
+			"AutoStart=true",
+			"IoAtBegin=false",
+			"ExceedWarning=0",
+			"CreateSymbols=false",
+			"ExtSync=false",
+			"TickModulo=0",
+			"InputUpdatePreTicks=0",
+			"DisableFpExceptions=false",
+			"WatchdogStackCapacity=0",
+			"CpuAffinity=#x0"
+		]
 	}
 }

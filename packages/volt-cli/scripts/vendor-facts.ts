@@ -142,6 +142,16 @@ export function validateTable(rows: readonly Row[]): string[] {
             findings.push(`${where}: step ${i} ${s.op} names handle \`${h}\`, which no earlier create/find defines`)
         if (s.op === "create" || s.op === "find") defined.set(s.as, i)
         if (s.op === "tryNames") findings.push(...tryNamesFindings(s, `${where}: step ${i} tryNames`))
+        if (s.op === "create" && s.via === "script" && (s.factory || s.vendorClass || s.init)) {
+          if (vendor !== "codesys")
+            findings.push(`${where}: step ${i} create ${s.as} names a vendor factory or class — CODESYS only`)
+          if (s.factory && (s.vendorClass || s.init))
+            findings.push(`${where}: step ${i} create ${s.as} names a factory AND a class — one or the other`)
+          if (s.init && !s.vendorClass)
+            findings.push(`${where}: step ${i} create ${s.as} initializes members without a vendorClass`)
+        }
+        if (s.op === "create" && s.via === "script" && s.dataType !== undefined && s.kind !== "property")
+          findings.push(`${where}: step ${i} create ${s.as} names a data type — only a property create takes one`)
         if (s.op === "open" && !(s.fixture in FIXTURE_FILES))
           findings.push(`${where}: step ${i} opens \`${s.fixture}\`, not a committed fixture this runner knows`)
       })

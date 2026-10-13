@@ -68,6 +68,48 @@ describe("the table", () => {
     expect(validateTable([r])).toContain("t (codesys): read `text` (fetched) names no subject")
   })
 
+  it("refuses a vendor factory or class create on TwinCAT, both at once, and init without a class (bridge-one-to-one 1.3)", () => {
+    const create = (extra: Partial<Extract<Step, { op: "create"; via: "script" }>>): Step => ({
+      op: "create",
+      as: "a",
+      kind: "gvl",
+      name: "A",
+      parent: "root",
+      via: "script",
+      ...extra,
+    })
+    const both = row({ steps: [create({ factory: "F", vendorClass: "C" })] })
+    expect(validateTable([both])).toEqual([
+      "t (codesys): step 0 create a names a factory AND a class — one or the other",
+      "t (twincat): step 0 create a names a vendor factory or class — CODESYS only",
+      "t (twincat): step 0 create a names a factory AND a class — one or the other",
+    ])
+    const init = row({ vendors: { codesys: true }, steps: [create({ init: { K: 1 } })] })
+    expect(validateTable([init])).toEqual(["t (codesys): step 0 create a initializes members without a vendorClass"])
+    const ok = row({
+      vendors: { codesys: true },
+      steps: [create({ factory: "F" }), create({ as: "b", vendorClass: "C", init: { K: { enum: "E.V" } } })],
+    })
+    expect(validateTable([ok])).toEqual([])
+  })
+
+  it("takes a data type on a property create only (bridge-one-to-one gate 1: TwinCAT read the language as the type)", () => {
+    const create = (kind: "property" | "method", dataType: string): Step => ({
+      op: "create",
+      as: "a",
+      kind,
+      name: "A",
+      parent: "root",
+      via: "script",
+      dataType,
+    })
+    expect(validateTable([row({ steps: [create("method", "INT")] })])).toEqual([
+      "t (codesys): step 0 create a names a data type — only a property create takes one",
+      "t (twincat): step 0 create a names a data type — only a property create takes one",
+    ])
+    expect(validateTable([row({ steps: [create("property", "INT")] })])).toEqual([])
+  })
+
   it("refuses a read on a handle only the other vendor's steps define", () => {
     const r = row({
       steps: [
