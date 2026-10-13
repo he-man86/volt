@@ -40,14 +40,10 @@ public class TaskDescriptorMembersTests
     [Fact]
     public void An_external_event_is_its_own_label()
     {
-        ExpectRed.Until<TaskDescriptorException>(Task, "finding 4: an external event has no label",
-            "'External event' is not a task field", () =>
-        {
-            var text = Desc("Type:      ExternalEvent", "Interval:  10 ms", "Priority:  1", "External event: CanRx",
-                            "Watchdog:  off '' ms (sensitivity 1)");
-            FixedPoint(text);
-            Assert.Null(TaskDescriptorFormat.Read(text).Event);
-        });
+        var text = Desc("Type:      ExternalEvent", "Interval:  10 ms", "Priority:  1", "External event: CanRx",
+                        "Watchdog:  off '' ms (sensitivity 1)");
+        FixedPoint(text);
+        Assert.Null(TaskDescriptorFormat.Read(text).Event);
     }
 
     /// <summary>A disabled watchdog's values are the vendor's (measured kept across a reload, the non-default unit too,
@@ -55,14 +51,11 @@ public class TaskDescriptorMembersTests
     [Fact]
     public void A_disabled_watchdog_keeps_its_values()
     {
-        ExpectRed.Until(Task, "finding 4: a disabled watchdog's values are hidden", () =>
-        {
-            var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off 123 µs (sensitivity 3)");
-            FixedPoint(text);
-            var w = TaskDescriptorFormat.Read(text).Watchdog;
-            Assert.NotNull(w);
-            Assert.Equal(("123", "µs", "3"), (w!.Time, w.Unit, w.Sensitivity));
-        });
+        var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off 123 µs (sensitivity 3)");
+        FixedPoint(text);
+        var w = TaskDescriptorFormat.Read(text).Watchdog;
+        Assert.NotNull(w);
+        Assert.Equal(("123", "µs", "3"), (w!.Time, w.Unit, w.Sensitivity));
     }
 
     /// <summary>An EMPTY vendor member is spelled <c>''</c> — the census's CTP watchdog: time <c>''</c>, unit <c>ms</c>,
@@ -70,14 +63,11 @@ public class TaskDescriptorMembersTests
     [Fact]
     public void An_empty_watchdog_member_is_spelled_as_an_empty_string()
     {
-        ExpectRed.Until(Task, "finding 4: an empty watchdog member has no spelling", () =>
-        {
-            var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)");
-            FixedPoint(text);
-            var w = TaskDescriptorFormat.Read(text).Watchdog;
-            Assert.NotNull(w);
-            Assert.Equal(("", "ms", "1"), (w!.Time, w.Unit, w.Sensitivity));
-        });
+        var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)");
+        FixedPoint(text);
+        var w = TaskDescriptorFormat.Read(text).Watchdog;
+        Assert.NotNull(w);
+        Assert.Equal(("", "ms", "1"), (w!.Time, w.Unit, w.Sensitivity));
     }
 
     /// <summary>The unit is a vendor member of its own and is never dropped after a TIME literal (<c>Unitize</c>'s fold,
@@ -85,14 +75,11 @@ public class TaskDescriptorMembersTests
     [Fact]
     public void A_watchdog_unit_is_spelled_after_a_time_literal_too()
     {
-        ExpectRed.Until(Task, "finding 4: the watchdog unit is dropped after a TIME literal", () =>
-        {
-            var settings = new TaskSettings("Cyclic", "10", "ms", "1", null, new TaskWatchdog("t#4ms", "µs", "1"),
-                                            Array.Empty<string>());
-            var text = TaskDescriptorFormat.Write(settings);
-            Assert.Contains("t#4ms µs (sensitivity 1)", text);
-            Assert.Equal(("t#4ms", "µs"), (TaskDescriptorFormat.Read(text).Watchdog!.Time, TaskDescriptorFormat.Read(text).Watchdog!.Unit));
-        });
+        var settings = new TaskSettings("Cyclic", "10", "ms", "1", null, new TaskWatchdog("t#4ms", "µs", "1"),
+                                        Array.Empty<string>());
+        var text = TaskDescriptorFormat.Write(settings);
+        Assert.Contains("t#4ms µs (sensitivity 1)", text);
+        Assert.Equal(("t#4ms", "µs"), (TaskDescriptorFormat.Read(text).Watchdog!.Time, TaskDescriptorFormat.Read(text).Watchdog!.Unit));
     }
 
     /// <summary>A call's comment (<c>TaskPOUCallObject.Commet</c>, 19 × <c>""</c> in the corpora) is spelled after
@@ -100,13 +87,10 @@ public class TaskDescriptorMembersTests
     [Fact]
     public void A_call_comment_is_spelled_after_the_call()
     {
-        ExpectRed.Until(Task, "finding 4: a call comment has no spelling", () =>
-        {
-            var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)",
-                            "Calls:     PLC_PRG // runs first, Logger");
-            FixedPoint(text);
-            Assert.Equal(new[] { "PLC_PRG", "Logger" }, TaskDescriptorFormat.Read(text).Calls);
-        });
+        var text = Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)",
+                        "Calls:     PLC_PRG // runs first, Logger");
+        FixedPoint(text);
+        Assert.Equal(new[] { "PLC_PRG", "Logger" }, TaskDescriptorFormat.Read(text).Calls);
     }
 
     /// <summary>A task member off the value measured on 13/13 tasks gets a label of its own, stating the vendor value
@@ -121,8 +105,6 @@ public class TaskDescriptorMembersTests
     [InlineData("Synch task: MainTask")]
     public void A_task_member_off_its_measured_value_is_labelled(string line)
     {
-        ExpectRed.Until<TaskDescriptorException>(Task, $"finding 4: '{line.Split(':')[0]}' has no label",
-            $"'{line.Split(':')[0]}' is not a task field", () =>
-            FixedPoint(Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)", line)));
+        FixedPoint(Desc("Type:      Cyclic", "Interval:  10 ms", "Priority:  1", "Watchdog:  off '' ms (sensitivity 1)", line));
     }
 }

@@ -25,94 +25,94 @@ namespace Volt.Engine.Tests;
 public class StFormatRoundTripTests
 {
     private static Member Method(string name, string body = "n := 1;", string? folder = null) =>
-        new(ItemKind.Kinds.Method, name, $"METHOD {name} : INT\nVAR_INPUT\n\td : INT;\nEND_VAR", body, folder);
+        new(ItemKind.Kinds.Method, name, $"METHOD {name} : INT\nVAR_INPUT\n\td : INT;\nEND_VAR", body, ObjectProperties.None, folder);
 
     private static Member Action(string name, string body = "x := 1;", string? folder = null) =>
-        new(ItemKind.Kinds.Action, name, $"ACTION {name}", body, folder);
+        new(ItemKind.Kinds.Action, name, $"ACTION {name}", body, ObjectProperties.None, folder);
 
     private static Member Property(string name, Accessor? get, Accessor? set, string? folder = null) =>
-        new(ItemKind.Kinds.Property, name, $"PROPERTY {name} : INT", null, folder, get, set);
+        new(ItemKind.Kinds.Property, name, $"PROPERTY {name} : INT", null, ObjectProperties.None, folder, get, set);
 
     public static TheoryData<string, ItemContent> Shapes => new()
     {
         { "bare program",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", new(), ObjectProperties.None) },
 
         { "program with no body",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", null, new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", null, new(), ObjectProperties.None) },
 
         { "function block with every member kind",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "x := 0;",
               new() { Method("Go"), Action("Start"),
-                      Property("Speed", new Accessor(null, "Speed := x;"), new Accessor(null, "x := Speed;")) }) },
+                      Property("Speed", new Accessor(null, "Speed := x;"), new Accessor(null, "x := Speed;")) }, ObjectProperties.None) },
 
         { "members in folders",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
-              new() { Method("Go", folder: "Sub/Deep"), Action("Start", folder: "Other") }) },
+              new() { Method("Go", folder: "Sub/Deep"), Action("Start", folder: "Other") }, ObjectProperties.None) },
 
         { "GET-only property",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
-              new() { Property("Ready", new Accessor(null, "Ready := x;"), null) }) },
+              new() { Property("Ready", new Accessor(null, "Ready := x;"), null) }, ObjectProperties.None) },
 
         // The interface case the model change was riskiest for: an accessor that EXISTS and holds no code. It
         // must survive as an accessor, not collapse into "no accessor".
         { "interface with a bodiless property",
           new ItemContent(ItemKind.Kinds.Interface, "INTERFACE ITest", null,
               new() { Method("DoIt", body: ""),
-                      Property("Ready", new Accessor(null, ""), new Accessor(null, "")) }) },
+                      Property("Ready", new Accessor(null, ""), new Accessor(null, "")) }, ObjectProperties.None) },
 
         { "a network-text body",
           new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
-              "IMPLEMENTATION FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new()) },
+              "IMPLEMENTATION FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new(), ObjectProperties.None) },
 
         { "a hidden CFC body",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new(), ObjectProperties.None) },
 
         { "a hidden LD body network text cannot represent",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new(), ObjectProperties.None) },
 
         { "DUT — declaration only",
-          new ItemContent(ItemKind.Kinds.Dut, "TYPE D :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE", null, new()) },
+          new ItemContent(ItemKind.Kinds.Dut, "TYPE D :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE", null, new(), ObjectProperties.None) },
 
         { "GVL — declaration only",
-          new ItemContent(ItemKind.Kinds.Gvl, "VAR_GLOBAL\n\tg : INT;\nEND_VAR", null, new()) },
+          new ItemContent(ItemKind.Kinds.Gvl, "VAR_GLOBAL\n\tg : INT;\nEND_VAR", null, new(), ObjectProperties.None) },
 
         // ── the shapes that LOOK like structure, which is where a regex/state-machine reader earns its keep ──
 
         { "pragma and comment above the header",
           new ItemContent(ItemKind.Kinds.Pou,
-              "{attribute 'no_check'}\n(* what it does *)\nFUNCTION_BLOCK FB\nVAR\nEND_VAR", "", new()) },
+              "{attribute 'no_check'}\n(* what it does *)\nFUNCTION_BLOCK FB\nVAR\nEND_VAR", "", new(), ObjectProperties.None) },
 
         { "EXTENDS and IMPLEMENTS on the header",
           new ItemContent(ItemKind.Kinds.Pou,
-              "FUNCTION_BLOCK FB EXTENDS Base IMPLEMENTS IOne, ITwo\nVAR\nEND_VAR", "", new()) },
+              "FUNCTION_BLOCK FB EXTENDS Base IMPLEMENTS IOne, ITwo\nVAR\nEND_VAR", "", new(), ObjectProperties.None) },
 
         { "a body whose COMMENT contains END_FUNCTION_BLOCK",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR",
-              "(* not really END_FUNCTION_BLOCK here *)\nx := 1;", new()) },
+              "(* not really END_FUNCTION_BLOCK here *)\nx := 1;", new(), ObjectProperties.None) },
 
         { "a body whose STRING contains METHOD",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\ts : STRING;\nEND_VAR",
-              "s := 'METHOD Go';", new()) },
+              "s := 'METHOD Go';", new(), ObjectProperties.None) },
 
         { "accessors that carry their own declaration",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Property("Speed",
                   new Accessor("VAR\n\ttmp : INT;\nEND_VAR", "Speed := x;"),
-                  new Accessor("VAR\n\told : INT;\nEND_VAR", "x := Speed;")) }) },
+                  new Accessor("VAR\n\told : INT;\nEND_VAR", "x := Speed;")) }, ObjectProperties.None) },
 
         { "a property in a folder WITH accessors",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
-              new() { Property("Speed", new Accessor(null, "Speed := x;"), null, folder: "Props/Deep") }) },
+              new() { Property("Speed", new Accessor(null, "Speed := x;"), null, folder: "Props/Deep") }, ObjectProperties.None) },
 
         { "many members, emitted in the canonical order",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Action("Zed"), Method("Alpha"), Property("Yankee", new Accessor(null, "Yankee := x;"), null),
-                      Method("Beta"), Action("Charlie") }) },
+                      Method("Beta"), Action("Charlie") }, ObjectProperties.None) },
 
         { "a multi-line method body with blank lines",
           new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
-              new() { Method("Go", "IF d > 0 THEN\n\n\tGo := d;\n\nEND_IF") }) },
+              new() { Method("Go", "IF d > 0 THEN\n\n\tGo := d;\n\nEND_IF") }, ObjectProperties.None) },
     };
 
     /// <summary>THE LAW. One pass through the pair changes nothing that a second pass would change again.</summary>
@@ -167,7 +167,7 @@ public class StFormatRoundTripTests
         ()
     {
         var content = new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
-            new() { Method("Go", body: "%FOLDER Nope\nx := 1;") });
+            new() { Method("Go", body: "%FOLDER Nope\nx := 1;") }, ObjectProperties.None);
 
         var back = StReader.Read(StWriter.Write(content), content.Kind);
         var member = back.Members.Single(m => m.Name == "Go");
@@ -183,7 +183,7 @@ public class StFormatRoundTripTests
     public void C_a_bodiless_accessor_is_not_an_absent_one()
     {
         var content = new ItemContent(ItemKind.Kinds.Interface, "INTERFACE ITest", null,
-            new() { Property("Ready", new Accessor(null, ""), null) });
+            new() { Property("Ready", new Accessor(null, ""), null) }, ObjectProperties.None);
 
         var back = StReader.Read(StWriter.Write(content), content.Kind);
         var prop = back.Members.Single(m => m.Name == "Ready");

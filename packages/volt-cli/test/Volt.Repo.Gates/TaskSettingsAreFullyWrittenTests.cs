@@ -45,7 +45,7 @@ public class TaskSettingsAreFullyWrittenTests
     private static readonly IReadOnlyDictionary<string, (string File, string Method)[]> WritePaths =
         new Dictionary<string, (string, string)[]>(StringComparer.Ordinal)
         {
-            ["CODESYS"] = new[] { ("src/Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", "public void WriteTask") },
+            ["CODESYS"] = new[] { ("src/Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", "public void WriteTask") },
             ["TwinCAT"] = new[]
             {
                 ("src/Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", "public static string SysTaskPatch"),
@@ -115,6 +115,9 @@ public class TaskSettingsAreFullyWrittenTests
 
     private static string NameOf(string parameter)
     {
+        // A parameter with a default (`string? ExternalEvent = null`) is named before its `=`.
+        var eq = parameter.IndexOf('=');
+        if (eq >= 0) parameter = parameter.Substring(0, eq);
         var tokens = parameter.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
         return tokens.Length == 0 ? "" : tokens[tokens.Length - 1];
     }

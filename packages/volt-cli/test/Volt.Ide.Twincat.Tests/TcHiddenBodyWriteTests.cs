@@ -87,10 +87,10 @@ public class TcHiddenBodyWriteTests
             "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nVAR\nEND_VAR", line,
             new List<Member>
             {
-                new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR", line),
-                new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", null,
+                new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR", line, ObjectProperties.None),
+                new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", null, ObjectProperties.None,
                     Getter: new Accessor("VAR\n\tb : BOOL;\nEND_VAR", line), Setter: null),
-            });
+            }, ObjectProperties.None);
 
         // Bound, as every production write is: each child access passes the C2i guard (TcUntouchablePouTests).
         TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou), content, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());

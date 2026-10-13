@@ -10,7 +10,7 @@
  * untouched. (Section 8's out-of-scope note keeps the NETWORK_* matrix for the LD/FBD change; this is 4.7's own pair.)
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, ensureCompiles, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, cleanup, clearTestInstances, createItem, fetchItem, pushOps, requireHealthy, ensureCompiles, BASE, VENDOR } from "../harness"
 
 setDefaultTimeout(240_000)
 
@@ -36,7 +36,8 @@ async function expectRefusedUntouched(full: string, before: any, r: any, from: s
 
 describe(`graphical / body language change (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy(); await cleanup() })
-	afterAll(async () => { await cleanup() })
+	// the instances `ensureCompiles` declared in the main program go first: one of a deleted POU is a build error for every later file
+	afterAll(async () => { await clearTestInstances(); await cleanup() })
 
 	it("a POU's own body: ST to LD and back", async () => {
 		const name = id("lang_pou")
@@ -91,7 +92,9 @@ END_METHOD
 `
 		await createItem(fid("lang_meth"), st, "")
 		const pulledSt = (await fetchItem(full)).sourceText
-		const fbd = pulledSt.replace(/(METHOD Step : BOOL\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n/,
+		// The ST body's trailing newlines are its own (held verbatim, openspec bridge-one-to-one §1.1); a network body ends
+		// at its END_NETWORK, so the edit replaces them with the network.
+		const fbd = pulledSt.replace(/(METHOD Step : BOOL\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n\n*/,
 		                             "$1IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(fbd, "the edit did not apply").not.toBe(pulledSt)
 
@@ -133,7 +136,7 @@ END_ACTION
 `
 		await createItem(fid("lang_act"), st, "")
 		const pulledSt = (await fetchItem(full)).sourceText
-		const ld = pulledSt.replace(/(ACTION Act\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n/,
+		const ld = pulledSt.replace(/(ACTION Act\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n\n*/,
 		                            "$1IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(ld, "the edit did not apply").not.toBe(pulledSt)
 
@@ -180,8 +183,8 @@ END_PROPERTY
 		await createItem(fid("lang_prop"), st, "")
 		const pulledSt = (await fetchItem(full)).sourceText
 		const ld = pulledSt
-			.replace(/(\nGET\n(?:.*\n)*?)IMPLEMENTATION ST\nReady := a;\n/, "$1IMPLEMENTATION LD\nNETWORK\n  Ready := a;\nEND_NETWORK\n")
-			.replace(/(\nSET\n(?:.*\n)*?)IMPLEMENTATION ST\nq := Ready;\n/, "$1IMPLEMENTATION LD\nNETWORK\n  q := Ready;\nEND_NETWORK\n")
+			.replace(/(\nGET\n(?:.*\n)*?)IMPLEMENTATION ST\nReady := a;\n\n*/, "$1IMPLEMENTATION LD\nNETWORK\n  Ready := a;\nEND_NETWORK\n")
+			.replace(/(\nSET\n(?:.*\n)*?)IMPLEMENTATION ST\nq := Ready;\n\n*/, "$1IMPLEMENTATION LD\nNETWORK\n  q := Ready;\nEND_NETWORK\n")
 		expect((ld.match(/IMPLEMENTATION LD/g) ?? []).length, `the edit did not apply:\n${pulledSt}`).toBe(2)
 
 		const before = await fetchItem(full)

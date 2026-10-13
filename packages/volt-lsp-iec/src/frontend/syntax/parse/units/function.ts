@@ -36,7 +36,7 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
   refuseLateClauses(c)
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_FUNCTION", "function", "pou-or-accessor")
+  const body = collectBodyUntil(c, "END_FUNCTION", "function", "pou")
 
   return {
     kind: "function",

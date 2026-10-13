@@ -57,10 +57,54 @@ internal static class TcTaskSchedule
                 "twincat: the linked system task's XML carries no <TaskDef> — its schedule is unreadable, and " +
                 "rendering a task without one would hash as a task with no priority at all");
 
-        var priority = def.Element("Priority")?.Value.Trim() ?? "";
-        var (interval, unit) = FromTicks(def.Element("CycleTime")?.Value.Trim() ?? "");
-        return new TaskSettings(CyclicType, interval, unit, priority, Event: null, Watchdog: null, Calls: calls);
+        // THE 13 MEASURED MEMBERS, EACH REQUIRED, AND NO OTHER (gate review of step 3, finding 6): a member the document does
+        // not carry was read as its measured value, and a member none of the 13 was ignored — so a TaskDef this driver was
+        // never measured against pulled as the corpus task. Each is refused by name.
+        if (def.Elements().FirstOrDefault(e => !Measured.Contains(e.Name.LocalName)) is { } foreign)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"twincat: the system task's <TaskDef> holds <{foreign.Name.LocalName}> — none of the 13 members Volt measured " +
+                "(watchdog-off-values), so it has no text form and the task is not pulled without it.");
+        string Required(string element) =>
+            def.Element(element)?.Value.Trim()
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"twincat: the system task's <TaskDef> carries no <{element}> — one of the 13 members measured on every " +
+                "task (watchdog-off-values); Volt reads it rather than assume its value, so the task is not pulled.");
+
+        var priority = Required("Priority");
+        Required("AmsPort");   // vendor-assigned (design §1.1): not spelled, but present on every measured task
+        var (interval, unit) = FromTicks(Required("CycleTime"));
+        // EVERY OTHER <TaskDef> MEMBER (openspec bridge-one-to-one §1.1 "Tasks"): a label of its own where it differs
+        // from the value measured on the corpus task (`watchdog-off-values`, TwinCAT `taskdef`). They were hard-coded
+        // away, so a task that does not auto-start pulled like one that does. `AmsPort` is vendor-assigned.
+        var members = new List<TaskMember>();
+        foreach (var (label, element, measured) in TaskDefMembers)
+            if (Required(element) is var value && value != measured)
+                members.Add(new TaskMember(label, value));
+        // TwinCAT HAS NO WATCHDOG MEMBER and no event (C36): the bare `Watchdog: off`, no Event / External event.
+        return new TaskSettings(CyclicType, interval, unit, priority, Event: null, Watchdog: null, Calls: calls,
+                                ExternalEvent: null, CallComments: null, Members: members);
     }
+
+    /// <summary>Every <c>&lt;TaskDef&gt;</c> member measured (<c>watchdog-off-values</c>): the schedule, the vendor-assigned
+    /// port, and <see cref="TaskDefMembers"/>.</summary>
+    private static HashSet<string> Measured =>
+        new(new[] { "Priority", "AmsPort", "CycleTime" }.Concat(TaskDefMembers.Select(m => m.Element)), StringComparer.Ordinal);
+
+    /// <summary>The <c>&lt;TaskDef&gt;</c> members beyond the schedule, each with the label the file spells it under and
+    /// the value measured on the corpus task (design §1.1).</summary>
+    internal static readonly (string Label, string Element, string Measured)[] TaskDefMembers =
+    {
+        (TaskDescriptorFormat.LabelAutoStart, "AutoStart", "true"),
+        (TaskDescriptorFormat.LabelIoAtBegin, "IoAtBegin", "false"),
+        (TaskDescriptorFormat.LabelExceedWarning, "ExceedWarning", "0"),
+        (TaskDescriptorFormat.LabelCreateSymbols, "CreateSymbols", "false"),
+        (TaskDescriptorFormat.LabelExtSync, "ExtSync", "false"),
+        (TaskDescriptorFormat.LabelTickModulo, "TickModulo", "0"),
+        (TaskDescriptorFormat.LabelInputUpdatePreTicks, "InputUpdatePreTicks", "0"),
+        (TaskDescriptorFormat.LabelDisableFpExceptions, "DisableFpExceptions", "false"),
+        (TaskDescriptorFormat.LabelWatchdogStackCapacity, "WatchdogStackCapacity", "0"),
+        (TaskDescriptorFormat.LabelCpuAffinity, "CpuAffinity", "#x0"),
+    };
 
     /// <summary>The `<c>&lt;TaskDef&gt;</c>` patch that applies <paramref name="t"/> to the system task, or throws
     /// <see cref="BridgeException"/> naming the field TwinCAT cannot express.
@@ -80,6 +124,15 @@ internal static class TcTaskSchedule
             throw Refuse(BridgeErrorCodes.Unsupported,
                          "a watchdog — TwinCAT has no per-task watchdog with a time and a sensitivity. " +
                          "Write `Watchdog: off`.");
+        if (!string.IsNullOrEmpty(t.ExternalEvent))
+            throw Refuse(BridgeErrorCodes.Unsupported,
+                         $"`External event: {t.ExternalEvent}` — a TwinCAT PLC task has no event source.");
+        if (t.CallComments?.FirstOrDefault(c => c.Length > 0) is { } comment)
+            throw Refuse(BridgeErrorCodes.Unsupported,
+                         $"a call comment (`// {comment}`) — a TwinCAT task's call (PouCall) holds no comment.");
+        if (t.Members?.FirstOrDefault(m => TaskDefMembers.All(x => x.Label != m.Label)) is { } foreign)
+            throw Refuse(BridgeErrorCodes.BadRequest,
+                         $"`{foreign.Label}:` — no member of a TwinCAT task (a CODESYS task's); remove the line.");
         // THE RANGE TWINCAT HOLDS, refused before the write (openspec bridge-refusal-review 3.9, DIALECT C19c). ConsumeXml
         // refuses no priority: it stores a UINT16 and coerces anything else without a word (-1 -> 65535, 65536 -> 0,
         // 99999999999 -> 59391, 'abc' -> 0, '1.5' -> 1). Passed through XML-escaped, the read-back below would catch it

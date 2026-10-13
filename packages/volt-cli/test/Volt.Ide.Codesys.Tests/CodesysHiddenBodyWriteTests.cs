@@ -74,7 +74,12 @@ namespace Volt.Ide.Codesys.Tests
         public sealed class Pou : IObject, IPOUObject { public Pou(string d, object i) : base(d, i) { } }
         public sealed class Method : IObject, IPOUMethodObject { public Method(string d, object i) : base(d, i) { } }
         public sealed class Property : IObject, IPropertyObject { public Property(string d) : base(d, null) { } }
-        public sealed class AccessorObject : IObject, IPropertyAccessorObject { public AccessorObject(string d, object i) : base(d, i) { } }
+        public sealed class AccessorObject : IObject, IPropertyAccessorObject
+        {
+            public AccessorObject(string d, object i) : base(d, i) { }
+            /// <summary>The archived member that says GET or SET (census §0.1 finding 4) — a GET unless the test makes a SET.</summary>
+            public bool IsGetAccessor { get; init; } = true;
+        }
 
         /// <summary>A project-tree node, as the scripting API hands one out.</summary>
         public sealed class Node
@@ -100,6 +105,9 @@ namespace Volt.Ide.Codesys.Tests
         {
             public Meta(IObject o) => Object = o;
             public IObject Object { get; }
+            /// <summary>The object properties beside the object (<c>IMetaObject.Properties</c>) — every IMetaObject has the
+            /// list; an object with none holds it empty (only the folder's <c>SVFoldersProperty</c>, which the read skips).</summary>
+            public object[] Properties { get; init; } = System.Array.Empty<object>();
         }
 
         /// <summary>The object manager: a read or modify checkout by handle, and the commit that ends one.</summary>
@@ -135,10 +143,10 @@ namespace Volt.Ide.Codesys.Tests
                     "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nVAR\nEND_VAR", line,
                     new List<Member>
                     {
-                        new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR", line),
-                        new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", null,
+                        new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR", line, ObjectProperties.None),
+                        new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", null, ObjectProperties.None,
                             Getter: new Accessor("VAR\n\tb : BOOL;\nEND_VAR", line), Setter: null),
-                    });
+                    }, ObjectProperties.None);
 
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou), content, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 

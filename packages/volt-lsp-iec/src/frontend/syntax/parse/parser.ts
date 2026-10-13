@@ -32,7 +32,8 @@ import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } 
 import { type Dialect } from "../lex/vocabulary.js"
 import { UNIT_STARTERS, type UnitStarter } from "../lex/word-sets.js"
 import { vendorTokenText } from "./errors.js"
-import { readFolderLine, reportMisplacedFolder } from "../format/folder.js"
+import { joinSpans } from "../span.js"
+import { acceptClosingRun, readPropertyRun, reportMisplacedProperty } from "../format/object-properties.js"
 
 /**
  * How a parse reads what the text does not decide.
@@ -83,12 +84,19 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
   const units: TopLevel[] = []
 
   while (!c.atEof()) {
-    // A `%FOLDER` line at file scope: no Volt writes one there (a member's folder stands under its IMPLEMENTATION line
-    // or closes its declaration), and the push reads it as the next item's declaration text and refuses it. Consumed
-    // whole and reported once — left unhandled it would desync the file (the following members mis-parse as strays).
-    const directive = readFolderLine(c)
-    if (directive !== undefined) {
-      reportMisplacedFolder(c, directive)
+    // `%`-lines at file scope: a DUT's or a GVL's properties close its declaration — the last lines of the file
+    // (`StReader.PeelPropertiesClosing`). Anywhere else no Volt writes one, and the push reads it as declaration text
+    // and refuses it. Consumed whole and reported once — left unhandled it would desync the file.
+    const run = readPropertyRun(c)
+    if (run.length > 0) {
+      const owner = units.at(-1)
+      if (owner?.kind === "type_decl" || owner?.kind === "global_var_list") {
+        const read = acceptClosingRun(c, run, [], false, false)
+        if (read !== undefined && read.properties.length > 0) {
+          owner.objectProperties = read.properties
+          owner.span = joinSpans(owner.span, run.at(-1)!.span) // the lines are the unit's: what reprints it replaces them
+        }
+      } else for (const line of run) reportMisplacedProperty(c, line)
       continue
     }
     const unit = parseTopLevel(c)

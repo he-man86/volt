@@ -40,7 +40,92 @@ public sealed partial class BeckhoffDriver
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, ownerIsInterface, declaration));
 
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
+        // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text.
+        var facts = _om.SavedFacts(item.Native, $"'{Name(item)}'");
+        if (ownerIsInterface && facts is not null) RequireMeasuredAccessorDeclarations(Name(item), facts, members);
+
+        // Every text verbatim, trailing newlines included (openspec bridge-one-to-one §1.1, trailing-newline-cache).
+        return new ItemContent(KindOf(item), declaration, body, members, ReadProperties(item, facts), unsupported, stated);
+    }
+
+    /// <summary>What TwinCAT stores as EVERY interface property accessor's declaration — <c>PUBLIC</c> / <c>VAR</c> /
+    /// <c>END_VAR</c> (measured, <c>tc-itf-accessor-decl</c>): a MEASURED CONSTANT of the vendor, which no automation path
+    /// writes or reads (D21), spelled as the empty declaration a CODESYS interface accessor holds (D41).</summary>
+    internal const string MeasuredInterfaceAccessorDeclaration = "PUBLIC\nVAR\nEND_VAR";
+
+    /// <summary>An interface accessor's STORED declaration is read from the saved <c>.TcIO</c> and held to the measured
+    /// constant (design §1.1 interface accessor declaration, gate 1; gate review of step 3, finding 5): any other text is
+    /// refused BY NAME — it used to be read by nothing, so a stored <c>VAR x : INT; END_VAR</c> pulled as the empty
+    /// declaration. An accessor the saved file does not hold is an unsaved edit, and its stored text is unknown: refused by
+    /// name too, with the remedy.</summary>
+    private static void RequireMeasuredAccessorDeclarations(string itf, TcSavedFacts facts, IReadOnlyList<Member> members)
+    {
+        foreach (var m in members)
+        {
+            if (m.Kind != ItemKind.Kinds.InterfaceProperty) continue;
+            facts.InterfaceAccessors.TryGetValue(m.Name, out var stored);
+            Require(m.Name, "GET", m.Getter is not null, stored.Get);
+            Require(m.Name, "SET", m.Setter is not null, stored.Set);
+        }
+
+        void Require(string property, string accessor, bool present, string? declaration)
+        {
+            if (!present) return;
+            var what = $"'{itf}' ({System.IO.Path.GetFileName(facts.File)}): its property '{property}' {accessor}";
+            if (declaration is null)
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
+                    $"{what} is not in the saved file — save the project in the IDE (File > Save All) and pull again: Volt " +
+                    "reads the accessor's stored declaration from that file, since TwinCAT answers it on no other path (D21).");
+            // Both stored forms the vendor was seen to save are the empty declaration the text spells: the measured
+            // constant, and the EMPTY declaration of a vendor-saved file (`fixtures/tc-pou/ITF1.TcIO`, ProductVersion
+            // 3.1.4024.16: `<![CDATA[]]>` under GET and SET) — second review of step 3, finding 3: only the constant was
+            // admitted, so such an interface was refused on pull with no remedy.
+            if (declaration.Length != 0 && declaration != MeasuredInterfaceAccessorDeclaration)
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"{what} stores the declaration '{declaration.Replace("\n", " / ")}' — TwinCAT stores 'PUBLIC / VAR / " +
+                    "END_VAR' on every interface accessor it makes (tc-itf-accessor-decl), a 3.1.4024.16 save stores none " +
+                    "(ITF1.TcIO); Volt spells either as the empty declaration, and no automation path reads or writes " +
+                    "another (D21), so the interface is not pulled rather than pulled without it.");
+        }
+    }
+
+    /// <summary>The object's properties on TwinCAT (openspec bridge-one-to-one §1.1 "TwinCAT and the object-property
+    /// lines"): no measured member for any key, so the record is the measured absence — and an object whose SAVED files
+    /// hold what the text cannot say is refused by name, never read as a plain one: a <c>SpecialFunc</c> other than
+    /// <c>None</c> (the vocabulary is unmeasured, <c>tc-special-classes</c>, DIALECT C2s), an <c>&lt;ObjectProperties&gt;</c>
+    /// archive other than the SFC body's (which travels with its unsupported body), or a <c>.plcproj</c> build entry other
+    /// than <c>SubType</c> (an excluded TwinCAT object never reads as a built one). <paramref name="facts"/> null: the node
+    /// answers no automation XML (<see cref="TcObjectModel.SavedFacts"/>) — the offline doubles' shape.</summary>
+    private ObjectProperties ReadProperties(ItemRef item, TcSavedFacts? facts)
+    {
+        if (facts is null) return ObjectProperties.None;
+        var what = $"'{Name(item)}' ({System.IO.Path.GetFileName(facts.File)})";
+        if (facts.SpecialFunc is { } special && special != "None")
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what} is a TwinCAT special function (SpecialFunc=\"{special}\") — its class has no measured spelling " +
+                "on TwinCAT (tc-special-classes, DIALECT C2s), so it is not pulled as a plain POU.");
+        if (facts.ObjectPropertyClasses.FirstOrDefault(c => c != "SFCProperty") is { } property)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what} holds the object property '{property}' — TwinCAT has no measured member Volt can spell for it, " +
+                "so the object is not pulled without it.");
+        if (_om.CompileEntry(facts.File).FirstOrDefault(e => e != "SubType") is { } entry)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what}: its .plcproj entry holds <{entry}> — a build property TwinCAT has no measured member for in " +
+                "Volt's text (an excluded object must not read as a built one), so the object is not pulled.");
+        return ObjectProperties.None;
+    }
+
+    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>): TwinCAT has no measured
+    /// member for any <c>%</c>-key (design §1.1), so a text carrying one is refused by name — never dropped.</summary>
+    public override void ValidateProperties(string what, ObjectProperties pushed, bool create)
+    {
+        var lines = Volt.Engine.Format.St.PropertyLines.Write(pushed with { Class = null });
+        if (lines.Count == 0) return;
+        var key = lines[0].Split(' ')[0];
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            $"{what}: TwinCAT: no measured member for {key} — Volt writes no object property on TwinCAT (openspec " +
+            "bridge-one-to-one §1.1), so the push is refused rather than the line dropped. Remove the line, or set the " +
+            "property in the IDE.");
     }
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
@@ -310,7 +395,9 @@ public sealed partial class BeckhoffDriver
     private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(item.Native);
-        if (string.IsNullOrWhiteSpace(raw)) return (null, null, null);
+        // Only NO text is no body: a whitespace-only one is stored characters, spelled under `IMPLEMENTATION ST` (openspec
+        // bridge-one-to-one finding 8, task 3.5) — it was read as "no body", and a push then wrote the body empty.
+        if (raw.Length == 0) return (null, null, null);
 
         if (TcArchive.Root(raw) is { } impl)
         {
@@ -373,8 +460,7 @@ public sealed partial class BeckhoffDriver
 
         // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the language is
         // known, rather than read back from the file as the language it states.
-        var body = raw.TrimEnd('\n');
-        return body.Length == 0 ? (null, null, null) : (ImplementationMarker.RequireStBody(body), null, StatedLanguage.St);
+        return (ImplementationMarker.RequireStBody(raw), null, StatedLanguage.St);   // verbatim
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -654,12 +740,14 @@ public sealed partial class BeckhoffDriver
         }
 
         var (body, unsupported, stated) = ReadBody(site.Ref, scope);
-        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported, Stated: stated);
+        // A member's saved facts live in its owner's file, which the owner's read refuses on (ReadProperties).
+        return new Member(kind, site.Name, declaration, body, ObjectProperties.None, site.Folder, getter, setter,
+                          Unsupported: unsupported, Stated: stated);
     }
 
     private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
     {
-        var declaration = AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native));
+        var declaration = _om.ReadDeclaration(acc.Native);   // verbatim
         var (body, unsupported, stated) = ReadBody(acc, SourceScopes.Scope(declaration, propertyScope));
         return new Accessor(declaration, body, unsupported, stated);
     }
@@ -694,7 +782,7 @@ public sealed partial class BeckhoffDriver
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
                 "transport gap");
-        return decl.TrimEnd('\n');
+        return decl;   // verbatim (bridge-one-to-one §1.1, every character)
     }
 
 
@@ -808,33 +896,60 @@ public sealed partial class BeckhoffDriver
         // Assembling it means reading the linked system task too — see TcTaskSchedule.
         if (kind == ItemKind.Kinds.Task) return TaskDescriptorFormat.Write(_om.ReadTask(item.Native));
 
-        var sb = new StringBuilder();
-        sb.Append("Name=").Append(name).Append('\n');
-        return sb.ToString();
+        // ONE STUB FORM ON BOTH VENDORS (openspec bridge-one-to-one §1.1 "Non-source items and stubs", wire parity 2.3): a
+        // kind with no descriptor reader is `ItemKind.EmptyManifest` — the kind and a newline — as on CODESYS. This wrote
+        // `Name=<name>`, so the same visualization hashed differently per vendor; the name is the file's.
+        return ItemKind.EmptyManifest(kind);
     }
 
     /// <summary>Map a library ref's item-metadata XML to the canonical <see cref="LibraryManifest"/> — namespace,
     /// concrete resolution (from EffectiveResolution), placeholder flag, and direct dependencies (a ref's
     /// &lt;Dependencies&gt;). TwinCAT exposes no system-library flag on a reference, so SYSTEM is false.</summary>
+    /// <summary>A reference's manifest, every member READ (openspec bridge-one-to-one finding 7/8, task 3.3): the namespace
+    /// was defaulted to the name and the resolution to <c>""</c>, and <c>SYSTEM false</c> was hard-coded — TwinCAT has no
+    /// system member on a reference (<c>tc-library-system</c>, DIALECT C37), so the line is absent, as on a CODESYS
+    /// non-system reference. A member the document lacks refuses the reference by name.</summary>
     private static string LibraryManifestFromXml(string xml)
     {
         var root = XDocument.Parse(xml).Root!;
-        string Name(string tag) => root.Descendants(tag).FirstOrDefault()?.Value ?? "";
+        string Required(XElement? e, string what) =>
+            e?.Value ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"twincat: the library reference's XML has no <{what}> — Volt reads it rather than assume it, so the " +
+                "reference is not materialized.");
 
-        var name = Name("ItemName");
-        var ns = root.Descendants("Namespace").FirstOrDefault()?.Value ?? name; // the reference's own namespace
-        var placeholder = Name("ItemSubTypeName").Contains("PLACEHOLDER");
+        var name = Required(root.Element("ItemName"), "ItemName");
+        var reference = root.Descendants("PlaceholderReference").FirstOrDefault();
+        var ns = Required((reference ?? root).Descendants("Namespace").FirstOrDefault(), "Namespace");
+        var placeholder = Required(root.Element("ItemSubTypeName"), "ItemSubTypeName").Contains("PLACEHOLDER");
         // The reference's OWN EffectiveResolution is the first (a dependency's is nested under Dependencies).
         var eff = root.Descendants("EffectiveResolution").FirstOrDefault();
         var resolution = eff != null
-            ? LibraryManifest.Resolution(eff.Element("LibraryName")?.Value ?? "", eff.Element("Version")?.Value ?? "", eff.Element("Distributor")?.Value ?? "")
-            : root.Descendants("DefaultResolution").FirstOrDefault()?.Value ?? name;
+            ? LibraryManifest.Resolution(Required(eff.Element("LibraryName"), "EffectiveResolution/LibraryName"),
+                                         Required(eff.Element("Version"), "EffectiveResolution/Version"),
+                                         Required(eff.Element("Distributor"), "EffectiveResolution/Distributor"))
+            : Required(root.Descendants("DefaultResolution").FirstOrDefault(), "EffectiveResolution or DefaultResolution");
         // Direct dependencies, by name — the tree captured as a reference (matches CODESYS's DEPENDENCIES).
         var deps = root.Descendants("Dependency")
             .Select(d => d.Element("PlaceholderName")?.Value ?? d.Element("EffectiveResolution")?.Element("LibraryName")?.Value)
             .Where(s => !string.IsNullOrEmpty(s)).Select(s => s!).ToList();
 
-        return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps);
+        // The reference's VSProperties measured `False` on every fixture reference (tc-library-system): which CODESYS
+        // member each one is was never measured, so another value has no line and refuses the reference by name.
+        foreach (var p in root.Element("VSProperties")?.Elements("VSProperty") ?? Enumerable.Empty<XElement>())
+            if ((string?)p.Element("Name") is "HideReference" or "PublishAll" or "QualifiedlAccessOnly" or "Optional"
+                && (string?)p.Element("Value") is { } v && v != "False")
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"twincat: the library reference '{name}' has {(string?)p.Element("Name")} = {v} — measured False on " +
+                    "every fixture reference, it has no line in the manifest (niche, accepted loss), so the reference is " +
+                    "not materialized.");
+
+        // Its own parameter list (Tc2_System's six `PARAM.*`), spelled one line each — a dependency's is not its own.
+        var parameters = (root.Descendants("ParameterList").FirstOrDefault(l => !l.Ancestors("Dependency").Any())?.Elements("Parameter")
+                       ?? Enumerable.Empty<XElement>())
+            .Select(p => (Required(p.Element("Name"), "Parameter/Name"), Required(p.Element("Value"), "Parameter/Value")))
+            .ToList();
+
+        return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps, parameters: parameters);
     }
 
     /// <summary>The first <c>&lt;tag&gt;</c>'s text in an item's metadata XML, or null when absent or blank.

@@ -54,11 +54,11 @@ public class TcAbstractMemberSlotTests
         TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR", null, new List<Member>
             {
-                new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine,
+                new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine, ObjectProperties.None,
                     Stated: StatedLanguage.None),
-                new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null,
+                new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null, ObjectProperties.None,
                     Getter: new Accessor("VAR\nEND_VAR", ImplementationMarker.NoneLine, Stated: StatedLanguage.None)),
-            }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+            }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
         Assert.Equal("", method.ImplementationText);
         Assert.Equal("", getter.ImplementationText);
@@ -78,9 +78,9 @@ public class TcAbstractMemberSlotTests
         TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB", null, new List<Member>
             {
-                new(ItemKind.Kinds.Method, "Run", "METHOD Run : BOOL\n// edited", null),
-                new(ItemKind.Kinds.Property, "Busy", "PROPERTY Busy : BOOL", null, Getter: new Accessor("VAR\n// edited\nEND_VAR", null)),
-            }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                new(ItemKind.Kinds.Method, "Run", "METHOD Run : BOOL\n// edited", null, ObjectProperties.None),
+                new(ItemKind.Kinds.Property, "Busy", "PROPERTY Busy : BOOL", null, ObjectProperties.None, Getter: new Accessor("VAR\n// edited\nEND_VAR", null)),
+            }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
         Assert.Equal("Run := TRUE;", method.ImplementationText);
         Assert.Equal(0, method.ImplementationWrites);

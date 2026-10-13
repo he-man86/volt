@@ -42,8 +42,12 @@ public sealed partial class CodesysDriver
         // The body's language travels as the FACT this read took it from (the aspect class and its view mode), beside
         // the text that spells it — the push's guard compares the fact and reads no text (openspec
         // bridge-refusal-review D6). ReadBody makes both from the one aspect, so they cannot disagree.
-        return new ItemContent(kind, declaration.TrimEnd('\n'), body, members, unsupported, stated);
+        return new ItemContent(kind, declaration, body, members,   // verbatim (bridge-one-to-one §1.1, every character)
+                               _om.ReadProperties(item.Native, iobj ?? throw NoObject(item), $"'{Name(item)}'"), unsupported, stated);
     }
+
+    private InvalidOperationException NoObject(ItemRef item) =>
+        new($"CODESYS: the object of '{Name(item)}' could not be obtained to read its properties");
 
     public void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)
     {
@@ -55,6 +59,23 @@ public sealed partial class CodesysDriver
             if (m.Kind != ItemKind.Kinds.InterfaceProperty) continue;
             if (m.Getter is { } get) ValidateInterfaceAccessor(get);
             if (m.Setter is { } set) ValidateInterfaceAccessor(set);
+        }
+
+        // THE OBJECT PROPERTIES THIS WRITE CANNOT MAKE are refused before anything is written — the item's and every
+        // member's (openspec bridge-one-to-one §3): what each object holds is read once here, and the same reading decides
+        // the property write after the text (`WriteProperties`), so an unchanged object is never checked out for them.
+        var heldItem = HeldProperties(item.Native, $"'{Name(item)}'");
+        _om.RefuseUnwritablePropertyChange(heldItem, content.Properties, $"'{Name(item)}'");
+        var memberSites = content.Members.Count == 0 ? new Dictionary<string, ItemRef>(StringComparer.OrdinalIgnoreCase)
+            : Volt.Engine.Ide.MemberSites.Of(this, item).GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Ref, StringComparer.OrdinalIgnoreCase);
+        var heldMembers = new Dictionary<string, ObjectProperties>(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in content.Members)
+        {
+            if (!memberSites.TryGetValue(m.Name, out var site)) continue;   // WriteMembers refuses it by name
+            var what = $"{m.Kind.Replace('_', ' ')} '{m.Name}'";
+            heldMembers[m.Name] = HeldProperties(site.Native, what);
+            _om.RefuseUnwritablePropertyChange(heldMembers[m.Name], m.Properties, what);
         }
 
         // A graphical body arrives as the MODEL the push pre-flight validated, with the scope it was read against
@@ -87,14 +108,50 @@ public sealed partial class CodesysDriver
             WriteGraph(item.Native, graph.Model, graph.Scope, aspect);
         }
 
-        WriteMembers(item, content.Members, bodies);
+        _om.WriteProperties(item.Native, heldItem, content.Properties, $"'{Name(item)}'");
+        WriteMembers(item, content.Members, bodies, heldMembers);
     }
+
+    /// <summary>What an object holds of its properties, read for a write (openspec bridge-one-to-one §3).</summary>
+    private ObjectProperties HeldProperties(object node, string what) =>
+        _om.ReadProperties(node, _om.ReadObject(node)
+                                 ?? throw new InvalidOperationException($"CODESYS: the object of {what} could not be obtained"), what);
 
     /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): a BODY,
     /// which a CODESYS interface accessor has no Implementation aspect to hold (DIALECT D41). Its declaration is written.
     /// (The ST reader takes an interface accessor's whole text as its declaration — it has no boundary line — so a push
     /// never carries a body here; this keeps the driver's own write from taking one handed to it directly.)</summary>
     public override void ValidateInterfaceAccessor(Accessor pushed) => InterfaceAccessorGuard.RefuseBody(pushed.Body);
+
+    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>) for a CREATE: a list that
+    /// sends network variables (<c>%NETVAR</c> without <c>%CLASS NVL</c>) and a parameter list (<c>%PARAMETER_LIST</c>) are
+    /// made by their factories (<c>create-each-class</c>), but a sender's settings have no measured write and the push
+    /// does not hand the parameter-list factory to the create — so such a create is refused by name, as a create (gate
+    /// review of step 3, finding 7c: it made a plain GVL, refused the write as "a %NETVAR change" and rolled back). Niche:
+    /// accepted loss — 1 sender and 0 parameter lists in the corpora. An update is the write's to judge
+    /// (<c>CodesysObjectModel.RefuseUnwritablePropertyChange</c>).</summary>
+    public override void ValidateProperties(string what, ObjectProperties pushed, bool create)
+    {
+        if (!create) return;
+        // The two classes `CreateClass` cannot make are refused HERE, before any write (second review of step 3, finding
+        // 5): decidable from the text, and refused only from the apply loop they came after the batch's earlier ops had
+        // landed. `CreateClass` keeps its refusal for a create the pre-flight could not tell apart from an update.
+        if (pushed.Class?.Word is ObjectClass.Persistent or ObjectClass.Nvl)
+            throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what}: a create carrying %CLASS {pushed.Class.Word} is not made — " +
+                (pushed.Class.Word == ObjectClass.Persistent
+                    ? "a persistent list's factory is measured, but its dymmattributecount is not: the completeness oracle has " +
+                      "not reproduced a re-created list"
+                    : "CODESYS creates a network variable list only through its wizard (create-each-class, DIALECT C2r)") +
+                " (openspec bridge-one-to-one §1.1). Create it in the IDE and pull; an update of an existing one is written.");
+        string? key = pushed.ParameterList ? "%PARAMETER_LIST"
+            : pushed.NetVar.Count > 0 && pushed.Class?.Word != ObjectClass.Nvl ? "%NETVAR" : null;
+        if (key is null) return;
+        throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+            $"{what}: a create carrying {key} is not made — CODESYS makes such a list through its own factory, and Volt " +
+            "has no measured write for what the line states (openspec bridge-one-to-one §1.1; niche: accepted loss, " +
+            $"{(key == "%NETVAR" ? 1 : 0)} occurrence(s) in the corpora). Create the list in the IDE and pull.");
+    }
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -115,8 +172,10 @@ public sealed partial class CodesysDriver
     /// ends a body with its own separator before <c>END_&lt;KIND&gt;</c>, so a body that ends in three blank
     /// lines cannot round-trip whatever this does. Dropping them here is the honest place to lose them.
     /// Trailing SPACES on the last real line are kept — those are text.</para></summary>
+    // A WHITESPACE-ONLY body is stored characters and is spelled (openspec bridge-one-to-one finding 8, task 3.5):
+    // it was read as "no body", so a push wrote it back empty. Only no text at all is no body.
     private static string? BodyText(string raw) =>
-        raw.TrimEnd('\n') is { } text && text.Trim().Length == 0 ? null : raw.TrimEnd('\n');
+        raw.Length > 0 ? raw : null;   // verbatim, trailing newlines included (bridge-one-to-one, trailing-newline-cache)
 
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
@@ -158,6 +217,9 @@ public sealed partial class CodesysDriver
                 "shape Volt has not measured (another or unpinned vendor assembly), so it is stated neither as an empty " +
                 "body nor as a member with no body slot.");
         }
+
+        // The aspect's measured constant (design §1.1; gate review of step 3, finding 2), on whichever aspect archives it.
+        CodesysObjectModel.RequireMeasuredBodyConstants(impl, bodySite ?? "the body");
 
         switch (impl.GetType().Name)
         {
@@ -276,7 +338,10 @@ public sealed partial class CodesysDriver
             }
         }
 
-        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported,
+        var props = _om.ReadProperties(site.Ref.Native,
+            iobj ?? throw new InvalidOperationException($"CODESYS: the object of member '{site.Name}' could not be obtained"),
+            $"{kind.Replace('_', ' ')} '{site.Name}'");
+        return new Member(kind, site.Name, declaration, body, props, site.Folder, getter, setter, Unsupported: unsupported,
                           Stated: stated);
     }
 
@@ -294,7 +359,7 @@ public sealed partial class CodesysDriver
     private Accessor ReadAccessor(ItemRef acc, string? propertyScope, string? bodySite)
     {
         var iobj = _om.ReadObject(acc.Native);
-        var declaration = AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface"));
+        var declaration = CodesysObjectModel.ReadAspectText(iobj, "Interface");   // verbatim
         var (body, unsupported, stated) = ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope), bodySite);
         return new Accessor(declaration, body, unsupported, stated);
     }
@@ -314,7 +379,7 @@ public sealed partial class CodesysDriver
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
                 "transport gap");
-        return decl.TrimEnd('\n');
+        return decl;   // verbatim (bridge-one-to-one §1.1, every character)
     }
 
     private string ReadDeclarationText(ItemRef item) =>
@@ -426,7 +491,8 @@ public sealed partial class CodesysDriver
     // ── member write ──────────────────────────────────────────────────────────────────────────────
 
 
-    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, IReadOnlyList<PushedNetworkBody> bodies)
+    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, IReadOnlyList<PushedNetworkBody> bodies,
+                              IReadOnlyDictionary<string, ObjectProperties> heldProperties)
     {
         if (members.Count == 0) return;
 
@@ -468,6 +534,7 @@ public sealed partial class CodesysDriver
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
                 WriteGraph(target.Native, graph.Model, graph.Scope, aspect);
             }
+            _om.WriteProperties(target.Native, heldProperties[m.Name], m.Properties, $"{m.Kind.Replace('_', ' ')} '{m.Name}'");
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
             // interface-ness is carried SEPARATELY, as a flag off the owner.

@@ -18,9 +18,9 @@ public static class Materializer
         {
             var build = BuildSource(ide, item, kind);
             RefuseMemberOfAnotherClass(name, build);
+            RefuseHeaderless(name, build);
             var text = StWriter.Write(build);
             RefuseUnreadableBack(name, build, text);
-            LogEndLineFallback(name, build);
             return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind),
@@ -88,14 +88,13 @@ public static class Materializer
         }
     }
 
-    /// <summary>Count the ONE END-line fallback (<see cref="StWriter.FallbackPouHeader"/>): a POU whose declaration
-    /// opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION was closed with <c>END_FUNCTION_BLOCK</c>. Logged per item,
-    /// so the fallback is never silent; it fires for no POU a vendor compiles.</summary>
-    private static void LogEndLineFallback(string name, ItemContent content)
+    /// <summary>A POU whose declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION has no END line to mirror
+    /// (<see cref="StWriter.NoHeader"/>) and is refused BY NAME — it used to close with an invented
+    /// <c>END_FUNCTION_BLOCK</c> (openspec <c>bridge-one-to-one</c> task 3.5).</summary>
+    private static void RefuseHeaderless(string name, ItemContent content)
     {
-        if (content.Kind != ItemKind.Kinds.Pou || StReader.PouHeaderKeyword(content.Declaration) is not null) return;
-        VoltLog.Info($"pull: '{name}' — its declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION, so its file " +
-                     $"closes with the fallback END_{StWriter.FallbackPouHeader} (counted fallback, push-without-header-check 5.Q.3)");
+        if (content.Kind == ItemKind.Kinds.Pou && StReader.PouHeaderKeyword(content.Declaration) is null)
+            throw StWriter.NoHeader(name);
     }
 
     /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with its reason —

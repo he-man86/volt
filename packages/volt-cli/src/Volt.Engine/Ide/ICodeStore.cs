@@ -150,6 +150,16 @@ public interface ICodeStore
     /// disagree.</summary>
     void ValidateTask(TaskSettings settings);
 
+    /// <summary>Refuse — by throwing, naming the object and the key — object properties (<c>%</c>-lines, openspec
+    /// <c>bridge-one-to-one</c> §1.2) this vendor has no measured member for, or do nothing. Asked by the push PRE-FLIGHT
+    /// for the item and every member the text carries, before the first write: TwinCAT has no measured member for any key
+    /// (design §1.1 "TwinCAT and the object-property lines"), so a CODESYS text pushed to a TwinCAT binding cannot lose
+    /// its exclude-from-build silently. <paramref name="what"/> names the object. The class is not asked here: a class
+    /// change is the push's refusal, a class create the driver's <c>CreateChild</c>. <paramref name="create"/>: the
+    /// object does not exist yet — a property the vendor's write cannot carry is refused AS A CREATE there (CODESYS: a
+    /// sender's network-variable settings and the parameter-list flag), never made plain and then refused as a change.</summary>
+    void ValidateProperties(string what, ObjectProperties pushed, bool create);
+
     /// <summary>Why the IDE cannot change an EXISTING body's language in place — from <paramref name="from"/> to
     /// <paramref name="to"/>, ST ⇄ LD/FBD — at a body of <paramref name="site"/>: the item's own body (its kind,
     /// <c>pou</c>), a member's (<c>method</c>, <c>action</c>), or a property accessor's (<c>property_get</c> /

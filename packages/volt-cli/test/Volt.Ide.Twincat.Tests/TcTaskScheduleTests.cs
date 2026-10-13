@@ -37,8 +37,7 @@ public class TcTaskScheduleTests
     private const string SysTaskXml =
         "<?xml version=\"1.0\"?><TreeItem><ItemName>PlcTask</ItemName><PathName>TIRT^PlcTask</PathName>" +
         "<ItemType>1</ItemType><ObjectId>#x02010030</ObjectId>" +
-        "<TaskDef><Priority>20</Priority><AmsPort>350</AmsPort><CycleTime>100000</CycleTime>" +
-        "<AutoStart>true</AutoStart><ExceedWarning>0</ExceedWarning></TaskDef>" +
+        "<TaskDef><Priority>20</Priority><AmsPort>350</AmsPort><CycleTime>100000</CycleTime>" + MeasuredTaskDefRest + "</TaskDef>" +
         "<TcModuleInstance><Module><Name>ADT</Name><Contexts><Context><Id>1</Id><Name>PlcTask</Name>" +
         "<Priority>20</Priority><CycleTime>10000000</CycleTime></Context></Contexts></Module></TcModuleInstance>" +
         "</TreeItem>";
@@ -49,8 +48,37 @@ public class TcTaskScheduleTests
         "<ItemSubTypeName>TREEITEMTYPE_PLCTASK</ItemSubTypeName>" +
         "<PlcTaskDef><LinkedTask>TIRT^PlcTask</LinkedTask></PlcTaskDef><VSProperties /></TreeItem>";
 
+    /// <summary>The ten <c>TaskDef</c> members after the schedule, each at the value measured on the corpus task — the
+    /// document has all 13 members (<c>watchdog-off-values</c>, <c>scripts/vendor-facts.twincat.json</c> <c>taskdef</c>):
+    /// <c>Priority</c>, <c>AmsPort</c>, <c>CycleTime</c> and these.</summary>
+    internal const string MeasuredTaskDefRest =
+        "<AutoStart>true</AutoStart><IoAtBegin>false</IoAtBegin><ExceedWarning>0</ExceedWarning>" +
+        "<CreateSymbols>false</CreateSymbols><ExtSync>false</ExtSync><TickModulo>0</TickModulo>" +
+        "<InputUpdatePreTicks>0</InputUpdatePreTicks><DisableFpExceptions>false</DisableFpExceptions>" +
+        "<WatchdogStackCapacity>0</WatchdogStackCapacity><CpuAffinity>#x0</CpuAffinity>";
+
     private static string Xml(string priority, string cycleTicks) =>
-        $"<TreeItem><TaskDef><Priority>{priority}</Priority><CycleTime>{cycleTicks}</CycleTime></TaskDef></TreeItem>";
+        $"<TreeItem><TaskDef><Priority>{priority}</Priority><AmsPort>350</AmsPort><CycleTime>{cycleTicks}</CycleTime>" +
+        MeasuredTaskDefRest + "</TaskDef></TreeItem>";
+
+    /// <summary>A <c>TaskDef</c> member the document does not carry is REFUSED BY NAME, never read as its measured value
+    /// (gate review of step 3, finding 6): a TwinCAT that answered no <c>AutoStart</c> pulled as one that auto-starts.</summary>
+    [Fact]
+    public void A_taskdef_without_a_measured_member_is_refused_by_name()
+    {
+        var ex = Assert.ThrowsAny<Exception>(() =>
+            TcTaskSchedule.Read(SysTaskXml.Replace("<AutoStart>true</AutoStart>", ""), Array.Empty<string>()));
+        Assert.Contains("AutoStart", ex.Message);
+    }
+
+    /// <summary>…and a member none of the 13 measured ones is refused by name, never ignored.</summary>
+    [Fact]
+    public void A_taskdef_member_that_was_never_measured_is_refused_by_name()
+    {
+        var ex = Assert.ThrowsAny<Exception>(() =>
+            TcTaskSchedule.Read(SysTaskXml.Replace("</TaskDef>", "<Affinity2>1</Affinity2></TaskDef>"), Array.Empty<string>()));
+        Assert.Contains("Affinity2", ex.Message);
+    }
 
     [Fact]
     public void The_linked_system_task_is_read_off_the_plc_item()

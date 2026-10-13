@@ -85,7 +85,7 @@ public class PushValidatesOnceTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd));
         var item = ItemLookup.Find(ide, "FB_N");
         var ex = Assert.Throws<InvalidOperationException>(() => ide.WriteContent(item!.Value,
-            new ItemContent(ItemKind.Kinds.Pou, Decl, FbdEdited, new List<Member>(), Stated: StatedLanguage.Shown("FBD")),
+            new ItemContent(ItemKind.Kinds.Pou, Decl, FbdEdited, new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("FBD")),
             Array.Empty<PushedNetworkBody>()));
         Assert.Contains("the item", ex.Message);
         Assert.Contains("no validated model", ex.Message);
@@ -98,10 +98,10 @@ public class PushValidatesOnceTests
     {
         var content = new ItemContent(ItemKind.Kinds.Pou, Decl, "q := a;", new List<Member>
         {
-            new(ItemKind.Kinds.Method, "M", "METHOD M : BOOL", "IMPLEMENTATION LD\nNETWORK\n  M := TRUE;\nEND_NETWORK"),
-            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "",
+            new(ItemKind.Kinds.Method, "M", "METHOD M : BOOL", "IMPLEMENTATION LD\nNETWORK\n  M := TRUE;\nEND_NETWORK", ObjectProperties.None),
+            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
                 Getter: new Accessor("", "IMPLEMENTATION FBD\nNETWORK\n  P := TRUE;\nEND_NETWORK")),
-        });
+        }, ObjectProperties.None);
         var asked = new List<string?>();
         var bodies = SourceScopes.Validated(content, d => { asked.Add(d); return Volt.Engine.Format.Network.NetworkScope.Empty; });
 

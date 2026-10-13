@@ -91,4 +91,10 @@ test("lowering binds every positional argument as resolveCallee does", () => {
   expect(unread).toEqual([])
   expect(other).toEqual([])
   expect(counts.fixtures).toBeGreaterThan(3000)
-})
+  // A BUDGET PROPORTIONAL TO THE WORK, as `map.test.ts` and `source-map.test.ts` have: this ran on bun's 5s default, a
+  // default and not a decision, and lowers every fixture. Measured 2026-10-13 over 5850 fixtures (3626 lowered): ~5.0s
+  // alone — lowering 2.6s, assembling 0.8s, parse 0.3s, bind 0.3s, unbind 0.2s, the rest the comparison — so it failed as
+  // a timeout under full-suite load (5.1s, 5.7s), reading as a hang rather than as "there are more fixtures now".
+  // Checked for the quadratic first: each phase is linear (assembling ~0.13ms and lowering ~0.44ms per fixture). 3ms a
+  // fixture is ~3x the measured cost, so a real hang still fails.
+}, Math.max(30_000, ALL_TESTS.length * 3))

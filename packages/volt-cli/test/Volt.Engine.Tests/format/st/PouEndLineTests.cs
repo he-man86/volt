@@ -17,13 +17,15 @@ namespace Volt.Engine.Tests;
 /// line from, and the owner keeps the line: it is the boundary between the POU and its members. The writer reads the
 /// declaration's own header keyword in the reader's view (a never-closed <c>(*</c> opens nothing, then every comment,
 /// string and pragma is trivia) and closes with its END: <c>PROGRAM</c> → <c>END_PROGRAM</c>, <c>FUNCTION_BLOCK</c> →
-/// <c>END_FUNCTION_BLOCK</c>, <c>FUNCTION</c> → <c>END_FUNCTION</c>. A header that names none of them closes with the ONE
-/// documented fallback, <c>END_FUNCTION_BLOCK</c> (design 5.Qa, F1) — counted: the pull logs it per item.</para>
+/// <c>END_FUNCTION_BLOCK</c>, <c>FUNCTION</c> → <c>END_FUNCTION</c>. A header that names none of them is REFUSED BY NAME
+/// (openspec <c>bridge-one-to-one</c> finding 8, task 3.5): it used to close with the one documented fallback,
+/// <c>END_FUNCTION_BLOCK</c> (design 5.Qa, F1) — a line the IDE does not hold, invented by Volt. 0 of 16,990 corpus POUs
+/// meet it.</para>
 /// </summary>
 public class PouEndLineTests
 {
     private static string Written(string declaration) =>
-        StWriter.Write(new ItemContent(ItemKind.Kinds.Pou, declaration, "x := 1;", new List<Member>()));
+        StWriter.Write(new ItemContent(ItemKind.Kinds.Pou, declaration, "x := 1;", new List<Member>(), ObjectProperties.None));
 
     private static string EndLineOf(string written) =>
         written.Replace("\r\n", "\n").TrimEnd('\n').Split('\n').Last();
@@ -88,54 +90,43 @@ public class PouEndLineTests
         { "VAR before any header", "VAR\n\tx : INT;\nEND_VAR" },
     };
 
-    /// <summary>THE ONE FALLBACK: a header that names none of the three closes with <c>END_FUNCTION_BLOCK</c> — the
-    /// create seed's own END line and the shape that takes every member kind — and the file still reads back.</summary>
+    /// <summary>NO FALLBACK: a header that names none of the three has no END line the text can mirror, and Volt
+    /// invents none (bridge-one-to-one task 3.5) — the writer refuses it, naming what is missing.</summary>
     [Theory]
     [MemberData(nameof(Fallback))]
-    public void A_header_naming_no_POU_keyword_closes_with_the_fallback(string _, string declaration)
+    public void A_header_naming_no_POU_keyword_is_refused(string _, string declaration)
     {
         Assert.Null(StReader.PouHeaderKeyword(declaration));
-        Assert.Equal("END_" + StWriter.FallbackPouHeader, EndLineOf(Written(declaration)));
-        Assert.Equal("END_FUNCTION_BLOCK", "END_" + StWriter.FallbackPouHeader);
+        var ex = Assert.Throws<BridgeException>(() => Written(declaration));
+        Assert.Contains("PROGRAM / FUNCTION_BLOCK / FUNCTION", ex.Message);
     }
 
-    /// <summary>The fallback is COUNTED: the pull names every item it fires for in the log, and logs nothing for a POU
-    /// whose header names its kind.</summary>
+    /// <summary>The pull refuses each such POU BY NAME, and pulls a POU whose header names its kind as usual.</summary>
     [Fact]
-    public void The_pull_logs_each_fallback_by_item_name()
+    public void The_pull_refuses_each_headerless_pou_by_name()
     {
         var ide = new FakeIde(
             new FakeIde.Item("Prose", ItemKind.PlcPou, "", true, "This POU still has to be written", "", null, null),
             new FakeIde.Item("Fine", ItemKind.PlcPou, "", true, "PROGRAM Fine\nVAR\nEND_VAR", "", null, null));
-        var dir = Path.Combine(Path.GetTempPath(), "volt-log-test-" + Guid.NewGuid().ToString("N"));
-        VoltLog.Init("codesys", dir);
-        try
-        {
-            var prose = Materializer.Materialize(ide, "Prose", ItemKind.Kinds.Pou, new ItemRef("Prose"));
-            var fine = Materializer.Materialize(ide, "Fine", ItemKind.Kinds.Pou, new ItemRef("Fine"));
-            var log = string.Concat(Directory.GetFiles(dir, "codesys-*.log").Select(File.ReadAllText));
 
-            Assert.Equal("Prose.pou", prose.FullName);
-            Assert.Equal("END_FUNCTION_BLOCK", EndLineOf(prose.Text));
-            Assert.Equal("END_PROGRAM", EndLineOf(fine.Text));
-            Assert.Contains("pull: 'Prose'", log);
-            Assert.Contains("fallback END_FUNCTION_BLOCK", log);
-            Assert.DoesNotContain("'Fine'", log);
-        }
-        finally { try { Directory.Delete(dir, true); } catch { } }
+        var ex = Assert.Throws<BridgeException>(() => Materializer.Materialize(ide, "Prose", ItemKind.Kinds.Pou, new ItemRef("Prose")));
+        Assert.Contains("'Prose'", ex.Message);
+        var fine = Materializer.Materialize(ide, "Fine", ItemKind.Kinds.Pou, new ItemRef("Fine"));
+        Assert.Equal("END_PROGRAM", EndLineOf(fine.Text));
     }
 
-    /// <summary>A POU WHOSE TEXT DECLARES NOTHING PULLS AS <c>X.pou</c>, never unreadable (5.Q.2): its kind is its
-    /// class, so a broken text names no other kind and needs no <c>--force</c>.</summary>
+    /// <summary>A POU WHOSE TEXT DECLARES NOTHING is never published as another kind (5.Q.2: its kind is its class) —
+    /// and, with no END line to mirror, it is listed UNREADABLE by name (bridge-one-to-one task 3.5; it pulled under an
+    /// invented END_FUNCTION_BLOCK), the rest of the project unaffected.</summary>
     [Fact]
-    public void A_pou_whose_text_declares_nothing_pulls_as_pou()
+    public void A_pou_whose_text_declares_nothing_is_unreadable_by_name()
     {
         var ide = new FakeIde(new FakeIde.Item("Broken", ItemKind.PlcPou, "", true,
             "(* Motor\n *\nVAR\n\tn : INT;\nEND_VAR", "n := n + 1;", null, null));
 
         var refs = RefsService.Handle(ide);
 
-        Assert.Contains("Broken.pou", refs.Items.Keys);
-        Assert.Empty(refs.Unreadable);
+        Assert.DoesNotContain("Broken.pou", refs.Items.Keys);
+        Assert.Contains("Broken", refs.Unreadable);
     }
 }

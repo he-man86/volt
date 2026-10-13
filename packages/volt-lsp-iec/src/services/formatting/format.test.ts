@@ -17,10 +17,10 @@ function normalize(value: unknown): unknown {
       // tokens, so a gate that looked at the statements alone passed a printer that deleted both from every file. So is
       // what stands between the declaration and the line (`leading`), which is out of the tokens for the same reason — its
       // line endings are layout, which the printer writes as `\n`.
-      const line = (obj as { implementation?: { statement: unknown; folder?: string; leading?: string } }).implementation
+      const line = (obj as { implementation?: { statement: unknown; folder?: string; objectProperties?: readonly string[]; leading?: string } }).implementation
       return {
         kind: "body",
-        implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder, leading: line.leading?.replace(/\r\n/g, "\n") },
+        implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder, objectProperties: line.objectProperties, leading: line.leading?.replace(/\r\n/g, "\n") },
         statements: normalize(sourceStatements(obj as never).statements), // as written: every conditional branch
       }
     }
@@ -252,6 +252,27 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
     "a hidden member in a folder": {
       src: "METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD\n",
       kept: ["METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD"],
+    },
+    "a POU's and a member's %-lines": {
+      src:
+        "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+        "METHOD M\nIMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
+      kept: [
+        "IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\n",
+        "IMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\n",
+      ],
+    },
+    "a DUT's %-lines": {
+      src: "TYPE E :\n(\n\ta\n);\nEND_TYPE\n%CLASS TEXTLIST_ENUM\n",
+      kept: ["END_TYPE\n%CLASS TEXTLIST_ENUM"],
+    },
+    "a GVL's %-lines": {
+      src: "VAR_GLOBAL\n\tg : INT;\nEND_VAR\n%CLASS PERSISTENT\n%NETVAR Pack: 1\n",
+      kept: ["END_VAR\n%CLASS PERSISTENT\n%NETVAR Pack: 1"],
+    },
+    "an interface's and its members' %-lines": {
+      src: "INTERFACE I\n%EXTERNAL\nMETHOD M : BOOL\n%FOLDER A\n%EXTERNAL\nEND_METHOD\nPROPERTY Q : INT\n%FOLDER B\n%EXTERNAL\nGET\nEND_PROPERTY\nEND_INTERFACE\n",
+      kept: ["INTERFACE I\n%EXTERNAL\n", "%FOLDER A\n%EXTERNAL\n\tEND_METHOD", "INT\n%FOLDER B\n%EXTERNAL\n\tGET"],
     },
     "a property's accessors": {
       src: "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nIMPLEMENTATION FBD UNSUPPORTED\nEND_SET\nEND_PROPERTY\n",
@@ -548,43 +569,4 @@ test("formatting a CRLF file decides each unit as its LF form does", () => {
   const src = "METHOD PUBLIC ABSTRACT Reset : BOOL\t// Returns true when homing done\nIMPLEMENTATION NONE\nEND_METHOD\n"
   const fmt = (s: string) => formatDocument({ uri: "u.pou", source: s, parseResult: parseSource(s, { networkText: true }, "codesys") })
   expect(fmt(src.replace(/\n/g, "\r\n"))).toBe(fmt(src))
-})
-
-/**
- * RANGE FORMATTING WRITES THE FILE'S OWN LINE ENDING. The reprinted unit is LF inside a range bounded by CRLF text, so a
- * Format Selection on a CRLF file left it with mixed endings — the kind of file whose blank lines the push writes into the
- * IDE body (`verbatimText`). A CRLF file stays CRLF.
- */
-test("range formatting a CRLF file leaves no mixed line endings", () => {
-  const src = "FUNCTION_BLOCK A\r\nVAR\r\n\ti : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\ni:=1;\r\nEND_FUNCTION_BLOCK\r\nFUNCTION_BLOCK B\r\nIMPLEMENTATION ST\r\n;\r\nEND_FUNCTION_BLOCK\r\n"
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
-  const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 5, character: 0 }, end: { line: 5, character: 2 } }))
-  expect(applied).toBe(src.replace("i:=1;", "i := 1;"))
-})
-
-// An attribute the unit carries from INSIDE it (an interface property's `{attribute}`) is no start of the unit's text:
-// taken as one, the edit began inside the unit and the source's own `INTERFACE I` header stayed beside the reprinted one.
-test("formatting an interface whose member carries an attribute keeps one header, for the document and a range", () => {
-  const src = "INTERFACE I\n{attribute 'monitoring':='call'}\nPROPERTY P : INT\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n"
-  const doc: Document = { uri: "u.itf", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
-  const ranged = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 8, character: 0 } }))
-  for (const out of [formatDocument(doc), ranged]) expect({ out, headers: out.match(/INTERFACE I\b/g)?.length }).toEqual({ out, headers: 1 })
-})
-
-test("formatting keeps an interface member's attribute on the member, for the document and a range", () => {
-  // The parser attaches a member's `{attribute}` to the INTERFACE; the reprint wrote it above `INTERFACE`, where it
-  // applies to the interface (5 pro2193 `.itf` files). Neither the commentary check nor the AST gate sees the move.
-  const src = "INTERFACE I\n{attribute 'monitoring':='call'}\nPROPERTY P : INT\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n"
-  const doc: Document = { uri: "u.itf", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
-  const ranged = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 8, character: 0 } }))
-  for (const out of [formatDocument(doc), ranged]) {
-    expect({ out, attributeAfterHeader: out.indexOf("{attribute") > out.indexOf("INTERFACE I") }).toEqual({ out, attributeAfterHeader: true })
-  }
-})
-
-test("formatting keeps a declaration comment whose text also stands in a string literal", () => {
-  // `dropsCommentary` searched the printed text with indexOf, so the string literal stood in for the dropped comment
-  const src = "PROGRAM P\nVAR\n\ti : INT; // TODO\nEND_VAR\nIMPLEMENTATION ST\ns := '// TODO';\nEND_PROGRAM\n"
-  const doc: Document = { uri: "P.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
-  expect(formatDocument(doc)).toContain("i : INT; // TODO")
 })

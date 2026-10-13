@@ -395,7 +395,10 @@ public class PushServiceTests
     /// the FIRST push of the enclosing POU. Silent, and the engineer's SFC logic was gone.
     /// <para>The fake had to be fixed first: it rendered a transition as <c>&lt;action&gt;</c>, a shape no vendor
     /// emits, so the reader read it back as an action MEMBER and it landed in `keep` — the fake was asserting
-    /// the bug away.</para></summary>
+    /// the bug away.</para>
+    /// <para>Since openspec <c>bridge-one-to-one</c> (§1.2 "Transitions") a standalone transition refuses its owner BY
+    /// NAME — it has no text form, and pulling the owner without it lost it on a migration without a word — so the owner
+    /// is listed unreadable and a push of it is refused: the transition is still never deleted.</para></summary>
     [Fact]
     public void A_push_does_not_delete_the_POUs_transitions()
     {
@@ -405,15 +408,24 @@ public class PushServiceTests
         var trans = new FakeIde.Item("T1", ItemKind.PlcTrans, "", false, null, "TRUE", null, null);
         var ide = new FakeIde(pou, act, trans);
 
-        var (v, pv) = Ver(ide, "SFC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp
+        var refs = RefsService.Handle(ide);
+        Assert.Contains("SFC_PRG", refs.Unreadable);
+        var resp = PushService.Handle(ide, new PushRequest
         {
-            Name = "SFC_PRG.pou",
-            IfVersion = v,
-            SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\nIMPLEMENTATION ST\na := 1;\nEND_ACTION\n",
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Force = true,
+            Ops = new()
+            {
+                new SetItemOp
+                {
+                    Name = "SFC_PRG.pou",
+                    SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\nIMPLEMENTATION ST\na := 1;\nEND_ACTION\n",
+                },
+            },
         });
 
-        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Name + ": " + c.Reason)));
+        Assert.False(resp.Accepted);
+        Assert.Contains("T1", Assert.Single(resp.Conflicts!).Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") && r.Contains("T1"));
     }
 

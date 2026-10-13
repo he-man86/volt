@@ -31,8 +31,7 @@ public class TcWireParityTests
     [InlineData(ItemKind.Kinds.TextList, WireParityCases.TextListStub)]
     public void A_stub_manifest_is_the_kind_alone(string kind, string expected)
     {
-        ExpectRed.Until("3.3", $"parity (stub manifest, {kind}): TwinCAT writes Name=<name>", () =>
-            Assert.Equal(expected, Manifest("<TreeItem><ItemName>Visu</ItemName><ItemType>1</ItemType></TreeItem>", kind)));
+        Assert.Equal(expected, Manifest("<TreeItem><ItemName>Visu</ItemName><ItemType>1</ItemType></TreeItem>", kind));
     }
 
     /// <summary>A placeholder reference's item XML, in the element structure <c>tc-library-system</c> recorded for
@@ -51,8 +50,7 @@ public class TcWireParityTests
     [Fact]
     public void A_placeholder_reference_pulls_without_a_SYSTEM_line()
     {
-        ExpectRed.Until("3.3", "parity (library SYSTEM): TwinCAT hard-codes SYSTEM false", () =>
-            Assert.Equal(WireParityCases.PlaceholderLibrary, Manifest(PlaceholderXml, ItemKind.Kinds.Library)));
+        Assert.Equal(WireParityCases.PlaceholderLibrary, Manifest(PlaceholderXml, ItemKind.Kinds.Library));
     }
 
     /// <summary>An interface property with a GET: TwinCAT reads presence (its stored <c>PUBLIC / VAR / END_VAR</c> is a
@@ -68,6 +66,6 @@ public class TcWireParityTests
 
         Assert.Equal(WireParityCases.InterfaceWithGetter,
             StWriter.Write(new ItemContent(ItemKind.Kinds.Interface, WireParityCases.InterfaceDeclaration, null,
-                                           new List<Member> { member })));
+                                           new List<Member> { member }, ObjectProperties.None)));
     }
 }

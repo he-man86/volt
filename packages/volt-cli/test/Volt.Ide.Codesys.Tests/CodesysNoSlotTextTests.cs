@@ -39,6 +39,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             public Tracked(object o) => Object = o;
             public object Object { get; }
+            public object[] Properties { get; } = System.Array.Empty<object>();   // IMetaObject.Properties: none here
         }
 
         /// <summary>The object manager over any objects by handle, counting commits AND rollbacks.</summary>
@@ -71,7 +72,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var ex = Assert.Throws<BridgeException>(() => new CodesysDriver(projects: null).WriteContent(new ItemRef(node),
-                    new ItemContent(ItemKind.Kinds.Pou, Decl, "x := x + 1;", new List<Member>(), Stated: StatedLanguage.St),
+                    new ItemContent(ItemKind.Kinds.Pou, Decl, "x := x + 1;", new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.St),
                     Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
 
                 Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);

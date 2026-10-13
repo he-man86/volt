@@ -26,25 +26,39 @@ namespace Volt.Ide.Codesys
             var dev = Facet(node, "ScriptDeviceObject");
             var info = GetMember(InvokeMethod(dev, "GetReadable"), "DeviceInfo");
             var devId = InvokeMethod(dev, "get_device_identification");
-            // First name that yields anything wins — the identification object spells these differently across
-            // versions, which is why each is asked for under several names.
-            string Field(object? o, params string[] names)
+            // THE NAMED VENDOR MEMBER, one per line (openspec bridge-one-to-one §1.1 "Non-source items"; gate review of step
+            // 3, finding 10): the identification is the scripting `IDeviceId` — `type`, `id`, `version` (SP21, ScriptEngine3
+            // 4.2.0.0) — and the device info `DeviceInfo`'s `Name` / `Vendor` / `OrderNumber` / `Description`. Each line
+            // used to be asked under several names, the first that yielded anything winning, so another member answering
+            // first was read as the device's own, and one answering none read as an empty line. A member the object does not
+            // declare is refused by name; one it holds empty is an empty value.
+            string Field(object? o, string name)
             {
-                foreach (var n in names)
-                {
-                    var v = Descriptor.Flatten(System.Convert.ToString(GetMember(o, n)));
-                    if (v.Length > 0) return v;
-                }
-                return "";
+                if (o is null || !Declares(o.GetType(), name))
+                    throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                        $"CODESYS: the device '{GetName(node)}' answers no '{name}' on its {(o is null ? "(missing) object" : o.GetType().Name)} " +
+                        "— Volt reads the named vendor member rather than another or none, so the descriptor is not read.");
+                return Descriptor.Flatten(System.Convert.ToString(GetMember(o, name)));
             }
+            static bool Declares(Type t, string name) =>
+                t.GetProperty(name, BF) is not null || Array.Exists(t.GetInterfaces(), i => i.GetProperty(name) is not null);
+            // The device OBJECT's own flags (`IDeviceObject.Disable` / `Exclude`; census §0.1 finding 11: Disable true on 2
+            // of 159, Exclude on 0) — a disabled device read like an enabled one (openspec bridge-one-to-one §1.1
+            // "Non-source items"). Spelled only where true, the absence being the measured value.
+            var device = ReadObject(node) ?? throw new InvalidOperationException("CODESYS: the device object could not be read");
+            bool Flag(string member) => NwlInterop.Declared(device, member) is bool b
+                ? b : throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: the device answers no {member} — refused rather than read as false");
             return new Descriptor(14)
                 .Add("Name", Field(info, "Name"))
                 .Add("Vendor", Field(info, "Vendor"))
-                .Add("Type", Field(devId, "Type", "TypeId", "type"))
-                .Add("ID", Field(devId, "Id", "Identification", "id"))
-                .Add("Version", Field(devId, "Version", "version"))
+                .Add("Type", Field(devId, "type"))
+                .Add("ID", Field(devId, "id"))
+                .Add("Version", Field(devId, "version"))
                 .Add("Order number", Field(info, "OrderNumber"))
                 .Add("Description", Field(info, "Description"))
+                .Add("Disabled", Flag("Disable") ? "true" : null)
+                .Add("Excluded", Flag("Exclude") ? "true" : null)
                 .ToString();
         }
 
@@ -148,47 +162,6 @@ namespace Volt.Ide.Codesys
         /// referenced by source, so the LSP carries it as project context ("PLC_PRG runs on MainTask @ t#20ms").</summary>
         public string TaskDescriptor(object node) => TaskDescriptorFormat.Write(ReadTask(node));
 
-        /// <summary>A task's settings, as data. The vendor half — which facet, which member name — is
-        /// irreducible and lives here; the FILE LAYOUT is the engine's
-        /// (<see cref="TaskDescriptorFormat"/>), which is what lets the read and the write share one
-        /// definition instead of two that agree by inspection.
-        ///
-        /// <para>An event task carries its trigger in one of two members and the vendor uses whichever suits
-        /// the task kind, so both are read and the first non-empty wins.</para>
-        ///
-        /// <para>A DISABLED watchdog is reported as ABSENT rather than as its numbers: the vendor keeps stale
-        /// values behind the flag, and rendering them would show a watchdog that does not run — then write
-        /// them back on the next push as if it did.</para></summary>
-        private TaskSettings ReadTask(object node)
-        {
-            var f = Facet(node, "ScriptTaskObject");
-            var ev = System.Convert.ToString(GetMember(f, "event"));
-            if (string.IsNullOrWhiteSpace(ev)) ev = System.Convert.ToString(GetMember(f, "external_event"));
-
-            TaskWatchdog? watchdog = null;
-            if (GetMember(f, "watchdog") is { } wd && GetMember(wd, "enabled") is bool on && on)
-                watchdog = new TaskWatchdog(
-                    Str(GetMember(wd, "time")), Str(GetMember(wd, "time_unit")), Str(GetMember(wd, "sensitivity")));
-
-            var calls = new List<string>();
-            if (GetMember(f, "pous") is IEnumerable pous)
-                foreach (var p in pous)
-                {
-                    var n = System.Convert.ToString(p)?.Trim();
-                    if (!string.IsNullOrEmpty(n)) calls.Add(n!);
-                }
-
-            return new TaskSettings(
-                Str(GetMember(f, "kind_of_task")),
-                Str(GetMember(f, "interval")),
-                Str(GetMember(f, "interval_unit")),
-                Str(GetMember(f, "priority")),
-                string.IsNullOrWhiteSpace(ev) ? null : ev!.Trim(),
-                watchdog,
-                calls);
-        }
-
-        private static string Str(object? o) => System.Convert.ToString(o)?.Trim() ?? "";
         /// <summary>The symbol-configuration flags (`.symbols`): which access features a project exposes
         /// (OPC UA, direct I/O, attribute filter). The resolved exposed-symbol LIST is compiled-model state,
         /// not in the scripting facet — this captures the configuration.</summary>
@@ -230,49 +203,6 @@ namespace Volt.Ide.Codesys
             return d.ToString();
         }
 
-        /// <summary>A named scripting facet of a node — device / project-info APIs live on the Extender's DLR
-        /// extension list, not the base ScriptObject. Throws if the facet is absent (fail loud, no fallback).</summary>
-        /// <summary>Apply a task's settings to the vendor — the mirror of <see cref="TaskDescriptor"/>,
-        /// member for member, so the pair cannot drift.
-        ///
-        /// <para>Every field written here is a real setter, MEASURED rather than assumed
-        /// (`probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`) and `probe-task-kind.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`), live SP21). Three carry a trap worth
-        /// naming: <c>kind_of_task</c> takes ONLY the vendor enum (see <see cref="TaskKind"/>), <c>priority</c>
-        /// is a STRING even though it reads as a number — handing it an int raises `TypeError: expected str, got
-        /// int`, which looks exactly like a read-only property and is not — and <c>interval</c> /
-        /// <c>interval_unit</c> are separate, so a TIME literal (`t#4ms`) carries no unit and writing one back
-        /// would double it. The engine's format keeps the two apart for that reason.</para>
-        ///
-        /// <para>The CALL LIST is REBUILT rather than diffed. `ScriptPouObjectList` offers add/insert/remove/
-        /// replace, and a positional diff would have to preserve per-entry comments Volt does not carry in the
-        /// descriptor; rebuilding keeps the file the single source of truth for what runs and in what ORDER,
-        /// which is the whole of what the `Calls:` line encodes.</para></summary>
-        public void WriteTask(object node, TaskSettings t)
-        {
-            var f = Facet(node, "ScriptTaskObject");
-            SetMember(f, "kind_of_task", TaskKind(t.Type));
-            SetMember(f, "priority", t.Priority);
-            SetMember(f, "interval", t.Interval);
-            if (t.IntervalUnit.Length > 0) SetMember(f, "interval_unit", t.IntervalUnit);
-            SetMember(f, "event", t.Event ?? "");
-
-            // A disabled watchdog keeps stale numbers behind the flag, so the values are written only when it
-            // is ON — writing them for an `off` watchdog would resurrect numbers the file does not show.
-            if (GetMember(f, "watchdog") is { } wd)
-            {
-                SetMember(wd, "enabled", t.Watchdog != null);
-                if (t.Watchdog is { } w)
-                {
-                    SetMember(wd, "time", w.Time);
-                    if (w.Unit.Length > 0) SetMember(wd, "time_unit", w.Unit);
-                    SetMember(wd, "sensitivity", w.Sensitivity);
-                }
-            }
-
-            if (GetMember(f, "pous") is { } pous) WriteCallList(f, pous, t.Calls);
-        }
-
-
         /// <summary>The vendor's <c>KindOfTask</c> for a `.task` file's <c>Type:</c> line.
         ///
         /// <para><b>The type was the one scheduling field WriteTask did not write.</b> Every other member was
@@ -306,104 +236,8 @@ namespace Volt.Ide.Codesys
             return Enum.Parse(kinds, type);
         }
 
-        /// <summary>Replace a task's call list with exactly the POUs named, in order.
-        ///
-        /// <para><b>The list `pous` hands out is a VIEW, and mutating it is not an error — it is a NO-OP.</b>
-        /// Measured on live SP21 (`probe-task-calllist.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-calllist.py`)): `remove(name)` returns happily and the
-        /// list is unchanged afterwards, `remove(index)` throws "Cannot remove the specified item because it
-        /// was not found in the specified Collection" (it is remove-by-VALUE, not by position), and `add` DOES
-        /// take. A rebuild written against that surface drains nothing and appends forever — the probe that
-        /// found this hung doing exactly that.</para>
-        ///
-        /// <para>The mutation therefore goes through <c>PerformWithWriteableCopy</c>, which is the vendor
-        /// saying so out loud. Two things about it are not guessable and were measured: it takes an
-        /// <c>Action&lt;T&gt;</c> whose T is a vendor type not referenced at compile time (so the callback is
-        /// built as an expression tree, the one place reflection alone cannot express the call), and the object
-        /// it hands back is the RAW <c>_3S.CoDeSys.TaskObject.PouObjectList</c> — NOT the
-        /// <c>ScriptPouObjectList</c> wrapper, so none of that wrapper's `add`/`remove`/`__len__` exists on it.
-        /// It is an ordinary <see cref="System.Collections.IList"/> of vendor POU objects, and a new entry is
-        /// minted by the task facet's own <c>CreatePouObject(name)</c>.</para>
-        ///
-        /// <para>Rebuilding rather than diffing is deliberate: an entry carries a per-entry COMMENT the
-        /// descriptor does not, so a positional diff would have to preserve something Volt cannot see. The
-        /// `Calls:` line means "these POUs, in this order", and that is exactly what gets written.</para></summary>
-        private static void WriteCallList(object taskFacet, object pous,
-                                          System.Collections.Generic.IReadOnlyList<string> calls)
-        {
-            // Every refusal of the rebuild (here and in RebuildCallList) is UNSUPPORTED: the IDE did not take the write. They
-            // were uncoded InvalidOperationExceptions, INTERNAL_ERROR on the wire (openspec bridge-refusal-review V.1).
-            var perform = pous.GetType().GetMethod("PerformWithWriteableCopy", BF)
-                ?? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
-                    $"CODESYS: no PerformWithWriteableCopy on {pous.GetType().FullName} — a task's call list " +
-                    "cannot be rebuilt, and mutating the read-only view would silently do nothing.");
-
-            var actionType = perform.GetParameters()[0].ParameterType;      // Action<TWriteable>
-            var param = System.Linq.Expressions.Expression.Parameter(actionType.GetGenericArguments()[0], "list");
-            var body = System.Linq.Expressions.Expression.Call(
-                typeof(CodesysObjectModel).GetMethod(nameof(RebuildCallList), BindingFlags.NonPublic | BindingFlags.Static)!,
-                System.Linq.Expressions.Expression.Convert(param, typeof(object)),
-                System.Linq.Expressions.Expression.Constant(taskFacet),
-                System.Linq.Expressions.Expression.Constant(calls, typeof(System.Collections.Generic.IReadOnlyList<string>)));
-            var callback = System.Linq.Expressions.Expression.Lambda(actionType, body, param).Compile();
-
-            try { perform.Invoke(pous, new object?[] { callback }); }
-            catch (TargetInvocationException tie)
-            {
-                var inner = tie.InnerException ?? tie;
-                throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported, $"CODESYS refused a task call-list rebuild: {inner.Message}", inner);
-            }
-        }
-
-        /// <summary>The mutation itself, against the WRITEABLE copy: clear, then append in call order —
-        /// carrying each entry's COMMENT across, which is the one thing a rebuild would otherwise destroy.
-        ///
-        /// <para><b>The vendor states an entry's whole persisted contract itself</b>, and it is two fields:
-        /// <c>PouObject.SerializableValueNames</c> is exactly <c>('Name', 'Comment')</c>, measured identical on
-        /// all 21 call entries of five real projects (<c>probe-task-callcomment.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-callcomment.py</c>)). Volt's
-        /// descriptor carries the name. Clearing and re-minting therefore threw the comment away on every push
-        /// that touched a task's call list — invisibly, because the <c>.task</c> file never showed it, so
-        /// neither the workspace nor git could reveal the loss.</para>
-        ///
-        /// <para><b>This method's own doc comment used to justify that</b>: "an entry carries a per-entry
-        /// COMMENT the descriptor does not, so a positional diff would have to preserve something Volt cannot
-        /// see." The premise is false. <c>PouObject.Comment</c> is an ordinary readable and writable property;
-        /// it is only invisible from the SCRIPTING wrapper, which iterates plain name strings. Volt could see
-        /// it all along and was not looking. Carrying it needs no format change and no descriptor field — which
-        /// is just as well, since the census found all 21 comments EMPTY, so a <c>.task</c> line for it would
-        /// be product surface for something no real project uses.</para>
-        ///
-        /// <para>Matched by NAME, first-come — never by position, which a reorder invalidates, and never by a
-        /// dictionary, which would collapse a task that calls the same POU twice.</para></summary>
-        private static void RebuildCallList(object writeable, object taskFacet,
-                                            System.Collections.Generic.IReadOnlyList<string> calls)
-        {
-            if (writeable is not System.Collections.IList list)
-                throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
-                    $"CODESYS: the writeable call list is a {writeable.GetType().FullName}, which is not an IList " +
-                    $"— it offers: {string.Join(", ", writeable.GetType().GetMethods(BF).Select(m => m.Name).Distinct().OrderBy(n => n))}");
-
-            // Read BEFORE the clear: after it the old entries are gone and there is nothing left to carry.
-            var carried = list.Cast<object>()
-                .Select(e => (Name: GetMember(e, "Name") as string, Comment: GetMember(e, "Comment") as string))
-                .Where(e => !string.IsNullOrEmpty(e.Name) && !string.IsNullOrEmpty(e.Comment))
-                .ToList();
-
-            list.Clear();
-            foreach (var name in calls)
-            {
-                var entry = InvokeMethod(taskFacet, "CreatePouObject", name)
-                            ?? throw new InvalidOperationException($"CODESYS: CreatePouObject('{name}') returned nothing");
-
-                var i = carried.FindIndex(c => string.Equals(c.Name, name, StringComparison.Ordinal));
-                if (i >= 0)
-                {
-                    SetMember(entry, "Comment", carried[i].Comment);
-                    carried.RemoveAt(i);        // one comment per entry, so a repeated call takes the next one
-                }
-
-                list.Add(entry);
-            }
-        }
+        /// <summary>A named scripting facet of a node — device / project-info APIs live on the Extender's DLR
+        /// extension list, not the base ScriptObject. Throws if the facet is absent (fail loud, no fallback).</summary>
         private object Facet(object node, string facetTypeName)
         {
             var ext = GetMember(Unwrap(node), "Extender");

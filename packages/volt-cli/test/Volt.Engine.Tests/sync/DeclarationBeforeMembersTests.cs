@@ -104,8 +104,10 @@ public class DeclarationBeforeMembersTests
         var pou = FakeIde.Item.TextualPou("K", liveDecl, ";") with { Children = new[] { "A" } };
         var a = new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL\nVAR\nEND_VAR", "A := TRUE;", null, null);
         var ide = Codesys(pou, a);
+        // TWO new methods: one dropped and one added of a kind would be the member RENAMED (bridge-one-to-one task 3.4).
         var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION\n\n" +
-                                      "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n");
+                                      "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n" +
+                                      "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n");
 
         Assert.False(resp.Accepted);
         var conflict = Assert.Single(resp.Conflicts!);

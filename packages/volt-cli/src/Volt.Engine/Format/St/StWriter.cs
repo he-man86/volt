@@ -24,11 +24,18 @@ public static class StWriter
     public static string Write(ItemContent item)
     {
         var shape = ItemKind.ShapeOf(item.Kind);
+        // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its IMPLEMENTATION line where it has
+        // one, else closing its declaration — a DUT's, a GVL's, an interface's.
+        var props = PropertyLines.Write(item.Properties);
+        // EVERY TEXT VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): both vendors
+        // keep a declaration's and a body's trailing newlines across a reload, so the file spells them — the text, then
+        // the layout's own separator, which is all the reader strips (`StReader.StripSeparator`). Every TrimEnd('\n') that
+        // folded them is gone; `…END_VAR\n\n\n` and `…END_VAR` pulled identically, and a push wrote the vendor's away.
         if (!shape.Composite)
-            return item.Declaration.TrimEnd('\n') + "\n";
+            return item.Declaration + "\n" + string.Concat(props.Select(l => l + "\n"));
 
         var sb = new StringBuilder();
-        sb.Append(item.Declaration.TrimEnd('\n'));
+        sb.Append(item.Declaration);
 
         // NOT trimmed: the reader already dropped the ONE blank line this join re-inserts, so a newline still
         // leading the body is the engineer's and has to survive the round trip.
@@ -37,6 +44,7 @@ public static class StWriter
         // A body Volt does not show is its UNSUPPORTED line (IMPLEMENTATION CFC UNSUPPORTED, …) and nothing under it.
         var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
         if (shape.Body) sb.Append('\n').Append(boundary);
+        foreach (var line in props) sb.Append('\n').Append(line);
         if (impl.Length > 0)
             sb.Append('\n').Append(impl);
 
@@ -82,19 +90,22 @@ public static class StWriter
     // any of the three as the boundary, so the line decides nothing on the way back in.
     private static string EndKeyword(ItemContent item) => item.Kind switch
     {
-        ItemKind.Kinds.Pou => "END_" + (StReader.PouHeaderKeyword(item.Declaration) ?? FallbackPouHeader),
+        ItemKind.Kinds.Pou => "END_" + (StReader.PouHeaderKeyword(item.Declaration) ?? throw NoHeader(null)),
         ItemKind.Kinds.Interface => "END_INTERFACE",
         _ => throw new BridgeException(BridgeErrorCodes.Unsupported, $"No END keyword for kind '{item.Kind}'"),
     };
 
-    /// <summary>THE ONE END-LINE FALLBACK (design 5.Qa, F1): a POU whose declaration opens with none of PROGRAM /
-    /// FUNCTION_BLOCK / FUNCTION — an empty or prose text, a NAMESPACE, INTERFACE text in a POU object — closes with
-    /// <c>END_FUNCTION_BLOCK</c>: the push's create seed's own END line (every POU is created as a function block) and
-    /// the shape that accepts every member kind. Intentional, tested and COUNTED: the pull logs every item it fires for
-    /// (<c>Materializer</c>), and it fires for no POU a vendor compiles (16,990 / 16,990 corpus POUs open with one of
-    /// the three). Omitting the line would leave a file with members unsplittable; refusing the pull would make a
-    /// broken text that the push lets through unpullable.</summary>
-    public const string FallbackPouHeader = "FUNCTION_BLOCK";
+    /// <summary>A POU whose declaration opens with none of PROGRAM / FUNCTION_BLOCK / FUNCTION — an empty or prose text,
+    /// a NAMESPACE, INTERFACE text in a POU object — has no END line its text can mirror, and Volt invents none (openspec
+    /// <c>bridge-one-to-one</c> finding 8, task 3.5). It closed with the one documented fallback, <c>END_FUNCTION_BLOCK</c>
+    /// (design 5.Qa, F1), a line the IDE does not hold; 16,990 of 16,990 corpus POUs open with one of the three, so the
+    /// refusal meets only a text mid-edit in the IDE, which pulls again once it declares itself. A PULL refusal: the
+    /// item is listed unreadable, by name (<paramref name="name"/>, null where the writer has none).</summary>
+    public static BridgeException NoHeader(string? name) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{(name is null ? "this POU" : $"'{name}'")}: its declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION, " +
+            "so its file has no END line to mirror and Volt invents none — it is not pulled until its text declares what " +
+            "it is in the IDE.");
 
     private static int KindOrder(string kind) => kind switch
     {
@@ -113,11 +124,12 @@ public static class StWriter
     {
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, owner);
-        var decl = child.Declaration.TrimEnd('\n');
-        // The boundary line first, then `%FOLDER`, then the code — an UNSUPPORTED line is that boundary too, so a hidden
-        // member's `%FOLDER` follows it; above it, the directive would be DECLARATION text and the folder lost.
+        var decl = child.Declaration;   // verbatim: the boundary line (or the END line) is its separator
+        // The boundary line first, then the property lines (`%CLASS`, `%FOLDER`, the rest: PropertyLines), then the code —
+        // an UNSUPPORTED line is that boundary too, so a hidden member's lines follow it; above it, they would be
+        // DECLARATION text and the folder lost. A member with no boundary (an interface's) closes its declaration with them.
         var (boundary, code) = ImplementationMarker.Split(child.Body ?? "");
-        var impl = PrependFolder(child.Folder, code);
+        var impl = Prepend(PropertyLines.Write(child.Properties, child.Folder), code);
         var end = child.Kind switch
         {
             // An interface's members are the same ST constructs as a POU's; only the WIRE kind differs.
@@ -135,8 +147,8 @@ public static class StWriter
     {
         // An INTERFACE property's accessors are signatures — no body, so no boundary to mark.
         var marked = !owner.MembersInside && ItemKind.ShapeOf(child.Kind).Accessors == AccessorShape.WithBodies;
-        var parts = new List<string> { child.Declaration.TrimEnd('\n') };
-        if (!string.IsNullOrEmpty(child.Folder)) parts.Add($"%FOLDER {child.Folder}");
+        var parts = new List<string> { child.Declaration };   // verbatim, joined to what follows by one newline
+        parts.AddRange(PropertyLines.Write(child.Properties, child.Folder));   // closing its declaration: it has no boundary
         // Presence is the object. This used to re-derive it from two nullable fields — the same rule the reader
         // applied, spelled a second time, which is exactly the kind of duplication ItemContent exists to remove.
         if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body, marked));
@@ -160,12 +172,13 @@ public static class StWriter
         return string.Join("\n", lines);
     }
 
-    /// <summary>Prepend a `%FOLDER &lt;path&gt;` directive to a child body — the child's sub-folder
-    /// within the POU. The signature line stays a clean identifier; this `%FOLDER` line sits at the top
-    /// of the body, ahead of its graphical content (the `NETWORK` marker for editable FBD/LD).</summary>
-    private static string PrependFolder(string? folder, string impl)
+    /// <summary>Prepend a member's property lines (<c>%CLASS</c>, its <c>%FOLDER</c> — the member's sub-folder within the
+    /// POU — and the rest) to its body. The signature line stays a clean identifier; the lines sit at the top of the
+    /// body, ahead of its graphical content (the `NETWORK` marker for editable FBD/LD).</summary>
+    private static string Prepend(IReadOnlyList<string> lines, string impl)
     {
-        if (string.IsNullOrEmpty(folder)) return impl;
-        return impl.Length == 0 ? $"%FOLDER {folder}" : $"%FOLDER {folder}\n{impl}";
+        if (lines.Count == 0) return impl;
+        var head = string.Join("\n", lines);
+        return impl.Length == 0 ? head : $"{head}\n{impl}";
     }
 }

@@ -32,10 +32,13 @@ namespace Volt.Ide.Codesys.Tests
                 Assert.Equal(ItemKind.PlcDut, driver.KindCode(item));
                 var read = Materializer.Materialize(driver, "SER_Mode", ItemKind.Kinds.Dut, item);
                 Assert.Equal("SER_Mode.dut", read.FullName);
-                Assert.Equal(Decl + "\n", read.Text.Replace("\r\n", "\n"));
+                // Its CLASS is spelled (openspec bridge-one-to-one §1.1 "Classes"): a plain DUT pulled from the same text
+                // would be re-created plain, and the class's own text list with it lost.
+                Assert.Equal(Decl + "\n%CLASS TEXTLIST_ENUM\n", read.Text.Replace("\r\n", "\n"));
 
                 const string pushed = "TYPE SER_Mode :\n(\n\tAuto := 0,\n\tManual,\n\tService\n);\nEND_TYPE";
-                driver.WriteContent(item, new ItemContent(ItemKind.Kinds.Dut, pushed, null, new List<Member>()),
+                var textListEnum = ObjectProperties.None with { Class = new ObjectClass(ObjectClass.TextListEnum, null) };
+                driver.WriteContent(item, new ItemContent(ItemKind.Kinds.Dut, pushed, null, new List<Member>(), textListEnum),
                                     System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
                 Assert.Equal(pushed, node.Object!.Interface.TextDocument.Text);
                 Assert.Equal(1, mgr.Commits);

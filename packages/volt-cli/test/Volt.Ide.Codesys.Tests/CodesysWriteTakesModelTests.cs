@@ -28,7 +28,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var content = new ItemContent(ItemKind.Kinds.Pou, Decl, "IMPLEMENTATION FBD\nthis is no network text",
-                                              new List<Member>(), Stated: StatedLanguage.Shown("FBD"));
+                                              new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("FBD"));
                 var model = new PushedNetworkBody(BodySite.Item,
                     new NetworkBody(BodyLanguage.Fbd, Array.Empty<Network>()), NetworkScope.Empty);
 
@@ -52,9 +52,9 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var content = new ItemContent(ItemKind.Kinds.Pou, Decl, null, new List<Member>
                 {
-                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "IMPLEMENTATION FBD\nNETWORK\nEND_NETWORK",
+                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "IMPLEMENTATION FBD\nNETWORK\nEND_NETWORK", ObjectProperties.None,
                         Stated: StatedLanguage.Shown("FBD")),
-                });
+                }, ObjectProperties.None);
 
                 var ex = Assert.Throws<InvalidOperationException>(() =>
                     new CodesysDriver(projects: null).WriteContent(new ItemRef(pou), content, Array.Empty<PushedNetworkBody>()));

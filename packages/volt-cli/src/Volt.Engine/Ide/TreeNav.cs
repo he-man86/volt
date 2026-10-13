@@ -87,7 +87,7 @@ internal static class TreeNav
     private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name,
                                                  List<string>? created = null, string? path = null) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
-            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder), path ?? name, created);
+            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder, null, null), path ?? name, created);
 
     // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
     // <paramref name="created"/>: as on <see cref="ResolveTopLevelFolder"/>, each folder created, by its path from the parent.
@@ -106,7 +106,7 @@ internal static class TreeNav
 
     private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name, List<string>? created, string path) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
-            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder), path, created);
+            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder, null, null), path, created);
 
     /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches —
     /// by name, excluding only top-level CRUD kinds. That traverses a container-manager (`POUs`, `DUTs`) as

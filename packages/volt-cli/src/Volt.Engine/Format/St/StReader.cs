@@ -107,7 +107,16 @@ public static class StReader
 		// it is Volt's to judge. It has no body slot, so it carries NO body — null, not "" (openspec bridge-refusal-review
 		// D26: a driver refuses a text at a slot its object lacks, so "" would be refused as a body the item cannot hold).
 		if (!ItemShape(kind).Composite)
-			return new ItemContent(kind, sourceText.TrimEnd('\n'), null, new List<Member>());
+		{
+			// ITS PROPERTY LINES close it (openspec bridge-one-to-one §1.2) — the one thing read out of such a text; the
+			// declaration above them is handed over as sent. One anywhere else would be written into the IDE as code.
+			var what1 = name is null ? $"this {kind}" : $"'{name}'";
+			// The declaration VERBATIM, its own trailing newlines included (openspec bridge-one-to-one §1.1 "every character",
+			// `trailing-newline-cache`): the file holds it plus exactly ONE newline, which is all that is stripped.
+			var (props, _, declaration) = PeelPropertiesClosing(StripSeparator(sourceText), what1, 1, folderAllowed: false);
+			RefusePropertyLinesIn(what1, declaration);
+			return new ItemContent(kind, declaration, null, new List<Member>(), props);
+		}
 
 		// An EMPTY or blank POU or interface text has no outer block, so it is refused as every text without one is
 		// (FindOuterBlock: "Missing END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION", or END_INTERFACE) — one condition, one
@@ -386,13 +395,19 @@ public static class StReader
 						$"{at.Line(i)}: nothing may follow END_INTERFACE (an interface's members sit inside its block), got: " +
 						Truncate(trailing[i].Trim(), 80));
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what, splitOnly);
-			return new ItemContent(kind, interfaceDecl, null, interfaceChildren);   // no body slot (D26)
+			// An interface has no boundary line, so its property lines close its declaration (openspec bridge-one-to-one §1.2).
+			var (itfProps, _, itfDecl) = splitOnly
+				? (ObjectProperties.None, null, interfaceDecl)
+				: PeelPropertiesClosing(interfaceDecl, what, 1, folderAllowed: false);
+			return new ItemContent(kind, itfDecl, null, interfaceChildren, itfProps);   // no body slot (D26)
 		}
 
 		// Split only: the POU's own declaration and body are no question of the split (SplitMembers).
-		var (pouDecl, pouImpl, pouStated) = splitOnly ? ("", "", null) : SplitDeclImpl(pouLines, what);
+		var (pouDecl, pouImpl, pouStated, pouProps) = splitOnly
+			? ("", "", null, ObjectProperties.None)
+			: SplitDeclImpl(pouLines, what);
 		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), childrenStart, what, marked: true, splitOnly);
-		return new ItemContent(kind, pouDecl, pouImpl, children, Stated: pouStated);
+		return new ItemContent(kind, pouDecl, pouImpl, children, pouProps, Stated: pouStated);
 	}
 
 	/// <summary>What stands in for a never-closed <c>(*</c> while the structure is read: two Unicode NONCHARACTERS,
@@ -490,7 +505,7 @@ public static class StReader
 		if (interfaceHeaderLineIdx < 0)
 		{
 			// No header found — treat everything as decl, no children.
-			return (string.Join("\n", bodyLines).TrimEnd(), new List<Member>());
+			return (StripSeparator(string.Join("\n", bodyLines)), new List<Member>());
 		}
 
 		// THE DECLARATION IS EVERYTHING BEFORE THE FIRST MEMBER — it is not parsed, and Volt has no business
@@ -514,7 +529,9 @@ public static class StReader
 		int declEnd = firstMember < 0 ? bodyLines.Count - 1 : BackOverMemberTrivia(bodyLines, firstMember) - 1;
 
 		var declLines = SliceLines(bodyLines, 0, declEnd);
-		var decl = string.Join("\n", declLines).TrimEnd();
+		// VERBATIM but for the ONE separator newline the writer puts between the declaration and the first member (or the
+		// END line) — the blank line the join reads back as a trailing "\n" (bridge-one-to-one §1.1, every character).
+		var decl = StripSeparator(string.Join("\n", declLines));
 
 		if (declEnd + 1 >= bodyLines.Count)
 		{
@@ -614,7 +631,18 @@ public static class StReader
 	/// <para>The line is returned too, because it also states the body's LANGUAGE: the caller checks the body
 	/// against it and joins the two (<see cref="Body"/>) once any <c>%FOLDER</c> directive is peeled off the text
 	/// under it.</para></summary>
-	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what)
+	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what) =>
+		SplitAtBoundaryAt(lines, what, bodySeparator: false) is var (d, i, l, _) ? (d, i, l) : default;
+
+	/// <summary>A text minus exactly ONE trailing newline — the layout's separator the writer adds after a verbatim text
+	/// (<see cref="StWriter"/>), and nothing else: every other trailing newline is the vendor's.</summary>
+	internal static string StripSeparator(string text) =>
+		text.EndsWith("\n", StringComparison.Ordinal) ? text.Substring(0, text.Length - 1) : text;
+
+	/// <summary><see cref="SplitAtBoundary"/>, and the index of the boundary line in <paramref name="lines"/> — where the
+	/// property lines under it start counting from.</summary>
+	private static (string decl, string impl, string line, int at) SplitAtBoundaryAt(IList<string> lines, string what,
+	                                                                                 bool bodySeparator)
 	{
 		// ONE boundary line per region (ImplementationMarker.Is). Two are refused NAMING BOTH, before either is taken as the
 		// boundary: the text alone cannot say which one the engineer meant. One may be a name in a wrapped declaration
@@ -629,9 +657,14 @@ public static class StReader
 				"is reserved, so if the other one names something, rename it; otherwise remove it.");
 		int at = ImplementationMarker.IndexIn(lines);
 		if (at < 0) throw Unmarked(what, lines);
+		// Both halves VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): the vendor
+		// keeps a text's trailing newlines, so the file spells them, and the reader strips only the layout's own separator —
+		// none between a declaration and its boundary line (the line itself separates them), and for a body the one blank
+		// line the writer puts before a POU's END line (<paramref name="bodySeparator"/>). They used to be TrimEnd('\n')'d
+		// on both sides, so `…END_VAR\n\n\n` and `…END_VAR` pulled identically and a push wrote the vendor's newlines away.
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
 		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
-		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[at]);
+		return (decl, bodySeparator ? StripSeparator(impl) : impl, lines[at], at);
 	}
 
 	/// <summary>A POU's own declaration and body. THE LINE DECIDES, and nothing else does; a file without one is
@@ -642,11 +675,14 @@ public static class StReader
 	/// halves are re-joined on read, so a file split in the wrong place round-trips byte for byte while the project
 	/// holds it broken. A GRAPHICAL body carries its own VAR_TEMP blocks, which an END_VAR scan pulled into the POU's
 	/// declaration; with the boundary stated, network text is its own line and what follows it.</para></summary>
-	private static (string decl, string impl, StatedLanguage stated) SplitDeclImpl(IList<string> pouLines, string what)
+	private static (string decl, string impl, StatedLanguage stated, ObjectProperties props) SplitDeclImpl(IList<string> pouLines, string what)
 	{
-		var (decl, impl, line) = SplitAtBoundary(pouLines, what);
-		var (body, stated) = Body(line, impl, what);
-		return (decl, body, stated);
+		var (decl, impl, line, at) = SplitAtBoundaryAt(pouLines, what, bodySeparator: true);
+		// The POU's property lines stand directly under its boundary line (openspec bridge-one-to-one §1.2), peeled before
+		// the body is checked against the language the line states. A POU has no %FOLDER there: its folder is its file's.
+		var (props, _, code) = PeelPropertiesUnder(impl, what, at + 2, folderAllowed: false);
+		var (body, stated) = Body(line, code, what);
+		return (decl, body, stated, props);
 	}
 
 	/// <summary>The body a boundary line and the text under it make — checked against what the line STATES, which
@@ -734,14 +770,67 @@ public static class StReader
 						$"{where} holds '{lines[i].Trim()}' in its declaration. That line opens a body and states its " +
 						"language, so it stands only where a body starts: here it would read back as the boundary. Remove " +
 						"it, or write what it names on a line with more than the words.");
-				if (FolderOn(lines[i]) is not null)
-					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"{where} holds '{lines[i].Trim()}' in its declaration. A member's %FOLDER stands directly under " +
-						"its IMPLEMENTATION line, or as the last line of a property's declaration; anywhere " +
-						"else it would be written into the IDE as code. Move it there, or remove it.");
 			}
+			RefusePropertyLinesIn(where, declaration);
 		}
 	}
+
+	/// <summary>A property line (<see cref="PropertyLines"/> — <c>%CLASS</c>, <c>%FOLDER</c>, <c>%EXCLUDE_FROM_BUILD</c>, …)
+	/// left in a DECLARATION after the peel: its place is fixed (directly under the object's IMPLEMENTATION line, else
+	/// closing its declaration — <see cref="PeelPropertiesUnder"/>, <see cref="PeelPropertiesClosing"/>), and one anywhere
+	/// else would be written into the IDE as code while the property it names read as absent. Refused by name (openspec
+	/// bridge-one-to-one §1.2 "Placement"). A line inside a comment is the comment's.</summary>
+	private static void RefusePropertyLinesIn(string where, string? declaration)
+	{
+		if (string.IsNullOrEmpty(declaration)) return;
+		var lines = declaration!.Split('\n');
+		var open = StTrivia.OpenAtStart(lines);
+		for (int i = 0; i < lines.Length; i++)
+		{
+			if (open[i] || PropertyLines.KeyOf(lines[i]) is not { } key) continue;
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{where} holds '{lines[i].Trim()}' in its declaration. A %{key} line stands directly under the object's " +
+				"IMPLEMENTATION line, or closing its declaration (a DUT's, a GVL's, an interface's, a property's or an " +
+				"interface member's); anywhere else it would be written into the IDE as code. Move it there, or remove it.");
+		}
+	}
+
+	/// <summary>Peel the PROPERTY LINES off the top of the text under a boundary line — where the writer puts them, and
+	/// the only place they are read there (openspec bridge-one-to-one §1.2): every leading line that is one
+	/// (<see cref="PropertyLines.KeyOf"/>), up to the first that is not. <c>%FOLDER</c> belongs to a member's block
+	/// (<paramref name="folderAllowed"/>); under a POU's own line it is code, as it always was. The rest is NOT trimmed:
+	/// <see cref="SplitAtBoundary"/> has already decided which blank lines are separator and which are the engineer's.
+	/// <paramref name="firstLine"/> is the file line of the text's first line.</summary>
+	private static (ObjectProperties Props, string? Folder, string Remainder) PeelPropertiesUnder(string text, string what,
+	                                                                                          int firstLine, bool folderAllowed)
+	{
+		var lines = text.Split('\n');
+		var n = 0;
+		while (n < lines.Length && IsPeeled(lines[n], folderAllowed)) n++;
+		if (n == 0) return (ObjectProperties.None, null, text);
+		var (props, folder) = PropertyLines.Read(lines.Take(n).ToList(), what, firstLine, folderAllowed);
+		return (props, folder, string.Join("\n", lines.Skip(n)));
+	}
+
+	/// <summary>Peel the PROPERTY LINES off the end of a declaration that has no boundary to stand under — a DUT's, a
+	/// GVL's, an interface's, a property's, an interface member's — where the writer puts them: every trailing line that is
+	/// one, back to the first that is not, a line inside a comment excluded. <paramref name="firstLine"/> is the file line of
+	/// the text's first line.</summary>
+	private static (ObjectProperties Props, string? Folder, string Remainder) PeelPropertiesClosing(string text, string what,
+	                                                                                            int firstLine, bool folderAllowed)
+	{
+		var lines = text.Split('\n');
+		var open = StTrivia.OpenAtStart(lines);
+		var start = lines.Length;
+		while (start > 0 && !open[start - 1] && IsPeeled(lines[start - 1], folderAllowed)) start--;
+		if (start == lines.Length) return (ObjectProperties.None, null, text);
+		var (props, folder) = PropertyLines.Read(lines.Skip(start).ToList(), what, firstLine + start, folderAllowed);
+		return (props, folder, string.Join("\n", lines.Take(start)));
+	}
+
+	/// <summary>Is this line one the peel takes: a property line, <c>%FOLDER</c> only in a member's block.</summary>
+	private static bool IsPeeled(string line, bool folderAllowed) =>
+		PropertyLines.KeyOf(line) is { } key && (folderAllowed || key != PropertyLines.FolderKey);
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
 
@@ -830,7 +919,7 @@ public static class StReader
 
 		// Parse header of the signature line for name + return type.
 		var (name, returnType) = ParseMethodOrActionSignature(lines[sigLine], code[sigLine], kind, at.Line(sigLine));
-		if (splitOnly) return new Member(kind, name, "", "", ReturnType: returnType);
+		if (splitOnly) return new Member(kind, name, "", "", ObjectProperties.None, ReturnType: returnType);
 
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
@@ -841,17 +930,18 @@ public static class StReader
 			// An INTERFACE's members are SIGNATURES (the OWNER decides, which is why `marked` is passed down: an
 			// interface's members arrive as kind `method` and are re-kinded afterwards). No boundary line, and the
 			// whole block is declaration (see ItemKind.ShapeOf: an interface's members sit inside it).
-			// Its %FOLDER closes the declaration, where the writer puts it with no body to stand under.
-			var (itfFolder, itfDecl) = PeelFolderClosing(string.Join("\n", inner).TrimEnd('\n'));
-			return new Member(kind, name, itfDecl, null, Folder: itfFolder, ReturnType: returnType);   // a signature: no body slot (D26)
+			// Its property lines and %FOLDER close the declaration, where the writer puts them with no body to stand under.
+			var (itfProps, itfFolder, itfDecl) = PeelPropertiesClosing(string.Join("\n", inner), what,
+			                                                            at.Number(blockStart), folderAllowed: true);
+			return new Member(kind, name, itfDecl, null, itfProps, Folder: itfFolder, ReturnType: returnType);   // a signature: no body slot (D26)
 		}
-		var (decl, impl, line) = SplitAtBoundary(inner, what);
+		var (decl, impl, line, boundaryAt) = SplitAtBoundaryAt(inner, what, bodySeparator: false);
 		if (kind == ItemKind.Kinds.Action) RefuseActionDeclaration(decl, blockStart, sigLine, name, at);
-		// %FOLDER (the child's sub-folder) is the first line under the boundary when there is one, and is peeled off
-		// before the body is checked against the language its line states.
-		var (folder, bodyCode) = PeelFolderUnder(impl);
+		// The property lines — %CLASS, %FOLDER (the child's sub-folder), the rest — are the first lines under the boundary
+		// when there are any, and are peeled off before the body is checked against the language its line states.
+		var (props, folder, bodyCode) = PeelPropertiesUnder(impl, what, at.Number(blockStart + boundaryAt + 1), folderAllowed: true);
 		var (body, stated) = Body(line, bodyCode, what);
-		return new Member(kind, name, decl, body, Folder: folder, ReturnType: returnType, Stated: stated);
+		return new Member(kind, name, decl, body, props, Folder: folder, ReturnType: returnType, Stated: stated);
 	}
 
 	private static Member ReadProperty(IList<string> lines, string[] code, ref int i, int blockStart, bool marked, bool splitOnly, ChildSite at)
@@ -934,14 +1024,15 @@ public static class StReader
 		i = endLine.Value + 1;
 
 		var (name, dataType) = ParsePropertySignature(lines[sigLine], code[sigLine], at.Line(sigLine));
-		if (splitOnly) return new Member(ItemKind.Kinds.Property, name, "", "", DataType: dataType);
+		if (splitOnly) return new Member(ItemKind.Kinds.Property, name, "", "", ObjectProperties.None, DataType: dataType);
 
 		// Declaration of the property itself: from blockStart up to (but
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
 		int declEnd = accessorBoundaries.Count > 0 ? accessorBoundaries[0].start - 1 : endLine.Value - 1;
 		var declSlice = SliceLines(lines, blockStart, declEnd);
-		// A property has no boundary of its own (its accessors do), so its %FOLDER closes its declaration.
-		var (folder, propDecl) = PeelFolderClosing(string.Join("\n", declSlice).TrimEnd());
+		// A property has no boundary of its own (its accessors do), so its property lines and %FOLDER close its declaration.
+		var (props, folder, propDecl) = PeelPropertiesClosing(string.Join("\n", declSlice), $"property '{name}'",
+		                                                      at.Number(blockStart), folderAllowed: true);
 
 		Accessor? getter = null, setter = null;
 		foreach (var (gStart, gEnd, gKind) in accessorBoundaries)
@@ -954,6 +1045,7 @@ public static class StReader
 
 		return new Member(
 			ItemKind.Kinds.Property, name, propDecl, null,   // its code is in its accessors: no body slot (D26)
+			props,
 			Getter: getter, Setter: setter,
 			Folder: folder, DataType: dataType);
 	}
@@ -970,7 +1062,7 @@ public static class StReader
 		if (accLines.Count <= 1) return new Accessor("", "");
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
 		// An INTERFACE's accessors are signatures — no body, so no marker and nothing to split.
-		if (!marked) return new Accessor(string.Join("\n", inner).TrimEnd('\n'), "");
+		if (!marked) return new Accessor(string.Join("\n", inner), "");
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
 		var (body, stated) = Body(line, impl, what);
 		return new Accessor(decl, body, Stated: stated);
@@ -1075,9 +1167,9 @@ public static class StReader
 		// (`METHOD PUBLC Run` is the method `Run`, and the build names `PUBLC`), and a modifier typo keeps the member's
 		// identity — 1,420 of 1,420 corpus signatures with modifiers carry them BEFORE the name, so that is the realistic
 		// typo. A word AFTER the old name (`METHOD Run Walk`) renames the member by its header, as every header rename
-		// does (ReconcileMembers deletes and creates), and pull reads names from the IDE's objects, so the round trip is
+		// does (ReconcileMembers renames the one member a kind dropped to the one it added, bridge-one-to-one 3.4), and pull reads names from the IDE's objects, so the round trip is
 		// stable. That is an ACCEPTED LOSS, not the vendor's answer: both IDEs name such a header by its FIRST word
-		// (`sig_unknown_word`), so over an existing Run this push deletes Run and creates Walk (D10 option 3; known divergence
+		// (`sig_unknown_word`), so over an existing Run this push renames Run to Walk (D10 option 3; known divergence
 		// MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD, niche: 0 corpus lines; `MemberHeaderLastWordTests`). A name the vendor refuses (`METHOD Run PUBLIC`) is the pre-flight's RefusedName. It refused every word
 		// outside six modifiers — a code check on text the IDE takes.
 		var words = Words(clean);
@@ -1173,36 +1265,6 @@ public static class StReader
 		// bridge-refusal-review 2.6): its declaration is written as sent. A TwinCAT INTERFACE property takes its type as
 		// the create argument, and that driver refuses one with none, by name.
 		ParseSignature(sig, code, "PROPERTY", where);
-
-	/// <summary>The folder a <c>%FOLDER &lt;path&gt;</c> directive line names, or null for any other line.</summary>
-	private static string? FolderOn(string line)
-	{
-		var t = line.Trim();
-		return t.StartsWith("%FOLDER ", StringComparison.Ordinal) ? t.Substring("%FOLDER ".Length).Trim() : null;
-	}
-
-	/// <summary>Peel the <c>%FOLDER</c> directive off the FIRST line of the text under a member's boundary
-	/// line — where the writer puts it, and the only place it is one. This used to take the first such line ANYWHERE in
-	/// the text: a line spelled like it inside a block comment in an ST body became the member's folder, so the push
-	/// moved the member into a folder named after comment text and deleted the line from the comment.</summary>
-	private static (string? folder, string rest) PeelFolderUnder(string text)
-	{
-		var eol = text.IndexOf('\n');
-		var folder = FolderOn(eol < 0 ? text : text.Substring(0, eol));
-		// The rest is NOT trimmed: SplitAtBoundary has already decided which blank lines are separator and which are
-		// the engineer's, and a blank line under the directive is the body's.
-		return folder is null ? (null, text) : (folder, eol < 0 ? "" : text.Substring(eol + 1));
-	}
-
-	/// <summary>Peel the <c>%FOLDER</c> directive off the LAST line of a declaration that has no boundary to stand
-	/// under — a property's, and an interface member's — where the writer puts it. An interface member's used to be
-	/// left in its declaration: the push wrote <c>%FOLDER Commands</c> into the IDE as code and the folder was lost.</summary>
-	private static (string? folder, string rest) PeelFolderClosing(string text)
-	{
-		var eol = text.LastIndexOf('\n');
-		var folder = FolderOn(eol < 0 ? text : text.Substring(eol + 1));
-		return folder is null ? (null, text) : (folder, eol < 0 ? "" : text.Substring(0, eol));
-	}
 
 	// ─── Line scanning helpers ───────────────────────────────────────
 

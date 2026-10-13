@@ -25,8 +25,8 @@ public class InterfaceRoundTripTests
             Members: new List<Member>
             {
                 new Member(
-                    Kind: "method", Name: "DoIt", Declaration: "METHOD DoIt : INT", Body: "", Folder: null),
-            });
+                    Kind: "method", Name: "DoIt", Declaration: "METHOD DoIt : INT", Body: "", ObjectProperties.None, Folder: null),
+            }, ObjectProperties.None);
 
         var st = StWriter.Write(pou);
 
@@ -160,10 +160,10 @@ public class InterfaceRoundTripTests
             Body: "",
             Members: new List<Member>
             {
-                new Member(ItemKind.Kinds.InterfaceMethod, "Go", "METHOD Go : INT", "", null),
-                new Member(ItemKind.Kinds.InterfaceProperty, "Ready", "PROPERTY Ready : BOOL", "", null,
+                new Member(ItemKind.Kinds.InterfaceMethod, "Go", "METHOD Go : INT", "", ObjectProperties.None, null),
+                new Member(ItemKind.Kinds.InterfaceProperty, "Ready", "PROPERTY Ready : BOOL", "", ObjectProperties.None, null,
                            Getter: new Accessor(null, null)),
-            });
+            }, ObjectProperties.None);
 
         var text = StWriter.Write(pou);
 

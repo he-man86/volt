@@ -68,7 +68,7 @@ public class NoKindFromTextTests
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1,
             "writes the END line that mirrors the declaration's own header (5.Q.3) — file format, no kind"),
         ["Volt.Engine/Sync/Materializer.cs"] = new(2,
-            "holds a member's text to its CLASS (5.Q.5) and logs the END-line fallback; decides nothing"),
+            "holds a member's text to its CLASS (5.Q.5) and refuses a POU whose text opens with no header (bridge-one-to-one 3.5); decides nothing"),
         ["Volt.Engine/Format/St/CodeHelper.cs"] = new(1, "CodeOn itself (HeaderLine is deleted, bridge-refusal-review D3)"),
         ["Volt.Engine/Format/St/StDeclaration.cs"] = new(1,
             "network-text scope's EXTENDS reader (the bases an FB's body sees); decides no kind"),
@@ -78,11 +78,10 @@ public class NoKindFromTextTests
     private static readonly Dictionary<string, Allowance> MaySpellHeaderKeywords = new(StringComparer.Ordinal)
     {
         ["Volt.Engine/Format/St/StReader.cs"] = new(1, "the END line mirror's three keywords (PouHeaderKeyword)"),
-        ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the END line's fallback keyword"),
+        ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the refusal of a POU with no header names the three keywords the END line mirrors"),
         ["Volt.Engine/Format/St/StDeclaration.cs"] = new(2,
             "network-text scope's statement reader: the block words (VAR_GLOBAL, STRUCT, UNION …) that end a variable " +
             "statement (D5) — it reads names and types, no header and no kind"),
-        ["Volt.Engine/Sync/Materializer.cs"] = new(1, "a log line naming the END-line fallback"),
         ["Volt.Engine/Library/LibSignatureRenderer.cs"] = new(8,
             "WRITES a library item's text from the vendor's signature; reads no text"),
         ["Volt.Engine/Format/Network/NetworkTextReader.cs"] = new(3,
@@ -310,7 +309,7 @@ public class NoKindFromTextTests
     [Fact]
     public void Rule_1_catches_a_new_read_inside_an_allow_listed_file()
     {
-        const string rel = "Volt.Engine/Sync/Materializer.cs";
+        const string rel = "Volt.Engine/Format/St/StWriter.cs";   // allow-listed for a header read AND a keyword line
         var text = File.ReadAllText(Path.Combine(RepoRoot(), "packages", "volt-cli", "src", rel));
         Assert.Empty(Rule1And2Findings(new Dictionary<string, string> { [rel] = text }, false));
         var grown = text + "\npublic static string Kind(string d) => CodeHelper.HeaderLine(d).StartsWith(\"PROGRAM\") ? \"prg\" : \"pou\";\n";

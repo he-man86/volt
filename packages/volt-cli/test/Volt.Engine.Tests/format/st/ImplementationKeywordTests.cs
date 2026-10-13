@@ -214,11 +214,11 @@ public class ImplementationKeywordTests
 
     private static ItemContent Motor() => new(ItemKind.Kinds.Pou, FbDecl, "x := x + 1;", new List<Member>
     {
-        new(ItemKind.Kinds.Method, "Reset", "METHOD Reset : BOOL", "x := 0;"),
-        new(ItemKind.Kinds.Action, "Step", "ACTION Step", "x := x + 2;"),
-        new(ItemKind.Kinds.Property, "Count", "PROPERTY Count : INT", "",
+        new(ItemKind.Kinds.Method, "Reset", "METHOD Reset : BOOL", "x := 0;", ObjectProperties.None),
+        new(ItemKind.Kinds.Action, "Step", "ACTION Step", "x := x + 2;", ObjectProperties.None),
+        new(ItemKind.Kinds.Property, "Count", "PROPERTY Count : INT", "", ObjectProperties.None,
             Getter: new Accessor("", "Count := x;"), Setter: new Accessor("", "x := Count;")),
-    });
+    }, ObjectProperties.None);
 
     [Fact]
     public void The_writer_states_IMPLEMENTATION_ST_on_the_POU_a_method_an_action_a_getter_and_a_setter()
@@ -233,7 +233,7 @@ public class ImplementationKeywordTests
     public void Every_POU_kind_states_its_language_even_with_an_empty_body(string kind, string decl, string end)
     {
         // An empty body still has a language and still ends a declaration: the line records both.
-        Assert.Equal($"{decl}\nIMPLEMENTATION ST\n\n{end}\n", StWriter.Write(new ItemContent(kind, decl, "", new List<Member>())));
+        Assert.Equal($"{decl}\nIMPLEMENTATION ST\n\n{end}\n", StWriter.Write(new ItemContent(kind, decl, "", new List<Member>(), ObjectProperties.None)));
     }
 
     [Fact]
@@ -242,8 +242,8 @@ public class ImplementationKeywordTests
         // Signatures only — the row has no Body, so there is no boundary to state and a line would invent one.
         var text = StWriter.Write(new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I_Motor", "", new List<Member>
         {
-            new(ItemKind.Kinds.InterfaceMethod, "Start", "METHOD Start : BOOL", ""),
-        }));
+            new(ItemKind.Kinds.InterfaceMethod, "Start", "METHOD Start : BOOL", "", ObjectProperties.None),
+        }, ObjectProperties.None));
         Assert.DoesNotContain("IMPLEMENTATION", text);
         Assert.DoesNotContain("volt-implementation", text);
     }
@@ -447,10 +447,10 @@ public class ImplementationKeywordTests
     {
         var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, line, new List<Member>
         {
-            new(ItemKind.Kinds.Method, "Chart", "METHOD Chart", line),
-            new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", "",
+            new(ItemKind.Kinds.Method, "Chart", "METHOD Chart", line, ObjectProperties.None),
+            new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", "", ObjectProperties.None,
                 Getter: new Accessor("", line), Setter: null),
-        });
+        }, ObjectProperties.None);
 
         var text = StWriter.Write(item);
 
@@ -480,8 +480,8 @@ public class ImplementationKeywordTests
     {
         var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, "", new List<Member>
         {
-            new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", line, Folder: "Sub/Deep"),
-        });
+            new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", line, ObjectProperties.None, Folder: "Sub/Deep"),
+        }, ObjectProperties.None);
 
         var text = StWriter.Write(item);
 
@@ -745,10 +745,10 @@ public class ImplementationKeywordTests
 
         var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, "x := 1;", new List<Member>
         {
-            new(ItemKind.Kinds.Method, "Take", "METHOD ABSTRACT Take : INT", line, Stated: StatedLanguage.None),
-            new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null,
+            new(ItemKind.Kinds.Method, "Take", "METHOD ABSTRACT Take : INT", line, ObjectProperties.None, Stated: StatedLanguage.None),
+            new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null, ObjectProperties.None,
                 Getter: new Accessor("VAR\nEND_VAR", line, Stated: StatedLanguage.None), Setter: null),
-        }, Stated: StatedLanguage.St);
+        }, ObjectProperties.None, Stated: StatedLanguage.St);
 
         var text = StWriter.Write(item);
 

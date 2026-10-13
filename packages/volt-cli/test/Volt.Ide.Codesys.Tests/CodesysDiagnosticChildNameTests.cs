@@ -62,8 +62,10 @@ namespace Volt.Ide.Codesys.Tests
 
         public sealed class ObjectManager
         {
-            private readonly Dictionary<Guid, IObject> _byGuid = new();
-            public ObjectManager(TreeNode root) { foreach (var n in root.Self()) if (n.Object != null) _byGuid[n.guid] = n.Object; }
+            // EVERY node is an object with a meta, a folder too (its Object null here) — the walk reads a folder's
+            // properties (openspec bridge-one-to-one §1.1: an excluded folder is refused by name).
+            private readonly Dictionary<Guid, IObject?> _byGuid = new();
+            public ObjectManager(TreeNode root) { foreach (var n in root.Self()) _byGuid[n.guid] = n.Object; }
             public Meta GetObjectToRead(int nProjectHandle, Guid objectGuid) => new(_byGuid[objectGuid]);
         }
 
@@ -95,7 +97,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var execute = new TreeNode("Execute", new Method("METHOD Execute : BOOL", null!));
             var get = new TreeNode("Get", new AccessorObject("VAR\nEND_VAR", null!));
-            var set = new TreeNode("Set", new AccessorObject("VAR\nEND_VAR", null!));
+            var set = new TreeNode("Set", new AccessorObject("VAR\nEND_VAR", null!) { IsGetAccessor = false });
             var ready = new TreeNode("Ready", new Property("PROPERTY Ready : BOOL"), get, set);
             var act = new TreeNode("Act", new Action(""));
             var trans = new TreeNode("Trans", new Transition(""));

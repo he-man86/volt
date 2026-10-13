@@ -145,7 +145,29 @@ public class TcUntouchablePouTests
             new(_name, Canonical, Caption, Kids.Select(k => k.Explorer()).ToList());
     }
 
-    public sealed class Plc { public Plc(Node nested) => NestedProject = nested; public Node NestedProject { get; } }
+    /// <summary>The PLC project item: its nested project, and its own XML naming its <c>.plcproj</c> — one that lists no
+    /// <c>Compile</c> entry (a project whose objects carry no build entry, the corpus's state: 13 of 13 hold only
+    /// <c>SubType</c>), written once to the temp folder.</summary>
+    public sealed class Plc
+    {
+        /// <param name="projectPath">The <c>.plcproj</c> the item names — the shared empty one unless a test writes its own.</param>
+        public Plc(Node nested, string? projectPath = null)
+        {
+            NestedProject = nested;
+            _project = projectPath ?? Project;
+        }
+        public Node NestedProject { get; }
+        private readonly string _project;
+        private static readonly string Project = WriteProject();
+        private static string WriteProject()
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt-tc-tests-empty.plcproj");
+            System.IO.File.WriteAllText(path, "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup /></Project>");
+            return path;
+        }
+        public string ProduceXml(bool recursive) =>
+            $"<TreeItem><PlcProjectDef><ProjectPath>{_project}</ProjectPath></PlcProjectDef></TreeItem>";
+    }
 
     public sealed class Tipc
     {
@@ -183,12 +205,12 @@ public class TcUntouchablePouTests
     }
 
     internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
-        Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null)
+        Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null, string? plcproj = null)
     {
         var xae = new Xae();
         var root = build(xae);
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
-            new SysManager(new Tipc(new Plc(root)))));
+            new SysManager(new Tipc(new Plc(root, plcproj)))));
         var model = new TcObjectModel
         {
             BindWindow = _ => window,
@@ -202,8 +224,8 @@ public class TcUntouchablePouTests
     /// <summary>A driver bound to an empty PLC project whose Solution Explorer flags nothing — the state every
     /// production write runs in. For offline tests that drive a POU double directly: every child access goes through
     /// the C2i guard, which reads the bound project's hierarchy.</summary>
-    internal static BeckhoffDriver BoundDriver() =>
-        Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder)).Driver;
+    internal static BeckhoffDriver BoundDriver(string? plcproj = null) =>
+        Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder), plcproj: plcproj).Driver;
 
     /// <summary>The census shape (probe-5h): a folder holding a POU whose text declares nothing, beside a GVL, a DUT,
     /// a parsed FB and an interface — and a second folder, clean, which must take the fast path.</summary>

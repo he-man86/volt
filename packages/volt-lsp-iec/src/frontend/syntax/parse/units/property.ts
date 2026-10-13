@@ -24,7 +24,7 @@ import { type Keyword } from "../../lex/vocabulary.js"
 import { MEMBER_MODIFIERS } from "../../lex/word-sets.js"
 import { joinSpans, type Span } from "../../span.js"
 import { vendorTokenText } from "../errors.js"
-import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
+import { acceptClosingRun, readPropertyRun, reportMisplacedProperty } from "../../format/object-properties.js"
 import { collectVarSections } from "../declarations.js"
 import { identFromToken, readModifiers, readPropertyModifiers } from "../names.js"
 import { collectAccessorBody } from "../body.js"
@@ -60,6 +60,7 @@ export function parseProperty(c: Cursor): Property | undefined {
     name,
     modifiers,
     ...(parts.folder !== undefined ? { folder: parts.folder } : {}),
+    ...(parts.objectProperties !== undefined ? { objectProperties: parts.objectProperties } : {}),
     dataType,
     ...(parts.getter !== undefined ? { getter: parts.getter } : {}),
     ...(parts.setter !== undefined ? { setter: parts.setter } : {}),
@@ -81,6 +82,9 @@ interface PropertyParts {
   getter?: Property["getter"]
   setter?: Property["setter"]
   folder?: string
+  objectProperties?: readonly string[]
+  /** Its declaration's closing `%`-lines were read: a second run is misplaced. */
+  closed?: boolean
 }
 
 /**
@@ -111,18 +115,16 @@ function parsePropertyType(c: Cursor, nameTok: Token): TypeExpr | undefined {
 
 /** The next part of a property's body into `parts` — false when nothing is left to resume the body at. */
 function parsePropertyPart(c: Cursor, parts: PropertyParts): boolean {
-  // A property in a sub-folder closes its declaration with `%FOLDER <path>` (`StWriter.AssembleProperty`): the
-  // last line before its first accessor, which is where the push reads it. Anywhere else the push refuses it.
-  const directive = readFolderLine(c)
-  if (directive !== undefined) {
-    const closing =
-      directive.path !== undefined &&
-      parts.folder === undefined &&
-      parts.getter === undefined &&
-      parts.setter === undefined &&
-      closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
-    if (closing) parts.folder = directive.path
-    else reportMisplacedFolder(c, directive)
+  // A property's `%`-lines (its `%FOLDER` among them) close its declaration (`StWriter.AssembleProperty`): the last
+  // lines before its first accessor, which is where the push reads them. Anywhere else the push refuses them.
+  const run = readPropertyRun(c)
+  if (run.length > 0) {
+    if (!parts.closed && parts.getter === undefined && parts.setter === undefined) {
+      const read = acceptClosingRun(c, run, ["GET", "SET", "END_PROPERTY"], false, true)
+      if (read?.folder !== undefined) parts.folder = read.folder
+      if (read !== undefined && read.properties.length > 0) parts.objectProperties = read.properties
+      parts.closed = true
+    } else for (const line of run) reportMisplacedProperty(c, line)
     return true
   }
   const accessor = parseInlineAccessor(c)

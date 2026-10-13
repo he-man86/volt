@@ -18,7 +18,13 @@ namespace Volt.Ide.Codesys
         /// live in the <c>ILibManObject</c> collection — so each is surfaced as a
         /// synthetic <see cref="LibRefNode"/> the adapter emits as a `library` item,
         /// matching TwinCAT's flat library refs. Read-only (no push target).</summary>
-        public List<LibRefNode> GetLibraryRefs(object libManNode)
+        public List<LibRefNode> GetLibraryRefs(object libManNode) => GetLibraryRefs(libManNode, out _);
+
+        /// <summary>…and what the manager holds that no manifest spells, each a reason for the pull report
+        /// (<paramref name="unspelled"/>; openspec bridge-one-to-one §1.1 library manager, gate review of step 3, finding
+        /// 4): a redirection of a placeholder no reference here names, and the parameter values the project sets (their
+        /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</summary>
+        public List<LibRefNode> GetLibraryRefs(object libManNode, out List<string> unspelled)
         {
             // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
             // libraries", which is a LIE for all three conditions and an expensive one: `fetch` reports the
@@ -61,6 +67,8 @@ namespace Volt.Ide.Codesys
             // library — and its signatures — materialize exactly once. Best-effort per node (read-only metadata).
             var byName = new Dictionary<string, LibRefNode>(StringComparer.OrdinalIgnoreCase);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var redirects = Redirections(iobj);
+            var redirected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             void Walk(object item)
             {
                 string ns, nm;
@@ -75,7 +83,12 @@ namespace Volt.Ide.Codesys
                     return;
                 }
                 if (!seen.Add(ns + "|" + nm)) return; // cycle / re-reference guard (logical key, not instance)
-                try { var r = ToLibRef(item); byName[r.Name] = r; }
+                try
+                {
+                    var r = ToLibRef(item, redirects);
+                    byName[r.Name] = r;
+                    if (redirects.ContainsKey(r.Name) && IsPlaceholder(item)) redirected.Add(r.Name);
+                }
                 catch (Exception ex)
                 {
                     VoltLog.Warn($"library ref '{ns}.{nm}' skipped — no .library item will materialize: {ex.Message}");
@@ -84,30 +97,107 @@ namespace Volt.Ide.Codesys
                     foreach (var d in deps) if (d != null) Walk(d);
             }
             foreach (var item in items) if (item != null) Walk(item);
+
+            unspelled = new List<string>();
+            var stray = redirects.Keys.Where(k => !redirected.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
+            if (stray.Count > 0)
+                unspelled.Add($"it redirects {stray.Count} placeholder(s) no reference here names ({string.Join(", ", stray)}) — a " +
+                              "REDIRECT line stands in the manifest of the placeholder it redirects, and none materializes here");
+            if (ParameterValues(iobj) is { Count: > 0 } parameters)
+                unspelled.Add($"its ParameterTable sets {parameters.Sum(p => p.Values)} library parameter value(s) " +
+                              $"({string.Join(", ", parameters.Select(p => p.Library))}) — CODESYS holds each as an IExpression " +
+                              "whose text form Volt has not measured, so no PARAMETER line spells them yet");
             return byName.Values.ToList();
+        }
+
+        private static bool IsPlaceholder(object item) =>
+            item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem");
+
+        /// <summary>The manager's placeholder redirections — placeholder → the resolution the project fixes for it — read
+        /// through the vendor's own <c>GetRedirectedPlaceholderNames</c> / <c>GetRedirectedPlaceholderResolution</c> (the
+        /// <c>PlaceholderRedirectionTable</c> the census counted, 193 entries; both strings).</summary>
+        private static Dictionary<string, string> Redirections(object libMan)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (InvokeMethod(libMan, "GetRedirectedPlaceholderNames") is not IEnumerable names)
+                throw new InvalidOperationException(
+                    "CODESYS: the library manager answered no redirected placeholder names — refusing rather than reading " +
+                    "its references as unredirected.");
+            foreach (var n in names)
+            {
+                if (n is not string name) continue;
+                map[name] = InvokeMethod(libMan, "GetRedirectedPlaceholderResolution", name) as string
+                    ?? throw new InvalidOperationException(
+                        $"CODESYS: the library manager redirects '{name}' to no resolution — refusing rather than guessing one.");
+            }
+            return map;
+        }
+
+        /// <summary>The library parameter values the project sets — the manager's archived <c>ParameterTable</c> (census: 3
+        /// managers, 24 values), each entry's library name and how many values it sets.</summary>
+        private static List<(string Library, int Values)> ParameterValues(object libMan)
+        {
+            const string what = "the library manager";
+            var list = new List<(string, int)>();
+            if (ArchivedObject(libMan, "ParameterTable", what) is not IEnumerable tables)
+                throw Unreadable(what, "LibManObject.ParameterTable");
+            foreach (var t in tables)
+            {
+                if (t is null) continue;
+                var values = Count(ArchivedObject(t, "Values", what));
+                if (values > 0) list.Add((Archived(t, "Name", what), values));
+            }
+            return list;
         }
 
         /// <summary>The display name of a library ref — the placeholder name for a placeholder, else its Name. Used
         /// for the ref's own name AND its dependency names, so a `DEPENDENCIES` entry matches the flat ref it names.</summary>
         private static string RefDisplayName(object item)
         {
-            var name = GetMember(item, "Name") as string ?? "";
             if (item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem"))
             {
                 var ph = GetMember(item, "PlaceholderName") as string;
                 if (!string.IsNullOrEmpty(ph)) return ph!;
             }
-            return name;
+            return LibMember(item, "Name") as string ?? throw LibUnreadable(item, "Name");
         }
 
-        private static LibRefNode ToLibRef(object item)
+        /// <summary>A library reference's member, READ — never defaulted (openspec <c>bridge-one-to-one</c> finding 8, task
+        /// 3.5): a missing <c>Namespace</c> read as <c>""</c> and a missing <c>SystemLibrary</c> as false, so a reference the
+        /// vendor answered differently looked like a plain one. A member the item does not answer refuses the reference by
+        /// name.</summary>
+        private static object? LibMember(object item, string member) =>
+            NwlInterop.Has(item, member) ? NwlInterop.Get(item, member) : throw LibUnreadable(item, member);
+
+        private static Volt.Engine.BridgeException LibUnreadable(object item, string member) =>
+            new(BridgeErrorCodes.Unsupported,
+                $"CODESYS: a library reference ({item.GetType().Name}) answers no '{member}' — Volt reads a reference's members " +
+                "rather than assume them, so it is not materialized.");
+
+        /// <summary>The library-item members measured at one value on all 264 corpus items (census §0.1 finding 6/8): another
+        /// value has no text form and refuses the reference by name.</summary>
+        private static readonly (string Member, object? Measured)[] LibraryConstants =
         {
-            var ns = GetMember(item, "Namespace") as string ?? "";
-            var system = GetMember(item, "SystemLibrary") is bool b && b;
+            ("Optional", false), ("HideWhenReferencedAsDependency", false), ("PublishSymbolsInContainer", false),
+        };
+
+        private static LibRefNode ToLibRef(object item, IReadOnlyDictionary<string, string> redirects)
+        {
+            var ns = LibMember(item, "Namespace") as string ?? throw LibUnreadable(item, "Namespace");
+            var system = LibMember(item, "SystemLibrary") is bool b ? b : throw LibUnreadable(item, "SystemLibrary");
+            var linkAll = LibMember(item, "LinkAllContent") is bool la ? la : throw LibUnreadable(item, "LinkAllContent");
+            var qualifiedOnly = LibMember(item, "QualifiedOnly") is bool q ? q : throw LibUnreadable(item, "QualifiedOnly");
+            foreach (var (member, measured) in LibraryConstants)
+                if (!Equals(LibMember(item, member), measured))
+                    throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                        $"CODESYS: the library reference '{RefDisplayName(item)}' has {member} = '{LibMember(item, member)}' — " +
+                        $"measured {(measured is null ? "null" : measured.ToString()!.ToLowerInvariant())} on all 264 corpus " +
+                        "references, it has no line in the manifest (niche, accepted loss), so the reference is not materialized.");
             var isPlaceholder = item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem");
             var name = RefDisplayName(item);
             var resolution = isPlaceholder
-                ? (ManagedLibDisplay(GetMember(item, "EffectiveResolution")) ?? GetMember(item, "DefaultResolution") as string ?? "")
+                ? (ManagedLibDisplay(LibMember(item, "EffectiveResolution")) ?? LibMember(item, "DefaultResolution") as string
+                   ?? throw LibUnreadable(item, "EffectiveResolution / DefaultResolution"))
                 : name;   // managed refs carry "Name, Version (Company)" in Name
 
             // DIRECT dependencies, by display name — the dependency tree captured as a REFERENCE (the deps live once
@@ -131,7 +221,9 @@ namespace Volt.Ide.Codesys
 
             // Deterministic manifest — the fetch body AND the version-hash input. Built by the SHARED Core
             // formatter so CODESYS and TwinCAT emit the same canonical shape.
-            var manifest = Volt.Engine.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps);
+            var manifest = Volt.Engine.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps,
+                                                                     linkAllContent: linkAll, qualifiedOnly: qualifiedOnly,
+                                                                     redirect: isPlaceholder && redirects.TryGetValue(name, out var to) ? to : null);
             return new LibRefNode(name, manifest);
         }
 
@@ -347,8 +439,12 @@ namespace Volt.Ide.Codesys
                 $"CODESYS: {t.Name} has no '{member}'. It offers: {names}");
         }
 
-        public object CreateChild(object parent, string name, int itemType, string? language = null)
+        public object CreateChild(object parent, string name, int itemType, string? language, ObjectClass? cls)
         {
+            // A CLASS THE TEXT NAMES is made at the create, through the vendor's own Add Object path, or refused by name
+            // (openspec bridge-one-to-one §3, DIALECT C2r) — never the plain class reported created.
+            if (cls is not null) return CreateClass(parent, name, itemType, cls);
+
             // Folders are created on the tree object itself. The object create_folder
             // returns is NOT a usable container parent (creating a POU under it throws
             // a NullReferenceException) — re-fetch the freshly-created folder as a real

@@ -21,7 +21,7 @@ public class ChildDirectiveTests
 {
     private static Member Child(string kind, string name, string decl, string impl, string? folder) =>
         new Member(
-            Kind: kind, Name: name, Declaration: decl, Body: impl, Folder: folder,
+            Kind: kind, Name: name, Declaration: decl, Body: impl, ObjectProperties.None, Folder: folder,
             Getter: null, Setter: null);
 
     [Fact]
@@ -35,7 +35,7 @@ public class ChildDirectiveTests
             {
                 Child("action", "BF01", "ACTION BF01", "IMPLEMENTATION FBD\nNETWORK\n  i1 := a;\n  out := i1;\nEND_NETWORK", "MFB01_Basic Functions"),
                 Child("action", "TA01", "ACTION TA01", "x := 1;", "Sub/Deep"),
-            });
+            }, ObjectProperties.None);
 
         var st = StWriter.Write(pou);
 
@@ -130,9 +130,9 @@ public class ChildDirectiveTests
             Members: new List<Member>
             {
                 Child("method", "Run", "METHOD Run : BOOL", ld, null),
-                new Member("property", "Speed", "PROPERTY Speed : BOOL", "",
+                new Member("property", "Speed", "PROPERTY Speed : BOOL", "", ObjectProperties.None,
                            Getter: new Accessor("", fbd), Setter: null),
-            });
+            }, ObjectProperties.None);
 
         var st = StWriter.Write(pou);
 

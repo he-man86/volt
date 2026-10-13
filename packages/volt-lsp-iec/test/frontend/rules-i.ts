@@ -123,20 +123,20 @@ export const RULES_I: readonly Rule[] = [
     area: 2,
     section: "2.10",
     rule: "`%FOLDER <path>` is read only on the line directly under a METHOD's or ACTION's keyword line, alone on its line; a property's or interface member's is peeled from the declaration's last line (`StReader.PeelFolderClosing`)",
-    home: "format/folder",
+    home: "format/object-properties",
     gap: false,
     fixtures: [],
     tests: [
       {
-        file: "src/frontend/syntax/format/folder.test.ts",
+        file: "src/frontend/syntax/format/object-properties.test.ts",
         title: "a property's folder is the last line of its declaration",
       },
       {
-        file: "src/frontend/syntax/format/folder.test.ts",
+        file: "src/frontend/syntax/format/object-properties.test.ts",
         title: "an interface method's folder is the line before END_METHOD, an interface property's the last before its accessors",
       },
       {
-        file: "src/frontend/syntax/format/folder.test.ts",
+        file: "src/frontend/syntax/format/object-properties.test.ts",
         title:
           "a member's %FOLDER is read where the push peels it, and nowhere else — elsewhere it is code the IDE would get",
       },
@@ -148,12 +148,12 @@ export const RULES_I: readonly Rule[] = [
     area: 2,
     section: "2.10",
     rule: 'a `%FOLDER` line anywhere else is reported ("is no folder the push reads here")',
-    home: "format/folder",
+    home: "format/object-properties",
     gap: false,
     fixtures: [],
     tests: [
       {
-        file: "src/frontend/syntax/format/folder.test.ts",
+        file: "src/frontend/syntax/format/object-properties.test.ts",
         title: "a %FOLDER line anywhere the push does not peel it is reported, as the push refuses it",
       },
     ],

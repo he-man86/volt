@@ -61,6 +61,9 @@ export interface ImplementationLine {
   /** The path of a member's `%FOLDER` directive on the line directly under this one — taken out of the body with the
    *  line, and kept here so what prints the body (the formatter) prints it back. */
   folder?: string
+  /** The object's other `%`-lines under this one (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …), as written, in order — its
+   *  properties, not code (`object-properties.ts` `peelProperties`); kept so the formatter prints them back. */
+  objectProperties?: readonly string[]
 }
 
 // ─── expression tree (POU bodies + all structured initializers/bounds) ───────

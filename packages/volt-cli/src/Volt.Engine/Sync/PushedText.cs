@@ -53,7 +53,7 @@ public static class PushedText
         // from the declaration's own header, `StWriter`), so it is compared on its own: a pushed END line that does not
         // match its header (`PROGRAM X … END_FUNCTION_BLOCK`) comes back as `… END_PROGRAM`, which is not the pushed
         // text laid out otherwise — the client is told, and the next pull brings the IDE's text in.
-        if (!(a.Kind == b.Kind && a.Declaration == b.Declaration
+        if (!(a.Kind == b.Kind && a.Declaration == b.Declaration && Equals(a.Properties, b.Properties)
                && StReader.OuterEndKeyword(pushed, kind) == StReader.OuterEndKeyword(held, kind)
                && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same)))
             return false;
@@ -63,6 +63,7 @@ public static class PushedText
 
         static bool SameMember(Member x, Member y) =>
             x.Kind == y.Kind && x.Name == y.Name && x.Declaration == y.Declaration && x.Folder == y.Folder
+            && Equals(x.Properties, y.Properties)
             && x.ReturnType == y.ReturnType && x.DataType == y.DataType
             && (x.Getter is null) == (y.Getter is null) && (x.Setter is null) == (y.Setter is null)
             && x.Getter?.Declaration == y.Getter?.Declaration && x.Setter?.Declaration == y.Setter?.Declaration;

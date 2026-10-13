@@ -68,10 +68,11 @@ function printUnitItself(unit: TopLevel): string {
       return `ACTION ${unit.name.text}\n${printBody(unit.body)}END_ACTION`
     case "interface":
       return printInterface(unit)
+    // a DUT's and a GVL's `%`-lines close the file (its last line ends without a newline, as the unit's does)
     case "type_decl":
-      return printTypeDecl(unit)
+      return printTypeDecl(unit) + closingLines(unit)
     case "global_var_list":
-      return unit.varSections.map(printVarSection).join("\n")
+      return unit.varSections.map(printVarSection).join("\n") + closingLines(unit)
     case "property":
       return printProperty(unit)
     case "namespace":
@@ -139,7 +140,7 @@ function initText(init: VarDecl["init"]): string {
 // ─── bodies ──────────────────────────────────────────────────────────────────
 
 /**
- * A body: its `IMPLEMENTATION` line and a member's `%FOLDER` under it, then its code. The line and the folder are NOT in
+ * A body: its `IMPLEMENTATION` line and the `%`-lines under it, then its code. The line and the folder are NOT in
  * `body.tokens` (`splitImplementation` takes them out — they are no code), so they are printed from where the parser
  * keeps them. Rebuilt from the tokens alone, formatting deleted both from every file: an LD body lost the line that
  * states its language and read as ST, and a member lost its folder, which the next push took for "none".
@@ -154,12 +155,21 @@ function implementationHead(body: BodySpan): string {
   const line = body.implementation
   if (line === undefined) return ""
   const leading = line.leading === undefined ? "" : `${verbatimText(line.leading)}\n`
-  return `${leading}${statedLine(line)}\n${folderLine(line.folder)}`
+  return `${leading}${statedLine(line)}\n${propertyLines(line)}`
 }
 
-/** A member's `%FOLDER` line, in the push's one spelling (`StReader.FolderOn`), or nothing. */
-function folderLine(folder: string | undefined): string {
-  return folder === undefined ? "" : `%FOLDER ${folder}\n`
+/** An object's `%`-lines, each ending its line: `%CLASS` first, then a member's `%FOLDER` in the push's one spelling,
+ *  then the rest as written (`object-properties.ts` — the canonical order the push reads). */
+function propertyLines(o: { folder?: string; objectProperties?: readonly string[] }): string {
+  const lines = o.objectProperties ?? []
+  const cls = lines.filter((l) => l.startsWith("%CLASS"))
+  const folder = o.folder === undefined ? [] : [`%FOLDER ${o.folder}`]
+  return [...cls, ...folder, ...lines.filter((l) => !l.startsWith("%CLASS"))].map((l) => l + "\n").join("")
+}
+
+function closingLines(unit: { objectProperties?: readonly string[] }): string {
+  const props = propertyLines(unit)
+  return props === "" ? "" : "\n" + props.slice(0, -1)
 }
 
 function printCode(body: BodySpan): string {
@@ -294,14 +304,14 @@ function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string
     .sort((x, y) => x.at - y.at)
     .map((m) => m.text)
     .join("\n")
-  return `INTERFACE ${iface.name.text}${ext}\n${members ? members + "\n" : ""}END_INTERFACE`
+  return `INTERFACE ${iface.name.text}${ext}\n${propertyLines(iface)}${members ? members + "\n" : ""}END_INTERFACE`
 }
 
 function printInterfaceMethod(m: InterfaceMethod): string {
   const ret = m.returnType ? ` : ${renderTypeExpr(m.returnType)}` : ""
   const vars = m.varSections.map(printVarSection).join("\n")
   const head = `${TAB}METHOD ${modifierText(m.modifiers)}${m.name.text}${ret}\n`
-  return `${head}${vars ? vars + "\n" : ""}${folderLine(m.folder)}${TAB}END_METHOD`
+  return `${head}${vars ? vars + "\n" : ""}${propertyLines(m)}${TAB}END_METHOD`
 }
 
 function printInterfaceProperty(p: InterfaceProperty): string {
@@ -309,9 +319,9 @@ function printInterfaceProperty(p: InterfaceProperty): string {
   const accessor = (kw: string, vars: readonly VarSection[]) =>
     vars.length === 0 ? `\n${TAB}${kw}` : `\n${TAB}${kw}\n${vars.map(printVarSection).join("\n")}\n${TAB}END_${kw}`
   const getset = `${p.hasGetter ? accessor("GET", p.getterVarSections) : ""}${p.hasSetter ? accessor("SET", p.setterVarSections) : ""}`
-  const folder = p.folder === undefined ? "" : `\n%FOLDER ${p.folder}`
+  const props = propertyLines(p)
   const head = `${TAB}PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}`
-  return `${head}${folder}${getset}\n${TAB}END_PROPERTY`
+  return `${head}${props === "" ? "" : "\n" + props.slice(0, -1)}${getset}\n${TAB}END_PROPERTY`
 }
 
 // EXTENDS stands on the TYPE line and nowhere else: `STRUCT EXTENDS B` is refused by both vendors
@@ -352,5 +362,5 @@ function printProperty(p: Extract<TopLevel, { kind: "property" }>): string {
   }
   const parts = [acc("GET", p.getter, "END_GET"), acc("SET", p.setter, "END_SET")].filter(Boolean).join("\n")
   const head = `PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}\n`
-  return `${head}${folderLine(p.folder)}${parts}\nEND_PROPERTY`
+  return `${head}${propertyLines(p)}${parts}\nEND_PROPERTY`
 }

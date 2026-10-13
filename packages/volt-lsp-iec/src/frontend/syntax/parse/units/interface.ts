@@ -20,7 +20,7 @@ import { atVarSection, collectVarSections, parseVarSection } from "../declaratio
 import { MEMBER_MODIFIERS } from "../../lex/word-sets.js"
 import { joinSpans, type Span } from "../../span.js"
 import { atObjectEnd, vendorTokenText } from "../errors.js"
-import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
+import { acceptClosingRun, readPropertyRun, reportMisplacedProperty } from "../../format/object-properties.js"
 import { identFromToken, readHeaderNames, readModifiers, readPropertyModifiers, refusedAccessModifier } from "../names.js"
 
 /** What an interface's body holds, read member by member (`parseInterfaceMember`). */
@@ -30,6 +30,8 @@ interface InterfaceBody {
   // VAR sections placed directly in the interface body are illegal — interfaces declare signatures only.
   // Capture them (instead of the generic recovery error) so a check can emit C0149.
   strayVarSections: VarSection[]
+  /** The interface's own `%`-lines, closing its declaration before its first member. */
+  objectProperties?: readonly string[]
 }
 
 export function parseInterface(c: Cursor): Interface | undefined {
@@ -56,6 +58,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
     ...(extendsList !== undefined ? { extends: extendsList } : {}),
     ...(implementsMisused !== undefined ? { implementsMisused } : {}),
     ...(body.strayVarSections.length > 0 ? { strayVarSections: body.strayVarSections } : {}),
+    ...(body.objectProperties !== undefined ? { objectProperties: body.objectProperties } : {}),
     methods: body.methods,
     properties: body.properties,
     span: joinSpans(start.span, end),
@@ -71,13 +74,18 @@ export function parseInterface(c: Cursor): Interface | undefined {
   return node(name.span)
 }
 
+const INTERFACE_CLOSERS = ["METHOD", "PROPERTY", "END_INTERFACE"] as const
+
 /** The next member of an interface's body into `body` — false when nothing is left to resume the body at. */
 function parseInterfaceMember(c: Cursor, body: InterfaceBody): boolean {
-  // A member's `%FOLDER` closes the member's OWN declaration (read in `parseInterfaceMethod`/`Property`). Between
-  // members it is the next member's declaration text, which the push refuses.
-  const stray = readFolderLine(c)
-  if (stray !== undefined) {
-    reportMisplacedFolder(c, stray)
+  // `%`-lines before the first member close the INTERFACE's declaration (`StReader`: an interface has no boundary
+  // line). A member's close the member's OWN declaration (read in `parseInterfaceMethod`/`Property`); between members
+  // they are the next member's declaration text, which the push refuses.
+  const run = readPropertyRun(c)
+  if (run.length > 0) {
+    const first = body.methods.length === 0 && body.properties.length === 0 && body.objectProperties === undefined
+    if (first) body.objectProperties = acceptClosingRun(c, run, INTERFACE_CLOSERS, false, false)?.properties ?? []
+    else for (const line of run) reportMisplacedProperty(c, line)
     return true
   }
 
@@ -135,16 +143,18 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   if (colon !== undefined && !refusedEmptyType(c, colon.span, ["END_METHOD"])) {
     returnType = parseTypeExpression(c)
   }
-  // A method in a sub-folder closes its declaration with `%FOLDER <path>` — the line directly before END_METHOD, where
-  // the push reads it (`StReader.PeelFolderClosing`). Anywhere else in the method the push refuses it.
+  // A method's `%`-lines (its `%FOLDER` among them) close its declaration — the lines directly before END_METHOD,
+  // where the push reads them (`StReader.PeelPropertiesClosing`). Anywhere else in the method the push refuses them.
   const varSections: VarSection[] = []
   let folder: string | undefined
+  let objectProperties: readonly string[] | undefined
   for (;;) {
     varSections.push(...collectVarSections(c))
-    const directive = readFolderLine(c)
-    if (directive === undefined) break
-    if (directive.path !== undefined && closesDeclaration(c, ["END_METHOD"], true)) folder = directive.path
-    else reportMisplacedFolder(c, directive)
+    const run = readPropertyRun(c)
+    if (run.length === 0) break
+    const read = acceptClosingRun(c, run, ["END_METHOD"], true, true)
+    if (read?.folder !== undefined) folder = read.folder
+    if (read !== undefined && read.properties.length > 0) objectProperties = read.properties
   }
   // One canonical form (matches the bridge + what `volt pull` emits): every interface method is
   // closed by END_METHOD. Redline a missing one so the agent writes the canonical form, not a shape
@@ -157,6 +167,7 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
     name,
     modifiers,
     ...(folder !== undefined ? { folder } : {}),
+    ...(objectProperties !== undefined ? { objectProperties } : {}),
     ...(returnType !== undefined ? { returnType } : {}),
     varSections,
     span: joinSpans(start.span, endSpan),
@@ -179,7 +190,7 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
     : parseTypeExpression(c)
   if (dataType === undefined) return undefined
   c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
-  const { hasGetter, hasSetter, getterVarSections, setterVarSections, folder } = readInterfaceAccessors(c)
+  const { hasGetter, hasSetter, getterVarSections, setterVarSections, folder, objectProperties } = readInterfaceAccessors(c)
   const endProp = c.eatKeyword("END_PROPERTY")
   const endSpan = endProp?.span ?? dataType.span
   return {
@@ -187,6 +198,7 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
     name,
     modifiers,
     ...(folder !== undefined ? { folder } : {}),
+    ...(objectProperties !== undefined ? { objectProperties } : {}),
     dataType,
     hasGetter,
     hasSetter,
@@ -214,24 +226,25 @@ function readInterfaceAccessors(c: Cursor): {
   getterVarSections: VarSection[]
   setterVarSections: VarSection[]
   folder?: string
+  objectProperties?: readonly string[]
 } {
   let hasGetter = false
   let hasSetter = false
   const getterVarSections: VarSection[] = []
   const setterVarSections: VarSection[] = []
   let folder: string | undefined
+  let objectProperties: readonly string[] | undefined
+  let closed = false
   while (true) {
-    // The property's `%FOLDER` is the last line of its declaration, before its first accessor (`StReader.ReadProperty`).
-    const directive = readFolderLine(c)
-    if (directive !== undefined) {
-      const closing =
-        directive.path !== undefined &&
-        folder === undefined &&
-        !hasGetter &&
-        !hasSetter &&
-        closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
-      if (closing) folder = directive.path
-      else reportMisplacedFolder(c, directive)
+    // The property's `%`-lines are the last lines of its declaration, before its first accessor (`StReader.ReadProperty`).
+    const run = readPropertyRun(c)
+    if (run.length > 0) {
+      if (!closed && !hasGetter && !hasSetter) {
+        const read = acceptClosingRun(c, run, ["GET", "SET", "END_PROPERTY"], false, true)
+        if (read?.folder !== undefined) folder = read.folder
+        if (read !== undefined && read.properties.length > 0) objectProperties = read.properties
+        closed = true
+      } else for (const line of run) reportMisplacedProperty(c, line)
       continue
     }
     const accessor = c.eatAnyKeyword("GET", "SET")
@@ -241,20 +254,27 @@ function readInterfaceAccessors(c: Cursor): {
     readAccessorVarSections(c, accessor.keyword === "GET" ? getterVarSections : setterVarSections)
     c.eatKeyword(accessor.keyword === "GET" ? "END_GET" : "END_SET")
   }
-  return { hasGetter, hasSetter, getterVarSections, setterVarSections, ...(folder !== undefined ? { folder } : {}) }
+  return {
+    hasGetter,
+    hasSetter,
+    getterVarSections,
+    setterVarSections,
+    ...(folder !== undefined ? { folder } : {}),
+    ...(objectProperties !== undefined ? { objectProperties } : {}),
+  }
 }
 
 /**
  * Block form: whatever the accessor declares, then its closer. The vars are local temps of a body that does not
  * exist, but they are the vendor's stored declaration, so they are KEPT (U21) — the formatter prints them back. Only
  * VAR sections are read, so anything genuinely unexpected still reaches the recovery error instead of being
- * swallowed here. A `%FOLDER` line in here is the accessor's declaration text, which the push refuses.
+ * swallowed here. A `%`-line in here is the accessor's declaration text, which the push refuses.
  */
 function readAccessorVarSections(c: Cursor, into: VarSection[]): void {
   while (true) {
-    const stray = readFolderLine(c)
-    if (stray !== undefined) {
-      reportMisplacedFolder(c, stray)
+    const stray = readPropertyRun(c)
+    if (stray.length > 0) {
+      for (const line of stray) reportMisplacedProperty(c, line)
       continue
     }
     if (!atVarSection(c)) break

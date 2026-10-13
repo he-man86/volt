@@ -38,7 +38,7 @@ import type { BodySpan, ImplementationLine, ImplementationStatement } from "../a
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
 import type { Dialect } from "../lex/vocabulary.js"
-import { peelFolder } from "./folder.js"
+import { checkPropertyLines, peelProperties } from "./object-properties.js"
 import { lineAround, nextSignificant, type ReportAt } from "./lines.js"
 
 export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
@@ -152,18 +152,19 @@ export function opensKeywordLine(tokens: readonly Token[], at: number): boolean 
   return isImplementationKeyword(tokens[at]!) && statementOf(lineAround(tokens, at).text) !== undefined
 }
 
-/** Whose body the splitter is given. A `member` — a METHOD or an ACTION of a POU — is the one body a `%FOLDER`
- *  directive stands under; a POU's own body and a property accessor carry none there (a property's closes its
- *  declaration, which the property parser reads). */
-export type BodyOwner = "member" | "pou-or-accessor"
+/** Whose body the splitter is given — which `%`-lines stand directly under its line (`object-properties.ts`). A `member`
+ *  (a METHOD or an ACTION of a POU) carries its properties there, `%FOLDER` included; a `pou`'s own body carries its
+ *  properties but no `%FOLDER` (its folder is its file's); an `accessor` carries none (its property's close the
+ *  property's declaration, which the property parser reads). */
+export type BodyOwner = "member" | "pou" | "accessor"
 
 /**
  * A body's tokens, as the unit parsers collect them, split into the line that states it and the code under it.
  *
  * The line is the body's FIRST significant token, when that is the keyword opening a boundary line: everything
- * before it is trivia, which belongs to the declaration. A member's `%FOLDER` directive stands directly under the
- * line (the bridge writes it there, `StWriter`) and is taken out with it, its path kept on the line — it is folder
- * metadata, not code (`peelFolder` says exactly where). A body that opens with anything else has no line and is returned whole: the
+ * before it is trivia, which belongs to the declaration. The object's `%`-lines stand directly under the line (the
+ * bridge writes them there, `StWriter`) and are taken out with it, kept on the line — they are its properties, not code
+ * (`peelProperties` says exactly where; `checkPropertyLines` reports their grammar as the push refuses it). A body that opens with anything else has no line and is returned whole: the
  * parser also reads text that is no workspace file — conformance fixture ST and the library repo, which are the IDE's
  * own body text and carry no line. In a WORKSPACE file such a body states no language: the server reports it naming
  * `volt pull`, as the push refuses it, and reports nothing else in it (`analysis/checks/syntax/missing-language.ts`), so no language is
@@ -203,11 +204,13 @@ export function splitImplementation(
       .trim()
     if (leading !== "") implementation.leading = leading
     code = tokens.slice(end)
-    if (owner === "member") {
-      const folder = peelFolder(code)
-      if (folder !== undefined) {
-        implementation.folder = folder.path
-        code = code.slice(folder.end)
+    if (owner !== "accessor") {
+      const peeled = peelProperties(code, owner === "member")
+      if (peeled !== undefined) {
+        const { folder, properties } = checkPropertyLines(peeled.lines, owner === "member", report)
+        if (folder !== undefined) implementation.folder = folder
+        if (properties.length > 0) implementation.objectProperties = properties
+        code = code.slice(peeled.end)
       }
     }
     checkLine(implementation, code, report)

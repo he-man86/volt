@@ -203,11 +203,46 @@
 
 ## 3. Build (refactor freely — owner)
 
-- [ ] 3.1 The contract and the text format (engine, St reader/writer, the LSP format layer).
-- [ ] 3.2 CODESYS driver: read and write every spelled member; classes kept on create, or refused by name.
-- [ ] 3.3 TwinCAT driver: the same; TaskDef members; library SYSTEM read; interface accessor declarations.
-- [ ] 3.4 Push: member re-type/rename keeps the object where the vendor allows, else refused by name.
-- [ ] 3.5 Every fallback of proposal (8) deleted — refused or spelled.
+- [x] 3.1 The contract and the text format (engine, St reader/writer, the LSP format layer).
+- [x] 3.2 CODESYS driver: read and write every spelled member; classes kept on create, or refused by name.
+- [x] 3.3 TwinCAT driver: the same; TaskDef members; library SYSTEM read; interface accessor declarations.
+- [x] 3.4 Push: member re-type/rename keeps the object where the vendor allows, else refused by name.
+- [x] 3.5 Every fallback of proposal (8) deleted — refused or spelled.
+
+      Built as design.md §3 decides: `ObjectProperties` required on `ItemContent` / `Member`, the `%`-lines in the St
+      reader/writer (`PropertyLines.cs`) and the LSP format layer (`frontend/syntax/format/object-properties.ts`, which
+      replaces `folder.ts`), both drivers' reads and writes, classes made at the create (`CreateChild(…, ObjectClass?)`),
+      the 1:1 member rename, the fallbacks of (8) refused or spelled. Every engine/driver `ExpectRed` mark (40 sites) and
+      every live `it.failing` (14) removed. First review of step 3: findings 1-11 fixed, 10b skipped with its reason
+      (design.md §3).
+
+      **Second review (gate step 3, 2026-10-13)** — all five findings held; none skipped; each got its failing test
+      first (design.md §3):
+      1. An excluded folder is named with a known kind and its objects named one by one with their kind — the walk stays
+         `Complete`, nothing beside the folder is blinded, a known object in it is kept, an op on one refused by name
+         (`CodesysContainerRefusalTests`, +1).
+      2. `RenamePairs` compares each accessor's `IMPLEMENTATION NONE` too: an abstract property (slotless GET) renamed
+         into one whose GET has code is a delete and a create (`MemberRetypeRenameTests`, +1).
+      3. A TwinCAT interface accessor storing an EMPTY declaration (vendor-saved `ITF1.TcIO`, 3.1.4024.16) pulls as the
+         empty declaration (`TcObjectPropertiesTests`, +1).
+      4. Only `ExcludeFromBuild` leaves a folder's objects unwalked; `LinkAlways` / defines list it and walk it (+1).
+      5. `%CLASS PERSISTENT` / `%CLASS NVL` creates refused in the pre-flight (`ValidateProperties`), all-or-nothing
+         (`CodesysObjectPropertiesTests`, +2; `WireVocabularyTests` census `CodesysDriver.Content.cs` UNSUPPORTED 3 → 4).
+
+      Gate fixes the full suite found (all from step 3's own LSP work): `object-properties.ts` exported six names nobody
+      imports (`dead-exports`), `format.test.ts` crossed the 600-line limit (its last five tests moved to
+      `print.test.ts`), and `call-parameters.test.ts` timed out on bun's 5s default under suite load (5.1 s, 5.7 s;
+      the same at the pre-step-3 commit `c99a646580`) — given a budget proportional to the work as `map.test.ts` /
+      `source-map.test.ts` have, after profiling it linear (lowering 2.6 s, assembling 0.8 s over 5850 fixtures).
+      Note: commit `2b538cc583` (another session) carried this step's deletion of `folder.ts` without its replacement,
+      so HEAD did not load the LSP; this commit adds `object-properties.ts` back beside it.
+
+      Gate (no fixture or transpiler change, fixture map untouched): typecheck green (5 packages), lint green, `openspec
+      validate` valid, full LSP suite with `VOLT_REQUIRE_FULL=1` and `VOLT_FIXTURES` unset **10149 pass, 0 fail** (34 skip, 428 todo, 360 files, 957 s), volt-cli
+      `test/unit` 112/112, C# `Volt.Engine.Tests` 2521 pass, 0 fail (1 skip), `Volt.Ide.Codesys.Tests` 367,
+      `Volt.Ide.Twincat.Tests` 478, `Volt.Cli.Tests` 267, `Volt.Connector.Tests` 119, `Volt.Contracts.Tests` 34,
+      `Volt.Repo.Gates` 160 — all green. Live e2e and the completeness oracle are not re-run here (4.2 runs them on both
+      vendors).
 
 ## 4. Close
 

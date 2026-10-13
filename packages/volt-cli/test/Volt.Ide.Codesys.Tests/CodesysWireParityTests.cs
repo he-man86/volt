@@ -41,8 +41,31 @@ namespace Volt.Ide.Codesys.Tests
             public string Namespace => WireParityCases.LibraryName;
             public string PlaceholderName => WireParityCases.LibraryName;
             public virtual bool SystemLibrary => false;
+            // The library-item members SP21 answers (AbstractLibManItem), at the value measured on all 264 corpus items.
+            public bool LinkAllContent => false;
+            public bool QualifiedOnly => false;
+            public bool Optional => false;
+            public bool HideWhenReferencedAsDependency => false;
+            public bool PublishSymbolsInContainer => false;
             public object EffectiveResolution => new ManagedLibrary();
             public System.Collections.IEnumerable GetDependencies() => new object[0];
+        }
+
+        /// <summary>A manager that redirects no placeholder.</summary>
+        private static readonly System.Collections.Generic.Dictionary<string, string> NoRedirects = new();
+
+        /// <summary>A placeholder the library manager REDIRECTS (its <c>PlaceholderRedirectionTable</c>, 193 entries in the
+        /// corpora) spells the redirection in its manifest (design §1.1: <c>REDIRECT &lt;placeholder&gt; &lt;resolution&gt;</c>;
+        /// gate review of step 3, finding 4) — it was read by nothing.</summary>
+        [Fact]
+        public void A_redirected_placeholder_reference_spells_its_redirection()
+        {
+            var toLibRef = typeof(CodesysObjectModel).GetMethod("ToLibRef", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(toLibRef);
+            var redirects = new System.Collections.Generic.Dictionary<string, string>
+                { [WireParityCases.LibraryName] = "Util, 3.5.17.0 (System)" };
+            var node = (LibRefNode)toLibRef!.Invoke(null, new object[] { new PlaceholderItem(), redirects })!;
+            Assert.Contains($"\nREDIRECT {WireParityCases.LibraryName} Util, 3.5.17.0 (System)\nMATERIALIZATION ", node.Manifest);
         }
 
         [Fact]
@@ -50,11 +73,8 @@ namespace Volt.Ide.Codesys.Tests
         {
             var toLibRef = typeof(CodesysObjectModel).GetMethod("ToLibRef", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(toLibRef);
-            ExpectRed.Until("3.2", "parity (library SYSTEM): CODESYS spells SYSTEM false, TwinCAT has no such member", () =>
-            {
-                var node = (LibRefNode)toLibRef!.Invoke(null, new object[] { new PlaceholderItem() })!;
-                Assert.Equal(WireParityCases.PlaceholderLibrary, node.Manifest);
-            });
+            var node = (LibRefNode)toLibRef!.Invoke(null, new object[] { new PlaceholderItem(), NoRedirects })!;
+            Assert.Equal(WireParityCases.PlaceholderLibrary, node.Manifest);
         }
 
         /// <summary>The same reference with <c>SystemLibrary</c> true (census: 142 of 264).</summary>
@@ -70,7 +90,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var toLibRef = typeof(CodesysObjectModel).GetMethod("ToLibRef", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(toLibRef);
-            var node = (LibRefNode)toLibRef!.Invoke(null, new object[] { new SystemPlaceholderItem() })!;
+            var node = (LibRefNode)toLibRef!.Invoke(null, new object[] { new SystemPlaceholderItem(), NoRedirects })!;
             Assert.Equal(WireParityCases.SystemPlaceholderLibrary, node.Manifest);
         }
 

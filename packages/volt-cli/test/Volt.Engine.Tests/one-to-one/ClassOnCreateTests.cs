@@ -14,13 +14,12 @@ namespace Volt.Engine.Tests.OneToOne;
 /// CODESYS then calls the check 0 times. The design: the class is SPELLED (<c>%CLASS …</c>, <c>%NETVAR</c>,
 /// <c>%PARAMETER_LIST</c>) and a create makes it, or is refused by name (NVL: its factory needs its wizard, C2r).</para>
 ///
-/// <para>Red until 3.1 (the contract carries the properties) and 3.2 (the CODESYS driver reads and creates the class).
+/// <para>Closed by 3.1 (the contract carries the properties) and 3.2 (the CODESYS driver reads and creates the class).
 /// The FakeIde holds the class as <see cref="FakeIde.Item.Properties"/>; a create the push makes WITH the class must
 /// leave it there.</para>
 /// </summary>
 public class ClassOnCreateTests
 {
-    private const string Task = "3.1/3.2";
 
     public sealed record Case(string Name, string Ext, int Code, string Decl, string? Impl, ObjectProperties Props,
                               string Anchor, string[] Lines, bool CreateRefused = false, bool CreateOrRefuse = false);
@@ -74,30 +73,24 @@ public class ClassOnCreateTests
     public void The_pull_spells_the_class(string key)
     {
         var c = Cases[key];
-        ExpectRed.Until(Task, $"finding 1 ({key}): the pull folds the class away", () =>
-        {
-            var text = Pulled(Holding(c), $"{c.Name}.{c.Ext}");
-            Assert.Equal(c.Lines, After(text, c.Anchor, c.Lines.Length));
-        });
+        var text = Pulled(Holding(c), $"{c.Name}.{c.Ext}");
+        Assert.Equal(c.Lines, After(text, c.Anchor, c.Lines.Length));
     }
 
     [Theory, MemberData(nameof(Names))]
     public void A_create_makes_the_class_or_is_refused_by_name(string key)
     {
         var c = Cases[key];
-        ExpectRed.Until(Task, $"finding 1 ({key}): a create makes the plain class and says ACCEPTED", () =>
+        var ide = new FakeIde();
+        var resp = Create(ide, $"{c.Name}.{c.Ext}", Spelled(c), "Checks");
+        if (c.CreateRefused || (c.CreateOrRefuse && !resp.Accepted))
         {
-            var ide = new FakeIde();
-            var resp = Create(ide, $"{c.Name}.{c.Ext}", Spelled(c), "Checks");
-            if (c.CreateRefused || (c.CreateOrRefuse && !resp.Accepted))
-            {
-                RefusedNaming(resp, c.Name, c.Lines[0].Split(' ')[0]);
-                Assert.False(ide.Exists(c.Name), "a refused create leaves nothing behind");
-                return;
-            }
-            AcceptedOk(resp);
-            Assert.Equal(c.Props, ide.PropertiesOf(c.Name));
-        });
+            RefusedNaming(resp, c.Name, c.Lines[0].Split(' ')[0]);
+            Assert.False(ide.Exists(c.Name), "a refused create leaves nothing behind");
+            return;
+        }
+        AcceptedOk(resp);
+        Assert.Equal(c.Props, ide.PropertiesOf(c.Name));
     }
 
     /// <summary>An UPDATE with the spelled text keeps the class and writes no property line into the IDE's text: the
@@ -107,15 +100,12 @@ public class ClassOnCreateTests
     public void An_update_with_the_spelled_text_keeps_the_class_and_writes_no_property_line(string key)
     {
         var c = Cases[key];
-        ExpectRed.Until(Task, $"finding 1 ({key}): a %CLASS line is not read as a property", () =>
-        {
-            var ide = Holding(c);
-            var resp = Update(ide, $"{c.Name}.{c.Ext}", Spelled(c).Replace(c.Decl, "// edited\n" + c.Decl));
-            AcceptedOk(resp);
-            Assert.Equal(c.Props, ide.PropertiesOf(c.Name));
-            HoldsNoPropertyLine(ide.ReadDeclaration(new ItemRef(c.Name)));
-            HoldsNoPropertyLine(ide.StoredImplementation(c.Name));
-        });
+        var ide = Holding(c);
+        var resp = Update(ide, $"{c.Name}.{c.Ext}", Spelled(c).Replace(c.Decl, "// edited\n" + c.Decl));
+        AcceptedOk(resp);
+        Assert.Equal(c.Props, ide.PropertiesOf(c.Name));
+        HoldsNoPropertyLine(ide.ReadDeclaration(new ItemRef(c.Name)));
+        HoldsNoPropertyLine(ide.StoredImplementation(c.Name));
     }
 
     /// <summary>A class never changes in place (DIALECT C2l): a <c>%CLASS</c> pushed onto an existing object of another
@@ -123,13 +113,10 @@ public class ClassOnCreateTests
     [Fact]
     public void A_class_change_on_an_existing_object_is_refused_by_name()
     {
-        ExpectRed.Until(Task, "finding 1: a %CLASS onto a plain POU is not refused", () =>
-        {
-            var c = Cases["check"];
-            var ide = new FakeIde(new FakeIde.Item(c.Name, c.Code, "Checks", true, c.Decl, c.Impl, null, null));
-            var resp = Update(ide, "CheckBounds.pou", Spelled(c));
-            RefusedNaming(resp, "CheckBounds", "%CLASS");
-            Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
-        });
+        var c = Cases["check"];
+        var ide = new FakeIde(new FakeIde.Item(c.Name, c.Code, "Checks", true, c.Decl, c.Impl, null, null));
+        var resp = Update(ide, "CheckBounds.pou", Spelled(c));
+        RefusedNaming(resp, "CheckBounds", "%CLASS");
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
     }
 }

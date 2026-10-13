@@ -13,17 +13,18 @@ namespace Volt.Engine.Tests;
 ///
 /// <para>The member's name is the LAST word before the colon (<c>StReader.ParseSignature</c>, no modifier vocabulary).
 /// Over an existing method <c>Run</c>, the header <c>METHOD Run Walk : BOOL</c> reads as member <c>Walk</c>, so
-/// <c>ReconcileMembers</c> deletes <c>Run</c> and creates <c>Walk</c> with the text that was Run's — nothing is refused
-/// before it lands. Both IDEs read the FIRST word as the name instead (<c>sig_unknown_word</c>, CODESYS SP21 and
+/// <c>ReconcileMembers</c> renames <c>Run</c> to <c>Walk</c> — one method dropped and one added is that method renamed,
+/// through the vendor's rename (openspec <c>bridge-one-to-one</c> task 3.4; it was a delete and a create) — and writes it
+/// the text that was Run's: nothing is refused before it lands. Both IDEs read the FIRST word as the name instead (<c>sig_unknown_word</c>, CODESYS SP21 and
 /// TwinCAT: "The name used in the signature is not identical to the object name"), so on this input Volt's answer differs
 /// from the vendor's. Known divergence <c>MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD</c>, niche: 0 such lines in the six corpora
-/// (1,420 of 1,420 signatures with modifiers carry them BEFORE the name). This test pins the delete + create so the loss is
-/// explicit: a change to it is a design decision, not a drift.</para>
+/// (1,420 of 1,420 signatures with modifiers carry them BEFORE the name). This test pins the rename so the loss is
+/// explicit: a change to it is a design decision, not a drift (the rename IS one: bridge-one-to-one §3).</para>
 /// </summary>
 public class MemberHeaderLastWordTests
 {
     [Fact]
-    public void A_second_word_after_an_existing_members_name_deletes_it_and_creates_the_last_word()
+    public void A_second_word_after_an_existing_members_name_renames_it_to_the_last_word()
     {
         var ide = new FakeIde(
             new FakeIde.Item("K", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";", null, null,
@@ -47,9 +48,8 @@ public class MemberHeaderLastWordTests
         });
 
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.Contains("delete:Run", ide.Recorded);
-        Assert.Contains("create:Walk", ide.Recorded);
-        Assert.True(ide.Recorded.IndexOf("delete:Run") < ide.Recorded.IndexOf("create:Walk"), string.Join(", ", ide.Recorded));
+        Assert.Contains("rename:Run->Walk", ide.Recorded);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
         Assert.False(ide.Exists("Run"));
         var walk = Assert.Single(ide.WrittenContent["K"].Members, m => m.Name == "Walk");
         Assert.StartsWith("METHOD Run Walk : BOOL", walk.Declaration);

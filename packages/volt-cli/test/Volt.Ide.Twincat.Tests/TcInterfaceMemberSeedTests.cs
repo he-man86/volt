@@ -31,7 +31,7 @@ public class TcInterfaceMemberSeedTests
         // The parent is no tree item: reaching TcObjectModel at all would fail on it, so a refusal that names the
         // member proves nothing was asked of the IDE.
         var ex = Assert.Throws<NotSupportedException>(() =>
-            Driver().CreateChild(new ItemRef(new object()), "Speed", kindCode, seed));
+            Driver().CreateChild(new ItemRef(new object()), "Speed", kindCode, seed, null));
 
         Assert.Contains("'Speed'", ex.Message);
         Assert.Contains("type", ex.Message);

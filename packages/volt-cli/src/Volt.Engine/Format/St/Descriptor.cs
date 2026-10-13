@@ -32,6 +32,18 @@ public sealed class Descriptor
     /// two hand-picked numbers that predate this type and are kept because the output is hashed.</summary>
     public Descriptor(int pad) => _fixedPad = pad;
 
+    /// <summary>Fixed width, and a label that reaches the column gets ONE space after its colon instead of none — the
+    /// task descriptor's labels added by openspec <c>bridge-one-to-one</c> (<c>External event:</c>) are longer than its
+    /// inherited 11 columns, and <c>External event:CanRx</c> would read as one word. The inherited labels are all shorter,
+    /// so their bytes do not move.</summary>
+    public Descriptor(int pad, bool spaceAfterLongLabel)
+    {
+        _fixedPad = pad;
+        _spaceAfterLongLabel = spaceAfterLongLabel;
+    }
+
+    private readonly bool _spaceAfterLongLabel;
+
     /// <summary>Add a line. A null, empty or whitespace-only value EMITS nothing — an absent field is absent from
     /// the file rather than present and blank, which is what makes these descriptors diff cleanly.
     /// <para>The label still counts toward the auto width even when its value is empty, and that is not an
@@ -71,7 +83,11 @@ public sealed class Descriptor
             : (_declared.Count == 0 ? 0 : _declared.Max(l => l.Length) + 2);
         var sb = new StringBuilder();
         foreach (var (label, value) in _lines)
-            sb.Append((label + ":").PadRight(pad)).Append(value).Append('\n');
+        {
+            var head = (label + ":").PadRight(pad);
+            if (_spaceAfterLongLabel && head.Length == label.Length + 1) head += " ";
+            sb.Append(head).Append(value).Append('\n');
+        }
         return sb.ToString();
     }
 }

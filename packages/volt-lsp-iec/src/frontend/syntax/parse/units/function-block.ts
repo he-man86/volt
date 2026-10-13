@@ -70,7 +70,7 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   c.eatPunct(";")
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_FUNCTION_BLOCK", "function block", "pou-or-accessor")
+  const body = collectBodyUntil(c, "END_FUNCTION_BLOCK", "function block", "pou")
 
   return {
     kind: "function_block",

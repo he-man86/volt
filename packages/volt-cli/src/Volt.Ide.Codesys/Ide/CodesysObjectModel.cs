@@ -98,8 +98,18 @@ namespace Volt.Ide.Codesys
         }
 
         public bool IsFolder(object node) => GetMember(Unwrap(node), "is_folder") is bool b && b;
-        public Guid GuidOf(object node) => GetMember(Unwrap(node), "guid") is Guid g ? g : Guid.Empty;
-        public int HandleOf(object node) => GetMember(Unwrap(node), "handle") is int h ? h : 0;
+        /// <summary>A node's identity, READ — never <c>Guid.Empty</c> / <c>0</c> (openspec bridge-one-to-one finding 8, task
+        /// 3.5): every node of a project shares handle 0, and the empty guid addresses no object, so a defaulted identity
+        /// checked out ANOTHER object or none. A node that answers neither is refused by name.</summary>
+        public Guid GuidOf(object node) =>
+            GetMember(Unwrap(node), "guid") is Guid g ? g
+                : throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: a tree node ({Unwrap(node)?.GetType().Name ?? "null"}) answers no guid — refused rather than read as Guid.Empty.");
+
+        public int HandleOf(object node) =>
+            GetMember(Unwrap(node), "handle") is int h ? h
+                : throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: a tree node ({Unwrap(node)?.GetType().Name ?? "null"}) answers no handle — refused rather than read as 0.");
 
 
         // ── object model: resolve a tree node to its IObject ───────────────────
@@ -169,7 +179,11 @@ namespace Volt.Ide.Codesys
             if (aspect == null) return null;
             var doc = GetMember(aspect, "TextDocument");          // ITextDocument
             if (doc == null) return null;
-            return GetMember(doc, "Text") as string ?? "";
+            // A document that answers no Text is no EMPTY text (finding 8, task 3.5): read as "" it wrote an emptied
+            // declaration into the workspace. Refused by name.
+            return GetMember(doc, "Text") as string
+                ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: the '{aspectName}' aspect's text document answers no Text — refused rather than read as empty.");
         }
 
         // ── source text (write) — the inverse, one GetObjectToModify/SetObject

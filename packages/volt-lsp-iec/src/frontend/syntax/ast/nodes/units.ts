@@ -127,6 +127,10 @@ export interface Property {
   /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
    *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
   folder?: string
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   dataType: TypeExpr
   getter?: PropertyAccessor
   setter?: PropertyAccessor
@@ -143,6 +147,10 @@ export interface PropertyAccessor {
 }
 export interface Interface {
   kind: "interface"
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
   attributes?: readonly Attribute[]
   name: Identifier
@@ -165,6 +173,10 @@ export interface InterfaceMethod {
   /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
    *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
   folder?: string
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   returnType?: TypeExpr
   varSections: VarSection[]
   span: Span
@@ -178,6 +190,10 @@ export interface InterfaceProperty {
   /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
    *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
   folder?: string
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   dataType: TypeExpr
   hasGetter: boolean
   hasSetter: boolean
@@ -189,6 +205,10 @@ export interface InterfaceProperty {
 }
 export interface TypeDecl {
   kind: "type_decl"
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
   attributes?: readonly Attribute[]
   name: Identifier
@@ -200,6 +220,10 @@ export interface TypeDecl {
 }
 export interface GlobalVarList {
   kind: "global_var_list"
+  /** The object's `%`-lines but `%FOLDER` (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …) as written, in order — closing its
+   *  declaration, where the push reads them (`object-properties.ts`). Its properties, not code: kept so the formatter
+   *  prints them back. */
+  objectProperties?: readonly string[]
   /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
   attributes?: readonly Attribute[]
   varSections: VarSection[]

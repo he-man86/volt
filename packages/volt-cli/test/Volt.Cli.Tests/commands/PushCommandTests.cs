@@ -631,6 +631,36 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A WORKSPACE AN OLDER VOLT PULLED IS REFUSED BY NAME until one pull rewrites it (openspec
+    /// <c>bridge-one-to-one</c> §1.2 "Migration"): its files lack the <c>%</c>-lines and the verbatim trailing newlines,
+    /// so pushing them would write "not excluded" over an excluded object. The binding records the text format; a pull
+    /// sets it, and the push goes through.</summary>
+    [Fact]
+    public void Push_refuses_a_workspace_an_older_text_format_wrote_until_a_pull()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            Assert.Equal(Config.CurrentTextFormat, Config.LoadConfig(root).TextFormat);
+            var cfg = Config.LoadConfig(root);
+            cfg.TextFormat = 0;                       // what a binding written before format 2 reads as
+            Config.SaveConfig(root, cfg);
+            EditPrg(root, "x := 1;", "x := 2;");
+
+            var refused = Commands.Push(root, client);
+            Assert.Equal("rejected", refused.Kind);
+            Assert.Contains("re-pull: the text predates object properties", refused.Reason);
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("writecontent:"));
+
+            Commands.Pull(root, client);
+            Assert.Equal(Config.CurrentTextFormat, Config.LoadConfig(root).TextFormat);
+            Assert.Equal("ok", Commands.Push(root, client).Kind);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Push_refuses_outside_a_workspace()
     {

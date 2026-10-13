@@ -183,7 +183,7 @@ public class DirectedReadPerKindTests
         Owned(ItemKind.Kinds.Property, "a PROPERTY block in its POU's file", WithProperty, "FB_Owner.pou", "PROPERTY Pr : INT"),
         Owned(ItemKind.Kinds.PropertyGet, "read WITH its property, in the POU's file", WithProperty, "FB_Owner.pou", "Pr := x;"),
         Owned(ItemKind.Kinds.PropertySet, "read WITH its property, in the POU's file", WithProperty, "FB_Owner.pou", "x := Pr;"),
-        new(ItemKind.Kinds.Transition, Route.NotRendered, "inlined in its POU, and NOT rendered: no reader models one",
+        new(ItemKind.Kinds.Transition, Route.NotRendered, "inlined in its POU, and NOT rendered: no reader models one, and its owner is refused by name (bridge-one-to-one §1.2)",
             WithTransition, "FB_Owner.pou", "x > 1"),
         Owned(ItemKind.Kinds.InterfaceMethod, "a METHOD signature in its interface's file", WithInterfaceMethod, "I_Owner.itf",
             "METHOD IM : BOOL"),
@@ -314,12 +314,18 @@ public class DirectedReadPerKindTests
     [MemberData(nameof(NotRenderedCases))]
     public void A_kind_no_fetch_renders_is_in_neither_answer(string kind, Vendor vendor)
     {
+        // Its OWNER is refused by name (openspec bridge-one-to-one §1.2: a standalone transition has no text form), so it
+        // is in no answer's text — and the owner is listed unreadable in both, never published without it.
         var row = RowFor(kind);
-        var full = Full(row.Fixture!(vendor)).Changed.Single(c => c.Name == row.ReadName);
-        var directed = Directed(row.Fixture!(vendor), row.ReadName!).Changed.Single(c => c.Name == row.ReadName);
+        var owner = row.ReadName!.Substring(0, row.ReadName!.LastIndexOf('.'));
+        var full = Full(row.Fixture!(vendor));
+        var directed = Directed(row.Fixture!(vendor), row.ReadName!);
 
-        Assert.DoesNotContain(row.Shows!, full.SourceText, StringComparison.Ordinal);
-        Assert.DoesNotContain(row.Shows!, directed.SourceText, StringComparison.Ordinal);
+        foreach (var answer in new[] { full, directed })
+        {
+            Assert.DoesNotContain(answer.Changed, c => c.SourceText.Contains(row.Shows!, StringComparison.Ordinal));
+            Assert.Contains(owner, answer.Unreadable);
+        }
     }
 
     /// <summary>A folder or a container manager is never a file: `ExtFor` names no extension for a folder, and a full

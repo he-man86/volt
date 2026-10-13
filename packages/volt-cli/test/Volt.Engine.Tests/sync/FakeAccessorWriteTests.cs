@@ -63,14 +63,14 @@ public class FakeAccessorWriteTests
         var item = ItemLookup.Find(ide, "FB_P")!.Value;
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Pou, FbDecl, null, new List<Member>
         {
-            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", Getter: new Accessor(null, null)),
-        }), Array.Empty<PushedNetworkBody>());
+            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None, Getter: new Accessor(null, null)),
+        }, ObjectProperties.None), Array.Empty<PushedNetworkBody>());
         Assert.Contains("P := TRUE;", Fetch(ide, "FB_P.pou"));
 
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Pou, FbDecl, null, new List<Member>
         {
-            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", Getter: new Accessor(null, "")),
-        }), Array.Empty<PushedNetworkBody>());
+            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None, Getter: new Accessor(null, "")),
+        }, ObjectProperties.None), Array.Empty<PushedNetworkBody>());
         Assert.DoesNotContain("P := TRUE;", Fetch(ide, "FB_P.pou"));
     }
 
@@ -105,9 +105,9 @@ public class FakeAccessorWriteTests
         var item = ItemLookup.Find(ide, "I_P")!.Value;
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I_P", null, new List<Member>
         {
-            new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : BOOL", "",
+            new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
                 Getter: new Accessor("VAR\n\tx : INT;\nEND_VAR", "IMPLEMENTATION ST\nx := 1;")),
-        }), Array.Empty<PushedNetworkBody>());
+        }, ObjectProperties.None), Array.Empty<PushedNetworkBody>());
 
         Assert.DoesNotContain("x := 1;", Fetch(ide, "I_P.itf"));
     }

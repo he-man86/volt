@@ -26,12 +26,9 @@ public class FallbackRefusalTests
     [InlineData("// a POU whose text declares nothing\n")]
     public void A_pou_with_no_header_is_refused_by_name_never_given_an_invented_end_line(string decl)
     {
-        ExpectRed.Until(Task, "finding 8: the END line falls back to END_FUNCTION_BLOCK", () =>
-        {
-            var ide = new FakeIde(new FakeIde.Item("P_NoHeader", ItemKind.PlcPou, "", true, decl, "x := 1;", null, null));
-            var ex = Assert.ThrowsAny<Exception>(() => Read(ide, "P_NoHeader", ItemKind.Kinds.Pou));
-            Assert.Contains("P_NoHeader", ex.Message);
-        });
+        var ide = new FakeIde(new FakeIde.Item("P_NoHeader", ItemKind.PlcPou, "", true, decl, "x := 1;", null, null));
+        var ex = Assert.ThrowsAny<Exception>(() => Read(ide, "P_NoHeader", ItemKind.Kinds.Pou));
+        Assert.Contains("P_NoHeader", ex.Message);
     }
 
     /// <summary><c>AbstractMemberFold</c> NARROWED (§1.1 classes, gate 1): a whitespace-only body stored in an abstract
@@ -40,16 +37,13 @@ public class FallbackRefusalTests
     [Fact]
     public void An_abstract_methods_whitespace_body_is_spelled_not_folded_to_none()
     {
-        ExpectRed.Until(Task, "finding 8: AbstractMemberFold folds a whitespace-only body", () =>
-        {
-            var ide = new FakeIde(
-                new FakeIde.Item("FB_Base", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK ABSTRACT FB_Base\nVAR\nEND_VAR", ";", null, null,
-                                 Children: new[] { "Run" }),
-                new FakeIde.Item("Run", ItemKind.PlcMethod, "", false, "METHOD ABSTRACT Run : BOOL", "\n\n", null, null));
-            var text = Pulled(ide, "FB_Base.pou");
-            var block = text.Substring(text.IndexOf("METHOD ABSTRACT Run", StringComparison.Ordinal));
-            Assert.Equal("IMPLEMENTATION ST", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
-        });
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_Base", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK ABSTRACT FB_Base\nVAR\nEND_VAR", ";", null, null,
+                             Children: new[] { "Run" }),
+            new FakeIde.Item("Run", ItemKind.PlcMethod, "", false, "METHOD ABSTRACT Run : BOOL", "\n\n", null, null));
+        var text = Pulled(ide, "FB_Base.pou");
+        var block = text.Substring(text.IndexOf("METHOD ABSTRACT Run", StringComparison.Ordinal));
+        Assert.Equal("IMPLEMENTATION ST", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
     }
 
     /// <summary>GREEN today, and it must stay green: the measured equivalence (<c>abstract-member-equivalence</c>) — an

@@ -9,9 +9,12 @@ namespace Volt.Engine.Library;
 ///
 /// <para>Two FIELD values are not cross-vendor identical, and that is the current state, not the intent:
 /// <c>RESOLUTION</c> is Core-formatted only on TwinCAT (<see cref="Resolution"/>); CODESYS passes the IDE's own
-/// display string through (<c>EffectiveResolution</c>'s DisplayName, else <c>DefaultResolution</c>, else the ref
-/// name — and its Title+Version fallback isn't even `name, version (distributor)` shaped). <c>SYSTEM</c> is real
-/// on CODESYS (<c>SystemLibrary</c>) and hardcoded false on TwinCAT, which exposes no such flag on a reference.
+/// display string through (<c>EffectiveResolution</c>'s DisplayName, else <c>DefaultResolution</c>). <c>SYSTEM</c>,
+/// <c>LINKALLCONTENT</c> and <c>QUALIFIEDONLY</c> are CODESYS's members (<c>SystemLibrary</c>, <c>LinkAllContent</c>,
+/// <c>QualifiedOnly</c>; TwinCAT has none on a reference, <c>tc-library-system</c>, DIALECT C37), and each is a flag
+/// SPELLED ONLY WHERE IT IS TRUE (openspec <c>bridge-one-to-one</c> §1.2, §2.R): its absence is the value measured on
+/// every reference without it, so a CODESYS non-system reference reads byte-identically to TwinCAT's. TwinCAT used to
+/// write a hard-coded <c>SYSTEM false</c>, CODESYS its real false — the same reference, two texts.
 /// Making RESOLUTION vendor-identical means having CODESYS hand over the parts and call <see cref="Resolution"/>
 /// — it changes manifest bytes, hence library versions, hence a full re-fetch, so it is a deliberate change of
 /// its own. Note the string is load-bearing beyond display: <c>Sync/FetchService</c> re-parses the RESOLUTION
@@ -52,17 +55,32 @@ public static class LibraryManifest
         string resolution,
         bool placeholder,
         bool system,
-        IReadOnlyList<string>? dependencies = null)
+        IReadOnlyList<string>? dependencies = null,
+        bool linkAllContent = false,
+        bool qualifiedOnly = false,
+        IReadOnlyList<(string Name, string Value)>? parameters = null,
+        string? redirect = null)
     {
         var sb = new StringBuilder();
         sb.Append("LIBRARY ").Append(name).Append('\n');
         sb.Append("NAMESPACE ").Append(@namespace).Append('\n');
         sb.Append("RESOLUTION ").Append(resolution).Append('\n');
         sb.Append("PLACEHOLDER ").Append(placeholder ? "true" : "false").Append('\n');
-        sb.Append("SYSTEM ").Append(system ? "true" : "false").Append('\n');
+        if (system) sb.Append("SYSTEM true\n");
+        if (linkAllContent) sb.Append("LINKALLCONTENT\n");
+        if (qualifiedOnly) sb.Append("QUALIFIEDONLY\n");
         // Direct dependencies, by name — the tree captured as a reference (the deps live once in the flat list).
         if (dependencies != null && dependencies.Count > 0)
             sb.Append("DEPENDENCIES ").Append(string.Join(", ", dependencies)).Append('\n');
+        // The library's PARAMETERS as the project sets them (openspec bridge-one-to-one §1.1 library manager: TwinCAT's
+        // reference `ParameterList`, e.g. Tc2_System's six `PARAM.*`), one line each, in the vendor's order.
+        if (parameters != null)
+            foreach (var (pname, value) in parameters)
+                sb.Append("PARAMETER ").Append(name).Append(' ').Append(pname).Append(" := ").Append(value).Append('\n');
+        // The placeholder's REDIRECTION as the library manager holds it (openspec bridge-one-to-one §1.1 library manager:
+        // CODESYS's `PlaceholderRedirectionTable`, 193 entries in the corpora) — the resolution the project fixes for this
+        // placeholder, the vendor's own string. TwinCAT has no such table (C37).
+        if (redirect != null) sb.Append("REDIRECT ").Append(name).Append(' ').Append(redirect).Append('\n');
         sb.Append("MATERIALIZATION ").Append(Materialization).Append('\n');
         return sb.ToString();
     }

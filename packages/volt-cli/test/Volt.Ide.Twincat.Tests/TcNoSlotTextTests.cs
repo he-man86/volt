@@ -84,7 +84,7 @@ public class TcNoSlotTextTests
         var node = new DeclarationOnly("FB_A", ItemKind.PlcPou, "FUNCTION_BLOCK FB_A");
 
         var ex = Assert.Throws<BridgeException>(() => TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(node),
-            new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 1;", new List<Member>(),
+            new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 1;", new List<Member>(), ObjectProperties.None,
                             Stated: StatedLanguage.St),
             System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
 
@@ -100,7 +100,7 @@ public class TcNoSlotTextTests
         var node = new DeclarationOnly("GVL_Main", ItemKind.PlcGvl, "VAR_GLOBAL\nEND_VAR");
 
         var ex = Assert.Throws<BridgeException>(() => TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(node),
-            new ItemContent(ItemKind.Kinds.Gvl, "VAR_GLOBAL\nEND_VAR", "g := 1;", new List<Member>(), Stated: StatedLanguage.St),
+            new ItemContent(ItemKind.Kinds.Gvl, "VAR_GLOBAL\nEND_VAR", "g := 1;", new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.St),
             System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
 
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);

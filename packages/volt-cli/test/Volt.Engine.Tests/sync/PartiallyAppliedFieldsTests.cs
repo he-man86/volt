@@ -143,8 +143,10 @@ public class PartiallyAppliedFieldsTests
         var pou = FakeIde.Item.TextualPou("K", "FUNCTION K : BOOL\nVAR\nEND_VAR", ";") with { Children = new[] { "A" } };
         var a = new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL\nVAR\nEND_VAR", "A := TRUE;", null, null);
         var ide = new FakeIde(pou, a) { RefusesMembersByText = true };
+        // TWO new methods: one dropped and one added of a kind would be the member RENAMED (bridge-one-to-one task 3.4).
         var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION\n\n" +
-                                                  "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n"));
+                                                  "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n" +
+                                                  "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n"));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("its method 'A' was deleted before it and stays deleted", c.Reason);

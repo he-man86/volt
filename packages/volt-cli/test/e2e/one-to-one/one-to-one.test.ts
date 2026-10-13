@@ -28,6 +28,15 @@ setDefaultTimeout(600_000)
 
 const lf = (s: string) => s.replace(/\r\n/g, "\n")
 const lines = (s: string) => lf(s).split("\n")
+/** What closes a declaration after `anchor`: the blank lines that stand right after it — the declaration's own trailing
+ *  newlines, stored verbatim (design §1.1 "every character"), each one more than the writer's ONE separator — and the
+ *  lines after them, to the file's end. Both are returned, so a test pins the separator exactly (an extra or a missing
+ *  blank line from a writer or reader bug changes `blanks`) rather than filtering the blank lines away. */
+const closing = (text: string, anchor: string) => {
+	const rest = after(text, anchor, Number.MAX_SAFE_INTEGER)
+	const blanks = rest.findIndex((l) => l !== "")
+	return { blanks, lines: rest.slice(blanks) }
+}
 /** The lines right after the first line equal to `anchor`. */
 const after = (text: string, anchor: string, n: number) => {
 	const ls = lines(text)
@@ -68,12 +77,12 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 	})
 
 	// finding 1: the class
-	it.failing("a check function pulls its class (%CLASS CHECK CheckDivInt32)", async () => {
+	it("a check function pulls its class (%CLASS CHECK CheckDivInt32)", async () => {
 		const text = (await fetchItem("CheckDivDInt.pou")).sourceText
 		expect(after(text, "IMPLEMENTATION ST", 1)).toEqual(["%CLASS CHECK CheckDivInt32"])
 	})
 
-	it.failing("a check function created from its spelled text is made as its class", async () => {
+	it("a check function created from its spelled text is made as its class", async () => {
 		const name = `${PREFIX}_OtoCheck`
 		made.push(`${name}.pou`)
 		const src =
@@ -86,17 +95,23 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 		expect(await codesysNativeExport(name)).toMatch(/Name="SpecialFunc"[^>]*>CheckDivInt64</)
 	})
 
-	it.failing("a text-list enumeration pulls its class (%CLASS TEXTLIST_ENUM), and a create makes it", async () => {
+	it("a text-list enumeration pulls its class (%CLASS TEXTLIST_ENUM), and a create makes it", async () => {
 		const text = lf((await fetchItem("VltOto_TextEnum.dut")).sourceText)
-		expect(after(text, "END_TYPE", 1)).toEqual(["%CLASS TEXTLIST_ENUM"])
+		const pulled = closing(text, "END_TYPE")
+		// The class line closes the file, after the declaration's stored newlines and the one separator (the authoring
+		// script stored the declaration with ONE trailing newline: one blank line, the separator being the line break).
+		expect(pulled).toEqual({ blanks: 1, lines: ["%CLASS TEXTLIST_ENUM", ""] })
 		const name = `${PREFIX}_OtoTextEnum`
 		made.push(`${name}.dut`)
-		expect(landedInFull(await create(`${name}.dut`, text.replaceAll("VltOto_TextEnum", name)))).toBe(true)
-		expect(after((await fetchItem(`${name}.dut`)).sourceText, "END_TYPE", 1)).toEqual(["%CLASS TEXTLIST_ENUM"])
+		const pushed = text.replaceAll("VltOto_TextEnum", name)
+		expect(landedInFull(await create(`${name}.dut`, pushed))).toBe(true)
+		// …and the create reads back BYTE-EXACT: a writer or reader that added or dropped a separator would gain or lose a
+		// blank line across this round trip.
+		expect(lf((await fetchItem(`${name}.dut`)).sourceText)).toBe(pushed)
 		expect(await codesysNativeExport(name)).toMatch(/Name="TextListObject"/)   // the class's own text list
 	})
 
-	it.failing("a persistent list created from %CLASS PERSISTENT is made as one, and a second is refused by name", async () => {
+	it("a persistent list created from %CLASS PERSISTENT is made as one, and a second is refused by name", async () => {
 		const first = `${PREFIX}_OtoPersistent`
 		const second = `${PREFIX}_OtoPersistent2`
 		made.push(`${first}.gvl`, `${second}.gvl`)
@@ -109,7 +124,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 		expect(reasons(r2)).toContain("PERSISTENT")
 	})
 
-	it.failing("an NVL create is refused by name (its factory needs its wizard, C2r)", async () => {
+	it("an NVL create is refused by name (its factory needs its wizard, C2r)", async () => {
 		const name = `${PREFIX}_OtoNvl`
 		made.push(`${name}.gvl`)
 		const r = await create(`${name}.gvl`, `VAR_GLOBAL\n\tbReceived : BOOL;\nEND_VAR\n%CLASS NVL\n%NETVAR TaskName: MainTask\n`)
@@ -118,24 +133,24 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 	})
 
 	// finding 3: object properties
-	it.failing("an excluded POU pulls %EXCLUDE_FROM_BUILD under its implementation line", async () => {
+	it("an excluded POU pulls %EXCLUDE_FROM_BUILD under its implementation line", async () => {
 		expect(after((await fetchItem("VltOto_Excluded.pou")).sourceText, "IMPLEMENTATION ST", 1)).toEqual(["%EXCLUDE_FROM_BUILD"])
 	})
 
 	// finding 4: the task
-	it.failing("an ExternalEvent task pulls its external event as its own label, never as Event:", async () => {
+	it("an ExternalEvent task pulls its external event as its own label, never as Event:", async () => {
 		const text = lines((await fetchItem("VltOto_ExtTask.task")).sourceText)
 		expect(text.some((l) => l.startsWith("Event:"))).toBe(false)
 		expect(text.find((l) => l.startsWith("External event:"))?.replace(/^External event:\s*/, "")).toBe("VltOto_Event")
 	})
 
-	it.failing("a call's comment is spelled after the call", async () => {
+	it("a call's comment is spelled after the call", async () => {
 		const calls = lines((await fetchItem("VltOto_CommentTask.task")).sourceText).find((l) => l.startsWith("Calls:"))
 		expect(calls?.replace(/^Calls:\s*/, "")).toBe("VltOto_Called // runs first")
 	})
 
 	// finding 5: a standalone transition
-	it.failing("an SFC POU holding a standalone transition is refused by name on pull", async () => {
+	it("an SFC POU holding a standalone transition is refused by name on pull", async () => {
 		const f = await bridge.fetch({ knownItems: {}, onlyItems: ["VltFixtureSfc.pou"] })
 		expect(f.unreadable ?? []).toContain("VltFixtureSfc")
 	})
@@ -144,7 +159,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 	// delete + create, and so is the restore in `finally` — `Pick` comes back a plain POUMethodObject, and the served copy
 	// no longer holds the authored abstract method. Nothing after it in this run reads `Pick`; a LATER run on the same
 	// served copy fails the guard at the top of this block (bring the instance down and up for a fresh copy).
-	it.failing("an abstract member renamed in the text keeps its object, or is refused by name", async () => {
+	it("an abstract member renamed in the text keeps its object, or is refused by name", async () => {
 		const before = await fetchItem("VltOto_AbsBase.pou")
 		const nativeBefore = await codesysNativeExport("VltOto_AbsBase")
 		const r = await pushOps([
@@ -175,7 +190,7 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		for (const n of made) await removeItem(n)
 	})
 
-	it.failing("a %CLASS CHECK create is refused by name (no automation path makes the class, tc-special-classes)", async () => {
+	it("a %CLASS CHECK create is refused by name (no automation path makes the class, tc-special-classes)", async () => {
 		const name = `${PREFIX}_OtoCheck`
 		made.push(`${name}.pou`)
 		const r = await create(
@@ -186,7 +201,7 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		expect(reasons(r)).toContain("%CLASS")
 	})
 
-	it.failing("%EXCLUDE_FROM_BUILD is refused by name (no measured TwinCAT member)", async () => {
+	it("%EXCLUDE_FROM_BUILD is refused by name (no measured TwinCAT member)", async () => {
 		const name = `${PREFIX}_OtoExcluded`
 		made.push(`${name}.pou`)
 		const r = await create(

@@ -18,9 +18,9 @@ namespace Volt.Ide.Codesys
     /// </summary>
     internal static class CodesysTypeMap
     {
-        /// <summary>Classify from the IObject's interface-name set (+ folder flag, + the name an accessor is
-        /// told apart by). Never from the object's text.</summary>
-        public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name)
+        /// <summary>Classify from the IObject's interface-name set (+ folder flag, + the object an accessor's GET or SET
+        /// is read off, + its name for a log line). Never from the object's text.</summary>
+        public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name, object? iobj)
         {
             if (isFolder) return ItemKind.PlcFolder;
 
@@ -43,7 +43,7 @@ namespace Volt.Ide.Codesys
             // (interface_method/transition/interface_property), matching TwinCAT.
             if (Has(ifaces, "IInterfaceMethodObject")) return ItemKind.PlcItfMeth;
             if (Has(ifaces, "IPOUMethodObject")) return ItemKind.PlcMethod;
-            if (Has(ifaces, "IPropertyAccessorObject") || Has(ifaces, "IInterfacePropertyAccessorObject")) return RefineAccessor(name);
+            if (Has(ifaces, "IPropertyAccessorObject") || Has(ifaces, "IInterfacePropertyAccessorObject")) return AccessorCode(iobj, name);
             if (Has(ifaces, "IInterfacePropertyObject")) return ItemKind.PlcItfProp;
             if (Has(ifaces, "IPropertyObject")) return ItemKind.PlcProp;
             if (Has(ifaces, "ITransitionObject")) return ItemKind.PlcTrans;
@@ -158,7 +158,19 @@ namespace Volt.Ide.Codesys
 
         private static bool Has(HashSet<string> ifaces, string name) => ifaces.Contains(name);
 
-        private static int RefineAccessor(string? name) =>
-            string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase) ? ItemKind.PlcPropSet : ItemKind.PlcPropGet;
+        /// <summary>A property accessor's GET or SET is the vendor's own <c>IsGetAccessor</c> — declared by every accessor class
+        /// (<c>AbstractPropertyAccessorObject</c>, the base of the FB, interface and abstract-FB accessors; archived as <c>IsGet</c>, census §0.1 finding 4: 340 + 112
+        /// accessors, true 270 + 96 / false 70 + 16) — never its NAME, which this used to read (<c>"Set"</c> → SET, anything
+        /// else → GET: openspec <c>bridge-one-to-one</c> finding 8, task 3.5). An accessor that does not answer it is
+        /// refused by name rather than guessed a GET.</summary>
+        private static int AccessorCode(object? iobj, string? name) =>
+            (iobj is not null && NwlInterop.Has(iobj, "IsGetAccessor") ? NwlInterop.Get(iobj, "IsGetAccessor") : null) switch
+            {
+                true => ItemKind.PlcPropGet,
+                false => ItemKind.PlcPropSet,
+                _ => throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: the property accessor '{name}' answers no IsGetAccessor — whether it is the GET or the SET is that " +
+                    "member, and Volt does not decide it from the accessor's name."),
+            };
     }
 }

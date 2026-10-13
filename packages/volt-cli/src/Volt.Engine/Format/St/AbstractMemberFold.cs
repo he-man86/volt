@@ -25,7 +25,11 @@ namespace Volt.Engine.Format.St;
 /// <c>IMPLEMENTATION ST</c> (<see cref="StReader.MemberHeaderIsAbstract"/> answers true for an FB header too, so the site
 /// is picked by kind before the declaration is asked).</para>
 ///
-/// <para><b>No code</b> is a body that is null or whitespace only, stating no language or ST. A comment-only body is
+/// <para><b>No code</b> is a body that is null or EMPTY, stating no language or ST — NARROWED by openspec
+/// <c>bridge-one-to-one</c> (§1.1 classes, gate 1; task 3.5): it was "null or whitespace only", which folded a whitespace
+/// body stored in a slotted object (<c>\n\n</c> in a <c>POUMethodObject</c>) to NONE and erased stored characters. The
+/// fold is a MEASURED equivalence (<c>abstract-member-equivalence</c>: an abstract method created with no body text), so
+/// it covers exactly that — and a whitespace-only body is spelled verbatim under <c>IMPLEMENTATION ST</c>. A comment-only body is
 /// kept (measured, gate 2: a comment is not a statement on either compiler, and both fetch it as <c>IMPLEMENTATION ST</c>
 /// with the comment); a graphical or hidden body names a language and is kept; a body with statements keeps its code,
 /// which both compilers refuse (C0433, "must not contain any statements") — the push refuses it by name
@@ -47,9 +51,9 @@ public static class AbstractMemberFold
     public static bool IsMemberSite(string site) =>
         site is ItemKind.Kinds.Method or ItemKind.Kinds.PropertyGet or ItemKind.Kinds.PropertySet;
 
-    /// <summary>Does this body hold no code — null or whitespace only, stating no language or ST?</summary>
+    /// <summary>Does this body hold no code — null or empty, stating no language or ST?</summary>
     private static bool HoldsNoCode(string? body, StatedLanguage? stated) =>
-        string.IsNullOrWhiteSpace(body) && (stated is null || stated == StatedLanguage.St);
+        string.IsNullOrEmpty(body) && (stated is null || stated == StatedLanguage.St);
 
     private static Member Fold(Member m)
     {

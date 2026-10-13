@@ -61,7 +61,8 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/FetchService.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 8),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 1),
-            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 4),
             ("Volt.Relay/RelayTunnel.cs", 1),
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
@@ -70,20 +71,26 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
             ("Volt.Engine/Format/St/StReader.cs", 3),
-            ("Volt.Engine/Format/St/StWriter.cs", 2),
+            ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // gate review of step 3, finding 8: a %NETVAR value the line cannot carry
+            ("Volt.Engine/Format/St/StWriter.cs", 3),
             ("Volt.Engine/Ide/InterfaceAccessorGuard.cs", 2),
+            ("Volt.Engine/Ide/MemberSites.cs", 1),   // bridge-one-to-one §3: a transition, refused by name
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
             ("Volt.Engine/Sync/Materializer.cs", 4),
-            ("Volt.Engine/Sync/PushService.cs", 8),
-            ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 2),   // +1: a body site whose type declares no Implementation (abstract-member-push)
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 1),
+            ("Volt.Engine/Sync/PushService.cs", 10),
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 2),
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 11),   // bridge-one-to-one §3: a property the bridge cannot read or write, by name; +2 a measured constant off its value, a %NETVAR value the line cannot carry (gate review of step 3, 2 / 8)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 9),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),
+            ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 3),
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 8),   // +1 an interface accessor storing another declaration (gate review of step 3, 5)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),
-            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 5))),
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Sync/FetchService.cs", 1),
@@ -94,13 +101,14 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE no longer holds what Volt just wrote or read", "pull to see what landed, then push again",
             "IDE_LOST_ITEM", At(
-            ("Volt.Engine/Sync/PushService.cs", 11),
+            ("Volt.Engine/Sync/PushService.cs", 12),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 4),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 3))),
         new("a create collided with a child already there", "rename, or update instead", "DUPLICATE_CHILD", At(
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
+            ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // bridge-one-to-one §3: the %-line grammar (one Refuse builder)
             ("Volt.Engine/Format/St/StReader.cs", 20))),   // +1: code under IMPLEMENTATION NONE (abstract-member-push)
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
@@ -108,7 +116,10 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 5),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1))),
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 5),   // +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 1))),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
 
         // ── the optimistic gate and the apply loop ─────────────────────────────────────────────────────────────
         new("the lease is stale", "pull, then push again", "STALE_PROJECT_VERSION", At(
@@ -317,18 +328,23 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/Network/NetworkTextGate.cs", 3),
         ("Volt.Engine/Format/Network/NetworkTextReader.cs", 4),
         ("Volt.Engine/Format/St/ImplementationMarker.cs", 2),
+        ("Volt.Engine/Format/St/PropertyLines.cs", 2),
         ("Volt.Engine/Format/St/StReader.cs", 1),
+        ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         ("Volt.Engine/Sync/Materializer.cs", 1),
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 2),   // +1: a body site read with no object — a driver invariant (abstract-member-push, gate 3)
+        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // a body site read with no object (abstract-member-push, gate 3); a member object, a property-write precondition (bridge-one-to-one §3)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 9),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 5),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 17),
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 19),   // +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 5),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 5),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 11),
         ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
         ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
@@ -339,6 +355,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
+        ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcPlcOpenWriter.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),

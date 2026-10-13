@@ -1001,7 +1001,7 @@ public static class PushService
         else
         {
             createdParent = TreeNav.ResolveTaskParent(ide, op.ToFolder, outcome.FoldersCreated);
-            task = ide.CreateChild(createdParent.Value, name, ItemKind.PlcTask);
+            task = ide.CreateChild(createdParent.Value, name, ItemKind.PlcTask, null, null);   // a task has no object-property carrier
             action = "created";
         }
 
@@ -1339,6 +1339,11 @@ public static class PushService
                                                 ChildRefusalCause.Name);
         }
         RefuseMemberCreates(ide, name, split, isCreate, existing);
+        // …and object properties the vendor has no measured member for (openspec bridge-one-to-one §1.1: TwinCAT, every
+        // key) — from the text alone, before the first write, on the item and on every member it carries.
+        ide.ValidateProperties($"'{name}'", split.Properties, isCreate);
+        foreach (var m in split.Members)
+            ide.ValidateProperties($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", m.Properties, isCreate);
         // …and an INTERFACE property's GET/SET the driver cannot write, from the text alone (`ICodeStore.ValidateInterfaceAccessor`:
         // CODESYS a body, TwinCAT any edit). It was refused from inside the write, after the batch's earlier ops — and on
         // CODESYS the interface's and the property's own declarations — had landed (review of bridge-refusal-review 3a+3b).
@@ -1533,7 +1538,7 @@ public static class PushService
             // THE IDE MAY REFUSE THE ITEM'S OWN NAME, in the words it refuses a member's: measured live 2026-10-03 (CODESYS
             // SP21, openspec `push-keeps-what-landed` 2.2) — `LOG.pou` and `Log.dut` "The name '…' is not valid for this
             // object.", nothing created. Worded as the ITEM's refusal; nothing was created, so there is nothing to roll back.
-            try { pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl)); }
+            try { pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl), split.Properties.Class); }
             catch (ChildRefusedException ex)
             {
                 throw new BridgeException(BridgeErrorCodes.Unsupported, $"the IDE refused to create '{name}': {ex.Message}", ex);
@@ -1591,6 +1596,17 @@ public static class PushService
                     "push cannot re-type an object by its NAME: the name's extension is the kind `refs` publishes it " +
                     "under. Delete it and create it again if that is what you mean — that discards the object's " +
                     "identity, so it is not done for you.");
+
+            // …NOR CHANGE ITS CLASS (openspec bridge-one-to-one §1.1 "Classes", §3). The vendor's class is spelled where the
+            // text cannot tell it (`%CLASS CHECK CheckBounds`, `%CLASS TEXTLIST_ENUM`, …), and a class never changes in place
+            // (DIALECT C2l): the object keeps the class it was created with whatever is written to it. So a `%CLASS` line
+            // pushed onto an object of another class — or dropped from one that has a class — is refused by name before
+            // anything is written, never a delete + create (the object's identity) and never ignored (the build then calls
+            // a check function that is not one, or one that is).
+            RefuseClassChange($"'{name}'", live.Properties.Class, split.Properties.Class);
+            // …and the same for every MEMBER, before anything is written (the declaration may land first, below): a member
+            // whose kind changed, a member whose class changed — a renamed one included — is refused by name (task 3.4).
+            RefuseMemberRetypes(name, live, split);
 
             // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW.
             //
@@ -1689,7 +1705,9 @@ public static class PushService
             //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
             //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
             //     the driver, which is the only layer that can ask the IDE cheaply.
-            ide.WriteContent(pou, OnlyChanged(live, split), source.Bodies);
+            // A member the reconcile RENAMED is the live member under its new name (task 3.4): compared as that, so an
+            // unchanged body — an abstract method's `IMPLEMENTATION NONE` on an object with no slot — is not written.
+            ide.WriteContent(pou, OnlyChanged(AfterRenames(live, changes), split), source.Bodies);
         }
         catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
         {
@@ -1723,6 +1741,8 @@ public static class PushService
             if (changes.Created.Count > 0)
                 parts.Add($"its {Members(changes.Created)} " + (changes.Created.Count == 1
                     ? "was created before it and stays (with its seed text)" : "were created before it and stay (with their seed text)"));
+            parts.AddRange(changes.Renamed.Select(r =>
+                $"its {r.From.Kind.Replace('_', ' ')} '{r.From.Name}' was renamed '{r.To}' before it and stays renamed"));
             parts.AddRange(changes.Folders.Select(f => $"the folder '{f}' was created in '{name}' before it and stays"));
             parts.AddRange(changes.Moved.Select(mv =>
                 $"its {mv.Member.Kind.Replace('_', ' ')} '{mv.Member.Name}' was moved to " +
@@ -1771,9 +1791,11 @@ public static class PushService
         public readonly List<(Member Member, string To)> Moved = new();
         public readonly List<(string Property, string Accessor)> AccessorsDeleted = new();
         public readonly List<(string Property, string Accessor)> AccessorsCreated = new();
+        /// <summary>Members renamed through the vendor's rename (task 3.4), each from its live record to its new name.</summary>
+        public readonly List<(Member From, string To)> Renamed = new();
 
         public bool Any => Deleted.Count + Created.Count + Folders.Count + Moved.Count
-                           + AccessorsDeleted.Count + AccessorsCreated.Count > 0;
+                           + AccessorsDeleted.Count + AccessorsCreated.Count + Renamed.Count > 0;
     }
 
     /// <summary>What of an existing task's refused settings write stays: null when the task reads back exactly as it did
@@ -1840,6 +1862,26 @@ public static class PushService
                          $"rolled back — the item is left in the project: {ex.Message}");
         }
         return false;
+    }
+
+    /// <summary><paramref name="live"/> as the IDE holds it after the reconcile: each renamed member under its new name,
+    /// and each member it CREATED as the abstract method class (<see cref="CreateClass"/>) as that object stands — no body
+    /// slot, which reads <c>IMPLEMENTATION NONE</c>, its declaration the create's seed (unknown here, so it differs and is
+    /// written). So the write sends such a member its declaration and NOT its NONE body: the object has no slot to take
+    /// one (the drivers' <c>RequireSlot</c>, D26), and NONE is exactly what it holds. Everything else as it was.</summary>
+    private static ItemContent AfterRenames(ItemContent live, MemberChanges changes)
+    {
+        var createdAbstract = changes.Created
+            .Where(m => CreateClass(m)?.Word == ObjectClass.AbstractMethod && m.Properties.Class is null)
+            .Select(m => m with { Declaration = "" })
+            .ToList();
+        if (changes.Renamed.Count == 0 && createdAbstract.Count == 0) return live;
+        return live with
+        {
+            Members = live.Members.Select(m => changes.Renamed.FirstOrDefault(r => ReferenceEquals(r.From, m)) is { From: not null } r
+                    ? m with { Name = r.To } : m)
+                .Concat(createdAbstract).ToList(),
+        };
     }
 
     /// <summary>Drop the members whose content the IDE already has, so a push writes what an engineer CHANGED
@@ -1921,6 +1963,7 @@ public static class PushService
     /// the whole reason that test exists. Anything that differs at all is written.</para></summary>
     private static bool Same(Member a, Member b) =>
         Text(a.Declaration) == Text(b.Declaration)
+        && Equals(a.Properties, b.Properties)   // a properties-only edit is a change (openspec bridge-one-to-one §3)
         && Text(a.Body) == Text(b.Body)
         && string.Equals(a.Folder ?? "", b.Folder ?? "", StringComparison.Ordinal)
         && Same(a.Getter, b.Getter)
@@ -1930,16 +1973,11 @@ public static class PushService
         a is null ? b is null
         : b is not null && Text(a.Declaration) == Text(b.Declaration) && Text(a.Body) == Text(b.Body);
 
-    /// <summary>Compare on the text as it LANDS: both drivers trim exactly ONE thing on write, the line
-    /// terminator the wire adds, so a trailing newline is not a change and everything else is.
-    ///
-    /// <para><c>TrimEnd('\n')</c>, matching <c>BodyText</c> in both drivers. This read <c>TrimEnd()</c> under
-    /// a comment asserting "the drivers trim" — they trim NEWLINES; trailing SPACES on the last line survive
-    /// the write. No reachable loss is known through it today (<c>StReader</c> normalises a declaration's
-    /// trailing whitespace before it ever gets here), so this is alignment rather than a fix — but a
-    /// change-detector that is laxer than the writer it gates can only ever fail one way: by deciding an edit
-    /// is not an edit.</para></summary>
-    private static string Text(string? s) => (s ?? "").TrimEnd('\n');
+    /// <summary>Compare on the text as it LANDS — every character, trailing newlines included: the drivers read and write
+    /// a text verbatim (openspec <c>bridge-one-to-one</c> §1.1, <c>trailing-newline-cache</c>), so a trailing newline is
+    /// a change like any other. This compared <c>TrimEnd('\n')</c>, matching the drivers' old fold; a change-detector
+    /// laxer than the writer it gates can only ever fail one way: by deciding an edit is not an edit.</summary>
+    private static string Text(string? s) => s ?? "";
 
     /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
     /// project lacks, remove what the project has and the source dropped.
@@ -1980,17 +2018,34 @@ public static class PushService
         // neither created nor deleted: the method's declaration was written into the property's Interface
         // aspect, its body went to an Implementation aspect a property does not have (a silent no-op), and the
         // old GET/SET stayed compiled in. `BodyFormatGuard` cannot see it - both shapes are Textual.
-        var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, StringComparer.OrdinalIgnoreCase);
-        var retyped = new HashSet<string>(
-            pushed.Members.Where(m => liveKind.TryGetValue(m.Name, out var k) && k != m.Kind).Select(m => m.Name),
-            StringComparer.OrdinalIgnoreCase);
+        // A RE-TYPE AND A CLASS CHANGE ARE REFUSED BY NAME (task 3.4, DIALECT C2l) before anything of the update is
+        // written (`RefuseMemberRetypes`, asked by the write's update arm too); a create has no live member to differ from.
+        RefuseMemberRetypes(name, live, pushed);
+
+        // A RENAME KEEPS THE OBJECT (openspec bridge-one-to-one §3, task 3.4): per member kind, exactly ONE live member the
+        // text dropped and ONE it added is that member renamed — through the vendor's rename, which keeps its GUID, its
+        // class and its properties (C2n). It used to be a delete and a create: an abstract method came back plain, an
+        // excluded method built, and the object's identity was gone. More than one on either side stays delete + create
+        // (no pairing is guessed); the text carries every spelled member, so only the unspelled GUID differs then.
+        foreach (var (from, to) in RenamePairs(live, pushed))
+        {
+            var site = TreeNav.FindFolder(ide, Owner(), from.Folder) ?? Owner();
+            var member = TreeNav.FindChild(ide, site, from.Name)
+                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
+                    $"'{name}': its {from.Kind.Replace('_', ' ')} '{from.Name}' cannot be found to rename it '{to.Name}'");
+            ide.Rename(member, to.Name);
+            changes.Renamed.Add((from, to.Name));
+            mutated = true;
+            have.Remove(from.Name);
+            have.Add(to.Name);
+        }
 
         // DELETES RUN FIRST. The create loop used to run first, and its CreateChild calls are already committed
         // when a later delete throws - so a rejected push left the project MUTATED, and a rename of a foldered
-        // member left BOTH copies behind. Removing first also makes the retype case a plain delete-then-create.
+        // member left BOTH copies behind.
         foreach (var m in live.Members)
         {
-            if (want.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
+            if (want.Contains(m.Name) || changes.Renamed.Any(r => ReferenceEquals(r.From, m))) continue;
             // Delete it WHERE IT LIVES. This passed `Owner()` and dropped `m.Folder`, and DeleteChild scans
             // direct children only - so a member inside a POU sub-folder could never be deleted at all, failing
             // loudly on every retry with "no child named 'Act' under 'FB_FolderChild'".
@@ -2002,7 +2057,7 @@ public static class PushService
 
         foreach (var m in pushed.Members)
         {
-            if (have.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
+            if (have.Contains(m.Name)) continue;
             var site = TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders);
             // A MEMBER THE IDE WILL NOT TAKE IS REFUSED BY NAME, with the IDE's own reason (openspec
             // `push-without-header-check` 5.Q.4). Which members a POU accepts follows its TEXT (DIALECT C2k: FUNCTION
@@ -2010,7 +2065,7 @@ public static class PushService
             // declaration has already been shown to the IDE. ONLY the vendor's own refusal, which the driver recognises
             // (ChildRefusedException): any other failure — a stale handle, a transport fault — is not the text's doing
             // and propagates as the fault it is, the create still rolled back by the filter above.
-            try { ide.CreateChild(site, m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m)); }
+            try { ide.CreateChild(site, m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m), CreateClass(m)); }
             catch (ChildRefusedException ex)
             {
                 // The declaration hint only where it is TRUE: a refused KIND follows the declaration (C2k); a refused NAME
@@ -2036,10 +2091,11 @@ public static class PushService
         // landed nothing, and the receipt then hashed the OLD folder into the client's baseline - after which
         // `volt status` reported "in sync" while the workspace and the IDE disagreed about where the member is.
         var liveFolder = live.Members.ToDictionary(m => m.Name, m => m.Folder ?? "", StringComparer.OrdinalIgnoreCase);
+        foreach (var (from, to) in changes.Renamed) liveFolder[to] = from.Folder ?? "";   // a renamed member is where it was
         foreach (var m in pushed.Members)
         {
             // A member the loops above just created is already in the right folder.
-            if (!liveFolder.TryGetValue(m.Name, out var was) || retyped.Contains(m.Name)) continue;
+            if (!liveFolder.TryGetValue(m.Name, out var was)) continue;
             if (string.Equals(was, m.Folder ?? "", StringComparison.Ordinal)) continue;
 
             var from = TreeNav.FindFolder(ide, Owner(), was);
@@ -2095,6 +2151,81 @@ public static class PushService
         return mutated;
     }
 
+    /// <summary>The members a push RENAMES (task 3.4): per member kind, the one live member the text dropped paired with
+    /// the one it added — and none for a kind with more than one on either side (no pairing is guessed).</summary>
+    private static List<(Member From, Member To)> RenamePairs(ItemContent live, ItemContent pushed)
+    {
+        var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+        var pairs = new List<(Member, Member)>();
+        foreach (var kind in live.Members.Select(m => m.Kind).Distinct())
+        {
+            var dropped = live.Members.Where(m => m.Kind == kind && !want.Contains(m.Name)).ToList();
+            var added = pushed.Members.Where(m => m.Kind == kind && !have.Contains(m.Name)).ToList();
+            // NOT ACROSS THE BODY SLOT (gate review of step 3, finding 1). The vendor's rename keeps the CLASS, and an
+            // abstract method's class is not spelled — it follows the text (§1.1 `AbstractPOUMethodObject`,
+            // `abstract-member-equivalence`): `IMPLEMENTATION NONE` on one side and a body on the other is a class the
+            // rename would carry over wrongly — an `AbstractPOUMethodObject` renamed into a method with code has no slot for
+            // it (the write is refused AFTER the rename landed), and the reverse keeps a slot the text no longer states. So
+            // such a drop and add stay a delete and a create, and the create makes the class the text states (`CreateClass`).
+            // A PROPERTY's slots are its accessors' (second review of step 3, finding 2): an abstract property's GET is the
+            // slotless `InterfacePropertyAccessorObject`, and the property itself states no language — so each accessor's
+            // slot is compared too, or a GET NONE renamed into a GET with code kept the slotless accessor.
+            if (dropped.Count == 1 && added.Count == 1 && Slots(dropped[0]) == Slots(added[0])) pairs.Add((dropped[0], added[0]));
+        }
+        return pairs;
+
+        static (bool, bool, bool) Slots(Member m) => (IsNone(m.Stated), IsNone(m.Getter?.Stated), IsNone(m.Setter?.Stated));
+        static bool IsNone(StatedLanguage? s) => s?.IsNone == true;
+    }
+
+    /// <summary>The CLASS a member is created as: the one its <c>%CLASS</c> line spells, else — for a METHOD stated
+    /// <c>IMPLEMENTATION NONE</c> (an ABSTRACT method with no code, after <see cref="AbstractMemberFold"/>) — the vendor's
+    /// abstract method class, which the text states without a line (design §1.1 <c>AbstractPOUMethodObject</c>: "a create of
+    /// METHOD ABSTRACT with no code makes the vendor's abstract class"; gate review of step 3, finding 7a). It used to make
+    /// the plain class, and the completeness oracle read the class lost by the create.</summary>
+    private static ObjectClass? CreateClass(Member m) =>
+        m.Properties.Class
+        ?? (m.Kind == ItemKind.Kinds.Method && m.Stated?.IsNone == true ? ObjectClass.AbstractMethodClass : null);
+
+    /// <summary>A member whose KIND changed under its name, or whose CLASS changed — in place or across a rename — is
+    /// refused by name before anything of the update is written (task 3.4, DIALECT C2l): a kind is a class, and a class
+    /// never changes in place. It used to be a delete and a create, the object's identity and class gone under an accepted
+    /// push. The remedy is stated: drop the member in one push and add it as the new kind in the next.</summary>
+    private static void RefuseMemberRetypes(string name, ItemContent live, ItemContent pushed)
+    {
+        var liveMember = live.Members.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        foreach (var m in pushed.Members)
+        {
+            if (!liveMember.TryGetValue(m.Name, out var was)) continue;
+            if (was.Kind != m.Kind)
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{name}': its {was.Kind.Replace('_', ' ')} '{m.Name}' is pushed as a {m.Kind.Replace('_', ' ')}. A member's " +
+                    "kind is its class in the IDE, and a class never changes in place (DIALECT C2l): to make it another kind, " +
+                    "push the item without the member, then push it again with the new one — two pushes, which discards the " +
+                    "member's identity, so it is not done for you.");
+            RefuseClassChange($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", was.Properties.Class, m.Properties.Class);
+        }
+        foreach (var (from, to) in RenamePairs(live, pushed))
+            RefuseClassChange($"'{name}': its {from.Kind.Replace('_', ' ')} '{from.Name}' (renamed '{to.Name}')",
+                              from.Properties.Class, to.Properties.Class);
+    }
+
+    /// <summary>A pushed <c>%CLASS</c> that differs from the class the IDE holds — another class, a class on a plain object,
+    /// or none on an object that has one — refused by name (DIALECT C2l: a class never changes in place). The remedy is
+    /// stated: delete the object and create it again, two pushes, which discards its identity, so it is not done for
+    /// you.</summary>
+    private static void RefuseClassChange(string what, ObjectClass? held, ObjectClass? pushed)
+    {
+        if (Equals(held, pushed)) return;
+        static string Said(ObjectClass? c) => c is null ? "the plain class (no %CLASS line)" : $"'%CLASS {c}'";
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            $"{what} is {Said(held)} in the IDE, and this push states {Said(pushed)}. A class never changes in place " +
+            "(DIALECT C2l): to make it another class, delete it and create it again — two pushes, since one push names an " +
+            "item once — which discards the object's identity, so it is not done for you.");
+    }
+
     /// <summary>Make a property's GET or SET exist, or not, to match the pushed source. <b>Presence is the
     /// object</b> - a null accessor means the source dropped it, and dropping it must DELETE it.
     ///
@@ -2128,7 +2259,7 @@ public static class PushService
             return true;
         }
         if (exists) return false;
-        ide.CreateChild(property, name, kindCode);
+        ide.CreateChild(property, name, kindCode, null, null);   // an accessor: no class of its own
         changes.AccessorsCreated.Add((propertyName, name));
         return true;
     }

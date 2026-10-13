@@ -150,9 +150,9 @@ namespace Volt.Ide.Codesys.Tests
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT FB_Base", null, new List<Member>
                     {
-                        new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine,
+                        new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine, ObjectProperties.None,
                             Stated: StatedLanguage.None),
-                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                    }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Equal("", body.TextDocument.Text);
             }
@@ -184,9 +184,9 @@ namespace Volt.Ide.Codesys.Tests
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT P", null, new List<Member>
                     {
-                        new(ItemKind.Kinds.Method, "Step", "METHOD ABSTRACT Step : BOOL", ImplementationMarker.NoneLine,
+                        new(ItemKind.Kinds.Method, "Step", "METHOD ABSTRACT Step : BOOL", ImplementationMarker.NoneLine, ObjectProperties.None,
                             Stated: StatedLanguage.None),
-                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                    }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
                 Assert.Equal("", st.TextDocument.Text);
@@ -217,9 +217,9 @@ namespace Volt.Ide.Codesys.Tests
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_Base", null, new List<Member>
                     {
-                        new(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC Busy : BOOL", null,
+                        new(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC Busy : BOOL", null, ObjectProperties.None,
                             Getter: new Accessor("VAR\n\tn : INT;\nEND_VAR", null)),
-                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                    }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Equal("Busy := TRUE;", body.TextDocument.Text);
                 Assert.Contains("n : INT;", getterObj.Interface.TextDocument.Text);

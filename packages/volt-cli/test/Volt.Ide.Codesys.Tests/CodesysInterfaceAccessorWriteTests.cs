@@ -36,8 +36,8 @@ namespace Volt.Ide.Codesys.Tests
         private static ItemContent Content(Accessor getter) =>
             new(ItemKind.Kinds.Interface, "INTERFACE I_X", null, new List<Member>
             {
-                new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : INT", null, Getter: getter, Setter: null),
-            });
+                new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : INT", null, ObjectProperties.None, Getter: getter, Setter: null),
+            }, ObjectProperties.None);
 
         [Fact]
         public void A_changed_accessor_declaration_is_written()

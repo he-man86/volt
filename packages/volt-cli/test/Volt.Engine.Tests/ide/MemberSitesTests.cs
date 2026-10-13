@@ -95,9 +95,11 @@ public class MemberSitesTests
 
     /// <summary>AND NEITHER IS A TRANSITION. It is inlined in the POU and no reader models one, so it can never
     /// appear in a pushed member set — yielding it here would put it in the reconciliation, where the push would
-    /// then delete a thing the engineer never touched.</summary>
+    /// then delete a thing the engineer never touched. Skipping it was the other loss (openspec
+    /// <c>bridge-one-to-one</c> finding 5): its owner pulled as if it had none, and a migration dropped it without a
+    /// word. A standalone transition refuses its owner BY NAME (§1.2 "Transitions"; 0 in the six corpora).</summary>
     [Fact]
-    public void A_transition_is_not_a_member()
+    public void A_transition_is_no_member_and_refuses_its_owner_by_name()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
@@ -105,7 +107,9 @@ public class MemberSitesTests
             Node("Step1", ItemKind.PlcTrans),
             Node("Go", ItemKind.PlcMethod));
 
-        Assert.Equal("Go", Assert.Single(MemberSites.Of(ide, new ItemRef("FB_Host"))).Name);
+        var ex = Assert.ThrowsAny<Exception>(() => MemberSites.Of(ide, new ItemRef("FB_Host")).ToList());
+        Assert.Contains("'Step1'", ex.Message);
+        Assert.Contains("transition", ex.Message);
     }
 
     /// <summary>A FAULT PROPAGATES — the walk has no catch, deliberately, and that must stay true.

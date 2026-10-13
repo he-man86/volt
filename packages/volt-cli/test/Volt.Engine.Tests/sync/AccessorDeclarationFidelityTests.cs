@@ -56,15 +56,16 @@ public class AccessorDeclarationFidelityTests
         Assert.Contains("SET\nPRIVATE\nVAR\nEND_VAR\nIMPLEMENTATION ST\n_v := Val;\nEND_SET", Materialized(WithMeasuredProperty()));
     }
 
-    /// <summary>A LEADING newline is content; a trailing one is not.
+    /// <summary>A LEADING newline is content — and so is a trailing one (openspec <c>bridge-one-to-one</c> §1.1, every
+    /// character).
     ///
     /// <para>Six of pro2193's accessors hold <c>\nVAR\nEND_VAR\n</c> — the vendor keeps that distinct from
-    /// <c>VAR\nEND_VAR\n</c> and from <c>""</c>, so it is the engineer's blank line and the file can show it.
-    /// The TRAILING newline cannot survive: <c>StWriter</c> joins an accessor's keyword, declaration and body
-    /// with one, so a declaration ending in a newline would gain a blank line every round trip. Same rule the
-    /// whole ST format follows — drop what the format cannot express, keep everything else.</para></summary>
+    /// <c>VAR\nEND_VAR\n</c> and from <c>""</c>, so it is the engineer's blank line and the file can show it. The
+    /// TRAILING newline was dropped, on the reasoning that <c>StWriter</c> joins an accessor's parts with one; the writer
+    /// now puts the text and then its separator, and the reader strips only that (<c>trailing-newline-cache</c>: both
+    /// vendors keep a text's trailing newlines), so it survives too — the blank line above the boundary.</para></summary>
     [Fact]
-    public void A_leading_newline_in_an_accessor_declaration_survives()
+    public void A_leading_and_a_trailing_newline_in_an_accessor_declaration_survive()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
@@ -72,21 +73,36 @@ public class AccessorDeclarationFidelityTests
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "\nVAR\nEND_VAR\n", "Val := _v;", null, null));
 
-        // The blank line the vendor holds is between GET and VAR, and the trailing newline is gone.
-        Assert.Contains("GET\n\nVAR\nEND_VAR\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+        // The blank line the vendor holds is between GET and VAR, and its trailing newline the one above the boundary.
+        Assert.Contains("GET\n\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
     }
 
     [Fact]
     public void An_accessor_the_IDE_reports_nothing_for_still_has_no_declaration()
     {
-        // The rule that REMAINS: null or blank is genuinely no declaration, and must not become one. An
-        // interface's accessors are bodiless stubs (DIALECT D21) and arrive exactly this way.
+        // The rule that REMAINS: no declaration (null) is genuinely none, and must not become one. An interface's
+        // accessors are bodiless stubs (DIALECT D21) and arrive exactly this way.
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
+            new FakeIde.Item("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
+                             Children: new[] { "Get" }),
+            new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, null, "Val := _v;", null, null));
+
+        Assert.Contains("GET\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+    }
+
+    /// <summary>A WHITESPACE-ONLY declaration is stored characters, spelled verbatim (openspec <c>bridge-one-to-one</c>
+    /// §1.1): it read as none, because a line of spaces "is indistinguishable from absence in the file" — it is not, the
+    /// line is there.</summary>
+    [Fact]
+    public void A_whitespace_only_accessor_declaration_is_spelled_verbatim()
+    {
         var ide = new FakeIde(
             new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
             new FakeIde.Item("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "   ", "Val := _v;", null, null));
 
-        Assert.Contains("GET\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+        Assert.Contains("GET\n   \nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
     }
 }

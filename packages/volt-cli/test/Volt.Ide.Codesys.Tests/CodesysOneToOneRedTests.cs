@@ -40,34 +40,79 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_text_list_enumeration_pulls_its_class()
         {
-            ExpectRed.Until("3.2", "finding 1: the walk folds a text-list enum onto a plain DUT", () =>
+            const string decl = "TYPE SER_Mode :\n(\n\tAuto := 0,\n\tManual\n);\nEND_TYPE";
+            var node = new GuidNode("SER_Mode", new TextListEnum(decl));
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new VendorObjectManager(new[] { node });
+            try
             {
-                const string decl = "TYPE SER_Mode :\n(\n\tAuto := 0,\n\tManual\n);\nEND_TYPE";
-                var node = new GuidNode("SER_Mode", new TextListEnum(decl));
-                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new VendorObjectManager(new[] { node });
-                try
-                {
-                    var driver = new CodesysDriver(new Projects(new GuidNode("<project>", null, node)));
-                    var text = Materializer.Materialize(driver, "SER_Mode", ItemKind.Kinds.Dut, new ItemRef(node)).Text;
-                    Assert.Equal(decl + "\n%CLASS TEXTLIST_ENUM\n", text.Replace("\r\n", "\n"));
-                }
-                finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
-            });
+                var driver = new CodesysDriver(new Projects(new GuidNode("<project>", null, node)));
+                var text = Materializer.Materialize(driver, "SER_Mode", ItemKind.Kinds.Dut, new ItemRef(node)).Text;
+                Assert.Equal(decl + "\n%CLASS TEXTLIST_ENUM\n", text.Replace("\r\n", "\n"));
+            }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
         // ── finding 4: the task ─────────────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>The scripting facet a task answers through (<c>ScriptTaskObject</c>), with every member the read
-        /// takes.</summary>
+        /// <summary>A task node: the scripting facet a task answers through (<c>ScriptTaskObject</c>), and — read through
+        /// the object manager by the node's handle and guid — the task OBJECT, whose archive carries the members the facet
+        /// does not expose (the call list with its comments, <c>Core</c>, <c>TaskGroup</c>, …; design §1.1 "Tasks"). The
+        /// facet alone used to be the whole read; the census showed members only the object carries.</summary>
         public sealed class TaskNode
         {
-            public TaskNode(object facet) => Extender = new Ext(facet);
+            public TaskNode(object facet) { Extender = new Ext(facet); Task = new TaskArchive(facet); }
             public Ext Extender { get; }
+            public int handle => 0;
+            public Guid guid { get; } = Guid.NewGuid();
+            public TaskArchive Task { get; }
             public sealed class Ext
             {
                 public Ext(object facet) => Extensions = new[] { facet };
                 public IEnumerable Extensions { get; }
             }
+        }
+
+        /// <summary>The task object's archive as SP21 answers it (census §0.1 finding 5): every member at the value
+        /// measured on 13 of 13 tasks, the parameter lists empty, the call list the facet's names with empty comments.</summary>
+        public sealed class TaskArchive
+        {
+            private readonly object _facet;
+            public TaskArchive(object facet) => _facet = facet;
+            public string[] SerializableValueNames => new[]
+            {
+                "Core", "Core2", "TaskGroup", "AllowEmpty", "Implicit", "WithinSPSTimeSlicing", "SynchTask", "PouList",
+                "CustomParameters", "IntervalParameters", "EventParameters", "ExternalEventParameters", "FreewheelingParameters",
+            };
+            public object? GetSerializableValue(string name) => name switch
+            {
+                "Core" => -1,
+                "Core2" => -2,
+                "TaskGroup" => "IEC-Tasks",
+                "AllowEmpty" => false,
+                "Implicit" => false,
+                "WithinSPSTimeSlicing" => true,
+                "SynchTask" => "",
+                "PouList" => ((IEnumerable)_facet.GetType().GetProperty("pous")!.GetValue(_facet)!)
+                    .Cast<object>().Select(n => new PouEntry(n.ToString()!, "")).ToList(),
+                _ => new ArrayList(),
+            };
+        }
+
+        /// <summary>One call entry — <c>PouObject</c>'s whole persisted contract.</summary>
+        public sealed class PouEntry
+        {
+            public PouEntry(string name, string comment) { Name = name; Comment = comment; }
+            public string Name { get; }
+            public string Comment { get; }
+        }
+
+        /// <summary>The object manager a task read checks its object out through, by the node's guid.</summary>
+        public sealed class TaskObjects
+        {
+            private readonly TaskNode _node;
+            public TaskObjects(TaskNode node) => _node = node;
+            public object GetObjectToRead(int handle, Guid guid) =>
+                guid == _node.guid ? _node.Task : throw new InvalidOperationException("no such task");
         }
 
         public sealed class Watchdog
@@ -108,7 +153,13 @@ namespace Volt.Ide.Codesys.Tests
             }
         }
 
-        private static string Descriptor(object facet) => new CodesysObjectModel(null).TaskDescriptor(new TaskNode(facet));
+        private static string Descriptor(object facet)
+        {
+            var node = new TaskNode(facet);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new TaskObjects(node);
+            try { return new CodesysObjectModel(null).TaskDescriptor(node); }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
+        }
 
         private static string? Line(string text, string label) =>
             text.Replace("\r", "").Split('\n').FirstOrDefault(l => l.StartsWith(label + ":", StringComparison.Ordinal));
@@ -117,12 +168,9 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void An_external_event_reads_as_its_own_label()
         {
-            ExpectRed.Until("3.1/3.2", "finding 4: the external event is folded into Event:", () =>
-            {
-                var text = Descriptor(new Full.ScriptTaskObject { kind_of_task = "ExternalEvent", external_event = "CanRx" });
-                Assert.Null(Line(text, "Event"));
-                Assert.Equal("CanRx", Line(text, "External event")?.Split(':')[1].Trim());
-            });
+            var text = Descriptor(new Full.ScriptTaskObject { kind_of_task = "ExternalEvent", external_event = "CanRx" });
+            Assert.Null(Line(text, "Event"));
+            Assert.Equal("CanRx", Line(text, "External event")?.Split(':')[1].Trim());
         }
 
         /// <summary>A disabled watchdog's three members are read as the vendor holds them (kept behind the flag across a
@@ -130,23 +178,17 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_disabled_watchdog_reads_its_values_behind_off()
         {
-            ExpectRed.Until("3.1/3.2", "finding 4: a disabled watchdog's values are hidden", () =>
-            {
-                var text = Descriptor(new Full.ScriptTaskObject
-                    { watchdog = new Watchdog { enabled = false, time = "3200", time_unit = "µs", sensitivity = "1" } });
-                Assert.Equal("off 3200 µs (sensitivity 1)", Line(text, "Watchdog")?.Substring("Watchdog:".Length).Trim());
-            });
+            var text = Descriptor(new Full.ScriptTaskObject
+                { watchdog = new Watchdog { enabled = false, time = "3200", time_unit = "µs", sensitivity = "1" } });
+            Assert.Equal("off 3200 µs (sensitivity 1)", Line(text, "Watchdog")?.Substring("Watchdog:".Length).Trim());
         }
 
         /// <summary>The census's CTP task: disabled, time <c>''</c>, unit <c>ms</c>, sensitivity <c>1</c>.</summary>
         [Fact]
         public void A_disabled_watchdog_with_an_empty_time_reads_it_as_an_empty_string()
         {
-            ExpectRed.Until("3.1/3.2", "finding 4: an empty watchdog member has no spelling", () =>
-            {
-                var text = Descriptor(new Full.ScriptTaskObject { watchdog = new Watchdog { enabled = false, time = "" } });
-                Assert.Equal("off '' ms (sensitivity 1)", Line(text, "Watchdog")?.Substring("Watchdog:".Length).Trim());
-            });
+            var text = Descriptor(new Full.ScriptTaskObject { watchdog = new Watchdog { enabled = false, time = "" } });
+            Assert.Equal("off '' ms (sensitivity 1)", Line(text, "Watchdog")?.Substring("Watchdog:".Length).Trim());
         }
 
         /// <summary>A task member the facet does not have is refused by name — never read as <c>""</c> (<c>Str</c>,
@@ -154,11 +196,8 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_missing_task_member_is_refused_by_name()
         {
-            ExpectRed.Until("3.5", "finding 8: a missing task member reads as \"\"", () =>
-            {
-                var ex = Assert.ThrowsAny<Exception>(() => Descriptor(new NoPriority.ScriptTaskObject()));
-                Assert.Contains("priority", ex.Message);
-            });
+            var ex = Assert.ThrowsAny<Exception>(() => Descriptor(new NoPriority.ScriptTaskObject()));
+            Assert.Contains("priority", ex.Message);
         }
 
         /// <summary>On CODESYS a bare <c>Watchdog: off</c> is refused by name: the values behind the flag are content the
@@ -167,43 +206,37 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_bare_watchdog_off_is_refused_on_codesys()
         {
-            ExpectRed.Until("3.2", "finding 4: CODESYS takes a bare 'Watchdog: off'", () =>
-            {
-                var settings = TaskDescriptorFormat.Read("Type: Cyclic\nInterval: 10 ms\nPriority: 1\nWatchdog: off\n");
-                var ex = Assert.ThrowsAny<Exception>(() => new CodesysDriver(projects: null).ValidateTask(settings));
-                Assert.Contains("Watchdog", ex.Message);
-            });
+            var settings = TaskDescriptorFormat.Read("Type: Cyclic\nInterval: 10 ms\nPriority: 1\nWatchdog: off\n");
+            var ex = Assert.ThrowsAny<Exception>(() => new CodesysDriver(projects: null).ValidateTask(settings));
+            Assert.Contains("Watchdog", ex.Message);
         }
 
         // ── finding 8: the fallbacks ────────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>An accessor object whose <c>IsGet</c> is true, under a name that is not <c>Get</c>.</summary>
+        /// <summary>An accessor object whose <c>IsGetAccessor</c> is true, under a name that is not <c>Get</c>.</summary>
         public sealed class GetterObject : IObject, IPropertyAccessorObject
         {
             public GetterObject(string d, object i) : base(d, i) { }
-            public bool IsGet => true;
+            public bool IsGetAccessor => true;
         }
 
-        /// <summary>GET or SET is the accessor's <c>IsGet</c> member (archived, 340 + 112 accessors), never its NAME
+        /// <summary>GET or SET is the accessor's <c>IsGetAccessor</c> (archived as <c>IsGet</c>, 340 + 112 accessors), never its NAME
         /// (<c>CodesysTypeMap.RefineAccessor</c>).</summary>
         [Fact]
         public void An_accessor_is_GET_or_SET_by_its_IsGet_member_not_its_name()
         {
-            ExpectRed.Until("3.5", "finding 8: GET/SET is decided by the accessor's name", () =>
+            var accessor = new Node("Set", 3, new GetterObject("", new _3S.CoDeSys.STObject.STImplementationObject()));
+            var property = new Node("Ready", 2, new Property("PROPERTY Ready : BOOL"), accessor);
+            var pou = new Node("FB_P", 1, new Pou("FUNCTION_BLOCK FB_P", new _3S.CoDeSys.STObject.STImplementationObject()), property);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, property, accessor });
+            try
             {
-                var accessor = new Node("Set", 3, new GetterObject("", new _3S.CoDeSys.STObject.STImplementationObject()));
-                var property = new Node("Ready", 2, new Property("PROPERTY Ready : BOOL"), accessor);
-                var pou = new Node("FB_P", 1, new Pou("FUNCTION_BLOCK FB_P", new _3S.CoDeSys.STObject.STImplementationObject()), property);
-                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, property, accessor });
-                try
-                {
-                    var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
-                    var ready = read.Members.Single(m => m.Name == "Ready");
-                    Assert.NotNull(ready.Getter);
-                    Assert.Null(ready.Setter);
-                }
-                finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
-            });
+                var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
+                var ready = read.Members.Single(m => m.Name == "Ready");
+                Assert.NotNull(ready.Getter);
+                Assert.Null(ready.Setter);
+            }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
         /// <summary>A whitespace-only ST body is stored characters: spelled under <c>IMPLEMENTATION ST</c>, never read as
@@ -211,22 +244,19 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_whitespace_only_body_is_spelled_not_read_as_none()
         {
-            ExpectRed.Until("3.5", "finding 8: a whitespace body reads as no body", () =>
+            var body = new _3S.CoDeSys.STObject.STImplementationObject();
+            var throws = Nwl.TextDocument.ThrowsAfterInsert;
+            try { Nwl.TextDocument.ThrowsAfterInsert = false; body.TextDocument.Insert(0, "\t\n"); }
+            finally { Nwl.TextDocument.ThrowsAfterInsert = throws; }
+            var pou = new Node("FB_Blank", 1, new Pou("FUNCTION_BLOCK FB_Blank", body));
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou });
+            try
             {
-                var body = new _3S.CoDeSys.STObject.STImplementationObject();
-                var throws = Nwl.TextDocument.ThrowsAfterInsert;
-                try { Nwl.TextDocument.ThrowsAfterInsert = false; body.TextDocument.Insert(0, "\t\n"); }
-                finally { Nwl.TextDocument.ThrowsAfterInsert = throws; }
-                var pou = new Node("FB_Blank", 1, new Pou("FUNCTION_BLOCK FB_Blank", body));
-                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou });
-                try
-                {
-                    var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
-                    Assert.NotNull(read.Body);
-                    Assert.Contains("\t", read.Body);
-                }
-                finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
-            });
+                var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
+                Assert.NotNull(read.Body);
+                Assert.Contains("\t", read.Body);
+            }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
         public sealed class NullDocument { public string? Text => null; }
@@ -238,11 +268,8 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_text_document_with_no_text_is_refused_by_name()
         {
-            ExpectRed.Until("3.5", "finding 8: a missing Text reads as \"\"", () =>
-            {
-                var ex = Assert.ThrowsAny<Exception>(() => CodesysObjectModel.TryReadAspectText(new ObjectWithNullText(), "Interface"));
-                Assert.Contains("Interface", ex.Message);
-            });
+            var ex = Assert.ThrowsAny<Exception>(() => CodesysObjectModel.TryReadAspectText(new ObjectWithNullText(), "Interface"));
+            Assert.Contains("Interface", ex.Message);
         }
 
         /// <summary>A node with no <c>guid</c> / <c>handle</c> is refused by name — never <c>Guid.Empty</c> / <c>0</c>,
@@ -250,12 +277,9 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_node_with_no_identity_is_refused_by_name()
         {
-            ExpectRed.Until("3.5", "finding 8: a node's missing guid reads as Guid.Empty", () =>
-            {
-                var model = new CodesysObjectModel(null);
-                Assert.Contains("guid", Assert.ThrowsAny<Exception>(() => model.GuidOf(new object())).Message);
-                Assert.Contains("handle", Assert.ThrowsAny<Exception>(() => model.HandleOf(new object())).Message);
-            });
+            var model = new CodesysObjectModel(null);
+            Assert.Contains("guid", Assert.ThrowsAny<Exception>(() => model.GuidOf(new object())).Message);
+            Assert.Contains("handle", Assert.ThrowsAny<Exception>(() => model.HandleOf(new object())).Message);
         }
 
         /// <summary>A library item that does not answer <c>Namespace</c> / <c>SystemLibrary</c>.</summary>
@@ -273,15 +297,12 @@ namespace Volt.Ide.Codesys.Tests
             // Looked up OUTSIDE the red body: a renamed helper fails this test loudly instead of keeping it red.
             var m = typeof(CodesysObjectModel).GetMethod("ToLibRef", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(m);
-            ExpectRed.Until("3.5", "finding 8: a library's missing Namespace/SystemLibrary is defaulted", () =>
+            var ex = Assert.ThrowsAny<Exception>(() =>
             {
-                var ex = Assert.ThrowsAny<Exception>(() =>
-                {
-                    try { m!.Invoke(null, new object[] { new BareLibItem() }); }
-                    catch (TargetInvocationException tie) { throw tie.InnerException!; }
-                });
-                Assert.True(ex.Message.Contains("Namespace") || ex.Message.Contains("SystemLibrary"), ex.Message);
+                try { m!.Invoke(null, new object[] { new BareLibItem(), new System.Collections.Generic.Dictionary<string, string>() }); }
+                catch (TargetInvocationException tie) { throw tie.InnerException!; }
             });
+            Assert.True(ex.Message.Contains("Namespace") || ex.Message.Contains("SystemLibrary"), ex.Message);
         }
     }
 }

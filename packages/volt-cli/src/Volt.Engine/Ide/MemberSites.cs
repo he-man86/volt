@@ -61,6 +61,15 @@ public static class MemberSites
                 continue;
             }
 
+            // A STANDALONE TRANSITION IS REFUSED BY NAME (openspec bridge-one-to-one §1.2 "Transitions"): no text form
+            // carries one, and skipping it silently made its owner pull as if it had none — a migration lost it without
+            // a word. 0 in the six corpora (niche: accepted loss); an SFC body's embedded transitions travel inside the
+            // unsupported body.
+            if (code == ItemKind.PlcTrans)
+                throw new BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
+                    $"'{tree.Name(parent)}' holds the transition '{name}' as an object of its own — Volt has no text form for " +
+                    "a standalone SFC transition (refused by name: niche, accepted loss, 0 occurrences in the corpora), so " +
+                    "the item is not pulled rather than pulled without it.");
             if (!ItemKind.IsMember(code)) continue;
 
             yield return new Site(string.IsNullOrEmpty(basePath) ? null : basePath, child, name, code);

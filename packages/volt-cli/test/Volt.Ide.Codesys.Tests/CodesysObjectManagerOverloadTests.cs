@@ -31,7 +31,38 @@ namespace Volt.Ide.Codesys.Tests
     [Collection(NetworkTextSwitchCollection.Name)]   // the object-manager double is process-wide
     public class CodesysObjectManagerOverloadTests
     {
-        public sealed class TextListEnum : IObject, ITextListEnumerationObject { public TextListEnum(string d) : base(d, null) { } }
+        /// <summary>A text-list enumeration as SP21 archives it (census §0.1 finding 3): its declaration, and beside it a
+        /// text list whose rows the vendor rebuilds from that declaration (a measured cache, <c>textlist-enum-edit</c>) —
+        /// no removed entries, no languages, no translated texts.</summary>
+        public sealed class TextListEnum : IObject, ITextListEnumerationObject
+        {
+            public TextListEnum(string d) : base(d, null) { }
+            public string[] SerializableValueNames => new[] { "RemovedTextListEntries", "TextListObject", "Interface" };
+            public object? GetSerializableValue(string name) => name switch
+            {
+                "RemovedTextListEntries" => new System.Collections.ArrayList(),
+                "TextListObject" => new TextListArchive(),
+                _ => null,
+            };
+        }
+
+        /// <summary>The enumeration's text list: its rows (no language texts on any) and its languages (none).</summary>
+        public sealed class TextListArchive
+        {
+            public string[] SerializableValueNames => new[] { "GuidInit", "GuidReInit", "GuidExitX", "Languages", "TextList" };
+            public object? GetSerializableValue(string name) => name switch
+            {
+                "Languages" => new System.Collections.ArrayList(),
+                "TextList" => new System.Collections.ArrayList { new TextListRow() },
+                _ => Guid.NewGuid(),
+            };
+        }
+
+        public sealed class TextListRow
+        {
+            public string[] SerializableValueNames => new[] { "TextID", "TextDefault", "LanguageTexts" };
+            public object? GetSerializableValue(string name) => name == "LanguageTexts" ? new System.Collections.ArrayList() : "";
+        }
         public sealed class Dut : IObject, IDUTObject { public Dut(string d) : base(d, null) { } }
 
         /// <summary>A scripting tree node keyed by GUID — every node of one project shares the project HANDLE (all
@@ -58,12 +89,14 @@ namespace Volt.Ide.Codesys.Tests
         /// <see cref="Faulting"/> throws, as a vendor read of a broken object does.</summary>
         public sealed class VendorObjectManager
         {
-            private readonly Dictionary<Guid, (string Name, IObject Obj)> _byGuid = new();
+            private readonly Dictionary<Guid, (string Name, IObject? Obj)> _byGuid = new();
             public HashSet<string> Faulting { get; } = new(StringComparer.Ordinal);
             public int Commits { get; private set; }
             public VendorObjectManager(IEnumerable<GuidNode> nodes)
             {
-                foreach (var n in nodes) if (n.Object != null) _byGuid[n.guid] = (n.get_name(false), n.Object);
+                // EVERY node is an object with a meta, a folder too (its Object null here) — the walk reads a folder's
+                // properties (openspec bridge-one-to-one §1.1: an excluded folder is refused by name).
+                foreach (var n in nodes) _byGuid[n.guid] = (n.get_name(false), n.Object);
             }
             public Meta GetObjectToRead(int nProjectHandle, int nIndex) =>
                 throw new InvalidOperationException($"read by INDEX {nIndex} - Volt never means this overload");
@@ -84,8 +117,9 @@ namespace Volt.Ide.Codesys.Tests
         {
             var en = new GuidNode("SER_OperationModeType", new TextListEnum("TYPE SER_OperationModeType :\n(\n\tAuto := 0,\n\tManual\n);\nEND_TYPE"));
             var dut = new GuidNode("PlcDataType", new Dut("TYPE PlcDataType :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"));
-            var root = new GuidNode("<project>", null, new GuidNode("Data", null, en, dut));
-            return (root, en, dut, new VendorObjectManager(new[] { en, dut }));
+            var data = new GuidNode("Data", null, en, dut);
+            var root = new GuidNode("<project>", null, data);
+            return (root, en, dut, new VendorObjectManager(new[] { data, en, dut }));
         }
 
         [Fact]
@@ -114,7 +148,8 @@ namespace Volt.Ide.Codesys.Tests
             {
                 const string decl = "TYPE SER_OperationModeType :\n(\n\tAuto := 0,\n\tManual,\n\tService\n);\nEND_TYPE";
                 new CodesysDriver(new Projects(root)).WriteContent(new ItemRef(en),
-                    new ItemContent(ItemKind.Kinds.Dut, decl, null, new List<Member>()), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                    new ItemContent(ItemKind.Kinds.Dut, decl, null, new List<Member>(),
+                        ObjectProperties.None with { Class = new ObjectClass(ObjectClass.TextListEnum, null) }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Equal(decl, en.Object!.Interface.TextDocument.Text);
                 Assert.Equal(1, mgr.Commits);

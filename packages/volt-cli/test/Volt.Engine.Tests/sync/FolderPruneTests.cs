@@ -161,7 +161,7 @@ public class FolderPruneTests
     {
         var ide = new FakeIde();
         Push(ide, Create("Elsewhere.pou", "Other"));
-        ide.CreateChild(ide.GetTreeRoot(), "Untouched", ItemKind.PlcFolder);
+        ide.CreateChild(ide.GetTreeRoot(), "Untouched", ItemKind.PlcFolder, null, null);
         Assert.True(HasFolder(ide, "Untouched"));
 
         // A push that has nothing to do with it — and must therefore leave it exactly as it found it.

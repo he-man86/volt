@@ -24,7 +24,7 @@ public class LanguageChangeGuardTests
     const string Fbd = "IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK";
 
     static ItemContent Pou(string? body, StatedLanguage? stated) =>
-        new(ItemKind.Kinds.Pou, Decl, body, new List<Member>(), Stated: stated);
+        new(ItemKind.Kinds.Pou, Decl, body, new List<Member>(), ObjectProperties.None, Stated: stated);
 
     /// <summary>A vendor that writes every change, and one that refuses every change — the two answers N24 measured.</summary>
     static string? Writes(string site, string from, string to) => null;
@@ -90,11 +90,11 @@ public class LanguageChangeGuardTests
 
         var live = new ItemContent(ItemKind.Kinds.Pou, Decl, "x", new List<Member>
         {
-            new(ItemKind.Kinds.Method, "M", "METHOD M : BOOL", "x", Stated: StatedLanguage.St),
-            new(ItemKind.Kinds.Action, "A", "ACTION A", "x", Stated: StatedLanguage.St),
-            new(ItemKind.Kinds.Property, "P", "PROPERTY P : INT", "", Getter: new Accessor("", "x", Stated: StatedLanguage.St),
+            new(ItemKind.Kinds.Method, "M", "METHOD M : BOOL", "x", ObjectProperties.None, Stated: StatedLanguage.St),
+            new(ItemKind.Kinds.Action, "A", "ACTION A", "x", ObjectProperties.None, Stated: StatedLanguage.St),
+            new(ItemKind.Kinds.Property, "P", "PROPERTY P : INT", "", ObjectProperties.None, Getter: new Accessor("", "x", Stated: StatedLanguage.St),
                 Setter: new Accessor("", "x", Stated: StatedLanguage.Shown(Languages.Ld))),
-        }, Stated: StatedLanguage.St);
+        }, ObjectProperties.None, Stated: StatedLanguage.St);
         var pushed = live with
         {
             Body = Fbd, Stated = StatedLanguage.Shown(Languages.Fbd),
@@ -194,9 +194,9 @@ public class LanguageChangeGuardTests
     public void An_interface_method_is_checked_for_neither_a_body_nor_accessors()
     {
         static Member Itm(string? body, StatedLanguage? stated, Accessor? get) =>
-            new(ItemKind.Kinds.InterfaceMethod, "Run", "METHOD Run : BOOL", body, Getter: get, Stated: stated);
+            new(ItemKind.Kinds.InterfaceMethod, "Run", "METHOD Run : BOOL", body, ObjectProperties.None, Getter: get, Stated: stated);
         static ItemContent Itf(Member m) =>
-            new(ItemKind.Kinds.Interface, "INTERFACE I", "", new List<Member> { m });
+            new(ItemKind.Kinds.Interface, "INTERFACE I", "", new List<Member> { m }, ObjectProperties.None);
 
         var asked = new List<string>();
         string? Record(string site, string from, string to) { asked.Add(site); return "no route."; }
@@ -208,9 +208,9 @@ public class LanguageChangeGuardTests
         Assert.Empty(asked);
 
         // …while a property is asked at its accessors, and a method at its body.
-        static Member Prop(string get) => new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "",
+        static Member Prop(string get) => new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
             Getter: new Accessor("", get, Stated: get.StartsWith("IMPLEMENTATION") ? StatedLanguage.Shown(Languages.Ld) : StatedLanguage.St));
-        static ItemContent Fb(params Member[] ms) => new(ItemKind.Kinds.Pou, Decl, "", ms.ToList(), Stated: StatedLanguage.St);
+        static ItemContent Fb(params Member[] ms) => new(ItemKind.Kinds.Pou, Decl, "", ms.ToList(), ObjectProperties.None, Stated: StatedLanguage.St);
         Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
             Fb(Prop("IMPLEMENTATION LD\nNETWORK\nEND_NETWORK")), Fb(Prop("q := a;")), Record));
         Assert.Equal(new[] { ItemKind.Kinds.PropertyGet }, asked);

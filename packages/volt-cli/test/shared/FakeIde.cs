@@ -562,9 +562,21 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ValidatesTask?.Invoke(settings);
     }
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)
     {
         if (FailCreate?.Invoke(name, kindCode) is { } failure) throw failure;
+        // THE CLASS IS MADE AT THE CREATE, or the create is refused by name (openspec bridge-one-to-one §3): an NVL's factory
+        // needs its wizard on CODESYS (C2r) and TwinCAT makes no special class at all (C2s) — modelled by
+        // `RefusesClassCreate`, which by default refuses the NVL as both vendors do.
+        // The ABSTRACT METHOD class is derived from the text and never spelled (`ObjectClass.AbstractMethod`): the fake makes
+        // it as CODESYS does — the vendor's abstract class (label `AbstractPOUMethodObject`), no body slot, no properties.
+        var abstractMethod = cls?.Word == ObjectClass.AbstractMethod;
+        if (abstractMethod) cls = null;
+        if (cls is not null && RefusesClassCreate(cls) is { } classRefusal)
+        {
+            Recorded.Add($"refused:{name}");
+            throw new Volt.Engine.Ide.ChildRefusedException(classRefusal, Volt.Engine.Ide.ChildRefusalCause.Kind);
+        }
         if (ItemKind.Map(kindCode) is { } memberKind && RefusesMemberCreate?.Invoke(memberKind, name, seed) is { } why)
             throw new NotSupportedException(why);
         if (RefusesMembersByText && ItemKind.IsInlinedInPou(kindCode) && FindOrNull(parent) is { KindCode: ItemKind.PlcPou } pouOwner)
@@ -617,7 +629,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // WITH ITS FOLDER. This passed "" for every create, so the fake said every item sat at the root —
             // and `PushService`'s pre-apply cache reads exactly this field to know which folder an item is
             // LEAVING. With "" there, `PruneEmptied` had no candidate to consider and could not be tested.
-            _items.Add(new Item(name, kindCode, parentPath, true, DefaultDeclaration(kindCode, name), "", null, null));
+            _items.Add(new Item(name, kindCode, parentPath, true, DefaultDeclaration(kindCode, name), "", null, null)
+                { Properties = cls is null ? null : ObjectProperties.None with { Class = cls } });
 
         // A CREATED MEMBER IS FINDABLE UNDER ITS PARENT, and a created FOLDER is not an item. Both halves
         // matter, and only the second used to hold: the fake registered top-level kinds and nothing else, so a
@@ -634,7 +647,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         else if (kindCode != ItemKind.PlcFolder && !ItemKind.IsTopLevelCrud(kindCode)
                  && !_items.Any(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
-            _items.Add(new Item(name, kindCode, "", false, null, null, null, null));
+            _items.Add(new Item(name, kindCode, "", false, null, null, null, null,
+                                Class: abstractMethod ? "AbstractPOUMethodObject" : null)
+                { Properties = cls is null ? null : ObjectProperties.None with { Class = cls }, NoSlot = abstractMethod });
             if (FindOrNull(parent) is { } owner)
                 _items[_items.IndexOf(owner)] = owner with
                 {
@@ -650,6 +665,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             : Ref(name);
     }
 
+    /// <summary>Which classes a create refuses, with its reason (null: made). Unset, the NVL — whose factory needs its wizard
+    /// on CODESYS (C2r) — is refused, as both vendors refuse it; set it to model TwinCAT, which makes no special class.</summary>
+    public Func<ObjectClass, string?> RefusesClassCreate { get; init; } = cls =>
+        cls.Word == ObjectClass.Nvl
+            ? $"%CLASS {cls}: the IDE creates no network variable list without its wizard (DIALECT C2r)"
+            : null;
+
     /// <summary>The declaration a fresh item comes into the world with — the IDE writes one, and the fake must
     /// too, because an item with NO declaration exports no <c>InterfaceAsPlainText</c> and the splice (rightly)
     /// refuses to write a declaration into a document that has nowhere to put one.</summary>
@@ -657,7 +679,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         // Every POU is created as a function block (the one seed, design 5.Qa S1).
         ItemKind.PlcPou => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n",
-        ItemKind.PlcItf => $"INTERFACE {name}\n",
+        // An interface's seed IS its header, nothing after it (openspec declaration-from-the-aspect: a created interface's
+        // declaration is already exactly the seed) — compared verbatim since bridge-one-to-one, a trailing newline is text.
+        ItemKind.PlcItf => $"INTERFACE {name}",
         ItemKind.PlcDut => $"TYPE {name} :\nSTRUCT\nEND_STRUCT\nEND_TYPE\n",
         ItemKind.PlcGvl => "VAR_GLOBAL\nEND_VAR\n",
         _ => $"PROGRAM {name}\nVAR\nEND_VAR\n",
@@ -782,6 +806,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 Name = newName,
                 Declaration = _items[idx].Declaration is { } d ? header.Replace(d, m => m.Groups[1].Value + newName, 1) : null,
             };
+        // A renamed MEMBER is the same child of its owner under the new name (the object kept — its class, its properties).
+        for (var k = 0; k < _items.Count; k++)
+            if (_items[k].Children is { } kids && kids.Contains(old, StringComparer.Ordinal))
+                _items[k] = _items[k] with { Children = kids.Select(c => c == old ? newName : c).ToArray() };
         // TwinCAT measured otherwise for the rest of the item (DIALECT C2o): it ALSO rewrites the item's own code
         // references — the return assignment, the self-pointer — and still no comment.
         if (idx >= 0 && RewritesOwnReferencesOnRename)
@@ -916,6 +944,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             it.Declaration ?? "",
             BodyTextOf(it),
             MembersOf(it).ToList(),
+            PropertiesOfItem(it),
             UnsupportedOf(it),
             StatedOf(it));
     }
@@ -1015,12 +1044,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         foreach (var name in owner.Children ?? System.Array.Empty<string>())
         {
             var child = FindOrNull(Ref(name));
-            if (child is null || !ItemKind.IsMember(child.KindCode)) continue;   // a transition is not a member
+            // A standalone transition refuses its owner by name, as both drivers do (MemberSites.Of, bridge-one-to-one §1.2).
+            if (child is { KindCode: ItemKind.PlcTrans })
+                throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{owner.Name}' holds the transition '{child.Name}' as an object of its own — no text form carries one");
+            if (child is null || !ItemKind.IsMember(child.KindCode)) continue;
             yield return new Member(
                 ItemKind.MemberKind(child.KindCode, ownerIsInterface, child.Name),   // the drivers' one rule (D20)
                 child.Name,
                 child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
                 BodyTextOf(child),
+                PropertiesOfItem(child),
                 string.IsNullOrEmpty(child.Folder) ? null : child.Folder,
                 AccessorOf(child, ItemKind.PlcPropGet, ItemKind.PlcItfPropGet),
                 AccessorOf(child, ItemKind.PlcPropSet, ItemKind.PlcItfPropSet),
@@ -1028,6 +1062,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 Stated: StatedOf(child));
         }
     }
+
+    /// <summary>The object's properties as a driver reads them (openspec <c>bridge-one-to-one</c> §1.2): the ones the IDE
+    /// holds, or the measured absence of every one (<see cref="ObjectProperties.None"/>) for an object that has none.</summary>
+    private static ObjectProperties PropertiesOfItem(Item it) => it.Properties ?? ObjectProperties.None;
 
     /// <summary>A property's GET or SET, from the property's own children — or null when it has none.
     ///
@@ -1037,8 +1075,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// `VAR`/`END_VAR` block CODESYS really holds (~320 getters in one corpus) with 600 tests green. A fake that
     /// cannot express a field cannot fail on it.</para>
     ///
-    /// <para>Goes through the same <see cref="AccessorDeclaration.Keep"/> the drivers use, so the fake agrees
-    /// with them about when a declaration EXISTS rather than having a second opinion.</para>
+    /// <para>Verbatim, as both drivers read it (openspec <c>bridge-one-to-one</c> §1.1, every character).</para>
     ///
     /// <para>Both codes of the role: CODESYS classifies an interface accessor as the POU code (613/614), TwinCAT as
     /// 654/655 — and <c>BeckhoffDriver</c> reads 654/655 as the accessor. The fake knew only 613/614, so a TwinCAT-shaped
@@ -1050,7 +1087,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         {
             var acc = FindOrNull(Ref(name));
             if (acc is null || (acc.KindCode != pouAccessorKind && acc.KindCode != interfaceAccessorKind)) continue;
-            return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc), UnsupportedOf(acc), StatedOf(acc));
+            return new Accessor(acc.Declaration, BodyTextOf(acc), UnsupportedOf(acc), StatedOf(acc));   // verbatim, as the drivers
         }
         return null;
     }
@@ -1114,6 +1151,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             {
                 KindCode = RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode,
                 Declaration = content.Declaration,
+                // The object's properties as the push states them — written in place, the class excepted (it never
+                // changes in place, C2l: the push refuses a class change before it writes, and a create makes it).
+                Properties = WrittenProperties(owner, content.Properties),
                 Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), bodies,
                                       Volt.Engine.Ide.BodySite.Item) ?? owner.Implementation,
                 // A WRITTEN body is held as written, in the language written (a POU's body may change language where
@@ -1146,11 +1186,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // alone — so the member keeps the body the IDE holds (its language, what made it UNSUPPORTED, its missing
             // slot). `IMPLEMENTATION NONE` is written as "" (`Written`, openspec abstract-member-parity).
             var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.Written(m.Body) is null
-                ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
+                ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration,
+                                  Properties = WrittenProperties(existing, m.Properties) }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
                            Held(Volt.Engine.Format.St.ImplementationMarker.Written(m.Body), bodies,
                                 new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
-                           null, null) { Class = existing?.Class, Properties = existing?.Properties, Children = existing?.Children };   // written in place: the class (C2l), the properties and the accessors are kept
+                           null, null)
+                  {
+                      // written in place: the class label (C2l) and the accessors are kept, the properties are the pushed ones
+                      Class = existing?.Class, Properties = WrittenProperties(existing, m.Properties), Children = existing?.Children,
+                  };
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
 
@@ -1169,6 +1214,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // Bumped LAST, so this call's own handle was still valid.
         if (InvalidatesHandlesOnWrite) _generation++;
     }
+
+    /// <summary>The properties an in-place write leaves on <paramref name="target"/>: the pushed ones, with the class the
+    /// object HOLDS — a write never changes it (DIALECT C2l; the push refuses a class change before it writes).</summary>
+    private static ObjectProperties WrittenProperties(Item? target, ObjectProperties pushed) =>
+        pushed with { Class = target?.Properties?.Class };
 
     /// <summary>The CODESYS driver's backstop (<c>CodesysObjectModel.RequireSlot</c>, D26): a body written at an object
     /// with no body slot is refused, in its words. Raised before this write changes anything.</summary>

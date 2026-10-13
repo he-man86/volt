@@ -275,8 +275,19 @@ public sealed partial class BeckhoffDriver
         : _om.GetName(item.Native);   // never "" — the name is the wire identity
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)
     {
+        // NO SPECIAL CLASS IS MADE ON TWINCAT (openspec bridge-one-to-one §1.1, DIALECT C2s): a CreateChild of 603 and a
+        // push both left SpecialFunc="None" (tc-special-classes), and TwinCAT has no persistent-list, NVL or text-list-enum
+        // class at all. A create the text names a class for is refused by name, never the plain class reported created.
+        // The ABSTRACT METHOD class is the one exception, and not a special class here: TwinCAT has one method class (609),
+        // and ABSTRACT is its text alone (DIALECT C2n, `abstract-member-slot`) — the create makes the method, the
+        // declaration written next makes it abstract, as it always did (the engine derives that class from the text,
+        // `ObjectClass.AbstractMethod`, for CODESYS's sake).
+        if (cls is not null && cls.Word != ObjectClass.AbstractMethod)
+            throw new ChildRefusedException(
+                $"%CLASS {cls}: TwinCAT makes no such class through its automation interface (tc-special-classes, DIALECT " +
+                "C2s) — create it in the IDE and pull.", ChildRefusalCause.Kind);
         // AN INTERFACE MEMBER IS CREATED WITH ITS TYPE (openspec bridge-refusal-review 2.4, 2.6): TwinCAT's CreateChild
         // takes an interface method's return type / an interface property's data type as its vInfo, and a property
         // created with none fails inside TcXaeShell ("Object reference not set to an instance of an object",

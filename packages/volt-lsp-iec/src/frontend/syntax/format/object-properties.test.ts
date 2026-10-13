@@ -107,3 +107,97 @@ test("a member's %FOLDER is read where the push peels it, and nowhere else — e
     expect({ where, reported: syntaxErrors(src).length > 0 }).toEqual({ where, reported: true })
   }
 })
+
+// ── every other %-line: the object's properties (openspec bridge-one-to-one §1.2) ─────────────────────────
+
+const parsed = (src: string) => parseSource(src, { networkText: true }, "codesys")
+
+test("a POU's, a member's, a DUT's, a GVL's, an interface's and a property's %-lines are read where the push peels them", () => {
+  const pou = parsed(
+    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'it$'s'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+      "METHOD M\nIMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
+  )
+  expect(syntaxErrors(
+    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\nEND_FUNCTION_BLOCK\n",
+  )).toEqual([])
+  expect(pou.errors).toEqual([])
+  const [fbBody, mBody] = pou.units.flatMap(unitBodies)
+  expect(fbBody!.implementation?.objectProperties).toEqual(["%EXCLUDE_FROM_BUILD", "%COMMENT 'it$'s'"])
+  expect([mBody!.implementation?.folder, mBody!.implementation?.objectProperties]).toEqual([
+    "Sub",
+    ["%CLASS CHECK CheckBounds", "%LINK_ALWAYS"],
+  ])
+
+  const dut = parsed("TYPE E :\n(\n\ta,\n\tb\n);\nEND_TYPE\n%CLASS TEXTLIST_ENUM\n")
+  expect(dut.errors).toEqual([])
+  expect(dut.units[0]!.kind === "type_decl" && dut.units[0]!.objectProperties).toEqual(["%CLASS TEXTLIST_ENUM"])
+
+  const gvl = parsed("VAR_GLOBAL\n\tg : INT;\nEND_VAR\n%CLASS PERSISTENT\n%NETVAR Pack: 1\n%NETVAR Cycle: ''\n")
+  expect(gvl.errors).toEqual([])
+  expect(gvl.units[0]!.kind === "global_var_list" && gvl.units[0]!.objectProperties).toEqual([
+    "%CLASS PERSISTENT",
+    "%NETVAR Pack: 1",
+    "%NETVAR Cycle: ''",
+  ])
+
+  const itf = parsed("INTERFACE I\n%EXCLUDE_FROM_BUILD\nMETHOD M : BOOL\n%FOLDER A\n%EXTERNAL\nEND_METHOD\nEND_INTERFACE\n")
+  expect(itf.errors).toEqual([])
+  const i = itf.units[0]
+  if (i?.kind !== "interface") throw new Error("expected an interface")
+  expect([i.objectProperties, i.methods[0]!.folder, i.methods[0]!.objectProperties]).toEqual([
+    ["%EXCLUDE_FROM_BUILD"],
+    "A",
+    ["%EXTERNAL"],
+  ])
+
+  const prop = parsed(`${FB}PROPERTY P : INT\n%FOLDER sub\n%ONLINE_CHANGE_RESERVE 64\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n`)
+  expect(prop.errors).toEqual([])
+  const p = prop.units.find((u) => u.kind === "property")
+  expect(p?.kind === "property" && [p.folder, p.objectProperties]).toEqual(["sub", ["%ONLINE_CHANGE_RESERVE 64"]])
+})
+
+test("a %-line the push refuses is reported on its line: order, repeat, flag value, missing value, value grammar", () => {
+  const dut = (lines: string) => parsed(`TYPE E :\n(\n\ta\n);\nEND_TYPE\n${lines}`).errors.map((e) => e.message)
+  const refused: Record<string, [string, string]> = {
+    order: ["%LINK_ALWAYS\n%EXCLUDE_FROM_BUILD\n", "stands after '%LINK_ALWAYS'"],
+    repeat: ["%EXTERNAL\n%EXTERNAL\n", "is written twice"],
+    "flag value": ["%EXTERNAL yes\n", "is a flag and takes no value"],
+    "missing value": ["%COMMENT\n", "takes a value"],
+    "class word": ["%CLASS NOPE\n", "%CLASS names one of"],
+    "check without its check": ["%CLASS CHECK\n", "names the check it is"],
+    reserve: ["%ONLINE_CHANGE_RESERVE -1\n", "positive whole number"],
+    "bare string": ["%COMMENT hello\n", "takes an ST string"],
+    "bad escape": ["%COMMENT 'a$q'\n", "is no ST string escape"],
+    "empty comment": ["%COMMENT ''\n", "is its absence"],
+    netvar: ["%NETVAR 1\n", "%NETVAR <member>: <value>"],
+    "file link": ["%FILE_LINK 'p'\n", "%FILE_LINK <link type> '<path>'"],
+    "a DUT's folder": ["%FOLDER x\n", "stands only in a member's block"],
+  }
+  for (const [what, [lines, says]] of Object.entries(refused)) {
+    const errors = dut(lines)
+    expect({ what, reported: errors.length === 1 && errors[0]!.includes(says) }).toEqual({ what, reported: true })
+  }
+  expect(dut("%UNDEFINE 'A'\n%UNDEFINE 'B'\n%COMMENT 'x$N$27$$'\n%FILE_LINK Auto 'C:\a.txt'\n")).toEqual([])
+})
+
+test("a %-line that is no property is code, and one where the push peels none is reported", () => {
+  // `%QB1` is a direct address the lexer reads as one token; `%class` and `%CLASSIC` are no closed key — code the IDE gets
+  for (const code of ["%QB1 := TRUE;", "%class := 1;"]) {
+    const body = bodiesOf(fb(`IMPLEMENTATION ST\n${code}`))[0]!
+    expect({ code, props: body.implementation?.objectProperties }).toEqual({ code, props: undefined })
+  }
+  const misplaced = {
+    "a DUT's, before its end": "TYPE E :\n(\n\ta\n);\nEND_TYPE\n%EXTERNAL\nTYPE F :\n(\n\tb\n);\nEND_TYPE\n",
+    "a POU's, at file scope": `${FB}%EXTERNAL\n`,
+    "an interface's, after a member": "INTERFACE I\nMETHOD M : BOOL\nEND_METHOD\n%EXTERNAL\nEND_INTERFACE\n",
+    "an accessor's declaration": "INTERFACE I\nPROPERTY Q : INT\nGET\n%EXTERNAL\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n",
+  }
+  for (const [where, src] of Object.entries(misplaced))
+    expect({ where, reported: parsed(src).errors.filter((e) => e.message.includes("is no property")).length }).toEqual({
+      where,
+      reported: 1,
+    })
+  // a POU's own body peels no %FOLDER, and an accessor peels nothing: left as code
+  const accessor = bodiesOf(`${FB}PROPERTY P : INT\nGET\nIMPLEMENTATION ST\n%EXTERNAL\nP := 1;\nEND_GET\nEND_PROPERTY\n`).at(-1)!
+  expect(accessor.implementation?.objectProperties).toBeUndefined()
+})

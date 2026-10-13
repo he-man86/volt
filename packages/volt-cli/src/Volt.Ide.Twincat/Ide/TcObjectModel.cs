@@ -500,7 +500,13 @@ internal sealed partial class TcObjectModel
     }
 
     // ── source text ─────────────────────────────────────────────────
-    public string ReadDeclaration(object node) => (string)((dynamic)node).DeclarationText ?? "";
+    /// <summary>An item's declaration. NEVER defaulted (openspec bridge-one-to-one finding 8, task 3.5): a
+    /// <c>DeclarationText</c> that answers nothing read as <c>""</c> wrote an emptied POU into the workspace, which the next
+    /// push wrote back. It is refused by name.</summary>
+    public string ReadDeclaration(object node) =>
+        (string)((dynamic)node).DeclarationText
+        ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"twincat: '{GetName(node)}' answers no DeclarationText — refused rather than read as an empty declaration.");
     /// <summary>An item's body text. Only a MISSING implementation slot yields <c>""</c> — an interface, DUT or
     /// GVL has no body and TwinCAT's COM object does not expose the member for it. Every OTHER failure is
     /// rethrown, because this read is FAIL-CLOSED: <c>BodyLanguage</c> is <c>LanguageOf(ReadImplementation(...))</c>,
@@ -509,7 +515,13 @@ internal sealed partial class TcObjectModel
     /// CFC/SFC body. A body Volt could not read must never classify as textual; it must stop the push.</summary>
     public string ReadImplementation(object node)
     {
-        try { return (string)((dynamic)node).ImplementationText ?? ""; }
+        // A member that EXISTS and answers nothing is no empty body (finding 8, task 3.5): refused by name.
+        try
+        {
+            return (string)((dynamic)node).ImplementationText
+                ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+                    $"twincat: '{GetName(node)}' answers no ImplementationText — refused rather than read as an empty body.");
+        }
         catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return ""; }
         catch (System.Runtime.InteropServices.COMException ex) when (IsMissingMember(ex)) { return ""; }
     }

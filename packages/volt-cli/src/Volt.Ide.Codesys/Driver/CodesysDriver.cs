@@ -269,8 +269,11 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         var items = WalkItems().Items;
         foreach (var pi in items)
         {
+            // A library reference is Volt's own node over a Library Manager row (LibRefNode): no IDE object, no guid,
+            // and nothing a build reports a message on.
+            if (pi.Item.Native is LibRefNode) continue;
             var guid = _om.GuidOf(pi.Item.Native);
-            if (guid != Guid.Empty && wanted.Contains(guid)) names[guid] = new Placement(pi.Name, null);
+            if (wanted.Contains(guid)) names[guid] = new Placement(pi.Name, null);
             // STOP once every guid is placed. This runs on the IDE's primary thread, and a failing build on a
             // real project asks about a handful of items out of hundreds.
             if (names.Count == wanted.Count) return names;

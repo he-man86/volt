@@ -123,7 +123,10 @@ describe(`items / a task is writable (${BASE})`, () => {
 		const name = fid("task_new", "task")
 		await clean(name)
 
-		const body = `Type:      Cyclic\nInterval:  100 ms\nPriority:  ${await freePriority()}\nWatchdog:  off\n`
+		// A watchdog that is off: TwinCAT holds the flag alone; CODESYS keeps its time, unit and sensitivity behind it, so
+		// the line states them and a bare `off` is refused there by name (openspec bridge-one-to-one §3).
+		const watchdog = VENDOR === "codesys" ? "off '' ms (sensitivity 1)" : "off"
+		const body = `Type:      Cyclic\nInterval:  100 ms\nPriority:  ${await freePriority()}\nWatchdog:  ${watchdog}\n`
 		const created = await pushOps([{ op: "set", name, toFolder: TASK_FOLDER, sourceText: body, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 

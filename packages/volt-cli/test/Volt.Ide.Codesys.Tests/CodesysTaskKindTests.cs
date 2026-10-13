@@ -58,7 +58,9 @@ namespace Volt.Ide.Codesys.Tests
         public void The_pre_flight_refuses_an_unknown_type_with_the_same_answer()
         {
             var driver = new CodesysDriver(projects: null);
-            var settings = new Volt.Engine.Format.Task.TaskSettings("Cyclicc", "10", "ms", "1", null, null, System.Array.Empty<string>());
+            // A CODESYS task states its watchdog (bridge-one-to-one §1.2: a bare `off` is refused there) — here the census's CTP one.
+            var settings = new Volt.Engine.Format.Task.TaskSettings("Cyclicc", "10", "ms", "1", null,
+                new Volt.Engine.Format.Task.TaskWatchdog("", "ms", "1", false), System.Array.Empty<string>());
 
             var ex = Assert.Throws<BridgeException>(() => driver.ValidateTask(settings));
             Assert.Equal(BridgeErrorCodes.BadRequest, ex.ErrorCode);

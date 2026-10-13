@@ -63,7 +63,12 @@ public interface IProjectTree
     /// CODESYS never needed — the cost of one vendor's quirk, charged to both.</para></summary>
     bool HandlesSurviveStructureChange { get; }
 
-    ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null);
+    /// <summary>…and <paramref name="cls"/> is the vendor CLASS to make it as, where the text names one (<c>%CLASS</c>,
+    /// openspec <c>bridge-one-to-one</c> §3) — null for the kind's plain class. REQUIRED, like <paramref name="seed"/>:
+    /// a class never changes in place (DIALECT C2l), so a create that made the plain class and was converted afterwards
+    /// is no path; the driver makes the class at the create, through the vendor's own Add Object path (C2r), or refuses
+    /// it by name (<see cref="ChildRefusedException"/>) — never a plain object reported created.</summary>
+    ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls);
 
     /// <summary>Which accessors an INTERFACE property actually has, as (Get, Set).
     ///

@@ -207,7 +207,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 	})
 
 	// ── openspec bridge-one-to-one 2.3: the wire-parity gate's live half (the offline twin is WireParityCases, asserted
-	// by both drivers' doubles). Red-marked until step 3 closes each; a fix that makes one pass fails it — drop `.failing`.
+	// by both drivers' doubles). Closed by step 3 (design §3).
 
 	/** Every item of `ext` the bridge serves, with its text. */
 	async function served(c: PipeClient, ext: string): Promise<{ name: string; text: string }[]> {
@@ -218,7 +218,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 	}
 
 	// A stub manifest is ONE form on both vendors: the kind alone (`ItemKind.EmptyManifest`). TwinCAT wrote `Name=<name>`.
-	;(STUB_WITNESS ? it.failing : it.skip)("every stub manifest (visualization, text list) is the kind alone, on both vendors", async () => {
+	;(STUB_WITNESS ? it : it.skip)("every stub manifest (visualization, text list) is the kind alone, on both vendors", async () => {
 		for (const c of [a, b])
 			for (const [ext, kind] of [["visualization", "visualization"], ["text_list", "text_list"]] as const)
 				for (const row of await served(c, ext))
@@ -227,7 +227,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 
 	// `SYSTEM` is CODESYS's member alone (TwinCAT has none, tc-library-system, C37): spelled only where it is true, so a
 	// non-system reference pulls the same on both vendors. TwinCAT hard-coded `SYSTEM false`; CODESYS spells `false` too.
-	it.failing("no library manifest spells SYSTEM false, and TwinCAT's spells no SYSTEM line at all", async () => {
+	it("no library manifest spells SYSTEM false, and TwinCAT's spells no SYSTEM line at all", async () => {
 		for (const row of await served(a, "library")) expect(`${row.name}: ${/^SYSTEM false$/m.test(row.text)}`).toBe(`${row.name}: false`)
 		for (const row of await served(b, "library")) expect(`${row.name}: ${/^SYSTEM /m.test(row.text)}`).toBe(`${row.name}: false`)
 	})

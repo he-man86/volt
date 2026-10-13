@@ -426,9 +426,11 @@ public class AbstractMemberParityTests
         Assert.Equal(renamed.Split('\n').Length, back.Split('\n').Length);
     }
 
-    /// <summary>A retype is delete + create to the reconciler: the action <c>Step</c> pushed as an abstract METHOD.</summary>
+    /// <summary>A retype was delete + create to the reconciler, and the action <c>Step</c> pushed as an abstract METHOD was
+    /// accepted that way. A member's kind is its class, which never changes in place (DIALECT C2l): openspec
+    /// <c>bridge-one-to-one</c> task 3.4 refuses the re-type by name, before anything is written.</summary>
     [Fact]
-    public void An_action_retyped_to_an_abstract_method_with_NONE_is_accepted()
+    public void An_action_retyped_to_an_abstract_method_with_NONE_is_refused_by_name()
     {
         var ide = Ide();
         var pulled = Pulled(ide);
@@ -437,9 +439,10 @@ public class AbstractMemberParityTests
         var end = pulled.IndexOf("END_ACTION", at, System.StringComparison.Ordinal) + "END_ACTION".Length;
         var retyped = pulled.Substring(0, at) + "METHOD ABSTRACT Step : INT\nIMPLEMENTATION NONE\nEND_METHOD" + pulled.Substring(end);
 
-        AssertAccepted(Push(ide, retyped));
+        var reason = Refused(Push(ide, retyped));
 
-        Assert.Contains("METHOD ABSTRACT Step : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide));
+        Assert.Contains("'Step'", reason);
+        AssertNothingMutated(ide);
     }
 
     /// <summary>NONE without ABSTRACT on a create stays refused, with the <c>IMPLEMENTATION ST</c> remedy.</summary>
@@ -623,15 +626,15 @@ public class AbstractMemberParityTests
         var ld = StatedLanguage.Shown(Languages.Ld);
         var none = ImplementationMarker.NoneLine;
         Member live = site == "method"
-            ? new Member(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", LdBody, Stated: ld)
-            : new Member(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC ABSTRACT Busy : BOOL", null,
+            ? new Member(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", LdBody, ObjectProperties.None, Stated: ld)
+            : new Member(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC ABSTRACT Busy : BOOL", null, ObjectProperties.None,
                          Getter: new Accessor("VAR\nEND_VAR", LdBody, Stated: ld));
         Member pushed = site == "method"
-            ? new Member(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", none, Stated: StatedLanguage.None)
-            : new Member(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC ABSTRACT Busy : BOOL", null,
+            ? new Member(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", none, ObjectProperties.None, Stated: StatedLanguage.None)
+            : new Member(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC ABSTRACT Busy : BOOL", null, ObjectProperties.None,
                          Getter: new Accessor("VAR\nEND_VAR", none, Stated: StatedLanguage.None));
         static ItemContent Owner(Member m) =>
-            new(ItemKind.Kinds.Pou, Decl, "x := x + 1;", new List<Member> { m }, Stated: StatedLanguage.St);
+            new(ItemKind.Kinds.Pou, Decl, "x := x + 1;", new List<Member> { m }, ObjectProperties.None, Stated: StatedLanguage.St);
         return (Owner(live), Owner(pushed));
     }
 

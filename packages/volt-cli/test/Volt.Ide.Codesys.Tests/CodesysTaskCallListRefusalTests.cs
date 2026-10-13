@@ -25,6 +25,7 @@ public class CodesysTaskCallListRefusalTests
     }
 
     private static readonly IReadOnlyList<string> Calls = new[] { "PLC_PRG" };
+    private static readonly IReadOnlyList<string> Comments = new[] { "" };
 
     /// <summary>A call list with no <c>PerformWithWriteableCopy</c>.</summary>
     private sealed class ReadOnlyCallList { }
@@ -38,7 +39,7 @@ public class CodesysTaskCallListRefusalTests
     [Fact]
     public void A_call_list_with_no_writeable_copy_is_UNSUPPORTED()
     {
-        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new ReadOnlyCallList(), Calls));
+        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new ReadOnlyCallList(), Calls, Comments));
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("PerformWithWriteableCopy", ex.Message);
     }
@@ -46,7 +47,7 @@ public class CodesysTaskCallListRefusalTests
     [Fact]
     public void A_rebuild_the_IDE_refused_is_UNSUPPORTED()
     {
-        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new RefusingCallList(), Calls));
+        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new RefusingCallList(), Calls, Comments));
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("CODESYS refused a task call-list rebuild", ex.Message);
         Assert.Contains("the task is locked", ex.Message);
@@ -55,7 +56,7 @@ public class CodesysTaskCallListRefusalTests
     [Fact]
     public void A_writeable_copy_that_is_no_list_is_UNSUPPORTED()
     {
-        var ex = Assert.IsType<BridgeException>(Invoke("RebuildCallList", new object(), new object(), Calls));
+        var ex = Assert.IsType<BridgeException>(Invoke("RebuildCallList", new object(), new object(), Calls, Comments));
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("not an IList", ex.Message);
     }

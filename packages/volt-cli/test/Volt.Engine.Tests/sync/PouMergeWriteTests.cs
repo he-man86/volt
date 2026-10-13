@@ -242,15 +242,18 @@ public class PouMergeWriteTests
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
 
-    /// <summary>A member whose KIND changes is deleted and RECREATED, not written through.
+    /// <summary>A member whose KIND changes is REFUSED BY NAME, never written through.
     ///
     /// <para>THE BUG (audit, 2026-08-29): `have`/`want` are keyed on NAME alone, so `PROPERTY Ready` becoming
     /// `METHOD Ready` was neither created nor deleted. The method's declaration went into the property's
     /// Interface aspect, its body went to an Implementation aspect a property does not have (a silent no-op on
     /// CODESYS), and the old GET/SET stayed compiled in. BodyFormatGuard cannot see it - both shapes are
-    /// Textual.</para></summary>
+    /// Textual.</para>
+    /// <para>It was fixed as a delete and a create, which replaced the object — its identity, its class, its build
+    /// properties gone under an accepted push (openspec <c>bridge-one-to-one</c> finding 2). A kind is a class and a
+    /// class never changes in place (DIALECT C2l), so the push now refuses it by name and writes nothing (task 3.4).</para></summary>
     [Fact]
-    public void A_member_whose_kind_changes_is_deleted_and_recreated()
+    public void A_member_whose_kind_changes_is_refused_by_name_and_nothing_is_written()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_K", ItemKind.PlcPou, "", true,
@@ -267,12 +270,9 @@ public class PouMergeWriteTests
             Ops = new() { new SetItemOp { Name = "FB_K.pou", IfVersion = refs.Items["FB_K.pou"], SourceText = src } },
         });
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
-        Assert.Contains("delete:Ready", ide.Recorded);
-        Assert.Contains("create:Ready", ide.Recorded);
-        Assert.True(ide.Recorded.IndexOf("delete:Ready") < ide.Recorded.IndexOf("create:Ready"),
-                    "the delete must come FIRST - a create already committed when a later delete throws leaves "
-                    + "the project mutated under a rejected push");
+        Assert.False(resp.Accepted);
+        Assert.Contains("'Ready'", Assert.Single(resp.Conflicts!).Reason);
+        Assert.Empty(ide.Recorded);
     }
 
     /// <summary>Deletes run before creates, so a throw in either cannot half-apply a push.</summary>
@@ -287,7 +287,8 @@ public class PouMergeWriteTests
 
         var refs = RefsService.Handle(ide);
         var src = "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
-                + "\nMETHOD Fresh : BOOL\nIMPLEMENTATION ST\nFresh := TRUE;\nEND_METHOD\n";
+                // An ACTION: a dropped method and an added method of the same kind would be one member RENAMED (task 3.4).
+                + "\nACTION Fresh\nIMPLEMENTATION ST\nx := 2;\nEND_ACTION\n";
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,

@@ -27,12 +27,19 @@ namespace Volt.Engine.Item;
 /// from the vendor's own aspect or archive, the ST reader from the line it parsed — and null exactly where there is no
 /// body text. The push's guard compares it (<c>BodyFormatGuard</c>) instead of decoding the language back out of the
 /// text. Like <c>Unsupported</c> it is not content: nothing hashes it, and the version is the file's.</para>
+/// <para><b><c>Properties</c></b>, here and on <see cref="Member"/>: the object's <see cref="ObjectProperties"/> — its
+/// class where the text cannot tell it, its build properties, its comment, its network-variable settings, its file link
+/// (openspec <c>bridge-one-to-one</c> §1.2), spelled as the <c>%</c>-lines (<see cref="Volt.Engine.Format.St.PropertyLines"/>).
+/// REQUIRED and never defaulted: a driver that has not read an object's properties cannot build its content, so a push
+/// can never write "not excluded" over an excluded object because a reader forgot to look. It IS content: the file
+/// spells it, so the version hashes it.</para>
 /// </summary>
 public sealed record ItemContent(
     string Kind,
     string Declaration,
     string? Body,
     List<Member> Members,
+    ObjectProperties Properties,
     string? Unsupported = null,
     StatedLanguage? Stated = null);
 
@@ -88,6 +95,7 @@ public sealed record Member(
     string Name,
     string Declaration,
     string? Body,
+    ObjectProperties Properties,
     string? Folder = null,
     Accessor? Getter = null,
     Accessor? Setter = null,
@@ -101,29 +109,12 @@ public sealed record Member(
 /// either its code or its declaration was non-null), which is a rule every reader of the record had to know and
 /// apply identically. A bodiless accessor — the interface case, where an accessor declares that a getter exists
 /// and nothing more — is an Accessor with an empty <see cref="Body"/>, NOT a null one.</summary>
-/// <summary>An accessor's declaration, as the IDE holds it — minus only the trailing NEWLINES the file format
-/// cannot carry.
-///
-/// <para><b>It used to drop a bare <c>VAR</c>/<c>END_VAR</c> entirely</b>, justified in this very comment as "an
-/// empty VAR block the engineer did not author". CENSUSED against live SP21 over pro2193's 464 accessor nodes
-/// (<c>probe-accessor-census.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-accessor-census.py</c>)): the vendor returns 35 DISTINCT declaration values, including 263
-/// bare <c>VAR\nEND_VAR\n</c>, 107 genuinely EMPTY, and 6 with a LEADING newline. A synthesized default would be
-/// one constant for every accessor that has none; three different "empty-looking" values, kept distinct, is
-/// STORED CONTENT. Dropping the block put 223 of pro2193's getters at odds with the project.</para>
-///
-/// <para><b>And <c>Trim()</c> was the same bug one layer down.</b> A trailing newline is not representable —
-/// <see cref="Volt.Engine.Format.St.StWriter"/> joins an accessor's parts with one — but a LEADING one is, and
-/// six accessors in that census hold one. Same rule as everywhere else in the format: drop the newlines the
-/// format cannot express, keep every other character.</para>
-///
-/// <para>Whitespace-only stays "no declaration": the writer would emit it as a blank line, which is
-/// indistinguishable from absence in the file, so claiming to preserve it would be a promise the format cannot
-/// keep.</para></summary>
-public static class AccessorDeclaration
-{
-    public static string? Keep(string? decl) =>
-        string.IsNullOrWhiteSpace(decl) ? null : decl!.TrimEnd('\n');
-}
+// <para><b>An accessor's declaration travels VERBATIM</b>, as every text does (openspec <c>bridge-one-to-one</c> §1.1
+// "every character"). It used to pass <c>AccessorDeclaration.Keep</c>, which first dropped a bare <c>VAR</c>/<c>END_VAR</c>
+// (CENSUSED against live SP21 over pro2193's 464 accessor nodes — <c>probe-accessor-census.py</c>, deleted: 35 DISTINCT
+// declaration values, 263 bare <c>VAR\nEND_VAR\n</c>, 107 EMPTY, 6 with a LEADING newline — all stored content), and
+// then still dropped the TRAILING newlines and read a whitespace-only one as none, on the reasoning that the file could not
+// carry them. It can: the writer puts the text and then its own separator, and the reader strips only that.</para>
 
 public sealed record Accessor(string? Declaration, string? Body, string? Unsupported = null, StatedLanguage? Stated = null)
 {

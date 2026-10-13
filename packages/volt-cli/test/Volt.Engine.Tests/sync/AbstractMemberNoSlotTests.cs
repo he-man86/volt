@@ -140,8 +140,10 @@ public class AbstractMemberNoSlotTests
         AssertNothingMutated(ide);
     }
 
-    /// <summary>An abstract member ADDED with NONE: accepted (the migration refusal is gone) — the create makes a member
-    /// with a slot, <c>""</c> is written there, and the next pull reads NONE by the fold.</summary>
+    /// <summary>An abstract member ADDED with NONE: accepted (the migration refusal is gone) — the create makes the
+    /// vendor's abstract class, with no slot (openspec <c>bridge-one-to-one</c> §1.1 <c>AbstractPOUMethodObject</c>: "a create
+    /// of METHOD ABSTRACT with no code makes the vendor's abstract class"; it used to make a slotted method and write
+    /// <c>""</c> there), no body is written at it, and the next pull reads NONE.</summary>
     [Fact]
     public void A_member_added_with_IMPLEMENTATION_NONE_is_accepted_and_pulls_back_NONE()
     {
@@ -151,12 +153,13 @@ public class AbstractMemberNoSlotTests
         var resp = Push(ide, added);
 
         Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
-        Assert.Equal("", ide.StoredImplementation("Pick"));
+        Assert.Equal("AbstractPOUMethodObject", ide.ClassOf("Pick"));
+        Assert.Null(ide.StoredImplementation("Pick"));
         Assert.Contains("METHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide).Replace("\r\n", "\n"));
     }
 
-    /// <summary>A rename is delete + create to the reconciler, so a renamed abstract member is a create, accepted the
-    /// same way. (On CODESYS the new object is a slotted <c>POUMethodObject</c>; the wire does not name the class.)</summary>
+    /// <summary>A rename of a member with no slot into one with none is the vendor's rename (openspec <c>bridge-one-to-one</c>
+    /// task 3.4: the object, its class and GUID kept), accepted.</summary>
     [Fact]
     public void Renaming_a_member_with_no_slot_is_accepted_and_pulls_back_NONE()
     {

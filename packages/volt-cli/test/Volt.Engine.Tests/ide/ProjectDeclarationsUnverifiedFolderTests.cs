@@ -37,7 +37,7 @@ public class ProjectDeclarationsUnverifiedFolderTests
         public WalkResult WalkItems() => throw new NotSupportedException();
         public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
         public bool HandlesSurviveStructureChange => true;
-        public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => throw new NotSupportedException();
+        public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls) => throw new NotSupportedException();
         public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property) => throw new NotSupportedException();
         public void Delete(ItemRef parent, string name) => throw new NotSupportedException();
         public void Rename(ItemRef item, string newName) => throw new NotSupportedException();

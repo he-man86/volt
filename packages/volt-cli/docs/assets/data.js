@@ -1720,7 +1720,7 @@ window.VOLT = {
         {
           "name": "CreateChild",
           "kind": "method",
-          "signature": "ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = \u2026)"
+          "signature": "ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)"
         },
         {
           "name": "InterfacePropertyAccessors",
@@ -1792,6 +1792,11 @@ window.VOLT = {
           "name": "ValidateTask",
           "kind": "method",
           "signature": "void ValidateTask(TaskSettings settings)"
+        },
+        {
+          "name": "ValidateProperties",
+          "kind": "method",
+          "signature": "void ValidateProperties(string what, ObjectProperties pushed, bool create)"
         },
         {
           "name": "RefusedLanguageChange",

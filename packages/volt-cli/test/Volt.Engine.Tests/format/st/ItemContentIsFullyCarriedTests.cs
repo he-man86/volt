@@ -73,21 +73,21 @@ public class ItemContentIsFullyCarriedTests
             new(Kind: ItemKind.Kinds.Method,
                 Name: "DoWork",
                 Declaration: "METHOD PUBLIC DoWork : BOOL\nVAR_INPUT\n\tbGo : BOOL;\nEND_VAR",
-                Body: "DoWork := bGo;",
+                Body: "DoWork := bGo;", ObjectProperties.None,
                 Folder: "Internals",
                 ReturnType: "BOOL",
                 Stated: StatedLanguage.St),
             new(Kind: ItemKind.Kinds.Property,
                 Name: "Level",
                 Declaration: "PROPERTY PUBLIC Level : INT",
-                Body: null,
+                Body: null, ObjectProperties.None,
                 Folder: "Exposed",
                 // Both accessors present, with DIFFERENT declarations — the exact asymmetry that made the
                 // dropped getter declaration visible to a human reader in the first place.
                 Getter: new Accessor("VAR\nEND_VAR", "Level := nCount;", Stated: StatedLanguage.St),
                 Setter: new Accessor("PRIVATE\nVAR\nEND_VAR", "nCount := Level;", Stated: StatedLanguage.St),
                 DataType: "INT"),
-        },
+        }, ObjectProperties.None,
         // The language each body's line states (D6): the file carries it as the line, and the reader states it back.
         Stated: StatedLanguage.St);
 
@@ -212,8 +212,8 @@ public class ItemContentIsFullyCarriedTests
             new List<Member>
             {
                 new(ItemKind.Kinds.Method, "DoWork",
-                    "METHOD PUBLIC DoWork : BOOL\nVAR_INPUT\n\tbGo : BOOL;\nEND_VAR", body),
-            });
+                    "METHOD PUBLIC DoWork : BOOL\nVAR_INPUT\n\tbGo : BOOL;\nEND_VAR", body, ObjectProperties.None),
+            }, ObjectProperties.None);
 
         var after = StReader.Read(StWriter.Write(before), before.Kind);
 

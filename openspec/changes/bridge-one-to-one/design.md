@@ -495,6 +495,71 @@ transitions and every 0-occurrence class (niche: accepted loss), a CODESYS bare 
 properties"; the re-pull adds exactly the new lines (verified in 4.2). The `CreateChild` signature change touches every
 call site (17) in one commit.
 
+**Review fixes (gate step 3, 2026-10-13)** — each with its failing test first; one skipped, with its reason.
+(1) **A rename never crosses the body slot**: `RenamePairs` pairs a dropped and an added member only when both or neither
+state `IMPLEMENTATION NONE` — the vendor's rename keeps the class, and an abstract method's class follows the text, so
+an `AbstractPOUMethodObject` renamed into a method with code (no slot for the body: refused AFTER the rename landed) and
+the reverse are a delete and a create (`MemberRetypeRenameTests`). (7a) **`METHOD ABSTRACT` with no code is created as
+the vendor's abstract class**: the engine derives `ObjectClass.AbstractMethod` from the text (never spelled — no
+`%CLASS` line takes it) and passes it to `CreateChild` (`PushService.CreateClass`); CODESYS constructs
+`AbstractPOUMethodObject` as `create-each-class` did (`NewConstructed`, the check function's path), TwinCAT makes its
+one method class; the write then sends no body to the slotless object (`AfterRenames`). (7b) **A persistent-list create
+is refused by name** until the completeness oracle reproduces a re-created list (`dymmattributecount`, §1.1) — the
+factory path stays measured, unused. (7c) **A create carrying `%NETVAR` (a sender) or `%PARAMETER_LIST` is refused by
+name in the pre-flight, as a create** (`ICodeStore.ValidateProperties(…, create)`): the sender's settings have no
+measured write and the push does not hand a factory to the create — niche: accepted loss (1 and 0 occurrences in the
+corpora). (2) **The measured constants are read**: `POULevel` (POU + check function), `AddAttributeSubsequent` (POU, GVL),
+`ChildObjectGuids` (POU), `persvarlist` (persistent list) and a body aspect's `ParameterInitializationMethodGenerator`
+— each off its value refuses the item by name. (3) **Non-items are named in the pull report** (`WalkResult.UnreadableObjects`):
+a FOLDER whose build property is off its default is refused and its objects are NOT walked (they are not built; nothing
+would read them as excluded — neither pulled as built nor read as deleted); an application's build property (its
+compiler defines) and the Task Configuration's system events / stack settings off `0` / `false` are listed and what is
+under them is walked. (4) **CODESYS library redirections are spelled** — `REDIRECT <placeholder> <resolution>` in the
+redirected placeholder's manifest, read through `LibManObject.GetRedirectedPlaceholderNames` /
+`GetRedirectedPlaceholderResolution` (strings); a redirection no reference names, and the `ParameterTable`'s values,
+are listed by name in the pull report: a value is an `IExpression` whose text form is UNMEASURED (no `PARAMETER` line
+until a vendor-facts row reads one on a project that sets one — Pro2193). **Decision recorded, TwinCAT parameters**:
+§1.1's "spelled only once 3.3 measures its write" is read as written for a PUSH — but a library manifest is never pushed
+(read-only, no write path on either vendor), so there is no write to measure; refusing the reference would drop
+`Tc2_System` from every TwinCAT pull. The TwinCAT `ParameterList` stays spelled (`PARAMETER`, the vendor's own text
+from its XML); the parity gap is now named on the CODESYS side, not silent. (5) **The TwinCAT interface accessor's
+stored declaration is read** from the saved `.TcIO` and held to the measured `PUBLIC / VAR / END_VAR`; another text
+refuses the interface by name, and an accessor the saved file does not hold (an unsaved edit) is refused with the
+remedy (save, pull). (6) **No silent "no properties" on TwinCAT**: an item publishing no `FullPath`, or one not on disk,
+is refused by name; a `.plcproj` `Include` is resolved to a full path, so a LINKED file's build entry is seen; a
+`<TaskDef>` must carry each of its 13 measured members and no other (each refused by name). **Niche, accepted loss
+(0 occurrences in the corpora)**: an UNSAVED Exclude toggle in XAE — the read is of the saved files (0 TwinCAT build
+properties in the corpora; reading the in-memory state needs an automation member no row has measured). (8) **Values
+the text cannot carry are refused, not trimmed**: a `%NETVAR` value with surrounding blanks, a control character or the
+literal `''` (`PropertyLines.Unspellable`, the writer's backstop and the CODESYS read); a CODESYS task member and a
+call name / comment stored with surrounding blanks. (9) The live text-list assertion pins the separator exactly (one
+blank line, then the class line closing the file) and the create's round trip byte-exact. (10a) **The device descriptor
+reads the named member** — `IDeviceId.type` / `id` / `version` (reflected, ScriptEngine3 4.2.0.0), a missing one
+refused by name. (11) **The `.plcproj` is read once per saved state** (path per bound PLC node, entries re-read only when
+the file's write time or length changes) — it was a PLC-node `ProduceXml` and a whole-project load per item. **Skipped,
+(10b) the TwinCAT 611 vInfo**: the create's one seed carries the accessors' LANGUAGE, which CODESYS's `create_property`
+needs for graphical accessors and TwinCAT's 611 takes as the property's TYPE; giving TwinCAT the data type needs a second
+seed field through `IProjectTree.CreateChild` at every create site — a change of its own. Nothing reaches the text: the
+declaration written in the same push replaces the seeded type (`member-order` read the pulled text back).
+
+**Second review of step 3 (gate, 2026-10-13)** — all five findings held; none skipped; each with its failing test first.
+(1) **An excluded folder blinds nothing beside it**: it was recorded as an object of UNKNOWN kind (`Kinds` null), so
+`WalkResult` put its PARENT — at the root, `""`, the whole project — into `UnwalkedFolders`: no deletion reported, the
+walk never `Complete` (so `WillCreate` answered false and the pre-flight's create checks never ran) and every status
+PARTIAL — Pro2193's 4 excluded folders on every pull and push. Now the folder is named with a known kind family (empty),
+and its objects are walked and each NAMED unreadable with its kind (`'X' sits in the excluded folder …`), never
+published: a known one is kept by `Removal`, an op on one is refused by name in the pre-flight, the walk stays complete
+(`CodesysContainerRefusalTests`). (2) **A property's slots are its accessors'**: `RenamePairs` compares the member's and
+each accessor's `IMPLEMENTATION NONE`, so `PROPERTY ABSTRACT Busy` (slotless GET) renamed into a concrete `Ready` whose
+GET has code is a delete and a create, not a rename that keeps the slotless GET and refuses the body after it landed
+(`MemberRetypeRenameTests`). (3) **A TwinCAT interface accessor storing an EMPTY declaration pulls** — the vendor-saved
+`fixtures/tc-pou/ITF1.TcIO` (3.1.4024.16) stores `<![CDATA[]]>`; both it and the measured `PUBLIC / VAR / END_VAR` are the
+empty declaration the text spells; any other text is still refused (`TcObjectPropertiesTests`). (4) **Only
+`ExcludeFromBuild` leaves a folder's objects unwalked**: a folder linked always, or holding defines, is listed by name and
+walked — it was decided by the reason's first words. (5) **A `%CLASS PERSISTENT` / `%CLASS NVL` create is refused in the
+pre-flight** (`CodesysDriver.ValidateProperties`, create), all-or-nothing, beside 7c; `CreateClass` keeps its refusal
+for a create the pre-flight cannot tell from an update (`CodesysObjectPropertiesTests`).
+
 ## 0.1 Schema census (measured 2026-10-13)
 
 ### Method

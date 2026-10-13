@@ -25,7 +25,7 @@ export function parseProgram(c: Cursor): Program | undefined {
   const returnType = parseOptionalReturnType(c)
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_PROGRAM", "program", "pou-or-accessor")
+  const body = collectBodyUntil(c, "END_PROGRAM", "program", "pou")
 
   return {
     kind: "program",

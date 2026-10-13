@@ -95,6 +95,23 @@ internal sealed partial class TcObjectModel
         var patch = TcTaskSchedule.SysTaskPatch(t);   // refuses what TwinCAT cannot express, before touching COM
         var path = LinkedTaskPath(node);
 
+        // The <TaskDef> members the descriptor states only off their measured value (openspec bridge-one-to-one §1.1)
+        // have no measured write: a change to one is refused by name, before anything is written (0 off their value in
+        // the corpus — niche, accepted loss).
+        var held = TcTaskSchedule.Read(ProduceXml(LookupTreeItem(path)), Array.Empty<string>()).OffDefault;
+        var pushed = t.Members ?? Array.Empty<TaskMember>();
+        foreach (var (label, element, measured) in TcTaskSchedule.TaskDefMembers)
+        {
+            var was = held.FirstOrDefault(m => m.Label == label)?.Value ?? measured;
+            var now = pushed.FirstOrDefault(m => m.Label == label)?.Value ?? measured;
+            if (was != now)
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"TwinCAT: the task's `{label}:` ({element}) has no measured write — it holds '{was}' and the push " +
+                    $"states '{now}' (niche, accepted loss). Change it in the IDE and pull.");
+        }
+        if (t.ExternalEvent is not null || t.CallComments?.Any(c => c.Length > 0) == true)
+            throw new InvalidOperationException("twincat: SysTaskPatch let an external event or a call comment through");
+
         ((dynamic)LookupTreeItem(path)).ConsumeXml(patch);
 
         // Re-LOOKUP rather than reuse the handle: a tree item is invalidated by a mutation ("Item 'x' is deleted

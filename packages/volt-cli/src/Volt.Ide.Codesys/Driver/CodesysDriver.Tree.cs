@@ -89,7 +89,43 @@ public sealed partial class CodesysDriver
             // the SoftMotion "Kinematics" / drive "Functions" groupers) — nests its children under its own name.
             if (code == ItemKind.PlcFolder || CodesysTypeMap.IsRecurseOnlyContainer(code))
             {
-                Walk(child, FolderPath.Append(folderPath, name), items, unwalked, unreadable);
+                // WHAT THE CONTAINER HOLDS THAT NO TEXT SPELLS (openspec bridge-one-to-one §1.1; gate review of step 3,
+                // finding 3) is named in the pull report: an excluded folder's objects are not walked (they are not
+                // built, and nothing would read them as excluded — so neither pulled as built nor read as deleted); an
+                // application's or the Task Configuration's setting is listed, and what is under them is walked.
+                (string Reason, bool Inside)? held;
+                try { held = _om.ContainerRefusal(child); }
+                catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+                {
+                    BridgeLog.Warn($"could not read the properties of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
+                    unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
+                    continue;
+                }
+                var sub = FolderPath.Append(folderPath, name);
+                if (held is { } refusal)
+                {
+                    BridgeLog.Warn($"pull: {refusal.Reason}");
+                    // Its kind is KNOWN (a container), so it is no object of unknown kind: the folder it sits in was
+                    // walked whole, and absence beside it still means deleted (gate review of step 3, finding 1 — recorded
+                    // with no kind, it put its PARENT into UnwalkedFolders, at the root the whole project).
+                    unreadable.Add(new UnreadableObject(name, folderPath, refusal.Reason, Array.Empty<string>()));
+                    if (!refusal.Inside)
+                    {
+                        // An EXCLUDED folder's objects are not built, so none is pulled as a built one — but each is
+                        // NAMED, with its kind, never left unseen: a known one is kept (not read as deleted), an op on
+                        // one is refused by name, and the walk stays complete, so the push pre-flight still decides
+                        // every create (`WillCreate`). Walked as any folder, then reported instead of published.
+                        var held2 = new List<ProjectItem>();
+                        Walk(child, sub, held2, unwalked, unreadable);
+                        foreach (var it in held2)
+                            if (ItemKind.Map(it.KindCode) is { } kind)
+                                unreadable.Add(new UnreadableObject(it.Name, it.Folder,
+                                    $"'{it.Name}' sits in the excluded folder '{sub}' — it is not built, so it is not pulled as a built one",
+                                    new[] { kind }));
+                        continue;
+                    }
+                }
+                Walk(child, sub, items, unwalked, unreadable);
                 continue;
             }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
@@ -107,8 +143,18 @@ public sealed partial class CodesysDriver
                     // The library manager's children are SYNTHESIZED from ILibManObject (not tree children).
                     // A placeholder library's name can carry a Windows-illegal char (the '*' wildcard version,
                     // e.g. "SysTypes2 Interfaces, * (System)") — encode it so the .library file still materializes.
-                    foreach (var lib in _om.GetLibraryRefs(child))
+                {
+                    var refs = _om.GetLibraryRefs(child, out var unspelled);
+                    foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
+                    // What the manager holds that no manifest spells is named in the pull report (openspec
+                    // bridge-one-to-one §1.1 library manager; gate review of step 3, finding 4) — its references walked.
+                    foreach (var why in unspelled)
+                    {
+                        BridgeLog.Warn($"pull: '{name}' {why}");
+                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {why}.", Array.Empty<string>()));
+                    }
+                }
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
                     Walk(child, managerFolder, items, unwalked, unreadable);
@@ -144,9 +190,9 @@ public sealed partial class CodesysDriver
     // it the null it deliberately maps 692 to.
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)
     {
-        try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
+        try { return new(_om.CreateChild(parent.Native, name, kindCode, seed, cls)); }
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
@@ -170,8 +216,12 @@ public sealed partial class CodesysDriver
     /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): a `Type:` the vendor's
     /// <c>KindOfTask</c> does not NAME — BAD_REQUEST, by the same lookup the descriptor write makes, so the batch's earlier
     /// ops are not written before the request's own fault is found.</summary>
-    public override void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) =>
+    public override void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings)
+    {
         CodesysObjectModel.TaskKind(settings.Type);
+        CodesysObjectModel.RequireWatchdog(settings);
+        CodesysObjectModel.RequireCodesysMembers(settings);
+    }
 
     /// <summary>A measured word (for the kinds the words were asked on), or a name SHAPE SP21 refused for every kind
     /// (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>): no ASCII identifier and no
@@ -240,7 +290,7 @@ public sealed partial class CodesysDriver
         var iobj = _om.ReadObject(node);
         // The CLASS decides, and no aspect is read: a POU is `X.pou` whatever its text says (openspec
         // `push-without-header-check` 5.Q), so the walk no longer opens a POU's declaration to name it.
-        return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), false, _om.GetName(node));
+        return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), false, _om.GetName(node), iobj);
     }
 }
 

@@ -23,16 +23,13 @@ public class TransitionRefusalTests
     [Fact]
     public void An_item_holding_a_standalone_transition_is_refused_by_name_on_pull()
     {
-        ExpectRed.Until("3.2/3.3", "finding 5: a standalone transition is skipped silently", () =>
-        {
-            var ide = new FakeIde(
-                new FakeIde.Item("SFC_Seq", ItemKind.PlcPou, "", true, "PROGRAM SFC_Seq\nVAR\nEND_VAR", null, "SFC", null,
-                                 Children: new[] { "T_Go" }),
-                new FakeIde.Item("T_Go", ItemKind.PlcTrans, "", false, null, "bStart", null, null));
+        var ide = new FakeIde(
+            new FakeIde.Item("SFC_Seq", ItemKind.PlcPou, "", true, "PROGRAM SFC_Seq\nVAR\nEND_VAR", null, "SFC", null,
+                             Children: new[] { "T_Go" }),
+            new FakeIde.Item("T_Go", ItemKind.PlcTrans, "", false, null, "bStart", null, null));
 
-            var ex = Assert.ThrowsAny<Exception>(() => Read(ide, "SFC_Seq", ItemKind.Kinds.Pou));
-            Assert.Contains("T_Go", ex.Message);
-            Assert.Contains("transition", ex.Message, StringComparison.OrdinalIgnoreCase);
-        });
+        var ex = Assert.ThrowsAny<Exception>(() => Read(ide, "SFC_Seq", ItemKind.Kinds.Pou));
+        Assert.Contains("T_Go", ex.Message);
+        Assert.Contains("transition", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
