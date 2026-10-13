@@ -494,4 +494,36 @@
       `Volt.Cli.Tests` 270, `Volt.Connector.Tests` 120, `Volt.Contracts.Tests` 35, `Volt.Repo.Gates` 162; volt-cli
       `test/unit` 114; `rate:fixtures` exit 0, `map.generated.ts` unchanged; full LSP suite COLD (`VOLT_RUSTC_CACHE=0`,
       `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) **10152 pass, 0 fail** (34 skip, 428 todo, 361 files, 1262 s).
-- [ ] 4.3 The close report lists every new text form for the owner; archive.
+- [x] 4.3 The close report lists every new text form for the owner; archive.
+
+      **Close report (2026-10-13) — every new text form, for the owner.** All are Volt's own lines (not CODESYS syntax:
+      the analyzer never sees them), generated on the items page from `PropertyLines.Write` (`docs/items.html`).
+      - **Object properties (`%`-lines)**, under an object's `IMPLEMENTATION` line or closing its declaration, in this
+        order, each at most once (`%UNDEFINE` / `%NETVAR` repeat): `%CLASS CHECK <check>` · `%CLASS PERSISTENT` ·
+        `%CLASS TEXTLIST_ENUM` · `%CLASS NVL` · `%EXCLUDE_FROM_BUILD` · `%LINK_ALWAYS` · `%EXTERNAL` ·
+        `%ENABLE_SYSTEM_CALL` · `%ONLINE_CHANGE_RESERVE <n>` · `%COMPILER_DEFINES '…'` · `%UNDEFINE '…'` ·
+        `%COMMENT '…'` · `%PARAMETER_LIST` · `%NETVAR <member>: <value>` · `%FILE_LINK <type> '<path>'`. Seen in the
+        corpora's re-pull: `%CLASS CHECK` 15, `%CLASS PERSISTENT` 4, `%CLASS NVL` 1, `%CLASS TEXTLIST_ENUM` 3,
+        `%EXCLUDE_FROM_BUILD` 12, `%LINK_ALWAYS` 3, `%ONLINE_CHANGE_RESERVE` 15, `%NETVAR` 32, `%FILE_LINK` 1 (the rest
+        0 — spelled when met). CODESYS only; on TwinCAT every `%`-line is refused by name. CODESYS refuses a change of
+        `%NETVAR` / `%PARAMETER_LIST` / `%FILE_LINK` and a `%CLASS PERSISTENT` / `%CLASS NVL` create by name.
+      - **Task descriptor labels**: `External event: <name>`; `Watchdog: <time> <unit> (sensitivity <n>)` and, disabled,
+        `Watchdog: off <time> <unit> (sensitivity <n>)`, each member as the vendor holds it, an empty one `''` — seen:
+        `off '' ms (sensitivity 1)`, `off 3200 µs (sensitivity 1)`, `T#15ms ms (sensitivity 1)`,
+        `T#4ms '' (sensitivity 1)` (a `T#` time with a unit beside it, and an empty unit, are the vendor's own values);
+        a bare `Watchdog: off` is TwinCAT's only (its task has no watchdog member); `Calls: A // <comment>, B`; and,
+        only off their measured value, `Core:` / `Core2:` / `Task group:` / `Allow empty:` / `Implicit:` /
+        `Within SPS time slicing:` / `Synch task:`.
+      - **Library manifest lines**: `REDIRECT`, `LINKALLCONTENT`, `QUALIFIEDONLY`, `PARAMETER <library> <name> := <value>`;
+        `SYSTEM` only where true (`SYSTEM false` retired; never on TwinCAT).
+      - **Device descriptor**: `Disabled: true` (seen 2, bakon), `Excluded: true`.
+      - **Stub manifests**: one form on both vendors, the kind alone (`external_types`, `tmc_file`, …); TwinCAT's
+        `Name=<name>` retired.
+      - **The text itself verbatim**: trailing newlines kept (no trim).
+      - **Migration**: the binding records `format: 2`; a push from an older text is refused by name ("re-pull").
+      Owner decisions taken on their named default: the object GUID, folder sibling order and CODESYS member insertion
+      order stay unspelled. For the owner, by design: 13 pro2193 objects in four excluded-from-build folders leave the
+      pull (the folder is refused by name, listed with its reason by `init` / `pull` / `status`). Niche, accepted:
+      `POUImageProperty` (2) and TwinCAT SFC `ObjectProperties` (fixtures only) — held, never written.
+      Spec delta checked against the build: the one-to-one requirement now names the niche "held" case (the two above),
+      which the build has and the proposal-time delta did not.
