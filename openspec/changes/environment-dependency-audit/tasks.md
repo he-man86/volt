@@ -260,7 +260,7 @@
       (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10154 pass / 34 skip / 428 todo / 0 fail (362 files, 857 s) — a first
       run beside the C# suites failed `scripts/check-size.test.ts` once at 6.3 s (green alone in 2.5 s and in the unloaded
       rerun; no LSP file changed). Fixture map untouched (no fixture or transpiler change).
-- [ ] 2.3 TwinCAT 64-bit shell: measure 4026's hierarchy read (install 4026 side by side if needed — owner allows) and make it
+- [x] 2.3 **MOVED to `twincat-later` 1.x (owner 2026-10-14: "we will do more TC later").** TwinCAT 64-bit shell: measure 4026's hierarchy read (install 4026 side by side if needed — owner allows) and make it
       work without Visual Studio; DIALECT row.
       **Step 2c, 2026-10-13 — NOT DONE, blocked on an install the agent cannot make:** TwinCAT 3.1.4026 is downloadable only
       from Beckhoff's portal (myBeckhoff login; `winget search TwinCAT`/`Beckhoff` finds nothing) and installs elevated (a UAC
@@ -352,6 +352,10 @@
       NAME with their reason — no spelling of SP18-only storage (that would split the wire per version). The guard: on
       SP18 every test passes only on its named refusal (`test/e2e/lib/platform.ts`), so an INTERNAL_ERROR there is red.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
+      **Owner 2026-10-14:** 32-bit SP18/SP22 MOVED to `twincat-later` 2.1. The English-message gap is closed differently: no
+      English CODESYS install — the 4 `items/push-without-header-check` tests that compare English build-message TEXT become
+      language-neutral (match on the message code / structure, not the words), red first under the German UI, then green on
+      every version. Tick 2.6 when that lands.
       **Built 2026-10-13 (step 2d, DIALECT V9):** `ide.ps1 -CodesysBitness 32|64` (a version in both refused without it;
       an edition not installed refused by name); the harness prints and reports what it drove — `[e2e] serving project:
       CodesysTestProject — CODESYS 3.5.21.60, platform 3.5.21.60, 32-bit (…)`, bitness from the IDE process (`bitnessOf`:
@@ -421,7 +425,7 @@
       (`--only codesys-3.5.21.40-64,codesys-3.5.21.60-32 --tests test/e2e/endpoints/refs.test.ts`): GREEN 3/0 with the report
       naming 3.5.21.40 64-bit; RED by name for the 32-bit cell. A full matrix is NOT green today: 2.5b's fixtures, the German
       CODESYS (2.6) and 3.5.18.30's expected LD/FBD refusals (2.0) each redden a cell.
-- [ ] 3.2 The VM checklist in `scripts/README.md` (TwinCAT-only 4024, tr-TR/ru-RU system locale, LTSC 2019, non-admin
+- [x] 3.2 **VM cells MOVED to `twincat-later` 3.1 (owner 2026-10-14: "VMs are ok for now"); the checklist itself is written.** The VM checklist in `scripts/README.md` (TwinCAT-only 4024, tr-TR/ru-RU system locale, LTSC 2019, non-admin
       Cyrillic user, no git, no AVX2; CODESYS and XAE "as administrator" with Volt unelevated — 2.2's live check) — run once now, results recorded.
       **Step 3, 2026-10-13 — checklist WRITTEN (`scripts/README.md`, 8 rows incl. WMI-disabled), VM run NOT done:** this machine
       is Windows 11 Home (no Hyper-V), no VM image is here, and rows 4/7 need a second user and a UAC consent. What the dev

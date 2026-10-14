@@ -93,6 +93,8 @@
       TcXaeShell64 found (ROT moniker, window diagnosis, `ide.ps1`); culture-invariant regexes/log dates; baseline-x64
       LSP; x64 Inno. DIALECT **C2t** (next to C2i), with this machine's measurements; 0.2's are still missing.
 - [ ] 1.4 Verify on BOTH machines: the TwinCAT-only machine/VM (refs, fetch, push, build green; C2i guard still
+      **Owner 2026-10-14:** the 64-bit XAE (TcXaeShell64 / 4026) live run MOVED to `twincat-later` 1.2 ("we will do more TC
+      later"). What stays here: `bun run test:install` with the helper in the installed payload — run at the release gate.
       flags a bare-captioned POU), and the volt dev machine (no regression). Full C# suites green.
       **Dev machine done** (64-bit registration still present, so the helper path is what ran — XAE is 32-bit):
       TwinCAT e2e (`VOLT_E2E_INSTANCE=tc-x86`, Project14, through the helper) 296 pass / 70 skip / 0 fail; C# suites
