@@ -50,7 +50,7 @@ public class PipeAccessTests
     /// <summary>The field case: an IDE run "as administrator" with the default pipe ACL (Administrators as owner). This
     /// user, unelevated, holds Administrators deny-only, so only Everyone's read is left — a read-write open is refused,
     /// and the client says WHY rather than "access to the path is denied".</summary>
-    [Fact]
+    [UnelevatedFact]
     public void The_elevated_default_refuses_the_same_user_and_the_client_names_it()
     {
         var name = NewName();
@@ -59,6 +59,18 @@ public class PipeAccessTests
         Assert.Equal(name, e.PipeName);
         Assert.Contains("refused this process (access denied)", e.Message);
         Assert.Contains("elevated", e.Message);
+    }
+
+    /// <summary>Skipped, by name, in an elevated process (a CI runner is one): there the token holds Administrators
+    /// enabled, the BA entry admits the client, and it waits on a raw pipe nobody serves — the refusal measured above
+    /// exists only unelevated.</summary>
+    private sealed class UnelevatedFactAttribute : FactAttribute
+    {
+        public UnelevatedFactAttribute()
+        {
+            if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+                Skip = "elevated process: Administrators is enabled, so the elevated default admits it (measured only unelevated)";
+        }
     }
 
     // ── test-local Win32 ─────────────────────────────────────────────────────────────────────────────────────────
