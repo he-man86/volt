@@ -150,7 +150,7 @@ jobs:
           path: packages/volt-cli/.cache/mingit
           key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
       - name: Build the whole toolchain (all TFMs — CLI, IDE hosts, connector)
-        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo --blame-hang-timeout 10m
+        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
       - name: Test — pipe transport + ported sync + black-box + CODESYS multi-instance
         run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
       - name: Test — shared engine (parsing/PLCopen/VG + push/validate incl. delete-idempotency)
@@ -197,7 +197,7 @@ jobs:
           key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
       - if: matrix.suite == 'cli'
         name: Build the whole toolchain
-        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo --blame-hang-timeout 10m
+        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
       - if: matrix.suite == 'cli'
         name: Every C# suite under ${{ matrix.culture }}
         shell: pwsh
