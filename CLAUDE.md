@@ -111,6 +111,23 @@ drives it. The headless harness that opened with `--noUI` and pumped the loop it
 and it was the default, which meant the whole e2e tier proved a path that ships with nothing (a different DLL
 load, and a pump no user has).
 
+## Prerequisites — what Volt needs on a machine
+
+**On a customer's PC: Windows (x64, no AVX2 needed — the LSP is built `bun-windows-x64-baseline`) and the vendor IDE it
+serves, nothing else** (openspec `environment-dependency-audit`, archived). No Visual Studio, no developer component
+(the field bug that started this: the x64 TwinCAT worker needed a COM proxy only Visual Studio registers). **git ships**:
+MinGit in `bin\git\`, the full CLI install only — never in the bridge bundles PLCAssist distributes (`installer/README.md`).
+Volt is **culture-invariant** (tr-TR/ru-RU/de-DE run in CI's `cultures` job; globalization analyzers are errors in
+`src/`), runs per-user with no admin, and names an **elevated IDE** it cannot reach (`BRIDGE_ACCESS_DENIED`, an
+elevated XAE) instead of failing silently. CODESYS 3.5.21/3.5.22 (64- and 32-bit) are served whole; **3.5.18.30 is not
+fully supported** — its gaps are refused BY NAME (`test/e2e/lib/platform.ts`, DIALECT V2/V7). TwinCAT is the 4024 x86
+shell; a 4026 x64 shell, 32-bit SP18/SP22 and the VM cells are `openspec/changes/twincat-later`.
+
+**On the dev machine** additionally: the .NET 10 SDK (`C:\Program Files\dotnet`), Inno Setup 6 for the installer, the
+CODESYS versions the release matrix covers (`bun run release:matrix` makes a cell per installed variant), and — for any
+LSP recording — a CODESYS answering in **English** (the oracle language; a German one makes `record:language` refuse by
+name, DIALECT V9). e2e checks are language-neutral (CODESYS diagnostics by code, `test/e2e/lib/build-error-key.ts`).
+
 ## Volt architecture (big picture)
 
 Volt mirrors a git-like workflow for PLC code. The data path is:

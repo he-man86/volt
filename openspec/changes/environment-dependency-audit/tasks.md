@@ -491,4 +491,11 @@
 
 ## 4. Close
 
-- [ ] 4.1 Docs (installer README locations incl. bin\git, CLAUDE.md prerequisites, DIALECT V-rows); full suites; archive.
+- [x] 4.1 Docs (installer README locations incl. bin\git, CLAUDE.md prerequisites, DIALECT V-rows); full suites; archive.
+      **Done 2026-10-14:** installer README already lists `bin\git\` (2.1); CLAUDE.md gains "Prerequisites — what Volt needs
+      on a machine" (customer PC vs dev machine); DIALECT V9 carries 2.6's close and points 32-bit SP18/SP22 at `twincat-later`
+      2.1 (V7/V8 current). **Numbers:** typecheck 5/5, lint 0 errors, `bun run check` 18/0, openspec validate ok;
+      `Volt.sln` Debug 0 errors; C# Repo.Gates 243, Contracts 37, Engine 2533/1 skip, Cli 295, Connector 148, Ide.Twincat
+      502, Ide.Codesys (net48) 403, Relay 64 — 0 fail; volt-cli `test/unit` 150/0; volt-control 140/0; volt-desktop 33/0;
+      volt-vscode 39/0; LSP full suite COLD (`VOLT_REQUIRE_FULL=1`, `VOLT_RUSTC_CACHE=0`, no `VOLT_FIXTURES`) 10154 pass /
+      34 skip / 428 todo / 0 fail (362 files, 1188 s). Fixture map untouched.
