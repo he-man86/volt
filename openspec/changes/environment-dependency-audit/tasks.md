@@ -351,7 +351,14 @@
       So SP18's gaps (LD/FBD writes, Project Settings, library parameter defaults on the Library Manager) stay REFUSED BY
       NAME with their reason — no spelling of SP18-only storage (that would split the wire per version). The guard: on
       SP18 every test passes only on its named refusal (`test/e2e/lib/platform.ts`), so an INTERNAL_ERROR there is red.
-- [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
+- [x] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
+      **Landed 2026-10-14 (the owner's language-neutral close):** `items/push-without-header-check`'s build-error rows carry
+      their code beside the recorded English message (`C0077` Unknown type, `C0032` Cannot convert, `C0046` not defined,
+      `C0035` call target); on CODESYS an error is matched as item + code + the identifiers it quotes
+      (`test/e2e/lib/build-error-key.ts`, unit `build-error-key.test.ts` 6/0, red before: module missing), on TwinCAT (no
+      code, English compiler, D42) as the whole message as before. Live, `ide.ps1 -Instance environment-dependency-audit`,
+      this machine's German CODESYS: the old file **7 pass / 4 fail** on 3.5.21.40; the new file **11/0** on 3.5.18.30,
+      3.5.21.40, 32-bit 3.5.21.60 and 3.5.22.40. DIALECT V9 updated. TwinCAT not re-run (its expectation is unchanged text).
       **Owner 2026-10-14:** 32-bit SP18/SP22 MOVED to `twincat-later` 2.1. The English-message gap is closed differently: no
       English CODESYS install — the 4 `items/push-without-header-check` tests that compare English build-message TEXT become
       language-neutral (match on the message code / structure, not the words), red first under the German UI, then green on

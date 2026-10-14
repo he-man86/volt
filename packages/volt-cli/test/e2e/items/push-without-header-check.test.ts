@@ -20,10 +20,11 @@
  * an empty or prose DUT is fetched back as sent (re-recorded live on both vendors 2026-10-03, 5.F.1).</p>
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { BASE } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
 import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
+import { BASE, VENDOR } from "../lib/pipe"
+import { buildErrorKey, expectedBuildErrorKey } from "../lib/build-error-key"
 
 const KEY = "nohdr_"
 
@@ -110,24 +111,26 @@ describe(`items / push without header check (${BASE})`, () => {
 	// ── the c802b74d shape: an opening comment that never closes ─────────────────────────────────────
 	// Each is pushed as written (the spec's first scenario), and a build that reaches it reports it.
 
-	// `errors` is the build's EXACT answer (message and the item it is reported on), recorded live 2026-09-30 — the
-	// oracle LSP parity (tasks 4.1/4.2) is held to. Every one lands on the main program's reference: the item's own
+	// `errors` is the build's EXACT answer (code, English message, and the item it is reported on), recorded live
+	// 2026-09-30 — the oracle LSP parity (tasks 4.1/4.2) is held to. CODESYS answers in its UI language, so there it is
+	// matched by item, code and quoted identifiers; TwinCAT (no code, English compiler) by the whole message
+	// (`build-error-key.ts`, environment-dependency-audit 2.6). Every one lands on the main program's reference: the item's own
 	// text is one comment and declares nothing. `held` is how the item comes back: a DUT or a GVL is fetched back and
 	// must be the text sent (the DUT rows were `unreadable` until 5.P; re-recorded live 2026-10-03 on both vendors).
 	const unclosed: {
 		key: string; ext: string; text: (b: string) => string; ref: (b: string) => { decl?: string; body?: string }
-		errors: (b: string, main: string) => string[]; held: "unreadable" | "fetched"
+		errors: (b: string) => { code: string; message: string }[]; held: "unreadable" | "fetched"
 	}[] = [
 		{ key: "uc_struct", ext: "dut", text: (b) => `(* Carrier state\n *\nTYPE ${b} :\nSTRUCT\n\tnPos : INT; (* mm *)\nEND_STRUCT\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "fetched" },
+		  errors: (b) => [{ code: "C0077", message: `Unknown type: '${b}'` }], held: "fetched" },
 		{ key: "uc_enum", ext: "dut", text: (b) => `(* Modes\n *\nTYPE ${b} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "fetched" },
+		  errors: (b) => [{ code: "C0077", message: `Unknown type: '${b}'` }], held: "fetched" },
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
-		  errors: (b, m) => [`${m}: Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'`, `${m}: Identifier '${b}_g' not defined`], held: "fetched" },
+		  errors: (b) => [{ code: "C0032", message: `Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'` }, { code: "C0046", message: `Identifier '${b}_g' not defined` }], held: "fetched" },
 		{ key: "uc_fb", ext: "pou", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
 		  // TwinCAT does not parse this text as a POU, but written in this load it is read like any POU (DIALECT C2i,
 		  // bridge-refusal-review 8.4): fetched back as written on both vendors.
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: "fetched" },
+		  errors: (b) => [{ code: "C0077", message: `Unknown type: '${b}'` }, { code: "C0035", message: "Program name, function or function block instance expected instead of 'v'" }], held: "fetched" },
 	]
 	for (const s of unclosed) {
 		it(`${s.ext} whose opening comment never closes: pushed as written, and the build reports it`, async () => {
@@ -135,7 +138,7 @@ describe(`items / push without header check (${BASE})`, () => {
 			const main = await mainProgram()
 			const r = await pushReferenceBuild(`${bare}.${s.ext}`, s.text(bare), s.ref(bare))
 			expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
-			expect(r.errors.map((e: any) => `${e.name}: ${e.message}`).sort()).toEqual(s.errors(bare, main!).sort())
+			expect(r.errors.map(buildErrorKey).sort()).toEqual(s.errors(bare).map((e) => expectedBuildErrorKey(main!, e, VENDOR === "codesys")).sort())
 			await expectHeld(bare, s.ext, s.text(bare), s.held)
 		})
 	}
