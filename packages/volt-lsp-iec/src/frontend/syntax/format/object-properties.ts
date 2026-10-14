@@ -15,7 +15,7 @@
  * flag or a valued key with none is reported on its line, as the push refuses it (`checkPropertyLines`). The lines are
  * the object's PROPERTIES, not code: the analyzer never sees them, and the formatter prints them back as written.
  *
- * Generalizes the `%FOLDER` directive's module (`folder.ts`, deleted): `%FOLDER` is one of the keys.
+ * Generalizes the `%FOLDER` directive's former module (deleted): `%FOLDER` is one of the keys.
  */
 import type { Span } from "../span.js"
 import type { Token } from "../lex/tokens.js"

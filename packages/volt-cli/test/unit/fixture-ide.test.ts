@@ -175,7 +175,8 @@ describe("compile temp", () => {
 		expect(env.TEMP.split("\\")).toEqual(["C:", "Users", "eng", "AppData", "Local", "Temp"])
 		expect(compileTempEnv(env)).toBe(env)
 	})
-	it("a non-ASCII TEMP is replaced by an ASCII folder for the child", () => {
+	// win32.join of a POSIX scratch path is no folder on Linux; the product is Windows-only (csc).
+	it.skipIf(process.platform !== "win32")("a non-ASCII TEMP is replaced by an ASCII folder for the child", () => {
 		const scratch = mkdtempSync(join(tmpdir(), "volt-compile-temp-"))
 		try {
 			const temp = "C:\\Users\\Тест\\AppData\\Local\\Temp"

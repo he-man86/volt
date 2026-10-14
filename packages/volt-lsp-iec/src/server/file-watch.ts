@@ -29,7 +29,7 @@ export function watchWorkspace(s: ServerState): void {
   let watcher: FSWatcher
   try {
     watcher = watch(root, { recursive: true }, (_event, name) => {
-      if (name === null) return
+      if (name == null) return // Bun on Linux passes undefined, Windows null
       const rel = name.toString()
       if (rel === ".git" || rel.startsWith(`.git${sep}`) || rel.startsWith(".git/")) return
       pending.add(join(root, rel))
