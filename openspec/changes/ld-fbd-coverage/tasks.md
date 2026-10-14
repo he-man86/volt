@@ -202,3 +202,9 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
       vendors; full LSP suite cold; archive.
+- [ ] 3.2 **Turn LD/FBD on for PLCAssist** (owner 2026-10-14). Until this change closes, PLCAssist treats LD/FBD exactly like
+      CFC/SFC/IL — always read-only, `networkText: false` in its `lsp/check-snippet.ts`, its read-only rule in
+      `volt-tools.ts` naming LD/FBD with CFC/SFC/IL (`docs/VOLT_UPDATE_2026-10-14.md` in the PLCAssist repo). At close,
+      write the PLCAssist update note that undoes that: which bodies are now editable network text, which networks stay
+      refused and with what code, the format reference (`packages/volt-cli/docs/network-text.html`) with examples, and
+      the bridge release that carries it. Owner's go before the note says "turn it on".
