@@ -38,7 +38,9 @@ public class PipeServeThreadTests
         host.Start();
         new PipeClient(pipe).Call("health");   // warm: JIT and the cached snapshot, before the pool is taken
 
-        using var release = new ManualResetEventSlim(false);
+        // Not disposed: queued items still start after Set and the method's end, and Wait on a disposed event throws on a
+        // pool thread, which kills the test host (a 2-core CI runner has hundreds still queued then).
+        var release = new ManualResetEventSlim(false);
         ThreadPool.GetMaxThreads(out var maxWorkers, out _);
         ThreadPool.GetMinThreads(out var minWorkers, out _);
         // Far more blocked items than the pool has threads or will inject within the bound.
