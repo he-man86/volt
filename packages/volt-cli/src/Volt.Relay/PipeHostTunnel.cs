@@ -53,10 +53,11 @@ namespace Volt.Relay
             }
         }
 
-        /// <summary>The directory a type's assembly was loaded from — where its sidecar sits.</summary>
+        /// <summary>The directory a type's code was loaded from — where its sidecar sits (the exe's own folder when the
+        /// worker is single-file: <see cref="Volt.Wire.AssemblyFile"/>).</summary>
         public static string? DirectoryOf(Type anchor)
         {
-            try { return Path.GetDirectoryName(anchor.Assembly.Location); }
+            try { return Path.GetDirectoryName(Volt.Wire.AssemblyFile.Of(anchor)); }
             catch { return null; }
         }
     }

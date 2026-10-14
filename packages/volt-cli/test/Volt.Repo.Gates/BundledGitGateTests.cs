@@ -24,7 +24,7 @@ public class BundledGitGateTests
     /// <summary>The projects whose build or publish line in <c>build-cli.ps1</c> produces a shipped folder.</summary>
     private static List<string> ShippedProjects() =>
         Regex.Matches(Script, @"^[ \t]*&[ \t]*\$DOTNET[ \t]+(?:build|publish)[ \t]+""\$ROOT\\src\\(?<proj>[^\\""]+)\\", RegexOptions.Multiline | RegexOptions.CultureInvariant)
-            .Select(m => m.Groups["proj"].Value).ToList();
+            .Select(m => m.Groups["proj"].Value).Distinct(StringComparer.Ordinal).ToList();   // a project shipped twice (the TwinCAT worker: Connector + TwincatBridge) is one closure
 
     /// <summary>Every project <paramref name="project"/> builds with, itself included (its ProjectReference closure).</summary>
     private static HashSet<string> Closure(string project)

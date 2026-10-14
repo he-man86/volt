@@ -25,6 +25,6 @@
     <ProjectReference Include="..\Volt.Ide.Twincat.Explorer\Volt.Ide.Twincat.Explorer.csproj"
                       ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained"
-                      OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" />
+                      OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

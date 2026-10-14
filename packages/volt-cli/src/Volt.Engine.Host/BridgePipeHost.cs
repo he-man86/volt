@@ -46,7 +46,7 @@ public sealed class BridgePipeHost : IDisposable
 
     private static readonly Lazy<string?> _release = new(() =>
     {
-        var r = BridgeRelease.Of(typeof(BridgePipeHost).Assembly.Location, out var unreadable);
+        var r = BridgeRelease.Of(Volt.Wire.AssemblyFile.Of(typeof(BridgePipeHost)), out var unreadable);
         if (unreadable != null) BridgeLog.Warn("bridge release unreadable, health carries no bridgeVersion: " + unreadable);
         return r;
     });

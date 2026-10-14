@@ -44,7 +44,9 @@
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
                     probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
-.PARAMETER BridgeDir codesys only: serve the bridge AS INSTALLED — a folder laid out like the installer's {app}\codesys
+.PARAMETER BridgeDir twincat: a folder holding the worker AS SHIPPED (VoltBridgeTwincat.exe + VoltTwincatExplorer.exe;
+                    e.g. dist\TwincatBridge, the single-file bundle PLCAssist ships) - that exe is spawned, nothing built.
+                    codesys: serve the bridge AS INSTALLED — a folder laid out like the installer's {app}\codesys
                     (Volt.Ide.Codesys.dll + start/stop_volt_codesys.py; e.g. dist\stage\codesys after build:installer).
                     The IDE runs THAT folder's start script with VOLT_BRIDGE_DLL removed from its environment, so the
                     script finds the DLL the way an installed one does (beside itself), not through the dev override.
@@ -754,9 +756,16 @@ function Up-Twincat {
     $ide    = $shells[0]
     if ($shells.Count -gt 1) { Write-Host "XAE shells installed: $($shells -join ', ') - using $ide" }
     Write-Host "XAE shell: $ide ($(Get-PeBits $ide)-bit)"
-    $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\VoltBridgeTwincat.exe"
-    Build-Bridge "twincat"
-    if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat): $worker" }
+    if ($BridgeDir) {
+        # The worker AS SHIPPED (e.g. dist\TwincatBridge, the single-file bundle PLCAssist ships): its own exe, no build.
+        $worker = Join-Path (Resolve-Path $BridgeDir).Path "VoltBridgeTwincat.exe"
+        if (-not (Test-Path $worker)) { throw "-BridgeDir $BridgeDir holds no VoltBridgeTwincat.exe" }
+        Write-Host "Worker:  as shipped, $worker"
+    } else {
+        $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\VoltBridgeTwincat.exe"
+        Build-Bridge "twincat"
+        if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat): $worker" }
+    }
 
     $slns = [ordered]@{
         "13" = Join-Path $FIXTURES "TwinCAT Project13\TwinCAT Project13.sln"

@@ -55,18 +55,27 @@ public class BridgePackagingTests
         return args;
     }
 
-    /// <summary>Every <c>dotnet build|publish</c> line of the script that produces a shipped binary, by project name
-    /// (the test step is <c>dotnet test</c> and is not one of them).</summary>
+    /// <summary>Every <c>dotnet build|publish</c> line of the script that produces a shipped binary, by the <c>$DIST</c>
+    /// folder it writes (the test step is <c>dotnet test</c> and is not one of them). By folder, not project: the TwinCAT
+    /// worker ships twice — on the connector's runtime (<c>Twincat</c>) and single-file for PLCAssist (<c>TwincatBridge</c>).</summary>
     private static Dictionary<string, string> ProductLines() =>
-        Regex.Matches(Script(), @"^[ \t]*&[ \t]*\$DOTNET[ \t]+(?:build|publish)[ \t]+""\$ROOT\\src\\(?<proj>[^\\""]+)\\[^""]+\.csproj"".*$", RegexOptions.Multiline)
-            .ToDictionary(l => l.Groups["proj"].Value, l => l.Value.Trim());
+        Regex.Matches(Script(), @"^[ \t]*&[ \t]*\$DOTNET[ \t]+(?:build|publish)[ \t]+""\$ROOT\\src\\[^\\""]+\\[^""]+\.csproj"".*-o[ \t]+""\$DIST\\(?<out>[^""\\]+)"".*$", RegexOptions.Multiline)
+            .ToDictionary(l => l.Groups["out"].Value, l => l.Value.Trim());
+
+    /// <summary>The <c>$DIST</c> folder whose line builds a bundle these tests load.</summary>
+    private static string LineOf(string bundle) => bundle switch
+    {
+        "Volt.Ide.Codesys" => "CodesysBuild",
+        "Volt.Ide.Twincat" => "Twincat",
+        _ => throw new ArgumentOutOfRangeException(nameof(bundle), bundle, "no build-cli.ps1 line is known for this bundle"),
+    };
 
     /// <summary>The script's line for <paramref name="project"/> as arguments to dotnet: <c>@VERARGS</c> expanded to
     /// <paramref name="verArgs"/>, <c>-c</c> and <c>-o</c> redirected; every other flag kept as the script states it
     /// (restore included: the TwinCAT line's <c>-r win-x64</c> needs its own assets target, as it does in the script).</summary>
     private static List<string> BundleCommand(string project, string configuration, string outDir, IEnumerable<string> verArgs)
     {
-        Assert.True(ProductLines().TryGetValue(project, out var line), $"build-cli.ps1 has no `& $DOTNET build|publish` line for {project}");
+        Assert.True(ProductLines().TryGetValue(LineOf(project), out var line), $"build-cli.ps1 has no `& $DOTNET build|publish` line for {project}");
         var tokens = Regex.Matches(line!, "\"[^\"]*\"|\\S+").Select(t => t.Value).Skip(2).ToList();   // drop `&` `$DOTNET`
         var args = new List<string>();
         for (var i = 0; i < tokens.Count; i++)
@@ -218,7 +227,7 @@ public class BridgePackagingTests
     public void Every_shipped_binary_is_built_with_the_stamping_arguments()
     {
         var lines = ProductLines();
-        Assert.Equal(new[] { "Volt.Cli", "Volt.Connector", "Volt.Ide.Codesys", "Volt.Ide.Twincat" }, lines.Keys.Order());
+        Assert.Equal(new[] { "Cli", "CodesysBuild", "Connector", "Twincat", "TwincatBridge" }, lines.Keys.Order(StringComparer.Ordinal));
         Assert.All(lines, l => Assert.True(Regex.IsMatch(l.Value, @"(^|\s)@VERARGS(\s|$)"), $"build-cli.ps1 builds {l.Key} without @VERARGS: {l.Value}"));
     }
 

@@ -9,6 +9,9 @@
 #                         publish output, DIALECT C2i "what the read requires")
 #   dist\Codesys\         Volt.Ide.Codesys.dll (net48 in-proc, ONE merged assembly - the csproj's VoltBundle target)
 #                         + start/stop_volt_codesys.py ({app}\codesys)
+# and one folder Volt's installer does NOT take:
+#   dist\TwincatBridge\   the TwinCAT worker ALONE for PLCAssist: VoltBridgeTwincat.exe single-file self-contained +
+#                         VoltTwincatExplorer.exe - exactly two files
 # Every publish: SatelliteResourceLanguages=en (the 52 WinForms/runtime satellite DLLs in 13 locales nobody reads)
 # and DebugType=none (no PDBs ship).
 $ErrorActionPreference = "Stop"
@@ -118,6 +121,21 @@ Remove-Item -Recurse -Force "$DIST\Twincat"
 if (-not (Test-Path "$DIST\Connector\VoltTwincatExplorer.exe")) { Write-Output "  REFUSED: the worker's publish left no VoltTwincatExplorer.exe - the TwinCAT worker cannot read a 32-bit XAE's Solution Explorer without it"; exit 1 }
 Write-Output "  OK -> dist\Connector\ (VoltConnector.exe + VoltBridgeTwincat.exe + VoltTwincatExplorer.exe; $shared shared files, identical but the connector's WindowsDesktop facade(s): $($superseded -join ', '))"
 
+# --- The TwinCAT bridge ALONE, for PLCAssist (2026-10-14) ---------------------
+# dist\Connector shares ONE runtime between the tray and the worker - right for the installer, wrong for a product that
+# ships only the bridge: it dragged the tray and its WinForms runtime along (229 files). This is the worker single-file
+# and self-contained, the helper beside it: exactly two files. Not installed by Volt's own installer.
+Write-Output "`n[3b] Volt.Ide.Twincat single-file (dist\TwincatBridge, the bundle PLCAssist ships)"
+if (Test-Path "$DIST\TwincatBridge") { Remove-Item -Recurse -Force "$DIST\TwincatBridge" }
+& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -c Release -o "$DIST\TwincatBridge" --nologo -v q -r win-x64 --self-contained true
+if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
+$tbTop = @(Get-ChildItem "$DIST\TwincatBridge" | ForEach-Object { $_.Name } | Sort-Object)
+if (($tbTop -join '|') -ne 'VoltBridgeTwincat.exe|VoltTwincatExplorer.exe') {
+    Write-Output "  REFUSED: the single-file TwinCAT publish left [$($tbTop -join ', ')], not exactly VoltBridgeTwincat.exe + VoltTwincatExplorer.exe"
+    exit 1
+}
+Write-Output "  OK -> dist\TwincatBridge\ (VoltBridgeTwincat.exe + VoltTwincatExplorer.exe)"
+
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
 Write-Output "`n[4/4] Volt.Ide.Codesys (in-proc DLL)"
 & $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS /p:DebugType=none -c Release -o "$DIST\CodesysBuild" --nologo -v q
@@ -131,9 +149,9 @@ Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys
 Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll, one assembly + the two scripts)"
 
 # --- The bridge bundles carry NO git -------------------------------
-# dist\Connector and dist\Codesys are also what PLCAssist distributes, bridge-only. A bridge never runs git, and git ships
+# dist\Connector, dist\TwincatBridge and dist\Codesys are also what PLCAssist distributes, bridge-only. A bridge never runs git, and git ships
 # with the complete CLI only (owner, openspec environment-dependency-audit 2.1; Volt.Repo.Gates/BundledGitGateTests).
-$bridgeGit = @(foreach ($d in "Connector", "Codesys") { Get-ChildItem "$DIST\$d" -Recurse -Force | Where-Object { $_.Name -ieq "git.exe" -or ($_.PSIsContainer -and $_.Name -ieq "git") } | ForEach-Object { $_.FullName.Substring("$DIST\".Length) } })
+$bridgeGit = @(foreach ($d in "Connector", "TwincatBridge", "Codesys") { Get-ChildItem "$DIST\$d" -Recurse -Force | Where-Object { $_.Name -ieq "git.exe" -or ($_.PSIsContainer -and $_.Name -ieq "git") } | ForEach-Object { $_.FullName.Substring("$DIST\".Length) } })
 if ($bridgeGit.Count -gt 0) { Write-Output "  REFUSED: a bridge bundle carries git: $($bridgeGit -join ', ') - git ships with the full CLI only (dist\Cli\git)"; exit 1 }
 
 Write-Output "`n========================================"
