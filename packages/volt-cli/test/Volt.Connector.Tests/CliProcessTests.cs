@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using Volt.Tests.Shared;
 using Xunit;
 
 namespace Volt.Connector.Tests;
@@ -45,7 +46,7 @@ public class CliProcessTests : IDisposable
         Assert.Equal(p.Id, CliProcess.Find(exe));
     }
 
-    [Fact]
+    [UnelevatedFact]
     public void A_volt_exe_whose_path_cannot_be_read_at_all_is_waited_on()
     {
         var p = Start(StandIn("elsewhere"), 0x1410);

@@ -16,4 +16,7 @@
          Volt.Wire.Wire, which both sides reference). The production connector deliberately does NOT
          reference Core, and this reference exists for that single test; when ConnectRequest comes down, it goes. -->
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\shared\UnelevatedFact.cs" Link="UnelevatedFact.cs" />
+  </ItemGroup>
 </Project>

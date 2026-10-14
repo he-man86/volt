@@ -34,7 +34,8 @@ public class PipeAccessTests
         var user = WindowsIdentity.GetCurrent().User!.Value;
         // What PipeAcl writes is D:P(…)S:(ML;;NW;;;ME); read back from the live pipe the kernel adds one control flag,
         // SACL auto-inherited ("S:AI", measured 2026-10-13 on net10 and net48) — the ACEs are exactly the written ones.
-        Assert.Equal($"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;{user})S:AI(ML;;NW;;;ME)", Sddl(client.SafePipeHandle));
+        // The user's SID spelled as SDDL spells it: the built-in Administrator (a CI runner) reads back as "LA", not S-1-5-…-500.
+        Assert.Equal(DaclSddl($"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;{user})") + "S:AI(ML;;NW;;;ME)", Sddl(client.SafePipeHandle));
     }
 
     [Fact]
@@ -61,18 +62,6 @@ public class PipeAccessTests
         Assert.Contains("elevated", e.Message);
     }
 
-    /// <summary>Skipped, by name, in an elevated process (a CI runner is one): there the token holds Administrators
-    /// enabled, the BA entry admits the client, and it waits on a raw pipe nobody serves — the refusal measured above
-    /// exists only unelevated.</summary>
-    private sealed class UnelevatedFactAttribute : FactAttribute
-    {
-        public UnelevatedFactAttribute()
-        {
-            if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
-                Skip = "elevated process: Administrators is enabled, so the elevated default admits it (measured only unelevated)";
-        }
-    }
-
     // ── test-local Win32 ─────────────────────────────────────────────────────────────────────────────────────────
 
     private static string Sddl(SafeHandle h)
@@ -83,6 +72,20 @@ public class PipeAccessTests
         try
         {
             Assert.True(ConvertSecurityDescriptorToStringSecurityDescriptorW(sd, 1, DACL | LABEL, out var s, IntPtr.Zero), "SD → SDDL failed");
+            try { return Marshal.PtrToStringUni(s)!; }
+            finally { LocalFree(s); }
+        }
+        finally { LocalFree(sd); }
+    }
+
+    /// <summary>A DACL through the same SD → SDDL rendering <see cref="Sddl(SafeHandle)"/> reads back with.</summary>
+    private static string DaclSddl(string sddl)
+    {
+        const int DACL = 0x4;
+        Assert.True(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, 1, out var sd, IntPtr.Zero), "SDDL refused");
+        try
+        {
+            Assert.True(ConvertSecurityDescriptorToStringSecurityDescriptorW(sd, 1, DACL, out var s, IntPtr.Zero), "SD → SDDL failed");
             try { return Marshal.PtrToStringUni(s)!; }
             finally { LocalFree(s); }
         }

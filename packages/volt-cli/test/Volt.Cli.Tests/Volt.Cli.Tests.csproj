@@ -25,6 +25,7 @@
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <!-- Who a bridge pipe admits (environment-dependency-audit 2.2): net10 here, net48 in the CODESYS suite. -->
     <Compile Include="..\shared\PipeAccessTests.cs" Link="PipeAccessTests.cs" />
+    <Compile Include="..\shared\UnelevatedFact.cs" Link="UnelevatedFact.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
   </ItemGroup>
 </Project>
