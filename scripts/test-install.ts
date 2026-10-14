@@ -36,7 +36,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 
 if (process.platform !== "win32") {
   console.error("test:install is Windows-only (the installer + HKCU checks are Windows).")
@@ -48,7 +48,10 @@ const repo = resolve(import.meta.dirname, "..")
 // ── the installer's on-disk contract (design: target layout) ─────────────────
 // {app} — Inno's DefaultDirName (a per-user install) — flat: no `app-<version>`, no `current` junction.
 const installDir = join(process.env.LOCALAPPDATA!, "Programs", "Volt")
-const uninstaller = join(installDir, "unins000.exe")
+/** Inno's uninstallers in {app}: `unins000.exe` + `.dat` by default, but Inno takes the next free NUMBER when the
+ *  existing log is not one it can reuse — measured: the first 64-bit-mode install over a 32-bit-mode one wrote
+ *  `unins001.*` and left the older build's `unins000.*` beside it. */
+const uninstallerName = /^unins\d{3}\.(exe|dat)$/i
 const binDir = join(installDir, "bin")
 const cliExe = join(binDir, "volt.exe")
 const lspExe = join(binDir, "volt-lsp-iec.exe")
@@ -90,6 +93,9 @@ const voltProcesses = ["VoltConnector.exe", "VoltBridgeTwincat.exe", "VoltDeskto
 const appId = readFileSync(resolve(repo, "installer/Volt.iss"), "utf8").match(/AppId=\{\{([0-9A-Fa-f-]+)\}/)?.[1]
 if (!appId) throw new Error("installer/Volt.iss has no AppId={{GUID} — cannot locate the Add/Remove entry")
 const uninstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{${appId}}_is1`
+/** The uninstaller Windows runs — the Add/Remove entry's UninstallString — never an assumed `unins000.exe`. Null when
+ *  there is no entry. */
+const uninstallerPath = (): string | null => reg(uninstallKey, "UninstallString")?.replace(/^"(.*)"$/, "$1") ?? null
 
 const logStore = join(process.env.LOCALAPPDATA!, "Volt", "logs")
 const work = mkdtempSync(join(tmpdir(), "volt-test-install-"))
@@ -362,12 +368,13 @@ function assertNoRollback(step: string, run: SetupRun): void {
   if (/appears to be in use[\s\S]{0,400}?Defaulting to Abort/.test(text)) fail(step, `a file was in use and setup aborted (see ${run.log})`)
 }
 
-/** Inno's uninstaller re-runs itself from %TEMP% (`_iu*.tmp`) and deletes unins000.exe late, so its exit is not
+/** Inno's uninstaller re-runs itself from %TEMP% (`_iu*.tmp`) and deletes its exe late, so its exit is not
  *  the end of the uninstall: wait until no second phase is running. */
 async function runUninstall(step: string, extra: string[] = []): Promise<{ mark: LogMark; status: number | null }> {
   const mark = logMark()
-  if (!existsSync(uninstaller)) {
-    fail(step, "uninstaller missing — cannot uninstall")
+  const uninstaller = uninstallerPath()
+  if (uninstaller === null || !existsSync(uninstaller)) {
+    fail(step, `uninstaller missing (Add/Remove UninstallString: ${uninstaller ?? "absent"}) — cannot uninstall`)
     return { mark, status: null }
   }
   const r = spawnSync(uninstaller, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", ...extra], { stdio: "inherit", timeout: 600_000 })
@@ -465,8 +472,20 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, 
   // The version oracle: what Inno recorded, which must be what this setup carries.
   const claimed = reg(uninstallKey, "DisplayVersion")
   if (claimed !== newVersion) fail(step, `Add/Remove DisplayVersion is ${claimed ?? "absent"}, not ${newVersion}`)
-  if (reg(uninstallKey, "UninstallString") === null) fail(step, "Add/Remove entry has no UninstallString")
-  if (!existsSync(uninstaller)) fail(step, "unins000.exe missing")
+  // ONE uninstaller, the one Add/Remove runs. Another one left in {app} is an older build's, carrying that build's
+  // [Code]: run from there (by hand, or by anything that assumes unins000.exe) it kills a running volt.exe and
+  // removes the install under the CLI — the 2026-10-14 gate's step 6, which ran 0.1.16986's unins000.exe.
+  const uninstaller = uninstallerPath()
+  if (uninstaller === null) fail(step, "Add/Remove entry has no UninstallString")
+  else if (!existsSync(uninstaller)) fail(step, `${uninstaller} (the Add/Remove UninstallString) missing`)
+  else {
+    const own = basename(uninstaller).replace(/\.exe$/i, "").toLowerCase()
+    const present = existsSync(installDir) ? readdirSync(installDir).filter((n) => uninstallerName.test(n)) : []
+    const stale = present.filter((n) => n.replace(/\.(exe|dat)$/i, "").toLowerCase() !== own)
+    if (stale.length > 0) fail(step, `an uninstaller other than the one Add/Remove runs (${basename(uninstaller)}) is left in ${installDir}: ${stale.join(", ")}`)
+    else if (!present.some((n) => n.toLowerCase() === `${own}.dat`)) fail(step, `${own}.dat (the uninstall log of ${basename(uninstaller)}) missing`)
+    else ok(`${step}: one uninstaller, ${basename(uninstaller)} — the one Add/Remove runs`)
+  }
 
   // Flat: no versioned dir, no junction, no sideloaded extension.
   const top = existsSync(installDir) ? readdirSync(installDir) : []
@@ -748,6 +767,7 @@ const steps: [string, () => Promise<void>][] = [
     // uninstaller that stops the tray and the TwinCAT worker under the running CLI and then relaunches the tray.
     const trayBefore = pidsFrom(connectorExe)
     if (trayBefore.length === 0) fail(step, `no connector running from ${connectorExe} before the uninstall — "untouched" cannot be measured`)
+    const uninstaller = uninstallerPath()
     const { mark, status } = await runUninstall(step, ["/VOLTWAIT=15"])
     if (status === 0) fail(step, "the uninstaller exited 0 although volt.exe was running — it must abort (non-zero) after /VOLTWAIT")
     else ok(`${step}: uninstaller aborted, exit ${status}`)
@@ -764,7 +784,7 @@ const steps: [string, () => Promise<void>][] = [
     else ok(`${step}: volt.exe survived`)
     // Everything an uninstall takes away, the Documents scripts ([UninstallDelete]) included — an uninstaller that
     // removed anything, or stopped the tray, BEFORE its volt.exe wait would otherwise pass.
-    const kept = [uninstaller, ...stamped, lspExe, shortcut, ...codesysScripts.map((s) => join(installDir, "codesys", s)), ...codesysScripts.map((s) => join(documentsVolt, s))]
+    const kept = [uninstaller ?? join(installDir, "(no Add/Remove UninstallString)"), ...stamped, lspExe, shortcut, ...codesysScripts.map((s) => join(installDir, "codesys", s)), ...codesysScripts.map((s) => join(documentsVolt, s))]
     const removed = kept.filter((f) => !existsSync(f))
     if (removed.length > 0) fail(step, `the aborted uninstall removed: ${removed.join(", ")}`)
     else ok(`${step}: all ${kept.length} files still present`)

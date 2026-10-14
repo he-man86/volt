@@ -79,7 +79,7 @@ header of every `.exe`/`.dll` in the payload and refuses one built for a CPU its
 CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), `VoltTwincatExplorer.exe` x86 (XAE's own x86 proxy),
 MinGit's `bin/git/usr/libexec/getprocaddr32.exe` x86 (its helper for interrupting a 32-bit child), everything
 else x64/AnyCPU (openspec environment-dependency-audit 1.2). Run it directly (`bun scripts/binary-targets.ts [dir]`)
-on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe` is x86, and allowed). What a PE header cannot say (the LSP's `-baseline` bun target, the installer's
+on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe` — or the next free number — is x86, and allowed). What a PE header cannot say (the LSP's `-baseline` bun target, the installer's
 `ArchitecturesAllowed`) is held as text by `Volt.Repo.Gates/ShippedBinaryTargetTests`.
 
 Useful flags on `build-installer.ts`: `--skip-dist` (reuse the current `dist/volt`), `--rebuild-app` (force

@@ -12,8 +12,8 @@
  *     one of the two IDEs cannot load it.
  *   - `connector/VoltTwincatExplorer.exe` reads the 32-bit XAE's hierarchy through XAE's own x86 proxy (DIALECT C2t):
  *     it must be x86.
- *   - `unins000.exe` at the root of an INSTALLED {app} is Inno Setup's uninstaller, which Inno builds x86 whatever the
- *     install mode (measured: `Setup.e32`, the stub it copies there, is x86). It is not in the payload; it is allowed so
+ *   - `unins000.exe` (or the next free number — Inno numbers on) at the root of an INSTALLED {app} is Inno Setup's
+ *     uninstaller, which Inno builds x86 whatever the install mode (measured: `Setup.e32`, the stub it copies there, is x86). It is not in the payload; it is allowed so
  *     the check runs on an installed tree.
  *   - `bin/git/usr/libexec/getprocaddr32.exe` is MinGit's (the CLI's bundled git, unmodified) helper for interrupting a
  *     32-bit child process: x86 by its purpose.
@@ -74,7 +74,7 @@ export function allowed(path: string): readonly Target[] {
   if (path === "codesys/Volt.Ide.Codesys.dll") return ["AnyCPU"]
   if (path.startsWith("codesys/") && path.toLowerCase().endsWith(".dll")) return ["AnyCPU"] // in-proc beside the bridge
   if (path === "connector/VoltTwincatExplorer.exe") return ["x86"]
-  if (path === "unins000.exe") return ["x86"] // Inno Setup's uninstaller, in an installed {app}
+  if (/^unins\d{3}\.exe$/i.test(path)) return ["x86"] // Inno Setup's uninstaller (unins000.exe, or the next free number), in an installed {app}
   // MinGit's helper that reads a 32-bit process's Ctrl+C entry point (how git interrupts a 32-bit child) — x86 by its
   // purpose; the bundled git is unmodified (bin/git, openspec environment-dependency-audit 2.1; measured on 2.56.0.2).
   if (path === "bin/git/usr/libexec/getprocaddr32.exe") return ["x86"]

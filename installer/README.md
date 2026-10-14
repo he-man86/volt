@@ -22,7 +22,7 @@ this table name the same paths.
 | `%LOCALAPPDATA%\Programs\Volt\desktop\` | the Electron app, `VoltDesktop.exe` (`en-US` locale only) | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\connector\` | `VoltConnector.exe` (tray) + `VoltBridgeTwincat.exe` (TwinCAT worker), ONE .NET runtime; `VoltTwincatExplorer.exe` (the worker's x86 net48 reader of a 32-bit XAE's Solution Explorer) | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\codesys\` | `Volt.Ide.Codesys.dll` + `start_volt_codesys.py` / `stop_volt_codesys.py` | Inno `[Files]` | yes — `[UninstallDelete]` |
-| `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`) | Inno | yes |
+| `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`). Inno does not reuse a log written in the other install mode: the first 64-bit-mode install over a 32-bit-mode one writes `unins001.*` (Add/Remove names it), and `[Code]` (`RemoveStaleUninstallers`, at ssPostInstall) deletes the older build's `unins000.*`, whose [Code] would otherwise kill a running `volt.exe` when run. ONE uninstaller, the one Add/Remove runs — test:install asserts it | Inno | yes |
 | `Documents\Volt\start_volt_codesys.py`, `stop_volt_codesys.py` | the VISIBLE copy of the CODESYS scripts (users run them from CODESYS' Scripting menu); the copy finds the DLL at the fixed `Programs\Volt\codesys` (`_INSTALL_SUBDIR`) | connector at startup (`VoltEnv.PublishCodesysScripts`, from `..\codesys`) | yes — `[UninstallDelete]` (the two files, then the folder if empty) |
 | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → `{app}\desktop\VoltDesktop.exe` | Inno `[Icons]` | yes |
 | `HKCU\...\CurrentVersion\Run` → `VoltConnector` | `"{app}\connector\VoltConnector.exe" --silent` — the tray survives a reboot | Inno `[Registry]` | yes — `uninsdeletevalue` |
@@ -104,6 +104,7 @@ An install, in order:
 volt: install <version> -> <dir>, mode=silent|interactive, existing=0|1
 volt: stopped <n> Volt process(es) under <dir>: <exe (pid)>,…
 volt: migrate removed …                         ← only on the upgrade from app-<version> (one release)
+volt: removed unins000.exe, an earlier install's uninstaller (this one is unins001.exe)   ← only when Inno numbered on
 volt: PATH carries <dir>\bin                     ← read back, not assumed
 volt: the connector is running - nothing to relaunch   (or `relaunched the connector: …`)
 ```

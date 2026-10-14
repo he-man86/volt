@@ -131,7 +131,7 @@ begin
   Result := ExpandConstant('{app}');
 end;
 
-{ Runs from a FOLDER under <app> — never <app> itself: the uninstaller (<app>\unins000.exe) waits there for its own
+{ Runs from a FOLDER under <app> — never <app> itself: the uninstaller (<app>\unins000.exe, or the next free number) waits there for its own
   second phase, and stopping it with the rest ended the uninstall with exit code 0 and nobody waiting for it. }
 function UnderApp(Path: String): Boolean;
 begin
@@ -459,6 +459,42 @@ begin
   end;
 end;
 
+{ An uninstaller in <app>: unins000.exe by default, but Inno numbers on (unins001, ...) when the log there is not one
+  it can reuse. }
+function HasUninstaller: Boolean;
+var FR: TFindRec;
+begin
+  Result := FindFirst(AppDir + '\unins???.exe', FR);
+  if Result then FindClose(FR);
+end;
+
+{ ONE uninstaller: the one this setup wrote, which Add/Remove runs. Inno does not reuse an uninstall log written in the
+  other install mode: the first 64-bit-mode install (ArchitecturesInstallIn64BitMode) over a 32-bit-mode one wrote
+  unins001.* and left the older build's unins000.* beside it, Add/Remove now naming unins001.exe. That leftover is an
+  uninstaller carrying the OLDER build's [Code]: run from <app> it killed a running volt.exe, stopped the tray and
+  removed the install under the CLI (test:install step 6, 2026-10-14). Every unins???.exe / .dat that is not this
+  setup's own goes once the install has completed (ssPostInstall) - never before, so an aborted or rolled-back update
+  keeps the uninstaller that still describes what is installed. }
+procedure RemoveStaleUninstallers;
+var FR: TFindRec; Own, Name, Ext: String;
+begin
+  Own := ChangeFileExt(ExtractFileName(ExpandConstant('{uninstallexe}')), '');
+  if FindFirst(AppDir + '\unins???.*', FR) then
+  try
+    repeat
+      Name := FR.Name;
+      Ext := Lowercase(ExtractFileExt(Name));
+      if ((Ext = '.exe') or (Ext = '.dat')) and (CompareText(ChangeFileExt(Name, ''), Own) <> 0) then
+      begin
+        if DeleteFile(AppDir + '\' + Name) then VLog('removed ' + Name + ', an earlier install''s uninstaller (this one is ' + Own + '.exe)')
+        else VLog('FAILED to remove ' + AppDir + '\' + Name + ', an earlier install''s uninstaller');
+      end;
+    until not FindNext(FR);
+  finally
+    FindClose(FR);
+  end;
+end;
+
 { Set when setup reaches PrepareToInstall: from there on it may have stopped the tray (or the auto-update's tray has
   exited), so DeinitializeSetup brings one back whatever happened next. }
 var Prepared: Boolean;
@@ -469,7 +505,7 @@ begin
   Result := '';
   Prepared := True;
   if WizardSilent() then Mode := 'silent' else Mode := 'interactive';
-  VLog('install {#AppVersion} -> ' + AppDir + ', mode=' + Mode + ', existing=' + IntToStr(Integer(FileExists(AppDir + '\unins000.exe'))));
+  VLog('install {#AppVersion} -> ' + AppDir + ', mode=' + Mode + ', existing=' + IntToStr(Integer(HasUninstaller)));
   { The CLI wait comes FIRST, before anything is stopped: StopOwn stops the TwinCAT worker
     (connector\VoltBridgeTwincat.exe), the other end of the pipe a running `volt push` writes a live PLC project
     through — stopping it first would cut that push mid-write while volt.exe itself was spared. A give-up leaves
@@ -486,7 +522,11 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then MigrateVersionedLayout;
-  if CurStep = ssPostInstall then AddPathEntry(AppDir + '\bin');
+  if CurStep = ssPostInstall then
+  begin
+    RemoveStaleUninstallers;
+    AddPathEntry(AppDir + '\bin');
+  end;
 end;
 
 function InitializeUninstall(): Boolean;
