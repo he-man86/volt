@@ -347,6 +347,10 @@
       ENGLISH build-message oracle on this machine's GERMAN CODESYS (2.6; owner: record in English) - a language fact, not
       a version one. Before the expectations SP18 was 183 / 72 / 109. IDEs down after each run (`ide.ps1 down`). C#:
       Repo.Gates 243/0, Ide.Codesys 403/0, Cli 295/0, Connector 148/0.
+      **Owner 2026-10-14 on SP18:** "SP18 is not fully supported .. just as long the app does not break on internal error."
+      So SP18's gaps (LD/FBD writes, Project Settings, library parameter defaults on the Library Manager) stay REFUSED BY
+      NAME with their reason — no spelling of SP18-only storage (that would split the wire per version). The guard: on
+      SP18 every test passes only on its named refusal (`test/e2e/lib/platform.ts`), so an INTERNAL_ERROR there is red.
 - [ ] 2.6 CODESYS 32-bit: `ide.ps1` bitness selection, harness reports bitness, e2e on 32-bit SP18/21/22; DIALECT.
       **Built 2026-10-13 (step 2d, DIALECT V9):** `ide.ps1 -CodesysBitness 32|64` (a version in both refused without it;
       an edition not installed refused by name); the harness prints and reports what it drove — `[e2e] serving project:
