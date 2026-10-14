@@ -56,7 +56,23 @@ public class PipeServeThreadTests
             // The CLIENT on its own thread, so the test does not depend on the pool it just took.
             var client = new Thread(() =>
             {
-                try { new PipeClient(pipe).Call("health"); }
+                // Connect, then WAIT before sending: the server's read is then PENDING, which on an overlapped handle
+                // completes through the I/O port onto a pool thread. A request already there when the server reads
+                // completes inline and hides that (it passed here and failed on every slower CI runner, 2026-10-14).
+                try
+                {
+                    using var c = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
+                    c.Connect(5000);
+                    Thread.Sleep(500);
+                    var req = System.Text.Encoding.UTF8.GetBytes("{\"op\":\"health\"}\n");
+                    c.Write(req, 0, req.Length);
+                    c.Flush();
+                    var buf = new byte[65536];
+                    var got = new System.Text.StringBuilder();
+                    int n;
+                    while ((n = c.Read(buf, 0, buf.Length)) > 0) got.Append(System.Text.Encoding.UTF8.GetString(buf, 0, n));
+                    Assert.Contains("\"result\"", got.ToString());
+                }
                 catch (Exception ex) { failure = ex; }
                 finally { answered.Set(); }
             }) { IsBackground = true };

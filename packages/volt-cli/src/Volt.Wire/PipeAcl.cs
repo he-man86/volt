@@ -38,8 +38,7 @@ internal static class PipeAcl
     /// <summary>The security descriptor every bridge pipe instance carries, for the user SID <paramref name="userSid"/>.</summary>
     private static string Sddl(string userSid) => $"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;{userSid})S:(ML;;NW;;;ME)";
 
-    /// <summary>One server instance of <paramref name="pipeName"/>, duplex, byte mode, overlapped (the async pipe
-    /// <see cref="PipeServer"/> serves), unlimited instances, carrying <see cref="Sddl"/> for this process's user. A
+    /// <summary>One server instance of <paramref name="pipeName"/>, duplex, byte mode, SYNCHRONOUS, unlimited instances, carrying <see cref="Sddl"/> for this process's user. A
     /// failure is the Win32 error, named with the pipe — the bind failure <see cref="PipeServer.Start"/> reports.</summary>
     internal static NamedPipeServerStream CreateServer(string pipeName)
     {
@@ -55,7 +54,11 @@ internal static class PipeAcl
         {
             var sa = new SECURITY_ATTRIBUTES { nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)), lpSecurityDescriptor = sd, bInheritHandle = 0 };
             var handle = CreateNamedPipeW(@"\\.\pipe\" + pipeName,
-                PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+                // NOT overlapped: PipeServer serves each connection with blocking calls on its own thread, and a blocking
+                // Read/Write on an overlapped handle completes through the I/O port onto a WORKER POOL thread (.NET 7+;
+                // the Framework's IOCP pool in the CODESYS host) — so a saturated pool, CODESYS's own in-proc, held every
+                // request, `health` included (PipeServeThreadTests, red on CI 2026-10-14).
+                PIPE_ACCESS_DUPLEX,
                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
                 PIPE_UNLIMITED_INSTANCES, 0, 0, 0, ref sa);
             if (handle.IsInvalid)
@@ -68,7 +71,7 @@ internal static class PipeAcl
                 if (err == ERROR_ACCESS_DENIED) throw new UnauthorizedAccessException($"pipe '{pipeName}': {w32.Message}", w32);
                 throw new IOException($"pipe '{pipeName}': {w32.Message}", w32);
             }
-            return new NamedPipeServerStream(PipeDirection.InOut, isAsync: true, isConnected: false, safePipeHandle: handle);
+            return new NamedPipeServerStream(PipeDirection.InOut, isAsync: false, isConnected: false, safePipeHandle: handle);
         }
         finally { LocalFree(sd); }
     }
@@ -98,7 +101,6 @@ internal static class PipeAcl
     }
 
     private const uint PIPE_ACCESS_DUPLEX = 0x3;
-    private const uint FILE_FLAG_OVERLAPPED = 0x40000000;
     private const uint PIPE_TYPE_BYTE = 0x0, PIPE_READMODE_BYTE = 0x0, PIPE_WAIT = 0x0, PIPE_REJECT_REMOTE_CLIENTS = 0x8;
     private const uint PIPE_UNLIMITED_INSTANCES = 255;
     private const int ERROR_ACCESS_DENIED = 5;
