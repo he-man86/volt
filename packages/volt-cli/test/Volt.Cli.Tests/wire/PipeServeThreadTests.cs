@@ -41,10 +41,13 @@ public class PipeServeThreadTests
         // Not disposed: queued items still start after Set and the method's end, and Wait on a disposed event throws on a
         // pool thread, which kills the test host (a 2-core CI runner has hundreds still queued then).
         var release = new ManualResetEventSlim(false);
-        ThreadPool.GetMaxThreads(out var maxWorkers, out _);
-        ThreadPool.GetMinThreads(out var minWorkers, out _);
-        // Far more blocked items than the pool has threads or will inject within the bound.
-        var saturation = Math.Min(maxWorkers, minWorkers + 200);
+        ThreadPool.GetMaxThreads(out var maxWorkers, out var maxPorts);
+        ThreadPool.GetMinThreads(out var minWorkers, out var minPorts);
+        // A pool that CANNOT grow (capped at its minimum, restored below), so the check is structural, not a race with the
+        // injection rate: a request that needs a pool thread never runs. Uncapped it passed on a fast machine and failed
+        // on a 2-core CI runner — the overlapped pipe's completions needed the pool (2026-10-14).
+        Assert.True(ThreadPool.SetMaxThreads(minWorkers, minPorts), "could not cap the thread pool");
+        var saturation = minWorkers + 200;
         for (var i = 0; i < saturation; i++) ThreadPool.QueueUserWorkItem(_ => release.Wait());
         try
         {
@@ -63,7 +66,7 @@ public class PipeServeThreadTests
                 $"health did not answer within 20 s with {saturation} pool work items blocked — the request waited for a pool thread");
             Assert.Null(failure);
         }
-        finally { release.Set(); }
+        finally { release.Set(); ThreadPool.SetMaxThreads(maxWorkers, maxPorts); }
     }
 
     /// <summary>THE NAME NEVER LAPSES BETWEEN TWO CALLS (gate review of step 4b; the completeness oracle lost a pull to
