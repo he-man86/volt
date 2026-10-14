@@ -92,10 +92,10 @@
       branch, red first: refused manifest activation → registered proxy, else IDE_UNSUPPORTED; net472; the 64-bit
       TcXaeShell64 found (ROT moniker, window diagnosis, `ide.ps1`); culture-invariant regexes/log dates; baseline-x64
       LSP; x64 Inno. DIALECT **C2t** (next to C2i), with this machine's measurements; 0.2's are still missing.
-- [ ] 1.4 Verify on BOTH machines: the TwinCAT-only machine/VM (refs, fetch, push, build green; C2i guard still
+- [x] 1.4 Verify on BOTH machines: the TwinCAT-only machine/VM (refs, fetch, push, build green; C2i guard still
+      flags a bare-captioned POU), and the volt dev machine (no regression). Full C# suites green.
       **Owner 2026-10-14:** the 64-bit XAE (TcXaeShell64 / 4026) live run MOVED to `twincat-later` 1.2 ("we will do more TC
       later"). What stays here: `bun run test:install` with the helper in the installed payload — run at the release gate.
-      flags a bare-captioned POU), and the volt dev machine (no regression). Full C# suites green.
       **Dev machine done** (64-bit registration still present, so the helper path is what ran — XAE is 32-bit):
       TwinCAT e2e (`VOLT_E2E_INSTANCE=tc-x86`, Project14, through the helper) 296 pass / 70 skip / 0 fail; C# suites
       (after the rebase onto dev `ecd5feaf16`) Twincat 490, Engine 2525 (+1 skipped), Cli 267, Codesys 367, Connector 120, Relay 62, Contracts 35, Repo.Gates 162 — all green; `bun run check` 18/18. **TwinCAT-only state done** (0.2: 64-bit registration removed, e2e 296 / 70 / 0 through the helper). **Open:** a 64-bit XAE
@@ -107,6 +107,9 @@
       `a1284015e4` (0.1.17658; Volt.Cli.Tests 295/0 inside it; the main tree's build was locked by another session's
       `volt.exe console`, pid 47860), but `bun run test:install --older stable` refused: "volt.exe already running
       (pid 47860 …) — every setup would wait on it; stop it first". That process is not this session's to stop.
+      **2026-10-14, done:** release gate at `36c4fbf23c` (0.1.17670) — `bun run test:install --older stable` 79 checks / 0
+      failures with the helper in the installed payload; `bun run release:matrix` twincat-32 296 pass / 70 skip, four
+      CODESYS cells 295 / 72 each. The 64-bit XAE stays in `twincat-later` 1.2.
 
 ## 2. Close
 
