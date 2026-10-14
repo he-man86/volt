@@ -353,11 +353,15 @@ internal static class Nwl
         /// dead code: delete the writer's `catch` and every test still passed, and the postcondition check could
         /// never fire. A double behaving the way the author WISHED the vendor behaved is how a fake asserts a bug
         /// away. On by default - the faithful behaviour is what a test gets without asking.</para></summary>
-        public static bool ThrowsAfterInsert = true;
+        /// <para>Per THREAD, as is <see cref="DropsText"/>: xUnit runs test classes in parallel, and a process-wide flag one
+        /// test flipped emptied another's text (a CI-only flake, 2026-10-14).</para>
+        public static bool ThrowsAfterInsert { get => throwsAfterInsert.Value; set => throwsAfterInsert.Value = value; }
+        private static readonly System.Threading.ThreadLocal<bool> throwsAfterInsert = new(() => true);
 
         /// <summary>Drop the text instead of storing it - the failure the writer's postcondition check exists to
         /// catch. Off by default; one test turns it on to prove that check is real.</summary>
-        public static bool DropsText;
+        public static bool DropsText { get => dropsText.Value; set => dropsText.Value = value; }
+        private static readonly System.Threading.ThreadLocal<bool> dropsText = new(() => false);
 
         public string Text { get; private set; } = "";
 
