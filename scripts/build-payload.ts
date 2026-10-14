@@ -153,6 +153,10 @@ if (!skipCli) {
     console.error("✗ the C# toolchain builds on Windows only — pass --no-cli for an LSP-only payload")
     process.exit(1)
   }
+  // Windows PowerShell 5.1 started from PowerShell 7 (the release workflow's shell) inherits 7's PSModulePath and then
+  // cannot load its own Microsoft.PowerShell.Utility — `Get-FileHash` "not recognized" (release run 38580981280).
+  // Without the variable, 5.1 computes its own default.
+  delete process.env.PSModulePath
   if (!run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-cli/scripts/build-cli.ps1"])) {
     console.error("✗ build-cli.ps1 failed — no payload is assembled from an earlier build's leftovers")
     process.exit(1)
