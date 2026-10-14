@@ -31,6 +31,11 @@ public sealed class FakeRelay
     /// a frame matching it throws instead of arriving.</summary>
     public volatile Func<string, bool>? FailSendWhen;
 
+    /// <summary>Set to make a send STALL, as one does on a network that stops carrying a large message without
+    /// resetting the flow: a frame matching it never goes out, and its send ends only when the socket is aborted
+    /// (a real ClientWebSocket faults a pending send on Abort). Its token is ignored, as a stalled TCP write ignores it.</summary>
+    public volatile Func<string, bool>? StallSendWhen;
+
     /// <summary>Set to make the bridge's Close frame never finish going out (a relay that stopped reading):
     /// the close task never completes and ignores its token, so only the tunnel's own bound ends the wait.</summary>
     public volatile bool CloseNeverCompletes;
@@ -134,6 +139,12 @@ public sealed class FakeRelay
             if (_aborted.IsCancellationRequested) throw new OperationCanceledException();
             if (_relay.FailSendWhen?.Invoke(text) == true)
                 throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
+            if (_relay.StallSendWhen?.Invoke(text) == true)
+            {
+                var stalled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _aborted.Token.Register(() => stalled.TrySetException(new WebSocketException(WebSocketError.ConnectionClosedPrematurely)));
+                return stalled.Task;
+            }
             lock (_relay._gate) _relay._sentToRelay.Add(text);
             return Task.CompletedTask;
         }

@@ -35,9 +35,9 @@ fixed below (owner: a structural starvation is fixed regardless).
 
 ## 1. Fix (only after 0.3 says volt)
 
-- [ ] 1.1 Red test reproducing the measured stall.
-- [ ] 1.2 Fix so `refs` on a few hundred items answers well inside 60 s, and a slow op cannot starve pings.
-- [ ] 1.3 Full e2e on both vendors.
+- [x] 1.1 Red test reproducing the measured stall. (`RelayTunnelTests.A_send_that_stalls_is_named_and_the_connection_dropped`: a result send that never completes while the relay keeps talking — red: the tunnel never noticed, wedged.)
+- [x] 1.2 Fix so `refs` on a few hundred items answers well inside 60 s, and a slow op cannot starve pings. (`refs` already answers in 1–3 s on 854 items, 0.1. `RelayTunnel.SendAsync` is now bounded by the silence limit, 60 s — the relay's own timeout, so a frame not out by then is lost anyway: past it the stall is named in a WARN line, the end line says `a send stalled`, and the socket is dropped and redialed; `relay-protocol.md` documents it. Volt.Relay.Tests 65/65.)
+- [x] 1.3 Full e2e on both vendors. (2026-10-14: CODESYS SP21 295 pass / 0 fail; TwinCAT Project14 296 pass / 0 fail.)
 
 ## 2. Close
 

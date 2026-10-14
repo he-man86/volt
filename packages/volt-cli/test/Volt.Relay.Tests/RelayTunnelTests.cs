@@ -703,6 +703,43 @@ public class RelayTunnelTests : IDisposable
         Assert.Contains("abort", relay.SocketEvents);
     }
 
+    /// <summary>refs-silent-after-scan: a result frame the network stops carrying (the field: every frame over
+    /// ~16 KB died on one ISP, no reset) used to hold the send lock for ever — the ping loop parked behind it, so the
+    /// heartbeat AND its watchdog stopped, and nothing was logged. A send now has a bound: past it the stall is
+    /// named and the socket dropped, so the tunnel redials. The relay keeps talking here, so the watchdog (which
+    /// measures INBOUND silence) is not what ends it.</summary>
+    [Fact]
+    public async Task A_send_that_stalls_is_named_and_the_connection_dropped()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log,
+            pingEvery: TimeSpan.FromMilliseconds(100), silenceLimit: TimeSpan.FromMilliseconds(800));
+        await relay.AwaitHello();
+        using var talking = new CancellationTokenSource();
+        var pongs = Task.Run(async () =>
+        {
+            while (!talking.IsCancellationRequested) { relay.Send(RelayFrames.Pong); await Task.Delay(50); }
+        });
+
+        relay.StallSendWhen = frame => frame.StartsWith("{\"id\":\"r1\",\"result\"");
+        relay.SendRequest("r1", Ops.Refs);
+
+        var wait = await delay.NextWait();
+        talking.Cancel();
+        await pongs;
+
+        Assert.True(1 == log.Lines.Count(l => l.Level == VoltLogLevel.Warn &&
+            System.Text.RegularExpressions.Regex.IsMatch(l.Message,
+                @"^relay: a \d+-byte frame did not go out within \d+(\.\d+)?s — the connection to the relay stalls; dropping it$")), "expected one stall line, got:\n" + log);
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — a send stalled \(a \d+-byte frame did not go out within \d+(\.\d+)?s\) \| in flight: (r1|none) \| next dial in " +
+                       (int)wait.TotalSeconds + "s$", ends[0].Message);
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.Matches(@"^relay: -> refs \(r1\) (ok \d+ms delivered=no \(TimeoutException: .+\)|abandoned ok \d+ms delivered=no)$", line);
+    }
+
     [Fact]
     public async Task The_watchdog_still_aborts_without_a_close()
     {

@@ -471,7 +471,31 @@ namespace Volt.Relay
             {
                 var socket = _socket;
                 if (socket == null) throw new InvalidOperationException("no socket");
-                await socket.SendTextAsync(frame, token).ConfigureAwait(false);
+                // Bounded (openspec refs-silent-after-scan). A network that stops carrying a large frame without
+                // resetting the flow (the field: one ISP dropped every frame over ~16 KB) leaves this send pending
+                // for ever, holding the lock — and the ping loop parks behind it, so the heartbeat AND its watchdog
+                // stop, silently. The bound is the silence limit: the relay fails a request and calls a bridge
+                // silent after the same 60 s, so a frame not out by then is lost to its caller anyway.
+                var send = socket.SendTextAsync(frame, token);
+                using (var bound = CancellationTokenSource.CreateLinkedTokenSource(token))
+                {
+                    var first = await Task.WhenAny(send, Task.Delay(_silenceLimit, bound.Token)).ConfigureAwait(false);
+                    bound.Cancel();
+                    if (first != send)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var stalled = "a " + Encoding.UTF8.GetByteCount(frame) + "-byte frame did not go out within " +
+                                      _silenceLimit.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "s";
+                        Log(VoltLogLevel.Warn, "relay: " + stalled + " — the connection to the relay stalls; dropping it");
+                        var conn = _connection;
+                        if (conn != null) conn.DropCause = "a send stalled (" + stalled + ")";
+                        // Observed, so the abort's fault on the pending send is not an unobserved exception.
+                        _ = send.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                        try { socket.Abort(); } catch { /* going anyway */ }
+                        throw new TimeoutException(stalled);
+                    }
+                }
+                await send.ConfigureAwait(false);
             }
             finally
             {

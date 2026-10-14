@@ -147,6 +147,10 @@ demultiplexes on `id` and nothing else. Frame ORDER is guaranteed only within on
   only to be traffic. Any frame from the relay counts.
 - On each 25 s tick, if the bridge has had **no frame from the relay for more than 60 s**, it drops the socket
   (no close handshake) and reconnects. Silence is therefore noticed 60–85 s after the last frame.
+- Every send is bounded by the same **60 s**. A frame that has not gone out by then (a network that stops carrying
+  large messages without resetting the flow) is named in a WARN line — `a <N>-byte frame did not go out within 60s —
+  the connection to the relay stalls; dropping it` — and the socket is dropped and redialed. Without the bound the
+  stalled send held the one send slot for ever and the heartbeat (and its watchdog) waited behind it, silently.
 
 A request in flight when the socket drops **is abandoned**. The bridge does not re-run it and does not answer
 it on the new connection. The relay fails it to its own caller. This is safe to retry by design: `ifVersion`
@@ -169,6 +173,7 @@ each also gets its own `abandoned` terminal line (see "The bridge log" below).
 | Close with any other status (1000, 1001, 1011, …) | INFO: `the relay closed the connection: <status> "<description>"` | ordinary backoff |
 | No close at all (1006: the flow died, the relay restarted) | WARN: `dropped without a close (<exception>): <message>` | ordinary backoff |
 | The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 60s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
+| A send stalled | WARN: `a send stalled (a <N>-byte frame did not go out within 60s)` (after its own WARN line) | ordinary backoff |
 | The heartbeat task died | WARN: `the heartbeat died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
 | Upgrade refused (HTTP 401/403), or any failed dial | WARN: `could not connect (<exception>): <message>`, with `ended before it connected`. On .NET (the TwinCAT worker) the message names the HTTP status; the CODESYS host's .NET Framework socket may report only that it could not connect. | ordinary backoff |
 
@@ -197,7 +202,7 @@ reason for every stop: a relay needs "stopped on purpose" against "dropped", not
 and does not wait for the relay's answer, so a stop never holds up an IDE that is closing; the bridge logs
 `relay: stopping — sent close 1001 bridge stopping` (or that the close did not go out within 1 s).
 
-Still **1006**, with no Close: the silence watchdog and a dead heartbeat (a handshake with a peer that stopped
+Still **1006**, with no Close: the silence watchdog, a stalled send and a dead heartbeat (a handshake with a peer that stopped
 answering is a wait whose answer is known), a TwinCAT worker the connector stops (it kills the process tree, and no
 code runs in a killed process), and a crash.
 
