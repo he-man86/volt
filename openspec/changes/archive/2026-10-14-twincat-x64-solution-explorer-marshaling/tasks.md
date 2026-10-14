@@ -113,5 +113,9 @@
 
 ## 2. Close
 
-- [ ] 2.1 Tell PLCAssist: the verdict, the code and sentence a TwinCAT-only machine now gets (or that it now works),
+- [x] 2.1 Tell PLCAssist: the verdict, the code and sentence a TwinCAT-only machine now gets (or that it now works),
       and the release build that carries it, so the customer can be asked to update.
+      **Done 2026-10-14:** PLCAssist `docs/VOLT_UPDATE_2026-10-12.md` section E (closing addendum): fixed and verified on a
+      plain 4024 install, `IDE_UNSUPPORTED` with the named sentence when the helper is missing, release `0.1.17682`
+      (`1056c5b085`, matrix green at that commit, clean tree); the bundle-folder move and the rest in
+      `docs/VOLT_UPDATE_2026-10-14.md`.
