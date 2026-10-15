@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<nwl-corpus corpus="awa-palletizer" source="AWA_Palletizer 09_1.project" ide="CODESYS 3.5.21.40" bodies="1">
+<body guid="855c454a-becd-425c-a487-2b34fb8a7d98" path="Device/Plc Logic/Application/pgRecipeHandler" owner="POUObject">
+<o t="NWLImplementationObject" NetworkListComment="s:" DefaultViewMode="s:Fbd" BranchCounter="i:2" ValidIds="b:true">
+<l m="NetworkList">
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:6">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:fbRecipeManager" InputFlags="null" CallType="e:FunctionBlock" EN="b:true" ENO="b:true" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:487" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="s:RecipeManager" Type="s:fbRecipeManager" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:486">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:iNumberOfRecipes" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:488">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:dwRecipeReturnValue" Type="s:DWORD" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:489">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:ActiveRecipe" Type="s:dutRecipe" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:490">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:xLoadedNewRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:201">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:xRcpVisuPlcAreEqual" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:491">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:13">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:14">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:15">
+<o t="Operand" m="Operand" Operand="s:'Recipes'" Type="s:STRING(INT#7)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:16">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:EN"/>
+<x v="s:sDatabaseName"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:STRING"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:ENO"/>
+<x v="s:iNumberOfRecipes"/>
+<x v="s:dwReturnValue"/>
+<x v="s:ActiveRecipe"/>
+<x v="s:xLoadedNewRecipe"/>
+<x v="s:xRcpVisuPlcAreEqual"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:INT"/>
+<x v="s:DWORD"/>
+<x v="s:dutRecipe"/>
+<x v="s:BOOL"/>
+<x v="s:BOOL"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:5">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:fbMachineParManager" InputFlags="null" CallType="e:FunctionBlock" EN="b:true" ENO="b:true" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1004" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="s:MachineParManager" Type="s:fbMachineParManager" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1003">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:iNumberOfMachinePar" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:631">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:dwMachineParReturnValue" Type="s:DWORD" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:632">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:76">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:77">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:78">
+<o t="Operand" m="Operand" Operand="s:'MachinePar'" Type="s:STRING(INT#10)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:79">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:EN"/>
+<x v="s:sDatabaseName"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:STRING"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:ENO"/>
+<x v="s:iNumberOfRecipes"/>
+<x v="s:dwReturnValue"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:INT"/>
+<x v="s:DWORD"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+</l>
+</o>
+</body>
+<api-answers class="BoxTreeBox" member="InputFlags" api="InputFlags" archive="null" answered="a list of unset flags, one per input" count="2"/>
+<api-answers class="Operand" member="Address" api="Address" archive="empty" answered="Constant_Address_Serialization_Value" count="13"/>
+<api-answers class="Operand" member="SymbolComment" api="SymbolComment" archive="empty" answered="Constant_SymbolComment_Serialization_Value" count="13"/>
+</nwl-corpus>

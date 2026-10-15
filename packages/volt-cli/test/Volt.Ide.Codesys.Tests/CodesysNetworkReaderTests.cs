@@ -212,13 +212,58 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand
         {
             OperandExpr = "out",
-            SymbolComment = "Constant_SymbolComment_Serialization_Value",
+            StoredSymbolComment = "Constant_SymbolComment_Serialization_Value",
         });
 
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
         var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
         Assert.Null(target.Comment);
+    }
+
+    /// <summary>A SYMBOL COMMENT IS READ FROM THE ARCHIVE — THE VENDOR'S PROPERTY ANSWERS THE SENTINEL.
+    ///
+    /// <para>Recorded on SP21 (openspec <c>ld-fbd-coverage</c> 1b.3, <c>scripts/record-nwl-corpus.py</c>,
+    /// <c>test/fixtures/nwl-corpus</c>): <c>IOperand.SymbolComment</c> answers
+    /// <c>Constant_SymbolComment_Serialization_Value</c> on EVERY operand of the five corpora (5,293 of them) — the ten
+    /// of pro2193 <c>Cylinder_53ValveFB.SetAlarm</c> whose archive holds a comment included — while
+    /// <c>GetSerializableValue("SymbolComment")</c> answers the stored comment. Read through the property, a CODESYS pull
+    /// never saw a symbol comment: the refusal that keeps a rebuild from erasing one (<c>NetworkText.RefuseSymbolCommentLoss</c>,
+    /// gate 1b-1) could not fire live, and TwinCAT, which reads its archive, held a model CODESYS did not.</para></summary>
+    [Fact]
+    public void A_symbol_comment_is_read_from_the_archive_where_the_vendor_property_answers_the_sentinel()
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "SetAlarm",
+            SymbolComment = "Constant_SymbolComment_Serialization_Value",
+            StoredSymbolComment = " Alarm is active.",
+        });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        Assert.Equal(" Alarm is active.", Assert.IsType<Assign>(read.Trees.Single()).Targets.Single().Comment);
+    }
+
+    /// <summary>AN ARCHIVE ANSWER THAT IS NOT A STRING IS REFUSED BY NAME, never read as "no comment" (gate 1b-3): a
+    /// null comment is what lets <c>NetworkText.RefuseSymbolCommentLoss</c> pass a rebuild, so a stored comment the
+    /// reader could not read as text would be erased by the next push — the loss DIALECT N27 closed.</summary>
+    [Fact]
+    public void A_symbol_comment_archived_as_anything_but_a_string_is_refused_by_name()
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "SetAlarm",
+            StoredSymbolCommentAnswer = new System.Text.StringBuilder(" Alarm is active."),
+        });
+
+        var e = Assert.Throws<Volt.Engine.BridgeException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
+
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unreadable, e.ErrorCode);
+        Assert.Contains("SymbolComment", e.Message);
+        Assert.Contains("StringBuilder", e.Message);
     }
 
     /// <summary>…AND AN OPERAND'S OWN COMMENT IS NOT ONE EITHER, when it merely begins the same way.
@@ -239,7 +284,7 @@ public class CodesysNetworkReaderTests
     public void An_operand_comment_that_only_LOOKS_like_the_sentinel_survives(string comment)
     {
         var assign = new Nwl.BoxTreeAssign();
-        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", SymbolComment = comment });
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", StoredSymbolComment = comment });
 
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
@@ -256,7 +301,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand
         {
             OperandExpr = "out",
-            SymbolComment = "Constant_SomeNewMember_Serialization_Value",
+            StoredSymbolComment = "Constant_SomeNewMember_Serialization_Value",
         });
 
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);

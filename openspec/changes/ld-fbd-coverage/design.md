@@ -88,14 +88,14 @@ Counts are from census 1b.1 (six corpora, both vendors).
 | `BoxTreeAssign` | `OutputItems` | S | the targets `t1 := t2 := … value` | 489 (1–20 targets) |
 | | `RValue` | S | the value | 489 |
 | | `Flags` | R / X | The text `JMP l` / `RETURN` spells the TARGET operand's bit (the `Flags.Flags` row); it does not say whether the ITEM carries it too, and today's `NetworkTextWriter` ORs the two places together. The item bit is R `nwl-assign-item-flags`, derivation 0: the only control-flow assign in the corpora is IDE-drawn (lenze-mid `ATD_FQI` network 0, `RETURN`, target `???`) and has item `Flags` 0 with `Return` on the target (as `NetworkModel.cs` "both vendors keep Jump and Return on the operand" records). The other witness is a jump TwinCAT's importer built (`VltProbe_Jump.TcPOU`, C13): the bit on both. A stored item bit is spelled `{Flags := Jump}` / `{Flags := Return}` directly before the statement's `;` (unambiguous: an operand's `Flags` is always spelled by the text, never by the pragma). Volt's writers put the bit on both places today (C13); in 2.3 they write the item bit only where the text spells it (C13 measured that the item bit is not load-bearing for the build), unless the row shows the IDE re-derives it. Any other item bit is X | 0 ×489 (the one `RETURN` included) |
-| `BoxTreeBox` | `BoxType` | S | the callee name | 1305 (98 distinct) |
+| `BoxTreeBox` | `BoxType` | S / D | the callee name of a function or operator (S). **An FB or program call's `BoxType` is not in the text** (1b.3): the text names the instance, and the push takes the type from its DECLARATION — it differs from the stored one on 15 corpus boxes (13 case-only, `TON`/`ton`, `R_TRIG`/`R_Trig`; 1 program call `generalmachineflags`; 1 namespace, `L_OEEA_FBs`/`L_OEEA_Lib.L_OEEA_FBs`). So D (derivation: the instance's declared type) with `{BoxType := '…'}` where the stored spelling differs | 1305 (98 distinct) |
 | | `Instance` | S | the instance in `fb(…)`; its null operand on a function/operator is D | named 157 |
-| | `OutputItems` | S / S+ | `=> x`, `.slot`, the main output in place. S4's main output ≠ slot 0 is `.name`, taken from the box's own `OutputParam.Names` (1b.4, S+). The null slot(s) are D | 1794 lists |
+| | `OutputItems` | S / S+ / **open** | `=> x`, `.slot`, the main output in place. S4's main output ≠ slot 0 is `.name`, taken from the box's own `OutputParam.Names` (1b.4, S+). The null slot(s) are D. **Open (1b.3): a call's UNCONNECTED output pins** — the IDE draws the callee's whole output list (an empty operand per unconnected slot, its name in `OutputParam.Names`: up to 40 slots on one box) and the text spells only the connected ones, so a rebuilt call box has only those (DIALECT N21: the IDE derives no output list). 186 slot lists come back shorter on 144 networks. Needs a spelling (owner) | 1794 lists |
 | | `Flags` | S | negation/edge of the box output (`NOT f(…)`, `R_EDGE(…)`) | 0 ×1305 |
 | | `InputFlags` | S+ / R / X | a negated pin is `NOT IN1 := v` (S6, S+). D: null unless a pin is flagged, then `0` on the other pins. A zero-only list is R `nwl-input-flags-list`. An edge on a pin is X | lists ×7 (zero-only 2), negated pins 6 |
 | | `InputItems` | S | the pin values | 1305 |
-| | `InputParam` | S / R | `Names` are the formals and `EN :=` (S); `Types` is R `nwl-param-types` | 1305 |
-| | `OutputParam` | S / D / R | `Names` are `=> formal`, `.ENO`, `.slot` (S). The function result pin `"   "` (or `"ENO"` when enabled) is D. The 14 boxes whose name count ≠ slot count (10 Program, 4 Function) are R `nwl-output-param-names` | 1305 |
+| | `InputParam` | S / D / R | `Names` are the formals and `EN :=` (S). D (1b.3): an operator with EN stores `['EN']` alone (71 boxes: MOVE and the arithmetic operators) where the writer lists every input (`['EN', '']`) — the list stops at the last named pin. `Types` is R `nwl-param-types` | 1305 |
+| | `OutputParam` | S / D / R / **open** | `Names` are `=> formal`, `.ENO`, `.slot` (S). The function result pin `"   "` (or `"ENO"` when enabled) is D. The 14 boxes whose name count ≠ slot count (10 Program, 4 Function) are R `nwl-output-param-names`. **Open (1b.3):** the names of a call's unconnected outputs and of its connected main output (`['Q', 'ET']` on a `TON`) — the `OutputItems` gap above: 172 lists on 131 networks | 1305 |
 | | `CallType` | R `nwl-call-type` (both vendors) / D | Derivation: `BoxType` + the declarations (an operator from its name, `Function`/`FunctionBlock`/`Program` from the callee's declaration, `None` on EXECUTE); each `BoxType` has exactly one `CallType` on all 1305 boxes, and the oracle proves the derivation per corpus box. Not yet a cache: the one measurement (`probe-nwl-boxoutputs`, `git show b2496efb4b`: a fresh CODESYS box reads `None`, and the same box reads `Move` after reload) covers 1 of the 19 values, an operator, which needs no declaration. The row pushes a Function, a FunctionBlock, a Program, an operator and an EXECUTE box without the value, on both vendors; re-derived on every kind makes it C, otherwise a differing value is spelled `{CallType := …}` after the box's closing paren | 19 values (FunctionBlock 157, Function 113, None 12, Program 11, …) |
 | | `EN` | S / R | the `EN :=` pin when the box has an EN slot (N13); otherwise the stored bool is R `nwl-box-en-eno` | null 815, bool 490 |
 | | `ENO` | S / R | `.ENO` when used; the stored bool is R `nwl-box-en-eno` (EN≠ENO on the 40 comparisons) | as `EN` |
@@ -116,7 +116,7 @@ Counts are from census 1b.1 (six corpora, both vendors).
 | `Operand` | `Operand` | S | the name / literal / expression. `""` is an unconnected pin. Null on a function/operator instance is D | name 3695, `""` 470, null 1148 |
 | | `Type` | S / R | on a wire, its `VAR_TEMP` type (S). Elsewhere R `nwl-operand-type`, with the derivation: the declared type from the scope, and null/`""` on an unconnected pin as stored per position. **`Instance.Type`** is R `nwl-instance-type`, derivation `BoxType` on a named instance and `""` otherwise; it differs on 47: 20 case-only, 5 other (`SR` vs `RS`, 4 namespace-qualified), 22 And boxes storing `"AND"` | type 3777, `""` 1203, null 333 |
 | | `Comment` | D | `""`; else `{Comment := '…'}` | `""` ×5313 |
-| | `SymbolComment` | S+ | `""`; else `{SymbolComment := '…'}`. It is a stale copy of a declaration comment (1b.1), not re-derived. This lifts gate 1b-1's per-network refusal | 10 (pro2193 `SetAlarm`) |
+| | `SymbolComment` | S+ | `""`; else `{SymbolComment := '…'}`. It is a stale copy of a declaration comment (1b.1), not re-derived. This lifts gate 1b-1's per-network refusal. CODESYS reads it from the ARCHIVE: the API property answers the sentinel on every operand (DIALECT N27, found by 1b.3's recording; the reader fixed in 1b.3) | 10 (pro2193 `SetAlarm`) |
 | | `Address` | R `nwl-address-sentinel` | `""` vs the archive sentinel `Constant_Address_Serialization_Value`; a real address is spelled by the pragma | `""` 5055, sentinel 258 |
 | | `Flags` | S | see the `Flags` row | — |
 | | `LValue` | D | true exactly for an assign target or a box output slot | 1082/1082 |
@@ -165,3 +165,51 @@ the item bit unless their text spells it. `docs/network-text.html`'s row "Item J
 bit" is corrected with it (the corpus `RETURN` contradicts it). Every R row that the recording leaves "not re-derived" adds pragmas where its values sit; they are
 counted in the row and listed for the owner in the close report. The LSP parser and `docs/network-text.html` gain the one
 pragma production, `node += [ "{" , member , ":=" , literal , "}" ]`.
+
+## 1b.3 The completeness oracle — what it found
+
+**The oracle.** `CodesysNwlCompletenessOracleTests` (and `TcNwlCompletenessOracleTests`): every LD/FBD network of the
+corpora, NWL → network text → NWL through the shipped reader, text writer/reader and writer, every archived member held
+to the 1b.2 table (`test/shared/NwlCompleteness.cs` is that table, member for member; a member it does not name fails by
+name). CODESYS's NWL is RECORDED (`scripts/record-nwl-corpus.py` → `test/fixtures/nwl-corpus/*.nwl.xml`: the whole
+archive of the 44 bodies, plus the API answers the reader is handed where they differ from the archive); the doubles
+are hydrated from it and each network is written into a FRESH aspect (a create — what every rebuilt network is), each
+written node laid over a FRESH VENDOR OBJECT of its class (gate 1b-3: `scripts/record-nwl-live.py` made every object the
+writer constructs in a live CODESYS, through the bridge's own `NwlInterop.New`, and recorded its archive), so a member the
+writer never sets is judged against the vendor's fresh value, not a double's default. TwinCAT reads its `.TcPOU` archives
+(copied to `nwl-corpus/twincat-project14`, gated byte for byte against the fixture and against the corpus's pulled text)
+and runs what a push BUILDS — the in-place write of an unchanged body writes nothing, so it is no evidence (gate 1b-3): the
+shipped lowering of each body (a create) and of each network alone (a rebuild) is committed as PLCopen, the XAE's IMPORT
+of it is RECORDED (`scripts/record-tc-import.ps1`, a live XAE), and the shipped post-import code (`Adopted`, `Stamp`;
+`Spliceable`, the splice, `Apply`) runs over the recording. Every loss found today is a known divergence with the task that closes it
+(red first): the run must find exactly those, by member, kind and count.
+
+**Numbers (2026-10-15).** 46 bodies / 394 networks (CODESYS 44 / 388, TwinCAT 2 / 6). CODESYS: 22 networks refused by
+the text writer — the census's S1–S6 exactly (7, 6, 6, 1, 1, 1) — and 23 by the push (DIALECT N21: a consumed enabled
+comparison, which no push can rebuild; an edit to one of these networks is refused today), 343 compared. TwinCAT (since gate 1b-3):
+the CREATE compares no network — POUexecute's whole body is refused before the import (its wire network, unmeasured,
+`TcUnmeasured`) and ladderLabel's import drops its empty network (PLCopen has no network element, D25), which the stamp
+refuses; the REBUILD refuses 3 of 6 networks (the Execute box, the unmeasured wire, the empty network: the import
+answers an empty body) and compares 3, with 22 known divergences over 15 members — Ids re-minted, `Type`/`LValue`/
+`Boolean`/`Fixed`/`EN`/`ENO`/the param types as the import answers them before any build, and TON's `OutputParam.Names`
+`['Q', 'ET']` imported as one generic `['Out1']` (the R rows' and the open output-pins gap's TwinCAT witnesses).
+CODESYS findings: 49 known divergences over 31 members (each `Id` counted per class; 69 / 38 before gate 1b-3 judged the
+unset members against the fresh vendor objects); every R row of 1b.2 shows its loss as predicted — read "changed"
+against the fresh value (`Id` -1, `CallType` None, `Boolean` false, `Fixed` false) — and the D rows whose derivation is
+the fresh object's own value (`Operand.Comment` "", `Flags.Extensible`, `ContainsExtensibleInputs`, `InputFlags` null, the
+network's IL/FBD flags) come back without the writer setting them. Members that came back on every compared network: `DefaultViewMode`, `Label`,
+`OutCommented`, the network items, the assign targets and values, the box instance / pins / slots as nodes, the Execute
+text, `ProvidesSTSnippet`, `VarId`, a Demux/Parallel's feed, trees and mode, the operand text (but a function's null
+instance), the flag bits (but the one assign item bit).
+
+**What the table did not foresee (corrected in the rows above).** (1) An FB or program call's `BoxType` is derived from
+the instance's declaration, not spelled — 15 boxes differ (D + pragma). (2) A call's UNCONNECTED output pins and their
+names are not spelled at all (186 slot lists / 172 name lists shorter; N21: not re-derived) — open for the owner: a
+spelling is needed before 2.3 can make the oracle green there. (3) An enabled operator's partial `InputParam.Names`
+(`['EN']`, 71 boxes) is a derivation the writer does not follow (D). (4) **The CODESYS reader never saw a symbol
+comment** (DIALECT N27): the API property answers the sentinel on every operand, so gate 1b-1's refusal could not fire
+on CODESYS — the reader now reads the archive (fixed in 1b.3, test-first; gate 1b-3: witnessed LIVE — the shipped
+reader, loaded into a CODESYS, read all ten comments of pro2193 `SetAlarm` #0 and the refusal fired on that model — and an
+archive answer that is not text is refused UNREADABLE by name). A fresh operand archives `""` for `Address` and
+`SymbolComment` (measured, gate 1b-3), so the Address ledger is the 258 stored sentinels' compared share, no more. (5) Two network headers the readers fold:
+21 titles and 7 comments (the 1b.2 rows already planned the fix in 2.3).

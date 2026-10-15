@@ -22,6 +22,8 @@
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
+    <!-- The LSP corpus as projects: the scope a corpus body is read against (shared with the NWL completeness oracle). -->
+    <Compile Include="..\shared\CorpusProjects.cs" Link="CorpusProjects.cs" />
     <!-- The red-first mark (openspec bridge-one-to-one 2): a test that must fail until its task lands. -->
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->

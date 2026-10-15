@@ -1,0 +1,745 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<nwl-corpus corpus="bakon-nano" source="Bakon Nano new VISU v00_90.project" ide="CODESYS 3.5.21.40" bodies="1">
+<body guid="1b592e4d-4495-4b80-bf5d-1547e5318994" path="Device/Plc Logic/Application/Recipes" owner="POUObject">
+<o t="NWLImplementationObject" NetworkListComment="s:" DefaultViewMode="s:Fbd" BranchCounter="i:0" ValidIds="b:true">
+<l m="NetworkList">
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:387">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:EXECUTE" InputFlags="null" CallType="e:None" EN="b:true" ENO="b:true" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:true" Id="l:1387" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1335">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:395">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:396">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:EN"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:ENO"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="STSnippet" m="STSnippet" Id="l:1386">
+<o t="STImplementationObject" m="STSnippet">
+<o t="TextDocument" m="TextDocument" TextBlobForSerialisation="null" LineInfoPersistence="null" api.Text="s:IF g_HMI_MachCommand.CMD.bNewRecipe THEN&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nProductType:=0;&#x9;&#x9;&#x9;(* ProductType = 0 = Slab Square *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(* ProductType = 1 = Slab triangle *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(* ProductType = 2 = Slab diagonal *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(* ProductType = 3 = Round Cake *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(* ProductType = 4 = Tray Square Small *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(* ProductType = 5 = Tray Square Large *)&#xA;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rStartHeightKnife := 60;&#x9;&#x9;(* Starthoogte, gemeten vanaf onderzijde mes tot aan de tafel *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rStopHeightKnife:= 0;&#x9;&#x9;(* Stophoogte, gemeten vanaf onderzijde mes tot aan de tafel *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nPartsRound&#x9;:= 12;&#x9;&#x9;&#x9;(*aantal stukken ronde taart *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nPartsRoundRight:= 12;&#x9;&#x9;&#x9;(*aantal stukken ronde taart op rechter positie*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nPartsX&#x9;:= 5;&#x9;&#x9;&#x9;(*aantal stukken in X richting*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nPartsY:= 5;&#x9;&#x9;&#x9;(*aantal stukken in Y richting*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rAngleInDegrees&#x9; := 40;&#x9;&#x9;(* Angle in degrees when producttype is diagonal *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rProdLength_InX&#x9;:=600;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rProdLength_InY&#x9;:=400;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rUSHeightStart:= 60;&#x9;&#x9;(* Start height ultrasonic generator (position Z-axis) *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rUSHeightStop:= 60;&#x9;&#x9;(* Stop height ultrasonic generator (position Z-axis) *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.dwUltrasonicPower1:=50;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCutSpeedZ_Down1:=50;&#x9;&#x9;&#x9;(* neergaande snelheid boven product in %*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCutSpeedZ_Down2:=50;&#x9;&#x9;&#x9;(* neergaande snelheid in het product in %*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCutSpeedZ_Up1:=50;&#x9;&#x9;&#x9;(* opgaande snelheid in het product in %*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rSizeTrimRight:=60;&#x9;&#x9;(*grootte van de afvalrand in de X richting aan de voorzijde*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rSizeTrimLeft:=60;&#x9;&#x9;(*grootte van de afvalrand in de X richting aan de achterzijde*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rSizeTrimRear:=60;&#x9;&#x9;(*grootte van de afvalrand in de Y richting aan de linkerzijde*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rSizeTrimFront:=60;&#x9;&#x9;(*grootte van de afvalrand in de Y richting aan de rechterzijde*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rDiameterRound:=24;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rMidPosOffsetRound1X:= 0;&#x9;&#x9;(* For round products *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rMidPosOffsetRound1Y:= 0;&#x9;&#x9;(* For round products *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rMidPosOffsetRound2Y:= 0;&#x9;&#x9;(* For round products *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.bTrianglesInTray:= FALSE;&#x9;(* For tray product *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.bUseRectanglesForTriangles:= FALSE;&#x9;(* For triangles only*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.bUseRectanglesInEight:= FALSE;&#x9;(* For triangles in tray only*)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.bCutRoundInSequence&#x9;:=TRUE;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rPartSizeX&#x9;:= 50;&#x9;(* For triangles only *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rPartSizeY := 50;&#x9;(* For triangles only *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rShiftCompensation := 0;&#x9;&#x9;(* For slab square only, compensation due to product shoved away during cutting (e.g. when product is slippery or frozen) *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rSpeedTableXY := 100;&#x9;(* in % *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCleaningTimeUltrasonic&#x9;:= 5;&#x9;&#x9;(* in sec *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCleaningTimeWater:= 5;&#x9;&#x9;(* in sec *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.rCleaningTimeAir:= 5;&#x9;&#x9;(* in sec *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nCleanAfterNProd := 1;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nCleanProdOrCuts :=0;&#x9;&#x9;&#x9;(* Cleaning after number of products or after number of cuts. 0 = product, 1 = cuts *)&#xA;&#x9;g_HMI_RCP_Parameters_Visu.nCleanWithScraper:=1;&#x9;&#x9;&#x9;(* V10.01 Cleaning cycle with the use of *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(*        0 = Water and scraper *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(*        1 = Scraper only *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;(*        2 = Water only *)&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#x9;&#xA;&#x9;g_HMI_RCP_Parameters_Visu.bMirrorDiagonals := FALSE;&#xA;END_IF">
+<l m="api.Lines">
+<o t="Line" Id="l:1336" Tag="null"/>
+<o t="Line" Id="l:1337" Tag="null"/>
+<o t="Line" Id="l:1338" Tag="null"/>
+<o t="Line" Id="l:1339" Tag="null"/>
+<o t="Line" Id="l:1340" Tag="null"/>
+<o t="Line" Id="l:1341" Tag="null"/>
+<o t="Line" Id="l:1342" Tag="null"/>
+<o t="Line" Id="l:1343" Tag="null"/>
+<o t="Line" Id="l:1344" Tag="null"/>
+<o t="Line" Id="l:1345" Tag="null"/>
+<o t="Line" Id="l:1346" Tag="null"/>
+<o t="Line" Id="l:1347" Tag="null"/>
+<o t="Line" Id="l:1348" Tag="null"/>
+<o t="Line" Id="l:1349" Tag="null"/>
+<o t="Line" Id="l:1350" Tag="null"/>
+<o t="Line" Id="l:1351" Tag="null"/>
+<o t="Line" Id="l:1352" Tag="null"/>
+<o t="Line" Id="l:1353" Tag="null"/>
+<o t="Line" Id="l:1354" Tag="null"/>
+<o t="Line" Id="l:1355" Tag="null"/>
+<o t="Line" Id="l:1356" Tag="null"/>
+<o t="Line" Id="l:1357" Tag="null"/>
+<o t="Line" Id="l:1358" Tag="null"/>
+<o t="Line" Id="l:1359" Tag="null"/>
+<o t="Line" Id="l:1360" Tag="null"/>
+<o t="Line" Id="l:1361" Tag="null"/>
+<o t="Line" Id="l:1362" Tag="null"/>
+<o t="Line" Id="l:1363" Tag="null"/>
+<o t="Line" Id="l:1364" Tag="null"/>
+<o t="Line" Id="l:1365" Tag="null"/>
+<o t="Line" Id="l:1366" Tag="null"/>
+<o t="Line" Id="l:1367" Tag="null"/>
+<o t="Line" Id="l:1368" Tag="null"/>
+<o t="Line" Id="l:1369" Tag="null"/>
+<o t="Line" Id="l:1370" Tag="null"/>
+<o t="Line" Id="l:1371" Tag="null"/>
+<o t="Line" Id="l:1372" Tag="null"/>
+<o t="Line" Id="l:1373" Tag="null"/>
+<o t="Line" Id="l:1374" Tag="null"/>
+<o t="Line" Id="l:1375" Tag="null"/>
+<o t="Line" Id="l:1376" Tag="null"/>
+<o t="Line" Id="l:1377" Tag="null"/>
+<o t="Line" Id="l:1378" Tag="null"/>
+<o t="Line" Id="l:1379" Tag="null"/>
+<o t="Line" Id="l:1380" Tag="null"/>
+<o t="Line" Id="l:1381" Tag="null"/>
+<o t="Line" Id="l:1382" Tag="null"/>
+<o t="Line" Id="l:1383" Tag="null"/>
+<o t="Line" Id="l:1384" Tag="null"/>
+<o t="Line" Id="l:1385" Tag="null"/>
+<o t="Line" Id="l:1386" Tag="null"/>
+</l>
+</o>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:5">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:L_RecipeManager_Rcp" InputFlags="null" CallType="e:FunctionBlock" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:378" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="s:L_RecipeManager1" Type="s:L_RecipeManager_Rcp" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:377">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:110">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:sRecipeNames" Type="s:STRING(5000)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:297">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:dwReturnValue" Type="s:DWORD" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:112">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:60">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:61">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:121">
+<o t="Operand" m="Operand" Operand="s:'Recipes'" Type="s:STRING(INT#7)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:122">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:123">
+<o t="Operand" m="Operand" Operand="s:sSelectedRecipeName" Type="s:STRING" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:124">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:233">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bLoadRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:234">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:239">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bNewRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:240">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:235">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bEditRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:236">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:251">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bSaveRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:252">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:317">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bCopyRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:318">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:379">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bDeleteRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:380">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:381">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bUpdateRecipe" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:382">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:383">
+<o t="Operand" m="Operand" Operand="s:g_HMI_RCP_Parameters_Visu" Type="s:sMACH_RCP_Parameters" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:384">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:385">
+<o t="Operand" m="Operand" Operand="s:g_HMI_RCP_Parameters" Type="s:sMACH_RCP_Parameters" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:386">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:xEnable"/>
+<x v="s:sDatabaseName"/>
+<x v="s:sSelectedRecipeName"/>
+<x v="s:xRecipe_Load"/>
+<x v="s:xRecipe_New"/>
+<x v="s:xRecipe_Edit"/>
+<x v="s:xRecipe_Save"/>
+<x v="s:xRecipe_Copy"/>
+<x v="s:xRecipe_Delete"/>
+<x v="s:xRecipe_Update"/>
+<x v="s:scRecipeVisu"/>
+<x v="s:scRecipePLC"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:STRING"/>
+<x v="s:STRING[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:scRecipeVariables[REF]"/>
+<x v="s:scRecipeVariables[REF]"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:xEnabled"/>
+<x v="s:iNumberOfRecipes"/>
+<x v="s:sRecipeNames"/>
+<x v="s:dwReturnValue"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:INT"/>
+<x v="s:STRING(gc_iSizeRecipesNames)"/>
+<x v="s:DWORD"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:Generate machinepar name based on system time." Title="s:" Label="s:" OutCommented="b:false" Id="l:1409">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:rtclk.GetDateAndTime" InputFlags="null" CallType="e:FunctionBlock" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1411" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="s:GetDateAndTime" Type="s:rtclk.GetDateAndTime" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1410">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1412">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1413">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1414">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:dtDateAndTIme" Type="s:DATE_AND_TIME" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1415">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1416">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1417">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bSaveMachPar" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1418">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:xExecute"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:xDone"/>
+<x v="s:xBusy"/>
+<x v="s:xError"/>
+<x v="s:eError"/>
+<x v="s:dtDateAndTime"/>
+<x v="s:eTimezone"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:BOOL"/>
+<x v="s:BOOL"/>
+<x v="s:ERROR"/>
+<x v="s:DATE_AND_TIME"/>
+<x v="s:PERIODE"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1419">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeAssign" Id="l:1425">
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<o t="Operand" Operand="s:sDateAndTIme" Type="s:STRING" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1424">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="BoxTreeBox" m="RValue" BoxType="s:TO_STRING" InputFlags="null" CallType="e:Conversion" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1421" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1420">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1422">
+<o t="Operand" m="Operand" Operand="s:dtDateAndTIme" Type="s:DATE_AND_TIME" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1423">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:STRING"/>
+</l>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1426">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeAssign" Id="l:1436">
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<o t="Operand" Operand="s:sDateAndTIme1" Type="s:STRING(255)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1435">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="BoxTreeBox" m="RValue" BoxType="s:DELETE" InputFlags="null" CallType="e:Function" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1428" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1427">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1429">
+<o t="Operand" m="Operand" Operand="s:sDateAndTIme" Type="s:STRING" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1430">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1431">
+<o t="Operand" m="Operand" Operand="s:4" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1432">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1433">
+<o t="Operand" m="Operand" Operand="s:0" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1434">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:STR"/>
+<x v="s:LEN"/>
+<x v="s:POS"/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+<x v="s:INT"/>
+<x v="s:INT"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:   "/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+</l>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1437">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeAssign" Id="l:1449">
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<o t="Operand" Operand="s:sDateAndTIme2" Type="s:STRING(255)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1448">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="BoxTreeBox" m="RValue" BoxType="s:REPLACE" InputFlags="null" CallType="e:Function" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1439" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1438">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1440">
+<o t="Operand" m="Operand" Operand="s:sDateAndTIme1" Type="s:STRING(255)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1441">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1442">
+<o t="Operand" m="Operand" Operand="s:'h'" Type="s:STRING(INT#1)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1443">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1444">
+<o t="Operand" m="Operand" Operand="s:1" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1445">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1446">
+<o t="Operand" m="Operand" Operand="s:14" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1447">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:STR1"/>
+<x v="s:STR2"/>
+<x v="s:L"/>
+<x v="s:P"/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+<x v="s:STRING(255)"/>
+<x v="s:INT"/>
+<x v="s:INT"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:   "/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+</l>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1450">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeAssign" Id="l:1462">
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<o t="Operand" Operand="s:sRecipeNamePar" Type="s:STRING(255)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:1461">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="BoxTreeBox" m="RValue" BoxType="s:REPLACE" InputFlags="null" CallType="e:Function" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:1452" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1451">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1453">
+<o t="Operand" m="Operand" Operand="s:sDateAndTIme2" Type="s:STRING(255)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1454">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1455">
+<o t="Operand" m="Operand" Operand="s:'m'" Type="s:STRING(INT#1)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1456">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1457">
+<o t="Operand" m="Operand" Operand="s:1" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1458">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:1459">
+<o t="Operand" m="Operand" Operand="s:17" Type="s:INT" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1460">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:STR1"/>
+<x v="s:STR2"/>
+<x v="s:L"/>
+<x v="s:P"/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+<x v="s:STRING(255)"/>
+<x v="s:INT"/>
+<x v="s:INT"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:   "/>
+</l>
+<l m="Types">
+<x v="s:STRING(255)"/>
+</l>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1470">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:EXECUTE" InputFlags="null" CallType="e:None" EN="b:true" ENO="b:true" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:true" Id="l:1539" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:1533">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:1482">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:1483">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:EN"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:ENO"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="STSnippet" m="STSnippet" Id="l:1538">
+<o t="STImplementationObject" m="STSnippet">
+<o t="TextDocument" m="TextDocument" TextBlobForSerialisation="null" LineInfoPersistence="null" api.Text="s:IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAndTime.xDone THEN&#xA;&#x9;sMachParName := sRecipeNamePar;&#xA;&#x9;bSavePars := TRUE;&#xA;&#x9;g_HMI_MachCommand.CMD.bSaveMachPar := FALSE;&#xA;END_IF">
+<l m="api.Lines">
+<o t="Line" Id="l:1534" Tag="null"/>
+<o t="Line" Id="l:1535" Tag="null"/>
+<o t="Line" Id="l:1536" Tag="null"/>
+<o t="Line" Id="l:1537" Tag="null"/>
+<o t="Line" Id="l:1538" Tag="null"/>
+</l>
+</o>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:1079">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:329">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:L_RecipeManager" InputFlags="null" CallType="e:FunctionBlock" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:331" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="s:L_MachParManager1" Type="s:L_RecipeManager" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:330">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:" Type="null" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:332">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:sMachParNames" Type="s:STRING(5000)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:333">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="Operand" Operand="s:dwMachParReturnValue" Type="s:DWORD" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:334">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:335">
+<o t="Operand" m="Operand" Operand="s:TRUE" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:336">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:337">
+<o t="Operand" m="Operand" Operand="s:'MachPar'" Type="s:STRING(INT#7)" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:338">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:339">
+<o t="Operand" m="Operand" Operand="s:sMachParName" Type="s:STRING" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:340">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:341">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bDeleteMachPar" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:342">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:343">
+<o t="Operand" m="Operand" Operand="s:g_HMI_MachCommand.CMD.bLoadMachPar" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:344">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:345">
+<o t="Operand" m="Operand" Operand="s:bSaveParAs" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:346">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:347">
+<o t="Operand" m="Operand" Operand="s:bSavePars" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:348">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:349">
+<o t="Operand" m="Operand" Operand="s:sActiveMachPar" Type="s:STRING" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:350">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:xEnable"/>
+<x v="s:sDatabaseName"/>
+<x v="s:sRecipeName"/>
+<x v="s:xRecipe_Delete"/>
+<x v="s:xRecipe_Load"/>
+<x v="s:xRecipe_Save"/>
+<x v="s:xRecipe_SaveAs"/>
+<x v="s:sActiveRecipe"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:STRING"/>
+<x v="s:STRING"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:BOOL[REF]"/>
+<x v="s:STRING[REF]"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:xEnabled"/>
+<x v="s:iNumberOfRecipes"/>
+<x v="s:sRecipeNames"/>
+<x v="s:dwReturnValue"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:INT"/>
+<x v="s:STRING(gc_iSizeRecipesNames)"/>
+<x v="s:DWORD"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+</l>
+</o>
+</body>
+<api-answers class="BoxTreeBox" member="InputFlags" api="InputFlags" archive="null" answered="a list of unset flags, one per input" count="9"/>
+<api-answers class="Operand" member="Address" api="Address" archive="empty" answered="Constant_Address_Serialization_Value" count="59"/>
+<api-answers class="Operand" member="SymbolComment" api="SymbolComment" archive="empty" answered="Constant_SymbolComment_Serialization_Value" count="59"/>
+</nwl-corpus>

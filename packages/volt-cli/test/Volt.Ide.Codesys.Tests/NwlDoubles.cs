@@ -27,6 +27,10 @@ internal static class Nwl
 
         // Read via `Items(..., listMember: "")`, which falls through to enumerating the collection itself.
         public List<object> NetworkList { get; } = new List<object>();
+
+        /// <summary>The aspect's own network-count API (<c>CodesysNetworkWriter.Write</c> matches the count through it).</summary>
+        public void AppendNetwork(object network) => NetworkList.Add(network);
+        public void RemoveNetwork(int index) => NetworkList.RemoveAt(index);
     }
 
     internal sealed class Network
@@ -95,7 +99,23 @@ internal static class Nwl
 
         public string OperandExpr { get; set; } = "";
         public string Type { get; set; } = "";
-        public string SymbolComment { get; set; } = "";
+        /// <summary>What the vendor's <c>IOperand.SymbolComment</c> PROPERTY answers: the archive sentinel, on every operand
+        /// recorded (openspec <c>ld-fbd-coverage</c> 1b.3, 5,293 operands, the ten that store a comment included). The
+        /// stored comment is <see cref="StoredSymbolComment"/>, reached through <see cref="GetSerializableValue"/>.</summary>
+        public string SymbolComment { get; set; } = "Constant_SymbolComment_Serialization_Value";
+
+        /// <summary>The comment the operand's ARCHIVE holds (<c>""</c> on all but ten corpus operands).</summary>
+        public string StoredSymbolComment { get; set; } = "";
+
+        /// <summary>An archive answer for <c>SymbolComment</c> that is not a string (null: answer
+        /// <see cref="StoredSymbolComment"/>) — a shape no recording holds, for the reader's refusal of it.</summary>
+        public object? StoredSymbolCommentAnswer { get; set; }
+
+        /// <summary>The vendor's archive read (<c>IArchivable.GetSerializableValue</c>) — for the one member a reader
+        /// takes from it. Any other member is a shape this double does not describe, and says so.</summary>
+        public object? GetSerializableValue(string name) => name == "SymbolComment"
+            ? StoredSymbolCommentAnswer ?? StoredSymbolComment
+            : throw new System.InvalidOperationException($"the Operand double archives no '{name}'");
         public string Address { get; set; } = "";
         public bool IsLValue { get; set; }
         public bool IsInstance { get; set; }

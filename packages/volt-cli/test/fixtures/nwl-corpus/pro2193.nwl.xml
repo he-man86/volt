@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<nwl-corpus corpus="pro2193" source="Pro2193-94-95-96_COdesys.project" ide="CODESYS 3.5.21.40" bodies="2">
+<body guid="8c564db1-e28e-402b-99d3-1ac651783553" path="Device/Plc Logic/Application/ActuatorFB/Counters" owner="POUMethodObject">
+<o t="NWLImplementationObject" NetworkListComment="s:" DefaultViewMode="s:Fbd" BranchCounter="i:0" ValidIds="b:true">
+<l m="NetworkList">
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:Calculate the on-time and the number of switches of the output" Title="s:" Label="s:" OutCommented="b:false" Id="l:53">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:ONTIME" InputFlags="null" CallType="e:FunctionBlock" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:85" api.MainOutputIndex="null">
+<o t="Operand" m="Instance" Operand="s:MeasureOnTime" Type="s:ONTIME" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:84">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:56">
+<o t="Operand" m="Operand" Operand="s:output" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:57">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:In"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:On a rising edge of the output, save the current date/time" Title="s:" Label="s:" OutCommented="b:false" Id="l:26">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeBox" BoxType="s:MOVE" InputFlags="null" CallType="e:Move" EN="b:true" ENO="b:true" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:37" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:36">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+<o t="Operand" Operand="s:TimeOfLastSwitch" Type="s:DATE_AND_TIME" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:29">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:30">
+<o t="Operand" m="Operand" Operand="s:output" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:31">
+<o t="Flags" m="Flags" Flags="i:16" Fixed="b:true" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:32">
+<o t="Operand" m="Operand" Operand="s:TimeSettings.dtNow" Type="s:DATE_AND_TIME" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:33">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+<x v="s:EN"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:ENO"/>
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+<x v="s:"/>
+</l>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+</l>
+</o>
+</body>
+<body guid="e6174f5d-01a7-4bee-b5b7-6ac4b41de841" path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm" owner="POUMethodObject">
+<o t="NWLImplementationObject" NetworkListComment="s:" DefaultViewMode="s:Fbd" BranchCounter="i:0" ValidIds="b:true">
+<l m="NetworkList">
+<o t="Network" ILActive="b:false" FBDValid="b:false" ILValid="b:false" Comment="s:" Title="s:" Label="s:" OutCommented="b:false" Id="l:6">
+<l m="ILLines">
+</l>
+<l m="NetworkItems">
+<o t="BoxTreeAssign" Id="l:40">
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<o t="Operand" Operand="s:SetAlarm" Type="s:BOOL" Comment="s:" SymbolComment="s: Alarm is active." Address="s:" LValue="b:true" Boolean="b:false" IsInstance="b:false" Id="l:39">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="BoxTreeBox" m="RValue" BoxType="s:AND" InputFlags="null" CallType="e:And" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:51" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:50">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeBox" BoxType="s:OR" InputFlags="null" CallType="e:Or" EN="null" ENO="null" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:12" api.MainOutputIndex="null">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:11">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeBox" BoxType="s:AND" CallType="e:And" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:14" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:13">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<l m="InputFlags">
+<o t="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="Flags" Flags="i:1" Fixed="b:true" Extensible="b:false"/>
+<o t="Flags" Flags="i:1" Fixed="b:true" Extensible="b:false"/>
+</l>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:15">
+<o t="Operand" m="Operand" Operand="s:xOutput" Type="s:BOOL" Comment="s:" SymbolComment="s: Condition to set the alarm." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:16">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:17">
+<o t="Operand" m="Operand" Operand="s:xOutInv" Type="s:BOOL" Comment="s:" SymbolComment="s: The output that moves the cylinder the other way." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:18">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:19">
+<o t="Operand" m="Operand" Operand="s:xSensor" Type="s:BOOL" Comment="s:" SymbolComment="s: The sensor on the cylinder." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:20">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+</o>
+<o t="BoxTreeBox" BoxType="s:AND" CallType="e:And" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:22" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:21">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<l m="InputFlags">
+<o t="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<o t="Flags" Flags="i:1" Fixed="b:true" Extensible="b:false"/>
+<o t="Flags" Flags="i:0" Fixed="b:true" Extensible="b:false"/>
+</l>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:23">
+<o t="Operand" m="Operand" Operand="s:xOutInv" Type="s:BOOL" Comment="s:" SymbolComment="s: The output that moves the cylinder the other way." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:24">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:25">
+<o t="Operand" m="Operand" Operand="s:xOutput" Type="s:BOOL" Comment="s:" SymbolComment="s: Condition to set the alarm." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:26">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:27">
+<o t="Operand" m="Operand" Operand="s:xSensor" Type="s:BOOL" Comment="s:" SymbolComment="s: The sensor on the cylinder." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:28">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+</o>
+<o t="BoxTreeBox" BoxType="s:AND" InputFlags="null" CallType="e:And" EN="b:false" ENO="b:false" STSnippet="null" ContainsExtensibleInputs="b:false" ProvidesSTSnippet="b:false" Id="l:30" api.MainOutputIndex="i:0">
+<o t="Operand" m="Instance" Operand="null" Type="s:" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:true" Id="l:29">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+<o t="OutputItemList" m="OutputItems">
+<l m="OutputItems">
+<null/>
+</l>
+</o>
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+<l m="InputItems">
+<o t="BoxTreeOperand" Id="l:31">
+<o t="Operand" m="Operand" Operand="s:xOutput" Type="s:BOOL" Comment="s:" SymbolComment="s: Condition to set the alarm." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:32">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:33">
+<o t="Operand" m="Operand" Operand="s:xOutInv" Type="s:BOOL" Comment="s:" SymbolComment="s: The output that moves the cylinder the other way." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:34">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:35">
+<o t="Operand" m="Operand" Operand="s:xSensor" Type="s:BOOL" Comment="s:" SymbolComment="s: The sensor on the cylinder." Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:36">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+</o>
+<o t="BoxTreeOperand" Id="l:48">
+<o t="Operand" m="Operand" Operand="s:EnableOutputs.Q" Type="s:BOOL" Comment="s:" SymbolComment="s:" Address="s:" LValue="b:false" Boolean="b:false" IsInstance="b:false" Id="l:49">
+<o t="Flags" m="Flags" Flags="i:0" Fixed="b:false" Extensible="b:false"/>
+</o>
+</o>
+</l>
+<o t="ParamList" m="InputParam">
+<l m="Names">
+</l>
+<l m="Types">
+</l>
+</o>
+<o t="ParamList" m="OutputParam">
+<l m="Names">
+<x v="s:"/>
+</l>
+<l m="Types">
+<x v="s:BOOL"/>
+</l>
+</o>
+</o>
+</o>
+</l>
+<l m="Connectors">
+</l>
+</o>
+</l>
+</o>
+</body>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0]" class="Operand" member="SymbolComment" api="SymbolComment" archive=" Alarm is active." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[0].InputItems[0].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" Condition to set the alarm." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[0].InputItems[1].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The output that moves the cylinder the other way." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[0].InputItems[2].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The sensor on the cylinder." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[1].InputItems[0].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The output that moves the cylinder the other way." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[1].InputItems[1].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" Condition to set the alarm." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[1].InputItems[2].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The sensor on the cylinder." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[2].InputItems[0].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" Condition to set the alarm." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[2].InputItems[1].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The output that moves the cylinder the other way." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-mismatch path="Device/Plc Logic/Application/Cylinder_53ValveFB/SetAlarm.NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[2].InputItems[2].Operand" class="Operand" member="SymbolComment" api="SymbolComment" archive=" The sensor on the cylinder." answered="Constant_SymbolComment_Serialization_Value" declared-by="_3S.CoDeSys.NWLObject.Operand (public)" interface="_3S.CoDeSys.NWLObject.IOperand: Constant_SymbolComment_Serialization_Value"/>
+<api-answers class="BoxTreeBox" member="InputFlags" api="InputFlags" archive="null" answered="a list of unset flags, one per input" count="5"/>
+<api-answers class="Operand" member="Address" api="Address" archive="empty" answered="Constant_Address_Serialization_Value" count="22"/>
+<api-answers class="Operand" member="SymbolComment" api="SymbolComment" archive="empty" answered="Constant_SymbolComment_Serialization_Value" count="12"/>
+</nwl-corpus>

@@ -319,9 +319,75 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       `Volt.Ide.Codesys.Tests` 406, `Volt.Ide.Twincat.Tests` 504, `Volt.Repo.Gates` 243, `Volt.Cli.Tests` 295 (all 0 fail,
       unchanged); LSP full suite with `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset: 10616 tests, 10154 pass, 34 skip, 428
       todo, 0 fail (574 s). Fixture map unchanged (no fixture or transpiler change).
-- [ ] 1b.3 The completeness oracle (red first): for every corpus network on both vendors, NWL → text → NWL reproduces every
+- [x] 1b.3 The completeness oracle (red first): for every corpus network on both vendors, NWL → text → NWL reproduces every
       non-cache member exactly (an extension of `ModelRoundTripOracleTests` over the corpora); a member the table does
       not list fails the gate by name — so a vendor adding a member in a future SP surfaces as a red test, not a silent loss.
+      **Done 2026-10-15** (design.md "1b.3"). The CODESYS NWL is RECORDED, not re-walked by hand: `scripts/record-nwl-corpus.py`
+      (own CODESYS, `ide.ps1 -Instance ld-fbd-coverage -RunScript`, one run over copies of the five corpus projects) wrote
+      `packages/volt-cli/test/fixtures/nwl-corpus/<corpus>.nwl.xml` — the whole archive of the 44 bodies (40 / 2 / 1 / 1 / 0,
+      the census's) and the API answers the reader is handed where they differ from the archive; the TwinCAT archives are
+      the two corpus `.TcPOU`s, copied to `nwl-corpus/twincat-project14`. The oracle: `test/shared/NwlArchive.cs` (the
+      archive model, both vendors), `test/shared/NwlCompleteness.cs` (the 1b.2 table member for member — an unlisted member
+      fails by name; a C member is skipped only while its `vendor-facts` row exists; the known-divergence ledger, which
+      fails an unexpected, a moved or a stale entry), `CodesysNwlCompletenessOracleTests` (hydrate the suite's doubles from
+      the recording, read per network, text round trip, write the body into a FRESH aspect — a create, so nothing survives
+      by object identity — and compare) and `TcNwlCompletenessOracleTests` (~~`TcNetworkReader` → text → `TcNetworkWriter.Apply`
+      on the stored archive; the import rebuild is the IDE's, measured by the 2.2 rows~~ — the recorded import since gate 1b-3); `NwlCompletenessHarnessTests` shows
+      each verdict failing. `CorpusProject` moved to `test/shared/CorpusProjects.cs` (output-neutral; the engine oracle uses it).
+      **Numbers:** 394 networks (CODESYS 388, TwinCAT 6). CODESYS: 22 refused by the text writer (S1–S6: 7/6/6/1/1/1, the
+      census exactly), 23 by the push (N21, consumed enabled comparisons), 343 compared; ~~**69 known divergences over 38
+      members**~~ (49 over 31 since gate 1b-3) (the ledger in `CodesysNwlCompletenessOracleTests.Known`, each with its closing task: 2.2 for the 14 R rows +
+      `text-blob-serialisation`, 2.3 for the D derivations and the spellings). ~~TwinCAT: 6 compared, 0 findings~~ (gate 1b-3: no evidence — the rebuild compares 3, 22 divergences). **Root
+      cause found and fixed (test-first):** the CODESYS reader read `IOperand.SymbolComment`, which answers the archive
+      sentinel on every operand (DIALECT N27, recorded) — no CODESYS pull held a symbol comment and the 1b-1 refusal could
+      not fire live; it now reads `GetSerializableValue("SymbolComment")`
+      (`CodesysNetworkReaderTests.A_symbol_comment_is_read_from_the_archive_where_the_vendor_property_answers_the_sentinel`,
+      red before; the NWL doubles answer the property as recorded and the archive through `StoredSymbolComment`).
+      **Corrected in the 1b.2 table:** `BoxType` of an FB/program call is derived from the instance's declaration (15
+      differ: D + pragma); an enabled operator's `InputParam.Names` `['EN']` is D (71); **open for the owner: a call's
+      UNCONNECTED output pins** (the callee's whole output list the IDE draws — 186 slot lists / 172 name lists come back
+      shorter; N21: not re-derived) have no spelling — 2.3 cannot turn those entries green without one.
+      **Gate step 1b-3 (2026-10-15).** Review findings, all five taken, each test-first: (1) **the TwinCAT half compared
+      the archive with itself** — an unchanged push's `TcNetworkWriter.Apply` answers null, so `?? bodyXml` made every
+      member it does not write match by construction ("6 compared, 0 findings" showed only that a no-op is a no-op). Now
+      `An_unchanged_push_writes_nothing` says exactly that, and the oracle runs what a push BUILDS: the shipped lowering of
+      each body (create) and of each network alone, renumbered to 0 (rebuild), is committed as PLCopen
+      (`nwl-corpus/twincat-project14/import/*.plcopen.xml`, gated against today's lowering), the XAE's IMPORT of each is
+      RECORDED (`scripts/record-tc-import.ps1`, own XAE, `ide.ps1 -Instance ld-fbd-coverage -Fixture 14`: 5 imports), and
+      the shipped post-import code runs over it — `TcObjectModel.Adopted` + `BeckhoffDriver.Stamp` (create),
+      `BeckhoffDriver.Spliceable` + the splice + `TcNetworkWriter.Apply` (rebuild), split out of `ResolveGraphicalBody` /
+      `RebuildNetwork` output-neutrally (Repo.Gates `Allowed`, with the reason). Result: the CREATE compares no network
+      (POUexecute's lowering refused — its unmeasured wire network; ladderLabel's import drops the EMPTY network, D25,
+      and the stamp refuses the count), the REBUILD refuses 3 of 6 (Execute box, unmeasured wire, the empty network's
+      import answering an empty body) and compares 3: **22 known divergences over 15 members** (`KnownRebuild`: Ids
+      re-minted; `Type`, `LValue`, `Boolean`, `Fixed`, `EN`/`ENO`, the param types as the import answers before any
+      build; TON's `OutputParam.Names` `['Q', 'ET']` → `['Out1']`), each with its 2.2 row / 2.3 task. (2) **The CODESYS
+      doubles' initial values stood for a fresh vendor object unmeasured** — `scripts/record-nwl-live.py` (own CODESYS)
+      made every object the writer constructs through the bridge's own `NwlInterop.New` and recorded its archive
+      (`nwl-corpus/live.codesys.xml`); measured: a fresh operand archives `""` for BOTH `Address` and `SymbolComment` (the
+      hypothesis that it archives the sentinel is refuted — the Address ledger 27/7/181 stands), and
+      `The_doubles_start_as_a_fresh_vendor_object` holds every double to it (except the 4 members the writer always
+      sets, named). The written doubles are now laid over the fresh objects, so every member the writer never sets is
+      judged against the vendor's fresh value: the ledger is **49 known divergences over 31 members** (was 69 / 38) — the
+      R rows read "changed" against `Id` -1, `CallType` None, `Boolean` false, `Fixed` false (no longer "not written"),
+      and 20 entries are gone because the fresh value IS what every compared network stores (`Operand.Comment` "",
+      `Flags.Extensible`, `ContainsExtensibleInputs`, `InputFlags` null, `Network.ILActive`/`ILValid`/`FBDValid`,
+      `Flags.Fixed` on assign items, instances and box outputs, `Boolean` on instances and box outputs). (3) **A
+      non-string archived `SymbolComment` was read as no comment** — now refused UNREADABLE by name
+      (`CodesysNetworkReaderTests.A_symbol_comment_archived_as_anything_but_a_string_is_refused_by_name`, red first;
+      WireVocabulary census +1, `CodesysNetworkReader.cs`). (4) **No live witness of the N27 reader fix** — the same live
+      run loaded the SHIPPED reader from the built bridge DLL into CODESYS and read pro2193 `SetAlarm` #0: all ten stored
+      comments, through `NwlInterop`'s reflection over the real `_3S.CoDeSys.NWLObject.Operand`, and the shipped
+      `RefuseSymbolCommentLoss` refused that model (`The_shipped_reader_reads_the_stored_symbol_comments_live`; DIALECT
+      N27). Not done: a live PULL of a symbol comment — the only corpus network holding one is S1-refused text, so its
+      e2e witness follows S1 in 2.3. (5) **The TwinCAT archive copies were untied** —
+      `The_archives_are_the_fixtures_and_the_corpus_is_their_pull` holds each `.TcPOU` byte for byte to the one fixture
+      file of its name and the corpus file's body to the text the shipped pull writes from that archive.
+      Gate: typecheck clean (5 packages); `Volt.Engine.Tests` 2533 pass / 1 skip, `Volt.Ide.Codesys.Tests` 422 pass
+      (+16 since gate 1b-2: the 1b.3 oracle and harness, the reader tests), `Volt.Ide.Twincat.Tests`
+      512 (+8, the oracle), `Volt.Repo.Gates` 243, `Volt.Cli.Tests` 295, `Volt.Contracts.Tests` 37, `Volt.Connector.Tests`
+      148, volt-cli `test/unit` 150 (all 0 fail); LSP full suite with `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset: 10616
+      tests, 10154 pass, 34 skip, 428 todo, 0 fail (679 s). Fixture map unchanged (no fixture or transpiler change).
 - [ ] 1b.4 **S4 and every shape no push can build: shown always, refused per NETWORK, never per body** (owner 2026-10-12,
       "it sounds like we should improve this"). (a) Pull spells a call box whose main output is not slot 0 with the output
       named from the box's own stored `OutputParam.Names` — `xFirstErrorBit := fbFirstErrCapture(…).xErrorActive;` — so no

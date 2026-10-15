@@ -572,8 +572,14 @@ public sealed partial class BeckhoffDriver
         // scratch POU has its own id space, and the network's real position is the slot it is spliced back
         // into, not anything the rebuild needs to know.
         var one = new NetworkBody(language, new[] { network with { Order = 0 } });
-        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd");
+        return Spliceable(_om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd"), network);
+    }
 
+    /// <summary>The one network an import of <paramref name="network"/> alone built, ready to splice in — the half of
+    /// <see cref="RebuildNetwork"/> after the IDE answered (internal: the NWL completeness oracle runs it over the
+    /// recorded imports, openspec ld-fbd-coverage gate 1b-3).</summary>
+    internal static XElement Spliceable(string body, Network network)
+    {
         var impl = TcArchive.Root(body)
             ?? throw new InvalidOperationException(
                    $"TwinCAT: rebuilding network {network.Order + 1} produced no archive.");
@@ -606,7 +612,7 @@ public sealed partial class BeckhoffDriver
     /// carries DETAIL the import cannot express — a negated contact, a SET coil, a network title, a disabled
     /// network — that detail would be lost, so the push fails instead of reporting success over a body missing
     /// the very thing the engineer wrote.</para></summary>
-    private static string Stamp(string built, NetworkBody model, NetworkScope scope)
+    internal static string Stamp(string built, NetworkBody model, NetworkScope scope)
     {
         try
         {

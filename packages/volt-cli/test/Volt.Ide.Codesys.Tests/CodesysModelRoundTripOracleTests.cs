@@ -41,7 +41,7 @@ public class CodesysModelRoundTripOracleTests
     }
 
     static Nwl.Operand Target(string text, Nwl.Flags? flags = null, string symbolComment = "") =>
-        new() { OperandExpr = text, IsLValue = true, SymbolComment = symbolComment, Flags = flags ?? new Nwl.Flags() };
+        new() { OperandExpr = text, IsLValue = true, StoredSymbolComment = symbolComment, Flags = flags ?? new Nwl.Flags() };
 
     static Nwl.NWLImplementationObject Body(Nwl.Network net)
     {
@@ -110,12 +110,17 @@ public class CodesysModelRoundTripOracleTests
             Net("Reader.A_network_title_beginning_with_the_sentinel_prefix_survives/" + title,
                 new Nwl.Network { Title = title, Comment = title, Label = title }.With(Coil(null, new Nwl.Operand { OperandExpr = "out" })));
         Net("Reader.An_operands_symbol_comment_sentinel_is_still_dropped",
-            new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", SymbolComment = "Constant_SymbolComment_Serialization_Value" })));
+            new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", StoredSymbolComment = "Constant_SymbolComment_Serialization_Value" })));
         foreach (var comment in new[] { "Constant_Torque", "Constant_Speed_Setpoint", "Constant_", "Constant_Serialization_Value_but_not_really" })
             Net("Reader.An_operand_comment_that_only_LOOKS_like_the_sentinel_survives/" + comment,
-                new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", SymbolComment = comment })));
+                new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", StoredSymbolComment = comment })));
+        Net("Reader.A_symbol_comment_is_read_from_the_archive_where_the_vendor_property_answers_the_sentinel",
+            new Nwl.Network().With(Coil(null, new Nwl.Operand
+            {
+                OperandExpr = "SetAlarm", SymbolComment = "Constant_SymbolComment_Serialization_Value", StoredSymbolComment = " Alarm is active.",
+            })));
         Net("Reader.An_unmeasured_third_sentinel_is_still_dropped",
-            new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", SymbolComment = "Constant_SomeNewMember_Serialization_Value" })));
+            new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out", StoredSymbolComment = "Constant_SomeNewMember_Serialization_Value" })));
         Net("Reader.A_set_coil_keeps_its_storage_on_the_target",
             new Nwl.Network().With(Coil(Leaf("a"), Target("out", new Nwl.Flags { Set = true }))));
         Net("Reader.A_reset_coil_reads_as_a_reset_and_not_as_a_negated_set",
@@ -296,6 +301,7 @@ public class CodesysModelRoundTripOracleTests
         ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
         ["An_execute_box_whose_snippet_has_no_document_throws"] = "refused by the reader",
+        ["A_symbol_comment_archived_as_anything_but_a_string_is_refused_by_name"] = "refused by the reader: an archived SymbolComment that is not text",
     };
 
     /// <summary>THE TRANSCRIPTION IS COMPLETE. The doubles above are copied by hand, because a double built inside
@@ -331,8 +337,10 @@ public class CodesysModelRoundTripOracleTests
             // refusals are the pin-flag doubles the reader reads since task 4.1: the text has no spelling for a flag on a
             // box input pin (phase-1 decision), so the pull names it rather than write the pin without it. Four more
             // round-trip since the reader takes a Volt-built box's slot from the measured compiler reading (N21); the
-            // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name.
-            bodies: 38, networks: 38, refused: new Dictionary<string, int>
+            // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name. The 39th
+            // is the symbol comment read from the archive (ld-fbd-coverage 1b.3): the model's operand equality does not
+            // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss).
+            bodies: 39, networks: 39, refused: new Dictionary<string, int>
             {
                 ["a flag on a box input pin"] = 3,
                 ["a consumed box with no stored connection slot"] = 1,

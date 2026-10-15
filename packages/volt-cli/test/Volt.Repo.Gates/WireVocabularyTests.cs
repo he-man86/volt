@@ -117,6 +117,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 5),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
+            ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 5),   // +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null

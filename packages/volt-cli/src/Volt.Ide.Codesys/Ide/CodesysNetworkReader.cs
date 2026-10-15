@@ -402,14 +402,33 @@ namespace Volt.Ide.Codesys
                        "complete and would not be. Edit this POU in the IDE.");
         }
 
+        // THE SYMBOL COMMENT COMES FROM THE ARCHIVE, not the `SymbolComment` property: SP21's `IOperand.SymbolComment`
+        // answers `Constant_SymbolComment_Serialization_Value` on EVERY operand — recorded over the five CODESYS corpora
+        // (openspec ld-fbd-coverage 1b.3, `scripts/record-nwl-corpus.py`: 5,293 operands, the ten of pro2193 `SetAlarm`
+        // that store a comment included) — while `GetSerializableValue("SymbolComment")` answers the stored comment. Read
+        // through the property, no CODESYS pull ever held one, so the refusal that keeps a rebuild from erasing it
+        // (`NetworkText.RefuseSymbolCommentLoss`) could not fire, and TwinCAT, which reads its archive, did hold it (DIALECT N27).
         private static Operand ReadOperand(object o) =>
             new Operand(
                 NwlInterop.Text(o, "OperandExpr") ?? "",
                 Clean(NwlInterop.Text(o, "Type")),
-                CleanOperandField(NwlInterop.Text(o, "SymbolComment")),
+                CleanOperandField(StoredSymbolComment(o)),
                 NwlInterop.Flag(o, "IsInstance"),
                 NwlInterop.Flag(o, "IsLValue"),
                 ReadFlags(NwlInterop.Get(o, "Flags")));
+
+        /// <summary>The comment the operand's archive stores: a string, or null. Any other answer is refused BY NAME
+        /// (gate 1b-3): read as "no comment" it would let <c>NetworkText.RefuseSymbolCommentLoss</c> pass a rebuild that
+        /// erases the stored comment — the loss DIALECT N27 closed.</summary>
+        private static string? StoredSymbolComment(object o) =>
+            NwlInterop.Call(o, "GetSerializableValue", "SymbolComment") switch
+            {
+                null => null,
+                string s => s,
+                var other => throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unreadable,
+                    $"CODESYS: an operand's archived SymbolComment is a '{other.GetType().FullName}', not text — Volt " +
+                    "cannot read the comment it stores, and would erase it on a push. Refused rather than read as none."),
+            };
 
         /// <summary>A box's OUTPUT PINS — the ones actually wired to something.
         ///

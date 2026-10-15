@@ -96,7 +96,7 @@ public class CodesysNetworkWriterGateTests
     {
         var live = LiveAndRung();
         var b = ((Nwl.BoxTreeOperand)((Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)live.GetTree(0)!).RValue!).InputItemList[1]).Operand!;
-        b.SymbolComment = " Condition to set the alarm.";
+        b.StoredSymbolComment = " Condition to set the alarm.";
         var edited = Rename(CodesysNetworkReader.ReadNetwork(live, 0), "a", "c");
 
         var ex = Assert.IsType<NetworkTextException>(Push(live, edited));
@@ -105,7 +105,7 @@ public class CodesysNetworkWriterGateTests
         Assert.Contains("network 1", ex.Message);
         Assert.Contains("'b'", ex.Message);
         Assert.Empty(live.Calls);
-        Assert.Equal(" Condition to set the alarm.", b.SymbolComment);
+        Assert.Equal(" Condition to set the alarm.", b.StoredSymbolComment);
     }
 
     /// <summary>…and pushed back unchanged it is not rebuilt, so nothing is refused: the refusal is for a rebuild only.</summary>
@@ -114,7 +114,7 @@ public class CodesysNetworkWriterGateTests
     {
         var live = LiveAndRung();
         var b = ((Nwl.BoxTreeOperand)((Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)live.GetTree(0)!).RValue!).InputItemList[1]).Operand!;
-        b.SymbolComment = " Condition to set the alarm.";
+        b.StoredSymbolComment = " Condition to set the alarm.";
 
         Assert.Null(Push(live, CodesysNetworkReader.ReadNetwork(live, 0)));
         Assert.Empty(live.Calls);

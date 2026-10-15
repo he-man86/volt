@@ -79,6 +79,13 @@ public class NoTestOnlyCodeInSrcTests
                           "apart from the SET's identical one (openspec codesys-diagnostic-child-names) - could not be " +
                           "exercised at all. Its production caller is GetBuildDiagnostics, in the same file",
 
+        ["Spliceable"] = "the half of a TwinCAT network REBUILD after the IDE's import answered, split out for the same " +
+                         "reason as ChooseBridgePipe: the NWL completeness oracle (openspec ld-fbd-coverage gate 1b-3) " +
+                         "runs it over RECORDED imports, which no offline machine can make. Its production caller is " +
+                         "RebuildNetwork, in the same file",
+        ["Adopted"] = "the half of a TwinCAT graphical IMPORT after the IDE answered (the empty-body check, the view), " +
+                      "split out with Spliceable for the same oracle. Its production caller is ResolveGraphicalBody, in " +
+                      "the same file",
         // Deliberate reference implementations. `FastImport_tree_matches_hash_object_plus_BuildTree` asserts the
         // fast-import path produces a byte-identical tree SHA to plumbing git — so these exist to be the OTHER
         // answer in a differential test, and a differential test with one implementation is not one.

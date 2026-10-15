@@ -84,60 +84,6 @@ public class ModelRoundTripOracleTests
 
     // ── harvesting ──────────────────────────────────────────────────────────────────────────────────
 
-    static DirectoryInfo CliRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not locate Volt.sln above the test assembly");
-        return dir!;
-    }
-
-    /// <summary>One corpus project's items by bare name (the file's stem), each declaration read the first time it is
-    /// asked for — the corpus stand-in for a driver's <see cref="ProjectDeclarations"/>, whose first item of a name
-    /// wins as here (path order). The corpus IS each project's pulled workspace, so its files are the declarations
-    /// the pull wrote every body against.</summary>
-    sealed class CorpusProject
-    {
-        readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
-        readonly Dictionary<string, string?> _declarations = new(StringComparer.OrdinalIgnoreCase);
-        List<string>? _globals;
-
-        public CorpusProject(IEnumerable<string> files)
-        {
-            foreach (var f in files.OrderBy(f => f, StringComparer.Ordinal))
-                if (!InLibrary(f) && KindOf(f) is ItemKind.Kinds.Pou or ItemKind.Kinds.Pou or ItemKind.Kinds.Pou
-                    or ItemKind.Kinds.Interface or ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
-                    _files.TryAdd(Path.GetFileNameWithoutExtension(f), f);
-        }
-
-        public string? DeclarationOf(string name)
-        {
-            if (_declarations.TryGetValue(name, out var hit)) return hit;
-            var declaration = _files.TryGetValue(name, out var f) ? Split(f).Declaration : null;
-            return _declarations[name] = string.IsNullOrWhiteSpace(declaration) ? null : declaration;
-        }
-
-        /// <summary>The wire kind of the project's item of that name — its file's extension, as a push's wire name
-        /// states it — or null when the project holds none.</summary>
-        public string? KindOfName(string name) => _files.TryGetValue(name, out var f) ? KindOf(f) : null;
-
-        public IEnumerable<string> Globals() =>
-            _globals ??= _files.Where(kv => KindOf(kv.Value) == ItemKind.Kinds.Gvl)
-                .Select(kv => DeclarationOf(kv.Key) ?? "").ToList();
-    }
-
-    /// <summary>Whether the file materializes a LIBRARY's item. The IDE's walk (<see cref="ItemLookup.All"/>) stops at
-    /// the library manager — it is a top-level item itself — so a library's POUs are no declaration a driver's
-    /// <see cref="ProjectDeclarations"/> answers; and they are written without an implementation marker, so the ST
-    /// reader could not split one anyway. CODESYS materializes them under <c>Library Manager/</c>, TwinCAT under
-    /// <c>References/</c>.</summary>
-    static bool InLibrary(string file) =>
-        file.Replace('\\', '/').Split('/').Any(s => s is "Library Manager" or "References");
-
-    static string? KindOf(string file) => ItemKind.KindForWireName(Path.GetFileName(file));
-
-    static ItemContent Split(string file) => StReader.Read(File.ReadAllText(file), KindOf(file));
-
     // Only a file with an IMPLEMENTATION LD|FBD LINE holds network text; checked before splitting, so the ~30k corpus items that
     // hold none are never parsed.
     static readonly Regex V2Marker = new(@"(?mi)^\s*IMPLEMENTATION[ \t]+(FBD|LD)\s*$", RegexOptions.Compiled);
@@ -148,8 +94,7 @@ public class ModelRoundTripOracleTests
     /// and is reported, never skipped.</summary>
     static (Dictionary<string, (NetworkBody, NetworkScope)>, List<string>) HarvestCorpus()
     {
-        var corpus = Path.GetFullPath(Path.Combine(CliRoot().FullName, "..", "volt-lsp-iec", "test-corpus"));
-        Assert.True(Directory.Exists(corpus), "missing LSP corpus at " + corpus);
+        var corpus = CorpusProjects.CorpusRoot();
         var read = new Dictionary<string, (NetworkBody, NetworkScope)>(StringComparer.Ordinal);
         var unreadable = new List<string>();
         foreach (var root in Directory.EnumerateDirectories(corpus).OrderBy(d => d, StringComparer.Ordinal))
@@ -159,17 +104,16 @@ public class ModelRoundTripOracleTests
             var project = new CorpusProject(files);
             foreach (var file in files)
             {
-                if (KindOf(file) is not (ItemKind.Kinds.Pou or ItemKind.Kinds.Pou or ItemKind.Kinds.Pou))
+                if (CorpusProjects.KindOf(file) is not ItemKind.Kinds.Pou)
                     continue;
                 if (!V2Marker.IsMatch(File.ReadAllText(file))) continue;
                 var rel = Path.GetRelativePath(corpus, file).Replace('\\', '/');
                 var n = 0;
-                foreach (var (body, declaration) in SourceScopes.BodiesOf(Split(file)))
+                foreach (var (body, declaration) in SourceScopes.BodiesOf(CorpusProjects.Split(file)))
                 {
                     if (body is null || !NetworkText.Is(body)) continue;
                     var id = $"{rel}#{n++}";
-                    var scope = NetworkScope.FromDeclarations(declaration, project.DeclarationOf, project.Globals,
-                                                              project.KindOfName, Scopes.RefusedPouName);
+                    var scope = project.Scope(declaration);
                     var result = NetworkTextReader.Read(body, scope);
                     // Kept with the body: the oracle writes it back against the declarations it was read with.
                     if (result.Ok) read[id] = (result.Body!, scope);

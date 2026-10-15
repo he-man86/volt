@@ -669,17 +669,7 @@ internal sealed partial class TcObjectModel
                        "TwinCAT: the PLCopen import produced no POU. The document was accepted and nothing was " +
                        "built from it, so the push is failed rather than reported as applied.");
 
-            var archive = ReadImplementation(scratch);
-
-            // VERIFY BEFORE ADOPTING. The failure mode here is silence, not an exception: a document the
-            // importer does not understand yields an EMPTY body, which would then be written over the item and
-            // read back as "the engineer drew nothing".
-            if (TcArchive.HasNoItems(TcArchive.Root(archive)))
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    "TwinCAT: the PLCopen import produced an empty body. The document was accepted but nothing " +
-                    "was built from it, so the push is failed rather than reported as applied.");
-
-            return TcArchive.WithViewMode(archive, viewMode) ?? archive;
+            return Adopted(ReadImplementation(scratch), viewMode);
         }
         finally
         {
@@ -688,6 +678,22 @@ internal sealed partial class TcObjectModel
             try { DeleteChild(PlcRoot(), name); } catch { /* never created, or already gone */ }
             try { System.IO.File.Delete(file); } catch { /* a temp file we could not remove is not a failure */ }
         }
+    }
+
+    /// <summary>The body an import answered, adopted — the half of <see cref="ResolveGraphicalBody"/> after the IDE built
+    /// it (internal: the NWL completeness oracle runs it over the recorded imports, openspec ld-fbd-coverage gate 1b-3).
+    ///
+    /// <para>VERIFY BEFORE ADOPTING. The failure mode here is silence, not an exception: a document the importer does
+    /// not understand yields an EMPTY body, which would then be written over the item and read back as "the engineer
+    /// drew nothing".</para></summary>
+    internal static string Adopted(string archive, string viewMode)
+    {
+        if (TcArchive.HasNoItems(TcArchive.Root(archive)))
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                "TwinCAT: the PLCopen import produced an empty body. The document was accepted but nothing " +
+                "was built from it, so the push is failed rather than reported as applied.");
+
+        return TcArchive.WithViewMode(archive, viewMode) ?? archive;
     }
 
     /// <summary>The HRESULT TwinCAT returns for a tree path that does not exist — <c>Item 'x' not found</c>.
