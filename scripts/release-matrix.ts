@@ -132,11 +132,24 @@ async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<bo
 	if (action === "up") {
 		if (cell.vendor === "codesys") args.push("-CodesysVersion", cell.version!, "-CodesysBitness", String(cell.bits), "-Fixture", join(FIXTURES, cell.fixture!))
 		else args.push("-Fixture", "14", "-XaeBitness", String(cell.bits))
-		args.push("-Wait")
+		args.push("-Wait", "-NoBuild")   // built once, before the pool (buildBridges): cells at once share one bin\
 	}
 	const r = await run("powershell", args, { timeout: action === "up" ? 20 * 60_000 : 10 * 60_000 })
 	log.push(`── ide.ps1 ${action} (exit ${r.status})`, r.text)
 	return r.status === 0
+}
+
+/** The bridges every cell serves, built ONCE before the cells start: each `ide.ps1 up` used to rebuild them into the
+ *  same bin\, and three cells starting together failed on each other's locked output (MSB3231). Same dotnet and
+ *  build line as ide.ps1's Build-Bridge. */
+function buildBridges(cells: Cell[]): void {
+	const projects = { codesys: "Volt.Ide.Codesys", twincat: "Volt.Ide.Twincat" }
+	for (const vendor of new Set(cells.filter((c) => !c.refusal).map((c) => c.vendor))) {
+		const proj = join(CLI, "src", projects[vendor], `${projects[vendor]}.csproj`)
+		console.log(`building ${projects[vendor]} (Release) ...`)
+		const r = spawnSync("C:\\Program Files\\dotnet\\dotnet.exe", ["build", proj, "-c", "Release", "--nologo", "-v", "quiet"], { encoding: "utf8" })
+		if (r.status !== 0) { console.error(`✗ ${projects[vendor]} build failed - no cell can run:\n${r.stdout ?? ""}${r.stderr ?? ""}`); process.exit(1) }
+	}
 }
 
 async function runCell(cell: Cell, tests: string): Promise<Verdict> {
@@ -200,6 +213,7 @@ if (import.meta.main) {
 	mkdirSync(OUT, { recursive: true })
 	const jobs = Number(arg("--jobs") ?? 3)
 	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
+	buildBridges(cells)
 	// A pool of `jobs` workers over the cell list; verdicts keep the cells' order for the matrix.
 	const verdicts: Verdict[] = new Array(cells.length)
 	let next = 0
