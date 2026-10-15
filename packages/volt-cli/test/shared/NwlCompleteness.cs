@@ -61,7 +61,14 @@ public static class NwlDisposition
         new(c, m, code, text, row, atDefault);
 
     const string Id = "Id";
-    const string IdText = "minted per body, unique among NWL items (0 duplicates in 46 bodies)";
+    // A measured cache since 2.2 (vendor-facts nwl-item-id, DIALECT N29): both IDEs mint every Id themselves — CODESYS on
+    // the push's commit and again on load (it renumbers a body's Ids on every commit, N28), TwinCAT in the import — so a
+    // stored Id survives no rebuild on either vendor and the text never spells one (design 1b.4 rejects an id in the text).
+    // Its VALUE is a cache; its UNIQUENESS is not: every body the corpora hold has each Id once (0 duplicates in 46
+    // bodies), and TwinCAT keeps a stored Id across save and reopen (N28), so a push must not write one twice — the
+    // TwinCAT splice mints the rebuilt network's above the body's (TcNetworkWriter.Splice), and the TwinCAT oracle's
+    // Every_body_a_push_writes_holds_each_id_once checks it (gate 2-2).
+    const string IdText = "an IDE allocator: minted per body by the IDE (CODESYS on commit and load, TwinCAT in the import), vendor-facts nwl-item-id; unique among a body's NWL items (0 duplicates in 46 bodies), which a push keeps";
 
     public static readonly IReadOnlyList<NwlRule> Rules = new[]
     {
@@ -81,12 +88,12 @@ public static class NwlDisposition
         R("Network", "ILActive", NwlCode.D, "false; else pragma on the NETWORK line"),
         R("Network", "ILValid", NwlCode.D, "false; else pragma"),
         R("Network", "FBDValid", NwlCode.D, "false; else pragma"),
-        R("Network", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("Network", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeAssign", "OutputItems", NwlCode.S, "the targets t1 := t2 := … value"),
         R("BoxTreeAssign", "RValue", NwlCode.S, "the value"),
         R("BoxTreeAssign", "Flags", NwlCode.R, "the item's own Jump/Return bit, derivation 0; a stored bit {Flags := Jump|Return} before the ;", "nwl-assign-item-flags"),
-        R("BoxTreeAssign", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeAssign", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeBox", "BoxType", NwlCode.S, "a function/operator's callee name (S); an FB/program call's is the instance's declared type (D, 1b.3), {BoxType := '…'} where it differs"),
         R("BoxTreeBox", "Instance", NwlCode.S, "the instance in fb(…); its null operand on a function/operator is D"),
@@ -103,23 +110,23 @@ public static class NwlDisposition
         R("BoxTreeBox", "ContainsExtensibleInputs", NwlCode.D, "false; else pragma"),
         R("BoxTreeBox", "ProvidesSTSnippet", NwlCode.D, "true exactly when STSnippet is set"),
         R("BoxTreeBox", "api.MainOutputIndex", NwlCode.Api, "not archived: the slot a consumer reads (DIALECT N16), read-only on a built box (N21)"),
-        R("BoxTreeBox", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeBox", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeOperand", "Operand", NwlCode.S, "the operand"),
-        R("BoxTreeOperand", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeOperand", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeDemux", "VarId", NwlCode.S, "g<VarId>; a renamed wire {VarId := n}"),
         R("BoxTreeDemux", "Input", NwlCode.S, "g<n> := value; defines the wire, g<n> uses it"),
-        R("BoxTreeDemux", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeDemux", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeParallel", "Trees", NwlCode.S, "PARALLEL(b1, b2, …)"),
         R("BoxTreeParallel", "Input", NwlCode.S, "IN := v"),
         R("BoxTreeParallel", "Mode", NwlCode.S, "MODE := Sequential (BoxShortCircuit is not written)"),
-        R("BoxTreeParallel", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeParallel", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeTerminator", "Input", NwlCode.X, "X if non-null (task 1.10)", atDefault: Null),
         R("BoxTreeTerminator", "Flags", NwlCode.X, "X if non-zero", atDefault: ZeroFlags),
-        R("BoxTreeTerminator", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("BoxTreeTerminator", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("BoxTreeMux", "VarId", NwlCode.X, "X (the node)", atDefault: Never),
         R("BoxTreeMux", "InputIndex", NwlCode.X, "X (the node)", atDefault: Never),
@@ -133,19 +140,19 @@ public static class NwlDisposition
         R("ILStatement", Id, NwlCode.X, "X (the node)", atDefault: Never),
 
         R("STSnippet", "STSnippet", NwlCode.S, "the EXECUTE body text (the document itself)"),
-        R("STSnippet", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("STSnippet", Id, NwlCode.C, IdText, "nwl-item-id"),
         // The snippet's document — outside the 15 NWL classes, and its archive differs by vendor (census 1b.1).
         R("STImplementationObject", "TextDocument", NwlCode.S, "the EXECUTE body text"),
         R("TextDocument", "LineInfoPersistence", NwlCode.C, "CODESYS: an editor cache (bridge-one-to-one editor-caches)", "editor-caches"),
         R("TextDocument", "TextBlobForSerialisation", NwlCode.C, "CODESYS: an editor cache (bridge-one-to-one text-blob-serialisation)", "text-blob-serialisation"),
         R("TextDocument", "api.Text", NwlCode.S, "CODESYS: the EXECUTE body text (the archive holds it only as the two caches)"),
-        R("TextDocument", "api.Lines", NwlCode.R, "CODESYS: the per-line Id/Tag (the text is api.Text)", "nwl-stsnippet-line-ids"),
-        R("Line", "Id", NwlCode.R, "CODESYS: consecutive, the last = the snippet's own Id", "nwl-stsnippet-line-ids"),
-        R("Line", "Tag", NwlCode.R, "CODESYS: null ×56", "nwl-stsnippet-line-ids"),
+        R("TextDocument", "api.Lines", NwlCode.C, "CODESYS: the per-line Id/Tag, minted by the IDE on load (-1 before; vendor-facts nwl-stsnippet-line-ids)", "nwl-stsnippet-line-ids"),
+        R("Line", "Id", NwlCode.C, "CODESYS: minted by the IDE on load (-1 before), an allocator like the item Id", "nwl-stsnippet-line-ids"),
+        R("Line", "Tag", NwlCode.C, "CODESYS: null ×56, and null on a pushed snippet before and after load", "nwl-stsnippet-line-ids"),
         R("TextDocument", "TextLines", NwlCode.S, "TwinCAT: the EXECUTE body text, one entry per line"),
         R("TextLine", "Text", NwlCode.S, "TwinCAT: one line of the EXECUTE body text"),
-        R("TextLine", "Id", NwlCode.R, "TwinCAT: minted", "nwl-stsnippet-line-ids"),
-        R("TextLine", "Tag", NwlCode.R, "TwinCAT: null ×2", "nwl-stsnippet-line-ids"),
+        R("TextLine", "Id", NwlCode.C, "TwinCAT: minted, an allocator like the item Id", "nwl-stsnippet-line-ids"),
+        R("TextLine", "Tag", NwlCode.C, "TwinCAT: null ×2, beside the minted line Id", "nwl-stsnippet-line-ids"),
 
         R("Operand", "Operand", NwlCode.S, "the name / literal / expression; \"\" an unconnected pin; null on a function/operator instance D"),
         R("Operand", "Type", NwlCode.R, "on a wire its VAR_TEMP type (S); elsewhere the declared type; Instance.Type R nwl-instance-type", "nwl-operand-type"),
@@ -156,7 +163,7 @@ public static class NwlDisposition
         R("Operand", "LValue", NwlCode.D, "true exactly for an assign target or a box output slot"),
         R("Operand", "Boolean", NwlCode.R, "not derivable from Type = BOOL (they differ on 342)", "nwl-operand-boolean"),
         R("Operand", "IsInstance", NwlCode.D, "true exactly for the box's Instance"),
-        R("Operand", Id, NwlCode.R, IdText, "nwl-item-id"),
+        R("Operand", Id, NwlCode.C, IdText, "nwl-item-id"),
 
         R("Flags", "Flags", NwlCode.S, "NOT, S=, R=, JMP, RETURN, R_EDGE, F_EDGE; a negated pin S+ (S6); X: an edge on a pin, Rtrig+Ftrig, a flag on a Parallel/Demux"),
         R("Flags", "Fixed", NwlCode.R, "no derivation by position", "nwl-flags-fixed"),

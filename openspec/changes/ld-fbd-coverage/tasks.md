@@ -477,7 +477,7 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       leaves `map.generated.ts` unchanged (edge agree 3399, disagree 0, not-run 227); LSP full suite (VOLT_REQUIRE_FULL=1,
       VOLT_FIXTURES unset) 10159 pass, 34 skip, 428 todo, 0 fail over 370 files (10621 tests) — identical to gate 1b-4's
       10159/34/428 over 363 files, the +7 files being the split's test files. No C# change, so the C# suites stand at 1b-4.
-- [ ] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
+- [x] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
       S1's outcome), `nwl-leaf-wire-type` (decides S3a, owner amendment a), `nwl-nested-assign`, `nwl-rail-fed-wire`,
       `nwl-input-pin-flag`, `nwl-super-call`; and the 1b.2 cache-candidate rows (design.md "1b.2", code R):
       `nwl-item-id`, `nwl-branch-counter`, `nwl-flags-fixed`, `nwl-operand-boolean`, `nwl-operand-type`,
@@ -487,6 +487,71 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       drivers' rebuild paths log one `BridgeLog.Warn` per rebuilt network naming each R candidate it resets and its count
       of stored non-default values; then the loss-candidate rows FIRST (`nwl-flags-fixed`, `nwl-operand-boolean`,
       `nwl-address-sentinel`, `nwl-branch-counter`, `nwl-item-id`), each leaving the warning as it lands.
+      **Done 2026-10-15** (design.md "2.2"; DIALECT N29–N36). **The warning first, test-first:** `RebuildLoss` (engine, the
+      one rule) + `CodesysNetworkWriter.WriteNetwork` (a changed network, before its items go) and `TcNetworkWriter.Apply`
+      (an import rebuild, before the element is replaced) — red then green: `RebuildLossTests` (3), `CodesysRebuildLossTests`
+      (2), `TcRebuildLossTests` (2); `Id` left it when its row landed (C), `Fixed`/`Boolean`/the `Address` sentinel stay
+      until 2.3 spells them; the NWL doubles gained `Fixed`, `Boolean`, `Id` and the archived `Address`. **The rows:** 20
+      `vendor-facts` rows, each run live on BOTH vendors (own instance `ld-fbd-coverage`, CODESYS SP21 Patch 4 on
+      CodesysTestProject / a Pro2193 copy, TcXaeShell 15.0 on Project14), loss candidates first in the table, through one
+      new read `nwl` (the body flattened from the vendor's own archive, one notation on both vendors; runner `nwlView`,
+      self-check `test/unit/vendor-facts.test.ts` +4). Snapshots: +20 facts per vendor, every committed fact unchanged.
+      **Numbers:** of the 14 R rows, 2 become C (`nwl-item-id`, `nwl-stsnippet-line-ids`: IDE allocators), 11 stay R → the
+      pragma in 2.3 (not re-derived by a build or a reopen on either vendor), 1 cannot be asked of today's writer
+      (`nwl-assign-item-flags`: CODESYS's push writes the item bit itself; re-run in 2.3). Shape rows: S1 build-equal
+      (drawn stored form and pushed plain form both clean), execution unmeasured → **back to the owner** (design 1.1);
+      S3a no type stored on a pushed leaf, the IDE-drawn leaf holds its declared type → 1.1's rule stands; S3b `g := ;`
+      builds the vendor's terminator-fed wire on both vendors, clean; S2/S5/S6 refused by today's reader on both vendors,
+      no committed IDE witness → measured by 2.3's per-shape fixtures (rows re-run then). Completeness ledgers: CODESYS
+      49 → 36 known divergences (13 `Id` / `api.Lines` entries gone with C), TwinCAT rebuild 22 → 14 (8 `Id`). **Found,
+      not closed:** TwinCAT's build of the pushed calls program fails (PLC_PRG: `VltF_RC` not defined) where CODESYS builds
+      it clean — candidate: the program call imported as `CallType Function`; 2.3's call-type spelling. **Not done:** the
+      `text-blob-serialisation` row the CODESYS ledger cites (bridge-one-to-one's, not in this task's list). Tests: Engine
+      2580 pass / 1 skip, CODESYS 436, TwinCAT 520, Repo.Gates 243, Cli 295, volt-cli unit 154 — 0 fail. No LSP or
+      fixture change (the fixture map is not regenerated).
+      **Gate 2-2 (2026-10-15): the seven review findings, each fixed test-first or pinned.**
+      (1) **The item `Id` (high).** C stands for its VALUE (an IDE allocator), not its uniqueness: a TwinCAT rebuild
+      spliced the one-network import (scratch POU ids 2..N) unrenumbered, repeating Ids of the kept networks. Red first:
+      the TwinCAT completeness oracle's new `Every_body_a_push_writes_holds_each_id_once` (with the old
+      `ReplaceWith` splice: POUexecute's rebuilt networks 1 and 3 each held 10 and 11 twice, ladderLabel's 5). Fix:
+      `TcNetworkWriter.Splice` (rebuild) and the insertion mint the spliced network's Ids above the body's, value for
+      value; the oracle splices through it; `TcRebuildLossTests.A_rebuilt_network_is_spliced_with_ids_no_other_network_holds`.
+      The `IdText` invariant ("unique among a body's NWL items, 0 duplicates in 46 bodies") is back, DIALECT N29 and design
+      say so. Whether XAE tolerates a duplicate stays unmeasured — it no longer gets one.
+      (2) **`RebuildLoss` (medium).** It judged "non-default" by one vendor-neutral test; it now diffs what the live network
+      held against what the rebuild BUILT, per member AND owner (an operand's flag set is not an item's), value by value.
+      Both drivers read the network before and after (CODESYS after the items are rebuilt, TwinCAT after the import and
+      the stamp). Tests: engine `RebuildLossTests` 3 → 5 (a value given back is no loss, one changed is; another owner's
+      value does not stand in); `TcRebuildLossTests` 2 → 4 against the import's recorded answer (operand `Fixed` true,
+      item `Fixed` false): the operand `Fixed`s it gives back are not named, a stored `false` it turns `true` is;
+      `CodesysRebuildLossTests` 2 → 3 (a negated contact's `Fixed`, which the vendor sets with the negation — now the
+      double's `Flags.Negation` does too, vendor-facts `nwl-flags-fixed` — is not named).
+      (3) **TwinCAT's failed calls build (medium).** A failed build is no evidence: the five members read off `VltF_RC`
+      (`Instance.Type`, `ParamList.Types`, `EN`/`ENO`, `OutputParam.Names`, `CallType`) are "not filled by a build" on
+      CODESYS's measurement alone and stay R on it; the cause is unmeasured (the `Function` call type a candidate, no
+      longer stated as the cause) — design "2.2", DIALECT N30. Pinned as a known divergence (below).
+      (4) **S3a/S3b silent drops (medium).** Pinned, not refused: a refusal would also stop the very rows that measure
+      them (`nwl-leaf-wire-type`, `nwl-rail-fed-wire`), and 2.3 spells them next. `test/unit/vendor-facts.test.ts` "the
+      known divergences the 2.2 rows recorded" — four checks over the committed snapshots, each stating the divergence as
+      recorded and failing once a re-record closes it: TwinCAT does not build the calls program CODESYS builds clean; a
+      leaf-fed wire accepted on CODESYS pulls back UNSUPPORTED ×3; `g1 := ;` accepted on both pulls back UNSUPPORTED;
+      `g1 := TRUE;` round-trips on CODESYS and is refused on TwinCAT. DIALECT N30, N32, N33 name them.
+      (5) **TwinCAT `nwl` read without a save (low).** `NwlRead` now runs `File.SaveAll` first (as `ArchiveRead`), so
+      @built and @rebuilt observe the IDE after each build. Re-recorded live (own instance `ld-fbd-coverage`, TcXaeShell
+      15.0 / Project14), all 20 `nwl-*` rows: **0 differences** — every TwinCAT value was already the post-build one, so
+      the 2.2 claims stand, now measured.
+      (6) **German CODESYS facts (low).** This machine's Windows UI language (nl-NL) is one CODESYS does not ship, so it
+      wrote German (DIALECT V9). `ide.ps1 -CodesysCulture <name>` passes CODESYS's own `--culture` switch (opt-in; no
+      default changed for other runs), and the vendor-facts runner starts CODESYS with `-CodesysCulture en-US` (the
+      snapshot's language; `ide-identity.ui-culture` en-US, as committed). Re-recorded live (SP21 Patch 4,
+      CodesysTestProject copy) `nwl-nested-assign`, `nwl-input-pin-flag`, `ide-identity`: 4 facts back to English, every
+      other value as committed; 0 German strings left in `vendor-facts.codesys.json`.
+      (7) **The `text-blob-serialisation` ledger owner (low).** The CODESYS completeness ledger entry now names 2.3
+      (carried, not in 2.2's row list); 2.3 lists it below.
+      **Numbers:** Engine 2582 pass / 1 skip (+2), CODESYS 437 (+1), TwinCAT 523 (+3), Repo.Gates 243, Cli 295,
+      volt-cli unit 158 (+4) — 0 fail; typecheck clean, lint clean (warnings only, none new in a touched file's new code).
+      LSP full suite (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): 10159 pass, 34 skip, 428 todo, 0 fail over 370 files (10621 tests) — identical to gate 2-1. No LSP, fixture or transpiler change: the
+      fixture map is not regenerated. The CODESYS completeness ledger's counts did not move with the negation double.
 - [ ] 2.3 Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
       vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
       split structure of 2.1.
@@ -494,6 +559,11 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       reader map member ↔ text one to one; guesses such as the wire type from its uses (`EveryUseIsBoolean`), "slot 0 is
       the main output" and "a stored slot is inert" go wherever the member is now spelled. The count of such rules before
       and after is recorded under this task.
+      **Carried from 2.2 (gate 2-2):** the `text-blob-serialisation` vendor-facts row the CODESYS completeness ledger
+      cites; the four known divergences in `test/unit/vendor-facts.test.ts` ("the known divergences the 2.2 rows
+      recorded" — the TwinCAT calls build, the S3a leaf-fed and S3b terminator-fed silent drops, the `g1 := TRUE;` wire
+      divergence), each mark removed in the step whose re-record closes it; and the five calls-subject rows re-run on
+      TwinCAT once its build of the subject succeeds (until then their TwinCAT half is unmeasured).
 ## 3. Verify and close
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both

@@ -1035,6 +1035,27 @@ def _archive_object(o):
     return out
 
 
+# ---- the NWL body (openspec ld-fbd-coverage 2.2: the probe-table rows) ---------------------------------------------
+# The subject's graphical body as the vendor ARCHIVES it - `SerializableValueNames` / `GetSerializableValue` from the
+# NWLImplementationObject down, every network, item, operand, flag set and parameter list (the archive walk above, which
+# stops at a graphical implementation, and record-nwl-corpus.py's walk, as a read) - flattened to member paths
+# (`NetworkList[0].NetworkItems[1].RValue.Flags.Fixed`). The archive, not the API: the API answers the sentinel for an
+# operand's `Address` and `SymbolComment` whatever it stores (DIALECT N27). TwinCAT's core flattens its backing file's
+# `<XmlArchive>` into the same paths (N1: one model); the runner filters by `members` / `network`.
+_NWL_DEPTH = 64
+
+
+def _nwl(on):
+    impl = _eval("object.Implementation", on)
+    if impl is None or isinstance(impl, dict) or not _cls(impl).endswith("NWLImplementationObject"):
+        raise ProbeError("nwl: %s holds no NWL body (its Implementation is %s)" % (on, "none" if impl is None else
+                                                                                   (impl if isinstance(impl, dict) else _cls(impl))))
+    out = {}
+    for n in _snames(impl):
+        _flat(n, _sget(impl, n), out, _ARCHIVE_DEPTH - _NWL_DEPTH)
+    return out
+
+
 def _children(node):
     """(children, None), or (None, why) when the node's children cannot be listed - never [] for a failure."""
     try:
@@ -1122,6 +1143,8 @@ def _read(r):
     op, on = r["op"], r.get("on")
     if op == "archive":
         return _archive(on)
+    if op == "nwl":
+        return _nwl(on)
     if op == "objects":
         return _objects()
     if op == "member":

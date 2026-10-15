@@ -168,6 +168,11 @@ namespace Volt.Ide.Codesys
             foreach (var tree in model.Trees) RefuseUnbuildableEno(tree, consumed: false);
             // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
             NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.CodesysDisplay, live);
+            // What it resets without a refusal: the stored values of the members the text does not carry yet that the
+            // rebuilt items do not hold, named in one warning (ld-fbd-coverage 2.2, the interim loss window) — read before
+            // the items go and again once they are built, since the fresh value is the vendor's own (a negated contact's
+            // Fixed is set with the negation, N29). The network object stays, so its own Id does too.
+            var held = HeldByItems(net);
 
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
@@ -175,6 +180,9 @@ namespace Volt.Ide.Codesys
             var ctx = new BuildContext(net);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree, consumed: false));
+
+            if (RebuildLoss.Warning(Volt.Contracts.Vendors.CodesysDisplay, model.Order, held, HeldByItems(net)) is { } loss)
+                Volt.Engine.Ide.BridgeLog.Warn(loss);
         }
 
         /// <summary>Does the live network already hold exactly the logic being pushed?
@@ -247,6 +255,53 @@ namespace Volt.Ide.Codesys
         private static NotSupportedException Unbuildable(Box b, string why) =>
             new($"CODESYS: the '{b.Type}' box is {why}. Refusing rather than build a network whose consumer reads " +
                 "another output than the text says, or that does not compile. The IDE can edit this network.");
+
+        /// <summary>The stored values of the rebuild-loss candidates (<see cref="RebuildLoss"/>) every item of
+        /// <paramref name="net"/> holds, in its notation: each flag set's <c>Fixed</c>, each operand's <c>Boolean</c> and its
+        /// ARCHIVED <c>Address</c> — the API property answers the
+        /// sentinel on every operand (DIALECT N27). The walk follows the members the reader reads.</summary>
+        private static List<RebuildLoss.Held> HeldByItems(object net)
+        {
+            var held = new List<RebuildLoss.Held>();
+            void Item(object? o)
+            {
+                if (o is null) return;
+                if (NwlInterop.Get(o, "Flags") is { } flags)
+                    held.Add(new("Flags.Fixed", NwlInterop.TypeName(o), Bool(NwlInterop.Get(flags, "Fixed"))));
+                switch (NwlInterop.TypeName(o))
+                {
+                    case "BoxTreeOperand": Operand(NwlInterop.Get(o, "Operand")); break;
+                    case "BoxTreeAssign":
+                        foreach (var t in NwlInterop.Items(NwlInterop.Get(o, "Outputs"))) Operand(t);
+                        Item(NwlInterop.Get(o, "RValue"));
+                        break;
+                    case "BoxTreeBox":
+                        Operand(NwlInterop.Get(o, "Instance"));
+                        foreach (var i in NwlInterop.Items(NwlInterop.Get(o, "InputItemList"), listMember: "")) Item(i);
+                        foreach (var t in NwlInterop.Items(NwlInterop.Get(o, "Outputs"))) Operand(t);
+                        break;
+                    case "BoxTreeParallel":
+                        Item(NwlInterop.Get(o, "Input"));
+                        foreach (var b in NwlInterop.Items(NwlInterop.Get(o, "Trees"), listMember: "")) Item(b);
+                        break;
+                    default:   // a Demux or Terminator: its feed
+                        Item(NwlInterop.Get(o, "Input"));
+                        break;
+                }
+            }
+            void Operand(object? op)
+            {
+                if (op is null) return;
+                held.Add(new("Operand.Boolean", "Operand", Bool(NwlInterop.Get(op, "Boolean"))));
+                held.Add(new("Operand.Address", "Operand", NwlInterop.Call(op, "GetSerializableValue", "Address") as string));
+                if (NwlInterop.Get(op, "Flags") is { } flags) held.Add(new("Flags.Fixed", "Operand", Bool(NwlInterop.Get(flags, "Fixed"))));
+            }
+            for (int i = 0; i < NwlInterop.RequireInt(net, "NetworkItemCount"); i++)
+                Item(NwlInterop.TryCall(net, "GetTree", i));
+            return held;
+        }
+
+        private static string? Bool(object? v) => v is bool b ? (b ? "true" : "false") : null;
 
         private static int Count(object impl) =>
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;

@@ -54,6 +54,17 @@ public class TcNwlCompletenessOracleTests
         /// <summary>Unit (a body or a network) → the reason the path refused it, by name.</summary>
         public Dictionary<string, string> Refused = new(StringComparer.Ordinal);
         public List<(string Unit, List<NwlFinding> Findings)> Findings = new();
+        /// <summary>Unit → the item Ids the body it wrote holds more than once (gate 2-2).</summary>
+        public Dictionary<string, string> DuplicateIds = new(StringComparer.Ordinal);
+    }
+
+    /// <summary>The Ids the NWL body <paramref name="impl"/> holds more than once, each with its count — none in any body
+    /// the corpora hold (census 1b.1: 0 duplicates in 46 bodies).</summary>
+    static string? DuplicateIds(XElement impl)
+    {
+        var dup = impl.Descendants("v").Where(TcIds.IsId).GroupBy(TcIds.Value)
+            .Where(g => g.Count() > 1).OrderBy(g => g.Key).Select(g => $"{g.Key} ×{g.Count()}").ToList();
+        return dup.Count == 0 ? null : string.Join(", ", dup);
     }
 
     static readonly Lazy<List<Body>> Bodies = new(ReadBodies);
@@ -174,6 +185,7 @@ public class TcNwlCompletenessOracleTests
             string final;
             try { final = BeckhoffDriver.Stamp(built, b.Back, b.Scope); }
             catch (NotSupportedException e) { run.Refused[b.Id] = "stamp: " + e.Message; continue; }
+            if (DuplicateIds(Impl(XElement.Parse(final))) is { } dupCreate) run.DuplicateIds[b.Id] = dupCreate;
             var written = Archive(Impl(XElement.Parse(final, LoadOptions.PreserveWhitespace)), null);
             var s = (ArchiveList)b.Stored["NetworkList"]!;
             var w = (ArchiveList)written["NetworkList"]!;
@@ -198,13 +210,15 @@ public class TcNwlCompletenessOracleTests
             XElement rebuilt;
             try { rebuilt = BeckhoffDriver.Spliceable(TcObjectModel.Adopted(Recorded(d.Name), b.View), b.Back.Networks[i]); }
             catch (Exception e) when (e is InvalidOperationException or Volt.Engine.BridgeException) { run.Refused[unit] = "import: " + e.Message; continue; }
-            // The splice Apply makes (`networks[i].ReplaceWith(rebuilt)`), then the stamp it makes on the spliced network.
+            // The splice Apply makes (`TcNetworkWriter.Splice`: in place, with fresh Ids), then the stamp it makes on the
+            // spliced network.
             var doc = XElement.Parse(b.StoredXml, LoadOptions.PreserveWhitespace);
-            TcArchive.List(Impl(doc), "NetworkList")[i].ReplaceWith(rebuilt);
+            TcNetworkWriter.Splice(Impl(doc), TcArchive.List(Impl(doc), "NetworkList")[i], rebuilt);
             var spliced = doc.ToString(SaveOptions.DisableFormatting);
             string final;
             try { final = TcNetworkWriter.Apply(spliced, b.Back, b.Scope) ?? spliced; }
             catch (NotSupportedException e) { run.Refused[unit] = "stamp: " + e.Message; continue; }
+            if (DuplicateIds(Impl(XElement.Parse(final))) is { } dup) run.DuplicateIds[unit] = dup;
             var written = (ArchiveList)Archive(Impl(XElement.Parse(final, LoadOptions.PreserveWhitespace)), null)["NetworkList"]!;
             var stored = (ArchiveList)b.Stored["NetworkList"]!;
             run.Findings.Add((unit, NwlCompare.Node((ArchiveNode)stored.Items[i]!, (ArchiveNode)written.Items[i]!, unit)));
@@ -329,6 +343,18 @@ public class TcNwlCompletenessOracleTests
         Assert.Equal(expected.Keys.OrderBy(k => k, StringComparer.Ordinal), recorded.OrderBy(k => k, StringComparer.Ordinal));
     }
 
+    /// <summary>THE ID IS THE IDE'S ALLOCATOR (C, vendor-facts `nwl-item-id`), SO ITS VALUE IS NOT COMPARED — BUT EVERY
+    /// BODY A PUSH WRITES HOLDS EACH ID ONCE, as every body the corpora hold does (gate 2-2). A rebuild imports the one
+    /// network into a scratch POU with its own id space and splices it into the live body: spliced as it came, POUexecute's
+    /// rebuilt network 1 repeated Ids network 0 holds, and TwinCAT keeps a stored Id across save and reopen (N28).</summary>
+    [Fact]
+    public void Every_body_a_push_writes_holds_each_id_once()
+    {
+        Assert.True(Rebuild.Value.Findings.Count > 0, "the rebuild path compared no network");
+        Assert.Empty(Create.Value.DuplicateIds);
+        Assert.Empty(Rebuild.Value.DuplicateIds);
+    }
+
     /// <summary>What each path refuses, by unit and reason. Pinned: a count moving is a shape learned or lost.</summary>
     [Fact]
     public void Refusal_tally()
@@ -386,20 +412,12 @@ public class TcNwlCompletenessOracleTests
     /// here — which is exactly what the 2.2 rows measure.</summary>
     static readonly NwlKnown[] KnownRebuild =
     {
-        new("BoxTreeAssign.Id — changed", 3, 3, "2.2 nwl-item-id (R)"),
         new("BoxTreeBox.EN — changed", 2, 2, "2.2 nwl-box-en-eno (R): the import answers null where the IDE stored false"),
         new("BoxTreeBox.ENO — changed", 2, 2, "2.2 nwl-box-en-eno (R): the import answers null where the IDE stored false"),
-        new("BoxTreeBox.Id — changed", 2, 2, "2.2 nwl-item-id (R)"),
-        new("BoxTreeOperand.Id — changed", 2, 4, "2.2 nwl-item-id (R)"),
-        new("BoxTreeTerminator.Id — changed", 1, 1, "2.2 nwl-item-id (R)"),
         new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R)"),
         new("Flags.Fixed in BoxTreeBox.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R)"),
         new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 2, 4, "2.2 nwl-flags-fixed (R)"),
-        new("Network.Id — changed", 3, 3, "2.2 nwl-item-id (R)"),
         new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.2 nwl-operand-boolean (R)"),
-        new("Operand.Id in BoxTreeAssign.OutputItems.OutputItems — changed", 3, 3, "2.2 nwl-item-id (R)"),
-        new("Operand.Id in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-item-id (R)"),
-        new("Operand.Id in BoxTreeOperand.Operand — changed", 2, 4, "2.2 nwl-item-id (R)"),
         new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 3, 3, "2.3 D: true exactly for an assign target or a box output slot (the import answers false, the stamp writes none)"),
         new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 3, 3, "2.2 nwl-operand-type (R)"),
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),

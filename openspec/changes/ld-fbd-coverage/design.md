@@ -112,7 +112,7 @@ Counts are from census 1b.1 (six corpora, both vendors).
 | | `Flags` | X if non-zero | — | 0 ×51 |
 | `BoxTreeMux` | `VarId`, `InputIndex`, `Merger` | X (the node) | — | 0 |
 | `ILStatement` | `Operator`, `Prefix`, `Operand`, `Postfix` | X (the node) | — | 0 |
-| `STSnippet` | `STSnippet` | S / C / R | the text is S. CODESYS `TextDocument.LineInfoPersistence`/`TextBlobForSerialisation` are C (bridge-one-to-one `editor-caches`). The per-line `Id`/`Tag` on both vendors are R `nwl-stsnippet-line-ids` (CODESYS: consecutive, and the last one equals the snippet's own `Id`; TwinCAT: minted) | 12 snippets, 58 lines |
+| `STSnippet` | `STSnippet` | S / C / R | the text is S. CODESYS `TextDocument.LineInfoPersistence`/`TextBlobForSerialisation` are C (bridge-one-to-one `editor-caches`). The per-line `Id`/`Tag` on both vendors are ~~R~~ **C since 2.2** (`nwl-stsnippet-line-ids`, N30: CODESYS mints them on load) (CODESYS: consecutive, and the last one equals the snippet's own `Id`; TwinCAT: minted) | 12 snippets, 58 lines |
 | `Operand` | `Operand` | S | the name / literal / expression. `""` is an unconnected pin. Null on a function/operator instance is D | name 3695, `""` 470, null 1148 |
 | | `Type` | S / R | on a wire, its `VAR_TEMP` type (S). Elsewhere R `nwl-operand-type`, with the derivation: the declared type from the scope, and null/`""` on an unconnected pin as stored per position. **`Instance.Type`** is R `nwl-instance-type`, derivation `BoxType` on a named instance and `""` otherwise; it differs on 47: 20 case-only, 5 other (`SR` vs `RS`, 4 namespace-qualified), 22 And boxes storing `"AND"` | type 3777, `""` 1203, null 333 |
 | | `Comment` | D | `""`; else `{Comment := '…'}` | `""` ×5313 |
@@ -128,7 +128,7 @@ Counts are from census 1b.1 (six corpora, both vendors).
 | `OutputItemList` | `OutputItems` | S | through its owner (assign targets, box outputs) | 1794 |
 | `ParamList` | `Names` | S | the formals (see the box rows) | 2610 |
 | | `Types` | R `nwl-param-types` | the callee's pin types (BOOL 1488, `BOOL[REF]` 147, … 116 distinct) | 2610 |
-| `AbstractNWLItem` | `Id` | R `nwl-item-id` | minted per body, unique among NWL items (0 duplicates in 46 bodies) | 11,085 |
+| `AbstractNWLItem` | `Id` | ~~R~~ **C since 2.2** (`nwl-item-id`, DIALECT N29) | minted per body by the IDE itself (CODESYS on each commit and load, TwinCAT in the import) — an allocator no rebuild loses; unique among a body's items (0 duplicates in 46 bodies), which a push keeps: the TwinCAT splice mints a rebuilt network's Ids above the body's (gate 2-2) | 11,085 |
 
 **The 2.2 rows this table adds (14):** `nwl-item-id`, `nwl-branch-counter`, `nwl-flags-fixed`, `nwl-operand-boolean`,
 `nwl-operand-type`, `nwl-instance-type`, `nwl-param-types`, `nwl-box-en-eno`, `nwl-input-flags-list`,
@@ -299,3 +299,53 @@ text. Deleting such a network alone, and editing its header, still work. A store
 (`Execute` opens an EXECUTE body in the token walk) is not written after the call: the network is shown as `UNSUPPORTED
 "a named main output spelled like a text word"`. IDE-held R members of a moved network are the interim loss window 2.2
 makes visible; not refused here.
+
+## 2.2 The probe-table rows — what they answered
+
+**Read through one new read.** `nwl` (`vendor-facts.table.ts`): the subject's graphical body as the vendor ARCHIVES it —
+CODESYS `GetSerializableValue` from the NWL aspect down (the archive, never the API, N27), TwinCAT the backing file's
+`<XmlArchive>` — flattened in one notation on both vendors (N1) and filtered by member in the runner (`nwlView`). Each R
+row creates its subject through the shipped push, calls it from PLC_PRG, and reads it after the push, a build, a
+save/close/reopen and a second build: the design's "push without it, save/reopen, read back, build".
+
+**The R rows (DIALECT N29, N30).** No member a push leaves unwritten is filled by a build or a reopen on either vendor (on TwinCAT unmeasured for the
+calls subject's five, whose build failed — "Found" below),
+except two allocators: the item `Id` (both IDEs mint it — CODESYS on every commit and load, TwinCAT in the import) and the
+Execute snippet's line ids (CODESYS mints them on load). Those two become **C**; the text never spells an id (1b.4 rejected
+it) and no rebuild loses one the IDE would have kept. Every other R member stays **R → the pragma in 2.3**: `Fixed`,
+`Boolean`, the `Address` sentinel, `BranchCounter` (the IDE counts the branches it constructs: 1 for one pushed Parallel),
+`Operand.Type`, `Instance.Type`, `ParamList.Types`, `EN`/`ENO`, a zero-only `InputFlags`, `OutputParam.Names`, `CallType`.
+TwinCAT's import answers its own values where CODESYS leaves the fresh one (`Fixed` true on every operand, `OutputParam`
+`['Out1']` on a call, `CallType` `Function` on a PROGRAM call) — none of them the editor's distribution, so none is a cache.
+`nwl-assign-item-flags` cannot be asked of today's CODESYS writer, which writes the item bit itself (C13); TwinCAT's import
+leaves the item 0, as the IDE drew the corpus's one `RETURN`. 2.3 re-runs it once the writer stops ORing the bit.
+
+**The interim loss window.** `RebuildLoss` (both drivers, test-first) warns per rebuilt network for `Fixed`, `Boolean` and
+the `Address` sentinel; `Id` left it with its row. `BranchCounter` is on the body, which a network rebuild does not touch.
+Gate 2-2: a stored value is judged against what the rebuild BUILT, owner by owner (an operand's flag set is not an
+item's) — never against one vendor-neutral default, which on TwinCAT named every operand `Fixed` the import gives straight
+back (`true`) and missed a stored `false` it turns `true`; on CODESYS it named the negated contact's `Fixed` the vendor
+sets again with the negation. The Id's value is a cache, its uniqueness is not: a TwinCAT rebuild spliced the scratch
+POU's ids 2..N unrenumbered and repeated Ids of the kept networks; `TcNetworkWriter.Splice` now mints them above the
+body's, and the TwinCAT completeness oracle checks every body a push writes holds each Id once.
+
+**The shape rows (N31–N36).** S1: the stored slot is the editor's form, the push builds the plain one, both build clean;
+"run the same" is unmeasured, so per 1.1 S1 **goes back to the owner** (the TwinCAT import itself stores a consumed bit
+operator with an output slot and the pull reads it back plain). S3a: a pushed leaf-fed wire stores no type anywhere; the
+IDE-drawn one (WSM) stores the leaf's declared type on the leaf — 1.1's rule stands, and 2.3's writers put that type on the
+leaf. S3b: `g := ;` builds the vendor's terminator-fed wire on both vendors (distinct from `g := TRUE;`), clean — only the
+LD type rule is new. S2, S5, S6: today's reader refuses the designed spelling before any vendor write, on both vendors;
+no committed fixture holds an IDE-drawn witness (lenze-mid's are recorded in `nwl-corpus`), so their build is measured by
+2.3's per-shape fixtures and the rows re-run then.
+
+**Found, not closed here.** TwinCAT's build of the pushed calls program (`VltF_RC`) fails — PLC_PRG reports it undefined,
+the bridge's build names nothing in `VltF_RC` — while the same body builds clean on CODESYS: a vendor divergence the
+shipped push produces, CAUSE UNMEASURED (the program call imported as `CallType Function` is one candidate). A failed build
+is no evidence of what a successful one fills in, so for the five members read off that subject (`Instance.Type`,
+`ParamList.Types`, `EN`/`ENO`, `OutputParam.Names`, `CallType`) "not filled by a build" is CODESYS's measurement alone;
+they stay R on its strength until 2.3's call-type fixture builds the subject on TwinCAT. The S3a/S3b silent drops (a pushed
+leaf-fed wire on CODESYS, `g1 := ;` on both, pulled back `UNSUPPORTED`) and the `g1 := TRUE;` wire divergence (CODESYS
+round-trips it, TwinCAT refuses it) are the others. All four are pinned as known divergences in
+`test/unit/vendor-facts.test.ts` ("the known divergences the 2.2 rows recorded"): each check states the divergence as
+recorded and fails once a re-record closes it (gate 2-2).
+

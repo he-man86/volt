@@ -234,8 +234,14 @@ internal static class TcNetworkWriter
                     // What the import would ERASE: a symbol comment, which the text does not carry (the shared rule).
                     NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkShown(net, model.Order));
                     var rebuilt = Imported(model, resolve!);
-                    net.ReplaceWith(rebuilt);
+                    var held = Held(net).ToList();
+                    Splice(impl, net, rebuilt);
                     WriteNetwork(rebuilt, model, scope);      // stamp the values the rebuild could not carry
+                    // What it resets without a refusal: the element is replaced whole, so a stored value of a member the
+                    // text does not carry yet that the import does not answer goes with it — named in one warning
+                    // (ld-fbd-coverage 2.2, the loss window), measured against what the import and the stamp made.
+                    if (RebuildLoss.Warning(Volt.Contracts.Vendors.TwincatDisplay, model.Order, held, Held(rebuilt)) is { } loss)
+                        Volt.Engine.Ide.BridgeLog.Warn(loss);
                     last = rebuilt;
                     changed = true;
                     break;
@@ -251,6 +257,7 @@ internal static class TcNetworkWriter
                         "in-place write was not handed. Add it in the IDE and pull it."));
                     if (last is not null) last.AddAfterSelf(inserted);
                     else impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList").AddFirst(inserted);
+                    MintFreshIds(impl, inserted);
                     WriteNetwork(inserted, model, scope);     // stamp the values the import could not carry
                     last = inserted;
                     changed = true;
@@ -276,6 +283,63 @@ internal static class TcNetworkWriter
                          $"split it into {parts} networks and renumber every network after it");
         return resolve(model);
     }
+
+    /// <summary>
+    /// SPLICE A NETWORK THE IMPORT BUILT IN PLACE OF <paramref name="live"/> — with Ids no other network of the body holds
+    /// (gate 2-2). The import builds the one network in a scratch POU with its own id space (2..N), so the element spliced
+    /// in as it came repeated Ids the kept networks hold (the TwinCAT completeness oracle over twincat-project14's recorded
+    /// imports: <c>POUexecute</c>'s rebuilt networks 1 and 3 each left Ids 10 and 11 twice in the body, a
+    /// <c>ladderLabel</c> one Id 5), and TwinCAT keeps a stored Id across save and reopen (DIALECT
+    /// N28), so the duplicates would persist. Every body the corpora hold has each Id once (0 duplicates in 46 bodies,
+    /// census 1b.1); the Id itself is the IDE's allocator (vendor-facts <c>nwl-item-id</c>), so which fresh values it
+    /// takes is no fact the text carries — only that each is unique in the body.
+    /// </summary>
+    internal static void Splice(XElement impl, XElement live, XElement rebuilt)
+    {
+        live.ReplaceWith(rebuilt);
+        MintFreshIds(impl, rebuilt);
+    }
+
+    /// <summary>Renumber every <c>Id</c> of the network <paramref name="spliced"/> (already in the body
+    /// <paramref name="impl"/>) above the highest Id the rest of the body holds, value for value in ascending order — so
+    /// two items that shared an Id in the import still share one, and none collides with a network the splice kept.</summary>
+    private static void MintFreshIds(XElement impl, XElement spliced)
+    {
+        var own = new HashSet<XElement>(spliced.DescendantsAndSelf("v").Where(IsId));
+        var top = impl.Descendants("v").Where(v => IsId(v) && !own.Contains(v)).Select(IdValue).DefaultIfEmpty(0).Max();
+        var map = own.Select(IdValue).Distinct().OrderBy(x => x, Comparer<long>.Default)
+            .Select((x, i) => (x, i)).ToDictionary(p => p.x, p => top + 1 + p.i);
+        foreach (var v in own)
+        {
+            var suffix = v.Value.Trim().EndsWith("L", StringComparison.Ordinal) ? "L" : "";
+            v.Value = map[IdValue(v)].ToString(CultureInfo.InvariantCulture) + suffix;
+        }
+    }
+
+    /// <summary>An archive <c>&lt;v n="Id"&gt;</c>: the NWL item id (an Int64, archived <c>17L</c>).</summary>
+    private static bool IsId(XElement v) => (string?)v.Attribute("n") == "Id";
+
+    private static long IdValue(XElement v) =>
+        long.Parse(v.Value.Trim().TrimEnd('L'), NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    /// <summary>The stored values of the rebuild-loss candidates (<see cref="RebuildLoss"/>) the archive element
+    /// <paramref name="net"/> holds, in their notation: <c>Fixed</c> and <c>Boolean</c> as the archive spells them,
+    /// <c>Address</c> unquoted.</summary>
+    private static IEnumerable<RebuildLoss.Held> Held(XElement net) =>
+        net.Descendants("v").Select(v => ((string?)v.Attribute("n")) switch
+        {
+            // A flag set's owner is the object holding it: an operand's, an item's, a box's (the import answers each its
+            // own value, vendor-facts nwl-flags-fixed).
+            "Fixed" => new RebuildLoss.Held("Flags.Fixed", Owner(v.Parent?.Parent), v.Value.Trim()),
+            "Boolean" => new RebuildLoss.Held("Operand.Boolean", Owner(v.Parent), v.Value.Trim()),
+            "Address" => new RebuildLoss.Held("Operand.Address", Owner(v.Parent), v.Value.Trim().Trim('"')),
+            _ => (RebuildLoss.Held?)null,
+        }).Where(x => x is not null).Select(x => x!.Value);
+
+    /// <summary>The class of the archive object <paramref name="o"/> (its <c>t</c>), or the class its list declares for
+    /// its items (<c>cet</c>) where the item carries none.</summary>
+    private static string Owner(XElement? o) =>
+        (string?)o?.Attribute("t") ?? (string?)o?.Parent?.Attribute("cet") ?? "?";
 
     /// <summary>A network the push would BUILD from its text, refused by name where it cannot: a pushed <c>UNSUPPORTED</c>
     /// line (<see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a box read through a named main output (S4) —

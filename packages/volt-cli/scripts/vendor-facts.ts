@@ -167,8 +167,8 @@ export function validateTable(rows: readonly Row[]): string[] {
             findings.push(`${where}: read \`${r.key}\` is at \`${at}\`, which no step is tagged`)
             continue
           }
-          if (r.op === "fetched" && list(r.on).length === 0)
-            findings.push(`${where}: read \`${r.key}\` (fetched) names no subject`)
+          if ((r.op === "fetched" || r.op === "nwl") && list(r.on).length === 0)
+            findings.push(`${where}: read \`${r.key}\` (${r.op}) names no subject`)
           if (r.op === "tried" && plan.steps[after]?.op !== "tryNames")
             findings.push(`${where}: read \`${r.key}\` (tried) is at \`${at}\`, which is no tryNames step`)
           for (const on of list(r.on))
@@ -297,6 +297,8 @@ export async function runRow(row: Row, deps: RowDeps): Promise<Record<string, un
         else if (r.op === "fetched") snap[r.snapshotKey] = await deps.wire.fetched(r.on!, ctx)
         else if (r.op === "diagnostics")
           snap[r.snapshotKey] = asSet((await deps.core({ kind: "read", row: row.id, read: r })).value)
+        else if (r.op === "nwl")
+          snap[r.snapshotKey] = nwlView((await deps.core({ kind: "read", row: row.id, read: r })).value, r)
         else snap[r.snapshotKey] = (await deps.core({ kind: "read", row: row.id, read: r })).value ?? null
       } catch (e) {
         throw new Error(`${where}: ${(e as Error).message}`, { cause: e })
@@ -496,6 +498,23 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   ]).finally(() => clearTimeout(timer))
 }
 
+/** An `nwl` read's view of the flat body a core answered: only network `network`'s paths, and only the paths whose last
+ *  member — its list index dropped (`Types[0]` is `Types`), its `#count` kept — is one of `members`. Applied here, once,
+ *  so both cores answer the whole body and filter alike. A body that is not a flat map is a probe fault. */
+export function nwlView(value: unknown, read: { members?: string[]; network?: number }): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error(`nwl: the core answered ${JSON.stringify(value)}, not a flat body`)
+  const out: Record<string, unknown> = {}
+  const net = read.network === undefined ? undefined : `NetworkList[${read.network}]`
+  for (const [path, v] of Object.entries(value as Record<string, unknown>)) {
+    if (net !== undefined && path !== net && !path.startsWith(net + ".") && !path.startsWith(net + "#")) continue
+    const last = path.slice(path.lastIndexOf(".") + 1).replace(/\[\d+\]$/, "")
+    if (read.members && !read.members.includes(last)) continue
+    out[path] = v
+  }
+  return out
+}
+
 /** A cleanup may reopen the run's own copy, so it gets the long timeout too. A tryNames step asks every name it holds:
  *  60 s plus 5 s a name (TwinCAT took ~1.8 s an ask, through the push, in the 2026-10-03 logs). */
 export const requestTimeout = (req: CoreRequest) =>
@@ -504,7 +523,7 @@ export const requestTimeout = (req: CoreRequest) =>
     : (req.kind === "step" && LONG_OPS.has(req.step.op)) ||
         req.kind === "cleanup" ||
         // The completeness oracle's whole-project reads: every object of a 3363-object project (Pro2193) is minutes.
-        (req.kind === "read" && (req.read.op === "objects" || req.read.op === "archive"))
+        (req.kind === "read" && (req.read.op === "objects" || req.read.op === "archive" || req.read.op === "nwl"))
       ? LONG_TIMEOUT_MS
       : TIMEOUT_MS
 
@@ -871,6 +890,9 @@ export function ide(action: "up" | "down", vendor: Vendor, codesysFixture = "Cod
   if (action === "up") {
     if (vendor === "codesys") {
       args.push("-RunScript", join(HERE, "vendor-facts.codesys.py"))
+      // ENGLISH, the snapshot's language (the oracle's, CLAUDE.md): CODESYS otherwise follows Windows' UI language, and
+      // one it does not ship makes it write German (DIALECT V9) — a re-record then reads as vendor drift (gate 2-2).
+      args.push("-CodesysCulture", "en-US")
       const file = FIXTURE_FILES[codesysFixture]
       if (!file) throw new Error(`no committed fixture '${codesysFixture}'`)
       args.push("-Fixture", join(FIXTURES, file))

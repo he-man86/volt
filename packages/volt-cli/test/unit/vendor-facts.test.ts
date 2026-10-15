@@ -24,6 +24,7 @@ import {
   requestTimeout,
   type CoreRequest,
   instanceOf,
+  nwlView,
 } from "../../scripts/vendor-facts"
 
 const row = (r: Partial<Row>): Row => ({
@@ -941,5 +942,105 @@ describe("the fold-ins (design 4): bridge-refusal-review's probes are rows", () 
       for (const local of [tmpdir(), homedir()]) expect(text).not.toContain(JSON.stringify(local).slice(1, -1))
       expect(text).not.toMatch(/[A-Z]:\\Users\\/)
     }
+  })
+})
+
+describe("the nwl read (ld-fbd-coverage 2.2)", () => {
+  const body = {
+    NetworkList: "<l2>",
+    "NetworkList#count": 2,
+    "NetworkList[0]": "<Network>",
+    "NetworkList[0].Id": 9,
+    "NetworkList[0].NetworkItems[0].RValue.Flags.Fixed": true,
+    "NetworkList[0].NetworkItems[0].RValue.InputParam.Types": "<l2>",
+    "NetworkList[0].NetworkItems[0].RValue.InputParam.Types#count": 1,
+    "NetworkList[0].NetworkItems[0].RValue.InputParam.Types[0]": "BOOL",
+    "NetworkList[1].Id": 5,
+    "NetworkList[10].Id": 50,
+    BranchCounter: 3,
+  }
+
+  it("keeps the paths whose last member, its index dropped, is named", () => {
+    expect(nwlView(body, { members: ["Fixed", "Types"] })).toEqual({
+      "NetworkList[0].NetworkItems[0].RValue.Flags.Fixed": true,
+      "NetworkList[0].NetworkItems[0].RValue.InputParam.Types": "<l2>",
+      "NetworkList[0].NetworkItems[0].RValue.InputParam.Types[0]": "BOOL",
+    })
+  })
+
+  it("keeps one network's paths, never a network whose number only starts the same", () => {
+    expect(nwlView(body, { network: 1, members: ["Id"] })).toEqual({ "NetworkList[1].Id": 5 })
+    expect(Object.keys(nwlView(body, { network: 0 }))).toHaveLength(6)
+  })
+
+  it("is the whole body unfiltered, and refuses an answer that is no flat body", () => {
+    expect(nwlView(body, {})).toEqual(body)
+    expect(() => nwlView(["x"], {})).toThrow("not a flat body")
+  })
+
+  it("names its subject", () => {
+    expect(validateTable([row({ reads: [{ key: "b", at: "start", op: "nwl" }] })])).toContain(
+      "t (codesys): read `b` (nwl) names no subject",
+    )
+  })
+})
+
+/**
+ * THE KNOWN DIVERGENCES THE 2.2 ROWS RECORDED (openspec `ld-fbd-coverage`, gate 2-2). Each is a vendor fact the committed
+ * snapshot holds today that the shipped push should not produce — measured, owned by a task, and not fixed in 2.2. Each
+ * check states the divergence AS RECORDED and passes while it stands; a re-record that closes it fails the check, and
+ * the mark is removed in the step that closed it (never edited to match). Read from the committed snapshots, so it holds
+ * without an IDE.
+ */
+describe("the known divergences the 2.2 rows recorded (ld-fbd-coverage, closed by 2.3)", () => {
+  const { readFileSync } = require("node:fs") as typeof import("node:fs")
+  const snap = (v: "codesys" | "twincat") =>
+    JSON.parse(readFileSync(new URL(`../../scripts/vendor-facts.${v}.json`, import.meta.url), "utf8")) as Record<
+      string,
+      Record<string, any>
+    >
+  const cs = snap("codesys")
+  const tc = snap("twincat")
+  const UNKNOWN_WIRE = 'UNSUPPORTED "a wire of unknown type";'
+  const count = (text: unknown, part: string) => (typeof text === "string" ? text.split(part).length - 1 : 0)
+
+  // The calls subject (`VltF_RC`: a function call, an enabled PROGRAM call, an FB call, AND, ADD) — pushed and accepted
+  // on both vendors, built clean on CODESYS, and NOT built on TwinCAT: PLC_PRG reports `VltF_RC` undefined, and the
+  // bridge's build names nothing in VltF_RC itself. The cause is unmeasured (the program call's import as `CallType
+  // Function` is a candidate, not a finding). So TwinCAT's verdict on what a build fills in for these five rows is NO
+  // evidence either way: the build that would fill them did not succeed. 2.3's call-type fixture measures it.
+  const CALLS_ROWS = ["nwl-instance-type", "nwl-param-types", "nwl-box-en-eno", "nwl-output-param-names", "nwl-call-type"]
+  it("KNOWN: TwinCAT does not build the pushed calls program CODESYS builds clean (2.3, cause unmeasured)", () => {
+    for (const id of CALLS_ROWS) {
+      expect(cs[id]["diagnostics@built"]).toEqual([])
+      expect(cs[id]["diagnostics@rebuilt"]).toEqual([])
+      for (const at of ["diagnostics@built", "diagnostics@rebuilt"]) {
+        expect(tc[id][at].success).toBe(false)
+        expect(tc[id][at].diagnostics.map((d: any) => d.message)).toContain("Identifier 'VltF_RC' not defined")
+      }
+      expect(tc[id].steps).toContain("create rc (push): accepted")
+    }
+  })
+
+  // S3a: a pushed LEAF-fed wire is accepted on CODESYS and comes back as UNSUPPORTED — the VAR_TEMP type the text
+  // carried is gone, and the network is no longer editable through Volt (design 2.2, N32; 2.3 puts the declared type on
+  // the leaf). TwinCAT refuses it before its import (TcUnmeasured).
+  it("KNOWN: a pushed leaf-fed wire is accepted on CODESYS and pulls back UNSUPPORTED (2.3 S3a)", () => {
+    for (const at of ["fetched@pushed", "fetched@reloaded"]) expect(count(cs["nwl-leaf-wire-type"][at], UNKNOWN_WIRE)).toBe(3)
+    expect(tc["nwl-leaf-wire-type"].steps.some((s: string) => s.startsWith("create lw (push): refused: NETWORK_UNSUPPORTED"))).toBe(true)
+  })
+
+  // S3b: `g1 := ;` (a wire the empty terminator feeds) is accepted on BOTH vendors and pulls back UNSUPPORTED the same
+  // way (N33; 2.3's LD type rule types it BOOL).
+  it("KNOWN: a pushed terminator-fed wire `g1 := ;` is accepted on both vendors and pulls back UNSUPPORTED (2.3 S3b)", () => {
+    for (const s of [cs, tc])
+      for (const at of ["fetched.rail@pushed", "fetched.rail@reloaded"]) expect(count(s["nwl-rail-fed-wire"][at], UNKNOWN_WIRE)).toBe(1)
+  })
+
+  // A wire DIVERGENCE (memory: a wire divergence is a defect): `g1 := TRUE;` round-trips on CODESYS and is refused on
+  // TwinCAT before its import (a leaf-fed wire, TcUnmeasured) — 2.3's S3a/S3b writers measure it through the import.
+  it("KNOWN: `g1 := TRUE;` round-trips on CODESYS and is refused on TwinCAT (2.3 S3)", () => {
+    expect(cs["nwl-rail-fed-wire"]["fetched.railTrue@reloaded"]).toContain("  g1 := TRUE;\n")
+    expect(tc["nwl-rail-fed-wire"]["fetched.railTrue@pushed"]).toBe("no subject: create railTrue (push) was refused")
   })
 })

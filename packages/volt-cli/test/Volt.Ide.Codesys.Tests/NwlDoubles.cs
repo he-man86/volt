@@ -88,12 +88,19 @@ internal static class Nwl
     /// operand's existing flags rather than assigning a new object: `IOperand.Flags` has no setter.</summary>
     internal sealed class Flags
     {
-        public bool Negation { get; set; }
+        /// <summary>Setting it also sets <see cref="Fixed"/>, as the vendor does: a pushed negated contact stores
+        /// <c>Fixed = true</c> where every other flag set the push builds stores false (vendor-facts
+        /// <c>nwl-flags-fixed</c>, DIALECT N29) — the writer sets only <c>Negation</c>.</summary>
+        public bool Negation { get => _negation; set { _negation = value; if (value) Fixed = true; } }
+        private bool _negation;
         public bool Set { get; set; }
         public bool Jump { get; set; }
         public bool Return { get; set; }
         public bool Rtrig { get; set; }
         public bool Ftrig { get; set; }
+        /// <summary>The vendor's <c>IFlags.Fixed</c> (archived <c>Flags.Fixed</c>): false on a fresh flag set (gate 1b-3),
+        /// true on 1914 of 7180 stored ones (census 1b.1) — the rebuild-loss warning counts it (ld-fbd-coverage 2.2).</summary>
+        public bool Fixed { get; set; }
     }
 
     internal sealed class Operand
@@ -119,10 +126,22 @@ internal static class Nwl
 
         /// <summary>The vendor's archive read (<c>IArchivable.GetSerializableValue</c>) — for the one member a reader
         /// takes from it. Any other member is a shape this double does not describe, and says so.</summary>
-        public object? GetSerializableValue(string name) => name == "SymbolComment"
-            ? StoredSymbolCommentAnswer ?? StoredSymbolComment
-            : throw new System.InvalidOperationException($"the Operand double archives no '{name}'");
+        public object? GetSerializableValue(string name) => name switch
+        {
+            "SymbolComment" => StoredSymbolCommentAnswer ?? StoredSymbolComment,
+            "Address" => StoredAddress,
+            _ => throw new System.InvalidOperationException($"the Operand double archives no '{name}'"),
+        };
+        /// <summary>What the vendor's <c>IOperand.Address</c> PROPERTY answers (DIALECT N27: the archive sentinel on every
+        /// operand recorded); the stored value is <see cref="StoredAddress"/>, reached through the archive.</summary>
         public string Address { get; set; } = "";
+        /// <summary>The address the operand's ARCHIVE holds: <c>""</c> on a fresh operand (gate 1b-3), the sentinel
+        /// <c>Constant_Address_Serialization_Value</c> on 258 stored ones (census 1b.1).</summary>
+        public string StoredAddress { get; set; } = "";
+        /// <summary><c>IOperand.Boolean</c>: false on a fresh operand, true on 2347 stored ones (census 1b.1).</summary>
+        public bool Boolean { get; set; }
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
         public bool IsLValue { get; set; }
         public bool IsInstance { get; set; }
 
@@ -142,6 +161,9 @@ internal static class Nwl
     /// A double that can express a shape the vendor cannot is not a stand-in, it is an alibi.</summary>
     internal sealed class BoxTreeOperand
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         public BoxTreeOperand() { }
         /// <summary>`New(net, "BoxTreeOperand", operand)` — the writer's leaf construction.</summary>
         public BoxTreeOperand(Operand operand) { Operand = operand; }
@@ -168,6 +190,9 @@ internal static class Nwl
 
     internal sealed class BoxTreeAssign
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         /// <summary>An EMPTY terminator by default — the vendor's one spelling of a coil nothing drives (census 1.2:
         /// Terminator 3, a null RValue 0). This defaulted to null, a shape no project holds, and a dozen tests about
         /// titles and comments stood on it without meaning to; the reader now refuses a null by name (task 1.10).</summary>
@@ -185,6 +210,9 @@ internal static class Nwl
     /// 1.4 found nowhere — a terminator that carries an input — and pin that the reader refuses it by name.</summary>
     internal sealed class BoxTreeTerminator
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         public object? Input { get; set; }
         public object? Flags { get; set; } = new Flags();
     }
@@ -193,6 +221,9 @@ internal static class Nwl
     /// every unfed Parallel), <see cref="Trees"/> the branches, read by enumerating the collection itself.</summary>
     internal sealed class BoxTreeParallel
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         public object? Input { get; set; }
         public List<object> Trees { get; } = new List<object>();
 
@@ -217,6 +248,9 @@ internal static class Nwl
     /// <summary>Fan-out: a definition with an <see cref="Input"/>, a reference without one.</summary>
     internal sealed class BoxTreeDemux
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         public int VarId { get; set; }
         public object? Input { get; set; }
         public object? Flags { get; set; } = new Flags();
@@ -228,6 +262,9 @@ internal static class Nwl
     /// there when nothing is wired to the EN pin.</para></summary>
     internal sealed class BoxTreeBox
     {
+        /// <summary>The NWL item id (<c>AbstractNWLItem.Id</c>): -1 on a fresh object (gate 1b-3).</summary>
+        public long Id { get; set; } = -1;
+
         private readonly List<object> _inputs = new List<object>();
 
         public string BoxType { get; set; } = "";

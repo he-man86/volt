@@ -527,6 +527,62 @@ function XmlRead($item, [string]$xpath, $file) {
     $script:RV = $list
 }
 
+# ---- the NWL body (openspec ld-fbd-coverage 2.2: the probe-table rows) ----
+# The subject's graphical body as its backing file archives it - the `<XmlArchive><Data>` object graph under `<NWL>` -
+# flattened to the member paths the CODESYS core reads off the live archive (`NetworkList[0].NetworkItems[1].RValue.
+# Flags.Fixed`; DIALECT N1: one model): an object `<its class>` then its members, a list `#count` and `[i]`, a null
+# `null`, a scalar its value - a quoted string unquoted, `true`/`false` a boolean, an Int64 (`11L`) or an Int32 a
+# number, anything else (an enum member, a parameter type) its text. Into $script:RV; the runner filters.
+function NwlScalar([string]$t) {
+    if ($t.Length -ge 2 -and $t.StartsWith('"') -and $t.EndsWith('"')) { return $t.Substring(1, $t.Length - 2) }
+    if ($t -ceq "true") { return $true }
+    if ($t -ceq "false") { return $false }
+    if ($t -match '^-?\d+L?$') { return [long]$t.TrimEnd('L') }
+    return $t
+}
+
+function NwlFlat($el, [string]$path, $out) {
+    foreach ($c in $el.ChildNodes) {
+        if ($c.NodeType -ne "Element") { continue }
+        $p = if ($path) { "$path.$($c.GetAttribute('n'))" } else { $c.GetAttribute("n") }
+        NwlNode $c $p "" $out
+    }
+}
+
+# One archive element at `$p`: `cet` is its list's element class (a list item names none of its own).
+function NwlNode($c, [string]$p, [string]$cet, $out) {
+    switch ($c.LocalName) {
+        "v" { $out[$p] = NwlScalar $c.InnerText }
+        "n" { $out[$p] = $null }
+        "o" {
+            $t = $c.GetAttribute("t"); if (-not $t) { $t = $cet }
+            $out[$p] = "<$t>"
+            NwlFlat $c $p $out
+        }
+        { $_ -in @("l", "l2", "a") } {
+            $items = @($c.ChildNodes | Where-Object { $_.NodeType -eq "Element" })
+            $out[$p] = "<$($c.LocalName)>"
+            $out["$p#count"] = $items.Count
+            for ($i = 0; $i -lt $items.Count; $i++) { NwlNode $items[$i] "$p[$i]" $c.GetAttribute("cet") $out }
+        }
+        default { Fault "nwl: an archive element <$($c.LocalName)> at '$p' this read has no form for" }
+    }
+}
+
+function NwlRead($item) {
+    # What the IDE holds in memory reaches the file on save (as ArchiveRead): without it a read after a build is what
+    # the disk held BEFORE it, so @built/@rebuilt would not observe the build at all (gate 2-2).
+    $script:dte.ExecuteCommand("File.SaveAll")
+    $path = BackingFile $item
+    if (-not $path -or -not (Test-Path $path)) { Fault "$($item.Name) has no backing file to read ($path)" }
+    $x = [xml](Get-Content -Raw -Encoding UTF8 $path)
+    $root = $x.SelectSingleNode("//NWL/XmlArchive/Data/o")
+    if (-not $root) { Fault "nwl: $($item.Name) holds no NWL body" }
+    $out = [ordered]@{}
+    NwlFlat $root "" $out
+    $script:RV = $out
+}
+
 # ---- the archive (openspec bridge-one-to-one 2.1: the completeness oracle) ----
 # The vendor's OWN archive of an item - the FILE TwinCAT stores it in (its backing .TcPOU/.TcDUT/.TcGVL/.TcIO/.TcTTO,
 # every element and attribute) and its `.plcproj` `<Compile>` entry - the 0.1 census walk made permanent. Paths in the
@@ -701,6 +757,7 @@ function Do-Read($r) {
         }
         "xml" { XmlRead (Single (Resolve $on)) $r["xpath"] $r["file"] }
         "archive" { ArchiveRead (Single (Resolve $on)) }
+        "nwl" { NwlRead (Single (Resolve $on)) }
         "objects" { ObjectsRead }
         "same" {
             if (-not $script:Cache.ContainsKey($r["as"])) { Fault "same: no earlier member read '$($r["as"])' in this row" }

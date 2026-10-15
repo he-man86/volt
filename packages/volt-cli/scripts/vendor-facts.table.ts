@@ -7,7 +7,7 @@
  *
  *   steps   create · find · setText · rename · move · delete · open · close · build · reload · invoke · tryNames
  *   reads   member · class · guid · parent · children · signature · parse · xml · same · diagnostics · process · absent
- *           · tried · fetched · archive · objects
+ *           · tried · fetched · archive · objects · nwl
  *
  * Every write names its path, `via: "push"` (one declarative op over the instance's pipe through the SHIPPED bridge —
  * what `volt push` sends; the runner does it) or `via: "script"` (the vendor API: CODESYS scripting, TwinCAT COM; the
@@ -182,6 +182,14 @@ export type Read = ReadBase &
     /** Every object of the open project, with its class (CODESYS) or tree code (TwinCAT) — what the completeness runner
      *  picks its subjects from. */
     | { op: "objects" }
+    /** The subject's graphical body as the vendor ARCHIVES it (openspec <c>ld-fbd-coverage</c> 2.2): CODESYS
+     *  `GetSerializableValue` from the NWLImplementationObject down (the archive, not the API — DIALECT N27), TwinCAT its
+     *  backing file's `<XmlArchive>`, flattened in ONE notation (N1: one model) to `{ "<member path>": value }` —
+     *  `NetworkList[0].NetworkItems[1].RValue.Flags.Fixed`; an object `<its class>`, a list `#count` and `[i]`, a scalar
+     *  its value (an id a number, a quoted string unquoted). `members`: only the paths whose LAST member, its list index
+     *  dropped, is one of these (`Types` keeps `…InputParam.Types[0]`); `network`: only network n's paths. The class
+     *  markers name each vendor's own classes, so a row comparing vendors filters by member. */
+    | { op: "nwl"; members?: string[]; network?: number }
   )
 
 export type Row = {
@@ -715,6 +723,167 @@ function keepSource(after: boolean): string {
     `PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\n` +
     `IMPLEMENTATION LD\n${nets.map((n) => `NETWORK\n  ${n}\nEND_NETWORK\n`).join("")}\nEND_PROGRAM\n`
   )
+}
+
+// ── ld-fbd-coverage 2.2: the NWL probe rows' subjects ───────────────────────────────────────────────────────────
+
+/** A graphical program as `volt push` sends it: its variables, then one network per entry — a statement line, or
+ *  `{ header, lines }` for a network that carries a header field or several statements (network text,
+ *  `packages/volt-cli/docs/network-text.html`). */
+type NwlNet = string | { header?: string; lines: string[] }
+function nwlProgram(name: string, vars: string[], lang: "LD" | "FBD", nets: NwlNet[]): string {
+  const block = (n: NwlNet) =>
+    typeof n === "string"
+      ? `NETWORK\n  ${n}\nEND_NETWORK\n`
+      : `NETWORK${n.header ? " " + n.header : ""}\n${n.lines.map((l) => "  " + l).join("\n")}\nEND_NETWORK\n`
+  return (
+    `PROGRAM ${name}\nVAR\n${vars.map((v) => `\t${v};\n`).join("")}END_VAR\n` +
+    `IMPLEMENTATION ${lang}\n${nets.map(block).join("")}\nEND_PROGRAM\n`
+  )
+}
+
+/** The callees the rows' call boxes name, as `volt push` sends them: a function, a program, a DINT function, a DUT
+ *  alias, a base FB (S5) and an FB with a BOOL input (S6). */
+const NWL_CALLEE = {
+  fn: `FUNCTION VltF_RFn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nVltF_RFn := x;\n\nEND_FUNCTION\n`,
+  prg: `PROGRAM VltF_RPrg\nVAR\n\tc : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := c + 1;\n\nEND_PROGRAM\n`,
+  dintFn: `FUNCTION VltF_LwFn : DINT\nVAR_INPUT\n\tx : DINT;\nEND_VAR\nIMPLEMENTATION ST\nVltF_LwFn := x;\n\nEND_FUNCTION\n`,
+  alias: `TYPE VltF_LwAl : INT;\nEND_TYPE\n`,
+  base: `FUNCTION_BLOCK VltF_S5Base\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\n\nEND_FUNCTION_BLOCK\n`,
+  pinFb:
+    `FUNCTION_BLOCK VltF_S6Fb\nVAR_INPUT\n\txEnable : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tq : BOOL;\nEND_VAR\n` +
+    `IMPLEMENTATION ST\nq := xEnable;\n\nEND_FUNCTION_BLOCK\n`,
+}
+const NWL_CALLEE_KIND: Record<keyof typeof NWL_CALLEE, [Kind, string]> = {
+  fn: ["function", "VltF_RFn"],
+  prg: ["program", "VltF_RPrg"],
+  dintFn: ["function", "VltF_LwFn"],
+  alias: ["dut", "VltF_LwAl"],
+  base: ["function_block", "VltF_S5Base"],
+  pinFb: ["function_block", "VltF_S6Fb"],
+}
+
+/** The R rows' common subject (design "1b.2", the 2.2 rows): the shapes the LD corpus bodies hold most — contacts, a
+ *  negated one, an AND box, coils, an FB call and its output read in the next network, an arithmetic operator box. (An
+ *  FB output pin `Q => o2` and an enabled MOVE writing a result pin are refused before TwinCAT's import — Volt's own
+ *  lowering — so either would leave the TwinCAT half without a subject.) */
+const NWL_R_BASE = nwlProgram(
+  "VltF_R",
+  ["a : BOOL", "b : BOOL", "i : INT", "j : INT", "o1 : BOOL", "o2 : BOOL", "t1 : TON"],
+  "LD",
+  ["o1 := (a AND NOT b);", "t1(IN := a, PT := T#1S);", "o2 := t1.Q;", "j := (i + 1);"],
+)
+/** A box of each CallType a corpus box holds (FunctionBlock, Function, Program, an operator): the call rows' subject. */
+const NWL_R_CALLS = nwlProgram(
+  "VltF_RC",
+  ["a : BOOL", "b : BOOL", "i : INT", "j : INT", "k : INT", "o1 : BOOL", "t1 : TON"],
+  "LD",
+  [
+    "k := VltF_RFn(x := i);",
+    "VltF_RPrg(EN := b);",
+    "t1(IN := a, PT := T#1S);",
+    "o1 := (a AND b);",
+    "j := (i + 1);",
+  ],
+)
+/** An Execute box (CallType None; the snippet's per-line ids). */
+const NWL_R_EXEC = nwlProgram("VltF_RX", ["a : BOOL", "k : INT"], "LD", [
+  { lines: ["EXECUTE(EN := a)", "k := k + 1;", "k := k * 2;", "END_EXECUTE;"] },
+])
+/** A RETURN and a JMP built by the push (the assign item's own Jump/Return bit). */
+const NWL_R_FLOW = nwlProgram("VltF_RJ", ["a : BOOL", "b : BOOL", "o1 : BOOL"], "LD", [
+  "IF a THEN RETURN; END_IF;",
+  "IF b THEN JMP l1; END_IF;",
+  { header: "LABEL: l1", lines: ["o1 := a;"] },
+])
+/** A Parallel (the body's BranchCounter). */
+const NWL_R_PAR = nwlProgram("VltF_RP", ["a : BOOL", "b : BOOL", "c : BOOL", "o1 : BOOL"], "LD", [
+  "o1 := PARALLEL(IN := a, b, NOT c);",
+])
+
+/** S3b (`nwl-rail-fed-wire`): a wire fed by the empty terminator (the left rail, `g1 := ;`), and — its own subject, so
+ *  a refusal of one leaves the other measured — the same wire fed by TRUE. */
+const NWL_RAIL = nwlProgram("VltF_Rail", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
+  { lines: ["VAR_TEMP g1 : BOOL; END_VAR", "g1 := ;", "o1 := (g1 AND a);", "o2 := (g1 AND b);"] },
+])
+const NWL_RAIL_TRUE = nwlProgram("VltF_RailT", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
+  { lines: ["VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "o1 := (g1 AND a);", "o2 := (g1 AND b);"] },
+])
+/** S3a (`nwl-leaf-wire-type`, owner amendment a): a wire fed by a LEAF — an INT leaf into DINT pins, a leaf of an alias
+ *  type, and the census's own WSM shape (a BOOL leaf into an FB's BOOL pins, `R_TRIG.CLK` and `TON.IN`). */
+const NWL_LEAF_WIRE = nwlProgram(
+  "VltF_Lw",
+  ["a : BOOL", "i : INT", "al : VltF_LwAl", "d : DINT", "e : DINT", "f : DINT", "k : INT", "t1 : TON", "r1 : R_TRIG"],
+  "LD",
+  [
+    { lines: ["VAR_TEMP g1 : INT; END_VAR", "g1 := i;", "d := VltF_LwFn(x := g1);", "e := VltF_LwFn(x := g1);"] },
+    { lines: ["VAR_TEMP g2 : VltF_LwAl; END_VAR", "g2 := al;", "f := VltF_LwFn(x := g2);", "k := MOVE(g2);"] },
+    { lines: ["VAR_TEMP g3 : BOOL; END_VAR", "g3 := a;", "t1(IN := g3, PT := T#1S);", "r1(CLK := g3);"] },
+  ],
+)
+/** S1 (`nwl-bitop-stored-slot`): SetAlarm's network 0 in the plain form a push builds today — bit operator boxes
+ *  consumed by other bit operators (pro2193 `Cylinder_53ValveFB.SetAlarm`, census 0.2) — and a consumed NOT box. */
+const NWL_S1_PLAIN = nwlProgram(
+  "VltF_S1",
+  ["a : BOOL", "b : BOOL", "c : BOOL", "q : BOOL", "o : BOOL", "p : BOOL"],
+  "FBD",
+  ["o := (((a AND b AND c) OR (a AND b) OR (b AND c)) AND q);", "p := (NOT (a AND b) AND c);"],
+)
+/** S2, S6 and S5 in the spelling design 1.1 gives them — what the push answers before 2.3 spells them. */
+const NWL_S2 = nwlProgram("VltF_S2", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL", "k : INT"], "LD", [
+  "MOVE(EN := (o1 := (a AND b)), 750, => k);",
+  "MOVE(EN := (o2 S= (a AND b)), 7, => k);",
+])
+const NWL_S6 = nwlProgram("VltF_S6", ["a : BOOL", "b : BOOL", "o1 : BOOL", "fb1 : VltF_S6Fb"], "FBD", [
+  "fb1(NOT xEnable := a);",
+  "o1 := AND(NOT IN1 := a, b);",
+])
+const NWL_S5 =
+  "FUNCTION_BLOCK VltF_S5 EXTENDS VltF_S5Base\nVAR\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  `SUPER^`();\nEND_NETWORK\n\n" +
+  "END_FUNCTION_BLOCK\n"
+
+/** The steps every NWL row takes: the callees and the subject created through the shipped push (`pushed`), the subject
+ *  called from PLC_PRG so the build compiles it (`called`), a build (`built`), save/close/reopen (`reloaded`) and a build
+ *  of the reopened project (`rebuilt`) — the R rows' question: does the IDE fill a member the push did not write, on a
+ *  build or a reopen (design 1b.2: "push without it, save/reopen, read back, build"). */
+type NwlSubject = { as: string; name: string; source: string; kind?: Kind }
+function nwlSteps(subject: NwlSubject, callees: (keyof typeof NWL_CALLEE)[] = [], beside: NwlSubject[] = []): Step[] {
+  const kind = subject.kind ?? "program"
+  // Only the main subject is called: a subject beside it may be refused, and a call of it would fail the build for that
+  // reason alone (measured: TwinCAT's PLC_PRG then reports it undefined). Every POU of the project is compiled anyway.
+  const call = kind === "program" ? `${subject.name}();` : ""
+  const steps: Step[] = [{ vendor: "codesys", op: "open", fixture: "CodesysTestProject" }]
+  for (const c of callees)
+    steps.push({
+      op: "create",
+      as: `callee_${c}`,
+      kind: NWL_CALLEE_KIND[c][0],
+      name: NWL_CALLEE_KIND[c][1],
+      parent: "root",
+      via: "push",
+      source: NWL_CALLEE[c],
+    })
+  // A subject beside the main one first: `pushed` tags the last create, so every subject exists when it is read.
+  for (const b of beside)
+    steps.push({ op: "create", as: b.as, kind: b.kind ?? "program", name: b.name, parent: "root", via: "push", source: b.source })
+  steps.push({ tag: "pushed", op: "create", as: subject.as, kind, name: subject.name, parent: "root", via: "push", source: subject.source })
+  if (call) {
+    steps.push({ op: "find", as: "main", name: "PLC_PRG" })
+    steps.push({ vendor: "codesys", tag: "called", op: "setText", on: "main", via: "script", impl: call + "\n" })
+    steps.push({ vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "IMPLEMENTATION ST", add: call } })
+  }
+  steps.push({ tag: "built", op: "build" }, { tag: "reloaded", op: "reload" }, { tag: "rebuilt", op: "build" })
+  return steps
+}
+
+/** An `nwl` read of `on` at every moment of `nwlSteps` keeping `members`, the pull's text after the push and the
+ *  reopen, and both builds' messages. */
+function nwlReads(on: string | string[], members: string[]): Read[] {
+  return [
+    { key: "nwl", at: ["pushed", "built", "reloaded", "rebuilt"], on, op: "nwl", members },
+    { key: "fetched", at: ["pushed", "reloaded"], on, op: "fetched" },
+    { key: "diagnostics", at: ["built", "rebuilt"], op: "diagnostics" },
+  ]
 }
 
 /** `task-priority-range`' values (C19c): what `probe-tc-refusal-measure.ps1 -Phase priority` (deleted, `git show
@@ -4154,5 +4323,269 @@ export const ROWS: Row[] = [
       { key: "fetched", at: ["made", "pushed", "reloaded"], on: "keep", op: "fetched" },
       { key: "diagnostics", at: ["built-first", "built"], op: "diagnostics" },
     ],
+  },
+  // ── ld-fbd-coverage 2.2: the probe-table rows (design "1b.2"; the R rows: does the IDE fill a member a push did not
+  // write, on a build or a reopen; the shape rows: what the push builds and the IDE holds) ──────────────────────────
+  {
+    id: "nwl-flags-fixed",
+    dialect: ["N29"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["Fixed"]),
+  },
+  {
+    id: "nwl-operand-boolean",
+    dialect: ["N29"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["Boolean"]),
+  },
+  {
+    id: "nwl-address-sentinel",
+    dialect: ["N29"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["Address"]),
+  },
+  {
+    id: "nwl-branch-counter",
+    dialect: ["N29"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "p", name: "VltF_RP", source: NWL_R_PAR }),
+    reads: nwlReads("p", ["BranchCounter", "Mode"]),
+  },
+  {
+    id: "nwl-item-id",
+    dialect: ["N29"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["Id"]),
+  },
+  {
+    id: "nwl-bitop-stored-slot",
+    dialect: ["N31"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      // CODESYS: the IDE-drawn stored form (pro2193 SetAlarm network 0, census 0.2) in its own project, and the plain
+      // form the push builds beside it.
+      { vendor: "codesys", op: "open", fixture: "Pro2193" },
+      { vendor: "codesys", op: "find", as: "fb", name: "Cylinder_53ValveFB" },
+      { vendor: "codesys", tag: "found", op: "find", as: "drawn", name: "SetAlarm", under: "fb" },
+      { tag: "pushed", op: "create", as: "plain", kind: "program", name: "VltF_S1", parent: "root", via: "push", source: NWL_S1_PLAIN },
+      { tag: "built", op: "build" },
+      { tag: "reloaded", op: "reload" },
+      { tag: "rebuilt", op: "build" },
+    ],
+    reads: [
+      {
+        vendor: "codesys",
+        key: "drawn",
+        at: ["found", "rebuilt"],
+        on: "drawn",
+        op: "nwl",
+        members: ["BoxType", "CallType", "Names", "Types", "Names#count", "Types#count", "OutputItems#count", "EN", "ENO"],
+      },
+      { vendor: "codesys", key: "drawn.network-0", at: "found", on: "drawn", op: "nwl", network: 0, members: ["Operand"] },
+      { vendor: "codesys", key: "drawn.fetched", at: "found", on: "fb", op: "fetched" },
+      {
+        vendor: "twincat",
+        key: "drawn",
+        at: "pushed",
+        op: "absent",
+        reason:
+          "the TwinCAT-drawn AND boxes are the committed archive test/fixtures/TwinCAT Project14/…/Untitled2/POU_PBD.TcPOU " +
+          "(its second PLC project, which this row's IDE does not serve): OutputParam Names [''] Types ['BOOL'], " +
+          "OutputItems [null], EN/ENO false",
+      },
+      {
+        key: "plain",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "plain",
+        op: "nwl",
+        members: ["BoxType", "CallType", "Names", "Types", "Names#count", "Types#count", "OutputItems#count", "EN", "ENO"],
+      },
+      { key: "plain.fetched", at: ["pushed", "reloaded"], on: "plain", op: "fetched" },
+      { key: "diagnostics", at: ["built", "rebuilt"], op: "diagnostics" },
+      {
+        key: "run",
+        at: "rebuilt",
+        op: "absent",
+        reason:
+          "no row step runs code: whether the stored form and the plain form EXECUTE alike is not measured here " +
+          "(the exec recorder's online simulation runs pushed text, and the stored form has no text to push)",
+      },
+    ],
+  },
+  {
+    id: "nwl-leaf-wire-type",
+    dialect: ["N32"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "lw", name: "VltF_Lw", source: NWL_LEAF_WIRE }, ["dintFn", "alias"]),
+    reads: nwlReads("lw", ["Type", "Types", "Input", "VarId"]),
+  },
+  {
+    id: "nwl-nested-assign",
+    dialect: ["N34"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "s2", name: "VltF_S2", source: NWL_S2 }),
+    reads: [
+      ...nwlReads("s2", ["RValue", "InputItems", "Flags"]),
+      {
+        key: "drawn",
+        at: "pushed",
+        op: "absent",
+        reason:
+          "no committed fixture holds an IDE-drawn assign below the top level: the corpora's 6 networks are lenze-mid's " +
+          "(SpeedCalculationDryer 0, Mach1_MIDS 7/29/52, Dryer 1, TrayFiller 30), recorded in nwl-corpus/lenze-mid.nwl.xml",
+      },
+    ],
+  },
+  {
+    id: "nwl-rail-fed-wire",
+    dialect: ["N33"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rail", name: "VltF_Rail", source: NWL_RAIL }, [], [
+      { as: "railTrue", name: "VltF_RailT", source: NWL_RAIL_TRUE },
+    ]),
+    reads: nwlReads(["rail", "railTrue"], ["Input", "VarId", "Operand"]),
+  },
+  {
+    id: "nwl-input-pin-flag",
+    dialect: ["N35"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "s6", name: "VltF_S6", source: NWL_S6 }, ["pinFb"]),
+    reads: [
+      ...nwlReads("s6", ["InputFlags", "Flags"]),
+      {
+        key: "drawn",
+        at: "pushed",
+        op: "absent",
+        reason:
+          "no committed fixture holds an IDE-drawn flag on a box input pin: the corpora's one network is lenze-mid's " +
+          "(FirstErrorCapture.call_FirstErrorCapture_FB 8), recorded in nwl-corpus/lenze-mid.nwl.xml",
+      },
+    ],
+  },
+  {
+    id: "nwl-super-call",
+    dialect: ["N36"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "s5", name: "VltF_S5", source: NWL_S5, kind: "function_block" }, ["base"]),
+    reads: [
+      ...nwlReads("s5", ["BoxType", "CallType", "Operand"]),
+      {
+        key: "drawn",
+        at: "pushed",
+        op: "absent",
+        reason:
+          "no committed fixture holds an IDE-drawn SUPER^ call: the corpora's one network is lenze-mid's " +
+          "(ATD_TorqueControl 0), recorded in nwl-corpus/lenze-mid.nwl.xml",
+      },
+    ],
+  },
+  {
+    id: "nwl-operand-type",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["Type"]),
+  },
+  {
+    id: "nwl-instance-type",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
+    reads: nwlReads("rc", ["Type", "BoxType", "IsInstance"]),
+  },
+  {
+    id: "nwl-param-types",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
+    reads: nwlReads("rc", ["Names", "Types"]),
+  },
+  {
+    id: "nwl-box-en-eno",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
+    reads: nwlReads("rc", ["EN", "ENO", "BoxType"]),
+  },
+  {
+    id: "nwl-input-flags-list",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "r", name: "VltF_R", source: NWL_R_BASE }),
+    reads: nwlReads("r", ["InputFlags", "BoxType"]),
+  },
+  {
+    id: "nwl-output-param-names",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
+    reads: nwlReads("rc", ["Names", "Names#count", "OutputItems#count", "BoxType", "CallType"]),
+  },
+  {
+    id: "nwl-stsnippet-line-ids",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rx", name: "VltF_RX", source: NWL_R_EXEC }),
+    reads: [
+      ...nwlReads("rx", ["Id", "Tag", "Text", "TextLines", "CallType", "BoxType"]),
+      {
+        vendor: "codesys",
+        key: "lines",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "rx",
+        op: "member",
+        path: "object.Implementation.GetNetwork(0).GetTree(0).STSnippet.Snippet.TextDocument.LineCount",
+      },
+      {
+        vendor: "codesys",
+        key: "line-id-0",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "rx",
+        op: "member",
+        path: "object.Implementation.GetNetwork(0).GetTree(0).STSnippet.Snippet.TextDocument.GetLineId(0)",
+      },
+      {
+        vendor: "codesys",
+        key: "line-id-1",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "rx",
+        op: "member",
+        path: "object.Implementation.GetNetwork(0).GetTree(0).STSnippet.Snippet.TextDocument.GetLineId(1)",
+      },
+      {
+        vendor: "codesys",
+        key: "line-tag-0",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "rx",
+        op: "member",
+        path: "object.Implementation.GetNetwork(0).GetTree(0).STSnippet.Snippet.TextDocument.GetLineTag(0)",
+      },
+      {
+        vendor: "codesys",
+        key: "snippet-id",
+        at: ["pushed", "built", "reloaded", "rebuilt"],
+        on: "rx",
+        op: "member",
+        path: "object.Implementation.GetNetwork(0).GetTree(0).STSnippet.Id",
+      },
+    ],
+  },
+  {
+    id: "nwl-call-type",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
+    reads: nwlReads("rc", ["CallType", "BoxType"]),
+  },
+  {
+    id: "nwl-assign-item-flags",
+    dialect: ["N30"],
+    vendors: { codesys: true, twincat: true },
+    steps: nwlSteps({ as: "rj", name: "VltF_RJ", source: NWL_R_FLOW }),
+    reads: nwlReads("rj", ["Flags", "Operand", "Label"]),
   },
 ]

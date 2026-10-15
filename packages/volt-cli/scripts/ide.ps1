@@ -59,6 +59,11 @@
                     German). The language TwinCAT's build writes its Output pane in follows it (environment-dependency-audit
                     2.4); a language whose shell resources are not installed is refused by name, not left to the shell
                     (which silently stays in English). Default: the shell's own setting.
+.PARAMETER CodesysCulture codesys only: the UI culture CODESYS runs in, passed as its own `--culture=<name>` switch (e.g.
+                    `en`). CODESYS writes its messages - build diagnostics included - in that language; without it the
+                    language follows Windows', and a Windows UI language CODESYS does not ship (this machine's nl-NL)
+                    makes it write German (DIALECT V9). The recorders whose oracle language is English pass `en`
+                    (scripts/vendor-facts.ts). Default: none - CODESYS's own choice.
 .PARAMETER CodesysBitness codesys only: 32 | 64 — which edition of -CodesysVersion, when it is installed both 64-bit
                     (`Program Files`) and 32-bit (`Program Files (x86)`). Without it a version installed in both is
                     refused by name; with it an edition that is not installed is refused by name (never the other one).
@@ -87,6 +92,7 @@ param(
     [string]$BridgeDir = "",
     [string]$CodesysVersion = "3.5.21.40",
     [ValidateSet("", "32", "64")] [string]$CodesysBitness = "",
+    [ValidatePattern('^([a-z]{2}(-[A-Z]{2})?)?$')] [string]$CodesysCulture = "",
     [int]$XaeLanguage = 0,
     [ValidateSet("", "32", "64")] [string]$XaeBitness = "",
     [switch]$NoBuild,
@@ -704,6 +710,7 @@ function Up-Codesys {
     # the pipe. NO stdout/stderr redirect either — CODESYS's UI process wants its own console handles and
     # redirecting them can wedge startup, which is why the host script writes its own file log (see `logs`).
     $argline = '--profile="{0}" --runscript="{1}"' -f $profileName, (Resolve-Path $scriptPy).Path
+    if ($CodesysCulture) { $argline += (' --culture="{0}"' -f $CodesysCulture); Write-Host "CODESYS culture: $CodesysCulture" }
     Write-Host "CODESYS: $exe"
     Write-Host "Profile: $profileName"
     if ($BridgeDir) { Write-Host "Bridge:  as installed, $($env:VOLT_START_SCRIPT) (no VOLT_BRIDGE_DLL)" }
