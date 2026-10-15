@@ -34,3 +34,36 @@ vocabulary, as `vendor-fact-probe` 4.2 left them).
 **Migration.** A re-pull rewrites the 11 bodies that used to be UNSUPPORTED (S4's body keeps the marker). If S1 is
 inert, its 5 bodies change no text that pulls today. `docs/network-text.html` gets S2's grammar line, S6's pin form, and
 the S3/S5 type rules, and the "Marker on pull" row loses those entries.
+
+## 1b.2 Disposition — every NWL member: spelled / editor cache / refused by name
+
+**Target.** Every archived member of the 15 NWL classes (census 1b.1) has one disposition, so NWL → text → NWL (1b.3)
+is exact for every non-cache member and a member missing from this table fails the oracle by name.
+
+**Choice: one generic node pragma, written only where the stored value differs from its derivation.** A member that is
+not plain content gets a derivation (from the tree, the declarations, or the vendor's constructor default); the writer
+sets the derived value, and a stored value that differs is spelled `{Member := value}` directly after its node (an
+operand, a box's closing paren, an assign target, the `NETWORK` line, the `IMPLEMENTATION` line). Pragma brackets are
+unused by network text today, so no text that pulls now changes meaning, and a member a future SP adds gets the same
+form with no grammar change. Rejected: a bespoke spelling per member (the grammar grows per member) · a sidecar file
+(the item's text stops being its truth) · a table keyed by node path (paths break on any edit) · dropping the unmeasured
+members (owner default 1b.1: no proof, no exclusion).
+
+| disposition | members |
+|---|---|
+| **spelled, existing form** | Network `Label`/`Title`/`Comment`/`OutCommented`, `NetworkList` order, `DefaultViewMode` (IMPLEMENTATION line); Assign `OutputItems`/`RValue` and target `Flags` Set/Reset/Jump/Return; operand/box `Flags` Negation/Rtrig/Ftrig; Box `BoxType`, `InputItems`, `InputParam.Names` (formals), `OutputItems`+`OutputParam.Names` (`=>`, `.slot`), `EN`/`ENO` (EN pin, `.ENO`), `Instance`, `STSnippet` text (EXECUTE); Demux `VarId`/`Input` (the `g<n>` wire); Parallel `Trees`/`Input`/`Mode`; `Operand.Operand`; a wire's `Type` (VAR_TEMP) |
+| **spelled, new form** | S1–S6 as 1.1 (pin flags `NOT IN1 :=`, 6 pins); S4's slot `.xErrorActive` from the box's own `OutputParam.Names` (1b.4); `Operand.SymbolComment` as `{SymbolComment := '…'}` (10, pro2193 — lifts gate 1b-1's refusal) |
+| **derived from the tree** (writer sets it; the oracle proves it on every corpus node — a counter-example makes it a pragma, never a guess) | `Operand.LValue` (1082/1082), `Operand.IsInstance` (1305/1305), `ProvidesSTSnippet` (12/12), `CallType` (from `BoxType` + declaration kind), the connected slot's null, the function result pin's `"   "`, `Instance.Type` = `BoxType` (pragma on the 5 that differ) |
+| **editor cache, already measured** | `TextDocument.LineInfoPersistence`/`TextBlobForSerialisation` (bridge-one-to-one `editor-caches`); `IBoxTree4.Ordinary`, `Image`, `TheAddress`/`TheSymbolComment` (N23: not serialized at all) |
+| **cache candidate → one `vendor-facts` row each in 2.3** (push without it, save/reopen, read back and build; re-derived identically ⇒ editor cache, else the pragma) | `AbstractNWLItem.Id`, `BranchCounter`, `ValidIds`, `FBDValid`/`ILValid`/`ILActive`, `Flags.Fixed` (1914), `Operand.Boolean` (2347), `Operand.Type` off a wire, `ParamList.Types`, stored `EN`/`ENO` on a box without an EN pin (the 40 comparisons), a zero-only `InputFlags` list (7 boxes), `Address` sentinel (258), the 14 boxes whose `OutputParam.Names` count ≠ slot count, STSnippet line `Id`/`Tag` (both vendors) |
+| **pragma, 0 in the corpora** (scalar, so spelling costs nothing) | non-empty `Operand.Comment`, non-empty `NetworkListComment`, `Flags.Extensible`, `ContainsExtensibleInputs` |
+| **refused by name, 0 in the corpora** (a tree shape with no witness of its meaning; read refuses the body/network, never drops it) | `BoxTreeMux`, `ILStatement`/`Network.ILLines`, non-empty `Network.Connectors`, `BoxTreeTerminator.Input`, a flag on a Parallel/Demux (N20), Rtrig+Ftrig together, an edge on a pin, a Jump/Return flag off an assign |
+
+**Stays refused by name:** the last row, and S4's push when its network changed (N21, read-only `MainOutputIndex`).
+Until a candidate's row lands, a CODESYS rebuild of a network where it is non-default keeps today's behaviour (built
+fresh); the pragma, once spelled, is written by both writers and the 1b-1 `SymbolComment` refusal is deleted with it.
+
+**Migration.** Texts change only where a stored value differs from its derivation: pro2193 `SetAlarm` gains 10
+`SymbolComment` pragmas; every row that ends "not re-derived" adds pragmas where its values sit, counted in its row and
+listed for the owner in the close report. The LSP parser and `docs/network-text.html` gain the one pragma production,
+`node += [ "{" , member , ":=" , literal , "}" ]`; the oracle's member list is this table.
