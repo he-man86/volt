@@ -89,13 +89,12 @@ jobs:
       # lifecycle gate, which OPENS with the same install/uninstall and then keeps going. The smoke gate was a
       # strict subset (weaker, too: existence checks where the lifecycle gate measures each binary's stamped
       # version), so it cost a full extra install cycle on the runner to re-prove what the next step re-proved.
-      # `--older stable`: the gate first installs the CURRENT stable release (downloaded with gh), then updates it to
-      # this build — the upgrade every stable user takes, and the only proof of the one-release migration from the
-      # app-<version> + `current` layout. The gate refuses to run without an upgrade source.
-      - name: Gate — install lifecycle (upgrade from stable, update, CLI-alive, uninstall, verified update)
+      # `--older previous`: the gate first installs the newest published build older than this one (downloaded with
+      # gh), then updates it to this build. The gate refuses to run without an upgrade source.
+      - name: Gate — install lifecycle (update, CLI-alive, uninstall, verified update)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bun run test:install --older stable
+        run: bun run test:install --older previous
 
       # Only now: flip the exact build we just gated to the stable channel. --latest makes it what the stable updater
       # (and GitHub's /releases/latest) serves; --prerelease=false takes it out of the dev channel.

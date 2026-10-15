@@ -208,8 +208,7 @@ actually shipped need an install **over an existing one**, with files held open:
   wrote; it asserted nothing about the binaries beside it, so a half-applied install reported the version it
   *meant* to be. That file is gone — every binary now carries its version stamped in.
 
-The flow (openspec installer-rebuild, design 1): **1** install `--older` → **2** update to the new build (the
-upgrade, and the one-release migration off the `app-<v>` + `current` layout) → **3** update again (files in use) →
+The flow (openspec installer-rebuild, design 1): **1** install `--older` → **2** update to the new build → **3** update again (files in use) →
 **4** update with a `volt.exe` alive and `/VOLTWAIT=15`: setup gives up non-zero, the CLI is **not killed**, no
 binary is replaced, nothing is stopped (the tray's pids unchanged — the TwinCAT worker is the far end of the CLI's
 pipe) → **5** the same, the CLI stopped 5 s into the wait: setup completes
@@ -231,10 +230,11 @@ is **hard** — there is no "warn" any more. What carries the weight:
 - **Rollback detection** — the setup log is read for `Rolling back changes` / in-use aborts, because Inno can exit
   0 on those paths.
 
-`--older <setup.exe | stable>` is **required** (`stable` downloads the latest non-prerelease with `gh`); a run
+`--older <setup.exe | previous>` is **required** (`previous` downloads the newest published build older than the
+one under test with `gh`); a run
 without an upgrade, or with an "older" that is not older, is refused by name. The gate also refuses to start where
 Volt is already installed, a Volt process or any `volt.exe` runs (a dev tray, another session's CLI — every setup
-would wait on it), any published fact (shortcut, Run value, Documents scripts, retired env vars) is already there —
+would wait on it), any published fact (shortcut, Run value, Documents scripts) is already there —
 a leftover would pass an assertion the installer never earned — or no dotnet has a .NET 10 SDK (step 10). Every
 log check reads only the bytes THAT step appended to the mirrored log (the uninstaller appends a whole day to one
 `uninstall-<date>.log`), and every uninstall log line must carry `volt:`. Steps 4–6 read the exact `volt: waiting

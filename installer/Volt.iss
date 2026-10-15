@@ -2,8 +2,7 @@
 ; app, the `volt` CLI + the LSP on PATH, the tray connector (+ the TwinCAT worker) and the CODESYS bridge. Written
 ; from the product as it is, declaratively: what Volt puts on the machine is in [Files] / [Icons] / [Registry] /
 ; [UninstallDelete], so the uninstaller removes exactly that. [Code] holds only what Inno cannot declare: stopping
-; Volt's own processes, waiting for a running CLI (never killing it), the exact PATH entry, the one-release upgrade
-; from the app-<version> + `current` layout, and the log mirror.
+; Volt's own processes, waiting for a running CLI (never killing it), the exact PATH entry, and the log mirror.
 ;
 ; Auto-update is the connector's (Updater.cs): it downloads a newer Volt-win-Setup.exe, verifies its SHA-256 against
 ; the release asset's digest, and runs it /VERYSILENT — this same file, upgrading in place.
@@ -50,9 +49,8 @@ CloseApplications=no
 ; PATH is the one thing Volt publishes for agents: broadcast WM_SETTINGCHANGE("Environment") on install AND uninstall,
 ; so Explorer — and every shell or editor started from it — sees the change without a new logon.
 ChangesEnvironment=yes
-; The uninstall log describes THIS install only. Appending (Inno's default) would carry the app-<version> layout's
-; entries forward — among them an [UninstallRun] of `{app}\current\VoltConnector.exe --uninstall`, an exe the
-; upgrade deletes. Files a later build drops are still removed: [UninstallDelete] takes the four folders whole.
+; The uninstall log describes THIS install only, not every build installed over it. Files a later build drops are
+; still removed: [UninstallDelete] takes the four folders whole.
 UninstallLogMode=overwrite
 
 [InstallDelete]
@@ -73,8 +71,7 @@ Source: "{#StageDir}\desktop\*";   DestDir: "{app}\desktop";   Flags: recursesub
 Name: "{userprograms}\Volt"; Filename: "{app}\desktop\VoltDesktop.exe"; WorkingDir: "{app}\desktop"
 
 [Registry]
-; The login item, so the tray survives a reboot. Declared, so the uninstaller removes exactly this value — and an
-; upgrade overwrites the one the connector used to write (it named app-<version>\VoltConnector.exe).
+; The login item, so the tray survives a reboot. Declared, so the uninstaller removes exactly this value.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "VoltConnector"; ValueData: """{app}\connector\VoltConnector.exe"" --silent"; Flags: uninsdeletevalue
 ; PATH is NOT here: `uninsdeletevalue` on HKCU\Environment\Path deletes the user's WHOLE PATH. [Code] adds and
 ; removes the one exact entry instead.
@@ -82,14 +79,6 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; Start the tray. Not `postinstall`: it must run on the silent auto-update too.
 Filename: "{app}\connector\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait
-
-[UninstallRun]
-; ONE RELEASE ONLY (openspec installer-rebuild 3.3 deletes these): the installer no longer sideloads the extension —
-; it ships from the Marketplace — but installs older than this one did, and an extension left behind without the CLI
-; it drives fails every command. A no-op in an editor that never had it, or is not on PATH.
-Filename: "{cmd}"; Parameters: "/c code --uninstall-extension volt-ai.volt-vscode";     Flags: runhidden; RunOnceId: "VoltExtVsCode"
-Filename: "{cmd}"; Parameters: "/c windsurf --uninstall-extension volt-ai.volt-vscode"; Flags: runhidden; RunOnceId: "VoltExtWindsurf"
-Filename: "{cmd}"; Parameters: "/c cursor --uninstall-extension volt-ai.volt-vscode";   Flags: runhidden; RunOnceId: "VoltExtCursor"
 
 [UninstallDelete]
 ; The four folders whole — including any file an earlier build installed and this one no longer ships.
@@ -139,9 +128,7 @@ begin
     and (CompareText(RemoveBackslash(ExtractFileDir(Path)), RemoveBackslash(AppDir)) <> 0);
 end;
 
-{ The CLI: a volt.exe in a bin\ folder — <app>\bin\volt.exe, and the app-<version>\bin / current\bin of the layout
-  this release upgrades from. The old desktop exe (app-<version>\desktop\Volt.exe) shares the image name and is NOT
-  one: telling them apart is why processes are matched by PATH here, never by image name. }
+{ The CLI: <app>\bin\volt.exe — a volt.exe in a bin\ folder. Matched by PATH, never by image name alone. }
 function IsCli(Path: String): Boolean;
 begin
   Result := (CompareText(ExtractFileName(Path), 'volt.exe') = 0)
@@ -179,8 +166,7 @@ begin
 end;
 
 { Stop every process running from under <app> that is not the CLI: the connector, the TwinCAT worker, the desktop
-  app, the LSP (its host restarts it on demand) — by path, so today's desktop (app-<version>\desktop\Volt.exe, the
-  CLI's image name) is stopped and a CLI never is. NOT CODESYS: its bridge runs in-proc in the user's IDE, loaded
+  app, the LSP (its host restarts it on demand) — by path, so a CLI never is. NOT CODESYS: its bridge runs in-proc in the user's IDE, loaded
   from a per-session temp copy, so it holds no file here. Rounds until none is left: the connector can spawn a
   worker between two passes. False — and a FAILED line naming them — when some still run after 30 s.
   The CLI wait came first, but a `volt push` can start between that wait and a round here (an agent loop, the editor
@@ -327,9 +313,7 @@ end;
   (DeinitializeSetup), and after an uninstall that did not happen. A run that gave up waiting for a CLI stopped
   nothing, but the auto-update's tray exited before it launched this setup; a run that stopped Volt's processes and
   then aborted (a locked file in [Files], a rollback) would otherwise leave no tray and no TwinCAT worker until the
-  next login. After a completed install [Run] has started the tray, and this finds it running. The
-  current\ fallback is the layout this release upgrades from (a give-up during that upgrade leaves it installed);
-  it goes with the migration. }
+  next login. After a completed install [Run] has started the tray, and this finds it running. }
 procedure RelaunchConnector;
 var Exe: String; Code: Integer;
 begin
@@ -339,7 +323,6 @@ begin
     Exit;
   end;
   Exe := AppDir + '\connector\VoltConnector.exe';
-  if not FileExists(Exe) then Exe := AppDir + '\current\VoltConnector.exe';
   if not FileExists(Exe) then
   begin
     VLog('no installed connector under ' + AppDir + ' to relaunch');
@@ -350,8 +333,7 @@ begin
 end;
 
 { PATH is a ';'-separated list: entries compared trimmed and case-insensitively, so the add and the remove agree by
-  construction. Never a substring test — '\current\binx' contains '\current\bin', and a PATH entry that looks right but
-  is not is exactly what shipped once ('\Volt\currentin'). }
+  construction. Never a substring test — '\Volt\binx' contains '\Volt\bin'. }
 function PathHasEntry(PathVal, Dir: String): Boolean;
 var Rest, Part: String;
 begin
@@ -420,45 +402,6 @@ begin
     VLog('FAILED to put ' + Dir + ' on the user PATH');
 end;
 
-{ ONE RELEASE ONLY (deleted by the next one, openspec installer-rebuild 3.3): the upgrade from the app-<version> +
-  `current` junction layout. Its processes were already stopped by path and its CLI waited for (PrepareToInstall).
-  The junction goes FIRST and by RemoveDir — that unlinks the reparse point; a recursive delete would delete its
-  target THROUGH it — then each app-* directory. The old Run value and Volt.lnk are overwritten by the Registry and
-  Icons sections; only the old PATH entry and the two env vars the old installer wrote need removing here. }
-procedure MigrateVersionedLayout;
-var FR: TFindRec; Name: String;
-begin
-  if DirExists(AppDir + '\current') then
-  begin
-    if RemoveDir(AppDir + '\current') then VLog('migrate removed the current junction')
-    else VLog('FAILED to remove the current junction ' + AppDir + '\current');
-  end;
-  if FindFirst(AppDir + '\app-*', FR) then
-  try
-    repeat
-      Name := FR.Name;
-      if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-      begin
-        if DelTree(AppDir + '\' + Name, True, True, True) then VLog('migrate removed ' + Name)
-        else VLog('FAILED to remove ' + AppDir + '\' + Name);
-      end;
-    until not FindNext(FR);
-  finally
-    FindClose(FR);
-  end;
-  if RemovePathEntry(AppDir + '\current\bin') then VLog('migrate removed ' + AppDir + '\current\bin from the user PATH');
-  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL') then
-  begin
-    if RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL') then VLog('migrate removed VOLT_BRIDGE_DLL')
-    else VLog('FAILED to remove VOLT_BRIDGE_DLL');
-  end;
-  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then
-  begin
-    if RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then VLog('migrate removed OPENCODE_CONFIG_DIR')
-    else VLog('FAILED to remove OPENCODE_CONFIG_DIR');
-  end;
-end;
-
 { An uninstaller in <app>: unins000.exe by default, but Inno numbers on (unins001, ...) when the log there is not one
   it can reuse. }
 function HasUninstaller: Boolean;
@@ -466,33 +409,6 @@ var FR: TFindRec;
 begin
   Result := FindFirst(AppDir + '\unins???.exe', FR);
   if Result then FindClose(FR);
-end;
-
-{ ONE uninstaller: the one this setup wrote, which Add/Remove runs. Inno does not reuse an uninstall log written in the
-  other install mode: the first 64-bit-mode install (ArchitecturesInstallIn64BitMode) over a 32-bit-mode one wrote
-  unins001.* and left the older build's unins000.* beside it, Add/Remove now naming unins001.exe. That leftover is an
-  uninstaller carrying the OLDER build's [Code]: run from <app> it killed a running volt.exe, stopped the tray and
-  removed the install under the CLI (test:install step 6, 2026-10-14). Every unins???.exe / .dat that is not this
-  setup's own goes once the install has completed (ssPostInstall) - never before, so an aborted or rolled-back update
-  keeps the uninstaller that still describes what is installed. }
-procedure RemoveStaleUninstallers;
-var FR: TFindRec; Own, Name, Ext: String;
-begin
-  Own := ChangeFileExt(ExtractFileName(ExpandConstant('{uninstallexe}')), '');
-  if FindFirst(AppDir + '\unins???.*', FR) then
-  try
-    repeat
-      Name := FR.Name;
-      Ext := Lowercase(ExtractFileExt(Name));
-      if ((Ext = '.exe') or (Ext = '.dat')) and (CompareText(ChangeFileExt(Name, ''), Own) <> 0) then
-      begin
-        if DeleteFile(AppDir + '\' + Name) then VLog('removed ' + Name + ', an earlier install''s uninstaller (this one is ' + Own + '.exe)')
-        else VLog('FAILED to remove ' + AppDir + '\' + Name + ', an earlier install''s uninstaller');
-      end;
-    until not FindNext(FR);
-  finally
-    FindClose(FR);
-  end;
 end;
 
 { Set when setup reaches PrepareToInstall: from there on it may have stopped the tray (or the auto-update's tray has
@@ -521,12 +437,7 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssInstall then MigrateVersionedLayout;
-  if CurStep = ssPostInstall then
-  begin
-    RemoveStaleUninstallers;
-    AddPathEntry(AppDir + '\bin');
-  end;
+  if CurStep = ssPostInstall then AddPathEntry(AppDir + '\bin');
 end;
 
 function InitializeUninstall(): Boolean;

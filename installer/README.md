@@ -5,7 +5,7 @@ LSP on PATH, the tray connector (+ the TwinCAT worker) and the CODESYS bridge. B
 `bun scripts/build-installer.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
 connector polls. **Per-user, no admin/UAC** — every location below is under the user's profile or HKCU. Designed in
 openspec `installer-rebuild` (2026-10-12); the installer before it (an `app-<version>` + `current` junction layout,
-a connector that wrote the shortcut / Run key / env at runtime) is gone except for a one-release upgrade step.
+a connector that wrote the shortcut / Run key / env at runtime) is gone, with no upgrade path from it.
 
 ## Every location Volt touches
 
@@ -22,7 +22,7 @@ this table name the same paths.
 | `%LOCALAPPDATA%\Programs\Volt\desktop\` | the Electron app, `VoltDesktop.exe` (`en-US` locale only) | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\connector\` | `VoltConnector.exe` (tray) + `VoltBridgeTwincat.exe` (TwinCAT worker), ONE .NET runtime; `VoltTwincatExplorer.exe` (the worker's x86 net48 reader of a 32-bit XAE's Solution Explorer) | Inno `[Files]` | yes — `[UninstallDelete]` |
 | `%LOCALAPPDATA%\Programs\Volt\codesys\` | `Volt.Ide.Codesys.dll` + `start_volt_codesys.py` / `stop_volt_codesys.py` | Inno `[Files]` | yes — `[UninstallDelete]` |
-| `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`). Inno does not reuse a log written in the other install mode: the first 64-bit-mode install over a 32-bit-mode one writes `unins001.*` (Add/Remove names it), and `[Code]` (`RemoveStaleUninstallers`, at ssPostInstall) deletes the older build's `unins000.*`, whose [Code] would otherwise kill a running `volt.exe` when run. ONE uninstaller, the one Add/Remove runs — test:install asserts it | Inno | yes |
+| `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`). ONE uninstaller, the one Add/Remove runs — test:install asserts it | Inno | yes |
 | `Documents\Volt\start_volt_codesys.py`, `stop_volt_codesys.py` | the VISIBLE copy of the CODESYS scripts (users run them from CODESYS' Scripting menu); the copy finds the DLL at the fixed `Programs\Volt\codesys` (`_INSTALL_SUBDIR`) | connector at startup (`VoltEnv.PublishCodesysScripts`, from `..\codesys`) | yes — `[UninstallDelete]` (the two files, then the folder if empty) |
 | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → `{app}\desktop\VoltDesktop.exe` | Inno `[Icons]` | yes |
 | `HKCU\...\CurrentVersion\Run` → `VoltConnector` | `"{app}\connector\VoltConnector.exe" --silent` — the tray survives a reboot | Inno `[Registry]` | yes — `uninsdeletevalue` |
@@ -77,13 +77,6 @@ may have disabled; environment-dependency-audit 2.7), path-scoped to folders und
 The auto-update's tray (`TrayContext.ApplyUpdate`) also waits for a running `{app}\bin\volt.exe` before it disposes
 its worker fleet and launches the verified setup `/VERYSILENT`.
 
-## Upgrade from the app-<version> layout (one release)
-
-`[Code]` `MigrateVersionedLayout` at `ssInstall`: `RemoveDir` the `current` junction FIRST (a recursive delete
-through a junction deletes its target), `DelTree` each `app-*`, remove `{app}\current\bin` from PATH exactly, delete
-`VOLT_BRIDGE_DLL` and `OPENCODE_CONFIG_DIR`. The old Run value and `Volt.lnk` are overwritten by `[Registry]` /
-`[Icons]`. The release after this one deletes the step (and `RelaunchConnector`'s `current\` fallback).
-
 ## Install diagnostics
 
 `SetupLogging=yes` + `DeinitializeSetup` mirror setup's log to `%LOCALAPPDATA%\Volt\logs\install-<date>_<time>.log`
@@ -103,8 +96,6 @@ An install, in order:
 ```
 volt: install <version> -> <dir>, mode=silent|interactive, existing=0|1
 volt: stopped <n> Volt process(es) under <dir>: <exe (pid)>,…
-volt: migrate removed …                         ← only on the upgrade from app-<version> (one release)
-volt: removed unins000.exe, an earlier install's uninstaller (this one is unins001.exe)   ← only when Inno numbered on
 volt: PATH carries <dir>\bin                     ← read back, not assumed
 volt: the connector is running - nothing to relaunch   (or `relaunched the connector: …`)
 ```
@@ -139,12 +130,12 @@ Exit codes worth knowing:
 
 ## The gate
 
-`bun run test:install --older <setup.exe|stable>` (Windows; really installs): install the older build → update to
-the new one (+ the migration) → update again → update with a live `volt.exe` (`/VOLTWAIT=15`: exit non-zero, CLI and
+`bun run test:install --older <setup.exe|previous>` (Windows; really installs): install the older build → update to
+the new one → update again → update with a live `volt.exe` (`/VOLTWAIT=15`: exit non-zero, CLI and
 tray untouched, no binary replaced) → the same with the CLI ending mid-wait → uninstall with a live CLI (aborted) →
 uninstall (clean; the PATH value byte-identical to the run's start — existence, registry type, exact string) → fresh install → uninstall → the updater's digest tests. It refuses to start
 on a machine that is not clean (Volt installed, a Volt process or any `volt.exe` running, a leftover shortcut, Run
-value, Documents script or retired env var). `promote.yml` runs it with `--older stable`.
+value or Documents script). `promote.yml` runs it with `--older previous`.
 
 ## Invariants
 

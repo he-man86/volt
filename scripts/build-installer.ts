@@ -114,7 +114,6 @@ const iscc = [
     "VLog('install ",
     "VLog('stopped ",
     "VLog('PATH carries ",
-    "VLog('migrate removed ",
     "VLog('waiting for volt.exe",
     "VLog('gave up waiting for volt.exe",
     "VLog('uninstall ",

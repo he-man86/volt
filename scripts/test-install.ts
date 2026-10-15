@@ -4,15 +4,15 @@
  * Every check is HARD — there is no "warn": a best-effort check is how a shortcut that was never created passed
  * both halves of the old gate for months. Written against openspec installer-rebuild's design (section 1).
  *
- *   bun run test:install [setup.exe] --older <older-setup.exe | stable>
+ *   bun run test:install [setup.exe] --older <older-setup.exe | previous>
  *
- * `--older` is REQUIRED: the failures that shipped needed an install OVER an existing one, and the one-release
- * migration from the `app-<v>` + `current` layout can only be proven by upgrading from it. `stable` downloads the
- * latest non-prerelease's Volt-win-Setup.exe with `gh`. A run without an upgrade is refused by name.
+ * `--older` is REQUIRED: the failures that shipped needed an install OVER an existing one. `previous` downloads the
+ * Volt-win-Setup.exe of the newest published build older than the one under test (dev or stable) with `gh`. A run
+ * without an upgrade is refused by name.
  *
  * The flow (design 1):
- *    1  install --older                     (today's layout — only its version is asserted)
- *    2  update to the new build             (+ the migration: no app-*, no current, old PATH entry / env / Run gone)
+ *    1  install --older                     (only its version is asserted)
+ *    2  update to the new build
  *    3  update again, same build            (files in use: the connector it launched holds its own exe)
  *    4  update with `volt.exe` alive, /VOLTWAIT=15  → setup exits non-zero, the CLI is NOT killed, NOTHING
  *                                             stopped (the TwinCAT worker is the other end of the CLI's pipe), no
@@ -46,7 +46,7 @@ if (process.platform !== "win32") {
 const repo = resolve(import.meta.dirname, "..")
 
 // ── the installer's on-disk contract (design: target layout) ─────────────────
-// {app} — Inno's DefaultDirName (a per-user install) — flat: no `app-<version>`, no `current` junction.
+// {app} — Inno's DefaultDirName (a per-user install).
 const installDir = join(process.env.LOCALAPPDATA!, "Programs", "Volt")
 /** Inno's uninstallers in {app}: `unins000.exe` + `.dat` by default, but Inno takes the next free NUMBER when the
  *  existing log is not one it can reuse — measured: the first 64-bit-mode install over a 32-bit-mode one wrote
@@ -82,8 +82,6 @@ const runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 const runValueName = "VoltConnector"
 const runValueData = `"${connectorExe}" --silent`
 const shortcut = join(process.env.APPDATA!, "Microsoft", "Windows", "Start Menu", "Programs", "Volt.lnk")
-/** The env vars only the old layout wrote. Volt publishes PATH and nothing else. */
-const retiredEnv = ["VOLT_BRIDGE_DLL", "OPENCODE_CONFIG_DIR"]
 const codesysScripts = ["start_volt_codesys.py", "stop_volt_codesys.py"]
 const bridgeDll = "Volt.Ide.Codesys.dll"
 /** Volt's own processes, by their own (now unique) image names — never `volt.exe`, the CLI. */
@@ -194,7 +192,7 @@ const args = process.argv.slice(2)
 const olderIdx = args.indexOf("--older")
 const olderArg = olderIdx >= 0 ? args[olderIdx + 1] : undefined
 if (olderArg === undefined || olderArg.startsWith("--"))
-  refuse("no upgrade source — pass --older <setup.exe> or --older stable (a run without an upgrade proves nothing about the migration)")
+  refuse("no upgrade source — pass --older <setup.exe> or --older previous (a run without an upgrade proves nothing about updating)")
 const unknown = args.filter((a, i) => a.startsWith("--") && a !== "--older" && i !== olderIdx + 1)
 if (unknown.length > 0) refuse(`unknown option(s): ${unknown.join(" ")}`)
 const positional = args.filter((a, i) => !a.startsWith("--") && i !== olderIdx + 1)
@@ -202,32 +200,11 @@ if (positional.length > 1) refuse(`more than one setup given: ${positional.join(
 const setup = resolve(positional[0] ?? join(repo, "dist", "release", "Volt-win-Setup.exe"))
 if (!existsSync(setup)) refuse(`installer not found: ${setup} — build it first: bun run build:installer`)
 
-/** `stable` = the latest non-prerelease's own Volt-win-Setup.exe, downloaded with gh. */
-function resolveOlder(arg: string): string {
-  if (arg !== "stable") {
-    const p = resolve(arg)
-    if (!existsSync(p)) refuse(`older installer not found: ${p}`)
-    return p
-  }
-  const list = spawnSync("gh", ["release", "list", "--exclude-pre-releases", "--exclude-drafts", "--limit", "1", "--json", "tagName", "--jq", ".[0].tagName"], { encoding: "utf8", cwd: repo })
-  const tag = (list.stdout ?? "").trim()
-  if (list.status !== 0 || tag === "") refuse(`could not resolve the latest stable release with gh: ${list.stderr ?? ""}`)
-  const dir = join(work, "older")
-  const dl = spawnSync("gh", ["release", "download", tag, "--pattern", "Volt-win-Setup.exe", "--dir", dir, "--clobber"], { encoding: "utf8", cwd: repo })
-  const p = join(dir, "Volt-win-Setup.exe")
-  if (dl.status !== 0 || !existsSync(p)) refuse(`could not download Volt-win-Setup.exe of stable ${tag}: ${dl.stderr ?? ""}`)
-  console.log(`• older = stable ${tag}`)
-  return p
-}
-const olderSetup = resolveOlder(olderArg!)
-
 const versionOf = (exe: string): string => {
   const v = productVersion(exe)?.trim()
   if (!v || !/^\d+(\.\d+){1,3}$/.test(v)) refuse(`${exe} carries no ProductVersion — cannot tell which version it installs`)
   return v!
 }
-const newVersion = versionOf(setup)
-const olderVersion = versionOf(olderSetup)
 const cmpVersion = (a: string, b: string): number => {
   const pa = a.split(".").map(Number)
   const pb = b.split(".").map(Number)
@@ -237,6 +214,27 @@ const cmpVersion = (a: string, b: string): number => {
   }
   return 0
 }
+const newVersion = versionOf(setup)
+
+/** `previous` = the Volt-win-Setup.exe of the newest published build (dev or stable) older than `newVersion`. */
+function resolveOlder(arg: string): string {
+  if (arg !== "previous") {
+    const p = resolve(arg)
+    if (!existsSync(p)) refuse(`older installer not found: ${p}`)
+    return p
+  }
+  const list = spawnSync("gh", ["release", "list", "--exclude-drafts", "--limit", "60", "--json", "tagName", "--jq", ".[].tagName"], { encoding: "utf8", cwd: repo })
+  const tag = (list.stdout ?? "").split(/\s+/).filter((t) => /^\d+\.\d+\.\d+$/.test(t) && cmpVersion(t, newVersion) < 0).sort(cmpVersion).at(-1)
+  if (list.status !== 0 || !tag) refuse(`could not resolve a published build older than ${newVersion} with gh: ${list.stderr ?? ""}`)
+  const dir = join(work, "older")
+  const dl = spawnSync("gh", ["release", "download", tag!, "--pattern", "Volt-win-Setup.exe", "--dir", dir, "--clobber"], { encoding: "utf8", cwd: repo })
+  const p = join(dir, "Volt-win-Setup.exe")
+  if (dl.status !== 0 || !existsSync(p)) refuse(`could not download Volt-win-Setup.exe of ${tag}: ${dl.stderr ?? ""}`)
+  console.log(`• older = ${tag}`)
+  return p
+}
+const olderSetup = resolveOlder(olderArg!)
+const olderVersion = versionOf(olderSetup)
 if (cmpVersion(olderVersion, newVersion) >= 0)
   refuse(`--older is ${olderVersion}, not older than ${newVersion} — that is not an upgrade`)
 
@@ -263,8 +261,6 @@ if (existsSync(shortcut)) refuse(`${shortcut} already exists — the machine is 
 if (reg(runKey, runValueName) !== null) refuse(`Run\\${runValueName} is already set — the machine is not clean`)
 const leftoverScripts = codesysScripts.map((s) => join(documentsVolt, s)).filter(existsSync)
 if (leftoverScripts.length > 0) refuse(`${leftoverScripts.join(", ")} already present — the machine is not clean`)
-const leftoverEnv = retiredEnv.filter((name) => reg("HKCU\\Environment", name) !== null)
-if (leftoverEnv.length > 0) refuse(`${leftoverEnv.join(", ")} already set in HKCU\\Environment — the machine is not clean`)
 
 // Step 10 runs a net10.0 test project. Several dotnets may exist (a user-local SDK 8 one earlier on PATH fails it
 // with NETSDK1045, which would read as "the updater tests failed"), so the dotnet is CHOSEN by the measured fact —
@@ -282,14 +278,6 @@ function resolveDotnet(): string {
   return refuse(`no dotnet with a .NET 10 SDK (step 10 runs a net10.0 test project) — found: ${seen.join("; ") || "no dotnet at all"}`)
 }
 const dotnet = resolveDotnet()
-
-// The extension leaves the installer (vscode-extension-marketplace), but this release's uninstall still runs
-// `--uninstall-extension` on every editor — so the gate captures who had it and gives it back from the
-// Marketplace at the end. Courtesy, never an assertion; deleted with those uninstall lines.
-const editors = ["code", "windsurf", "cursor"].filter((cli) => spawnSync("where", [cli], { shell: true }).status === 0)
-const hasExtension = (cli: string): boolean =>
-  (spawnSync(cli, ["--list-extensions"], { encoding: "utf8", shell: true }).stdout ?? "").toLowerCase().includes("volt-ai.volt-vscode")
-const hadExtension = new Map(editors.map((cli) => [cli, hasExtension(cli)] as const))
 
 // ── the WM_SETTINGCHANGE("Environment") observer ─────────────────────────────
 // `ChangesEnvironment=yes` makes Inno broadcast it so a running Explorer (and every shell/editor launched from it)
@@ -446,35 +434,31 @@ function assertLog(step: string, prefix: "install-" | "uninstall-", mark: LogMar
 
 // ── the assertions ───────────────────────────────────────────────────────────
 
-/** After step 1 only: the OLDER build (today's layout) is what the target is measured against, so only the fact
- *  that it installed is asserted — its layout is exactly what step 2 must migrate away. */
+/** After step 1 only: the OLDER build is what the update starts from, so only the fact that it installed is
+ *  asserted. */
 function assertOlderInstalled(step: string, run: SetupRun): void {
   if (run.status !== 0) fail(step, `older installer exited ${run.status}`)
   assertNoRollback(step, run)
   const v = reg(uninstallKey, "DisplayVersion")
   if (v !== olderVersion) fail(step, `Add/Remove DisplayVersion is ${v ?? "absent"}, not ${olderVersion}`)
-  else ok(`${step}: ${olderVersion} installed (today's layout — the upgrade source)`)
+  else ok(`${step}: ${olderVersion} installed (the upgrade source)`)
 }
 
 /** The `volt:` markers every install writes, in order (installer/Volt.iss [Code]; build-installer.ts refuses a build
- *  that lost one): what the run is, the processes it stopped by path, the PATH entry read back. The upgrade from the
- *  app-<version> layout (step 2) also logs what it migrated, between the two. */
-const installMarkers = (migrated: boolean): string[] =>
-  ["volt: install ", "volt: stopped ", ...(migrated ? ["volt: migrate removed "] : []), "volt: PATH carries "]
+ *  that lost one): what the run is, the processes it stopped by path, the PATH entry read back. */
+const installMarkers = ["volt: install ", "volt: stopped ", "volt: PATH carries "]
 /** The uninstaller's: what the run is (before its CLI wait), the processes it stopped, the PATH entry removed. */
 const uninstallMarkers = ["volt: uninstall ", "volt: stopped ", "volt: PATH no longer carries "]
 
 /** THE assertion: the whole install agrees with itself and with the design's layout, exactly. */
-async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, migrated = false): Promise<void> {
+async function assertInstalled(step: string, run: SetupRun, broadcast: boolean): Promise<void> {
   if (run.status !== 0) fail(step, `installer exited ${run.status}`)
   assertNoRollback(step, run)
 
   // The version oracle: what Inno recorded, which must be what this setup carries.
   const claimed = reg(uninstallKey, "DisplayVersion")
   if (claimed !== newVersion) fail(step, `Add/Remove DisplayVersion is ${claimed ?? "absent"}, not ${newVersion}`)
-  // ONE uninstaller, the one Add/Remove runs. Another one left in {app} is an older build's, carrying that build's
-  // [Code]: run from there (by hand, or by anything that assumes unins000.exe) it kills a running volt.exe and
-  // removes the install under the CLI — the 2026-10-14 gate's step 6, which ran 0.1.16986's unins000.exe.
+  // ONE uninstaller, the one Add/Remove runs: an update reuses it, never leaves an older build's beside it.
   const uninstaller = uninstallerPath()
   if (uninstaller === null) fail(step, "Add/Remove entry has no UninstallString")
   else if (!existsSync(uninstaller)) fail(step, `${uninstaller} (the Add/Remove UninstallString) missing`)
@@ -486,14 +470,6 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, 
     else if (!present.some((n) => n.toLowerCase() === `${own}.dat`)) fail(step, `${own}.dat (the uninstall log of ${basename(uninstaller)}) missing`)
     else ok(`${step}: one uninstaller, ${basename(uninstaller)} — the one Add/Remove runs`)
   }
-
-  // Flat: no versioned dir, no junction, no sideloaded extension.
-  const top = existsSync(installDir) ? readdirSync(installDir) : []
-  const versioned = top.filter((n) => /^app-/i.test(n))
-  if (versioned.length > 0) fail(step, `versioned dir(s) present: ${versioned.join(", ")} (the layout is flat)`)
-  if (top.some((n) => n.toLowerCase() === "current")) fail(step, `${join(installDir, "current")} present (no junction in the flat layout)`)
-  const vsix = existsSync(installDir) ? readdirSync(installDir, { recursive: true, encoding: "utf8" }).filter((f) => f.toLowerCase().endsWith(".vsix")) : []
-  if (vsix.length > 0) fail(step, `.vsix in the install: ${vsix.join(", ")} (the extension ships from the Marketplace)`)
 
   // Every stamped binary measures the claimed version.
   const missing = stamped.filter((f) => !existsSync(f))
@@ -535,7 +511,6 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, 
   if (entries.filter((e) => !underApp(e)).join(";") !== pathBaseline.join(";")) fail(step, "a non-Volt user PATH entry changed")
   if (broadcast) ok(`${step}: WM_SETTINGCHANGE("Environment") observed during setup`)
   else fail(step, `no WM_SETTINGCHANGE("Environment") reached a running window during setup — new shells will not see PATH until logon (ChangesEnvironment=yes)`)
-  for (const name of retiredEnv) if (reg("HKCU\\Environment", name) !== null) fail(step, `${name} is set — Volt publishes PATH and nothing else`)
 
   // The shortcut and the login item: declared by the installer, exact.
   if (!existsSync(shortcut)) fail(step, `Start Menu shortcut missing: ${shortcut}`)
@@ -583,7 +558,7 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, 
     }
   }
 
-  assertLog(step, "install-", run.mark, installMarkers(migrated))
+  assertLog(step, "install-", run.mark, installMarkers)
 }
 
 /** After an uninstall NOTHING Volt wrote may remain, and nothing it did not write may have changed. */
@@ -600,7 +575,6 @@ async function assertClean(step: string, mark: LogMark, broadcast: boolean): Pro
   if (reg(runKey, runValueName) !== null) fail(step, "login item still present")
   if (existsSync(shortcut)) fail(step, "Start Menu shortcut still present")
   for (const s of codesysScripts) if (existsSync(join(documentsVolt, s))) fail(step, `${join(documentsVolt, s)} still present`)
-  for (const name of retiredEnv) if (reg("HKCU\\Environment", name) !== null) fail(step, `${name} still set`)
   const entries = userPathEntries()
   if (entries.some(underApp)) fail(step, `user PATH still names {app}: ${entries.filter(underApp).join("; ")}`)
   if (entries.join(";") !== pathBaseline.join(";")) fail(step, "the user PATH is not exactly what it was before the run — uninstall touched another entry")
@@ -689,9 +663,9 @@ const steps: [string, () => Promise<void>][] = [
     const { run } = await install(olderSetup, "1 install older")
     assertOlderInstalled("1 install older", run)
   }],
-  ["2 update (upgrade + migration)", async () => {
+  ["2 update", async () => {
     const { run, broadcast } = await install(setup, "2 update")
-    await assertInstalled("2 update", run, broadcast, true)
+    await assertInstalled("2 update", run, broadcast)
   }],
   ["3 update again", async () => {
     // A file only an OLDER MinGit had must not survive an update beside the new one (environment-dependency-audit 2b):
@@ -825,12 +799,6 @@ try {
     await run()
   }
 } finally {
-  // Give back the extension this release's uninstall stripped, from the Marketplace. Never an assertion.
-  for (const [cli, had] of hadExtension) {
-    if (!had || hasExtension(cli)) continue
-    const r = spawnSync(cli, ["--install-extension", "volt-ai.volt-vscode"], { encoding: "utf8", shell: true })
-    console.log(r.status === 0 ? `  ↺ ${cli}: Volt extension reinstalled from the Marketplace` : `  ↺ ${cli}: could not reinstall volt-ai.volt-vscode — reinstall it manually`)
-  }
   rmSync(work, { recursive: true, force: true })
 }
 
