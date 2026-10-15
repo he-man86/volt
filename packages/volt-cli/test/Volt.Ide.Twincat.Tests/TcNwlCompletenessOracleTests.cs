@@ -361,9 +361,11 @@ public class TcNwlCompletenessOracleTests
     static readonly Dictionary<string, string> CreateRefused = new(StringComparer.Ordinal)
     {
         ["twincat-project14/POUexecute.TcPOU#POU:POUexecute"] = "lower: " + string.Format(CultureInfo.InvariantCulture, WireUnmeasured, 3),
-        ["twincat-project14/ladderLabel.TcPOU#POU:ladderLabel"] = "stamp: TwinCAT: this push changes the number of networks (1 -> 2). " +
-            "Volt cannot ADD one through the archive: a new network needs elements whose member contract only the IDE produces. " +
-            "Add it in the IDE and pull it.",
+        // The import drops the empty network (D25), so the stamp cannot pair its networks one for one (ld-fbd-coverage 1b.4:
+        // the stamp stays positional; this said "cannot ADD one through the archive", which was never what happened).
+        ["twincat-project14/ladderLabel.TcPOU#POU:ladderLabel"] = "stamp: TwinCAT: the import built 1 network(s) for the 2 " +
+            "pushed, so its networks cannot be stamped one for one: the import drops an empty network and builds one network " +
+            "per connected rung (DIALECT D25).",
     };
 
     static readonly Dictionary<string, string> RebuildRefused = new(StringComparer.Ordinal)

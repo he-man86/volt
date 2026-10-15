@@ -36,7 +36,7 @@ export const FUNCTION_LIMIT = 80
 export const CEILINGS: Readonly<Record<string, number>> = {
   "src/analysis/checks/network/network-analysis.ts": 521, // LD/FBD change
   "src/frontend/syntax/network/lexer.ts": 414, // LD/FBD change
-  "src/frontend/syntax/network/parser.ts": 1372, // LD/FBD change
+  "src/frontend/syntax/network/parser.ts": 1367, // LD/FBD change
   "src/services/network/network.test.ts": 1213, // LD/FBD change
 }
 
@@ -47,8 +47,7 @@ export const CEILINGS: Readonly<Record<string, number>> = {
  */
 export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {
   "src/frontend/syntax/network/lexer.ts#next": 95, // LD/FBD change
-  "src/frontend/syntax/network/parser.ts#parseNetwork": 101, // LD/FBD change
-  "src/frontend/syntax/network/parser.ts#parseCall": 90, // LD/FBD change
+  "src/frontend/syntax/network/parser.ts#parseCall": 88, // LD/FBD change
 }
 
 const slash = (p: string): string => p.split("\\").join("/")

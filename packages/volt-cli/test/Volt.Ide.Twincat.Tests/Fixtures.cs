@@ -46,15 +46,4 @@ internal static class Fixtures
     /// <summary>The directory those archives live in — for a check that must sweep ALL of them rather than name
     /// one, e.g. a format invariant that is only meaningful across every sample of real IDE output.</summary>
     public static string PouDir() => System.IO.Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-pou");
-
-    /// <summary>Does this body hold an Execute box AT ALL — the coarse question, which only the tests still ask.
-    ///
-    /// <para>It lived in <c>TcArchive</c> until the marker stopped being decided by it (the product asks
-    /// <c>HasUnreadableExecuteBox</c> now), at which point the repo gate correctly called it test-only code in
-    /// src. It survives here because it is what makes the marker theory meaningful: both fixtures contain a box,
-    /// and only one of them contains a box that cannot be read.</para></summary>
-    public static bool HasExecuteBox(System.Xml.Linq.XElement? impl) =>
-        impl != null && impl.Descendants("v").Any(v =>
-            (string?)v.Attribute("n") == "ProvidesSTSnippet" &&
-            string.Equals(v.Value.Trim(), "true", System.StringComparison.OrdinalIgnoreCase));
 }

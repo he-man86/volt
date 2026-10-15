@@ -50,7 +50,9 @@ public static class NetworkText
     /// <para>Hidden, with the reason the pull message names, when network text is off in this process
     /// (<see cref="NetworkTextSwitch"/>) — asked FIRST, so a production bridge reads no network at all and one it could
     /// not read is hidden for the same reason as every other — or when the body holds a fact the text has no spelling
-    /// for (<see cref="UnrepresentableBodyException"/>, raised by the reader or the writer). That is never a missing
+    /// for that no network can be shown around (<see cref="UnrepresentableBodyException"/>, raised by the reader or the
+    /// writer: since ld-fbd-coverage 1b.4 a fact in a network's TREES makes that one network its UNSUPPORTED line instead,
+    /// <see cref="NetworkTextWriter.WritePulled"/>, and only a header the text cannot carry reaches here). That is never a missing
     /// POU: an escaping throw costs the whole item (<c>Versioning.SafeVersion</c> stamps it unreadable and the fetch
     /// drops it, declaration and siblings with it).</para>
     ///
@@ -123,6 +125,11 @@ public static class NetworkText
             ? b with { OutputTypes = Enumerable.Repeat<string?>(null, slot).Append(declared).ToList() }
             : producer;
 
+    /// <summary>Whether a refusal met in a network's trees can stand as that network's <c>UNSUPPORTED</c> line
+    /// (<see cref="Network.Unsupported"/>): its reason is a phrase the line can spell. The door the drivers' readers have to
+    /// the rule the text writer shows a network by (<see cref="NetworkTextWriter.WritePulled"/>).</summary>
+    public static bool ShownAsUnsupported(string reason) => NetworkSpelling.UnsupportedShape.IsMatch(reason);
+
     /// <summary>Whether a box type is a comparison operator (GT, GE, LT, LE, EQ, NE) — the engine's one list, the door a
     /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
     public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);
@@ -141,11 +148,7 @@ public static class NetworkText
     /// such a body unchanged still works.</para></summary>
     public static void RefuseSymbolCommentLoss(string vendor, Network live)
     {
-        var held = live.Trees.SelectMany(OperandsOf)
-            .Where(o => !string.IsNullOrWhiteSpace(o.Comment))
-            .Select(o => $"'{o.Text}'")
-            .Distinct()
-            .ToList();
+        var held = SymbolCommentOperands(live);
         if (held.Count == 0) return;
         throw new NetworkTextException(
             $"{vendor}: network {live.Order + 1} holds a symbol comment on {string.Join(", ", held)}, which network text " +
@@ -153,6 +156,16 @@ public static class NetworkText
             "show it. Edit this network in the IDE; a network whose text is unchanged is never rebuilt.",
             ConflictCodes.NetworkUnsupported);
     }
+
+    /// <summary>The operands of <paramref name="live"/> that hold a symbol comment, each quoted once (<c>'a'</c>) — what a
+    /// network built from the text would not carry (<see cref="RefuseSymbolCommentLoss"/>, and the push's pairing,
+    /// <see cref="NetworkPairing.RefuseUnseenLoss"/>).</summary>
+    public static IReadOnlyList<string> SymbolCommentOperands(Network live) =>
+        live.Trees.SelectMany(OperandsOf)
+            .Where(o => !string.IsNullOrWhiteSpace(o.Comment))
+            .Select(o => $"'{o.Text}'")
+            .Distinct()
+            .ToList();
 
     /// <summary>Every operand a tree holds — leaves, assignment targets, a box's instance and its output pins.</summary>
     private static IEnumerable<Operand> OperandsOf(Node n)

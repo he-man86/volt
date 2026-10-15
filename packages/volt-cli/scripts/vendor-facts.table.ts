@@ -704,6 +704,19 @@ function languageSource(graphical: boolean): string {
 }
 const LC_DECL = (n: string) => `PROGRAM ${n}\nVAR\n\ta : BOOL := TRUE;\n\tq : BOOL;\nEND_VAR\n`
 
+/** `nwl-keep-network-in-place`'s subject (ld-fbd-coverage 1b.4, DIALECT N28): a four-network LD body, each network one
+ *  rung, as the shipped push writes it — and the same body after one push that inserts a network before #2, removes #3
+ *  and edits #4 (network text, `packages/volt-cli/docs/network-text.html`). */
+function keepSource(after: boolean): string {
+  const nets = after
+    ? ["o1 := a;", "o5 := b;", "o2 := (a AND b);", "o4 := b;"]
+    : ["o1 := a;", "o2 := (a AND b);", "o3 := b;", "o4 := a;"]
+  return (
+    `PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\n` +
+    `IMPLEMENTATION LD\n${nets.map((n) => `NETWORK\n  ${n}\nEND_NETWORK\n`).join("")}\nEND_PROGRAM\n`
+  )
+}
+
 /** `task-priority-range`' values (C19c): what `probe-tc-refusal-measure.ps1 -Phase priority` (deleted, `git show
  *  5312b799fe:packages/volt-cli/scripts/probe-tc-refusal-measure.ps1`) sent, each XML-escaped into
  *  the system task's `<TaskDef><Priority>`; tagged `=<value>`. */
@@ -3898,6 +3911,248 @@ export const ROWS: Row[] = [
         xpath: "/TcPlcObject/POU/*",
       },
       { key: "fetched", at: "reloaded", on: "p", op: "fetched" },
+    ],
+  },
+  {
+    // ld-fbd-coverage 1b.4: can a body's network list keep ONE network untouched while its neighbours are inserted,
+    // removed and rebuilt — through the shipped push, which pairs networks by text (NetworkPairing) — and what does the
+    // kept network hold after save, close and reopen? Network #2 (`o2 := (a AND b);`) is read before the push (second) and
+    // after it (third), beside the slot the push rebuilt (`o3 := b;` → `o4 := b;`, third → fourth): its item and network
+    // `Id`s, and the members the IDE derives on a network Volt built (the target operand's `Type`, measured R in 1b.2) —
+    // read on the body as Volt created it, after a build and a reload let the IDE fill them, and after the push.
+    id: "nwl-keep-network-in-place",
+    dialect: ["N28"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      { op: "create", as: "keep", kind: "program", name: "VltF_Keep", parent: "root", via: "push", source: keepSource(false) },
+      { op: "find", as: "main", name: "PLC_PRG" },
+      { vendor: "codesys", tag: "made", op: "setText", on: "main", via: "script", impl: "VltF_Keep();\n" },
+      {
+        vendor: "twincat",
+        tag: "made",
+        op: "setText",
+        on: "main",
+        via: "push",
+        after: { line: "IMPLEMENTATION ST", add: "VltF_Keep();" },
+      },
+      { tag: "built-first", op: "build" },
+      { tag: "reloaded-first", op: "reload" },
+      { tag: "pushed", op: "setText", on: "keep", via: "push", source: keepSource(true) },
+      { tag: "reloaded", op: "reload" },
+      { tag: "built", op: "build" },
+    ],
+    reads: [
+      {
+        vendor: "codesys",
+        key: "networks",
+        at: ["made", "reloaded-first", "pushed", "reloaded"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.NetworkList.$count",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.network-id",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(1).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.item-id",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(1).GetTree(0).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.target-type",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(1).GetTree(0).Outputs.List[0].Type",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.network-id.third",
+        at: ["pushed", "reloaded"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.item-id.third",
+        at: ["pushed", "reloaded"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.target-type.third",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Outputs.List[0].Type",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.item-id",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.target-type",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Outputs.List[0].Type",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.item-id.fourth",
+        at: ["pushed", "reloaded"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(3).GetTree(0).Id",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.target-type.fourth",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(3).GetTree(0).Outputs.List[0].Type",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.target-boolean",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(1).GetTree(0).Outputs.List[0].Boolean",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.target-boolean.third",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Outputs.List[0].Boolean",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.box-fixed",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(1).GetTree(0).RValue.Flags.Fixed",
+      },
+      {
+        vendor: "codesys",
+        key: "kept.box-fixed.third",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).RValue.Flags.Fixed",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.target-boolean",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(2).GetTree(0).Outputs.List[0].Boolean",
+      },
+      {
+        vendor: "codesys",
+        key: "rebuilt.target-boolean.fourth",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "member",
+        path: "object.Implementation.GetNetwork(3).GetTree(0).Outputs.List[0].Boolean",
+      },
+      {
+        vendor: "twincat",
+        key: "operands",
+        at: ["made", "reloaded-first", "pushed", "reloaded"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o//v[@n='Operand']",
+      },
+      {
+        vendor: "twincat",
+        key: "kept.ids",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[2]//v[@n='Id']",
+      },
+      {
+        vendor: "twincat",
+        key: "kept.types",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[2]//v[@n='Type']",
+      },
+      {
+        vendor: "twincat",
+        key: "kept.ids.third",
+        at: ["pushed", "reloaded"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[3]//v[@n='Id']",
+      },
+      {
+        vendor: "twincat",
+        key: "kept.types.third",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[3]//v[@n='Type']",
+      },
+      {
+        vendor: "twincat",
+        key: "rebuilt.ids",
+        at: ["made", "built-first", "reloaded-first"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[3]//v[@n='Id']",
+      },
+      {
+        vendor: "twincat",
+        key: "rebuilt.ids.fourth",
+        at: ["pushed", "reloaded"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[4]//v[@n='Id']",
+      },
+      {
+        vendor: "twincat",
+        key: "rebuilt.types.fourth",
+        at: ["pushed", "reloaded", "built"],
+        on: "keep",
+        op: "xml",
+        file: true,
+        xpath: "//l2[@n='NetworkList']/o[4]//v[@n='Type']",
+      },
+      { key: "fetched", at: ["made", "pushed", "reloaded"], on: "keep", op: "fetched" },
+      { key: "diagnostics", at: ["built-first", "built"], op: "diagnostics" },
     ],
   },
 ]

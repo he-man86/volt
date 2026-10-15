@@ -39,6 +39,9 @@ export interface NetworkTextNetwork {
   comment?: string
   /** The network's `VAR_TEMP` wire declarations, in source order. */
   wires: NetworkWire[]
+  /** `UNSUPPORTED "<shape>";` — the network's trees the text has no spelling for, shown as one line (openspec
+   *  ld-fbd-coverage 1b.4, the bridge's `Network.Unsupported`). An opaque network: no statement, no diagnostic inside. */
+  unsupported?: NetworkName
   statements: NetworkTextStatement[]
   span: Span
   headerSpan: Span
@@ -204,6 +207,11 @@ export interface NetworkCall {
   pins: NetworkPin[]
   /** Consumed through its ENO output. */
   eno: boolean
+  /** `fb(…).name` — consumed through its output of that name, a main output that is not the box's first slot (S4, openspec
+   *  ld-fbd-coverage 1b.4): the name the box itself stores, so no library signature is needed. */
+  output?: NetworkName
+  /** The head is an FB instance the declarations name (an unnamed instance `??? : TYPE` is not one). */
+  instance?: true
   span: Span
 }
 

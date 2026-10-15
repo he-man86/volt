@@ -260,18 +260,18 @@ public sealed partial class CodesysDriver
                 // and every sibling method with it. That is the identical failure the IL arm above exists to
                 // stop, one arm lower down.
                 //
-                // TwinCAT never had the hole: its driver pre-empts the same refusal with an archive pre-scan
-                // (`TcArchive.HasUnreadableExecuteBox`) and returns the UNSUPPORTED line. CODESYS reads LIVE objects and
-                // has no equivalent pre-scan to run, so the SAME body gave a TwinCAT engineer a POU that says
-                // what it holds and a CODESYS engineer no POU at all. The two now answer identically, which is
-                // the byte-identical-response rule the wire exists to hold.
+                // TwinCAT never had the hole: its driver pre-empted the same refusal with an archive pre-scan and
+                // returned the UNSUPPORTED line, while the SAME body gave a CODESYS engineer no POU at all. The two now
+                // answer identically, which is the byte-identical-response rule the wire exists to hold — and since
+                // ld-fbd-coverage 1b.4 both readers show a refusal met in one network as that network's UNSUPPORTED line
+                // (`CodesysNetworkReader.ReadShown`, `TcNetworkReader.ReadShown`); the pre-scan is gone.
                 //
                 // A fact the text has no spelling for makes the body UNSUPPORTED, never a body without it — a negated
                 // coil, a rung driving two jumps, a connection by an output slot the text cannot name. The writer
                 // raises the one exception for every such fact (network text v2: pull never throws anything
                 // else), so it is the same refusal as the reader's, and as IL.
                 return NetworkText.Pulled(view, () =>
-                    NetworkTextWriter.Write(CodesysNetworkReader.Read(impl, view), Declarations.ScopeForPull(declaration))
+                    NetworkTextWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
                         .TrimEnd('\n'));
             }
 

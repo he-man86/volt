@@ -272,10 +272,31 @@ public static class NetworkTextReader
             while (Peek().Kind == TokKind.Comment) comment.Add(Next().Text);
 
             var trees = new List<Node>();
+            string? unsupported = null;
             while (true)
             {
                 var t = Peek();
                 if (t.Is("END_NETWORK")) { Next(); break; }
+                // `UNSUPPORTED "<shape>";` (ld-fbd-coverage 1b.4): the network's trees the text has no spelling for, shown.
+                // It is the network's only statement: what else the network holds is exactly what the line stands for.
+                if (t.Is(NetworkSpelling.UnsupportedWord))
+                {
+                    Next();
+                    if (trees.Count > 0 || _wires.Count > 0)
+                        throw Err(t, ConflictCodes.NetworkUnsupported,
+                            "an UNSUPPORTED line beside other statements: it stands for the whole network's content, which Volt cannot show, and is its network's only line.");
+                    var shape = Next();
+                    if (shape.Kind != TokKind.String || !NetworkSpelling.UnsupportedShape.IsMatch(shape.Text))
+                        throw Err(shape, ConflictCodes.NetworkParse,
+                            "an UNSUPPORTED line names the shape Volt cannot show, as a quoted phrase: UNSUPPORTED \"a flag on a box input pin\";");
+                    ExpectSym(";", "UNSUPPORTED \"<shape>\";");
+                    var end = Peek();
+                    if (!end.Is("END_NETWORK"))
+                        throw Err(end, ConflictCodes.NetworkUnsupported,
+                            "a statement after an UNSUPPORTED line: the line stands for the whole network's content, and is its network's only line.");
+                    unsupported = shape.Text;
+                    continue;
+                }
                 if (t.Kind == TokKind.Eof || (t.Is("NETWORK") && t.AtLineStart))
                     throw Err(hdr, ConflictCodes.NetworkNotClosed, "this NETWORK has no END_NETWORK.");
                 if (t.Kind == TokKind.Comment)
@@ -296,7 +317,7 @@ public static class NetworkTextReader
             // Title and comment as the drivers store them (NetworkText.Stored): a trailing space, an empty title or a
             // closing empty `//` line reads as what the IDE would hold — written as the model, the canonical text comes back.
             return new Network(index, NetworkText.Stored(title), label,
-                NetworkText.Stored(comment.Count > 0 ? string.Join("\n", comment) : null), disabled, trees);
+                NetworkText.Stored(comment.Count > 0 ? string.Join("\n", comment) : null), disabled, trees, unsupported);
         }
 
         /// <summary><c>VAR_TEMP g1, g2 : BOOL; … END_VAR</c> — on one line canonically, across lines as ST allows.</summary>
@@ -725,12 +746,18 @@ public static class NetworkTextReader
             }
 
             var eno = false;
+            Tok? named = null;
             if (Peek().IsSym("."))
             {
                 Next();
                 var e = Next();
-                if (!e.Is("ENO")) throw Err(e, ConflictCodes.NetworkParse, "after a call, the one suffix is `.ENO`.");
-                eno = true;
+                if (e.Is("ENO")) eno = true;
+                // `.name` (ld-fbd-coverage 1b.4, S4): the box is read through its output of that name, a main output the
+                // slot rule would misread. Any other word is the box's output name; EN is an input.
+                else if (e.Kind == TokKind.Word && NetworkSpelling.Identifier.IsMatch(e.Text) && !e.Is(Box.EnablePin))
+                    named = e;
+                else
+                    throw Err(e, ConflictCodes.NetworkParse, "after a call, the suffix is `.ENO` or the name of the output a consumer reads.");
             }
 
             Operand? instance = null;
@@ -769,9 +796,23 @@ public static class NetworkTextReader
             // not ENO, and a top-level box is read by its EN. A box consumed WITHOUT `.ENO` is connected by its
             // main output, which the text reads by NetworkSpelling.MainSlotOfCall — slot 0, or no stored slot for a
             // bit operator — and the writer refuses every box that reading would get wrong.
+            if (named is { } nm)
+            {
+                if (!consumed)
+                    throw Err(nm, ConflictCodes.NetworkBadExpression,
+                        $"`.{nm.Text}` on '{head.Text}', which nothing consumes: a top-level box's output goes nowhere.");
+                if (NetworkSpelling.MainSlotOfCall(type) is null)
+                    throw Err(nm, ConflictCodes.NetworkBadExpression,
+                        $"`.{nm.Text}` on a {type.ToUpperInvariant()} box: a bit operator stores no main output to read by name.");
+                if (outputs.Any(o => o.Positional))
+                    throw Err(nm, ConflictCodes.NetworkUnsupported,
+                        $"a positional `=>` pin beside `.{nm.Text}`: positional pins fill the slots after the one a consumer reads, and `.{nm.Text}` states no slot. Name the pin.");
+            }
+
             var hasEno = NetworkSpelling.TextHasEno(isExecute: false, hadEn, eno, consumed);
             int? enoSlot = NetworkSpelling.EnoSlot(isExecute: false, hasEnoOutput: hasEno);
-            int? connected = eno ? enoSlot : consumed ? NetworkSpelling.MainSlotOfCall(type) : null;
+            // A `.name` box states no slot: the text has no position for the index (Box.MainOutputName).
+            int? connected = eno ? enoSlot : named is not null ? null : consumed ? NetworkSpelling.MainSlotOfCall(type) : null;
             var next = 0;
             var built = new List<Output>();
             foreach (var (formal, target, positional) in outputs)
@@ -790,7 +831,8 @@ public static class NetworkTextReader
                     $"`.ENO` on '{head.Text}', which nothing consumes: a top-level box's output goes nowhere.");
 
             var box = new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, built, en, null,
-                Flags.None, MainOutputIndex: consumed && !eno ? connected : null, ConnectedSlot: connected);
+                Flags.None, MainOutputIndex: consumed && !eno ? connected : null, ConnectedSlot: connected,
+                MainOutputName: named?.Text);
             // Stated only where the text carries it; elsewhere the text says nothing about ENO, and null says so.
             box = box with { HasEnoOutput = NetworkSpelling.EnoCarried(box, consumed) ? hasEno : null };
             return Mark(box, head.Offset);

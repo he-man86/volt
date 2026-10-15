@@ -37,7 +37,22 @@ public static class NetworkTextWriter
     /// REQUIRED rather than defaulted: a wire named like a name in scope would read back as that variable, and an
     /// FB instance the declarations do not name would read back as a function; a caller that does not know the
     /// scope must say so by passing <see cref="NetworkScope.Empty"/>, not by leaving it out.</param>
-    public static string Write(NetworkBody body, NetworkScope scope)
+    public static string Write(NetworkBody body, NetworkScope scope) => Write(body, scope, perNetwork: false);
+
+    /// <summary>
+    /// Render <paramref name="body"/> AS A PULL SHOWS IT (openspec <c>ld-fbd-coverage</c> 1b.4): a network whose TREES hold
+    /// a fact the text has no spelling for keeps its header and comment, and its trees become the one line
+    /// <c>UNSUPPORTED &lt;shape&gt;;</c> — the network is shown, never the whole body hidden for it. What a network's header
+    /// or comment cannot carry still hides the body (<see cref="NetworkText.Pulled"/>): there is no line to keep it on.
+    ///
+    /// <para>The ONE render of a live network: the pull writes the file by it, and both drivers' push pairs the live
+    /// networks with the pushed ones by it (<see cref="NetworkPairing"/>), so "the same network" means the same text in the
+    /// file the engineer edited. <see cref="Write(NetworkBody, NetworkScope)"/> stays strict: the push gate and the tests
+    /// ask it, and there a fact with no spelling is a refusal by name.</para>
+    /// </summary>
+    public static string WritePulled(NetworkBody body, NetworkScope scope) => Write(body, scope, perNetwork: true);
+
+    private static string Write(NetworkBody body, NetworkScope scope, bool perNetwork)
     {
         if (body is null) throw new ArgumentNullException(nameof(body));
         if (scope is null) throw new ArgumentNullException(nameof(scope));
@@ -48,9 +63,23 @@ public static class NetworkTextWriter
 
         for (var i = 0; i < body.Networks.Count; i++)
         {
+            var net = body.Networks[i];
             try
             {
-                new Emitter(body.Networks[i], body.Language, scope).Emit(sb);
+                var one = new StringBuilder();
+                try
+                {
+                    new Emitter(net, body.Language, scope).Emit(one);
+                }
+                // A refusal met in the trees: the network is shown as its UNSUPPORTED line. One met on its header or
+                // comment, or a shape that is no phrase, has no line to stand on and hides the body.
+                catch (NetworkUnrepresentableException e)
+                    when (perNetwork && !e.OnHeader && net.Unsupported is null && NetworkSpelling.UnsupportedShape.IsMatch(e.Reason))
+                {
+                    one.Clear();
+                    new Emitter(net with { Trees = Array.Empty<Node>(), Unsupported = e.Reason }, body.Language, scope).Emit(one);
+                }
+                sb.Append(one);
             }
             catch (NetworkUnrepresentableException e) when (e.Network is null)
             {
@@ -117,8 +146,42 @@ public static class NetworkTextWriter
             // off each definition's producer, which are known once the definitions are rendered. This is ordering
             // the output, not a pass over it — no statement is revisited.
             var statements = new List<string>();
+            if (_net.Unsupported is { } shape)
+            {
+                // The network the text cannot spell, shown: its one line, and nothing else (Network.Unsupported).
+                if (_net.Trees.Count > 0)
+                    throw new ArgumentException(
+                        $"network {_net.Order} is UNSUPPORTED ('{shape}') and holds {_net.Trees.Count} tree(s): such a " +
+                        "network holds none, because what it holds is what the text cannot say.");
+                if (!NetworkSpelling.UnsupportedShape.IsMatch(shape))
+                    throw Unrepresentable("an unsupported network whose shape is no phrase",
+                        $"network {_net.Order} is UNSUPPORTED for '{shape}', and its line spells the shape as words.");
+                statements.Add("  " + NetworkSpelling.UnsupportedWord + " \"" + shape + "\";");
+            }
             foreach (var tree in _net.Trees) statements.Add(Statement(tree));
 
+            try { EmitHeader(sb); }
+            catch (NetworkUnrepresentableException e) { e.OnHeader = true; throw; }
+
+            if (_definitionOrder.Count > 0)
+            {
+                // One line, one declaration per type in the order the types first appear, wires in vendor
+                // order within it: `VAR_TEMP g22, g23 : BOOL; END_VAR`.
+                sb.Append("  VAR_TEMP");
+                foreach (var type in _definitionOrder.Select(id => _defined[id]).Distinct(StringComparer.Ordinal))
+                    sb.Append(' ')
+                      .Append(string.Join(", ", _definitionOrder.Where(id => _defined[id] == type).Select(id => _names[id])))
+                      .Append(" : ").Append(type).Append(';');
+                sb.Append(" END_VAR\n");
+            }
+
+            foreach (var s in statements) sb.Append(s).Append('\n');
+            sb.Append("END_NETWORK\n");
+        }
+
+        /// <summary>The header line and the comment lines under it.</summary>
+        private void EmitHeader(StringBuilder sb)
+        {
             sb.Append(Header()).Append('\n');
 
             if (_net.Comment is { } comment)
@@ -143,21 +206,6 @@ public static class NetworkTextWriter
                     throw Unrepresentable("a comment the IDE does not store",
                         $"network {_net.Order}'s comment is empty or ends in whitespace, which the drivers trim.");
             }
-
-            if (_definitionOrder.Count > 0)
-            {
-                // One line, one declaration per type in the order the types first appear, wires in vendor
-                // order within it: `VAR_TEMP g22, g23 : BOOL; END_VAR`.
-                sb.Append("  VAR_TEMP");
-                foreach (var type in _definitionOrder.Select(id => _defined[id]).Distinct(StringComparer.Ordinal))
-                    sb.Append(' ')
-                      .Append(string.Join(", ", _definitionOrder.Where(id => _defined[id] == type).Select(id => _names[id])))
-                      .Append(" : ").Append(type).Append(';');
-                sb.Append(" END_VAR\n");
-            }
-
-            foreach (var s in statements) sb.Append(s).Append('\n');
-            sb.Append("END_NETWORK\n");
         }
 
         private string Header()
@@ -427,7 +475,7 @@ public static class NetworkTextWriter
             {
                 // A box the rule would read otherwise has no spelling: its pins would come back one slot over, or its
                 // consumer on another output.
-                if (has != NetworkSpelling.TextHasEno(isExecute: false, b.Enable is not null, suffix.Length > 0, consumed))
+                if (has != NetworkSpelling.TextHasEno(isExecute: false, b.Enable is not null, suffix == ".ENO", consumed))
                     throw Unrepresentable("an ENO output the text reads otherwise",
                         has
                             ? $"the '{b.Type}' box has an ENO output and no EN, and the text reads a box that says neither `EN :=` nor `.ENO` as having none."
@@ -469,6 +517,29 @@ public static class NetworkTextWriter
             var hasEno = NetworkSpelling.EnoSlot(b) is not null;
             if (NetworkSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
 
+            // S4 (ld-fbd-coverage 1b.4): a main output the rule would misread is spelled by its NAME, the box's own stored
+            // output name — `fb(…).xErrorActive`, census 1.6's Lenze call boxes with main output 1.
+            if (NetworkSpelling.NamedMainOutput(b) is { } named)
+            {
+                if (!NetworkSpelling.Identifier.IsMatch(named) ||
+                    string.Equals(named, Box.EnoPin, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(named, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                    throw Unrepresentable("a main output other than slot 0 with no output name",
+                        $"the '{b.Type}' box's main output is its slot {slot}, and the name it stores for that slot ('{named}') is no output name the text can write after the call.");
+                // A word of the text's own grammar after the `.` is read as that word, not a name: `EXECUTE` opens an
+                // EXECUTE body in the token walk (NetworkLexer.Walk, the LSP lexer alike) and swallows the text up to an
+                // END_EXECUTE (gate 1b-4).
+                if (NetworkSpelling.TextWords.Contains(named))
+                    throw Unrepresentable("a named main output spelled like a text word",
+                        $"the '{b.Type}' box is read through its output '{named}', a word the text's own grammar gives a meaning, so `.{named}` after the call would not read back as the output.");
+                if (b.Outputs.Any(o => o.Formal is null))
+                    // `=> v` fills the slots that remain after the connected one, and `.name` states no slot: the pin
+                    // would read back on another slot.
+                    throw Unrepresentable("a positional output pin beside a named main output",
+                        $"the '{b.Type}' box is read through its output '{named}' and also writes a positional `=>` pin, whose slot the text then cannot state.");
+                return "." + named;
+            }
+
             // A bit operator without ENO, group or call, reads back connected by no stored slot (the vendor keeps no
             // main output index on AND/OR — census 1.6), so that is the one connection it can carry.
             if (!hasEno && NetworkSpelling.MainSlotOfCall(b.Type) is null)
@@ -498,10 +569,10 @@ public static class NetworkTextWriter
                 throw Unrepresentable("a connection by an unspellable output slot",
                     $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, which is neither its main output ({b.MainOutputIndex}) nor ENO.");
             if (slot != NetworkSpelling.MainSlotOfCall(b.Type))
-                // Census 1.6: 3 Lenze call boxes store main output 1. The text reads a main-output connection as
-                // slot 0, so every positional `=>` pin would come back one slot over.
-                throw Unrepresentable("a main output other than slot 0",
-                    $"the '{b.Type}' box's main output is its slot {slot}, and the text reads a box consumed by its main output as connected by slot 0.");
+                // Census 1.6: 3 Lenze call boxes store main output 1 — spelled by name above. Here only when no reader
+                // stated the name: a hand-built model.
+                throw Unrepresentable("a main output other than slot 0 with no output name",
+                    $"the '{b.Type}' box's main output is its slot {slot}, which the text spells by the output's name, and the box records none.");
             return "";
         }
 
@@ -809,7 +880,7 @@ public sealed class NetworkUnrepresentableException : Body.UnrepresentableBodyEx
 {
     internal NetworkUnrepresentableException(string reason, string detail)
         : base(reason, "network text has no spelling for " + reason + ": " + detail +
-                       " Volt pulls the body as IMPLEMENTATION LD|FBD UNSUPPORTED rather than write it without that fact.")
+                       " Volt pulls the network as its UNSUPPORTED line (or, for a header, the body as IMPLEMENTATION LD|FBD UNSUPPORTED) rather than write it without that fact.")
         => Detail = detail;
 
     /// <summary>What was found, without the pull's "pulls it UNSUPPORTED" consequence.</summary>
@@ -820,5 +891,9 @@ public sealed class NetworkUnrepresentableException : Body.UnrepresentableBodyEx
 
     /// <summary>The position of the network being written, in the body.</summary>
     internal int? Network { get; set; }
+
+    /// <summary>Met on the network's header or comment, not in its trees: no UNSUPPORTED line can keep such a network
+    /// (<see cref="NetworkTextWriter.WritePulled"/>).</summary>
+    internal bool OnHeader { get; set; }
 }
 

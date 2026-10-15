@@ -89,6 +89,9 @@ internal static class TcPlcOpenWriter
     /// twice would give two sources of truth for one string.</para></para></summary>
     public static XDocument WriteProject(string pouName, NetworkBody body)
     {
+        // A created network is BUILT: a pushed UNSUPPORTED line and a box read through a named main output (S4) are
+        // refused by name before the import, as an edit refuses them (ld-fbd-coverage 1b.4).
+        foreach (var network in body.Networks) TcNetworkWriter.RefuseUnbuildable(network);
         // ALWAYS a program. This document is never the engineer's object - it builds a SCRATCH POU whose only
         // purpose is to make TwinCAT resolve the body, after which the archive is copied off it and the scratch
         // is deleted. A method's body resolves in a program exactly as well, because the importer resolves no

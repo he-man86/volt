@@ -742,12 +742,13 @@ public class NetworkTextWriterTests
 
     /// <summary>Spec, "EN is a pin …": a consumed box connected by its main output has no suffix, and the text
     /// reads that main output as slot 0 (spec, "err reads back on slot 1"). A box whose main output is stored as
-    /// another slot (census 1.6: 3 Lenze call boxes store 1), or whose connection slot is not stored at all, would
-    /// read back with its positional outputs on other slots — refused by name, never renumbered.</summary>
+    /// another slot (census 1.6: 3 Lenze call boxes store 1) is spelled by that output's NAME since ld-fbd-coverage
+    /// 1b.4 (<see cref="ShownPerNetworkTests"/>) — so one whose name was not read, or whose connection slot is not stored
+    /// at all, would read back with its positional outputs on other slots: refused by name, never renumbered.</summary>
     [Fact]
     public void A_consumed_box_whose_main_output_the_text_would_misread_goes_to_the_marker()
     {
-        Assert.Equal("a main output other than slot 0",
+        Assert.Equal("a main output other than slot 0 with no output name",
             Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1, eno: false), T("out")))).Reason);
         Assert.Equal("a consumed box with no stored connection slot",
             Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null, eno: false), T("out")))).Reason);

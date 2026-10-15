@@ -29,8 +29,10 @@ namespace Volt.Ide.Twincat;
 ///
 /// <para>So the capability is deliberately narrow and provable: <b>edit the VALUES of an existing graphical
 /// body</b> — rename an operand, retype it, change a comment or a title, negate a contact, disable a network.
-/// Adding or removing a rung, a box or an input is done in the IDE and pulled. Each refusal below names the
-/// exact shape change it saw.</para>
+/// A changed SHAPE is the IDE's to build: the push hands that one network to its import (<c>resolve</c>), and an
+/// INSERTED network the same way. Networks are paired with the pushed ones by text (<see cref="NetworkPairing"/>,
+/// ld-fbd-coverage 1b.4), so removing one drops exactly the network no pushed text pairs with, and every unchanged
+/// network stays byte for byte (DIALECT N28). Each refusal below names the exact shape change it saw.</para>
 /// </summary>
 internal static class TcNetworkWriter
 {
@@ -143,7 +145,8 @@ internal static class TcNetworkWriter
     /// network that is one component comes back as one network and can be swapped in; a network holding
     /// several independent rungs would come back as several, renumbering everything after it, so it is refused
     /// instead. That check happens HERE, from the model, before the IDE is touched.</para></summary>
-    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, XElement>? resolve)
+    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, XElement>? resolve,
+                                bool byPosition = false)
     {
         // No archive to edit means there is nothing to edit IN — and nothing routes one here: the driver's
         // `ResolveBody` sends a blank implementation (a newly created POU or member) and an archive with nothing
@@ -169,60 +172,140 @@ internal static class TcNetworkWriter
         TcUnmeasured.RefuseEdgeOrder(body);
 
         var networks = TcArchive.List(impl, "NetworkList");
-        if (networks.Count != body.Networks.Count)
-            // ADDING one needs an archive element Volt will not build (the generic `Refuse` below says why).
-            // DELETING one does not build anything, and is refused for a DIFFERENT reason worth stating: the
-            // networks are paired by POSITION here, and a network carries no identity in the text (its headers are
-            // positional) — so the text after deleting the second of four is the same shape as after deleting the
-            // fourth. So the push does not carry which network went, and picking one would be a guess at the
-            // engineer's intent with their logic. CODESYS does not face it: its writer rebuilds every changed
-            // network from the model, so deletion falls out for free and the ambiguity never arises.
-            //
-            // Matching the survivors by CONTENT would resolve it, and is the shape any fix takes. Tracked in
-            // `openspec/changes/graphical-vendor-parity-map`.
-            throw new NotSupportedException(
-                $"TwinCAT: this push changes the number of networks ({networks.Count} -> {body.Networks.Count}). " +
-                (body.Networks.Count < networks.Count
-                    ? "Volt cannot tell WHICH network was removed - network text renumbers its headers on " +
-                      "every pull, so the text after deleting the second of four is identical to the text " +
-                      "after deleting the fourth, and removing the wrong one would delete working logic. " +
-                      "The IDE can delete it."
-                    : "Volt cannot ADD one through the archive: a new network needs elements whose member " +
-                      "contract only the IDE produces. Add it in the IDE and pull it."));
-
         bool changed = viewChanged;
-        for (int i = 0; i < networks.Count; i++)
+
+        if (byPosition)
         {
-            var model = body.Networks[i];
-            try
+            // THE CREATE'S STAMP (`Stamp`): the archive is the import's answer to this very body, network for network, so
+            // it is paired by position — the values the import could not carry are stamped on, nothing is rebuilt,
+            // removed or inserted. A count that differs is the importer's regrouping (D25), which the stamp's caller
+            // judges; it is refused here, never "repaired" by removing an imported network.
+            if (networks.Count != body.Networks.Count)
+                throw new NotSupportedException(
+                    $"TwinCAT: the import built {networks.Count} network(s) for the {body.Networks.Count} pushed, so its " +
+                    "networks cannot be stamped one for one: the import drops an empty network and builds one network per " +
+                    "connected rung (DIALECT D25).");
+            for (int i = 0; i < networks.Count; i++) changed |= WriteNetwork(networks[i], body.Networks[i], scope);
+            return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
+        }
+
+        // AN EDIT PAIRS THE LIVE NETWORKS WITH THE PUSHED ONES BY TEXT, NOT POSITION (ld-fbd-coverage 1b.4,
+        // NetworkPairing) — the content match the count refusal here used to name as "the shape any fix takes": "Volt
+        // cannot tell WHICH network was removed" was true of positions, not of texts. A kept network is not touched; a
+        // removed one is the unpaired live network dropped; an inserted one is the one-network import spliced in.
+        var shown = networks.Select((n, i) => TcNetworkReader.ReadNetworkShown(n, i)).ToList();
+        var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
+        // A removal that would erase what the text does not show — a moved network's symbol comment, a replaced
+        // UNSUPPORTED line, one of two identically shown networks — is refused before anything changes (gate 1b-4).
+        NetworkPairing.RefuseUnseenLoss(Volt.Contracts.Vendors.TwincatDisplay, shown, plan, body.Language, scope);
+
+        XElement? last = null;   // the network the next insertion goes after, in the final order
+        foreach (var move in plan)
+        {
+            switch (move.Step)
             {
-                changed |= WriteNetwork(networks[i], model, scope);
-                continue;
+                case NetworkStep.Keep:
+                    last = networks[move.Live!.Value];
+                    break;
+
+                case NetworkStep.Remove:
+                    networks[move.Live!.Value].Remove();
+                    changed = true;
+                    break;
+
+                case NetworkStep.Rebuild:
+                {
+                    var model = body.Networks[move.Pushed!.Value];
+                    var net = networks[move.Live!.Value];
+                    last = net;
+                    // A network whose trees did not change is a header edit, written in place, building nothing — an
+                    // UNSUPPORTED network's title included.
+                    if (TreesUnchanged(net, model, scope)) { changed |= WriteHeader(net, model); break; }
+                    RefuseUnbuildable(model);
+                    try
+                    {
+                        changed |= WriteNetwork(net, model, scope);
+                        break;
+                    }
+                    catch (NotSupportedException) when (resolve is not null)
+                    {
+                        // Fall through: this network's SHAPE changed, so the IDE has to rebuild it.
+                    }
+                    // What the import would ERASE: a symbol comment, which the text does not carry (the shared rule).
+                    NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkShown(net, model.Order));
+                    var rebuilt = Imported(model, resolve!);
+                    net.ReplaceWith(rebuilt);
+                    WriteNetwork(rebuilt, model, scope);      // stamp the values the rebuild could not carry
+                    last = rebuilt;
+                    changed = true;
+                    break;
+                }
+
+                case NetworkStep.Insert:
+                {
+                    var model = body.Networks[move.Pushed!.Value];
+                    RefuseUnbuildable(model);
+                    var inserted = Imported(model, resolve ?? throw new NotSupportedException(
+                        $"TwinCAT: this push adds network {move.Pushed.Value + 1}, and a new network needs archive elements whose " +
+                        "member contract only the IDE produces — the push builds it through the IDE's import, which this " +
+                        "in-place write was not handed. Add it in the IDE and pull it."));
+                    if (last is not null) last.AddAfterSelf(inserted);
+                    else impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList").AddFirst(inserted);
+                    WriteNetwork(inserted, model, scope);     // stamp the values the import could not carry
+                    last = inserted;
+                    changed = true;
+                    break;
+                }
             }
-            catch (NotSupportedException) when (resolve != null)
-            {
-                // Fall through: this network's SHAPE changed, so the IDE has to rebuild it.
-            }
-
-            // The shapes no one has measured through the import are refused by name before it (task 4.2).
-            TcUnmeasured.RefuseImport(model);
-            // And what the import would ERASE: a symbol comment, which the text does not carry (the shared rule).
-            NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkFor(networks[i], model.Order));
-
-            // Only a single-component network can be swapped in without renumbering the ones after it.
-            var parts = Rungs(model.Trees);
-            if (parts != 1)
-                throw Refuse($"changes the shape of network {model.Order + 1}, which holds {parts} independent " +
-                             "rungs - the IDE rebuilds one network per connected rung, so re-creating it would " +
-                             $"split it into {parts} networks and renumber every network after it");
-
-            var rebuilt = resolve!(model);
-            networks[i].ReplaceWith(rebuilt);
-            WriteNetwork(rebuilt, model, scope);      // stamp the values the rebuild could not carry
-            changed = true;
         }
 
         return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
+    }
+
+    /// <summary>One network built by the IDE's import, ready to splice in — refused before the IDE is asked where the
+    /// import is unmeasured (task 4.2) or would build more than one network.</summary>
+    private static XElement Imported(Network model, Func<Network, XElement> resolve)
+    {
+        // The shapes no one has measured through the import are refused by name before it (task 4.2).
+        TcUnmeasured.RefuseImport(model);
+        // Only a single-component network can be swapped in without renumbering the ones after it.
+        var parts = Rungs(model.Trees);
+        if (parts != 1)
+            throw Refuse($"changes the shape of network {model.Order + 1}, which holds {parts} independent " +
+                         "rungs - the IDE rebuilds one network per connected rung, so re-creating it would " +
+                         $"split it into {parts} networks and renumber every network after it");
+        return resolve(model);
+    }
+
+    /// <summary>A network the push would BUILD from its text, refused by name where it cannot: a pushed <c>UNSUPPORTED</c>
+    /// line (<see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a box read through a named main output (S4) —
+    /// unmeasured on TwinCAT: no TwinCAT project holds one (S4 is one Lenze CODESYS network), in place or through the
+    /// import (<c>TcUnmeasured</c>).</summary>
+    internal static void RefuseUnbuildable(Network model)
+    {
+        NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.TwincatDisplay, model);
+        foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
+            throw new NotSupportedException(
+                $"TwinCAT: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
+                $"'{output}', which is not the box's first output. No TwinCAT project Volt measured holds such a box, so " +
+                "writing one is unmeasured here. Refusing to write this network; a network whose text is unchanged is kept " +
+                "as the IDE holds it. The IDE can edit this network.");
+    }
+
+    /// <summary>Whether the live network's TREES already say what is pushed: its render with the pushed header.
+    ///
+    /// <para>A pushed model the writer cannot spell answers "changed", as <see cref="Unchanged"/> does: the structural walk
+    /// is then where its refusal surfaces, with its own message.</para></summary>
+    private static bool TreesUnchanged(XElement net, Network model, NetworkScope scope)
+    {
+        var live = TcNetworkReader.ReadNetworkShown(net, model.Order);
+        try
+        {
+            return NetworkPairing.Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled },
+                                         BodyLanguage.Fbd, scope)
+                   == NetworkPairing.RenderPushed(model, BodyLanguage.Fbd, scope);
+        }
+        catch (NetworkUnrepresentableException) { return false; }
     }
 
     /// <summary>Set the archive's view slot to the pushed language, when it differs; true when it was written. The slot
@@ -245,11 +328,11 @@ internal static class TcNetworkWriter
     /// <summary>Does the live network already say exactly what is being pushed?
     ///
     /// <para>Rendered through <see cref="TcNetworkReader"/> and <c>NetworkTextWriter</c> — the pull path — so
-    /// "the same" means the same file, which is the only definition that matters to an engineer. A reader that
-    /// REFUSES the live network (an Execute box is the measured case) answers "not unchanged" rather than
-    /// throwing, because the caller's structural walk is then the right place for that refusal to surface, with
-    /// its own message. A live network the WRITER has no spelling for answers the same way: its
-    /// <c>UnrepresentableBodyException</c> is a <c>NotSupportedException</c>.</para>
+    /// "the same" means the same file, which is the only definition that matters to an engineer. The live side is the
+    /// network AS SHOWN (<see cref="TcNetworkReader.ReadNetworkShown"/>): one the reader refuses or the writer cannot
+    /// spell renders as its <c>UNSUPPORTED</c> line, equal only to that line pushed back. A PUSHED model the strict
+    /// writer cannot spell answers "not unchanged" (its <c>UnrepresentableBodyException</c> is a
+    /// <c>NotSupportedException</c>): the structural walk is where its refusal surfaces, with its own message.</para>
     ///
     /// <para>Both sides are written against the body's scope: the text spells a wire and an FB instance through the
     /// declarations, so "the same file" is only defined for one scope.</para></summary>
@@ -257,10 +340,8 @@ internal static class TcNetworkWriter
     {
         try
         {
-            var live = TcNetworkReader.ReadNetworkFor(net, model.Order);
-            var one = new NetworkBody(BodyLanguage.Fbd, new[] { live });
-            var other = new NetworkBody(BodyLanguage.Fbd, new[] { model });
-            return NetworkTextWriter.Write(one, scope) == NetworkTextWriter.Write(other, scope);
+            var live = TcNetworkReader.ReadNetworkShown(net, model.Order);
+            return NetworkPairing.Render(live, BodyLanguage.Fbd, scope) == NetworkPairing.RenderPushed(model, BodyLanguage.Fbd, scope);
         }
         catch (NotSupportedException) { return false; }
     }
@@ -293,10 +374,7 @@ internal static class TcNetworkWriter
         // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
         // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
         // rewrite a title nobody had touched on every push — and a push that changes nothing must change nothing.
-        bool changed = SetText(net, "Title", model.Title)
-                     | SetText(net, "Label", model.Label)
-                     | SetText(net, "Comment", model.Comment)
-                     | SetBool(net, "OutCommented", model.Disabled);
+        bool changed = WriteHeader(net, model);
 
         // THE MODEL IS COMPARED IN ITS OWN SHAPE, item for item, and never folded toward the archive's.
         //
@@ -317,6 +395,12 @@ internal static class TcNetworkWriter
             changed |= WriteNode(items[i], trees[i]);
         return changed;
     }
+
+    private static bool WriteHeader(XElement net, Network model) =>
+        SetText(net, "Title", model.Title)
+        | SetText(net, "Label", model.Label)
+        | SetText(net, "Comment", model.Comment)
+        | SetBool(net, "OutCommented", model.Disabled);
 
     /// <summary>HOW MANY INDEPENDENT RUNGS a network holds: its top-level items grouped by the wires that connect them.
     ///

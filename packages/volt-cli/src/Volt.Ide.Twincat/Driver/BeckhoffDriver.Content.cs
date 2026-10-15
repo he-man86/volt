@@ -429,12 +429,13 @@ public sealed partial class BeckhoffDriver
             // question instead. Creating one is still refused (`TcPlcOpenWriter`), and so is editing its ST
             // (`TcNetworkWriter`); this is the READ path, and it can now answer.
             //
-            // …AND `Pulled`'s CATCH BEHIND IT, because the pre-scan answers ONE question and the reader can refuse for
-            // more than one reason. `HasUnreadableExecuteBox` asks whether a TextDocument is missing; a snippet
-            // that is present and unwalkable for any other reason still reaches `ReadStCode`, and an escaping
-            // throw costs the WHOLE POU — `Versioning.SafeVersion` stamps the item Unreadable and `FetchService`
-            // drops it from `changed`, `items` and `folders`, so the file leaves the workspace and git on every
-            // pull. The pre-scan stays as the precise answer; the catch is what makes the imprecise cases survivable.
+            // THE PRE-SCAN IS GONE (ld-fbd-coverage 1b.4). `TcArchive.HasUnreadableExecuteBox` hid the WHOLE body for an
+            // Execute box whose document is missing, before the reader ran — while CODESYS refuses the same box inside
+            // ONE network, which the pull now shows as that network's UNSUPPORTED line (`TcNetworkReader.ReadShown`, the
+            // rule both readers share). Kept, the same POU would have been one hidden body here and an editable body
+            // with one UNSUPPORTED network there. `ReadStCode` refuses such a box under the same name, and `Pulled`'s
+            // catch still keeps any refusal no network can stand for from costing the whole POU (an escaping throw is
+            // stamped Unreadable and the fetch drops the file).
             //
             // Byte-identical with CODESYS: a fact the text has no spelling for — a negated coil, a rung driving two
             // jumps, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
@@ -443,14 +444,8 @@ public sealed partial class BeckhoffDriver
             // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the
             // vendor differential map found on 2026-09-22.
             return NetworkText.Pulled(view, () =>
-            {
-                if (TcArchive.HasUnreadableExecuteBox(impl))
-                    throw new UnrepresentableBodyException(BoxRefusals.UnreadableExecuteMarker,
-                        "TwinCAT: this body holds an Execute box whose ST cannot be read, and Volt will not materialize " +
-                        "the box without the code it runs.");
-                return NetworkTextWriter.Write(TcNetworkReader.Read(impl, view), Declarations.ScopeForPull(declaration))
-                    .TrimEnd('\n');
-            });
+                NetworkTextWriter.WritePulled(TcNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
+                    .TrimEnd('\n'));
         }
 
         // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), so an engineer
@@ -637,7 +632,7 @@ public sealed partial class BeckhoffDriver
             // refusal was carrying never reached the split networks. Merging restores the count so the stamp
             // below reaches them.
             var merged = TcNetworkWriter.MergeImporterSplits(built, model) ?? built;
-            var applied = TcNetworkWriter.Apply(merged, model, scope) ?? merged;
+            var applied = TcNetworkWriter.Apply(merged, model, scope, resolve: null, byPosition: true) ?? merged;
             return TcNetworkWriter.DropImporterBoxOutputs(applied);
         }
         // Never an ENO refusal: after the import it is the answer (the text reads an output the imported box does not

@@ -269,6 +269,7 @@ const TOPIC_SUITES: ReadonlyMap<string, string> = new Map([
   ["src/services/network/network.test.ts", NETWORK_TEXT],
   ["src/services/network/network-real-shapes.test.ts", NETWORK_TEXT],
   ["src/services/network/highlight-network-text.test.ts", NETWORK_TEXT],
+  ["src/services/network/named-output.test.ts", NETWORK_TEXT],
   ["src/services/structure/folding-network-text.test.ts", NETWORK_TEXT],
 ])
 

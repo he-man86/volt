@@ -1818,6 +1818,227 @@
 			"move subject2: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:ImportChild) failed: No elements imported. Please check content of the archive file '<archive>' for valid data and name conflicts!"
 		]
 	},
+	"nwl-keep-network-in-place": {
+		"diagnostics@built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"diagnostics@built-first": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"fetched@made": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o3 := b;\nEND_NETWORK\nNETWORK\n  o4 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"kept.ids.third@pushed": [
+			"v=15L",
+			"v=8L",
+			"v=12L",
+			"v=11L",
+			"v=14L",
+			"v=13L",
+			"v=9L",
+			"v=16L",
+			"v=7L"
+		],
+		"kept.ids.third@reloaded": [
+			"v=15L",
+			"v=8L",
+			"v=12L",
+			"v=11L",
+			"v=14L",
+			"v=13L",
+			"v=9L",
+			"v=16L",
+			"v=7L"
+		],
+		"kept.ids@built-first": [
+			"v=15L",
+			"v=8L",
+			"v=12L",
+			"v=11L",
+			"v=14L",
+			"v=13L",
+			"v=9L",
+			"v=16L",
+			"v=7L"
+		],
+		"kept.ids@made": [
+			"v=15L",
+			"v=8L",
+			"v=12L",
+			"v=11L",
+			"v=14L",
+			"v=13L",
+			"v=9L",
+			"v=16L",
+			"v=7L"
+		],
+		"kept.ids@reloaded-first": [
+			"v=15L",
+			"v=8L",
+			"v=12L",
+			"v=11L",
+			"v=14L",
+			"v=13L",
+			"v=9L",
+			"v=16L",
+			"v=7L"
+		],
+		"kept.types.third@built": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"kept.types.third@pushed": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"kept.types.third@reloaded": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"kept.types@built-first": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"kept.types@made": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"kept.types@reloaded-first": [
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\"",
+			"v=\"\""
+		],
+		"operands@made": [
+			"v=\"o1\"",
+			"v=\"a\"",
+			"v=\"o2\"",
+			"v=\"a\"",
+			"v=\"b\"",
+			"v=\"o3\"",
+			"v=\"b\"",
+			"v=\"o4\"",
+			"v=\"a\""
+		],
+		"operands@pushed": [
+			"v=\"o1\"",
+			"v=\"a\"",
+			"v=\"o5\"",
+			"v=\"b\"",
+			"v=\"o2\"",
+			"v=\"a\"",
+			"v=\"b\"",
+			"v=\"o4\"",
+			"v=\"b\""
+		],
+		"operands@reloaded": [
+			"v=\"o1\"",
+			"v=\"a\"",
+			"v=\"o5\"",
+			"v=\"b\"",
+			"v=\"o2\"",
+			"v=\"a\"",
+			"v=\"b\"",
+			"v=\"o4\"",
+			"v=\"b\""
+		],
+		"operands@reloaded-first": [
+			"v=\"o1\"",
+			"v=\"a\"",
+			"v=\"o2\"",
+			"v=\"a\"",
+			"v=\"b\"",
+			"v=\"o3\"",
+			"v=\"b\"",
+			"v=\"o4\"",
+			"v=\"a\""
+		],
+		"rebuilt.ids.fourth@pushed": [
+			"v=20L",
+			"v=19L",
+			"v=18L",
+			"v=21L",
+			"v=17L"
+		],
+		"rebuilt.ids.fourth@reloaded": [
+			"v=20L",
+			"v=19L",
+			"v=18L",
+			"v=21L",
+			"v=17L"
+		],
+		"rebuilt.ids@built-first": [
+			"v=20L",
+			"v=19L",
+			"v=18L",
+			"v=21L",
+			"v=17L"
+		],
+		"rebuilt.ids@made": [
+			"v=20L",
+			"v=19L",
+			"v=18L",
+			"v=21L",
+			"v=17L"
+		],
+		"rebuilt.ids@reloaded-first": [
+			"v=20L",
+			"v=19L",
+			"v=18L",
+			"v=21L",
+			"v=17L"
+		],
+		"rebuilt.types.fourth@built": [
+			"v=\"\"",
+			"v=\"\""
+		],
+		"rebuilt.types.fourth@pushed": [
+			"v=\"\"",
+			"v=\"\""
+		],
+		"rebuilt.types.fourth@reloaded": [
+			"v=\"\"",
+			"v=\"\""
+		],
+		"steps": [
+			"create keep (push): accepted",
+			"find main: accepted",
+			"setText main (push): accepted",
+			"build: accepted",
+			"reload: accepted",
+			"setText keep (push): accepted",
+			"reload: accepted",
+			"build: accepted"
+		]
+	},
 	"pou-members-follow-text": {
 		"children@back": [],
 		"children@with-method": [],

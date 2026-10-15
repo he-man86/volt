@@ -179,32 +179,36 @@ public class TcNetworkWriterTests
         var model = Read(body);
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
+        // Without the IDE's import (the in-place writer alone) a new network has no way in: it needs elements whose
+        // member contract only the IDE produces. The push's own writer passes the import (TcStructuralEditTests).
         var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
-        Assert.Contains("changes the number of networks (2 -> 3)", ex.Message);
-        // ADDING is refused for the member-contract reason; DELETING is not, and the message says which.
-        Assert.Contains("cannot ADD one through the archive", ex.Message);
+        Assert.Contains("adds network 3", ex.Message);
+        Assert.Contains("member contract only the IDE produces", ex.Message);
     }
 
-    /// <summary>DELETING a network is refused for a DIFFERENT reason, and saying the wrong one is worse than
-    /// saying nothing: a deletion builds no archive element, so "Volt never builds elements" does not explain
-    /// it and points the engineer at the wrong thing.
-    ///
-    /// <para>The real reason is that the push does not carry WHICH network went. Networks pair by POSITION and
-    /// network text renumbers its headers on every pull, so `NETWORK 0, 1, 2` after deleting the second of four
-    /// is byte-identical to the same text after deleting the fourth — and removing the wrong one deletes
-    /// working logic. CODESYS never faces it: its writer rebuilds every changed network from the model, so
-    /// deletion falls out for free.</para></summary>
+    /// <summary>DELETING a network builds nothing, and since ld-fbd-coverage 1b.4 the push knows WHICH network went:
+    /// it pairs the live networks with the pushed ones by TEXT (<c>NetworkPairing</c>), not by position, so the network
+    /// no pushed text pairs with is the one removed and every other stays byte for byte. This was refused as "Volt
+    /// cannot tell WHICH network was removed" — true of positions, which the text does not carry, and not of texts.</summary>
     [Fact]
-    public void Deleting_a_network_is_refused_for_the_AMBIGUITY_not_the_member_contract()
+    public void Deleting_a_network_removes_the_one_no_pushed_text_pairs_with()
     {
         var body = VendorBody();
         var model = Read(body);
-        var shrunk = model with { Networks = model.Networks.Take(1).ToList() };
+        foreach (var keep in new[] { 0, 1 })
+        {
+            var shrunk = model with { Networks = new[] { model.Networks[keep] } };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, shrunk));
-        Assert.Contains("changes the number of networks (2 -> 1)", ex.Message);
-        Assert.Contains("cannot tell WHICH network was removed", ex.Message);
-        Assert.DoesNotContain("member contract", ex.Message);
+            var written = TcText.Apply(body, shrunk);
+
+            Assert.NotNull(written);
+            var back = Read(written!);
+            Assert.Single(back.Networks);
+            Assert.Equal(TcText.Write(new NetworkBody(model.Language, new[] { model.Networks[keep] })),
+                         TcText.Write(back));
+            // The kept network is the archive's own element, byte for byte.
+            Assert.Contains(NetworkXml(body, keep), written);
+        }
     }
 
     [Fact]
@@ -290,6 +294,14 @@ public class TcNetworkWriterTests
     }
 
     // -- helpers -----------------------------------------------------------------------------------
+
+    /// <summary>The archive element of network <paramref name="index"/>, as serialized in <paramref name="body"/>.</summary>
+    private static string NetworkXml(string body, int index)
+    {
+        var impl = System.Xml.Linq.XElement.Parse(body, System.Xml.Linq.LoadOptions.PreserveWhitespace)
+            .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        return TcArchive.List(impl, "NetworkList")[index].ToString(System.Xml.Linq.SaveOptions.DisableFormatting);
+    }
 
     private static NetworkBody Replace(NetworkBody body, Node tree) =>
         body with

@@ -50,20 +50,75 @@ namespace Volt.Ide.Codesys
             // no view to set when there is no diagram yet.
             if (NwlInterop.Has(impl, "DefaultViewMode")) WriteView(impl, CodesysDriver.ViewModeText(impl), body.Language);
 
-            // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
-            // and an earlier version of this file refused a count change outright as "not measured" - which
-            // failed every splice test, because splicing a body is exactly where a network appears or goes.
-            // The aspect has AppendNetwork / InsertNetwork / RemoveNetwork / ReplaceNetwork; nothing here
-            // needs the archive back door (SetSerializableValue), which also works but writes AROUND the
-            // object model rather than through it.
-            for (int i = Count(impl) - 1; i >= body.Networks.Count; i--)
-                NwlInterop.Call(impl, "RemoveNetwork", i);
-            while (Count(impl) < body.Networks.Count)
-                NwlInterop.Call(impl, "AppendNetwork", NwlInterop.New(impl, "Network"));
+            // PAIR THE LIVE NETWORKS WITH THE PUSHED ONES BY TEXT, NOT POSITION (ld-fbd-coverage 1b.4, NetworkPairing): a
+            // network whose text did not change is not touched, wherever a network was inserted or removed before it, and
+            // only the changed ones are rebuilt — so a network the push cannot build (S4, an N21 comparison) is refused
+            // only when ITS text changed. Pairing by position shifted every network after an insertion into "changed".
+            // Through the aspect's own API: AppendNetwork / InsertNetwork(int, INetwork) / RemoveNetwork(int)
+            // (reflected off SP21's NWLObject.dll); nothing here needs the archive back door (SetSerializableValue),
+            // which also works but writes AROUND the object model rather than through it.
+            var live = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
+            var shown = live.Select((n, i) => CodesysNetworkReader.ReadNetworkShown(n, i)).ToList();
+            var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
+            // A removal that would erase what the text does not show — a moved network's symbol comment, a replaced
+            // UNSUPPORTED line, one of two identically shown networks — is refused before anything changes (gate 1b-4).
+            NetworkPairing.RefuseUnseenLoss(Volt.Contracts.Vendors.CodesysDisplay, shown, plan, body.Language, scope);
 
-            var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
-            for (int i = 0; i < existing.Count; i++)
-                WriteNetwork(impl, existing[i], body.Networks[i], body.Language, scope);
+            // Every network to build is judged BEFORE the list changes: a refusal leaves the body as the IDE holds it
+            // (the transaction rolls back too, but an offline caller has none).
+            // A rebuild whose trees did not change writes only the header (WriteNetwork's change gate), so it builds nothing.
+            foreach (var move in plan)
+            {
+                if (move.Step == NetworkStep.Insert) RefuseUnbuildable(body.Networks[move.Pushed!.Value]);
+                else if (move.Step == NetworkStep.Rebuild &&
+                         !TreesUnchanged(shown[move.Live!.Value], body.Networks[move.Pushed!.Value], body.Language, scope))
+                    RefuseUnbuildable(body.Networks[move.Pushed.Value]);
+            }
+
+            // Removals from the end, so each index is still the live one.
+            foreach (var move in plan.Where(m => m.Step == NetworkStep.Remove).OrderByDescending(m => m.Live!.Value, Comparer<int>.Default))
+                NwlInterop.Call(impl, "RemoveNetwork", move.Live!.Value);
+
+            // What is left is the kept and rebuilt networks in order; insertions go between them.
+            var at = 0;
+            foreach (var move in plan)
+            {
+                switch (move.Step)
+                {
+                    case NetworkStep.Keep:
+                        at++;
+                        break;
+                    case NetworkStep.Rebuild:
+                        WriteNetwork(impl, NetworkAt(impl, at), body.Networks[move.Pushed!.Value], body.Language, scope);
+                        at++;
+                        break;
+                    case NetworkStep.Insert:
+                        var fresh = NwlInterop.New(impl, "Network");
+                        if (at == Count(impl)) NwlInterop.Call(impl, "AppendNetwork", fresh);
+                        else NwlInterop.Call(impl, "InsertNetwork", at, fresh);
+                        WriteNetwork(impl, NetworkAt(impl, at), body.Networks[move.Pushed!.Value], body.Language, scope);
+                        at++;
+                        break;
+                }
+            }
+        }
+
+        private static object NetworkAt(object impl, int index) =>
+            NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "")[index];
+
+        /// <summary>A network the push would BUILD from its text, refused by name where it cannot be built: a pushed
+        /// <c>UNSUPPORTED</c> line (nothing to build from, <see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a
+        /// box read through a named main output (S4: <c>MainOutputIndex</c> is read-only on a box Volt builds, N21).</summary>
+        private static void RefuseUnbuildable(Network model)
+        {
+            NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.CodesysDisplay, model);
+            foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
+                throw new NotSupportedException(
+                    $"CODESYS: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
+                    $"'{output}', which is not the box's first output: a box Volt builds cannot be read through any other " +
+                    "(its main output index is read-only, DIALECT N21), so the consumer would read another value than the " +
+                    "text says. Refusing to rebuild this network; a network whose text is unchanged is kept as the IDE " +
+                    "holds it. The IDE can edit this network.");
         }
 
         /// <summary>Set the aspect's view to the pushed language, when it differs — in the spelling the vendor's own
@@ -101,7 +156,7 @@ namespace Volt.Ide.Codesys
             // Scoping it "to ONE network" bounded the damage to every network, since PushService always sends
             // the whole body. TwinCAT's `TcNetworkWriter.Apply` has always returned null on no-change; this is
             // the same rule, and it is what stops the losses below from reaching a rung nobody edited.
-            var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
+            var live = CodesysNetworkReader.ReadNetworkShown(net, model.Order);
             if (TreesUnchanged(live, model, language, scope)) return;
 
             // Before this network's items are removed. Not for atomicity — the whole write runs inside
@@ -109,6 +164,7 @@ namespace Volt.Ide.Codesys
             // later network after an earlier one was already rebuilt. It is here so the refusal is judged on exactly
             // the networks the change gate above lets through (an unchanged pulled network holding the shape is never
             // refused), and so a caller with no transaction — the offline tests — sees the live network untouched.
+            RefuseUnbuildable(model);
             foreach (var tree in model.Trees) RefuseUnbuildableEno(tree, consumed: false);
             // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
             NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.CodesysDisplay, live);
@@ -131,19 +187,20 @@ namespace Volt.Ide.Codesys
         /// <c>SetIfChanged</c>, which is already idempotent, so they are neutralised here (the live network's
         /// metadata is replaced by the model's) rather than dragged into a decision about logic.</para>
         ///
-        /// <para><b>A body the reader REFUSES is not rebuilt.</b> If reading the live network throws — a vendor
-        /// split point is the measured case — the exception propagates and the push fails. That is deliberate:
-        /// Volt cannot tell whether such a body matches, and destroy-and-rebuild would delete the very construct
-        /// it cannot represent. Refusing is the same answer the reader gives on pull.</para>
+        /// <para><b>A live network the text cannot spell is never rebuilt.</b> The live side is the network AS SHOWN
+        /// (<see cref="CodesysNetworkReader.ReadNetworkShown"/>): one the reader refuses (a vendor split point is the
+        /// measured case) or the writer has no spelling for renders as its <c>UNSUPPORTED</c> line, so it compares equal
+        /// only to that line pushed back — a header edit. Its trees are never paired with other trees
+        /// (<see cref="NetworkPairing"/>'s cost), and its removal beside an insertion is refused
+        /// (<see cref="NetworkPairing.RefuseUnseenLoss"/>, gate 1b-4): a rebuild would delete the very content the text
+        /// could not carry.</para>
         ///
         /// <para><b>Rendered against the body's scope</b>, the one it was read against: the text spells a wire name
-        /// and an FB instance through the declarations, so both sides must be written with the same ones. A live
-        /// network the writer has no spelling for throws <c>UnrepresentableBodyException</c> — like a reader
-        /// refusal, it is not rebuilt, because a rebuild would delete the fact the text could not carry.</para></summary>
+        /// and an FB instance through the declarations, so both sides must be written with the same ones.</para></summary>
         private static bool TreesUnchanged(Network live, Network model, BodyLanguage language, NetworkScope scope)
         {
-            return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
-                == Render(model, language, scope);
+            return NetworkPairing.Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
+                == NetworkPairing.RenderPushed(model, language, scope);
         }
 
         /// <summary>
@@ -190,9 +247,6 @@ namespace Volt.Ide.Codesys
         private static NotSupportedException Unbuildable(Box b, string why) =>
             new($"CODESYS: the '{b.Type}' box is {why}. Refusing rather than build a network whose consumer reads " +
                 "another output than the text says, or that does not compile. The IDE can edit this network.");
-
-        private static string Render(Network network, BodyLanguage language, NetworkScope scope) =>
-            NetworkTextWriter.Write(new NetworkBody(language, new[] { network }), scope);
 
         private static int Count(object impl) =>
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;

@@ -404,9 +404,9 @@ public class TcRoundTripTests
     ///
     /// <para><b>The refusal is right; what it USED to cost was not.</b> A throw here is isolated by
     /// <c>Versioning.SafeVersion</c> into the Unreadable sentinel, so <c>fetch</c> skipped the POU and the
-    /// engineer got no file at all — only a number in the "N unreadable" tally. The driver now detects the box
-    /// BEFORE the walk (<c>TcArchive.HasExecuteBox</c>) and materializes the body as a marker, the same answer
-    /// it already gives CFC, SFC and IL. This reader's contract is unchanged, which is why this test is.</para></summary>
+    /// engineer got no file at all — only a number in the "N unreadable" tally. The pull now shows the refusal as
+    /// the network's UNSUPPORTED line (<c>ReadShown</c>, below). This strict reader's contract is unchanged, which is why
+    /// this test is.</para></summary>
     [Fact]
     public void An_Execute_box_is_refused_rather_than_rendered_without_its_ST()
     {
@@ -438,23 +438,24 @@ public class TcRoundTripTests
         Assert.Contains("FolderPath=\"Helpers", node.LastImported!);
     }
 
-    /// <summary>…AND THE DRIVER TURNS THAT REFUSAL INTO A MARKER RATHER THAN A MISSING POU. This is the half
-    /// that was absent: the reader was right to refuse, and nothing converted the refusal into something an
-    /// engineer could see. Detection happens before the node walk, on the vendor's own flag.</summary>
+    /// <summary>…AND THE PULL SHOWS THAT REFUSAL AS THE ONE NETWORK'S <c>UNSUPPORTED</c> LINE, NOT A MISSING POU (openspec
+    /// ld-fbd-coverage 1b.4). The driver used to pre-scan the archive for the box and hide the whole body; the reader's
+    /// per-network read (<c>ReadShown</c>, CODESYS's rule too) now keeps every other network editable and shows this
+    /// one by the refusal's name. An ordinary ladder shows no such line.</summary>
     [Fact]
-    public void An_Execute_box_is_detected_before_the_walk_so_the_body_can_be_a_marker()
+    public void An_unreadable_Execute_box_is_its_networks_UNSUPPORTED_line()
     {
-        Assert.True(Fixtures.HasExecuteBox(Impl(Body("ExecuteBox.derived.TcPOU"))));
+        var shown = TcNetworkReader.ReadShown(Impl(Body("ExecuteBox.derived.TcPOU")), BodyLanguage.Fbd);
+        Assert.Contains(shown.Networks, n => n.Unsupported == "an Execute box whose ST cannot be read");
+        Assert.All(shown.Networks.Where(n => n.Unsupported is not null), n => Assert.Empty(n.Trees));
     }
 
-    /// <summary>And it is NARROW — an ordinary ladder must not be mistaken for one, or every graphical body on
-    /// this vendor would materialize as a marker instead of as editable network text.</summary>
     [Theory]
     [InlineData("POU_PBD.TcPOU")]
     [InlineData("FanOut.TcPOU")]
-    public void An_ordinary_body_is_not_mistaken_for_an_Execute_box(string fixture)
+    public void An_ordinary_body_shows_no_UNSUPPORTED_network(string fixture)
     {
-        Assert.False(Fixtures.HasExecuteBox(Impl(Body(fixture))));
+        Assert.All(TcNetworkReader.ReadShown(Impl(Body(fixture)), BodyLanguage.Fbd).Networks, n => Assert.Null(n.Unsupported));
     }
 
     /// <summary>REORDERING NAMED PINS MUST MOVE THE NAMES WITH THE VALUES, not just the values.

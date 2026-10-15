@@ -25,13 +25,12 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal static class TcNetworkReader
 {
-    public static NetworkBody Read(XElement impl, BodyLanguage language)
-    {
-        var networks = TcArchive.RequireList(impl, "NetworkList", "the body")
-            .Select((n, i) => ReadNetwork(n, i))
-            .ToList();
-        return new NetworkBody(language, networks);
-    }
+    public static NetworkBody Read(XElement impl, BodyLanguage language) =>
+        new(language, TcArchive.RequireList(impl, "NetworkList", "the body").Select((n, i) => ReadNetwork(n, i)).ToList());
+
+    /// <summary>The whole body AS A PULL SHOWS IT (<see cref="ReadNetworkShown"/>, per network).</summary>
+    public static NetworkBody ReadShown(XElement impl, BodyLanguage language) =>
+        new(language, TcArchive.RequireList(impl, "NetworkList", "the body").Select((n, i) => ReadNetworkShown(n, i)).ToList());
 
     /// <summary>A network's own text with TRAILING WHITESPACE removed.
     ///
@@ -47,19 +46,31 @@ internal static class TcNetworkReader
     /// whitespace ignored, so a push that changed nothing still writes nothing.</para></summary>
     private static string? Trimmed(string? s) => NetworkText.Stored(s);
 
-    /// <summary>One live network, read back into the model — for the WRITER's change gate, which must compare
-    /// through exactly the reader a pull would use. A second, nearly-identical read there is how the two would
-    /// drift apart.</summary>
-    internal static Network ReadNetworkFor(XElement net, int order) => ReadNetwork(net, order);
+    /// <summary>One live network AS A PULL SHOWS IT — what the pull and the writer's pairing and change gate read. A
+    /// NETWORK THE TEXT CANNOT HOLD IS SHOWN, NOT ITS BODY HIDDEN (ld-fbd-coverage 1b.4), CODESYS's reader's rule: a
+    /// refusal met in its trees makes this one network its UNSUPPORTED line, header and comment kept.</summary>
+    internal static Network ReadNetworkShown(XElement net, int order)
+    {
+        try { return ReadNetwork(net, order); }
+        catch (Volt.Engine.Format.Body.UnrepresentableBodyException e) when (NetworkText.ShownAsUnsupported(e.Reason))
+        {
+            return Header(net, order) with { Unsupported = e.Reason };
+        }
+    }
 
     private static Network ReadNetwork(XElement net, int order) =>
-        new Network(
-            order,
+        Header(net, order) with
+        {
+            Trees = TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(n => ReadNode(n, consumed: false)).ToList(),
+        };
+
+    private static Network Header(XElement net, int order) =>
+        new(order,
             Trimmed(TcArchive.Str(net, "Title")),
             Trimmed(TcArchive.Str(net, "Label")),
             Trimmed(TcArchive.Str(net, "Comment")),
             TcArchive.Bool(net, "OutCommented"),
-            TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(n => ReadNode(n, consumed: false)).ToList());
+            Array.Empty<Node>());
 
     /// <param name="consumed">Whether an item above this one reads its output — true for everything below the top
     /// level. A consumed box records the output slot its consumer is connected to (<see cref="ConnectedSlot"/>).</param>
@@ -146,7 +157,9 @@ internal static class TcNetworkReader
                     // fed by the box is declared with the type of its connected slot (spec, "a stored output type").
                     OutputTypes: OutputTypes(e),
                     // Whether the box HAS an ENO output: its output list's first name, as CODESYS reads it (task 3.10).
-                    HasEnoOutput: HasEno(e));
+                    HasEnoOutput: HasEno(e),
+                    // S4 (ld-fbd-coverage 1b.4): the stored name of a main output the text spells by name, as CODESYS.
+                    MainOutputName: Box.NameOfMainOutput(TcArchive.Str(e, "BoxType") ?? "", connected, Names(e, "OutputParam")));
             }
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.

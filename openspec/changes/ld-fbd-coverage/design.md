@@ -260,3 +260,42 @@ building it); an edited `UNSUPPORTED` line; on TwinCAT, an insertion whose impor
 oracle compares the S4 network (it was refused by the text writer). `docs/network-text.html` gains `.name` and the
 per-network line; its "Marker on pull" row moves to per network. Pushes that inserted or removed a network on CODESYS
 stop rebuilding the networks after it.
+
+**As built (2026-10-15) — where reality forced another choice than the text above.**
+(1) **The pairing is a least-cost alignment, not the plain LCS.** Measured on the TwinCAT fixture `POU_PBD` (two networks
+holding the SAME rung, one disabled): flipping DISABLED on both makes network 1's new text network 2's old one, and the
+LCS kept network 2 for network 1 and built a copy of it from nothing where two header edits in place keep both
+(`TcNetworkWriterTests.A_network_can_be_disabled_and_re_enabled`). `NetworkPairing.Plan` aligns in order at the least cost
+of what the push then does — keep (equal text) 0 < header-only rewrite (equal trees) < removal < rebuild = insertion — so
+every case above comes out as before (the measured push: #1, #2 kept, the new network inserted, one slot rewritten, one
+removed) and the swap is two header edits. (2) **The line quotes its shape: `UNSUPPORTED "<shape>";`.** Bare words lex
+as tokens, and a shape such as "an Execute box with pins" opens an EXECUTE body in the scope-free token walk
+(`NetworkLexer.Walk`, used by the v1 scan and `SameTokens`); a quoted phrase is one string token in both lexers. A
+header-only edit of an UNSUPPORTED network (its TITLE, LABEL, DISABLED, comment) is written in place: its trees pair. (3)
+**S4's one corpus network also holds S1** (an AND box connected by a stored slot, after `.xErrorActive` is spelled), so
+it pulls as `UNSUPPORTED "a bit operator box connected by a stored output slot";` until S1's spelling lands (2.3): Lenze
+`FirstErrorCapture.call_FirstErrorCapture_FB` pulls as network text (its body marker goes) with networks #3, #4, #5 (S1)
+and #9 (S6) as lines, and the completeness oracle still refuses that network at the text writer (S1 8 = 7 + 1; S4 0). `.name`
+is proven on models (`ShownPerNetworkTests`, `CodesysNetworkPairingTests`) and in the LSP. (4) **CODESYS `Id`s are no
+identity** (DIALECT N28, the row): the IDE renumbers every `Id` of a body on each commit and compacts them on load, so a
+kept network on CODESYS is its content — the writer never touches its vendor object (offline: the doubles' network objects
+and their item calls); on TwinCAT its archive `Id`s are the same before, after and across the reopen. Neither vendor
+stays per-body. (5) **TwinCAT's Execute pre-scan is deleted**: it hid the whole body where CODESYS's reader now shows the
+one network's UNSUPPORTED line; the reader refuses the box under the same name. (6) **The create's stamp stays positional**
+(`TcNetworkWriter.Apply(…, byPosition: true)`): the archive is the import's answer to that very body, and a count that
+differs is D25's regrouping, refused — never "repaired" by removing an imported network. (7) The strict writer stays for
+the push gate and the pushed side of the pairing (a model the writer cannot spell pairs with nothing and is refused where
+it is written); only the pull and the live side render per network (`NetworkTextWriter.WritePulled`, the readers'
+`ReadShown`). (8) **Gate 1b-4: no pairing erases what the text does not show.** Pairing by text opened three paths a
+positional rebuild had closed: a MOVED network is a removal plus an insertion, whose inserted copy (built from the text)
+has no symbol comment — and neither step met the 1b-1 refusal; an `UNSUPPORTED` line replaced by trees (or emptied) under
+its header paired as an in-place rebuild of a network whose shown model has no trees, so neither guard saw what it
+erased; and two networks shown as the same text (two identical `UNSUPPORTED` lines) were told apart by the tie-break,
+which removed the one the engineer kept. Now: a live network shown as its `UNSUPPORTED` line never pairs with other trees
+(`NetworkKey.Unshown`, a cost above removal + insertion), and `NetworkPairing.RefuseUnseenLoss`, run by both drivers
+before the list changes, refuses by name a removal of a network holding what the text does not show (its `UNSUPPORTED`
+line, a symbol comment) in a push that also inserts one, and its removal beside a staying network that shows the same
+text. Deleting such a network alone, and editing its header, still work. A stored main-output name that is a text word
+(`Execute` opens an EXECUTE body in the token walk) is not written after the call: the network is shown as `UNSUPPORTED
+"a named main output spelled like a text word"`. IDE-held R members of a moved network are the interim loss window 2.2
+makes visible; not refused here.

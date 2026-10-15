@@ -45,7 +45,9 @@ import type {
   NetworkValue,
   NetworkWire,
 } from "./ast.js"
-import { NetworkLexer, OPERATOR_HEADS, SYMBOL_TO_TYPE, type Tok, isOperator, isSym, isWord } from "./lexer.js"
+import { NetworkLexer, OPERATOR_HEADS, type Tok, isOperator, isSym, isWord } from "./lexer.js"
+import { isOutputName, namedOutputRefusal, stored, UNSUPPORTED_NOT_ALONE, unsupportedLineRefusal } from "./shown.js"
+import { BOOL, boxProduces, disagreement, isBitOperatorBox, operatorType, type Produced } from "./wire-producer.js"
 
 /**
  * Words the text's own grammar gives a meaning at operand position (`NetworkSpelling.TextWords`); an operand spelled
@@ -73,6 +75,7 @@ export const NETWORK_TEXT_WORDS: ReadonlySet<string> = new Set([
   "VAR_TEMP",
   "END_VAR",
   "LET",
+  "UNSUPPORTED",
 ])
 
 /** The words the editor colours as keywords inside a graphical body: the grammar's words, the header's fields, and the
@@ -268,7 +271,6 @@ class Parser {
     this.wires = new Map()
     this.readAsVariable = new Map()
     const hdr = this.next()
-    const hdrLine = this.line(hdr)
     let title: string | undefined
     let label: NetworkName | undefined
     let disabled = false
@@ -276,41 +278,10 @@ class Parser {
     const statements: NetworkTextStatement[] = []
     const comment: string[] = []
     let headerEnd = hdr.offset + hdr.length
+    let unsupported: NetworkName | undefined
 
     try {
-      // The header ends at its newline: a line after it that starts DISABLED, TITLE or LABEL is a statement.
-      for (let t = this.peek(); t.kind !== "eof" && this.line(t) === hdrLine; t = this.peek()) {
-        if (isWord(t, "LABEL")) {
-          this.next()
-          if (label !== undefined) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries LABEL twice.")
-          this.expectOnLine(":", hdrLine, "LABEL: name")
-          const name = this.next()
-          if (this.line(name) !== hdrLine || name.kind !== "word" || !IDENTIFIER.test(name.text))
-            throw this.err(name, "NETWORK_PARSE", "a LABEL is one identifier, on the header's line.")
-          label = this.name(name)
-        } else if (isWord(t, "TITLE")) {
-          this.next()
-          if (title !== undefined) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries TITLE twice.")
-          this.expectOnLine(":", hdrLine, 'TITLE: "…"')
-          const s = this.next()
-          if (this.line(s) !== hdrLine || s.kind !== "string")
-            throw this.err(s, "NETWORK_PARSE", "a TITLE is a double-quoted string, on the header's line.")
-          title = s.text
-        } else if (isWord(t, "DISABLED")) {
-          this.next()
-          if (disabled) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries DISABLED twice.")
-          disabled = true
-        } else if (t.kind === "number") {
-          throw this.err(t, "NETWORK_PARSE", v1Refusal("`NETWORK <n> <LANG>` headers"))
-        } else {
-          throw this.err(
-            t,
-            "NETWORK_PARSE",
-            `'${t.text}' in a NETWORK header: the header is NETWORK [LABEL: x] [TITLE: "…"] [DISABLED], and it ends at its newline.`,
-          )
-        }
-        headerEnd = this.lastEnd
-      }
+      ;({ title, label, disabled, headerEnd } = this.parseHeader(hdr))
 
       // The network's comment: the `//` lines between the header and the wire block or first statement.
       while (this.peek().kind === "comment") comment.push(this.next().text)
@@ -336,6 +307,11 @@ class Parser {
           this.parseWires(wires)
           continue
         }
+        // `UNSUPPORTED "<shape>";` (ld-fbd-coverage 1b.4): the network's trees the text cannot spell, shown — its only line.
+        if (isWord(t, "UNSUPPORTED")) {
+          unsupported = this.unsupportedLine(statements.length > 0 || wires.length > 0)
+          continue
+        }
         statements.push(this.parseStatement())
       }
 
@@ -349,10 +325,6 @@ class Parser {
       if (e.code !== "NETWORK_NOT_CLOSED") this.recover()
     }
 
-    const stored = (s: string | undefined): string | undefined => {
-      const t = s?.trimEnd()
-      return t === undefined || t.length === 0 ? undefined : t
-    }
     return {
       index,
       title: stored(title),
@@ -360,10 +332,77 @@ class Parser {
       disabled,
       comment: stored(comment.length > 0 ? comment.join("\n") : undefined),
       wires,
+      ...(unsupported !== undefined ? { unsupported } : {}),
       statements,
       span: this.span(hdr.offset, Math.max(this.lastEnd, hdr.offset + hdr.length)),
       headerSpan: this.span(hdr.offset, headerEnd),
     }
+  }
+
+  /** The header's fields, in any order: a misordered header is written, and the canonical order comes back (2.12). */
+  private parseHeader(hdr: Tok): { title?: string; label?: NetworkName; disabled: boolean; headerEnd: number } {
+    const hdrLine = this.line(hdr)
+    let title: string | undefined
+    let label: NetworkName | undefined
+    let disabled = false
+    let headerEnd = hdr.offset + hdr.length
+    // The header ends at its newline: a line after it that starts DISABLED, TITLE or LABEL is a statement.
+    for (let t = this.peek(); t.kind !== "eof" && this.line(t) === hdrLine; t = this.peek()) {
+      if (isWord(t, "LABEL")) {
+        this.next()
+        if (label !== undefined) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries LABEL twice.")
+        this.expectOnLine(":", hdrLine, "LABEL: name")
+        const name = this.next()
+        if (this.line(name) !== hdrLine || name.kind !== "word" || !IDENTIFIER.test(name.text))
+          throw this.err(name, "NETWORK_PARSE", "a LABEL is one identifier, on the header's line.")
+        label = this.name(name)
+      } else if (isWord(t, "TITLE")) {
+        this.next()
+        if (title !== undefined) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries TITLE twice.")
+        this.expectOnLine(":", hdrLine, 'TITLE: "…"')
+        const s = this.next()
+        if (this.line(s) !== hdrLine || s.kind !== "string")
+          throw this.err(s, "NETWORK_PARSE", "a TITLE is a double-quoted string, on the header's line.")
+        title = s.text
+      } else if (isWord(t, "DISABLED")) {
+        this.next()
+        if (disabled) throw this.err(t, "NETWORK_PARSE", "a NETWORK header carries DISABLED twice.")
+        disabled = true
+      } else if (t.kind === "number") {
+        throw this.err(t, "NETWORK_PARSE", v1Refusal("`NETWORK <n> <LANG>` headers"))
+      } else {
+        throw this.err(
+          t,
+          "NETWORK_PARSE",
+          `'${t.text}' in a NETWORK header: the header is NETWORK [LABEL: x] [TITLE: "…"] [DISABLED], and it ends at its newline.`,
+        )
+      }
+      headerEnd = this.lastEnd
+    }
+    return { ...(title !== undefined ? { title } : {}), ...(label !== undefined ? { label } : {}), disabled, headerEnd }
+  }
+
+  /** `UNSUPPORTED "<shape>";`, its network's only line (`shown.ts`), after `UNSUPPORTED`; `content`: the network holds
+   *  something before it. */
+  private unsupportedLine(content: boolean): NetworkName {
+    const kw = this.next()
+    const shape = this.next()
+    const bad = unsupportedLineRefusal(kw, shape, content)
+    if (bad !== undefined) throw this.err(bad.at, bad.code, bad.message)
+    this.expectSym(";", 'UNSUPPORTED "<shape>";')
+    const end = this.peek()
+    if (!isWord(end, "END_NETWORK")) throw this.err(end, "NETWORK_UNSUPPORTED", UNSUPPORTED_NOT_ALONE)
+    return { text: shape.text, span: this.tokSpan(shape) }
+  }
+
+  /** A call's suffix after its `)`: `.ENO`, `.name` (a named main output, `shown.ts`), or none. */
+  private callSuffix(): { eno: boolean; output?: Tok } {
+    if (!isSym(this.peek(), ".")) return { eno: false }
+    this.next()
+    const e = this.next()
+    if (isWord(e, "ENO")) return { eno: true }
+    if (isOutputName(e)) return { eno: false, output: e }
+    throw this.err(e, "NETWORK_PARSE", "after a call, the suffix is `.ENO` or the name of the output a consumer reads.")
   }
 
   /** `VAR_TEMP g1, g2 : BOOL; … END_VAR` — on one line canonically, across lines as ST allows. */
@@ -865,13 +904,7 @@ class Parser {
       }
     }
 
-    let eno = false
-    if (isSym(this.peek(), ".")) {
-      this.next()
-      const e = this.next()
-      if (!isWord(e, "ENO")) throw this.err(e, "NETWORK_PARSE", "after a call, the one suffix is `.ENO`.")
-      eno = true
-    }
+    const { eno, output } = this.callSuffix()
 
     const headText = head.kind === "unnamed" ? "???" : head.text
     // The box's TYPE, as the bridge reader decides it: the unnamed instance's own, an instance's FB (asked of the
@@ -905,6 +938,8 @@ class Parser {
       )
     if (eno && !consumed)
       throw this.err(head, "NETWORK_BAD_EXPRESSION", `\`.ENO\` on '${headText}', which nothing consumes: a top-level box's output goes nowhere.`)
+    const named = output !== undefined ? namedOutputRefusal(output, headText, type, consumed, pins) : undefined
+    if (named !== undefined) throw this.err(named.at, named.code, named.message)
 
     const headName: NetworkName =
       head.kind === "backtick"
@@ -927,6 +962,8 @@ class Parser {
       boxType: type,
       pins,
       eno,
+      ...(output !== undefined ? { output: this.name(output) } : {}),
+      ...(fbType !== undefined ? { instance: true as const } : {}),
       span: this.span(head.offset, this.lastEnd),
     }
     return call
@@ -1327,46 +1364,4 @@ function shift(s: Span, at: { offset: number; line: number; col: number }): Span
     endLine: at.line + s.endLine - 1,
     endCol: s.endLine === 1 ? at.col + s.endCol : s.endCol,
   }
-}
-
-// ── a wire's type, read off its producer (`NetworkSpelling`) ────────────────────────────────────
-
-const BOOL = "BOOL"
-/** A group's operator → its box type: the lexer's table (`SYMBOL_TO_TYPE`), the one the group's operator was accepted
- *  by (`isOperator`), so a miss is a drift between the two and fails loudly rather than naming a box by its symbol. */
-function operatorType(op: string): string {
-  const type = SYMBOL_TO_TYPE.get(op)
-  if (type === undefined) throw new Error(`network text: the group operator '${op}' has no box type in the lexer's table`)
-  return type
-}
-
-/** A bit operator box (AND, OR, XOR, NOT): the rule types it ANY_BIT — in ladder, its inputs are contacts. */
-function isBitOperatorBox(type: string, typing: NetworkWireTyping): boolean {
-  const result = typing.operatorResult(type)
-  return result !== undefined && "group" in result
-}
-
-/** What a producer says of a wire's type: an exact type, "BOOL or another bit string", or nothing. */
-interface Produced {
-  exact?: string
-  anyBit?: boolean
-}
-
-/** A box's word on its output, with no stored output type (the text carries none): the operators' own rule
- *  (`types/arith/operators` `operatorFunctionResult`) — a comparison BOOL, a bit operator a type of ANY_BIT. */
-function boxProduces(type: string, typing: NetworkWireTyping): Produced {
-  const result = typing.operatorResult(type)
-  if (result === undefined) return {}
-  return "exact" in result ? { exact: result.exact } : { anyBit: true }
-}
-
-/** A type as the comparison reads it: its tokens, not its layout (`STRING (80)` is `STRING(80)`). */
-const typeKey = (t: string): string => t.replace(/\s+/g, "").toUpperCase()
-
-/** How `p` disagrees with a DECLARED type — what the producer says instead — or undefined (`NetworkSpelling.Disagreement`). */
-function disagreement(p: Produced, declared: string, typing: NetworkWireTyping): string | undefined {
-  if (p.exact !== undefined) return typeKey(p.exact) === typeKey(declared) ? undefined : p.exact
-  return p.anyBit === true && !typing.isBitWireType(typeKey(declared))
-    ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
-    : undefined
 }

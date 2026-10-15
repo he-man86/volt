@@ -21,18 +21,48 @@ namespace Volt.Ide.Codesys
     {
         /// <summary>Read the whole body. <paramref name="impl"/> is the item's <c>Implementation</c> aspect,
         /// already known to be an <c>NWLImplementationObject</c>.</summary>
-        public static NetworkBody Read(object impl, BodyLanguage language)
+        public static NetworkBody Read(object impl, BodyLanguage language) => Read(impl, language, ReadNetwork);
+
+        /// <summary>The whole body AS A PULL SHOWS IT (<see cref="ReadNetworkShown"/>, per network).</summary>
+        public static NetworkBody ReadShown(object impl, BodyLanguage language) => Read(impl, language, ReadNetworkShown);
+
+        private static NetworkBody Read(object impl, BodyLanguage language, Func<object, int, Network> network)
         {
             var networks = new List<Network>();
             var list = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
-            for (int i = 0; i < list.Count; i++) networks.Add(ReadNetwork(list[i], i));
+            for (int i = 0; i < list.Count; i++) networks.Add(network(list[i], i));
             return new NetworkBody(language, networks);
         }
 
-        /// <summary>One live network, read back into the model. INTERNAL rather than private because the WRITER
-        /// needs it: its change gate renders the live network and compares, and it must compare through exactly
-        /// the reader a pull would use — a second, nearly-identical read here is how the two would drift.</summary>
-        internal static Network ReadNetwork(object net, int order)
+        /// <summary>One live network AS A PULL SHOWS IT — the read the pull and the writer's pairing and change gate make.
+        /// A NETWORK THE TEXT CANNOT HOLD IS SHOWN, NOT ITS BODY HIDDEN (ld-fbd-coverage 1b.4): a refusal met in its trees
+        /// makes this one network its UNSUPPORTED line (<see cref="Network.Unsupported"/>), header and comment kept — the
+        /// rule the text writer's pull render follows for its own refusals (<see cref="NetworkTextWriter.WritePulled"/>).
+        /// A refusal whose reason the line cannot spell still hides the body.</summary>
+        internal static Network ReadNetworkShown(object net, int order)
+        {
+            try { return ReadNetwork(net, order); }
+            catch (Volt.Engine.Format.Body.UnrepresentableBodyException e) when (NetworkText.ShownAsUnsupported(e.Reason))
+            {
+                return Header(net, order) with { Unsupported = e.Reason };
+            }
+        }
+
+        /// <summary>One live network, read back into the model — strict: a fact the model cannot hold is refused by
+        /// name (<see cref="ReadNetworkShown"/> shows it). INTERNAL rather than private because the WRITER needs it: its
+        /// change gate renders the live network and compares, and it must compare through exactly the reader a pull
+        /// would use — a second, nearly-identical read here is how the two would drift.</summary>
+        internal static Network ReadNetwork(object net, int order) => Header(net, order) with { Trees = ReadTrees(net, order) };
+
+        private static Network Header(object net, int order) =>
+            new(order,
+                Clean(NwlInterop.Text(net, "Title")),
+                Clean(NwlInterop.Text(net, "Label")),
+                Clean(NwlInterop.Text(net, "Comment")),
+                NwlInterop.Flag(net, "OutCommented"),
+                Array.Empty<Node>());
+
+        private static List<Node> ReadTrees(object net, int order)
         {
             var trees = new List<Node>();
             var count = NwlInterop.RequireInt(net, "NetworkItemCount");
@@ -60,13 +90,7 @@ namespace Volt.Ide.Codesys
                     "network text has no form for. Volt refuses to materialize a body it cannot represent " +
                     "rather than render one silently missing it.");
 
-            return new Network(
-                order,
-                Clean(NwlInterop.Text(net, "Title")),
-                Clean(NwlInterop.Text(net, "Label")),
-                Clean(NwlInterop.Text(net, "Comment")),
-                NwlInterop.Flag(net, "OutCommented"),
-                trees);
+            return trees;
         }
 
         /// <summary>The value if it is really an NWL TREE NODE, else null — because "not wired" does not come
@@ -342,7 +366,8 @@ namespace Volt.Ide.Codesys
                 MainOutputIndex: mainOutput,
                 ConnectedSlot: consumed ? mainOutput : null,
                 OutputTypes: OutputTypes(n),
-                HasEnoOutput: Box.HasEnoSlot(outputNames));
+                HasEnoOutput: Box.HasEnoSlot(outputNames),
+                MainOutputName: consumed ? Box.NameOfMainOutput(type, mainOutput, outputNames) : null);
         }
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — every box a push built

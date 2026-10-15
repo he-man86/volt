@@ -388,7 +388,7 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       512 (+8, the oracle), `Volt.Repo.Gates` 243, `Volt.Cli.Tests` 295, `Volt.Contracts.Tests` 37, `Volt.Connector.Tests`
       148, volt-cli `test/unit` 150 (all 0 fail); LSP full suite with `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset: 10616
       tests, 10154 pass, 34 skip, 428 todo, 0 fail (679 s). Fixture map unchanged (no fixture or transpiler change).
-- [ ] 1b.4 **S4 and every shape no push can build: shown always, refused per NETWORK, never per body** (owner 2026-10-12,
+- [x] 1b.4 **S4 and every shape no push can build: shown always, refused per NETWORK, never per body** (owner 2026-10-12,
       "it sounds like we should improve this"). (a) Pull spells a call box whose main output is not slot 0 with the output
       named from the box's own stored `OutputParam.Names` — `xFirstErrorBit := fbFirstErrCapture(…).xErrorActive;` — so no
       library signature is needed and the body is never UNSUPPORTED for it (design.md's "the reader would also need the
@@ -399,6 +399,55 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       list can keep one network object untouched while its neighbours are replaced, and the object's identity after
       save/reopen. If a vendor cannot, that vendor stays per-body for unbuildable shapes, stated in DIALECT, and the
       text still shows the network (read-only body, never a missing one).
+      **Done 2026-10-15** (design.md "1b.4", its "As built"). (a) `Box.MainOutputName` (the readers state it where the main
+      output is not slot 0, `Box.NameOfMainOutput`), written `fb(…).name` (`NetworkSpelling.NamedMainOutput`), read back by
+      the C# reader and the LSP parser (`NetworkCall.output`, typed as the instance's output `fb.name`). (b)
+      `Network.Unsupported`: a refusal met in a network's trees is shown as `UNSUPPORTED "<shape>";`, header and comment
+      kept (`NetworkTextWriter.WritePulled`, `CodesysNetworkReader.ReadShown` / `TcNetworkReader.ReadShown`); TwinCAT's
+      Execute pre-scan is deleted (parity). Push: `NetworkPairing` aligns live and pushed networks by text (least cost —
+      the plain LCS swapped two identical-rung networks on `POU_PBD`), both drivers keep the paired ones untouched, rewrite
+      a slot, remove, or insert (CODESYS `InsertNetwork(Int32, INetwork)`, TwinCAT the one-network import spliced in);
+      TwinCAT's network-count refusal is lifted (the create's stamp stays positional). A changed network holding S4 is
+      refused naming the network and the output (CODESYS N21; TwinCAT unmeasured); a pushed `UNSUPPORTED` line no live
+      network pairs with is refused (`NETWORK_UNSUPPORTED`); its header is editable. (c) vendor-facts row
+      `nwl-keep-network-in-place`, both vendors, DIALECT **N28**: TwinCAT keeps the kept network's 9 archive `Id`s through
+      the push and the reopen; CODESYS renumbers EVERY `Id` of a body on each commit and on load (no identity — the kept
+      network is its untouched content); both pulls are the pushed text, both builds clean. Neither vendor stays per-body.
+      **Numbers:** the corpora's 12 UNSUPPORTED LD/FBD bodies (tasks 0.1) pull as network text, holding exactly the text
+      writer's 22 refusals as `UNSUPPORTED` lines (`CodesysNwlCompletenessOracleTests.Every_body_pulls_as_network_text…`):
+      S1 8 (7 + the S4 network, which also holds S1), S2 6, S3 6, S5 1, S6 1; S4 0. Push refusals unchanged (23, N21).
+      Tests added: `ShownPerNetworkTests` (engine, 33 cases), `CodesysNetworkPairingTests` (6) + the oracle's body test,
+      `TcNetworkPairingTests` (4), TwinCAT's deletion test rewritten (removes the unpaired network) and the Execute
+      pre-scan tests replaced (2), LSP `network-analysis.test.ts` (+3) and `services/network/named-output.test.ts` (2). The LSP size ratchet held without a new entry: the rules moved to `syntax/network/shown.ts`, the header loop to `parseHeader`, the wire-producer helpers to `wire-producer.ts` (moved unchanged) — `parser.ts` 1372 → 1367 lines, `parseCall` 90 → 88, `parseNetwork` off the list. Docs:
+      `network-text.html` (`.name`, the network line, the pairing, the marker row per network).
+      **Gate step 1b-4 (2026-10-15).** Review findings, all five taken, each test-first (18 new cases red before the fix,
+      green after; design.md "1b.4" As built (8)): (1) **a moved network lost its symbol comments unrefused** — a move is
+      Remove + Insert, and neither step met the 1b-1 refusal; (2) **an `UNSUPPORTED` line replaced by trees, or emptied,
+      under its header** paired as an in-place rebuild of a shown model with no trees, so nothing saw what it erased; (3)
+      **two networks shown as the same text** (two identical `UNSUPPORTED` lines) were told apart by the tie-break, which
+      removed the one the engineer kept. Fixed in the shared pairing: a live `UNSUPPORTED` network never pairs with other
+      trees (`NetworkKey.Unshown`, a cost above removal + insertion), and `NetworkPairing.RefuseUnseenLoss` — called by
+      both drivers right after the plan, before the list changes — refuses by name (`NETWORK_UNSUPPORTED`) a removal of a
+      network holding what the text does not show (its line, a symbol comment) in a push that also inserts one, and its
+      removal beside a staying network that shows the same text; deleting such a network alone and editing its header
+      still work. The stale `TreesUnchanged`/`Unchanged` doc comments corrected (both vendors). (4) **`.Execute` after a
+      call** opened an EXECUTE body in the token walk: a stored main-output name that is a text word
+      (`NetworkSpelling.TextWords`) is refused by the writer, shown as `UNSUPPORTED "a named main output spelled like a
+      text word"` (0 in the corpora: the only S4 boxes are Lenze's 3 `xErrorActive`; fixed, being cheap). (5) **The
+      hand-edited `completeness.known.ts` reason is now RECORDED**: a live TwinCAT completeness run (own instance
+      `ld-fbd-coverage`, `--only Project14/ladderLabel.pou`) produced that exact string — 1 expected, 0 unexpected, 0
+      stale. IDE-held R members of a moved network stay the interim loss window 2.2 makes visible. Tests:
+      `ShownPerNetworkTests` 33 → 44 (4 alignment rows with an UNSUPPORTED live network, the 3 loss refusals, 4 text-word
+      names; `A_network_with_no_text_pairs_with_nothing`'s second assertion changed from Rebuild to "X0 I0" — its premise,
+      an UNSUPPORTED live network rebuilt from a model with no text, is what design 1b.4 lists as "stays refused by name"),
+      `CodesysNetworkPairingTests` 6 → 11, `TcNetworkPairingTests` 4 → 6; `WireVocabularyTests` census for
+      `NetworkPairing.cs` 1 → 3 (`NETWORK_UNSUPPORTED`, same situation). **Numbers:** C# Engine 2577 pass (1 skip),
+      CODESYS 434, TwinCAT 518, Cli 295, Connector 148, Contracts 37, Repo.Gates 243 — 0 fail; volt-cli unit 150 pass;
+      LSP full suite (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) 10159 pass, 34 skip, 428 todo, 0 fail over 363 files
+      (its first run failed one: 1b.4's `services/network/named-output.test.ts` is named after no source file — listed
+      in `test/package/structure.test.ts`'s `TOPIC_SUITES` as a network-text topic suite, beside its siblings); typecheck
+      clean. No fixture or transpiler change: the fixture map
+      is not regenerated.
 ## 2. Build (after 1.2)
 
 - [ ] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,

@@ -15,10 +15,11 @@ namespace Volt.Engine.Format.Body
     ///
     /// <para><b>Why a type and not a message match.</b> Both vendor readers already refused an Execute box
     /// whose ST cannot be read, with near-identical wording, and only the TwinCAT DRIVER pre-empted the throw
-    /// (an archive pre-scan, <c>TcArchive.HasUnreadableExecuteBox</c>). CODESYS reads LIVE objects and has no
-    /// equivalent pre-scan to run, so the same body that gave a TwinCAT engineer a read-only body removed the whole
-    /// CODESYS POU — declaration, body and every sibling method. Catching a MESSAGE would close that hole and
-    /// re-open it the first time somebody rephrased the sentence.</para>
+    /// (an archive pre-scan, deleted in ld-fbd-coverage 1b.4 when a refusal in one network became that network's
+    /// UNSUPPORTED line on both vendors). CODESYS reads LIVE objects and had no equivalent pre-scan to run, so the same
+    /// body that gave a TwinCAT engineer a read-only body removed the whole CODESYS POU — declaration, body and every
+    /// sibling method. Catching a MESSAGE would close that hole and re-open it the first time somebody rephrased the
+    /// sentence.</para>
     ///
     /// <para>Not sealed for one reason: network text v2's writer throws a subtype that also says WHERE it met the
     /// fact (<c>NetworkUnrepresentableException</c>), so a push can report it at its span. Every catch stays on this type.</para>

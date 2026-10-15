@@ -598,6 +598,43 @@ public class CodesysNwlCompletenessOracleTests
         Assert.Empty(Run.Value.Outcomes.SelectMany(o => o.Findings).SelectMany(f => f.Findings)
             .Where(f => f.Kind == "present and not refused").Select(f => f.ToString()));
 
+    /// <summary>NO LD/FBD BODY IS UNSUPPORTED FOR ONE NETWORK (openspec ld-fbd-coverage 1b.4): every corpus body pulls — the
+    /// shipped pull read (<c>ReadShown</c>) and render (<c>WritePulled</c>) over the recorded archive — as network text, a
+    /// network the text cannot spell shown as its <c>UNSUPPORTED "&lt;shape&gt;";</c> line. The 12 bodies the census found
+    /// UNSUPPORTED (tasks 0.1) are network text now, holding exactly the text writer's 22 refusals as lines; and every
+    /// body's text reads back to the same text (pushed back unchanged, every network pairs with itself).</summary>
+    [Fact]
+    public void Every_body_pulls_as_network_text_with_its_unspellable_networks_as_lines()
+    {
+        var (corpora, outcomes) = Run.Value;
+        var lines = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var corpus in corpora)
+        {
+            var project = CorpusProject.At(Path.Combine(CorpusProjects.CorpusRoot(), corpus.Name));
+            var api = new ApiView(corpus);
+            foreach (var body in corpus.Bodies)
+            {
+                var id = corpus.Name + "/" + body.Path;
+                var language = body.Impl.Str("DefaultViewMode") == "Ld" ? BodyLanguage.Ld : BodyLanguage.Fbd;
+                var scope = ScopeOf(project, body, id);
+                var shown = CodesysNetworkReader.ReadShown(new Hydrate(api, body.Path).Impl(body.Impl), language);
+                var text = NetworkTextWriter.WritePulled(shown, scope);
+                var back = NetworkTextReader.Read(text, scope);
+                Assert.True(back.Ok, $"{id}: the pulled text does not read back:\n{text}");
+                Assert.Equal(text, NetworkTextWriter.Write(back.Body!, scope));
+                var n = Regex.Matches(text, "^  UNSUPPORTED \"", RegexOptions.Multiline).Count;
+                if (n > 0) lines[id] = n;
+            }
+        }
+        Assert.Equal(12, lines.Count);
+        Assert.Equal(22, lines.Values.Sum());
+        // The same networks the round trip's text writer refuses, body for body.
+        var refused = outcomes.SelectMany(o => o.Refused.Where(r => r.Value.StartsWith("text: ", StringComparison.Ordinal)))
+            .GroupBy(r => r.Key.Substring(0, r.Key.LastIndexOf('#')), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        Assert.Equal(refused.OrderBy(k => k.Key, StringComparer.Ordinal), lines.OrderBy(k => k.Key, StringComparer.Ordinal));
+    }
+
     /// <summary>The networks the round trip refuses, by reason — the census's UNSUPPORTED shapes (tasks 0.1) and the
     /// push's own refusals. Pinned: a count moving is a spelling learned or lost.</summary>
     [Fact]
@@ -611,11 +648,13 @@ public class CodesysNwlCompletenessOracleTests
 
     static readonly Dictionary<string, int> RefusedByReason = new(StringComparer.Ordinal)
     {
-        // The census's UNSUPPORTED shapes (tasks 0.1, the per-tree scan): S1 7, S2 6, S3 6, S4 1, S5 1, S6 1 — exactly.
-        ["text: a bit operator box connected by a stored output slot"] = 7,
+        // The census's UNSUPPORTED shapes (tasks 0.1, the per-tree scan): S1 7, S2 6, S3 6, S4 1, S5 1, S6 1 — and since
+        // 1b.4 spells S4 (`fbCap(…).xErrorActive`), its one network (lenze FirstErrorCapture.call_FirstErrorCapture_FB #2)
+        // is refused by the NEXT shape the scan meets in it: an AND box connected by a stored slot, S1 — 8 = 7 + 1 until
+        // S1's spelling lands (2.3).
+        ["text: a bit operator box connected by a stored output slot"] = 8,
         ["text: an assign below the top level"] = 6,
         ["text: a wire of unknown type"] = 6,
-        ["text: a main output other than slot 0"] = 1,
         ["text: an FB instance the declarations do not name"] = 1,
         ["text: a flag on a box input pin"] = 1,
         // DIALECT N21: a consumed enabled comparison does not build in any shape Volt can write, so a network holding

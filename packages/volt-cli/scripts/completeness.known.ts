@@ -133,7 +133,7 @@ export const KNOWN: Known = {
   },
   "twincat:TcPOU.POU.$create — create refused: UNSUPPORTED": {
     subjects: ["Project14/VltFixtureCfc.pou","Project14/VltFixtureMembers.pou","Project14/VltFixtureSfc.pou","Project14/ladderLabel.pou"],
-    why: "create refused: refused: UNSUPPORTED: TwinCAT: this push changes the number of networks (1 -> 2). Volt cannot ADD one through the archive: a new network needs elements whose member contract only the IDE produces. Add it in the IDE and pull it. — 'ladderLabel' is not created (the create is rolled back)",
+    why: "create refused: refused: UNSUPPORTED: TwinCAT: the import built 1 network(s) for the 2 pushed, so its networks cannot be stamped one for one: the import drops an empty network and builds one network per connected rung (DIALECT D25). — 'ladderLabel' is not created (the create is rolled back)",
   },
   "twincat:TcPOU.POU.TcPlcObject/POU[]/Action[]/ObjectProperties#xml — held but not refused": {
     subjects: ["Project14/VltFixtureMembers.pou"],

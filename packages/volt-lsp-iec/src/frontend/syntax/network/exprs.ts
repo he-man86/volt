@@ -41,12 +41,20 @@ export function networkValueExpr(v: NetworkValue): Expr | undefined {
     case "edge":
       return bool(v.rising ? "R_EDGE" : "F_EDGE", v.span)
     case "call":
-      return v.eno ? bool("ENO", v.span) : callReading(v)
+      return v.eno ? bool("ENO", v.span) : v.output !== undefined ? namedOutputReading(v) : callReading(v)
     case "execute":
       return v.eno ? bool("ENO", v.span) : undefined
     default:
       return undefined
   }
+}
+
+/** A call read through a NAMED output (`fb(…).name`, S4): ST's `fb.name` — the instance's output after its call. A
+ *  function or an unnamed instance has no such path in ST, so no reading; its operands are read on their own. */
+function namedOutputReading(v: NetworkCall): Expr | undefined {
+  if (v.output === undefined || v.instance === undefined || v.headExpr === undefined) return undefined
+  const member = ident(v.output.text, v.output.span)
+  return { kind: "member", base: v.headExpr, member, span: v.span }
 }
 
 /** A call box as an ST call — the head as its callee, each pin ST can spell as an argument — whatever consumes it: its
@@ -120,9 +128,10 @@ function childrenUnread(v: NetworkValue, read: boolean, out: Expr[]): void {
   }
 }
 
-/** Whether a value's reading is the opaque BOOL, which holds none of its operands. */
+/** Whether a value's reading holds none of its operands: the opaque BOOL of an edge or `.ENO`, or `fb.name` — the box's call
+ *  (`.ENO`, `.name`) is still read on its own. */
 function sealed(v: NetworkValue): boolean {
-  return v.kind === "edge" || ((v.kind === "call" || v.kind === "execute") && v.eno)
+  return v.kind === "edge" || ((v.kind === "call" || v.kind === "execute") && v.eno) || (v.kind === "call" && v.output !== undefined)
 }
 
 /** Every EXECUTE box in a statement — its lines are ST, checked and walked as such. */

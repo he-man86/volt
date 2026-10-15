@@ -39,6 +39,10 @@ namespace Volt.Tests.Shared;
 /// comparison differs in spelling alone. The push keeps the IDE's own spelling where it edits in place (TwinCAT) and
 /// writes the declaration's where it builds the box (CODESYS), which the IDE resolves to the same type. A <c>???</c>
 /// instance's type is spelled in the text and compared whole.</item>
+/// <item>A main output read by its NAME (S4, <c>fb(…).name</c>, <see cref="NetworkSpelling.NamedMainOutput"/>) → the name,
+/// with no <c>MainOutputIndex</c> and no <c>ConnectedSlot</c>: the text has no position for the index (the box type's),
+/// and a push never builds such a box (N21) — it keeps the IDE's network. <c>MainOutputName</c> anywhere else → null:
+/// the readers state it only where the text spells it.</item>
 /// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
 /// <item>Control flow: the Jump/Return bit on the item AND its target (DIALECT C13 — the reader writes both); a
 /// target-less return's target is the vendor's constant <c>???</c>.</item>
@@ -50,7 +54,8 @@ public static class NetworkTextFacts
 {
     public static NetworkBody Carried(NetworkBody body) =>
         new(body.Language, body.Networks.Select((n, i) => new Network(
-            i, n.Title, n.Label, n.Comment?.Replace("\r\n", "\n"), n.Disabled, n.Trees.Select(t => Node(t, consumed: false)).ToList())).ToList());
+            i, n.Title, n.Label, n.Comment?.Replace("\r\n", "\n"), n.Disabled, n.Trees.Select(t => Node(t, consumed: false)).ToList(),
+            n.Unsupported)).ToList());
 
     private static Node? NodeOrNull(Node? n) => n is null ? null : Node(n, consumed: true);
 
@@ -86,6 +91,9 @@ public static class NetworkTextFacts
 
     private static Box BoxOf(Box b, bool consumed)
     {
+        // S4: a main output read by NAME carries the name and no slot — the text has no position for the index.
+        var byName = consumed ? NetworkSpelling.NamedMainOutput(b) : null;
+        if (byName is not null) b = b with { MainOutputIndex = null, ConnectedSlot = null };
         // The one definition of ".ENO", shared with the writer: a copy here could drift from it silently.
         var byMainOutput = b.ConnectedSlot is not null && !NetworkSpelling.ConnectedByEno(b);
         var infix = NetworkSpelling.IsInfix(b);
@@ -104,7 +112,8 @@ public static class NetworkTextFacts
             MainOutputIndex: byMainOutput ? b.MainOutputIndex : null,
             ConnectedSlot: b.ConnectedSlot,
             OutputTypes: null,
-            HasEnoOutput: NetworkSpelling.EnoCarried(b, consumed) ? b.HasEnoOutput : null);
+            HasEnoOutput: NetworkSpelling.EnoCarried(b with { MainOutputName = byName }, consumed) ? b.HasEnoOutput : null,
+            MainOutputName: byName);
     }
 
     /// <summary>An FB type as the text carries it: the name, not its namespace or its case (see the list above).</summary>

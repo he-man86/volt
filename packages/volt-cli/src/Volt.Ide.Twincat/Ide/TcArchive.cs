@@ -195,37 +195,6 @@ internal static class TcArchive
     /// <para>True here means the import door: nothing is lost by letting TwinCAT build the body from PLCopen.
     /// False means the in-place writer, where every id, every <c>Fixed</c> and every unmodelled member the IDE
     /// wrote survives exactly as it wrote it.</para></summary>
-    /// <summary>Does this body hold a CODESYS Execute box — a box whose call is raw ST?
-    ///
-    /// <para>Asked BEFORE the node walk, so the body can materialize as a marker instead of the walk throwing
-    /// and taking the whole item out of the workspace with it. <c>ProvidesSTSnippet</c> is the vendor's own
-    /// flag for it (DIALECT N4's measured <c>BoxTreeBox</c> member set) and is <c>false</c> on every ordinary
-    /// box in every fixture, so this is narrow: it fires on the shape it names and nothing else.</para></summary>
-    /// <summary>Every box in this body that CLAIMS to run ST (<c>ProvidesSTSnippet</c> true).</summary>
-    private static IEnumerable<XElement> ExecuteBoxes(XElement impl) =>
-        impl.Descendants("v")
-            .Where(v => (string?)v.Attribute("n") == "ProvidesSTSnippet" &&
-                        string.Equals(v.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase))
-            .Select(v => v.Parent!)
-            .Where(p => p != null);
-
-    /// <summary>Does this body hold an Execute box whose ST CANNOT BE READ?
-    ///
-    /// <para>This is the question the marker should be asked, and for a while it was asked the coarser one —
-    /// "is there an Execute box at all?" — because reading one was unmeasured and the reader refused outright.
-    /// Both halves of that changed on 2026-09-06: the snippet's archive shape was captured from a hand-drawn
-    /// XAE network and <see cref="TcNetworkReader.ReadStCode"/> now walks it. Left coarse, the short-circuit
-    /// made the new reader UNREACHABLE in production — every Execute box still materialized as a marker, so the
-    /// two vendors served different <c>sourceText</c> for the same POU, which is the identical-response
-    /// invariant the wire exists to hold.</para>
-    ///
-    /// <para>A box whose snippet is a NULL node (<c>&lt;n n="STSnippet" /&gt;</c> — a real shape, in the
-    /// committed <c>ExecuteBox.derived.TcPOU</c>) still has no code to show, and materializing it without the
-    /// code it runs would make the body look complete when it is not. That one keeps the marker.</para></summary>
-    public static bool HasUnreadableExecuteBox(XElement? impl) =>
-        impl != null && ExecuteBoxes(impl).Any(b =>
-            Obj(Obj(Obj(b, "STSnippet"), "STSnippet"), "TextDocument") == null);
-
     public static bool HasNoItems(XElement? impl)
     {
         if (impl == null) return true;

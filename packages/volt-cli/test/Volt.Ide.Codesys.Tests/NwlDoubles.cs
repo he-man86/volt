@@ -29,8 +29,14 @@ internal static class Nwl
         public List<object> NetworkList { get; } = new List<object>();
 
         /// <summary>The aspect's own network-count API (<c>CodesysNetworkWriter.Write</c> matches the count through it).</summary>
-        public void AppendNetwork(object network) => NetworkList.Add(network);
-        public void RemoveNetwork(int index) => NetworkList.RemoveAt(index);
+        public void AppendNetwork(object network) { Calls.Add("AppendNetwork"); NetworkList.Add(network); }
+        public void RemoveNetwork(int index) { Calls.Add($"RemoveNetwork({index})"); NetworkList.RemoveAt(index); }
+        /// <summary><c>INWLImplementationObject.InsertNetwork(Int32, INetwork)</c> — the order reflected off SP21's
+        /// <c>NWLObject.dll</c> (ld-fbd-coverage 1b.4).</summary>
+        public void InsertNetwork(int index, object network) { Calls.Add($"InsertNetwork({index})"); NetworkList.Insert(index, network); }
+
+        /// <summary>What the writer did to the network LIST, in order.</summary>
+        public List<string> Calls { get; } = new List<string>();
     }
 
     internal sealed class Network

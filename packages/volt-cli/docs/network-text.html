@@ -15,125 +15,26 @@
 
 <h1>Network text</h1>
 <p class="lede">
-  The FBD/LD source form: a <b>literal transcript of the vendor's network model (NWL)</b>. One statement per NWL
-  item, nesting where the vendor nests, and a name only where the vendor names something. This is network text v2,
-  written by every pull since MATERIALIZATION 3 (<code>openspec/changes/network-text-literal-nwl</code>); text in
-  the previous form (v1: <code>LET</code>, numbered <code>NETWORK &lt;n&gt; &lt;LANG&gt;</code> headers) is refused
-  with a message to re-pull (<a href="#migration">migration</a>). Where a spelling rests on a census, the census is
-  named (tasks.md §1).
+  The FBD/LD source form: a <b>literal transcript of the vendor's network model (NWL)</b>. One statement per
+  top-level NWL item, nested where the vendor nests, and a name only where the vendor names something (a Demux's
+  VarId). The writer is <code>NetworkTextWriter</code>, the reader <code>NetworkTextReader</code> and the push gate
+  <code>NetworkTextGate</code>, all in <code>Volt.Engine/Format/Network/</code>; the LSP ports the reader. Where a
+  rule rests on a measurement, the census or DIALECT entry is named.
 </p>
-
-<h2 id="why">What v2 changed and why</h2>
-<p>
-  Each intermediate name in v1's text carried one NWL fact through the round trip — a fan-out point, a leaf that
-  is not a token, several coils on one item, the enable wire. v2 keeps every fact and moves it to where NWL
-  keeps it: the pin, the operand, the statement's shape, the header.
-</p>
-<table>
-  <tr><th>NWL fact</th><th>v1</th><th>v2</th></tr>
-  <tr><td>a fan-out point (<code>BoxTreeDemux</code>, VarId; no type)</td><td class="name">LET g1 := (a AND b);</td><td class="name">VAR_TEMP g1 : BOOL; END_VAR<br>g1 := (a AND b);</td></tr>
-  <tr><td>one assign, several coils</td><td class="name">LET m1 := v;<br>o1 := m1;<br>o2 S= m1;</td><td class="name">o1 :=<br>o2 S= v;</td></tr>
-  <tr><td>a leaf whose text is not a token</td><td class="name">LET i1 := fc(x,2);<br>… P := i1 …</td><td class="name">… P := `fc(x,2)` …</td></tr>
-  <tr><td>the EN wire (input slot 0), the rung continuing from ENO</td><td class="name">LET en1 := c;<br>IF en1 THEN MainDrive(); END_IF<br>lamp S= (en1 AND x);</td><td class="name">lamp S= (MainDrive(EN := c).ENO AND x);</td></tr>
-  <tr><td>a box's own result pin vs an assign over the box</td><td class="name">dst := MOVE(src);</td><td>two spellings: <code>MOVE(src, =&gt; dst);</code> / <code>dst := MOVE(src);</code></td></tr>
-  <tr><td>an LD <code>BoxTreeParallel</code></td><td class="name">(g54 AND (a OR b))</td><td class="name">PARALLEL(IN := g54, a, b)</td></tr>
-  <tr><td>an edge flag on an operand</td><td class="name">x RISING</td><td class="name">R_EDGE(x)</td></tr>
-  <tr><td>the body's language, the network's position</td><td class="name">NETWORK 12 LD</td><td class="name">IMPLEMENTATION LD<br>NETWORK</td></tr>
-</table>
-<p>
-  Negated and edge coils are <b>not</b> in this table: 0 of 576 measured targets carry one, so they keep v1's
-  marker (<a href="#not-one-to-one">below</a>) rather than gain a spelling no project uses.
-</p>
-
-<h3 id="decisions">Decisions from the 2026-09-26 review</h3>
-<ol>
-  <li><b>Edges are <code>R_EDGE(x)</code> / <code>F_EDGE(x)</code></b>, IEC's own edge words, call-shaped like every
-    other non-infix construct. They spell a <i>flag</i> on the operand (<code>Rtrig</code>/<code>Ftrig</code> in
-    IFlags), not a box: <code>R_TRIG</code> would be an FB box with an instance the IDE never held, and a real
-    <code>R_TRIG</code> box the engineer drew must stay distinguishable from it. With negation the one order is
-    <code>R_EDGE(NOT x)</code>: the vendor negates before it detects the edge (census 1.14, DIALECT N17), so
-    <code>NOT R_EDGE(x)</code> would say other logic and is refused. One corpus use (pro2193 ActuatorFB, an edge on MOVE's EN), so it keeps a spelling.</li>
-  <li><b>No whitespace rule for NOT.</b> Tokens separate the modifier from the box, and <b>parentheses are
-    structural</b>: every pair is a box — a group's, or a call's argument list. <code>NOT a</code> and
-    <code>NOT (a AND b)</code> are the modifier; <code>NOT(a)</code> and <code>NOT((a AND b))</code> are the NOT box.
-    A redundant pair (<code>((a AND b))</code>) is refused, never read as grouping.</li>
-  <li><b>Every statement ends with <code>;</code></b>, the IF form and EXECUTE included (<code>END_IF;</code>, the ST
-    keystroke). The empty item is the <b>empty statement</b> — a <code>;</code> that closes nothing, on its own line —
-    the same "nothing" every empty slot already is (<code>coil := ;</code>, <code>f(a, )</code>). Rejected:
-    <code>EMPTY;</code>, which reserves a word a variable may carry and collides with a top-level leaf.</li>
-  <li><b>Keep <code>S=</code>/<code>R=</code> and chained assignment</b> — native ExST with the same level semantics:
-    the target is set (reset) on every scan the value is TRUE, not on its transition.</li>
-  <li><b>Pull never throws.</b> Anything the writer cannot spell sends the body to the marker (<a href="#body-line">its <code>UNSUPPORTED</code> line</a>); push refuses
-    by name. The vendor facts it has no spelling for — pin flags, item flags, nested Demux — are measured (census
-    1.13, 1.1, 1.8) and routed there by name (<a href="#not-one-to-one">marker on pull, measured</a>).</li>
-  <li><b>Wires are declared in a per-network <code>VAR_TEMP … END_VAR</code></b> below the header and comments, not in
-    a header field — ordinary ST declarations the LSP hovers like any other. <b>Type: read off the producer</b>, one
-    rule for FBD and LD and for writer and reader: the vendor's stored output type where it has one, else
-    <code>BOOL</code> for a boolean producer; a wire whose type nothing says goes to the marker, never guessed.
-    Rejected: a pseudo-type <code>WIRE</code> (lossless, but not compilable ST) and a writer-inferred data
-    type (needs POU and library declarations the writer lacks, and NWL has no field to keep it).</li>
-</ol>
-
-<h3 id="concepts">Concepts: 33 → 28</h3>
-<p>
-  Counted at one granularity — one line per rule an implementer has to code. Defects (Parallel rendered as AND/OR,
-  the dropped Terminator input) are not concepts and are not counted.
-</p>
-<p>
-  <b>v1 (33):</b> 1 body marker · 2 network order number · 3 per-network language · 4 LABEL · 5 TITLE quoting ·
-  6 DISABLED · 7 comment placement · 8 END_NETWORK · 9 statement terminators · 10 <code>LET g</code> wires ·
-  11 wire vs sink by use count · 12 wire collision rename · 13 <code>LET m</code> multi-coil fold · 14 <code>LET i</code>
-  prelude · 15 <code>LET en</code> + the IF-enable form · 16 en hoist at operand position · 17 echo merge ·
-  18 <code>LET en := ;</code> · 19 storage operators · 20 value modifiers · 21 <code>???</code> as content · 22 infix
-  groups · 23 NOT box vs NOT modifier · 24 named pins · 25 positional and <code>=&gt;</code> pins · 26 FB type from the
-  declaration and <code>??? : TYPE</code> · 27 empty slot · 28 JMP/RETURN with a hoisted condition · 29 EXECUTE inside
-  IF · 30 whitespace rules (<code>a .b</code>) · 31 the Unspellable detector · 32 Mux/CFC/SFC/IL markers · 33 a byte
-  gate demanding Volt's numbering.
-</p>
-<p>
-  <b>v2 (28):</b> 1 body line with language (<code>IMPLEMENTATION FBD|LD</code>) · 2 NETWORK header, newline-terminated · 3 LABEL · 4 TITLE quoting ·
-  5 DISABLED · 6 the network's <code>VAR_TEMP</code> wire block: declaration, definition, reference, validity ·
-  7 a wire's type from its producer, checked by the gate · 8 reserved names (case-insensitive scope set,
-  <code>g&lt;digits&gt;</code>-only wires, collision rename, <code>PARALLEL</code>/<code>R_EDGE</code>/<code>F_EDGE</code>) ·
-  9 <code>//</code> comment lines · 10 END_NETWORK · 11 every statement ends with <code>;</code>, the empty statement
-  is the empty item · 12 chained assignment with <code>:=</code>/<code>S=</code>/<code>R=</code> · 13 value modifiers
-  (<code>NOT</code>, <code>R_EDGE</code>, <code>F_EDGE</code>, one order) · 14 token-or-backtick operand · 15
-  <code>???</code> as content · 16 call head = BoxType or instance, named pins · 17 output slots from the stored
-  connection slot · 18 FB type from the declaration and <code>??? : TYPE</code> · 19 EN pin + <code>.ENO</code> ·
-  20 infix sugar, absent ≡ default formals · 21 parentheses are structural · 22 PARALLEL · 23 empty slot ·
-  24 JMP/RETURN and the IF form · 25 EXECUTE (statement and value, empty-body layout) · 26 marker routing on pull ·
-  27 v1 refusal · 28 canonical rewrite on push (the token gate went with <code>bridge-refusal-review</code> 2.12).
-</p>
-<p>
-  The count drops by five; the gain is where the rules live. v1 rules 10–18 and 28–29 carry state <i>across</i>
-  statements (use counts, hoists, echoes, numbering). Every v2 rule is decided at one position, and the only
-  cross-statement state left is the wire set. The review sharpened 8, 11, 17 and 26, replaced the <code>NOT(</code>
-  lexeme with 21, and the typed <code>VAR_TEMP</code> block added 7. Each census that finds pin or item flags
-  (1.13, 1.1), and type inference for data wires (1.17), adds one.
-</p>
-
-<h3 id="gone">Edge cases that disappear</h3>
 <ul>
-  <li><b>Hoisting and minting:</b> an enabled box at operand position vanishing unless hoisted; render order having to
-    equal text order or the gate refused Volt's own output (fc_CamC_CC_Base, TrayFiller); XOR-combining modifiers on
-    substitution. Nothing is hoisted, minted or substituted.</li>
-  <li><b>EN echoes:</b> three fold paths, echo-before-use-count, <code>LET en1 := ;</code> (9 POUs),
-    <code>IF en THEN LET m := …</code>. Now an EN pin and <code>.ENO</code>.</li>
-  <li><b>Classification:</b> g vs m spelling near-identical lines (573 Demux vs 40 multi-coil assigns); prefix for minted
-    names, use count for hand-written ones. Only the <code>VAR_TEMP</code> declaration decides now.</li>
-  <li><b>Leaves and whitespace:</b> an unsafe leaf at statement position reading back as a box; i-text never to be
-    parsed (23 Lenze networks); the <code>a .b</code> spacing rule; <code>NOT(</code> vs <code>NOT (</code>. The
-    backtick and structural parentheses cover all four.</li>
-  <li><b>Silent reshapes:</b> a result pin reading back as an Assign; a Parallel coming back as AND/OR; TwinCAT's
-    <code>Unhoist</code> fallback.</li>
+  <li><b>Every statement ends with <code>;</code></b>, <code>END_IF;</code> and <code>END_EXECUTE;</code> included.
+    A <code>;</code> that closes nothing is the empty item.</li>
+  <li><b>Parentheses are structural:</b> every pair is one box — a group's, or a call's argument list. A redundant
+    pair (<code>((a AND b))</code> as a group) is refused, never read as grouping.</li>
+  <li><b>Edges are flags</b>, <code>R_EDGE(x)</code> / <code>F_EDGE(x)</code>, never an <code>R_TRIG</code> box. With a
+    negation the one order is <code>R_EDGE(NOT x)</code>: the vendor negates first (census 1.14, DIALECT N17).</li>
+  <li><b>Coils</b> are <code>:=</code>, <code>S=</code>, <code>R=</code> with ExST's level semantics (set or reset on every
+    scan the value is TRUE), chained when one item drives several coils.</li>
+  <li><b>Wires</b> are declared in a per-network <code>VAR_TEMP … END_VAR</code>, typed from their producer.</li>
+  <li><b>Pull never throws.</b> A network whose trees hold a fact the text cannot spell is shown as its header, its
+    comment and the one line <a href="#network-line"><code>UNSUPPORTED "&lt;shape&gt;";</code></a>; only what a header
+    cannot carry hides the whole body under <a href="#body-line">the marker</a>. Push refuses by name.</li>
 </ul>
-<div class="note">
-  <b>Removed from this page</b> (vs its v1 edition): the LET families, the "how many consumers?" flowchart (a rule
-  the code no longer had), EN/ENO as IF, shapes with no text form and the history notes (kept in DIALECT.md). The
-  anchors other files link to — <code>#grammar</code>, <code>#diagnostics</code>, <code>#let</code>,
-  <code>#opaque</code>, <code>#sink</code>, <code>#eneno</code>, <code>#unnamed-instance</code>, <code>#fb</code>,
-  <code>#empty-slot</code>, <code>#group</code>, <code>#whitespace</code> — keep their ids here.
-</div>
 
 <h2 id="nwl">How close to NWL</h2>
 <p>
@@ -146,99 +47,90 @@
   <tr><td class="name">Network (Label, Title, Comment, OutCommented)</td><td><code>NETWORK [LABEL: x] [TITLE: "…"] [DISABLED]</code> to the end of its line, <code>//</code> lines, an optional <code>VAR_TEMP</code> wire block, <code>END_NETWORK</code> (<a href="#comments">comments</a>)</td></tr>
   <tr><td class="name">top-level item with no target</td><td><code>value;</code> — a box, leaf, wire reference or PARALLEL whose output goes nowhere; <code>;</code> alone is the empty item</td></tr>
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>???</code>), else <code>`text`</code></td></tr>
-  <tr><td class="name">IFlags on an operand or box</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>. Rising and falling together: marker</td></tr>
-  <tr><td class="name">IFlags on a Parallel or wire reference</td><td>none: the IDE holds no flag on a <code>BoxTreeParallel</code> or <code>BoxTreeDemux</code> (DIALECT N20 — a bit set on one is gone before the commit, and ran as the bare value). <code>NOT g3</code>, <code>R_EDGE(g3)</code>, <code>NOT PARALLEL(…)</code> are refused with <code>NETWORK_UNSUPPORTED</code>; the flag goes on the wire's producer or a branch</td></tr>
-  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>measured populated and load-bearing on CODESYS (census 1.13: 6 pins carry a Negation there only). No spelling yet (owner decision 2026-09-26): the writer refuses a pin flag by name, so a pulled one goes to the marker, never dropped. A spelling — on the formal, forcing named form, <code>f(NOT IN1 := x)</code>, distinct from <code>f(CLK := R_EDGE(x))</code>, the flag on the value, and one for an operator box's unnamed pin — is its own decision</td></tr>
-  <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>census 1.1: none. A Demux (and a Parallel) carries no flags in the model at all — the IDE holds none (DIALECT N20) — and a reader finding a bit there refuses the body by name. An Assign's flags are <code>Node.Flags</code>, where its Jump/Return live; a Negation or edge there is refused by name, so it reaches the marker</td></tr>
+  <tr><td class="name">IFlags on an operand or box</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>. Rising and falling together: no spelling</td></tr>
+  <tr><td class="name">IFlags on a Parallel or wire reference</td><td>none: the IDE holds no flag on a <code>BoxTreeParallel</code> or <code>BoxTreeDemux</code> (DIALECT N20). <code>NOT g3</code>, <code>R_EDGE(g3)</code>, <code>NOT PARALLEL(…)</code> are refused with <code>NETWORK_UNSUPPORTED</code>; the flag goes on the wire's producer or a branch</td></tr>
+  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>no spelling. Populated and load-bearing on CODESYS (census 1.13: 6 pins, all negations); the writer refuses one by name (<code>a flag on a box input pin</code>), so a pulled one makes its network the <code>UNSUPPORTED</code> line, never dropped</td></tr>
+  <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>none (census 1.1). A Demux or Parallel carries no flags in the model (DIALECT N20). An Assign's item flags hold only its Jump/Return; a negation or edge there has no spelling</td></tr>
   <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code>; infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin and absent-or-default formals (<a href="#group">below</a>)</td></tr>
   <tr><td class="name">input slot / output slot</td><td><code>F := v</code> / <code>F =&gt; v</code> when named; <code>v</code> / <code>=&gt; v</code> when not, by the slot rule in <a href="#eneno">EN, ENO and output slots</a></td></tr>
-  <tr><td class="name">EN (input slot 0) / ENO</td><td><code>EN := c</code> (<code>EN := ,</code> shown but unwired) / <code>.ENO</code> where the box is consumed</td></tr>
+  <tr><td class="name">EN (input slot 0) / ENO / main output</td><td><code>EN := c</code> (<code>EN := ,</code> shown but unwired) / <code>.ENO</code> where a consumer reads ENO / <code>.name</code> where a consumer reads a main output that is not slot 0</td></tr>
   <tr><td class="name">BoxTreeBox with STSnippet</td><td><code>EXECUTE[(EN := c)]</code> … verbatim ST … <code>END_EXECUTE</code>, <code>.ENO</code> where consumed</td></tr>
   <tr><td class="name">BoxTreeAssign, targets t1…tn</td><td><code>t1 := t2 S= … tn R= value;</code></td></tr>
-  <tr><td class="name">target storage bits</td><td><code>:=</code> none · <code>S=</code> Set · <code>R=</code> Negation+Set. Negation-only and edge bits: marker</td></tr>
+  <tr><td class="name">target storage bits</td><td><code>:=</code> none · <code>S=</code> Set · <code>R=</code> Negation+Set. A negated or edge coil: no spelling</td></tr>
   <tr><td class="name">Assign with Jump / Return</td><td><code>JMP l;</code> / <code>RETURN;</code>, or <code>IF c THEN JMP l; END_IF;</code> / <code>IF c THEN RETURN; END_IF;</code></td></tr>
-  <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only; a nested definition or a reference stored before it: marker (census 1.8)</td></tr>
+  <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only. A nested definition or a reference stored before it: no spelling (census 1.8)</td></tr>
   <tr><td class="name">BoxTreeDemux without Input</td><td>the bare name <code>g3</code></td></tr>
-  <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; no <code>IN</code> is no feed — the one unfed form (census 1.2: 5 of 17 hold no feed, none a feed that is the empty terminator, so that shape is the marker and <code>IN := ,</code> is refused)</td></tr>
-  <tr><td class="name">Parallel.Mode</td><td><code>MODE := Sequential</code>, first in the list, only off the default <code>BoxShortCircuit</code> (census 1.3: 16 BoxShortCircuit, 1 Sequential). Any other mode is unmeasured: refused with <code>NETWORK_UNSUPPORTED</code> on push and the marker on pull, never written as a number</td></tr>
+  <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; no <code>IN</code> is no feed (census 1.2). A feed that is the empty terminator has no spelling; <code>IN := ,</code> is refused</td></tr>
+  <tr><td class="name">Parallel.Mode</td><td><code>MODE := Sequential</code>, first in the list, only off the default <code>BoxShortCircuit</code> (census 1.3). Any other mode is unmeasured: refused with <code>NETWORK_UNSUPPORTED</code>, never written as a number</td></tr>
   <tr><td class="name">BoxTreeTerminator(null)</td><td>an empty position: <code>f(a, )</code>, <code>RESET := ,</code>, <code>coil := ;</code>, <code>;</code>. A lone empty slot is named, <code>MOVE(IN := )</code>; <code>f()</code> is a box with no input slot</td></tr>
-  <tr><td class="name">BoxTreeTerminator(Input)</td><td>census 1.4: 0 occurrences, so the model has no field for it (task 1.10); both readers refuse one by name ("a terminator with an input"), like Mux</td></tr>
-  <tr><td class="name">BoxTreeMux, split points</td><td>none — 0 occurrences; the body is a marker</td></tr>
+  <tr><td class="name">BoxTreeTerminator(Input)</td><td>no field in the model (census 1.4: 0 occurrences); both vendor readers refuse one by name (<code>a terminator with an input</code>)</td></tr>
+  <tr><td class="name">BoxTreeMux, CODESYS split points</td><td>no form (0 occurrences); refused by name (<code>an item with no network-text form</code>, <code>a vendor split point</code>)</td></tr>
 </table>
+<p>Every "no spelling" and "refused by name" above is, on pull, the network's <a href="#network-line"><code>UNSUPPORTED</code> line</a>.</p>
 
-<h3 id="not-one-to-one">Still not one-to-one — and why each stays</h3>
+<h3 id="not-one-to-one">Not one-to-one</h3>
 <table>
-  <tr><th>mapping</th><th>why it stays</th></tr>
-  <tr><td>Infix <code>(a AND b)</code>; absent ≡ default formals</td><td>Decided only by the box's own fields — a function both ways. The parentheses are the box. Absent and default <code>InputParams</code> names write the same text; the model oracle treats them as equal and the driver writes the defaults (census 1.5).</td></tr>
-  <tr><td>FB BoxType not written</td><td>Recovered from the declaration; <code>??? : TYPE</code> when there is no instance. Repeating it would bury every rung.</td></tr>
-  <tr><td><code>.ENO</code>; the ENO slot</td><td>ENO is null on 220/220 boxes. <code>.ENO</code> says the consumer reads the ENO output, which only the box's outputs decide — an enabled GT
-    has none (census 1.6).</td></tr>
+  <tr><th>mapping</th><th>why</th></tr>
+  <tr><td>Infix <code>(a AND b)</code>; absent ≡ default formals</td><td>Decided only by the box's own fields. The parentheses are the box. Absent and default <code>InputParams</code> names write the same text; the model oracle treats them as equal and the driver writes the defaults (census 1.5).</td></tr>
+  <tr><td>FB BoxType not written</td><td>Recovered from the instance's declaration; <code>??? : TYPE</code> when there is no instance.</td></tr>
+  <tr><td><code>.ENO</code>; the ENO slot</td><td><code>.ENO</code> says the consumer reads the ENO output, which only the box's outputs decide — an enabled GT has none (census 1.6).</td></tr>
   <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant.</td></tr>
-  <tr><td>Network position; Int64 Ids</td><td>Host limit: CODESYS re-mints Ids on a changed network.</td></tr>
-  <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n. 0 in six corpora.</td></tr>
-  <tr><td>Marker on pull, measured</td><td>No spelling, by census: a flag on a box input pin (1.13 — 6 pins, all load-bearing negations, so refused by name rather than dropped), an item flag on a Demux or Assign item (1.1 — 0 in every corpus), a Demux definition nested below the top level or a reference stored before its definition (1.8 — 139 definitions, all top level), a wire whose producer has no known type (1.17 — a boolean producer's wire is <code>BOOL</code>, a data wire takes its box's stored output type). Also without a spelling: a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. (A newline in a TITLE is spelled <code>$N</code> — 7 Lenze titles hold one.) Each goes to the marker by name; dropping or reordering it would lose a vendor fact.</td></tr>
-  <tr><td>Rungs with several control-flow targets — marker only</td><td>A coil plus a jump, and two jumps on one rung (<code>NetworkTextWriterTests.A_rung_with_several_control_flow_targets_goes_to_the_marker</code>). 0 in six corpora; spelling them needs JMP as a target, which is not ST. The writer refuses both by name, which routes them to the marker; <code>JumpDestinationTests</code> pins it.</td></tr>
-  <tr><td>Negated/edge coils — marker only</td><td>0 in 576 measured targets. Census 1.7 re-checks every corpus; a spelling is added only on a measured occurrence and a live build of its constructor.</td></tr>
-  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place and the bijection holds. A structural edit (and every create) is rebuilt through PLCopen import, with its quirks: D22c, D25, D30 (a single-consumer wire is refused), C25 (a wire comes back as a multi-output assign), C20. <code>PARALLEL</code>, a Demux of a leaf and a result pin <code>=&gt; v</code> in a structurally changed TwinCAT network are refused, naming the network and the reason. The leaf wire was measured live (DIALECT N22): the import does not crash on it, but reshapes it both ways, so its refusal stands; <code>PARALLEL</code> and the result pin are refused until measured. A fan-out whose coils carry storage (<code>S=</code>/<code>R=</code>) is refused on create too: the import folds the wire into one assign (C25), which leaves no item to stamp the storage onto. <b>Scale:</b> 66 of lenze-mid's 139 wires are fed by a leaf; how many TwinCAT ladder wires are is unmeasured — no engineer-drawn TwinCAT ladder project is at hand (census 1.16).</td></tr>
-</table>
-
-<h2 id="let">Why the LETs got complex</h2>
-<p>Each family was the only place the text could hold one NWL fact. None needs a statement of its own.</p>
-<table>
-  <tr><th>family</th><th>NWL information it carried</th><th>what carries it now</th></tr>
-  <tr><td class="name">g&lt;VarId&gt;</td><td>A Demux exists (even with one consumer — 3 Lenze networks, C10d/D30), its VarId, its position as a top-level item, and every nested reference.</td><td><b>Still a name</b> — the one node NWL names. Declared in the network's own <code>VAR_TEMP</code> block, defined by native assignment. Why not lighter: no name duplicates the producer into extra boxes; a reserved pattern alone lets a coil on a real variable <code>G3</code> silently become a Demux; VarIds are per network, so a body-wide block collides. The Demux holds no type, so the type is read off the producer (<a href="#wire">below</a>).</td></tr>
-  <tr><td class="name">m&lt;n&gt;</td><td>One Assign with N OutputItems, each with its own storage — distinct from a Demux feeding N assigns.</td><td>The chained assignment: one statement, one item.</td></tr>
-  <tr><td class="name">i&lt;n&gt;</td><td>One operand whose typed text must never be parsed into boxes.</td><td>Backticks at the operand's own position. A backtick cannot occur in ST, so it cannot collide; parentheses could (<code>(iRPM * 6)</code> is also a box).</td></tr>
-  <tr><td class="name">en&lt;n&gt; + IF</td><td>The enable tree in slot 0; EN shown even when unwired; the rung continuing out of ENO.</td><td><code>EN :=</code> pin and <code>.ENO</code>.</td></tr>
+  <tr><td>Network position; Int64 Ids</td><td>Not in the text: CODESYS re-mints Ids on a changed network, and a push pairs networks <a href="#pairing">by text</a>.</td></tr>
+  <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope or in the network, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n.</td></tr>
+  <tr><td>Shown as the <a href="#network-line"><code>UNSUPPORTED</code> line</a>, measured</td><td>No spelling, by census: a flag on a box input pin (1.13), an item flag on a Demux or Assign (1.1), a Demux defined below the top level or referenced before its definition (1.8), a wire whose producer states no type (1.17). Also: a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>, a rung driving a coil and a jump or several jumps (spelling it needs JMP as a target, which is not ST; <code>JumpDestinationTests</code>), a negated or edge coil (0 in 576 measured targets, census 1.7). Each is refused by name; dropping or reordering it would lose a vendor fact.</td></tr>
+  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place. A changed network shape (and every create) is rebuilt through the IDE's PLCopen import, which builds one network per connected rung (D25): a network holding several independent rungs is refused. <code>PARALLEL</code>, a wire fed by a leaf (measured to reshape, DIALECT N22) and a result pin <code>=&gt; v</code> are refused there with <code>NETWORK_UNSUPPORTED</code>, naming the network and the shape. <code>R_EDGE(NOT x)</code> is refused on TwinCAT (its evaluation order is unmeasured, N17) and shown as <code>UNSUPPORTED "a negation with an edge"</code> on pull.</td></tr>
 </table>
 
 <h2 id="path">The path a body travels</h2>
 <div class="mermaid">
 flowchart LR
-  V1[("vendor model<br/>NWL items")]
+  IDE1[("vendor model<br/>NWL items")]
   NB1["NetworkBody"]
   TXT["network text"]
   NB2["NetworkBody"]
-  V2[("vendor model")]
-  V1 -->|"driver reads"| NB1 -->|"writer: one fold,<br/>one arm per NWL class"| TXT
-  TXT -->|"reader: recursive descent,<br/>no post-pass"| NB2 -->|"driver writes"| V2
+  IDE2[("vendor model")]
+  IDE1 -->|"driver reads"| NB1 -->|"writer: one fold,<br/>one arm per NWL class"| TXT
+  TXT -->|"reader: recursive descent,<br/>no post-pass"| NB2 -->|"driver writes"| IDE2
 </div>
 <p>
-  The writer's only state is the VarId→name map; the reader's is the wire set its <code>VAR_TEMP</code> declares. No prelude, fold, substitution or
-  counter. The writer never throws: a shape it cannot spell sends the body to the marker.
+  The writer's per-network state is the VarId→name map and the set of wires already defined; the reader's is the wire
+  set its <code>VAR_TEMP</code> declares. Nothing is hoisted, minted or reordered. A fact the writer cannot spell is a
+  refusal by name (<code>NetworkUnrepresentableException</code>): the push gate reports it, and the pull render
+  (<code>WritePulled</code>) turns one met in a network's trees into that network's <code>UNSUPPORTED</code> line.
 </p>
 
 <h2 id="grammar">Grammar</h2>
-<pre>body       = line , NL , { network } ;
-line       = "IMPLEMENTATION" , ( "FBD" | "LD" ) ;                     (* alone on its line; case and spacing free *)
-network    = header , NL , { comment } , [ wires ] , { statement } , "END_NETWORK" ;
-header     = "NETWORK" , [ "LABEL:" , name ] , [ "TITLE:" , title ] , [ "DISABLED" ] ;   (* ends at its newline *)
-wires      = "VAR_TEMP" , decl , { decl } , "END_VAR" ;                 (* one per network, if it has a Demux *)
-decl       = wire , { "," , wire } , ":" , type , ";" ;             (* type read off the producer *)
-title      = '"' , { char - '"' - "$" - NL | "$N" | "$R" | '$"' | "$$" } , '"' ;   (* ST's string escapes *)
-comment    = "//" , { char - NL } , NL ;                            (* ends at its newline *)
-wire       = "g" , digit , { digit } ;
+<pre>body        = line , NL , { network } ;
+line        = "IMPLEMENTATION" , ( "FBD" | "LD" ) ;                    (* the first line; case and spacing free *)
+network     = header , NL , { comment } , ( unsupported | { wires | statement } ) , "END_NETWORK" ;
+header      = "NETWORK" , [ "LABEL:" , name ] , [ "TITLE:" , title ] , [ "DISABLED" ] ;   (* ends at its newline; fields in any order *)
+unsupported = "UNSUPPORTED" , '"' , phrase , '"' , ";" ;              (* the network's only line *)
+wires       = "VAR_TEMP" , { decl } , "END_VAR" ;                     (* canonically one, before the first statement *)
+decl        = wire , { "," , wire } , ":" , type , ";" ;            (* type read off the producer *)
+title       = '"' , { char - '"' - "$" - NL | "$N" | "$R" | '$"' | "$$" } , '"' ;   (* ST's string escapes *)
+comment     = "//" , { char - NL } , NL ;                           (* ends at its newline *)
+wire        = ( "g" | "G" ) , digit , { digit } ;                    (* the digits are the VarId *)
 
-statement  = ( assign | jump | cond | value ) , ";" ;               (* ONE per NWL item *)
-cond       = "IF" , value , "THEN" , jump , ";" , "END_IF" ;
-assign     = lvalue , op , { lvalue , op } , value ;                 (* a lone wire target = Demux *)
-op         = ":=" | "S=" | "R=" ;                                 (* "S =" is "S=" after a target *)
-jump       = "JMP" , name | "RETURN" ;                               (* any identifier after JMP is the label *)
+statement   = ( assign | jump | cond | value ) , ";" ;              (* ONE per NWL item *)
+cond        = "IF" , value , "THEN" , jump , ";" , "END_IF" ;
+assign      = lvalue , op , { lvalue , op } , value ;                (* a declared wire alone with ":=" = a Demux *)
+op          = ":=" | "S=" | "R=" ;                                (* "S =" is "S=" after a target *)
+jump        = "JMP" , name | "RETURN" ;                              (* any identifier after JMP is the label *)
 
-value      = [ "NOT" ] , ( edge | core ) | (* empty *) ;
-edge       = ( "R_EDGE" | "F_EDGE" ) , "(" , core , ")" ;          (* a flag, not an FB *)
-core       = group | call , [ ".ENO" ] | execute , [ ".ENO" ] | parallel | operand ;
-group      = "(" , value , operator , value , { operator , value } , ")" ;   (* one operator kind *)
-call       = [ "???" , ":" ] , head , "(" , [ pin , { "," , pin } ] , ")" ;  (* "()" = no input slot *)
-head       = boxtype | name | backtick ;                             (* NOT(…) is the NOT box *)
-pin        = [ name , ":=" ] , value | [ name ] , "=&gt;" , [ lvalue ] ;
-execute    = "EXECUTE" , [ "(" , "EN" , ":=" , value , ")" ] , NL , st-lines , "END_EXECUTE" ;
-parallel   = "PARALLEL" , "(" , [ "MODE" , ":=" , mode , "," ] , [ "IN" , ":=" , value , "," ] , value , { "," , value } , ")" ;   (* MODE only off its default *)
-operand    = token | backtick ;
-lvalue     = token | backtick ;
-backtick   = "`" , { char - "`" } , "`" ;
-operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
-           | "&gt;" | "&lt;" | "&gt;=" | "&lt;=" | "=" | "&lt;&gt;" ;</pre>
+value       = edge | [ "NOT" ] , core | (* empty *) ;
+edge        = ( "R_EDGE" | "F_EDGE" ) , "(" , [ "NOT" ] , core , ")" ;   (* a flag, not an FB *)
+core        = group | call , [ ".ENO" | "." , name ] | execute , [ ".ENO" ] | parallel | operand ;   (* ".name": a main output not slot 0 *)
+group       = "(" , value , operator , value , { operator , value } , ")" ;   (* one operator kind *)
+call        = ( "???" , ":" , name | head ) , "(" , [ pin , { "," , pin } ] , ")" ;   (* "()" = no input slot *)
+head        = boxtype | instance | backtick ;                        (* NOT(…) is the NOT box *)
+pin         = [ name , ":=" ] , value | name , "=&gt;" , lvalue | "=&gt;" , [ lvalue ] ;
+execute     = "EXECUTE" , [ "(" , "EN" , ":=" , value , ")" ] , NL , st-lines , "END_EXECUTE" ;
+parallel    = "PARALLEL" , "(" , [ "MODE" , ":=" , mode , "," ] , [ "IN" , ":=" , value , "," ] , value , { "," , value } , ")" ;   (* MODE only off its default *)
+operand     = token | backtick ;
+lvalue      = token | backtick ;
+backtick    = "`" , { char - "`" } , "`" ;
+operator    = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
+            | "&gt;" | "&lt;" | "&gt;=" | "&lt;=" | "=" | "&lt;&gt;" ;      (* FbdOperators.cs *)</pre>
 <ul>
   <li><b>Terminators:</b> every statement ends with <code>;</code> — <code>IF a THEN JMP Done; END_IF;</code> and
     <code>END_EXECUTE;</code> too. That <code>;</code> belongs to its statement; only a <code>;</code> that closes
@@ -255,16 +147,19 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
     called <code>`Network`(x)</code>). An operator type spelled otherwise than the table (<code>and</code>) keeps its
     spelling in call form, never infix. An FB box's head is its instance. The FB's type is taken from the instance's
     declaration, and a declaration names a NAME — so an instance whose text is an expression (<code>fbs[1]</code>,
-    <code>SUPER^</code>, census 1.12: one in every corpus) is declared by no name and goes to the marker, and a push
-    of <code>`fbs[1]`(IN := a)</code> is refused rather than read as a function named <code>fbs[1]</code>. A function
-    box named like an instance in scope goes to the marker too: its head would read back as that instance.</li>
+    <code>SUPER^</code>, census 1.12) has no spelling, and a push of <code>`fbs[1]`(IN := a)</code> is refused rather
+    than read as a function named <code>fbs[1]</code>. A function box named like an instance in scope has no spelling
+    either: its head would read back as that instance.</li>
   <li><b>lvalue:</b> an assign target or a <code>=&gt; v</code> pin is a token or a backtick, by the same rule as an
-    operand (<code>`arr[i + 1]` := x;</code>, <code>`a .b` := x;</code>). <code>=&gt;</code> with no lvalue is an output
-    slot connected to nothing.</li>
-  <li><b>Reserved:</b> <code>PARALLEL</code>, <code>R_EDGE</code> and <code>F_EDGE</code> as a POU or instance name are
-    refused. A wire name is <code>g&lt;digits&gt;</code> and must not match, case-insensitively, any name in scope —
-    POU variables, globals, the owning FB's members from a method, keywords, literals. Writer and reader use the same
-    set.</li>
+    operand (<code>`arr[i + 1]` := x;</code>); a literal target is backticked. A bare <code>=&gt;</code> is an output
+    slot connected to nothing; a named <code>F =&gt;</code> needs a target.</li>
+  <li><b>Words of the text</b> (<code>NOT</code>, <code>AND</code>, <code>PARALLEL</code>, <code>EXECUTE</code>,
+    <code>JMP</code>, <code>VAR_TEMP</code>, <code>UNSUPPORTED</code>, …) at operand or target position are backticked.
+    <code>PARALLEL</code>, <code>R_EDGE</code> and <code>F_EDGE</code> as a POU or FB instance name are refused.</li>
+  <li><b>Wire names:</b> the writer names a wire <code>g&lt;VarId&gt;</code>, or the lowest free <code>g&lt;n&gt;</code>
+    when that matches, case-insensitively, a name in scope (POU variables, globals, the owning FB's members from a
+    method, POUs, instances) or a word the network spells. The reader takes any declared <code>g&lt;digits&gt;</code>:
+    in its network a wire resolves before a same-named variable.</li>
 </ul>
 
 <h3 id="whitespace">Newlines and whitespace</h3>
@@ -278,13 +173,12 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   inside backticks, TITLE strings, comments and EXECUTE bodies. <code>S=</code> / <code>R=</code> are the word and
   <code>=</code>, so <code>x S = a;</code> is <code>x S= a;</code> and <code>(R=x)</code> compares a variable
   <code>R</code>: after a target the pair is the storage operator, inside a group it is a comparison. A CR LF line
-  ending is layout everywhere, in a comment and an EXECUTE body included. The operator table is unchanged
-  (<code>FbdOperators.cs</code>).
+  ending is layout everywhere, in a comment and an EXECUTE body included; a lone CR is refused.
 </p>
 <p id="body-line">
-  <b>Body line.</b> Every body states its language on the line that ends its declaration (openspec
-  <code>implementation-keyword</code>; <code>ImplementationMarker</code> in the engine, <code>implementation-keyword.ts</code>
-  in the LSP): <code>IMPLEMENTATION ST</code> over ST, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code>
+  <b>Body line.</b> Every body states its language on the line that ends its declaration
+  (<code>ImplementationMarker</code> in the engine, <code>implementation-line.ts</code> in the LSP):
+  <code>IMPLEMENTATION ST</code> over ST, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code>
   over network text, one per body — an FB with an ST body and an LD method carries <code>IMPLEMENTATION ST</code> on
   the FB and <code>IMPLEMENTATION LD</code> on the method; a property's two accessors carry one each. The stated
   language is the one signal for which reader runs; network text under <code>ST</code>, ST under <code>LD</code>, or a
@@ -294,25 +188,62 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   declaration stays editable, and a push never writes that body. CFC, SFC and IL bodies are always
   <code>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</code>, and a body in a language Volt has never seen — an unknown view,
   body aspect or archive root — is hidden the same way under the vendor's own name for it, upper case
-  (<code>IMPLEMENTATION NWL UNSUPPORTED</code> for a network body that states no view), so its item still pulls
-  (<code>bridge-refusal-review</code> D27). An <code>ABSTRACT</code> member with <b>no code</b> — a METHOD, or a GET/SET under
+  (<code>IMPLEMENTATION NWL UNSUPPORTED</code> for a network body that states no view), so its item still pulls. An
+  <code>ABSTRACT</code> member with <b>no code</b> — a METHOD, or a GET/SET under
   <code>PROPERTY ABSTRACT</code>, whose body is empty or missing — states <code>IMPLEMENTATION NONE</code>, alone, nothing
-  under it, on both vendors and whatever object holds it (openspec <code>abstract-member-push</code>,
-  <code>abstract-member-parity</code>, DIALECT C2n): no language, read by neither reader; a push writes an empty body
+  under it, on both vendors and whatever object holds it (DIALECT C2n): no language, read by neither reader; a push writes an empty body
   where the object has a slot and nothing where it has none, and a create of it is accepted. Code under
   <code>ABSTRACT</code> (both compilers refuse it: "must not contain any statements"), NONE without
   <code>ABSTRACT</code> (unless the IDE already holds it so, C2l), and NONE at a POU's own body or an action are refused by name; a comment-only abstract body
   stays <code>IMPLEMENTATION ST</code>. <code>IMPLEMENTATION NONE UNSUPPORTED</code> is another line: a hidden body of
   a language spelled NONE. A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
   FBD body under the marker, with the reason "LD and FBD are not enabled in this build". Editing the line between
-  <code>LD</code> and <code>FBD</code> changes the body's view: both drivers write it (<code>bridge-refusal-review</code>
-  2.22, 2.31).
+  <code>LD</code> and <code>FBD</code> changes the body's view: both drivers write it.
+</p>
+<p id="network-line">
+  <b>A network the text cannot spell is shown, not its body hidden.</b> Where a network's TREES hold a fact this page
+  has no spelling for — a vendor-reader refusal or a writer refusal met inside it — the network keeps its header and
+  its comment, and its trees are the one line <code>UNSUPPORTED "&lt;shape&gt;";</code>, the shape the refusal names as
+  a quoted phrase:
+</p>
+<pre>NETWORK LABEL: L1 TITLE: "Calc"
+  // why
+  // it is
+  UNSUPPORTED "an assign below the top level";
+END_NETWORK</pre>
+<p>
+  The line is its network's only statement (no wire block, nothing before or after it); the LSP reports nothing inside
+  such a network. Pushed back unchanged it pairs with the live network and is kept exactly as the IDE holds it; its
+  header (TITLE, LABEL, DISABLED, the comment) can be edited; deleting the whole network removes it. An edited line, or
+  one in a new network, holds nothing to build from and is refused (<code>NETWORK_UNSUPPORTED</code>). What a network's
+  HEADER cannot carry (a label that is no identifier, a title or comment the IDE does not store, a comment line ending
+  in a lone carriage return) has no line to stand on and hides the body under the marker. <code>UNSUPPORTED</code> is a
+  word of the text: an operand spelled like it is backticked.
+</p>
+<p id="pairing">
+  <b>A push pairs networks by their TEXT, never by position</b> (<code>NetworkPairing</code>, both vendors). Each live
+  network is rendered as the pull renders it, and the live and pushed lists are aligned in order at the least cost of
+  what the push then does: a network whose whole text is equal is kept — the vendor object is not touched; one whose
+  header alone changed is rewritten in its slot with its trees kept; one whose trees changed is rebuilt in its slot;
+  a live network nothing pairs with is removed, a pushed one inserted (on TwinCAT: the IDE's one-network import,
+  spliced in where it stands). So inserting or deleting a network rebuilds no other, and a network no push can build
+  (<code>fb(…).name</code>, an enabled comparison a consumer reads — DIALECT N21) is refused only when its own text
+  changed. A changed network that holds a symbol comment on an operand is refused too (<code>NETWORK_UNSUPPORTED</code>):
+  the text does not spell symbol comments, so a rebuild would erase them.
+  <b>Nothing the text does not show is erased by a pairing</b> (gate 1b-4). A live network shown as its
+  <code>UNSUPPORTED</code> line is never rewritten from other trees — replacing its line under the same header, or
+  emptying it, is a removal plus an insertion. A live network holding what the text does not show (its
+  <code>UNSUPPORTED</code> line, or a symbol comment) may be deleted, but not in a push that also inserts a network —
+  pairing by text cannot tell a deletion from a move or a rewrite, and the inserted network, built from the text, would
+  not carry it — and not where another network that stays shows the same text (which of the two went is not in the
+  text). Each is refused naming the network (<code>NETWORK_UNSUPPORTED</code>).
 </p>
 
 <h2 id="constructs">Constructs</h2>
 <p>
-  One example per production, each the v2 form of a shape a test already pins (source in brackets). Most are FBD:
-  ladder uses the same productions.
+  One example per production. Each is a writer golden or reader test in
+  <code>test/Volt.Engine.Tests/format/network/</code>. Most are FBD: ladder uses the same productions. Outside a whole
+  network, statements are shown without their two-space indent.
 </p>
 
 <h3 id="comments">Header and comment</h3>
@@ -325,14 +256,14 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   g0 := TRUE;
 END_NETWORK</pre>
 <p>
-  The header fields have one order (LABEL, TITLE, DISABLED); another order is read, and written back in that order.
-  The comment is the network's one <code>Comment</code>: its <code>//</code> lines sit between the header and the wire block
-  (or the first statement), and a <code>//</code> after a statement is <code>NETWORK_PARSE</code> — NWL has no per-item comment, so
-  moving it would be silent. Per line, the <code>//</code> and <b>one</b> following space are syntax; the rest,
-  leading indentation and a leading <code>//</code> included, is text. An empty comment line is <code>//</code>; a
-  blank line between <code>//</code> lines is layout, not part of the comment. The indentation before
-  <code>//</code> is layout. Trailing whitespace is kept on read; the drivers trim the vendor's trailing newline (C8)
-  and compare ignoring trailing whitespace, so an editor that strips it writes nothing.
+  The header fields are written in one order (LABEL, TITLE, DISABLED); any order is read, and a field given twice is
+  <code>NETWORK_PARSE</code>. The comment is the network's one <code>Comment</code>: its <code>//</code> lines sit between
+  the header and the wire block (or the first statement), and a <code>//</code> after a statement is
+  <code>NETWORK_PARSE</code> — NWL has no per-item comment. Per line, the <code>//</code> and <b>one</b> following space
+  are syntax; the rest, leading indentation and a leading <code>//</code> included, is text. An empty comment line is
+  <code>//</code>; a blank line between <code>//</code> lines and the indentation before <code>//</code> are layout. A
+  title and the comment as a whole are read as the drivers store them (<code>NetworkText.Stored</code>): trailing
+  whitespace at their end, an empty title and a closing empty <code>//</code> line are trimmed away.
 </p>
 
 <h3 id="wire">Wires — the one named thing</h3>
@@ -347,22 +278,21 @@ END_NETWORK</pre>
 <p>
   Mach1_MIDS network 0, the left rail. <code>g0 :=</code> and <code>g1 :=</code> are Demux items with an Input (each a
   top-level item); the two bare <code>g1</code> are nested references. Five statements for five items.
-  <span id="sink">A consumer that is not a declared wire — what the old page called a <i>sink</i> — is an ordinary
-  coil.</span>
+  <span id="sink">A consumer that is not a declared wire (a sink) is an ordinary coil.</span>
 </p>
 <p>
   <b>The block.</b> The writer gives a network with a Demux exactly one <code>VAR_TEMP … END_VAR</code>, after its
   <code>//</code> lines and before its first statement, and a network without one none. The reader takes more: a second
   block, a block after a statement (a wire is a wire from its declaration on, in text order), an empty block, and a
   declared wire nothing defines or uses — all layout, read into the same model and written back canonically on the next
-  pull (openspec <code>bridge-refusal-review</code> 2.7–2.9). One limit: a late block may not declare a name the network
+  pull. One limit: a late block may not declare a name the network
   already read as a variable (<code>NETWORK_DUPLICATE_NAME</code>), because the one spelling would then be the variable
   before the block and the wire after it. <code>VAR_TEMP</code> because
   a wire's value exists only while the network evaluates; per network because VarIds are. Canonically one line;
   the reader also takes it across lines (<code>VAR_TEMP</code> / <code>g22 : BOOL;</code> / <code>END_VAR</code>), as ST
   does. Wire-ness comes from the declaration only — never use count, never a prefix — matched case-insensitively.
   <code>g&lt;digits&gt;</code> carries the VarId, so a wire keeps its name (C9). The writer emits items in vendor
-  order and never reorders; a vendor order that references a wire before defining it goes to the marker.
+  order and never reorders; a vendor order that references a wire before defining it has no spelling.
 </p>
 <p>
   <b>The type comes from the producer</b>, one rule for FBD and LD, applied by the writer to declare and by the reader
@@ -370,8 +300,8 @@ END_NETWORK</pre>
   slot comes first (a bitwise AND on WORDs is a WORD). Otherwise <code>BOOL</code>: a comparison,
   <code>TRUE</code>/<code>FALSE</code>, an edge, <code>.ENO</code>, <code>PARALLEL</code>, an AND/OR/XOR/NOT box (BOOL or
   the bit-string type the text declares), and a leaf whose EVERY use is boolean — an EN, a PARALLEL, a jump condition,
-  an edge on the reference, and in ladder a coil or contact (task 1.17). A leaf feeding a data pin, and a data box with
-  no stored type, say nothing: the wire goes to the marker on pull, never guessed, and a hand-written declaration is
+  an edge on the reference, and in ladder a coil or contact (census 1.17). A leaf feeding a data pin, and a data box
+  with no stored type, say nothing: on pull the wire has no spelling (never guessed), and a hand-written declaration is
   taken as written. The gate checks a declared type against what the producer says and refuses a mismatch by name —
   the IDE has no field that would keep it.
 </p>
@@ -384,7 +314,7 @@ END_NETWORK</pre>
 </table>
 <p>A <code>g&lt;digits&gt;</code> no <code>VAR_TEMP</code> of its network declares is a variable, whatever the scope holds:
   <code>g5 := x;</code> is a coil on <code>g5</code>, and whether <code>g5</code> is declared is the build's question, not the
-  push's (openspec <code>bridge-refusal-review</code> 1.3). Between backticks a wire-shaped name is verbatim text, the variable
+  push's. Between backticks a wire-shaped name is verbatim text, the variable
   of that name: the writer spells a pulled <code>g5</code> the scope does not hold as <code>`g5`</code>.</p>
 
 <h3 id="assign">Assignment — coils</h3>
@@ -395,8 +325,7 @@ stInfeedTray R= g0;</pre>
 <p>
   A plain coil, then ONE assign with three coils in OutputItemList order (the chained form, one target per line
   canonically). <code>S=</code>/<code>R=</code> are ExST's level-triggered set and reset, and every target takes the
-  value at the end of the chain. Negated and edge coils are not spelled — the body is a marker (see
-  <a href="#not-one-to-one">above</a>).
+  value at the end of the chain. Negated and edge coils are not spelled (<a href="#not-one-to-one">above</a>).
 </p>
 
 <h3 id="fb">Calls — FB instances and functions</h3>
@@ -405,11 +334,10 @@ dst := f(src, oErr =&gt; err);
 out := MAX(a, b);
 GetTime();</pre>
 <p>
-  An FB call with named input and output pins [create-shapes.test.ts, RoundTrip L38]; a function with a named output
-  pin, assigned [RoundTrip L40]; a named function box [parity-fixes.test.ts L88]; a top-level box with no input slot.
-  The FB's type comes from the instance's declaration — so the writer and the reader resolve an instance through the
-  same declarations, and an instance they do not name (<code>SUPER^</code>) goes to the marker rather than read back
-  as a function.
+  An FB call with named input and output pins; a function with a named output pin, assigned; a named function box; a
+  top-level box with no input slot. The FB's type comes from the instance's declaration — so the writer and the reader
+  resolve an instance through the same declarations, and an instance they do not name (<code>SUPER^</code>) has no
+  spelling rather than read back as a function.
 </p>
 
 <h3 id="unnamed-instance">Unnamed instances and <code>???</code></h3>
@@ -419,7 +347,7 @@ t1(IN := ???, PT := pt, ET =&gt; ???);
 out := (??? AND a);</pre>
 <p>
   <code>???</code> is the vendor's marker for an unfilled slot and travels as content; an unnamed call box carries
-  its type as <code>??? : TYPE</code> [RoundTrip L111–123, unresolved-marker.test.ts L140].
+  its type as <code>??? : TYPE</code>.
 </p>
 
 <h3 id="empty-slot">Empty slots</h3>
@@ -433,8 +361,8 @@ coil := ;
 <p>
   An unconnected pin is an empty position, never a token: pin 0 of a MUL box, named pins with nothing on them, a
   leading and a trailing positional slot, a lone empty slot (named, since <code>MOVE()</code> is a box with no input
-  slot), a rung nothing drives, and the empty item [RoundTrip L98–103]. A flag on an empty slot has no spelling: the
-  marker on pull, <code>NETWORK_UNSUPPORTED</code> on push.
+  slot), a rung nothing drives, and the empty item. A flag on an empty slot has no spelling:
+  <code>NETWORK_UNSUPPORTED</code> on push.
 </p>
 
 <h3 id="group">Infix groups and the NOT box</h3>
@@ -446,15 +374,13 @@ out := NOT((a AND b));</pre>
 <p>
   A group is one operator box. <code>NOT a</code> is the negation modifier on an operand; <code>NOT (a AND b)</code>
   the modifier on an AND box's output; <code>NOT(a)</code> the NOT <i>box</i>; <code>NOT((a AND b))</code> the NOT box
-  around an AND box [RoundTrip L134–135, roundtrip.test.ts L25]. Spacing plays no part: each pair of parentheses is
-  exactly one box.
+  around an AND box. Spacing plays no part: each pair of parentheses is exactly one box.
 </p>
 <div class="note">
-  <b>Infix rests on census 1.5, which measured it.</b> The reader reads <code>InputParams</code> names for every box
-  (CodesysNetworkReader L184). Infix is used when the box has no EN, no instance, no output pin, no consumer connected by its ENO, and its formals are
-  <i>the operator's defaults</i> or absent — the two are one text, and the driver writes the defaults. Only a
-  non-default formal forces call form. Without that rule, default formals such as <code>IN1</code>/<code>IN2</code>
-  would turn every rung into <code>AND(IN1 := a, IN2 := b)</code>.
+  <b>When a box is infix</b> (<code>NetworkSpelling.IsInfix</code>, census 1.5): an operator of the table, its type
+  spelled in upper case, at least two inputs, no EN, no instance, no output pin, no consumer connected by its ENO, and
+  formals that are absent or the operator's defaults (<code>IN1</code>, <code>IN2</code>, …) — the two are one text, and
+  the driver writes the defaults. Anything else is call form.
 </div>
 
 <h3 id="edge">Edges</h3>
@@ -466,7 +392,8 @@ lamp := R_EDGE((a AND b));</pre>
   AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier but one <code>NOT</code>, which is the node's own negation: the vendor
   negates first, on an operand and on a box alike, so <code>R_EDGE(NOT x)</code> is <code>Negation+Rtrig</code> and
   <code>NOT R_EDGE(x)</code> is refused (census 1.14, DIALECT N17; measured on CODESYS — TwinCAT's order is not, so
-  its driver sends such a body to the marker). A Parallel or a wire reference holds no flag at all (N20):
+  its driver refuses <code>R_EDGE(NOT x)</code> on push and shows it as its network's <code>UNSUPPORTED</code> line on
+  pull). A Parallel or a wire reference holds no flag at all (N20):
   <code>R_EDGE(g3)</code> is refused, and the edge goes on the wire's producer. And
   <code>R_EDGE(NOT(a))</code> is an edge on the NOT <em>box</em> — its pair holds no operator, so it is NOT's argument
   list, as everywhere; nested edges and rising+falling on one operand are refused by name.
@@ -478,9 +405,9 @@ MOVE(EN := c, 0, =&gt; Status);
 AND(EN := go, a, b, =&gt; out);
 GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; out);</pre>
 <p>
-  A MOVE with EN wired and its output going nowhere (v1 <code>MOVE(a, b);</code>, 34 networks); a MOVE writing its own
-  result pin; an operator box in call form because it has EN [parity-fixes.test.ts L49]; and the EN-chained FBD
-  pair from <code>SideCorrection</code> [RoundTrip L61] — a SUB's ENO enabling a GT, each writing its own pin.
+  A MOVE with EN wired and its output going nowhere; a MOVE writing its own result pin; an operator box in call form
+  because it has EN; and the EN-chained FBD pair from <code>SideCorrection</code> — a SUB's ENO enabling a GT, each
+  writing its own pin.
 </p>
 <p>
   <b>The slot rule.</b> The model carries each output's slot index and, on a consumed box, the slot its consumer is
@@ -492,7 +419,7 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
     output (every box whose outputs start with ENO), so one model has one text; connected by a main output that is not
     ENO it has no suffix. Census 1.6 (DIALECT N16) found no other: every export connection that names a slot names
     <code>MainOutputIndex</code> (338 checked, none disagreeing), and that slot IS the ENO output exactly when the box
-    has one. Any other connection slot goes to the marker. A pushed consumer without a suffix on a box the IDE gives an
+    has one. Any other connection slot has no spelling. A pushed consumer without a suffix on a box the IDE gives an
     ENO main output is refused, naming the box — the mirror of <code>.ENO</code> on a box with no ENO.</li>
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
     box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
@@ -500,8 +427,21 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
     slot never decides infix — except ENO: a group has no suffix position, so an operator box consumed by its ENO is
     a call, <code>out := ADD(a, b).ENO;</code>, never <code>(a + b)</code>, which is the same ADD consumed by its data
     output. A box the rule would misread
-    goes to the marker: a main output stored as another slot (1 on 3 Lenze call boxes), or a consumed box whose
-    connection slot was never read. Renumbering its pins instead would wire them to other slots on push.</li>
+    is spelled otherwise or refused: a main output stored as another slot (1 on 3 Lenze call boxes) is spelled by its
+    NAME, below; a consumed box whose connection slot was never read is refused. Renumbering its pins instead would
+    wire them to other slots on push.</li>
+  <li><b><code>fb(…).name</code></b>: a box consumed by a main output that is not the slot the rule reads — Lenze <code>FirstErrorCapture</code>'s
+    <code>GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCapture(…).xErrorActive;</code>, main output 1. The name is
+    the box's own stored output name for that slot (<code>OutputParam.Names</code>), so no library signature is needed,
+    and it is written only where the main output is not slot 0, so no other text changes. <code>.name</code> states no
+    slot: a positional <code>=&gt; v</code> beside it is refused (name the pin), as are <code>.name</code> on a box nothing
+    consumes, on a bit operator (which stores no main output) and <code>.EN</code>. A stored name that is a word of the
+    text (<code>Execute</code> would open an EXECUTE body) is not written: the network is shown as
+    <code>UNSUPPORTED "a named main output spelled like a text word";</code>. Such a box is shown and kept, never
+    built: <code>MainOutputIndex</code> is read-only on a box a push constructs (DIALECT N21), so a push that CHANGES its
+    network is refused on CODESYS, naming the network and the output; on TwinCAT it is unmeasured (no TwinCAT project
+    holds one) and refused the same way. A network whose text is unchanged is kept as the IDE holds it (<a
+    href="#pairing">the pairing</a>).</li>
   <li>Positional <code>=&gt; v</code> pins fill the remaining output slots in order, skipping the connected one. A named
     <code>F =&gt; v</code> goes to slot F.</li>
   <li><code>.ENO</code> means "connected to the ENO output", never "the box has EN" — the two are independent
@@ -512,10 +452,10 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
     no ENO output.</li>
 </ul>
 <p>
-  So <code>coil := MOVE(EN := c, 0, =&gt; dst).ENO;</code> is "dst gets 0, coil gets ENO": a MOVE showing EN/ENO
-  has ENO as its main output, and its consumer reads ENO (66 connections, census 1.6).
-  <code>GT(ADD(EN := x, a, b), c)</code> would claim GT reads ADD's data output, which no measured ADD with EN is
-  connected by; the push refuses what the IDE's box cannot connect.
+  So <code>coil := MOVE(EN := rung, src, =&gt; dst).ENO;</code> is "dst gets src, coil gets ENO": a MOVE showing EN/ENO
+  has ENO as its main output, and its consumer reads ENO (census 1.6). <code>GT(ADD(EN := x, a, b), c)</code> would
+  claim GT reads ADD's data output, which no measured ADD with EN is connected by; the push refuses what the IDE's box
+  cannot connect.
 </p>
 
 <h3 id="parallel">PARALLEL</h3>
@@ -544,7 +484,8 @@ NETWORK
   RETURN;
 END_NETWORK</pre>
 <p>
-  [labels.test.ts, refused-shapes.test.ts]. The condition is the assign's value, inline — no hoisted leaf. Labels
+  The condition is the assign's value, inline. An unconditional jump is an Assign whose value is the empty terminator
+  (DIALECT C11), and the Jump/Return bit rides on the target and the item (C13). Labels
   match case-insensitively, as IEC; each spelling travels verbatim. The text refuses only what the IDE cannot hold;
   label resolution is the compiler's, so a shape the IDE holds round-trips and the LSP reports what the build
   reports:
@@ -570,31 +511,27 @@ out := EXECUTE(EN := bRun)
 x := 1;
   END_EXECUTE.ENO;</pre>
 <p>
-  An Execute box with ST [refused-shapes.test.ts, roundtrip.test.ts]; the empty body, whose canonical form is exactly
-  one empty line between the <code>EXECUTE</code> line and the <code>END_EXECUTE</code> line, as the e2e pins it; and an
-  Execute box whose ENO continues the rung — the value form, which v1's IF-en form and en echo could express and v2
-  must not lose. The ST lines are verbatim, a trailing newline included (it is the empty line it is); the
-  indentation of the <code>END_EXECUTE</code> line and the CR of a CR LF are layout. A snippet holding a line whose
-  first word is <code>END_EXECUTE</code>, or a lone CR anywhere in a line (a lone CR ends a line wherever it stands),
-  goes to the marker; pushed, a lone CR in a comment or EXECUTE line is <code>NETWORK_PARSE</code>.
+  An Execute box with ST; the empty body, whose canonical form is exactly one empty line between the
+  <code>EXECUTE</code> line and the <code>END_EXECUTE</code> line; and an Execute box whose ENO continues the rung — the
+  value form, where <code>.ENO</code> is required (its only output is ENO). The ST lines are verbatim and unindented, a
+  trailing newline included (it is the empty line it is); the indentation of the <code>END_EXECUTE</code> line and the
+  CR of a CR LF are layout. A snippet holding a line whose first word is <code>END_EXECUTE</code>, or a lone CR, has no
+  spelling; pushed, a lone CR in a comment or EXECUTE line is <code>NETWORK_PARSE</code>.
 </p>
 
 <h3 id="opaque">Backticked operands</h3>
 <pre>t1(IN := `DINT_TO_REAL(x)`);
 fb(P := `fc_dinttotime(T.Start,2)`);</pre>
 <p>
-  An operand whose text is not one token stays one operand [RoundTrip L144, 23 Lenze networks]. Operand text that
-  contains a backtick goes to the marker on pull and is refused by name on push.
+  An operand whose text is not one token stays one operand, verbatim between backticks — never parsed into boxes.
+  Operand text that contains a backtick has no spelling, and is refused by name on push.
 </p>
 
 <h2 id="ladder">The ladder oracle — two real rungs</h2>
 <p>
-  <code>test-corpus/lenze-mid</code> holds 373 of the corpus's 394 networks, 356 of them LD. It has 54
-  <code>X AND (a OR b)</code> shapes against 17 Parallels, and v1 text cannot tell which is which. The two rungs below
-  are spelled from a live dump of the networks themselves (<code>probe-nwl-oracle-rungs.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-oracle-rungs.py)</code> →
-  <code>nwl-oracle-rungs.log (deleted; git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log)</code>, task 2.4), not from their v1 text: which item is a Parallel, which box has an ENO
-  output and which slot a pin is on are read off the vendor's objects. All seven oracle rungs of tasks.md 2.4 are
-  pinned as text and model in <code>LadderOracleTests</code>.
+  Two rungs of <code>test-corpus/lenze-mid</code>, spelled from the vendor's own objects: which item is a Parallel,
+  which box has an ENO output and which slot a pin is on are read off NWL, not inferred. <code>LadderOracleTests</code>
+  pins them, with the corpus's other oracle rungs, as text and model.
 </p>
 
 <h3 id="ex-lamps">Mach1_MIDS network 82 — MOVE boxes lighting lamps</h3>
@@ -609,12 +546,12 @@ fb(P := `fc_dinttotime(T.Start,2)`);</pre>
   tRunningSL := MOVE(EN := (g24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)), 3, =&gt; HMI_Var.Mach1.Status).ENO;
 END_NETWORK</pre>
 <p>
-  v1: 15 lines and four invented <code>en</code> names. v2: 7 statements for 7 items. Both
-  <code>X AND (a OR b)</code> shapes here are AND/OR boxes — no Parallel. Each MOVE shows EN/ENO
+  7 statements for 7 items. Both <code>X AND (a OR b)</code> shapes here are AND/OR boxes — no Parallel. Each MOVE
+  shows EN/ENO
   (<code>OutputParams.Names = ['ENO', '']</code>): its result pin is slot 1 and its lamp reads the ENO.
 </p>
 
-<h3 id="ex-hard">TrayFiller network 8 — the honest regression</h3>
+<h3 id="ex-hard">TrayFiller network 8 — an EN/ENO chain into a Parallel</h3>
 <pre>NETWORK TITLE: "TODO NETWORK 9: Condition: Tray decend"
   VAR_TEMP g2, g3, g4 : BOOL; END_VAR
   g2 := True;
@@ -628,24 +565,19 @@ END_NETWORK</pre>
 END_NETWORK</pre>
 <div class="note">
   The last rung is the network's one Parallel, fed by the ADD chain; the <code>X AND (a OR b)</code> on the top-level
-  ADD's EN is boxes. v1's 16 lines become 7 statements for 7 items, and five invented names (en1–en4, m1) go. The
-  text also stops disguising what the rung does: v1's <code>LET en4 := ; IF en4 THEN (stActHeightElevator &gt;= tInt);
-  END_IF</code> reads as an enable echo gating the rung, but the GE has EN shown and unwired and <b>no ENO output</b>
-  (<code>OutputParams.Names = ['']</code>) — the Parallel's branch is its comparison result, written without a
-  suffix. The cost: the MUL→ADD series reads inside out, like the drawing rather than like three sequential IFs.
-  That is the price of the bijection, concentrated in EN/ENO-chained ladder (46 <code>LET enN := enM</code> links in
-  the corpus).
+  ADD's EN is boxes. 7 statements for 7 items. The GE has EN shown and unwired and <b>no ENO output</b>
+  (<code>OutputParams.Names = ['']</code>), so the Parallel's branch is its comparison result, written without a
+  suffix. The MUL→ADD series reads inside out, like the drawing: an EN/ENO chain nests where the vendor nests it.
 </div>
 
 <h2 id="gate">The gate</h2>
 <p>
   Body language (the <code>IMPLEMENTATION</code> line matches the IDE's view), then parse, then <b>write</b>: a body that
-  reads into a complete model the writer can spell is pushed, in any spelling — <b>canonical form is not a refusal</b>
-  (openspec <code>bridge-refusal-review</code> 2.12). The written text is the body's canonical form, which the next pull
-  shows. (Until 2.12 the gate demanded a token fixed point, <code>Tokens(Write(Read(x))) == Tokens(x)</code>, and refused
-  any other spelling as <code>NETWORK_NOT_CANONICAL</code>.) A model the writer cannot spell is refused
-  <code>NETWORK_UNSUPPORTED</code>. A separate test oracle checks <code>Read(Write(m)) ≅ m</code> over every vendor-read
-  fixture: the check that sees pull-side loss. Its one equivalence is absent ≡ default formals.
+  reads into a complete model the writer can spell is pushed, in any spelling — <b>canonical form is not a
+  refusal</b>. The written text is the body's canonical form, which the next pull shows. A model the writer cannot spell
+  is refused <code>NETWORK_UNSUPPORTED</code>, at the construct that holds the fact. A separate test oracle
+  (<code>NetworkModelOracle</code>) checks <code>Read(Write(m)) ≅ m</code> over every vendor-read fixture: the check
+  that sees pull-side loss. Its one equivalence is absent ≡ default formals.
 </p>
 <p>
   <b>Layout after a push.</b> The writer has one canonical layout. After a successful push the CLI records the IDE's
@@ -660,63 +592,29 @@ END_NETWORK</pre>
 <h3 id="diagnostics">Diagnostics</h3>
 <table>
   <tr><th>code</th><th>raised when</th></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>Structural error; a missing <code>;</code>; a <code>//</code> after a statement; leftover v1 text (<code>LET</code>, <code>NETWORK &lt;n&gt; &lt;LANG&gt;</code>), with a message naming a re-pull.</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>Structural error; a missing <code>;</code>; a first line that states no LD or FBD; a header field given twice; a <code>//</code> after a statement; an unclosed backtick or TITLE; a TITLE escape other than <code>$N</code> <code>$R</code> <code>$"</code> <code>$$</code>; a lone CR in a comment or EXECUTE line; an EXECUTE body with no <code>END_EXECUTE</code>; an <code>UNSUPPORTED</code> line whose shape is no quoted phrase; a call suffix other than <code>.ENO</code> or an output name; a <code>LET</code> statement or a numbered <code>NETWORK &lt;n&gt; &lt;LANG&gt;</code> header, refused with a message to re-pull.</td></tr>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
-  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire declared after the network read its name as a variable; an instance defined twice. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there). Push, not the gate, refuses a suffix-less consumer of a box whose main output is ENO, and — on TwinCAT — <code>.ENO</code> on a box the IDE gives no ENO output (on CODESYS that box is built, and its build reports "Missing EN pin").</td></tr>
+  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; two wires with one VarId; a wire declared after the network read its name as a variable. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there); <code>.name</code> on a box nothing consumes or on a bit operator; a consumed EXECUTE without <code>.ENO</code>; <code>IF</code> with no condition; a word of the text at operand or target position unbackticked; <code>F =&gt;</code> wired to nothing; <code>EN =&gt;</code> or <code>ENO =&gt;</code>. Push, not the gate, refuses a suffix-less consumer of a box whose main output is ENO, and — on TwinCAT — <code>.ENO</code> on a box the IDE gives no ENO output (on CODESYS that box is built, and its build reports "Missing EN pin").</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot, a wire reference or a <code>PARALLEL</code>; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) — a bare name that no declaration makes an instance is a function call, as in ST; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot, a wire reference or a <code>PARALLEL</code>; a Parallel fed by the empty terminator (<code>IN := ,</code>); an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) — a bare name that no declaration makes an instance is a function call, as in ST; any model the writer cannot spell (the gate, by the writer's reason); an <code>UNSUPPORTED</code> line beside or before another statement, and one pushed where no live network pairs with it (edited, or in a new network); a positional <code>=&gt;</code> pin beside <code>.name</code>; a changed network holding a symbol comment; a network holding what the text does not show (its <code>UNSUPPORTED</code> line, a symbol comment) removed in a push that also inserts one, or removed beside a network showing the same text; on TwinCAT, <code>PARALLEL</code>, a wire fed by a leaf or a result pin in a network whose shape changed — the message names the network and the reason.</td></tr>
 </table>
 <p>
-  <code>NETWORK_DUPLICATE_NETWORK</code> is gone (no order numbers). The writer-side <code>NETWORK_UNSUPPORTED</code>
-  cases of v1 — an operator box naming an output, two unnamed outputs — disappear: call form and positional
-  <code>=&gt;</code> spell both. <b>Pull raises no code and never throws:</b> every shape listed under
-  <a href="#not-one-to-one">marker on pull</a>, and the marker-only shapes (several control-flow targets on one rung,
-  negated/edge coils, Mux), materialize the body as <a href="#body-line">the marker</a>, its <code>UNSUPPORTED</code> line.
+  <b>Pull raises no code and never throws:</b> every shape without a spelling (<a href="#not-one-to-one">above</a>)
+  makes its network the <a href="#network-line"><code>UNSUPPORTED</code> line</a>, and what a header cannot carry
+  makes the whole body <a href="#body-line">the marker</a>.
 </p>
 
 <h2 id="lsp">The language server</h2>
 <p>
-  A <code>VAR_TEMP</code> wire is an ordinary declaration in the network scope (own token class; hover shows
-  <code>g22 : BOOL</code> and its producer); backtick text is checked as ST; <code>.ENO</code> is BOOL;
-  <code>R_EDGE</code>/<code>F_EDGE</code> are builtins typed BOOL→BOOL; <code>=&gt; v</code> is a positional output;
-  <code>EN :=</code> is valid on any call; <code>PARALLEL</code> is a builtin; <code>value;</code> is a statement.
-  LET, <code>isEnBinding</code> and <code>parseEnEnoIf</code> go. <code>collectVoidCallTargets</code>,
-  <code>isBoxOutput</code> and <code>checkHoles</code> learn the <code>=&gt; v</code> pin form and <code>.ENO</code>:
-  <code>??? := PRG_void_callee();</code> may now be <code>PRG_void_callee(EN := , =&gt; ???);</code>, and the recorded
-  false positive must not return. Label diagnostics follow the recorded builds (census 1.15). Every new token is a
-  format rule, never an LSP-only compiler message.
+  The LSP's network parser (<code>volt-lsp-iec/src/frontend/syntax/network/parser.ts</code>) is a port of the reader:
+  the same tokens, the same <code>NETWORK_*</code> finding at the same token, so what the editor underlines is what the
+  push refuses. Unlike the bridge, it keeps the statements read before a finding, so hover and the type checks still
+  see them. A <code>VAR_TEMP</code> wire is a declaration in the network's scope, with its own semantic-token class;
+  hovering one shows <code>g22 : BOOL</code> and its definition. Nothing is reported inside an <code>UNSUPPORTED</code>
+  network. Label diagnostics follow the recorded builds (census 1.15); every token of the text is a format rule, never
+  an LSP-only compiler message.
 </p>
-
-<h2 id="migration">Migration from v1</h2>
-<p>
-  v2 shipped as one swap — writer, reader, gate, drivers and LSP together, with no dual reader and no translator —
-  and <b>MATERIALIZATION 3</b> marks it. The number is stated on every library manifest a pull writes
-  (<code>MATERIALIZATION 3</code>, <code>LibraryManifest.Materialization</code>): the one file every pull writes that
-  can carry a format number, so it names the whole workspace.
-</p>
-<ol>
-  <li><b>Push pending graphical edits before upgrading.</b> The first pull after the upgrade re-materializes every
-    graphical body (its text changed, so its version did) and every library manifest (the bump changes it). An
-    un-pushed v1 edit meets the new text in git's merge, and v1 text can never be pushed afterwards — the push
-    refuses it with <code>NETWORK_PARSE</code>, and by then a re-pull changes nothing. The merge is not always a
-    conflict: an edit next to lines the re-materialization left alone merges cleanly, and when it brought v1
-    constructs with it (a whole <code>NETWORK 3 LD</code>, a <code>LET</code>) the clean result is a hybrid body. So
-    the pull judges every body it merged and names each file that still holds v1, with the one resolution that works:
-    in a conflict, take the IDE's side (<code>volt merge --resolve &lt;path&gt; --use-theirs</code>), redo the edit on
-    the v2 text, then <code>volt merge --continue</code>; after a clean merge, take the IDE's version
-    (<code>git checkout volt/ide -- src/&lt;path&gt;</code>), redo the edit and commit.</li>
-  <li><b>Ship the CLI, the LSP and the extension together.</b> The volt-vscode bundle carries its own LSP and can lag
-    the CLI. The LSP compares the workspace's MATERIALIZATION with its own and names a mismatch once, on the
-    manifests, instead of flagging every graphical body: <code>library-stale</code> when an older Volt pulled the
-    workspace ("run <code>volt pull</code>"), <code>materialization-newer</code> when a newer one did ("update the
-    language server"). A workspace with no library manifest states no number, and a v1 body there keeps its own
-    re-pull finding.</li>
-  <li><b>One re-materialization diff per project.</b> The bump's pull rewrites the graphical bodies and the library
-    manifests in the workspace and nothing else, and writes nothing to the IDE: its networks change only when a push
-    carries an edit.</li>
-</ol>
-<p>The change, its census and the tests that went red first: <code>openspec/changes/network-text-literal-nwl</code>.</p>
 
 </main>
 </div>

@@ -40,7 +40,17 @@ internal static class NetworkSpelling
     {
         "NOT", "AND", "OR", "XOR", "MOD", "R_EDGE", "F_EDGE", "PARALLEL", "EXECUTE", "END_EXECUTE",
         "IF", "THEN", "END_IF", "JMP", "RETURN", "NETWORK", "END_NETWORK", "VAR_TEMP", "END_VAR", "LET",
+        UnsupportedWord,
     };
+
+    /// <summary>The word that opens a network's one line where the text has no spelling for its trees
+    /// (<c>UNSUPPORTED "a flag on a box input pin";</c>, <see cref="Network.Unsupported"/>, ld-fbd-coverage 1b.4). A text
+    /// word, so an operand spelled like it is backticked — the same word as the hidden body's line (<c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
+    public const string UnsupportedWord = St.ImplementationMarker.UnsupportedWord;
+
+    /// <summary>What may follow <see cref="UnsupportedWord"/>: the refusal's shape name, words separated by one space.
+    /// Every reason the writer and the readers raise is such a phrase; one that is not has no line to stand on.</summary>
+    public static readonly Regex UnsupportedShape = new(@"^[A-Za-z0-9_]+( [A-Za-z0-9_]+)*$", RegexOptions.CultureInvariant);
 
     /// <summary>Words of the text that ARE box types, so they head a call bare: an operator box in call form
     /// (<c>AND(EN := go, a, b, =&gt; out)</c>) and the NOT box. Every other word of the text heads a call only
@@ -231,6 +241,26 @@ internal static class NetworkSpelling
     /// </summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
 
+    /// <summary>
+    /// THE NAMED MAIN OUTPUT (ld-fbd-coverage 1b.4, S4): the output name a consumed box is spelled with — <c>fb(…).name</c>
+    /// — or null where the text reads the box by <see cref="MainSlotOfCall"/>. Two models say it, one text:
+    /// <list type="bullet">
+    /// <item>a box a vendor reader built, consumed by its stored main output (<see cref="Box.ConnectedSlot"/> =
+    /// <see cref="Box.MainOutputIndex"/>, not ENO) where that slot is not the one the rule reads — census 1.6's 3 Lenze call
+    /// boxes, main output 1. The name is <see cref="Box.MainOutputName"/>, the box's own stored
+    /// <c>OutputParam.Names</c> at that slot, so no library signature is needed; an empty one is "" and the writer refuses it;</item>
+    /// <item>a box the text reader built from <c>.name</c>: the name, and no slot — the text has no position for the index.</item>
+    /// </list></summary>
+    public static string? NamedMainOutput(Box b)
+    {
+        // A bit operator stores no main output (census 1.6): its connection is S1's, never a name.
+        if (b.MainOutputName is not { } name || MainSlotOfCall(b.Type) is not { } rule) return null;
+        if (b.ConnectedSlot is null && b.MainOutputIndex is null) return name;            // read from `.name`
+        return b.ConnectedSlot is { } slot && slot == b.MainOutputIndex && !ConnectedByEno(b) && slot != rule
+            ? name
+            : null;
+    }
+
     /// <summary>The ENO slot: output slot 0 of a box whose outputs start with ENO (<see cref="Box.HasEnoOutput"/>,
     /// read off the vendor's output names), and the ONLY output of an Execute box, which has ENO whether or not its
     /// EN is wired. Keyed on the ENO OUTPUT, never on EN: census 1.6 (DIALECT N16) measured the two independent — an
@@ -268,7 +298,8 @@ internal static class NetworkSpelling
     /// The writer checks, the reader states and the oracle compares it by this one predicate.</summary>
     public static bool EnoCarried(Box b, bool consumed) =>
         b.StCode is null &&
-        (b.Outputs.Any(o => o.Formal is null) || (consumed && (b.ConnectedSlot is not null || b.Enable is not null)));
+        (b.Outputs.Any(o => o.Formal is null) ||
+         (consumed && (b.ConnectedSlot is not null || b.Enable is not null || NamedMainOutput(b) is not null)));
 
     /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:
     /// ENO and the slot a consumer is connected to are skipped, the rest fill in order. The writer spells a pin by

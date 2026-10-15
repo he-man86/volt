@@ -149,20 +149,21 @@ public class WireVocabularyTests
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
             ("Volt.Engine/Format/Network/NetworkLexer.cs", 6),
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 21))),
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 22))),   // +1 an UNSUPPORTED line whose shape is no quoted phrase (ld-fbd-coverage 1b.4)
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 4))),
         new("a malformed operator group", "fix the expression", "NETWORK_BAD_EXPRESSION", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 37))),
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 39))),   // +2 `.name` on a box nothing consumes / on a bit operator (1b.4)
         new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
             ("Volt.Engine/Format/Network/NetworkLexer.cs", 1),
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 12),
+            ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 15),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4)
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1))),
     };
 
@@ -339,7 +340,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // a body site read with no object (abstract-member-push, gate 3); a member object, a property-write precondition (bridge-one-to-one §3)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
-        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 9),
+        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 10),   // +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 5),
@@ -356,7 +357,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 4),
+        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 6),   // +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),

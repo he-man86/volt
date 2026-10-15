@@ -51,3 +51,78 @@ test("a declaration the producer rule does not confirm is not the uses' type: th
     "Cannot convert type 'STRING' to type 'INT'",
   )
 })
+
+// ─── openspec ld-fbd-coverage 1b.4: `fb(…).name` (S4) and the network shown as its `UNSUPPORTED "<shape>";` line ─────
+// The bridge's `NetworkTextReader` reads both; the LSP parses them the same way (`frontend/syntax/network/shown.ts`),
+// types `fb(…).name` as the instance's output (`fb.name`), and reports nothing inside an UNSUPPORTED network.
+
+const parseNt = (source: string) => parseSource(source, { networkText: true }, "codesys")
+
+/** A program whose FBD body is the given networks, each its lines. */
+const nets = (vars: string, ...networks: string[]): string => `PROGRAM P
+VAR ${vars} END_VAR
+IMPLEMENTATION FBD
+${networks.map((n) => `NETWORK\n${n}\nEND_NETWORK`).join("\n")}
+END_PROGRAM`
+
+/** The structural codes (`NETWORK_*`) the network text raised. */
+const codes = (source: string): string[] => {
+  const parseResult = parseNt(source)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source }], [], "codesys")
+  return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys"))
+    .map((d) => d.code)
+    .filter((c) => c.startsWith("NETWORK_"))
+}
+
+/** A user FB whose second output is the one read — the S4 shape (a main output that is not the first slot). */
+const CAPTURE = `FUNCTION_BLOCK Capture
+VAR_INPUT xEnable : BOOL; END_VAR
+VAR_OUTPUT xBusy : BOOL; tElapsed : TIME; END_VAR
+IMPLEMENTATION ST
+xBusy := xEnable;
+END_FUNCTION_BLOCK
+`
+
+const projectMessages = (source: string): string[] => {
+  const parseResult = parseNt(source)
+  const fb = parseNt(CAPTURE)
+  const project = build.buildSymbolTable(
+    [{ uri: "F.pou", parseResult, source }, { uri: "Capture.pou", parseResult: fb, source: CAPTURE }],
+    [],
+    "codesys",
+  )
+  return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys")).map((d) => d.message)
+}
+
+/** The value of `cap(…).name` is the instance's output `cap.name`: what consumes it is read as that member — an output the
+ *  FB does not declare is reported as `cap.nope` is — while the box's own wire to a coil stays the IDE's, as
+ *  `x := f(…).ENO` does (`assignmentPairs`). */
+test("a box read through a named output is read as the instance's output where it is consumed", () => {
+  const vars = "cap : Capture; go : BOOL; elapsed : TIME; i : INT;"
+  const named = projectMessages(nets(vars, "i := (cap(xEnable := go).nope + i);"))
+  expect(named).toContain("'nope' is no component of 'Capture'")
+  expect(named).toEqual(projectMessages(nets(vars, "i := (cap.nope + i);")))
+  expect(projectMessages(nets(vars, "i := (cap(xEnable := go).tElapsed + i);"))).toEqual(projectMessages(nets(vars, "i := (cap.tElapsed + i);")))
+  expect(projectMessages(nets(vars, "elapsed := cap(xEnable := go).tElapsed;"))).toEqual([])
+})
+
+test("an UNSUPPORTED network is opaque: nothing reported inside it, its neighbours still checked", () => {
+  const vars = "i : INT; flag : BOOL;"
+  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin";'))).toEqual([])
+  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin";', "  flag := i;"))).toContain(
+    "Cannot convert type 'INT' to type 'BOOL'",
+  )
+})
+
+test("the text's own refusals around the two spellings are the bridge reader's", () => {
+  const vars = "t1 : TON; go : BOOL; elapsed : TIME; a : BOOL; b : BOOL; x : BOOL;"
+  expect(codes(nets(vars, "elapsed := t1(IN := go).EN;"))).toEqual(["NETWORK_PARSE"])
+  expect(codes(nets(vars, "t1(IN := go).ET;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(codes(nets(vars, "x := AND(a, b).Q;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(codes(nets(vars, "elapsed := t1(IN := go, => x).ET;"))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, 'x := a;\nUNSUPPORTED "a flag on a box input pin";'))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin";\nx := a;'))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, "UNSUPPORTED a flag;"))).toEqual(["NETWORK_PARSE"])
+  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin";'))).toEqual([])
+  expect(codes(nets(vars, "elapsed := t1(IN := go, PT := T#1S).ET;"))).toEqual([])
+})
