@@ -159,6 +159,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
             ("Volt.Engine/Format/Network/NetworkLexer.cs", 1),
+            ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 12),
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1))),

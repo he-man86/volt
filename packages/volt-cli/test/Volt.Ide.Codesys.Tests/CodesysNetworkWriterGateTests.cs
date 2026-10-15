@@ -88,6 +88,38 @@ public class CodesysNetworkWriterGateTests
         Assert.Contains("RemoveNetworkItem", live.Calls);
     }
 
+    /// <summary>THE LOSS (review 1b-1). The rebuild builds every operand fresh and the text carries no symbol comment, so
+    /// pro2193's <c>SetAlarm</c> (10 symbol comments, 4 of them another variable's — census ld-fbd-coverage 1b.1) lost
+    /// all of them on any edit, with nothing in the diff. Refused before the tear-down, naming the network and operand.</summary>
+    [Fact]
+    public void A_changed_network_holding_a_symbol_comment_is_refused_before_the_tear_down()
+    {
+        var live = LiveAndRung();
+        var b = ((Nwl.BoxTreeOperand)((Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)live.GetTree(0)!).RValue!).InputItemList[1]).Operand!;
+        b.SymbolComment = " Condition to set the alarm.";
+        var edited = Rename(CodesysNetworkReader.ReadNetwork(live, 0), "a", "c");
+
+        var ex = Assert.IsType<NetworkTextException>(Push(live, edited));
+
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, ex.Code);
+        Assert.Contains("network 1", ex.Message);
+        Assert.Contains("'b'", ex.Message);
+        Assert.Empty(live.Calls);
+        Assert.Equal(" Condition to set the alarm.", b.SymbolComment);
+    }
+
+    /// <summary>…and pushed back unchanged it is not rebuilt, so nothing is refused: the refusal is for a rebuild only.</summary>
+    [Fact]
+    public void A_network_holding_a_symbol_comment_pushed_back_unchanged_is_not_refused()
+    {
+        var live = LiveAndRung();
+        var b = ((Nwl.BoxTreeOperand)((Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)live.GetTree(0)!).RValue!).InputItemList[1]).Operand!;
+        b.SymbolComment = " Condition to set the alarm.";
+
+        Assert.Null(Push(live, CodesysNetworkReader.ReadNetwork(live, 0)));
+        Assert.Empty(live.Calls);
+    }
+
     /// <summary>METADATA IS NOT LOGIC. Title and comment are written through an idempotent setter, so changing
     /// one must not drag the trees into a destroy-and-rebuild.</summary>
     [Fact]

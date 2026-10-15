@@ -86,6 +86,38 @@ public class TcStructuralEditTests
         Assert.Contains(named, ex.Message);
     }
 
+    /// <summary><c>ladder.TcPOU</c> with <c>xtest</c> carrying a symbol comment — what pro2193's <c>SetAlarm</c> holds
+    /// on 10 operands (census ld-fbd-coverage 1b.1), here on the vendor's own LD archive.</summary>
+    private static string LadderWithSymbolComment() =>
+        System.Text.RegularExpressions.Regex.Replace(Ladder(),
+            "(<v n=\"Operand\">\"xtest\"</v>\\s*<v n=\"Type\">\"BOOL\"</v>\\s*<v n=\"Comment\">\"\"</v>\\s*<v n=\"SymbolComment\">)\"\"",
+            "$1\" Condition to set the alarm.\"");
+
+    /// <summary>THE LOSS (review 1b-1): the import rebuilds a changed network from the text, and the text carries no
+    /// symbol comment, so the rebuilt operand would come back without it — erased with nothing in the diff. Refused,
+    /// naming the network and the operand, before the importer is reached.</summary>
+    [Fact]
+    public void A_structural_change_to_a_network_holding_a_symbol_comment_is_refused_before_the_importer()
+    {
+        var xml = LadderWithSymbolComment();
+        Assert.Contains("Condition to set the alarm.", xml);   // the injection landed
+
+        var ex = Assert.Throws<NetworkTextException>(() =>
+            TcNetworkWriter.Apply(xml, Pushed("xoutput := (xtest AND xtest2);"), Scope, NeverImported));
+
+        Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
+        Assert.Contains("network 1", ex.Message);
+        Assert.Contains("symbol comment", ex.Message);
+        Assert.Contains("'xtest'", ex.Message);
+    }
+
+    /// <summary>…and the same body pushed back UNCHANGED writes nothing: the refusal is for a rebuild, never for a pull.</summary>
+    [Fact]
+    public void A_network_holding_a_symbol_comment_pushed_back_unchanged_writes_nothing()
+    {
+        Assert.Null(TcNetworkWriter.Apply(LadderWithSymbolComment(), Pushed("xoutput := (xtest OR xtest2);"), Scope, NeverImported));
+    }
+
     /// <summary>The refusal is about THOSE shapes: a structural change without one still reaches the importer — a
     /// retyped box is the measured case the rebuild exists for.</summary>
     [Fact]

@@ -101,7 +101,8 @@ namespace Volt.Ide.Codesys
             // Scoping it "to ONE network" bounded the damage to every network, since PushService always sends
             // the whole body. TwinCAT's `TcNetworkWriter.Apply` has always returned null on no-change; this is
             // the same rule, and it is what stops the losses below from reaching a rung nobody edited.
-            if (TreesUnchanged(net, model, language, scope)) return;
+            var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
+            if (TreesUnchanged(live, model, language, scope)) return;
 
             // Before this network's items are removed. Not for atomicity — the whole write runs inside
             // `CodesysObjectModel.ModifyObject`, which rolls the checkout back on any throw, including a refusal in a
@@ -109,6 +110,8 @@ namespace Volt.Ide.Codesys
             // the networks the change gate above lets through (an unchanged pulled network holding the shape is never
             // refused), and so a caller with no transaction — the offline tests — sees the live network untouched.
             foreach (var tree in model.Trees) RefuseUnbuildableEno(tree, consumed: false);
+            // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
+            NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.CodesysDisplay, live);
 
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
@@ -137,9 +140,8 @@ namespace Volt.Ide.Codesys
         /// and an FB instance through the declarations, so both sides must be written with the same ones. A live
         /// network the writer has no spelling for throws <c>UnrepresentableBodyException</c> — like a reader
         /// refusal, it is not rebuilt, because a rebuild would delete the fact the text could not carry.</para></summary>
-        private static bool TreesUnchanged(object net, Network model, BodyLanguage language, NetworkScope scope)
+        private static bool TreesUnchanged(Network live, Network model, BodyLanguage language, NetworkScope scope)
         {
-            var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
             return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
                 == Render(model, language, scope);
         }
@@ -600,8 +602,9 @@ namespace Volt.Ide.Codesys
                 // place and would overwrite the IDE's values (measured there as `Type: "BOOL" -> ""`).
                 //
                 // `SymbolComment` is the one field of the three that is NOT restored and NOT re-derivable
-                // from anything Volt holds. It has no build consequence and no interface Volt can observe
-                // it through, so nothing here claims it survives a rebuild.
+                // from anything Volt holds (census 1b.1: 4 of the 10 in the corpora are ANOTHER variable's
+                // comment). So a network holding one never reaches this builder: `WriteNetwork` refuses it
+                // first (`NetworkText.RefuseSymbolCommentLoss`) rather than erase it unseen.
                 ApplyFlags(op, o.Flags);
                 if (!extra.IsNone) ApplyFlags(op, extra);
                 return op;

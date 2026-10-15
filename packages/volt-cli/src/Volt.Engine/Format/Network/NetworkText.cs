@@ -127,6 +127,50 @@ public static class NetworkText
     /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
     public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);
 
+    /// <summary>REFUSE TO REBUILD A NETWORK THAT HOLDS A SYMBOL COMMENT — the one rule both drivers apply before a network
+    /// is torn down and built again from the text (CODESYS: every changed network; TwinCAT: a changed SHAPE, through the
+    /// import). <paramref name="live"/> is the network as the IDE holds it, read by the driver's own reader, which carries
+    /// the vendor's <c>Operand.SymbolComment</c> as <see cref="Operand.Comment"/>.
+    ///
+    /// <para><b>Why a refusal and not a write.</b> Network text has no spelling for it (ld-fbd-coverage 1b.2 decides one),
+    /// so a text-derived model carries none, and a rebuilt operand comes back without it. It is not the IDE's to
+    /// re-derive either: census 1b.1 found 10 in the six corpora (pro2193 <c>Cylinder_53ValveFB.SetAlarm</c>), each a
+    /// copy of a <c>//</c> declaration comment, 4 of them ANOTHER variable's — so the operand's own declaration cannot
+    /// regenerate them. A rebuild therefore erased them with no diff to show it (the text never held them). Refused per
+    /// NETWORK, naming it and the operands; a network whose text did not change is never rebuilt, so pulling and pushing
+    /// such a body unchanged still works.</para></summary>
+    public static void RefuseSymbolCommentLoss(string vendor, Network live)
+    {
+        var held = live.Trees.SelectMany(OperandsOf)
+            .Where(o => !string.IsNullOrWhiteSpace(o.Comment))
+            .Select(o => $"'{o.Text}'")
+            .Distinct()
+            .ToList();
+        if (held.Count == 0) return;
+        throw new NetworkTextException(
+            $"{vendor}: network {live.Order + 1} holds a symbol comment on {string.Join(", ", held)}, which network text " +
+            "does not spell yet, so rebuilding this network from the text would erase it with nothing in the diff to " +
+            "show it. Edit this network in the IDE; a network whose text is unchanged is never rebuilt.",
+            ConflictCodes.NetworkUnsupported);
+    }
+
+    /// <summary>Every operand a tree holds — leaves, assignment targets, a box's instance and its output pins.</summary>
+    private static IEnumerable<Operand> OperandsOf(Node n)
+    {
+        switch (n)
+        {
+            case Leaf l: yield return l.Operand; break;
+            case Assign a: foreach (var t in a.Targets) yield return t; break;
+            case Box b:
+                if (b.Instance is not null) yield return b.Instance;
+                foreach (var o in b.Outputs) yield return o.Value;
+                break;
+        }
+        foreach (var child in n.Children())
+            foreach (var o in OperandsOf(child))
+                yield return o;
+    }
+
     /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their UNSUPPORTED
     /// <c>IMPLEMENTATION</c> line is materialized for them instead of a network-text body.)</summary>
     public static bool IsEditable(string? language) => Languages.IsNetwork(language);

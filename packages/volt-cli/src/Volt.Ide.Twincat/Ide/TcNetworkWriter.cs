@@ -206,6 +206,8 @@ internal static class TcNetworkWriter
 
             // The shapes no one has measured through the import are refused by name before it (task 4.2).
             TcUnmeasured.RefuseImport(model);
+            // And what the import would ERASE: a symbol comment, which the text does not carry (the shared rule).
+            NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkFor(networks[i], model.Order));
 
             // Only a single-component network can be swapped in without renumbering the ones after it.
             var parts = Rungs(model.Trees);
@@ -924,10 +926,17 @@ internal static class TcNetworkWriter
     /// <para>And it needed no body edit to happen: <c>PushService</c> sends the item's own body on every push, so
     /// renaming a variable in the VAR block ran this over the whole program.</para>
     ///
-    /// <para><b>Type, SymbolComment and LValue are the IDE's.</b> It resolves the type from the declaration, the
-    /// comment from the symbol, and the l-value marker from the operand's position in the tree. Volt neither
-    /// authors nor represents them, so it must not write them - reading them is the whole of its business here.
-    /// <c>IsInstance</c> is the same: which box is an FB call is the IDE's classification.</para></summary>
+    /// <para><b>Type and LValue are the IDE's.</b> It resolves the type from the declaration and the l-value marker
+    /// from the operand's position in the tree. Volt neither authors nor represents them, so it must not write them -
+    /// reading them is the whole of its business here. <c>IsInstance</c> is the same: which box is an FB call is the
+    /// IDE's classification.</para>
+    ///
+    /// <para><b>SymbolComment is NOT re-derived from the symbol</b>, and it is not written for a different reason: the
+    /// text does not carry it. Census 1b.1 (ld-fbd-coverage) found 10 in the corpora, each a copy of a declaration
+    /// comment taken when the operand was placed — and 4 of them ANOTHER variable's (<c>xOutput</c> carries
+    /// <c>SetErrorFB.alarmCondition</c>'s comment, not its own <c>" The output"</c>), so the operand's own symbol
+    /// cannot regenerate it. Editing in place leaves the IDE's value alone; a network the IDE would REBUILD is refused
+    /// while it holds one (<c>NetworkText.RefuseSymbolCommentLoss</c>, in <c>Apply</c>).</para></summary>
     private static bool WriteOperandInto(XElement o, Operand op) =>
         SetString(o, "Operand", op.Text)
       | WriteFlags(o, op.Flags);
