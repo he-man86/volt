@@ -136,7 +136,7 @@ export function networkCompletion(doc: Document, project: Scope, offset: number)
 // cursor from whichever body kind it sits in. The server routes ALL references/rename here.
 
 /** Resolve the symbol under the cursor whether it lands in an ST or a network-text body. */
-export function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol | undefined {
+function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol | undefined {
   return inNetworkText(doc, offset) ? networkResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
 }
 

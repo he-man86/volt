@@ -136,7 +136,7 @@ test/  what crosses modules, one folder per concern (map: test/README.md)
   libraries/  the library repo's ST bodies, run
   lsp/  the server as a client sees it: the black-box protocol suites, and the LSP test client (harness.ts) every server test drives
   package/  the package's own shape: the build compiles, the layering, this tree
-  support/  test support colocated tests read: the URI a test names a source by, the preload that turns network text on
+  support/  test support colocated tests read: the URI a test names a source by, the preload that turns network text on, the network-text documents the network tests share
 libraries/  the library repo: referenced libraries' elements in ST, per version, for the transpiler
 scripts/  dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
 docs/  this file, behavior.md, data-model.md, language-reference.md, the vendor references
@@ -303,9 +303,13 @@ elementary facts, `syntax/pragmas/known-attributes.ts`); the hover TEXT for it i
 attribute the dialect lacks gets no tooltip. Ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
 language the layers read, **reusing the shared core** — one type engine, one orchestrator, one service set.
 `frontend/syntax/network/` reads the text (lexer, AST, reader; the format specified in
-`packages/volt-cli/docs/network-text.html`) and types its wires by the operators' rule the type layer hands it;
-`frontend/types/network/` composes that reader (`parseNetworkText`) and builds each network's wire scope over the POU's
-(`analyzeNetworkText`); `analysis/checks/network/` holds its findings; `services/network/` its services.
+`packages/volt-cli/docs/network-text.html`) and types its wires by the operators' rule the type layer hands it — the
+reader one concern per file, each building on the one before: `cursor` (tokens, positions, findings, the ST inside) →
+`values` → `calls` → `statements` → `parser` (the body, a network, its header and wires), with `pair-kind` deciding what
+a position holds and `wire-producer` a wire's producer type; `frontend/types/network/` composes that reader
+(`parseNetworkText`) and builds each network's wire scope over the POU's (`analyzeNetworkText`);
+`analysis/checks/network/` holds its findings (`network-analysis.ts`, the pass, over one `_<family>.ts` per check
+family: labels, boxes, operands, assignments); `services/network/` its services.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle — the LSP
@@ -459,8 +463,8 @@ each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `l
 `project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
 only shrinks). Rule 6: no product file under `src/` imports `test/` (a colocated test reads the test support there). Size is ratcheted too (`scripts/check-size.ts`, over all of
 `src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80; since
-lsp-same-standard 4.5 the shrink-only ceilings hold network text alone — four files and three functions, handed to the
-LD/FBD coverage change — and nothing in `transpile/`).
+ld-fbd-coverage 2.1, which split the network-text reader, its checks and their tests by concern, the shrink-only
+ceilings are empty).
 
 **The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
 never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold

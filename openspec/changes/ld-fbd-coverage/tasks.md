@@ -450,10 +450,33 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       is not regenerated.
 ## 2. Build (after 1.2)
 
-- [ ] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,
+- [x] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,
       value/group, call/pin and the pair-kind decision; the lexer's `next` per token class; `network-analysis.ts` per check
       family; `network.test.ts` per service. The shrink-only entries and the dead-export allowlist emptied. The full LSP
       suite, the fixture map and the network e2e identical before/after.
+      **Done (2026-10-15).** `syntax/network/parser.ts` 1367 → 357 lines, one class chain, one concern per file:
+      `cursor.ts` 253 (tokens, positions, findings, ST fragments) → `values.ts` 299 (operands, groups, NOT, edges) →
+      `calls.ts` 261 (call/pin, PARALLEL, EXECUTE; `parseCall` 88 → 60 lines, the box-type decision its own method) →
+      `statements.ts` 121 → `parser.ts` (body, network, header, wires); `pair-kind.ts` 117 (the pair scan and `Walk`
+      out of the lexer, plus empty-slot / pin-name / storage decisions); `words.ts` 52; the producer walk into
+      `wire-producer.ts` 145. `lexer.ts` 414 → 344, `next` 95 → 22 lines (comment, backticked, address, wordLike,
+      symbol). `checks/network/network-analysis.ts` 521 → 70 (the pass) over `_labels.ts` 53, `_boxes.ts` 222,
+      `_operands.ts` 93, `_assignments.ts` 105, each with its `_<family>.test.ts` (rule A6). The 76 tests of
+      `services/network/network.test.ts` moved byte-identical by subject: `network-services.test.ts` 12,
+      `network-symbols.test.ts` 1, the check families 33, `network-analysis.test.ts` +12, `types/network/
+      network-analyze.test.ts` 1, `network-implementation-line.test.ts` +3, and `types/network/network-reader.test.ts`
+      14 — a topic suite (the reader whole) that takes the old file's `TOPIC_SUITES` entry, since `network-parse.test.ts`
+      (473) has no room and a front-end test reaches neither analysis nor `test/support`; shared helpers in
+      `test/support/network-docs.ts`. `CEILINGS` 4 → 0, `FUNCTION_CEILINGS` 2 → 0, `DEAD_EXPORT_ALLOWLIST` 4 → 0
+      (`TokKind` inlined; `CONSTRUCT_WORDS`/`v1Refusal` imported from `words.ts`; `resolveAnywhere` unexported).
+      Before/after: test/frontend + test/conformance 6991 pass, 385 todo, 0 fail over 7376 tests both times; the network
+      targeted set 225 = 225 tests; test/analysis census 13 pass; `rate:fixtures` leaves `map.generated.ts` unchanged;
+      typecheck and `bun run lint` (layering, size, dead exports, citations) clean. No C# change, so the bridge e2e is
+      untouched; the full suite is the gate's.
+      **Gate 2-1 (2026-10-15):** typecheck and `bun run lint` clean (0 ceilings, 0 dead-export allowlist); `rate:fixtures`
+      leaves `map.generated.ts` unchanged (edge agree 3399, disagree 0, not-run 227); LSP full suite (VOLT_REQUIRE_FULL=1,
+      VOLT_FIXTURES unset) 10159 pass, 34 skip, 428 todo, 0 fail over 370 files (10621 tests) — identical to gate 1b-4's
+      10159/34/428 over 363 files, the +7 files being the split's test files. No C# change, so the C# suites stand at 1b-4.
 - [ ] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
       S1's outcome), `nwl-leaf-wire-type` (decides S3a, owner amendment a), `nwl-nested-assign`, `nwl-rail-fed-wire`,
       `nwl-input-pin-flag`, `nwl-super-call`; and the 1b.2 cache-candidate rows (design.md "1b.2", code R):

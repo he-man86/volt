@@ -165,17 +165,13 @@ export function nobodyIn(texts: ReadonlyMap<string, string>, scope: string): Row
 
 /**
  * The NOBODY exports of `src/` the gate still tolerates, as `<name> <file>` (openspec lsp-same-standard design.md §5, task
- * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text and 4 network-text ones marked "LD/FBD change". Since
- * task 4.5 only the network-text four remain — the outside 25 dropped their `export` (read in their own file only) or
- * went (`readIdent`, read nowhere) — and they are handed to the LD/FBD coverage change. The list only shrinks: a name
- * not listed fails the gate, and so does a listed one that is now imported or gone. No inline ignore comment exists.
+ * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text and 4 network-text ones. Since lsp-same-standard 4.5
+ * the outside 25 are gone (their `export` dropped, or the name with it); since ld-fbd-coverage 2.1 the network-text four
+ * too — `TokKind` inlined into `Tok`, `CONSTRUCT_WORDS` and `v1Refusal` imported by the split reader's files, and
+ * `resolveAnywhere` read in its own file only. Empty, and it stays empty: a name not listed fails the gate, and no inline
+ * ignore comment exists.
  */
-export const DEAD_EXPORT_ALLOWLIST: readonly string[] = [
-  "TokKind src/frontend/syntax/network/lexer.ts", // LD/FBD change
-  "CONSTRUCT_WORDS src/frontend/syntax/network/parser.ts", // LD/FBD change
-  "v1Refusal src/frontend/syntax/network/parser.ts", // LD/FBD change
-  "resolveAnywhere src/services/network/network-services.ts", // LD/FBD change
-]
+export const DEAD_EXPORT_ALLOWLIST: readonly string[] = []
 
 /** The gate: NOBODY over `src/` against `allowlist` — what is new, and what is listed but no longer dead. */
 export function deadExportReport(

@@ -324,7 +324,7 @@ test("a backticked head that is no name, or a POU named like a construct, is NET
 // ── the ST reading ──────────────────────────────────────────────────────────────────────────
 
 // An edge and a box read through `.ENO` have a reading: spec 5.1 types `R_EDGE`/`F_EDGE` BOOL→BOOL and `.ENO` BOOL (their
-// typing is held in network/network.test.ts). Only a Parallel and a group with an empty slot have none.
+// typing is held in checks/network/_assignments.test.ts). Only a Parallel and a group with an empty slot have none.
 test("a group, a NOT, a call, an edge and an .ENO have an ST reading; a Parallel and an empty slot do not", () => {
   const read = (statements: string) => networkValueExpr(valueOf(only(statements)))?.kind
   expect(read("out := ((a AND b) OR c);")).toBe("paren")

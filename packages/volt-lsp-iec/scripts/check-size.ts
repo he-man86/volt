@@ -11,7 +11,7 @@
  *     `FUNCTION_CEILINGS`): one may not grow; a listed one that no longer exists or has come within its limit is a stale
  *     entry that fails until removed; one under its ceiling is reported with the number to lower the ceiling to (not a
  *     failure: the step that shrinks it lowers its entry). The lists only shrink — a new entry is not how a file or a
- *     function gets past its limit. Network text is marked "LD/FBD change": its ceilings stay until that change splits it.
+ *     function gets past its limit. Both lists are empty since openspec ld-fbd-coverage 2.1.
  *
  * A line is a line of the file as an editor numbers them (`wc -l` for a file that ends in a newline).
  */
@@ -30,25 +30,17 @@ export const FUNCTION_LIMIT = 80
 /**
  * The file ceilings, package-relative. Measured 2026-10-12 at fddcde2a6e (openspec lsp-same-standard design.md §1.1):
  * 19 `src/` files over 400, 3 colocated tests over 600, 4 `test/` suites over 600, 30 `test/` support and fixture-data
- * files over 400. Each later step of that change deleted its own entries; since task 4.5 only the network-text ones
- * ("LD/FBD change") remain, handed to the LD/FBD coverage change.
+ * files over 400. Each later step of that change deleted its own entries; the network-text four went when openspec
+ * ld-fbd-coverage 2.1 split the reader, its checks and their tests by concern. Empty, and it stays empty.
  */
-export const CEILINGS: Readonly<Record<string, number>> = {
-  "src/analysis/checks/network/network-analysis.ts": 521, // LD/FBD change
-  "src/frontend/syntax/network/lexer.ts": 414, // LD/FBD change
-  "src/frontend/syntax/network/parser.ts": 1367, // LD/FBD change
-  "src/services/network/network.test.ts": 1213, // LD/FBD change
-}
+export const CEILINGS: Readonly<Record<string, number>> = {}
 
 /**
  * The function ceilings, keyed `<package-relative file>#<name>` (`(anonymous)` for an unnamed arrow) — no line number,
- * which moves on every edit. Same day as `CEILINGS` (design.md §1.2): 31 then; since task 4.5 only the network-text three
- * ("LD/FBD change") remain, handed to the LD/FBD coverage change.
+ * which moves on every edit. Same day as `CEILINGS` (design.md §1.2): 31 then; the network-text two (the lexer's `next`,
+ * the reader's `parseCall`) went with ld-fbd-coverage 2.1. Empty, and it stays empty.
  */
-export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {
-  "src/frontend/syntax/network/lexer.ts#next": 95, // LD/FBD change
-  "src/frontend/syntax/network/parser.ts#parseCall": 88, // LD/FBD change
-}
+export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {}
 
 const slash = (p: string): string => p.split("\\").join("/")
 

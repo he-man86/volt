@@ -49,7 +49,7 @@
  * Network text v1 wrote BOTH as `??? := <value>;`, so nothing downstream could tell them apart and the LSP
  * reported the pin case as the coil case. v2 gives the pin its own spelling — `f(…, => ???)`, the box's own output
  * slot (openspec network-text-literal-nwl, "a result pin is not an assign") — and the LSP says nothing about it, as
- * the build says nothing (`network/network-analysis.ts`, `checkUnresolvedBoxes`). The coil keeps `??? := <value>;`
+ * the build says nothing (`network/_boxes.ts`, `checkUnresolvedBoxes`). The coil keeps `??? := <value>;`
  * and the compiler's answer below.
  *
  * These bodies were recorded as v1 text; each is now the v2 text of the SAME vendor model (the v1 reader's model,

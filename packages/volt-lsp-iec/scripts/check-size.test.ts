@@ -137,7 +137,6 @@ test("braces in strings, templates, comments and regexes are not code", () => {
   expect(lineCount("a\nb")).toBe(2)
 })
 
-test("the ceilings hold network text alone (lsp-same-standard 4.5): every other file and function is within its limit", () => {
-  const outside = [...Object.keys(CEILINGS), ...Object.keys(FUNCTION_CEILINGS)].filter((key) => !key.includes("/network/"))
-  expect(outside).toEqual([])
+test("no ceiling is left (ld-fbd-coverage 2.1): every file and function is within its limit", () => {
+  expect([...Object.keys(CEILINGS), ...Object.keys(FUNCTION_CEILINGS)]).toEqual([])
 })

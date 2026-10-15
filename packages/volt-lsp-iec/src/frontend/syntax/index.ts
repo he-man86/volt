@@ -118,11 +118,6 @@ export { compilerTypeText, dimText, exprText, initOperatorText, renderTypeExpr }
 export * from "./network/ast.js"
 export { callReading, executeBoxes, networkValueExpr, statementExprs } from "./network/exprs.js"
 export { SYMBOL_TO_TYPE } from "./network/lexer.js"
-export {
-  NETWORK_TEXT_KEYWORDS,
-  NETWORK_TEXT_WORDS,
-  readNetworkText,
-  STRUCTURE_ONLY,
-  type NetworkScopeView,
-  type NetworkWireTyping,
-} from "./network/parser.js"
+export { readNetworkText, STRUCTURE_ONLY } from "./network/parser.js"
+export type { NetworkScopeView, NetworkWireTyping } from "./network/cursor.js"
+export { NETWORK_TEXT_KEYWORDS, NETWORK_TEXT_WORDS } from "./network/words.js"

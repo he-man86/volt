@@ -85,6 +85,6 @@ test("src/ exports nothing nobody reads, but the allowlist (lsp-same-standard 1.
   expect(nobodyIn(texts, "src/transpile").map((r) => `${r.name} ${r.file}`)).toEqual([])
 })
 
-test("the allowlist holds network text alone (lsp-same-standard 4.5): outside it src/ exports nothing nobody imports", () => {
-  expect(DEAD_EXPORT_ALLOWLIST.filter((entry) => !entry.includes("/network/"))).toEqual([])
+test("the allowlist is empty (ld-fbd-coverage 2.1): src/ exports nothing nobody imports", () => {
+  expect(DEAD_EXPORT_ALLOWLIST).toEqual([])
 })

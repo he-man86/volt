@@ -55,3 +55,63 @@ test("a member's %FOLDER taken out with its IMPLEMENTATION LD line leaves a netw
   const method = bodiesOf(src)[1]!
   expect(parseNetworkText(method, STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.message)).toEqual([])
 })
+
+const LD = `FUNCTION_BLOCK FB_LD
+VAR
+	a : BOOL; b : BOOL; out : BOOL;
+END_VAR
+IMPLEMENTATION LD
+NETWORK
+out := (a AND b);
+END_NETWORK
+END_FUNCTION_BLOCK`
+
+test("network text: an FBD/LD body is detected as graphical, not ST", () => {
+  const { units, errors } = parseSource(LD, { networkText: true }, "codesys")
+  expect(errors).toEqual([]) // ST parser routes around the network-text body — no false parse errors
+  expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
+})
+
+test("network text: a graphical body is detected by its IMPLEMENTATION line, even with no network", () => {
+  // A body states its language once, on its IMPLEMENTATION line (openspec implementation-keyword). A body with no
+  // network is still graphical; IMPLEMENTATION ST is an ST body's.
+  const empty = parseSource(`FUNCTION_BLOCK FB_LD
+VAR
+\ta : BOOL;
+END_VAR
+IMPLEMENTATION LD
+END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
+  expect(unitBodies(empty.units[0]!).map(graphicalMarkerLanguage)).toEqual(["LD"])
+  expect(unitBodies(empty.units[0]!).some(isGraphicalBody)).toBe(true)
+
+  const st = parseSource(`FUNCTION_BLOCK FB_ST
+VAR
+\ta : BOOL;
+END_VAR
+IMPLEMENTATION ST
+a := TRUE;
+END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
+  expect(unitBodies(st.units[0]!).map(graphicalMarkerLanguage)).toEqual([undefined])
+  expect(unitBodies(st.units[0]!).some(isGraphicalBody)).toBe(false)
+})
+
+test("network text: a body is graphical by its stated LINE alone, as the bridge classifies it", () => {
+  // The bridge matches the body's whole IMPLEMENTATION line (`ImplementationMarker.LanguageOf`), and nothing else
+  // decides the reader: a line sharing its line with code states no language, and text that LOOKS like a network —
+  // v1's `NETWORK 0 LD` header included — under IMPLEMENTATION ST is ST (which the ST parser refuses), never re-read.
+  const body = (impl: string) => `PROGRAM P
+VAR x : INT; a : INT; END_VAR
+${impl}
+END_PROGRAM`
+  const graphical = (impl: string) => unitBodies(parseSource(body(impl), { networkText: true }, "codesys").units[0]!).some(isGraphicalBody)
+
+  expect(graphical("IMPLEMENTATION FBD x := 1;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\n\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
+  expect(graphical("// IMPLEMENTATION FBD\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
+
+  // …and what the line states as graphical is, whatever follows it.
+  expect(graphical("IMPLEMENTATION FBD  \nNETWORK\nx := a;\nEND_NETWORK")).toBe(true)
+  expect(graphical("implementation ld\n\nNETWORK 0 LD\nx := a;")).toBe(true)
+})
