@@ -213,3 +213,50 @@ reader, loaded into a CODESYS, read all ten comments of pro2193 `SetAlarm` #0 an
 archive answer that is not text is refused UNREADABLE by name). A fresh operand archives `""` for `Address` and
 `SymbolComment` (measured, gate 1b-3), so the Address ledger is the 258 stored sentinels' compared share, no more. (5) Two network headers the readers fold:
 21 titles and 7 comments (the 1b.2 rows already planned the fix in 2.3).
+
+## 1b.4 Shown always, refused per network — S4 and every network no push can build
+
+**Target.** No LD/FBD body is UNSUPPORTED for one network. Pull shows every network; a push keeps every network whose
+text did not change exactly as the IDE holds it, and refuses a network it cannot build only when THAT network changed,
+naming the network (its position and title), the box and the reason. Supersedes the S4 row of 1.1 ("stays refused").
+
+**Pull.** (a) S4: a call box consumed by its main output ≠ slot 0 is spelled `fb(…).name`, the name taken from the box's
+own stored `OutputParam.Names[MainOutputIndex]` (no library signature). Written only where the main output is not slot 0,
+so no text that pulls today changes; the text reader and the LSP parser gain `.name` after a call's closing paren.
+(b) A network the text writer cannot spell (an X row, or an S shape before its 2.3 spelling lands) keeps its header and
+comment, and its trees become the one line `UNSUPPORTED <shape>;` (the writer's refusal name), instead of the whole
+body's `IMPLEMENTATION <LANG> UNSUPPORTED`. The LSP treats the line as an opaque network (no diagnostics inside it).
+
+**Push — choice: pair live and pushed networks by their TEXT, in order, not by position.** Each live network is rendered
+through the pull path (headers carry no number, so a render is position-free); the pushed list is aligned to the live
+list by longest common subsequence of exact texts (equal texts are the same file, so a tie takes the earliest). A paired
+network is kept: the vendor object is not touched. An unpaired live network between two pairs is replaced by the unpaired
+pushed one(s) there (a rebuild in that slot, today's per-network path), any surplus is removed or inserted. Only a network
+that is rebuilt or inserted is checked for buildability: S4 (`MainOutputIndex` read-only, N21), the N21 enabled
+comparisons, and a pushed `UNSUPPORTED` line (it pairs with its live network or is refused; a live one with no pushed
+counterpart is removed — the engineer deleted the network). The same alignment lifts TwinCAT's network-count refusal
+(`TcNetworkWriter`: "Volt cannot tell WHICH network was removed", whose "tracked in graphical-vendor-parity-map" is
+stale): a removal is the unpaired element dropped, an insertion is `RebuildNetwork`'s one-network import spliced in.
+
+Rejected: per-body refusal (today's marker: one network hides the body; owner 2026-10-12) · positional pairing (today: an
+inserted or removed network shifts every later one into "changed" — an untouched S4 network is refused and every shifted
+network rebuilt, dropping its R members, 1b.2 loss window) · a network id spelled in the text (TwinCAT re-mints Ids on
+rebuild, 1b.3; a copied network duplicates it) · pairing by title/label (mostly empty, not unique).
+
+**Measured first, both vendors: `vendor-facts` row `nwl-keep-network-in-place`** (2.2's table, recorded at the head of
+1b.4's implementation). A four-network LD body on the fixture; one `volt push` that inserts a network before #2, removes
+#3 and edits #4. Recorded: network #2's identity — CODESYS its items' `Id`s and its archive (`GetSerializableValue`),
+TwinCAT its `NetworkList` element bytes — before, after the push, and after save/close/reopen; and the build. This is
+the only measurement: it decides whether a vendor can keep one network while its neighbours change. If a vendor
+cannot, that vendor keeps positional pairing and refuses an unbuildable network whenever any network of its body
+changed, stated as a DIALECT row; the pull still shows every network (never a missing one).
+
+**Stays refused by name:** a changed (or inserted) network holding S4 or an N21 comparison — CODESYS per N21; TwinCAT
+`TcUnmeasured` (no witness: S4 is one Lenze CODESYS network, "niche: accepted loss (1 occurrence in the corpora)" for
+building it); an edited `UNSUPPORTED` line; on TwinCAT, an insertion whose import builds more than one network (D25).
+
+**Migration.** Lenze `FirstErrorCapture` pulls as network text (`.xErrorActive`); its marker goes. Until each S shape's
+2.3 spelling lands, its networks pull as `UNSUPPORTED <shape>;` lines in an otherwise editable body. The completeness
+oracle compares the S4 network (it was refused by the text writer). `docs/network-text.html` gains `.name` and the
+per-network line; its "Marker on pull" row moves to per network. Pushes that inserted or removed a network on CODESYS
+stop rebuilding the networks after it.
