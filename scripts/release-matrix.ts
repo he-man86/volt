@@ -10,7 +10,7 @@
  *
  * <p>The cells (found, never configured): every `CODESYS <version>` under `Program Files` (64-bit) and
  * `Program Files (x86)` (32-bit), and every registered XAE shell (32-bit TcXaeShell, 64-bit TcXaeShell64). Each is
- * served by `packages/volt-cli/scripts/ide.ps1 up -Instance release-matrix` on that variant's OWN fixture project, the
+ * served by `packages/volt-cli/scripts/ide.ps1 up -Instance release-matrix-<cell>` on that variant's OWN fixture project, the
  * whole `test/e2e` suite runs against it, and the run's own report (`VOLT_E2E_REPORT`) must name the version and
  * bitness the cell is about — a cell that drove some other IDE is red. A cell is red, by name, when:</p>
  * <ul>
@@ -30,13 +30,16 @@
  *
  *   bun run release:matrix                  # every cell
  *   bun run release:matrix --list           # the cells this machine has, and stop
+ *   bun run release:matrix --jobs 1         # one cell at a time (default 3)
  *   bun run release:matrix --only codesys-3.5.21.60-32,twincat-32
  *   bun run release:matrix --tests test/e2e/endpoints   # a SUBSET: printed, never a release result
  *   bun scripts/release-matrix.ts --verify <result.json> <sha>   # judge a result for a commit (promote.yml)
  *
- * Long: a full cell is the whole e2e suite (tens of minutes); the matrix is the sum. Windows only.
+ * Long: a full cell is the whole e2e suite (tens of minutes). Cells run 3 at a time (`--jobs`), each on its own
+ * `ide.ps1` instance — its own fixture copy and pipe, which the e2e harness alone talks to. More at once loads the
+ * machine enough to push the latency test past its floors. Windows only.
  */
-import { spawnSync } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
@@ -49,7 +52,6 @@ const REPO = resolve(import.meta.dir, "..")
 const CLI = join(REPO, "packages", "volt-cli")
 const FIXTURES = join(CLI, "test", "fixtures")
 const OUT = join(REPO, "dist", "release-matrix")
-const INSTANCE = "release-matrix"
 
 // ── reading this machine ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -109,35 +111,49 @@ export function machineCells(): Cell[] {
 
 // ── running a cell ───────────────────────────────────────────────────────────────────────────────────────────
 
-function ide(action: "up" | "down", cell: Cell, log: string[]): boolean {
+/** spawnSync's result, without blocking: the cells run side by side. */
+function run(cmd: string, args: string[], opts: { cwd?: string; env?: NodeJS.ProcessEnv; timeout: number }): Promise<{ status: number | null; text: string }> {
+	return new Promise((done) => {
+		const child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env })
+		const chunks: Buffer[] = []
+		child.stdout.on("data", (b: Buffer) => chunks.push(b))
+		child.stderr.on("data", (b: Buffer) => chunks.push(b))
+		const timer = setTimeout(() => child.kill(), opts.timeout)
+		child.on("close", (status) => { clearTimeout(timer); done({ status, text: Buffer.concat(chunks).toString("utf8") }) })
+	})
+}
+
+/** Each cell its own ide.ps1 instance, so cells running at once never share an IDE, a fixture copy or a pipe. */
+const instanceOf = (cell: Cell): string => `release-matrix-${cell.id}`
+
+async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<boolean> {
 	const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), action,
-		"-Vendor", cell.vendor, "-Instance", INSTANCE]
+		"-Vendor", cell.vendor, "-Instance", instanceOf(cell)]
 	if (action === "up") {
 		if (cell.vendor === "codesys") args.push("-CodesysVersion", cell.version!, "-CodesysBitness", String(cell.bits), "-Fixture", join(FIXTURES, cell.fixture!))
 		else args.push("-Fixture", "14", "-XaeBitness", String(cell.bits))
 		args.push("-Wait")
 	}
-	const r = spawnSync("powershell", args, { encoding: "utf8", timeout: action === "up" ? 20 * 60_000 : 10 * 60_000 })
-	log.push(`── ide.ps1 ${action} (exit ${r.status})`, r.stdout ?? "", r.stderr ?? "")
+	const r = await run("powershell", args, { timeout: action === "up" ? 20 * 60_000 : 10 * 60_000 })
+	log.push(`── ide.ps1 ${action} (exit ${r.status})`, r.text)
 	return r.status === 0
 }
 
-function runCell(cell: Cell, tests: string): Verdict {
+async function runCell(cell: Cell, tests: string): Promise<Verdict> {
 	if (cell.refusal) return judge(cell, undefined, [])
 	const log: string[] = []
 	const reportFile = join(OUT, `${cell.id}.report.jsonl`)
 	rmSync(reportFile, { force: true })
 	let outcome: Outcome | undefined
 	try {
-		if (!ide("up", cell, log)) return { cell, green: false, why: "the IDE did not come up (see the cell log)" }
-		const env = { ...process.env, VOLT_E2E_INSTANCE: INSTANCE, VOLT_VENDOR: cell.vendor, VOLT_GRAPHICAL: "1", VOLT_E2E_REPORT: reportFile }
+		if (!(await ide("up", cell, log))) return { cell, green: false, why: "the IDE did not come up (see the cell log)" }
+		const env = { ...process.env, VOLT_E2E_INSTANCE: instanceOf(cell), VOLT_VENDOR: cell.vendor, VOLT_GRAPHICAL: "1", VOLT_E2E_REPORT: reportFile }
 		delete (env as Record<string, string | undefined>).VOLT_PIPE
-		const r = spawnSync("bun", ["test", tests], { cwd: CLI, env, encoding: "utf8", timeout: 4 * 3600_000, maxBuffer: 256 * 1024 * 1024 })
-		const text = `${r.stdout ?? ""}\n${r.stderr ?? ""}`
-		log.push(`── bun test ${tests} (exit ${r.status})`, text)
-		outcome = parseSummary(text, r.status)
+		const r = await run("bun", ["test", tests], { cwd: CLI, env, timeout: 4 * 3600_000 })
+		log.push(`── bun test ${tests} (exit ${r.status})`, r.text)
+		outcome = parseSummary(r.text, r.status)
 	} finally {
-		ide("down", cell, log)
+		await ide("down", cell, log)
 		writeFileSync(join(OUT, `${cell.id}.log`), log.join("\n"))
 	}
 	const reports = existsSync(reportFile)
@@ -182,13 +198,20 @@ if (import.meta.main) {
 	const tests = arg("--tests") ?? "test/e2e"
 	const partial = tests !== "test/e2e" || only !== undefined
 	mkdirSync(OUT, { recursive: true })
-	const verdicts: Verdict[] = []
-	for (const cell of cells) {
-		console.log(`• ${cell.id} ...`)
-		const v = runCell(cell, tests)
-		console.log(`  ${v.green ? "green" : "RED"}: ${v.why}`)
-		verdicts.push(v)
-	}
+	const jobs = Number(arg("--jobs") ?? 3)
+	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
+	// A pool of `jobs` workers over the cell list; verdicts keep the cells' order for the matrix.
+	const verdicts: Verdict[] = new Array(cells.length)
+	let next = 0
+	await Promise.all(Array.from({ length: Math.min(jobs, cells.length) }, async () => {
+		while (next < cells.length) {
+			const i = next++
+			console.log(`• ${cells[i].id} ...`)
+			const v = await runCell(cells[i], tests)
+			console.log(`  ${cells[i].id} ${v.green ? "green" : "RED"}: ${v.why}`)
+			verdicts[i] = v
+		}
+	}))
 	console.log("\n" + renderMatrix(verdicts))
 	const green = verdicts.length > 0 && verdicts.every((v) => v.green)
 	if (partial) {
