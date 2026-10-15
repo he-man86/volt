@@ -78,13 +78,27 @@ def _temp_root():
     return os.path.join(base, "Volt", "codesys-bridge")
 
 
+def _alive(pid_name):
+    """Whether the folder name is the pid of a running process. A session's folder is named by its CODESYS pid."""
+    try:
+        from System.Diagnostics import Process
+        Process.GetProcessById(int(pid_name))
+        return True
+    except Exception:
+        return False
+
+
 def _prune(root):
-    # Drop copies left by CLOSED sessions, and ONLY those. The bridge DLL goes first: a running session holds it loaded,
-    # so its removal fails and the folder is left whole (its relay sidecars with it). Best-effort; never let cleanup
-    # break activation.
+    # Drop copies left by CLOSED sessions, and ONLY those: a folder whose CODESYS pid still runs is skipped. "Its DLL
+    # cannot be deleted" alone is not that test — a session that has copied its DLL but not yet loaded it looks
+    # closed, and two CODESYS starting together deleted each other's DLL before the load (release matrix,
+    # 2026-10-15: the IDE ran the script and never served). A pid reused by another process keeps its old folder until
+    # that process ends — harmless. Best-effort; never let cleanup break activation.
     try:
         for name in os.listdir(root):
             d = os.path.join(root, name)
+            if _alive(name):
+                continue
             try:
                 if os.path.exists(os.path.join(d, _DLL_NAME)):
                     os.remove(os.path.join(d, _DLL_NAME))   # raises while a session has it loaded

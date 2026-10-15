@@ -172,6 +172,58 @@ namespace Volt.Ide.Codesys.Tests
             }
         }
 
+        /// <summary>A STARTING SESSION'S STAGED DLL SURVIVES ANOTHER SESSION'S PRUNE. Each CODESYS stages the bridge into
+        /// <c>%TEMP%\Volt\codesys-bridge\&lt;its pid&gt;</c> and first prunes the folders of closed sessions. "Closed" was
+        /// "its DLL can be deleted" — true for a session that has copied its DLL and not yet loaded it, so two CODESYS
+        /// starting together deleted each other's DLL before the load (release matrix 2026-10-15: the IDE ran the script
+        /// and never served). A folder is pruned only when its pid no longer runs: here a live process's folder holds an
+        /// UNLOADED DLL and must survive, and a finished process's folder must go.</summary>
+        [Fact]
+        public void The_prune_keeps_a_running_sessions_unloaded_DLL_and_drops_a_closed_one()
+        {
+            Assert.True(Directory.Exists(Bundle), $"no shipped bundle at {Bundle}: the Volt.Ide.Codesys build did not produce one");
+            var root = Path.Combine(Path.GetTempPath(), "volt-prune-" + Guid.NewGuid().ToString("N"));
+            var download = Path.Combine(root, "codesys-scriptcommands");
+            var temp = Path.Combine(root, "temp");
+            var hostBase = Path.Combine(root, "host");
+            foreach (var d in new[] { download, temp, hostBase }) Directory.CreateDirectory(d);
+            foreach (var f in Directory.GetFiles(Bundle)) File.Copy(f, Path.Combine(download, Path.GetFileName(f)));
+            var script = Path.Combine(download, "start_volt_codesys.py");
+            File.Copy(Path.Combine(Root(), "scripts", "start_volt_codesys.py"), script);
+
+            var staging = Path.Combine(temp, "Volt", "codesys-bridge");
+            var hidden = new System.Diagnostics.ProcessStartInfo("ping", "-n 120 127.0.0.1") { CreateNoWindow = true, UseShellExecute = false };
+            using var running = System.Diagnostics.Process.Start(hidden)!;       // a session that has staged, not loaded
+            using var finished = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd", "/c exit") { CreateNoWindow = true, UseShellExecute = false })!;
+            finished.WaitForExit();
+            var live = Path.Combine(staging, running.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var closed = Path.Combine(staging, finished.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var d in new[] { live, closed })
+            {
+                Directory.CreateDirectory(d);
+                File.WriteAllText(Path.Combine(d, "Volt.Ide.Codesys.dll"), "staged, not loaded");
+            }
+
+            var domain = AppDomain.CreateDomain("volt-ide-" + Guid.NewGuid().ToString("N"), null,
+                new AppDomainSetup { ApplicationBase = hostBase });
+            try
+            {
+                var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
+                    new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, 1, null, null);
+                var report = "\nprinted:\n" + string.Join("\n", run.Printed);
+                Assert.True(File.Exists(Path.Combine(live, "Volt.Ide.Codesys.dll")),
+                    $"the prune deleted the staged DLL of running pid {running.Id}" + report);
+                Assert.False(Directory.Exists(closed), $"the prune kept the folder of finished pid {finished.Id}" + report);
+            }
+            finally
+            {
+                AppDomain.Unload(domain);
+                try { running.Kill(); } catch { /* already gone */ }
+                try { Directory.Delete(root, true); } catch { /* a loaded copy can stay locked until the process exits */ }
+            }
+        }
+
         [Serializable]
         public sealed class Copy
         {
