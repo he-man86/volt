@@ -349,3 +349,46 @@ round-trips it, TwinCAT refuses it) are the others. All four are pinned as known
 `test/unit/vendor-facts.test.ts` ("the known divergences the 2.2 rows recorded"): each check states the divergence as
 recorded and fails once a re-record closes it (gate 2-2).
 
+
+## 2.3 The shapes and the members — one pragma, member ↔ text one to one
+
+**Target.** Every S shape and every 1b.2 R/D member round-trips NWL → text → NWL on both vendors, so the completeness
+oracle's known divergences reach 0 except the X rows and S4's build. Each lands test-first: a recorded fixture on both
+vendors (pull → push → pull fixed point + build), then writer, reader, gate, LSP parser and checks, in 2.1's files.
+
+**Choice: the 1b.2 pragma lands FIRST and S1 is its first user; the box's slot list is derived from its spelled
+`OutputParam.Names`.** P1 (1b) supersedes 1.1's S1 outcome "drop the stored slot if inert": the 2.2 row left execution
+unmeasured, and P1 forbids folding a member that carries data. So S1 is `(a AND b){OutputParam.Names := ['']}`
+(`{OutputParam.Types := …}`, `{EN := …}`, `{ENO := …}` where they differ), and one rule gives the slots back: a box has
+one output slot per stored name, empty unless the text connects it (`=> x`, `.name`, the main output in place). The same
+rule closes 1b.3's open gap (a call's unconnected output pins, 186 slot / 172 name lists): `{OutputParam.Names := ['Q',
+'ET']}` on the call. Pragma grammar: `"{" , member { "." member } , ":=" , literal | "[" literal { "," literal } "]" ,
+"}"` after its node; literals are ST's (string, number, TRUE/FALSE, enum word). Rejected: drop S1's slot (execution
+unmeasured, P1) · keep S1 refused for the owner (8 networks stay lines, and the pragma decides it without a run
+measurement) · a bespoke `.slot`/empty `=>` per unconnected pin (no ST meaning; the grammar grows per member) · library
+signatures for the output list (Volt.Engine has none).
+
+**Then, in order:** S2 as 1.1 (the third pair kind, `(t := v)` / `S=` / `R=`). S3a: the wire's `VAR_TEMP` type IS the
+leaf's stored `Operand.Type` (the IDE-drawn leaf holds its declared type, 2.2), written onto the leaf on push — so 1.1's
+`NetworkScope` variable types are not built (rejected: a second source for a fact the text already carries). S3b as 1.1
+(`g := ;`, BOOL in LD). S6 as 1.1 (`NOT xEnable := v`; the `0` on the other pins D, a zero-only list the pragma). S5:
+`` `SUPER^` `` resolved through the POU's `EXTENDS` in `NetworkScope`. Then the members: every R row of 2.2 as the
+pragma (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`, `ParamList.Types`,
+`EN`/`ENO`, `CallType`), the D rows' derivations in the writer, exact titles/comments, the item Jump/Return bit only
+where spelled (then `nwl-assign-item-flags` re-runs). `RebuildLoss` loses each member as it is spelled; it is empty at
+the end. `CallType` spelled lets TwinCAT import a PROGRAM call as `Program`; the five calls-subject rows re-run there.
+
+**Inference deleted (count before → after, recorded under 2.3): 8 rule families → 0.** `ProducerType`/
+`EveryUseIsBoolean` (wire type from its uses) · `WithoutStoredTypes` (stored output types stripped) · "slot 0 / the
+`MainOutputIndex` default is the connected slot" where `OutputParam.Names` now says it · the S1 "stored slot" refusal ·
+the title/comment trims (`NetworkText.Stored`, CODESYS `Clean`, TwinCAT `Trimmed`, the writers' `TrimEnd` compares) ·
+the comment CR LF fold · the item-bit OR (C13) · `NetworkText.RefuseSymbolCommentLoss` (the pragma spells it).
+
+**Stays refused by name:** the X rows; an edge on a pin; a terminator-fed FBD wire; a leaf-fed wire whose leaf stores no
+type (only pre-2.3 Volt pushes); a changed network holding S4 or an N21 comparison (1b.4); a pragma naming a member the
+1b.2 table does not hold, or a value its member cannot take.
+
+**Migration.** The pragma appears only where a stored value differs from its derivation; a re-pull rewrites the
+`UNSUPPORTED "<shape>";` lines of S1–S6 and adds the counted pragmas (listed in the close report). The LSP parser gains
+the pragma, S2's pair, the pin `NOT` and `SUPER^`; `docs/network-text.html` gains all four and loses the per-shape
+"Marker on pull" entries.
