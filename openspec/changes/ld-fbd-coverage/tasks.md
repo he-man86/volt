@@ -283,10 +283,42 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       406 pass (+2), `Volt.Ide.Twincat.Tests` 504 pass (+2), `Volt.Repo.Gates` 243 pass (the `NETWORK_UNSUPPORTED`
       raise-site census +1, `NetworkText.cs`), `Volt.Cli.Tests` 295 pass; LSP full suite with `VOLT_REQUIRE_FULL=1`,
       `VOLT_FIXTURES` unset: 10616 tests, 10154 pass, 34 skip, 428 todo, 0 fail (736 s). Fixture map unchanged (no fixture or transpiler change).
-- [ ] 1b.2 The disposition table in design.md: every member → **spelled** (its text form), **editor cache** (with the
+- [x] 1b.2 The disposition table in design.md: every member → **spelled** (its text form), **editor cache** (with the
       measurement that it is derived and rebuilt on push), or **refused by name** (with the measurement that no push can
       build it). No member left undecided; members with 0 corpus occurrences still get a decision. New spellings follow
       the existing style (trees, one named node per split point) and are listed for the owner in the close report.
+      **Done 2026-10-15** (design.md "1b.2"): a per-member table over all 64 archived (class, member) pairs of the
+      shipped schema (63 + `AbstractNWLItem.Id`; checked mechanically against the 1b.1 schema dump, none missing), each
+      S / S+ / D / C / R / X. Per member: S 24, D 11 (8 of them single-valued constants, 0 pragmas in the corpora),
+      R 6, X 11 (`Connectors`, `ILLines`, Terminator `Input`/`Flags`, the 3 Mux and 4 ILStatement members), S+ 1
+      (`SymbolComment`), and 11 split by value or position (S with S+/R/D/C/X parts: Assign `Flags`, `Flags.Flags`,
+      `OutputItems`, `InputFlags`, `InputParam`, `OutputParam`, `EN`, `ENO`, `CallType`, `STSnippet`, `Operand.Type`).
+      12 distinct cache-candidate rows for 2.2 (14 after gate 1b-2, below). New spellings for the owner: the `{Member := value}` pragma (only where
+      a stored value differs from its derivation), `{SymbolComment := '…'}` ×10, S4's `.name`, S6's `NOT IN1 :=`. Corrected against the census dumps while writing it: `Instance.Type`
+      differs from `BoxType` on 47 boxes (20 case-only, 5 other, 22 And boxes storing "AND"), not 5; `ValidIds` and the
+      three `Network` IL/FBD flags are single-valued, so they are decided by constant (no row); ~~`CallType` is already a
+      measured CODESYS cache~~ (wrong: one value of 19 measured; R since gate 1b-2); the cache rows go in 2.2 (not 2.3), before any spelling.
+      **Gate step 1b-2 (2026-10-15).** Review findings, all four taken (design-only; no code changed, so no failing test
+      applies — the 1b.3 oracle is where each becomes red/green): (1) `BoxTreeAssign.Flags` was coded S on the claim that
+      the vendor writes Jump/Return on the item AND the target; the corpus's only control-flow assign (IDE-drawn `RETURN`,
+      lenze-mid `ATD_FQI` net 0) has item `Flags` 0 and `Return` on the target `???` (re-run over the census dumps: item 0
+      ×489), so the item bit is now R `nwl-assign-item-flags`, derivation 0, a stored bit spelled `{Flags := Jump|Return}`
+      before the `;`, and 2.3 writes it only where spelled (`NetworkTextWriter`'s OR of the two places goes; the docs row
+      "derived from the target bit" is corrected); (2) `Title`/`Comment` were plain S though the readers trim
+      (`NetworkText.Stored`) and the text writer folds CR LF: re-counted, titles ending in whitespace 21 (`" "` 14, CR LF 6,
+      `" 
+"` 1), comments with CR LF inside 11 (0 bare LF, 0 lone CR), comments ending in whitespace 2 — all lenze-mid.
+      Now Title is S exact (`$R$N` and trailing spaces inside the quotes; the trim goes in 2.3, as C35 did for ST),
+      Comment S with its line break D (CR LF) and a `{Comment := '…'}` pragma where the lines do not give it back; `Label`
+      has no such value (2 labels); (3) `CallType` was C on one measured value (`MOVE` → `Move`) of 19: now R
+      `nwl-call-type` on both vendors (Function, FunctionBlock, Program, operator, EXECUTE), derivation `BoxType` +
+      declarations; (4) the interim loss window (rebuild drops Fixed 1914, Boolean 2347, Address sentinel 258,
+      BranchCounter) is named with its reach, made visible by a per-network `BridgeLog.Warn` at the head of 2.2
+      (test-first), and its rows are recorded first. 2.2 rows 12 → 14.
+      Gate: typecheck clean (5 packages); `openspec validate` valid; `Volt.Engine.Tests` 2533 pass / 1 skip,
+      `Volt.Ide.Codesys.Tests` 406, `Volt.Ide.Twincat.Tests` 504, `Volt.Repo.Gates` 243, `Volt.Cli.Tests` 295 (all 0 fail,
+      unchanged); LSP full suite with `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset: 10616 tests, 10154 pass, 34 skip, 428
+      todo, 0 fail (574 s). Fixture map unchanged (no fixture or transpiler change).
 - [ ] 1b.3 The completeness oracle (red first): for every corpus network on both vendors, NWL → text → NWL reproduces every
       non-cache member exactly (an extension of `ModelRoundTripOracleTests` over the corpora); a member the table does
       not list fails the gate by name — so a vendor adding a member in a future SP surfaces as a red test, not a silent loss.
@@ -309,7 +341,14 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       suite, the fixture map and the network e2e identical before/after.
 - [ ] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
       S1's outcome), `nwl-leaf-wire-type` (decides S3a, owner amendment a), `nwl-nested-assign`, `nwl-rail-fed-wire`,
-      `nwl-input-pin-flag`, `nwl-super-call`; DIALECT N-rows updated.
+      `nwl-input-pin-flag`, `nwl-super-call`; and the 1b.2 cache-candidate rows (design.md "1b.2", code R):
+      `nwl-item-id`, `nwl-branch-counter`, `nwl-flags-fixed`, `nwl-operand-boolean`, `nwl-operand-type`,
+      `nwl-instance-type`, `nwl-param-types`, `nwl-box-en-eno`, `nwl-input-flags-list`, `nwl-output-param-names`,
+      `nwl-address-sentinel`, `nwl-stsnippet-line-ids`, `nwl-call-type`, `nwl-assign-item-flags` (added by gate 1b-2);
+      DIALECT N-rows updated. **First, test-first (gate 1b-2, design "The interim loss window, made visible"):** both
+      drivers' rebuild paths log one `BridgeLog.Warn` per rebuilt network naming each R candidate it resets and its count
+      of stored non-default values; then the loss-candidate rows FIRST (`nwl-flags-fixed`, `nwl-operand-boolean`,
+      `nwl-address-sentinel`, `nwl-branch-counter`, `nwl-item-id`), each leaving the warning as it lands.
 - [ ] 2.3 Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
       vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
       split structure of 2.1.

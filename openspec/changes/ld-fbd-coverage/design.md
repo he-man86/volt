@@ -37,33 +37,131 @@ the S3/S5 type rules, and the "Marker on pull" row loses those entries.
 
 ## 1b.2 Disposition — every NWL member: spelled / editor cache / refused by name
 
-**Target.** Every archived member of the 15 NWL classes (census 1b.1) has one disposition, so NWL → text → NWL (1b.3)
-is exact for every non-cache member and a member missing from this table fails the oracle by name.
+**Target.** Every archived member of the 15 NWL classes and their base has exactly one disposition below (census 1b.1:
+63 distinct members plus `AbstractNWLItem.Id` on 11 classes = the 74 archived fields, identical on both vendors). With
+that, NWL → text → NWL (1b.3) is exact for every non-cache member, and a member missing from the table fails the oracle by
+name. **The member table below IS the oracle's member list.**
 
-**Choice: one generic node pragma, written only where the stored value differs from its derivation.** A member that is
-not plain content gets a derivation (from the tree, the declarations, or the vendor's constructor default); the writer
-sets the derived value, and a stored value that differs is spelled `{Member := value}` directly after its node (an
-operand, a box's closing paren, an assign target, the `NETWORK` line, the `IMPLEMENTATION` line). Pragma brackets are
-unused by network text today, so no text that pulls now changes meaning, and a member a future SP adds gets the same
-form with no grammar change. Rejected: a bespoke spelling per member (the grammar grows per member) · a sidecar file
-(the item's text stops being its truth) · a table keyed by node path (paths break on any edit) · dropping the unmeasured
-members (owner default 1b.1: no proof, no exclusion).
+**Choice: one generic node pragma, written only where the stored value differs from its derivation.** Every scalar member
+that is not plain content gets a derivation (a constant, the tree, or the declarations). The writer sets the derived value,
+and a stored value that differs is spelled `{Member := value}` directly after its node (an operand, a box's closing paren,
+an assign target, the `NETWORK` line, the `IMPLEMENTATION` line). Network text uses no pragma brackets today, so no text
+that pulls now changes meaning. A member that a future SP adds gets the same form with no grammar change. Rejected: a
+bespoke spelling per member (the grammar grows per member) · a sidecar file (the item's text stops being its truth) · a
+table keyed by node path (paths break on any edit) · dropping the unmeasured members (owner default 1b.1: no proof, no
+exclusion).
 
-| disposition | members |
-|---|---|
-| **spelled, existing form** | Network `Label`/`Title`/`Comment`/`OutCommented`, `NetworkList` order, `DefaultViewMode` (IMPLEMENTATION line); Assign `OutputItems`/`RValue` and target `Flags` Set/Reset/Jump/Return; operand/box `Flags` Negation/Rtrig/Ftrig; Box `BoxType`, `InputItems`, `InputParam.Names` (formals), `OutputItems`+`OutputParam.Names` (`=>`, `.slot`), `EN`/`ENO` (EN pin, `.ENO`), `Instance`, `STSnippet` text (EXECUTE); Demux `VarId`/`Input` (the `g<n>` wire); Parallel `Trees`/`Input`/`Mode`; `Operand.Operand`; a wire's `Type` (VAR_TEMP) |
-| **spelled, new form** | S1–S6 as 1.1 (pin flags `NOT IN1 :=`, 6 pins); S4's slot `.xErrorActive` from the box's own `OutputParam.Names` (1b.4); `Operand.SymbolComment` as `{SymbolComment := '…'}` (10, pro2193 — lifts gate 1b-1's refusal) |
-| **derived from the tree** (writer sets it; the oracle proves it on every corpus node — a counter-example makes it a pragma, never a guess) | `Operand.LValue` (1082/1082), `Operand.IsInstance` (1305/1305), `ProvidesSTSnippet` (12/12), `CallType` (from `BoxType` + declaration kind), the connected slot's null, the function result pin's `"   "`, `Instance.Type` = `BoxType` (pragma on the 5 that differ) |
-| **editor cache, already measured** | `TextDocument.LineInfoPersistence`/`TextBlobForSerialisation` (bridge-one-to-one `editor-caches`); `IBoxTree4.Ordinary`, `Image`, `TheAddress`/`TheSymbolComment` (N23: not serialized at all) |
-| **cache candidate → one `vendor-facts` row each in 2.3** (push without it, save/reopen, read back and build; re-derived identically ⇒ editor cache, else the pragma) | `AbstractNWLItem.Id`, `BranchCounter`, `ValidIds`, `FBDValid`/`ILValid`/`ILActive`, `Flags.Fixed` (1914), `Operand.Boolean` (2347), `Operand.Type` off a wire, `ParamList.Types`, stored `EN`/`ENO` on a box without an EN pin (the 40 comparisons), a zero-only `InputFlags` list (7 boxes), `Address` sentinel (258), the 14 boxes whose `OutputParam.Names` count ≠ slot count, STSnippet line `Id`/`Tag` (both vendors) |
-| **pragma, 0 in the corpora** (scalar, so spelling costs nothing) | non-empty `Operand.Comment`, non-empty `NetworkListComment`, `Flags.Extensible`, `ContainsExtensibleInputs` |
-| **refused by name, 0 in the corpora** (a tree shape with no witness of its meaning; read refuses the body/network, never drops it) | `BoxTreeMux`, `ILStatement`/`Network.ILLines`, non-empty `Network.Connectors`, `BoxTreeTerminator.Input`, a flag on a Parallel/Demux (N20), Rtrig+Ftrig together, an edge on a pin, a Jump/Return flag off an assign |
+**Codes.**
+- **S**: spelled, existing form.
+- **S+**: spelled, new form (listed for the owner in the close report).
+- **D**: derived. The writer sets it, and the oracle proves the derivation on every corpus node. A counter-example is
+  spelled by the pragma, never guessed.
+- **C**: editor cache, already measured (the measurement is named).
+- **R**: cache candidate. It is SPELLED by the pragma (owner default) unless its `vendor-facts` row shows that the IDE
+  re-derives it identically (push without it, save/reopen, read back, build); then it becomes C. The row is recorded in
+  **2.2**, before any 2.3 spelling lands.
+- **X**: refused by name, per NETWORK (1b.4). These are tree shapes with 0 corpus occurrences and no witness of their
+  meaning. Read refuses the network and never drops it, and a future witness turns the shape into a spelling.
 
-**Stays refused by name:** the last row, and S4's push when its network changed (N21, read-only `MainOutputIndex`).
-Until a candidate's row lands, a CODESYS rebuild of a network where it is non-default keeps today's behaviour (built
-fresh); the pragma, once spelled, is written by both writers and the 1b-1 `SymbolComment` refusal is deleted with it.
+Counts are from census 1b.1 (six corpora, both vendors).
 
-**Migration.** Texts change only where a stored value differs from its derivation: pro2193 `SetAlarm` gains 10
-`SymbolComment` pragmas; every row that ends "not re-derived" adds pragmas where its values sit, counted in its row and
-listed for the owner in the close report. The LSP parser and `docs/network-text.html` gain the one pragma production,
-`node += [ "{" , member , ":=" , literal , "}" ]`; the oracle's member list is this table.
+| class | member | code | text form / derivation / evidence | corpus |
+|---|---|---|---|---|
+| `NWLImplementationObject` | `DefaultViewMode` | S | `IMPLEMENTATION LD\|FBD` | Ld 36 / Fbd 10 |
+| | `NetworkList` | S | the `NETWORK … END_NETWORK` blocks, in order | 394 |
+| | `NetworkListComment` | D | `""`; else `{NetworkListComment := '…'}` on the `IMPLEMENTATION` line | `""` ×46 |
+| | `BranchCounter` | R `nwl-branch-counter` | no derivation found (it is not the Parallel count and not the max `VarId`); if not a cache, a pragma on the `IMPLEMENTATION` line | 0 ×23, 1…328 ×23 |
+| | `ValidIds` | D | `true`; else pragma | true ×46 |
+| `Network` | `Label` | S | `LABEL: x` | 2 |
+| | `Title` | S (exact) | `TITLE: "…"`, every stored character: a trailing space inside the quotes, a CR LF as `$R$N` (the title escapes the format already has). Today's readers trim it (`NetworkText.Stored`: CODESYS `Clean`, TwinCAT `Trimmed`, `NetworkTextReader`) and the writers compare ignoring trailing whitespace (DIALECT C8, written when a quoted title could not hold a newline). That trim folds stored content, as C35 found for ST text, and 2.3 deletes it on both sides | 260; ends in whitespace 21 (`" "` 14, `"
+"` 6, `" 
+"` 1, all lenze-mid) |
+| | `Comment` | S / D | the `//` lines under the header (S). The line break between them is D: CR LF (11 multi-line comments, every break CR LF; 0 LF-only, 0 lone CR). Today's `NetworkTextWriter` turns CR LF into LF and the readers trim the end. A stored comment that the lines and that break do not give back (a trailing space or a trailing CR LF on the last line, a bare LF) is spelled `{Comment := '…'}` on the `NETWORK` line. 2.3 deletes the trim and the CR LF fold | 20; CR LF inside 11; ends in whitespace 2 (`" "` 1, `"
+"` 1, lenze-mid) |
+| | `OutCommented` | S | `DISABLED` | 3 |
+| | `NetworkItems` | S | the statements, in order | 808 trees |
+| | `Connectors` | X if non-empty | — | empty ×394 |
+| | `ILLines` | X if non-empty (with `ILStatement`) | — | empty ×394 |
+| | `ILActive` | D | `false`; else pragma on the `NETWORK` line | false ×394 |
+| | `ILValid` | D | `false`; else pragma | false ×394 |
+| | `FBDValid` | D | `false`; else pragma | false ×394 |
+| `BoxTreeAssign` | `OutputItems` | S | the targets `t1 := t2 := … value` | 489 (1–20 targets) |
+| | `RValue` | S | the value | 489 |
+| | `Flags` | R / X | The text `JMP l` / `RETURN` spells the TARGET operand's bit (the `Flags.Flags` row); it does not say whether the ITEM carries it too, and today's `NetworkTextWriter` ORs the two places together. The item bit is R `nwl-assign-item-flags`, derivation 0: the only control-flow assign in the corpora is IDE-drawn (lenze-mid `ATD_FQI` network 0, `RETURN`, target `???`) and has item `Flags` 0 with `Return` on the target (as `NetworkModel.cs` "both vendors keep Jump and Return on the operand" records). The other witness is a jump TwinCAT's importer built (`VltProbe_Jump.TcPOU`, C13): the bit on both. A stored item bit is spelled `{Flags := Jump}` / `{Flags := Return}` directly before the statement's `;` (unambiguous: an operand's `Flags` is always spelled by the text, never by the pragma). Volt's writers put the bit on both places today (C13); in 2.3 they write the item bit only where the text spells it (C13 measured that the item bit is not load-bearing for the build), unless the row shows the IDE re-derives it. Any other item bit is X | 0 ×489 (the one `RETURN` included) |
+| `BoxTreeBox` | `BoxType` | S | the callee name | 1305 (98 distinct) |
+| | `Instance` | S | the instance in `fb(…)`; its null operand on a function/operator is D | named 157 |
+| | `OutputItems` | S / S+ | `=> x`, `.slot`, the main output in place. S4's main output ≠ slot 0 is `.name`, taken from the box's own `OutputParam.Names` (1b.4, S+). The null slot(s) are D | 1794 lists |
+| | `Flags` | S | negation/edge of the box output (`NOT f(…)`, `R_EDGE(…)`) | 0 ×1305 |
+| | `InputFlags` | S+ / R / X | a negated pin is `NOT IN1 := v` (S6, S+). D: null unless a pin is flagged, then `0` on the other pins. A zero-only list is R `nwl-input-flags-list`. An edge on a pin is X | lists ×7 (zero-only 2), negated pins 6 |
+| | `InputItems` | S | the pin values | 1305 |
+| | `InputParam` | S / R | `Names` are the formals and `EN :=` (S); `Types` is R `nwl-param-types` | 1305 |
+| | `OutputParam` | S / D / R | `Names` are `=> formal`, `.ENO`, `.slot` (S). The function result pin `"   "` (or `"ENO"` when enabled) is D. The 14 boxes whose name count ≠ slot count (10 Program, 4 Function) are R `nwl-output-param-names` | 1305 |
+| | `CallType` | R `nwl-call-type` (both vendors) / D | Derivation: `BoxType` + the declarations (an operator from its name, `Function`/`FunctionBlock`/`Program` from the callee's declaration, `None` on EXECUTE); each `BoxType` has exactly one `CallType` on all 1305 boxes, and the oracle proves the derivation per corpus box. Not yet a cache: the one measurement (`probe-nwl-boxoutputs`, `git show b2496efb4b`: a fresh CODESYS box reads `None`, and the same box reads `Move` after reload) covers 1 of the 19 values, an operator, which needs no declaration. The row pushes a Function, a FunctionBlock, a Program, an operator and an EXECUTE box without the value, on both vendors; re-derived on every kind makes it C, otherwise a differing value is spelled `{CallType := …}` after the box's closing paren | 19 values (FunctionBlock 157, Function 113, None 12, Program 11, …) |
+| | `EN` | S / R | the `EN :=` pin when the box has an EN slot (N13); otherwise the stored bool is R `nwl-box-en-eno` | null 815, bool 490 |
+| | `ENO` | S / R | `.ENO` when used; the stored bool is R `nwl-box-en-eno` (EN≠ENO on the 40 comparisons) | as `EN` |
+| | `STSnippet` | S | the EXECUTE body text (the document itself: `STSnippet` row) | 12 |
+| | `ContainsExtensibleInputs` | D | `false`; else pragma | false ×1305 |
+| | `ProvidesSTSnippet` | D | true exactly when `STSnippet` is set | 12/12 |
+| `BoxTreeOperand` | `Operand` | S | the operand (its members: the `Operand` rows) | 2926 |
+| `BoxTreeDemux` | `VarId` | S | `g<VarId>`. When that name is taken, the wire is renamed and `{VarId := n}` spells the stored one (D) | 71 distinct |
+| | `Input` | S | `g<n> := value;` defines the wire, `g<n>` uses it | fed 140, null 436 |
+| `BoxTreeParallel` | `Trees` | S | `PARALLEL(b1, b2, …)` | 17 |
+| | `Input` | S | `IN := v` | fed 12, null 5 |
+| | `Mode` | S | `MODE := Sequential` (BoxShortCircuit is not written) | 16 / 1 |
+| `BoxTreeTerminator` | `Input` | X if non-null (task 1.10) | — | null ×51 |
+| | `Flags` | X if non-zero | — | 0 ×51 |
+| `BoxTreeMux` | `VarId`, `InputIndex`, `Merger` | X (the node) | — | 0 |
+| `ILStatement` | `Operator`, `Prefix`, `Operand`, `Postfix` | X (the node) | — | 0 |
+| `STSnippet` | `STSnippet` | S / C / R | the text is S. CODESYS `TextDocument.LineInfoPersistence`/`TextBlobForSerialisation` are C (bridge-one-to-one `editor-caches`). The per-line `Id`/`Tag` on both vendors are R `nwl-stsnippet-line-ids` (CODESYS: consecutive, and the last one equals the snippet's own `Id`; TwinCAT: minted) | 12 snippets, 58 lines |
+| `Operand` | `Operand` | S | the name / literal / expression. `""` is an unconnected pin. Null on a function/operator instance is D | name 3695, `""` 470, null 1148 |
+| | `Type` | S / R | on a wire, its `VAR_TEMP` type (S). Elsewhere R `nwl-operand-type`, with the derivation: the declared type from the scope, and null/`""` on an unconnected pin as stored per position. **`Instance.Type`** is R `nwl-instance-type`, derivation `BoxType` on a named instance and `""` otherwise; it differs on 47: 20 case-only, 5 other (`SR` vs `RS`, 4 namespace-qualified), 22 And boxes storing `"AND"` | type 3777, `""` 1203, null 333 |
+| | `Comment` | D | `""`; else `{Comment := '…'}` | `""` ×5313 |
+| | `SymbolComment` | S+ | `""`; else `{SymbolComment := '…'}`. It is a stale copy of a declaration comment (1b.1), not re-derived. This lifts gate 1b-1's per-network refusal | 10 (pro2193 `SetAlarm`) |
+| | `Address` | R `nwl-address-sentinel` | `""` vs the archive sentinel `Constant_Address_Serialization_Value`; a real address is spelled by the pragma | `""` 5055, sentinel 258 |
+| | `Flags` | S | see the `Flags` row | — |
+| | `LValue` | D | true exactly for an assign target or a box output slot | 1082/1082 |
+| | `Boolean` | R `nwl-operand-boolean` | not derivable from `Type = BOOL` (they differ on 342) | true 2347 |
+| | `IsInstance` | D | true exactly for the box's `Instance` | 1305/1305 |
+| `Flags` | `Flags` | S / S+ / X | Negation `NOT`, Set `S=`, Reset `R=`, Jump `JMP` and Return `RETURN` (on an assign's TARGET operand; the item's own bit is the `BoxTreeAssign.Flags` row), Rtrig `R_EDGE`, Ftrig `F_EDGE` are S; a negated pin is S+ (S6). X: an edge on a pin, Rtrig+Ftrig together, an edge on a coil, any flag on a Parallel/Demux (N20) | neg 359, S 118, R 128, Return 1, Rtrig 1 |
+| | `Fixed` | R `nwl-flags-fixed` | no derivation by position (box inputs: 1343 true / 1479 false) | true 1914 of 7180 |
+| | `Extensible` | D | `false`; else pragma | false ×7180 |
+| `OutputItemList` | `OutputItems` | S | through its owner (assign targets, box outputs) | 1794 |
+| `ParamList` | `Names` | S | the formals (see the box rows) | 2610 |
+| | `Types` | R `nwl-param-types` | the callee's pin types (BOOL 1488, `BOOL[REF]` 147, … 116 distinct) | 2610 |
+| `AbstractNWLItem` | `Id` | R `nwl-item-id` | minted per body, unique among NWL items (0 duplicates in 46 bodies) | 11,085 |
+
+**The 2.2 rows this table adds (14):** `nwl-item-id`, `nwl-branch-counter`, `nwl-flags-fixed`, `nwl-operand-boolean`,
+`nwl-operand-type`, `nwl-instance-type`, `nwl-param-types`, `nwl-box-en-eno`, `nwl-input-flags-list`,
+`nwl-output-param-names`, `nwl-address-sentinel`, `nwl-stsnippet-line-ids`, `nwl-call-type`, `nwl-assign-item-flags`. Each
+row records, on both vendors, whether a push without the value comes back with the stored one after save/reopen, and
+whether it builds. "Re-derived identically" makes the member C. Anything else makes it the pragma, and its corpus count
+goes in the close report. **Fixed** and **Boolean** answer the open loss candidate from gate 1b-1 (a CODESYS rebuild drops
+both). **Id** decides whether every network that a push rebuilds is identical to one the IDE drew.
+
+**The interim loss window, made visible.** Until a row lands, a rebuild of a network where an R candidate is non-default
+(the CODESYS rebuild of a changed network; TwinCAT's import rebuild of a changed shape) keeps today's behaviour: the network
+is built fresh and the stored value is dropped. Its reach in the corpora: `Flags.Fixed` true 1914 (1686 operands, 215
+boxes, 13 pins), `Operand.Boolean` true 2347, the `Address` sentinel 258, `BranchCounter` non-zero on 23 bodies. No
+candidate is refused meanwhile (a refusal on Fixed alone would refuse nearly every CODESYS LD/FBD edit on a guess). So that
+the window is not silent: (1) 2.2 records these loss candidates FIRST (`nwl-flags-fixed`, `nwl-operand-boolean`,
+`nwl-address-sentinel`, `nwl-branch-counter`, `nwl-item-id`), before the shape probes; (2) until each lands, both drivers'
+rebuild paths log one `BridgeLog.Warn` per rebuilt network that names each R candidate it resets and how many stored
+non-default values it held (test-first, at the head of 2.2), and a candidate leaves the warning when its row lands; (3) the
+close report states the window's dates and that no release between this design and 2.2 claimed LD/FBD edits lossless.
+
+**Decided by constant, with 0 pragmas in the corpora** (D rows with one value on every corpus node): `NetworkListComment`,
+`ValidIds`, `ILActive`/`ILValid`/`FBDValid`, `ContainsExtensibleInputs`, `Operand.Comment` and `Flags.Extensible`. They
+need no row, because a differing value is spelled and so nothing can be lost. Whether the IDE keeps a pushed non-default is
+measured when a witness appears.
+
+**Stays refused by name:** the X rows (all 0 in the corpora), and S4's push when its network changed (N21, read-only
+`MainOutputIndex`; 1b.4). Once the pragma is spelled, both writers and both readers handle it, and the 1b-1
+`SymbolComment` refusal (`NetworkText.RefuseSymbolCommentLoss`) is deleted with it.
+
+**Migration.** Texts change only where a stored value differs from its derivation. pro2193 `SetAlarm` gains 10
+`SymbolComment` pragmas. The 21 lenze-mid titles that end in whitespace gain it inside their quotes (`$R$N` or a space),
+and its 2 comments that end in whitespace gain a `{Comment := '…'}` pragma; Volt-written jumps and returns stop carrying
+the item bit unless their text spells it. `docs/network-text.html`'s row "Item Jump/Return bit … derived from the target
+bit" is corrected with it (the corpus `RETURN` contradicts it). Every R row that the recording leaves "not re-derived" adds pragmas where its values sit; they are
+counted in the row and listed for the owner in the close report. The LSP parser and `docs/network-text.html` gain the one
+pragma production, `node += [ "{" , member , ":=" , literal , "}" ]`.
