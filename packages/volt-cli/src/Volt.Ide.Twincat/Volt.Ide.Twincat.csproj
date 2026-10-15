@@ -21,8 +21,10 @@
     <ProjectReference Include="..\Volt.Relay\Volt.Relay.csproj" />
     <!-- VoltTwincatExplorer.exe (net48 x86), the reader of a 32-bit XAE's Solution Explorer (TcHierarchy): built with
          this project - as itself, x86 net48, never under the worker's RID or self-contained publish - and copied
-         beside VoltBridgeTwincat.exe in its build AND publish output, never referenced. -->
-    <ProjectReference Include="..\Volt.Ide.Twincat.Explorer\Volt.Ide.Twincat.Explorer.csproj"
+         beside VoltBridgeTwincat.exe in its build AND publish output, never referenced. Not for a win-x86 worker: it
+         reads a 32-bit XAE in-process (TcHierarchy.ReaderFor never picks the helper), so the helper would be dead weight. -->
+    <ProjectReference Condition="'$(RuntimeIdentifier)' != 'win-x86'"
+                      Include="..\Volt.Ide.Twincat.Explorer\Volt.Ide.Twincat.Explorer.csproj"
                       ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained"
                       OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />

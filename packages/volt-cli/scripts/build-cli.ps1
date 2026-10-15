@@ -10,8 +10,8 @@
 #   dist\Codesys\         Volt.Ide.Codesys.dll (net48 in-proc, ONE merged assembly - the csproj's VoltBundle target)
 #                         + start/stop_volt_codesys.py ({app}\codesys)
 # and one folder Volt's installer does NOT take:
-#   dist\TwincatBridge\   the TwinCAT worker ALONE for PLCAssist: VoltBridgeTwincat.exe single-file self-contained +
-#                         VoltTwincatExplorer.exe - exactly two files
+#   dist\TwincatBridge\   the TwinCAT worker ALONE for PLCAssist: VoltBridgeTwincat.exe, win-x86 single-file
+#                         self-contained - exactly one file (a 32-bit worker reads a 32-bit XAE in-process, no helper)
 # Every publish: SatelliteResourceLanguages=en (the 52 WinForms/runtime satellite DLLs in 13 locales nobody reads)
 # and DebugType=none (no PDBs ship).
 $ErrorActionPreference = "Stop"
@@ -124,17 +124,19 @@ Write-Output "  OK -> dist\Connector\ (VoltConnector.exe + VoltBridgeTwincat.exe
 # --- The TwinCAT bridge ALONE, for PLCAssist (2026-10-14) ---------------------
 # dist\Connector shares ONE runtime between the tray and the worker - right for the installer, wrong for a product that
 # ships only the bridge: it dragged the tray and its WinForms runtime along (229 files). This is the worker single-file
-# and self-contained, the helper beside it: exactly two files. Not installed by Volt's own installer.
+# and self-contained, and x86: XAE 4024 is a 32-bit shell, so an x86 worker reads its Solution Explorer in-process
+# (TcHierarchy.ReaderFor) and needs no VoltTwincatExplorer.exe beside it - exactly one file. A 64-bit XAE (4026) would
+# need a win-x64 build of its own (openspec twincat-later). Not installed by Volt's own installer.
 Write-Output "`n[3b] Volt.Ide.Twincat single-file (dist\TwincatBridge, the bundle PLCAssist ships)"
 if (Test-Path "$DIST\TwincatBridge") { Remove-Item -Recurse -Force "$DIST\TwincatBridge" }
-& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -c Release -o "$DIST\TwincatBridge" --nologo -v q -r win-x64 --self-contained true
+& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -c Release -o "$DIST\TwincatBridge" --nologo -v q -r win-x86 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 $tbTop = @(Get-ChildItem "$DIST\TwincatBridge" | ForEach-Object { $_.Name } | Sort-Object)
-if (($tbTop -join '|') -ne 'VoltBridgeTwincat.exe|VoltTwincatExplorer.exe') {
-    Write-Output "  REFUSED: the single-file TwinCAT publish left [$($tbTop -join ', ')], not exactly VoltBridgeTwincat.exe + VoltTwincatExplorer.exe"
+if (($tbTop -join '|') -ne 'VoltBridgeTwincat.exe') {
+    Write-Output "  REFUSED: the single-file TwinCAT publish left [$($tbTop -join ', ')], not exactly VoltBridgeTwincat.exe"
     exit 1
 }
-Write-Output "  OK -> dist\TwincatBridge\ (VoltBridgeTwincat.exe + VoltTwincatExplorer.exe)"
+Write-Output "  OK -> dist\TwincatBridge\ (VoltBridgeTwincat.exe, win-x86)"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
 Write-Output "`n[4/4] Volt.Ide.Codesys (in-proc DLL)"

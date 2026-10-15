@@ -44,8 +44,8 @@
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
                     probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
-.PARAMETER BridgeDir twincat: a folder holding the worker AS SHIPPED (VoltBridgeTwincat.exe + VoltTwincatExplorer.exe;
-                    e.g. dist\TwincatBridge, the single-file bundle PLCAssist ships) - that exe is spawned, nothing built.
+.PARAMETER BridgeDir twincat: a folder holding the worker AS SHIPPED (VoltBridgeTwincat.exe, + VoltTwincatExplorer.exe
+                    for an x64 one; e.g. dist\TwincatBridge, the x86 single-file PLCAssist ships) - that exe is spawned, nothing built.
                     codesys: serve the bridge AS INSTALLED — a folder laid out like the installer's {app}\codesys
                     (Volt.Ide.Codesys.dll + start/stop_volt_codesys.py; e.g. dist\stage\codesys after build:installer).
                     The IDE runs THAT folder's start script with VOLT_BRIDGE_DLL removed from its environment, so the
