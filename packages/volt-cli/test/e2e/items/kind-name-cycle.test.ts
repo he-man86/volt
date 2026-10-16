@@ -22,24 +22,17 @@
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { init, pull, push, setBundledCli } from "@volt/control"
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve, dirname, basename } from "node:path"
+import { join, dirname, basename } from "node:path"
 import { bridge } from "../lib/bridge"
 import { VENDOR, BASE, currentPipe } from "../lib/pipe"
 import { id, requireHealthy, mainProgram, fetchItem, PREFIX, landedInFull } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
+import { newestBuiltCli } from "../lib/cli-exe"
 
-const CLI_ROOT = resolve(import.meta.dir, "..", "..", "..")
-function exesUnder(dir: string): string[] {
-	if (!existsSync(dir)) return []
-	return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-		e.isDirectory() ? exesUnder(join(dir, e.name)) : e.name === "volt.exe" ? [join(dir, e.name)] : [],
-	)
-}
-const CLI = [...exesUnder(join(CLI_ROOT, "src", "Volt.Cli", "bin")), ...exesUnder(join(CLI_ROOT, "dist", "Cli"))].sort(
-	(a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs,
-)[0]
+// Point @volt/control at the newest built volt.exe (lib/cli-exe.ts); skip the suite if none is present.
+const CLI = newestBuiltCli()
 if (CLI) setBundledCli(CLI)
 
 const KEY = "cyc_"

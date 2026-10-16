@@ -5,6 +5,7 @@ using Volt.Engine;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using static Volt.Ide.Twincat.Tests.TcComTree;
 using static Volt.Ide.Twincat.Tests.TcWalkUnreadableObjectTests;
 
 namespace Volt.Ide.Twincat.Tests;

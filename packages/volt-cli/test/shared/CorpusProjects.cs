@@ -18,12 +18,7 @@ namespace Volt.Tests.Shared;
 public static class CorpusProjects
 {
     /// <summary>The CLI package root (the directory holding <c>Volt.sln</c>) above the test assembly.</summary>
-    public static DirectoryInfo CliRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        return dir ?? throw new InvalidOperationException("could not locate Volt.sln above the test assembly");
-    }
+    public static DirectoryInfo CliRoot() => RepoPaths.PackageDir();
 
     /// <summary>The corpus root, <c>packages/volt-lsp-iec/test-corpus</c>.</summary>
     public static string CorpusRoot()

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -18,9 +19,7 @@ public class CaseInsensitiveRegexIsCultureInvariantTests
 {
     private static string SrcRoot()
     {
-        var dir = new DirectoryInfo(System.AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.NotNull(dir);
+        var dir = RepoPaths.PackageDir();
         return Path.Combine(dir!.FullName, "src");
     }
 

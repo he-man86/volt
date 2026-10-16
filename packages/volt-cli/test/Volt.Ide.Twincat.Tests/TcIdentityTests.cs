@@ -40,7 +40,7 @@ public class TcIdentityTests
         }
     }
 
-    private static TcAttachTests.Project Tc(string name) => new(name, new TcAttachTests.SysManager());
+    private static TcAttachTests.Project Tc(string name) => new(name, new TcComTree.SysManager());
 
     private static BeckhoffDriver Attached(Dte window, Func<int, string?>? vendor = null, int pid = 4711)
     {

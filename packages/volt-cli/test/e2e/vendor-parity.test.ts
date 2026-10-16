@@ -22,33 +22,13 @@
  *     hash is a function of content: the same source pushed twice to the same vendor hashes the same.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { clientFor, livePipesFor, PREFIX, type PipeClient } from "./harness"
+import { clientFor, PREFIX, type PipeClient } from "./harness"
+import { fixturePipeOrSkip } from "./lib/pipe"
 import { fb, prog, func, METHOD, ACTION, PROPERTY, structDut, enumDut, gvl, abstractFb, ABSTRACT_METHOD, ABSTRACT_PROPERTY } from "./fixtures"
 
 setDefaultTimeout(60000)
 
-/**
- * The pipe to use for a vendor — ONLY an `ide.ps1` fixture IDE (`lib/fixture-ide.ts`): `VOLT_PIPE_CODESYS` /
- * `VOLT_PIPE_TWINCAT` name one exactly and are VERIFIED, otherwise the `VOLT_E2E_INSTANCE` instance's own pipe.
- *
- * <p>This was `livePipesFor(v)[0]` — every `volt.bridge.<vendor>.*` on the machine, first one wins — and on
- * 2026-10-03 it created and deleted `VltE2E_par_*` items in an engineer's 881-item project that happened to sort
- * first. Before that it bound to the deliberately slow `Pro2193…` instance and timed out every case. A vendor with no
- * fixture IDE of ours is now a SKIP that says what it refused, never a guess.</p>
- */
-function pipeFor(vendor: "codesys" | "twincat"): string | undefined {
-	try {
-		const ours = livePipesFor(vendor)
-		if (ours.length > 1)
-			console.log(`vendor-parity: ${ours.length} fixture ${vendor} pipes (${ours.join(", ")}); using ${ours[0]}.`)
-		return ours[0]
-	} catch (e) {
-		// A pipe the caller NAMED that is not a fixture is a failure, not a skip: they asked for it by name.
-		if (process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]) throw e
-		console.log(`vendor-parity: ${vendor}: ${(e as Error).message}`)
-		return undefined
-	}
-}
+const pipeFor = (vendor: "codesys" | "twincat") => fixturePipeOrSkip(vendor, "vendor-parity")
 
 const cs = pipeFor("codesys")
 const tc = pipeFor("twincat")

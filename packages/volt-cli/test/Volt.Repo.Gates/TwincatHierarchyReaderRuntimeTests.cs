@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -15,13 +16,7 @@ namespace Volt.Repo.Gates;
 /// </summary>
 public class TwincatHierarchyReaderRuntimeTests
 {
-    private static string PackageRoot()
-    {
-        var dir = new DirectoryInfo(System.AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.NotNull(dir);
-        return dir!.FullName;
-    }
+    private static string PackageRoot() => RepoPaths.PackageDir().FullName;
 
     [Fact]
     public void The_x86_hierarchy_reader_targets_dotnet_framework_4_7_2_and_x86()

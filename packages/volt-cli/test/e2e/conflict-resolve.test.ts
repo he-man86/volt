@@ -11,38 +11,14 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { init, pull, mergeResolve, mergeContinue, loadDiff, setBundledCli } from "@volt/control"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve, basename } from "node:path"
+import { join, basename } from "node:path"
 import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, currentPipe } from "./harness"
+import { newestBuiltCli } from "./lib/cli-exe"
 
-// Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with).
-//
-// FOUND BY SEARCH, NOT BY A PINNED PATH. The candidates used to be listed literally — `dist/Cli/volt.exe`,
-// `src/Volt.Cli/bin/Release/net8.0/volt.exe`, the Debug twin — with a comment warning that a stale shipped
-// build must not mask a fresh source build. Then the toolchain moved to net10.0, so NEITHER source candidate
-// existed any more and the list silently degraded to the one entry that did: a `dist/Cli/volt.exe` from
-// months earlier. The suite then drove that binary against a current bridge, and `volt init` failed for a
-// reason that had nothing to do with the code under test — the exact failure the comment was written to
-// prevent, arriving through the one input nobody thought of as a version.
-//
-// Walking `bin/` has no version in it to go stale, which is the point.
-const CLI_ROOT = resolve(import.meta.dir, "..", "..")
-
-function exesUnder(dir: string): string[] {
-	if (!existsSync(dir)) return []
-	const out: string[] = []
-	for (const entry of readdirSync(dir, { withFileTypes: true })) {
-		const p = join(dir, entry.name)
-		if (entry.isDirectory()) out.push(...exesUnder(p))
-		else if (entry.name === "volt.exe") out.push(p)
-	}
-	return out
-}
-
-const CLI = [...exesUnder(join(CLI_ROOT, "src", "Volt.Cli", "bin")), ...exesUnder(join(CLI_ROOT, "dist", "Cli"))].sort(
-	(a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs,
-)[0]
+// Point @volt/control at the newest built volt.exe (lib/cli-exe.ts); skip the suite if none is present.
+const CLI = newestBuiltCli()
 if (CLI) setBundledCli(CLI)
 
 const git = (cwd: string, ...args: string[]): void => {

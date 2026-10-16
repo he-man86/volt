@@ -10,25 +10,15 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { init, setBundledCli } from "@volt/control"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, writeFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs"
+import { mkdtempSync, writeFileSync, readdirSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve, dirname } from "node:path"
+import { join, dirname } from "node:path"
 import { requireHealthy, cleanup, id, BASE, VENDOR, currentPipe } from "../harness"
+import { newestBuiltCli } from "../lib/cli-exe"
 import { fb, enumDut, MARK } from "../fixtures"
 
-const CLI_ROOT = resolve(import.meta.dir, "..", "..", "..")
-function exesUnder(dir: string): string[] {
-	if (!existsSync(dir)) return []
-	const out: string[] = []
-	for (const entry of readdirSync(dir, { withFileTypes: true })) {
-		const p = join(dir, entry.name)
-		if (entry.isDirectory()) out.push(...exesUnder(p))
-		else if (entry.name === "volt.exe") out.push(p)
-	}
-	return out
-}
-// The NEWEST built volt.exe, as conflict-resolve.test.ts finds it (a pinned path went stale once).
-const CLI = exesUnder(join(CLI_ROOT, "src", "Volt.Cli", "bin")).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]
+// Point @volt/control at the newest built volt.exe (lib/cli-exe.ts); skip the suite if none is present.
+const CLI = newestBuiltCli({ dist: false })
 if (CLI) setBundledCli(CLI)
 
 const GIT_ENV = { GIT_AUTHOR_NAME: "e2e", GIT_AUTHOR_EMAIL: "e2e@volt", GIT_COMMITTER_NAME: "e2e", GIT_COMMITTER_EMAIL: "e2e@volt" }

@@ -8,6 +8,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using static Volt.Ide.Twincat.Tests.TcComTree;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -169,14 +170,6 @@ public class TcUntouchablePouTests
             $"<TreeItem><PlcProjectDef><ProjectPath>{_project}</ProjectPath></PlcProjectDef></TreeItem>";
     }
 
-    public sealed class Tipc
-    {
-        public Tipc(Plc plc) => Child = new PlcList(plc);
-        public int ChildCount => 1;
-        public PlcList Child { get; }
-        public sealed class PlcList { private readonly Plc _p; public PlcList(Plc p) => _p = p; public Plc this[int _] => _p; }
-    }
-
     public sealed class Empty { public int ChildCount => 0; public int ItemType => 0; }
 
     public sealed class SysManager
@@ -197,7 +190,7 @@ public class TcUntouchablePouTests
         {
             const string root = "TIPC^Untitled2^Untitled2 Project^";
             if (!path.StartsWith(root, StringComparison.Ordinal)) return null;
-            Node? node = _tipc.Child[1].NestedProject;
+            Node? node = ((Plc)_tipc.Child[1]).NestedProject;
             foreach (var name in path.Substring(root.Length).Split('^'))
                 node = node?.Kids.FirstOrDefault(k => string.Equals(k.Caption.Split(' ')[0], name, StringComparison.OrdinalIgnoreCase));
             return node is { Poisoned: false } ? node : null;

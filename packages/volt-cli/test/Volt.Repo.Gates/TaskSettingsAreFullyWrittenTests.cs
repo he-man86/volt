@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -149,11 +150,5 @@ public class TaskSettingsAreFullyWrittenTests
         Path.Combine(PackageRoot(), relative.Replace('/', Path.DirectorySeparatorChar));
 
     /// <summary>Walk up from the test binary to the `volt-cli` package root.</summary>
-    private static string PackageRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.NotNull(dir);
-        return dir!.FullName;
-    }
+    private static string PackageRoot() => RepoPaths.PackageDir().FullName;
 }

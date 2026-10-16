@@ -9,6 +9,7 @@ using Volt.Engine.Item;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -317,9 +318,7 @@ public class WireVocabularyGuardTests
 
     private static string FindSrcDir()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not locate Volt.sln above the test assembly");
+        var dir = RepoPaths.PackageDir();
         var src = Path.Combine(dir!.FullName, "src");
         Assert.True(Directory.Exists(src), $"src not found at {src}");
         return src;

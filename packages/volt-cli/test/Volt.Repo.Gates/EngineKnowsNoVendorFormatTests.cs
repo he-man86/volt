@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -80,9 +81,7 @@ public class EngineKnowsNoVendorFormatTests
 
     private static string EngineSourceDir()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.True(dir != null, "could not locate Volt.sln above the test assembly");
+        var dir = RepoPaths.PackageDir();
         var engine = Path.Combine(dir!.FullName, "src", "Volt.Engine");
         Assert.True(Directory.Exists(engine), $"Volt.Engine source not found at {engine}");
         return engine;

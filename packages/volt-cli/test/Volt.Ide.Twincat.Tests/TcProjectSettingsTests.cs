@@ -9,6 +9,7 @@ using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Volt.Tests.Shared;
 using Xunit;
+using static Volt.Ide.Twincat.Tests.TcComTree;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -253,22 +254,5 @@ public class TcProjectSettingsTests
         public Node NestedProject { get; }
         public string Name => "Untitled2";
         public string ProduceXml(bool recursive) => _xml;
-    }
-
-    public sealed class Tipc
-    {
-        public Tipc(Plc plc) => Child = new PlcList(plc);
-        public int ChildCount => 1;
-        public PlcList Child { get; }
-        public sealed class PlcList { private readonly Plc _p; public PlcList(Plc p) => _p = p; public Plc this[int _] => _p; }
-    }
-
-    public sealed class SysManager
-    {
-        private readonly Tipc _tipc;
-        public SysManager(Tipc tipc) => _tipc = tipc;
-        public object LookupTreeItem(string path) => path == "TIPC"
-            ? _tipc
-            : throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001));
     }
 }

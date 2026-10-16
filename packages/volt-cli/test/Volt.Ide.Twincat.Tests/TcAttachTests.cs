@@ -26,12 +26,6 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcAttachTests
 {
-    public sealed class SysManager
-    {
-        public object LookupTreeItem(string path) =>
-            throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001));
-    }
-
     public sealed class Project
     {
         public Project(string name, object obj) { Name = name; Object = obj; }
@@ -61,7 +55,7 @@ public class TcAttachTests
         public string Version => "15.0";
     }
 
-    private static Project Tc(string name) => new(name, new SysManager());
+    private static Project Tc(string name) => new(name, new TcComTree.SysManager());
 
     private static (BeckhoffDriver Driver, TcObjectModel Model) Attached(Dte window)
     {

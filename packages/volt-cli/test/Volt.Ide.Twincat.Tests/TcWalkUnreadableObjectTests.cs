@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using static Volt.Ide.Twincat.Tests.TcComTree;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -49,23 +50,6 @@ public class TcWalkUnreadableObjectTests
     }
 
     public sealed class Plc { public Plc(Node nested) => NestedProject = nested; public Node NestedProject { get; } }
-
-    public sealed class Tipc
-    {
-        public Tipc(Plc plc) => Child = new PlcList(plc);
-        public int ChildCount => 1;
-        public PlcList Child { get; }
-        public sealed class PlcList { private readonly Plc _p; public PlcList(Plc p) => _p = p; public Plc this[int _] => _p; }
-    }
-
-    public sealed class SysManager
-    {
-        private readonly Tipc _tipc;
-        public SysManager(Tipc tipc) => _tipc = tipc;
-        public object LookupTreeItem(string path) => path == "TIPC"
-            ? _tipc
-            : throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001));
-    }
 
     [Fact]
     public void A_node_whose_kind_faults_is_named_with_its_folder_and_the_walk_goes_on()

@@ -12,6 +12,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -211,10 +212,7 @@ public class DocDataTests
 
     private static string DocsDir()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "packages", "volt-cli", "Volt.sln")))
-            dir = dir.Parent;
-        Assert.NotNull(dir);
+        var dir = RepoPaths.RepoDir();
         return Path.Combine(dir!.FullName, "packages", "volt-cli", "docs");
     }
 
@@ -799,10 +797,7 @@ public class DocDataTests
     [Fact]
     public void Every_network_conflict_code_is_published()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var engine = Path.Combine(root!.FullName, "packages", "volt-cli", "src", "Volt.Engine");
 
         var published = ConflictCodes.Network.ToHashSet(StringComparer.Ordinal);
@@ -845,10 +840,7 @@ public class DocDataTests
     [Fact]
     public void Every_gate_conflict_code_is_produced()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var source = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli",
                                                    "src", "Volt.Engine", "Sync", "PushConflicts.cs"));
 
@@ -874,10 +866,7 @@ public class DocDataTests
     [Fact]
     public void Every_code_has_a_row_on_the_wire_page()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var page = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", "wire.html"));
 
         foreach (var code in Consts(typeof(BridgeErrorCodes)).Concat(ConflictCodes.Gate))
@@ -903,10 +892,7 @@ public class DocDataTests
     [InlineData("index.html")]
     public void The_op_count_on_the_page_is_the_op_count_on_the_wire(string page)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var html = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", page));
         var n = OpNames().Count();
 
@@ -935,10 +921,7 @@ public class DocDataTests
     [InlineData("packages/volt-web/app/docs/agents.mdx")]
     public void No_doc_names_a_dut_by_a_split_subtype_name(string relative)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var text = File.ReadAllText(Path.Combine(root!.FullName, relative));
         // The two places that name the retired spellings AS retired: items.html's history sentence, and wire.html's
         // list of names a push refuses.
@@ -961,10 +944,7 @@ public class DocDataTests
     [Fact]
     public void The_fetched_item_name_comment_names_every_minting_site()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var src = Path.Combine(root!.FullName, "packages", "volt-cli", "src");
         var contract = File.ReadAllText(Path.Combine(src, "Volt.Contracts", "Wire", "RefsFetch.cs"));
         var comment = System.Text.RegularExpressions.Regex.Match(contract,
@@ -990,10 +970,7 @@ public class DocDataTests
     [Fact]
     public void The_lsp_source_extension_list_names_the_table_it_mirrors()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var text = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-lsp-iec", "src", "workspace", "source-extensions.ts"));
         Assert.Contains("ItemKind.SourceKindExtensions", text, StringComparison.Ordinal);
         Assert.DoesNotContain("ItemKind.ExtFor", text, StringComparison.Ordinal);
@@ -1006,10 +983,7 @@ public class DocDataTests
     [Fact]
     public void The_dut_subtype_change_does_not_promise_unchanged_files()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
-            root = root.Parent;
-        Assert.NotNull(root);
+        var root = RepoPaths.RepoDir();
         var changes = Path.Combine(root!.FullName, "openspec", "changes");
         var dirs = Directory.EnumerateDirectories(changes, "*dut-subtype-on-the-wire", SearchOption.AllDirectories).ToList();
         Assert.NotEmpty(dirs);

@@ -29,12 +29,6 @@ namespace Volt.Ide.Twincat.Tests;
 public class TcSystemManagerTests
 {
     /// <summary>What TcXaeShell hands over: the project's <c>.Object</c> IS the system manager.</summary>
-    public sealed class SysManager
-    {
-        public object LookupTreeItem(string path) =>
-            throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001));
-    }
-
     /// <summary>Any other project in the solution — a C# client, a TcHmi. No <c>LookupTreeItem</c> at all,
     /// which is the whole difference.</summary>
     public sealed class OtherProject
@@ -45,13 +39,13 @@ public class TcSystemManagerTests
     /// <summary>The full-VS shape the dead fallback was written for: the manager hangs off the project.</summary>
     public sealed class VsProject
     {
-        public object SystemManager { get; } = new SysManager();
+        public object SystemManager { get; } = new TcComTree.SysManager();
     }
 
     [Fact]
     public void A_system_manager_is_recognised()
     {
-        Assert.True(TcSystemManager.Is(new SysManager()));
+        Assert.True(TcSystemManager.Is(new TcComTree.SysManager()));
     }
 
     /// <summary>THE REGRESSION. Before the fix this object was adopted whole and served as the project.</summary>

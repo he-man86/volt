@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -151,14 +152,7 @@ public class SurfaceDataTests
 
     // ── generation ──────────────────────────────────────────────────────────────────────────────────
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "packages", "volt-cli", "Volt.sln")))
-            dir = dir.Parent;
-        Assert.NotNull(dir);
-        return dir!.FullName;
-    }
+    private static string RepoRoot() => RepoPaths.RepoDir().FullName;
 
     private static string CliDir() => Path.Combine(RepoRoot(), "packages", "volt-cli");
 

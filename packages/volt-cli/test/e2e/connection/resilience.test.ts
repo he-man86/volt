@@ -6,7 +6,7 @@
  * scenario) and no-op otherwise, so the SAME file runs on either bridge.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
+import { bridge, serving, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 type Bound = { project?: string | null }
@@ -15,7 +15,6 @@ let bound: Bound = {}
 let projects: Bound[] = []
 
 /** Is the bridge serving sync right now (what `volt push` would find)? */
-async function serving(): Promise<boolean> { return (await opErrorCode(() => bridge.refs())) === null }
 
 /** Select a project, TOLERATING a transient PLC_DISCONNECTED. A live TcXaeShell can be mid-restart / re-registering
  *  its DTE exactly when a select lands (the ephemeral-moniker / crash-restart reality) — the bridge refuses cleanly

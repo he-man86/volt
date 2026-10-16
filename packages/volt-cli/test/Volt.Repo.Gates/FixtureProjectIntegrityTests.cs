@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -26,9 +27,7 @@ public class FixtureProjectIntegrityTests
     /// copied-to-output <c>fixtures/</c> tree, because they are whole IDE solutions rather than single files.</summary>
     private static string TestRoot()
     {
-        var dir = new DirectoryInfo(System.AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Volt.sln"))) dir = dir.Parent;
-        Assert.NotNull(dir);
+        var dir = RepoPaths.PackageDir();
         return Path.Combine(dir!.FullName, "test");
     }
 

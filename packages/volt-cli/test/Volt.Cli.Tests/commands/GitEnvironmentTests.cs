@@ -196,9 +196,7 @@ public class GitEnvironmentTests
     private static string VoltExe()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory); // .../test/Volt.Cli.Tests/bin/<cfg>/<tfm>/
-        DirectoryInfo? pkg = d;
-        while (pkg is not null && !File.Exists(Path.Combine(pkg.FullName, "Volt.sln"))) pkg = pkg.Parent;
-        Assert.NotNull(pkg);
+        var pkg = RepoPaths.PackageDir();
         var exe = Path.Combine(pkg!.FullName, "src", "Volt.Cli", "bin", d.Parent!.Name, d.Name, "volt.exe");
         Assert.True(File.Exists(exe), $"volt binary not built at {exe}");
         return exe;

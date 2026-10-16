@@ -19,21 +19,13 @@
  * `ImplementationMarker.VendorLanguage`) with a language the IDE names.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { livePipesFor } from "../lib/pipe"
+import { fixturePipeOrSkip } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { REF_PREFIX, bindBridge, normalize, pushFresh, refsOf, sweep, type Answer, type Bridge } from "./table"
 
 setDefaultTimeout(240_000)
 
-function pipeFor(vendor: "codesys" | "twincat"): string | undefined {
-	try {
-		return livePipesFor(vendor)[0]
-	} catch (e) {
-		if (process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]) throw e
-		console.log(`refusals/behaviour: ${vendor}: ${(e as Error).message}`)
-		return undefined
-	}
-}
+const pipeFor = (vendor: "codesys" | "twincat") => fixturePipeOrSkip(vendor, "refusals/behaviour")
 const VENDORS = (["codesys", "twincat"] as const).filter((v) => pipeFor(v) !== undefined)
 
 const n = (s: string) => `${REF_PREFIX}${s}`

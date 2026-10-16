@@ -8,6 +8,7 @@ using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
 using Volt.Contracts;
 using Volt.Engine.Host;
+using Volt.Tests.Shared;
 
 namespace Volt.Cli.Tests;
 
@@ -24,9 +25,7 @@ public class BlackBoxTests
         var d = new DirectoryInfo(AppContext.BaseDirectory); // .../test/Volt.Cli.Tests/bin/<cfg>/<tfm>/
         var tfm = d.Name;
         var cfg = d.Parent!.Name;
-        DirectoryInfo? pkg = d;
-        while (pkg is not null && !File.Exists(Path.Combine(pkg.FullName, "Volt.sln"))) pkg = pkg.Parent;
-        Assert.NotNull(pkg);
+        var pkg = RepoPaths.PackageDir();
         var exe = Path.Combine(pkg!.FullName, "src", "Volt.Cli", "bin", cfg, tfm, OperatingSystem.IsWindows() ? "volt.exe" : "volt");
         Assert.True(File.Exists(exe), $"volt binary not built at {exe}");
         return exe;

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -279,11 +280,5 @@ public class RefusedNamesMatchTheSnapshotTests
         return sb.ToString();
     }
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CLAUDE.md"))) dir = dir.Parent;
-        Assert.True(dir is not null, "could not locate the repo root from the test output folder");
-        return dir!.FullName;
-    }
+    private static string RepoRoot() => RepoPaths.RepoDir().FullName;
 }

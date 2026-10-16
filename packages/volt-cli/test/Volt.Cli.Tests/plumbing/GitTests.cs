@@ -11,15 +11,7 @@ namespace Volt.Cli.Tests;
 /// what volt-git's git.ts tests covered. Object-store roundtrip, worktree diff, auto-commit, and byte show.</summary>
 public class GitTests
 {
-    /// <summary>Recursively delete a repo — clearing the read-only attribute git sets on loose objects on Windows,
-    /// which plain <see cref="Directory.Delete(string, bool)"/> can't remove (UnauthorizedAccessException).</summary>
-    private static void ForceDelete(string dir)
-    {
-        if (!Directory.Exists(dir)) return;
-        foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-            try { File.SetAttributes(f, FileAttributes.Normal); } catch { /* best effort */ }
-        try { Directory.Delete(dir, true); } catch { /* best effort */ }
-    }
+    private static void ForceDelete(string dir) => TestUtil.ForceDelete(dir);
 
     private static string TempRepo()
     {

@@ -63,6 +63,11 @@ export async function opErrorCode(run: () => Promise<unknown>): Promise<string |
 	}
 }
 
+/** Is the bridge serving sync right now — what `volt push` would find? */
+export async function serving(): Promise<boolean> {
+	return (await opErrorCode(() => bridge.refs())) === null
+}
+
 /** The connection state, derived from the flat `health.projects` array the SAME way the connector derives it:
  *  serving is a NON-IDLE row. No served row → "unavailable". There is no root `status`/`connected` on the wire —
  *  those are C#-side helpers computed off the served row, so the suite computes them the same way. */

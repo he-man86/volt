@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { basename, join } from "node:path"
-import { bridge, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe, livePipes } from "../harness"
+import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe, livePipes } from "../harness"
 import { servedSolutionDir } from "../lib/tc-files"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
@@ -49,7 +49,6 @@ function killIde(): void {
 function reopenIde(): void {
 	ps(`Start-Process -FilePath '${XAE}' -ArgumentList '"${target!.sln}"'`)
 }
-async function serving(): Promise<boolean> { return (await opErrorCode(() => bridge.refs())) === null }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** This test kills and reopens "the" IDE, so it REQUIRES its fixture instance to serve exactly one XAE: with two, the

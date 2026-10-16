@@ -7,6 +7,7 @@
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
     <Compile Include="$(MSBuildThisFileDirectory)shared\TestCulture.cs" Link="Shared\TestCulture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)shared\TestCultureTests.cs" Link="Shared\TestCultureTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)shared\RepoPaths.cs" Link="Shared\RepoPaths.cs" />
   </ItemGroup>
 
 </Project>

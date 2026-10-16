@@ -34,7 +34,7 @@ public class TcIdeRefusalCodeTests
     [Fact]
     public void A_save_the_IDE_refused_is_IDE_SAVE_FAILED_and_keeps_the_IDE_exception()
     {
-        var window = new RefusingSaveDte(new TcAttachTests.Project("TwinCAT Project14", new TcAttachTests.SysManager()));
+        var window = new RefusingSaveDte(new TcAttachTests.Project("TwinCAT Project14", new TcComTree.SysManager()));
         var model = new TcObjectModel { BindWindow = _ => window };
         new BeckhoffDriver(model).Connect(xaePid: 1);
 

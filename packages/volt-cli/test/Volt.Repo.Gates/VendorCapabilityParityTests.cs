@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Repo.Gates;
 
@@ -353,12 +354,5 @@ public class VendorCapabilityParityTests
     private static string CodesysDriverDir() =>
         Path.Combine(RepoRoot(), "packages", "volt-cli", "src", "Volt.Ide.Codesys");
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "packages", "volt-cli", "Volt.sln")))
-            dir = dir.Parent;
-        Assert.NotNull(dir);
-        return dir!.FullName;
-    }
+    private static string RepoRoot() => RepoPaths.RepoDir().FullName;
 }

@@ -51,6 +51,22 @@ export function livePipesFor(vendor: "codesys" | "twincat"): string[] {
 	return fixturePipesFor(vendor, process.env[`VOLT_PIPE_${vendor.toUpperCase()}`])
 }
 
+/** The pipe a cross-vendor suite uses for a vendor — ONLY a fixture IDE's (<c>livePipesFor</c>), or undefined, a SKIP
+ *  that says what it refused. It was `livePipesFor(v)[0]` over every `volt.bridge.<vendor>.*` on the machine, and on
+ *  2026-10-03 it created and deleted items in an engineer's project that happened to sort first. A pipe the caller
+ *  NAMED (`VOLT_PIPE_<VENDOR>`) that is not a fixture is a failure, not a skip: they asked for it by name. */
+export function fixturePipeOrSkip(vendor: "codesys" | "twincat", suite: string): string | undefined {
+	try {
+		const ours = livePipesFor(vendor)
+		if (ours.length > 1) console.log(`${suite}: ${ours.length} fixture ${vendor} pipes (${ours.join(", ")}); using ${ours[0]}.`)
+		return ours[0]
+	} catch (e) {
+		if (process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]) throw e
+		console.log(`${suite}: ${vendor}: ${(e as Error).message}`)
+		return undefined
+	}
+}
+
 let cachedPipe: string | undefined
 
 /**

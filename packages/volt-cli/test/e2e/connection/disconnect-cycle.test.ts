@@ -14,7 +14,7 @@
  * the engineer's bridge gated. `resume()` is idempotent, so it is safe to call when already serving.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, healthStatus, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
+import { bridge, serving, requireHealthy, healthStatus, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 
@@ -28,11 +28,6 @@ let bound: { project?: string | null } = {}
  *  already-serving bridge is a no-op rebind. */
 async function resume(): Promise<void> {
 	await bridge.connect(bound)
-}
-
-/** Is the bridge serving sync right now? (What `volt push` would find.) */
-async function serving(): Promise<boolean> {
-	return (await opErrorCode(() => bridge.refs())) === null
 }
 
 describe(`lifecycle / disconnect cycle (${BASE})`, () => {
