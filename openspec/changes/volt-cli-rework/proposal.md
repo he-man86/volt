@@ -26,4 +26,5 @@ Not implemented now: this change is a spec only until `ld-fbd-coverage` closes.
 
 All of `packages/volt-cli` (src, test, scripts, docs). The pipe wire stays byte-identical on both vendors (parity
 boundary); a wire change is a separate owner decision. Starting input: the 2026-10-16 read-only simplify reviews
-(engine, CLI/bridges) minus what was already applied that day.
+(`input/engine.md`, `input/cli-bridges.md`) minus what was already applied that day. `cli-bridges.md` section B (silent
+fallbacks made loud, ~105 lines) and the "used to…" history-comment sweep need the owner's OK.
