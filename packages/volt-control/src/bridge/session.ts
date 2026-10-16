@@ -17,6 +17,7 @@ import { Emitter } from "../state/emitter.js"
 import { voltLog, type LogSource } from "../log.js"
 import { readBoundProject, type BoundProject } from "./health.js"
 import {
+  controlBase,
   registerSessionView,
   matchesBinding,
   isServing,
@@ -56,10 +57,6 @@ const TIMEOUT_MS = 2_000
 // been told "no view" and painted "Volt Connector not running" over a connector that was running. Until the first
 // tick answers, callers fall through to the one-shot GET, as they did before any feed existed.
 registerSessionView(() => (S.settled === true ? { view: S.view } : undefined))
-
-function controlBase(): string {
-  return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
-}
 
 // Which client this is, for the log file name. The desktop runs under electron (its main process sets no marker of
 // its own, but `process.versions.electron` is definitive); anything else importing this is the VS Code extension.

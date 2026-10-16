@@ -57,8 +57,6 @@ export function snapshot(shell: Shell): Snap {
   // Name-only — the UI is vendor-blind. Both shells render THIS decision; neither re-derives the grouping.
   const label = (o: ConnectOption): LabeledProject => ({ ...o.project, action: o.action, refusal: o.refusal, identity: o.identity })
   const s = connectSurface(connectOptions(shell.projects, bound))
-  // No `kind`: the renderer branches on `onboarding` and re-derives reconnect itself, so carrying it was a
-  // second source of truth for the same decision — and the one nothing read.
   const surface: Surface = { create: s.create.map(label), primary: s.primary.map(label), alternates: s.alternates.map(label) }
   // `connectorUp` is undefined until the first probe answers — `onboardingMode` reads that as "probing". Both
   // shells hold the same three-state field and read the same enum, so the one place that decides "connector down"

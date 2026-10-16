@@ -194,13 +194,12 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	]
 }
 
-/** First existing server module, honoring the explicit override first, then the packaged bundle,
- *  then the installed dep, then the dev workspace sibling. */
+/** First existing server module, honoring the explicit override first, then the packaged bundle, then the dev
+ *  workspace sibling. */
 function resolveServerModule(context: vscode.ExtensionContext, override: string): string | undefined {
 	const candidates = [
 		override, // volt.iec.server
 		join(context.extensionPath, "dist", "lsp-server.js"), // packaged (the `bun run build` output)
-		join(context.extensionPath, "node_modules", "@volt", "lsp-iec", "dist", "src", "server", "bin.js"),
 		join(dirname(context.extensionPath), "volt-lsp-iec", "dist", "src", "server", "bin.js"), // dev workspace
 	]
 	return candidates.find((p) => p.length > 0 && existsSync(p))

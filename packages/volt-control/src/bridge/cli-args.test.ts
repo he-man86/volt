@@ -26,7 +26,6 @@ void mock.module("./cli.js", () => ({
     lastArgs = args
     return { code: 0, stdout: nextStdout, stderr: "" }
   },
-  cliScript: () => "volt",
   setBundledCli: () => {},
 }))
 

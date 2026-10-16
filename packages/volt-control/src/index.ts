@@ -7,13 +7,13 @@
  */
 
 // bridge/ — talking to the volt CLI + the bridge's /health
-export * from "./bridge/cli.js" // setBundledCli, cliScript, runVolt, ProgressUpdate, RunOpts
+export * from "./bridge/cli.js" // setBundledCli, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
-export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, VENDORS, Vendor
+export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, Vendor
 export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, Refusal, ConnectorView
-export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
+export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, enter/leaveWorkspace, closeSession, firstLine + Pull/Push/MergeOutcome
 // The connector feed — the product's ONE live-connection clock. Everything else in the session client is internal
-// (actions.ts wraps it as enterWorkspace/leaveWorkspace), so only these two are public.
+// (actions.ts re-exports it as enterWorkspace/leaveWorkspace), so only these two are public.
 export { startConnectorFeed, onConnectorView } from "./bridge/session.js"
 
 // state/ — the reactive per-workspace tracker
@@ -22,8 +22,8 @@ export * from "./state/emitter.js" // Emitter, Disposable (vscode-EventEmitter-s
 export * from "./state/files.js" // isPouFile, readStateMtime
 
 // view/ — Node-free presentation models
-export * from "./view/types.js" // StatusJson, ChangeSet, ProjectMismatch, changeCount
-export * from "./view/display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState
+export * from "./view/types.js" // StatusJson, ChangeSet, changeCount
+export * from "./view/display.js" // healthLabel, healthDisplay, syncState, SyncState, WorkspaceSync
 export * from "./view/workspace.js" // projectWorkspace, syncMode, onboardingMode, WorkspaceView, WorkspaceInput, DriftItem
 export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render

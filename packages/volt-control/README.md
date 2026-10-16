@@ -27,7 +27,7 @@ view/     Node-free presentation models both shells render
 | `state/files.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
 | `view/workspace.ts` | `projectWorkspace` — the whole panel view-model (sync mode, drift lists, onboarding) |
 | `view/outcomes.ts` | every action's endings, worded ONCE (`describePull`/`Push`/`Merge`/`Connect`/`Disconnect`) + `presentOutcome` |
-| `view/display.ts` | health/aggregate → user-facing text (`healthLabel`, `aggregate`) |
+| `view/display.ts` | health → user-facing text (`healthLabel`), and the cross-workspace `syncState` (none/merging/offline/online) |
 | `view/progress.ts` | `formatProgress` — the one progress-frame → `{pct, message}` mapping |
 | `view/diff.ts` | `loadDiff`/`lineDiff` — the shared change-diff logic behind both shells' diff views |
 | `diagnostics.ts` | headless LSP-diagnostics collector — drives `volt-lsp-iec` directly, filtered to `source: "volt-lsp-iec"` |

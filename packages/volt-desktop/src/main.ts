@@ -36,16 +36,16 @@ const shell: Shell = { win: null, status: null, boundRoot: undefined, projects: 
 
 // Point volt-control at the volt CLI + LSP. Packaged: the compiled .exe's sit beside the connector at the
 // install-dir root (…\Volt\bin), and this GUI runs from …\Volt\desktop\resources\app — so hop up to the install
-// root from process.resourcesPath (…\Volt\desktop\resources). Dev: the sibling packages' .js entries
-// (run via ELECTRON_RUN_AS_NODE). volt-control spawns .exe directly, .js via node — see cli.ts/diagnostics.ts.
+// root from process.resourcesPath (…\Volt\desktop\resources). Dev: build-cli.ps1's volt.exe and the LSP's .js
+// entry (run via ELECTRON_RUN_AS_NODE — see diagnostics.ts).
 function configureTools() {
   if (app.isPackaged) {
     const bin = join(process.resourcesPath, "..", "..", "bin") // …\Volt\desktop\resources → …\Volt\bin
     setBundledCli(join(bin, "volt.exe"))
     setLspServer(join(bin, "volt-lsp-iec.exe"))
   } else {
-    // Dev: the C# volt.exe from build-cli.ps1 (setBundledCli no-ops if absent → cliScript falls back to `volt` on
-    // PATH); the LSP is still the bundled .js run via ELECTRON_RUN_AS_NODE.
+    // Dev: the C# volt.exe from build-cli.ps1 (setBundledCli no-ops if absent → the CLI is `volt` on PATH); the LSP
+    // is still the bundled .js run via ELECTRON_RUN_AS_NODE.
     setBundledCli(join(__dirname, "..", "volt-cli", "dist", "Cli", "volt.exe"))
     setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "server", "bin.js"))
   }

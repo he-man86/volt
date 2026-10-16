@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, aggregate, connectorStatus, refusedIdes, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
+import { VoltStatus, syncState, isPouFile, connectorStatus, refusedIdes, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -14,8 +14,8 @@ let views: VoltViews | undefined
 export async function activate(context: vscode.ExtensionContext) {
 	// The `volt` CLI is the shipped C# binary the Volt installer lays down (a per-platform native exe is too heavy
 	// to bundle in a Marketplace .vsix). Resolve it by absolute path — PATH alone breaks with `spawn volt ENOENT`
-	// when VS Code predates the install. If not found (dev / non-default install) volt-control's cliScript falls
-	// back to `volt` on PATH; the LSP + language features work standalone regardless.
+	// when VS Code predates the install. If not found (dev / non-default install) volt-control spawns
+	// `volt` on PATH; the LSP + language features work standalone regardless.
 	const voltCli = resolveVoltCli()
 	if (voltCli) setBundledCli(voltCli)
 
@@ -91,7 +91,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// state-file mtime poll, which are the events that can actually change it.
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			for (const [, s] of statuses) {
-				if (doc.uri.fsPath.startsWith(s.workspaceRoot) && s.isTrackedFile(doc.fileName)) s.refresh(false, true)
+				if (doc.uri.fsPath.startsWith(s.workspaceRoot) && isPouFile(doc.fileName)) s.refresh(false, true)
 			}
 		}),
 		// Re-probe when the window regains focus, so reconnecting an IDE updates the onboarding promptly.
@@ -142,25 +142,17 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 	)
 }
 
-/** Drive the menu when-clause context keys off the shared `aggregate()` display model (worst-state-wins). No
- *  status-bar item — Volt's ambient presence is the activity-bar container; the sync/bridge views carry the state.
+/** Drive the menu when-clause context keys off the shared `syncState()` (worst-state-wins). No status-bar item —
+ *  Volt's ambient presence is the activity-bar container; the sync/bridge views carry the state.
  *   - `volt.workspaceInitialized` — any bound workspace exists (base gate for the view actions).
- *   - `volt.bridgeOnline` — the bridge is reachable (insync / drift / degraded) → pull/push/build are allowed.
- *   - `volt.bridgeOffline` — initialized but genuinely unreachable (offline / noproject / probing) → the Connect
- *     welcome shows. NOT a tray-deselect (that stays connected, sync still works), and NOT merge/mismatch (their
- *     own affordances handle those). */
+ *   - `volt.bridgeOnline` — every bridge answered → pull/push/build are allowed.
+ *   - `volt.bridgeOffline` — some bridge is not serving (unreachable / no project / probing) → the Connect welcome
+ *     shows. Neither while merging: the merge's own affordances handle that. */
 function updateContextKeys(): void {
-	const d = aggregate([...statuses.values()].map((s) => ({ status: s.cached, health: s.health })))
-	const initialized = statuses.size > 0
-	// `partial` IS ONLINE. It means the bridge answered and its view was short — an unreadable item, or a folder
-	// it could not enumerate — which is a reason to warn, never a reason to take Pull/Push/Build away. Adding the
-	// severity without this line left a connected workspace with neither `bridgeOnline` nor `bridgeOffline`, so
-	// every sync affordance vanished AND the Connect welcome did not appear: a bridge that works and no buttons.
-	const online =
-		d.severity === "insync" || d.severity === "drift" || d.severity === "degraded" || d.severity === "partial"
-	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
-	void vscode.commands.executeCommand("setContext", "volt.bridgeOnline", initialized && online)
-	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", initialized && (d.severity === "offline" || d.severity === "noproject"))
+	const state = syncState([...statuses.values()].map((s) => ({ status: s.cached, health: s.health })))
+	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", state !== "none")
+	void vscode.commands.executeCommand("setContext", "volt.bridgeOnline", state === "online")
+	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", state === "offline")
 }
 
 export function deactivate(): Thenable<void> {

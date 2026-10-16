@@ -58,8 +58,8 @@ public sealed class Merging
 }
 
 /// <summary>The status the text renderer + the --json contract use. The subset {initialized, merging, incoming,
-/// outgoing, pathByName, projectMismatch, summary, incomingStale} matches @volt/control's StatusJson;
-/// online/detail/recommend are extras the CLI's pretty output uses.</summary>
+/// outgoing, pathByName, summary, incomingStale} matches @volt/control's StatusJson;
+/// projectMismatch/online/detail/recommend are extras the CLI's own output uses (no TS reader).</summary>
 public sealed class StatusData
 {
     public bool Initialized { get; set; }

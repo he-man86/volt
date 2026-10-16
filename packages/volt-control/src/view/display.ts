@@ -1,12 +1,10 @@
 /**
- * UI-agnostic **display model** — the one place bridge health + the cross-workspace aggregate become
- * user-facing text. Node-free by contract (`HealthState`/`StatusJson` are `import type`, erased at runtime)
- * so it stays renderer-safe. The per-workspace drift projection lives beside this in `./workspace.js`.
+ * UI-agnostic **display model** — bridge health as user-facing text, and the cross-workspace sync state. Node-free by
+ * contract (`HealthState`/`StatusJson` are `import type`, erased at runtime) so it stays renderer-safe. The
+ * per-workspace drift projection lives beside this in `./workspace.js`.
  */
 import type { HealthState } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
-import { changeCount } from "./types.js"
-
 
 // ── per-workspace health → dot/label ─────────────────────────────────────────
 export interface HealthDisplay {
@@ -24,8 +22,7 @@ export function healthLabel(state: HealthState): string {
       // Vendor-blind: name the PROJECT, not the IDE/vendor (a project is identified by its name everywhere in the UI).
       return state.health.projectName ?? "(no project)"
     case "degraded":
-      // The bridge no longer carries a per-degrade reason on the wire (dropped with the C# degradedReason field), so
-      // this is a static description — matching `aggregate()`'s degraded tooltip.
+      // The bridge carries no per-degrade reason on the wire, so this is a static description.
       return "Degraded: the IDE channel had recent errors"
     case "disconnected":
       return "No project loaded"
@@ -48,157 +45,26 @@ export function healthDisplay(state: HealthState): HealthDisplay {
   }
 }
 
-// ── aggregate across all bound workspaces (worst-state-wins) ──────────────────
-export type VoltSeverity =
-  | "uninitialized"
-  | "merging"
-  | "offline"
-  | "noproject"
-  | "degraded"
-  | "partial"
-  | "drift"
-  | "insync"
+// ── sync state across all bound workspaces (worst-state-wins) ─────────────────
+/** What the bound workspaces allow, reduced worst-state-wins (merging > offline > online) to the outcomes a shell
+ *  gates on:
+ *  - `none`    — nothing is bound.
+ *  - `merging` — a merge is in progress somewhere: neither sync nor Connect; the merge's own affordances apply.
+ *  - `offline` — some workspace has no serving bridge (unreachable, still probing, or no project loaded): Connect.
+ *  - `online`  — every bridge answered: pull/push/build are allowed. A PARTIAL view (an unreadable item, a folder
+ *                the bridge could not enumerate), drift and a degraded channel are all online — reasons to warn,
+ *                never reasons to take the sync affordances away. */
+export type SyncState = "none" | "merging" | "offline" | "online"
 
-export interface WorkspaceState {
+export interface WorkspaceSync {
   status?: StatusJson
   health: HealthState
 }
 
-export interface VoltDisplay {
-  severity: VoltSeverity
-  label: string
-  tooltip: string
-  /** Where the surface's status affordance should point when clicked. Bridge *control* is the connector's
-   *  job (tray), never a frontend's — so there is no "start bridge" action here, only view. */
-  action?: "status"
-  incoming: number
-  outgoing: number
-}
-
-/**
- * Reduce every bound workspace to one display model, worst-state-wins:
- * merge > offline > no-project > degraded > drift > in-sync.
- * (`uninitialized` when nothing is bound — the surface hides its indicator.)
- */
-export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
-  if (workspaces.length === 0) {
-    return { severity: "uninitialized", label: "Volt", tooltip: "No Volt workspace bound", incoming: 0, outgoing: 0 }
-  }
-
-  let merging = false
-  let incoming = 0
-  let outgoing = 0
-  // The IDE view is SHORT: the bridge could not enumerate a folder, or could not read an item. Both are on the
-  // `--json` contract and neither was rendered, so the desktop app and the VS Code panel drew a project with an
-  // unreadable POU as "Connected and in sync with the IDE" — the terminal has warned about it since the field
-  // existed, and the two surfaces most people actually look at did not.
-  let unreadable = 0
-  let unwalked = 0
-  let conn: "ok" | "offline" | "noproject" | "degraded" = "ok"
-
-  for (const w of workspaces) {
-    const c = w.status
-    if (c !== undefined) {
-      if (c.merging !== null) merging = true
-      incoming += changeCount(c.incoming)
-      outgoing += changeCount(c.outgoing)
-      unreadable += c.unreadable?.length ?? 0
-      unwalked += c.unwalkedFolders?.length ?? 0
-    }
-    switch (w.health.kind) {
-      case "unreachable":
-        conn = "offline"
-        break
-      case "unknown":
-        // Pre-probe: we have NOT confirmed a connection, so never let it read as "connected/in sync". Treat it as
-        // offline (conservative + honest) until a probe returns — the brief probing window flips to ready on success.
-        if (conn === "ok") conn = "offline"
-        break
-      case "disconnected":
-        if (conn === "ok") conn = "noproject"
-        break
-      case "degraded":
-        if (conn === "ok") conn = "degraded"
-        break
-    }
-  }
-
-  if (merging)
-    return {
-      severity: "merging",
-      label: "Volt: merge",
-      tooltip: "Merge in progress — resolve conflicts with your editor's Git tools, then Pull again",
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  if (conn === "offline")
-    return {
-      severity: "offline",
-      label: "Volt: bridge offline",
-      tooltip: "No bridge for this workspace — start it from the Volt Connector (tray)",
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  if (conn === "noproject")
-    return {
-      severity: "noproject",
-      label: "Volt: no project",
-      tooltip: "The IDE is running but no project is loaded",
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  if (conn === "degraded")
-    return {
-      severity: "degraded",
-      label: "Volt: degraded",
-      tooltip: "The IDE channel had recent errors — read-only-safe; heavy writes may retry",
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  // ABOVE drift, and only for an unwalked FOLDER. That is the one state where the counts themselves cannot be
-  // trusted — absence is how a deletion is derived — so offering "pull" would be advice to act on numbers this
-  // view knows are short. An unreadable ITEM invalidates no count (it is absent from both sides of the diff), so
-  // it is reported in the tooltip without taking the actionable step away.
-  if (unwalked > 0)
-    return {
-      severity: "partial",
-      label: "Volt: partial view",
-      tooltip:
-        `${unwalked} folder(s) could not be read, so this view is INCOMPLETE and reports no deletions` +
-        (unreadable > 0 ? `; ${unreadable} item(s) could not be read either` : "") +
-        " — check the IDE before syncing",
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  if (incoming > 0 || outgoing > 0)
-    return {
-      severity: "drift",
-      label: `Volt ${outgoing}↑ ${incoming}↓`,
-      tooltip: `${outgoing} outgoing, ${incoming} incoming — open the Volt view`,
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  if (unreadable > 0)
-    return {
-      severity: "partial",
-      label: "Volt: unreadable items",
-      tooltip: `${unreadable} item(s) in the IDE could not be read and cannot be pushed; a file here, if any, is the last one read — check the IDE`,
-      action: "status",
-      incoming,
-      outgoing,
-    }
-  return {
-    severity: "insync",
-    label: "Volt",
-    tooltip: "Connected and in sync with the IDE",
-    action: "status",
-    incoming,
-    outgoing,
-  }
+export function syncState(workspaces: readonly WorkspaceSync[]): SyncState {
+  if (workspaces.length === 0) return "none"
+  if (workspaces.some((w) => w.status !== undefined && w.status.merging !== null)) return "merging"
+  // `unknown` is pre-probe: a connection NOT yet confirmed must never read as online.
+  const down = (h: HealthState): boolean => h.kind === "unreachable" || h.kind === "unknown" || h.kind === "disconnected"
+  return workspaces.some((w) => down(w.health)) ? "offline" : "online"
 }

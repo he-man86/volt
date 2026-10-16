@@ -11,12 +11,15 @@ import { runVolt, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { isBridgeOnline, readBridgeVendor, type HealthState, type Vendor } from "./health.js"
 import { boundStatus, type DetectedProject } from "./connector.js"
-import { declareInterest, dropInterest, selectPickedProject, adoptPickedProject, releasePickedProject , shutdownSession } from "./session.js"
+import { selectPickedProject, adoptPickedProject, releasePickedProject, shutdownSession } from "./session.js"
 import type { StatusJson } from "../view/types.js"
 
-// The one session-lifecycle call the shells need beyond enter/leave: drop the whole session on quit/deactivate.
-// (declareInterest/dropInterest stay internal — the shells go through enterWorkspace/leaveWorkspace.)
-export { shutdownSession } from "./session.js"
+/** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project + the session
+ *  model): a frontend calls `enterWorkspace` when a project becomes the one it's showing (declares an interest in its
+ *  bound project), `leaveWorkspace` when it stops (drops it — the connector gates the bridge only if no other live
+ *  session still wants it; never throws). Both shells share this one lifecycle — only the "became active / inactive"
+ *  trigger differs (desktop bind/unbind, VS Code activate/deactivate). The session sync poll ships the set. */
+export { declareInterest as enterWorkspace, dropInterest as leaveWorkspace } from "./session.js"
 
 // ── outcome contracts (mirror the CLI's --json shape) ────────────────────────
 // `status` (on ok) is the resulting drift state the CLI already computed — the caller adopts it into the
@@ -272,15 +275,6 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
   })
 }
 
-/** The bridge connection FOLLOWS the active project view (openspec connection-follows-active-project + the session
- *  model): a frontend calls `enterWorkspace` when a project becomes the one it's showing, `leaveWorkspace` when it
- *  stops. Both shells share this one lifecycle — only the "became active / inactive" trigger differs (desktop
- *  bind/unbind, VS Code activate/deactivate). These MUTATE the app's declared interest set; the session sync poll
- *  ships it. */
-export async function enterWorkspace(root: string): Promise<{ ok: boolean; message?: string }> {
-  return declareInterest(root)
-}
-
 /** The whole client-side teardown on quit, bounded: end the connector session so its interests drop at once
  *  rather than after the lease TTL, and give up after 1.5s so a slow or absent connector cannot hold the app open.
  *
@@ -294,11 +288,5 @@ export async function enterWorkspace(root: string): Promise<{ ok: boolean; messa
  *  1.5s is hardcoded because no caller varies it; both shells asked for the same bound. */
 export async function closeSession(): Promise<void> {
   await Promise.race([shutdownSession(), new Promise<void>((resolve) => setTimeout(resolve, 1500))])
-}
-
-/** Drop THIS workspace's project from the declared interests — the connector gates its bridge only if no other live
- *  session still wants it. Never throws (a down connector resolves to `{ok:false}`). */
-export async function leaveWorkspace(root: string): Promise<{ ok: boolean }> {
-  return dropInterest(root)
 }
 

@@ -50,7 +50,6 @@ test("settleOutcome re-reads health after adopting the action's status", async (
 			incoming: { added: [], modified: [], deleted: [] },
 			outgoing: { added: [], modified: [], deleted: [] },
 			pathByName: {},
-			projectMismatch: null,
 			summary: "",
 		};
 

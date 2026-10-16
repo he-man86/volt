@@ -119,10 +119,10 @@ export class VoltStatus {
 		// Health (and the IDE-change edge read off it) follows the connector feed's ONE clock — no timer here. This
 		// tracker used to poll every 4s for a value the session client had already fetched on ITS 4s timer, so the
 		// two drifted and a connection change could take ~8s to reach the UI. Now it lands as soon as it changes.
-		this.viewSub = onConnectorView.event(() => void this.readHealth());
+		this.viewSub = onConnectorView.event(() => void this.refreshHealth());
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS);
 		this.watchSrc();
-		void this.readHealth();
+		void this.refreshHealth();
 		await this.refresh();
 	}
 
@@ -236,14 +236,10 @@ export class VoltStatus {
 
 	/** Re-read connection health from the connector's already-fetched view (no CLI, no IDE walk) and fire. For the
 	 *  actions that change nothing but whether the bridge serves — connect/disconnect — where a full `refresh()`
-	 *  would cost a `/refs` walk (~9s on a big project) the user is left waiting on. */
+	 *  would cost a `/refs` walk (~9s on a big project) the user is left waiting on.
+	 *  Cheap by construction: `boundStatus` reads the session client's cached view, so this is a projection, not a
+	 *  fetch; it also recomputes the IDE-change edge. */
 	async refreshHealth(): Promise<void> {
-		await this.readHealth();
-	}
-
-	/** Recompute health + the IDE-change edge from the current connector view. Cheap by construction: `boundStatus`
-	 *  reads the session client's cached view, so this is a projection, not a fetch. */
-	private async readHealth(): Promise<void> {
 		if (this.disposed) return;
 		// Skip while OUR OWN mutation holds the in-memory gate — the gate is held until the whole action settles (PAST
 		// the bridge op), so it also absorbs the state-file write our own pull/push makes (saveIdeRefs). Reset the edge
@@ -287,10 +283,5 @@ export class VoltStatus {
 			return;
 		}
 		this.lastMtime = mtime;
-	}
-
-	/** True when a save on this file should trigger a refresh. */
-	isTrackedFile(path: string): boolean {
-		return isPouFile(path);
 	}
 }

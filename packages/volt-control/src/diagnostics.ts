@@ -11,7 +11,6 @@
  */
 import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
-import { join } from "node:path"
 import { pathToFileURL, fileURLToPath } from "node:url"
 // The node build (stdio stream readers + connection). nodenext needs the explicit `.js` on the subpath.
 import { StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node"
@@ -63,13 +62,6 @@ let serverModule: string | undefined
 export function setLspServer(path: string): void {
   if (existsSync(path)) serverModule = path
 }
-function resolveServer(workspaceRoot: string): string | undefined {
-  const candidates = [
-    serverModule,
-    join(workspaceRoot, "node_modules", "@volt", "lsp-iec", "dist", "src", "server", "bin.js"),
-  ].filter((p): p is string => p !== undefined)
-  return candidates.find((p) => existsSync(p))
-}
 
 /**
  * Spawn volt-lsp-iec, pull workspace diagnostics, and aggregate per-file error/warning counts.
@@ -80,8 +72,8 @@ export async function collectDiagnostics(
   workspaceRoot: string,
   opts: { timeoutMs?: number } = {},
 ): Promise<DiagnosticsResult> {
-  const server = resolveServer(workspaceRoot)
-  if (server === undefined) throw new Error("volt-lsp-iec server not found — build it or call setLspServer()")
+  const server = serverModule
+  if (server === undefined) throw new Error("volt-lsp-iec server not set — call setLspServer()")
 
   // A `.js` server runs via the host runtime (ELECTRON_RUN_AS_NODE); a compiled `.exe` (the desktop install
   // ships volt-lsp-iec.exe) spawns directly. Same .js/.exe split as the CLI spawn.

@@ -13,7 +13,6 @@ import { join, resolve } from "node:path"
 // C# `degradedReason` wire field — they were unset or unread. The IDE identity — `ideVersion` and the product/bridge
 // fields beside it — lives on each `DetectedProject` row, rendered as one line by `view/identity.ts`.)
 export interface BridgeHealth {
-  connected: boolean
   projectName?: string | null
   projectDirty?: boolean
 }
@@ -36,9 +35,6 @@ export function healthOf(h: HealthState): BridgeHealth | undefined {
 }
 
 export type Vendor = "codesys" | "twincat"
-
-/** The two vendors, for iterating. */
-export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 
 // No vendor→label helper here on purpose: the UI is vendor-blind — a project is identified by its NAME, never its
 // vendor. `vendor` survives only as routing/identity below the wire (which pipe `volt.bridge.<vendor>`, which LSP

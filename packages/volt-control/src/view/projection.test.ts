@@ -6,7 +6,7 @@ import type { HealthState } from "../bridge/health.js"
 
 const connected: HealthState = {
   kind: "connected",
-  health: { status: "healthy", connected: true, projectName: "Proj" },
+  health: { projectName: "Proj" },
 }
 
 function statusWith(over: Partial<StatusJson> = {}): StatusJson {
@@ -16,7 +16,6 @@ function statusWith(over: Partial<StatusJson> = {}): StatusJson {
     incoming: { added: [], removed: [], modified: [] },
     outgoing: { added: [], removed: [], modified: [] },
     pathByName: {},
-    projectMismatch: null,
     summary: "",
     ...over,
   }
@@ -58,9 +57,11 @@ test("projectWorkspace: a merge pauses and hides drift items", () => {
 // A project rename (IDE name ≠ binding) is no longer a paused state — it's just an offline workspace whose project
 // reappears in the reconnect list under a new name (pick it to rebind). So a mismatch on the wire is ignored here.
 test("projectWorkspace: a renamed project (mismatch on the wire) is not paused — just offline/ready", () => {
-  const status = statusWith({
+  // The CLI still emits `projectMismatch`; no TS reader models it, so it rides along as an extra wire field.
+  const status = {
+    ...statusWith(),
     projectMismatch: { configuredAs: { platform: "p", projectName: "A" }, bridgeReports: { platform: "p", projectName: "B" }, diffFields: ["projectName"] },
-  })
+  }
   expect(projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" }).paused).toBeNull()
 })
 
@@ -144,7 +145,7 @@ test("describePush: a push that landed in part says so and offers neither pull-f
 test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else in-sync", () => {
   const idea = (added: string[]): StatusJson => ({
     initialized: true, merging: null, incoming: { added, removed: [], modified: [] },
-    outgoing: { added: [], removed: [], modified: [] }, pathByName: {}, projectMismatch: null, summary: "",
+    outgoing: { added: [], removed: [], modified: [] }, pathByName: {}, summary: "",
   })
   // Zero items + the IDE has changes → warn with a Pull First button, not a bare "0".
   const ahead = describePush({ kind: "ok", items: [] }, idea(["A.pou", "B.pou"]))

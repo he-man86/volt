@@ -61,12 +61,3 @@ test("TwinCAT shows its build verbatim, never as a CODESYS service pack", () => 
   expect(ideIdentity({ ...tc, ideVersion: "3.5.21.40" })).toBe("Beckhoff TcXaeShell 15.0 — TwinCAT 3.5.21.40")
   expect(ideIdentity({ ...tc, ideVersion: null })).toBe("Beckhoff TcXaeShell 15.0 — TwinCAT version unknown")
 })
-
-// Review gate 2: a TwinCAT worker from before the change sends no bridgeVersion and `ideVersion` = DTE.Version (the
-// SHELL's `15.0`). Shown under the new label it would claim TwinCAT 15.0 — so an older bridge's number is not shown as
-// the build. CODESYS's `ideVersion` never changed meaning, so an older CODESYS bridge still shows its platform.
-test("an older TwinCAT bridge (no bridgeVersion) never has its shell version shown as the TwinCAT build", () => {
-  const old = row({ vendor: "twincat", ideVersion: "15.0" })
-  expect(ideIdentity(old)).toBe("unknown vendor unknown product unknown version — TwinCAT build not reported (older bridge)")
-  expect(ideIdentity(row({ ideVersion: "3.5.21.40" }))).toBe("unknown vendor unknown product unknown version — CODESYS 3.5 SP21 Patch 4")
-})

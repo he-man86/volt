@@ -14,17 +14,12 @@ import type { Vendor } from "../bridge/health.js"
  */
 export function ideIdentity(p: DetectedProject): string {
   const product = [p.productVendor ?? "unknown vendor", p.productName ?? "unknown product", p.productVersion ?? "unknown version"]
-  return `${product.join(" ")} — ${PLATFORM[p.vendor](p.ideVersion ?? null, (p.bridgeVersion ?? null) === null)}`
+  return `${product.join(" ")} — ${PLATFORM[p.vendor](p.ideVersion ?? null)}`
 }
 
-/** `older`: the row carries no `bridgeVersion`. A bridge since ide-identity-report always sends one (design A), so
- *  its absence means a bridge from before the change, whose `ideVersion` may mean something else. On TwinCAT it DID:
- *  the worker sent `DTE.Version` (`15.0`, the shell), so it is not shown as the TwinCAT build. On CODESYS it never
- *  changed meaning (the platform since codesys-minimum-version, the constant `3.5` before — both read correctly). */
-const PLATFORM: Record<Vendor, (ideVersion: string | null, older: boolean) => string> = {
+const PLATFORM: Record<Vendor, (ideVersion: string | null) => string> = {
   codesys: (v) => (v === null ? "CODESYS version unknown" : `CODESYS ${codesysRelease(v)}`),
-  twincat: (v, older) =>
-    older ? "TwinCAT build not reported (older bridge)" : v === null ? "TwinCAT version unknown" : `TwinCAT ${v}`,
+  twincat: (v) => (v === null ? "TwinCAT version unknown" : `TwinCAT ${v}`),
 }
 
 /** CODESYS's own release numbering — formatting only: `3.5.<sp>.<p>` with `p % 10 == 0` is `3.5 SP<sp> Patch <p/10>`

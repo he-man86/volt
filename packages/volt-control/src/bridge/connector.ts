@@ -17,7 +17,7 @@ import { ideIdentity } from "../view/identity.js"
 // The connector's control plane. Fixed at :8550 in production (the one port every client knows); an e2e can point
 // the real client at a test harness on another port via VOLT_CONTROL_BASE. Read lazily so the override can be set
 // after this module is imported.
-function controlBase(): string {
+export function controlBase(): string {
   return process.env.VOLT_CONTROL_BASE || "http://127.0.0.1:8550"
 }
 
@@ -118,9 +118,6 @@ export function connectOptions(projects: DetectedProject[], bound: BoundProject 
  *  matching project first). A surface is homogeneous by construction: `connectOptions` tags every option `init` for
  *  an unbound folder (⇒ `create`) or connect/rebind for a bound one (⇒ `reconnect`). */
 export interface ConnectSurface {
-  /** `create` — an unbound folder being set up from a live IDE project (all options `init`). `reconnect` — a bound,
-   *  offline workspace being re-attached (its matching project + any others to rebind to instead). */
-  kind: "create" | "reconnect"
   /** create only: the IDE projects a new workspace can be created from. */
   create: ConnectOption[]
   /** reconnect only: the option(s) matching this workspace's binding — a plain reconnect, shown FIRST and primary. */
@@ -131,9 +128,8 @@ export interface ConnectSurface {
 
 export function connectSurface(options: ConnectOption[]): ConnectSurface {
   const create = options.filter((o) => o.action === "init")
-  if (create.length > 0) return { kind: "create", create, primary: [], alternates: [] }
+  if (create.length > 0) return { create, primary: [], alternates: [] }
   return {
-    kind: "reconnect",
     create: [],
     primary: options.filter((o) => o.action === "connect"),
     alternates: options.filter((o) => o.action === "rebind"),
@@ -241,13 +237,12 @@ function healthStateOf(proj: DetectedProject | undefined, boundName?: string): H
   if (proj === undefined || (proj.status !== "healthy" && proj.status !== "degraded"))
     return {
       kind: "disconnected",
-      health: { connected: false, projectName: proj?.projectName ?? boundName ?? null },
+      health: { projectName: proj?.projectName ?? boundName ?? null },
     }
   const degraded = proj.status === "degraded"
   return {
     kind: degraded ? "degraded" : "connected",
     health: {
-      connected: true,
       projectName: proj.projectName,
       projectDirty: proj.dirty,
     },

@@ -1,32 +1,17 @@
 import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 
-/** The CLI bundled inside the extension (dist/cli.js). Set once at activation.
- *  Shipping the CLI with the extension makes it self-contained: a PLC workspace
- *  needs no Node toolchain and no `node_modules/.bin/volt`. */
+/** The shipped `volt.exe` by absolute path, set once by the host (the desktop's install dir, the extension's
+ *  installed-Volt lookup). Unset, the CLI is the bare `volt` on PATH. */
 let bundledCli: string | undefined
 
 export function setBundledCli(path: string): void {
 	if (existsSync(path)) bundledCli = path
 }
 
-/** Resolve the volt CLI: prefer the bundled copy set at activation, else fall back to bare `volt` on PATH — the
- *  installer adds the shipped `volt.exe` to PATH, so an installed machine always resolves it. Returns either a real
- *  path (a bundled `.exe`/`.js`) or the bare command name for PATH resolution. */
-export function cliScript(_workspaceRoot: string): string {
-	return bundledCli ?? "volt"
-}
-
-/** Spawn the volt CLI. A `.js` entry runs via the editor's own runtime (ELECTRON_RUN_AS_NODE makes
- *  process.execPath behave as plain node — works in VS Code / Windsurf / Cursor, no external node). The compiled
- *  standalone (`volt.exe`, the shipped CLI) — or a bare `volt` on PATH — is spawned directly. */
+/** Spawn the volt CLI — the set `volt.exe`, or the bare `volt` on PATH. */
 function spawnCli(workspaceRoot: string, args: string[], extraEnv?: Record<string, string>) {
-	const script = cliScript(workspaceRoot)
-	const asNode = script.toLowerCase().endsWith(".js")
-	return spawn(asNode ? process.execPath : script, asNode ? [script, ...args] : args, {
-		cwd: workspaceRoot,
-		env: asNode ? { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv } : { ...process.env, ...extraEnv },
-	})
+	return spawn(bundledCli ?? "volt", args, { cwd: workspaceRoot, env: { ...process.env, ...extraEnv } })
 }
 
 /** One streamed progress frame the CLI emits on stderr (as `VOLT_PROGRESS <json>`) under VOLT_PROGRESS_JSON=1. */
@@ -40,7 +25,7 @@ export interface ProgressUpdate {
 	phaseCount?: number | null
 }
 
-const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with volt-git's reporter (PROGRESS_JSON_PREFIX)
+const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with the C# CLI's progress reporter (VOLT_PROGRESS_JSON=1)
 
 /** Options for {@link runVolt}. `onProgress` opts into machine-readable progress frames (VOLT_PROGRESS_JSON=1)
  *  parsed out of stderr; `binary` returns the exact stdout bytes instead of a UTF-8 string. */

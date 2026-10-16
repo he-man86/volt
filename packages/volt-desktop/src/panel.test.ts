@@ -41,7 +41,6 @@ const proj = {
   projectName: "MyMachine",
   vendor: "codesys" as const,
   dirty: false,
-  connected: true,
 }
 
 // The parity point behind the vscode fix: the desktop init surface shows the detected project NAME. The unbound

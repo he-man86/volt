@@ -1,105 +1,66 @@
 import { expect, test } from "bun:test"
-import { aggregate, healthDisplay, type WorkspaceState } from "./display.js"
+import { healthDisplay, syncState, type WorkspaceSync } from "./display.js"
 import type { HealthState } from "../bridge/health.js"
 import type { StatusJson } from "./types.js"
 
 const empty = { added: [], modified: [], removed: [] }
-const connected: HealthState = { kind: "connected", health: { status: "healthy", connected: true } }
+const connected: HealthState = { kind: "connected", health: { projectName: "P" } }
+const degraded: HealthState = { kind: "degraded", health: { projectName: "P" } }
+const disconnected: HealthState = { kind: "disconnected", health: { projectName: "P" } }
 const unreachable: HealthState = { kind: "unreachable", reason: "ECONNREFUSED" }
+const probing: HealthState = { kind: "unknown" }
 
 function status(over: Partial<StatusJson> = {}): StatusJson {
-  return {
-    initialized: true,
-    merging: null,
-    incoming: empty,
-    outgoing: empty,
-    pathByName: {},
-    projectMismatch: null,
-    summary: "",
-    ...over,
-  }
+  return { initialized: true, merging: null, incoming: empty, outgoing: empty, pathByName: {}, summary: "", ...over }
 }
+const merging = status({ merging: { projectVersion: "v", conflicts: [] } })
+const drift = status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, outgoing: { added: [], modified: ["B.pou"], removed: [] } })
+const unwalked = status({ unwalkedFolders: ["Machine"] })
+const unreadable = status({ unreadable: [{ name: "Broken", reason: "read failed" }] })
 
-test("no workspaces → uninitialized", () => {
-  expect(aggregate([]).severity).toBe("uninitialized")
+test("nothing bound → none", () => {
+  expect(syncState([])).toBe("none")
 })
 
-test("in sync → insync", () => {
-  const ws: WorkspaceState = { status: status(), health: connected }
-  expect(aggregate([ws]).severity).toBe("insync")
-})
-
-test("drift counts both directions", () => {
-  const ws: WorkspaceState = {
-    status: status({ incoming: { added: ["A"], modified: [], removed: [] }, outgoing: { added: [], modified: ["B", "C"], removed: [] } }),
-    health: connected,
+// Every status shape on every health kind: a merge wins over everything; otherwise only the HEALTH decides, and a
+// partial view, drift or a degraded channel stays online.
+test.each([
+  ["connected", connected, "online"],
+  ["degraded", degraded, "online"],
+  ["disconnected (no project loaded)", disconnected, "offline"],
+  ["unreachable", unreachable, "offline"],
+  // The bug this guards: a pre-probe workspace read as "in sync/connected" before any probe had answered.
+  ["unknown (probing)", probing, "offline"],
+] as [string, HealthState, string][])("%s health", (_name, health, expected) => {
+  for (const s of [undefined, status(), drift, unwalked, unreadable]) {
+    expect(syncState([{ status: s, health }])).toBe(expected as never)
   }
-  const d = aggregate([ws])
-  expect(d.severity).toBe("drift")
-  expect(d.incoming).toBe(1)
-  expect(d.outgoing).toBe(2)
-  expect(d.label).toBe("Volt 2↑ 1↓")
+  expect(syncState([{ status: merging, health }])).toBe("merging")
 })
 
-test("worst-state-wins: merge beats offline beats drift", () => {
-  const merging: WorkspaceState = { status: status({ merging: { projectVersion: "v", conflicts: [] } }), health: unreachable }
-  const offline: WorkspaceState = { status: status({ outgoing: { added: ["X"], modified: [], removed: [] } }), health: unreachable }
-  expect(aggregate([offline, merging]).severity).toBe("merging") // merge wins over the offline+drift peer
-  expect(aggregate([offline]).severity).toBe("offline") // offline wins over drift
-  expect(aggregate([offline]).action).toBe("status") // bridge control is the connector's job, not the frontend's
+test("worst state wins across workspaces: merging > offline > online", () => {
+  const on: WorkspaceSync = { status: drift, health: connected }
+  const off: WorkspaceSync = { status: status(), health: unreachable }
+  const merge: WorkspaceSync = { status: merging, health: connected }
+  expect(syncState([on, off])).toBe("offline")
+  expect(syncState([off, merge, on])).toBe("merging")
+  expect(syncState([on, { status: unwalked, health: degraded }])).toBe("online")
 })
 
-test("probing (unknown health) never reads as insync/connected", () => {
-  // The bug: aggregate started conn="ok" and ignored `unknown`, so the pre-probe window reported "insync".
-  const probing: WorkspaceState = { status: status(), health: { kind: "unknown" } }
-  const d = aggregate([probing])
-  expect(d.severity).not.toBe("insync")
-  expect(d.severity).toBe("offline")
+// The reduction it replaced ranked "no project" above "degraded" in its doc but let whichever came FIRST win, so a
+// degraded workspace listed before a disconnected one read as online. Order must not decide.
+test("the order of the workspaces never changes the state", () => {
+  const deg: WorkspaceSync = { status: status(), health: degraded }
+  for (const health of [disconnected, probing, unreachable]) {
+    const down: WorkspaceSync = { status: status(), health }
+    expect(syncState([deg, down])).toBe("offline")
+    expect(syncState([down, deg])).toBe("offline")
+  }
 })
 
 test("healthDisplay maps each kind", () => {
   expect(healthDisplay(connected)).toMatchObject({ online: true, tone: "ok" })
-  expect(healthDisplay({ kind: "degraded", health: { connected: true } })).toMatchObject({ online: true, tone: "warn" })
+  expect(healthDisplay(degraded)).toMatchObject({ online: true, tone: "warn" })
   expect(healthDisplay(unreachable)).toMatchObject({ online: false, tone: "error" })
-  expect(healthDisplay({ kind: "disconnected", health: { connected: false } }).online).toBe(false)
-})
-
-// A PARTIAL IDE VIEW IS NOT "IN SYNC".
-//
-// Both fields have been on the `--json` contract since the bridge started publishing them, and neither was ever
-// rendered. `volt status` in a terminal warns on stderr; the desktop app and the VS Code panel both come through
-// this aggregate, and both drew the same project as "Connected and in sync with the IDE" — with the missing POU
-// simply absent and nothing anywhere saying so.
-
-test("an unwalked folder outranks drift, because the counts cannot be trusted", () => {
-  const ws: WorkspaceState = {
-    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unwalkedFolders: ["Machine"] }),
-    health: connected,
-  }
-  const d = aggregate([ws])
-  expect(d.severity).toBe("partial")
-  expect(d.tooltip).toContain("INCOMPLETE")
-})
-
-test("an unreadable item is reported but does not take the actionable step away", () => {
-  // It is absent from BOTH sides of the diff, so every count is exactly right and "pull" is still the advice.
-  const drifting: WorkspaceState = {
-    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unreadable: [{ name: "Broken", reason: "read failed" }] }),
-    health: connected,
-  }
-  expect(aggregate([drifting]).severity).toBe("drift")
-
-  // …but with nothing else to say, it must never read as in sync.
-  const quiet: WorkspaceState = { status: status({ unreadable: [{ name: "Broken", reason: "read failed" }] }), health: connected }
-  const d = aggregate([quiet])
-  expect(d.severity).toBe("partial")
-  expect(d.tooltip).toContain("could not be read")
-  // An unreadable item the workspace pulled before is HELD — its last-read file stays (a DUT caught mid-retype).
-  // Telling the engineer it has no file sends them looking for a file that is right there, and hides that the
-  // one there is stale and cannot be pushed.
-  expect(d.tooltip).not.toContain("no file")
-})
-
-test("a complete view still reads as in sync", () => {
-  expect(aggregate([{ status: status(), health: connected }]).severity).toBe("insync")
+  expect(healthDisplay(disconnected).online).toBe(false)
 })

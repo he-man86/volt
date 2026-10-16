@@ -35,7 +35,7 @@ and no agent runtime: Volt's chrome **is** the window.
   while their real one sat unreachable.
   - **The bridge connection follows the bound workspace** (over the `connector-session-model`) — binding
     **declares an interest** in it (`enterWorkspace`), releasing it **drops** the interest (`leaveWorkspace`), and
-    app quit `shutdownSession()`s the whole session (via `before-quit`, bounded ~1.5s); the same shared
+    app quit `closeSession()`s the whole session (via `before-quit`, bounded ~1.5s); the same shared
     `@volt/control` lifecycle VS Code drives from `activate`/`deactivate`. The connector serves a project iff ≥1
     live session wants it, so **one project open in two UIs no longer disconnects each other** (see
     `openspec/changes/connector-session-model/`). Manual Connect/Disconnect stay as an override.
