@@ -695,6 +695,9 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       section) with its members derived in the drivers, B8 `[feed] BRANCH (a, b, …) [SHORTCIRCUIT]` (P6), the small ones, and every "Precise rules" P1–P13 item. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
       re-pulled and their before/after line counts recorded.
+      **Owner 2026-10-16 (docs):** `docs/network-text.html` explains ONLY the current implementation — no history, no
+      "VAR_TEMP / IF … THEN / PARALLEL(…) are gone", no list of retired words; a refused spelling appears only as the
+      error a push gives today.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
