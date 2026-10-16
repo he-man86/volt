@@ -44,9 +44,9 @@ NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
   split176 := split175 AND Mach1.GenFlags.RunAuto;
   tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := split176;
   MOVE Mach1_Data.AUTOSPEED => tInt EN
-       PARALLEL(MODE := Sequential, IN := split176,
-         NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper,
-         (Mach1_Data.AUTOSPEED LE 40 EN Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper))
+       (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper
+        PARALLEL (Mach1_Data.AUTOSPEED LE 40 EN Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
+        FEED split176 SEQUENTIAL)
        AND NOT HMI_Var.Btn_Cleaning;
   MOVE 30 => tInt EN
        (Mach1_Data.AUTOSPEED GT 40 EN split176 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
@@ -93,7 +93,7 @@ a := b;                          // a coil, no box (unchanged)
 
 ### B3 — the enable input is `EN`, after the box
 
-`EN` / `ENO` are IEC's own reserved pin names — what CODESYS writes on the box, and no variable can be called that
+`EN` / `ENO` are IEC's own pin names — what CODESYS writes on the box (a POU variable named `EN`/`ENO` exists — Lenze `Dryer`, `WSM`, 65 library FBs — and is backticked, P1 below)
 (`ENABLE` was dropped: about 60 corpus FBs have an `ENABLE` input — MC_Power, BLINK — plus an enum value and variables).
 ```
 MOVE(EN := c, b, => a);              // today
@@ -117,13 +117,14 @@ iRPM MUL 6 => oDrive EN;             // proposed: `EN` with nothing after it
 EXECUTE(EN := c) … END_EXECUTE;      // today
 EXECUTE EN c … END_EXECUTE;          // proposed
 ```
-`EN` takes the condition up to `;`, `)` or `,`.
+`EN` takes the condition up to `;` or `)` (see "Precise rules").
 
 **Which box:** `EN`, `=>` and `ENO` belong to the box of their own bracket level; any other box is bracketed (the
 writer always brackets it):
 ```
-x := a ADD (f(b) EN c);              // f is enabled
-x := (a ADD f(b)) EN c;              // refused: a value box with EN is a statement or bracketed, see B4
+x := a AND (b GT 40 EN c);           // the GT is enabled — only a COMPARISON is a bracketed enabled value
+x := a ADD (f(b) EN c);              // refused: an enabled MOVE/ADD/call is read through its ENO (N16/N21) —
+                                     //   write `f(b) EN c;` then `x := a ADD ENO;`
 ```
 
 ### B4 — `ENO` is the enable output of the box on the line above
@@ -255,9 +256,64 @@ EXECUTE … END_EXECUTE;   ??? : TON(…)
 fb(…).name   F => dst   ``   ???   UNSUPPORTED "<shape>";
 ```
 
+## Precise rules (from the two adversarial reviews, 2026-10-16)
+
+```
+P1  Reserved text words: EN ENO FEED SEQUENTIAL JMP RETURN EXECUTE END_EXECUTE and every box word
+    (AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT MOVE PARALLEL). A variable, pin or FB with such a name is
+    backticked:  y := `ENO`;   `ENO` := ok;   x := a PARALLEL `Feed`(IN := y);
+    IF THEN END_IF LET leave the word list.
+
+P2  ENO = the ENO of the box at the ROOT of the directly preceding STATEMENT (statements, not lines — a statement
+    may span lines, an EXECUTE spans many). Refused when that root is not a box (a coil, a split definition, a jump,
+    `;`, a leaf, a PARALLEL, UNSUPPORTED):
+        x := a ADD b;   y := ENO;          // refused: the root above is a coil
+    A consumed box carries no modifier; its NOT/R_EDGE is written at the ENO token:
+        MOVE 1 => A EN c;   x := NOT ENO;  // ok
+        NOT (MOVE 1 => A EN c);  x := ENO; // refused
+    One ENO token per statement. A box consuming TWO ENOs (two enabled branches ANDed) has no text:
+        UNSUPPORTED "a box consuming two ENO outputs";      (0 in the corpora)
+    The writer indents a consumed statement, so the link is visible (layout only):
+        MOVE 175  => VelUnit EN go;
+          MOVE 2000 => DecUnit EN ENO;
+            StartAuto := ENO;
+
+P3  Who owns EN / => at a bracket level: its word box, or its single call when the level holds nothing else.
+    EN takes everything up to `;` or `)`. A second box's EN or => at the same level is refused unless bracketed:
+        x ADD f(b) EN c;                   // refused: write  f(b) EN c;  x ADD ENO … / or bracket
+        MOVE b EN c => a;                  // refused: => comes before EN
+    A bracketed enabled box as a VALUE only for comparison words: (a GT 40 EN c). Elsewhere refused (P2 form).
+    A top-level enabled comparison writing a pin now has a text:  a GT 40 => x EN c;
+
+P4  FEED takes everything up to `;`, `)` or SEQUENTIAL:   a PARALLEL b FEED split1 AND bSync
+    An unfed Sequential Parallel:  a PARALLEL b SEQUENTIAL
+
+P5  MOVE takes ONE operand — a leaf, a call or a bracket; MOVE inside another word's level is refused:
+        MOVE (a ADD b) => x;   x := MOVE a AND b;   // the second is refused
+
+P6  JMP / RETURN: `JMP l;` / `RETURN;` is the rail (C11); `JMP l := ;` is refused (one spelling).
+    `RETURN := TRUE` (a leaf) is a different tree from `RETURN;` — both kept.
+    Refused by name: `JMP l S= c`, two jumps on one rung, a nested `(JMP l := c)`; a coil plus a jump on one
+    rung (`x := JMP l := c;`, 0 in the corpora) stays refused.
+
+P7  Brackets: B5 drops the outer pair on a coil's value, an EN tail and a FEED tail — NOT on a pin value holding a
+    word box (28 networks read worse without them):
+        TON_0(IN := (OffDelaySync(IN := split1 AND DoorsOK, PT := T#500MS) AND STO_OK), PT := T#500MS)
+
+P8  EXECUTE's EN ends at its line:   EXECUTE EN c⏎ …ST… ⏎END_EXECUTE;    bare  EXECUTE EN⏎  = the empty enable.
+
+P9  A call always keeps its brackets:  Mach1_MIDS() EN split16;   SideCorrection(=> ???) EN;
+    Operator call form survives only where the word form cannot carry the tree (one input, an empty input, a
+    negated pin, non-default formals, a lowercase type):  AND(a, NOT IN2 := b)   ADD(a)
+    `NOT (` is the NOT box only when followed by `IN :=`; `NOT (x GT 1 EN c)` is the negation of that box.
+
+P10 Old spellings are refused with a pointer to the new one (no aliases): `.ENO`, `IF … THEN`, `+ - * / > <`,
+    `MOVE(…)`, `EN :=` on a box, `{Member := …}`. A negative number is a literal: `MOVE -1 => x;`.
+    A coil with an empty source is unchanged: `FirstCycle R= ;`.
+```
+
 ## Open
 
-- Negative numbers: `-1` lexes as a literal (no backticks), `a SUB 1` is the box.
 - The two members B7 cannot drop without losing a fact — decided by C4, owner's call if it is more than a handful:
   a bare `x := a AND b;` is two CODESYS networks (editor-drawn: a stored output slot; plain: none), and 97 of 97 function
   boxes store a result name `'   '` Volt cannot build.

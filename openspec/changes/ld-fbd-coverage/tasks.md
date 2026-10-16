@@ -641,7 +641,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
       guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` = the box on the line above (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 bare values, B6 `split<n>`, B7 the pragma DELETED
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
-      section) with its members derived in the drivers, B8 `a PARALLEL b FEED s [SEQUENTIAL]`, and the small ones. The LSP
+      section) with its members derived in the drivers, B8 `a PARALLEL b FEED s [SEQUENTIAL]`, the small ones, and every "Precise rules" P1–P10 item. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
       re-pulled and their before/after line counts recorded.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
