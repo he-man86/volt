@@ -3,14 +3,13 @@
 // pixels; the renderer draws it in shell.html), and drives the headless diagnostics collector.
 import {
   VoltStatus,
-  projectWorkspace,
+  projectStatus,
   readBridgeVendor,
   readBoundProject,
   connectOptions,
   connectSurface,
   ideIdentity,
-  connectorStatus,
-  refusedIdes,
+  readConnector,
   collectDiagnostics,
   describeDiagnostics,
   onboardingMode,
@@ -64,21 +63,7 @@ export function snapshot(shell: Shell): Snap {
   const onboarding = onboardingMode(shell.connectorUp, shell.projects.length)
   const refused = shell.refused
   if (!vs) return { bound: false, incoming: [], outgoing: [], surface, onboarding, refused }
-  return {
-    bound: true,
-    surface,
-    onboarding,
-    refused,
-    ...projectWorkspace({
-      workspaceRoot: vs.workspaceRoot,
-      status: vs.cached,
-      health: vs.health,
-      statusError: vs.statusError,
-      vendor: readBridgeVendor(vs.workspaceRoot),
-      boundProjectName: bound?.projectName,
-      ideChanged: vs.ideChanged,
-    }),
-  }
+  return { bound: true, surface, onboarding, refused, ...projectStatus(vs) }
 }
 
 export function pushStatus(shell: Shell): void {
@@ -98,10 +83,7 @@ export const detectedKey = (ps: DetectedProject[]): string =>
 export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // One connector probe drives BOTH the detected-project list AND whether the connector is even running, so the
   // surface can tell "connector not running" apart from "connector up, no IDE project open".
-  const view = await connectorStatus()
-  const next = view?.projects ?? []
-  const refused = refusedIdes(view)
-  const up = view !== undefined
+  const { projects: next, connectorUp: up, refused } = await readConnector()
   // THE KEY COVERS WHAT THE PICKER DRAWS, not just identity. It was ids alone — but `projectBtn` also draws
   // `dirty` as a trailing asterisk, and `dirty` is re-read on every health poll, so a project that became dirty
   // (or clean) changed nothing here and the panel sat contradicting the tray beside it, which redraws that same
@@ -162,7 +144,6 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
 
 export async function bindWorkspace(shell: Shell, root: string): Promise<void> {
   voltLog("desktop", `binding workspace ${root}`)
-  shell.boundRoot = root // set synchronously so a second bind can't race this one mid-flight
   writeRecent(root) // this is the workspace to come back to on the next launch
   shell.status?.dispose()
   shell.status = new VoltStatus(root)

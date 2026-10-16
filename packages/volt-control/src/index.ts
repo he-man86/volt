@@ -10,14 +10,14 @@
 export * from "./bridge/cli.js" // setBundledCli, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
 export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, Vendor
-export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, Refusal, ConnectorView
+export * from "./bridge/connector.js" // connectorStatus, readConnector, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, Refusal, ConnectorView
 export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, enter/leaveWorkspace, closeSession, firstLine + Pull/Push/MergeOutcome
 // The connector feed — the product's ONE live-connection clock. Everything else in the session client is internal
 // (actions.ts re-exports it as enterWorkspace/leaveWorkspace), so only these two are public.
 export { startConnectorFeed, onConnectorView } from "./bridge/session.js"
 
 // state/ — the reactive per-workspace tracker
-export * from "./state/status.js" // VoltStatus, isIdeChangeEdge, settleOutcome, connect/disconnectWorkspace
+export * from "./state/status.js" // VoltStatus, projectStatus, isIdeChangeEdge, settleOutcome, connect/disconnectWorkspace
 export * from "./state/emitter.js" // Emitter, Disposable (vscode-EventEmitter-shaped)
 export * from "./state/files.js" // isPouFile, readStateMtime
 
@@ -25,7 +25,7 @@ export * from "./state/files.js" // isPouFile, readStateMtime
 export * from "./view/types.js" // StatusJson, ChangeSet, changeCount
 export * from "./view/display.js" // healthLabel, healthDisplay, syncState, SyncState, WorkspaceSync
 export * from "./view/workspace.js" // projectWorkspace, syncMode, onboardingMode, WorkspaceView, WorkspaceInput, DriftItem
-export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
+export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, rebindConfirmation, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag, OutcomeHandlers
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 export * from "./view/diff.js" // loadDiff, lineDiff, FileDiff, DiffLine, DiffDirection — shared change-diff logic
 export * from "./view/build.js" // buildDiagnosticWhere, describeBuildDiagnostic — how both shells state a build diagnostic

@@ -6,7 +6,7 @@ import { hasVoltConfig, workspaceFolders } from "./workspace.js"
 import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
-import { VoltStatus, syncState, isPouFile, connectorStatus, refusedIdes, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
+import { VoltStatus, syncState, isPouFile, readConnector, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
@@ -36,13 +36,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		// view can tell "connector not running" apart from "no IDE project open" — they used to look identical) AND
 		// the detected-project list. Probed regardless of bound state: the list ALSO feeds the Bridge view's offline
 		// reconnect surface (pick your project to reconnect, or a renamed one to rebind), not just unbound onboarding.
-		const view = await connectorStatus()
-		const projects = view?.projects ?? []
+		const r = await readConnector()
 		// NOTE: no `volt.hasProjects` context key any more. It used to gate `volt.init`'s `enablement`, which made
 		// the detected-project ROWS dead on click whenever the key was stale or false — VS Code silently does
 		// nothing when a TreeItem's command is disabled, so "click to set up" did exactly that: nothing. The
 		// command reports "No PLC project detected…" itself, which beats a button that ignores you.
-		views?.setDetected(projects, view !== undefined, refusedIdes(view))
+		views?.setDetected(r.projects, r.connectorUp, r.refused)
 	}
 	// The list rides the connector feed's ONE clock — no second timer for a value the session client already has.
 	const bridgeSub = onConnectorView.event(() => void refreshBridgeLive())

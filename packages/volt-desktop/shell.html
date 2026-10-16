@@ -266,7 +266,7 @@
     // The project NAME is the identity — the UI is vendor-blind, so no "CODESYS · " prefix or badge (the vendor is a
     // wire/binding detail, never a way to label a project here).
     const label = `${esc(p.projectName)}${p.dirty ? " *" : ""}`
-    const attrs = `data-pact="${esc(p.action)}" data-pid="${esc(p.id)}" data-pname="${esc(p.projectName)}"`
+    const attrs = `data-pact="${esc(p.action)}" data-pid="${esc(p.id)}"`
     const title = p.action === "connect"
       ? "Reconnect this workspace to the IDE."
       : p.action === "rebind"
@@ -521,11 +521,8 @@
   async function doBuild() { begin("Building…", "build"); await volt.build() }
   async function doConnect() { begin("Connecting…", "connect"); await volt.connect() }
   async function doDisconnect() { begin("Disconnecting…", "disconnect"); await volt.disconnect() }
-  async function doRebind(projectId, name) {
-    if (!confirm(`Re-point this workspace to “${name}”?\n\nOnly the binding changes — your files, git history and the folder name are untouched. Pull afterward to bring in “${name}”'s code.`)) return
-    begin("Re-binding…", "rebind:" + projectId); await volt.rebind(projectId)
-  }
-  // The three destructive actions confirm in the MAIN PROCESS now (`commands.ts`), using @volt/control's
+  async function doRebind(projectId) { begin("Re-binding…", "rebind:" + projectId); await volt.rebind(projectId) }
+  // Rebind and the three destructive actions confirm in the MAIN PROCESS (`commands.ts`), using @volt/control's
   // own wording — one owner for the copy, and a gate that survives a syntax error in this file. Do not
   // re-add a local confirm(): two copies means one drifts, and one already had.
   async function doForcePull() { begin("Force pulling…", "pull"); await volt.forcePull() }
@@ -559,7 +556,7 @@
       return pb.dataset.pact === "connect"
         ? doConnect()
         : pb.dataset.pact === "rebind"
-          ? doRebind(pb.dataset.pid, pb.dataset.pname)
+          ? doRebind(pb.dataset.pid)
           : doInit(pb.dataset.pid)
   })
 

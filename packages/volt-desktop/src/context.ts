@@ -9,7 +9,6 @@ import type { VoltStatus, DetectedProject, RefusedIde } from "@volt/control"
 export interface Shell {
   win: BrowserWindow | null
   status: VoltStatus | null
-  boundRoot: string | undefined // the workspace currently bound (restored on launch, or picked by the user)
   projects: DetectedProject[]
   // The IDEs whose bridge refused the connector (@volt/control's refusedIdes) — drawn beside the detected list with
   // their reason, so an IDE that is open but unreachable is named, not missing (environment-dependency-audit 2.2).

@@ -1,12 +1,10 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type Refusal, type RefusedIde, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
+import { projectStatus, isPouFile, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type Refusal, type RefusedIde, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
-function viewOf(s: VoltStatus): WorkspaceView {
-	return projectWorkspace({ workspaceRoot: s.workspaceRoot, status: s.cached, health: s.health, statusError: s.statusError, vendor: readBridgeVendor(s.workspaceRoot), boundProjectName: readBoundProject(s.workspaceRoot)?.projectName, ideChanged: s.ideChanged })
-}
+const viewOf = (s: VoltStatus): WorkspaceView => projectStatus(s)
 
 // The dedicated Volt activity-bar area. THREE native tree views over one lightweight node model:
 //   Bridge      — the WHOLE connection lifecycle: which project, initialize, connect, disconnect

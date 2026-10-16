@@ -12,11 +12,14 @@ export type OutcomeTone = "info" | "warn" | "error"
 /** A follow-up the shell may offer. `destructive` ⇒ `presentOutcome` confirms (modal) before running it, using
  *  `confirmMessage` — so the "cannot be undone" copy lives here, once, not re-written per shell. */
 export type OutcomeActionTag = "open-conflicts" | "force-pull" | "pull-first" | "force-push" | "finish-merge" | "abort-merge"
-export interface OutcomeAction {
-  tag: OutcomeActionTag
+/** What a modal confirm shows: the question, and the label of the button that proceeds. */
+export interface Confirmation {
   label: string
-  destructive?: boolean
   confirmMessage?: string
+}
+export interface OutcomeAction extends Confirmation {
+  tag: OutcomeActionTag
+  destructive?: boolean
 }
 
 export interface OutcomeView {
@@ -49,6 +52,16 @@ export const ABORT_MERGE: OutcomeAction = {
   label: "Abort Merge",
   destructive: true,
   confirmMessage: "Abort discards this merge and restores your workspace to before the pull. Your in-merge edits are lost. This cannot be undone.",
+}
+
+/** The rebind confirm — re-pointing a workspace's binding at a DIFFERENT detected project (the reconnect list's
+ *  "rebind": a project renamed in the IDE, or a wrong bind). Worded once; both shells confirm with it, in the
+ *  process that runs the rebind, before calling `rebind`. */
+export function rebindConfirmation(projectName: string): Confirmation {
+  return {
+    label: "Rebind",
+    confirmMessage: `Re-point this workspace to “${projectName}”? Only the binding changes — your files, git history and the folder name are untouched. Pull afterward to bring in “${projectName}”'s code.`,
+  }
 }
 
 /** The two endings of a Connect/Reconnect (declaring THIS window's interest), described ONCE. The failure text is
@@ -142,24 +155,24 @@ export interface OutcomePresenter {
   /** Show the message + the (already capability-filtered) action buttons; resolve to the chosen tag, or
    *  undefined if dismissed. Must handle the zero-action case (just surface the message). */
   choose(view: OutcomeView): Promise<OutcomeActionTag | undefined>
-  /** Confirm a destructive action with a modal; resolve true to proceed. */
-  confirm(action: OutcomeAction): Promise<boolean>
+  /** Confirm with a modal (a destructive action, a rebind); resolve true to proceed. */
+  confirm(action: Confirmation): Promise<boolean>
 }
 
-/** Render an outcome and dispatch the chosen action — shared by both shells. Filters to `capabilities` (the
- *  desktop has no merge editor, so it omits `open-conflicts`), confirms destructive actions, then runs. The
- *  shell supplies only the dialog primitives (`presenter`) and the per-tag handlers (`run`). */
-export async function presentOutcome(
-  view: OutcomeView,
-  presenter: OutcomePresenter,
-  run: (tag: OutcomeActionTag) => Promise<void>,
-  capabilities?: ReadonlySet<OutcomeActionTag>,
-): Promise<void> {
-  const actions = capabilities === undefined ? view.actions : view.actions.filter((a) => capabilities.has(a.tag))
+/** What a shell does for each action tag it can carry out. A tag with no handler is not offered: the desktop has no
+ *  merge editor, so it passes no `open-conflicts` — the handlers ARE the shell's capabilities. */
+export type OutcomeHandlers = Partial<Record<OutcomeActionTag, () => Promise<void>>>
+
+/** Render an outcome and dispatch the chosen action — shared by both shells. Offers only the actions the shell has a
+ *  handler for, confirms destructive ones, then runs the handler. The shell supplies only the dialog primitives
+ *  (`presenter`) and the handlers. */
+export async function presentOutcome(view: OutcomeView, presenter: OutcomePresenter, handlers: OutcomeHandlers): Promise<void> {
+  const actions = view.actions.filter((a) => handlers[a.tag] !== undefined)
   const tag = await presenter.choose({ ...view, actions })
   if (tag === undefined) return
   const action = actions.find((a) => a.tag === tag)
-  if (action === undefined) return
+  const run = handlers[tag]
+  if (action === undefined || run === undefined) return
   if (action.destructive === true && !(await presenter.confirm(action))) return
-  await run(tag)
+  await run()
 }

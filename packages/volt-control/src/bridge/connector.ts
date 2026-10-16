@@ -198,6 +198,19 @@ export async function connectorStatus(timeoutMs = 2_000): Promise<ConnectorView 
   }
 }
 
+/** One connector read as both shells consume it: the detected projects, whether the connector answered at all (so
+ *  "connector not running" is told apart from "no IDE project open"), and the IDEs it could not reach. */
+export interface ConnectorReading {
+  projects: DetectedProject[]
+  connectorUp: boolean
+  refused: RefusedIde[]
+}
+
+export async function readConnector(): Promise<ConnectorReading> {
+  const view = await connectorStatus()
+  return { projects: view?.projects ?? [], connectorUp: view !== undefined, refused: refusedIdes(view) }
+}
+
 /** The unified detected-project list — the init/connect surface (use case B). Empty when the connector is down
  *  or no IDE has a project open. */
 export async function detectedProjects(): Promise<DetectedProject[]> {

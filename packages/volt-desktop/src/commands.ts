@@ -1,7 +1,6 @@
 // The pull/push/build/init actions — the desktop counterpart of the extension's commands.ts. The FLOW (adopt
 // vs refresh, outcome filtering + destructive-confirm, progress formatting) lives in @volt/control; this file
 // only supplies Electron's native primitives (dialogs + IPC) and wires them to the shared functions.
-import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { Dialog, IpcMain } from "electron"
 import {
@@ -23,24 +22,16 @@ import {
   describePush,
   describeMerge,
   presentOutcome,
+  rebindConfirmation,
   settleOutcome,
   formatProgress,
   firstLine,
   type OutcomePresenter,
-  type OutcomeActionTag,
+  type OutcomeHandlers,
   type ProgressUpdate,
 } from "@volt/control"
 import type { Shell } from "./context.js"
 import { bindWorkspace, runDiagnostics } from "./panel.js"
-
-// The OUTCOME ACTIONS this shell can offer — `presentOutcome` filters to this set. The desktop cannot OPEN the
-// conflicted files for editing (`open-conflicts` is vscode's job), but finishing and aborting a merge need no
-// editor, so those are actionable here.
-//
-// This is a list of outcome ACTIONS, not a feature list, and reading it as one is how the README came to claim
-// the desktop has no take-a-side. It has: take-a-side ships as a button on each conflict ROW
-// (`volt:mergeResolve` → `runMergeResolve`), which is simply not routed through an outcome.
-const DESKTOP_CAPS = new Set<OutcomeActionTag>(["force-pull", "pull-first", "force-push", "finish-merge", "abort-merge"])
 
 export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell): void {
   // One progress channel for EVERY action (formatProgress is shared with vscode); null clears it.
@@ -98,6 +89,11 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     },
   }
 
+  // The outcome actions this shell can carry out — `presentOutcome` offers only these. The desktop cannot OPEN the
+  // conflicted files for editing (no `open-conflicts`); finishing and aborting a merge need no editor. (Take-a-side
+  // is a button on each conflict ROW — `volt:mergeResolve` — not an outcome action.)
+  const mergeHandlers: OutcomeHandlers = { "finish-merge": () => runFinishMerge(), "abort-merge": () => runAbortMerge() }
+
   async function runPull(force = false): Promise<void> {
     const st = shell.status
     if (!st) return
@@ -112,13 +108,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     // GATED on `ok`: a conflicted pull leaves `<<<<<<<` markers on disk, and analysing those badges the rail
     // with a flood of parse errors that say nothing except "you are mid-merge" — which the panel already says.
     if (out.kind === "ok") void runDiagnostics(shell)
-    await presentOutcome(
-      describePull(out),
-      presenter,
-      (tag) =>
-        tag === "force-pull" ? runPull(true) : tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve(),
-      DESKTOP_CAPS,
-    )
+    await presentOutcome(describePull(out), presenter, { "force-pull": () => runPull(true), ...mergeHandlers })
   }
   async function runFinishMerge(): Promise<void> {
     const st = shell.status
@@ -130,12 +120,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     // has no merge editor: the engineer resolved those conflicts in some OTHER editor, and Finish is this app's
     // first chance to catch up with what they did there.
     void runDiagnostics(shell)
-    await presentOutcome(
-      describeMerge(out),
-      presenter,
-      (tag) => (tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve()),
-      DESKTOP_CAPS,
-    )
+    await presentOutcome(describeMerge(out), presenter, mergeHandlers)
   }
   async function runAbortMerge(): Promise<void> {
     const st = shell.status
@@ -144,7 +129,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     clearProgress()
     await settleOutcome(st, out)
     void runDiagnostics(shell) // restores the pre-pull workspace — a wholesale tree rewrite, so counts are stale
-    await presentOutcome(describeMerge(out), presenter, () => Promise.resolve(), DESKTOP_CAPS)
+    await presentOutcome(describeMerge(out), presenter, mergeHandlers)
   }
   // Take a whole side for ONE conflicted file (mine = workspace, ide = IDE), then re-present so a now-fully-resolved
   // merge surfaces its Finish action. The per-file resolution the desktop was missing — the CLI/control already
@@ -155,12 +140,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await mergeResolve(st.workspaceRoot, path, side)
     clearProgress()
     await settleOutcome(st, out)
-    await presentOutcome(
-      describeMerge(out),
-      presenter,
-      (tag) => (tag === "finish-merge" ? runFinishMerge() : tag === "abort-merge" ? runAbortMerge() : Promise.resolve()),
-      DESKTOP_CAPS,
-    )
+    await presentOutcome(describeMerge(out), presenter, mergeHandlers)
   }
   async function runPush(force = false): Promise<void> {
     const st = shell.status
@@ -168,12 +148,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await push(st.workspaceRoot, { force, onProgress: report })
     clearProgress()
     await settleOutcome(st, out)
-    await presentOutcome(
-      describePush(out, st.cached),
-      presenter,
-      (tag) => (tag === "pull-first" ? runPull(false) : tag === "force-push" ? runPush(true) : Promise.resolve()),
-      DESKTOP_CAPS,
-    )
+    await presentOutcome(describePush(out, st.cached), presenter, {
+      "pull-first": () => runPull(false),
+      "force-push": () => runPush(true),
+    })
   }
 
   ipcMain.handle("volt:pull", () => runGuarded(() => runPull()))
@@ -250,13 +228,15 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
   )
   // Re-point the workspace to a DIFFERENT detected project — the reconnect list's "rebind" action (a rename in the
   // IDE, or binding the wrong project). Config-only: reconnects the bridge + rewrites the binding, no re-seed and no
-  // folder rename (the user pulls afterward). The renderer confirms first. runGuarded's finally clears the spinner.
+  // folder rename (the user pulls afterward). Confirmed HERE, in the main process, with @volt/control's wording (the
+  // same text VS Code shows) — never in the renderer. runGuarded's finally clears the spinner, confirmed or not.
   ipcMain.handle("volt:rebind", (_e, projectId: string) =>
     runGuarded(async () => {
       const st = shell.status
       if (!st) return
       const project = shell.projects.find((p) => p.id === projectId)
       if (project === undefined) return notify("error", "That project is no longer detected — open it in your IDE and try again.")
+      if (!(await presenter.confirm(rebindConfirmation(project.projectName)))) return
       const r = await rebind(st.workspaceRoot, project)
       await st.refresh(true)
       if (!r.ok) notify("error", `Couldn't rebind: ${r.message ?? "unknown error"}`) // success shows in the panel
@@ -275,7 +255,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // semantics) and reports the path back. The picker + button IS the confirmation (no separate dialog).
       const picked = await dialog.showOpenDialog(shell.win, {
         title: `Create a Volt workspace for “${project.projectName}”`,
-        defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? join(shell.boundRoot, "..") : undefined,
+        defaultPath: shell.status ? join(shell.status.workspaceRoot, "..") : undefined,
         properties: ["openDirectory", "createDirectory"],
         buttonLabel: "Create here",
       })
@@ -300,7 +280,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     if (!shell.win) return
     const picked = await dialog.showOpenDialog(shell.win, {
       title: "Open a Volt workspace",
-      defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? shell.boundRoot : undefined,
+      defaultPath: shell.status?.workspaceRoot,
       properties: ["openDirectory"],
       buttonLabel: "Open",
     })

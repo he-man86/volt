@@ -17,13 +17,27 @@ import { describeConnect, describeDisconnect, type OutcomeView } from "../view/o
 import { Emitter, type Disposable } from "./emitter.js";
 import { onConnectorView } from "../bridge/session.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { bindingFile, readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
+import { bindingFile, readBridgeVendor, readBoundProject, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
 import { boundStatus } from "../bridge/connector.js";
 import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
+import { projectWorkspace, type WorkspaceView } from "../view/workspace.js";
 import { isPouFile, readStateMtime } from "./files.js";
 
 const MTIME_MS = 3_000;
+
+/** A tracker as the shared panel view-model — the ONE projection both shells render, binding read included. */
+export function projectStatus(st: VoltStatus): WorkspaceView {
+	return projectWorkspace({
+		workspaceRoot: st.workspaceRoot,
+		status: st.cached,
+		health: st.health,
+		statusError: st.statusError,
+		vendor: readBridgeVendor(st.workspaceRoot),
+		boundProjectName: readBoundProject(st.workspaceRoot)?.projectName,
+		ideChanged: st.ideChanged,
+	});
+}
 // Coalesce a burst of src writes (e.g. the agent rewriting many files) into one refresh.
 const WATCH_DEBOUNCE_MS = 400;
 

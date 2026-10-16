@@ -4,8 +4,8 @@ import {
 	VoltStatus,
 	pull, push, build, describeBuildDiagnostic, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor, bindingFile, ideIdentity,
-	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
-	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
+	describePull, describePush, describeMerge, presentOutcome, rebindConfirmation, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
+	type ProgressUpdate, type OutcomePresenter, type OutcomeHandlers, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -101,12 +101,20 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`pull: ${outcome.message}`)
-	await presentOutcome(describePull(outcome), vscodePresenter, async (tag) => {
-		if (tag === "open-conflicts" && outcome.kind === "conflict") await openConflicts(workspaceRoot, outcome.paths)
-		else if (tag === "force-pull") await doPull(statuses, workspaceRoot, true)
-		else if (tag === "finish-merge") await doFinishMerge(statuses, workspaceRoot)
-		else if (tag === "abort-merge") await doAbortMerge(statuses, workspaceRoot)
+	await presentOutcome(describePull(outcome), vscodePresenter, {
+		...mergeHandlers(statuses, workspaceRoot),
+		"open-conflicts": () => openConflicts(workspaceRoot, outcome.kind === "conflict" ? outcome.paths : []),
+		"force-pull": () => doPull(statuses, workspaceRoot, true),
 	})
+}
+
+/** What every merge outcome can lead to: open the conflicted files, finish, or abort. */
+function mergeHandlers(statuses: Map<string, VoltStatus>, workspaceRoot: string): OutcomeHandlers {
+	return {
+		"open-conflicts": () => openConflicts(workspaceRoot, conflictPaths(statuses, workspaceRoot)),
+		"finish-merge": () => doFinishMerge(statuses, workspaceRoot),
+		"abort-merge": () => doAbortMerge(statuses, workspaceRoot),
+	}
 }
 
 // ── merge finalization (git-native resolution; `volt merge` advances the IDE baseline) ──────────────
@@ -117,11 +125,7 @@ async function doFinishMerge(statuses: Map<string, VoltStatus>, workspaceRoot: s
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`merge --continue: ${outcome.message}`)
-	await presentOutcome(describeMerge(outcome), vscodePresenter, async (tag) => {
-		if (tag === "open-conflicts") await openConflicts(workspaceRoot, conflictPaths(statuses, workspaceRoot))
-		else if (tag === "finish-merge") await doFinishMerge(statuses, workspaceRoot)
-		else if (tag === "abort-merge") await doAbortMerge(statuses, workspaceRoot)
-	})
+	await presentOutcome(describeMerge(outcome), vscodePresenter, mergeHandlers(statuses, workspaceRoot))
 }
 
 async function doAbortMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
@@ -132,7 +136,7 @@ async function doAbortMerge(statuses: Map<string, VoltStatus>, workspaceRoot: st
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`merge --abort: ${outcome.message}`)
-	await presentOutcome(describeMerge(outcome), vscodePresenter, async () => {})
+	await presentOutcome(describeMerge(outcome), vscodePresenter, mergeHandlers(statuses, workspaceRoot))
 }
 
 /** Take one whole side of a single conflicted file, then leave the rest to the user + Finish Merge. */
@@ -144,12 +148,9 @@ async function doTakeSide(statuses: Map<string, VoltStatus>, node: { merge?: { w
 		() => mergeResolve(m.workspaceRoot, m.relPath, side),
 	)
 	await settleFor(statuses, m.workspaceRoot, outcome)
-	if (outcome.kind === "error") {
-		logln(`merge --resolve ${m.relPath}: ${outcome.message}`)
-		void vscode.window.showErrorMessage(`Resolve failed: ${outcome.message}`)
-	} else {
-		void vscode.window.showInformationMessage(`${m.relPath}: took ${side === "ide" ? "the IDE's" : "your"} version. Finish Merge when every file is resolved.`)
-	}
+	if (outcome.kind === "error") logln(`merge --resolve ${m.relPath}: ${outcome.message}`)
+	// The same wording and follow-ups the desktop presents for the same result.
+	await presentOutcome(describeMerge(outcome), vscodePresenter, mergeHandlers(statuses, m.workspaceRoot))
 }
 
 async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
@@ -162,9 +163,9 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	)
 	await settleFor(statuses, workspaceRoot, outcome)
 	if (outcome.kind === "error") logln(`push: ${outcome.message}`)
-	await presentOutcome(describePush(outcome, statuses.get(workspaceRoot)?.cached), vscodePresenter, async (tag) => {
-		if (tag === "pull-first") await doPull(statuses, workspaceRoot, false)
-		else if (tag === "force-push") await doPush(statuses, workspaceRoot, true)
+	await presentOutcome(describePush(outcome, statuses.get(workspaceRoot)?.cached), vscodePresenter, {
+		"pull-first": () => doPull(statuses, workspaceRoot, false),
+		"force-push": () => doPush(statuses, workspaceRoot, true),
 	})
 }
 
@@ -240,15 +241,9 @@ async function doInitFromProject(parent: string, project: DetectedProject): Prom
 }
 
 /** Re-bind the workspace to a DIFFERENT detected project — the reconnect list's "rebind" (a rename in the IDE, or a
- *  wrong bind). Confirms modally, then initFromProject(force) re-points the binding and reconnects. Replaces the old
- *  accept-project-rename flow. */
+ *  wrong bind). Confirms modally with @volt/control's wording (the desktop's too), then re-points the binding. */
 async function doRebindProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
-	const pick = await vscode.window.showWarningMessage(
-		`Re-point this workspace to “${project.projectName}”?`,
-		{ modal: true, detail: `${workspaceRoot}\n\nOnly the binding changes — your files, git history and the folder name are untouched. Run Pull afterward to bring in “${project.projectName}”'s code.` },
-		"Rebind",
-	)
-	if (pick !== "Rebind") return
+	if (!(await vscodePresenter.confirm(rebindConfirmation(project.projectName)))) return
 	const before = readBridgeVendor(workspaceRoot)
 	const r = await rebind(workspaceRoot, project) // config-only re-point — instant, no progress
 	if (!r.ok) { vscode.window.showErrorMessage(`Rebind failed: ${r.message ?? "unknown error"}.`); return }
@@ -379,7 +374,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 				{ location: vscode.ProgressLocation.Notification, title: "volt disconnect" },
 				() => disconnectWorkspace(st),
 			)
-			await presentOutcome(view, vscodePresenter, async () => {})
+			await presentOutcome(view, vscodePresenter, {})
 		}),
 		reg("volt.build", async () => { const w = ws(); if (w) await doBuild(w) }),
 		// A status refresh cold-spawns `volt status` per workspace (a couple seconds) — show a notification toast
