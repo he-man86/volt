@@ -1,5 +1,5 @@
 /**
- * Shared live-bridge fixture helpers for the recording scripts (verify-catalog.ts, record-gaps.ts). Speaks the
+ * Shared live-bridge fixture helpers for the recording scripts (verify-catalog.ts). Speaks the
  * push wire and keeps the fixture project clean between repros.
  *
  * UNREADABLE-safe (learned the hard way): a malformed push can leave an item that's invisible in `/refs` but

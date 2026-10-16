@@ -26,8 +26,10 @@ only that child), opening a copy of the fixture.
 history (`… (deleted; git show <commit>:packages/volt-lsp-iec/scripts/<file>)`). On 2026-10-03 that removed
 `probe-dep-depth.ts`, `probe-is-it-compiled.ts`, `probe-order-dependence.ts`, `probe-position-length.ts` and
 `measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`); on 2026-10-11 `probe-projectsettings-effect.ts`
-(openspec `lsp-package-structure`, its change archived; last commit holding it: `6d856b66a3`). The one `probe-*` file
-left, `probe-lowering-refusals.ts`, is a re-run measure the corpus suite names — see the Measure table.
+(openspec `lsp-package-structure`, its change archived; last commit holding it: `6d856b66a3`). On 2026-10-16
+`fix-census.ts` and `nav-breadth.ts` (openspec `lsp-quick-fixes`, archived), `record-gaps.ts` (a throwaway that could
+no longer push: it wrote no IMPLEMENTATION line), `parser-completeness.ts` (`test/corpus/corpus.test.ts` asserts the
+same) and `probe-lowering-refusals.ts` (last commit holding them: `0db2d45fcd`).
 
 ## Libraries (imported by the tools, not run)
 
@@ -48,7 +50,6 @@ left, `probe-lowering-refusals.ts`, is a re-run measure the corpus suite names �
 | `record-corpus-build.ts` | — | a corpus project's real IDE build snapshot → the `corpus-diagnostics.test.ts` oracle |
 | `refresh-corpus.ts` | `refresh:corpus <name>` | refreshes a `test-corpus/<name>/` project via `volt pull` |
 | `verify-catalog.ts` | — | verifies implemented C-code wording vs the IDE → `docs/codesys-reference/catalog-verification.json` / the catalog's verified flags |
-| `record-gaps.ts` | — | probes unverified compiler-warning gap codes for their real trigger and wording |
 
 ## Check — gates and adoption checks
 
@@ -85,9 +86,5 @@ left, `probe-lowering-refusals.ts`, is a re-run measure the corpus suite names �
 | `corpus-fp.ts` | the zero-FP corpus oracle in debuggable, grouped-by-code form (no test timeout), over the server's own `projectDocuments` |
 | `corpus-census.ts` | what the CORPUS contains that the FIXTURES do not — the work list for new fixtures |
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
-| `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
 | `bench-server.ts` | the running server's SCHEDULING over a corpus project as a VS Code-like client: crawl, one workspace diagnostics pass, 10 idle workspace pulls, one save (disk entries re-parsed, ms the loop is blocked, the re-pull), a hover behind a pull (openspec `lsp-server-scheduling` 0.1 / 3.1) |
-| `fix-census.ts` | every diagnostic code the LSP reports, ranked by occurrences on the six corpora (server path, confirmed against each recorded build) and on the fixtures (replay composition, per vendor), with how many findings a code action answers, and C0002 split by message family (the one-token-insert subset vs recovery cascade) — the quick-fix work list and its coverage before/after (openspec `lsp-quick-fixes` 0.1 / 3.1) |
-| `nav-breadth.ts` | navigation breadth over the corpora: workspace symbols answered per declared kind, call sites by callee kind with `callIncoming`/`callOutgoing` against an independent count, and override chains a rename must follow (openspec `lsp-quick-fixes` 0.1, re-run after 2.4) |
-| `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (run by openspec `transpile-restructure` 4.1; named by `test/corpus/corpus-lowering.test.ts`) |

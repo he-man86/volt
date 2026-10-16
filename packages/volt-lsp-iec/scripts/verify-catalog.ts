@@ -21,7 +21,7 @@
  * repro shows `mismatch`/`silent` (a false NEGATIVE to review). NOTE: `synthPlc` instantiates FB/type/interface
  * and calls functions, but does NOT call a standalone (non-PLC_PRG) PROGRAM — the few such repros are all
  * parse-level codes that report anyway; a codegen-level PROGRAM repro must bring its own PLC_PRG. To PROVE a unit
- * built during ad-hoc probing, add a positive control (an undefined-identifier reference) — see record-gaps.ts.
+ * built during ad-hoc probing, add a positive control (an undefined-identifier reference) — see `git show 0db2d45fcd:packages/volt-lsp-iec/scripts/record-gaps.ts`.
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"

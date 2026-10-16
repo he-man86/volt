@@ -39,7 +39,7 @@ import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 // `IMPLEMENTATION NONE` instead of an empty `IMPLEMENTATION ST` body (the corpus re-pulled live, exactly those 11 lines
 // in 7 files). `ActuatorWithAlarm_BaseFB` (an abstract base) "lowered" only by running its own abstract `Alarms` as an
 // empty body; now it is refused `graphical-body` ("is abstract: it holds no code"). Measured per POU with
-// `scripts/probe-lowering-refusals.ts` before and after the 7 files: that is the only verdict that moved — four other
+// the since-deleted `probe-lowering-refusals.ts` (`git show 0db2d45fcd:packages/volt-lsp-iec/scripts/probe-lowering-refusals.ts`) before and after the 7 files: that is the only verdict that moved — four other
 // already-refused bases gain the `graphical-body` code, nothing else changes.
 // bodies 304 -> 300 on 2026-10-13, a CORPUS change, not a lowering one (openspec bridge-one-to-one 4.2): the live re-pull
 // no longer materializes the 13 pro2193 objects that sit in folders excluded from build ("Turn Around Magazine", "Wrap
@@ -70,7 +70,7 @@ const REACH = { bodies: 301, lowered: 54 }
 // reach before.
 //
 // Note what did NOT move: 56/304 POUs still lower, and 20 routines still come from one that RUNS. No POU
-// changed verdict — checked per-POU with `scripts/probe-lowering-refusals.ts`, whose diff is entirely
+// changed verdict — checked per-POU with `probe-lowering-refusals.ts` (`git show 0db2d45fcd:packages/volt-lsp-iec/scripts/probe-lowering-refusals.ts`), whose diff is entirely
 // `type-unknown` refusals disappearing.
 //
 // 582 -> 20 on 2026-09-25, and the 582 was never the project's. 566 of those routines were the `FB_INIT`/`__INIT`

@@ -5,7 +5,7 @@
  * the whole corpus and the result is a work list ordered by how much of the real world each construct
  * unblocks — so the next thing to build is a number, not an opinion.
  *
- * Unlike `parser-completeness.ts`, a nonzero count here is NOT a defect: the parser is expected to be
+ * Unlike the parser's corpus gate (`test/corpus/corpus.test.ts`), a nonzero count here is NOT a defect: the parser is expected to be
  * complete today, the backend is expected to be partial. What matters is that the figure only ever goes up,
  * and that nothing lowers WRONG — a construct is either supported or reported, never guessed at.
  *

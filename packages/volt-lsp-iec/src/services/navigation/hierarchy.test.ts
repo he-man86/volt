@@ -105,8 +105,9 @@ END_FUNCTION_BLOCK`
   expect(callIncoming([doc], project, bPing!.sym)).toHaveLength(0)
 })
 
-// ─── navigation breadth (openspec lsp-quick-fixes design.md §6, tasks.md 2.4): the gaps `scripts/nav-breadth.ts`
-// measured — calls through an FB INSTANCE (B1), a PROGRAM called (B2), a PROPERTY's accessors as its outgoing calls
+// ─── navigation breadth (openspec lsp-quick-fixes design.md §6, tasks.md 2.4): the gaps the since-deleted nav-breadth probe
+// (`git show 0db2d45fcd:packages/volt-lsp-iec/scripts/nav-breadth.ts`) measured — calls through an FB INSTANCE (B1), a
+// PROGRAM called (B2), a PROPERTY's accessors as its outgoing calls
 // (B3), `SUPER^()` (B4) ───
 
 function setupFiles(files: Record<string, string>) {

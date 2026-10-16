@@ -14,7 +14,7 @@
  *
  * Zero-FP contract: the corpus + conformance replay compile clean, so ANY error here on known-good code is a
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
- * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
+ * `test/corpus/corpus.test.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
 import { exprText, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
