@@ -716,6 +716,14 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       both vendors and the round trip. Each other row: push it, build it, run it in simulation on both vendors; spell
       what stores and runs. Side finding to check in 2R.3: that body was pushed as `IMPLEMENTATION FBD`, the editor
       showed it as LD, and after the owner opened/ran it a pull returned `IMPLEMENTATION LD`.
+      **Measured list: `awkward-sweep.md`** (36 cases, CODESYS 3.5.21, 2026-10-16): 20 shapes to spell (re-spell each under
+      the current readability.md — the sweep's proposals predate the simplification), 5 refusals justified (C0023/C0022,
+      a Terminator with an Input crashes CODESYS), 3 losses shown inert, 4 unmeasured + all of TwinCAT. Folds into
+      earlier steps: CallType + input formal names are D for project FUNCTION and METHOD boxes too (today's push builds
+      them non-compiling — #18, #27; 2R.3/2R.4); P3's "a comparison has no ENO" is false (#22); the E rows #25/#26 are
+      writer limits (build as the PLCopen importer does); the edge-coil network hides its whole body (#14, pull bug).
+      Not NWL: SP21's new Ladder editor (`LadderDataModel`, #32) — every PLCopen LD import lands there and Volt pulls
+      `IMPLEMENTATION LADDER UNSUPPORTED`; owner decides whether that is this change or its own.
 
 ## 3. Verify and close
 
