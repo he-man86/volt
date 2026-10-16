@@ -723,7 +723,8 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       them non-compiling — #18, #27; 2R.3/2R.4); P3's "a comparison has no ENO" is false (#22); the E rows #25/#26 are
       writer limits (build as the PLCopen importer does); the edge-coil network hides its whole body (#14, pull bug).
       Not NWL: SP21's new Ladder editor (`LadderDataModel`, #32) — every PLCopen LD import lands there and Volt pulls
-      `IMPLEMENTATION LADDER UNSUPPORTED`; owner decides whether that is this change or its own.
+      `IMPLEMENTATION LADDER UNSUPPORTED`. **Owner 2026-10-16: it is LD2 (the export says `<!--ObjectVersion: LD2-->`);
+      not in this change, not implemented yet; its body line should end up `IMPLEMENTATION LD2`.
 
 ## 3. Verify and close
 

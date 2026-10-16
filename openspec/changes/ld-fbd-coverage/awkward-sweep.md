@@ -59,4 +59,5 @@ Findings that change the design:
    tree that behaves differently: spell it, warn in the LSP.
 4. **Two E rows are writer limits, not vendor limits** (#25, #26): build them the way the PLCopen importer does.
 5. **Coil/pin/instance shapes store and run** (#13–#17, #19, #20); the edge-coil network wrongly hides its whole body (#14).
-6. **SP21's new Ladder editor** (#32) is a body model Volt does not read at all.
+6. **SP21's new Ladder editor — LD2** (#32; export `<!--ObjectVersion: LD2-->`) is a body model Volt does not read at all.
+   Owner: not in this change, not implemented yet; its body line ends up `IMPLEMENTATION LD2`.
