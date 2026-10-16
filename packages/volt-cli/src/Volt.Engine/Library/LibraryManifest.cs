@@ -10,8 +10,12 @@ namespace Volt.Engine.Library;
 /// <para>Two FIELD values are not cross-vendor identical, and that is the current state, not the intent:
 /// <c>RESOLUTION</c> is Core-formatted only on TwinCAT (<see cref="Resolution"/>); CODESYS passes the IDE's own
 /// display string through (<c>EffectiveResolution</c>'s DisplayName, else <c>DefaultResolution</c>). <c>SYSTEM</c>,
-/// <c>LINKALLCONTENT</c> and <c>QUALIFIEDONLY</c> are CODESYS's members (<c>SystemLibrary</c>, <c>LinkAllContent</c>,
-/// <c>QualifiedOnly</c>; TwinCAT has none on a reference, <c>tc-library-system</c>, DIALECT C37), and each is a flag
+/// <c>LINKALLCONTENT</c>, <c>QUALIFIEDONLY</c>, <c>OPTIONAL</c>, <c>HIDEWHENREFERENCEDASDEPENDENCY</c> and
+/// <c>PUBLISHSYMBOLSINCONTAINER</c> are CODESYS's members (<c>SystemLibrary</c>, <c>LinkAllContent</c>,
+/// <c>QualifiedOnly</c>, <c>Optional</c>, <c>HideWhenReferencedAsDependency</c>, <c>PublishSymbolsInContainer</c>;
+/// TwinCAT has no system member and no <c>LinkAllContent</c> on a reference, <c>tc-library-system</c>, DIALECT C37; the
+/// other four are its <c>QualifiedlAccessOnly</c> / <c>Optional</c> / <c>HideReference</c> / <c>PublishAll</c>, C37b),
+/// and each is a flag
 /// SPELLED ONLY WHERE IT IS TRUE (openspec <c>bridge-one-to-one</c> §1.2, §2.R): its absence is the value measured on
 /// every reference without it, so a CODESYS non-system reference reads byte-identically to TwinCAT's.
 /// Making RESOLUTION vendor-identical means having CODESYS hand over the parts and call <see cref="Resolution"/>
@@ -58,7 +62,10 @@ public static class LibraryManifest
         bool linkAllContent = false,
         bool qualifiedOnly = false,
         IReadOnlyList<(string Name, string Value)>? parameters = null,
-        string? redirect = null)
+        string? redirect = null,
+        bool optional = false,
+        bool hideWhenReferencedAsDependency = false,
+        bool publishSymbolsInContainer = false)
     {
         var sb = new StringBuilder();
         sb.Append("LIBRARY ").Append(name).Append('\n');
@@ -68,6 +75,12 @@ public static class LibraryManifest
         if (system) sb.Append("SYSTEM true\n");
         if (linkAllContent) sb.Append("LINKALLCONTENT\n");
         if (qualifiedOnly) sb.Append("QUALIFIEDONLY\n");
+        // The rest of CODESYS's reference dialog (census: false on all 264 corpus references; the default live fixture
+        // holds Optional on CmpCodeMeter and PublishSymbolsInContainer on three Cmp* references). Spelled only where true,
+        // like the flags above, so every manifest pulled before they were read keeps its bytes and its version.
+        if (optional) sb.Append("OPTIONAL\n");
+        if (hideWhenReferencedAsDependency) sb.Append("HIDEWHENREFERENCEDASDEPENDENCY\n");
+        if (publishSymbolsInContainer) sb.Append("PUBLISHSYMBOLSINCONTAINER\n");
         // Direct dependencies, by name — the tree captured as a reference (the deps live once in the flat list).
         if (dependencies != null && dependencies.Count > 0)
             sb.Append("DEPENDENCIES ").Append(string.Join(", ", dependencies)).Append('\n');

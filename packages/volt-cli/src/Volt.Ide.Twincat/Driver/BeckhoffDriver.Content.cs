@@ -916,15 +916,29 @@ public sealed partial class BeckhoffDriver
             .Select(d => d.Element("PlaceholderName")?.Value ?? d.Element("EffectiveResolution")?.Element("LibraryName")?.Value)
             .Where(s => !string.IsNullOrEmpty(s)).Select(s => s!).ToList();
 
-        // The reference's VSProperties measured `False` on every fixture reference (tc-library-system): which CODESYS
-        // member each one is was never measured, so another value has no line and refuses the reference by name.
-        foreach (var p in root.Element("VSProperties")?.Elements("VSProperty") ?? Enumerable.Empty<XElement>())
-            if ((string?)p.Element("Name") is "HideReference" or "PublishAll" or "QualifiedlAccessOnly" or "Optional"
-                && (string?)p.Element("Value") is { } v && v != "False")
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"twincat: the library reference '{name}' has {(string?)p.Element("Name")} = {v} — measured False on " +
-                    "every fixture reference, it has no line in the manifest (niche, accepted loss), so the reference is " +
-                    "not materialized.");
+        // The reference's flag VSProperties are CODESYS's members under TwinCAT's names (DIALECT C37b, measured by setting
+        // the CODESYS member in a `.plcproj` and reading what TcXaeShell answers): each spells the line CODESYS spells for
+        // its member, so the same reference pulls the same bytes on both vendors. Every live reference answers all four;
+        // one it does not answer, or a value that is neither True nor False, refuses the reference by name.
+        var properties = (root.Element("VSProperties")?.Elements("VSProperty") ?? Enumerable.Empty<XElement>())
+            .Where(p => p.Element("Name") != null)
+            .GroupBy(p => (string)p.Element("Name")!)
+            .ToDictionary(g => g.Key, g => (string?)g.First().Element("Value"));
+        bool Flag(string property) => properties.TryGetValue(property, out var v) switch
+        {
+            true when v == "True" => true,
+            true when v == "False" => false,
+            true => throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"twincat: the library reference '{name}' has {property} = {v} — Volt has measured only True and False, " +
+                "so the reference is not materialized."),
+            false => throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"twincat: the library reference '{name}' answers no {property} property — Volt reads it rather than " +
+                "assume it, so the reference is not materialized."),
+        };
+        var hidden = Flag("HideReference");
+        var published = Flag("PublishAll");
+        var qualifiedOnly = Flag("QualifiedlAccessOnly");   // [sic] — TcXaeShell's own spelling
+        var optional = Flag("Optional");
 
         // Its own parameter list (Tc2_System's six `PARAM.*`), spelled one line each — a dependency's is not its own.
         var parameters = (root.Descendants("ParameterList").FirstOrDefault(l => !l.Ancestors("Dependency").Any())?.Elements("Parameter")
@@ -932,6 +946,8 @@ public sealed partial class BeckhoffDriver
             .Select(p => (Required(p.Element("Name"), "Parameter/Name"), Required(p.Element("Value"), "Parameter/Value")))
             .ToList();
 
-        return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps, parameters: parameters);
+        return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps, qualifiedOnly: qualifiedOnly,
+                                     parameters: parameters, optional: optional, hideWhenReferencedAsDependency: hidden,
+                                     publishSymbolsInContainer: published);
     }
 }

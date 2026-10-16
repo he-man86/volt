@@ -82,13 +82,13 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 10),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 2),
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 1),   // -1 a reference flag off its measured value (every flag is a manifest line now, C37b)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 13),   // bridge-one-to-one §3: a property the bridge cannot read or write, by name; +2 a measured constant off its value, a %NETVAR value the line cannot carry (gate review of step 3, 2 / 8); +2 an archive member absent where it is no version fact, and one read where the platform lacks it with no measured meaning for its absence (environment-dependency-audit 2.0, DIALECT V7) — the item refused by name, as the rest
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 9),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),
             ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 8),   // +1 an interface accessor storing another declaration (gate review of step 3, 5)
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 9),   // +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)

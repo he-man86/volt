@@ -231,6 +231,18 @@
       non-system reference pulls byte-identically on both vendors. A library manifest is read-only on both.</td>
   </tr>
   <tr>
+    <td class="name"><code>.library</code> <code>LINKALLCONTENT</code> <code>QUALIFIEDONLY</code> <code>OPTIONAL</code>
+      <code>HIDEWHENREFERENCEDASDEPENDENCY</code> <code>PUBLISHSYMBOLSINCONTAINER</code></td>
+    <td class="yes">spelled where true</td>
+    <td class="yes">spelled where true, but <code>LINKALLCONTENT</code>: never</td>
+    <td>CODESYS's reference-dialog members (<code>LinkAllContent</code>, <code>QualifiedOnly</code>,
+      <code>Optional</code>, <code>HideWhenReferencedAsDependency</code>, <code>PublishSymbolsInContainer</code>), each a
+      bare line only where true, so a reference at the default pulls byte-identically on both vendors. TwinCAT holds
+      the last four as its reference properties <code>QualifiedlAccessOnly</code>, <code>Optional</code>,
+      <code>HideReference</code> and <code>PublishAll</code> (C37b) and spells the same lines; it has no
+      <code>LinkAllContent</code>. Read-only on both, like every manifest line.</td>
+  </tr>
+  <tr>
     <td class="name">member / sibling order</td>
     <td>stored, not spelled</td>
     <td>by name</td>

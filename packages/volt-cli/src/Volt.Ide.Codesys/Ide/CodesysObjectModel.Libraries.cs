@@ -186,25 +186,23 @@ namespace Volt.Ide.Codesys
                 $"CODESYS: a library reference ({item.GetType().Name}) answers no '{member}' — Volt reads a reference's members " +
                 "rather than assume them, so it is not materialized.");
 
-        /// <summary>The library-item members measured at one value on all 264 corpus items (census §0.1 finding 6/8): another
-        /// value has no text form and refuses the reference by name.</summary>
-        private static readonly (string Member, object? Measured)[] LibraryConstants =
-        {
-            ("Optional", false), ("HideWhenReferencedAsDependency", false), ("PublishSymbolsInContainer", false),
-        };
+        /// <summary>A library reference's boolean member, READ (<see cref="LibMember"/>): anything but a bool refuses the
+        /// reference by name.</summary>
+        private static bool LibFlag(object item, string member) =>
+            LibMember(item, member) is bool b ? b : throw LibUnreadable(item, member);
 
         private static LibRefNode ToLibRef(object item, IReadOnlyDictionary<string, string> redirects)
         {
             var ns = LibMember(item, "Namespace") as string ?? throw LibUnreadable(item, "Namespace");
-            var system = LibMember(item, "SystemLibrary") is bool b ? b : throw LibUnreadable(item, "SystemLibrary");
-            var linkAll = LibMember(item, "LinkAllContent") is bool la ? la : throw LibUnreadable(item, "LinkAllContent");
-            var qualifiedOnly = LibMember(item, "QualifiedOnly") is bool q ? q : throw LibUnreadable(item, "QualifiedOnly");
-            foreach (var (member, measured) in LibraryConstants)
-                if (!Equals(LibMember(item, member), measured))
-                    throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
-                        $"CODESYS: the library reference '{RefDisplayName(item)}' has {member} = '{LibMember(item, member)}' — " +
-                        $"measured {(measured is null ? "null" : measured.ToString()!.ToLowerInvariant())} on all 264 corpus " +
-                        "references, it has no line in the manifest (niche, accepted loss), so the reference is not materialized.");
+            // Every flag of the reference dialog, each spelled by its own manifest line where true. Optional,
+            // HideWhenReferencedAsDependency and PublishSymbolsInContainer (false on all 264 corpus references) used to
+            // have no line and refused the reference — the default live fixture holds two of them, on four references.
+            var system = LibFlag(item, "SystemLibrary");
+            var linkAll = LibFlag(item, "LinkAllContent");
+            var qualifiedOnly = LibFlag(item, "QualifiedOnly");
+            var optional = LibFlag(item, "Optional");
+            var hidden = LibFlag(item, "HideWhenReferencedAsDependency");
+            var published = LibFlag(item, "PublishSymbolsInContainer");
             var isPlaceholder = item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem");
             var name = RefDisplayName(item);
             var resolution = isPlaceholder
@@ -235,7 +233,9 @@ namespace Volt.Ide.Codesys
             // formatter so CODESYS and TwinCAT emit the same canonical shape.
             var manifest = Volt.Engine.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps,
                                                                      linkAllContent: linkAll, qualifiedOnly: qualifiedOnly,
-                                                                     redirect: isPlaceholder && redirects.TryGetValue(name, out var to) ? to : null);
+                                                                     redirect: isPlaceholder && redirects.TryGetValue(name, out var to) ? to : null,
+                                                                     optional: optional, hideWhenReferencedAsDependency: hidden,
+                                                                     publishSymbolsInContainer: published);
             return new LibRefNode(name, manifest);
         }
 

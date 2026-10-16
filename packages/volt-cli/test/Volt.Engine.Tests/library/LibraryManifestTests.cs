@@ -49,6 +49,49 @@ public class LibraryManifestTests
             m);
     }
 
+    /// <summary>The three reference flags of CODESYS's reference dialog the census measured false on all 264 references —
+    /// <c>Optional</c>, <c>HideWhenReferencedAsDependency</c>, <c>PublishSymbolsInContainer</c> — are spelled like the
+    /// others: a bare line, only where true, after QUALIFIEDONLY. The default live fixture holds the first and the last
+    /// (<c>CmpCodeMeter</c> Optional; <c>CmpEventMgr</c> / <c>CmpIoMgr</c> PublishSymbolsInContainer), which the
+    /// manifest had no line for, so those references were not materialized.</summary>
+    [Fact]
+    public void Optional_hidden_and_published_references_are_spelled_where_true()
+    {
+        var m = LibraryManifest.Build(
+            "CmpCodeMeter", "CmpCodeMeter", "CmpCodeMeter, 3.5.17.0 (System)",
+            placeholder: true, system: true, linkAllContent: true, qualifiedOnly: true,
+            optional: true, hideWhenReferencedAsDependency: true, publishSymbolsInContainer: true);
+
+        Assert.Equal(
+            "LIBRARY CmpCodeMeter\n" +
+            "NAMESPACE CmpCodeMeter\n" +
+            "RESOLUTION CmpCodeMeter, 3.5.17.0 (System)\n" +
+            "PLACEHOLDER true\n" +
+            "SYSTEM true\n" +
+            "LINKALLCONTENT\n" +
+            "QUALIFIEDONLY\n" +
+            "OPTIONAL\n" +
+            "HIDEWHENREFERENCEDASDEPENDENCY\n" +
+            "PUBLISHSYMBOLSINCONTAINER\n" +
+            "MATERIALIZATION 4\n",
+            m);
+    }
+
+    /// <summary>The measured default (false, on every one of the 264 corpus references) writes NO line, so every
+    /// `.library` file pulled before these flags were read stays byte-identical — and with it its version hash.</summary>
+    [Fact]
+    public void A_flag_at_its_measured_default_writes_no_line()
+    {
+        var plain = LibraryManifest.Build("Standard", "Standard", "Standard, * (System)", placeholder: true, system: false);
+        var defaults = LibraryManifest.Build("Standard", "Standard", "Standard, * (System)", placeholder: true, system: false,
+            optional: false, hideWhenReferencedAsDependency: false, publishSymbolsInContainer: false);
+
+        Assert.Equal(plain, defaults);
+        Assert.Equal(
+            "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, * (System)\nPLACEHOLDER true\nMATERIALIZATION 4\n",
+            defaults);
+    }
+
     [Fact]
     public void Resolution_formats_name_version_distributor()
     {
