@@ -30,6 +30,18 @@ const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
 
+/** `pulled` with {@link ADDED} spliced in under the item's OWN header line, whatever its kind. The diagram fixtures'
+ *  kind is the IDE's and differs by fixture (`unsupported.test.ts`: TwinCAT's `CreateChild(…, 602, …)` makes a PROGRAM —
+ *  Project13's are — while Project14's and CODESYS's are function blocks), and nothing here is about the kind. This
+ *  spliced after `FUNCTION_BLOCK <name>` only, so on a PROGRAM it changed nothing and the case failed on its own
+ *  `not.toBe(pulled)`. A header it cannot find is a failure, not a no-op edit. */
+function withProbeInput(pulled: string, bare: string): string {
+	const header = new RegExp(String.raw`^(PROGRAM|FUNCTION_BLOCK) ${bare}\b[^\n]*\n`, "m").exec(pulled)
+	if (!header) throw new Error(`${bare} pulls with no PROGRAM / FUNCTION_BLOCK ${bare} header line to add a VAR_INPUT under`)
+	const at = header.index + header[0].length
+	return pulled.slice(0, at) + ADDED + pulled.slice(at)
+}
+
 describe(`graphical / a hidden body's declaration is pushed and its body never written (${BASE})`, () => {
 	const wire = new Map<string, string>()
 	let project = ""
@@ -69,7 +81,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			expect((await set(name, pulled)).accepted).toBe(true)
 			expect(await heldBody(bare)).toEqual(before)
 
-			const edited = pulled.replace(`FUNCTION_BLOCK ${bare}\n`, `FUNCTION_BLOCK ${bare}\n${ADDED}`)
+			const edited = withProbeInput(pulled, bare)
 			expect(edited).not.toBe(pulled)
 			try {
 				const r = await set(name, edited)
@@ -129,7 +141,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 					codesys: () => undefined,
 				})
 
-				const edited = pulled.replace(`FUNCTION_BLOCK ${bare}\n`, `FUNCTION_BLOCK ${bare}\n${ADDED}`)
+				const edited = withProbeInput(pulled, bare)
 				const back = await move({ toFolder: home, sourceText: edited }) // moved back, declaration edited
 				expect(back.folder ?? "").toBe(home)
 				expect(back.sourceText).toBe(edited)
