@@ -11,12 +11,6 @@ public sealed class WorkspaceConfig
     public ProjectCfg Project { get; set; } = new();
     public string LinkedAt { get; set; } = "";
 
-    /// <summary>Which TEXT FORMAT the workspace files were last pulled in (openspec <c>bridge-one-to-one</c> §1.2
-    /// "Migration"): <see cref="Config.CurrentTextFormat"/> once a pull has written them; 0 — absent from the JSON — for a
-    /// workspace a Volt from before format 2 wrote. A push from an older format is refused by name: its files lack the
-    /// <c>%</c>-lines and the verbatim trailing newlines, and would push "not excluded" over an excluded object.</summary>
-    public int TextFormat { get; set; }
-
     public sealed class BridgeCfg { public string Vendor { get; set; } = ""; }
     public sealed class ProjectCfg { public string Platform { get; set; } = ""; public string ProjectName { get; set; } = ""; }
 }
@@ -28,26 +22,6 @@ public sealed class WorkspaceConfig
 /// </summary>
 public static class Config
 {
-    /// <summary>The workspace text format this Volt writes and pushes: 2 — object properties spelled as <c>%</c>-lines and
-    /// every text verbatim, trailing newlines included (openspec <c>bridge-one-to-one</c> §1.2). Format 1 (no
-    /// <see cref="WorkspaceConfig.TextFormat"/> in the binding) is every workspace before it.</summary>
-    public const int CurrentTextFormat = 2;
-
-    /// <summary>Record that the workspace's files are now in the current text format — after a pull wrote them.</summary>
-    public static void MarkCurrentTextFormat(string root, WorkspaceConfig cfg)
-    {
-        if (cfg.TextFormat == CurrentTextFormat) return;
-        cfg.TextFormat = CurrentTextFormat;
-        SaveConfig(root, cfg);
-    }
-
-    /// <summary>The refusal of a push from a workspace an older Volt wrote, or null when its text is current.</summary>
-    public static string? OlderTextFormat(WorkspaceConfig cfg) =>
-        cfg.TextFormat >= CurrentTextFormat ? null
-            : "re-pull: the text predates object properties — this workspace was written by a Volt before text format " +
-              $"{CurrentTextFormat} (object properties as %-lines, every text verbatim), and pushing it would write " +
-              "'not excluded', 'no class' and folded newlines over what the IDE holds. Run `volt pull` once, then push.";
-
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

@@ -79,7 +79,6 @@ public static class Commands
             Bridge = new() { Vendor = platform },
             Project = new() { Platform = platform, ProjectName = projectName },
             LinkedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-            TextFormat = Config.CurrentTextFormat,   // init pulls every file in the current format
         });
 
         var scaffold = Scaffold.WriteWorkspaceScaffold(root, projectName);
@@ -288,10 +287,6 @@ public static class Commands
         // what it walked (confirm it — cheap; Platform is always stamped, so no version-skew fallback is possible).
         var bindErr = Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
         if (bindErr is not null) return PullResult.Refused(bindErr);
-        // Every item this fetch brought is in the current text format, and an item it did not bring reads the same in it
-        // (its version is its text's hash): once the pull completes, the workspace's files are that format
-        // (bridge-one-to-one §1.2 "Migration"). Not on a dry run, which writes nothing.
-        void MarkFormat() { if (!dryRun) Config.MarkCurrentTextFormat(root, cfg); }
 
         // What is GONE is the bridge's answer (`fetched.Removed`), never absence read here: it alone can tell an
         // item under a folder the walk could not enumerate (unseen) from one deleted from a folder it read, and an
@@ -340,9 +335,9 @@ public static class Commands
             var discarded = Git.DiscardSrc(root);
             // Fall through to the merge only if the IDE actually moved; otherwise the discard IS the whole job.
             if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
-                return MarkedThen(PullResult.Ok(synced, PostStatus(), discarded == 0
+                return PullResult.Ok(synced, PostStatus(), discarded == 0
                     ? "already up to date with the IDE — nothing local to discard"
-                    : $"discarded {discarded} local change(s); workspace now matches the IDE"));
+                    : $"discarded {discarded} local change(s); workspace now matches the IDE");
         }
         // …AND ONLY IF THE REF IS THERE. The short-circuit is keyed on the SIDECAR alone, so a workspace whose
         // `volt/ide` never got written — the crash window above, a `.git` restored without it — was told
@@ -350,7 +345,7 @@ public static class Commands
         // pull repairs it now, because falling through builds the tree and updates the ref.
         else if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0
                  && IdeTree.VoltIdeHead(gitDir) is not null)
-            return MarkedThen(PullResult.Ok(synced, PostStatus(), "already up to date with the IDE"));
+            return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
 
         // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree). --force discards
         // only UNCOMMITTED src/ edits (Git.DiscardSrc is worktree-scoped), so after one there is usually nothing
@@ -410,17 +405,15 @@ public static class Commands
             // --continue` can advance the baseline once conflicts are resolved — no "pull again" tax.
             Sidecar.SavePendingIdeRefs(root, newSidecar);
             var conflicted = outcome.Paths.Select(Files.StripSrcPrefix).ToList();
-            return MarkedThen(PullResult.Conflict(conflicted, PostStatus(),
-                Notes(V1Note(root, ideFiles, conflicted), UnsupportedNote(fetched.Changed))));
+            return PullResult.Conflict(conflicted, PostStatus(),
+                Notes(V1Note(root, ideFiles, conflicted), UnsupportedNote(fetched.Changed)));
         }
 
         Sidecar.SaveIdeRefs(root, newSidecar);
         Sidecar.ClearPendingIdeRefs(root); // a clean pull leaves no merge — drop any stash from a past conflict
         // An ok pull's message REPLACES the "pulled N file(s)" line (CLI and toast alike), so the note carries it.
         var note = Notes(V1Note(root, ideFiles, Array.Empty<string>()), UnsupportedNote(fetched.Changed));
-        return MarkedThen(PullResult.Ok(synced, PostStatus(), note is null ? null : $"pulled {synced.Count} file(s). {note}"));
-
-        PullResult MarkedThen(PullResult r) { MarkFormat(); return r; }
+        return PullResult.Ok(synced, PostStatus(), note is null ? null : $"pulled {synced.Count} file(s). {note}");
     }
 
     /// <summary>volt push — diff HEAD against the IDE baseline, send the changes (with ifVersion guards), then
@@ -438,11 +431,9 @@ public static class Commands
         var voltHead = IdeTree.VoltIdeHead(gitDir);
         if (sidecar is null || voltHead is null)
             return PushResult.Rejected("no IDE baseline yet — run `volt pull` once before pushing");
-        // A workspace an older Volt pulled is refused by name until one pull rewrites it (bridge-one-to-one §1.2).
-        if (Config.OlderTextFormat(cfg) is { } older) return PushResult.Rejected(older);
 
         // Unrecognized-extension guard (BEFORE committing anything): a file whose extension names no Volt item
-        // (`.txt`, `.bak`, a legacy `.gitkeep`) cannot sync — fail loud instead of silently skipping and reporting
+        // (`.txt`, `.bak`, `.gitkeep`) cannot sync — fail loud instead of silently skipping and reporting
         // "nothing to push".
         var foreign = Git.DiffWorktree(root, IdeTree.Range, "src")
             .Where(r => r.Kind != DiffKinds.Delete)
@@ -450,25 +441,10 @@ public static class Commands
             .Where(rel => !Extensions.IsTrackedPath(rel))
             .ToList();
         if (foreign.Count > 0)
-        {
-            // A `.gitkeep` IS NAMED SEPARATELY, because "rename it to a Volt extension" is advice nobody can
-            // follow. Older Volt workspaces committed them as folder markers and nothing has written one since
-            // folders stopped being items; the only correct move is to delete it, and until this said so a
-            // legacy workspace had EVERY push refused with a remedy that does not exist.
-            var markers = foreign.Where(p => p.EndsWith("/.gitkeep", StringComparison.Ordinal) || p == ".gitkeep").ToList();
-            var others = foreign.Except(markers, StringComparer.Ordinal).ToList();
-            var parts = new List<string>();
-            if (others.Count > 0)
-                parts.Add("unrecognized file extension - these can't sync to the IDE and were NOT pushed. Rename each " +
-                          "to the Volt extension that names what it is (" +
-                          string.Join(", ", Extensions.PushableExtensions.Select(e => "." + e)) + "):\n" +
-                          string.Join("\n", others.Select(p => "  " + p)));
-            if (markers.Count > 0)
-                parts.Add("`.gitkeep` files can't sync to the IDE - they were folder markers for an older Volt and " +
-                          "nothing writes them now. Delete them (`git rm`) and push again:\n" +
-                          string.Join("\n", markers.Select(p => "  " + p)));
-            return PushResult.Rejected(string.Join("\n\n", parts));
-        }
+            return PushResult.Rejected("unrecognized file extension - these can't sync to the IDE and were NOT pushed. " +
+                                       "Rename each to the Volt extension that names what it is (" +
+                                       string.Join(", ", Extensions.PushableExtensions.Select(e => "." + e)) + "):\n" +
+                                       string.Join("\n", foreign.Select(p => "  " + p)));
 
         // The same refusal `Pull` makes, and for a sharper reason: a push's FIRST act is an auto-commit, and a
         // commit during a merge concludes it. Without this, the natural move after a conflicted pull — push your

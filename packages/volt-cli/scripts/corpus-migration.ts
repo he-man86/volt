@@ -61,7 +61,6 @@ let activePipe: string | undefined
  *  and the blank target has different libraries anyway. Excluded by folder, exactly as the CLI does.
  *  Each vendor names that folder itself: `Library Manager` on CODESYS, `References` on TwinCAT. */
 const LIBRARY_DIRS = new Set(["Library Manager", "References"])
-const FOLDER_MARKER = ".gitkeep"
 /** A body no create can author: its IMPLEMENTATION line states UNSUPPORTED (no text form). The spelling is the
  *  bridge's `ImplementationMarker`; a script matches the line, it does not define it. */
 const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED[ \t]*\r?$/im
@@ -289,7 +288,7 @@ function pushableTree(root: string): Map<string, string> {
 		for (const e of readdirSync(dir, { withFileTypes: true })) {
 			if (e.isDirectory()) {
 				if (!LIBRARY_DIRS.has(e.name)) walk(join(dir, e.name))
-			} else if (isSource(e.name) || e.name === FOLDER_MARKER) {
+			} else if (isSource(e.name)) {
 				const path = join(dir, e.name)
 				const rel = relative(root, path).split(sep).join("/")
 				out.set(stripStructure(rel, prefix), readFileSync(path, "utf8"))

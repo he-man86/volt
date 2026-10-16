@@ -18,10 +18,7 @@ public class DomainTests
         Assert.True(Extensions.IsPushable("POUs/FB_Motor.pou"));                 // source = rw
         Assert.True(Extensions.IsReadOnly("Library Manager/Standard.library")); // reference = r
         Assert.False(Extensions.IsPushable("Library Manager/Standard.library"));
-        // A `.gitkeep` is NOT tracked. It was, as a legacy folder marker, while `IsPushable` said no — so one
-        // an engineer added by hand was a permanent outgoing change that `volt push` answered with "nothing to
-        // push". Nothing has written one since folders stopped being items; it is a foreign file now and is
-        // refused by name like any other.
+        // A `.gitkeep` is NOT tracked: no Volt extension names it, so a push refuses it by name like any other file.
         Assert.False(Extensions.IsTrackedPath("Some/Folder/.gitkeep"));
         Assert.True(Extensions.IsTrackedPath(".gitattributes"));
         Assert.Null(Extensions.FullNameFromPath("README.md"));                  // untracked extension

@@ -36,14 +36,8 @@ public static class Extensions
     }
 
     /// <summary>The full filename from a workspace path ("POUs/FB_Motor.pou" → "FB_Motor.pou"). Matches the
-    /// bridge's wire names (which include extensions).
-    ///
-    /// <para>There was a FOLDER-MARKER arm here that resolved `POUs/.gitkeep` to the folder name `POUs`.
-    /// Nothing has written a `.gitkeep` since folders stopped being items (`Materialize`: "legacy `.gitkeep`
-    /// files are only READ back — never produced here"), and what survived was a trap: `IsTrackedPath` said yes
-    /// while `IsPushable` said no, so a `.gitkeep` an engineer added by hand showed as an outgoing change every
-    /// `volt status` and `volt push` answered "nothing to push", forever. It now falls through to the same
-    /// foreign-file refusal every other unsyncable file in `src/` gets, which says so by name.</para></summary>
+    /// bridge's wire names (which include extensions). A file no extension names — a `.gitkeep` included — is
+    /// null, and a push refuses it by name like every other unsyncable file in `src/`.</summary>
     public static string? FullNameFromPath(string relPath)
     {
         var slash = relPath.LastIndexOf('/');
