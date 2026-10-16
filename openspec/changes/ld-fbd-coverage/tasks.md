@@ -683,10 +683,16 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       10632 tests, 544 s, nothing beside it) 10170 pass, 34 skip, 0 fail; C# Engine 2624 + 1 skipped, CODESYS 438,
       TwinCAT 526, Cli 295, Connector 148, Contracts 37, Repo.Gates 243; volt-cli unit 158. Fixture map unchanged (no
       fixture or transpiler change).
-- [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
-      guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` = the box on the line above, one `;` per NWL item (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 bare values, B6 `split<VarId>` with no `VAR_TEMP` (type inline only where it differs), B7 the pragma DELETED — a member is written only where it differs from the derivation, in a natural spelling
+      **2R.2 amended 2026-10-16 (owner, "yes put it in"):** readability.md simplified (S1–S4, S6, S8, S11 of the
+      review; parallel = `feed BRANCH (a, b)`), design.md "2R.2" updated to match. The P-numbers in this entry are the
+      old P1–P16: now P10 → P5, P14 → P12, P15 → P13, P16 → P5 (MOVE call form, named ENO pin) / the corpus line.
+- [ ] 2R.3 **Owner note 2026-10-16:** readability.md was simplified 2026-10-16 after 2R.3 started; the uncommitted
+      partial rewrite in the working tree was written against BRANCH lines and the old bracket/ENO rules — adapt it to
+      the current readability.md, don't build on the old rules.
+      The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
+      guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` takes the oldest open line above (P3; an enabled box is its line's root), one `;` per NWL item (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 brackets on exactly three things (P4), P5 word or call, B6 `split<VarId>` with no `VAR_TEMP` and no type, B7 the pragma DELETED — a member is written only where it differs from the derivation, in a natural spelling
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
-      section) with its members derived in the drivers, B8 `BRANCH` lines + `feed INTO BRANCHES [SHORTCIRCUIT]`, the small ones, and every "Precise rules" P1–P15 item. The LSP
+      section) with its members derived in the drivers, B8 `[feed] BRANCH (a, b, …) [SHORTCIRCUIT]` (P6), the small ones, and every "Precise rules" P1–P13 item. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
       re-pulled and their before/after line counts recorded.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
@@ -699,14 +705,15 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       SUB/DIV/MOD/comparison (C3), `BoxTreeMux`, a non-default `Terminator`, `Connectors`, `ILStatement`/`ILLines`,
       and the E rows (`SymbolComment`, S4 `fb(…).name`, an enabled comparison value). Per row: first make it live in
       the editor (or by import) on both vendors; a row the IDE cannot store stays refused, with that measurement as
-      its reason. Only old spellings (P14) stay refused by design.
+      its reason. Only old spellings (P12) stay refused by design.
       **"Possible" = the IDE stores it and it RUNS** (owner, same day, after running it in simulation: "it is an
       editor issue — the logic behind it works"). How well the editor draws it does not decide. Measured 2026-10-16,
       CODESYS 3.5.21 (EnoDemo, scratchpad move-demo): an AND fed by two MOVE ENOs pushes, round-trips, builds (0
       errors) and runs correctly in simulation; the editor draws it broken (the second ENO and a third AND input
-      dangle) → "a box consuming two ENO outputs" GETS a spelling. Starting point, to be checked:
-      `MOVE 1 => A EN c` / `MOVE 2 => B EN d` / `x := ENO AND ENO;` — `ENO`s take the open lines above in order,
-      top to bottom, like `BRANCH`. Each other row: push it, build it, run it in simulation on both vendors; spell
+      dangle) → "a box consuming two ENO outputs" GETS a spelling: readability.md P3 (2026-10-16) —
+      `MOVE 1 => A EN c` / `MOVE 2 => B EN d` / `x := ENO AND ENO;`, each `ENO` takes the oldest open line above it,
+      top to bottom, left to right within a line (a chain reads as before; one tree, one order). Owed: its fixture on
+      both vendors and the round trip. Each other row: push it, build it, run it in simulation on both vendors; spell
       what stores and runs. Side finding to check in 2R.3: that body was pushed as `IMPLEMENTATION FBD`, the editor
       showed it as LD, and after the owner opened/ran it a pull returned `IMPLEMENTATION LD`.
 

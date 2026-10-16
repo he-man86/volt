@@ -4,6 +4,11 @@
 The name is what CODESYS writes on the box in the drawing. The model stays v2: one statement per NWL item, no invented
 names, every text exactly one tree.
 
+**Simplified 2026-10-16 (owner, "yes put it in"):** brackets are two rules (B5 / P4), one call-form rule (P5), one
+open-line rule for `ENO` (P3, which also spells two ENOs into one box), the split's differing type is lost on rebuild
+(B6), old spellings are not grammar (P12), each fact stated once; the parallel is `feed BRANCH (a, b)` at every depth
+(B8 — no `BRANCH` lines, no `BRANCHES`, no `INTO`). P1–P16 became P1–P13.
+
 ## A real network, before and after
 
 Lenze `MainDrive`, network 2. **Today** (with the 2.3 pragma):
@@ -38,13 +43,12 @@ NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
   split174 := TRUE;
   MOVE 0 => tInt EN split174;
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= split174 AND NOT HMI_Var.Test_Prod;
-  split175 := split174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation
-              AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock;
+  split175 := split174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation AND
+              NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock;
   split176 := split175 AND Mach1.GenFlags.RunAuto;
   tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := split176;
-  BRANCH NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper
-  BRANCH (Mach1_Data.AUTOSPEED LE 40 EN Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
-  MOVE Mach1_Data.AUTOSPEED => tInt EN (split176 INTO BRANCHES) AND
+  MOVE Mach1_Data.AUTOSPEED => tInt EN (split176 BRANCH (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper,
+                                        (Mach1_Data.AUTOSPEED LE 40 EN Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper))) AND
        NOT HMI_Var.Btn_Cleaning;
   MOVE 30 => tInt EN (Mach1_Data.AUTOSPEED GT 40 EN split176 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper) AND
        NOT HMI_Var.Btn_Cleaning;
@@ -67,14 +71,13 @@ x := a ADD b;                    // proposed: an ADD box, then a coil
 out := GT(a, 40);                // today (or (a > 40))
 out := a GT 40;                  // proposed
 ```
-Words: `AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT`. One word = one box; brackets separate boxes:
+Words: `AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT`. One word = one box with n inputs; brackets separate boxes (B5):
 ```
 x := a ADD b ADD c;              // one ADD box, 3 inputs
 x := a ADD (b ADD c);            // two ADD boxes
-x := a SUB b SUB c;              // refused: SUB takes 2 inputs (same for DIV, MOD and the comparisons)
-x := a ADD b MUL c;              // refused: one word kind per bracket level
+x := a SUB b SUB c;              // refused: SUB takes 2 inputs (same for DIV, MOD and the comparisons — C3)
 ```
-The symbols `+ - * / > < >= <= = <>` are not network text at all: refused with "write ADD / GT / …".
+The symbols `+ - * / > < >= <= = <>` are not network text (P12).
 
 ### B2 — MOVE: a word, its target an output pin `=>` like every box
 
@@ -101,7 +104,7 @@ ADD(EN := c, x, 5, => x);            // today
 x ADD 5 => x EN c;                   // proposed
 
 GT(EN := c, a, 40)                   // today, inside a condition
-(a GT 40 EN c)                       // proposed
+(a GT 40 EN c)                       // proposed — an enabled comparison is always bracketed (B5)
 
 LIMIT(EN := c, 0, v, 100, => y);     // today
 LIMIT(0, v, 100, => y) EN c;         // proposed — a CALL keeps its output pins inside its brackets
@@ -115,20 +118,12 @@ iRPM MUL 6 => oDrive EN;             // proposed: `EN` with nothing after it
 EXECUTE(EN := c) … END_EXECUTE;      // today
 EXECUTE EN c … END_EXECUTE;          // proposed
 ```
-`EN` takes the condition up to `;`, `)` or the line end (P2, P4).
+Which box an `EN` enables, and where its tail ends: P4.
 
-**Which box:** `EN`, `=>` and `ENO` belong to the box of their own bracket level; any other box is bracketed (the
-writer always brackets it):
-```
-x := a AND (b GT 40 EN c);           // the GT is enabled — only a COMPARISON is a bracketed enabled value
-x := a ADD (f(b) EN c);              // refused: an enabled MOVE/ADD/call is read through its ENO (P5) —
-                                     //   write `f(b) EN c` then, on the next line, `x := a ADD ENO;`
-```
+### B4 — `ENO` reads an open line; `;` ends the item
 
-### B4 — `ENO` is the enable output of the line above; `;` ends the item
-
-**One `;` = one NWL item (P2 says where a line ends). A line WITHOUT `;` hands its box's ENO to the next line, where the word `ENO` reads it
-(exactly once); the item ends at the line with `;`.** No `THEN`, no `.ENO`:
+**One `;` = one NWL item. A line WITHOUT `;` is open: its box's ENO goes to a later line of the item. Each `ENO` takes
+the oldest open line above it not yet taken — top to bottom, and left to right within a line.** No `THEN`, no `.ENO`:
 ```
 // ENO → next box (Lenze AHWF; today 4 nested MOVE(EN := …).ENO)
 MOVE 175  => VelUnit EN split329 AND TRUE
@@ -148,12 +143,15 @@ PneumValveTerminalSMC.Pos1B := ENO AND EnablePneumPressurised AND AllDoorsActual
 MOVE 1 => A EN c
 MOVE 2 => B EN ENO AND x;
 
-// ENO feeding a parallel branch (B8)
+// two ENOs into one box (2R.5: stores and runs): the first ENO takes A, the second B
+MOVE 1 => A EN c
+MOVE 2 => B EN d
+x := ENO AND ENO;
+
+// ENO feeding a parallel (B8)
 ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray
 tInt ADD iInitialDescentValue => tInt EN ENO
-BRANCH (stActHeightElevator GE tInt EN)
-BRANCH iPsElevatorDown
-stDecendTray R= ENO INTO BRANCHES SHORTCIRCUIT;
+stDecendTray R= ENO BRANCH ((stActHeightElevator GE tInt EN), iPsElevatorDown) SHORTCIRCUIT;
 
 // ENO used twice: CODESYS stores a split point there, so it is a split wire
 MOVE 860 => AutoSpeed EN split20
@@ -168,11 +166,10 @@ MOVE 1 => A EN c;
 MOVE 2 => B EN d
 StartAuto := ENO;
 ```
-Moving a whole item (up to its `;`) only reorders items, like moving a rung. Moving one line out of a chain is
-refused, never silent: a line without `;` must be followed by a line that reads `ENO`, and `ENO` only reads a line
-without `;`. A comparison has no ENO: an enabled comparison whose result is used stays a bracketed value,
-`(a GT 40 EN c)`. `a := MOVE b EN c;` is refused: it reads "a gets b", but CODESYS hands a coil after an enabled box its
-ENO (N21) — write `MOVE b => a EN c` then `coil := ENO;`.
+**An enabled box is the root of its line; its value leaves only through `=>` or `ENO`** (CODESYS hands a coil after an
+enabled box its ENO, N21): `a := MOVE b EN c;` and `x := a ADD b EN c;` are no text — write `MOVE b => a EN c`, or the
+box on its own line and `coil := ENO;`. Moving a whole item (up to its `;`) only reorders items, like moving a rung;
+moving one line out of a chain is refused, never silent (P3).
 
 ### B4b — jumps and returns are coils; no IF
 
@@ -184,15 +181,28 @@ JMP Done := a AND b;                  // proposed
 JMP Done;                             // unconditional — unchanged
 RETURN := NOT xReady;                 // conditional return
 ```
-With IF gone the text has no ST control statement at all; the words are `EN ENO BRANCH BRANCHES INTO SHORTCIRCUIT
-JMP RETURN EXECUTE END_EXECUTE`, the box words, and `:= S= R=`. Functions with 3+ inputs stay calls: `y := SEL(g, a, b);`,
+With IF gone the text has no ST control statement at all; the words are `EN ENO BRANCH SHORTCIRCUIT JMP RETURN EXECUTE
+END_EXECUTE`, the box words, and `:= S= R=`. SEL, LIMIT and every function or FB are calls (P5): `y := SEL(g, a, b);`,
 `SEL(g, a, b, => y) EN c;`.
 
-### B5 — values without outer brackets
+### B5 — brackets: exactly three things, everywhere
 
+A bracket level, and each slot (coil value, EN tail, pin, call argument, split definition, branch), holds ONE box.
+Brackets mark exactly:
 ```
-g176 := (g175 AND RunAuto);      // today
-split176 := split175 AND RunAuto;      // proposed
+x := a ADD (b ADD c);                 // 1. a word box (or a parallel) that is an operand of another word
+MOVE (a ADD b) => x;                  //    — MOVE and BRANCH are words: a word-box feed is bracketed too
+(split1 AND bSync) BRANCH (a, b)
+x := (a GT b EN c);                   // 2. an enabled comparison, as a value, in every slot
+y := (x := v);                        // 3. a nested assignment  (y := x := v;  is two coils)
+```
+Nothing else — never a slot's whole value:
+```
+g176 := (g175 AND RunAuto);           // today
+split176 := split175 AND RunAuto;     // proposed
+t1(IN := (a AND b), PT := T#1S);      // today (28 networks)
+t1(IN := a AND b, PT := T#1S);        // proposed: `,` and `)` already end a pin
+x := a ADD b MUL c;                   // refused: two boxes on one level
 ```
 
 ### B6 — split points: the name is the VarId, no `VAR_TEMP`
@@ -204,10 +214,9 @@ VAR_TEMP g176 : BOOL; END_VAR          // today: a block, `g` reads as a global,
 g176 := (g175 AND RunAuto);
 
 split176 := split175 AND RunAuto;      // proposed: the definition declares it; 176 IS the VarId (no leading zeros)
-split12  := a ADD b;                   // type derived from the feeder (INT) — nothing written
-split1 : INT := a;                     // the stored type differs from the feeder's (a is BOOL): written inline
+split12  := a ADD b;                   // no type is ever written
 ```
-No `VAR_TEMP` block. The common case shows no type: an editor-drawn network stores the feeder's own type.
+A stored split type that differs from the feeder's is a B7 L member (0 in the corpora; the build ignores it, N25).
 
 ### B7 — hidden members: derived; written only where the stored value differs
 
@@ -217,23 +226,23 @@ written only where the stored value differs from that derivation, and then in a 
 ```
 t1(IN := go, PT := T#1S){OutputParam.Types := ['BOOL', 'TIME']};   // today (2.3)
 t1(IN := go, PT := T#1S);                                           // proposed: derived
-split1 : INT := a;                                                  // differs: the split's type, inline (B6)
 NETWORK TITLE: "Calc "                                              // differs: the exact title, in its quotes
+lamp := start BRANCH (a, b) SHORTCIRCUIT;                           // differs: the parallel's Mode (B8)
 ```
 A member that differs and has no natural spelling is **lost on rebuild, not refused** (owner, 2R.2 Open item 5;
 design.md "2R.2 Readability", code L): an unchanged network is never rebuilt and keeps it byte for byte; an edited one
-is built with the derivation, and the P15 code lens names each value the rebuild drops. They are a bare `a AND b` drawn
+is built with the derivation, and the P13 code lens names each value the rebuild drops. They are a bare `a AND b` drawn
 by the editor (a stored output slot `['']`: 17 bit-operator boxes in 8 networks — 15 CODESYS in 7, 2 TwinCAT in 1), the
-function result name `'   '` (105 of the 113 function boxes, 82 networks), and `Fixed`, `Boolean`, the `Address`
-sentinel (C4). 2R.4 runs each against its drawn original; a member whose loss changes behaviour makes its networks
-refused on rebuild.
+function result name `'   '` (105 of the 113 function boxes, 82 networks), a split's differing type (B6, 0), and
+`Fixed`, `Boolean`, the `Address` sentinel (C4). 2R.4 runs each against its drawn original; a member whose loss changes
+behaviour makes its networks refused on rebuild.
 
-### B8 — the drawn parallel branch: `BRANCH` lines, combined by `BRANCHES`
+### B8 — the drawn parallel branch: `feed BRANCH (a, b, …)`
 
 NWL's `BoxTreeParallel { Input, Branches[], Mode }` — what the LD editor draws for a parallel branch, and NOT an OR
-box. Same mechanism as `ENO`: lines without `;` belong to the item. **Each `BRANCH …` line is one branch, top to
-bottom (the stored order); the word `BRANCHES` in a later line of the item combines the consecutive `BRANCH` lines
-directly above it; `feed INTO BRANCHES` gives its feed.**
+box. **The feed, the word `BRANCH`, then the branches as a bracketed comma list in stored order** — as drawn and as
+stored (feed, then branches). The feed is NOT an `AND` (that broke every infix try: 7 of 12 real Parallel networks read
+two ways): `BRANCH` names it.
 ```
 start ──┬── a ──────────────────┬──( lamp )
         ├── b ──[ speed <= 40 ]─┤
@@ -241,39 +250,29 @@ start ──┬── a ──────────────────�
 
 lamp := PARALLEL(IN := start, a, (b AND (speed <= 40)), c);    // today
 
-BRANCH a                                                       // proposed
-BRANCH b AND (speed LE 40)
-BRANCH c
-lamp := start INTO BRANCHES;
-
-lamp := BRANCHES;                                              // unfed (5 of 17)
+lamp := start BRANCH (a,                                       // proposed — one branch per line is layout (P2)
+                      b AND (speed LE 40),
+                      c);
+lamp := start BRANCH (a, b, c) SHORTCIRCUIT;                   // Mode: only the non-default (old) short-circuit
+lamp7 := start BRANCH (a, c BRANCH (b, go));                   // nested: the same form, a branch is a slot (B5)
+lamp := BRANCH (a, b);                                         // unfed (5 of 17): nothing before BRANCH
 ```
-The feed is NOT an `AND` (that broke every infix try: 7 of 12 real Parallel networks read two ways): `INTO` names it,
-in rung order, feed first — as drawn and as stored (feed, then branches).
-
 **Mode — derived, written only where it differs (B7):** the editor creates `Sequential`, so nothing is written for it;
-an old short-circuit one says so: `lamp := start INTO BRANCHES SHORTCIRCUIT;` (Lenze: 16 of 17).
-
-**A parallel INSIDE a branch is written inline** — `(feed INTO (BRANCH a BRANCH b))` — because a second level of
-`BRANCH` lines would need depth markers. Position decides the form, so one tree has one text: the outermost parallel
-of an item is always the line form (inline is refused there); inside a `BRANCH` line only the inline form exists.
-Lenze `fc_CamC_CC_Base`:
+an old short-circuit one says `SHORTCIRCUIT` after its list (Lenze: 16 of 17). Lenze `fc_CamC_CC_Base`:
 ```
 o_xCamControl := PARALLEL(IN := i_xEnable, LE(EN := GE(EN := LT(EN := , …), …), …), PARALLEL(IN := GT(EN := , …), GE(EN := , …), LE(EN := , …)));   // today
 
-BRANCH (Pos LE Stop EN (Pos GE Start EN (Start LT Stop EN)))
-BRANCH (Start GT Stop EN) INTO (BRANCH (Pos GE Start EN) BRANCH (Pos LE Stop EN)) SHORTCIRCUIT
-o_xCamControl := i_xEnable INTO BRANCHES SHORTCIRCUIT;
+o_xCamControl := i_xEnable BRANCH ((Pos LE Stop EN (Pos GE Start EN (Start LT Stop EN))),
+                                   (Start GT Stop EN) BRANCH ((Pos GE Start EN), (Pos LE Stop EN)) SHORTCIRCUIT) SHORTCIRCUIT;
 ```
-Refused: one branch (C0023 — pushes, does not compile), no branch, a `BRANCH` line not followed by more `BRANCH`
-lines or a `BRANCHES`, `BRANCHES` with no `BRANCH` lines directly above, a feed that is the empty terminator, a flag on
-the parallel (N20).
+Refused (P6): one branch `start BRANCH (a)` (C0023 — it stores, does not compile), no branch, an empty branch, the
+empty-terminator feed, a flag on the parallel (N20).
 
 ### Small ones
 
 ```
 NOT x                         // the negated contact (a flag) — unchanged
-NOT(IN := a)                  // the NOT box (0 in the corpora); bare NOT(a) refused
+NOT(IN := a)                  // the NOT box (0 in the corpora); bare NOT(a) negates a bracket (P5)
 sName := `'Recipes'`;  →  sName := 'Recipes';
 NETWORK TITLE: "x" DISABLED   →  NETWORK DISABLED TITLE: "x"      (LSP fades the body)
 LET                           →  no longer reserved
@@ -287,95 +286,98 @@ EXECUTE … END_EXECUTE;   ??? : TON(…)
 fb(…).name   F => dst   ``   ???   UNSUPPORTED "<shape>";
 ```
 
-## Precise rules (four adversarial reviews, 2026-10-16: model, grammar, every corpus + fixture network, editing)
+## Precise rules (four adversarial reviews, 2026-10-16: model, grammar, every corpus + fixture network, editing; simplified the same day)
+
+Corpus + fixture conversion: 392 of 394 real networks clean, 0 unspellable (counted under the rules before the
+simplification, which refuses no tree they spelled; 2R.3's re-pull re-counts).
 
 ```
-P1  Reserved (case-insensitive): EN ENO BRANCH BRANCHES INTO SHORTCIRCUIT JMP RETURN EXECUTE END_EXECUTE NOT
-    R_EDGE F_EDGE NETWORK END_NETWORK UNSUPPORTED, every box word (AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT
-    MOVE) and the pattern split<digits>. A variable, pin, FB, global or enum value with such a name is backticked —
-    a reference NEVER falls back to a variable:   y := `ENO`;   `EN` := c;   x := `split5`;
-    IF THEN END_IF LET VAR_TEMP FEED PARALLEL leave the word list.
+P1  WORDS (case-insensitive): EN ENO BRANCH SHORTCIRCUIT JMP RETURN EXECUTE END_EXECUTE NOT R_EDGE F_EDGE NETWORK
+    END_NETWORK UNSUPPORTED, every box word (AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT MOVE) and the pattern
+    split<digits>. A variable, pin, FB, global or enum value with such a name is backticked — a reference NEVER falls
+    back to a variable:   y := `ENO`;   `EN` := c;   x := `split5`;   f(`execute` := a, `branch` := b)
+    IF THEN END_IF LET VAR_TEMP FEED PARALLEL INTO BRANCHES are not words.
 
 P2  LINES. At bracket depth 0 a line break ends the line (like Go's semicolons) unless the line ends with a word that
-    cannot end it: an infix box word, INTO, `=>`, `:=`, `S=`, `R=`, `,` or `(`. Inside brackets line breaks are
-    layout. So `EN` at the end of a line is always the empty enable, and the writer wraps AFTER `AND`, never before.
-    A line ends with `;` (the item ends) or without (it hands its box's ENO, or its BRANCH, to a later line).
+    cannot end it: an infix box word, BRANCH, `=>`, `:=`, `S=`, `R=`. Inside brackets line breaks are layout (one
+    branch per line is the writer's layout, not part of the tree). So `EN` at the end of a line is always the empty
+    enable, and the writer wraps AFTER `AND`, never before. A line ends with `;` (the item ends) or without (open, P3).
 
-P3  ENO = the ENO of the box at the ROOT of the nearest line above that has no `;` and is not a BRANCH line
-    (so a feed chain, then its BRANCH lines, then `ENO INTO BRANCHES` — feed first, as stored). Refused: a line without `;`
-    that nothing below reads; ENO after a line with `;`; ENO twice in a line; a root that is not a box with an ENO
-    (a coil, a split definition, a jump, a leaf, BRANCHES, a comparison, an operator box without EN):
+P3  OPEN LINES. A line without `;` is OPEN. Each `ENO` takes the oldest open line above it not yet taken: top to bottom,
+    the ENOs of one line left to right (inside its brackets too). Every open line is taken exactly once.
+        MOVE 1 => A EN c              MOVE 175  => V EN c
+        MOVE 2 => B EN d              MOVE 2000 => D EN ENO        // takes V's line
+        x := ENO AND ENO;  // A, B    MOVE 100  => T EN ENO;       // takes D's line: the chain, as before
+    An enabled box is the ROOT of its line (B4): its value leaves only through `=>` or `ENO`; `x := a ADD b EN c;`
+    is no text. Refused: an open line nothing takes; `ENO` with no open line; an open line whose root has no ENO
+    (a coil, a split definition, a jump, a leaf, a parallel, a comparison, a box without EN):
         x := a ADD b               // refused: the root is a coil
         MOVE 1 => A                // refused: no EN, so no ENO (N21)
-    A consumed box carries no modifier; its NOT/R_EDGE is written at the ENO token (`x := NOT ENO;`). A box
-    consuming TWO ENOs has no text: UNSUPPORTED "a box consuming two ENO outputs" (0 in the corpora).
+    The order is forced, so one tree has one text: the `;` line's ENOs are the last open lines, in its order; the
+    lines those read come before them, in theirs; and so on, a level at a time. A chain and one two-ENO box read as
+    written; a mix reads by level (0 in the corpora):
+        MOVE 1 => R EN c           // read by Q
+        MOVE 2 => P EN d           // read by x
+        MOVE 3 => Q EN ENO         // takes R
+        x := ENO AND ENO;          // takes P, then Q
+    A consumed box carries no modifier; its NOT/R_EDGE is written at the ENO token (`x := NOT ENO;`).
 
-P4  EN belongs to the box of its bracket level (its word box, or its single call when the level holds nothing else)
-    and takes everything up to `;`, `)` or the line end: `x ADD f(b) EN c` enables the ADD. `=>` comes before EN
-    (`MOVE b EN c => a` refused). An EN tail whose value has its own tail keeps its brackets.
+P4  LEVELS AND BRACKETS (B5). A bracket level and each slot — coil value, EN tail, pin value, call argument, split
+    definition, branch — holds ONE box: a word with its n inputs, or a single call when no word is there. Its `=>`
+    and `EN` belong to that box (`x ADD f(b) EN c` enables the ADD); `=>` comes before EN (`MOVE b EN c => a`
+    refused); EN's tail runs to `;`, `)`, `,` or the line end. Bracketed, and nothing else: (1) a word box or a
+    parallel that is an operand of another word (MOVE and BRANCH included, so a word-box feed is bracketed);
+    (2) an enabled comparison used as a value; (3) a nested assignment. A call and `NOT (…)` (P5) carry their own
+    brackets; a redundant bracket is refused.
+    (2) is the one enabled VALUE (a comparison has no ENO). It does not compile when Volt builds it (N21): it pulls
+    and round-trips, and the LSP marks its network "can't be rebuilt from text — any edit is refused" (also for
+    `fb(…).name` and symbol-comment networks). MainDrive N2 is such a network.
 
-P5  N21, general: a coil, pin or split whose value is an ENABLED box with an ENO reads that ENO, not the data — so it
-    is refused for every box and call, not only MOVE:
-        x := a ADD b EN c;         // refused → a ADD b => x EN c;   or   a ADD b => t EN c⏎ x := ENO;
-    Only a comparison (no ENO) is an enabled VALUE: (a GT 40 EN c). That shape does not compile when Volt builds it
-    (N21): it pulls and round-trips, and the LSP marks its network "can't be rebuilt from text — any edit is
-    refused" (also for `fb(…).name` and symbol-comment networks). MainDrive N2 is such a network.
+P5  WORD OR CALL. A box is its WORD (B1, B2) when every input is a plain positional value, there are at least the
+    word's minimum (2; MOVE 1), its formals are the defaults, its stored type is upper-case and its outputs are the
+    default `=>`. Otherwise it is a CALL, `WORD(…)`, written like a function — and the call form where the word fits
+    is refused. A call keeps its output pins inside its brackets:
+        ADD(a)   AND(a, NOT IN2 := b)   MUL(, m, 6)   and(a, b)   MOVE()   MOVE(a, b) EN c   MOVE(IN := , => x)
+        Mach1_MIDS() EN split16;   SideCorrection(=> ???) EN;   MOVE(0, ENO => lamp) EN c;
+    NOT's call names its pin: `NOT (` + `IN :=` is the NOT box, `NOT (` + anything else negates that bracket (a
+    variable named IN there is backticked). The named ENO pin and a coil on ENO (`MOVE 0 => x EN c⏎ lamp := ENO;`)
+    are two STORED trees, two texts; whether the IDE treats them as one is measured in 2R.3 (0 in the corpora).
 
-P6  MOVE takes ONE operand (a leaf, a call or a bracket); MOVE inside another word's level is refused. An empty input:
-    MOVE(IN := ) => x   (the one MOVE call form). A pin value holding a word box keeps its brackets (28 networks).
+P6  THE PARALLEL (B8). `[feed] BRANCH (b1, b2, …) [SHORTCIRCUIT]`. `BRANCH (` is the only head of a bracketed comma
+    list: every other comma is inside a call, which has a name before its bracket (a callee named BRANCH is
+    backticked, P1). A branch is a slot (P4): a nested parallel needs no brackets, a parallel as a word's operand
+    does. Refused: one branch (C0023 — stores, does not compile; 2R.5), no branch, an empty branch `(a, , b)`, the
+    empty-terminator feed, a flag on the parallel (N20 — `NOT (s BRANCH (a, b))`; `NOT s BRANCH (a, b)` negates the feed).
 
-P7  Brackets that are never dropped: a nested assignment (S2) — `y := (x := v);` is not `y := x := v;` (two coils) —
-    in a coil value, an EN tail and a split definition; a pin value holding a word box (P6).
-
-P8  JMP / RETURN: `JMP l;` / `RETURN;` is the rail (C11); `JMP l := ;` and `RETURN := ;` refused (one spelling);
+P7  JMP / RETURN: `JMP l;` / `RETURN;` is the rail (C11); `JMP l := ;` and `RETURN := ;` refused (one spelling);
     `RETURN := TRUE` (a leaf) is not `RETURN;`. Refused by name: `JMP l S= c`, `RETURN S= c`, two jumps on one
     rung, a jump plus a coil, a nested jump.
 
-P9  EXECUTE: `EXECUTE [EN [c]]` ends at its line; body = raw lines; `END_EXECUTE` + `;`, or no `;` when its ENO feeds
-    the next line. Never a value.
+P8  EXECUTE is a box whose operand is its raw body lines: `EXECUTE [EN [c]]`, the raw lines, `END_EXECUTE` — then `;`,
+    or none when it is an open line (P3). Never a value; the body is never read for words.
 
-P10 Calls keep their brackets: `Mach1_MIDS() EN split16;`, `SideCorrection(=> ???) EN;`. Operator call form only where
-    the word form cannot carry the tree (one input, an empty input, a negated pin, non-default formals, a lowercase
-    type — the one case-carrying form): `AND(a, NOT IN2 := b)`, `ADD(a)`, `and(a, b)`. `NOT (` + `IN :=` is the NOT
-    box; `NOT (` + anything else negates that bracket; a variable named IN there is backticked.
+P9  SPLITS: `split<n>`, n = the VarId, no leading zeros; defined once per network, before its references; never a
+    coil target, `=>` target or call head; defined with `:=` only; no type (B6). LSP: warn when two networks of one
+    body define the same split<n> (pasted or agent-written networks), with a renumber quick fix.
 
-P11 Splits: `split<n>`, n = the VarId, no leading zeros; defined once per network, before its references; never a
-    coil target, `=>` target or call head; defined with `:=` only. An inline type only where it differs from the
-    feeder's (a redundant one is refused) — and only on pull: a NEW or changed network with a contradicting type is
-    refused (N25, the build ignores it). LSP: warn when two networks of one body define the same split<n> (pasted
-    or agent-written networks), with a renumber quick fix.
-
-P12 Header: `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]` in that order; `TITLE: ""` refused (no TITLE = empty).
+P10 Header: `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]` in that order; `TITLE: ""` refused (no TITLE = empty).
     Comment `//` lines only between header and body; a trailing CR LF in the stored comment = a final bare `//`
     line, trailing spaces kept after `// `, a bare LF refused.
 
-P13 Body-level members (`BranchCounter`, `NetworkListComment`, `ValidIds`) have no network to refuse: derived on push;
+P11 Body-level members (`BranchCounter`, `NetworkListComment`, `ValidIds`) have no network to refuse: derived on push;
     a stored value that differs and cannot be derived → the body is `IMPLEMENTATION LD|FBD UNSUPPORTED`.
 
-P14 Old spellings are refused with a pointer to the new one (no aliases): `.ENO`, `IF … THEN`, `+ - * / > < >= <= <>
-    =`, `MOVE(…)`, `PARALLEL(…)`, `MODE :=`, `EN :=` on a box, `VAR_TEMP`, `g<n>` wires, `{Member := …}`, backticked
-    literals. Literals: `-1` (minus touching the digit), `'Recipes'`; `- 1`, `-x`, `+1` refused.
-    A coil with an empty source is unchanged: `FirstCycle R= ;` (LSP hint: "coil on the rail").
+P12 OLD SPELLINGS are not grammar (no users, no aliases): `.ENO`, `IF … THEN`, `+ - * / > < >= <= <> =`, `PARALLEL(…)`,
+    `MODE :=`, `EN :=` on a box, `VAR_TEMP`, `g<n>` wires, `{Member := …}`, backticked literals each fail as whatever
+    they are (no parse, an unknown POU `PARALLEL`, an undeclared `g176`), and that error's message names the new
+    spelling ("write ADD", "write feed BRANCH (a, b)"). Literals: `-1` (minus touching the digit), `'Recipes'`;
+    `- 1`, `-x`, `+1` refused. A coil with an empty source is unchanged: `FirstCycle R= ;` (LSP hint: "coil on the rail").
 
-P15 LSP: hover ENO → its box (line N); hover split<n> → feeder, type, reference count; hover BRANCHES → its branch
-    lines; bare `EN` hint "EN shown, nothing wired"; a code lens on a changed network listing what the rebuild
-    drops (B7 members); every push refusal above is also an LSP error while typing; the VS Code extension sets
-    files.trimTrailingWhitespace false for network text (comments and EXECUTE bodies are stored verbatim).
-
-P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unspellable):
-    - A coil's whole value is never bracketed, an enabled comparison included:  x := a GT b EN c;
-    - P6/P7's "keep the brackets" applies to NAMED pins; a call's sole positional input is not double-bracketed:
-      R_EDGE(a AND b), f(a OR b).
-    - MOVE keeps its call form where the word form cannot carry the tree (two inputs, none, an empty or named input):
-      MOVE(a, b);   MOVE();   MOVE(IN := ) => x;   MOVE(a, b) EN c⏎ n := ENO;
-      (0 in the corpora: all 102 MOVEs hold one value input — fixture shapes only.)
-    - A named ENO output pin is the same tree as a coil on ENO? — measured in 2R.3; until then it keeps its own
-      spelling inside the call: MOVE(0, ENO => lamp) EN c;  (They are two STORED trees — an operand in the box's ENO
-      slot vs an Assign reading the box through its ENO — so two texts, not C2's one-text-two-trees; 0 in the corpora.)
-    - The empty positional slot keeps today's form in the call fallback: MUL(, m, 6).
-    - A feed that is a word box is bracketed before INTO: (split1 AND bSync) INTO BRANCHES; an empty feed (the
-      terminator) stays refused.
-    - P1's reservation is case-insensitive: f(`execute` := a, `parallel` := b).
+P13 LSP: hover ENO → the line it takes (line N); hover BRANCH → its branches (count, stored order) and Mode; hover
+    split<n> → feeder, type, reference count; bare `EN` hint "EN shown, nothing wired"; a code lens on a changed
+    network listing what the rebuild drops (B7 members); every push refusal above is also an LSP error while
+    typing; the VS Code extension sets files.trimTrailingWhitespace false for network text (comments and EXECUTE
+    bodies are stored verbatim).
 ```
 
 ## Open
@@ -384,6 +386,10 @@ P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unsp
   refused** (B7 above). A bare `x := a AND b;` is two CODESYS networks (editor-drawn: a stored output slot, 17 boxes in
   8 networks; plain: none), and 105 of 113 function boxes (82 networks) store a result name `'   '` Volt cannot build.
   2R.4's run comparison per member can still turn one into "refused on rebuild".
+- **From the 2026-10-16 simplification, for the owner:** (a) P3's mixes read by level, not by chain (example in P3; 0
+  in the corpora — the alternative, "an ENO takes the nearest open line", reverses the two-ENO box); (b) the MOVE call
+  now keeps its output inside its brackets, `MOVE(IN := , => x)` (was `MOVE(IN := ) => x`, the one exception to P5;
+  0 in the corpora); (c) an empty branch `(a, , b)` is refused — whether the IDE stores one is a 2R.5 row.
 
 ## Checks before building (live CODESYS + corpus)
 
@@ -392,7 +398,7 @@ P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unsp
 | C1 | Does CODESYS refill `OutputParam.Types`/`.Names` itself (open the LD editor, build) after a push writes them empty? | B7 |
 | C2 | Adversarial: two NWL trees that print the same text under B1–B8, or a text that reads to two trees (every corpus network + the probes). | all |
 | C3 | Does any IDE store a 3-input SUB/DIV/MOD/comparison box? | B1 guard |
-| C4 | Per member, how many corpus networks go `UNSUPPORTED` under B7 (1b.2 reach: `Fixed` 1914, `Boolean` 2347, `Address` sentinel 258, `BranchCounter` 23 bodies)? More than a handful → STOP for the owner. Also: how many corpus splits store a type that differs from their feeder's (B6 inline types). | B6, B7 |
+| C4 | Per member, how many corpus networks go `UNSUPPORTED` under B7 (1b.2 reach: `Fixed` 1914, `Boolean` 2347, `Address` sentinel 258, `BranchCounter` 23 bodies)? More than a handful → STOP for the owner. Also: how many corpus splits store a type that differs from their feeder's (B6). | B6, B7 |
 | C5 | Corpus reach of each rule, and the line count of the six corpora before/after. | all |
 
 ## Cost

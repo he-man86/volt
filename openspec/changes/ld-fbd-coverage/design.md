@@ -546,25 +546,30 @@ measured by 2R.3's re-pull (no B-writer exists yet).
 
 ## 2R.2 Readability — the grammar 2R.3 builds, and every member under B7 (2026-10-16)
 
-**Target.** `readability.md` AS IT IS NOW is the grammar, whole: B1–B8, the small ones, P1–P16 — one rule, a box is its
+**2R.2 amended 2026-10-16 (owner): rules simplification S1–S4, S6, S8, S11; parallel = `feed BRANCH (a, b)`.**
+
+**Target.** `readability.md` AS IT IS NOW is the grammar, whole: B1–B8, the small ones, P1–P13 — one rule, a box is its
 NAME (`a ADD b`, `a GT 40`, `MOVE b => a`), `:=`/`S=`/`R=` are coils only (`a := b`: a coil, no box), `EN` the enable
-after the box, a line without `;` hands its root box's ENO to the next line's one `ENO` (one `;` = one NWL item), jumps
-are coils (`JMP l := c;`), `split<VarId>` with no `VAR_TEMP` (type inline only where it differs), the drawn parallel as
-`BRANCH` lines combined by `feed INTO BRANCHES [SHORTCIRCUIT]` (inline `INTO (BRANCH … BRANCH …)` only inside a branch).
-That file is the spec; 2R.3 writes `docs/network-text.html` from it. This section's earlier draft (`ENABLE`/`THEN`/`FEED`)
+after the box, an enabled box the root of its line, a line without `;` open and each `ENO` taking the oldest open line
+above it (P3; one `;` = one NWL item — this also spells two ENOs into one box), brackets on exactly three things (P4: a
+word box or parallel as another word's operand, an enabled comparison value, a nested assignment), a box its word unless
+the word cannot carry it, then its call (P5), jumps are coils (`JMP l := c;`), `split<VarId>` with no `VAR_TEMP` and no
+type, the drawn parallel as `[feed] BRANCH (b1, b2, …) [SHORTCIRCUIT]` at every depth (P6 — `BRANCH (` the only head of
+a bracketed comma list; no `BRANCH` lines, no `BRANCHES`, no `INTO`), old spellings not grammar (P12: their errors name
+the new spelling). That file is the spec; 2R.3 writes `docs/network-text.html` from it. This section's earlier draft (`ENABLE`/`THEN`/`FEED`)
 is replaced, not amended. Model, drivers and push pairing (1b.4) do not change.
 readability.md's B7 and "Open" now state Open item 5 as decided (lost on rebuild, not refused) — gate 2R.2; before it
 they still read "rare → `UNSUPPORTED`, common → STOP", and this section is what overrode them.
 2R.1's C2 bullets were read against that draft's spellings (`ENABLE`, `THEN`, `.ENO`, `a MOVE b`). Re-checked at gate
 2R.2, bullet by bullet, against C2's own question (two trees with one text, or one text with two readings):
-- *MOVE.* B2 reverses the bullet: `MOVE b => a` is the spelling, `a MOVE b` is refused (P14). One reading: `MOVE` is a
+- *MOVE.* B2 reverses the bullet: `MOVE b => a` is the spelling, `a MOVE b` is not grammar (P12). One reading: `MOVE` is a
   box word (P1) and opens the line, `a ADD b => x` is infix with the pin after — no text is both. All 102 corpus MOVEs
-  have one value input (101 enabled, 1 not), so all print in the word form; P16's call form `MOVE(a, b)` / `MOVE()` /
-  `MOVE(IN := ) => x` has 0 corpus reach. Owed to 2R.3: the reader refuses the call form where the word form fits, so
-  one tree keeps one text.
-- *Named ENO pin vs coil on ENO* (P16, `MOVE(0, ENO => lamp) EN c` vs `MOVE 0 => x EN c⏎ lamp := ENO`): two STORED
+  have one value input (101 enabled, 1 not), so all print in the word form; P5's call form `MOVE(a, b)` / `MOVE()` /
+  `MOVE(IN := , => x)` has 0 corpus reach. Owed to 2R.3: the reader refuses the call form where the word form fits (P5),
+  so one tree keeps one text.
+- *Named ENO pin vs coil on ENO* (P5, `MOVE(0, ENO => lamp) EN c` vs `MOVE 0 => x EN c⏎ lamp := ENO`): two STORED
   trees (an operand in the box's ENO output slot; an Assign reading the box through its ENO), two texts — not a C2
-  collision. Whether the IDE treats them as one is P16's open measurement (2R.3); 0 corpus boxes store an operand in an
+  collision. Whether the IDE treats them as one is P5's open measurement (2R.3); 0 corpus boxes store an operand in an
   ENO slot.
 - *`ENABLE`.* No longer a keyword (`EN` is, reserved per P1), so the context-lexing note is moot. The two counts measure
   different things and both stand: C2's 1 FB formal + 3 variables are what the NETWORKS wire (in the archives one box,
@@ -577,78 +582,80 @@ spellings follow B1–B8.
 **2R.1's open items (owner, tasks 2R.2).** 1 empty enable → bare `EN` (`iRPM MUL 6 => oDrive EN;`; 37 in 33 networks).
 Rejected: ``EN `` `` (the empty-text operand, another tree), `EN ???` (the unnamed instance). · 2 operator box with an
 output pin and no EN → `a ADD b => x;` (0; rejected: refuse — refusing a buildable tree for no gain). · 3 negated
-operator pin → P10's call form `AND(a, NOT IN2 := b)` (4 boxes, 3 networks). Rejected: "the IMPLEMENTATION line decides"
+operator pin → P5's call form `AND(a, NOT IN2 := b)` (4 boxes, 3 networks). Rejected: "the IMPLEMENTATION line decides"
 (`NOT x` would mean the pin in FBD and the operand in LD — one text, two trees across bodies); `UNSUPPORTED` (the call
 form already exists). · 4 → `EXECUTE EN c … END_EXECUTE` (11 networks + TwinCAT 1; rejected: keep `EXECUTE(EN := c)`, a
 second EN spelling). · 5 B7 vs C4 → **lost on rebuild, not refused**: an unchanged network is never rebuilt (N28) and
 keeps every member byte for byte; an edited one is built with the derivation and `RebuildLoss` names each dropped value
-(P15's code lens). Rejected: strict B7 (90 % of networks, 348 of 388, uneditable over members no run has shown to
+(P13's code lens). Rejected: strict B7 (90 % of networks, 348 of 388, uneditable over members no run has shown to
 matter); the pragma (owner, 2R). 2R.4 runs drawn vs rebuilt per member (`record:exec`); a member whose loss changes
 behaviour makes its networks refused on rebuild.
 
 **Member disposition (no pragma; codes: S spelled · D derived on push from text + declarations, as the editor does ·
 C editor cache, dropped · L lost on rebuild until 2R.4 · E shown, edit refused · X the network `UNSUPPORTED`).**
 - **S:** `DefaultViewMode`, `NetworkList`, `Label`, `OutCommented`, `Title` exact (21 differ from today's trim — the
-  trims go), `Comment` verbatim (P12; the CR LF fold goes), items, Assign targets/value, `BoxType` of an operator or
-  function, `Instance`, inputs, `STSnippet`, Demux `VarId`/`Input`, Parallel `Branches`/`Input`/`Mode` (`SHORTCIRCUIT`
-  where it differs from the editor's `Sequential`: 16 of 17), Operand name + flags, box `Flags`, a negated pin.
+  trims go), `Comment` verbatim (P10; the CR LF fold goes), items, Assign targets/value, `BoxType` of an operator or
+  function, `Instance`, inputs, `STSnippet`, Demux `VarId`/`Input`, Parallel `Branches`/`Input`/`Mode` (`feed BRANCH (a, b)`; `SHORTCIRCUIT` after the
+  list where Mode differs from the editor's `Sequential`: 16 of 17), Operand name + flags, box `Flags`, a negated pin, two
+  ENOs into one box (P3; CODESYS stores and runs it, 2R.5; 0 in the corpora).
 - **D:** an FB/program `BoxType`, a call's whole output list and `InputParam`/`OutputParam` `Types` from the callee's
   declaration (a library POU through the bridge's signature read — 2R.3 measures it on both vendors first, L until
   then; it covers every call box — 281: 157 FB, 113 Function, 11 Program; CODESYS 279 in 206 networks, TwinCAT 2 TON —
   and replaces today's pragmas, 249 `Names` + 288 `Types` in 195 networks as counted in the 2.3 writer's text; the
   earlier "413 derivations" had no source and is withdrawn), `CallType`, the stored `EN`/`ENO`
-  bools, `InputFlags` null-or-zeros, `Instance.Type`, `Operand.Type` (a split's differing type is S, 0 in the corpora),
+  bools, `InputFlags` null-or-zeros, `Instance.Type`, `Operand.Type`,
   `Comment`/`LValue`/`IsInstance`, `Extensible`, `IL*`/`FBDValid`, the item's Jump/Return bit (0 — the writer stops ORing
-  it), body `NetworkListComment`/`ValidIds` (a differing value → the body `UNSUPPORTED`, P13; 0).
+  it), body `NetworkListComment`/`ValidIds` (a differing value → the body `UNSUPPORTED`, P11; 0).
 - **C:** item `Id`s, STSnippet line ids, the TextDocument caches (N29, N30, C1/N38: no refill on a pushed network).
 - **L:** `Fixed` (340 networks), `Boolean` (296), the `Address` sentinel (27), a function's result name `'   '` (105 of
   the 113 Function boxes, in 82 networks, all CODESYS — no box Volt builds can hold it, N37), a bit operator's stored
   slot `['']` (17 And/Or boxes in 8 networks: 15 CODESYS in 7, 2 TwinCAT in 1 — tasks.md census "S1 17"; the earlier
   "11" withdrawn; counts re-taken from the nwl-corpus archives at gate 2R.2), stored values that differ from D
-  (15 `BoxType` spellings, 47 `Instance.Type`, stale `Operand.Type`, `EN`/`ENO`, zero-only `InputFlags`). Body
+  (15 `BoxType` spellings, 47 `Instance.Type`, stale `Operand.Type`, `EN`/`ENO`, zero-only `InputFlags`), a split's stored type that differs
+  from its feeder's (B6: no syntax for it; 0 in the corpora; the build ignores it, N25). Body
   `BranchCounter` (22 of 44 bodies): a network rebuild never writes the body, so it survives; a body create takes the
   IDE's count.
 - **E:** `SymbolComment` (10 operands, 1 network; `RefuseSymbolCommentLoss` stays until 2R.4), S4 `fb(…).name` and an
-  enabled comparison value (N21, P5), as 1b.4.
-- **X / refused by name:** non-default `Terminator`, `BoxTreeMux`, `ILStatement`, `Connectors`, `ILLines`; a box
-  consuming two ENOs; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3); every old spelling (P14) —
-  all 0 in the corpora.
+  enabled comparison value (N21, P4), as 1b.4.
+- **X / refused by name:** non-default `Terminator`, `BoxTreeMux`, `ILStatement`, `Connectors`, `ILLines`; a
+  one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3) — all 0 in the corpora. Old spellings are not
+  grammar (P12): no refusal rule, their errors name the new spelling.
 
-**Corpus reach (C5; 388 CODESYS + 6 TwinCAT networks, 392 of 394 spell clean, P16).** B1 74 non-AND/OR boxes in 35
+**Corpus reach (C5; 388 CODESYS + 6 TwinCAT networks, 392 of 394 spell clean — readability.md's corpus line).** B1 74 non-AND/OR boxes in 35
 networks + 826 AND/OR groups · B2 102 MOVEs / 44 · B3 225 enabled boxes / 95 · B4 58 lines reading `ENO` / 29 (one per ENO use,
 re-counted from the archives: 31 EN chains, 7 other box inputs, 16 coils, 3 split feeders, 1 parallel feed; C2's "86 /
 28" double-counted) · B4b 1 conditional `RETURN`, 0 `JMP` · B5 483 bracketed values / 211 · B6 140 split definitions in
 100 networks (lenze-mid 139 / 99 + TwinCAT `POUexecute` 1; 576 Demux nodes = 140 definitions + 436 references,
-tasks.md census), inline types 0 · B7 195 networks lose their pragma (the 2.3 writer's text) · B8 17 parallels / 12 (5 unfed) · P1 backticks 4 · P10 call form 4 pins. Lines: 1945 before; after: 2R.3.
+tasks.md census), inline types 0 · B7 195 networks lose their pragma (the 2.3 writer's text) · B8 17 parallels / 12 (5 unfed) · P1 backticks 4 · P5 call form 4 pins. Lines: 1945 before; after: 2R.3.
 
 **Migration.** No users, no compat: 2R.3 replaces writer, reader, gate and LSP parser in one pass, deletes every V2
-spelling (`NetworkPragma.cs`, the pragma text half, `syntax/network/pragma.ts`) and refuses each old form with a pointer
-to the new (P14); recordings stand (the model is unchanged), goldens and the corpora are re-pulled.
+spelling (`NetworkPragma.cs`, the pragma text half, `syntax/network/pragma.ts`) and old forms are not grammar — their errors
+name the new spelling (P12); recordings stand (the model is unchanged), goldens and the corpora are re-pulled.
 
 ## 2R.3 The rewrite — one shared case set, one pass, both vendors (2026-10-16)
 
-**Target.** `readability.md` whole (B1–B8, small ones, P1–P16) as the ONLY network-text grammar in the C# writer,
+**Target.** `readability.md` whole (B1–B8, small ones, P1–P13) as the ONLY network-text grammar in the C# writer,
 reader and gate and the LSP parser; the pragma gone; every refusal a push makes also made by the LSP while typing,
 under the same name; `docs/network-text.html` rewritten from the result; the six corpora re-pulled (1945 lines before).
 
 **Choice: test-first from ONE committed case set, consumed by both languages, built in one pass.**
 - `packages/volt-cli/test/fixtures/network-text/` holds `accept/` cases (text + the NWL model it reads to) and
-  `refuse/` cases (text + the refusal NAME). Written first, red: every readability.md example, every P1–P16 rule, every
-  X/E item and every P14 old spelling (with its pointer to the new one). C# reader/writer tests and an LSP test read the
+  `refuse/` cases (text + the refusal NAME). Written first, red: every readability.md example, every P1–P13 rule, every
+  X/E item and every P12 old spelling (its error with the new spelling). C# reader/writer tests and an LSP test read the
   same files; a case one side accepts and the other refuses fails both suites. That is the "LSP refuses while typing"
   parity check — one source, not two lists kept in step by hand.
 - The corpus fixed point runs OFFLINE first, over the `nwl-corpus` archives (388 CODESYS + 6 TwinCAT networks):
   archive → model → text → model equal (`NetworkModelEquality`), and the LSP parses every printed text with no error.
-  This is C2's mechanical half; P16 says 392 of 394 spell clean, the 2 are the case set's refusals.
-- Build order inside the pass: B4 (one `;` per item, `ENO` = the line above) and B6 (`split<VarId>`, no `VAR_TEMP`)
+  This is C2's mechanical half; readability.md's corpus line says 392 of 394 spell clean, the 2 are the case set's refusals.
+- Build order inside the pass: B4 (one `;` per item, `ENO` takes the oldest open line, P3) and B6 (`split<VarId>`, no `VAR_TEMP`)
   first — they set statement boundaries every other rule sits on; then B1/B2/B3/B5/B8 and the small ones; B7 last
   (delete the pragma once nothing prints it).
 - Derivation (D) is vendor-neutral Engine code over the text + the callee's declaration; each driver only supplies the
   declaration (local POU, or a library POU through its signature read). Measured on both vendors before it is relied
   on: per library callee in the corpora, does the signature read give the output list and types? A callee it does not
-  cover stays L (lost on rebuild, P15 lens names it), never guessed.
+  cover stays L (lost on rebuild, P13 lens names it), never guessed.
 - Then live, both vendors (`ide.ps1 -Instance ld-fbd-coverage`, TwinCAT `-Fixture 14`): pull → push → pull fixed point +
-  build on the graphical fixtures, and P16's measurement (named ENO pin vs coil on ENO — one tree or two). TwinCAT's
+  build on the graphical fixtures, and P5's measurement (named ENO pin vs coil on ENO — one tree or two). TwinCAT's
   owed C1 run goes with it; its blocker (an orphaned worker of this instance) is cleared by `ide.ps1 down` first.
 
 Rejected: a V3 grammar beside V2 behind a switch, then delete V2 (no users, no compat; doubles both suites for the
@@ -658,14 +665,15 @@ process; shared cases give the parity without the coupling) · derivation per dr
 wire divergence is a defect; only the declaration source differs).
 
 **Stays refused by name** (in `refuse/`, both sides): non-default `Terminator`, `BoxTreeMux`, `ILStatement`,
-`Connectors`, `ILLines`; a box consuming two ENOs; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3
+`Connectors`, `ILLines`; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3
 — the nine `ng_r1_*` lose their `deferred.lsp` mark when the LSP refuses them); `a MOVE b` and the MOVE call form
-where the word form fits; a redundant coil bracket; a `split<n>` colliding with a declaration; every P14 old spelling.
+where the word form fits; a redundant bracket (P4); a `split<n>` colliding with a declaration; every P12 old spelling (as its error).
+Two ENOs into one box is spelled (P3), not refused.
 Shown, edit refused (E): `SymbolComment`, S4 `fb(…).name`, an enabled comparison value. `VOLT_GRAPHICAL` stays off in
 the shipped build.
 
 **Migration.** No compat: delete `NetworkPragma.cs`, the text half of `NetworkMembers.cs`,
 `frontend/syntax/network/pragma.ts` with `network-pragma.test.ts`, and the "Members — the pragma" doc section; old
-forms are `refuse/` cases with pointers. Recordings stand (the model is unchanged); goldens are regenerated from the
+forms are `refuse/` cases whose error names the new spelling (P12). Recordings stand (the model is unchanged); goldens are regenerated from the
 archives; the corpora re-pulled with before/after line counts in tasks.md; the network files' shrink-only entries
 re-measured, not raised.
