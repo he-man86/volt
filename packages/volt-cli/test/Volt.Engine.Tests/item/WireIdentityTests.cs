@@ -58,6 +58,14 @@ public class WireIdentityTests
         Assert.DoesNotContain("library.library", once);
     }
 
+    /// <summary>THE MEASURED TWINCAT SHAPE. XAE names the PLC project's module description by its FILE name —
+    /// <c>Untitled2.tmc</c> (<c>VSHPROPID_Name</c>, measured equal to the PLC tree item's name, <c>TcSolutionExplorer</c>)
+    /// — so the tree item already carries the extension its kind publishes. Its wire name is that name, not
+    /// <c>Untitled2.tmc.tmc</c>.</summary>
+    [Fact]
+    public void A_tmc_module_description_keeps_its_vendor_name_on_the_wire()
+        => Assert.Equal("Untitled2.tmc", Materialize("Untitled2.tmc", ItemKind.Kinds.TmcFile));
+
     /// <summary>AND THAT CASE STILL INVERTS. `Bare` strips the LAST dot segment, so a verbatim name inverts to
     /// the stem the IDE holds — the round trip is not identity here, and it is not supposed to be.</summary>
     [Fact]

@@ -149,6 +149,9 @@ public static class Materializer
         return IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
     }
 
+    /// <summary>The IDE's name already ends in the kind's extension, so it is the wire name as is: TwinCAT names the
+    /// module description by its file (<c>Untitled2.tmc</c>, measured — <c>TcSolutionExplorer</c>), and a library ref
+    /// spelled <c>Foo.library</c> is not doubled (<c>WireIdentityTests</c>).</summary>
     private static bool IsVerbatimKind(string name, string ext) =>
         name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);
 
