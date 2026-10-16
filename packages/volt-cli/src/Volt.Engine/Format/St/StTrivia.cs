@@ -12,11 +12,12 @@ namespace Volt.Engine.Format.St;
 /// <c>push-without-header-check</c> 5.E.1) all read through it. Comments NEST, as both vendors' do
 /// (<c>lex_nested_block_comment</c>, <c>(* outer (* inner *) n := 99; still inside *)</c>, builds clean on CODESYS and
 /// TwinCAT), and a comment opened AFTER code on its line is seen (bakon-nano's <c>:= TRUE;(*NOT (</c> spans lines).
-/// <c>CodeHelper.CodeOn</c>, which the splitter used to read through, did neither: a word after an inner <c>*)</c> was
-/// code and an <c>END_METHOD</c> inside a comment ended the member there. A <c>(*</c> inside a <c>//</c> comment, a
-/// string or a pragma opens nothing; a BOM at the start of the text is no code.</para>
+/// A line-start scan does neither: a word after an inner <c>*)</c> is code to it and an <c>END_METHOD</c> inside a
+/// comment ends the member there. A <c>(*</c> inside a <c>//</c> comment, a string or a pragma opens nothing; a BOM at
+/// the start of the text is no code. The EXTENDS reader (<c>StDeclaration</c>) reads through it too, so the format has
+/// no second trivia scanner.</para>
 /// </summary>
-internal static class StTrivia
+public static class StTrivia
 {
     /// <summary>Per line: true when the line starts inside a block comment.</summary>
     public static bool[] OpenAtStart(IList<string> lines) => Scan(lines).OpenAtStart;
@@ -25,12 +26,6 @@ internal static class StTrivia
     /// string's TEXT blanked between its quotes, which stay: a string is code, so a line holding one is no trivia line,
     /// but nothing inside it is a keyword or opens a comment.</summary>
     public static string[] Code(IList<string> lines) => Scan(lines).Code;
-
-    /// <summary>Where each block comment opens — its line and the column of its <c>(*</c> — in order, NESTED ones
-    /// included: comments nest, so a <c>(*</c> inside a comment opens a comment of its own (the retired-comment rule
-    /// asks about every comment, at any depth). One inside a <c>//</c> comment, a string or a pragma opens nothing,
-    /// exactly as for <see cref="OpenAtStart"/>.</summary>
-    public static List<(int Line, int Column)> CommentOpenings(IList<string> lines) => Scan(lines).Openings;
 
     /// <summary>The <c>(*</c> that never close — each one still open when the text ends, as its line and column, in
     /// order. Empty for any text whose comments all close. Comments nest, so a <c>(* a (* b *)</c> leaves the OUTER
@@ -59,13 +54,12 @@ internal static class StTrivia
         return false;
     }
 
-    private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings,
+    private static (bool[] OpenAtStart, string[] Code,
         List<(int Line, int Column)> Unclosed, string[] Classes) Scan(IList<string> lines)
     {
         var open = new bool[lines.Count];
         var code = new string[lines.Count];
         var classes = new string[lines.Count];
-        var openings = new List<(int Line, int Column)>();
         var stack = new List<(int Line, int Column)>();   // the openers not yet closed, innermost last
         var depth = 0;
         for (int i = 0; i < lines.Count; i++)
@@ -80,12 +74,12 @@ internal static class StTrivia
                 var next = j + 1 < line.Length ? line[j + 1] : '\0';
                 if (depth > 0)
                 {
-                    if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth++; sb.Append("  "); kb.Append(CommentChar, 2); j++; }
+                    if (c == '(' && next == '*') { stack.Add((i, j)); depth++; sb.Append("  "); kb.Append(CommentChar, 2); j++; }
                     else if (c == '*' && next == ')') { depth--; stack.RemoveAt(stack.Count - 1); sb.Append("  "); kb.Append(CommentChar, 2); j++; }
                     else { sb.Append(' '); kb.Append(CommentChar); }
                     continue;
                 }
-                if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth = 1; sb.Append("  "); kb.Append(CommentChar, 2); j++; continue; }
+                if (c == '(' && next == '*') { stack.Add((i, j)); depth = 1; sb.Append("  "); kb.Append(CommentChar, 2); j++; continue; }
                 if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); kb.Append(CommentChar, line.Length - j); break; }
                 if (i == 0 && j == 0 && c == '﻿') { sb.Append(' '); kb.Append(BomChar); continue; }   // a BOM opens no code
                 if (c == '\'' || c == '"' || c == '{')
@@ -114,6 +108,6 @@ internal static class StTrivia
             code[i] = sb.ToString();
             classes[i] = kb.ToString();
         }
-        return (open, code, openings, stack, classes);
+        return (open, code, stack, classes);
     }
 }

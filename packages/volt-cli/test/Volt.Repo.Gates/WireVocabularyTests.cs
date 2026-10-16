@@ -94,7 +94,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Item/ItemKind.cs", 1),
-            ("Volt.Engine/Sync/FetchService.cs", 1),
+            ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 7),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),

@@ -434,22 +434,20 @@ public class ReadOnlyBodyTests
 
     // ── no Volt comment survives ─────────────────────────────────────────────────────────────────
 
-    /// <summary>A file with NO boundary line where one belongs — the POU's, or a member's — is a file from before the
-    /// change, and when it holds a <c>(* @volt-… *)</c> comment the refusal names that comment as the hint, beside
-    /// <c>volt pull</c>, which rewrites it in the current format (openspec <c>bridge-refusal-review</c> 2.1). Nothing is
-    /// written.</summary>
+    /// <summary>A file with NO boundary line where one belongs — the POU's, or a member's — is refused naming
+    /// <c>volt pull</c>, which rewrites it in the current format, whatever <c>(* @volt-… *)</c> comment it holds. Nothing
+    /// is written.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_it_and_volt_pull(string source)
+    public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_volt_pull(string source)
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
 
         var reason = Reason(Update(ide, source));
 
         Assert.Contains("volt pull", reason);
-        Assert.Contains("@volt", reason);                       // it names what it found
         Assert.Empty(ide.WrittenContent);
     }
 

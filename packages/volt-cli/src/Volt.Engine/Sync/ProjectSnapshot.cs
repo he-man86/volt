@@ -9,8 +9,8 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// One consistent walk of the project's tracked items into the version + folder maps that BOTH <c>refs</c>
-/// and the <c>push</c> receipt report. Having a SINGLE walk here is what guarantees those two agree
+/// One consistent walk of the project's tracked items into the version + folder maps that <c>refs</c>, <c>fetch</c>
+/// and the <c>push</c> receipt report. Having a SINGLE walk here is what guarantees those agree
 /// byte-for-byte — the IDE can change items OUTSIDE the pushed op set while the push runs (an engineer's
 /// edit), so a receipt that
 /// reused pre-apply versions for "untouched" items reported a stale baseline, and the client (which persists
@@ -18,9 +18,9 @@ namespace Volt.Engine.Sync;
 /// push. Re-materializing every item from the SAME walk <c>refs</c> uses makes that drift impossible.
 ///
 /// The gates match <c>refs</c> exactly: unmapped kinds and container-managers are skipped (an object excluded from
-/// build is an ordinary item, see <see cref="Item.ProjectItem"/>). <c>fetch</c>
-/// keeps its own walk (it layers changed-body + onlyItems + library-signature logic on top) but is documented to
-/// produce the same version map for the same gates.
+/// build is an ordinary item, see <see cref="Item.ProjectItem"/>). <c>fetch</c> layers changed-body, onlyItems and
+/// library-signature logic on top through the per-item hook (<see cref="Walk"/>'s <c>onItem</c>), so it cannot gate
+/// differently (EndpointParityTests).
 /// </summary>
 internal sealed class ProjectSnapshot
 {
@@ -54,6 +54,9 @@ internal sealed class ProjectSnapshot
     public Dictionary<string, string> Texts { get; } = new(StringComparer.Ordinal);
 
     public int Unmapped { get; private set; }
+
+    /// <summary>How many objects the driver's walk returned, tracked or not — the progress bar's denominator.</summary>
+    public int Walked { get; private set; }
 
     /// <summary>Items the walk found but could not materialize, BY NAME. A count was enough for a log line; the
     /// names are what let a client say WHICH item did not come through — and an unreadable item is invisible
@@ -89,24 +92,24 @@ internal sealed class ProjectSnapshot
     /// <summary>Walk every tracked item once, applying the <c>refs</c> gates. <paramref name="operation"/>
     /// labels the streamed progress frames + skip logs (e.g. "refs"). <paramref name="keepText"/> is asked, for each
     /// materialized item, with its full wire name and the version this walk computed, whether <see cref="Texts"/> keeps
-    /// its text; null keeps none.</summary>
+    /// its text; null keeps none. <paramref name="phase"/> is the first progress frame's phase.
+    /// <para><paramref name="onItem"/> is called for every TRACKED item once the snapshot has recorded it — the item,
+    /// its wire kind, the folder it is reported under (<c>Versioning.FolderOf</c>) and its version — so a caller that
+    /// needs more of each item (<c>fetch</c>) adds to this walk instead of keeping a second copy of its gates.</para></summary>
     public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs,
-                                       Func<string, string, bool>? keepText = null)
+                                       Func<string, string, bool>? keepText = null, string? phase = "reading",
+                                       Action<ProjectItem, string, string, VersionedItem>? onItem = null)
     {
         var snap = new ProjectSnapshot();
-        // COMPLETENESS TRAVELS WITH THE ITEMS. This used to take `.Items` and drop the rest one line after the
-        // driver produced it, on the grounds that nothing derives a DELETION from a snapshot. That was true of
-        // `fetch`, which has its own walk and its own suppression — and false of everything else built on this:
-        // `refs` drives `volt status`, which diffs the snapshot against the sidecar and renders every item
-        // under an unenumerable folder as INCOMING-REMOVED. Status told the user the engineer had deleted
-        // their POUs. `init`/`pull` likewise wrote a workspace missing those items and persisted a
-        // projectVersion hashed over the partial set as the IDE baseline.
+        // COMPLETENESS TRAVELS WITH THE ITEMS: `refs` drives `volt status`, which renders every item under an
+        // unenumerable folder as INCOMING-REMOVED unless the snapshot says the walk did not see it.
         var walk = ide.WalkItems();
         var walked = walk.Items;
         snap.UnwalkedFolders.AddRange(walk.UnwalkedFolders);
         var total = walked.Count;
+        snap.Walked = total;
         var done = 0;
-        onProgress?.Invoke(new ProgressFrame { Operation = operation, Done = 0, Total = total, Phase = "reading" });
+        onProgress?.Invoke(new ProgressFrame { Operation = operation, Done = 0, Total = total, Phase = phase });
 
         foreach (var it in walked)
         {
@@ -116,14 +119,22 @@ internal sealed class ProjectSnapshot
 
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) { snap.Unmapped++; VoltLog.Debug($"{operation} skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
+            // A container-manager (library / recipe / visualization manager) is a FOLDER, never a tracked item. The
+            // driver walks already avoid emitting it; this is the Core backstop, so no vendor can materialize a stray
+            // manager as a stub file.
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
             // The two skips above == !IsTracked(it.KindCode) — kept expanded here for the per-reason counters/logs;
             // PushService's lease hash reuses IsTracked to stay byte-identical.
 
-            // Report the folder the item ACTUALLY occupies — Versioning.FolderOf is the one definition, and
-            // SafeVersion applies it to the hash itself, so refs, fetch and the receipt cannot drift apart.
-            var folder = Versioning.FolderOf(kind, it.Folder, it.Name);
-            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
+            // Hasher REQUIRES a folder: defaulting a missing one to "" would hash identically to a legitimately
+            // empty folder and silently drift the item's version instead of surfacing the walk bug. So fail loud.
+            var walkedFolder = it.Folder ?? throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"the project walk returned item '{it.Name}' with no folder");
+            // Report the folder the item ACTUALLY occupies — Versioning.FolderOf is the one definition (a `.library`
+            // lives in its OWN folder beside its signatures), and SafeVersion applies it to the hash itself, so refs,
+            // fetch and the receipt cannot drift apart.
+            var folder = Versioning.FolderOf(kind, walkedFolder, it.Name);
+            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder);
             snap.Versions[v.Identity] = v.Version;
             if (v.Materialized is { } mat)
             {
@@ -131,10 +142,16 @@ internal sealed class ProjectSnapshot
                 snap.Folders[mat.FullName] = folder;
                 if (keepText is not null && keepText(mat.FullName, v.Version)) snap.Texts[mat.FullName] = mat.Text;
             }
+            // An item that could not be READ has not gone anywhere — it is in the hash with the Unreadable sentinel. Keyed
+            // by BARE name and the WALKED kind (the full name would come from the content that defeated the read), so
+            // the removal pass does not read "absent" as "deleted" for it, and for it alone (`Removal`).
             else { snap.Unreadable.Add(v.Unread!); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
+            onItem?.Invoke(it, kind, folder, v);
         }
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
-        // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree.
+        // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree. Their
+        // removal exemption is their FOLDER when their kind is unknown (WalkResult puts it in UnwalkedFolders), and
+        // UnreadableKinds when the vendor named their kind family without a read (UnreadableObject.Kinds).
         snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions, snap.UnreadableKinds));
         var named = WireOrder(snap.Unreadable);
         snap.Unreadable.Clear();

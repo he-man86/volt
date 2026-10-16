@@ -69,9 +69,6 @@ public class NoKindFromTextTests
             "writes the END line that mirrors the declaration's own header (5.Q.3) — file format, no kind"),
         ["Volt.Engine/Sync/Materializer.cs"] = new(2,
             "holds a member's text to its CLASS (5.Q.5) and refuses a POU whose text opens with no header (bridge-one-to-one 3.5); decides nothing"),
-        ["Volt.Engine/Format/St/CodeHelper.cs"] = new(1, "CodeOn itself (HeaderLine is deleted, bridge-refusal-review D3)"),
-        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(1,
-            "network-text scope's EXTENDS reader (the bases an FB's body sees); decides no kind"),
     };
 
     /// <summary>Where a header keyword in a string is not a read that decides a kind — path as above.</summary>

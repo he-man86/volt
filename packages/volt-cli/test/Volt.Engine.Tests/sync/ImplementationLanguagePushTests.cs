@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 /// it stated — before anything is written. The body is never sniffed for the other language (openspec
 /// <c>bridge-refusal-review</c> 1.1, 2.3): an ST body is ST whatever it holds, and an LD/FBD body that is no network is
 /// the network reader's NETWORK_PARSE. A file that still carries the retired <c>(* @volt-implementation *)</c> comment
-/// has no boundary line at all and gets the "pull the project once" refusal, naming the comment.</para>
+/// has no boundary line at all and gets the "pull the project once" refusal.</para>
 ///
 /// <para>Every refusal here is a CREATE into an empty project, so "nothing written" is directly observable: no item
 /// created, no content written.</para>
@@ -421,7 +421,6 @@ public class ImplementationLanguagePushTests
 
         Assert.Contains("volt pull", reason);
         Assert.Contains("IMPLEMENTATION", reason);   // the refusal names the line the file lacks
-        Assert.Contains("(* @volt-implementation", reason);   // …and the retired comment, as the hint (2.1)
         AssertNothingWritten(ide);
     }
 

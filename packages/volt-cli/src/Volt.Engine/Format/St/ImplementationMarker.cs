@@ -47,8 +47,7 @@ namespace Volt.Engine.Format.St
     /// (2b's spelling) is no line a body can state and is refused by name. The line replaced the old marker comment,
     /// which carried the REASON in the file; an LD/FBD body's reason now reaches the pull message instead
     /// (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no <c>(* @volt-… *)</c> comment of any kind is
-    /// written. One in a pushed file is a comment; only where a region has NO boundary line is it read, as the hint that
-    /// the file predates the line (<see cref="FindRetiredComment"/>, openspec <c>bridge-refusal-review</c> 2.1).</para>
+    /// written. One in a pushed file is an ordinary comment.</para>
     ///
     /// <para><b>An ABSTRACT member with no code states <c>IMPLEMENTATION NONE</c></b> (openspec <c>abstract-member-push</c>,
     /// <c>abstract-member-parity</c>, DIALECT C2n): the declaration decides it, identically on both vendors whoever made
@@ -104,10 +103,6 @@ namespace Volt.Engine.Format.St
         // candidate, refused on push and on pull — `Implementation OR b;` in a wrapped expression the IDE compiles.
         private static readonly Regex Shape = new(@"^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_].*?))?\s*$",
                                                   RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
-        /// <summary>The prefix every retired Volt comment carried after its <c>(*</c>: <c>@volt-implementation</c> on
-        /// the boundary, and the same prefix on the marker that stood for a body Volt could not write.</summary>
-        private const string RetiredTag = "@volt-";
 
         /// <summary>The boundary line of a body Volt READS (<c>ST</c>, <c>LD</c> or <c>FBD</c>).</summary>
         public static string For(string language) => $"{Keyword} {language}";
@@ -246,23 +241,6 @@ namespace Volt.Engine.Format.St
         {
             var m = Shape.Match(line);
             return !m.Success ? null : m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
-        }
-
-        /// <summary>The first <c>(* @volt-… *)</c> comment in <paramref name="lines"/> — a comment of a Volt from before
-        /// the keyword — as its line index and its text on that line, or null. Only a real comment counts: <c>(*</c>
-        /// inside a string, a pragma or a <c>//</c> comment opens nothing (<see cref="StTrivia"/>). A comment NESTED in
-        /// another counts too — "no Volt comment survives" has no depth at which it stops holding.</summary>
-        public static (int Line, string Text)? FindRetiredComment(IList<string> lines)
-        {
-            foreach (var (line, column) in StTrivia.CommentOpenings(lines))
-            {
-                var text = lines[line];
-                var after = text.Substring(column + 2).TrimStart();
-                if (!after.StartsWith(RetiredTag, System.StringComparison.OrdinalIgnoreCase)) continue;
-                var close = text.IndexOf("*)", column + 2, System.StringComparison.Ordinal);
-                return (line, (close < 0 ? text.Substring(column) : text.Substring(column, close + 2 - column)).Trim());
-            }
-            return null;
         }
 
         /// <summary>Every boundary line (<see cref="Is"/>, the grammar alone) outside every comment, in order, in

@@ -53,7 +53,6 @@ public static class FetchService
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 "a fetch needs a baseline: send `knownItems` (or `onlyItems` for a directed read), or `init: true` for a first pull");
 
-        var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
         var changed = new List<FetchedItem>();
@@ -72,83 +71,20 @@ public static class FetchService
         // fetch. Ordering is safe: the precompile reads its own language model, never the walked item handles, and
         // every item is already materialized by the time we (maybe) build — so a build can't stale a handle
         // mid-materialize (the same property that lets the onlyItems preview skip the build).
-        var walk = ide.WalkItems();
-        var walked = walk.Items;
-        var total = walked.Count; // the signature count folds in AFTER we know whether we're extracting (below)
-        var done = 0;
-        var unmapped = 0;    // KindCode the table doesn't map (opaque/unknown type) — dropped from the pull
-        var unreadable = 0;  // exists + tracked, but body couldn't be materialized (SafeVersion logs the why at Warn)
-        // The live .library file versions (fullName → version), captured in the loop — the change signal for the
+        //
+        // THE walk refs answers with (`ProjectSnapshot.Walk`): its gates, its version map (every walked item, readable
+        // or not, regardless of onlyItems — so the aggregate matches /refs and the push receipt) and its unreadable
+        // list. Fetch adds, per readable item, the onlyItems subset, the library refs and the changed bodies.
+        // The live .library file versions (fullName → version), captured in the walk — the change signal for the
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
-        // Items the walk SAW but could not read. They exist; they are simply not in this response.
-        var unreadableItems = new HashSet<UnreadableItem>();
-        // …and the KINDS each was walked as, which the walk knows even when it cannot read the body. The removal
-        // exemption is the unreadable ITEM's, and bare names repeat across kinds (`CM_Carrier.pou` beside
-        // `CM_Carrier.visualization`): keyed by bare name alone, an unreadable FB shielded a visualization the
-        // IDE had deleted, whose file then survived the pull and whose next edit pushed as a create.
-        var unreadableKinds = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);
         // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
         var skippedLibraryStubs = new List<FetchedItem>();
-        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Fetch, Done = 0, Total = total });
 
-        foreach (var it in walked)
+        void OnItem(ProjectItem it, string kind, string folder, VersionedItem v)
         {
-            // Report over the walk, throttled — a frame every ~25 items (and the last) keeps the bar smooth
-            // without a write per item.
-            done++;
-            if (onProgress != null && (done % 25 == 0 || done == total))
-                onProgress(new ProgressFrame { Operation = Ops.Fetch, Done = done, Total = total });
-
-            var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) { unmapped++; VoltLog.Debug($"fetch skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})"); continue; }
-            // A container-manager (library / recipe / visualization manager) is a FOLDER, never a tracked item —
-            // it only groups its children (see ItemKind.IsContainerManager). The driver walks already avoid
-            // emitting it; this is the Core backstop so the invariant holds for EVERY vendor structurally, not
-            // per-driver — a stray manager can never materialize as a stub file.
-            if (ItemKind.IsContainerManager(it.KindCode)) continue;
-            // The two skips above == ProjectSnapshot.IsTracked(it.KindCode) — kept expanded here (as in
-            // ProjectSnapshot.Walk) for the per-reason counters/logs. A third skip added to either walk must be
-            // added to the other, or fetch and refs stop producing the same version map (EndpointParityTests).
-
-            // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
-            // can't be materialized), never throw for the whole batch.
-            // Hasher REQUIRES a folder: defaulting a missing one to "" would hash identically to a legitimately
-            // empty folder and silently drift the item's version instead of surfacing the walk bug. So fail loud.
-            var walkedFolder = it.Folder ?? throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"the project walk returned item '{it.Name}' with no folder");
-            // ONE folder per item, from here on. A `.library` lives in its OWN folder beside the signatures it
-            // describes, and that has to be true for every view of it: the version hash below, the `folders` map,
-            // and the Changed entry. It used to be applied to the Changed entry ALONE, so a single response told
-            // the client the file was at `Library Manager/` while writing it to `Library Manager/<lib>/`, and
-            // hashed the version over the folder it is not in. Same rule now runs in ProjectSnapshot, so /refs
-            // and the push receipt agree too.
-            var folder = Versioning.FolderOf(kind, walkedFolder, it.Name);
-            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder);
+            if (v.Materialized is not { } mat) return;   // unreadable: the snapshot names it and spares it from removal
             var version = v.Version;
-            var mat = v.Materialized;
-            // The aggregate project/structure version must cover EVERY walked item — readable or not, and
-            // regardless of the onlyItems subset — so it matches /refs and the push receipt (an unreadable item
-            // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
-            // otherwise a single unreadable item makes /fetch's projectVersion diverge from /refs'.
-            versions[v.Identity] = version;
-            if (mat == null)
-            {
-                // It could not be READ. It has not gone anywhere — the line above just recorded it with the
-                // Unreadable sentinel for exactly that reason. Remember the bare name so the removal pass below
-                // does not mistake "absent from this response" for "deleted from the project"; without this a
-                // pull DELETES the engineer's file for a POU sitting in the IDE.
-                //
-                // Keyed by BARE name and the WALKED kind rather than a reconstructed `name.ext`: the full name
-                // comes from the materialized item, which is null here, and re-deriving it would lean on the very
-                // content that defeated the read. The walked kind is the tree's, read without the body. The bare
-                // name alone is NOT enough — IEC makes names unique within a kind, not across kinds (CLAUDE.md,
-                // the item-name invariant) — so the removal pass matches both (`Removal`).
-                unreadableItems.Add(v.Unread!);
-                Removal.AddUnreadable(unreadableKinds, it.Name, kind);
-                unreadable++;
-                continue;
-            }
             var fullName = mat.FullName;
             var named = onlyItems == null || onlyItems.Contains(it.Name) || onlyItems.Contains(fullName);
 
@@ -158,7 +94,7 @@ public static class FetchService
                 // is what the matcher joins each signature's LibraryPath to, so the library's signatures land under
                 // `<folder>/<name>/`, beside its `.library` file.
                 var res = LibraryFetch.ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
-                var libRef = new LibraryRef(fullName, it.Name, walkedFolder, res, version);
+                var libRef = new LibraryRef(fullName, it.Name, it.Folder, res, version);
                 libRefs.Add(libRef);
                 if (onlyItems != null && named) namedLibRefs.Add(libRef);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
@@ -166,7 +102,7 @@ public static class FetchService
                 liveLibVersions[fullName] = version;
             }
 
-            if (!named) continue;
+            if (!named) return;
 
             fullVersions[fullName] = version;
             folders[fullName] = folder;
@@ -188,16 +124,16 @@ public static class FetchService
                 // "this library is gone". Whether that happens is not known until the walk finishes, so hold the
                 // stub rather than deciding here.
                 if (kind == ItemKind.Kinds.Library) skippedLibraryStubs.Add(item);
-                continue;
+                return;
             }
 
             changed.Add(item);
         }
-        // Objects the walk saw and could not even classify — counted and named like an unreadable item, by the
-        // same rule as refs and the push gate (Versioning.CountUnclassifiable). When their kind is unknown the
-        // removal exemption is their FOLDER (WalkResult puts it in UnwalkedFolders); when the vendor named their kind
-        // family without a read (UnreadableObject.Kinds) it is `unreadableKinds`, and the folder stays walked.
-        foreach (var n in Versioning.CountUnclassifiable(walk, versions, unreadableKinds)) { unreadableItems.Add(n); unreadable++; }
+
+        var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Fetch, phase: null, onItem: OnItem);
+        var unwalkedFolders = snap.UnwalkedFolders;
+        var unreadableKinds = snap.UnreadableKinds;
+        var done = snap.Walked;
 
         // The wire is keyed by NAME: `versions`/`Items` collapse same-name WALK items last-write-wins, so `changed`
         // must agree — otherwise a legitimately-repeated opaque name (IEC guarantees uniqueness only for SOURCE
@@ -219,7 +155,7 @@ public static class FetchService
         // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
         // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
         // per folder: absent from a manager the walk DID read is removed, whatever other folder it could not read.
-        var goneFromWalk = Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, walk.UnwalkedFolders);
+        var goneFromWalk = Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, unwalkedFolders);
         var unseenLibrary = knownItems.Keys.Any(k =>
             k.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(k)
             && !goneFromWalk.Contains(k));
@@ -273,11 +209,11 @@ public static class FetchService
             }
         }
         else libSigs = Array.Empty<LibSignature>();
-        total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
+        var total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
 
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
         // the AI gets the full public API of the used libraries). Render the signatures now, ticking the SAME
-        // progress bar (no separate phase); `done` == walked.Count here (the walk finished).
+        // progress bar (no separate phase); `done` is every walked object here (the walk finished).
         var (libRenderNull, libUnmatched) = directedLibraries
             ? LibraryFetch.AppendNamed(libSigs, libRefs, namedLibRefs, changed, onProgress, done, total)
             : LibraryFetch.AppendAll(libSigs, libRefs, changed, onProgress, done, total);
@@ -303,20 +239,20 @@ public static class FetchService
         // Loud, because the alternative is a pull that quietly syncs less of the project than it claims: the
         // drivers already logged the skip (CODESYS at Warn, TwinCAT at Debug — off by default) and neither reached
         // the code that had to act on it.
-        if (!walk.Complete)
+        if (unwalkedFolders.Count > 0)
             VoltLog.Warn(
-                $"fetch: the project walk was INCOMPLETE — {walk.UnwalkedFolders.Count} folder(s) could not be " +
-                $"enumerated ({string.Join(", ", walk.UnwalkedFolders)}). Nothing under those folders is reported " +
+                $"fetch: the project walk was INCOMPLETE — {unwalkedFolders.Count} folder(s) could not be " +
+                $"enumerated ({string.Join(", ", unwalkedFolders)}). Nothing under those folders is reported " +
                 "removed by this fetch: items there were not seen, which is not the same as gone.");
 
-        var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
+        var drops = Drops(("unmapped-kind", snap.Unmapped), ("unreadable", snap.Unreadable.Count),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         var libClause = librarySignatures > 0 ? $", {librarySignatures} library signatures" : "";
         VoltLog.Debug($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");
 
         return new FetchResponse
         {
-            ProjectVersion = Hasher.ComputeProjectVersion(versions),
+            ProjectVersion = snap.ProjectVersion,
             Changed = changed,
             Removed = removed,
             Items = fullVersions,
@@ -324,10 +260,10 @@ public static class FetchService
             // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
-            Unreadable = ProjectSnapshot.WireOrder(unreadableItems),
+            Unreadable = ProjectSnapshot.WireOrder(snap.Unreadable.Distinct()),
             // The caveat travels WITH the answer. `removed` above already spares everything under these
             // folders; saying so is what lets a client keep the baseline entries it did not see as well.
-            UnwalkedFolders = walk.UnwalkedFolders.ToList(),
+            UnwalkedFolders = unwalkedFolders.ToList(),
             LibrariesRefreshed = librariesRefreshed,
             // Echo the project we actually walked, so the client can confirm it before merging. This is the LIVE
             // identity the guard checked, not a cached health row — the echo can't disagree with what was walked.

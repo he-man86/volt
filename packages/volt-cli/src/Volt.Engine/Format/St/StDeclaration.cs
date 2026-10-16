@@ -184,15 +184,15 @@ public static class StDeclaration
     /// <summary>Every base an <c>EXTENDS</c> clause outside a VAR block names, in order, comments stripped — the header
     /// may wrap the clause onto its own line, as CODESYS stores it, and nothing inside a VAR block may answer for a
     /// header (a variable's type is no base). The ONE scanner of the clause: <c>SUPER^</c> and the inherited scope ask
-    /// it the same question.</summary>
+    /// it the same question. Read through <see cref="StTrivia"/>, the format's one trivia skipper: comments nest, and
+    /// one opened after code on its line is seen.</summary>
     private static IEnumerable<string> BasesOf(string? declaration)
     {
         if (string.IsNullOrEmpty(declaration)) yield break;
-        var inBlockComment = false;
         var inVars = false;
-        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
+        foreach (var code in StTrivia.Code(declaration!.Replace("\r", "").Split('\n')))
         {
-            var line = CodeHelper.CodeOn(raw, ref inBlockComment).TrimStart();
+            var line = code.Trim();
             if (line.Length == 0) continue;
             // A block may open and close on one line (`VAR_INPUT x : INT; END_VAR`), and the header after it is read.
             if (!inVars && line.StartsWith("VAR", StringComparison.OrdinalIgnoreCase)) inVars = true;

@@ -76,6 +76,15 @@ public class StCallTargetTests
         Assert.Equal("B", StDeclaration.TypeOfCallTarget(
             "METHOD M\nVAR_INPUT x : INT; END_VAR\nFUNCTION_BLOCK D EXTENDS B\nVAR END_VAR", "SUPER^", Project));
 
+    /// <summary>A comment is no header, however it is spelled: comments NEST (<c>(* a (* b *) c *)</c> is one comment,
+    /// on both vendors' compilers) and one may open after code on its line — the two shapes <c>StTrivia</c> reads and a
+    /// line-start scan does not. An <c>EXTENDS</c> inside either is commented out; the base is the clause after it.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK D\n(* outer (* inner *) EXTENDS FB_Wrong *)\nEXTENDS FB_Base\nVAR\nEND_VAR")]   // nested
+    [InlineData("FUNCTION_BLOCK D (* opened after code\nEXTENDS FB_Wrong *)\nEXTENDS FB_Base\nVAR\nEND_VAR")]   // after code
+    public void An_EXTENDS_inside_a_comment_is_no_base(string declaration) =>
+        Assert.Equal("FB_Base", StDeclaration.TypeOfCallTarget(declaration, "SUPER^", Project));
+
     /// <summary>Nothing BELOW the header may answer for it. The scan stops at the first VAR block, so a
     /// variable whose type merely contains the word cannot be read as a base class.</summary>
     [Fact]

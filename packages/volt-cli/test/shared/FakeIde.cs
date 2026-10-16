@@ -90,9 +90,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         /// <summary>The first line of <paramref name="decl"/> holding code, leading trivia skipped.</summary>
         private static string FirstCodeLine(string decl)
         {
-            var inBlockComment = false;
-            foreach (var line in decl.Replace("\r", "").Split('\n'))
-                if (Volt.Engine.Format.St.CodeHelper.CodeOn(line, ref inBlockComment) is { Length: > 0 } code) return code;
+            foreach (var line in Volt.Engine.Format.St.StTrivia.Code(decl.Replace("\r", "").Split('\n')))
+                if (line.Trim() is { Length: > 0 } code) return code;
             return "";
         }
 

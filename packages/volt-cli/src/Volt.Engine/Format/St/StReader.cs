@@ -125,11 +125,7 @@ public static class StReader
 		var what = name is null ? $"this {kind}" : $"'{name}'";
 		var original = NormalizeLines(sourceText);
 
-		// 2. The structure. A `(* @volt-… *)` comment — the tag of a Volt from before the IMPLEMENTATION line — is a
-		// comment in a file that states its boundaries: it is read nowhere but as the HINT of the one refusal it explains,
-		// a region with no boundary line (Unmarked; openspec bridge-refusal-review 2.1). It used to be refused anywhere
-		// in the text, so a current file holding one in an ST body or a declaration could not be pushed — a scan over
-		// the code, not a condition of the split.
+		// 2. The structure.
 		var item = ReadStructureOf(sourceText, original, kind, what, splitOnly: false);
 		RefuseLinesInDeclarations(item, what);
 		return item;
@@ -1068,10 +1064,7 @@ public static class StReader
 	}
 
 	/// <summary>A region that does not say where its declaration ends. Refused, never guessed — see
-	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost. When the region holds a retired
-	/// <c>(* @volt-… *)</c> comment, the refusal names it: that comment is what a Volt from before the keyword wrote where
-	/// the line now stands, so it is the HINT that the file predates the format (openspec <c>bridge-refusal-review</c>
-	/// 2.1) — and the only place the comment is read at all.</summary>
+	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost.</summary>
 	private static BridgeException Unmarked(string what, IList<string> region)
 	{
 		var head = $"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
@@ -1081,11 +1074,8 @@ public static class StReader
 		// to raise for such a line wherever it stood, now raised only where it is what is missing.
 		if (ImplementationMarker.LookalikeIn(region) is { } lookalike)
 			return new BridgeException(BridgeErrorCodes.InvalidSt, $"{head} It holds '{lookalike.Line}', {Lacks(lookalike.Stated)}");
-		var hint = ImplementationMarker.FindRetiredComment(region) is { } retired
-			? $" It holds '{retired.Text}', the comment a Volt from before that line wrote in its place."
-			: "";
 		return new BridgeException(BridgeErrorCodes.InvalidSt,
-			$"{head}{hint} Run `volt pull` once to rewrite the workspace in the current format.");
+			$"{head} Run `volt pull` once to rewrite the workspace in the current format.");
 	}
 
 	/// <summary>What a line of the keyword's shape that is no boundary line lacks, by what it states (<paramref name="stated"/>,
