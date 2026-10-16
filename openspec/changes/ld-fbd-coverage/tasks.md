@@ -700,6 +700,8 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       error a push gives today.
       And it must be much SMALLER than today's (owner: "if we did a good job the doc should be much smaller") — code
       examples over prose, one example per rule, the P-rules as a compact reference.
+      No edge cases in the language (owner): a rule the doc can only state with an exception or a special case is a
+      grammar defect — list each one for the owner in the step's report instead of documenting it.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
