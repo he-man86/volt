@@ -46,7 +46,7 @@ namespace Volt.Ide.Codesys
             // The device OBJECT's own flags (`IDeviceObject.Disable` / `Exclude`; census §0.1 finding 11: Disable true on 2
             // of 159, Exclude on 0) — a disabled device read like an enabled one (openspec bridge-one-to-one §1.1
             // "Non-source items"). Spelled only where true, the absence being the measured value.
-            var device = ReadObject(node) ?? throw new InvalidOperationException("CODESYS: the device object could not be read");
+            var device = ReadObject(node);
             bool Flag(string member) => NwlInterop.Declared(device, member) is bool b
                 ? b : throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: the device answers no {member} — refused rather than read as false");

@@ -65,14 +65,21 @@ internal static class Program
         // per-instance and matched to the bound project (BridgeResolver — no per-vendor branch). Resolved LAZILY so
         // bridge-free verbs (merge/help) never probe — and so a resolution refusal surfaces in the catch.
         var pipeOverride = a.Value("--pipe") ?? Environment.GetEnvironmentVariable("VOLT_PIPE");
-        var vendor = a.Vendor ?? Config.ConfiguredVendor(root) ?? Vendors.Codesys;
-        BridgeClient Bridge() => BridgeResolver.Resolve(root, vendor, pipeOverride, isInit: a.Verb == "init");
+        // The vendor is STATED — by `--vendor` or the binding — never defaulted (cli-bridges review B10): an unbound
+        // `volt init` used to go looking for a CODESYS bridge, which beside an open CODESYS binds the wrong IDE. Read
+        // lazily, inside the try, so a binding that cannot be read is refused by name rather than read as unbound.
+        string Vendor() => a.Vendor ?? Config.ConfiguredVendor(root)
+            ?? throw new InvalidOperationException(
+                "no vendor: this folder has no Volt binding — pass --vendor codesys|twincat (or name the bridge with --pipe / VOLT_PIPE)");
+        BridgeClient Bridge() => string.IsNullOrEmpty(pipeOverride)
+            ? BridgeResolver.Resolve(root, Vendor(), null, isInit: a.Verb == "init")
+            : new BridgeClient(pipeOverride!);
         try
         {
             return a.Verb switch
             {
                 "init" => CmdInit(Bridge(), a),
-                "rebind" => CmdRebind(root, vendor, a),
+                "rebind" => CmdRebind(root, Vendor(), a),
                 "pull" => CmdPull(root, Bridge(), a),
                 "push" => CmdPush(root, Bridge(), a),
                 "status" => CmdStatus(root, Bridge(), a),

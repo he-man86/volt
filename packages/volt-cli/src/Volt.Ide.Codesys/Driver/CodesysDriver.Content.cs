@@ -43,11 +43,8 @@ public sealed partial class CodesysDriver
         // the text that spells it — the push's guard compares the fact and reads no text (openspec
         // bridge-refusal-review D6). ReadBody makes both from the one aspect, so they cannot disagree.
         return new ItemContent(kind, declaration, body, members,   // verbatim (bridge-one-to-one §1.1, every character)
-                               _om.ReadProperties(item.Native, iobj ?? throw NoObject(item), $"'{Name(item)}'"), unsupported, stated);
+                               _om.ReadProperties(item.Native, iobj, $"'{Name(item)}'"), unsupported, stated);
     }
-
-    private InvalidOperationException NoObject(ItemRef item) =>
-        new($"CODESYS: the object of '{Name(item)}' could not be obtained to read its properties");
 
     public void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)
     {
@@ -114,8 +111,7 @@ public sealed partial class CodesysDriver
 
     /// <summary>What an object holds of its properties, read for a write (openspec bridge-one-to-one §3).</summary>
     private ObjectProperties HeldProperties(object node, string what) =>
-        _om.ReadProperties(node, _om.ReadObject(node)
-                                 ?? throw new InvalidOperationException($"CODESYS: the object of {what} could not be obtained"), what);
+        _om.ReadProperties(node, _om.ReadObject(node), what);
 
     /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): a BODY,
     /// which a CODESYS interface accessor has no Implementation aspect to hold (DIALECT D41). Its declaration is written.
@@ -195,21 +191,13 @@ public sealed partial class CodesysDriver
     /// instead: no object read at all (a driver bug — the site's kind came from that object), and a type that does not declare the member
     /// (measured on no object — another or unpinned assembly, <see cref="NwlInterop.Declared"/>). An empty ST body stays
     /// null (<see cref="BodyText"/>): only the missing slot is NONE.</para></param>
-    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object? iobj, string? declaration,
+    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object iobj, string? declaration,
                                                                                  string? bodySite)
     {
-        var impl = iobj is null ? null : NwlInterop.Get(iobj, "Implementation");
+        var impl = NwlInterop.Get(iobj, "Implementation");
         if (impl is null)
         {
             if (bodySite is null) return (null, null, null);
-            // No object at a body site cannot come from the IDE (gate 3 review): the site's kind was classified from
-            // this same object (`KindCodeOf` reads its class), and every body site but an action reads its declaration
-            // through it first, which refuses a missing object (`TryReadAspectText`). So it is a broken invariant of this
-            // driver — never stated as NONE, and not a wire refusal.
-            if (iobj is null)
-                throw new InvalidOperationException(
-                    $"{bodySite}: no object was read for a body site whose kind was classified from that object — a " +
-                    "driver bug, not stated as a member with no body slot.");
             if (NwlInterop.Has(iobj, "Implementation"))
                 return (ImplementationMarker.NoneLine, null, StatedLanguage.None);
             throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -339,7 +327,7 @@ public sealed partial class CodesysDriver
         }
 
         var props = _om.ReadProperties(site.Ref.Native,
-            iobj ?? throw new InvalidOperationException($"CODESYS: the object of member '{site.Name}' could not be obtained"),
+            iobj,
             $"{kind.Replace('_', ' ')} '{site.Name}'");
         return new Member(kind, site.Name, declaration, body, props, site.Folder, getter, setter, Unsupported: unsupported,
                           Stated: stated);
@@ -431,8 +419,7 @@ public sealed partial class CodesysDriver
         if (written is null) return null;
         var pushed = BodyFormatGuard.PushedLanguage($"'{site}'", written, stated);
         if (pushed is null || pushed.Hidden) return null;
-        var impl = NwlInterop.Get(_om.ReadObject(node) ?? throw new InvalidOperationException(
-                       $"CODESYS: the object of '{site}' could not be obtained to read its body's language"), "Implementation");
+        var impl = NwlInterop.Get(_om.ReadObject(node), "Implementation");
         if (impl is null) return null;
         var live = impl.GetType().Name switch
         {

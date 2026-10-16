@@ -111,9 +111,12 @@ namespace Volt.Ide.Codesys.Tests
         {
             private readonly TaskNode _node;
             public TaskObjects(TaskNode node) => _node = node;
-            public object GetObjectToRead(int handle, Guid guid) =>
-                guid == _node.guid ? _node.Task : throw new InvalidOperationException("no such task");
+            public Meta GetObjectToRead(int handle, Guid guid) =>
+                guid == _node.guid ? new Meta(_node.Task) : throw new InvalidOperationException("no such task");
         }
+
+        /// <summary>The read checkout: the vendor answers an IMetaObject, whose <c>Object</c> is the task.</summary>
+        public sealed class Meta { public Meta(object o) => Object = o; public object Object { get; } }
 
         public sealed class Watchdog
         {

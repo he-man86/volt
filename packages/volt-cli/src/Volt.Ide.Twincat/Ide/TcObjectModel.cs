@@ -106,7 +106,11 @@ internal sealed partial class TcObjectModel
             return System.Array.Empty<Volt.Engine.Library.LibSignature>();
         }
 
-        var xml = (string)((dynamic)manager).ProduceAllLibrarySignatures() ?? "";
+        // A manager that answers NO document is not a project with no libraries (cli-bridges review B7).
+        var xml = (string?)((dynamic)manager).ProduceAllLibrarySignatures()
+            ?? throw new InvalidOperationException(
+                "twincat: the library manager answered ProduceAllLibrarySignatures() with nothing — refused rather than " +
+                "read as a project with no libraries, which would delete every library-signature file");
         var sigs = TcLibrarySignatures.Parse(xml);
         VoltLog.Debug($"twincat lib signatures: {xml.Length} chars -> {sigs.Count} signatures");
         return sigs;

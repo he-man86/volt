@@ -59,7 +59,7 @@ namespace Volt.Ide.Codesys
             var ev = TaskText(f, "event", what);
             var external = TaskText(f, "external_event", what);
 
-            var task = ReadObject(node) ?? throw new InvalidOperationException("CODESYS: the task object could not be read");
+            var task = ReadObject(node);
             foreach (var list in TaskParameterLists)
                 if (Count(ArchivedObject(task, list, what)) > 0)
                     throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
@@ -150,7 +150,7 @@ namespace Volt.Ide.Codesys
         public void WriteTask(object node, TaskSettings t)
         {
             RequireWatchdog(t);
-            var task = ReadObject(node) ?? throw new InvalidOperationException("CODESYS: the task object could not be read");
+            var task = ReadObject(node);
             foreach (var (label, member, measured) in TaskMembers)
             {
                 var held = Archived(task, member, "CODESYS task");

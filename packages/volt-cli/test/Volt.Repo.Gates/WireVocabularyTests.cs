@@ -338,19 +338,19 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         ("Volt.Engine/Sync/Materializer.cs", 1),
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // a body site read with no object (abstract-member-push, gate 3); a member object, a property-write precondition (bridge-one-to-one §3)
+        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 15),   // +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 5),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 19),   // +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 18),   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 5),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 5),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 11),
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 3),   // -2 the task object reads (ReadObject's own throw, B1)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 13),   // +2 ReadObject refuses no object manager / a checkout with no object (cli-bridges review B1)
         ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
         ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
         ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7)
@@ -361,7 +361,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 6),   // +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),
+        ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // +1 a library manager answering no signatures (cli-bridges review B7)
         ("Volt.Ide.Twincat/Ide/TcPlcOpenWriter.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),
         ("Volt.Ide.Twincat.Explorer/Program.cs", 1),   // the x86 reader's own process: its answer line carries a code, never a frame

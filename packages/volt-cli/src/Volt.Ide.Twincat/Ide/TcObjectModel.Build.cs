@@ -108,7 +108,7 @@ internal sealed partial class TcObjectModel
             // GetBuildDiagnostics already applies the opposite reasoning to its own partial-parse case.
             int failed;
             try { failed = sb.LastBuildInfo; }
-            catch (Exception ex)
+            catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex))   // a dead XAE is a dead channel, not a verdict
             {
                 VoltLog.Warn($"twincat: build finished but LastBuildInfo is unreadable — reporting FAILURE " +
                              $"rather than assuming success: {ex.Message}");
@@ -134,7 +134,9 @@ internal sealed partial class TcObjectModel
     /// expiring loop this replaces did, issuing <c>Build(true)</c> over a build already in flight.</para>
     ///
     /// <para>The state read is NOT swallowed. It used to sit in a bare <c>catch { }</c> with no log, so a COM
-    /// fault on the very first poll looked identical to "idle" and the method carried on.</para></summary>
+    /// fault on the very first poll looked identical to "idle" and the method carried on. An RPC fault is not caught
+    /// here at all: answered as "could not tell", a dead XAE read as a failed build and the session never degraded
+    /// (cli-bridges review B4).</para></summary>
     private static bool WaitForIdle(dynamic sb)
     {
         const int VsBuildStateInProgress = 2;   // EnvDTE vsBuildState: NotStarted=1, InProgress=2, Done=3
@@ -142,7 +144,7 @@ internal sealed partial class TcObjectModel
         {
             int state;
             try { state = (int)sb.BuildState; }
-            catch (Exception ex)
+            catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex))   // a dead XAE is a dead channel, not "busy"
             {
                 VoltLog.Warn($"twincat: the IDE's build state is unreadable — reporting FAILURE rather than " +
                              $"starting a build over one that may be running: {ex.Message}");

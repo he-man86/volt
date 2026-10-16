@@ -278,27 +278,14 @@ internal sealed partial class TcObjectModel
             VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(first)"}' not resolved in the bound DTE (has: [{string.Join(", ", SolutionProjectNames())}])");
     }
 
+    /// <summary>The FIRST PLC project under <c>TIPC</c>. A fault reading it propagates with its HRESULT: it was caught,
+    /// and the loop bound the NEXT PLC project — every op after it then read and wrote a PLC the engineer did not pick —
+    /// while an outer catch turned an RPC fault into a Warn, so the session never degraded (cli-bridges review B3).</summary>
     private void FindPlcProject()
     {
-        try
-        {
-            dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
-            int childCount = tipc.ChildCount;
-            for (int i = 1; i <= childCount; i++)
-            {
-                try
-                {
-                    dynamic plc = tipc.Child[i];
-                    _plcNode = plc; break;
-                }
-                catch { /* not this child - keep looking; a total miss throws below */ }
-            }
-        }
-        catch (Exception ex) { VoltLog.Warn($"twincat: the TIPC walk failed: {ex.Message}"); }
-        // No re-lookup fallback on _plcProjectPath: it and _plcNode are only ever written in the SAME statement
-        // (the TIPC walk above) and only ever cleared together, and EnsurePlc calls this only when _plcNode is
-        // null — so "path known, node missing" cannot occur and any such branch was unreachable.
-        if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
+        dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
+        if ((int)tipc.ChildCount == 0) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
+        _plcNode = tipc.Child[1];
     }
 
     /// <summary>Resolve the PLC application node the FIRST time a content op needs it. select/health NEVER call this,

@@ -21,8 +21,13 @@ namespace Volt.Ide.Codesys
         /// <para>…and what the manager holds that no manifest spells, each a reason for the pull report
         /// (<paramref name="unspelled"/>; openspec bridge-one-to-one §1.1 library manager, gate review of step 3, finding
         /// 4): a redirection of a placeholder no reference here names, and the parameter values the project sets (their
-        /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</para></summary>
-        public List<LibRefNode> GetLibraryRefs(object libManNode, out List<string> unspelled)
+        /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</para>
+        /// <para>…and the references it holds that cannot be materialized (<paramref name="refused"/>: the reference's name
+        /// and why). Each is named in the pull report with its kind, so its <c>.library</c> file is kept rather than read as
+        /// deleted (cli-bridges review B2). A reference whose IDENTITY cannot be read has no name to keep, so it fails the
+        /// manager — which the walk names unreadable, leaving its folder unwalked.</para></summary>
+        public List<LibRefNode> GetLibraryRefs(object libManNode, out List<string> unspelled,
+                                               out List<(string Name, string Reason)> refused)
         {
             // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
             // libraries", which is a LIE for all three conditions and an expensive one: `fetch` reports the
@@ -30,14 +35,10 @@ namespace Volt.Ide.Codesys
             // `.library` file the client holds — taking with them every qualified namespace the LSP resolves
             // against. A version rename of one method would have deleted the engineer's whole library set.
             //
-            // Two of the old guards were also unreachable: this is only called after `KindCodeOf` classified the
-            // node by `Has(ifaces, "ILibManObject")` over a NON-NULL IObject, so neither a null object nor a
-            // missing interface can arrive here. They are kept as throws rather than deleted because a caller
-            // could change, and a wrong answer here costs files.
-            var iobj = ReadObject(libManNode)
-                ?? throw new InvalidOperationException(
-                    "CODESYS: the library manager's object could not be read. Refusing rather than reporting a " +
-                    "project with no libraries, which would delete every .library file in the workspace.");
+            // The missing-interface guard below is unreachable today (this is only called after `KindCodeOf` classified
+            // the node by `Has(ifaces, "ILibManObject")`); it is kept as a throw because a caller could change, and a
+            // wrong answer here costs files. `ReadObject` refuses a missing object itself.
+            var iobj = ReadObject(libManNode);
 
             // GetAllLibraries lives on the base ILibManObject; invoke via the
             // interface MethodInfo so explicit implementations dispatch correctly.
@@ -68,19 +69,11 @@ namespace Volt.Ide.Codesys
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var redirects = Redirections(iobj);
             var redirected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var notMaterialized = new List<(string Name, string Reason)>();
             void Walk(object item)
             {
-                string ns, nm;
-                // Skips stay best-effort here (one unreadable property must not fail the whole refs/fetch walk),
-                // but they are LOGGED — a library that vanishes from the manifest set with no trace is the
-                // "silently dropped" failure ARCHITECTURE.md forbids.
-                try { ns = GetMember(item, "Namespace") as string ?? ""; nm = GetMember(item, "Name") as string ?? ""; }
-                catch (Exception ex)
-                {
-                    VoltLog.Warn($"library ref skipped (identity unreadable on {item.GetType().Name}) — this ref " +
-                                 $"and its dependency subtree are absent from the manifest set: {ex.Message}");
-                    return;
-                }
+                var ns = GetMember(item, "Namespace") as string ?? "";
+                var nm = GetMember(item, "Name") as string ?? "";
                 if (!seen.Add(ns + "|" + nm)) return; // cycle / re-reference guard (logical key, not instance)
                 try
                 {
@@ -88,15 +81,19 @@ namespace Volt.Ide.Codesys
                     byName[r.Name] = r;
                     if (redirects.ContainsKey(r.Name) && IsPlaceholder(item)) redirected.Add(r.Name);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
                 {
-                    VoltLog.Warn($"library ref '{ns}.{nm}' skipped — no .library item will materialize: {ex.Message}");
+                    // Named, never dropped: absent from the walk, its file would read as deleted.
+                    var name = RefDisplayName(item);
+                    VoltLog.Warn($"library ref '{name}' is not materialized (named in the pull report): {ex.Message}");
+                    notMaterialized.Add((name, ex.Message));
                 }
                 if (InvokeMethod(item, "GetDependencies") is IEnumerable deps)
                     foreach (var d in deps) if (d != null) Walk(d);
             }
             foreach (var item in items) if (item != null) Walk(item);
 
+            refused = notMaterialized;
             unspelled = new List<string>();
             var stray = redirects.Keys.Where(k => !redirected.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
             if (stray.Count > 0)

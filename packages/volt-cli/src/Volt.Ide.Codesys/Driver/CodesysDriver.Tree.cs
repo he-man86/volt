@@ -152,7 +152,8 @@ public sealed partial class CodesysDriver
                     // failure is the bridge disagreeing with the IDE's surface and fails the op, as for every object.
                     List<LibRefNode> refs;
                     List<string> unspelled;
-                    try { refs = _om.GetLibraryRefs(child, out unspelled); }
+                    List<(string Name, string Reason)> refused;
+                    try { refs = _om.GetLibraryRefs(child, out unspelled, out refused); }
                     catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
                     {
                         BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
@@ -162,6 +163,8 @@ public sealed partial class CodesysDriver
                     }
                     foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
+                    foreach (var (lib, why) in refused)
+                        unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, new[] { ItemKind.Kinds.Library }));
                     // What the manager holds that no manifest spells is named in the pull report (openspec
                     // bridge-one-to-one §1.1 library manager; gate review of step 3, finding 4) — its references walked.
                     foreach (var why in unspelled)

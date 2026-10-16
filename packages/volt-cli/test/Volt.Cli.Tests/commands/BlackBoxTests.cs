@@ -45,6 +45,32 @@ public class BlackBoxTests
         return (p.ExitCode, so.GetAwaiter().GetResult(), se.GetAwaiter().GetResult());
     }
 
+    /// <summary>`volt init` NAMES THE VENDOR IT NEEDS, IT DOES NOT PICK ONE (cli-bridges review B10). With no binding, no
+    /// <c>--vendor</c> and no pipe named, the CLI filled in CODESYS and went looking for a CODESYS bridge — on a TwinCAT
+    /// machine that is a refusal about the wrong IDE, and beside an open CODESYS it binds the wrong one. The docs
+    /// (<c>docs/cli.html</c> "Finding the bridge") list the three ways a vendor is stated; none is a default.</summary>
+    [Fact]
+    public void Init_with_no_vendor_no_binding_and_no_pipe_is_refused_by_name_and_creates_nothing()
+    {
+        var parent = Directory.CreateTempSubdirectory("volt-init-novendor-").FullName;
+        try
+        {
+            var psi = new ProcessStartInfo(VoltExe()) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (var a in new[] { "init", "--workspace", parent }) psi.ArgumentList.Add(a);
+            psi.Environment.Remove("VOLT_PIPE");
+            psi.Environment.Remove("VOLT_VENDOR");
+            using var p = Process.Start(psi)!;
+            var se = p.StandardError.ReadToEndAsync();
+            p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+
+            Assert.Equal(1, p.ExitCode);
+            Assert.Contains("--vendor", se.GetAwaiter().GetResult());
+            Assert.Empty(Directory.EnumerateFileSystemEntries(parent));
+        }
+        finally { TestUtil.ForceDelete(parent); }
+    }
+
     /// <summary>A started pipe host over a connected FakeIde + a bound repo + the pipe name for VOLT_PIPE.</summary>
     private static (string root, BridgePipeHost host, string pipe) Boot(FakeIde ide)
     {

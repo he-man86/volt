@@ -116,17 +116,24 @@ namespace Volt.Ide.Codesys
 
 
         // ── object model: resolve a tree node to its IObject ───────────────────
-        /// <summary>The object-model <c>IObject</c> for read (cheap, no serialization).</summary>
-        public object? ReadObject(object node)
+        /// <summary>The object-model <c>IObject</c> for read (cheap, no serialization). Never null: no object manager, or a
+        /// read checkout that answers no object, is refused here — once, for every caller. It answered the checkout ITSELF
+        /// in that case (<c>.Object ?? meta</c>), which implements none of the classifier's interfaces, so the walk read the
+        /// object as a generic container and its file as deleted (cli-bridges review B1).</summary>
+        public object ReadObject(object node)
         {
-            if (_objMgr == null) return null;
+            if (_objMgr == null)
+                throw new InvalidOperationException("CODESYS: no object manager — the object itself could not be obtained");
             var meta = InvokeMethod(_objMgr, "GetObjectToRead", HandleOf(node), GuidOf(node));
             // INTENTIONAL, load-bearing: the returned IMetaObject (a READ checkout) is deliberately
             // NOT released. Disposing/releasing it invalidates the .Object IObject for every subsequent
             // read — a dispose attempt was tried and BROKE all following reads, so it was reverted. We
             // keep only .Object and let the checkout lapse with the object; the per-read cost is accepted.
             // (Contrast WriteSourceText, which MUST close its WRITE transaction via SetObject.)
-            return GetMember(meta, "Object") ?? meta;   // .Object is an explicit IMetaObject member
+            return GetMember(meta, "Object")   // .Object is an explicit IMetaObject member
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: the read checkout of a {Unwrap(node)?.GetType().Name ?? "null"} node answers no object — the object " +
+                    "itself could not be obtained, and is not read as a container");
         }
 
         /// <summary>Names of the <c>I*Object</c> interfaces the IObject implements —

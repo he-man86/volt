@@ -99,9 +99,8 @@ public static class Config
                $"{cfg.Project.Platform}/{cfg.Project.ProjectName} — open the bound project in the IDE";
     }
 
-    public static string? ConfiguredVendor(string root)
-    {
-        try { return LoadConfig(root).Bridge.Vendor; }
-        catch { return null; }
-    }
+    /// <summary>The bound vendor, or null when the folder has no binding. A binding that cannot be read THROWS — it was
+    /// swallowed as "unbound", and the CLI then defaulted the vendor (cli-bridges review B10).</summary>
+    public static string? ConfiguredVendor(string root) =>
+        ConfigExists(root) ? LoadConfig(root).Bridge.Vendor : null;
 }
