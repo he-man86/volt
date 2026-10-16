@@ -16,7 +16,10 @@ public static class Materializer
     {
         if (ItemKind.IsSourceKind(kind))
         {
-            var build = BuildSource(ide, item, kind);
+            // Folded (openspec `abstract-member-parity`, `AbstractMemberFold`): an ABSTRACT member with no code reads
+            // `IMPLEMENTATION NONE` on both vendors whoever made the object, so the fetched text, the refs walk and every
+            // version hash it feeds are one text for one declaration.
+            var build = AbstractMemberFold.Apply(ide.ReadContent(item));
             RefuseMemberOfAnotherClass(name, build);
             RefuseHeaderless(name, build);
             var text = StWriter.Write(build);
@@ -154,18 +157,4 @@ public static class Materializer
         var dot = wireName.LastIndexOf('.');
         return dot > 0 ? wireName.Substring(0, dot) : wireName;
     }
-
-    /// <summary>An item's content, straight from the driver. <b>The engine no longer knows how it was
-    /// obtained.</b>
-    /// <para>This method used to be the split that decided it: items with a body or children went through
-    /// <c>ReadXml</c> and a PLCopen parse, declaration-only kinds (DUT, GVL) through the declaration aspect.
-    /// That split was a VENDOR limit wearing an engine decision — TwinCAT's <c>PlcOpenExport</c> rejects a DUT
-    /// or GVL outright (<c>E_FAIL</c> for every one of them, because the export is POU-shaped and a DUT has no
-    /// POU to name), so PLCopen could not be the single read transport while TwinCAT was supported. A driver
-    /// that knows its own IDE picks per kind without the engine having to encode one vendor's refusal.</para>
-    /// <para><b>Folded</b> (openspec <c>abstract-member-parity</c>, <see cref="AbstractMemberFold"/>): an ABSTRACT member
-    /// with no code reads <c>IMPLEMENTATION NONE</c> on both vendors whoever made the object, so the fetched text, the
-    /// refs walk and every version hash it feeds are one text for one declaration.</para></summary>
-    private static ItemContent BuildSource(IIdeDriver ide, ItemRef item, string kind) =>
-        AbstractMemberFold.Apply(ide.ReadContent(item));
 }

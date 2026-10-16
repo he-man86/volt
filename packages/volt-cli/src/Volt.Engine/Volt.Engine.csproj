@@ -20,11 +20,10 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" />
     <PackageReference Include="System.ValueTuple" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Wire/BridgePipeHost serves Core's services over the pipe (PipeServer). Transport is the wire-only layer. -->
+    <!-- The wire contracts (requests, responses, error codes, VoltLog) every service speaks. -->
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>

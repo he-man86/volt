@@ -655,8 +655,8 @@ public static class StReader
 				$"{what} holds more than one {ImplementationMarker.Keyword} line: '{lines[stated[0]].Trim()}' and, below " +
 				$"it, '{lines[stated[1]].Trim()}'. A body has ONE, the line that opens it. {ImplementationMarker.Keyword} " +
 				"is reserved, so if the other one names something, rename it; otherwise remove it.");
-		int at = ImplementationMarker.IndexIn(lines);
-		if (at < 0) throw Unmarked(what, lines);
+		if (stated.Count == 0) throw Unmarked(what, lines);
+		int at = stated[0];
 		// Both halves VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): the vendor
 		// keeps a text's trailing newlines, so the file spells them, and the reader strips only the layout's own separator —
 		// none between a declaration and its boundary line (the line itself separates them), and for a body the one blank

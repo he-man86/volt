@@ -105,12 +105,12 @@ public class TcTaskScheduleTests
 
     /// <summary>Canonical by construction — what the driver renders is what a push accepts back, with no
     /// intervening edit. Without this, every pulled TwinCAT task would be refused by
-    /// <see cref="TaskDescriptorFormat.Gate"/> the moment anyone pushed it.</summary>
+    /// <see cref="TaskDescriptorFormat.Read"/> the moment anyone pushed it.</summary>
     [Fact]
     public void What_is_rendered_survives_the_push_gate()
     {
         var settings = TcTaskSchedule.Read(SysTaskXml, new[] { "PLC_PRG" });
-        var reparsed = TaskDescriptorFormat.Gate(TaskDescriptorFormat.Write(settings));
+        var reparsed = TaskDescriptorFormat.Read(TaskDescriptorFormat.Write(settings));
         // Back through the vendor patch, the numbers the IDE started with.
         Assert.Contains("<Priority>20</Priority>", TcTaskSchedule.SysTaskPatch(reparsed));
         Assert.Contains("<CycleTime>100000</CycleTime>", TcTaskSchedule.SysTaskPatch(reparsed));

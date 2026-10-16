@@ -41,7 +41,7 @@ public static class InterfaceAccessorGuard
     public static void RefuseIfChanged(string? liveDeclaration, string? liveBody,
                                        string? pushedDeclaration, string? pushedBody)
     {
-        if (Same(liveDeclaration, pushedDeclaration) && Same(liveBody, pushedBody)) return;
+        if (Unchanged(liveDeclaration, pushedDeclaration) && Unchanged(liveBody, pushedBody)) return;
 
         throw new BridgeException(BridgeErrorCodes.Unsupported,
             "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
@@ -61,7 +61,5 @@ public static class InterfaceAccessorGuard
     }
 
     /// <summary>Whether two accessor halves are the same text, whitespace-insensitively (a reformat is not an edit).</summary>
-    public static bool Unchanged(string? live, string? pushed) => Same(live, pushed);
-
-    private static bool Same(string? a, string? b) => (a ?? "").Trim() == (b ?? "").Trim();
+    public static bool Unchanged(string? live, string? pushed) => (live ?? "").Trim() == (pushed ?? "").Trim();
 }

@@ -100,16 +100,13 @@ public sealed class ProjectDeclarations
     public IEnumerable<string> Globals(PushedDeclarations pushed)
     {
         _globals ??= Index.Where(kv => kv.Value.Kind == ItemKind.PlcGvl)
-            .Select(kv => (kv.Key, Of(NoPush, kv.Key) ?? ""))
+            .Select(kv => (kv.Key, Of(PushedDeclarations.None, kv.Key) ?? ""))
             .ToList();
         foreach (var declaration in pushed.Globals) yield return declaration;
         foreach (var (name, declaration) in _globals)
             if (!pushed.ByName.ContainsKey(name)) yield return declaration;
     }
 
-    /// <summary>What a pull pushes: nothing. The IDE's own globals are read as no push would replace them, and a pulled
-    /// body is written against the IDE's declarations alone (<see cref="ScopeForPull"/>).</summary>
-    private static readonly PushedDeclarations NoPush = PushedDeclarations.None;
 
     /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
@@ -118,5 +115,5 @@ public sealed class ProjectDeclarations
                                       _isRefusedPouName);
 
     /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing.</summary>
-    public NetworkScope ScopeForPull(string? declaration) => ScopeFor(declaration, NoPush);
+    public NetworkScope ScopeForPull(string? declaration) => ScopeFor(declaration, PushedDeclarations.None);
 }

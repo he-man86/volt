@@ -162,7 +162,10 @@ public static class TaskDescriptorFormat
 
     /// <summary>Read a `.task` body back into settings. Throws <see cref="TaskDescriptorException"/> with the
     /// offending line on anything it cannot account for — a field it does not know is a push that would
-    /// SILENTLY DROP something the engineer wrote, which is the one outcome worth failing for.</summary>
+    /// SILENTLY DROP something the engineer wrote, which is the one outcome worth failing for.
+    /// <para>It is also the push's gate: a descriptor that reads but is not in the canonical form (fields in another
+    /// order, another spacing) is WRITTEN — the settings are what the IDE holds, and the canonical text comes back on
+    /// the next pull (openspec <c>bridge-refusal-review</c> 2.13).</para></summary>
     public static TaskSettings Read(string text)
     {
         string? type = null, interval = null, priority = null, evt = null, externalEvent = null, watchdog = null, calls = null;
@@ -217,13 +220,6 @@ public static class TaskDescriptorFormat
 
         static int IndexOf(string label) => MemberLabels.ToList().IndexOf(label);
     }
-
-    /// <summary>The push's gate: the settings a descriptor READS to, or the refusal of one that does not read. A
-    /// descriptor that reads but is not in the canonical form (fields in another order, another spacing) is WRITTEN —
-    /// the settings are what the IDE holds, and the canonical text comes back on the next pull (openspec
-    /// <c>bridge-refusal-review</c> 2.13). It used to be refused for its form, a complete descriptor turned away for
-    /// its spelling.</summary>
-    public static TaskSettings Gate(string text) => Read(text);
 
     /// <summary>Whether two descriptors state the SAME settings: equal canonical renderings (<see cref="Write"/> of
     /// <see cref="Read"/>). A push in another form comes back from the IDE in the canonical bytes, and that is the same

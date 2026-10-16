@@ -102,7 +102,7 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE no longer holds what Volt just wrote or read", "pull to see what landed, then push again",
             "IDE_LOST_ITEM", At(
-            ("Volt.Engine/Sync/PushService.cs", 12),
+            ("Volt.Engine/Sync/PushService.cs", 6),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 4),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 3))),

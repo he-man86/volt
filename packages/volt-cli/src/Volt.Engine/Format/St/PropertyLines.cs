@@ -71,9 +71,6 @@ public static class PropertyLines
         return Keys.Contains(key, StringComparer.Ordinal) ? key : null;
     }
 
-    /// <summary>Is <paramref name="line"/> a property line (<see cref="KeyOf"/>)?</summary>
-    public static bool Is(string line) => KeyOf(line) is not null;
-
     /// <summary>The lines that spell <paramref name="props"/> (and a member's <paramref name="folder"/>), in canonical
     /// order; none for the measured absence of every property.</summary>
     public static IReadOnlyList<string> Write(ObjectProperties props, string? folder = null)
@@ -116,7 +113,7 @@ public static class PropertyLines
         return null;
     }
 
-    /// <summary><paramref name="lines"/> (each a property line, <see cref="Is"/>), read into the properties and a
+    /// <summary><paramref name="lines"/> (each a property line, <see cref="KeyOf"/>), read into the properties and a
     /// member's folder — or refused by name and line. <paramref name="what"/> names the object;
     /// <paramref name="firstLine"/> is the file line number of the first of them (0 when not known).
     /// <paramref name="folderAllowed"/>: a member's block, where <c>%FOLDER</c> belongs.</summary>

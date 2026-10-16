@@ -215,7 +215,6 @@ public abstract class DriverBase : IIdeSession
     /// engineer's IDE thread for EVERY one of them, i.e. back-to-back object-model reads for as long as any frontend
     /// was running. The floor is deliberately FAR below that 4s poll, so no client's own cadence is aliased: a poll a
     /// second or more after the last probe still probes, and only a burst that lands together collapses to one.
-    /// <para><c>0</c> still means NO throttle (see <see cref="BuildHealthResponse"/>); no shipped driver asks for it.</para>
     /// <para><c>virtual</c> on purpose (unify-probe-throttle): TwinCAT keeps 5000 because the two snapshots are not the
     /// same quantity — CODESYS's is a handful of in-proc reflection reads, TwinCAT's is EnsureAttached + ProbeIdeAlive +
     /// OwnSolution across a COM apartment boundary, downstream of the hosting asymmetry ARCHITECTURE.md marks
@@ -241,9 +240,7 @@ public abstract class DriverBase : IIdeSession
             // unchecked int subtraction is correct across TickCount wraparound; TickCount64 is not on netstandard2.0.
             ageMs = (long)unchecked(Environment.TickCount - _publishedAtTick);
         }
-        // `<= 0` is the UNTHROTTLED case spelled out rather than left to `age > 0`: TickCount has ~15.6ms granularity,
-        // so two polls landing in one tick would skip a probe an unconditional vendor fires every time.
-        if (ProbeThrottleMs <= 0 || !published || ageMs > ProbeThrottleMs) TriggerAsyncProbe();
+        if (!published || ageMs > ProbeThrottleMs) TriggerAsyncProbe();
         return new HealthResponse { Projects = OverlayLiveHealth(rows), NetworkText = Format.Network.NetworkTextSwitch.Enabled };
     }
 

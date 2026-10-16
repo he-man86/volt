@@ -229,7 +229,7 @@ public static class PushService
             try
             {
                 // …and the driver, for what its vendor cannot hold of the settings the gate read (`ICodeStore.ValidateTask`).
-                if (ItemKind.IsTaskWireName(set.Name)) ide.ValidateTask(TaskDescriptorFormat.Gate(text));
+                if (ItemKind.IsTaskWireName(set.Name)) ide.ValidateTask(TaskDescriptorFormat.Read(text));
                 else
                 {
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
@@ -975,7 +975,7 @@ public static class PushService
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 $"set '{op.Name}': a task carries all of its state in its descriptor, so a push over one must " +
                 "send sourceText (there is no separate body to leave unchanged).");
-        var settings = TaskDescriptorFormat.Gate(src);
+        var settings = TaskDescriptorFormat.Read(src);
 
         ItemRef task;
 
@@ -992,9 +992,7 @@ public static class PushService
                 // Recorded the moment the rename RETURNS, before the re-find: a re-find that misses (a stale tree) does
                 // not undo it, and the conflict must say the task is no longer under its old name.
                 outcome.Renamed = (name, Materializer.Bare(toName), toName);   // kept if anything after it is refused
-                task = ItemLookup.Find(ide, Materializer.Bare(toName))
-                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                        $"task '{name}' could not be found after being renamed to '{toName}'");
+                task = Refind(ide, Materializer.Bare(toName), $"task '{name}' could not be found after being renamed to '{toName}'");
                 action = "renamed+updated";
             }
         }
@@ -1114,10 +1112,9 @@ public static class PushService
             // Refresh the staled handle, and FAIL on a miss. The rename reported success, so the item MUST be
             // findable under its new name; keeping the pre-rename handle writes the pushed content onto the OLD
             // identity and still returns "renamed+updated", which the receipt then bakes into the baseline.
-            item = ItemLookup.Find(ide, currentName)
-                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                    $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
-                    "write through the pre-rename handle");
+            item = Refind(ide, currentName,
+                $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
+                "write through the pre-rename handle");
 
             // AND THE RENAME ACTUALLY TOOK. The lookup above is case-INsensitive — it has to be, that is the
             // identity rule everywhere else — so on a CASE-ONLY rename it finds the item under its OLD spelling
@@ -1231,10 +1228,9 @@ public static class PushService
                 // The ordering itself is right and stays: the write is the step that can REFUSE, so writing first is
                 // what makes a refusal atomic (nothing moved, nothing to undo). It just cannot reuse the handle
                 // across it.
-                item = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                        $"'{name}' could not be found after its content was written — the write appears to have " +
-                        "replaced it and the move cannot proceed.");
+                item = Refind(ide, name,
+                    $"'{name}' could not be found after its content was written — the write appears to have " +
+                    "replaced it and the move cannot proceed.");
             }
             ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, newFolder, newFolders));
 
@@ -1269,10 +1265,9 @@ public static class PushService
             // engine.
             if (source is { } settle)
             {
-                var relocated = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                        $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
-                        "push is failed rather than leaving the item holding its pre-edit content.");
+                var relocated = Refind(ide, name,
+                    $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
+                    "push is failed rather than leaving the item holding its pre-edit content.");
                 WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, outcome);
             }
         }
@@ -1667,10 +1662,9 @@ public static class PushService
                 // A write may replace the item on a vendor whose handles do not survive a change (TwinCAT, D4d), so the
                 // member reconcile below starts from a fresh handle there, as the content write after it does.
                 if (!ide.HandlesSurviveStructureChange)
-                    pou = ItemLookup.Find(ide, name)
-                        ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                            $"'{name}' cannot be found after its declaration was written — refusing to create its " +
-                            "members through a handle the write invalidated");
+                    pou = Refind(ide, name,
+                        $"'{name}' cannot be found after its declaration was written — refusing to create its " +
+                        "members through a handle the write invalidated");
             }
 
             // The member SET, for a create and an update alike. A create reaches here with the item existing but
@@ -1681,10 +1675,9 @@ public static class PushService
                 // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
                 // fails with "Unbound tree item" — which is how this surfaced, on 40-odd e2e tests at once. Re-find
                 // from a FRESH tree root, because the PARENT handle dies with it.
-                pou = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                        $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
-                        "handle the member create invalidated");
+                pou = Refind(ide, name,
+                    $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
+                    "handle the member create invalidated");
 
             // ONE call, for create and update alike: declaration, body, members and accessors together.
             // A member the reconcile RENAMED is the live member under its new name (task 3.4): compared as that, so an
@@ -1787,8 +1780,7 @@ public static class PushService
     {
         try
         {
-            var task = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"task '{name}' cannot be found");
+            var task = Refind(ide, name, $"task '{name}' cannot be found");
             var after = ide.ReadManifest(task, ItemKind.Kinds.Task);
             return after == before ? null
                 : $"part of the settings of '{name}' was written before it and stays (the IDE now holds: " +
@@ -1997,8 +1989,7 @@ public static class PushService
         // aspect, its body went to an Implementation aspect a property does not have (a silent no-op), and the
         // old GET/SET stayed compiled in. `BodyFormatGuard` cannot see it - both shapes are Textual.
         // A RE-TYPE AND A CLASS CHANGE ARE REFUSED BY NAME (task 3.4, DIALECT C2l) before anything of the update is
-        // written (`RefuseMemberRetypes`, asked by the write's update arm too); a create has no live member to differ from.
-        RefuseMemberRetypes(name, live, pushed);
+        // written — by the write's update arm (`RefuseMemberRetypes`); a create has no live member to differ from.
 
         // A RENAME KEEPS THE OBJECT (openspec bridge-one-to-one §3, task 3.4): per member kind, exactly ONE live member the
         // text dropped and ONE it added is that member renamed — through the vendor's rename, which keeps its GUID, its
@@ -2170,6 +2161,11 @@ public static class PushService
     /// refused by name before anything of the update is written (task 3.4, DIALECT C2l): a kind is a class, and a class
     /// never changes in place. It used to be a delete and a create, the object's identity and class gone under an accepted
     /// push. The remedy is stated: drop the member in one push and add it as the new kind in the next.</summary>
+    /// <summary>Find <paramref name="name"/> again after a step that may have replaced its handle, or refuse with
+    /// IDE_LOST_ITEM and <paramref name="lost"/>: the step reported success, so the item MUST be there.</summary>
+    private static ItemRef Refind(IIdeDriver ide, string name, string lost) =>
+        ItemLookup.Find(ide, name) ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, lost);
+
     private static void RefuseMemberRetypes(string name, ItemContent live, ItemContent pushed)
     {
         var liveMember = live.Members.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)

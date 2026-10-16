@@ -30,30 +30,14 @@ internal static class TreeNav
     /// TwinCAT behaviour is unchanged.</para></summary>
     /// <param name="created">When given, receives the path (from the tree root) of each folder this call CREATED — what a
     /// refused push states it left behind (openspec <c>push-keeps-what-landed</c>).</param>
-    internal static ItemRef ResolveTopLevelFolder(IIdeDriver ide, string? folder, List<string>? created = null)
-    {
-        if (string.IsNullOrEmpty(folder)) return ide.GetTreeRoot();
-        var node = ide.GetTreeRoot();
-        var path = "";
-        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
-        {
-            path = path.Length == 0 ? part : path + "/" + part;
-            node = DescendOrCreateFolder(ide, node, part, created, path);
-        }
-        return node;
-    }
-
-    private static ItemRef Created(ItemRef folder, string path, List<string>? created)
-    {
-        created?.Add(path);
-        return folder;
-    }
+    internal static ItemRef ResolveTopLevelFolder(IIdeDriver ide, string? folder, List<string>? created = null) =>
+        Descend(ide, ide.GetTreeRoot(), FolderPath.Segments(folder), AnyContainer(ide), create: true, created)!.Value;
 
     /// <summary>The node a TASK is created under.
     ///
     /// <para><b>The task container's NAME is LOCALIZED; its KIND is not.</b> A German CODESYS ships the Standard
     /// template with <c>Taskkonfiguration</c> where an English project's walk emits <c>Task Configuration</c>, so
-    /// resolving a pushed task's folder by name missed the container entirely, <see cref="DescendOrCreateFolder"/>
+    /// resolving a pushed task's folder by name missed the container entirely, the find-or-create descent
     /// created a plain user folder in its place, and the vendor then refused the create on a node with no task
     /// facet — <c>node has no ScriptTaskConfigObject facet</c>, with the junk folder left behind. Found migrating
     /// a real project into the shipped blank; measured with <c>probe-task-config-survives-delete.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-config-survives-delete.py</c>),
@@ -68,61 +52,56 @@ internal static class TreeNav
         var segments = new List<string>(FolderPath.Segments(folder));
         if (segments.Count > 0)
         {
-            var node = ide.GetTreeRoot();
-            var path = "";
-            for (var i = 0; i < segments.Count - 1; i++)
-            {
-                path = path.Length == 0 ? segments[i] : path + "/" + segments[i];
-                node = DescendOrCreateFolder(ide, node, segments[i], created, path);
-            }
+            var node = Descend(ide, ide.GetTreeRoot(), segments.Take(segments.Count - 1), AnyContainer(ide), create: true,
+                               created)!.Value;
             if (FirstChild(ide, node, c => ide.KindCode(c) == ItemKind.TaskConfig) is { } config) return config;
         }
         // The ancestry above was created already if it was missing, so this walk finds it and records only what it adds.
         return ResolveTopLevelFolder(ide, folder, created);
     }
 
-    /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
-    /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
-    /// through and create a user folder beside it.</summary>
-    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name,
-                                                 List<string>? created = null, string? path = null) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
-            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder, null, null), path ?? name, created);
-
-    // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
-    // <paramref name="created"/>: as on <see cref="ResolveTopLevelFolder"/>, each folder created, by its path from the parent.
-    internal static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder, List<string>? created = null)
+    /// <summary>THE folder descent every resolver here shares: from <paramref name="from"/>, one child per segment
+    /// (each already decoded to its real IDE name), matched by name and <paramref name="isContainer"/>. A missing segment
+    /// is CREATED as a user folder when <paramref name="create"/> — recorded in <paramref name="created"/> by its path
+    /// from <paramref name="from"/> — and otherwise ends the descent with null.</summary>
+    private static ItemRef? Descend(IIdeDriver ide, ItemRef from, IEnumerable<string> segments,
+                                    Func<ItemRef, bool> isContainer, bool create, List<string>? created)
     {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
+        var node = from;
         var path = "";
-        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
+        foreach (var part in segments)
         {
             path = path.Length == 0 ? part : path + "/" + part;
-            node = FindOrCreateFolder(ide, node, part, created, path);
-        }
-        return node;
-    }
-
-    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name, List<string>? created, string path) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
-            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder, null, null), path, created);
-
-    /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches —
-    /// by name, excluding only top-level CRUD kinds. That traverses a container-manager (`POUs`, `DUTs`) as
-    /// well as a plain folder, which is what makes a path like <c>POUs/Sub</c> resolvable at all.</summary>
-    private static ItemRef? DescendExisting(IIdeDriver ide, ItemRef parent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
-        foreach (var part in FolderPath.Segments(folder))
-        {
-            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)));
-            if (next is null) return null;
+            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && isContainer(c));
+            if (next is null)
+            {
+                if (!create) return null;
+                next = ide.CreateChild(node, part, ItemKind.PlcFolder, null, null);
+                created?.Add(path);
+            }
             node = next.Value;
         }
         return node;
     }
+
+    /// <summary>A container child: a structural node like Device/Plc Logic/Application, a container-manager
+    /// (<c>POUs</c>, <c>DUTs</c>) or a user folder — anything but a top-level CRUD kind, so a same-named source LEAF
+    /// (a POU/DUT) is not descended into and a user folder is created beside it.</summary>
+    private static Func<ItemRef, bool> AnyContainer(IIdeDriver ide) => c => !ItemKind.IsTopLevelCrud(ide.KindCode(c));
+
+    /// <summary>A user folder and nothing else — the containers inside a POU.</summary>
+    private static Func<ItemRef, bool> UserFolder(IIdeDriver ide) => c => ide.KindCode(c) == ItemKind.PlcFolder;
+
+    // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
+    // <paramref name="created"/>: as on <see cref="ResolveTopLevelFolder"/>, each folder created, by its path from the parent.
+    internal static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder, List<string>? created = null) =>
+        Descend(ide, parent, FolderPath.Segments(folder), UserFolder(ide), create: true, created)!.Value;
+
+    /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches
+    /// (<see cref="AnyContainer"/>). That traverses a container-manager (`POUs`, `DUTs`) as well as a plain folder,
+    /// which is what makes a path like <c>POUs/Sub</c> resolvable at all.</summary>
+    private static ItemRef? DescendExisting(IIdeDriver ide, ItemRef parent, string? folder) =>
+        Descend(ide, parent, FolderPath.Segments(folder), AnyContainer(ide), create: false, null);
 
     /// <summary>Why a MOVE into <paramref name="folder"/> (a full tree path, as <see cref="ResolveTopLevelFolder"/> takes it)
     /// cannot land, or null when it can (openspec <c>bridge-refusal-review</c> 4.31). Read-only: the path is descended the
@@ -140,16 +119,8 @@ internal static class TreeNav
     /// file back (DIALECT C2q). A holder kind measured later joins <see cref="MoveHolders"/>; nothing is a holder by default.</para></summary>
     internal static string? RefusedMoveTarget(IIdeDriver ide, string folder)
     {
-        var node = ide.GetTreeRoot();
-        var atRoot = true;
-        foreach (var part in FolderPath.Segments(folder))
-        {
-            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)));
-            if (next is null) return null;   // a folder to create: not judged here (see the summary)
-            node = next.Value;
-            atRoot = false;
-        }
-        if (atRoot) return null;
+        // The tree root, or a folder to create: not judged here (see the summary).
+        if (string.IsNullOrEmpty(folder) || DescendExisting(ide, ide.GetTreeRoot(), folder) is not { } node) return null;
         var kind = ide.KindCode(node);
         return MoveHolders.Contains(kind)
             ? null
@@ -200,18 +171,8 @@ internal static class TreeNav
     /// other. Used for a read it made a real empty folder inside the engineer's POU whenever the pushed
     /// `%FOLDER` did not match where the item actually sits, and the subsequent lookup then missed INSIDE the
     /// folder it had just made - so the caller silently skipped the work it was there to do.</para></summary>
-    internal static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return parent;
-        var node = parent;
-        foreach (var part in FolderPath.Segments(folder))
-        {
-            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && ide.KindCode(c) == ItemKind.PlcFolder);
-            if (next is null) return null;
-            node = next.Value;
-        }
-        return node;
-    }
+    internal static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder) =>
+        Descend(ide, parent, FolderPath.Segments(folder), UserFolder(ide), create: false, null);
 
     /// <summary>REMOVE A FOLDER THAT HAS JUST BEEN EMPTIED, and every ancestor the removal empties in turn.
     ///

@@ -23,26 +23,21 @@ public sealed class Descriptor
     private readonly List<(string Label, string Value)> _lines = new();
     private readonly List<string> _declared = new();
     private readonly int _fixedPad;
+    private readonly bool _spaceAfterLongLabel;
 
-    /// <summary>Auto-width: every line is padded to the widest LABEL plus two. The facet-driven descriptors
-    /// (project info, trace, symbol config) use this.</summary>
-    public Descriptor() => _fixedPad = 0;
-
-    /// <summary>Fixed width, in columns from the start of the label INCLUDING its colon. Device uses 14, task 11 —
-    /// two hand-picked numbers that predate this type and are kept because the output is hashed.</summary>
-    public Descriptor(int pad) => _fixedPad = pad;
-
-    /// <summary>Fixed width, and a label that reaches the column gets ONE space after its colon instead of none — the
-    /// task descriptor's labels added by openspec <c>bridge-one-to-one</c> (<c>External event:</c>) are longer than its
-    /// inherited 11 columns, and <c>External event:CanRx</c> would read as one word. The inherited labels are all shorter,
-    /// so their bytes do not move.</summary>
-    public Descriptor(int pad, bool spaceAfterLongLabel)
+    /// <summary><paramref name="pad"/> 0 is AUTO width: every line is padded to the widest LABEL plus two (the
+    /// facet-driven descriptors: project info, trace, symbol config). Otherwise it is a FIXED width, in columns from the
+    /// start of the label INCLUDING its colon: device uses 14, task 11 — two hand-picked numbers kept because the output
+    /// is hashed.
+    /// <para><paramref name="spaceAfterLongLabel"/>: a label that reaches the fixed column gets ONE space after its colon
+    /// instead of none — the task descriptor's labels added by openspec <c>bridge-one-to-one</c> (<c>External event:</c>)
+    /// are longer than its inherited 11 columns, and <c>External event:CanRx</c> would read as one word. The inherited
+    /// labels are all shorter, so their bytes do not move.</para></summary>
+    public Descriptor(int pad = 0, bool spaceAfterLongLabel = false)
     {
         _fixedPad = pad;
         _spaceAfterLongLabel = spaceAfterLongLabel;
     }
-
-    private readonly bool _spaceAfterLongLabel;
 
     /// <summary>Add a line. A null, empty or whitespace-only value EMITS nothing — an absent field is absent from
     /// the file rather than present and blank, which is what makes these descriptors diff cleanly.

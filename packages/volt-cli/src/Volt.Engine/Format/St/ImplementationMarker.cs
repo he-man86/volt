@@ -265,21 +265,14 @@ namespace Volt.Engine.Format.St
             return null;
         }
 
-        /// <summary>The index of the line that states the body in <paramref name="lines"/> — one member's region, or
-        /// the POU's — or -1: the first boundary line (<see cref="Is"/>) that starts OUTSIDE every comment. More than one
-        /// is the caller's to refuse (<see cref="StatedLinesIn"/>).
+        /// <summary>Every boundary line (<see cref="Is"/>, the grammar alone) outside every comment, in order, in
+        /// <paramref name="lines"/> — one member's region, or the POU's. The first states the body; more than one is the
+        /// caller's to refuse.
         ///
         /// <para>Outside every comment, because <c>IMPLEMENTATION ST</c> is a line an engineer can plausibly write
         /// in documentation. A comment may open after code on its line (bakon-nano: <c>:= TRUE;(*NOT (</c> spanning
         /// lines) and comments NEST, as the LSP lexer nests them — so this asks <see cref="StTrivia"/>, which tracks
         /// both, and not the line-start scan the structure reader uses.</para></summary>
-        public static int IndexIn(IList<string> lines)
-        {
-            var stated = StatedLinesIn(lines);
-            return stated.Count > 0 ? stated[0] : -1;
-        }
-
-        /// <summary>Every boundary line (<see cref="Is"/>, the grammar alone) outside every comment, in order.</summary>
         public static List<int> StatedLinesIn(IList<string> lines)
         {
             var open = StTrivia.OpenAtStart(lines);

@@ -97,7 +97,7 @@ public class TaskDescriptorFormatTests
     [InlineData("Type: Cyclic\nPriority: 5\nPriority: 7\n", "Priority", 3)]
     public void A_LABEL_WRITTEN_TWICE_IS_REFUSED_not_last_wins(string body, string label, int line)
     {
-        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Gate(body));
+        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Read(body));
         Assert.Contains($"line {line}", ex.Message);
         Assert.Contains($"'{label}'", ex.Message);
     }
@@ -123,7 +123,7 @@ public class TaskDescriptorFormatTests
     [InlineData("Type: Cyclic\nPriority: 5\nWatchdog: 3200 µs (sens 2)\n", "(sens 2)")]      // watchdog, wrong word
     public void Every_refusal_is_coded_BAD_REQUEST(string body, string named)
     {
-        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Gate(body));
+        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Read(body));
         Assert.Contains(named, ex.Message);
         var coded = Assert.IsAssignableFrom<Volt.Contracts.ICodedError>(ex);
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.BadRequest, coded.ErrorCode);
@@ -144,7 +144,7 @@ public class TaskDescriptorFormatTests
     public void The_gate_reads_a_non_canonical_body_and_its_canonical_text_is_the_same_descriptor()
     {
         const string typed = "Type: Cyclic\nPriority: 5\nWatchdog: off\n";
-        var settings = TaskDescriptorFormat.Gate(typed);
+        var settings = TaskDescriptorFormat.Read(typed);
         Assert.Equal("5", settings.Priority);
         Assert.True(TaskDescriptorFormat.SameDescriptor(typed, TaskDescriptorFormat.Write(settings)));
         Assert.False(TaskDescriptorFormat.SameDescriptor(typed, typed.Replace("Priority: 5", "Priority: 6")));
@@ -153,9 +153,9 @@ public class TaskDescriptorFormatTests
     [Fact]
     public void The_gate_accepts_what_a_pull_actually_wrote()
     {
-        Assert.Equal("1", TaskDescriptorFormat.Gate(LenzeMain).Priority);
+        Assert.Equal("1", TaskDescriptorFormat.Read(LenzeMain).Priority);
         // …and tolerates a lost trailing newline, which an editor can do on its own and is not drift worth refusing.
-        Assert.Equal("5", TaskDescriptorFormat.Gate(LenzeOee.TrimEnd('\n')).Priority);
+        Assert.Equal("5", TaskDescriptorFormat.Read(LenzeOee.TrimEnd('\n')).Priority);
     }
 
     [Fact]

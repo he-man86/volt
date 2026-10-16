@@ -124,7 +124,7 @@ public interface ICodeStore
 
     /// <summary>Refuse — by throwing the refusal, with the code the write would answer — a task whose SETTINGS this
     /// vendor cannot hold, or do nothing. Asked by the push PRE-FLIGHT for every `.task` set op, with the settings the
-    /// engine's own gate read (<c>TaskDescriptorFormat.Gate</c>), so a refusal the vendor decides from the settings
+    /// engine's own gate read (<c>TaskDescriptorFormat.Read</c>), so a refusal the vendor decides from the settings
     /// alone lands before the batch's first write instead of after its earlier ops (openspec
     /// <c>bridge-refusal-review</c>, review of 2e+2g: CODESYS's unknown `Type:` and TwinCAT's non-cyclic task were found
     /// only by the write). The driver's own write refuses the same settings by the same check, so the two never
