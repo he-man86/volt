@@ -624,3 +624,48 @@ tasks.md census), inline types 0 · B7 195 networks lose their pragma (the 2.3 w
 **Migration.** No users, no compat: 2R.3 replaces writer, reader, gate and LSP parser in one pass, deletes every V2
 spelling (`NetworkPragma.cs`, the pragma text half, `syntax/network/pragma.ts`) and refuses each old form with a pointer
 to the new (P14); recordings stand (the model is unchanged), goldens and the corpora are re-pulled.
+
+## 2R.3 The rewrite — one shared case set, one pass, both vendors (2026-10-16)
+
+**Target.** `readability.md` whole (B1–B8, small ones, P1–P16) as the ONLY network-text grammar in the C# writer,
+reader and gate and the LSP parser; the pragma gone; every refusal a push makes also made by the LSP while typing,
+under the same name; `docs/network-text.html` rewritten from the result; the six corpora re-pulled (1945 lines before).
+
+**Choice: test-first from ONE committed case set, consumed by both languages, built in one pass.**
+- `packages/volt-cli/test/fixtures/network-text/` holds `accept/` cases (text + the NWL model it reads to) and
+  `refuse/` cases (text + the refusal NAME). Written first, red: every readability.md example, every P1–P16 rule, every
+  X/E item and every P14 old spelling (with its pointer to the new one). C# reader/writer tests and an LSP test read the
+  same files; a case one side accepts and the other refuses fails both suites. That is the "LSP refuses while typing"
+  parity check — one source, not two lists kept in step by hand.
+- The corpus fixed point runs OFFLINE first, over the `nwl-corpus` archives (388 CODESYS + 6 TwinCAT networks):
+  archive → model → text → model equal (`NetworkModelEquality`), and the LSP parses every printed text with no error.
+  This is C2's mechanical half; P16 says 392 of 394 spell clean, the 2 are the case set's refusals.
+- Build order inside the pass: B4 (one `;` per item, `ENO` = the line above) and B6 (`split<VarId>`, no `VAR_TEMP`)
+  first — they set statement boundaries every other rule sits on; then B1/B2/B3/B5/B8 and the small ones; B7 last
+  (delete the pragma once nothing prints it).
+- Derivation (D) is vendor-neutral Engine code over the text + the callee's declaration; each driver only supplies the
+  declaration (local POU, or a library POU through its signature read). Measured on both vendors before it is relied
+  on: per library callee in the corpora, does the signature read give the output list and types? A callee it does not
+  cover stays L (lost on rebuild, P15 lens names it), never guessed.
+- Then live, both vendors (`ide.ps1 -Instance ld-fbd-coverage`, TwinCAT `-Fixture 14`): pull → push → pull fixed point +
+  build on the graphical fixtures, and P16's measurement (named ENO pin vs coil on ENO — one tree or two). TwinCAT's
+  owed C1 run goes with it; its blocker (an orphaned worker of this instance) is cleared by `ide.ps1 down` first.
+
+Rejected: a V3 grammar beside V2 behind a switch, then delete V2 (no users, no compat; doubles both suites for the
+step) · rule-by-rule commits B1…B8 (B4/B6 change statement boundaries, so each intermediate grammar re-cuts every
+golden for a format that never ships) · the LSP calling the C# reader (it parses per keystroke in the editor's
+process; shared cases give the parity without the coupling) · derivation per driver (the logic is vendor-neutral —
+wire divergence is a defect; only the declaration source differs).
+
+**Stays refused by name** (in `refuse/`, both sides): non-default `Terminator`, `BoxTreeMux`, `ILStatement`,
+`Connectors`, `ILLines`; a box consuming two ENOs; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3
+— the nine `ng_r1_*` lose their `deferred.lsp` mark when the LSP refuses them); `a MOVE b` and the MOVE call form
+where the word form fits; a redundant coil bracket; a `split<n>` colliding with a declaration; every P14 old spelling.
+Shown, edit refused (E): `SymbolComment`, S4 `fb(…).name`, an enabled comparison value. `VOLT_GRAPHICAL` stays off in
+the shipped build.
+
+**Migration.** No compat: delete `NetworkPragma.cs`, the text half of `NetworkMembers.cs`,
+`frontend/syntax/network/pragma.ts` with `network-pragma.test.ts`, and the "Members — the pragma" doc section; old
+forms are `refuse/` cases with pointers. Recordings stand (the model is unchanged); goldens are regenerated from the
+archives; the corpora re-pulled with before/after line counts in tasks.md; the network files' shrink-only entries
+re-measured, not raised.
