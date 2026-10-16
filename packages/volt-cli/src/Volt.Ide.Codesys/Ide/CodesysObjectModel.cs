@@ -22,8 +22,7 @@ namespace Volt.Ide.Codesys
     /// ALL source-text I/O and kind classification go through the object model. The
     /// scripting objects (<c>projects</c>) carry everything else: tree enumeration
     /// (<c>get_children</c>/<c>get_name</c>/<c>guid</c>/<c>handle</c>), CRUD
-    /// (<c>create_*</c>/<c>rename</c>/<c>remove</c>), the PLCopen <c>export_xml</c>/
-    /// <c>import_xml</c> transport, and the read-only descriptors read off their
+    /// (<c>create_*</c>/<c>rename</c>/<c>remove</c>/<c>move</c>), and the read-only descriptors read off their
     /// <c>Extender</c> facets — all real .NET members. NO IronPython-injected members
     /// (e.g. <c>textual_declaration</c>). Reflection-only, so this one binary loads in any 3.5.x.
     /// </summary>

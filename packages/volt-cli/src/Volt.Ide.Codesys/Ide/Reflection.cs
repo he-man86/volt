@@ -65,13 +65,6 @@ namespace Volt.Ide.Codesys
             return null;
         }
 
-        /// <summary>The first loaded ENUM whose SIMPLE name matches, or null. Separate from
-        /// <see cref="FindType"/> because CODESYS's enums are reached by simple name (their namespace varies by
-        /// version), which needs <c>GetTypes()</c> rather than a full-name lookup.
-        /// <para>It lives here so there is ONE place that walks the AppDomain: two hand-rolled copies of this
-        /// scan had drifted, and the copy that mattered swallowed <em>every</em> exception from
-        /// <c>GetTypes()</c> — including an unexpected failure of the primitive the whole in-proc bridge stands
-        /// on — where this one swallows only the load failures the API documents.</para></summary>
         /// <summary>A loaded type by SIMPLE name — the scripting API's helper objects are reached that way
         /// because their namespace varies by CODESYS version, the same reason <see cref="FindEnum"/> exists.</summary>
         public static Type? FindTypeBySimpleName(string simpleName)
@@ -88,6 +81,13 @@ namespace Volt.Ide.Codesys
             return null;
         }
 
+        /// <summary>The first loaded ENUM whose SIMPLE name matches, or null. Separate from
+        /// <see cref="FindType"/> because CODESYS's enums are reached by simple name (their namespace varies by
+        /// version), which needs <c>GetTypes()</c> rather than a full-name lookup.
+        /// <para>It lives here so there is ONE place that walks the AppDomain: two hand-rolled copies of this
+        /// scan had drifted, and the copy that mattered swallowed <em>every</em> exception from
+        /// <c>GetTypes()</c> — including an unexpected failure of the primitive the whole in-proc bridge stands
+        /// on — where this one swallows only the load failures the API documents.</para></summary>
         public static Type? FindEnum(string simpleName)
         {
             foreach (var a in AppDomain.CurrentDomain.GetAssemblies())

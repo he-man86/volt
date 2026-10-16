@@ -382,16 +382,8 @@ namespace Volt.Ide.Codesys
             return 0;
         }
 
-        /// <summary>Create a child object under <paramref name="parent"/> via the IEC
-        /// container's typed scripting factory (create_pou/create_dut/…). Returns the
-        /// new node; the caller writes its text via <see cref="WriteSourceText"/>.
-        /// <paramref name="language"/> is UNUSED here — deliberately, not for want of a parameter. This said
-        /// "CODESYS's <c>create_pou</c> has no implementation-language parameter"; enumerated off the live
-        /// scripting container it has one, third and optional:
-        /// <c>create_pou(name, type?, language?, return_type?, base_type?, interfaces?)</c> (DIALECT C2d).
-        /// Volt still seeds and lets the PLCopen import establish the language, which is what the whole
-        /// single-document write depends on — but that is a CHOICE, not the absence of an option.</summary>
-        /// <summary>A POU, with its body LANGUAGE applied at creation.
+        /// <summary>A POU, with its body LANGUAGE applied at creation — <c>create_pou(name, type?, language?, return_type?,
+        /// base_type?, interfaces?)</c>, enumerated off the live scripting container (DIALECT C2d).
         /// <para><b>The language used to be ignored here, and that was correct until it was not.</b> CODESYS
         /// took the language from the imported body element, so a POU created as ST became FBD the moment the
         /// document landed — the old comment said as much. Nothing imports a document now: a graphical body is
@@ -551,8 +543,8 @@ namespace Volt.Ide.Codesys
 
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
 
-        /// <summary>Re-place an object under <paramref name="target"/>. Verified live on 3.5.21.40: a POU child
-        /// flattened out of its folder by a PLCopen merge import is moved back with its body intact.
+        /// <summary>Re-place an object under <paramref name="target"/>. Verified live on 3.5.21.40: a POU child moved
+        /// to another folder keeps its body intact.
         /// <para>Resolved across the object's INTERFACES as well as its own type, and with trailing optionals
         /// filled. Neither is incidental: <c>move</c> is not on <c>ScriptObject</c>'s own method table, so both
         /// <see cref="InvokeMethod"/> (arity-exact, own type only) and <see cref="InvokeWithOptionals"/> (own type

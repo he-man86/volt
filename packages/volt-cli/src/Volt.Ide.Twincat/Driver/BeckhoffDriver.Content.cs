@@ -128,6 +128,12 @@ public sealed partial class BeckhoffDriver
             "property in the IDE.");
     }
 
+    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): ANY
+    /// declaration or body, since <c>ReadMember</c> builds an interface accessor as <c>new Accessor(null, null)</c> and
+    /// writing one can crash TcXaeShell (DIALECT D21). The write refuses by this same call.</summary>
+    public override void ValidateInterfaceAccessor(Accessor pushed) =>
+        InterfaceAccessorGuard.RefuseIfChanged(null, null, pushed.Declaration, pushed.Body);
+
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
     ///
     /// <para><b>Every refusal it raises is already pure.</b> `TcPlcOpenWriter` turns a parsed body into a
@@ -143,7 +149,7 @@ public sealed partial class BeckhoffDriver
     ///
     /// <para><b>The models are the engine's</b> (openspec bridge-refusal-review 2.27, D8/D12): it validated each body
     /// against its own scope a moment ago. This used to re-read the whole source with <c>StReader</c>, re-derive the
-    /// kind from the wire name and validate every body again — a second reading the first could disagree with.</para></summary>
+    /// kind from the wire name and validate every body again — a second reading the first could disagree with.</para>
     ///
     /// <para><b>Per BODY</b> (openspec bridge-refusal-review 2.28, D21): the lowering runs for exactly the bodies the
     /// write would CREATE — every body of a new item (<paramref name="existing"/> null), and in an existing item each
@@ -152,12 +158,6 @@ public sealed partial class BeckhoffDriver
     /// creates it), an accessor the property does not carry, a blank implementation or an archive with nothing drawn
     /// in it. A body the write EDITS in place is not lowered: the in-place writer takes shapes the import does not.
     /// This ran per ITEM, so a new graphical member in an existing POU was refused mid-batch.</para></summary>
-    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): ANY
-    /// declaration or body, since <c>ReadMember</c> builds an interface accessor as <c>new Accessor(null, null)</c> and
-    /// writing one can crash TcXaeShell (DIALECT D21). The write refuses by this same call.</summary>
-    public override void ValidateInterfaceAccessor(Accessor pushed) =>
-        InterfaceAccessorGuard.RefuseIfChanged(null, null, pushed.Declaration, pushed.Body);
-
     public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
     {
         Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members = null;
@@ -888,9 +888,6 @@ public sealed partial class BeckhoffDriver
         return ItemKind.EmptyManifest(kind);
     }
 
-    /// <summary>Map a library ref's item-metadata XML to the canonical <see cref="LibraryManifest"/> — namespace,
-    /// concrete resolution (from EffectiveResolution), placeholder flag, and direct dependencies (a ref's
-    /// &lt;Dependencies&gt;). TwinCAT exposes no system-library flag on a reference, so SYSTEM is false.</summary>
     /// <summary>A reference's manifest, every member READ (openspec bridge-one-to-one finding 7/8, task 3.3): the namespace
     /// was defaulted to the name and the resolution to <c>""</c>, and <c>SYSTEM false</c> was hard-coded — TwinCAT has no
     /// system member on a reference (<c>tc-library-system</c>, DIALECT C37), so the line is absent, as on a CODESYS

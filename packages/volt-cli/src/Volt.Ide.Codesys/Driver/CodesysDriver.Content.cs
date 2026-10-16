@@ -17,12 +17,6 @@ namespace Volt.Ide.Codesys;
 /// textual bodies through their aspects, graphical bodies as typed <c>NWLObject</c> trees. <b>Nothing is
 /// serialized in either direction</b>, so there is no document to splice, no import to re-place items after,
 /// and no regeneration to carry unmodelled elements through.
-///
-/// <para>This replaces <c>CodesysDriver.Code.cs</c> and the PLCopen export/import it drove. What went with it:
-/// the <c>export_xml</c>/<c>import_xml</c> pair, the <c>ConflictResolve.Replace</c> merge semantics, the
-/// re-import into the original parent (a project-level import relocated the POU to the root), and
-/// <c>BodyLanguage</c>'s whole-document export just to read one attribute — on this driver that was a full
-/// PLCopen export per call, which a POU with 20 methods paid 22 times to write one body.</para>
 /// </summary>
 public sealed partial class CodesysDriver
 {
@@ -151,28 +145,16 @@ public sealed partial class CodesysDriver
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The body's language and text. <b>Dispatch is a CAST</b>: the aspect's TYPE is the language, so
-    /// nothing sniffs content and no separate language query is needed. An ST POU yields
-    /// <c>STImplementationObject</c>, an FBD or LD POU yields <c>NWLImplementationObject</c>, a CFC POU yields
-    /// <c>CFCImplementationObject</c> — measured, and the same project proves the discrimination
-    /// (271 ST, 1 CFC in one project; 38 ST, 36 NWL in another).</summary>
-    /// <summary>What the vendor holds, minus only the trailing NEWLINES Volt's file format cannot carry.
-    ///
-    /// <para>It used to be <c>Trim()</c>, and that made the read side an EDITOR. Leading whitespace is content:
-    /// a body whose first line is indented, or which opens on a blank line, is exactly what the engineer wrote —
-    /// and it is also what a PUSH legitimately sends, so trimming it turned every such push into a silent
-    /// one-line edit that the next pull reported as drift. Nine files in `pro2193` came back changed after a
-    /// migration for no other reason.</para>
-    ///
-    /// <para>Trailing newlines are the exception because they are not representable: <see cref="StWriter"/>
-    /// ends a body with its own separator before <c>END_&lt;KIND&gt;</c>, so a body that ends in three blank
-    /// lines cannot round-trip whatever this does. Dropping them here is the honest place to lose them.
-    /// Trailing SPACES on the last real line are kept — those are text.</para></summary>
     // A WHITESPACE-ONLY body is stored characters and is spelled (openspec bridge-one-to-one finding 8, task 3.5):
     // it was read as "no body", so a push wrote it back empty. Only no text at all is no body.
     private static string? BodyText(string raw) =>
         raw.Length > 0 ? raw : null;   // verbatim, trailing newlines included (bridge-one-to-one, trailing-newline-cache)
 
+    /// <summary>The body's language and text. <b>Dispatch is a CAST</b>: the aspect's TYPE is the language, so
+    /// nothing sniffs content and no separate language query is needed. An ST POU yields
+    /// <c>STImplementationObject</c>, an FBD or LD POU yields <c>NWLImplementationObject</c>, a CFC POU yields
+    /// <c>CFCImplementationObject</c> — measured, and the same project proves the discrimination
+    /// (271 ST, 1 CFC in one project; 38 ST, 36 NWL in another).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
     /// <returns>The body as workspace text, and — for an LD or FBD body that reads as <c>IMPLEMENTATION LD|FBD

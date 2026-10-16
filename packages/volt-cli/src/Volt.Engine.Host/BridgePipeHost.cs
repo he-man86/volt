@@ -79,7 +79,7 @@ public sealed class BridgePipeHost : IDisposable
         // NOTE: the not-connected precondition for the project ops (refs/fetch/init/push/build) is NOT here — it is
         // each handler's first act, on the marshalled STA thread: RefsService / FetchService / PushService /
         // BuildService all go through OpGuard. That placement is deliberate (see OpGuard): checking INSIDE
-        // the op is atomic with the work, so a concurrent `select` can't slip between check and op — a pre-marshal
+        // the op is atomic with the work, so a concurrent `connect` can't slip between check and op — a pre-marshal
         // check here structurally can't guarantee that. Both vendors refuse a not-connected bridge IDENTICALLY
         // because those guards live in shared Core, keyed off the same IsConnected signal.
 

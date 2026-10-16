@@ -47,12 +47,6 @@ namespace Volt.Ide.Codesys
             throw new InvalidOperationException($"no writable '{name}' on {t.FullName}");
         }
 
-        /// <summary>Invoke a CODESYS scripting method by name. A method that ISN'T THERE throws — like
-        /// <see cref="InvokeWithOptionals"/> and <see cref="CreateNamed"/>. Returning null instead meant every
-        /// mutating call through here could silently do nothing: <c>SetObject(meta, true, null)</c> is how a
-        /// source-text write COMMITS, so a missed match made `push` report success while the edit never
-        /// reached the project — and the build that followed saw no errors precisely because nothing changed.
-        /// Use <see cref="TryInvokeMethod"/> where absence is a legitimate answer.</summary>
         private static void Set(PropertyInfo p, object o, object? value, string name)
         {
             try { p.SetValue(o, value); }
@@ -64,6 +58,12 @@ namespace Volt.Ide.Codesys
             }
         }
 
+        /// <summary>Invoke a CODESYS scripting method by name. A method that ISN'T THERE throws — like
+        /// <see cref="InvokeWithOptionals"/> and <see cref="CreateNamed"/>. Returning null instead meant every
+        /// mutating call through here could silently do nothing: <c>SetObject(meta, true, null)</c> is how a
+        /// source-text write COMMITS, so a missed match made `push` report success while the edit never
+        /// reached the project — and the build that followed saw no errors precisely because nothing changed.
+        /// Use <see cref="TryInvokeMethod"/> where absence is a legitimate answer.</summary>
         private static object? InvokeMethod(object? o, string name, params object?[] args)
         {
             if (o == null) return null;

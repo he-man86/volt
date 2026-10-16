@@ -36,7 +36,7 @@ public class TcNetworkWriterTests
     /// <summary>THE ORACLE, AND IT IS THIS SUITE'S OWN COPY NOW.
     ///
     /// <para>This read <c>test/TwinCAT Project14/.../POU_PBD.TcPOU</c> — a file inside the LIVE e2e project,
-    /// which <c>twincat-instances.ps1</c> opens IN PLACE and which TwinCAT rewrites whenever that tier runs.
+    /// which <c>scripts/ide.ps1 -InPlace</c> opens IN PLACE and which TwinCAT rewrites whenever that tier runs.
     /// An offline test's oracle cannot be a file another tier mutates: the identity this class asserts would
     /// have been re-baselined by a live run rather than broken by one. The committed fixture is byte-identical
     /// (10,997 bytes, verified at the move).</para></summary>

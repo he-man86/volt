@@ -9,8 +9,8 @@
 /// mints the id it keys on (<c>DetectedProject.MakeId</c>) from exactly those two fields.
 /// <list type="bullet">
 ///   <item><see cref="Vendor"/> — "codesys" | "twincat" (per row: the merged array mixes vendors).</item>
-///   <item><see cref="Project"/> — the row's IDENTITY and its `select` address. A project is identified by its
-///   NAME (with the vendor); `select` re-resolves it on whichever live instance has it open (CODESYS: its serving
+///   <item><see cref="Project"/> — the row's IDENTITY and its `connect` address. A project is identified by its
+///   NAME (with the vendor); `connect` re-resolves it on whichever live instance has it open (CODESYS: its serving
 ///   pipe; TwinCAT: the running window whose solution holds that project). No instance handle: two projects opened
 ///   under the same name at once are indistinguishable — the same limit the workspace binding already has.</item>
 ///   <item><see cref="Version"/> — the IDE version, shown in the row's label.</item>

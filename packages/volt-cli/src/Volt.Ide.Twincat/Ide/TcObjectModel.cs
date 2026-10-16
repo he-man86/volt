@@ -161,21 +161,8 @@ internal sealed partial class TcObjectModel
     {
         EnsurePlc();
 
-        // NO FALLBACK, and this one was worse than a swallow. The bare catch replaced a stale-handle RPC fault
-        // with `LookupTreeItemDynamic(_plcProjectPath)` - and `_plcProjectPath` is not a path: Session.cs sets it
-        // to `(string)plc.Name`, the child's bare NAME, while the value being replaced is that child's
-        // NestedProject, one level below. So the substitute either failed to resolve, or resolved a DIFFERENT
-        // node - and this is the origin of GetTreeRoot, GetPlcProjectRoot and WalkItems, so every folder path in
-        // the project would shift by a segment.
-        //
-        // The real cost was to the recovery machinery: an RPC fault here is exactly what `ShouldMarkDegraded`
-        // exists to classify, and swallowing it meant `RunRead` never called `Recover()`. The failure surfaced
-        // as "cannot find tree item", whose HRESULT is outside the RPC family, so health stayed GREEN while
-        // every op failed identically until someone restarted the worker. In an in-process host that wedges
-        // inside the IDE instead.
-        //
-        // FindPlcProject's own comment already argued no such fallback belongs anywhere; this was the one place
-        // that still had it, and `_plcProjectPath`'s only reader.
+        // NO FALLBACK: a stale-handle RPC fault here must reach `ShouldMarkDegraded`, so `RunRead` recovers. A
+        // substitute node is the origin of every walk — a wrong one shifts every folder path in the project.
         return _plcNode!.NestedProject;
     }
 
@@ -395,7 +382,7 @@ internal sealed partial class TcObjectModel
         // vInfo for a FUNCTION ("vInfo (Type: String) not supported") — omit it (Type.Missing).
         // Interfaces and their children have no body language — pass null (TC rejects "ST" for these).
         // TC does not accept "LD" directly — create as FBD; the ladder view is stored as
-        // DefaultViewMode metadata in the NWL archive, which TcPouReader preserves on read-back.
+        // DefaultViewMode metadata in the NWL archive, which the read keeps.
         var lang = language is "LD" ? "FBD" : (language ?? "ST");
 
         // A DUT is created as the STRUCT skeleton (606), never as 623. On TwinCAT 623 is not a generic DUT — it is
@@ -625,15 +612,6 @@ internal sealed partial class TcObjectModel
     // ruled out deriving the archive from the shipped assemblies (`BoxTreeBox` has no concrete class to
     // reflect over). An IMPORT inverts the problem: Volt states the topology and the IDE resolves the rest.
 
-    /// <summary>Import a PLCopen document, REPLACING <paramref name="pou"/>, and return a LIVE handle to the
-    /// result — the passed one is dead by then.
-    ///
-    /// <para><b>Two vendor facts drive everything here.</b> First, DIALECT D4d: a TwinCAT PLCopen import
-    /// INVALIDATES every handle into the item it replaced, so the caller is handed a re-resolved node rather
-    /// than being trusted to remember. Second, the import ALWAYS deposits at the PLC-project root — measured
-    /// across the whole options × bFolderStructure × flat/nested matrix, where all eight REPLACE cells relocated
-    /// a foldered POU — so a POU that lived in a folder is put back, or a create would silently move the
-    /// engineer's object.</para></summary>
     /// <summary>Have TwinCAT BUILD a graphical body and hand back the resolved NWL archive, without touching
     /// the item it is destined for.
     ///

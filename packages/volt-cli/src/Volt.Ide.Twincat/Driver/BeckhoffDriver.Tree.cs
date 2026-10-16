@@ -260,14 +260,10 @@ public sealed partial class BeckhoffDriver
         }
     }
 
-    // No guard: a COM fault is a real failure and the caller (the walk, the folder map) decides. Answering 0
-    // made an unreadable node look like a leaf, which drops its whole subtree; answering "" for a name (below)
-    // fabricated the wire IDENTITY, and two blank names collapse onto each other.
-    // No guard. A COM fault is a real failure and must reach the caller: answering 0 made an
-    // unreadable or INVALIDATED node look like a childless one, which turned the push's orphan walk
-    // into a silent no-op on every graphical TwinCAT push (the handle is invalidated by the PLCopen
-    // import that precedes it). The walk in this file catches per node and logs, because a walk can
-    // meaningfully skip one item; a caller asking about ONE item cannot.
+    // No guard: a COM fault is a real failure and must reach the caller (the walk, the folder map). Answering 0
+    // made an unreadable or INVALIDATED node look like a leaf, which drops its whole subtree; answering "" for a
+    // name (below) fabricated the wire IDENTITY. The walk in this file catches per node and logs, because a walk
+    // can meaningfully skip one item; a caller asking about ONE item cannot.
     public int ChildCount(ItemRef item) => _om.ChildCount(item.Native);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
     public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));

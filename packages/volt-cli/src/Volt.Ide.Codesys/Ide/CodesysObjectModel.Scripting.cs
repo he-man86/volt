@@ -16,17 +16,11 @@ namespace Volt.Ide.Codesys
         // Structure, not content: creating objects, resolving containers, binding enum members. These live
         // together because they all reflect over the scripting API's factory surface, whose parameters sit
         // behind optionals and must be bound BY NAME.
-        //
-        // This file was `CodesysObjectModel.PlcOpen.cs` and also held the PLCopen transport itself —
-        // `ExportXmlString`, `ExportXmlWithChildren`, `ImportXmlString` and the `IExtendedObject` re-wrapping
-        // they needed. That is gone: a body now travels as typed NWL objects and a declaration through its
-        // aspect, so nothing serializes. The helpers below stayed because they were never about PLCopen.
         private object? _scriptEngine;   // cached APEnvironment.ScriptEngine
 
         /// <summary>Wrap a fully-unwrapped tree node back into the <c>IExtendedObject&lt;IScriptObject&gt;</c> the
         /// scripting API takes, via the engine's own <c>CreateExtendedObject</c> factory — the same call the
-        /// scripting tree itself uses. Used by <c>Move</c> and the library reads. It outlived the PLCopen export it was
-        /// written beside, because it is about the SCRIPTING API rather than about any document format.</summary>
+        /// scripting tree itself uses. Used by <c>Move</c> and the library reads.</summary>
         private object AsExtended(object node, Type baseType)
         {
             var apEnv = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")

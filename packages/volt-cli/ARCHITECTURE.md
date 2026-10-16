@@ -7,7 +7,7 @@ wire, not the driver.
 
 ## The projects
 
-Nine assemblies. The shape is forced by two hard constraints, not by taste: the CODESYS bridge is a **net48**
+Eleven assemblies. The shape is forced by two hard constraints, not by taste: the CODESYS bridge is a **net48**
 DLL loaded *in-process* by the IDE, the TwinCAT bridge is a **net10.0-windows** exe driving COM — so everything
 they share must be `netstandard2.0`; and the tray connector **may not reference the engine**, so whatever it
 needs has to sit below it.
@@ -23,6 +23,9 @@ src/Volt.Engine           netstandard2.0  The domain — the whole shareable eng
 src/Volt.Engine.Host      netstandard2.0  BridgePipeHost: the ONE place a wire op maps to a service and gets
                                           marshalled onto the IDE thread. Its own assembly precisely so Engine
                                           references no transport.
+src/Volt.Relay            netstandard2.0  the opt-in relay tunnel both bridges start (PipeHostTunnel.StartIfConfigured,
+                                          a sidecar enables it): forwards allow-listed pipe calls over a WebSocket
+                                          (docs/relay-protocol.md).
 src/Volt.Ide.Codesys  net48 library   CODESYS bridge — driver + pipe host, loaded IN-PROCESS by the IDE.
 src/Volt.Ide.Twincat  net10 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM.
 src/Volt.Ide.Twincat.Explorer  net48 x86 exe  the worker's reader of a 32-bit XAE's Solution Explorer: the hierarchy proxy must match the reader's bitness (DIALECT C2t).

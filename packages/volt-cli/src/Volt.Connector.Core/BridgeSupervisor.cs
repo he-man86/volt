@@ -8,14 +8,13 @@ using Volt.Contracts;
 namespace Volt.Connector
 {
     /// <summary>A headless bridge worker the connector spawns + supervises — an ExternalAttach vendor that
-    /// attaches to a running IDE over its external API (TwinCAT COM/DTE, later Siemens/Allen-Bradley). CODESYS is
+    /// attaches to a running IDE over its external API (TwinCAT COM/DTE). CODESYS is
     /// NOT one: it loads in-proc via user activation and is never spawned (see <c>CodesysActivation</c> in the
     /// tray shell).</summary>
     public sealed record WorkerSpec(string Id, string? Exe, string Args = "");
 
     /// <summary>
-    /// Owns the lifecycle of the headless bridge WORKER processes (the ExternalAttach vendors: TwinCAT, later
-    /// Siemens/Allen-Bradley). Spawns, supervises (respawns on crash), and tears them down. It does NOT launch or
+    /// Owns the lifecycle of the headless bridge WORKER processes (the ExternalAttach vendor: TwinCAT). Spawns, supervises (respawns on crash), and tears them down. It does NOT launch or
     /// open any IDE — CODESYS loads in-proc via user activation, and project selection is a wire op, not a
     /// respawn-with-env. Only ever kills its OWN spawned PIDs (entire child tree) — never a broad process-name
     /// kill, which could take down a live IDE.

@@ -20,7 +20,7 @@ namespace Volt.Ide.Twincat.Tests;
 ///
 /// <para>One of the six was worse than duplicated. <c>TcNetworkWriterTests</c> took its identity oracle from
 /// <c>test/TwinCAT Project14/.../POU_PBD.TcPOU</c> — a file inside the LIVE e2e project, which
-/// <c>twincat-instances.ps1</c> opens IN PLACE and which TwinCAT itself rewrites on save. An offline test's
+/// <c>scripts/ide.ps1 -InPlace</c> opens IN PLACE and which TwinCAT itself rewrites on save. An offline test's
 /// oracle cannot be a file another tier mutates. The suite's own copy is byte-identical (10,997 bytes, verified
 /// at the move), so this changed nothing except who owns the bytes.</para>
 /// </summary>
