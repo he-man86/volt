@@ -11,9 +11,6 @@
  *   - CODESYS reference corpus is present in the LSP package
  *   - one product version across the shipped packages
  *   - the writable-source extension set agrees across every runtime that declares it
- *
- * This used to also check an `opencode-config/` layer Volt shipped into opencode's environment. That layer is
- * gone: every host registers Volt itself, and the installer's only contribution is `bin` on PATH.
  */
 import { resolve, join } from "node:path";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -50,16 +47,9 @@ function report(name: string, result: Result): void {
 console.log("Volt wiring check");
 console.log("=".repeat(40));
 
-console.log("\nAgent-facing surface");
-// THERE IS NO SKILL INSTALLER TO CHECK, and the check that used to be here is the reason to say so: it asserted
-// `dist/src/init.js` was BUILT — that the installer exists — and never that anything called it. Nothing had,
-// since volt-git's `volt init` was absorbed into the C# CLI. A check that can only fail when a file is missing
-// cannot notice a feature with no caller. Removed with the installer (`consolidate-lsp-structure` C8); the
-// agent-facing surface is `volt` + `volt-lsp-iec` on PATH, which the rows below are about.
-
 console.log("\nBuilt binaries");
-// The `volt` PLC CLI is now the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
-// Windows (dotnet), not here. This key-free Linux check covers the LSP + the agent-config layer only.
+// The `volt` PLC CLI is the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
+// Windows (dotnet), not here. This key-free Linux check covers the LSP and the extension.
 check("volt-lsp-iec dist/src/server/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/server/bin.js");
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-iec build";
@@ -78,9 +68,6 @@ check("CODESYS reference corpus index", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/docs/codesys-reference/00-index.md"))
 		|| "corpus missing in packages/volt-lsp-iec/docs/"
 );
-
-// Wire-protocol version parity is gone with the HTTP wire: the toolchain is one C# codebase over the named pipe,
-// so there is no separate client/server to keep in lockstep — the pipe host and client compile against one Core.
 
 console.log("\nProduct version parity");
 // Volt ships ONE version. volt-desktop is the source of truth (it names the release tag; the same number is

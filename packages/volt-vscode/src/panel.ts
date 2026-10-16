@@ -464,7 +464,4 @@ function detectedNode(o: ConnectOption): VoltNode {
 	}
 }
 
-// There is deliberately NO fourth "Agent & Settings" view. It listed a launcher for opencode (an integration Volt
-// no longer has) beside two shortcuts into VS Code's own settings — which every VS Code user already knows how to
-// reach. What remained was a view that existed to hold a link. The commands survive in the palette; the three
-// views left are exactly the three the desktop app shows, so both frontends surface the same information.
+// Exactly three views — the three the desktop app shows — so both frontends surface the same information.

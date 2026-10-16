@@ -397,10 +397,6 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			void vscode.commands.executeCommand("vscode.open", vscode.Uri.file(file))
 		}),
 		reg("volt.openSettings", () => { void vscode.commands.executeCommand("workbench.action.openSettings", "volt") }),
-		// `volt.openReference` WAS HERE, and it told the user to "run `volt init` to scaffold it" — advice that
-		// could not work. The installer it named lived in volt-git's `volt init`; the C# CLI that absorbed that
-		// verb never called it, so the file the command opened was never written by anything
-		// (`consolidate-lsp-structure` C8, removed with the installer).
 		reg("volt.showOutput", () => { output().show() }),
 	]
 }

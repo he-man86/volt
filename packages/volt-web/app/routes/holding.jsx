@@ -1,7 +1,6 @@
-// The site is deliberately reduced to ONE page while Volt is pre-release. Everything else — pricing, features,
-// docs, legal, changelog — is removed from `routes.js` and from `prerender` in react-router.config.js, so those
-// URLs no longer exist rather than serving stale claims about a product that isn't buyable yet.
-// To restore the full site: git revert this commit. DNS and TLS are untouched; only the route set changed.
+// The landing page while Volt is pre-release: this plus the docs pages are the whole route set (`routes.js`,
+// `prerender` in react-router.config.js). The storefront routes — pricing, features, legal, changelog — are
+// removed, so those URLs 404 rather than serving stale claims about a product that isn't buyable yet.
 export function meta() {
   return [
     { title: "Volt" },

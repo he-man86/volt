@@ -2,8 +2,7 @@
 // panel IS the window, with Volt's icon rail beside it. Interactions: click a rail icon to jump between the
 // panel's sections (Connection ↔ Sync ↔ Diagnostics). Drag from the titlebar (data-drag-handle).
 //
-// There is deliberately no chat or editor pane. The app used to embed opencode's GUI as its content view; that
-// integration is gone, and a mockup showing it would advertise a feature the product does not have.
+// There is deliberately no chat or editor pane: the product has none.
 import { useEffect, useRef, useState } from "react"
 import { useAutoplay, useInView } from "../../reveal.jsx"
 import "./desktop-app.css"

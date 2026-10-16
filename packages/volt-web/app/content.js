@@ -7,6 +7,19 @@ export const BRAND = {
   sub: "Everything you expect from a modern AI code editor — plus deep understanding of PLC projects, Structured Text, and the engineering workflow. Built for CODESYS and TwinCAT.",
 }
 
+// The default <head> meta every route without its own `meta` inherits (root.jsx).
+export const SITE_META = {
+  title: "Volt — PLC projects as version-controllable text",
+  description:
+    "Manage CODESYS and TwinCAT projects as version-controllable text: git-native sync with the live IDE, a Structured Text language server, and editor integration.",
+}
+
+// The closing CTA band on the docs pages (FinalCTA.jsx).
+export const FINAL_CTA = {
+  title: "Bring your PLC project into the modern workflow.",
+  lead: "For CODESYS and TwinCAT. Windows.",
+}
+
 // Home feature grid + the per-feature detail pages share this list (slug === the /features/<slug> route).
 export const FEATURES = [
   {

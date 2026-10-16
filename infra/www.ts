@@ -1,10 +1,7 @@
 import { domain } from "./stage"
 
 // Volt's public site — packages/volt-web, a React Router app in framework mode, at the apex.
-//
-// It used to sit at `www.${domain}` because the console held the apex, like opencode's. With the console and
-// the gateway gone (openspec/changes/sell-cli-subscription) nothing else wants that hostname, so the site
-// takes it. This is the ONLY thing Volt deploys.
+// This is the ONLY thing Volt deploys.
 //
 // Still a StaticSite, even though React Router is a server framework: the app sets `ssr: false` and prerenders
 // every route to HTML at build time (react-router.config.js), so the output is plain files. There is no Worker

@@ -15,6 +15,7 @@ existing at all.
 | `bun run release:matrix` | `release-matrix.ts` | THE LIVE RELEASE GATE: e2e over every installed IDE variant, the matrix printed, a red cell fails |
 | `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (refuses without a green `release:matrix` on that build's commit; triggers `promote.yml`) |
 | `bun run check` | `check-wiring.ts` | is everything shipped built + internally consistent? |
+| `bun run test:ext` | `test-extension.ts` | build the `.vsix`, sideload it into every editor CLI on PATH, assert exactly one copy at the expected version |
 | `bun run console` | `packages/volt-cli/scripts/console.ts` | build the CLI + serve the interface console (the docs, and a client that can call all three surfaces) |
 
 That's the whole surface. Everything else here is a **step** of one of those, or infra.
@@ -27,7 +28,7 @@ build-payload.ts        →  dist/volt/     bin/ (+ bin/git, the CLI's MinGit) c
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
-build-installer.ts --upload-only                publishes a PRERELEASE 0.1.<count> (the dev channel — always; no flag)
+build-installer.ts --upload-only                publishes a PRERELEASE <maj>.<min>.<count> (the dev channel — always; no flag)
 ```
 
 RELEASE — promote one of those builds to prod (`release.ts` → `promote.yml`):
@@ -35,7 +36,7 @@ RELEASE — promote one of those builds to prod (`release.ts` → `promote.yml`)
 release-matrix.ts      on the dev machine, at that build's commit: e2e over every installed IDE variant
       ↓                (CI has no CODESYS/TwinCAT) → dist/release-matrix/result.json, green on that commit
 release.ts             checks that result, attaches it to the release as release-matrix.json, then triggers
-                       promote.yml for a chosen 0.1.<count> (via `gh`; nothing installs locally)
+                       promote.yml for a chosen <maj>.<min>.<count> (via `gh`; nothing installs locally)
       ↓ (in CI, on a clean Windows runner)
 verify                 the build is a published prerelease AND its commit's ci.yml is green
       ↓
@@ -48,31 +49,17 @@ test-install.ts        install/update/uninstall ×N, upgrading from the current 
 gh release edit --prerelease=false --latest     flips it to the stable channel
 ```
 
-**There is ONE install gate.** There were two — a smoke gate (one install, one uninstall) and this lifecycle
-gate, which *opens* with the same install/uninstall and then keeps going. The smoke gate was a strict subset, and
-weaker where they overlapped: it checked that files exist, while this one asks each binary for its stamped
-`FileVersion` and compares it to what the install claims. Running both cost a full extra install cycle on the
-release runner to re-prove what the next step re-proved.
-
-Merging them was not free of information, though, and that is the lesson worth keeping: the smoke gate held three
-assertions this one lacked (the tray process is running, the Start Menu shortcut and login item exist) and — the
-reason to be careful — it read the login-item registry value by its **real** name, `VoltConnector`, while this
-gate read `"Volt"` and could therefore never fail. Two gates asserting the same thing in two ways is how the
-wrong one hides. All four are folded in; `installer/Volt.iss` had the same wrong name in its uninstall fallback
-and is fixed too.
-
-The installer's on-disk contract (install dir, the four folders, the stamped binaries, the uninstall key, the reg
-reader) used to live in a separate `install-layout.ts` precisely so the two gates could not drift — they had each
-carried a private copy, and when the payload moved under a junction only one was updated, so the other spent months
-checking paths that no longer existed. With one gate that module had no one to share with; it is inlined at the top
-of `test-install.ts`, beside its only reader, and names the same paths as `dist/stage` and `installer/README.md`.
+**There is ONE install gate**, `test-install.ts`. It asks each binary for its stamped `FileVersion`, and checks the
+tray is running and the Start Menu shortcut and login item (`VoltConnector`, by its real name) exist. Its on-disk
+contract (install dir, folders, stamped binaries, uninstall key) sits at the top of the script, beside its only
+reader, and names the same paths as `dist/stage` and `installer/README.md`.
 
 `release.ts` is only a TRIGGER — it points a build at `promote.yml` (or you Run the workflow from the Actions tab).
 The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup, and never installs on your box.
 
 **`build-payload.ts` deliberately has no `bun run`.** It's a stage, not a destination — "the payload" is just
 everything the installer will contain. You want `build:installer`. Run it directly (`bun
-scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
+scripts/build-payload.ts`) only to debug that stage; `--no-cli` skips dotnet.
 
 **`binary-targets.ts` is a step of `build-payload.ts`** (its self-check, after the by-name file list): it reads the PE
 header of every `.exe`/`.dll` in the payload and refuses one built for a CPU its place does not allow — the in-proc
@@ -143,12 +130,6 @@ VS Code extension manifest, and the Claude Code plugin's `extensionToLanguage` i
 manifest (`LibraryManifest.Materialization`) against the one the LSP reads (`MATERIALIZATION`), since a mismatch
 silences every network-text diagnostic. Offline and key-free, so **CI runs it on every push/PR**.
 
-> This used to be `bun run compat`, a two-step gate whose real purpose was `verify-opencode.ts` — driving the
-> installed opencode binary to confirm it still loaded Volt's `opencode-config/` layer. Both are deleted along
-> with the integration they tested. Volt no longer ships configuration into any agent product, so there is no
-> third-party contract left to track: hosts register Volt through their own mechanisms, and the only thing the
-> installer publishes is `PATH`.
-
 ## Infra (not the Volt product)
 
 | Script | Does |
@@ -156,12 +137,8 @@ silences every network-text diagnostic. Offline and key-free, so **CI runs it on
 | `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
 | `measure-payload.ts` | read-only: the installer payload per component (`dist/stage`, uncompressed, MiB) + the installer size — `bun scripts/measure-payload.ts [stage] [installer]`; buckets by role (same rows for the old and the new layout), refuses an unclaimed file or an empty required lever |
 
-> **There are no infra scripts any more.** Volt deploys one thing — the static site at `packages/volt-web` —
-> and it needs no secrets: `bunx sst deploy --stage <stage>` with a `CLOUDFLARE_API_TOKEN`. See `infra/README.md`.
->
-> Deleted with the gateway and the vendored console: `deploy-secrets.ts`, `set-models.ts`,
-> `gen-model-config.ts` and `update-models.ts`. Payment, EU VAT, licence keys and the customer portal are
-> Polar's, so there is no catalog to publish and no secret to provision.
+Volt deploys one thing — the static site at `packages/volt-web` — and it needs no secrets: `bunx sst deploy --stage
+<stage>` with a `CLOUDFLARE_API_TOKEN`. See `infra/README.md`.
 
 ## Where the package-specific scripts went
 

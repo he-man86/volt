@@ -292,8 +292,8 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     }),
   )
 
-  // Open an EXISTING Volt workspace. Without opencode there is no external "current project" signal, so besides the
-  // remembered last workspace this is the only way back into a workspace that already exists — and the only way to
+  // Open an EXISTING Volt workspace. Besides the remembered last workspace this is the only way back into a
+  // workspace that already exists — and the only way to
   // switch between two of them. Binding a folder that isn't a Volt workspace is not an error: the panel says so and
   // offers to set it up.
   ipcMain.handle("volt:openWorkspace", async () => {

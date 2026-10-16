@@ -123,9 +123,7 @@ const VOLT_SECTIONS = [
   // NOTE: the "IDE Connection" view leads the container (built dynamically in the component — interactive
   // connect ⇄ disconnect) and is prepended to these in `voltSections`.
   //
-  // THREE views, no more. An "Agent & Settings" one used to follow these, holding a launcher for opencode plus
-  // two shortcuts into VS Code's own settings; both are gone, and these three now match the desktop app's three
-  // panel sections exactly.
+  // THREE views, no more — they match the desktop app's three panel sections exactly.
 ]
 
 const runCmd = (raw) => {

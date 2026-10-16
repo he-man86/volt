@@ -6,6 +6,7 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import "./styles.css"
 import { PageHeader } from "./components/ui.jsx"
+import { SITE_META } from "./content.js"
 
 // Cloudflare Web Analytics, injected only when the token is set — local builds and previews stay beacon-free.
 // `import.meta.env` is inlined at build, so an unset token removes the tag entirely rather than shipping a null.
@@ -13,12 +14,8 @@ const CF_ANALYTICS_TOKEN = import.meta.env.VITE_CF_ANALYTICS_TOKEN
 
 // Route modules that don't export their own `meta` inherit these.
 export const meta = () => [
-  { title: "Volt — AI for Industrial Automation" },
-  {
-    name: "description",
-    content:
-      "Everything you expect from modern AI coding tools — plus deep understanding of PLC projects, industrial automation, and engineering workflows. Beckhoff and CODESYS.",
-  },
+  { title: SITE_META.title },
+  { name: "description", content: SITE_META.description },
 ]
 
 export function Layout({ children }) {

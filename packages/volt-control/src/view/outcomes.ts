@@ -66,17 +66,8 @@ export function describeDisconnect(r: { ok: boolean }): OutcomeView {
   return { tone: "info", message: "Stopped syncing this project here. The IDE stays open — connect again to resume.", actions: [] }
 }
 
-/** No shared INIT confirm, deliberately. `confirmInitMessage`/`confirmInitDetail` lived here and were never
- *  called by either shell — VS Code imported them and hardcoded its own; the desktop has none by design,
- *  because its flow is a folder PICKER and the picker plus the button is the confirmation.
- *
- *  Deleted rather than wired up, on two grounds. Their copy had gone stale: it says "set up this folder" from
- *  when init bound an existing folder, and init now CREATES one inside a chosen parent. And the `platform`
- *  parameter would print a vendor label, contradicting the vendor-blind rule both panels are tested against.
- *  Wiring them was not a refactor but a rewrite, and adding a third helper beside a dead pair is accumulation.
- *
- *  Init confirmation is host-shaped: a modal in VS Code, a folder picker on the desktop. That is the finding,
- *  not an omission to be closed later. */
+/** No shared INIT confirm: init confirmation is host-shaped — a modal in VS Code, a folder picker on the desktop
+ *  (the picker plus the button is the confirmation). */
 
 export function describePull(outcome: PullOutcome): OutcomeView {
   switch (outcome.kind) {

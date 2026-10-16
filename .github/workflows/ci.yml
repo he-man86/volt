@@ -3,19 +3,12 @@
 # `dev` branch protection requires NO status check (verified against the API: `required_status_checks` is null).
 # Only force-pushes and branch deletion are rejected. These jobs inform; a red one is a signal to fix forward.
 #
-# WHY ONE FILE: these ran as five workflows that were ~70% identical boilerplate (name/on/concurrency +
-# checkout/setup-bun/install), on the belief that a separate workflow was needed for a separate PR check. It
-# isn't: a check run is named after the JOB, not the workflow — console-build.yml was named "console-build" but
-# its job is `build`, and GitHub reported the check as "build". Same checks, one set of triggers.
+# ONE FILE: a check run is named after the JOB, not the workflow, so one workflow reports one check per job.
 #
-# The path-filtered deploy workflow stays separate because it needs its own `on:` paths — that's the
-# one thing a job can't override. release.yml is push-to-dev (prerelease) + tag-triggered (stable).
+# The path-filtered deploy workflow stays separate because it needs its own `on:` paths — that's the one thing a
+# job can't override. release.yml (a prerelease) and promote.yml (prerelease -> stable) are workflow_dispatch only.
 #
-# NAMES: keep the job ids stable so the run history stays readable, NOT because anything gates on them. The
-# header here used to say the opposite — "LOAD-BEARING: `dev` protection requires the contexts typecheck / test
-# / lint / integration / volt-cli / openspec… rename one and every PR blocks forever" — and every clause of it
-# was false by the time it was read. A comment that overstates what a rename costs is how a job nobody needs
-# survives, because nobody dares touch it.
+# NAMES: keep the job ids stable so the run history stays readable, NOT because anything gates on them.
 #
 # `volt-cli` (the C# toolchain) and the C# half of `cultures` run on windows-latest — the net48/net10-windows IDE hosts + WinForms
 # connector don't build on Linux.
@@ -120,8 +113,8 @@ jobs:
       - name: Build binaries (feeds the wiring check)
         run: |
           bun run --cwd packages/volt-lsp-iec build   # lsp-iec first (dependency order)
-          bun run --cwd packages/volt-vscode build     # extension + bundled cli.js/lsp-server.js
-      - name: Wiring check (config layer + LSP/tool registration)
+          bun run --cwd packages/volt-vscode build     # extension + bundled lsp-server.js
+      - name: Wiring check (built binaries + source-extension + version parity)
         run: bun run scripts/check-wiring.ts
       # The extension-install gate. A Linux runner has no editor, so this checks the half that does not need one —
       # that `bun run package` stamps the GIT-DERIVED version. That is the regression that actually shipped: a
@@ -135,8 +128,8 @@ jobs:
         run: bun run test:ext
 
   # The unified C# toolchain (packages/volt-cli). Windows-only: the solution builds the net48 in-proc CODESYS host,
-  # the net10-windows TwinCAT worker, and the WinForms connector, none of which compile on Linux. A required context
-  # (see the header note) — the C# suite gates every PR.
+  # the net10-windows TwinCAT worker, and the WinForms connector, none of which compile on Linux. Advisory, like
+  # every job here.
   volt-cli:
     runs-on: windows-latest
     steps:
@@ -153,7 +146,7 @@ jobs:
         run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
       - name: Test — pipe transport + ported sync + black-box + CODESYS multi-instance
         run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — shared engine (parsing/PLCopen/VG + push/validate incl. delete-idempotency)
+      - name: Test — shared engine (ST + network text + push/validate incl. delete-idempotency)
         run: dotnet test packages/volt-cli/test/Volt.Engine.Tests/Volt.Engine.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
       - name: Test — connector (connection model, discovery source, single-active + disconnect)
         run: dotnet test packages/volt-cli/test/Volt.Connector.Tests/Volt.Connector.Tests.csproj -c Release --nologo --blame-hang-timeout 10m

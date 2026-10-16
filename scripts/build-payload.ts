@@ -130,18 +130,8 @@ if (process.env.VOLT_VERSION) {
   }
 }
 
-// NO DOCS CORPUS IN THE PAYLOAD. It was shipped beside the binaries for one reader — `volt init`'s
-// `installCorpus`, which wrote the ST language reference into `.claude/skills/st-reference/` in the user's
-// project. That installer's caller was volt-git's `volt init`; the C# CLI that absorbed it never called it, so
-// the feature had been shipped-but-dead for some time and the payload was carrying 948K for nobody. Removed
-// with it (`consolidate-lsp-structure` C8), which is also the direction CLAUDE.md points: Volt writes into no
-// other vendor's configuration, and the reference reaches an agent the way everything else does — the LSP on
-// PATH. `packages/volt-lsp-iec/docs/` stays: it is the repo's own reference and several scripts read it.
-
-// NOTE: no agent-config layer ships here. Volt used to bundle an `opencode-config/` directory and publish it via
-// OPENCODE_CONFIG_DIR — one product's config format, installed into that product's environment. That coupling is
-// gone. Every host now registers Volt through its own native mechanism (the `volt-vscode` extension for the VS
-// Code family, a plugin for Claude Code), and the installer's whole contribution is putting `bin` on PATH.
+// No docs corpus and no agent config ship in the payload: the reference reaches an agent through the LSP on PATH,
+// and hosts register Volt themselves (CLAUDE.md, "Agent hosts").
 
 if (!skipCli) {
   console.log("• volt CLI + pipe workers + connector (C#)")

@@ -4,7 +4,7 @@
  * pulled from the Marketplace — release.yml never publishes it), and the mechanism has three documented sharp
  * edges that silently leave the engineer running old code:
  *
- *   1. A VSIX-installed extension NEVER auto-updates. Nothing but our installer will ever move it.
+ *   1. A VSIX-installed extension NEVER auto-updates. Nothing but another sideload will ever move it.
  *   2. `--install-extension` is a NO-OP unless the .vsix version is strictly higher than what's installed. The
  *      local `bun run package` used to stamp the base 0.0.1 — lower than every installed dev build — so a local
  *      build appeared to install and changed nothing. That is the bug this file exists to make impossible.
