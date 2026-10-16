@@ -54,18 +54,25 @@ Investigated 2026-10-16 (live, TcXaeShell 15 x86, fixture 13). The evidence is i
   - **Risks:** unwritten serializer rules, C2i crashes, no Parallel template, and a slow reload per push.
 - **C — keep today's route** with its refusals and reshapes.
 
-## Decision (owner, 2026-10-16): C — PLCopen stays on TwinCAT
+## Decision (owner, 2026-10-16)
 
-"This is not how TwinCAT intended it." Beckhoff's door for an outside tool is the Automation Interface (COM). For
-graphical code that door is `PlcOpenImport` / export. An in-proc TcXaeShell extension is how Beckhoff ships its own
-add-ons, and it needs an admin install per machine. Hand-built archives are validated by nothing on load and can crash
-the IDE. Both alternatives were measured (proposal "Findings", research.md) and rejected, so PLCopen on TwinCAT is an
-accepted vendor difference (wire-divergence rule: two measured alternatives + owner OK). The CODESYS side keeps its one
-in-proc writer.
+- **Rejected: an in-proc TcXaeShell extension.** It is not how Beckhoff intends an outside tool to work, and it needs
+  an admin install.
+- **Confirmed (DIALECT N39):** TwinCAT's Automation Interface exposes no NWL object out of process. `LanguageModel` is
+  an empty string, and 189 interfaces were swept.
+- **The NWL model is reachable only as the native `<NWL><XmlArchive>` text.** That text is COMPLETE, because it is what
+  TwinCAT saves and what it copies between projects. It is read and written through the supported calls
+  `ImplementationXml` and `DocumentXml` (N3, N7). PLCopen XML is an exchange format, and it loses shapes.
+- **Direction: a native-format writer, measure first.** It is the door to the CODESYS standard with no PLCopen,
+  extension or admin. PLCopen stays until the writer is proven, and the owner OKs the swap.
 
-What remains worth doing, within the PLCopen route:
-- correct the false parity claims (task 1.1);
-- per refused shape, check whether PLCopen can express it after all, and keep refusing only what it measurably cannot.
+The discipline, because the first hand-built try broke a load (attempt 1):
+1. **Identity gate:** the writer rewrites every archive in the fixtures and corpora byte for byte, before it writes
+   anything new.
+2. **New nodes come only from IDE-drawn templates.** Draw each node type once in the editor (a parallel included) and
+   capture it. Never infer a member order.
+3. **E2e reload gate:** every new shape is saved, reloaded, built with 0 errors, opened in the editor, and pulled back
+   to the same text, in LD and FBD.
 
 ## Decisions that were open (superseded by C above)
 
