@@ -341,7 +341,7 @@ P10 Old spellings are refused with a pointer to the new one (no aliases): `.ENO`
 | C1 | Does CODESYS refill `OutputParam.Types`/`.Names` itself (open the LD editor, build) after a push writes them empty? | B7 |
 | C2 | Adversarial: two NWL trees that print the same text under B1–B8, or a text that reads to two trees (every corpus network + the probes). | all |
 | C3 | Does any IDE store a 3-input SUB/DIV/MOD/comparison box? | B1 guard |
-| C4 | Per member, how many corpus networks go `UNSUPPORTED` under B7 (1b.2 reach: `Fixed` 1914, `Boolean` 2347, `Address` sentinel 258, `BranchCounter` 23 bodies)? More than a handful → STOP for the owner. | B7 |
+| C4 | Per member, how many corpus networks go `UNSUPPORTED` under B7 (1b.2 reach: `Fixed` 1914, `Boolean` 2347, `Address` sentinel 258, `BranchCounter` 23 bodies)? More than a handful → STOP for the owner. Also: how many corpus splits store a type that differs from their feeder's (B6 inline types). | B6, B7 |
 | C5 | Corpus reach of each rule, and the line count of the six corpora before/after. | all |
 
 ## Cost
