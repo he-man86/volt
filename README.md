@@ -31,7 +31,7 @@ Bun workspaces (no Turbo — task-running is bun-native `--filter`). Requires `b
 bun install
 bun run build          # build the TS packages
 bun run build:installer # the product → dist/release/Volt-win-Setup.exe
-bun run check          # wiring check (built binaries + source-extension/version parity)
+bun run check          # wiring check (built binaries + source-extension parity)
 bun run typecheck && bun run lint
 ```
 

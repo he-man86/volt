@@ -7,7 +7,7 @@
  *
  *   bun scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
  *   bun scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
- *   bun scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
+ *   bun scripts/build-installer.ts --upload-only   # publish the already-built installer as a prerelease via gh
  *
  * Pipeline: build-payload.ts (dist/volt: bin/ connector/ codesys/) → electron-builder --dir (the branded Electron
  * app, VoltDesktop.exe) → dist/stage = dist/volt + desktop/, which IS the install tree ({app}) → ISCC compiles
@@ -37,8 +37,7 @@ const release = resolve(repo, "dist/release")
 const desktopDir = resolve(repo, "packages/volt-desktop")
 const icon = resolve(desktopDir, "assets/volt-icon.ico")
 const skipDist = process.argv.includes("--skip-dist")
-const upload = process.argv.includes("--upload")
-// --upload-only: skip the whole build, just publish the already-built dist/release installer.
+// --upload-only: skip the whole build, just publish the already-built dist/release installer (release.yml).
 const uploadOnly = process.argv.includes("--upload-only")
 // This publish is ALWAYS a PRERELEASE (the dev channel) — the connector's stable updater ignores prereleases, only
 // `VOLT_UPDATE_CHANNEL=dev` picks them up. There is no path to publish stable here: a RELEASE promotes an existing
@@ -47,9 +46,7 @@ const uploadOnly = process.argv.includes("--upload-only")
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
-    // Redact secret values (e.g. a `--token <PAT>`) so a failure never echoes them into CI logs.
-    const safe = args.map((a, i) => (args[i - 1] === "--token" ? "***" : a))
-    console.error(`✗ failed: ${cmd} ${safe.join(" ")}`)
+    console.error(`✗ failed: ${cmd} ${args.join(" ")}`)
     process.exit(1)
   }
 }
@@ -60,17 +57,16 @@ function run(cmd: string, args: string[], cwd = repo, shell = true): void {
 // the asset. gh reads GH_TOKEN/GITHUB_TOKEN from env.
 function publish(setupExe: string): void {
   const sha = process.env.GITHUB_SHA || spawnSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).stdout?.trim() || ""
-  const kind = "--prerelease"
   console.log(`• gh release (prerelease) → he-man86/volt ${version}`)
   // No --title (its space would need quoting under shell:true; gh defaults the title to the tag).
   const created = spawnSync(
     "gh",
-    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--generate-notes", kind, ...(sha ? ["--target", sha] : [])],
+    ["release", "create", version, setupExe, "--repo", "he-man86/volt", "--generate-notes", "--prerelease", ...(sha ? ["--target", sha] : [])],
     { cwd: repo, stdio: "inherit", shell: true },
   )
   if (created.status !== 0) {
     run("gh", ["release", "upload", version, setupExe, "--repo", "he-man86/volt", "--clobber"])
-    run("gh", ["release", "edit", version, "--repo", "he-man86/volt", kind])
+    run("gh", ["release", "edit", version, "--repo", "he-man86/volt", "--prerelease"])
   }
 }
 
@@ -229,6 +225,5 @@ run(iscc, [
 ], repo, false)
 
 const setup = resolve(release, "Volt-win-Setup.exe")
-if (upload) publish(setup)
 
 console.log(`\n✓ ${setup}`)

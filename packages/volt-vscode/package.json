@@ -20,8 +20,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onLanguage:structured-text",
-    "workspaceContains:**/*.{pou,itf,gvl,dut,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
+    "onLanguage:structured-text"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -772,7 +771,6 @@
   },
   "scripts": {
     "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-iec/src/server/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs",
-    "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "package": "bun run build && vsce package --no-dependencies --no-update-package-json $(bun ../../scripts/version.ts --version)",

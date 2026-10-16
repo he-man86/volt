@@ -46,7 +46,7 @@ bun run build               # build the TS packages (bun --filter; the C# bridge
 bun run build:installer     # the product → dist/release/Volt-win-Setup.exe (payload + electron + Inno)
 bun run test:install        # THE install gate: install/uninstall/update ×N on a real machine (Windows)
 bun run release:matrix      # THE live release gate: e2e over every installed IDE variant (CODESYS SP × 32/64-bit, XAE shells)
-bun run check               # wiring check: built binaries + source-extension + product-version parity
+bun run check               # wiring check: built binaries + source-extension parity
 bun run typecheck           # tsc --noEmit across all volt packages
 bun run lint                # oxlint
 ```
@@ -182,11 +182,11 @@ There are only **three delivery mechanisms** across every host that matters, and
 ## The wiring check
 
 ```
-bun run check      # built binaries + source-extension parity + product-version parity
+bun run check      # built binaries + source-extension parity
 ```
 
 Offline and key-free, so CI runs it on every push. It asserts the writable-source extension set agrees across
-every runtime that declares it (C#, the LSP, volt-control, four separate places in the VS Code manifest, and the Claude Code plugin's `extensionToLanguage`) —
+every runtime that declares it (C#, the LSP, volt-control, three separate places in the VS Code extension, and the Claude Code plugin's `extensionToLanguage`) —
 a new source kind can't be added in one place and silently missed in another.
 
 > This replaced `bun run compat`, a two-step gate whose real purpose was `verify-opencode.ts`: driving the

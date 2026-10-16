@@ -23,7 +23,7 @@
  * reopened — a window reload is not enough. Microsoft closed that as-designed (microsoft/vscode#68234). The gate
  * checks what is INSTALLED on disk; the reminder below is the rest of the story.
  *
- *   bun run test:ext            # build + install into every editor on PATH + verify
+ *   bun run test:ext            # stop orphaned Volt LSPs + build + install into every editor on PATH + verify
  *   bun run test:ext --verify   # verify what is already installed (no build, no install)
  */
 import { spawnSync } from "node:child_process"
@@ -40,7 +40,7 @@ const pkgDir = resolve(repo, "packages/volt-vscode")
 const EXT_ID = "volt-ai.volt-vscode"
 const verifyOnly = process.argv.includes("--verify")
 
-// The same (extensions dir → CLI) pairing the installer and reinstall-dev.ps1 use, so all three cover one set.
+// The (extensions dir → CLI) pairs: every editor the extension can be sideloaded into.
 const EDITORS = !editorsInspectable ? [] : [
   { dir: ".vscode", cli: "code" },
   { dir: ".vscode-insiders", cli: "code-insiders" },
@@ -85,6 +85,20 @@ if (!verifyOnly) {
   console.log("verify-only: asserting every editor agrees on ONE version, one folder each\n")
 }
 const seen = new Map<string, string>() // cli → reported version, for the cross-editor agreement check
+
+// ── 1b. stop orphaned Volt language servers ──────────────────────────────────
+// An interrupted install or an un-awaited LSP shutdown leaves the old server running as a ZOMBIE that serves stale
+// results and survives window reloads. Match the extension's bundled server specifically (`lsp-server.js` under
+// `volt-vscode`), never a bare `volt`, and never this PowerShell itself (its own command line names both).
+if (!verifyOnly && editorsInspectable) {
+  const ps =
+    "Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'lsp-server\\.js' -and $_.CommandLine -match 'volt-vscode' } | " +
+    "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }"
+  const r = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8" })
+  if (r.status !== 0) fail(`could not list running Volt language servers: ${(r.stderr ?? "").trim()}`)
+  const killed = (r.stdout ?? "").split(/\r?\n/).filter((l) => l.trim() !== "")
+  console.log(`• stopped ${killed.length} orphaned Volt language server(s)${killed.length ? ` (pid ${killed.join(", ")})` : ""}`)
+}
 
 // ── 2 + 3. install, then assert what the editor actually has ─────────────────
 let present = 0

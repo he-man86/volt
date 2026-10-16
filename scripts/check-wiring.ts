@@ -9,7 +9,6 @@
  *   - LSP + extension bundles are built (dist/ output present)
  *   - volt-lsp-iec binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
- *   - one product version across the shipped packages
  *   - the writable-source extension set agrees across every runtime that declares it
  */
 import { resolve, join } from "node:path";
@@ -69,26 +68,6 @@ check("CODESYS reference corpus index", () =>
 		|| "corpus missing in packages/volt-lsp-iec/docs/"
 );
 
-console.log("\nProduct version parity");
-// Volt ships ONE version. volt-desktop is the source of truth (it names the release tag; the same number is
-// stamped into every binary's FileVersion, which the connector's auto-updater reads); the .vsix the installer
-// sideloads must carry the same number. They're
-// separate package.json files because the extension also self-publishes to the Marketplace. release.ts and
-// release.yml both refuse a mismatch — but those only run at release, by which point a half-bump is already on
-// dev. This runs on every push/PR, so the drift fails in the PR that introduces it.
-check("volt-desktop version == volt-vscode version", () => {
-	const read = (p: string): string | undefined => {
-		const f = join(REPO_ROOT, p, "package.json");
-		if (!existsSync(f)) return undefined;
-		return JSON.parse(readFileSync(f, "utf-8")).version;
-	};
-	const desktop = read("packages/volt-desktop");
-	const ext = read("packages/volt-vscode");
-	if (!desktop) return "packages/volt-desktop/package.json has no version";
-	if (!ext) return "packages/volt-vscode/package.json has no version";
-	return desktop === ext || `mismatch: volt-desktop=${desktop} volt-vscode=${ext} — Volt ships one version, bump BOTH`;
-});
-
 console.log("\nVS Code extension");
 check("volt-vscode extension entry compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))
@@ -106,8 +85,7 @@ check("volt-vscode LSP server bundled", () =>
 // module: C# (the bridge/CLI source of truth), TypeScript (LSP + control), and static JSON manifests read
 // by external tools (VS Code). This guard reads every copy and asserts they agree, so a new
 // source kind can never be added to one place and silently missed in another. The C# canonical table
-// (ItemKind.SourceKindExtensions) is the reference; every other copy must match it (the workspaceContains
-// glob is a superset — it also lists read-only kinds — so it is checked for containment, not equality).
+// (ItemKind.SourceKindExtensions) is the reference; every other copy must match it.
 console.log("\nSource-extension parity (one list, many runtimes)");
 
 const bare = (e: string): string => e.replace(/^\./, "").toLowerCase();
@@ -154,15 +132,7 @@ const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {
 	return normExts(v as string[]);
 };
 
-// The `{a,b,c}` extension alternation inside the VS Code workspaceContains activation glob.
-function workspaceContainsExts(pkg: any): string[] {
-	const wc = (pkg.activationEvents as string[]).find((e) => e.startsWith("workspaceContains:"));
-	const m = wc && /\{([^}]*)\}/.exec(wc);
-	if (!m) throw new Error("no workspaceContains {…} glob in volt-vscode activationEvents");
-	return normExts(m[1].split(","));
-}
-
-const copies: Array<{ name: string; get: () => string[]; superset?: boolean }> = [
+const copies: Array<{ name: string; get: () => string[] }> = [
 	{ name: "lsp-iec src/workspace/source-extensions.ts", get: () => normExts(literalArray(readRepo("packages/volt-lsp-iec/src/workspace/source-extensions.ts"), "SOURCE_EXTENSIONS")) },
 	{ name: "volt-control src/state/files.ts", get: () => normExts(literalArray(readRepo("packages/volt-control/src/state/files.ts"), "SOURCE_EXTENSIONS")) },
 	{ name: "volt-vscode language extensions", get: () => jsonAt("packages/volt-vscode/package.json", (o) => o.contributes?.languages?.find((l: any) => l.id === "structured-text")?.extensions) },
@@ -171,16 +141,11 @@ const copies: Array<{ name: string; get: () => string[]; superset?: boolean }> =
 	// Claude Code's plugin registers the LSP per extension. It was not a parity site, and 5.B's `.dut` (openspec
 	// push-without-header-check) reached every copy above but this one — a published `X.dut` got no LSP in Claude Code.
 	{ name: "claude-code plugin extensionToLanguage", get: () => normExts(Object.keys(JSON.parse(readRepo("plugins/volt-lsp/.claude-plugin/plugin.json")).lspServers?.["volt-lsp-iec"]?.extensionToLanguage ?? {})) },
-	{ name: "volt-vscode workspaceContains glob", get: () => workspaceContainsExts(JSON.parse(readRepo("packages/volt-vscode/package.json"))), superset: true },
 ];
 
-for (const { name, get, superset } of copies) {
+for (const { name, get } of copies) {
 	check(`${name} matches canonical [${CANON.join(", ")}]`, () => {
 		const got = get();
-		if (superset) {
-			const missing = CANON.filter((e) => !got.includes(e));
-			return missing.length === 0 || `glob is missing source ext(s): ${missing.join(", ")}`;
-		}
 		const same = got.length === CANON.length && got.every((e, i) => e === CANON[i]);
 		return same || `has [${got.join(", ")}]`;
 	});

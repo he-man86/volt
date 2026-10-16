@@ -70,7 +70,7 @@ on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe
 `ArchitecturesAllowed`) is held as text by `Volt.Repo.Gates/ShippedBinaryTargetTests`.
 
 Useful flags on `build-installer.ts`: `--skip-dist` (reuse the current `dist/volt`), `--rebuild-app` (force
-electron-builder), `--upload` / `--upload-only`.
+electron-builder), `--upload-only` (publish the already-built installer; what `release.yml` runs).
 
 **The product ships with LD and FBD off.** Network text is on only in a process whose environment holds
 `VOLT_GRAPHICAL=1`, and nothing on this path sets it — not `build-payload.ts`, not `build-installer.ts`, not
@@ -124,9 +124,9 @@ still owed to a VM.
 
 ## The wiring check
 
-`bun run check` (`check-wiring.ts`) — built binaries, product-version parity, and **source-extension parity across
-every runtime that declares the writable-source set** (C#, the LSP, volt-control, four separate places in the
-VS Code extension manifest, and the Claude Code plugin's `extensionToLanguage` in `plugins/volt-lsp`), and **materialization parity** — the format number the C# CLI writes on every library
+`bun run check` (`check-wiring.ts`) — built binaries and **source-extension parity across
+every runtime that declares the writable-source set** (C#, the LSP, volt-control, three separate places in the
+VS Code extension, and the Claude Code plugin's `extensionToLanguage` in `plugins/volt-lsp`), and **materialization parity** — the format number the C# CLI writes on every library
 manifest (`LibraryManifest.Materialization`) against the one the LSP reads (`MATERIALIZATION`), since a mismatch
 silences every network-text diagnostic. Offline and key-free, so **CI runs it on every push/PR**.
 
@@ -135,7 +135,6 @@ silences every network-text diagnostic. Offline and key-free, so **CI runs it on
 | Script | Does |
 |---|---|
 | `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
-| `measure-payload.ts` | read-only: the installer payload per component (`dist/stage`, uncompressed, MiB) + the installer size — `bun scripts/measure-payload.ts [stage] [installer]`; buckets by role (same rows for the old and the new layout), refuses an unclaimed file or an empty required lever |
 
 Volt deploys one thing — the static site at `packages/volt-web` — and it needs no secrets: `bunx sst deploy --stage
 <stage>` with a `CLOUDFLARE_API_TOKEN`. See `infra/README.md`.
@@ -166,7 +165,8 @@ mechanism has three documented sharp edges that silently leave you running old c
    not enough. Microsoft closed this as-designed ([vscode#68234](https://github.com/microsoft/vscode/issues/68234)).
    No test can assert around it; the gate prints the reminder.
 
-`bun run test:ext` builds, installs into every editor CLI on PATH, and fails unless each reports exactly one copy
+`bun run test:ext` stops any orphaned Volt language server (one left behind by an interrupted install serves stale
+results across window reloads), builds, installs into every editor CLI on PATH, and fails unless each reports exactly one copy
 at exactly the expected version. `--verify` inspects what is already installed without building (it can't demand
 HEAD's version — that moves with every commit — so it asserts the editors agree instead). Orphaned version folders
 are a warning, not a failure: `--uninstall-extension` deregisters immediately but leaves the directory for the
