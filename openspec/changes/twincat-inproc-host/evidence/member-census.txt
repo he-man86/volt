@@ -1,0 +1,63 @@
+254 files, 155 archives
+?: 2161 objects, 23 distinct member list(s)
+   347x  Operand,Type,Comment,SymbolComment,Address,Flags,LValue,Boolean,IsInstance,Id
+   96x  OutputItems,Flags,RValue,Id
+   233x  ILActive,FBDValid,ILValid,ILLines,Comment,Title,Label,OutCommented,NetworkItems,Connectors,Id
+   720x  Operand,Id
+   26x  Id,Tag,Text
+   107x  BoxType,Instance,OutputItems,Flags,InputFlags,InputItems,InputParam,OutputParam,CallType,EN,ENO,STSnippet,ContainsExtensibleInputs,ProvidesSTSnippet,Id
+   181x  AttributeId,Value,Id,IdParent
+   32x  Factory,Id,Identifier,Parent,Description
+   112x  ReadOnly,Hidden,EditorVisibility,MultiLineEdit,Factory,Id,Identifier,Parent,Description
+   64x  Identifier,Value,Key
+   16x  TemplateGuid,Values,BaseType
+   73x  Use,Declare
+   10x  BoxType,Instance,OutputItems,Flags,InputFlags,InputItems,InputParam,OutputParam,EN,ENO,STSnippet,ContainsExtensibleInputs,ProvidesSTSnippet,Id
+   6x  VarId,Input,Id
+   10x  Bounds,ElementGroupId,IsExtensiblePin,ProcessValue,Access,Negated,SetReset,SetResetRef,PretendsToBeConnected,Id
+   5x  Bounds,ElementGroupId,Negated,SetReset,SetResetRef,PretendsToBeConnected,Id
+   25x  Bounds,ElementGroupId,Text,Modifiable,Id
+   12x  ConnectionId,StartPoint,Unroutable,CorrespondingPageId,Locked
+   28x  X,Y,IsJoint,Flags
+   12x  InnerList
+   42x  Flags,Fixed,Extensible
+   3x  Operand
+   1x  BoxType,Instance,OutputItems,InputItems
+BoolValue: 55 objects, 1 distinct member list(s)
+BoxTreeAssign: 16 objects, 1 distinct member list(s)
+BoxTreeBox: 100 objects, 1 distinct member list(s)
+BoxTreeDemux: 26 objects, 1 distinct member list(s)
+BoxTreeOperand: 137 objects, 1 distinct member list(s)
+BoxTreeTerminator: 8 objects, 1 distinct member list(s)
+CFCBoxElement: 5 objects, 1 distinct member list(s)
+CFCConnection: 12 objects, 1 distinct member list(s)
+CFCImplementationObject: 17 objects, 1 distinct member list(s)
+CFCInputElement: 8 objects, 1 distinct member list(s)
+CFCInputPinWithSetReset: 2 objects, 1 distinct member list(s)
+CFCItemList: 37 objects, 1 distinct member list(s)
+CFCOutputElement: 2 objects, 1 distinct member list(s)
+CFCOutputPin: 8 objects, 1 distinct member list(s)
+CFCPoint: 12 objects, 1 distinct member list(s)
+CFCRoutingPathTable: 17 objects, 1 distinct member list(s)
+CFCText: 10 objects, 1 distinct member list(s)
+EnumValue: 24 objects, 1 distinct member list(s)
+Flags: 1758 objects, 1 distinct member list(s)
+NWLImplementationObject: 125 objects, 2 distinct member list(s)
+   124x  NetworkListComment,DefaultViewMode,NetworkList,BranchCounter,ValidIds
+   1x  NetworkListComment,DefaultViewMode,NetworkList,BranchCounter
+Operand: 1077 objects, 2 distinct member list(s)
+   1074x  Operand,Type,Comment,SymbolComment,Address,Flags,LValue,Boolean,IsInstance,Id
+   3x  Operand
+OutputItemList: 330 objects, 1 distinct member list(s)
+ParamList: 434 objects, 1 distinct member list(s)
+SFCElementList: 16 objects, 1 distinct member list(s)
+SFCImplementationObject: 8 objects, 1 distinct member list(s)
+SFCJump: 8 objects, 1 distinct member list(s)
+SFCProperty: 5 objects, 1 distinct member list(s)
+SFCSegment: 8 objects, 1 distinct member list(s)
+SFCStep: 8 objects, 1 distinct member list(s)
+SFCTransition: 8 objects, 1 distinct member list(s)
+STImplementationObject: 14 objects, 1 distinct member list(s)
+STSnippet: 14 objects, 1 distinct member list(s)
+StringValue: 102 objects, 1 distinct member list(s)
+TextDocument: 14 objects, 1 distinct member list(s)
