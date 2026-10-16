@@ -37,24 +37,24 @@ END_NETWORK
 NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
   VAR_TEMP split174, split175, split176, split177 : BOOL; END_VAR
   split174 := TRUE;
-  tInt MOVE 0 ENABLE split174;
+  MOVE 0 => tInt ENABLE split174;
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= split174 AND NOT HMI_Var.Test_Prod;
   split175 := split174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation
               AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock;
   split176 := split175 AND Mach1.GenFlags.RunAuto;
   tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := split176;
-  tInt MOVE Mach1_Data.AUTOSPEED ENABLE
+  MOVE Mach1_Data.AUTOSPEED => tInt ENABLE
        PARALLEL(MODE := Sequential, IN := split176,
          NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper,
          (Mach1_Data.AUTOSPEED LE 40 ENABLE Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper))
        AND NOT HMI_Var.Btn_Cleaning;
-  tInt MOVE 30 ENABLE
+  MOVE 30 => tInt ENABLE
        (Mach1_Data.AUTOSPEED GT 40 ENABLE split176 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
        AND NOT HMI_Var.Btn_Cleaning;
-  tInt MOVE 6 ENABLE split176 AND HMI_Var.Btn_Cleaning;
+  MOVE 6 => tInt ENABLE split176 AND HMI_Var.Btn_Cleaning;
   split177 := split175 AND Mach1.GenFlags.RunMan;
   tMainDriveJog := oMainDriveJog := Mach1_Safety.Control.RequestManSpeed := split177;
-  tInt MOVE Mach1_Data.MANUALSPEED ENABLE split177;
+  MOVE Mach1_Data.MANUALSPEED => tInt ENABLE split177;
   RPM_To_DriveSpeed(iEN := split174, iRPM := tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 END_NETWORK
 ```
@@ -79,11 +79,11 @@ x := a ADD b MUL c;              // refused: one word kind per bracket level
 ```
 The symbols `+ - * / > < >= <= = <>` are not network text at all: refused with "write ADD / GT / …".
 
-### B2 — MOVE: target first, no `:=`
+### B2 — MOVE: a word, its target an output pin `=>` like every box
 
 ```
 MOVE(b, => a);                   // today
-a MOVE b;                        // proposed: a MOVE box writing a
+MOVE b => a;                     // proposed: a MOVE box writing a
 
 a := MOVE(b);                    // today
 a := MOVE b;                     // proposed: a MOVE box, then a coil
@@ -95,7 +95,7 @@ a := b;                          // a coil, no box (unchanged)
 
 ```
 MOVE(EN := c, b, => a);          // today
-a MOVE b ENABLE c;               // proposed
+MOVE b => a ENABLE c;            // proposed
 
 ADD(EN := c, x, 5, => x);        // today
 x ADD 5 => x ENABLE c;           // proposed — `=> x` is the box's output pin, as today
@@ -116,14 +116,14 @@ t1(IN := go, PT := T#1S) ENABLE c;     // proposed
 ```
 MOVE(EN := MOVE(EN := MOVE(EN := MOVE(EN := (g329 AND TRUE), 175, => VelUnit).ENO, 2000, => DecUnit).ENO, 750, => AccUnit).ENO, 100, => TorqueLimit);   // today (Lenze AHWF)
 
-VelUnit     MOVE 175  ENABLE split329 AND TRUE    // proposed: THEN = this box's ENO enables the next box
-THEN DecUnit     MOVE 2000
-THEN AccUnit     MOVE 750
-THEN TorqueLimit MOVE 100;
+MOVE 175  => VelUnit ENABLE split329 AND TRUE    // proposed: THEN = this box's ENO enables the next box
+THEN MOVE 2000 => DecUnit
+THEN MOVE 750  => AccUnit
+THEN MOVE 100  => TorqueLimit;
 ```
-A coil reading a box's ENO says so — never a bare `a := MOVE b ENABLE c` (CODESYS hands that coil ENO, N21):
+A coil reading a box's ENO says so. `a := MOVE b ENABLE c;` is REFUSED: it reads "a gets b", but CODESYS hands a coil after an enabled box its ENO (N21):
 ```
-coil := (a MOVE b ENABLE c).ENO;
+coil := (MOVE b => a ENABLE c).ENO;
 ```
 
 ### B5 — values without outer brackets
@@ -173,7 +173,7 @@ x := a PARALLEL b FEED (x PARALLEL y);  // a Parallel fed by a Parallel
 ```
 Lenze `MainDrive` (the one Sequential Parallel):
 ```
-tInt MOVE Mach1_Data.AUTOSPEED ENABLE
+MOVE Mach1_Data.AUTOSPEED => tInt ENABLE
      (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper
       PARALLEL (Mach1_Data.AUTOSPEED LE 40 ENABLE Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
       FEED split176 SEQUENTIAL)

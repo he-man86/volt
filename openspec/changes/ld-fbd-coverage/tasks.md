@@ -622,7 +622,7 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
 ## 2R. Readability rewrite (owner 2026-10-16)
 
 Owner: "i think the V1 was much more readable then what we have now", "remove all and implement in the new way".
-The rules are `readability.md` — ONE rule: a box is always its NAME (`a ADD b`, `a GT 40`, `a MOVE b`), `:=`/`S=`/`R=`
+The rules are `readability.md` — ONE rule: a box is always its NAME (`a ADD b`, `a GT 40`, `MOVE b => a`), `:=`/`S=`/`R=`
 are coils only (`a := b` is the assignment without a box), `ENABLE` is the enable input, `THEN` the ENO chain (B1–B8 +
 the small ones). The model, the drivers and the push pairing stay; the TEXT layer (writer, reader, gate, LSP
 parser/checks, docs, goldens) is rewritten to it, and every V2 spelling the rules replace is DELETED, not kept beside the
@@ -636,7 +636,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, the member prag
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
-      guards, B2 `a MOVE b`, B3 `ENABLE`, B4 `THEN` and `( … ).ENO`, B5 bare values, B6 `split<n>`, B7 the pragma DELETED
+      guards, B2 `MOVE b => a`, B3 `ENABLE`, B4 `THEN` and `( … ).ENO`, B5 bare values, B6 `split<n>`, B7 the pragma DELETED
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
       section) with its members derived in the drivers, B8 `a PARALLEL b FEED s [SEQUENTIAL]`, and the small ones. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
