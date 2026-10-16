@@ -113,3 +113,25 @@ describe("refused by name", () => {
     expect(codes(block + program("\tv : STRING(12) := 'abcdefghijkl';\n\tf : FB_Io;\n", "f(io := v);\n"))).toEqual(["call-inout-capacity"])
   })
 })
+
+// The scanners found the callee's scope by its bare name under its owner (`findChildScope(...) ?? lw.scope`), so a
+// library FUNCTION beside a project FUNCTION of its name had its in-out's type resolved in the PROJECT's scope — the
+// project's `T_Str` (STRING(20)), under which a STRING(12) is no wider — while `calledRoutine` lowered it in its own
+// (the library's STRING(10)): no variant, and the call refused as if an FB's. The scope is the one `calledRoutine`
+// binds (transpile-review 21: two same-named FUNCTIONs are two routines), and a scope that is not found is no guess.
+test("a library FUNCTION's in-out is typed in its own scope, though a project FUNCTION bears its name", () => {
+  const LIB = "file:///p/Library Manager/Lib"
+  const f = (ret: string) => `FUNCTION F_Pad : INT\nVAR_IN_OUT\n\ttxt : T_Str;\nEND_VAR\nF_Pad := ${ret};\nEND_FUNCTION\n`
+  const alias = (n: number) => `TYPE T_Str : STRING(${n}); END_TYPE\n`
+  const libs = [
+    { uri: `${LIB}/Lib.library`, source: "LIBRARY Lib\nNAMESPACE Lib\nRESOLUTION Lib, 1.0.0.0 (x)\nPLACEHOLDER false\nSYSTEM false\nMATERIALIZATION 4\n" },
+    { uri: `${LIB}/F_Pad.pou`, source: f("1") },
+    { uri: `${LIB}/T_Str.dut`, source: alias(10) },
+  ]
+  const caller = program("\ts12 : STRING(12) := 'abc';\n\tn : INT;\n", "n := Lib.F_Pad(txt := s12);\n")
+  const alone = lowerSource(caller, "PLC_PRG", libs)
+  const beside = lowerSource(caller + f("2"), "PLC_PRG", [...libs, { uri: "file:///p/App/T_Str.dut", source: alias(20) }])
+  expect(alone.diagnostics).toEqual([])
+  expect(beside.diagnostics).toEqual([])
+  expect(beside.pou!.routines.map((r) => r.name)).toEqual(alone.pou!.routines.map((r) => r.name))
+})

@@ -10,8 +10,8 @@ import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/ind
 import { binaryOf, cast } from "../core/build.js"
 import { convert } from "../values/convert.js"
 import { routineFacts } from "../calls/facts.js"
-import { findChildScope } from "../../../frontend/symbols/index.js"
 import { positionalParameters } from "../calls/parameters.js"
+import { routineScope } from "../calls/routine-scope.js"
 import { adrOperand } from "./address.js"
 import { lowerPlace } from "../places/places.js"
 import { staticKey } from "../places/path.js"
@@ -150,7 +150,8 @@ const TEXT_OF: Readonly<Record<string, string>> = { BYTE: "STRING", WORD: "WSTRI
 export function cursorArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, { kind: "call" }>): Map<string, CursorArgument> {
   const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
   if (ast.kind === "action") return new Map()
-  const scope = findChildScope(sym.owner, sym.name) ?? lw.scope
+  const scope = routineScope(lw, sym)
+  if (scope === undefined) return new Map() // did not bind: `calledRoutine` refuses it
   const parameters = positionalParameters(ast.varSections)
   const out = new Map<string, CursorArgument>()
   const walking = new Map<string, string>()

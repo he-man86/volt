@@ -35,7 +35,8 @@
 
 import { elemOf, parseConversionName, type Type } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
-import { childScopesByName, findChildScope, targetOf } from "../../../frontend/symbols/index.js"
+import { childScopesByName, targetOf } from "../../../frontend/symbols/index.js"
+import { routineScope } from "./routine-scope.js"
 import { libraryOf } from "../../../frontend/library/index.js"
 import { fieldIn, type IrBinding, type IrExpr, type IrFreeze, type Place } from "../../ir/index.js"
 import { type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
@@ -74,7 +75,8 @@ export function stringInputArguments(lw: Lowering, sym: RoutineSymbol, call: Ext
   const out = new Map<string, StringInput>()
   const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
   if (ast.kind !== "function" || libraryOf(sym) !== "Standard") return out
-  const scope = findChildScope(sym.owner, sym.name) ?? lw.scope
+  const scope = routineScope(lw, sym)
+  if (scope === undefined) return out // did not bind: `calledRoutine` refuses it
   const parameters = positionalParameters(ast.varSections)
   for (const [position, arg] of call.args.entries()) {
     const name = arg.param?.name.toUpperCase() ?? parameters[position]?.name.toUpperCase()

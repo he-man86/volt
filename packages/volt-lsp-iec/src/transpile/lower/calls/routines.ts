@@ -19,7 +19,8 @@ import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type
 import type { IrExpr, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall, someNode, somePlace } from "../../ir/walk.js"
 import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
-import { childScopesByName, findChildScope, type Scope } from "../../../frontend/symbols/index.js"
+import { type Scope } from "../../../frontend/symbols/index.js"
+import { routineScope } from "./routine-scope.js"
 import { declareGlobals, declareInOuts, declareVars } from "../storage/declare.js"
 import { inOutSections, prefixed } from "./parameters.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
@@ -272,7 +273,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
   return once(lw, name, span, () => {
     if (frame !== undefined && !lw.layouts.has(frame.name.toUpperCase())) return lw.bail("call-target", `${frame.name} has no layout`, span)
     const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
-    const scope = frame === undefined ? childScopesByName(lw.project, sym.name).find((s) => s.defUri === sym.uri) : findChildScope(sym.owner, sym.name)
+    const scope = routineScope(lw, sym)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
     const parsed = bodyOf(lw, ast, ast.body, name)

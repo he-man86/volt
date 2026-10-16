@@ -21,7 +21,7 @@
  */
 
 import type { Expr, TopLevel } from "../../../frontend/syntax/index.js"
-import { findChildScope } from "../../../frontend/symbols/index.js"
+import { routineScope } from "./routine-scope.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
@@ -42,7 +42,8 @@ export function widerStringInOuts(lw: Lowering, sym: RoutineSymbol, call: Extrac
   const out = new Map<string, Type>()
   const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
   if (ast.kind === "action") return out
-  const scope = findChildScope(sym.owner, sym.name) ?? lw.scope
+  const scope = routineScope(lw, sym)
+  if (scope === undefined) return out // did not bind: `calledRoutine` refuses it
   const declared = new Map<string, Type>()
   for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     for (const decl of section.decls) {
