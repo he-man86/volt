@@ -461,12 +461,17 @@ bridge DLLs, so `ide.ps1 up` cannot rebuild, and stopping the worker was refused
   non-comparison or a comparison's `.ENO`: 0 in the corpora — refused by name.
 - *`ENABLE (A).ENO` vs `A THEN B`*: one tree (B's EN is A's ENO), two texts — the reader refuses the first where `THEN`
   says it (13 chains, 16 coils on an ENO, 57 consumed ENOs, in 28 networks). `( … THEN … ).ENO` is a chain read by a
-  consumer.
+  consumer. **Re-counted at gate 2R.2 from the nwl-corpus archives** (a box whose null output slot is its `ENO`, by
+  parent): 58 ENO uses in 29 networks — 31 into a box's EN, 7 into another box input, 16 coils, 3 split feeders, 1
+  parallel feed (TwinCAT 0). "13 + 16 + 57 = 86" double-counts: the 57 consumed ENOs already hold the chains and the
+  coils. 58 / 29 is the figure; B4 writes one `ENO`-reading line per use.
 - *`ENABLE` as a name.* CODESYS reserves no `ENABLE`: one FB formal (`BLINK_0(ENABLE := TRUE, …)`, lenze-mid
   `General` #6) and 3 variables named `Enable` (none read in a network). No second reading — the keyword stands only
   after a complete box, a formal only before `:=`, an operand only where an operand is expected — but the LSP must lex
   it in context, not as a reserved word. `THEN` is reserved; no FB declares an output `ENO`.
-- *`split<n>`*: 0 of 573 wires collide with a declared name; a collision is refused by name, as `g<n>` is today.
+- *`split<n>`*: 0 of the 140 split names collide with a declared name (140 definitions — 139 lenze-mid in 99 networks, 1
+  TwinCAT `POUexecute` VarId 1; 573 + 3 = 576 Demux nodes in all; no declaration in the six test-corpus trees matches
+  `split<digits>`, gate 2R.2); a collision is refused by name, as `g<n>` is today.
 - *NOT box vs a negated value*: no box stores a negated OUTPUT (0 box `Flags` ≠ 0), and the NOT box keeps its formal
   (`NOT(IN := a)`, 3 boxes) — `NOT (a OR b)` has one reading.
 - *`ENABLE`'s reach*: at the statement head it runs to `;` or `THEN`; anywhere else the box is bracketed, so `)` ends it
@@ -497,14 +502,17 @@ failure and the mark goes stale the day the LSP agrees); B1's guard lands in 2R.
 | `BranchCounter` ≠ 0 | — | 22 of 44 bodies | 1 of 2 bodies |
 | any of the first three | | **348 (90 %)** | 5 |
 
-Plus the drawn names 2.3 spells by pragma today (`'   '`, an FB's unwired output list): 195 networks carry a pragma.
+Plus the drawn names 2.3 spells by pragma today (`'   '`, an FB's unwired output list): 195 networks carry a pragma
+(counted in the 2.3 writer's TEXT, not in the archives — gate 2R.2 could not re-derive it from the nwl-corpus files).
 **More than a handful → Open item 5 below.**
 
-**C5 — corpus reach per rule (CODESYS networks; TwinCAT's 6 add only EXECUTE and an empty named pin).** B1 operator
+**C5 — corpus reach per rule (CODESYS networks; TwinCAT's 6 add EXECUTE, an empty named pin, one split — `POUexecute`
+VarId 1, 1 definition + 2 references — 2 bit-operator boxes with a stored slot and 2 TON calls; corrected at gate 2R.2,
+which also corrects B4 and B6 below — see 2R.2's corpus reach).** B1 operator
 words: 74 SUB/ADD/MUL/DIV/comparison boxes in 35 networks (every one enabled — `GT(EN := …)` today), plus 826 AND/OR
 groups whose spelling is unchanged · B2 MOVE: 102 boxes in 44 networks · B3 ENABLE: 225 enabled boxes in 95 networks ·
-B4 THEN / `.ENO`: 86 ENO uses in 28 networks · B5: 483 bracketed values in 211 networks · B6 split: 573 wires in 99
-networks · B7: 249 `OutputParam.Names` + 288 `.Types` pragmas in 195 networks · B8 PARALLEL: 17 in 12 networks · small:
+B4 THEN / `.ENO`: ~~86 ENO uses in 28 networks~~ 58 in 29 (C2) · B5: 483 bracketed values in 211 networks · B6 split:
+~~573 wires~~ 139 split definitions (573 Demux nodes) in 99 networks · B7: 249 `OutputParam.Names` + 288 `.Types` pragmas in 195 networks · B8 PARALLEL: 17 in 12 networks · small:
 7 back-ticked strings, 3 NOT boxes, 3 disabled networks. **Lines before** (NETWORK … END_NETWORK, non-blank): lenze-mid
 1820, bakon-nano 86, pro2193 11, awa-palletizer 6, CodesysTestProject 0, twincat-project14 22 — **1945**. **After:**
 measured by 2R.3's re-pull (no B-writer exists yet).
@@ -545,6 +553,26 @@ are coils (`JMP l := c;`), `split<VarId>` with no `VAR_TEMP` (type inline only w
 `BRANCH` lines combined by `feed INTO BRANCHES [SHORTCIRCUIT]` (inline `INTO (BRANCH … BRANCH …)` only inside a branch).
 That file is the spec; 2R.3 writes `docs/network-text.html` from it. This section's earlier draft (`ENABLE`/`THEN`/`FEED`)
 is replaced, not amended. Model, drivers and push pairing (1b.4) do not change.
+readability.md's B7 and "Open" now state Open item 5 as decided (lost on rebuild, not refused) — gate 2R.2; before it
+they still read "rare → `UNSUPPORTED`, common → STOP", and this section is what overrode them.
+2R.1's C2 bullets were read against that draft's spellings (`ENABLE`, `THEN`, `.ENO`, `a MOVE b`). Re-checked at gate
+2R.2, bullet by bullet, against C2's own question (two trees with one text, or one text with two readings):
+- *MOVE.* B2 reverses the bullet: `MOVE b => a` is the spelling, `a MOVE b` is refused (P14). One reading: `MOVE` is a
+  box word (P1) and opens the line, `a ADD b => x` is infix with the pin after — no text is both. All 102 corpus MOVEs
+  have one value input (101 enabled, 1 not), so all print in the word form; P16's call form `MOVE(a, b)` / `MOVE()` /
+  `MOVE(IN := ) => x` has 0 corpus reach. Owed to 2R.3: the reader refuses the call form where the word form fits, so
+  one tree keeps one text.
+- *Named ENO pin vs coil on ENO* (P16, `MOVE(0, ENO => lamp) EN c` vs `MOVE 0 => x EN c⏎ lamp := ENO`): two STORED
+  trees (an operand in the box's ENO output slot; an Assign reading the box through its ENO), two texts — not a C2
+  collision. Whether the IDE treats them as one is P16's open measurement (2R.3); 0 corpus boxes store an operand in an
+  ENO slot.
+- *`ENABLE`.* No longer a keyword (`EN` is, reserved per P1), so the context-lexing note is moot. The two counts measure
+  different things and both stand: C2's 1 FB formal + 3 variables are what the NETWORKS wire (in the archives one box,
+  lenze-mid's `BLINK`, has an `ENABLE` formal); readability's "about 60 FBs" was declarations, re-counted: 30 distinct
+  FBs with an `ENABLE` input (80 declarations across the five CODESYS test-corpus trees; MC_*, BLINK, …).
+- *ENO uses, splits:* re-counted (C2 above) — 58 in 29 networks, 140 split names.
+The other C2 bullets (negated pin, EXECUTE, NOT box, n-ary vs nested) are tree facts and stand as written; their
+spellings follow B1–B8.
 
 **2R.1's open items (owner, tasks 2R.2).** 1 empty enable → bare `EN` (`iRPM MUL 6 => oDrive EN;`; 37 in 33 networks).
 Rejected: ``EN `` `` (the empty-text operand, another tree), `EN ???` (the unnamed instance). · 2 operator box with an
@@ -566,13 +594,17 @@ C editor cache, dropped · L lost on rebuild until 2R.4 · E shown, edit refused
   where it differs from the editor's `Sequential`: 16 of 17), Operand name + flags, box `Flags`, a negated pin.
 - **D:** an FB/program `BoxType`, a call's whole output list and `InputParam`/`OutputParam` `Types` from the callee's
   declaration (a library POU through the bridge's signature read — 2R.3 measures it on both vendors first, L until
-  then; today's 249 `Names` + 288 `Types` pragmas, 195 networks, become 413 derivations), `CallType`, the stored `EN`/`ENO`
+  then; it covers every call box — 281: 157 FB, 113 Function, 11 Program; CODESYS 279 in 206 networks, TwinCAT 2 TON —
+  and replaces today's pragmas, 249 `Names` + 288 `Types` in 195 networks as counted in the 2.3 writer's text; the
+  earlier "413 derivations" had no source and is withdrawn), `CallType`, the stored `EN`/`ENO`
   bools, `InputFlags` null-or-zeros, `Instance.Type`, `Operand.Type` (a split's differing type is S, 0 in the corpora),
   `Comment`/`LValue`/`IsInstance`, `Extensible`, `IL*`/`FBDValid`, the item's Jump/Return bit (0 — the writer stops ORing
   it), body `NetworkListComment`/`ValidIds` (a differing value → the body `UNSUPPORTED`, P13; 0).
 - **C:** item `Id`s, STSnippet line ids, the TextDocument caches (N29, N30, C1/N38: no refill on a pushed network).
-- **L:** `Fixed` (340 networks), `Boolean` (296), the `Address` sentinel (27), a function's result name `'   '` (82 —
-  no box Volt builds can hold it, N37), a bit operator's stored slot `['']` (11), stored values that differ from D
+- **L:** `Fixed` (340 networks), `Boolean` (296), the `Address` sentinel (27), a function's result name `'   '` (105 of
+  the 113 Function boxes, in 82 networks, all CODESYS — no box Volt builds can hold it, N37), a bit operator's stored
+  slot `['']` (17 And/Or boxes in 8 networks: 15 CODESYS in 7, 2 TwinCAT in 1 — tasks.md census "S1 17"; the earlier
+  "11" withdrawn; counts re-taken from the nwl-corpus archives at gate 2R.2), stored values that differ from D
   (15 `BoxType` spellings, 47 `Instance.Type`, stale `Operand.Type`, `EN`/`ENO`, zero-only `InputFlags`). Body
   `BranchCounter` (22 of 44 bodies): a network rebuild never writes the body, so it survives; a body create takes the
   IDE's count.
@@ -583,9 +615,11 @@ C editor cache, dropped · L lost on rebuild until 2R.4 · E shown, edit refused
   all 0 in the corpora.
 
 **Corpus reach (C5; 388 CODESYS + 6 TwinCAT networks, 392 of 394 spell clean, P16).** B1 74 non-AND/OR boxes in 35
-networks + 826 AND/OR groups · B2 102 MOVEs / 44 · B3 225 enabled boxes / 95 · B4 58 lines reading `ENO` / 29 · B4b 1
-conditional `RETURN`, 0 `JMP` · B5 483 bracketed values / 211 · B6 139 splits / 99, inline types 0 · B7 195 networks lose
-their pragma · B8 17 parallels / 12 (5 unfed) · P1 backticks 4 · P10 call form 4 pins. Lines: 1945 before; after: 2R.3.
+networks + 826 AND/OR groups · B2 102 MOVEs / 44 · B3 225 enabled boxes / 95 · B4 58 lines reading `ENO` / 29 (one per ENO use,
+re-counted from the archives: 31 EN chains, 7 other box inputs, 16 coils, 3 split feeders, 1 parallel feed; C2's "86 /
+28" double-counted) · B4b 1 conditional `RETURN`, 0 `JMP` · B5 483 bracketed values / 211 · B6 140 split definitions in
+100 networks (lenze-mid 139 / 99 + TwinCAT `POUexecute` 1; 576 Demux nodes = 140 definitions + 436 references,
+tasks.md census), inline types 0 · B7 195 networks lose their pragma (the 2.3 writer's text) · B8 17 parallels / 12 (5 unfed) · P1 backticks 4 · P10 call form 4 pins. Lines: 1945 before; after: 2R.3.
 
 **Migration.** No users, no compat: 2R.3 replaces writer, reader, gate and LSP parser in one pass, deletes every V2
 spelling (`NetworkPragma.cs`, the pragma text half, `syntax/network/pragma.ts`) and refuses each old form with a pointer

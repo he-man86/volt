@@ -91,7 +91,8 @@ a := b;                          // a coil, no box (unchanged)
 ### B3 — the enable input is `EN`, after the box
 
 `EN` / `ENO` are IEC's own pin names — what CODESYS writes on the box (a POU variable named `EN`/`ENO` exists — Lenze `Dryer`, `WSM`, 65 library FBs — and is backticked, P1 below)
-(`ENABLE` was dropped: about 60 corpus FBs have an `ENABLE` input — MC_Power, BLINK — plus an enum value and variables).
+(`ENABLE` was dropped: 30 distinct corpus FBs have an `ENABLE` input — MC_Power, BLINK, … — 80 declarations across the
+five CODESYS corpora, plus an enum value and variables; in the NWL archives one box wires it, lenze-mid's `BLINK`).
 ```
 MOVE(EN := c, b, => a);              // today
 MOVE b => a EN c;                    // proposed
@@ -219,9 +220,13 @@ t1(IN := go, PT := T#1S);                                           // proposed:
 split1 : INT := a;                                                  // differs: the split's type, inline (B6)
 NETWORK TITLE: "Calc "                                              // differs: the exact title, in its quotes
 ```
-A member that differs and has no natural spelling (candidates: a bare `a AND b` drawn by the editor — a stored
-output slot — and the function result name `'   '` on 97 of 97 function boxes) is counted by C4: rare → that
-network `UNSUPPORTED`; common → STOP for the owner.
+A member that differs and has no natural spelling is **lost on rebuild, not refused** (owner, 2R.2 Open item 5;
+design.md "2R.2 Readability", code L): an unchanged network is never rebuilt and keeps it byte for byte; an edited one
+is built with the derivation, and the P15 code lens names each value the rebuild drops. They are a bare `a AND b` drawn
+by the editor (a stored output slot `['']`: 17 bit-operator boxes in 8 networks — 15 CODESYS in 7, 2 TwinCAT in 1), the
+function result name `'   '` (105 of the 113 function boxes, 82 networks), and `Fixed`, `Boolean`, the `Address`
+sentinel (C4). 2R.4 runs each against its drawn original; a member whose loss changes behaviour makes its networks
+refused on rebuild.
 
 ### B8 — the drawn parallel branch: `BRANCH` lines, combined by `BRANCHES`
 
@@ -363,8 +368,10 @@ P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unsp
       R_EDGE(a AND b), f(a OR b).
     - MOVE keeps its call form where the word form cannot carry the tree (two inputs, none, an empty or named input):
       MOVE(a, b);   MOVE();   MOVE(IN := ) => x;   MOVE(a, b) EN c⏎ n := ENO;
+      (0 in the corpora: all 102 MOVEs hold one value input — fixture shapes only.)
     - A named ENO output pin is the same tree as a coil on ENO? — measured in 2R.3; until then it keeps its own
-      spelling inside the call: MOVE(0, ENO => lamp) EN c;
+      spelling inside the call: MOVE(0, ENO => lamp) EN c;  (They are two STORED trees — an operand in the box's ENO
+      slot vs an Assign reading the box through its ENO — so two texts, not C2's one-text-two-trees; 0 in the corpora.)
     - The empty positional slot keeps today's form in the call fallback: MUL(, m, 6).
     - A feed that is a word box is bracketed before INTO: (split1 AND bSync) INTO BRANCHES; an empty feed (the
       terminator) stays refused.
@@ -373,9 +380,10 @@ P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unsp
 
 ## Open
 
-- The two members B7 cannot drop without losing a fact — decided by C4, owner's call if it is more than a handful:
-  a bare `x := a AND b;` is two CODESYS networks (editor-drawn: a stored output slot; plain: none), and 97 of 97 function
-  boxes store a result name `'   '` Volt cannot build.
+- ~~The two members B7 cannot drop without losing a fact~~ — **decided (owner, 2R.2 Open item 5): lost on rebuild, not
+  refused** (B7 above). A bare `x := a AND b;` is two CODESYS networks (editor-drawn: a stored output slot, 17 boxes in
+  8 networks; plain: none), and 105 of 113 function boxes (82 networks) store a result name `'   '` Volt cannot build.
+  2R.4's run comparison per member can still turn one into "refused on rebuild".
 
 ## Checks before building (live CODESYS + corpus)
 

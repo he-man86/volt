@@ -650,7 +650,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       failed under the parallel LSP run and passed alone — openspec `packaging-test-sweep-access-denied`), Connector
       148, Contracts 37, Repo.Gates 243; volt-cli unit 158; typecheck, lint, `bun run check` (18) green; fixture map
       unaskable 106 → 115 (the nine `ng_r1_*`); LSP full suite (VOLT_REQUIRE_FULL=1, 10632 tests, 533 s) 10170 pass, 34 skip, 0 fail (a first run under the parallel C# suites timed out two `ir-walk.test.ts` cases at 7.8 s / 8.5 s against 5 s — 4.7 s alone; re-run with nothing beside it, green).
-- [ ] 2R.2 **Owner 2026-10-16 ("build it"), after 2R.1:** build `readability.md` AS IT IS NOW (B1–B8 with the
+- [x] 2R.2 **Owner 2026-10-16 ("build it"), after 2R.1:** build `readability.md` AS IT IS NOW (B1–B8 with the
       `BRANCH` lines + `feed INTO BRANCHES [SHORTCIRCUIT]` parallel, B4 `ENO` + one `;` per item, B6 `split<VarId>`
       without `VAR_TEMP`, P1–P16). The partial 2R.2 section already in design.md was written against an older
       readability.md (`ENABLE`/`THEN`/`FEED`): rewrite it, do not build on it. 2R.1 Open items: 1 → bare `EN`; 2 → (a)
@@ -659,6 +659,30 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       its network refused on rebuild. design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
+      **Done 2026-10-16:** design.md "2R.2 Readability" — the grammar is readability.md whole (B1–B8, P1–P16), the five
+      Open items as decided, every member S/D/C/L/E/X (none a pragma), corpus reach per rule; 2R.1's C2 spellings
+      marked superseded (B2 `MOVE b => a`). Re-checked against the archives: 74 non-AND/OR operator boxes, 102 MOVEs,
+      139 split definitions (573 Demux nodes). No code, no tests, no fixtures (a design step).
+      **Gate 2R.2 (2026-10-16) — the five review findings, fixed** (doc findings: no failing test applies — each was
+      re-counted from `packages/volt-cli/test/fixtures/nwl-corpus` by a scratch census, not by the 2.3 writer):
+      (1) readability.md B7 and "Open" now state Open item 5 as decided (lost on rebuild, not refused), with the
+      counts. (2) B6 across all corpora: 140 split definitions in 100 networks (lenze-mid 139 / 99 + TwinCAT
+      `POUexecute` VarId 1: 1 definition, 2 references; 576 Demux nodes); C5's "TwinCAT adds only EXECUTE and an empty
+      pin" corrected (also a split, 2 stored-slot And/Or, 2 TON calls); C2's "0 of 573 wires" → 0 of 140 split names
+      collide (no test-corpus declaration matches `split<digits>`). (3) The L counts: `'   '` result name 105 of 113
+      Function boxes in 82 networks (82 was networks; "97 of 97" withdrawn); the stored And/Or slot 17 boxes in 8
+      networks (15 CODESYS / 7, 2 TwinCAT / 1; "11" withdrawn). (4) "413 derivations" withdrawn — D covers every call
+      box, 281 (157 FB, 113 Function, 11 Program; CODESYS 279 in 206 networks); the 249 + 288 / 195 pragma figures are
+      marked as the 2.3 writer's text count. B4 58 / 29 re-derived (31 EN chains, 7 other inputs, 16 coils, 3 split
+      feeders, 1 parallel feed); C2's 86 / 28 double-counted (the 57 consumed ENOs hold the chains and coils). (5) C2
+      re-checked bullet by bullet under B2: `MOVE b => a` has one reading; all 102 MOVEs are one-input (P16's MOVE call
+      form 0 in the corpora; 2R.3 owes refusing it where the word form fits); the named-ENO-pin vs coil-on-ENO pair is
+      two stored trees and two texts (0 in the corpora), P16's measurement stays in 2R.3; ENABLE — C2's count is what
+      networks wire (1 BLINK formal), readability's is declarations, re-counted 30 distinct FBs / 80 declarations.
+      **Numbers:** typecheck, lint, `bun run check` (18), `openspec validate` green; LSP full suite (VOLT_REQUIRE_FULL=1,
+      10632 tests, 544 s, nothing beside it) 10170 pass, 34 skip, 0 fail; C# Engine 2624 + 1 skipped, CODESYS 438,
+      TwinCAT 526, Cli 295, Connector 148, Contracts 37, Repo.Gates 243; volt-cli unit 158. Fixture map unchanged (no
+      fixture or transpiler change).
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
       guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` = the box on the line above, one `;` per NWL item (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 bare values, B6 `split<VarId>` with no `VAR_TEMP` (type inline only where it differs), B7 the pragma DELETED — a member is written only where it differs from the derivation, in a natural spelling
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
