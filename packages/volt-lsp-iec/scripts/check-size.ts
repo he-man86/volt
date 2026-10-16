@@ -1,17 +1,15 @@
 #!/usr/bin/env bun
 /**
- * The size ratchet, in `bun run lint`. Started for `src/transpile` (openspec transpile-restructure design.md P5, §8);
+ * The size gate, in `bun run lint`. Started for `src/transpile` (openspec transpile-restructure design.md P5, §8);
  * holds the whole package since openspec lsp-same-standard (design.md §5, task 1.1):
  *
  *   - every `.ts` file under `src/` and `test/` stays within its limit: a test file (`*.test.ts`) 600 lines, any other
  *     file 400; `test/conformance/fixtures/map.generated.ts` is exempt BY NAME (written by `rate:fixtures`, held by
  *     `map.test.ts`) — no folder is exempt, and no inline comment exempts a file;
- *   - every function outside a `*.test.ts` stays within 80 lines;
- *   - the files and functions over on the day the ratchet widened are CEILINGS at their size then (`CEILINGS`,
- *     `FUNCTION_CEILINGS`): one may not grow; a listed one that no longer exists or has come within its limit is a stale
- *     entry that fails until removed; one under its ceiling is reported with the number to lower the ceiling to (not a
- *     failure: the step that shrinks it lowers its entry). The lists only shrink — a new entry is not how a file or a
- *     function gets past its limit. Both lists are empty since openspec ld-fbd-coverage 2.1.
+ *   - every function outside a `*.test.ts` stays within 80 lines.
+ *
+ * Any file or function over its limit fails. There is no ceiling list: the last one emptied with openspec
+ * ld-fbd-coverage 2.1, and the machinery that tracked its entries went with it.
  *
  * A line is a line of the file as an editor numbers them (`wc -l` for a file that ends in a newline).
  */
@@ -26,21 +24,6 @@ export const EXEMPT: ReadonlySet<string> = new Set(["test/conformance/fixtures/m
 export const FILE_LIMIT = 400
 export const TEST_LIMIT = 600
 export const FUNCTION_LIMIT = 80
-
-/**
- * The file ceilings, package-relative. Measured 2026-10-12 at fddcde2a6e (openspec lsp-same-standard design.md §1.1):
- * 19 `src/` files over 400, 3 colocated tests over 600, 4 `test/` suites over 600, 30 `test/` support and fixture-data
- * files over 400. Each later step of that change deleted its own entries; the network-text four went when openspec
- * ld-fbd-coverage 2.1 split the reader, its checks and their tests by concern. Empty, and it stays empty.
- */
-export const CEILINGS: Readonly<Record<string, number>> = {}
-
-/**
- * The function ceilings, keyed `<package-relative file>#<name>` (`(anonymous)` for an unnamed arrow) — no line number,
- * which moves on every edit. Same day as `CEILINGS` (design.md §1.2): 31 then; the network-text two (the lexer's `next`,
- * the reader's `parseCall`) went with ld-fbd-coverage 2.1. Empty, and it stays empty.
- */
-export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {}
 
 const slash = (p: string): string => p.split("\\").join("/")
 
@@ -279,44 +262,14 @@ export function longFunctions(file: string, text: string, limit = FUNCTION_LIMIT
 }
 
 export interface SizeReport {
-  /** Failures: a file or function over its limit with no ceiling, over its ceiling, or a stale ceiling. */
+  /** Failures: a file or a function over its limit. */
   errors: string[]
-  /** A listed file or function under its ceiling: the number to lower it to. */
-  lower: string[]
 }
 
-/** One shrink-only list against what was measured (`over`: every key over its limit in the tree, with its size). */
-function ratchet(
-  over: ReadonlyMap<string, { size: number; limit: number }>,
-  ceilings: Readonly<Record<string, number>>,
-  label: (key: string) => string,
-  errors: string[],
-  lower: string[],
-): void {
-  for (const key of [...over.keys()].sort()) {
-    const { size, limit } = over.get(key)!
-    const ceiling = ceilings[key]
-    if (ceiling === undefined) errors.push(`${label(key)}: ${size} lines is over the ${limit}-line limit (new — split it)`)
-    else if (size > ceiling) errors.push(`${label(key)}: ${size} lines is over its ceiling of ${ceiling} (the ceilings only fall)`)
-    else if (size < ceiling) lower.push(`${label(key)}: ${size} lines — lower its ceiling from ${ceiling} to ${size}`)
-  }
-  for (const key of Object.keys(ceilings).sort())
-    if (!over.has(key)) errors.push(`${label(key)}: listed with a ceiling but within its limit or gone — remove its ceiling`)
-}
-
-/**
- * The ratchet over `pkg`'s `src/` and `test/` against the file and the function ceilings (all three overridable, so the
- * tests plant a scratch tree).
- */
-export function sizeReport(
-  pkg: string = PACKAGE,
-  ceilings: Readonly<Record<string, number>> = CEILINGS,
-  functionCeilings: Readonly<Record<string, number>> = FUNCTION_CEILINGS,
-): SizeReport {
+/** The size gate over `pkg`'s `src/` and `test/` (overridable, so the tests plant a scratch tree). */
+export function sizeReport(pkg: string = PACKAGE): SizeReport {
   const errors: string[] = []
-  const lower: string[] = []
-  const files = new Map<string, { size: number; limit: number }>()
-  const functions = new Map<string, { size: number; limit: number }>()
+  const functions: string[] = []
   for (const root of ROOTS)
     for (const file of walk(join(pkg, root)).sort()) {
       const rel = slash(relative(pkg, file))
@@ -325,29 +278,22 @@ export function sizeReport(
       const isTest = rel.endsWith(".test.ts")
       const limit = isTest ? TEST_LIMIT : FILE_LIMIT
       const lines = lineCount(text)
-      if (lines > limit) files.set(rel, { size: lines, limit })
+      if (lines > limit) errors.push(`${rel}: ${lines} lines is over the ${limit}-line limit — split it`)
       if (isTest) continue
-      for (const f of longFunctions(rel, text)) {
-        const key = `${rel}#${f.name}`
-        if (functions.has(key)) errors.push(`function ${key}: two functions over ${FUNCTION_LIMIT} lines share this key — name one`)
-        functions.set(key, { size: Math.max(f.lines, functions.get(key)?.size ?? 0), limit: FUNCTION_LIMIT })
-      }
+      for (const f of longFunctions(rel, text))
+        functions.push(`function ${rel}#${f.name} (line ${f.line}): ${f.lines} lines is over the ${FUNCTION_LIMIT}-line limit — split it`)
     }
-  ratchet(files, ceilings, (k) => k, errors, lower)
-  ratchet(functions, functionCeilings, (k) => `function ${k}`, errors, lower)
-  return { errors, lower }
+  return { errors: [...errors, ...functions] }
 }
 
 if (import.meta.main) {
-  const { errors, lower } = sizeReport()
-  for (const l of lower) console.warn(`! size: ${l}`)
+  const { errors } = sizeReport()
   if (errors.length > 0) {
     console.error(`✗ size: ${errors.length} violation(s)`)
     for (const e of errors) console.error(`  ${e}`)
     process.exit(1)
   }
   console.log(
-    `✓ size: every src/ and test/ file within ${FILE_LIMIT} lines (tests ${TEST_LIMIT}) and every function within ` +
-      `${FUNCTION_LIMIT}, or its ceiling (${Object.keys(CEILINGS).length} files, ${Object.keys(FUNCTION_CEILINGS).length} functions listed)`,
+    `✓ size: every src/ and test/ file within ${FILE_LIMIT} lines (tests ${TEST_LIMIT}) and every function within ${FUNCTION_LIMIT}`,
   )
 }

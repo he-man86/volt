@@ -24,13 +24,11 @@
 //   F5. the front-end reads no environment (`process.env`);
 //   F6. no import cycle inside `syntax`.
 // the SERVER rule S1 (openspec lsp-same-standard design.md §5): `server/` imports only `analysis/index`,
-// `services/index`, `frontend/*/index`, `workspace/*` and itself — tests included — with its own shrinking list,
-// KNOWN_SERVER_VIOLATIONS;
-// and the ANALYSIS rules A2–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
-// shrinking list, KNOWN_ANALYSIS_VIOLATIONS.
+// `services/index`, `frontend/*/index`, `workspace/*` and itself — tests included;
+// and the ANALYSIS rules A2–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below).
 //
-// A violation this change has not yet removed is named in KNOWN_FRONTEND_VIOLATIONS; `test/package/layering.test.ts`
-// fails on a violation not listed AND on a listed one that no longer occurs, so the list can only shrink.
+// Any violation fails: there is no known-violation list (the last ones emptied as their changes closed), and
+// `test/package/layering.test.ts` runs the scan inside `bun test`.
 //
 // ponytail: regex import-scan, not a full TS-parse graph. Ceiling: misses imports written across lines or via computed
 // specifiers (we don't do that). Upgrade path: swap in dependency-cruiser if the rules outgrow this.
@@ -83,41 +81,6 @@ const SYNTAX_FOLDERS: Record<string, (target: string) => boolean> = {
 const TRANSPILE_ALLOWED = FRONTEND
 // The top-level file that may import anything: the package barrel (the CLI entry is `server/bin.ts`).
 const BARRELS = new Set(["index.ts"])
-
-/**
- * The front-end violations this change has not removed yet (tasks.md 1.2 → 1.41). Each entry is a violation string
- * exactly as the scan spells it. The list may only shrink; it is empty when 1.41 closes.
- */
-export const KNOWN_FRONTEND_VIOLATIONS: readonly string[] = [
-]
-
-/**
- * Violations of rules 0–5 that predate the front-end rules and lie outside the front-end — not this change's to remove,
- * named so the gate can still fail on a NEW one.
- */
-export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
-]
-
-/**
- * Violations of rules 4, 4b and 6 (the transpiler's own, openspec transpile-restructure task 1.0.1) that the change has
- * not removed yet. Each entry names the task that removes it; the list may only shrink.
- */
-export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
-]
-
-/**
- * The server-rule violations (S1 below, openspec lsp-same-standard design.md §5, task 1.2): `server/` reaching past the
- * indexes it dispatches through. Empty since task 2.1 (the three `../services/shared/index.js` imports became
- * `../services/index.js`, design.md §2.3); it stays empty.
- */
-export const KNOWN_SERVER_VIOLATIONS: readonly string[] = []
-
-/**
- * The analysis-rule violations (A2–A6 below) that openspec analysis-conformance has not removed yet, measured by the
- * rule itself (task 1.2). Each entry names the task that removes it; the list may only shrink.
- */
-export const KNOWN_ANALYSIS_VIOLATIONS: readonly string[] = [
-]
 
 const slash = (p: string): string => p.split("\\").join("/")
 
@@ -519,40 +482,12 @@ const isRegistryOrPipeline = (relFrom: string): boolean =>
   relFrom === "analysis/pipeline/document.ts" ||
   relFrom === "analysis/index.ts"
 
-/** The scan against the two known lists: what is new, and what is listed but no longer occurs. */
-export function layeringReport(): { unexpected: string[]; stale: string[] } {
-  const found = layeringViolations()
-  const known = new Set([
-    ...KNOWN_FRONTEND_VIOLATIONS,
-    ...KNOWN_OTHER_VIOLATIONS,
-    ...KNOWN_ANALYSIS_VIOLATIONS,
-    ...KNOWN_TRANSPILE_VIOLATIONS,
-    ...KNOWN_SERVER_VIOLATIONS,
-  ])
-  const foundSet = new Set(found)
-  return {
-    unexpected: [...new Set(found)].filter((v) => !known.has(v)),
-    stale: [...known].filter((v) => !foundSet.has(v)),
-  }
-}
-
 if (import.meta.main) {
-  const { unexpected, stale } = layeringReport()
-  if (unexpected.length + stale.length > 0) {
-    if (unexpected.length) console.error(`✗ layering: ${unexpected.length} violation(s)`)
-    for (const v of unexpected) console.error(`  ${v}`)
-    if (stale.length) console.error(`✗ layering: ${stale.length} listed violation(s) no longer occur — remove them`)
-    for (const v of stale) console.error(`  ${v}`)
+  const found = [...new Set(layeringViolations())]
+  if (found.length > 0) {
+    console.error(`✗ layering: ${found.length} violation(s)`)
+    for (const v of found) console.error(`  ${v}`)
     process.exit(1)
   }
-  const pending =
-    KNOWN_FRONTEND_VIOLATIONS.length +
-    KNOWN_OTHER_VIOLATIONS.length +
-    KNOWN_ANALYSIS_VIOLATIONS.length +
-    KNOWN_TRANSPILE_VIOLATIONS.length +
-    KNOWN_SERVER_VIOLATIONS.length
-  console.log(
-    `✓ layering: every folder ranked, imports point downward only, no cross-layer cycle` +
-      (pending ? ` (${pending} known violation(s) listed)` : ""),
-  )
+  console.log(`✓ layering: every folder ranked, imports point downward only, no cross-layer cycle`)
 }

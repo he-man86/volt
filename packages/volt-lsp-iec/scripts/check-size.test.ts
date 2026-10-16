@@ -1,14 +1,13 @@
 /**
- * The size ratchet (openspec transpile-restructure task 1.0.2; the whole package since lsp-same-standard task 1.1): green
- * on the real tree with its ceilings; on a scratch tree a new 401-line file fails anywhere under `src/` or `test/`, a
- * 601-line test fails, `map.generated.ts` is exempt by name, a file or a function over its ceiling fails, a stale
- * ceiling fails, a new function over 80 lines fails — each named by its file (and function).
+ * The size gate (openspec transpile-restructure task 1.0.2; the whole package since lsp-same-standard task 1.1): green
+ * on the real tree; on a scratch tree a 401-line file fails anywhere under `src/` or `test/`, a 601-line test fails,
+ * `map.generated.ts` is exempt by name, a function over 80 lines fails — each named by its file (and function).
  */
 import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { CEILINGS, codeOnly, FUNCTION_CEILINGS, lineCount, longFunctions, sizeReport } from "./check-size.js"
+import { codeOnly, lineCount, longFunctions, sizeReport } from "./check-size.js"
 
 function inScratch<T>(files: Record<string, string>, run: (root: string) => T): T {
   const root = mkdtempSync(join(tmpdir(), "volt-size-"))
@@ -26,7 +25,7 @@ const lines = (n: number): string => Array.from({ length: n }, (_, k) => `export
 const fn = (name: string, n: number): string =>
   `export function ${name}(): number {\n  let x = 0\n${Array.from({ length: n - 4 }, () => "  x += 1\n").join("")}  return x\n}\n`
 
-test("the real tree is within its limits or its ceilings", () => {
+test("the real tree is within its limits", () => {
   expect(sizeReport().errors).toEqual([])
 })
 
@@ -38,11 +37,11 @@ test("a new 401-line file fails anywhere under src/ or test/; 400 lines passes; 
       "test/conformance/support/big.ts": lines(401),
       "scripts/big.ts": lines(900),
     },
-    (root) => sizeReport(root, {}, {}),
+    (root) => sizeReport(root),
   )
   expect(report.errors).toEqual([
-    "src/analysis/big.ts: 401 lines is over the 400-line limit (new — split it)",
-    "test/conformance/support/big.ts: 401 lines is over the 400-line limit (new — split it)",
+    "src/analysis/big.ts: 401 lines is over the 400-line limit — split it",
+    "test/conformance/support/big.ts: 401 lines is over the 400-line limit — split it",
   ])
 })
 
@@ -54,57 +53,27 @@ test("a test file may hold 600 lines, not 601; map.generated.ts is exempt by nam
       "test/conformance/fixtures/map.generated.ts": lines(5000),
       "test/conformance/fixtures/other.generated.ts": lines(401),
     },
-    (root) => sizeReport(root, {}, {}),
+    (root) => sizeReport(root),
   )
   expect(report.errors).toEqual([
-    "src/server/a.test.ts: 601 lines is over the 600-line limit (new — split it)",
-    "test/conformance/fixtures/other.generated.ts: 401 lines is over the 400-line limit (new — split it)",
+    "src/server/a.test.ts: 601 lines is over the 600-line limit — split it",
+    "test/conformance/fixtures/other.generated.ts: 401 lines is over the 400-line limit — split it",
   ])
 })
 
-test("a file ceiling may not rise, a stale one fails, a shrunk file is told its new ceiling", () => {
+test("a function over 80 lines fails, in src/ and in test/ support; 80 lines passes; a *.test.ts is not scanned", () => {
   const report = inScratch(
     {
-      "src/frontend/grew.ts": lines(451),
-      "test/frontend/shrank.ts": lines(420),
-      "src/services/fits.ts": lines(390),
-    },
-    (root) =>
-      sizeReport(
-        root,
-        { "src/frontend/grew.ts": 450, "test/frontend/shrank.ts": 430, "src/services/fits.ts": 500, "src/gone.ts": 500 },
-        {},
-      ),
-  )
-  expect(report.errors).toEqual([
-    "src/frontend/grew.ts: 451 lines is over its ceiling of 450 (the ceilings only fall)",
-    "src/gone.ts: listed with a ceiling but within its limit or gone — remove its ceiling",
-    "src/services/fits.ts: listed with a ceiling but within its limit or gone — remove its ceiling",
-  ])
-  expect(report.lower).toEqual(["test/frontend/shrank.ts: 420 lines — lower its ceiling from 430 to 420"])
-})
-
-test("a function over 80 lines FAILS unless listed; a listed one may not grow, a stale one fails, a shrunk one is told", () => {
-  const report = inScratch(
-    {
-      "src/analysis/a.ts": fn("fresh", 81) + fn("grew", 90) + fn("shrank", 85) + fn("fits", 80),
+      "src/analysis/a.ts": fn("fresh", 81) + fn("fits", 80),
       "test/frontend/support.ts": fn("helper", 82),
       "src/analysis/a.test.ts": fn("inTest", 200),
     },
-    (root) =>
-      sizeReport(root, {}, {
-        "src/analysis/a.ts#grew": 89,
-        "src/analysis/a.ts#shrank": 86,
-        "src/analysis/a.ts#fits": 81,
-        "test/frontend/support.ts#helper": 82,
-      }),
+    (root) => sizeReport(root),
   )
   expect(report.errors).toEqual([
-    "function src/analysis/a.ts#fresh: 81 lines is over the 80-line limit (new — split it)",
-    "function src/analysis/a.ts#grew: 90 lines is over its ceiling of 89 (the ceilings only fall)",
-    "function src/analysis/a.ts#fits: listed with a ceiling but within its limit or gone — remove its ceiling",
+    "function src/analysis/a.ts#fresh (line 1): 81 lines is over the 80-line limit — split it",
+    "function test/frontend/support.ts#helper (line 1): 82 lines is over the 80-line limit — split it",
   ])
-  expect(report.lower).toEqual(["function src/analysis/a.ts#shrank: 85 lines — lower its ceiling from 86 to 85"])
 })
 
 const body = (n: number): string => Array.from({ length: n }, (_, k) => `  x += ${k}\n`).join("")
@@ -135,8 +104,4 @@ test("braces in strings, templates, comments and regexes are not code", () => {
   expect(code.replace(/[^{}\n/]/g, "")).toEqual("{}\n//\n//\n")
   expect(lineCount("a\nb\n")).toBe(2)
   expect(lineCount("a\nb")).toBe(2)
-})
-
-test("no ceiling is left (ld-fbd-coverage 2.1): every file and function is within its limit", () => {
-  expect([...Object.keys(CEILINGS), ...Object.keys(FUNCTION_CEILINGS)]).toEqual([])
 })

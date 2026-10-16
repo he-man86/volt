@@ -172,8 +172,8 @@ fact, rule and engine a consumer asks; `library/index.ts` — the path layout, t
 format. `frontend/index.ts` re-exports the three language indexes for the package barrel (`src/index.ts`) alone.
 
 **Import rules** (`scripts/check-layering.ts`, over `src/`, `test/`, `scripts/` and `libraries/`, tests included; run
-inside `bun test` by `test/package/layering.test.ts`, which fails on a new violation and on a listed one that has
-gone — the known-violation list is empty):
+inside `bun test` by `test/package/layering.test.ts`, which fails on any violation — there is no known-violation
+list):
 
 - **F1** — nothing under `frontend/` imports outside `frontend/`: the front-end imports no consumer.
 - **F2** — outside a front-end sub-layer, only its `index.js` (or `frontend/index.js`) is imported; a test colocated
@@ -460,11 +460,9 @@ below name each code's kind in brackets.
 Inside `lower/` the recursion is real (an expression lowers a call, a call lowers its arguments), so most folders import
 each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `lower/` folder, `core/` only
 `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`, and only `entry/` imports
-`project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
-only shrinks). Rule 6: no product file under `src/` imports `test/` (a colocated test reads the test support there). Size is ratcheted too (`scripts/check-size.ts`, over all of
-`src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80; since
-ld-fbd-coverage 2.1, which split the network-text reader, its checks and their tests by concern, the shrink-only
-ceilings are empty).
+`project/`. Rule 6: no product file under `src/` imports `test/` (a colocated test reads the test support there). Size is gated too (`scripts/check-size.ts`, over all of
+`src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80; any
+one over fails — there is no ceiling list).
 
 **The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
 never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold

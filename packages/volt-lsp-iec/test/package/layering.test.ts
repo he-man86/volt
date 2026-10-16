@@ -1,19 +1,16 @@
 /**
  * THE FRONT-END'S IMPORT RULES, INSIDE `bun test` (openspec frontend-conformance design.md §5, task 1.2).
  *
- * `scripts/check-layering.ts` scans `src/`, `test/`, `scripts/` and `libraries/`. A violation it finds that its known
- * lists do not name fails here, and so does a listed violation that no longer occurs — the list only shrinks, and a
- * task that removes a violation removes its entry in the same commit.
+ * `scripts/check-layering.ts` scans `src/`, `test/`, `scripts/` and `libraries/`. Any violation it finds fails here.
  */
 import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { layeringReport, layeringViolations } from "../../scripts/check-layering.js"
+import { layeringViolations } from "../../scripts/check-layering.js"
 
-test("every import obeys the layering rules, or is a listed violation that still occurs", () => {
-  const { unexpected, stale } = layeringReport()
-  expect({ unexpected, stale }).toEqual({ unexpected: [], stale: [] })
+test("every import obeys the layering rules", () => {
+  expect(layeringViolations()).toEqual([])
 })
 
 /**

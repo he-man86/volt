@@ -5,13 +5,13 @@
  *   bun run scripts/dead-exports.ts                     the two lists
  *   bun run scripts/dead-exports.ts --all               …and every export with its importer counts
  *   bun run scripts/dead-exports.ts --scope <dir>       the NOBODY list of the exports declared under <dir>
- *   bun run scripts/dead-exports.ts --gate              the `bun run lint` gate: NOBODY over src/ vs the allowlist
+ *   bun run scripts/dead-exports.ts --gate              the `bun run lint` gate: NOBODY over src/
  *
  * `--scope` and `--gate` (openspec transpile-restructure design.md §8, task 1.0.4; lsp-same-standard design.md §5, task
  * 1.1) leave out (a) the members of every exported union (`Expr`, `Type`, `IrExpr` …: a node interface is used by the
  * union declared beside it, by design) and (b) the names the transpile barrel re-exports on purpose (its design.md
- * §2.1.1 — `ir/`'s types among them), each by (name, declaring file), never by bare name. "No finding" means that filtered list is empty. `--gate` fails on a NOBODY export
- * not in `DEAD_EXPORT_ALLOWLIST`, and on a listed one that is no longer dead.
+ * §2.1.1 — `ir/`'s types among them), each by (name, declaring file), never by bare name. "No finding" means that
+ * filtered list is empty. `--gate` fails on any NOBODY export.
  *
  * It answers TWO different questions and keeps them apart, because only one of them is about dead code:
  *
@@ -43,9 +43,8 @@ const walk = (dir: string, out: string[] = []): string[] => {
 }
 const isTest = (f: string): boolean => f.includes(".test.") || f.startsWith("test/")
 const isScript = (f: string): boolean => f.startsWith("scripts/")
-/** The gates whose own lists name src/ exports (the allowlist below, the function ceilings), and their planted tests: a
- *  name there is debt being tracked or a scratch tree's word, not a use — counting it would let a gate keep real
- *  exports alive (`dead-exports.test.ts` plants `IfStatement`, a real AST export). */
+/** The gates and their planted tests: a name there is a scratch tree's word, not a use — counting it would let a gate
+ *  keep real exports alive (`dead-exports.test.ts` plants `IfStatement`, a real AST export). */
 const NOT_A_USE: ReadonlySet<string> = new Set([
   "scripts/dead-exports.ts",
   "scripts/dead-exports.test.ts",
@@ -163,25 +162,9 @@ export function nobodyIn(texts: ReadonlyMap<string, string>, scope: string): Row
   )
 }
 
-/**
- * The NOBODY exports of `src/` the gate still tolerates, as `<name> <file>` (openspec lsp-same-standard design.md §5, task
- * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text and 4 network-text ones. Since lsp-same-standard 4.5
- * the outside 25 are gone (their `export` dropped, or the name with it); since ld-fbd-coverage 2.1 the network-text four
- * too — `TokKind` inlined into `Tok`, `CONSTRUCT_WORDS` and `v1Refusal` imported by the split reader's files, and
- * `resolveAnywhere` read in its own file only. Empty, and it stays empty: a name not listed fails the gate, and no inline
- * ignore comment exists.
- */
-export const DEAD_EXPORT_ALLOWLIST: readonly string[] = []
-
-/** The gate: NOBODY over `src/` against `allowlist` — what is new, and what is listed but no longer dead. */
-export function deadExportReport(
-  texts: ReadonlyMap<string, string>,
-  allowlist: readonly string[] = DEAD_EXPORT_ALLOWLIST,
-): { unexpected: string[]; stale: string[] } {
-  const found = nobodyIn(texts, "src").map((r) => `${r.name} ${r.file}`)
-  const foundSet = new Set(found)
-  const listed = new Set(allowlist)
-  return { unexpected: found.filter((f) => !listed.has(f)), stale: allowlist.filter((a) => !foundSet.has(a)) }
+/** The gate: every NOBODY export of `src/`, as `<name> <file>`. Any one fails — there is no allowlist and no inline ignore. */
+export function deadExports(texts: ReadonlyMap<string, string>): string[] {
+  return nobodyIn(texts, "src").map((r) => `${r.name} ${r.file}`)
 }
 
 const show = (title: string, list: Row[]): void => {
@@ -197,15 +180,13 @@ if (import.meta.main) {
   const texts = packageTexts()
   const at = process.argv.indexOf("--scope")
   if (process.argv.includes("--gate")) {
-    const { unexpected, stale } = deadExportReport(texts)
-    if (unexpected.length + stale.length > 0) {
-      if (unexpected.length) console.error(`✗ dead exports: ${unexpected.length} export(s) nobody imports — delete the export`)
-      for (const u of unexpected) console.error(`  ${u}`)
-      if (stale.length) console.error(`✗ dead exports: ${stale.length} allowlisted export(s) no longer dead — remove them from the list`)
-      for (const s of stale) console.error(`  ${s}`)
+    const dead = deadExports(texts)
+    if (dead.length > 0) {
+      console.error(`✗ dead exports: ${dead.length} export(s) nobody imports — delete the export`)
+      for (const u of dead) console.error(`  ${u}`)
       process.exit(1)
     }
-    console.log(`✓ dead exports: src/ exports nothing nobody imports (${DEAD_EXPORT_ALLOWLIST.length} allowlisted)`)
+    console.log(`✓ dead exports: src/ exports nothing nobody imports`)
   } else if (at >= 0) {
     const scope = process.argv[at + 1]?.split("\\").join("/")
     if (scope === undefined || !existsSync(scope)) throw new Error(`--scope needs an existing directory, got ${scope}`)

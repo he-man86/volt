@@ -6,7 +6,7 @@ import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { citationsIn, missingCitations, resolves, stalePlanned, tailsOf } from "./check-citations.js"
+import { citationsIn, missingCitations, resolves, tailsOf } from "./check-citations.js"
 
 test("a citation is a .ts path with an optional line; URLs, globs, placeholders in <> and .d.ts are not", () => {
   const text = [
@@ -76,27 +76,6 @@ test("the scan reports a cited file that does not exist, in each kind of citing 
       "packages/p/test/conformance/fixtures/f.ts:1 lower/gone.ts",
       "packages/p/test/conformance/support/notes/notes.data.ts:1 emit.ts",
     ])
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test("a file an open task will create resolves while it is planned, and a planned file that exists is a stale entry", () => {
-  const root = mkdtempSync(join(tmpdir(), "volt-citations-planned-"))
-  const files: Record<string, string> = {
-    "packages/p/src/transpile/ir/ir.ts": "export {}\n",
-    // a planned file is cited by its folder and name: a bare `memory.ts` names no plan (the gate of 1.8a+1.9 — any
-    // `memory.ts` anywhere resolved against a file that does not exist)
-    "openspec/changes/c/tasks.md": "- [ ] 1 Where: new `semantics/memory.ts`, `ir/ir.ts`, and `gone.ts`; see `memory.ts`.\n",
-  }
-  try {
-    for (const [path, text] of Object.entries(files)) {
-      mkdirSync(dirname(join(root, path)), { recursive: true })
-      writeFileSync(join(root, path), text)
-    }
-    const planned = { "packages/p/src/transpile/semantics/memory.ts": "c 1", "packages/p/src/transpile/ir/ir.ts": "c 2" }
-    expect(missingCitations(join(root, "packages", "p"), root, planned).map((c) => c.cited)).toEqual(["gone.ts", "memory.ts"])
-    expect(stalePlanned(root, planned)).toEqual(["packages/p/src/transpile/ir/ir.ts (c 2) exists — remove it from PLANNED"])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

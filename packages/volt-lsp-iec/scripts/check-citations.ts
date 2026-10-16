@@ -12,9 +12,8 @@
  *
  * A citation resolves when some `.ts` file of the repository ends with the cited path at a `/` boundary (`ir/expr.ts`,
  * `lower/calls.ts`, `types/compat.ts` all name a file by its tail, relative to whichever root the text speaks from).
- * A file an open task will CREATE resolves while it is planned (`PLANNED`, each named with its task), cited by its folder
- * and name (`semantics/memory.ts`), never by its bare name. An ERROR in
- * `bun run lint` (`--strict`) since task 1.9.3: a step that moves or deletes a file re-points every citation of it.
+ * An ERROR in `bun run lint` (`--strict`) since task 1.9.3: a step that moves or deletes a file re-points every
+ * citation of it.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
@@ -120,29 +119,11 @@ export function citingFiles(pkg: string = PACKAGE, repo: string = REPO): string[
   return [...new Set(files.map((f) => slash(relative(repo, f))))].sort()
 }
 
-/**
- * THE FILES AN OPEN TASK WILL CREATE, repository-relative, each with the task that creates it. An open task names a file it
- * is to write ("`semantics/string.ts` new model plus `string.cases.ts`") before it exists; that is a plan, not a stale
- * citation. Named one by one, never inferred from the text; an entry whose file exists is stale and fails the check
- * (`stalePlanned`), so the list only holds what is still to come.
- */
-export const PLANNED: Readonly<Record<string, string>> = {
-}
-
-/** Each planned file that already exists — its task wrote it, so its entry goes. */
-export function stalePlanned(repo: string = REPO, planned: Readonly<Record<string, string>> = PLANNED): string[] {
-  return Object.entries(planned)
-    .filter(([path]) => existsSync(join(repo, path)))
-    .map(([path, task]) => `${path} (${task}) exists — remove it from PLANNED`)
-}
-
-/** Every citation whose file neither exists nor is planned (`PLANNED`). */
-export function missingCitations(pkg: string = PACKAGE, repo: string = REPO, planned: Readonly<Record<string, string>> = PLANNED): Citation[] {
+/** Every citation whose file does not exist. */
+export function missingCitations(pkg: string = PACKAGE, repo: string = REPO): Citation[] {
   const existing = walk(repo, (n) => n.endsWith(".ts")).map((f) => slash(relative(repo, f)))
-  const all = new Set([...existing, ...Object.keys(planned)])
-  // a planned file resolves by a tail WITH its folder (`semantics/memory.ts`), never its bare name: a bare `memory.ts`
-  // anywhere would otherwise resolve against a file that does not exist
-  const tails = new Set([...tailsOf(existing), ...[...tailsOf(Object.keys(planned))].filter((t) => t.includes("/"))])
+  const all = new Set(existing)
+  const tails = tailsOf(existing)
   const out: Citation[] = []
   for (const source of citingFiles(pkg, repo))
     for (const c of citationsIn(source, readFileSync(join(repo, source), "utf8")))
@@ -152,11 +133,9 @@ export function missingCitations(pkg: string = PACKAGE, repo: string = REPO, pla
 
 if (import.meta.main) {
   const strict = process.argv.includes("--strict")
-  const stale = stalePlanned()
-  for (const line of stale) console.error(`✗ citations: ${line}`)
   const missing = missingCitations()
   if (missing.length === 0) {
-    console.log(`✓ citations: every cited .ts file exists (${Object.keys(PLANNED).length - stale.length} planned)`)
+    console.log(`✓ citations: every cited .ts file exists`)
   } else {
     const bySource = new Map<string, Citation[]>()
     for (const c of missing) bySource.set(c.source, [...(bySource.get(c.source) ?? []), c])
@@ -168,5 +147,5 @@ if (import.meta.main) {
     }
     if (!process.argv.includes("--all") && !strict) report("  (--all lists each citation)")
   }
-  if (stale.length > 0 || (strict && missing.length > 0)) process.exit(1)
+  if (strict && missing.length > 0) process.exit(1)
 }

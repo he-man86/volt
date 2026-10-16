@@ -1,10 +1,10 @@
 /**
  * `dead-exports.ts` (openspec transpile-restructure task 1.0.4; lsp-same-standard task 1.1): a scope keeps only the
  * exports declared under it, less every exported union's members and the transpile barrel's deliberate surface; the
- * `--gate` fails on a NOBODY export the allowlist does not name and on a listed one that is no longer dead.
+ * `--gate` fails on any NOBODY export.
  */
 import { expect, test } from "bun:test"
-import { DEAD_EXPORT_ALLOWLIST, deadExportReport, exportRows, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
+import { deadExports, exportRows, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
 
 const texts = new Map<string, string>([
   [
@@ -40,15 +40,14 @@ test("--scope: only its own exports, less the union members, ir's types and the 
   expect(nobodyIn(texts, "src/frontend").map((r) => r.name)).toEqual(["Statement", "Alias"])
 })
 
-test("--gate: a NOBODY export not allowlisted fails by name and file; a listed one no longer dead is stale", () => {
-  const report = deadExportReport(texts, ["ORPHAN src/transpile/lower/a.ts", "USED src/transpile/lower/a.ts"])
-  expect(report.unexpected).toEqual([
+test("--gate: every NOBODY export fails by name and file", () => {
+  expect(deadExports(texts)).toEqual([
     "unusedIrHelper src/transpile/ir/expr.ts",
+    "ORPHAN src/transpile/lower/a.ts",
     "ELSEWHERE src/analysis/c.ts",
     "Statement src/frontend/syntax/ast/nodes.ts",
     "Alias src/frontend/syntax/ast/nodes.ts",
   ])
-  expect(report.stale).toEqual(["USED src/transpile/lower/a.ts"])
 })
 
 test("an exclusion is bound to its declaring file: a same-named dead export elsewhere is still reported", () => {
@@ -60,12 +59,9 @@ test("an exclusion is bound to its declaring file: a same-named dead export else
     ["src/transpile/index.ts", "export type { IrValue } from './ir/program.js'\n"],
     ["src/services/x.ts", "export function IrValue() {}\nexport const lowerSource = 1\n"],
   ])
-  expect(deadExportReport(texts, [])).toEqual({ unexpected: ["lowerSource src/services/x.ts"], stale: [] })
+  expect(deadExports(texts)).toEqual(["lowerSource src/services/x.ts"])
   const alone = new Map([["src/services/x.ts", "export function IrValue() {}\nexport const lowerSource = 1\n"]])
-  expect(deadExportReport(alone, [])).toEqual({
-    unexpected: ["IrValue src/services/x.ts", "lowerSource src/services/x.ts"],
-    stale: [],
-  })
+  expect(deadExports(alone)).toEqual(["IrValue src/services/x.ts", "lowerSource src/services/x.ts"])
 })
 
 test("the gates' own files, tests included, are not a use: a name they plant cannot keep a real export alive", () => {
@@ -79,12 +75,8 @@ test("the gates' own files, tests included, are not a use: a name they plant can
   expect(exportRows(texts)).toEqual([{ name: "Planted", file: "src/a.ts", src: 0, test: 0, script: 0 }])
 })
 
-test("src/ exports nothing nobody reads, but the allowlist (lsp-same-standard 1.1; transpile-restructure 7.10.4)", () => {
+test("src/ exports nothing nobody reads (lsp-same-standard 1.1; transpile-restructure 7.10.4)", () => {
   const texts = packageTexts()
-  expect(deadExportReport(texts)).toEqual({ unexpected: [], stale: [] })
+  expect(deadExports(texts)).toEqual([])
   expect(nobodyIn(texts, "src/transpile").map((r) => `${r.name} ${r.file}`)).toEqual([])
-})
-
-test("the allowlist is empty (ld-fbd-coverage 2.1): src/ exports nothing nobody imports", () => {
-  expect(DEAD_EXPORT_ALLOWLIST).toEqual([])
 })
