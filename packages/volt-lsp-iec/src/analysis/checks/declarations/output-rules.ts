@@ -6,18 +6,12 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkOutputRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.sectionKind !== "VAR_OUTPUT") continue
     if (decl.type.kind === "reference_type")
-      out.push({
-        severity: "error",
-        span: decl.type.span,
-        source: SOURCE,
-        code: "output-reference-type",
-        message: ctx.messages.outputCantBeReference(),
-      })
+      emit(out, decl.type.span, "output-reference-type", ctx.messages.outputCantBeReference())
   }
 }

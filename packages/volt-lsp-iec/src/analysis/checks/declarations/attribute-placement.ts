@@ -10,7 +10,7 @@
  */
 import { isTrivia, readAttribute } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { fixOf, removeConstruct } from "../../shared/fixes.js"
 
 export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -36,10 +36,15 @@ export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]
         // its fix: the attribute removed, and its line when it stands alone (`qf_c0550_remove`) — it has nothing to pack
         // on a FUNCTION or a METHOD (`preferred`)
         if (p.name === "pack_mode")
-          out.push(
-            withFixes({ severity: "error", span: p.span, source: SOURCE, code: "pack-mode-not-allowed", message: ctx.messages.packModeNotAllowed(kind) }, [
+          emit(
+            out,
+            p.span,
+            "pack-mode-not-allowed",
+            ctx.messages.packModeNotAllowed(kind),
+            "error",
+            [
               fixOf("Remove the attribute", [removeConstruct(ctx.source, p.span.start, p.span.end)], true),
-            ]),
+            ],
           )
     leading = [] // any meaningful token consumes/ends the leading run
   }

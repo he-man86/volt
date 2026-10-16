@@ -17,7 +17,7 @@ import { classifyConversion, elementaryRef, inferExprType, isEnumValueRef, isSam
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr, targetOf } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
@@ -28,7 +28,7 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
     const left = inferExprType(e.left, scope, ctx.project)
     const right = inferExprType(e.right, scope, ctx.project)
     const push = (code: string, message: string): void => {
-      out.push({ severity: "error", span: e.span, source: SOURCE, code, message })
+      emit(out, e.span, code, message)
     }
 
     // C0068 / C0069 — two arrays, of one type or of two
@@ -54,13 +54,13 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
     // 2026-10-06); and one enum in two casings is the same enum (`cc_fp_enum_compare_same_enum_other_case`).
     if (left.kind === "enum" && right.kind === "enum" && !isSameType(left, right)) {
       if (!(isEnumValueRef(e.left, scope, ctx.project) && isEnumValueRef(e.right, scope, ctx.project)))
-        out.push({
-          severity: "warning",
-          span: e.span,
-          source: SOURCE,
-          code: "enum-comparison",
-          message: ctx.messages.enumComparison(renderType(left, { form: "compiler" }), renderType(right, { form: "compiler" })),
-        })
+        emit(
+          out,
+          e.span,
+          "enum-comparison",
+          ctx.messages.enumComparison(renderType(left, { form: "compiler" }), renderType(right, { form: "compiler" })),
+          "warning",
+        )
       return
     }
 
@@ -71,13 +71,13 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
       const rule = pointerComparison(int, targetOf(ctx.project))
       if (rule === "incompatible") push("incompatible-comparison", ctx.messages.cannotCompare(renderType(left), renderType(right)))
       else if (rule === "sign-change")
-        out.push({
-          severity: "warning",
-          span: ptrAt!.span,
-          source: SOURCE,
-          code: "sign-change-conversion",
-          message: ctx.messages.signChange("unsigned", renderType(ptr), "signed", renderType(elementaryRef("LINT"), { form: "compiler" })),
-        })
+        emit(
+          out,
+          ptrAt!.span,
+          "sign-change-conversion",
+          ctx.messages.signChange("unsigned", renderType(ptr), "signed", renderType(elementaryRef("LINT"), { form: "compiler" })),
+          "warning",
+        )
       return
     }
 

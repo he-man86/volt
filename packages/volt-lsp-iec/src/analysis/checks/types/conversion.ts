@@ -11,7 +11,7 @@ import { walkAllExprs } from "../../../frontend/syntax/index.js"
 import { bodies, targetOf } from "../../../frontend/symbols/index.js"
 import { conversionSides, elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -33,17 +33,13 @@ export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): 
       const written = ctx.source.slice(e.callee.span.start, e.callee.span.end)
       const to = conversionSides(e.callee.name)?.to
       const generic = to !== undefined && /^[A-Za-z]+$/.test(to) ? `TO_${written.slice(written.length - to.length)}` : undefined
-      out.push(
-        withFixes(
-          {
-            severity: "error",
-            span: e.callee.span,
-            source: SOURCE,
-            code: "conversion-source-mismatch",
-            message: ctx.messages.cannotConvert(renderType(argT), renderType(sourceT)),
-          },
-          [generic === undefined ? undefined : { ...fixOf(`Change to ${generic}(…)`, [replaceText(ctx.source, e.callee.span.start, e.callee.span.end, generic)], true), fixAll: true }],
-        ),
+      emit(
+        out,
+        e.callee.span,
+        "conversion-source-mismatch",
+        ctx.messages.cannotConvert(renderType(argT), renderType(sourceT)),
+        "error",
+        [generic === undefined ? undefined : { ...fixOf(`Change to ${generic}(…)`, [replaceText(ctx.source, e.callee.span.start, e.callee.span.end, generic)], true), fixAll: true }],
       )
     })
   }

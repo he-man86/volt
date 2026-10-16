@@ -23,7 +23,7 @@
  */
 import { objectNameOf, type Identifier, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { fixOf, replaceText } from "../../shared/fixes.js"
 
 /**
@@ -56,7 +56,5 @@ export function checkSignatureName(ctx: CheckContext, out: DiagnosticItem[]): vo
     unit.kind === "function_block"
       ? fixOf(`Rename to '${object}'`, [replaceText(ctx.source, named.name.span.start, named.name.span.end, object)], true)
       : undefined
-  out.push(
-    withFixes({ severity: "error", span: named.name.span, source: SOURCE, code: "signature-name-mismatch", message: ctx.messages.signatureNameMismatch() }, [fix]),
-  )
+  emit(out, named.name.span, "signature-name-mismatch", ctx.messages.signatureNameMismatch(), "error", [fix])
 }

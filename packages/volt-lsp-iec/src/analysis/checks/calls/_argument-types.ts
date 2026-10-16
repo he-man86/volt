@@ -18,7 +18,7 @@ import {
 } from "../../../frontend/types/index.js"
 import { GENERIC_PARAMETER_TYPES, genericParameterAccepts } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { type DiagnosticItem, SOURCE, withFixes } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, withFixes } from "../../shared/diagnostic-item.js"
 import { checkable, checkableType, conversionWarning, conversionWrapInto, isStrictEnum } from "../../shared/rules.js"
 
 /**
@@ -60,13 +60,12 @@ export function outputTypeError(
     if (w !== undefined) out.push(w)
     return
   }
-  out.push({
-    severity: "error",
-    span: target.span,
-    source: SOURCE,
-    code: "call-argument-type",
-    message: ctx.messages.cannotConvert(renderType(src, { form: "compiler" }), renderType(dst, { form: "compiler" })),
-  })
+  emit(
+    out,
+    target.span,
+    "call-argument-type",
+    ctx.messages.cannotConvert(renderType(src, { form: "compiler" }), renderType(dst, { form: "compiler" })),
+  )
 }
 
 /** A literal argument, written plain or negated (`5`, `-1`, `TRUE`, `'abc'`, `INT#5`). */
@@ -93,18 +92,17 @@ export function argTypeError(
     const group = paramType.name.text
     if (isLiteralArgument(value)) {
       if (isIntLiteral(value) && group.toUpperCase() === "ANY_INT")
-        out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-needs-writable", message: ctx.messages.anyNeedsWritable(param.name.text, callee) })
+        emit(out, value.span, "in-out-needs-writable", ctx.messages.anyNeedsWritable(param.name.text, callee))
       return
     }
     const argType = checkableType(value, scope, ctx.project)
     if (argType !== undefined && genericParameterAccepts(group, argType, ctx.project.dialect) === false) {
-      out.push({
-        severity: "error",
-        span: value.span,
-        source: SOURCE,
-        code: "call-argument-type",
-        message: ctx.messages.cannotConvert(renderType(argType, { form: "compiler" }), group.toUpperCase()),
-      })
+      emit(
+        out,
+        value.span,
+        "call-argument-type",
+        ctx.messages.cannotConvert(renderType(argType, { form: "compiler" }), group.toUpperCase()),
+      )
       return
     }
   }
@@ -135,16 +133,12 @@ export function argTypeError(
   // its fix: wrap the argument in `TO_<parameter type>(…)` (`qf_callarg_wrap`, design.md §4 F1) — offered, not preferred
   // and not fix-all: an ERROR's argument may be the wrong variable rather than a missing conversion, exactly as C0032's
   // value at an assignment (design.md §2 As built: `preferred` only on a warning's wrap)
-  out.push(
-    withFixes(
-      {
-        severity: "error",
-        span: value.span,
-        source: SOURCE,
-        code: "call-argument-type",
-        message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
-      },
-      [conversionWrapInto(target, value, scope, ctx.project, ctx.source, false)],
-    ),
+  emit(
+    out,
+    value.span,
+    "call-argument-type",
+    ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
+    "error",
+    [conversionWrapInto(target, value, scope, ctx.project, ctx.source, false)],
   )
 }

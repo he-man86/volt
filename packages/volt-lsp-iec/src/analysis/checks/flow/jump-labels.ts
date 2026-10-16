@@ -9,13 +9,13 @@
 import { walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { bodiesThroughErrors } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, removeConstruct } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 
 export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   const push = (code: string, span: Span, message: string, fixes?: readonly Fix[]) =>
-    out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, fixes))
+    emit(out, span, code, message, "error", fixes)
 
   // a body that did not parse cleanly too: the vendor checks its labels (`bodiesThroughErrors`)
   for (const { statements } of bodiesThroughErrors(ctx.parseResult.units, ctx.project)) {

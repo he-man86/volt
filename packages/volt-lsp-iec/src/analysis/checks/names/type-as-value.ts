@@ -15,7 +15,7 @@ import { walkAllExprs, walkStatements, type Expr, type TypeDecl } from "../../..
 import { bodies, lookup, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkTypeAsValue(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -56,5 +56,5 @@ function isStructTypeName(e: Expr, scope: Scope): e is Extract<Expr, { kind: "id
 }
 
 function flag(e: Extract<Expr, { kind: "ident_expr" }>, ctx: CheckContext, out: DiagnosticItem[]): void {
-  out.push({ severity: "error", span: e.span, source: SOURCE, code: "type-name-as-value", message: ctx.messages.typeNameNotExpected(e.name) })
+  emit(out, e.span, "type-name-as-value", ctx.messages.typeNameNotExpected(e.name))
 }

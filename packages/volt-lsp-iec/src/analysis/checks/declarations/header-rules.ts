@@ -28,7 +28,7 @@
 import type { CheckContext } from "../../pipeline/context.js"
 import { compilerTypeText, type Interface, type TopLevel, type TypeDecl } from "../../../frontend/syntax/index.js"
 import { lookupLocal } from "../../../frontend/symbols/index.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { findLastWord, fixOf, removeWord, replaceText } from "../../shared/fixes.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -45,11 +45,13 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
       unit.modifiers.includes("ABSTRACT") &&
       unit.modifiers.includes("FINAL")
     )
-      out.push(
-        withFixes(
-          { severity: "error", span: unit.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() },
-          keepOneFixes(ctx, unit.span.start, unit.name.span.start),
-        ),
+      emit(
+        out,
+        unit.name.span,
+        "abstract-and-final",
+        ctx.messages.abstractAndFinal(),
+        "error",
+        keepOneFixes(ctx, unit.span.start, unit.name.span.start),
       )
   }
 }
@@ -78,38 +80,36 @@ function propertyWithoutAccessor(ctx: CheckContext, unit: TopLevel, out: Diagnos
         ? unit.properties.filter((p) => !p.hasGetter && !p.hasSetter).map((p) => p.name.span)
         : []
   for (const span of accessorless)
-    out.push({ severity: "warning", span, source: SOURCE, code: "property-without-accessor", message: ctx.messages.propertyWithoutAccessor() })
+    emit(out, span, "property-without-accessor", ctx.messages.propertyWithoutAccessor(), "warning")
 }
 
 /** C0096 multiple inheritance, else C0182 a return type where none is allowed, else C0421 an interface's IMPLEMENTS. */
 function headerShape(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): void {
   if (unit.kind === "function_block" && unit.extendsExtra !== undefined && unit.extendsExtra.length > 0) {
     // Anchor on the first illegal extra base (the point past the single allowed one).
-    out.push({
-      severity: "error",
-      span: unit.extendsExtra[0]!.span,
-      source: SOURCE,
-      code: "multiple-inheritance",
-      message: ctx.messages.multipleInheritance(),
-    })
+    emit(out, unit.extendsExtra[0]!.span, "multiple-inheritance", ctx.messages.multipleInheritance())
   } else if ((unit.kind === "program" || unit.kind === "function_block") && unit.returnType !== undefined) {
     // its fix: the `: <type>` after the name removed (`qf_c0182_remove`) — a PROGRAM or an FB returns nothing (`preferred`)
     const removeReturn = fixOf("Remove the return type", [replaceText(ctx.source, unit.name.span.end, unit.returnType.span.end, "")], true)
-    out.push(
-      withFixes(
-        { severity: "error", span: unit.returnType.span, source: SOURCE, code: "return-type-not-allowed", message: ctx.messages.returnTypeNotAllowed() },
-        [/^\s*:\s*$/.test(ctx.source.slice(unit.name.span.end, unit.returnType.span.start)) ? removeReturn : undefined],
-      ),
+    emit(
+      out,
+      unit.returnType.span,
+      "return-type-not-allowed",
+      ctx.messages.returnTypeNotAllowed(),
+      "error",
+      [/^\s*:\s*$/.test(ctx.source.slice(unit.name.span.end, unit.returnType.span.start)) ? removeReturn : undefined],
     )
   } else if (unit.kind === "interface" && unit.implementsMisused !== undefined) {
     // its fix: the keyword interface inheritance takes (`qf_c0421_extends`), the one meaning of the header (`preferred`)
     const first = unit.implementsMisused[0]
     const keyword = first === undefined ? undefined : findLastWord(ctx.source, unit.name.span.end, first.span.start, "IMPLEMENTS")
-    out.push(
-      withFixes(
-        { severity: "error", span: first?.span ?? unit.name.span, source: SOURCE, code: "interface-implements", message: ctx.messages.interfaceImplementsMisused() },
-        [keyword === undefined ? undefined : fixOf("Change to EXTENDS", [replaceText(ctx.source, keyword.start, keyword.end, "EXTENDS")], true)],
-      ),
+    emit(
+      out,
+      first?.span ?? unit.name.span,
+      "interface-implements",
+      ctx.messages.interfaceImplementsMisused(),
+      "error",
+      [keyword === undefined ? undefined : fixOf("Change to EXTENDS", [replaceText(ctx.source, keyword.start, keyword.end, "EXTENDS")], true)],
     )
   }
 }
@@ -125,13 +125,7 @@ function headerShape(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): 
 function varInInterface(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): void {
   if (unit.kind !== "interface" || unit.strayVarSections === undefined) return
   for (const section of unit.strayVarSections) {
-    out.push({
-      severity: "error",
-      span: section.span,
-      source: SOURCE,
-      code: "var-in-interface",
-      message: ctx.messages.varInInterface(),
-    })
+    emit(out, section.span, "var-in-interface", ctx.messages.varInInterface())
   }
 }
 
@@ -139,24 +133,22 @@ function varInInterface(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]
 function functionHeader(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): void {
   if (unit.kind !== "function") return
   if (unit.implementsMisused !== undefined) {
-    out.push({
-      severity: "error",
-      span: unit.implementsMisused[0]?.span ?? unit.name.span,
-      source: SOURCE,
-      code: "function-implements",
-      message: ctx.messages.functionImplements(),
-    })
+    emit(
+      out,
+      unit.implementsMisused[0]?.span ?? unit.name.span,
+      "function-implements",
+      ctx.messages.functionImplements(),
+    )
   }
   // A FUNCTION's EXTENDS: a function has no base class, so none is ever found — even a function block of that name
   // (conformance `hdr_function_extends_no_return`, CODESYS SP21 2026-09-30).
   if (unit.extendsMisused !== undefined) {
-    out.push({
-      severity: "error",
-      span: unit.extendsMisused.span,
-      source: SOURCE,
-      code: "base-class-not-found",
-      message: ctx.messages.baseClassNotFound(unit.extendsMisused.text),
-    })
+    emit(
+      out,
+      unit.extendsMisused.span,
+      "base-class-not-found",
+      ctx.messages.baseClassNotFound(unit.extendsMisused.text),
+    )
   }
 }
 
@@ -164,12 +156,12 @@ function functionHeader(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]
 function typeExtends(ctx: CheckContext, unit: TypeDecl, out: DiagnosticItem[]): void {
   if (unit.extendsMisused === undefined) return
   const base = unit.extendsMisused
-  const error = (code: string, message: string) => out.push({ severity: "error", span: base.span, source: SOURCE, code, message })
+  const error = (code: string, message: string) => emit(out, base.span, code, message)
   if (unit.body.kind === "union") {
     // C0542, a WARNING naming the base — CODESYS-only: TwinCAT silently accepts EXTENDS on a UNION
     // (`unit_type_extends_on_union`, 2026-10-01)
     if (ctx.config.vendor === "codesys")
-      out.push({ severity: "warning", span: base.span, source: SOURCE, code: "union-inheritance", message: ctx.messages.unionInheritance(base.text) })
+      emit(out, base.span, "union-inheritance", ctx.messages.unionInheritance(base.text), "warning")
   } else if (unit.body.kind === "enum") {
     // an enum looks for an ENUM base: with one, inheritance is not allowed (`unit_enum_extends_enum`); with any other
     // there is none to find (`unit_type_extends_on_enum`, a struct base)
@@ -190,11 +182,13 @@ function accessModifiers(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[
     const word = mods.find((m) => m === "PRIVATE" || m === "PROTECTED")
     if (word === undefined) return
     const edit = removeWord(ctx.source, from, span.start, word)
-    out.push(
-      withFixes(
-        { severity: "error", span, source: SOURCE, code: "access-only-on-methods", message: ctx.messages.accessOnlyOnMethods() },
-        [edit === undefined ? undefined : fixOf(`Remove ${word}`, [edit], true)],
-      ),
+    emit(
+      out,
+      span,
+      "access-only-on-methods",
+      ctx.messages.accessOnlyOnMethods(),
+      "error",
+      [edit === undefined ? undefined : fixOf(`Remove ${word}`, [edit], true)],
     )
   }
   // (an FB whose header the vendor refused is no FB at all, and gets no message about its header — `headerRefused`)
@@ -219,7 +213,7 @@ function accessModifiers(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[
  */
 function interfaceMembers(ctx: CheckContext, unit: Interface, out: DiagnosticItem[]): void {
   const error = (span: DiagnosticItem["span"], message: string) =>
-    out.push({ severity: "error", span, source: SOURCE, code: "interface-member-variable", message })
+    emit(out, span, "interface-member-variable", message)
   for (const m of unit.methods)
     for (const section of m.varSections) {
       if (PARAMETER_SECTIONS.has(section.sectionKind) || section.decls.length === 0) continue
@@ -239,11 +233,13 @@ function interfaceMembers(ctx: CheckContext, unit: Interface, out: DiagnosticIte
   // ABSTRACT with FINAL on an interface METHOD, as on a function block's (`unit_interface_method_abstract_final`)
   for (const m of unit.methods)
     if (m.modifiers.includes("ABSTRACT") && m.modifiers.includes("FINAL"))
-      out.push(
-        withFixes(
-          { severity: "error", span: m.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() },
-          keepOneFixes(ctx, m.span.start, m.name.span.start),
-        ),
+      emit(
+        out,
+        m.name.span,
+        "abstract-and-final",
+        ctx.messages.abstractAndFinal(),
+        "error",
+        keepOneFixes(ctx, m.span.start, m.name.span.start),
       )
 }
 

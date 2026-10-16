@@ -14,7 +14,7 @@ import { walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain, resolveNamedType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { unknownTypeName } from "../../shared/resolution.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 
@@ -44,7 +44,7 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
       const sym = resolveMemberChain(e.callee, scope, ctx.project)
       if (sym === undefined || CALLABLE_KINDS.has(sym.kind)) return // unresolved or a real callable → skip
       if (sym.kind === "gvl_block") {
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("VAR_GLOBAL") })
+        emit(out, e.callee.span, "non-callable-call", ctx.messages.cannotCallType("VAR_GLOBAL"))
         return
       }
       // An instance of a type NOTHING DECLARES is no instance either: CODESYS adds C0035 beside the declaration's
@@ -54,7 +54,7 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
       // call rule is TwinCAT's too: `pwh_unclosed_comment_fb` and `cc5_deprecated_functionblock_keyword` record C0035
       // beside "Unknown type" there.
       if (unknownTypeName(ctx.project, sym.typeExpr) !== undefined) {
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee)) })
+        emit(out, e.callee.span, "invalid-call-target", ctx.messages.callTargetExpected(calleeName(e.callee)))
         return
       }
       // A value whose type is a KNOWN non-callable kind → C0035. An unknown/library/FB type → skip (zero-FP).
@@ -68,17 +68,22 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
       // and before DT8 it was this C0035). A namespace's name keeps C0035, as before DT8 (unrecorded); an INTERFACE's is
       // `fb-instantiation`'s, and a FUNCTION's, METHOD's or GVL's never gets here.
       if (target.kind === "static" && target.denotes === "struct") {
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("TYPE") })
+        emit(out, e.callee.span, "non-callable-call", ctx.messages.cannotCallType("TYPE"))
         return
       }
       // …and so is an INSTANCE of a STRUCT called: "Cannot call object of type 'TYPE'" (`calls_struct_instance_called`, both
       // vendors 2026-10-06)
       if (target.kind === "struct" && type.kind === "struct") {
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("TYPE") })
+        emit(out, e.callee.span, "non-callable-call", ctx.messages.cannotCallType("TYPE"))
         return
       }
       if (NON_CALLABLE_TYPE.has(target.kind) || (target.kind === "static" && target.denotes === "namespace"))
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee, scope, ctx)) })
+        emit(
+          out,
+          e.callee.span,
+          "invalid-call-target",
+          ctx.messages.callTargetExpected(calleeName(e.callee, scope, ctx)),
+        )
     })
   }
 }

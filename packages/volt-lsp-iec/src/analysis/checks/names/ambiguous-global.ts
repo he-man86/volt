@@ -22,7 +22,7 @@
 import { forEachExpr, gvlName, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import { resolveBareName } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText } from "../../shared/fixes.js"
 
 /** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
@@ -75,7 +75,7 @@ export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): 
     const key = e.name.toLowerCase()
     if (memberClash && !called.has(e) && variableBesideMethod(scope, e.name, key)) {
       // a WARNING, and the variable is what the name means: the build goes on (CODESYS 2026-10-06, analysis-conformance 3.5)
-      out.push({ severity: "warning", span: e.span, source: SOURCE, code: "ambiguous-global", message: ctx.messages.ambiguousGlobalName(e.name) })
+      emit(out, e.span, "ambiguous-global", ctx.messages.ambiguousGlobalName(e.name), "warning")
       return
     }
     let fixes: Fix[] = []
@@ -89,7 +89,7 @@ export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): 
       const named = resolveBareName(scope, e.name)
       if (named.kind !== "ambiguous" || !named.said) return
     }
-    out.push(withFixes({ severity: "error", span: e.span, source: SOURCE, code: "ambiguous-global", message: ctx.messages.ambiguousGlobalName(e.name) }, fixes))
+    emit(out, e.span, "ambiguous-global", ctx.messages.ambiguousGlobalName(e.name), "error", fixes)
   })
 }
 

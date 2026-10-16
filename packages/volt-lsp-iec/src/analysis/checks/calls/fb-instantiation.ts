@@ -14,7 +14,7 @@ import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachExpr, isLibrarySymbol, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
@@ -26,7 +26,7 @@ export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): 
     // CALLING an interface says so twice: it must be instantiated, and an interface is not a thing you call at all
     // (conformance `cc5_type_invoked_directly`). Reaching into one for a member says only the first.
     if (kind === "interface" && e.kind === "call")
-      out.push({ severity: "error", span: name.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.cannotCallObjectOfType("INTERFACE") })
+      emit(out, name.span, "invalid-call-target", ctx.messages.cannotCallObjectOfType("INTERFACE"))
     // …and the type name passed as a call's ARGUMENT (`calls_fb_type_as_argument`, `calls_itf_type_as_argument`, both
     // vendors 2026-10-06; `op_sys_queryinterface` names an interface as an operand the same way)
     // — of a routine (FUNCTION, METHOD, FB) or __QUERYINTERFACE: the operators that TAKE a type (`__NEW(FB_X)`,

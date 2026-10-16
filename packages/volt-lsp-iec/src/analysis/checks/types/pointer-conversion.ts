@@ -17,7 +17,7 @@ import { walkStatements, type Assignment, type Expr } from "../../../frontend/sy
 import { bodies, forEachDecl, targetOf } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, isSameType, pointerIntoElementary, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -48,20 +48,22 @@ function store(ctx: CheckContext, out: DiagnosticItem[], lhs: Type, rhs: Type, a
   if (written.kind !== "elementary") return
   const rule = pointerIntoElementary(written, targetOf(ctx.project), ctx.project.dialect)
   if (rule === "incompatible")
-    out.push(
-      withFixes(
-        { severity: "error", span: at.span, source: SOURCE, code: "assignment-type-mismatch", message: ctx.messages.cannotConvert(renderType(rhs), renderType(lhs)) },
-        [fix],
-      ),
+    emit(
+      out,
+      at.span,
+      "assignment-type-mismatch",
+      ctx.messages.cannotConvert(renderType(rhs), renderType(lhs)),
+      "error",
+      [fix],
     )
   else if (rule === "sign-change")
-    out.push({
-      severity: "warning",
-      span: at.span,
-      source: SOURCE,
-      code: "sign-change-conversion",
-      message: ctx.messages.signChange("unsigned", renderType(rhs), "signed", renderType(elementaryRef(written.name), { form: "compiler" })),
-    })
+    emit(
+      out,
+      at.span,
+      "sign-change-conversion",
+      ctx.messages.signChange("unsigned", renderType(rhs), "signed", renderType(elementaryRef(written.name), { form: "compiler" })),
+      "warning",
+    )
 }
 
 /**

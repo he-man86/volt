@@ -22,7 +22,7 @@ import { bodies, bodyConditionWorld, lookup, visibleNames, type Scope } from "..
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { Expr, Function, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { addParensFix, fixOf, insertText, removeConstruct } from "../../shared/fixes.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 
@@ -47,13 +47,7 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
   }
   const invalid = (s: Extract<Statement, { kind: "expr_stmt" }>): void => {
     const br = s.unterminated ? lineBreakOf(ctx.source) : withLineEnd(ctx.source, s.span.end, s.span.end)
-    out.push({
-      severity: "error",
-      span: s.expr.span,
-      source: SOURCE,
-      code: "no-valid-statement",
-      message: ctx.messages.noValidStatement(`${compilerExprText(s.expr)};${br}`),
-    })
+    emit(out, s.expr.span, "no-valid-statement", ctx.messages.noValidStatement(`${compilerExprText(s.expr)};${br}`))
   }
   for (const { unit, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     // inside a FUNCTION its own name is its return variable, a name like any other: the no-op alone
@@ -64,11 +58,13 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
       if (s.expr.kind === "binary") return invalid(s)
       const fn = s.expr.kind === "ident_expr" && s.expr.name.toLowerCase() !== ownName ? lookup(scope, s.expr.name)?.symbol : undefined
       if (s.expr.kind === "ident_expr" && fn?.kind === "function") {
-        out.push(
-          withFixes(
-            { severity: "error", span: s.expr.span, source: SOURCE, code: "function-without-parens", message: ctx.messages.functionWithoutParens(s.expr.name) },
-            [addParensFix(ctx.source, s.expr.span.end, fn.ast as Function)],
-          ),
+        emit(
+          out,
+          s.expr.span,
+          "function-without-parens",
+          ctx.messages.functionWithoutParens(s.expr.name),
+          "error",
+          [addParensFix(ctx.source, s.expr.span.end, fn.ast as Function)],
         )
         return warn(s)
       }

@@ -26,7 +26,7 @@ import { compilerTypeText, varInputParams, type Method } from "../../../frontend
 import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../frontend/symbols/index.js"
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /** The two the compiler passes itself, by NAME — every other input is the caller's to supply, wherever it is declared: an
  *  INT declared ahead of them is "(INT)" (`oopb_fb_init_extra_input_first`, CODESYS 2026-10-06), not the BOOL in its slot. */
@@ -46,7 +46,7 @@ export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[
       if (extraInputs(array.element).length === 0) continue
       const elements = array.bounds.reduce((n, b) => n * Number(b.upper - b.lower + 1n), 1)
       for (const name of decl.names)
-        out.push({ severity: "error", span: name.span, source: SOURCE, code: "fb-init-argument-missing", message: ctx.messages.fbInitArrayCount(0, elements) })
+        emit(out, name.span, "fb-init-argument-missing", ctx.messages.fbInitArrayCount(0, elements))
       continue
     }
     if (decl.type.kind !== "named_type") continue
@@ -58,13 +58,12 @@ export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[
     if (decl.type.initArgs !== undefined && decl.type.initArgs.length === extra.length) continue
     const types = extra.map((p) => compilerTypeText(p.type)).join(", ")
     for (const name of decl.names)
-      out.push({
-        severity: "error",
-        span: name.span,
-        source: SOURCE,
-        code: "fb-init-argument-missing",
-        message: ctx.messages.fbInitInstantiation(type.name, extra.length, `${name.text} : ${type.name}(${types})`),
-      })
+      emit(
+        out,
+        name.span,
+        "fb-init-argument-missing",
+        ctx.messages.fbInitInstantiation(type.name, extra.length, `${name.text} : ${type.name}(${types})`),
+      )
   }
 }
 

@@ -10,7 +10,7 @@
 import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import { isRecursiveConstant } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkConstantCycle(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -18,7 +18,7 @@ export function checkConstantCycle(ctx: CheckContext, out: DiagnosticItem[]): vo
     for (const name of decl.names) {
       const symbol = lookupLocal(scope, name.text).find((s) => s.ast === decl)
       if (symbol === undefined || !isRecursiveConstant(symbol)) continue
-      out.push({ severity: "error", span: name.span, source: SOURCE, code: "constant-cycle", message: ctx.messages.recursiveConstant() })
+      emit(out, name.span, "constant-cycle", ctx.messages.recursiveConstant())
     }
   }
 }

@@ -13,7 +13,7 @@
 import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkGenericInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -26,12 +26,6 @@ export function checkGenericInstantiation(ctx: CheckContext, out: DiagnosticItem
     if (type.kind !== "function_block" || type.scope === undefined) continue
     const generics = [...type.scope.symbols.values()].flat().filter((s) => s.owner === type.scope && s.varSection === "VAR_GENERIC").length
     if (generics === 0 || (named.genericArgs?.length ?? 0) === generics) continue
-    out.push({
-      severity: "error",
-      span: named.span,
-      source: SOURCE,
-      code: "generic-instantiation",
-      message: ctx.messages.genericCount(type.name, generics),
-    })
+    emit(out, named.span, "generic-instantiation", ctx.messages.genericCount(type.name, generics))
   }
 }

@@ -16,7 +16,7 @@
 import { walkAllExprs } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkRecursiveCall(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -25,13 +25,7 @@ export function checkRecursiveCall(ctx: CheckContext, out: DiagnosticItem[]): vo
     const self = unit.name.text.toLowerCase()
     walkAllExprs(statements, (e) => {
       if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.callee.name.toLowerCase() !== self) return
-      out.push({
-        severity: "error",
-        span: e.callee.span,
-        source: SOURCE,
-        code: "call-recursion",
-        message: ctx.messages.callTargetExpected(e.callee.name),
-      })
+      emit(out, e.callee.span, "call-recursion", ctx.messages.callTargetExpected(e.callee.name))
     })
   }
 }

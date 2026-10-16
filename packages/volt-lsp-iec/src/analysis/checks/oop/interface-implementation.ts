@@ -22,7 +22,7 @@
  *     abstract). A flat presence-check can't model that, so don't guess.
  * Only the PRESENCE check is ported; per-signature mismatch is `method-signature`'s.
  */
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 import {
   ancestry,
@@ -70,11 +70,13 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
             const members = prop === undefined ? [m.name] : [...(prop.hasGetter ? [`__GET${m.name}`] : []), ...(prop.hasSetter ? [`__SET${m.name}`] : [])]
             const fix = stubFix(ctx, unit, m.ast as InterfaceMethod | InterfaceProperty)
             for (const member of members)
-              out.push(
-                withFixes(
-                  { severity: "error", span: ifaceName.span, source: SOURCE, code: "missing-interface-implementation", message: ctx.messages.missingInterfaceImpl(member, declaring.name) },
-                  [fix],
-                ),
+              emit(
+                out,
+                ifaceName.span,
+                "missing-interface-implementation",
+                ctx.messages.missingInterfaceImpl(member, declaring.name),
+                "error",
+                [fix],
               )
           }
     }

@@ -13,7 +13,7 @@ import { isIntegerType, resolveTypeExpr, type Type } from "../../../frontend/typ
 import type { TypeExpr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText } from "../../shared/fixes.js"
 
 const INLINE_CONST_SECTIONS = new Set(["VAR", "VAR_GLOBAL"])
@@ -27,11 +27,13 @@ export function checkConstantInitializer(ctx: CheckContext, out: DiagnosticItem[
     if (t === "unknown" || t === "function_block" || t === "interface") continue // unresolvable/non-value → skip (zero-FP)
     const fix = initializeFix(ctx, decl.type, resolved)
     for (const name of decl.names)
-      out.push(
-        withFixes(
-          { severity: "warning", span: name.span, source: SOURCE, code: "constant-no-initial-value", message: ctx.messages.constantNoInitialValue(name.text) },
-          [fix],
-        ),
+      emit(
+        out,
+        name.span,
+        "constant-no-initial-value",
+        ctx.messages.constantNoInitialValue(name.text),
+        "warning",
+        [fix],
       )
   }
 }

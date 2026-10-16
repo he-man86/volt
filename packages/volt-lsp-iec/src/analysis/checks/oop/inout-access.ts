@@ -11,7 +11,7 @@ import { bodyContext, MAIN_BODY } from "../../shared/body-context.js"
 import { inferExprType, resolveMemberChain, resolveTypeExpr } from "../../../frontend/types/index.js"
 import { initializerFields, initializerValues, isListInitializer } from "../../shared/initializer.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /**
  * inout-external-access — C0178. An FB's VAR_IN_OUT parameter is a call-bound reference with no
@@ -45,13 +45,7 @@ export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[
         // `cc5_inout_external_access`: "… parameter 'shared' of 'FB_C5_HOLDER'.")
         message: ctx.messages.inoutNoExternalAccess(e.member.name, fbName.toUpperCase()),
       })
-      out.push({
-        severity: "warning",
-        span: e.span,
-        source: SOURCE,
-        code: "inout-own-access",
-        message: ctx.messages.inoutOwnAccess(e.member.name, fbName, context),
-      })
+      emit(out, e.span, "inout-own-access", ctx.messages.inoutOwnAccess(e.member.name, fbName, context), "warning")
     })
   }
 }
@@ -86,13 +80,7 @@ export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): v
       if (e.kind !== "ident_expr" || notReferences.has(e)) return
       const sym = resolveMemberChain(e, scope, ctx.project)
       if (sym?.varSection !== "VAR_IN_OUT" || sym.owner.kind !== "pou") return
-      out.push({
-        severity: "warning",
-        span: e.span,
-        source: SOURCE,
-        code: "inout-own-access",
-        message: ctx.messages.inoutOwnAccess(sym.name, sym.owner.name, context),
-      })
+      emit(out, e.span, "inout-own-access", ctx.messages.inoutOwnAccess(sym.name, sym.owner.name, context), "warning")
     })
   }
 }
@@ -109,7 +97,7 @@ export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): v
  */
 function initializerAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   const warn = (span: DiagnosticItem["span"], param: string, fb: string, context: string) =>
-    out.push({ severity: "warning", span, source: SOURCE, code: "inout-own-access", message: ctx.messages.inoutOwnAccess(param, fb, context) })
+    emit(out, span, "inout-own-access", ctx.messages.inoutOwnAccess(param, fb, context), "warning")
   for (const { unit, section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (unit.kind !== "function_block" || decl.init === undefined || section.sectionKind === "VAR_IN_OUT") continue
     const type = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)

@@ -34,7 +34,7 @@ import {
   takesNoPositionalArguments,
 } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { bindableMember } from "../../shared/resolution.js"
 import { argTypeError, outputTypeError } from "./_argument-types.js"
@@ -108,25 +108,23 @@ function checkPositionalCount(positional: readonly CallArg[], callee: CalleeInfo
     // by coincidence when somebody passed the number 1 first. `refuse_fb_called_positionally` passes `5` in the
     // first slot and the vendor says '5'.
     for (const arg of positional)
-      out.push({
-        severity: "error",
-        span: arg.span,
-        source: SOURCE,
-        code: "input-assignment-missing",
-        message: ctx.messages.inputAssignmentMissing(
+      emit(
+        out,
+        arg.span,
+        "input-assignment-missing",
+        ctx.messages.inputAssignmentMissing(
           ctx.source.slice(arg.span.start, arg.span.end).trim(),
           callee.sym.name.toUpperCase(),
         ),
-      })
+      )
   } else {
     const excess = positional[callee.positionalArity]!
-    out.push({
-      severity: "error",
-      span: excess.span,
-      source: SOURCE,
-      code: "function-argument-count",
-      message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
-    })
+    emit(
+      out,
+      excess.span,
+      "function-argument-count",
+      ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
+    )
   }
 }
 
@@ -177,13 +175,12 @@ function checkNamedArguments(
     namedInputs.some((n) => !isKnown(n)) &&
     namedInputs.length > callee.positionalArity
   if (overCount)
-    out.push({
-      severity: "error",
-      span: callSpan,
-      source: SOURCE,
-      code: "function-argument-count",
-      message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
-    })
+    emit(
+      out,
+      callSpan,
+      "function-argument-count",
+      ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
+    )
   let namedUnknown = false
   for (const arg of named) {
     const name = arg.param!.name.toLowerCase()
@@ -192,7 +189,7 @@ function checkNamedArguments(
     const known = isKnown(name) && !(arg.output && inputSection(callee, name))
     if (overCount && !known) {
       if (!declaresAnything(callee, name))
-        out.push({ severity: "error", span: arg.param!.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.undefinedIdentifier(arg.param!.name) })
+        emit(out, arg.param!.span, "unresolved-identifier", ctx.messages.undefinedIdentifier(arg.param!.name))
       continue
     }
     if (callee.complete && !known) {

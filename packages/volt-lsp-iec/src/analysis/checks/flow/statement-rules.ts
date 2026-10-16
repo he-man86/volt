@@ -21,7 +21,7 @@ import { walkStatements, stmtChildLists, type Expr, type StatementList } from ".
 import { bodies, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { classifyConversion, constancyOf, constEval, inferExprType, integerLiteralType, renderType, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 import { isRefusedCounter } from "../../shared/rules.js"
 
@@ -33,30 +33,28 @@ export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): v
         const t = inferExprType(e, scope, ctx.project)
         return t.kind === "elementary" ? t.name : undefined
       }
-      out.push({
-        severity: "error",
-        span: target.span,
-        source: SOURCE,
-        code: "not-assignment-target",
-        message: ctx.messages.notAssignmentTarget(compilerExprText(target, typeOf)),
-      })
+      emit(
+        out,
+        target.span,
+        "not-assignment-target",
+        ctx.messages.notAssignmentTarget(compilerExprText(target, typeOf)),
+      )
     }
     walkStatements(statements, (s) => {
       if (s.kind === "for") {
         noName(s.controlVar)
         const ct = inferExprType(s.controlVar, scope, ctx.project)
         if (ct.kind === "elementary" && isRefusedCounter(ct.elem.family))
-          out.push({
-            severity: "error",
-            span: s.controlVar.span,
-            source: SOURCE,
-            code: "for-control-type",
-            message: ctx.messages.cannotConvert(ct.name, "ANY_INT"),
-          })
+          emit(out, s.controlVar.span, "for-control-type", ctx.messages.cannotConvert(ct.name, "ANY_INT"))
         for (const bound of [s.to, s.by]) {
           const refused = bound === undefined ? undefined : refusedBound(ct, bound, bound === s.by, scope, ctx.project)
           if (refused !== undefined)
-            out.push({ severity: "error", span: bound!.span, source: SOURCE, code: "for-bound-type", message: ctx.messages.cannotConvert(refused, renderType(ct, { form: "compiler" })) })
+            emit(
+              out,
+              bound!.span,
+              "for-bound-type",
+              ctx.messages.cannotConvert(refused, renderType(ct, { form: "compiler" })),
+            )
         }
       }
       if (s.kind !== "assign") return
@@ -68,16 +66,15 @@ export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): v
       // analysis-conformance 3.9, 2026-10-06)
       const inputConstant = s.target.kind === "ident_expr" && lookup(scope, s.target.name)?.symbol.varSection === "VAR_INPUT"
       if ((s.target.kind === "ident_expr" || s.target.kind === "global_expr") && !inputConstant && constancyOf(s.target, scope) === "constant")
-        out.push({
-          severity: "error",
-          span: s.target.span,
-          source: SOURCE,
-          code: "not-assignment-target",
-          message: ctx.messages.notAssignmentTarget(ctx.source.slice(s.target.span.start, s.target.span.end)),
-        })
+        emit(
+          out,
+          s.target.span,
+          "not-assignment-target",
+          ctx.messages.notAssignmentTarget(ctx.source.slice(s.target.span.start, s.target.span.end)),
+        )
       // C0509 — __NEW in a chained assignment. CODESYS-only: live /build shows TwinCAT silently accepts it.
       if (ctx.config.vendor === "codesys" && s.chained !== undefined && s.chained.length > 0 && s.value.kind === "call" && s.value.callee.kind === "ident_expr" && s.value.callee.name.toUpperCase() === "__NEW")
-        out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "multiple-assignment-new", message: ctx.messages.multipleAssignmentNew() })
+        emit(out, s.value.span, "multiple-assignment-new", ctx.messages.multipleAssignmentNew())
     })
     // C0132 — EXIT or CONTINUE outside any loop.
     exitOutsideLoop(statements, false, ctx, out)
@@ -117,13 +114,7 @@ function isNoName(e: Expr): boolean {
 function exitOutsideLoop(list: StatementList, inLoop: boolean, ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const s of list) {
     if ((s.kind === "exit" || s.kind === "continue") && !inLoop)
-      out.push({
-        severity: "error",
-        span: s.span,
-        source: SOURCE,
-        code: "exit-outside-loop",
-        message: ctx.messages.noEnclosingLoop(s.kind === "exit" ? "exit" : "continue"),
-      })
+      emit(out, s.span, "exit-outside-loop", ctx.messages.noEnclosingLoop(s.kind === "exit" ? "exit" : "continue"))
     const opensLoop = s.kind === "for" || s.kind === "while" || s.kind === "repeat"
     for (const sub of stmtChildLists(s)) exitOutsideLoop(sub, inLoop || opensLoop, ctx, out)
   }

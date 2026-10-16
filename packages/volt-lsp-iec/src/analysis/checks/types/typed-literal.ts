@@ -17,14 +17,14 @@ import { stmtExprs, typedLiteralForm, walkExpr, walkStatements, type AggregateEl
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import { enumTypedLiteral } from "../../shared/hole.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkTypedLiteral(ctx: CheckContext, out: DiagnosticItem[]): void {
   const visit = (x: Expr): void => {
     if (x.kind !== "literal" || x.literalKind !== "typed") return
     const form = typedLiteralForm(x.text)
     if (form.kind !== "component" || enumTypedLiteral(x.text, ctx.project, ctx.uri)) return
-    out.push({ severity: "error", span: x.span, source: SOURCE, code: "typed-literal", message: ctx.messages.notAMember(form.operand, form.prefix) })
+    emit(out, x.span, "typed-literal", ctx.messages.notAMember(form.operand, form.prefix))
   }
   const initializer = (init: Initializer | undefined): void => {
     if (init === undefined) return

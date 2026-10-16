@@ -8,7 +8,7 @@ import { walkAllExprs } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import { constEval, inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkArrayBounds(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -24,13 +24,12 @@ export function checkArrayBounds(ctx: CheckContext, out: DiagnosticItem[]): void
         const value = constEval(idx, scope)
         if (typeof value !== "bigint" || typeof lo !== "bigint" || typeof hi !== "bigint") return
         if (value >= lo && value <= hi) return
-        out.push({
-          severity: "error",
-          span: idx.span,
-          source: SOURCE,
-          code: "array-index-out-of-bounds",
-          message: ctx.messages.arrayIndexOutOfBounds(value.toString(), lo.toString(), hi.toString()),
-        })
+        emit(
+          out,
+          idx.span,
+          "array-index-out-of-bounds",
+          ctx.messages.arrayIndexOutOfBounds(value.toString(), lo.toString(), hi.toString()),
+        )
       })
     })
   }

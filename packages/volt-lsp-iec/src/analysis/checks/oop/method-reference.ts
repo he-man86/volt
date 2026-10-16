@@ -19,7 +19,7 @@ import { walkStatements, type Method } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
 import { inferExprType, renderType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { addParensFix } from "../../shared/fixes.js"
 
 export function checkMethodReference(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -30,17 +30,13 @@ export function checkMethodReference(ctx: CheckContext, out: DiagnosticItem[]): 
       if (sym?.kind !== "method" || isLibrarySymbol(sym)) return
       const target = inferExprType(s.target, scope, ctx.project)
       if (target.kind === "unknown") return
-      out.push(
-        withFixes(
-          {
-            severity: "error",
-            span: s.value.span,
-            source: SOURCE,
-            code: "method-referenced-without-parens",
-            message: ctx.messages.cannotConvert(sym.name.toUpperCase(), renderType(target)),
-          },
-          [addParensFix(ctx.source, s.value.span.end, sym.ast as Method)],
-        ),
+      emit(
+        out,
+        s.value.span,
+        "method-referenced-without-parens",
+        ctx.messages.cannotConvert(sym.name.toUpperCase(), renderType(target)),
+        "error",
+        [addParensFix(ctx.source, s.value.span.end, sym.ast as Method)],
       )
     })
 }

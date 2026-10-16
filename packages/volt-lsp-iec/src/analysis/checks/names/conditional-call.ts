@@ -25,14 +25,14 @@
 import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const isCalc = (name: string): boolean => name.toUpperCase() === "CALC"
 
 export function checkConditionalCall(ctx: CheckContext, out: DiagnosticItem[]): void {
 
   const push = (message: string, span: { start: number; end: number }): void => {
-    out.push({ severity: "error", span: span as DiagnosticItem["span"], source: SOURCE, code: "conditional-call", message })
+    emit(out, span as DiagnosticItem["span"], "conditional-call", message)
   }
 
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project))

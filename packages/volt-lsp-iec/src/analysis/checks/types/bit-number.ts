@@ -10,24 +10,23 @@
 import { inferExprType, inTypeGroup } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkBitNumber(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
     if (e.kind !== "member" || !/^\d+$/.test(e.member.name)) return
     if (e.base.kind === "call") {
-      out.push({ severity: "error", span: e.span, source: SOURCE, code: "bit-access-on-call", message: ctx.messages.bitAccessOnCall() }) // C0061
+      emit(out, e.span, "bit-access-on-call", ctx.messages.bitAccessOnCall()) // C0061
       return
     }
     const base = inferExprType(e.base, scope, ctx.project)
     if (base.kind !== "elementary" || !inTypeGroup("ANY_INT", base.elem)) return
     if (Number(e.member.name) < base.elem.bits) return // a valid bit index
-    out.push({
-      severity: "error",
-      span: e.member.span,
-      source: SOURCE,
-      code: "invalid-bit-number",
-      message: ctx.messages.invalidBitNumber(e.member.name, ctx.source.slice(e.base.span.start, e.base.span.end)),
-    })
+    emit(
+      out,
+      e.member.span,
+      "invalid-bit-number",
+      ctx.messages.invalidBitNumber(e.member.name, ctx.source.slice(e.base.span.start, e.base.span.end)),
+    )
   })
 }

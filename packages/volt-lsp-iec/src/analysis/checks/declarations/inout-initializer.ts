@@ -19,11 +19,11 @@ import { initializerFields, initializerValues } from "../../shared/initializer.j
 import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkInoutInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
   const uninitialized = (span: Span) =>
-    out.push({ severity: "error", span, source: SOURCE, code: "inout-in-initializer", message: ctx.messages.inoutInInitializer() })
+    emit(out, span, "inout-in-initializer", ctx.messages.inoutInInitializer())
   for (const unit of ctx.parseResult.units) {
     if (!("varSections" in unit)) continue
     const inout = new Set<string>()

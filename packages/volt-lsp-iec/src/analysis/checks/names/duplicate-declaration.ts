@@ -12,7 +12,7 @@
 import { allUnits, type VarDecl } from "../../../frontend/syntax/index.js"
 import { scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, removeConstruct, sameSection, sectionOf } from "../../shared/fixes.js"
 
 export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -33,7 +33,7 @@ export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticIte
       if (list === undefined) continue
       for (const own of bound)
         for (const sym of own.slice(1))
-          out.push({ severity: "error", span: sym.span, source: SOURCE, code: "duplicate-declaration", message: ctx.messages.duplicateDeclaration(sym.name, list) })
+          emit(out, sym.span, "duplicate-declaration", ctx.messages.duplicateDeclaration(sym.name, list))
       continue
     }
     const scope = scopeForUnit(ctx.project, unit)
@@ -46,13 +46,7 @@ export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticIte
     // an input: pro2193's `METHOD PUBLIC Rollover` takes `rollover := 5` and builds
     if (unit.kind === "function" || (unit.kind === "method" && unit.returnType !== undefined))
       for (const sym of scope.symbols.get(unit.name.text.toLowerCase()) ?? [])
-        out.push({
-          severity: "error",
-          span: sym.span,
-          source: SOURCE,
-          code: "duplicate-declaration",
-          message: ctx.messages.duplicateDeclaration(sym.name, scope.name),
-        })
+        emit(out, sym.span, "duplicate-declaration", ctx.messages.duplicateDeclaration(sym.name, scope.name))
   }
 }
 
@@ -70,17 +64,13 @@ function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: Diagnostic
       // Two methods sharing a name is an unmarked overload (C0582) — a distinct error from a duplicate var, and
       // one Volt can't push at all (the bridge's CreateChild rejects the second child). Use its own wording.
       const isMethod = sym.kind === "method" && prior.kind === "method"
-      out.push(
-        withFixes(
-          {
-            severity: "error",
-            span: sym.span,
-            source: SOURCE,
-            code: isMethod ? "duplicate-method" : "duplicate-declaration",
-            message: isMethod ? ctx.messages.duplicateMethod(sym.name) : ctx.messages.duplicateDeclaration(sym.name, scope.name),
-          },
-          isMethod ? [] : removeOneFixes(ctx, prior, sym),
-        ),
+      emit(
+        out,
+        sym.span,
+        isMethod ? "duplicate-method" : "duplicate-declaration",
+        isMethod ? ctx.messages.duplicateMethod(sym.name) : ctx.messages.duplicateDeclaration(sym.name, scope.name),
+        "error",
+        isMethod ? [] : removeOneFixes(ctx, prior, sym),
       )
     }
   }

@@ -13,7 +13,7 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const RESERVED = new Set(["char", "wchar", "using"])
 
@@ -23,13 +23,7 @@ export function checkReservedKeyword(ctx: CheckContext, out: DiagnosticItem[]): 
   for (const decl of [...[...forEachDecl(ctx.parseResult, ctx.project)].map((d) => d.decl), ...fields]) {
     for (const name of decl.names) {
       if (!RESERVED.has(name.text.toLowerCase())) continue
-      out.push({
-        severity: "warning",
-        span: name.span,
-        source: SOURCE,
-        code: "reserved-keyword",
-        message: ctx.messages.reservedKeyword(name.text),
-      })
+      emit(out, name.span, "reserved-keyword", ctx.messages.reservedKeyword(name.text), "warning")
     }
   }
 }

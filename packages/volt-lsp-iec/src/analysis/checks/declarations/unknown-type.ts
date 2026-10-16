@@ -22,7 +22,7 @@ import type { TypeExpr } from "../../../frontend/syntax/index.js"
 import { CODESYS_ONLY_TYPES, ELEMENTARY_TYPES } from "../../../frontend/types/index.js"
 import { dialectMissingType, unknownTypeName } from "../../shared/resolution.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 
 export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -31,13 +31,13 @@ export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void
     if (name === undefined) continue
     const fixes = typeNearMisses(ctx, decl.type)
     for (const at of decl.names)
-      out.push(withFixes({ severity: "error", span: at.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) }, fixes))
+      emit(out, at.span, "unknown-type", ctx.messages.unknownType(name), "error", fixes)
   }
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function" || unit.returnType === undefined) continue
     const name = dialectMissingType(ctx.project, unit.returnType)
     if (name !== undefined)
-      out.push({ severity: "error", span: unit.returnType.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
+      emit(out, unit.returnType.span, "unknown-type", ctx.messages.unknownType(name))
   }
 }
 

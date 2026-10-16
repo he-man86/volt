@@ -13,7 +13,7 @@ import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, lookupLocal } from "../../../frontend/symbols/index.js"
 import { inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -24,13 +24,7 @@ export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): v
       if (fb.kind !== "function_block") return
       const sym = lookupLocal(ctx.project, fb.name).find((x) => x.kind === "function_block")
       if (sym === undefined || !(sym.ast as FunctionBlock).modifiers.includes("ABSTRACT")) return
-      out.push({
-        severity: "error",
-        span: s.target.span,
-        source: SOURCE,
-        code: "abstract-assign",
-        message: ctx.messages.abstractAssignTarget(fb.name),
-      })
+      emit(out, s.target.span, "abstract-assign", ctx.messages.abstractAssignTarget(fb.name))
     })
   }
 }

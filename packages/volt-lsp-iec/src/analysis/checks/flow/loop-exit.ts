@@ -14,7 +14,7 @@ import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import { constEval, inferExprType, literalContextConversion } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { isRefusedCounter } from "../../shared/rules.js"
 
 export function checkLoopExit(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -36,13 +36,7 @@ export function checkLoopExit(ctx: CheckContext, out: DiagnosticItem[]): void {
       const cond =
         step > 0n && to >= max ? `${s.controlVar.name} > ${to}` : step < 0n && to <= min ? `${s.controlVar.name} < ${to}` : undefined
       if (cond === undefined) return
-      out.push({
-        severity: "error",
-        span: s.span,
-        source: SOURCE,
-        code: "loop-exit-constant",
-        message: ctx.messages.loopExitConstantFalse(cond),
-      })
+      emit(out, s.span, "loop-exit-constant", ctx.messages.loopExitConstantFalse(cond))
     })
   }
 }

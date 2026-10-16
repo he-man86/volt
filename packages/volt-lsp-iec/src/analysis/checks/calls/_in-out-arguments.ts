@@ -18,7 +18,7 @@ import {
   takesNoPositionalArguments,
 } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { type DiagnosticItem, SOURCE } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { argumentType } from "./_argument-types.js"
 
 /**
@@ -74,13 +74,7 @@ export function checkMissingInOuts(
   for (const arg of named) covered.add(arg.param!.name.toLowerCase())
   for (const p of callee.positional) {
     if (p.inOut && !covered.has(p.name.text.toLowerCase()))
-      out.push({
-        severity: "error",
-        span: callSpan,
-        source: SOURCE,
-        code: "in-out-not-assigned",
-        message: ctx.messages.inOutMustBeAssigned(p.name.text, callee.sym.name),
-      })
+      emit(out, callSpan, "in-out-not-assigned", ctx.messages.inOutMustBeAssigned(p.name.text, callee.sym.name))
   }
 }
 
@@ -105,15 +99,9 @@ function inOutChecks(
   const property = resolveMemberChain(value, scope, ctx.project)?.kind === "property"
   const propertyMessage = property ? ctx.messages.propertyBoundToInOut() : undefined
   if (propertyMessage !== undefined) {
-    out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-needs-writable", message: propertyMessage })
+    emit(out, value.span, "in-out-needs-writable", propertyMessage)
   } else if (value.kind === "binary" || value.kind === "unary" || value.kind === "paren" || value.kind === "call" || property || isBitAccess(value)) {
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-needs-writable",
-      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
-    })
+    emit(out, value.span, "in-out-needs-writable", ctx.messages.inOutNeedsWritable(param.name.text, callee))
   } else if (param.constant) {
     const argType = constancyOf(value, scope) === "constant" ? inferExprType(value, scope, ctx.project) : undefined
     // an untyped integer literal infers no type (its width is its context's), so it is recognised by its kind
@@ -122,16 +110,15 @@ function inOutChecks(
     const integer =
       (value.kind === "literal" && value.literalKind === "int") ||
       (ctx.config.vendor === "codesys" && value.kind !== "literal" && argType?.kind === "elementary" && argType.elem.family === "int")
-    if (integer) out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-constant-needs-variable", message: ctx.messages.inOutConstantNeedsVariable(param.name.text, callee) })
+    if (integer) emit(
+      out,
+      value.span,
+      "in-out-constant-needs-variable",
+      ctx.messages.inOutConstantNeedsVariable(param.name.text, callee),
+    )
   } else if (constancyOf(value, scope) === "constant") {
     // C0041 — a VAR_IN_OUT needs a writable variable, not a literal/constant.
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-needs-writable",
-      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
-    })
+    emit(out, value.span, "in-out-needs-writable", ctx.messages.inOutNeedsWritable(param.name.text, callee))
   }
   // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
   // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
@@ -146,13 +133,7 @@ function inOutChecks(
   // where no conversion is allowed and the storage's own type is what counts.
   const at = isBitAccess(value) ? elementaryTypeRef(elementaryType("BIT")!) : argumentType(value, scope, ctx)
   if (pt.kind === "elementary" && at.kind === "elementary" && !isSameType(pt, at)) {
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-type-mismatch",
-      message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
-    })
+    emit(out, value.span, "in-out-type-mismatch", ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text))
   } else if (!param.constant && value.kind === "ident_expr" && pt.kind === "elementary" && at.kind === "elementary" && pt.elem.family === "string") {
     // A STRING bound to a VAR_IN_OUT that declares MORE units than the variable holds is "String variable 'v' too short for
     // the VAR_IN_OUT parameter 'io' of 'F'" (`string_inout_narrower`, `wstring_inout_narrower`, both vendors 2026-10-11;
@@ -161,7 +142,12 @@ function inOutChecks(
     const capacity = (t: typeof pt): number | undefined => (t.kind !== "elementary" || t.unfoldedLength === true ? undefined : (t.length ?? DEFAULT_STRING_LENGTH))
     const [declared, held] = [capacity(pt), capacity(at)]
     if (declared !== undefined && held !== undefined && held < declared)
-      out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-string-too-short", message: ctx.messages.stringTooShortForInOut(value.name, param.name.text, callee) })
+      emit(
+        out,
+        value.span,
+        "in-out-string-too-short",
+        ctx.messages.stringTooShortForInOut(value.name, param.name.text, callee),
+      )
   }
 }
 

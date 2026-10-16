@@ -19,7 +19,7 @@ import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import type { Span, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { findWord, fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 
 const HAS_COMMENT = /\/\/|\(\*|\/\*/
@@ -31,10 +31,15 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
   const flag = (body: unknown[], anchor: Span, outer: Span, severity: "error" | "warning" = "error", header?: number) => {
     if (body.length > 0) return
     if (HAS_COMMENT.test(ctx.source.slice(outer.start, outer.end))) return // comment-only body — legal in CODESYS
-    out.push(
-      withFixes({ severity, span: anchor, source: SOURCE, code: "empty-block", message: ctx.messages.emptyStatementBlock() }, [
+    emit(
+      out,
+      anchor,
+      "empty-block",
+      ctx.messages.emptyStatementBlock(),
+      severity,
+      [
         header === undefined ? undefined : emptyStatementFix(ctx.source, header),
-      ]),
+      ],
     )
   }
   // where a block's header ends — the keyword its (empty) list follows: THEN after a branch's condition, DO after a FOR's

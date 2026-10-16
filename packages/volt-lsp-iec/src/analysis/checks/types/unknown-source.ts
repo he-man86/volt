@@ -26,7 +26,7 @@ import { compilerTypeText, stmtExprs, walkExpr, walkStatements, type Expr } from
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
 import { inferExprType, renderType, resolveTypeExpr, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): void {
   const seen = reported(out)
@@ -36,7 +36,7 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
     return t.kind === "elementary" ? t.name : undefined
   }
   const push = (message: string, e: Expr): void => {
-    out.push({ severity: "error", span: e.span, source: SOURCE, code: "unknown-source", message })
+    emit(out, e.span, "unknown-source", message)
   }
   const hole = (e: Expr, scope: Parameters<typeof inferExprType>[1]): boolean => isHole(e, scope, ctx.project, seen)
 

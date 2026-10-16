@@ -12,19 +12,13 @@
 import { inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkDeref(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
     if (e.kind !== "deref") return
     const base = inferExprType(e.base, scope, ctx.project)
     if (base.kind !== "elementary" && base.kind !== "array") return // derefable or undecidable → skip
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "deref-non-pointer",
-      message: ctx.messages.dereferenceRequiresPointer(),
-    })
+    emit(out, e.span, "deref-non-pointer", ctx.messages.dereferenceRequiresPointer())
   })
 }

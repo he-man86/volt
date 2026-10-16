@@ -21,7 +21,7 @@ import { bodies, isLibrarySymbol, lookup, type Scope, type Symbol } from "../../
 import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkPropertyAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -35,26 +35,14 @@ export function checkPropertyAccess(ctx: CheckContext, out: DiagnosticItem[]): v
       if (s.op !== undefined || s.target.kind !== "member") return
       const written = propertyRef(s.target, scope, ctx.project)
       if (written === undefined || written.ast?.kind !== "property" || written.ast.setter !== undefined || isLibrarySymbol(written)) return
-      out.push({
-        severity: "error",
-        span: s.target.span,
-        source: SOURCE,
-        code: "not-assignment-target",
-        message: ctx.messages.notAssignmentTarget(compilerExprText(s.target)),
-      })
+      emit(out, s.target.span, "not-assignment-target", ctx.messages.notAssignmentTarget(compilerExprText(s.target)))
     })
     walkAllExprs(statements, (e) => {
       if (writeTargets.has(e)) return // the LHS itself is a write, not a read
       if (e.kind === "ident_expr" && e.name.toLowerCase() === ownAccessorOf) return // the accessor's own value
       const sym = propertyRef(e, scope, ctx.project)
       if (sym === undefined || sym.ast?.kind !== "property" || sym.ast.getter !== undefined || isLibrarySymbol(sym)) return
-      out.push({
-        severity: "error",
-        span: e.span,
-        source: SOURCE,
-        code: "property-lacks-getter",
-        message: ctx.messages.propertyLacksGetter(sym.name),
-      })
+      emit(out, e.span, "property-lacks-getter", ctx.messages.propertyLacksGetter(sym.name))
     })
   }
 }

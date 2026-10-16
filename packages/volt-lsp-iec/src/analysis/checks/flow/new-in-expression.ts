@@ -9,19 +9,13 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkNewInExpression(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e) => {
     if (e.kind !== "assign_expr") return
     const v = e.value
     if (v.kind !== "call" || v.callee.kind !== "ident_expr" || v.callee.name.toUpperCase() !== "__NEW") return
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "new-in-expression",
-      message: ctx.messages.newInExpression(),
-    })
+    emit(out, e.span, "new-in-expression", ctx.messages.newInExpression())
   })
 }

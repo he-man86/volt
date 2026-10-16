@@ -15,7 +15,7 @@
 import type { Attribute, Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, forEachExpr, lookup, lookupUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const INSTANCE_KINDS = new Set(["function_block", "program", "interface"])
 const CALLED_KINDS = new Set(["function", "method", "action"])
@@ -34,7 +34,7 @@ function obsoleteText(sym: Symbol | undefined): string | undefined {
 
 export function checkObsoleteUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
   const flag = (span: Span, sym: Symbol, text: string) =>
-    out.push({ severity: "warning", span, source: SOURCE, code: "obsolete-usage", message: ctx.messages.pouObsolete(sym.name, text) })
+    emit(out, span, "obsolete-usage", ctx.messages.pouObsolete(sym.name, text), "warning")
   /** The obsolete FB/PROGRAM/INTERFACE `typeName` names in `scope`, with its text. */
   const obsoleteType = (scope: Scope, typeName: string): { sym: Symbol; text: string } | undefined => {
     const sym = lookupUnit(scope, typeName)?.symbol

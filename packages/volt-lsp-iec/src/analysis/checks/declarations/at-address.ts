@@ -12,7 +12,7 @@
 import { addressShape, isTrivia } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -22,6 +22,6 @@ export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
     // `lit_address_*_segment*`, both vendors 2026-10-01)
     const shape = addressShape(op.text)
     if (shape.kind === "malformed")
-      out.push({ severity: "error", span: op.span, source: SOURCE, code: "at-address", message: ctx.messages.directAddressMalformed(shape.echo) })
+      emit(out, op.span, "at-address", ctx.messages.directAddressMalformed(shape.echo))
   }
 }

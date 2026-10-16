@@ -24,11 +24,11 @@ import type { Expr, TypeExpr, Span, VarDecl, VarSectionKind } from "../../../fro
 import { constEval, isElementaryTypeName } from "../../../frontend/types/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { swapBoundsFix } from "../../shared/fixes.js"
 
 export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const push = (span: Span, code: string, message: string, fix?: Fix) => out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, [fix]))
+  const push = (span: Span, code: string, message: string, fix?: Fix) => emit(out, span, code, message, "error", [fix])
   // a STRUCT field holds a declared type too, and takes no ARRAY[*]: no call lends it (forEachDecl walks
   // var sections only, so the fields are walked here)
   // …and a REFERENCE as an array's, a pointer's or a reference's base type there too (`refbit_struct_array_component`, the

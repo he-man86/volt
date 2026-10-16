@@ -30,7 +30,7 @@ import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/in
 import { bodies } from "../../../frontend/symbols/index.js"
 import { elemOf, inferExprType, renderType, unaryOperandConversion } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -46,13 +46,12 @@ export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): voi
           const conversion = unaryOperandConversion(x.op, elem.family)
           if (conversion === "none") return
           const target = conversion === "ANY_BIT" ? "ANY_BIT" : renderType(inferExprType(x, scope, ctx.project), { form: "compiler" })
-          out.push({
-            severity: "error",
-            span: x.span,
-            source: SOURCE,
-            code: "unary-operand-type",
-            message: ctx.messages.cannotConvert(renderType(operand, { form: "compiler" }), target),
-          })
+          emit(
+            out,
+            x.span,
+            "unary-operand-type",
+            ctx.messages.cannotConvert(renderType(operand, { form: "compiler" }), target),
+          )
         })
     })
 }

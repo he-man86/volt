@@ -8,7 +8,7 @@ import { walkStatements, type Assignment, type Expr } from "../../../frontend/sy
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, literalErrorType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { nameResolves } from "../../shared/resolution.js"
 import { assignmentPairError, checkable, checkableType, conversionWrap, storeConversionError } from "../../shared/rules.js"
 
@@ -92,13 +92,12 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       // EXACT: the referenced type must BE the reference's own. `checkable` on both sides keeps the conservative
       // default — a composite or library type on either side skips, as everywhere else in this file.
       if (rhs !== undefined && checkable(referenced) !== undefined && renderType(referenced, { form: "compiler" }) !== renderType(rhs, { form: "compiler" }))
-        out.push({
-          severity: "error",
-          span: decl.init.span,
-          source: SOURCE,
-          code: "assignment-type-mismatch",
-          message: ctx.messages.cannotConvert(renderType(rhs, { form: "compiler" }), renderType(resolved, { form: "compiler" })),
-        })
+        emit(
+          out,
+          decl.init.span,
+          "assignment-type-mismatch",
+          ctx.messages.cannotConvert(renderType(rhs, { form: "compiler" }), renderType(resolved, { form: "compiler" })),
+        )
       continue
     }
     const lhs = checkable(resolved)

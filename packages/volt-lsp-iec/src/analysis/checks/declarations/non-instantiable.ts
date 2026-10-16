@@ -7,18 +7,12 @@
  */
 import { forEachDecl, lookupUnit } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkNonInstantiable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.type.kind !== "named_type") continue
     if (lookupUnit(scope, decl.type.name.text)?.symbol.kind !== "function") continue
-    out.push({
-      severity: "error",
-      span: decl.type.span,
-      source: SOURCE,
-      code: "not-instantiable",
-      message: ctx.messages.notInstantiable(decl.type.name.text),
-    })
+    emit(out, decl.type.span, "not-instantiable", ctx.messages.notInstantiable(decl.type.name.text))
   }
 }

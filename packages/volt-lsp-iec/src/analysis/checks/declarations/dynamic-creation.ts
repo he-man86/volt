@@ -21,7 +21,7 @@
 import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { unitAttributes, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const ATTRIBUTE = "enable_dynamic_creation"
 
@@ -38,12 +38,6 @@ export function checkDynamicCreation(ctx: CheckContext, out: DiagnosticItem[]): 
     if (target === undefined) return // declared elsewhere — its pragma is not in this source
     attributes ??= unitAttributes(ctx.parseResult)
     if (attributes.get(target)?.has(ATTRIBUTE) === true) return
-    out.push({
-      severity: "error",
-      span: arg.span,
-      source: SOURCE,
-      code: "dynamic-creation-pragma",
-      message: ctx.messages.dynamicCreationPragma(),
-    })
+    emit(out, arg.span, "dynamic-creation-pragma", ctx.messages.dynamicCreationPragma())
   })
 }

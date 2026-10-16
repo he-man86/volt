@@ -15,7 +15,7 @@
 import { walkAllExprs, type Identifier } from "../../../frontend/syntax/index.js"
 import { bodies, externalGlobal, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { replaceText } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { nameResolves } from "../../shared/resolution.js"
@@ -25,14 +25,16 @@ export function checkExternalGlobal(ctx: CheckContext, out: DiagnosticItem[]): v
     if (section.sectionKind !== "VAR_EXTERNAL") continue
     for (const name of decl.names) {
       if (externalGlobal(ctx.project, name.text) !== undefined) continue
-      out.push(
-        withFixes(
-          { severity: "error", span: name.span, source: SOURCE, code: "external-no-global", message: ctx.messages.externalNoGlobal(name.text) },
-          changeToFixes(ctx.source, name.span.start, name.span.end, globalNames(ctx.project), {
+      emit(
+        out,
+        name.span,
+        "external-no-global",
+        ctx.messages.externalNoGlobal(name.text),
+        "error",
+        changeToFixes(ctx.source, name.span.start, name.span.end, globalNames(ctx.project), {
             accept: (g) => externalGlobal(ctx.project, g) !== undefined,
             more: (g) => usesOf(ctx, name, scope).map((u) => replaceText(ctx.source, u.start, u.end, g)),
           }),
-        ),
       )
     }
   }

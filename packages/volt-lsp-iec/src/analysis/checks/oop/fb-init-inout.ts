@@ -13,7 +13,7 @@ import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import { literalBind, variableBind } from "../../shared/reference-bind.js"
 import { initializerFields } from "../../shared/initializer.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -23,13 +23,7 @@ export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void
     for (const { name, span, value } of initializerFields(decl.init)) {
       const param = lookupLocal(type.scope, name).find((s) => s.varSection === "VAR_IN_OUT")
       if (param === undefined) continue
-      out.push({
-        severity: "error",
-        span,
-        source: SOURCE,
-        code: "fb-init-inout",
-        message: ctx.messages.noInput(name, type.name),
-      })
+      emit(out, span, "fb-init-inout", ctx.messages.noInput(name, type.name))
       // …and the value BINDS the parameter's reference, so it must be of the parameter's type: a literal or a variable of
       // another is "Cannot convert type 'BOOL' to type 'REFERENCE TO INT'" (TwinCAT naming the pair the other way round, as
       // for a REF= statement — `ioinit_fb_instance_literal`, `oopa_fb_init_inout_other_type`, both vendors 2026-10-06)
@@ -39,7 +33,7 @@ export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void
       const reference: Type & { kind: "reference" } = { kind: "reference", target: referenced }
       const bind = value.kind === "literal" ? literalBind(value, reference) : value.kind === "ident_expr" ? variableBind(value, reference, scope, ctx.project) : undefined
       if (bind === undefined || bind === "exact") continue
-      out.push({ severity: "error", span: value.span, source: SOURCE, code: "assignment-type-mismatch", message: ctx.messages.refAssignCannotConvert(bind.from, bind.to) })
+      emit(out, value.span, "assignment-type-mismatch", ctx.messages.refAssignCannotConvert(bind.from, bind.to))
     }
   }
 }

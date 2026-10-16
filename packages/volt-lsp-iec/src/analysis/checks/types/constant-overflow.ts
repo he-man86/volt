@@ -12,7 +12,7 @@
 import { literalCapacityType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 
 export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -20,13 +20,7 @@ export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]):
     if (e.kind !== "literal") return
     const type = literalCapacityType(e)
     if (type === undefined) return
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "constant-too-large",
-      message: ctx.messages.constantTooLarge(e.text, type),
-    })
+    emit(out, e.span, "constant-too-large", ctx.messages.constantTooLarge(e.text, type))
   })
 }
 

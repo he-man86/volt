@@ -16,7 +16,7 @@
 import { allUnits, attributeNames, bodyStatements, directiveOf, isKnownAttribute, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText, quoteAttributeFix, removeConstruct } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 
@@ -39,7 +39,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const p of pragmas) if (p.messageText !== undefined && outOfBody(p)) said.push({ severity: p.directive, text: p.messageText, span: p.span })
   for (const m of said.sort((a, b) => a.span.start - b.span.start)) {
     const severity = m.severity === "error" ? "error" : m.severity === "warning" ? "warning" : undefined
-    if (severity !== undefined) out.push({ severity, span: m.span, source: SOURCE, code: `message-pragma-${m.severity}`, message: m.text })
+    if (severity !== undefined) emit(out, m.span, `message-pragma-${m.severity}`, m.text, severity)
   }
   if (ctx.config.vendor === "codesys") attributeNamesAndValues(ctx, pragmas, outOfBody, out)
 }
@@ -66,7 +66,7 @@ function abstractKeywordMissing(ctx: CheckContext, out: DiagnosticItem[]): void 
         if (a.span.start < unit.span.start) continue // above the INTERFACE itself: unmeasured
         const member = members.filter((m) => m.span.start >= a.span.end).sort((x, y) => x.span.start - y.span.start)[0]
         if (member === undefined || member.modifiers.includes("ABSTRACT")) continue
-        out.push({ severity: "warning", span: member.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() })
+        emit(out, member.name.span, "abstract-keyword-missing", ctx.messages.abstractKeywordMissing(), "warning")
       }
       continue
     }
@@ -77,11 +77,13 @@ function abstractKeywordMissing(ctx: CheckContext, out: DiagnosticItem[]): void 
     // FUNCTION or a PROGRAM takes no ABSTRACT, so it gets none, and neither does a FINAL one (ABSTRACT beside FINAL is
     // `abstract-and-final`: which of the two is meant is not the fix's to choose)
     const canBeAbstract = (unit.kind === "method" || unit.kind === "function_block" || unit.kind === "property") && !unit.modifiers.includes("FINAL")
-    out.push(
-      withFixes(
-        { severity: "warning", span: unit.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() },
-        [canBeAbstract ? fixOf("Add ABSTRACT", [insertText(ctx.source, unit.name.span.start, "ABSTRACT ")], true) : undefined],
-      ),
+    emit(
+      out,
+      unit.name.span,
+      "abstract-keyword-missing",
+      ctx.messages.abstractKeywordMissing(),
+      "warning",
+      [canBeAbstract ? fixOf("Add ABSTRACT", [insertText(ctx.source, unit.name.span.start, "ABSTRACT ")], true) : undefined],
     )
   }
 }
@@ -95,7 +97,7 @@ function attributeOnlyOnVariables(ctx: CheckContext, out: DiagnosticItem[]): voi
   for (const unit of ctx.parseResult.units)
     for (const a of "attributes" in unit ? (unit.attributes ?? []) : [])
       if (a.name.toLowerCase() === "pingroup")
-        out.push({ severity: "warning", span: a.span, source: SOURCE, code: "unknown-attribute", message: ctx.messages.attributeOnlyOnVariables(a.name) })
+        emit(out, a.span, "unknown-attribute", ctx.messages.attributeOnlyOnVariables(a.name), "warning")
 }
 
 /**
@@ -133,10 +135,15 @@ function unquotedHasattribute(ctx: CheckContext, pragmas: readonly Pragma[], out
     if (m === null) continue
     const attr = m[1]!.split(",").pop()!.trim()
     if (attr.length === 0 || attr.startsWith("'")) continue // quoted (or empty) — valid
-    out.push(
-      withFixes({ severity: "error", span: p.span, source: SOURCE, code: "attribute-value-string", message: ctx.messages.attributeValueString(attr) }, [
+    emit(
+      out,
+      p.span,
+      "attribute-value-string",
+      ctx.messages.attributeValueString(attr),
+      "error",
+      [
         quoteAttributeFix(ctx.source, p.span, attr),
-      ]),
+      ],
     )
   }
 }
@@ -165,16 +172,18 @@ function attributeNamesAndValues(ctx: CheckContext, pragmas: readonly Pragma[], 
     if (!outOfBody(p)) continue
     const valueFinding = attributeValueFinding(ctx, pragmas, p)
     if (valueFinding !== undefined) {
-      out.push({ severity: "warning", span: p.span, source: SOURCE, code: "unknown-attribute", message: valueFinding })
+      emit(out, p.span, "unknown-attribute", valueFinding, "warning")
       continue
     }
     // C0351 — an unknown attribute NAME (only as complete as the catalog).
     if (p.attributeName === undefined || isKnownAttribute(p.attributeName, ctx.config.vendor)) continue
-    out.push(
-      withFixes(
-        { severity: "warning", span: p.span, source: SOURCE, code: "unknown-attribute", message: ctx.messages.unknownAttribute(p.attributeName) },
-        unknownAttributeFixes(ctx, p, p.attributeName),
-      ),
+    emit(
+      out,
+      p.span,
+      "unknown-attribute",
+      ctx.messages.unknownAttribute(p.attributeName),
+      "warning",
+      unknownAttributeFixes(ctx, p, p.attributeName),
     )
   }
 }

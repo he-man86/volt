@@ -23,7 +23,7 @@ import { compilerExprText } from "../../shared/expr-echo.js"
 import { REFUSED_PLACEHOLDER, compilerTypeText, walkExpr, type Expr } from "../../../frontend/syntax/index.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const isPlaceholder = (e: Expr): boolean => e.kind === "ident_expr" && e.name === REFUSED_PLACEHOLDER
 
@@ -32,7 +32,7 @@ export function checkRefusedInitializer(ctx: CheckContext, out: DiagnosticItem[]
     const value = decl.refusedInit?.value
     if (value === undefined) continue
     const error = (message: string, e: Expr): void => {
-      out.push({ severity: "error", span: e.span, source: SOURCE, code: "refused-initializer", message })
+      emit(out, e.span, "refused-initializer", message)
     }
     error(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(value)), compilerTypeText(decl.type)), value)
     walkExpr(value, (x) => {

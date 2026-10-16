@@ -12,7 +12,7 @@
 import { inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkIndexing(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
@@ -20,21 +20,15 @@ export function checkIndexing(ctx: CheckContext, out: DiagnosticItem[]): void {
     const base = inferExprType(e.base, scope, ctx.project)
     if (base.kind === "pointer") {
       if (e.indices.length !== 1)
-        out.push({ severity: "error", span: e.span, source: SOURCE, code: "pointer-index-arity", message: ctx.messages.pointerIndexArity(renderType(base)) }) // C0126
+        emit(out, e.span, "pointer-index-arity", ctx.messages.pointerIndexArity(renderType(base))) // C0126
       return
     }
     if (base.kind === "array") {
       if (e.indices.length !== base.dims.length)
-        out.push({ severity: "error", span: e.span, source: SOURCE, code: "array-index-count", message: ctx.messages.arrayIndexCount(base.dims.length) }) // C0048
+        emit(out, e.span, "array-index-count", ctx.messages.arrayIndexCount(base.dims.length)) // C0048
       return
     }
     if (base.kind !== "elementary" || inTypeGroup("ANY_STRING", base.elem)) return
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "indexing-non-array",
-      message: ctx.messages.indexingNonArray(base.name),
-    })
+    emit(out, e.span, "indexing-non-array", ctx.messages.indexingNonArray(base.name))
   })
 }

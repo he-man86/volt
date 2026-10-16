@@ -13,7 +13,7 @@ import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
 import { inferExprType, isSfcStepBase, memberScopeOf, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { MAIN_BODY } from "../../shared/body-context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -27,7 +27,7 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
       const step = s.target.base
       if (step.kind === "member" && !isSelfRef(step.base) && isSfcStepBase(s.target, scope, ctx.project)) {
         const pou = memberScopeOf(inferExprType(step.base, scope, ctx.project))!
-        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "external-non-input-write", message: ctx.messages.noInput(step.member.name, pou.name) })
+        emit(out, s.target.span, "external-non-input-write", ctx.messages.noInput(step.member.name, pou.name))
         return
       }
       // a REFERENCE TO the FB is read through: `rf.k := 5` is no input of it, as `sb.k := 5` is (rule M3,
@@ -46,13 +46,7 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
       // a VAR_TEMP lives in the FB's BODY, and the message names it: "'scratch' is no input of '__MAIN'"
       // (`oopa_write_var_temp`, both vendors 2026-10-06)
       const owner = section === "VAR_TEMP" ? MAIN_BODY : (baseType.scope?.name ?? baseType.name)
-      out.push({
-        severity: "error",
-        span: s.target.span,
-        source: SOURCE,
-        code: "external-non-input-write",
-        message: ctx.messages.noInput(s.target.member.name, owner),
-      })
+      emit(out, s.target.span, "external-non-input-write", ctx.messages.noInput(s.target.member.name, owner))
     })
   }
 }

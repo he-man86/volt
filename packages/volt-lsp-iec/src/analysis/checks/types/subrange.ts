@@ -17,7 +17,7 @@ import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, scopeForUnit } from "../../../frontend/symbols/index.js"
 import { constEval, inferExprType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -32,13 +32,12 @@ export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
         if (range === undefined) continue
         const value = constEval(decl.init, scope)
         if (typeof value !== "bigint" || (value >= range.lower && value <= range.upper)) continue
-        out.push({
-          severity: "error",
-          span: decl.init.span,
-          source: SOURCE,
-          code: "subrange-out-of-range",
-          message: ctx.messages.cannotConvert(value.toString(), renderType(type, { form: "compiler" })),
-        })
+        emit(
+          out,
+          decl.init.span,
+          "subrange-out-of-range",
+          ctx.messages.cannotConvert(value.toString(), renderType(type, { form: "compiler" })),
+        )
       }
     }
   }
@@ -50,13 +49,12 @@ export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
       const range = type.subrange
       const value = constEval(s.value, scope)
       if (typeof value !== "bigint" || (value >= range.lower && value <= range.upper)) return
-      out.push({
-        severity: "error",
-        span: s.value.span,
-        source: SOURCE,
-        code: "subrange-out-of-range",
-        message: ctx.messages.cannotConvert(value.toString(), ctx.messages.subrangeAssignTarget(type.name, range.lower, range.upper)),
-      })
+      emit(
+        out,
+        s.value.span,
+        "subrange-out-of-range",
+        ctx.messages.cannotConvert(value.toString(), ctx.messages.subrangeAssignTarget(type.name, range.lower, range.upper)),
+      )
     })
   }
 }

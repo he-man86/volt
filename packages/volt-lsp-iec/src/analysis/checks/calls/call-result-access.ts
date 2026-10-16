@@ -14,7 +14,7 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkCallResultAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e) => {
@@ -24,12 +24,6 @@ export function checkCallResultAccess(ctx: CheckContext, out: DiagnosticItem[]):
     // an intrinsic's result: the parser ends the expression at its `.` — an index or a call on it is unmeasured
     if (base.callee.kind === "ident_expr" && base.callee.name.startsWith("__")) return
     if (e.kind === "member" && /^\d+$/.test(e.member.name)) return // a bit access — `bit-access-on-call` owns it
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "call-result-access",
-      message: ctx.messages.callResultAccess(),
-    })
+    emit(out, e.span, "call-result-access", ctx.messages.callResultAccess())
   })
 }

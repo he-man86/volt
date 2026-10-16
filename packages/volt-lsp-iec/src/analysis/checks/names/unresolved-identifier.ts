@@ -20,7 +20,7 @@ import { isSelfRef, stmtExprs, walkExpr, walkStatements, type Expr, type Span, t
 import { bodies, forEachDecl, lookupLocal, lookupMember, visibleNames, type Scope, type Symbol, type SymbolKind } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, resolveBareName, resolveCallee, resolveMemberChain, resolveTypeExpr, untypedNumberValue, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
@@ -72,54 +72,52 @@ function statementFindings(
   const uses = usesOf(stmt, exprs)
   for (const ref of unresolvedInExprs(exprs, scope)) {
     if (unparsed.has(ref.name.toLowerCase())) continue
-    out.push(
-      withFixes(
-        { severity: "error", span: ref.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.undefinedIdentifier(ref.name) },
-        [
+    emit(
+      out,
+      ref.span,
+      "unresolved-identifier",
+      ctx.messages.undefinedIdentifier(ref.name),
+      "error",
+      [
           ...changeToFixes(ctx.source, ref.span.start, ref.span.end, valueNames(scope), {
             accept: (name) => nameResolves(name, scope) && bareFits(name, uses.of(ref.span.start), scope, ctx.project),
           }),
           declareFix(ctx, stmt, ref, scope, owner),
         ],
-      ),
     )
     if (callees.has(ref.span.start))
-      out.push({
-        severity: "error",
-        span: ref.span,
-        source: SOURCE,
-        code: "invalid-call-target",
-        message: ctx.messages.callTargetExpected(ref.name),
-      })
+      emit(out, ref.span, "invalid-call-target", ctx.messages.callTargetExpected(ref.name))
   }
   // `.name`, the global-namespace operator: the GLOBAL namespace only, so a local of the name does not answer it
   // (rule E33, `GlobalExpr`; `expr_global_namespace_undefined`, `_local_only`, both vendors 2026-10-02)
   for (const e of exprs)
     walkExpr(e, (x) => {
       if (x.kind !== "global_expr" || resolveMemberChain(x, scope, ctx.project) !== undefined) return
-      out.push({ severity: "error", span: x.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.noGlobalDefinition(x.name.name) })
+      emit(out, x.span, "unresolved-identifier", ctx.messages.noGlobalDefinition(x.name.name))
     })
   for (const ref of unresolvedMembers(exprs, scope, ctx.project)) {
     // its fix: each near-miss member of the type, with what it inherits (`qf_c0004_change`)
     const members = ref.members
-    out.push(
-      withFixes(
-        { severity: "error", span: ref.span, source: SOURCE, code: "unknown-member", message: ctx.messages.notAMember(ref.member, ref.typeName) },
-        members === undefined
+    emit(
+      out,
+      ref.span,
+      "unknown-member",
+      ctx.messages.notAMember(ref.member, ref.typeName),
+      "error",
+      members === undefined
           ? []
           : changeToFixes(ctx.source, ref.span.start, ref.span.end, memberNames(members), {
               accept: (name) => memberFits(lookupMember(members, name), uses.of(ref.span.start), uses.selfBased.has(ref.span.start)),
             }),
-      ),
     )
     const called = calledMembers.get(ref.span.start)
     if (called !== undefined)
-      out.push({ severity: "error", span: called.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(called)) })
+      emit(out, called.span, "invalid-call-target", ctx.messages.callTargetExpected(compilerExprText(called)))
   }
   // a POINTER read without its `^` has no members: "'p' is no structured variable" (rule M3,
   // `mem_pointer_member_without_deref`, both vendors 2026-10-02) — THIS's and SUPER's sentence, under their code
   for (const base of pointerMemberBases(exprs, scope, ctx.project))
-    out.push({ severity: "error", span: base.span, source: SOURCE, code: "self-not-structured", message: ctx.messages.notStructuredVariable(compilerExprText(base)) })
+    emit(out, base.span, "self-not-structured", ctx.messages.notStructuredVariable(compilerExprText(base)))
 }
 
 /**
@@ -289,7 +287,7 @@ function initializerFindings(ctx: CheckContext, unparsed: ReadonlySet<string>, o
       // `MaxProductsInMould : UINT := MaxMouldLevels * MaxProductsInX * MaxProductsInY;` in pro2193's
       // `GVL_Constants`, which CODESYS compiles. Ten false positives on the first corpus run.
       if (lookupLocal(scope, ref.name).length > 0) continue
-      out.push({ severity: "error", span: ref.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.undefinedIdentifier(ref.name) })
+      emit(out, ref.span, "unresolved-identifier", ctx.messages.undefinedIdentifier(ref.name))
     }
   }
 }

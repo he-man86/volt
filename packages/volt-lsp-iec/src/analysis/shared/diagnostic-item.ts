@@ -49,7 +49,7 @@ export function emit(
   code: string,
   message: string,
   severity: DiagnosticItem["severity"] = "error",
-  fixes?: readonly Fix[],
+  fixes?: readonly (Fix | undefined)[],
 ): void {
   out.push(withFixes({ severity, span, source: SOURCE, code, message }, fixes))
 }

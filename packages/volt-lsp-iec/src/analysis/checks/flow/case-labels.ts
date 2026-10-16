@@ -18,7 +18,7 @@ import { bodies, type Scope } from "../../../frontend/symbols/index.js"
 import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, renderType, resolveBareName, type Type } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { swapBoundsFix } from "../../shared/fixes.js"
 import { enumTypedLiteral } from "../../shared/hole.js"
 
@@ -42,7 +42,7 @@ interface Range {
 
 function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
   const push = (code: string, span: Span, message: string, fixes?: readonly Fix[]) =>
-    out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, fixes))
+    emit(out, span, code, message, "error", fixes)
 
   const points: Point[] = []
   const ranges: Range[] = []
@@ -108,7 +108,7 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
 /** C0217 a single label inside a range, C0219 two ranges overlapping. */
 function labelOverlaps(points: readonly Point[], ranges: readonly Range[], ctx: CheckContext, out: DiagnosticItem[]): void {
   const push = (code: string, span: Span, message: string) =>
-    out.push({ severity: "error", span, source: SOURCE, code, message })
+    emit(out, span, code, message)
   // C0217 — a single label contained in a range.
   for (const p of points)
     for (const r of ranges)

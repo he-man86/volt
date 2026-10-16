@@ -17,7 +17,7 @@ import { selfRefKind, walkAllExprs, type Expr } from "../../../frontend/syntax/i
 import { compilerExprText } from "../../shared/expr-echo.js"
 import { bodies, declaresNoBase, instanceless } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /** `THIS` or `SUPER` itself, not dereferenced. */
 const bareSelf = (e: Expr): boolean => e.kind === "ident_expr" && selfRefKind(e.name) !== undefined
@@ -41,29 +41,29 @@ export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]):
       const pointer = (e: Expr): boolean => bareSelf(e) && !(noBase && e.kind === "ident_expr" && selfRefKind(e.name) === "SUPER")
       walkAllExprs(statements, (e) => {
         if (e.kind === "call" && e.callee.kind === "member" && pointer(e.callee.base))
-          out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(e.callee)) })
+          emit(out, e.callee.span, "invalid-call-target", ctx.messages.callTargetExpected(compilerExprText(e.callee)))
       })
       if (!noBase) continue
       walkAllExprs(statements, (e) => {
         if (e.kind === "ident_expr" && selfRefKind(e.name) === "SUPER")
-          out.push({ severity: "error", span: e.span, source: SOURCE, code: "super-not-allowed", message: ctx.messages.superNotAllowed() })
+          emit(out, e.span, "super-not-allowed", ctx.messages.superNotAllowed())
         else if (e.kind === "call" && rootedAtSuper(e.callee))
-          out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(e.callee)) })
+          emit(out, e.callee.span, "invalid-call-target", ctx.messages.callTargetExpected(compilerExprText(e.callee)))
       })
       continue
     }
     walkAllExprs(statements, (e) => {
       // SUPER^ CALLED here is also no call target, named as written (`flw_super_in_program`, both vendors 2026-10-06)
       if (e.kind === "call" && rootedAtSuper(e.callee))
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(e.callee)) })
+        emit(out, e.callee.span, "invalid-call-target", ctx.messages.callTargetExpected(compilerExprText(e.callee)))
       if (e.kind !== "ident_expr") return
       // Case-insensitive, as ST names are: a lower-case `this`/`super` is the same error (conformance `cc_self_this_*`,
       // `cc_self_super_*`). An exact `=== "THIS"` let them through (consolidate-lsp-structure A8).
       const name = selfRefKind(e.name)
       if (name === "THIS")
-        out.push({ severity: "error", span: e.span, source: SOURCE, code: "this-not-allowed", message: ctx.messages.thisNotAllowed() })
+        emit(out, e.span, "this-not-allowed", ctx.messages.thisNotAllowed())
       else if (name === "SUPER")
-        out.push({ severity: "error", span: e.span, source: SOURCE, code: "super-not-allowed", message: ctx.messages.superNotAllowed() })
+        emit(out, e.span, "super-not-allowed", ctx.messages.superNotAllowed())
     })
   }
 }

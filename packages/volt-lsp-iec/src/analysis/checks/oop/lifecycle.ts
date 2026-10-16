@@ -10,7 +10,7 @@
 import { varInputParams, type Method, type TypeExpr } from "../../../frontend/syntax/index.js"
 import type { LifecycleMethod } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix, type FixEdit } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix, type FixEdit } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 
 const REQUIRED: Record<LifecycleMethod, readonly string[]> = {
@@ -41,13 +41,7 @@ export function checkLifecycleSignatures(ctx: CheckContext, out: DiagnosticItem[
       const rt = unit.returnType
       const returnsBool = rt?.kind === "named_type" && rt.name.text.toUpperCase() === "BOOL"
       if (varInputParams(unit.varSections).length > 0 || !returnsBool)
-        out.push({
-          severity: "warning",
-          span: unit.name.span,
-          source: SOURCE,
-          code: "fb-reinit-shape",
-          message: ctx.messages.fbReInitShape(),
-        })
+        emit(out, unit.name.span, "fb-reinit-shape", ctx.messages.fbReInitShape(), "warning")
       continue
     }
 
@@ -63,11 +57,13 @@ export function checkLifecycleSignatures(ctx: CheckContext, out: DiagnosticItem[
       required.some((name, i) => (inputs[i]?.name.text ?? "").toLowerCase() !== name.toLowerCase() || !isBool(inputs[i]?.type)) ||
       (method === "FB_Exit" && inputs.length > required.length)
     if (violated) {
-      out.push(
-        withFixes(
-          { severity: "error", span: unit.name.span, source: SOURCE, code: "fb-lifecycle-signature", message: ctx.messages.lifecycle(method) },
-          [addInputsFix(ctx, unit, required)],
-        ),
+      emit(
+        out,
+        unit.name.span,
+        "fb-lifecycle-signature",
+        ctx.messages.lifecycle(method),
+        "error",
+        [addInputsFix(ctx, unit, required)],
       )
     }
   }

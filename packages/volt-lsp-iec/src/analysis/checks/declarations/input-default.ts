@@ -9,7 +9,7 @@
  */
 import { renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkInputDefault(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -25,13 +25,7 @@ export function checkInputDefault(ctx: CheckContext, out: DiagnosticItem[]): voi
         // as "ARRAY [1..3] OF INT", with the space `renderType` now writes (conformance
         // `cc6_function_input_array_default`). It is a WARNING there too, not an error.
         for (const name of decl.names)
-          out.push({
-            severity: "warning",
-            span: name.span,
-            source: SOURCE,
-            code: "input-default-composite",
-            message: ctx.messages.noDefaultForType(renderType(type)),
-          })
+          emit(out, name.span, "input-default-composite", ctx.messages.noDefaultForType(renderType(type)), "warning")
       }
     }
   }

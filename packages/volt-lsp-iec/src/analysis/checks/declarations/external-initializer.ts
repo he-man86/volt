@@ -8,7 +8,7 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { removeInitializerFix } from "../../shared/fixes.js"
 
 export function checkExternalInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -18,8 +18,6 @@ export function checkExternalInitializer(ctx: CheckContext, out: DiagnosticItem[
     // its fix: the initial value removed — an external takes its global's (`qf_c0238_remove`)
     const fix = removeInitializerFix(ctx.source, decl, "Remove the initial value")
     for (const name of decl.names)
-      out.push(
-        withFixes({ severity: "error", span: name.span, source: SOURCE, code: "external-initializer", message: ctx.messages.noInitForExternal(name.text) }, [fix]),
-      )
+      emit(out, name.span, "external-initializer", ctx.messages.noInitForExternal(name.text), "error", [fix])
   }
 }

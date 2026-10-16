@@ -32,7 +32,7 @@ import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import { constancyOf, constEval, inferExprType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import { literalBind, variableBind } from "../../shared/reference-bind.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A DECLARATION bound with `REF=` whose type is no reference: "Initialisation with REF= is only allowed for variables
@@ -41,14 +41,14 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
     if (decl.initOp !== "REF=" || decl.init === undefined) continue
     const declared = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     if (declared.kind === "reference" || declared.kind === "unknown") continue
-    out.push({ severity: "error", span: decl.init.span, source: SOURCE, code: "reference-init-target", message: ctx.messages.refInitNeedsReference() })
+    emit(out, decl.init.span, "reference-init-target", ctx.messages.refInitNeedsReference())
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== "REF=") return
       const target = inferExprType(s.target, scope, ctx.project)
       if (target.kind !== "reference" && target.kind !== "unknown") {
-        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "reference-assign-target", message: ctx.messages.referenceAssignTarget() }) // C0140
+        emit(out, s.target.span, "reference-assign-target", ctx.messages.referenceAssignTarget()) // C0140
         return
       }
       // C0141 — the RHS must be writable. `0` is the null idiom (skip); a named CONSTANT has no write access.
@@ -60,25 +60,19 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
         const bind = literalBind(s.value, target)
         if (bind !== "exact") {
           if (bind !== undefined)
-            out.push({
-              severity: "error",
-              span: s.value.span,
-              source: SOURCE,
-              code: "assignment-type-mismatch",
-              message: ctx.messages.refAssignCannotConvert(bind.from, bind.to),
-            })
+            emit(out, s.value.span, "assignment-type-mismatch", ctx.messages.refAssignCannotConvert(bind.from, bind.to))
           return
         }
       }
       if (constancyOf(s.value, scope) === "constant") {
-        out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "reference-assign-write", message: ctx.messages.referenceAssignWriteAccess() })
+        emit(out, s.value.span, "reference-assign-write", ctx.messages.referenceAssignWriteAccess())
         return
       }
       // AN OPERATION IS NO VARIABLE: `ri REF= x + 1` is the write-access refusal (`dt_ref_assign_wrong_type`, CODESYS
       // 2026-10-03). Only a binary operation was asked; a call's result and the rest stay unjudged — below too, where
       // only a plain VARIABLE is compared, the one shape recorded.
       if (s.value.kind === "binary") {
-        out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "reference-assign-write", message: ctx.messages.referenceAssignWriteAccess() })
+        emit(out, s.value.span, "reference-assign-write", ctx.messages.referenceAssignWriteAccess())
         return
       }
       // A VARIABLE OF ANOTHER TYPE: the rule is EXACT TYPE, as for a literal and a declaration's bind — a REAL, a DINT,
@@ -91,13 +85,7 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
       if (target.kind !== "reference" || s.value.kind !== "ident_expr") return
       const bind = variableBind(s.value, target, scope, ctx.project)
       if (bind === undefined) return
-      out.push({
-        severity: "error",
-        span: s.value.span,
-        source: SOURCE,
-        code: "assignment-type-mismatch",
-        message: ctx.messages.refAssignCannotConvert(bind.from, bind.to),
-      })
+      emit(out, s.value.span, "assignment-type-mismatch", ctx.messages.refAssignCannotConvert(bind.from, bind.to))
     })
   }
 }

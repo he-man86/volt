@@ -11,7 +11,7 @@
 import { exprText, renderTypeExpr, type VarDecl } from "../../../frontend/syntax/index.js"
 import { extendsChain, isLibrarySymbol, lookup, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, removeConstruct, sameSection, sectionOf } from "../../shared/fixes.js"
 
 export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -49,17 +49,13 @@ export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[])
       if (declared === undefined || !isVar(syms)) continue
       const declaredIn = declared.base
       const decl = syms.find((s) => s.kind === "var")
-      out.push(
-        withFixes(
-          {
-            severity: "error",
-            span: decl?.span ?? unit.name.span,
-            source: SOURCE,
-            code: "duplicate-inherited-variable",
-            message: ctx.messages.duplicateInheritedVariable(decl?.name ?? name, unit.name.text, declaredIn),
-          },
-          [decl === undefined || declared.sym === undefined ? undefined : removeRedeclaration(ctx, unit, decl, declared.sym, declared.unit, declaredIn)],
-        ),
+      emit(
+        out,
+        decl?.span ?? unit.name.span,
+        "duplicate-inherited-variable",
+        ctx.messages.duplicateInheritedVariable(decl?.name ?? name, unit.name.text, declaredIn),
+        "error",
+        [decl === undefined || declared.sym === undefined ? undefined : removeRedeclaration(ctx, unit, decl, declared.sym, declared.unit, declaredIn)],
       )
     }
   }

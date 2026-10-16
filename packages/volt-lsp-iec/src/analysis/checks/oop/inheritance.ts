@@ -13,7 +13,7 @@
 import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import type { Identifier, TopLevel, TypeDecl } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { nameResolves } from "../../shared/resolution.js"
 
@@ -62,13 +62,12 @@ function checkCycles(ctx: CheckContext, out: DiagnosticItem[]): Set<Scope> {
     const seen = cycle.some((s) => inCycle.has(s))
     for (const s of cycle) inCycle.add(s)
     if (!seen)
-      out.push({
-        severity: "error",
-        span: base.span,
-        source: SOURCE,
-        code: "circular-inheritance",
-        message: ctx.messages.circularInheritance(cycle.map((s) => s.name).join(" -> ")),
-      })
+      emit(
+        out,
+        base.span,
+        "circular-inheritance",
+        ctx.messages.circularInheritance(cycle.map((s) => s.name).join(" -> ")),
+      )
   }
   return inCycle
 }
@@ -118,7 +117,7 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
     // a base that EXISTS but is no function block — a project INTERFACE or STRUCT: the one message, no "Unknown type"
     const baseSym = unit.extends === undefined ? undefined : lookupUnit(scope, unit.extends.text)?.symbol
     if (unit.extends !== undefined && baseSym !== undefined && !isLibrarySymbol(baseSym) && isMeasuredNonFbBase(baseSym)) {
-      out.push({ severity: "error", span: unit.extends.span, source: SOURCE, code: "base-class-not-found", message: ctx.messages.baseClassNotFound(unit.extends.text) })
+      emit(out, unit.extends.span, "base-class-not-found", ctx.messages.baseClassNotFound(unit.extends.text))
     } else if (unit.extends !== undefined) {
       // a cycle (`checkCycles`) is reported as the whole path, and no unresolved base besides — an indirect cycle
       // that fell through came out as nonsense: a duplicate-variable error naming the FB as its OWN base
@@ -139,11 +138,13 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       const sym = lookupUnit(scope, iface.text)?.symbol
       const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && (NOT_AN_INTERFACE.has(sym.kind) || isMeasuredStruct(sym))
       if (notAnInterface || !nameResolves(iface.text, scope))
-        out.push(
-          withFixes(
-            { severity: "error", span: iface.span, source: SOURCE, code: "interface-not-found", message: ctx.messages.interfaceNotFound(iface.text) },
-            unitNearMisses(ctx, iface, scope, "interface"),
-          ),
+        emit(
+          out,
+          iface.span,
+          "interface-not-found",
+          ctx.messages.interfaceNotFound(iface.text),
+          "error",
+          unitNearMisses(ctx, iface, scope, "interface"),
         )
     }
   }

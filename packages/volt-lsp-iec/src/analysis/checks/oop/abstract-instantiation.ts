@@ -11,7 +11,7 @@
 import type { FunctionBlock } from "../../../frontend/syntax/index.js"
 import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -23,13 +23,7 @@ export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticIte
     const fbSym = lookupLocal(ctx.project, name).find((s) => s.kind === "function_block")
     if (fbSym === undefined || !(fbSym.ast as FunctionBlock).modifiers.includes("ABSTRACT")) continue
     for (const id of decl.names) {
-      out.push({
-        severity: "error",
-        span: id.span,
-        source: SOURCE,
-        code: "abstract-instantiation",
-        message: ctx.messages.abstractInstantiation(name),
-      })
+      emit(out, id.span, "abstract-instantiation", ctx.messages.abstractInstantiation(name))
     }
   }
 }

@@ -17,7 +17,7 @@ import { compilerTypeText, type AggregateElement, type Initializer, type Span } 
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
-import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { findWord } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { structEcho } from "../../shared/expr-echo.js"
@@ -34,24 +34,17 @@ export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void 
     }
     if (!isStructInit(init)) continue
     if (target.kind !== "elementary") continue
-    out.push({
-      severity: "error",
-      span: init.span,
-      source: SOURCE,
-      code: "unexpected-struct-init",
-      message: ctx.messages.unexpectedStructInit(),
-    })
+    emit(out, init.span, "unexpected-struct-init", ctx.messages.unexpectedStructInit())
     for (const name of unresolvedFieldNames(init, scope)) {
       for (const message of [ctx.messages.undefinedIdentifier(name), ctx.messages.notAssignmentTarget(name)])
-        out.push({ severity: "error", span: init.span, source: SOURCE, code: "unexpected-struct-init", message })
+        emit(out, init.span, "unexpected-struct-init", message)
     }
-    out.push({
-      severity: "error",
-      span: init.span,
-      source: SOURCE,
-      code: "unexpected-struct-init",
-      message: ctx.messages.cannotConvert(ctx.messages.unknownType(structEcho(init)), compilerTypeText(decl.type)),
-    })
+    emit(
+      out,
+      init.span,
+      "unexpected-struct-init",
+      ctx.messages.cannotConvert(ctx.messages.unknownType(structEcho(init)), compilerTypeText(decl.type)),
+    )
   }
 }
 
@@ -110,7 +103,7 @@ function unknownFields(ctx: CheckContext, fields: Scope | undefined, init: Initi
       const at = findWord(ctx.source, span.start, span.end, name)
       const fixes = at === undefined ? [] : changeToFixes(ctx.source, at.start, at.end, fieldNames(fields), { accept: (n) => lookupMember(fields, n) !== undefined })
       for (const message of [ctx.messages.undefinedIdentifier(name), ctx.messages.notAssignmentTarget(name)])
-        out.push(withFixes({ severity: "error", span, source: SOURCE, code: "unknown-struct-field", message }, fixes))
+        emit(out, span, "unknown-struct-field", message, "error", fixes)
       continue
     }
     if (value === undefined || field.typeExpr === undefined) continue

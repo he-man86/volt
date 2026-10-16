@@ -19,7 +19,7 @@
 import { exprText, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { fixOf, insertText, lineBreakOf, quoteAttributeFix } from "../../shared/fixes.js"
 import type { Vendor } from "../../config.js"
 
@@ -115,22 +115,27 @@ function insertMissing(source: string, e: ParseError): Fix | undefined {
 }
 
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const emit = (e: ParseError): void => {
+  const report = (e: ParseError): void => {
     if (!vendorReportsParseError(e, ctx.config.vendor)) return
-    out.push(
-      withFixes({ severity: "error", span: e.span, source: SOURCE, code: parseErrorCode(e), message: parseErrorMessage(e, ctx.messages) }, [
+    emit(
+      out,
+      e.span,
+      parseErrorCode(e),
+      parseErrorMessage(e, ctx.messages),
+      "error",
+      [
         insertMissing(ctx.source, e),
         e.attributeValueString === undefined ? undefined : quoteAttributeFix(ctx.source, e.span, e.attributeValueString),
-      ]),
+      ],
     )
   }
   // Declaration structure — recorded on the top-level parse cursor (unit headers, VAR sections, type decls).
-  for (const e of ctx.parseResult.errors) emit(e)
+  for (const e of ctx.parseResult.errors) report(e)
   // Statement bodies — re-parsed here (opaque tokens at the unit level), each on its own cursor.
   for (const unit of ctx.parseResult.units) {
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      for (const e of bodyStatements(body, bodyConditionWorld(ctx.project, unit, body)).errors) emit(e)
+      for (const e of bodyStatements(body, bodyConditionWorld(ctx.project, unit, body)).errors) report(e)
     }
   }
 }
