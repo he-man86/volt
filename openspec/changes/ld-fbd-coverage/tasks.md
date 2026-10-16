@@ -698,6 +698,8 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **Owner 2026-10-16 (docs):** `docs/network-text.html` explains ONLY the current implementation — no history, no
       "VAR_TEMP / IF … THEN / PARALLEL(…) are gone", no list of retired words; a refused spelling appears only as the
       error a push gives today.
+      And it must be much SMALLER than today's (owner: "if we did a good job the doc should be much smaller") — code
+      examples over prose, one example per rule, the P-rules as a compact reference.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
