@@ -7,7 +7,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <c>object</c> — each test keeps its own <c>Node</c> / <c>Plc</c>, which differ.</summary>
 public static class TcComTree
 {
-    /// <summary>What <c>ITcSysManager.LookupTreeItem</c> throws for a path it cannot resolve (measured, DIALECT D14).</summary>
+    /// <summary>What <c>ITcSysManager.LookupTreeItem</c> throws for a path it cannot resolve (measured, DIALECT D29).</summary>
     public static COMException NotFound(string path) =>
         new($"Item '{path}' not found", unchecked((int)0x98510001));
 
