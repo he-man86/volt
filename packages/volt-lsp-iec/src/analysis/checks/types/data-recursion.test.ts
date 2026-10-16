@@ -43,13 +43,17 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   const cfg = resolveConfig({ vendor: "codesys" })
   const before = "FUNCTION_BLOCK FB1\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK"
   const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: parseSource(before, { networkText: true }, "codesys"), source: before }], [], "codesys")
-  const check = (src: string) =>
-    computeDiagnostics({ uri: "F", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
-  expect(check(before)).toBe(0)
+  // the document diagnosed is the one bound, as the server's is: its unit spans are the scopes' spans
+  const file = (src: string) => ({ uri: "F", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src })
+  const check = (f: ReturnType<typeof file>) =>
+    computeDiagnostics({ ...f, project, config: cfg }).filter((d) => d.code === "data-recursion").length
+  const first = file(before)
+  const project = build.buildSymbolTable([first], [], "codesys")
+  expect(check(first)).toBe(0)
   build.unbindFile(project, "F")
-  build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }, "codesys"), source: after })
-  expect(check(after)).toBe(1)
+  const edited = file(after)
+  build.bindFile(project, edited)
+  expect(check(edited)).toBe(1)
 })
 
 test("a cycle across two files follows an edit to EITHER one — a rebound file's scopes are new, the other's are kept", () => {
@@ -60,10 +64,10 @@ test("a cycle across two files follows an edit to EITHER one — a rebound file'
   const bCycle = "FUNCTION_BLOCK FB_B\nVAR a : FB_A; END_VAR\nEND_FUNCTION_BLOCK"
   const bFlat = "FUNCTION_BLOCK FB_B\nVAR a : POINTER TO FB_A; END_VAR\nEND_FUNCTION_BLOCK"
   const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
-  const project = build.buildSymbolTable([file("A", a), file("B", bFlat)], [], "codesys")
   const fileA = file("A", a)
+  const project = build.buildSymbolTable([fileA, file("B", bFlat)], [], "codesys")
   const onA = () =>
-    computeDiagnostics({ uri: uriFor(fileA.parseResult), parseResult: fileA.parseResult, source: a, project, config: cfg })
+    computeDiagnostics({ ...fileA, project, config: cfg })
       .filter((d) => d.code === "data-recursion")
       .map((d) => d.message)
   expect(onA()).toEqual([])

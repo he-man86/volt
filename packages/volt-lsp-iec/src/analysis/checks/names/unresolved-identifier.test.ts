@@ -172,13 +172,7 @@ FUNCTION_BLOCK F
 VAR p : Pt; i : INT; END_VAR
 i := p.z;
 END_FUNCTION_BLOCK`
-  const tc = computeDiagnostics({
-    uri: "F.pou",
-    parseResult: parseSource(src, { networkText: true }, "twincat"),
-    source: src,
-    project: build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "twincat"), source: src }], [], "twincat"),
-    config: resolveConfig({ vendor: "twincat" }),
-  })
+  const tc = diagnose(src, "twincat")
     .filter((d) => d.code === "unknown-member")
     .map((d) => d.message)
   expect(tc).toEqual(["'z' is no component of 'PT'"]) // TwinCAT uppercases the type
