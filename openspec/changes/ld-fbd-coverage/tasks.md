@@ -692,6 +692,16 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
+- [ ] 2R.5 **Owner 2026-10-16: "if it is possible then we should be able to encode and decode it."** Zero in the corpora
+      is NOT a reason to refuse. Every shape the IDE can STORE (draw, or hold after an import) gets a spelling, a
+      fixture on both vendors and a round trip — whether it compiles or not. Applies to every X / refused-by-name row
+      in design.md's member disposition: a box consuming two ENOs, a one-branch parallel (C0023), a 3-input
+      SUB/DIV/MOD/comparison (C3), `BoxTreeMux`, a non-default `Terminator`, `Connectors`, `ILStatement`/`ILLines`,
+      and the E rows (`SymbolComment`, S4 `fb(…).name`, an enabled comparison value). Per row: first make it live in
+      the editor (or by import) on both vendors; a row the IDE cannot store stays refused, with that measurement as
+      its reason. Only old spellings (P14) stay refused by design. Starting point for two ENOs, to be checked
+      (`ENO` takes the open lines above in order, top to bottom, like `BRANCH`):
+      `MOVE 1 => A EN c` / `MOVE 2 => B EN d` / `x := ENO AND ENO;`.
 
 ## 3. Verify and close
 
