@@ -552,7 +552,7 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       volt-cli unit 158 (+4) — 0 fail; typecheck clean, lint clean (warnings only, none new in a touched file's new code).
       LSP full suite (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): 10159 pass, 34 skip, 428 todo, 0 fail over 370 files (10621 tests) — identical to gate 2-1. No LSP, fixture or transpiler change: the
       fixture map is not regenerated. The CODESYS completeness ledger's counts did not move with the negation double.
-- [ ] 2.3 Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
+- [x] 2.3 **Closed 2026-10-16 by the owner — the rest moves to 2R (no member pragmas in the text).** Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
       vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
       split structure of 2.1.
       **And delete the inference a spelled member replaces** (owner 2026-10-12, "also simplifies the code"): writer and
@@ -619,6 +619,30 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       `Instance.Type`, input `ParamList.Types` / `InputFlags`, `EN`/`ENO`, `CallType` (then TwinCAT's program-call
       import), exact titles/comments, the item Jump/Return bit (`nwl-assign-item-flags` re-run), `SymbolComment`; TwinCAT
       import measurement for S2/S3a/S5/S6; the `text-blob-serialisation` row; `RebuildLoss` empty.
+## 2R. Readability rewrite (owner 2026-10-16)
+
+Owner: "i think the V1 was much more readable then what we have now", "remove all and implement in the new way".
+The rules are `readability.md` (R1–R7 + the small ones; R4 is the `ENABLE` tail, owner-chosen). The model, the drivers
+and the push pairing stay; the TEXT layer (writer, reader, gate, LSP parser/checks, docs, goldens) is rewritten to it,
+and every V2 spelling the rules replace is DELETED, not kept beside the new one.
+
+- [ ] 2R.1 The checks C1–C5 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
+      vendors where the fact exists on both) and on the six corpora. Each answer recorded in design.md with its evidence.
+      A check that contradicts a rule: write the contradiction and the alternative into design.md and STOP for the owner.
+- [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
+      re-done under R6: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
+      (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
+- [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): R1 bare values with its two
+      guards, R2 the statement-level enabled box as `IF c THEN … END_IF;`, R3 the statement-level ENO chain as one IF
+      with several statements, R4 `(a > b ENABLE c)`, R5 `split<n>`, R6 the pragma DELETED (`NetworkPragma.cs`,
+      `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc section) with its
+      members derived in the drivers, R7 PARALLEL one branch per line, `NOT(a)` refused, bare string literals, `DISABLED`
+      first, `LET` unreserved. The LSP refuses while typing what a push would refuse (ELSE, a non-chain IF body).
+      `docs/network-text.html` rewritten to the result; the corpora re-pulled and their before/after line counts recorded.
+- [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
+      `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
+      `SymbolComment`) under R6: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
+
 ## 3. Verify and close
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
