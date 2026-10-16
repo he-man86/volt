@@ -124,7 +124,7 @@ writer always brackets it):
 ```
 x := a AND (b GT 40 EN c);           // the GT is enabled — only a COMPARISON is a bracketed enabled value
 x := a ADD (f(b) EN c);              // refused: an enabled MOVE/ADD/call is read through its ENO (N16/N21) —
-                                     //   write `f(b) EN c;` then `x := a ADD ENO;`
+                                     //   write `f(b) EN c` then `x := a ADD ENO;`
 ```
 
 ### B4 — `ENO` is the enable output of the line above; `;` ends the item
@@ -284,7 +284,7 @@ P2  ENO = the ENO of the box at the ROOT of the preceding line, which has NO `;`
 
 P3  Who owns EN / => at a bracket level: its word box, or its single call when the level holds nothing else.
     EN takes everything up to `;` or `)`. A second box's EN or => at the same level is refused unless bracketed:
-        x ADD f(b) EN c;                   // refused: write  f(b) EN c;  x ADD ENO … / or bracket
+        x ADD f(b) EN c;                   // refused: write  f(b) EN c⏎ x ADD ENO … / or bracket
         MOVE b EN c => a;                  // refused: => comes before EN
     A bracketed enabled box as a VALUE only for comparison words: (a GT 40 EN c). Elsewhere refused (P2 form).
     A top-level enabled comparison writing a pin now has a text:  a GT 40 => x EN c;
