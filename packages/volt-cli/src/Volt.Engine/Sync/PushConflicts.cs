@@ -48,9 +48,8 @@ internal static class PushConflicts
             // land on top of one.
             //
             // CASE-INSENSITIVELY when the exact spelling misses: IEC identifiers ignore case, and the apply resolves
-            // the op through the item cache by bare name ignoring case. A gate that looked `e_mode.dut` up ORDINAL
-            // missed the live `E_Mode.dut`, passed the op as a create, and the apply then overwrote `E_Mode` with no
-            // version check. The gate must find the item the apply will find.
+            // the op through the item cache by bare name ignoring case. The gate must find the item the apply will
+            // find, or `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
             var key = pending.ContainsKey(name) ? name
                 : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
                   ?? pending.Keys.FirstOrDefault(k => string.Equals(k, bare, StringComparison.OrdinalIgnoreCase))
@@ -82,14 +81,10 @@ internal static class PushConflicts
                 {
                     // AN UNREADABLE ITEM IS ITS OWN SITUATION, not a name collision.
                     //
-                    // The refusal is right — a create must not land on top of an item that is there — but it
-                    // used to describe itself as "it already exists" and quote `UNREADABLE000000`, the
-                    // sentinel `PushService` writes for an item whose body would not materialize. That is a
-                    // dead end for the caller: the item left `items`, so the client had no version and sent
-                    // `ifVersion: null` (a create) for a file it has had all along; no `refs` or `fetch` ever
-                    // hands out the sentinel, so there is no `ifVersion` that would satisfy the guard; and
-                    // `volt pull` reports nothing to pull. The only way out was `--force`, which also
-                    // relocates the item. So say what is true, and NEVER put the sentinel on the wire.
+                    // A create must not land on top of an item that is there, but "it already exists" quoting the
+                    // `UNREADABLE000000` sentinel is a dead end: the item is absent from `items`, so the client
+                    // sends a create, and no `refs`/`fetch` hands out the sentinel, so no `ifVersion` satisfies the
+                    // guard. So say what is true, and NEVER put the sentinel on the wire.
                     if (currentVersion == Versioning.Unreadable)
                         conflicts.Add(new PushConflict
                         {
@@ -151,8 +146,7 @@ internal static class PushConflicts
     ///
     /// <para>The remedies differ and a caller has to be able to branch on them: a stale version means pull that
     /// item, merge and push again; a missing one means there is nothing to merge with, because the item the
-    /// client holds a version for is gone from the IDE. Both used to answer `code: null` and an English
-    /// sentence, so the e2e suite matched the sentence and the CLI printed it unbranched.</para></summary>
+    /// client holds a version for is gone from the IDE.</para></summary>
     private static PushConflict VersionMismatch(
         string name, string? clientVersion, string? currentVersion, bool walkComplete)
     {

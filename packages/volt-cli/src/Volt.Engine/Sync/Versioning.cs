@@ -15,12 +15,8 @@ public static class Versioning
     /// <summary>The workspace folder an item of this kind ACTUALLY occupies, from the folder the project walk
     /// reported. Today only a referenced library differs: it lives in its own folder beside the element
     /// signatures rendered for it (<see cref="Library.LibraryLayout"/>).
-    /// <para>It lives HERE, on the one function every version-producing walk already calls, because "apply the
-    /// layout at each call site" is what broke: <c>/fetch</c> applied it to the Changed entry only, so one
-    /// response reported the file at <c>Library Manager/</c> while writing it to <c>Library Manager/&lt;lib&gt;/</c>
-    /// and hashed the version over the folder it is not in — and <c>/refs</c>, the push receipt and the push's
-    /// own lease walk each had their own answer. FOUR call sites, four chances to forget. One function cannot
-    /// disagree with itself.</para></summary>
+    /// <para>It lives HERE, on the one function every version-producing walk calls, so the folder a file is written
+    /// to, the folder it is reported at and the folder its version is hashed over cannot disagree.</para></summary>
     public static string FolderOf(string kind, string walkedFolder, string name) =>
         kind == ItemKind.Kinds.Library ? Library.LibraryLayout.FolderFor(walkedFolder, name) : walkedFolder;
 
@@ -43,8 +39,8 @@ public static class Versioning
     ///
     /// <para><b>One entry per object, never per bare name</b> (CLAUDE.md, the item-name invariant): IEC makes a name
     /// unique within a kind, and this object's kind is exactly what is unknown — <c>CM_Carrier</c> the FB and
-    /// <c>CM_Carrier</c> the visualization are two objects. Keyed by the bare name they collapsed into one entry, so
-    /// deleting either left <c>projectVersion</c> unchanged. The key is <see cref="UnclassifiableKey"/>: never a wire
+    /// <c>CM_Carrier</c> the visualization are two objects, and one entry for both would let deleting either leave
+    /// <c>projectVersion</c> unchanged. The key is <see cref="UnclassifiableKey"/>: never a wire
     /// name, so the push's <c>ifVersion</c> gate cannot resolve an op onto it (an op on such a name is refused as
     /// unreadable by <c>PushConflicts</c>, by name).</para></summary>
     public static System.Collections.Generic.IReadOnlyList<Volt.Contracts.UnreadableItem> CountUnclassifiable(
@@ -82,8 +78,7 @@ public static class Versioning
     public static VersionedItem SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string folder)
     {
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
-        // with the name + reason (not Debug). The old bare catch hid a real materialize bug (FB-with-method /
-        // interface) for a long time; a visible Warn is what caught it.
+        // with the name + reason (not Debug): a silent catch hides a real materialize bug.
         try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, name, null); }
         catch (System.Exception ex)
         {
@@ -97,13 +92,11 @@ public static class Versioning
 /// when it could not be read), and — the reason this type exists — the IDENTITY every map keys it by.
 ///
 /// <para><b>The identity is DERIVED here and nowhere else.</b> Three walks produce version maps (<c>refs</c> via
-/// <see cref="ProjectSnapshot"/>, <c>fetch</c>, and the push's own lease walk), and each used to key its map with
-/// the bare item name it happened to be holding. Bare names are NOT unique across kinds: a control module and the
-/// visualization that draws it are <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> — two files, two
-/// objects in the project tree, one shared slot in every one of those maps, with the walk order deciding which
-/// survived. The consequences were a pull that reported "nothing to pull" over a real edit (the shadowed item did
-/// not move the aggregate hash) and a push that refused an item by quoting its NEIGHBOUR'S version, so the FB
-/// could be pulled and never pushed back. Found on a real customer project, V71_PackML_Hauzer.</para>
+/// <see cref="ProjectSnapshot"/>, <c>fetch</c>, and the push's own lease walk), and all key by this. Bare names are
+/// NOT unique across kinds: <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> are two objects, and on one bare
+/// slot the walk order picks a winner — the shadowed item's edit does not move the aggregate hash, and a push gates it
+/// against its NEIGHBOUR'S version, so it can be pulled and never pushed back (V71_PackML_Hauzer; CLAUDE.md, the
+/// item-name invariant).</para>
 ///
 /// <para>So the identity is the FULL wire name — the name plus its kind extension, which is what <c>refs</c> and
 /// <c>fetch</c> publish and therefore the only identity a client can ever quote back. This is not a

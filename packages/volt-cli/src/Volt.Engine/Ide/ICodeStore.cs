@@ -26,8 +26,7 @@ public interface ICodeStore
     /// write must not disturb what the engineer did not edit, which on CODESYS means mutating the live objects
     /// and on TwinCAT means rewriting only the networks that differ.
     /// <para>A <c>null</c> body means the item HAS no body and none must be written; an EMPTY body means clear
-    /// it. That distinction is load-bearing and was paid for once already — TwinCAT skipped empty
-    /// implementations, so emptying a body silently kept the old code.</para>
+    /// it. Load-bearing: a driver that skips an empty implementation silently keeps the old code.</para>
     ///
     /// <para><b>A network-text body arrives as its MODEL</b> (<paramref name="bodies"/>, openspec <c>bridge-refusal-review</c>
     /// D8/D12): every network body of the pushed item, validated ONCE by the push pre-flight
@@ -71,8 +70,7 @@ public interface ICodeStore
     /// that is vendor-neutral by construction. What it cannot cover is a shape one VENDOR cannot express:
     /// TwinCAT's graphical CREATE goes through a PLCopen import (DIALECT D22), and its writer refuses an Execute box
     /// and a box output pin wired straight to a variable (C20) from a pure function of the parsed body. Being pure is
-    /// the whole point — it was being called from inside the write, so a push whose second item carried one left
-    /// the first item in the project and told the caller it had failed.</para>
+    /// the whole point: asked before any op lands, a refusal of the batch's second item leaves nothing of the first.</para>
     ///
     /// <para><see cref="DriverBase"/> refuses nothing, which is the honest answer for a driver whose refusals
     /// genuinely need the live objects: a pre-flight that guesses is worse than one that declines to. (It lives
@@ -81,8 +79,7 @@ public interface ICodeStore
     ///
     /// <para><b>It is handed MODELS, never text</b> (openspec <c>bridge-refusal-review</c> 2.27, D8/D12): every
     /// network-text body of the pushed item the engine's pre-flight has already validated against its own scope, with
-    /// where it sits. The TwinCAT override used to re-read the whole source with <c>StReader</c>, re-derive the kind from
-    /// the wire name and validate every body a second time — a second reader the first could disagree with.</para>
+    /// where it sits — so no driver re-reads the source with a second reader the first could disagree with.</para>
     ///
     /// <para><paramref name="existing"/> is the item the op writes into, or null when the push CREATES it. Whether a
     /// body is created or edited is decided per BODY by the write (a new member in an existing item is a create), so
@@ -126,8 +123,7 @@ public interface ICodeStore
     /// vendor cannot hold, or do nothing. Asked by the push PRE-FLIGHT for every `.task` set op, with the settings the
     /// engine's own gate read (<c>TaskDescriptorFormat.Read</c>), so a refusal the vendor decides from the settings
     /// alone lands before the batch's first write instead of after its earlier ops (openspec
-    /// <c>bridge-refusal-review</c>, review of 2e+2g: CODESYS's unknown `Type:` and TwinCAT's non-cyclic task were found
-    /// only by the write). The driver's own write refuses the same settings by the same check, so the two never
+    /// <c>bridge-refusal-review</c>, review of 2e+2g). The driver's own write refuses the same settings by the same check, so the two never
     /// disagree.</summary>
     void ValidateTask(TaskSettings settings);
 

@@ -45,16 +45,12 @@ public static class ItemKind
     // `push-without-header-check` 5.P, owner 2026-10-02: "keep it simple"). Its subtype (struct / enum / union /
     // alias) is not part of its name: nothing in Volt reads, carries or spells it — the IDE and its build own it, and
     // the LSP reads the shape from the text as analysis. So a struct rewritten as an enum is an ordinary content
-    // update of `X.dut`. (Until 5.P the wire named a DUT by the subtype its vendor stated, one extension per subtype,
-    // which cost a parse per vendor, a fallback name beside them, and rename handling for every subtype change.)
+    // update of `X.dut`.
     //
-    // But it is FOUR tree codes on TwinCAT, not one, and that correction cost real data. This used to say
-    // "605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — NEVER PRODUCED, never needed", and every walk that
-    // met one logged "unmapped TREEITEMTYPE … dropped by Core as unmapped-kind" and moved on. Measured live, two
-    // independent ways: a hand-authored enum in the committed `TwinCAT Project14` fixture (`E_PackML_Mode`) has
-    // ALWAYS reported 605, and a DUT re-created from TwinCAT's own item archive comes back 606 (struct) or 607
-    // (union) rather than the 623 it was created with. So a DUT authored in the TwinCAT IDE — the ordinary case —
-    // was INVISIBLE to `refs` and `fetch`, and absent means DELETED to a pull.
+    // But it is FOUR tree codes on TwinCAT, not one, and all four must map: an unmapped code is invisible to `refs`
+    // and `fetch`, and absent means DELETED to a pull. Measured live: a hand-authored enum (`E_PackML_Mode` in the
+    // `TwinCAT Project14` fixture) reports 605, and a DUT re-created from TwinCAT's own item archive comes back 606
+    // (struct) or 607 (union) rather than the 623 it was created with.
     //
     // 623 is TREEITEMTYPE_PLCDUTALIAS, not a generic DUT (DIALECT C2b): a push-create seeds 606 whatever the body
     // (`TcObjectModel.CreateChild`), and an in-place write of another shape keeps the OLD code live until a reload
@@ -96,9 +92,8 @@ public static class ItemKind
     public const int PlcSymbolConfig = 699;  // the symbol-configuration flags (read-only `.symbols`). ISymbolConfigObject.
     public const int PlcProjectSettings = 700;  // the project's compiler settings (read-only `.projectsettings`):
                                             // which compiler warnings are off / raised to errors, plus the compile
-                                            // options. IWorkspaceObject. This was a deliberate known-skip while the
-                                            // only way in was the SCRIPTING api, which exposes nothing readable for
-                                            // it; the object model does (see the descriptor). TwinCAT has no
+                                            // options. IWorkspaceObject — read through the object model (the
+                                            // scripting api exposes nothing readable for it). TwinCAT has no
                                             // tree node for it: its walk SYNTHESIZES the item at the root
                                             // (TcProjectSettings, DIALECT D37-D39).
                                             // (695-700 are CODESYS-first read-only descriptors for non-source project objects.)
@@ -245,8 +240,7 @@ public static class ItemKind
     /// writable reference kinds. This is what a lookup and the push's item cache want.
     ///
     /// <para><b>Deliberately NOT the same predicate as <see cref="IsTopLevelCrud"/></b>, which now means only
-    /// "is assembled ST". The two questions were the same until a descriptor became writable, and they read
-    /// alike — but <c>IsTopLevelCrud</c> also decides TwinCAT's hybrid-node detection and whether a tree walk
+    /// "is assembled ST": a writable descriptor is addressable and is no ST. <c>IsTopLevelCrud</c> also decides TwinCAT's hybrid-node detection and whether a tree walk
     /// may descend past a name. Those are separate questions and are answered separately: see
     /// <see cref="InlinesItsChildren"/>.</para></summary>
     public static bool IsAddressableItem(int code) =>
@@ -298,12 +292,10 @@ public static class ItemKind
         Kinds.Property => PlcProp,
         Kinds.InterfaceMethod => PlcItfMeth,
         Kinds.InterfaceProperty => PlcItfProp,
-        // No fallback. This value decides WHAT OBJECT gets created in the user's live project
-        // (`PushService.ReconcileMembers` -> `CreateChild`), so an unrecognized kind used to create a METHOD
-        // named after the member and report the push accepted. Its structural twin `PushService.PouKindToCode`
-        // - the same map for the other half of this table - throws, and so do `ExtFor` and
-        // `StWriter.EndKeyword`. This arm was the one that disagreed with the policy stated 60 lines below it.
-        // Coded as Volt's bug (openspec bridge-refusal-review 2.18): the splitter emits no other member kind.
+        // No fallback: this value decides WHAT OBJECT gets created in the live project (`PushService.ReconcileMembers`
+        // -> `CreateChild`), so a default would create the wrong object and report the push accepted. Like its twin
+        // `PushService.PouKindToCode`, `ExtFor` and `StWriter.EndKeyword`, it throws — coded as Volt's bug (openspec
+        // bridge-refusal-review 2.18): the splitter emits no other member kind.
         _ => throw new BridgeException(BridgeErrorCodes.InternalError, $"no create code for the member kind '{kind}'"),
     };
 
@@ -315,9 +307,8 @@ public static class ItemKind
     /// 'interface_property'". IEC makes the owner the vendor-neutral fact: a member of an INTERFACE is an interface
     /// method or property, a member of anything else is not. TwinCAT asks the same question of the same fact, so one
     /// IEC rule is not two vendor rules.</para>
-    /// <para>No fallback. <c>?? Kinds.Method</c> turned any live code this map does not know into a "method", which then
-    /// travelled the whole write path as one — the silent default <see cref="MemberCode"/> used to carry on the other
-    /// side of the round trip. A code with no Volt kind is refused by name: the member and its code.</para></summary>
+    /// <para>No fallback: a code with no Volt kind is refused by name (the member and its code), never read as a method
+    /// that would then travel the whole write path as one.</para></summary>
     public static string MemberKind(int code, bool ownerIsInterface, string member) => code switch
     {
         PlcMethod or PlcItfMeth => ownerIsInterface ? Kinds.InterfaceMethod : Kinds.Method,
@@ -381,13 +372,11 @@ public static class ItemKind
     /// <summary>Reference kinds that are nonetheless WRITABLE — a descriptor Volt can push back, not just
     /// render.
     ///
-    /// <para><b>Writable is not the same as SOURCE, and conflating the two is what kept this list from
-    /// existing.</b> Access used to be derived straight from "did this kind come from the source list", which
-    /// is right for everything that is assembled ST and wrong for a descriptor: a `.task` is not structured
-    /// text, the LSP must not parse it as such, and `volt init` must not colour it as ST — yet its fields are
-    /// perfectly writable on the vendor (interval, priority, watchdog and the call list, every one a setter
-    /// measured live: `probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`)). Keeping it OUT of the source list is also what leaves
-    /// the four SOURCE_EXTENSIONS manifests (`scripts/check-wiring.ts`) untouched.</para>
+    /// <para><b>Writable is not the same as SOURCE.</b> A `.task` is not structured text — the LSP must not parse it and
+    /// `volt init` must not colour it as ST — yet its fields are writable on the vendor (interval, priority, watchdog and
+    /// the call list, every one a setter measured live: `probe-task-writable.py`, deleted; `git show
+    /// b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`). Keeping it OUT of the source list also leaves the
+    /// four SOURCE_EXTENSIONS manifests (`scripts/check-wiring.ts`) untouched.</para>
     ///
     /// <para>BOTH VENDORS, by routes that share nothing below this format. TwinCAT assembles the same six
     /// fields from two tree items — the PLC task's `LinkedTask` names the SYSTEM task carrying priority and
@@ -400,10 +389,8 @@ public static class ItemKind
         new(WritableReferenceKinds, StringComparer.Ordinal);
 
     // ORDINAL: the extension is part of the wire name, and the wire name is compared Ordinal everywhere a client
-    // keys it (baseline, version guard, removal sweep). Read case-blind, `X.Dut` passed as a DUT and was applied
-    // to the IDE's `X`, while refs went on publishing `X.dut` — two spellings of one item that no later comparison
-    // joined (a delete under the odd spelling destroyed it; a client's file of it never matched its own item).
-    // There is one spelling per kind; any other names no kind and is refused by name (`RequireWireNames`).
+    // keys it (baseline, version guard, removal sweep). Read case-blind, `X.Dut` would be applied to the IDE's `X`
+    // while refs publishes `X.dut` — two spellings of one item no later comparison joins. There is one spelling per kind; any other names no kind and is refused by name (`RequireWireNames`).
     private static readonly Dictionary<string, string> KindByFileExt =
         SourceKindExtensions.Concat(ReferenceKindExtensions)
             .ToDictionary(x => x.Ext, x => x.Kind, StringComparer.Ordinal);
@@ -451,8 +438,7 @@ public static class ItemKind
 
     /// <summary>Workspace file extension for a kind string (lowercase). No silent fallback — an unmapped kind
     /// throws so a new kind is caught, not dropped. That includes <see cref="Kinds.Folder"/>: a folder is a PATH
-    /// SEGMENT, never a file, and both driver walks recurse it without emitting an item — the old <c>folder → ""</c>
-    /// arm was left from the era when folders WERE emitted, and produced a bare-trailing-dot name ("POUs.").</summary>
+    /// SEGMENT, never a file, and both driver walks recurse it without emitting an item.</summary>
     public static string ExtFor(string kind) =>
         ExtByKind.TryGetValue(kind, out var ext) ? ext
             : throw new ArgumentException(

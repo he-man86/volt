@@ -76,11 +76,9 @@ public static class StReader
 	///
 	/// <para><b>A TOP-LEVEL ITEM'S HEADER IS NEVER READ</b> (openspec <c>push-without-header-check</c>). Its kind is
 	/// <paramref name="kind"/> — the wire name's extension — so the header is not parsed, not checked against it, and
-	/// never a reason to refuse: the text is written as sent, and the IDE's build reports what is wrong with it. It
-	/// used to be parsed first and checked against the extension, and the parse refused a DUT whose opening comment
-	/// was never closed with "No header line found" — a header that was fine, over an error only the build names
-	/// (PLCAssist chat <c>c802b74d</c>). A DUT or a GVL is therefore not read at ALL: it is one declaration, handed
-	/// over verbatim, empty or not.</para>
+	/// never a reason to refuse: the text is written as sent, and the IDE's build reports what is wrong with it (a parse
+	/// once refused a fine DUT over an unclosed comment only the build names — PLCAssist chat <c>c802b74d</c>). A DUT or a
+	/// GVL is therefore not read at ALL: it is one declaration, handed over verbatim, empty or not.</para>
 	///
 	/// <para>A POU or an interface is read for what performing the push needs and nothing else: its
 	/// <c>IMPLEMENTATION</c> line (the declaration/body split) and its CHILD elements — METHOD, ACTION, PROPERTY and
@@ -380,9 +378,8 @@ public static class StReader
 		if (ItemShape(kind).MembersInside)
 		{
 			// Children = METHOD / PROPERTY / ACTION signature blocks INSIDE the INTERFACE block, so nothing a push
-			// writes stands AFTER END_INTERFACE. A line there is refused, naming it — it used to be dropped in silence
-			// (a namespace's END_NAMESPACE, a member written after the block, a comment), where the same line after an
-			// FB's END is refused by SplitChildren.
+			// writes stands AFTER END_INTERFACE. A line there (END_NAMESPACE, a member after the block, a comment) is
+			// refused, naming it — never dropped in silence — as the same line after an FB's END is by SplitChildren.
 			var at = new ChildSite(what, childrenStart);
 			var trailing = SliceLines(lines, childrenStart, lines.Count - 1);
 			for (int i = 0; i < trailing.Count; i++)
@@ -460,15 +457,10 @@ public static class StReader
 	/// `SplitChildren` attaches them to the child, so the declaration must not swallow them first.</summary>
 	private static int BackOverMemberTrivia(IList<string> lines, int keywordLine)
 	{
-		// The trivia map is built in ONE FORWARD PASS, because a per-line probe cannot see block comments. It used
-		// to start a fresh scan on each line walked back, so ` *)` — the TAIL of a comment opened twenty
-		// lines earlier — read as code and stopped the walk dead. `IModuleBase` then kept its 23-line usage
-		// example in the INTERFACE's declaration instead of on the method it documents, and the interface came
-		// back from a round trip with a blank line inserted above that method.
-		// A blank line ends the walk — but only a blank line that is really a SEPARATOR. An empty line INSIDE a
-		// block comment is part of that comment, and treating it as a separator stopped the walk in the middle of
-		// `IModuleBase`'s usage example, handing SplitChildren a region that opens on ` *)` and refusing the file
-		// outright ("Expected METHOD/ACTION/PROPERTY").
+		// The trivia map is built in ONE FORWARD PASS, because a per-line probe cannot see block comments: the ` *)`
+		// TAIL of a comment opened twenty lines earlier is no code. A blank line ends the walk only when it is really
+		// a SEPARATOR — an empty line INSIDE a block comment is part of that comment (both measured on `IModuleBase`'s
+		// usage example, which otherwise stayed in the interface's declaration or split mid-comment).
 		var open = StTrivia.OpenAtStart(lines);
 		var code = StTrivia.Code(lines);
 		var trivia = new bool[lines.Count];
@@ -507,18 +499,9 @@ public static class StReader
 		// THE DECLARATION IS EVERYTHING BEFORE THE FIRST MEMBER — it is not parsed, and Volt has no business
 		// knowing what is in it.
 		//
-		// This used to end the declaration at the INTERFACE header LINE, which is right only while the whole
-		// header fits on one line. CODESYS stores it wrapped — `EXTENDS IModuleStartable` on its own line — and
-		// that line then landed in the child region, where `SplitChildren` refused it with "Expected
-		// METHOD/ACTION/PROPERTY": Volt PULLED such an interface and would not take its own text back, so the POU
-		// could be pulled and never pushed. Found by sweeping a real customer project.
-		//
-		// The first fix taught this to absorb `EXTENDS`/`IMPLEMENTS` by name, and that was the wrong shape: a
-		// DECLARATION is handed to the IDE VERBATIM (it is written straight to the declaration aspect), so
-		// nothing here should have to recognise its contents. Any header this reader has not heard of — another
-		// continuation keyword, an attribute, a pragma — would have broken it again in exactly the same way.
-		//
-		// Bounding it by where the MEMBERS start needs no vocabulary at all. The member's own leading trivia
+		// Not the header LINE: CODESYS stores a wrapped header (`EXTENDS IModuleStartable` on its own line), and no
+		// list of continuation keywords can know every header shape. A DECLARATION is handed to the IDE VERBATIM, so
+		// it is bounded by where the MEMBERS start, which needs no vocabulary at all. The member's own leading trivia
 		// belongs to the MEMBER (`SplitChildren` attaches the comments and pragmas above a signature to it), so
 		// the boundary walks back over that trivia to the blank line or code that precedes it.
 		int firstMember = FirstMemberLine(bodyLines, interfaceHeaderLineIdx + 1);
@@ -666,11 +649,9 @@ public static class StReader
 	/// <summary>A POU's own declaration and body. THE LINE DECIDES, and nothing else does; a file without one is
 	/// REFUSED, never guessed at.
 	///
-	/// <para>What used to be here: the last <c>END_VAR</c>, or the end of a wrapped header, and then a rule about which
-	/// trailing comments belonged to which side. That price came due three times, and every time invisibly: the
-	/// halves are re-joined on read, so a file split in the wrong place round-trips byte for byte while the project
-	/// holds it broken. A GRAPHICAL body carries its own VAR_TEMP blocks, which an END_VAR scan pulled into the POU's
-	/// declaration; with the boundary stated, network text is its own line and what follows it.</para></summary>
+	/// <para>An inferred boundary (the last <c>END_VAR</c>, a wrapped header) fails invisibly — the halves are re-joined
+	/// on read, so a wrong split round-trips byte for byte while the project holds it broken (see
+	/// <see cref="ImplementationMarker"/>); a graphical body's own VAR_TEMP blocks are one such case.</para></summary>
 	private static (string decl, string impl, StatedLanguage stated, ObjectProperties props) SplitDeclImpl(IList<string> pouLines, string what)
 	{
 		var (decl, impl, line, at) = SplitAtBoundaryAt(pouLines, what, bodySeparator: true);
@@ -833,8 +814,7 @@ public static class StReader
 	/// <summary>The CHILD elements in <paramref name="after"/> — the one place push reads a header, because a child has
 	/// no extension: its header line names it, says what it is and delimits it. Every refusal names the item
 	/// (<paramref name="owner"/>) and the line IN THE FILE — <paramref name="offset"/> is where <paramref name="after"/>
-	/// starts in it. These used to count from the start of the child region, so "line 1" was the line under the POU's
-	/// END line, and named no item at all.</summary>
+	/// starts in it.</summary>
 	private static List<Member> SplitChildren(IList<string> after, int offset, string owner, bool marked, bool splitOnly)
 	{
 		var at = new ChildSite(owner, offset);
@@ -1002,11 +982,8 @@ public static class StReader
 				}
 			}
 		}
-		// A BARE `GET` (or `SET`) with no `END_GET` — the bodiless form the LSP documents and a human writes by
-		// hand. It used to fall off the end of this loop unclosed: `accessorBoundaries` stayed empty, the keyword
-		// was swallowed into the property's DECLARATION, the accessor came back null, and the push then REMOVED
-		// the engineer's getter (null code means "this property has no getter"). Silent data loss from a shape the
-		// docs call valid. Close it here instead — a bare keyword IS an accessor, just an empty one.
+		// A BARE `GET` (or `SET`) with no `END_GET` — the bodiless form the LSP documents — IS an accessor, just an
+		// empty one: closed here, or it would come back null and the push would REMOVE the engineer's getter.
 		if (currentAccessorStart is not null && currentAccessorKind is not null)
 		{
 			accessorBoundaries.Add((currentAccessorStart.Value, currentAccessorStart.Value, currentAccessorKind));
@@ -1273,9 +1250,8 @@ public static class StReader
 	/// block would run on to the NEXT member's END and swallow that member. Refused naming the line instead: the word can
 	/// be nothing else there (it is reserved, and comments and strings are already blanked).
 	/// <para>The one place the word is NOT an END line is a header's NAME position (<paramref name="nameAt"/>, from
-	/// <see cref="HeaderNameAt"/>): <c>METHOD END_METHOD : INT</c> names a method END_METHOD. It used to be refused as
-	/// "END_METHOD stands after code", a mistake the text does not hold — and the name is the IDE's to take or refuse
-	/// (TcXaeShell takes END_METHOD as a method name, CODESYS refuses it; openspec push-keeps-what-landed 3.G). Any OTHER
+	/// <see cref="HeaderNameAt"/>): <c>METHOD END_METHOD : INT</c> names a method END_METHOD, and the name is the IDE's
+	/// to take or refuse (TcXaeShell takes it, CODESYS refuses it; openspec push-keeps-what-landed 3.G). Any OTHER
 	/// occurrence on that line is still refused.</para></summary>
 	private static void RefuseEndAfterCode(string code, string endKw, ChildSite at, int line, int nameAt)
 	{

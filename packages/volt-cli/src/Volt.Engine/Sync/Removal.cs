@@ -10,11 +10,9 @@ namespace Volt.Engine.Sync;
 ///
 /// <para>It lives here because deciding it needs facts only the walk has. The unreadable exemption is keyed by
 /// the item's bare name AND the kind it was walked as — IEC makes names unique within a kind, not across kinds
-/// (CLAUDE.md, the item-name invariant), and the wire's <c>unreadable</c> list carries bare names only. A client
-/// that re-derived removal from that list could match by bare name alone, and did: with a program <c>X</c>
-/// unreadable, a DUT <c>X.dut</c> the IDE had deleted was exempt on every partial pull, so its file survived
-/// and its next edit pushed as a create. And status and pull each derived it with a rule of their own, so
-/// <c>volt status</c> reported nothing removed where <c>volt pull</c> then deleted the file.</para>
+/// (CLAUDE.md, the item-name invariant), and the wire's <c>unreadable</c> list carries bare names only, so a client
+/// cannot re-derive it: by bare name alone an unreadable program <c>X</c> would shield a deleted DUT <c>X.dut</c>. One
+/// rule for both ops also keeps <c>volt status</c> and <c>volt pull</c> from disagreeing about what is removed.</para>
 ///
 /// <para>A PARTIAL walk is not a reason to report nothing. Absence under a folder the walk could not enumerate
 /// proves nothing, but absence from a folder it DID read is as good as on a complete walk — provided the client
@@ -49,10 +47,9 @@ internal static class Removal
     /// name AND the kind it was walked as — a name of ANOTHER kind that shares the bare name is a different item,
     /// and absent from the walk means gone.
     ///
-    /// <para>A known name whose kind cannot be read off its extension is NOT exempt. It used to be ("absence proves
-    /// nothing about an item the reader could not place"), and that shielded exactly the names the engine does
-    /// not recognise: with FB <c>X</c> unreadable, a known <c>X.dut</c> the IDE had deleted was never reported
-    /// removed, so its file survived and its next edit pushed as a create. No legitimate known name lacks a kind —
+    /// <para>A known name whose kind cannot be read off its extension is NOT exempt: exempting it would shield a deleted
+    /// item behind an unreadable one of another kind (FB <c>X</c> unreadable keeping a deleted <c>X.dut</c> alive, whose
+    /// next edit then pushes as a create). No legitimate known name lacks a kind —
     /// an unreadable item is published in <c>Unreadable</c>, never in <c>Items</c>, so no baseline holds its bare
     /// identity — and the answer for any other unplaceable name is the ordinary one: not in this walk.</para></summary>
     private static bool IsUnreadable(string known, IReadOnlyDictionary<string, HashSet<string>> unreadableKinds) =>

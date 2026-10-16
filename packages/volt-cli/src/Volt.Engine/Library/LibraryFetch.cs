@@ -124,10 +124,9 @@ internal sealed class LibraryMatcher
 
 /// <summary>The referenced-library half of a fetch: deciding whether the signatures need re-rendering at all,
 /// rendering each library element beside its <c>.library</c> stub, and the layout rules those files follow.
-/// <para>It was ~120 lines inside <see cref="Volt.Engine.Sync.FetchService"/>, whose own job is the project
-/// walk. The two are independent: the library pipeline runs off a version comparison, not off the walk, and it
-/// is the ONLY part of a fetch that can trigger a precompile. Separating it also puts the layout rules beside
-/// <see cref="LibraryLayout"/>, which is the one place they belong.</para></summary>
+/// <para>Apart from <see cref="Volt.Engine.Sync.FetchService"/>'s project walk because it is independent of it: the
+/// library pipeline runs off a version comparison, and it is the ONLY part of a fetch that can trigger a precompile.
+/// Its layout rules sit beside <see cref="LibraryLayout"/>.</para></summary>
 internal static class LibraryFetch
 {
     /// <summary>Render the SIGNATURE (declaration only) of EVERY referenced-library element and add it as a

@@ -9,9 +9,7 @@ namespace Volt.Engine.Ide
     /// EVERY BODY A DOCUMENT CARRIES, PAIRED WITH THE DECLARATION IT RESOLVES AGAINST.
     ///
     /// <para>Pure, and above the vendor seam because BOTH drivers need it for the same reason: a push pre-flight
-    /// has to reach every body a source file holds, and each body resolves its names in its own scope. It lived
-    /// in the TwinCAT driver, so when the CODESYS driver needed the same walk the choice was a second copy or a
-    /// missing pre-flight — and for a while it was the missing pre-flight.</para>
+    /// has to reach every body a source file holds, and each body resolves its names in its own scope.</para>
     ///
     /// <para><b>Pairing it wrong is a pre-flight that invents refusals</b>, which is the one failure mode a
     /// pre-flight must not have: a method's <c>t1(IN := a)</c> resolves <c>t1</c> in the METHOD's VAR block

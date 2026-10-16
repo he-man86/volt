@@ -6,13 +6,8 @@ namespace Volt.Engine.Ide;
 
 /// <summary>Where a POU's members live in the project tree.
 ///
-/// <para><b>This existed twice, byte for byte.</b> The struct, the walk and their doc comments were duplicated
-/// across <c>CodesysDriver.Content.cs</c> and <c>BeckhoffDriver.Content.cs</c> — two assemblies, one algorithm,
-/// no differences. It only ever needed <c>ChildCount</c>, <c>ChildAt</c>, <c>Name</c> and <c>KindCode</c>, every
-/// one of which is on <see cref="IProjectTree"/>, so it was never vendor code; it was shared code filed in two
-/// places. Duplication like that does not stay identical — this repo has already lost data to exactly that drift
-/// (the TwinCAT body write diverging from the CODESYS one), which is why it lives here now, beside the contract
-/// it is written against.</para>
+/// <para>Shared, not vendor code: it needs only <c>ChildCount</c>, <c>ChildAt</c>, <c>Name</c> and <c>KindCode</c>, all
+/// on <see cref="IProjectTree"/>, and a per-driver copy is how the two drivers drift apart.</para>
 ///
 /// <para>Public rather than internal because both drivers are separate assemblies. <c>TreeNav</c> next door is
 /// internal and stays that way — nothing outside the engine navigates the tree.</para>

@@ -14,8 +14,8 @@ public static class LibSignatureRenderer
 {
     // A renderable name must be a plain IEC identifier AND must not CONTAIN a double underscore anywhere —
     // `__` marks a compiler-mangled/internal name (`__POOL`, `SysMem__Impl`), never something user code names.
-    // (A single-letter name like a Point's `X`/`Y` is a VALID identifier and must NOT be dropped — the old
-    // X/B/W/D/L "direct-address prefix" heuristic silently lost such struct fields.)
+    // (A single-letter name like a Point's `X`/`Y` is a VALID identifier and must NOT be dropped as a
+    // "direct-address prefix".)
     // ponytail: dropped names are not logged, and Block() tests emptiness on the UNFILTERED list, so an
     // all-`__` pin set still emits a bare `VAR_INPUT`/`END_VAR` pair. Upgrade path: return the drop count so
     // FetchService can tally it beside its lib-render-null/lib-unmatched lines, and filter before the count —
@@ -99,16 +99,13 @@ public static class LibSignatureRenderer
                 var (ret, outs) = LiftReturn(name, s.Outputs, s.ReturnType);
                 // NOT `?? "BOOL"`. This text is shipped to the LSP as the library's ground truth, so an invented
                 // return type does not degrade — it RESOLVES, and then lies: every call site type-checks against
-                // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine). That
-                // much stands.
+                // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine).
                 //
                 // A FUNCTION WITH NO RETURN TYPE IS REAL CODESYS, and it renders as what it is: `FUNCTION name`.
-                // This was skipped (and before that thrown on) on the reading that IEC has no void FUNCTION, so
-                // there was no honest text for one. CODESYS has one — project source declares it and builds
-                // (lenze-mid's `Scale_Offset_Dint.pou`), and StringUtils' `StrTrimA`, `StrMidA` and `StrReplaceA`
-                // are return-less functions called as statements. Skipping them left names pro2193 calls
-                // unresolvable, which the LSP papered over with a hardcoded list of library names; that list is
-                // gone (a library is known through its materialization, nothing else).
+                // Project source declares one and builds (lenze-mid's `Scale_Offset_Dint.pou`), and StringUtils'
+                // `StrTrimA`, `StrMidA` and `StrReplaceA` are return-less functions called as statements; skipped,
+                // every call to one is undefined to the LSP, which knows a library only through its materialization
+                // (manifest format 2, LibraryManifest.Materialization).
                 var lines = new[] { ret is null ? $"FUNCTION {name}" : $"FUNCTION {name} : {ret}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });

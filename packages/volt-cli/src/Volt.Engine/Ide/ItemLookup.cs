@@ -6,27 +6,19 @@ namespace Volt.Engine.Ide;
 
 /// <summary>
 /// Find a TOP-LEVEL item by name — one walk, over the tree contract every driver already implements.
-/// <para>It was two walks with two different answers, neither of them tested, and the differences were not
-/// choices anybody made:</para>
 /// <list type="bullet">
-/// <item>CODESYS matched <b>case-sensitively</b>; TwinCAT case-insensitively. IEC 61131-3 identifiers are
-/// case-insensitive and both IDEs treat them so, and every other name comparison on this wire already uses
-/// <c>OrdinalIgnoreCase</c> — the push's own child reconciliation does. So the sensitive one was simply wrong:
-/// pushing <c>fb_Motor</c> at an IDE holding <c>FB_Motor</c> found nothing and tried to CREATE it.</item>
-/// <item>CODESYS matched <b>any</b> non-transient node at any depth; TwinCAT only the six top-level CRUD kinds.
-/// The only caller is the push's "does this item already exist" question, which is about top-level items — so
-/// the broad one could answer with a METHOD that happens to share a POU's name.</item>
+/// <item><b>Case-insensitively</b>: IEC 61131-3 identifiers are case-insensitive and both IDEs treat them so —
+/// pushing <c>fb_Motor</c> at an IDE holding <c>FB_Motor</c> must find it, not CREATE a second one.</item>
+/// <item><b>Top-level CRUD kinds only</b>: the caller asks "does this item already exist", so a METHOD that shares a
+/// POU's name must not answer.</item>
 /// </list>
-/// <para>Both semantics live here now, taken from whichever side had it right, and — the actual point — this
-/// runs against <c>FakeIde</c> in the offline suite. Neither driver's copy was executed by a single C# test.
-/// <see cref="Find"/> and <see cref="All"/> are ONE walk (<see cref="Walk"/>) with two visitors: when they were two
-/// copies of the descent, each carried its own copy of the fault-is-not-absence rule, which is how the drivers' copies
-/// drifted before.</para>
+/// <para>Shared rather than per driver, so it runs against <c>FakeIde</c> in the offline suite. <see cref="Find"/> and
+/// <see cref="All"/> are ONE walk (<see cref="Walk"/>) with two visitors, so the fault-is-not-absence rule exists
+/// once.</para>
 /// </summary>
 public static class ItemLookup
 {
-    /// <summary>Depth guard against a cyclic or pathologically nested tree, not a limit any real project reaches.
-    /// CODESYS's walk carried it; TwinCAT's did not, and gains it here.</summary>
+    /// <summary>Depth guard against a cyclic or pathologically nested tree, not a limit any real project reaches.</summary>
     private const int MaxDepth = 14;
 
     /// <summary>The top-level item named <paramref name="name"/>, or null.

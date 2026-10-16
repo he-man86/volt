@@ -13,8 +13,7 @@ namespace Volt.Engine.Library;
 /// <c>LINKALLCONTENT</c> and <c>QUALIFIEDONLY</c> are CODESYS's members (<c>SystemLibrary</c>, <c>LinkAllContent</c>,
 /// <c>QualifiedOnly</c>; TwinCAT has none on a reference, <c>tc-library-system</c>, DIALECT C37), and each is a flag
 /// SPELLED ONLY WHERE IT IS TRUE (openspec <c>bridge-one-to-one</c> §1.2, §2.R): its absence is the value measured on
-/// every reference without it, so a CODESYS non-system reference reads byte-identically to TwinCAT's. TwinCAT used to
-/// write a hard-coded <c>SYSTEM false</c>, CODESYS its real false — the same reference, two texts.
+/// every reference without it, so a CODESYS non-system reference reads byte-identically to TwinCAT's.
 /// Making RESOLUTION vendor-identical means having CODESYS hand over the parts and call <see cref="Resolution"/>
 /// — it changes manifest bytes, hence library versions, hence a full re-fetch, so it is a deliberate change of
 /// its own. Note the string is load-bearing beyond display: <c>Sync/FetchService</c> re-parses the RESOLUTION

@@ -7,11 +7,8 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Ide;
 
 /// <summary>Navigating and shaping a vendor project TREE: find a child, find or create a folder, descend a
-/// path, remove a child if it is there. Every member here is about <see cref="IProjectTree"/> and nothing else.
-/// <para>It lived privately inside <c>PushService</c>, which meant the push owned ~95 lines with no push
-/// semantics in them — and, more tellingly, reimplemented a walk <see cref="ItemLookup"/> already had. Putting
-/// the two in one namespace is what makes that overlap visible; a caller that needs to find something in the
-/// tree should not have to be a push to do it.</para></summary>
+/// path, remove a child if it is there. Every member here is about <see cref="IProjectTree"/> and nothing else, beside
+/// <see cref="ItemLookup"/> in one namespace, so a caller that needs to find something in the tree need not be a push.</summary>
 internal static class TreeNav
 {
     /// <summary>Resolve a TOP-LEVEL item's placement folder. <paramref name="folder"/> is the FULL tree path
@@ -20,14 +17,11 @@ internal static class TreeNav
     /// tree root the walk measures from, MATCHING each existing container (structural node OR user folder) by name
     /// and only CREATING a user folder for a segment that does not yet exist.
     ///
-    /// <para><b>EMPTY IS THE TREE ROOT, and it used to be the Application.</b> The walk measures every folder
-    /// from <see cref="IProjectTree.GetTreeRoot"/>, so an item it emits with an empty folder is one sitting AT
-    /// that root — on CODESYS the project's own POU pool, where `Lenze_MID-S100` keeps `GVL_Errorlists` and
-    /// `POE_SystemStart`. Resolving empty to a second root instead (the Application) made push placement
-    /// asymmetric with fetch for exactly those items: pushed into a fresh project they were CREATED INSIDE THE
-    /// APPLICATION, so the workspace got them back one folder deeper than it sent them and a round-trip moved
-    /// the engineer's files. On TwinCAT the two roots are the same node, so this is CODESYS-shaped and the
-    /// TwinCAT behaviour is unchanged.</para></summary>
+    /// <para><b>EMPTY IS THE TREE ROOT, never the Application.</b> The walk measures every folder from
+    /// <see cref="IProjectTree.GetTreeRoot"/>, so an item it emits with an empty folder sits AT that root — on CODESYS
+    /// the project's own POU pool (`Lenze_MID-S100` keeps `GVL_Errorlists` there). Resolving empty to the Application
+    /// would create such items one folder deeper than the workspace sent them, so a round trip moved the engineer's
+    /// files. On TwinCAT the two roots are the same node.</para></summary>
     /// <param name="created">When given, receives the path (from the tree root) of each folder this call CREATED — what a
     /// refused push states it left behind (openspec <c>push-keeps-what-landed</c>).</param>
     internal static ItemRef ResolveTopLevelFolder(IIdeDriver ide, string? folder, List<string>? created = null) =>
@@ -36,12 +30,11 @@ internal static class TreeNav
     /// <summary>The node a TASK is created under.
     ///
     /// <para><b>The task container's NAME is LOCALIZED; its KIND is not.</b> A German CODESYS ships the Standard
-    /// template with <c>Taskkonfiguration</c> where an English project's walk emits <c>Task Configuration</c>, so
-    /// resolving a pushed task's folder by name missed the container entirely, the find-or-create descent
-    /// created a plain user folder in its place, and the vendor then refused the create on a node with no task
-    /// facet — <c>node has no ScriptTaskConfigObject facet</c>, with the junk folder left behind. Found migrating
-    /// a real project into the shipped blank; measured with <c>probe-task-config-survives-delete.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-config-survives-delete.py</c>),
-    /// which also rules out the other candidate (the container survives its last task being deleted).</para>
+    /// template with <c>Taskkonfiguration</c> where an English project's walk emits <c>Task Configuration</c>, so a
+    /// by-name descent misses the container, creates a plain user folder in its place, and the vendor refuses the
+    /// create on a node with no task facet (<c>node has no ScriptTaskConfigObject facet</c>), junk folder left behind.
+    /// Measured with <c>probe-task-config-survives-delete.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-config-survives-delete.py</c>),
+    /// which also shows the container survives its last task being deleted.</para>
     ///
     /// <para>So the ANCESTRY is walked by name (Device / Plc Logic / Application are real, non-localized
     /// container names) and the last segment is resolved by KIND. TwinCAT has no such node — its PLC tasks are
@@ -167,25 +160,20 @@ internal static class TreeNav
     }
 
     /// <summary>Resolve a folder path WITHOUT creating anything, for a lookup that only wants to READ.
-    /// <para><see cref="ResolveFolder"/> is find-OR-CREATE, which is right on a create path and wrong on every
-    /// other. Used for a read it made a real empty folder inside the engineer's POU whenever the pushed
-    /// `%FOLDER` did not match where the item actually sits, and the subsequent lookup then missed INSIDE the
-    /// folder it had just made - so the caller silently skipped the work it was there to do.</para></summary>
+    /// <para><see cref="ResolveFolder"/> is find-OR-CREATE, right on a create path and wrong on every other: on a read
+    /// it would make an empty folder inside the engineer's POU whenever the pushed `%FOLDER` does not match where the
+    /// item sits, and then miss inside it.</para></summary>
     internal static ItemRef? FindFolder(IIdeDriver ide, ItemRef parent, string? folder) =>
         Descend(ide, parent, FolderPath.Segments(folder), UserFolder(ide), create: false, null);
 
     /// <summary>REMOVE A FOLDER THAT HAS JUST BEEN EMPTIED, and every ancestor the removal empties in turn.
     ///
-    /// <para><b>Git is the specification.</b> A directory is not an entity there either — deleting the last
-    /// file under <c>a/b/</c> records exactly that one path — and git still REMOVES the directory from the
-    /// working tree, as a derived consequence of the file going. Volt models its interface on git and was
-    /// missing precisely that derivation: the workspace side is pruned by git for free, while the IDE kept the
-    /// folder for ever. Measured on BOTH vendors (`probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`) for CODESYS, a COM
-    /// tree walk for TwinCAT): neither prunes on its own, and both expose the primitive to do it.</para>
-    ///
-    /// <para>It compounds, because an empty folder is UNREPRESENTABLE on the wire — the <c>folders</c> map is
-    /// keyed by item — so the next pull cannot see it, cannot materialize it, and cannot report it as drift.
-    /// The two sides diverge silently and permanently.</para>
+    /// <para><b>Git is the specification.</b> A directory is not an entity there either, yet git REMOVES it from the
+    /// working tree when its last file goes; the IDE does not. Measured on BOTH vendors (`probe-empty-folder-lifecycle.py`,
+    /// deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`, for CODESYS, a COM tree
+    /// walk for TwinCAT): neither prunes on its own, and both expose the primitive to do it. An empty folder is
+    /// UNREPRESENTABLE on the wire (the <c>folders</c> map is keyed by item), so without this the two sides diverge
+    /// silently and permanently.</para>
     ///
     /// <para><b>ONLY WHAT THIS PUSH EMPTIED.</b> The caller passes the folders items actually LEFT, and a
     /// folder still holding anything is left alone. A folder that was ALREADY empty before the push is the
@@ -205,10 +193,8 @@ internal static class TreeNav
             var path = folder;
             while (!string.IsNullOrEmpty(path))
             {
-                // DESCEND THE WAY THE CREATE PATH DOES, not the way `FindFolder` does. `FindFolder`
-                // demands `PlcFolder` at every segment, and a standard container like `POUs` is a
-                // container-MANAGER — so it failed on the first segment and the prune silently did
-                // nothing against a real IDE while passing against the fake, whose tree is flat.
+                // DESCEND THE WAY THE CREATE PATH DOES, not the way `FindFolder` does: `FindFolder` demands
+                // `PlcFolder` at every segment, and a standard container like `POUs` is a container-MANAGER.
                 var node = DescendExisting(ide, ide.GetTreeRoot(), path);
                 // Gone already (a deeper pass removed it), not a folder, or still holding something: stop.
                 // …AND ONLY A REAL FOLDER IS EVER REMOVED. The descent is deliberately loose so it can

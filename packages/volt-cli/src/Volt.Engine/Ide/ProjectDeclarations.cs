@@ -12,8 +12,8 @@ namespace Volt.Engine.Ide;
 ///
 /// <para><b>One of these per driver, shared by pull and push.</b> Network text v2's writer (pull) and reader
 /// (push) must see ONE scope, or the writer keeps a wire name the reader refuses (spec, "reserved names are one
-/// case-insensitive set on write and read", task 3.9). Both drivers carried a member-for-member copy of the
-/// by-name lookup (<c>DeclarationOfName</c>); it lives here now, beside the global list it was missing.</para>
+/// case-insensitive set on write and read", task 3.9). The by-name lookup (<c>DeclarationOfName</c>) lives here,
+/// beside the global list, not in each driver.</para>
 ///
 /// <para><b>THE PUSH IS ASKED FIRST.</b> The IDE can only answer for items it ALREADY holds, so on a push that
 /// creates a whole project the answer would depend on op order — and the push is the newer truth for an item it
@@ -23,8 +23,8 @@ namespace Volt.Engine.Ide;
 /// ONE operation — it drops it at the start of every project walk (<c>WalkItems</c>), so an item created since the
 /// last operation is seen. The project is indexed in ONE walk (<see cref="ItemLookup.All"/>), the first time a body asks about a name its own declarations
 /// do not hold — a call head (every function a body calls is such a name), a name shaped like a wire — and each
-/// declaration is read the first time it is asked for. A walk per name, which the drivers' <c>ItemLookup.Find</c>
-/// copies cost, is a walk per function a project calls.</para>
+/// declaration is read the first time it is asked for. A walk per name would be a walk per function a project
+/// calls.</para>
 /// </summary>
 public sealed class ProjectDeclarations
 {

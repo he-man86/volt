@@ -9,9 +9,8 @@ namespace Volt.Engine.Sync;
 
 /// <summary>
 /// The post-push question — is the IDE's text of a pushed item the pushed text laid out otherwise? — answered by the
-/// same per-kind format dispatch the push gates an item by, in the engine that owns it. The CLI used to carry its own
-/// copy of that dispatch (a second task check, an ST read without the wire kind), and the copy is what drifted: a
-/// `.task` reached the ST reader after the IDE had applied the push.
+/// same per-kind format dispatch the push gates an item by, in the engine that owns it — a CLI-side copy is what
+/// drifted (a `.task` reached the ST reader).
 /// </summary>
 public static class PushedText
 {
@@ -20,9 +19,7 @@ public static class PushedText
     /// the IDE keeps the spelling of the object it holds) and the same kind. A push writes the text as sent and never
     /// reads its header (openspec <c>push-without-header-check</c>), and a POU is <c>X.pou</c> and a DUT <c>X.dut</c>
     /// whatever their text says (5.Q, 5.P), so a text write moves no object to another name: the case-variant pair is
-    /// all that is left. (Until 5.Q, CODESYS re-published a function block whose text said PROGRAM under the program's
-    /// extension, DIALECT C2f, and this paired the three POU extensions; it kept a POU/DUT whitelist after that, which left a
-    /// GVL or an interface in another case unpaired.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
+    /// all that is left, for every kind. Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
     /// item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {
@@ -75,9 +72,8 @@ public static class PushedText
     /// declarations only (<paramref name="declaration"/>): the CLI has no project to resolve against, and both texts are
     /// read in that one scope, so equal canonical renderings are one model. A text that does not read in it is not
     /// claimed to be the same. For the same reason the CLI asks no item's kind (it holds no project). It links no driver,
-    /// so the names no POU can have are the words BOTH vendors refuse (<see cref="BothVendorsRefusedNames"/>): with none
-    /// at all, a BOOL named <c>R_EDGE</c> was an "instance" that took the edge construct, neither text read, and one
-    /// program spelled twice was called two (review of <c>bridge-refusal-review</c> 4a).</summary>
+    /// so the names no POU can have are the words BOTH vendors refuse (<see cref="BothVendorsRefusedNames"/>) — with
+    /// none, a BOOL named <c>R_EDGE</c> reads as an edge instance and neither text reads (<c>bridge-refusal-review</c> 4a).</summary>
     private static bool SameBody(string? x, string? y, string? declaration)
     {
         if (x == y) return true;

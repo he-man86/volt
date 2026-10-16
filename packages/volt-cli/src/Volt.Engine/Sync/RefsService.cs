@@ -17,9 +17,8 @@ public static class RefsService
     public static RefsResponse Handle(IIdeDriver ide, RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard, the same one every other project-touching op runs — atomic with the walk.
-        // `req` (and each of its fields) is optional: a body-less refs checks only connected, exactly as before, so
-        // discovery and older clients are unaffected. A BOUND caller no longer has to answer "is the bridge on my
-        // project?" for itself from the throttled health cache — refs was the last op that made it do that.
+        // `req` (and each of its fields) is optional: a body-less refs checks only connected (discovery). A BOUND
+        // caller gets "is the bridge on my project?" answered here, not from the throttled health cache.
         var bound = OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
@@ -45,10 +44,8 @@ public static class RefsService
             Removed = req?.KnownItems is { } known
                 ? Removal.Removed(known.Keys, req.KnownFolders, snap.FullVersions.Keys, snap.UnreadableKinds, snap.UnwalkedFolders)
                 : new List<string>(),
-            // THE PROJECT THIS WALK IS OF, atomic with the walk. `fetch` has echoed it all along and `refs` did
-            // not, which is backwards for the op `volt status` runs: a caller that asked WITHOUT a binding — the
-            // discovery path, the console, the e2e harness — got a version map with nothing saying what it was a
-            // map OF.
+            // THE PROJECT THIS WALK IS OF, atomic with the walk, as `fetch` echoes it: a caller that asked WITHOUT a
+            // binding (discovery, the e2e harness) learns what the version map is a map OF.
             Platform = bound.Vendor,
             ProjectName = bound.ProjectName,
         };

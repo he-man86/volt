@@ -45,11 +45,10 @@ public interface IProjectTree
     /// <para>On CODESYS yes: the scripting objects are live, and adding a method does not disturb a handle to the
     /// POU. On TwinCAT NO — a member is not a separate file there, so placing one is a round trip through the
     /// enclosing POU's own archive and the import REPLACES the item (DIALECT D4d/D4j); the next write through
-    /// the captured handle fails with "Unbound tree item", which is how it surfaced, on 40-odd e2e tests at once.
+    /// the captured handle fails with "Unbound tree item".
     ///
-    /// <para>Stated here because the reconciler used to assume the WORSE case for both, re-finding the POU from
-    /// the tree root after every single create. For a POU with 20 members that is 19 FULL PROJECT WALKS that
-    /// CODESYS never needed — the cost of one vendor's quirk, charged to both.</para></summary>
+    /// <para>Stated per driver so the reconciler re-finds the POU (a FULL PROJECT WALK per create) only where the
+    /// handle actually dies, rather than charging one vendor's quirk to both.</para></summary>
     bool HandlesSurviveStructureChange { get; }
 
     /// <summary>Create a child. <paramref name="seed"/> is the ONE value the vendor wants at creation time, and

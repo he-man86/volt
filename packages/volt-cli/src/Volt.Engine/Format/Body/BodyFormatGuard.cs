@@ -8,19 +8,16 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Format.Body;
 
 /// <summary>
-/// A push must not overwrite a body it cannot author. The rule, unchanged since it was first written:
-/// <b>decide from the IDE's LIVE body, never from the incoming text.</b>
+/// A push must not overwrite a body it cannot author: <b>decide from the IDE's LIVE body, never from the incoming
+/// text</b> — an unsupported body has no text form, so the incoming text cannot say what it would overwrite.
 ///
-/// <para>An earlier version tried to decide from content — <c>NetworkText.Is(impl) &amp;&amp; !IsEditable(…)</c> —
-/// which could never work, because an unsupported body has no text form and materialized as a marker comment, which
-/// <c>NetworkText.Is</c> (a <c>NETWORK n LANG</c> matcher) REJECTED. The marker fell through to the textual path and
-/// the write replaced an engineer's diagram with a comment.</para>
+/// <para>An earlier version decided from content — <c>NetworkText.Is(impl) &amp;&amp; !IsEditable(…)</c> — and a
+/// marker that matched neither fell through to the textual path, replacing an engineer's diagram with a comment.</para>
 ///
 /// <para><b>It compares FACTS, and reads no text</b> (openspec <c>bridge-refusal-review</c> D6). Each body arrives with
 /// the language its line states (<see cref="StatedLanguage"/>): the live one from the driver, which knows it from the
-/// vendor's aspect or archive, the pushed one from the ST reader, which parsed the line. The guard used to decode the
-/// language back out of the text (<c>ShapeOf</c>: an UNSUPPORTED line, network text, or neither) — which held only while
-/// every reader kept that encoding lossless, in three places, and misjudged silently where one did not.</para>
+/// vendor's aspect or archive, the pushed one from the ST reader, which parsed the line. Decoding the language back
+/// out of the text would hold only while every reader kept that encoding lossless.</para>
 ///
 /// <para><b>One language-change comparison</b> (D7): a body that changes between ST and LD/FBD is a change the VENDOR
 /// answers (<c>ICodeStore.RefusedLanguageChange</c>, DIALECT N24) — CODESYS writes it in place, TwinCAT has no route —
@@ -32,11 +29,8 @@ public static class BodyFormatGuard
     /// body — has nothing to read on a create, but the verdict does not need one: a UNSUPPORTED line means "there is no
     /// text form for this body", so Volt cannot author the item under any live state.
     ///
-    /// <para>Without this the create path wrote the marker (then a comment) as if it were source, and the item landed with an
-    /// EMPTY body while the push reported success. Measured by the corpus-migration gate: pushing a real project
-    /// into a blank one silently dropped every CFC/SFC POU. The update path had been guarded since the first
-    /// data-loss bug; the create path was never covered, and the comment beside it in <c>PushService</c> asserted
-    /// the opposite ("root CFC/SFC are unsupported and never reach push").</para></summary>
+    /// <para>Without this a create writes the line as if it were source and the item lands with an EMPTY body while the
+    /// push reports success — the corpus-migration gate measured it dropping every CFC/SFC POU of a real project.</para></summary>
     public static void RequireAuthorable(ItemContent pushed)
     {
         if (ItemKind.ShapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, null);
@@ -100,10 +94,9 @@ public static class BodyFormatGuard
         {
             // NOT IN THE IDE UNDER THIS NAME AND KIND — a member added, renamed, or retyped (the reconciler deletes a
             // retyped member and creates it again) — is a CREATE of that member, and a create is held to the create
-            // rule. Skipping it as "nothing to overwrite" was wrong twice over: a UNSUPPORTED line has no text form, so
-            // the member was created as an EMPTY ST body (both drivers skip writing a hidden body), and for a
-            // rename or a retype the reconciler had already deleted the diagram the line stood for. The push
-            // reported success over a lost CFC chart or ladder.
+            // rule, not skipped as "nothing to overwrite": a UNSUPPORTED line has no text form, so the member would be
+            // created as an EMPTY ST body (both drivers skip writing a hidden body), and for a rename or a retype the
+            // reconciler has already deleted the diagram the line stood for.
             if (!byName.TryGetValue(member.Name, out var current) || current.Kind != member.Kind)
             {
                 AuthorableMember(member);
@@ -112,8 +105,7 @@ public static class BodyFormatGuard
 
             // WHAT THE KIND'S ROW SAYS EXISTS (ItemKind.ShapeOf, openspec bridge-refusal-review D11): a PROPERTY node
             // carries no body of its own — its code lives in its GET/SET accessors, which arrive as `Getter`/`Setter` —
-            // and an INTERFACE METHOD carries neither a body nor accessors, so nothing of it is checked. It used to be
-            // asked about accessors it does not have (`CarriesAccessors` meant "has no body").
+            // and an INTERFACE METHOD carries neither a body nor accessors, so nothing of it is checked.
             var shape = ItemKind.ShapeOf(member.Kind);
             if (shape.Accessors != AccessorShape.None)
             {

@@ -8,8 +8,8 @@ namespace Volt.Engine.Format.Task;
 /// <summary>A task's watchdog: its three vendor members and whether it is ENABLED (openspec <c>bridge-one-to-one</c>
 /// §1.2 "One watchdog spelling"). A disabled watchdog keeps its values behind the flag — measured across a reload, the
 /// non-default unit too (<c>watchdog-off-values</c>: <c>123 µs</c> / <c>3</c> stayed) — so they are content, spelled
-/// <c>off &lt;time&gt; &lt;unit&gt; (sensitivity &lt;n&gt;)</c>. They used to be hidden, and a push then wrote them as
-/// whatever the file did not say. Null on <see cref="TaskSettings.Watchdog"/> is the bare <c>off</c> of a task that HAS
+/// <c>off &lt;time&gt; &lt;unit&gt; (sensitivity &lt;n&gt;)</c> — hidden, a push would write them as whatever the file
+/// did not say. Null on <see cref="TaskSettings.Watchdog"/> is the bare <c>off</c> of a task that HAS
 /// no watchdog member — TwinCAT's (DIALECT C36).</summary>
 public sealed record TaskWatchdog(string Time, string Unit, string Sensitivity, bool Enabled)
 {
@@ -30,7 +30,7 @@ public sealed record TaskMember(string Label, string Value);
 /// would invent one.</para>
 ///
 /// <para><b>The members after <see cref="Calls"/></b> (openspec <c>bridge-one-to-one</c> §1.2) carry what the six
-/// original labels folded or hid: <see cref="ExternalEvent"/> (it was folded into <c>Event:</c>, so a push MOVED it),
+/// original labels folded or hid: <see cref="ExternalEvent"/> (its own label: folded into <c>Event:</c>, a push moves it),
 /// <see cref="CallComments"/> (one per call, <c>""</c> for none — index-aligned with <see cref="Calls"/>), and
 /// <see cref="Members"/>, every other vendor member off its measured value. Each defaults to its measured absence (no
 /// external event, no comment, every member at its measured value) — the same rule as an absent label.</para></summary>
@@ -68,10 +68,8 @@ public sealed record TaskSettings(
 /// <summary>
 /// The `.task` file FORMAT, in one place for both directions.
 ///
-/// <para>It used to exist only as a renderer inside the CODESYS driver, which was fine while `.task` was
-/// read-only: nothing ever had to read one back. Making it WRITABLE makes the two directions a pair, and a pair
-/// that lives in one file cannot drift — the round-trip is then a property of this type, testable offline,
-/// instead of something only a live IDE could disprove.</para>
+/// <para>`.task` is WRITABLE, so the two directions are a pair, and a pair in one file cannot drift: the round trip is
+/// a property of this type, testable offline.</para>
 ///
 /// <para><b>The layout is INHERITED, then extended.</b> These bytes are hashed into the item's version, so the
 /// original six labels keep their padding and order — <c>Descriptor(11)</c> — and the labels openspec
@@ -223,7 +221,7 @@ public static class TaskDescriptorFormat
 
     /// <summary>Whether two descriptors state the SAME settings: equal canonical renderings (<see cref="Write"/> of
     /// <see cref="Read"/>). A push in another form comes back from the IDE in the canonical bytes, and that is the same
-    /// descriptor, not an IDE-side change. Both texts read: one was accepted by <see cref="Gate"/>, the other is the
+    /// descriptor, not an IDE-side change. Both texts read: one was accepted by the push's <see cref="Read"/>, the other is the
     /// IDE's own.</summary>
     public static bool SameDescriptor(string a, string b) =>
         Normalize(a) == Normalize(b) || Normalize(Write(Read(a))) == Normalize(Write(Read(b)));

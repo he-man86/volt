@@ -73,10 +73,8 @@ public static class StWriter
 
     // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.
     // The kind comes from the IDE's tree, and a kind with no END line (`method`/`property`/`action` handed up as
-    // an item) fails loud here, exactly like the sibling ItemKind.ExtFor (which throws on the same kind a few lines
-    // later in Materializer — so this fallback was masked, not unreachable). A PULL-side refusal: the item is listed
-    // `unreadable`, coded UNSUPPORTED (a kind with no mapping). It was INVALID_CODE_HEADER, which no longer exists: a push
-    // reads no top-level header, and a pull refusal is never observable as a code.
+    // an item) fails loud here, exactly like the sibling ItemKind.ExtFor. A PULL-side refusal: the item is listed
+    // `unreadable`, coded UNSUPPORTED (a kind with no mapping).
     //
     // A POU's END line MIRRORS ITS OWN HEADER (openspec `push-without-header-check` 5.Q.3): `X.pou` is one kind whatever
     // its text says, so there is no kind to spell the line from, and the owner keeps the line — it is the boundary
@@ -144,8 +142,7 @@ public static class StWriter
         var marked = !owner.MembersInside && ItemKind.ShapeOf(child.Kind).Accessors == AccessorShape.WithBodies;
         var parts = new List<string> { child.Declaration };   // verbatim, joined to what follows by one newline
         parts.AddRange(PropertyLines.Write(child.Properties, child.Folder));   // closing its declaration: it has no boundary
-        // Presence is the object. This used to re-derive it from two nullable fields — the same rule the reader
-        // applied, spelled a second time, which is exactly the kind of duplication ItemContent exists to remove.
+        // Presence is the object (ItemContent's Accessor): a null accessor is none.
         if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body, marked));
         if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set.Declaration, set.Body, marked));
         parts.Add("END_PROPERTY");

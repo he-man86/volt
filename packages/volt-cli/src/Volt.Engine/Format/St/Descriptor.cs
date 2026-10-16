@@ -9,14 +9,12 @@ namespace Volt.Engine.Format.St;
 /// The read-only descriptor FORMAT: aligned <c>Label: value</c> lines, empty values omitted. It is the file body
 /// of every non-source item Volt materializes — <c>.device</c>, <c>.task</c>, <c>.trace</c>, <c>.projectinfo</c>,
 /// <c>.symbols</c>, <c>.recipe</c>.
-/// <para><b>These bytes are hashed into the item's version</b>, so a change here is a diff in every user's repo.
-/// They were produced by six near-identical renderers inside the CODESYS driver, where nothing could test them:
-/// no C# test executes that assembly, and the only oracle is a live run that is not CI. The vendor half — which
-/// scripting facet, which property name — is irreducible and stays in the driver. The formatting half is pure,
-/// and is here, with tests.</para>
-/// <para><b>The padding is a parameter, not a detail.</b> The six renderers used THREE different rules: a fixed
-/// 14 (device), a fixed 11 (task), and "widest label + 2" (the facet-driven three). They are preserved exactly,
-/// because unifying them would silently rewrite files. That they disagree is visible now instead of accidental.</para>
+/// <para><b>These bytes are hashed into the item's version</b>, so a change here is a diff in every user's repo. The
+/// vendor half — which scripting facet, which property name — stays in the driver; the formatting half is pure, and is
+/// here, with tests.</para>
+/// <para><b>The padding is a parameter, not a detail.</b> Three rules are in use: a fixed 14 (device), a fixed 11
+/// (task), and "widest label + 2" (the facet-driven three). They are preserved exactly, because unifying them would
+/// silently rewrite files.</para>
 /// </summary>
 public sealed class Descriptor
 {

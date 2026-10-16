@@ -16,14 +16,10 @@ namespace Volt.Engine.Sync;
 /// <summary><c>/fetch</c>: like <c>/refs</c>, but ships the materialized source for every item whose
 /// version differs from the client's known version.
 ///
-/// <b>EVERY key here is the FULL wire name</b> (<c>name.kind</c>) - the aggregate versions included. That is
-/// not a detail: this header used to say the aggregates were keyed by BARE name, and doing that IS the V71
-/// data-loss bug. IEC guarantees unique names within a kind, not across them, so a real project holds
-/// <c>CM_Carrier.pou</c> beside <c>CM_Carrier.visualization</c>; collapsed onto one bare slot the walk order
-/// picks a winner, the loser's version is invisible to <c>projectVersion</c> (a pull reports "nothing to
-/// pull" over a real edit) and the push's <c>ifVersion</c> gate answers with the OTHER item's hash - so that
-/// item can be pulled and never pushed back. The identity is derived in ONE place,
-/// <c>Versioning.VersionedItem.Identity</c>, and every map below keys on it.
+/// <b>EVERY key here is the FULL wire name</b> (<c>name.kind</c>) - the aggregate versions included. IEC makes
+/// names unique within a kind, not across them (<c>CM_Carrier.pou</c> beside <c>CM_Carrier.visualization</c>), so a
+/// bare key lets one item shadow the other in <c>projectVersion</c> and in the push's <c>ifVersion</c> gate (the V71
+/// data-loss bug). The identity is derived in ONE place, <c>VersionedItem.Identity</c>, and every map below keys on it.
 ///
 /// Every walked item is returned as ordinary source. Dead (uncalled) code and exclude-from-build objects alike
 /// ship as plain files (the exclusion is a <c>%EXCLUDE_FROM_BUILD</c> property line); the LSP decides reachability
@@ -37,11 +33,8 @@ public static class FetchService
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
-        // `[]` MEANS "THESE ZERO ITEMS", everywhere. It used to collapse to null when empty, which gave the
-        // one value three different readings: the no-baseline check below saw a non-null list and allowed the
-        // request, the per-item filter saw null and let EVERY item through, and the library gate saw null and
-        // ran the full signature extraction — the slowest work the bridge does. So `{knownItems:{},
-        // onlyItems:[]}` was a full init-weight fetch wearing the clothes of a directed preview.
+        // `[]` MEANS "THESE ZERO ITEMS", everywhere — never collapsed to null, which would read as "every item" to the
+        // per-item filter and run the full library-signature extraction for a directed preview of nothing.
         var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems);
 
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
@@ -145,12 +138,8 @@ public static class FetchService
         // Project source items in this diff — captured BEFORE the library signatures are appended, so the two are
         // never conflated: `changed` below would otherwise mix a handful of edited POUs with thousands of read-only
         // library API files and read as nonsense ("880 items, 8104 changed").
-        // Decided BEFORE `projectChanged` is taken: whether the held stubs belong in `changed` depends on it,
-        // and they are project-tree items rather than signatures, so counting them here keeps the log honest.
-        // ONE decision, computed ONCE. This expression existed twice - here as `libsWillRefresh` and again 20
-        // lines down as `librariesUnchanged` + `librariesRefreshed` - character-for-character equal, with
-        // nothing between them touching its inputs. If the two ever diverged, the held stubs and the signature
-        // render would disagree, which is the data-loss path spelled out just below.
+        // `librariesRefreshed` is ONE decision, computed ONCE, BEFORE `projectChanged` is taken: whether the held stubs
+        // belong in `changed` depends on it, and the stubs and the signature render must agree on it.
         // A known library this read did not SEE is not a removed one: refreshing over it would answer "complete set"
         // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
         // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
@@ -223,15 +212,10 @@ public static class FetchService
         // could not read. Absence from the response otherwise carries two meanings the wire cannot separate,
         // "this is gone" and "this defeated the reader", and the response already counts the second in its
         // `unreadable` drop tally while describing it as the first.
-        // NOTHING OUTSIDE THE SUBSET IS "REMOVED". `onlyItems` skips items before they reach `fullVersions`,
-        // and `removed` is derived from absence there — so a caller that sent a REAL baseline alongside a
-        // directed fetch was told every item outside its subset had been deleted, and
-        // `IdeTree.BuildVoltIdeTree` acts on that list. The workspace is wiped down to the subset.
-        //
-        // It has never fired only because every caller happens to send an empty or single-entry baseline with
-        // `onlyItems` — the protocol made the dangerous shape look like the ordinary one: absence is only
-        // evidence of deletion where you looked. The same holds for a PARTIAL walk, which `Removal` judges per
-        // name: under a folder the walk could not enumerate, unseen; absent from a folder it read, gone.
+        // NOTHING OUTSIDE THE SUBSET IS "REMOVED": `onlyItems` skips items before they reach `fullVersions`, and a
+        // client acts on `removed` (`IdeTree.BuildVoltIdeTree`), so a directed fetch with a real baseline would wipe the
+        // workspace down to the subset. Absence is only evidence of deletion where you looked — the same rule `Removal`
+        // applies per folder to a PARTIAL walk.
         var removed = isInit || onlyItems != null
             ? new List<string>()
             : goneFromWalk;
