@@ -55,7 +55,7 @@ The **data wire is a named pipe** — one `volt.bridge.<vendor>.<pid>` **per run
 The `health`, `select`, `deselect`, and sync ops flow over it. There are no HTTP data ports. The only HTTP is the
 localhost **control plane on `:8550`**: the session API — `POST /session`, `POST /session/{id}/sync`,
 `DELETE /session/{id}` — is the ONLY way to drive serving; `GET /status` is the ambient read of the detected-project
-list (the connect picker), and `POST /workers/{id}/restart` respawns a worker. There is no imperative
+list (the connect picker). There is no imperative
 connect/disconnect.
 
 **Many live hosts, served in parallel.** Every activated CODESYS + every running TwinCAT project is listed; each
@@ -138,7 +138,7 @@ resolution is zero-config: the worker next to the connector, the desktop and the
 - `ConnectionManagerTests` — detection, the immutable-`State` concurrency discipline, `Aggregate` (serving ∧ wanted).
 - `ConnectionManagerSessionTests` — the session loop end-to-end through fake sources: a Sync declaring an interest
   resumes the project; the union keeps it served until the last session leaves; force-off pauses/resumes.
-- `ControlServerTests` — the HTTP edge: the session API (open/sync/close), `GET /status`, `/workers/{id}/restart`,
+- `ControlServerTests` — the HTTP edge: the session API (open/sync/close), `GET /status`
   and the CSRF guard, over a real loopback `HttpListener`.
 
 The live bridge **gate** itself (deselect refuses sync until the next select, over a real pipe) is covered by

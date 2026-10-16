@@ -12,8 +12,7 @@ namespace Volt.Connector.Tests;
 
 /// <summary>
 /// The control plane (:8550) — the HTTP edge itself. The session API (open / sync / close) is the ONLY way to drive
-/// serving; GET /status is the ambient read of the detected-project list (the connect picker); /workers/{id}/restart
-/// respawns a worker. Everything else drives <see cref="ConnectionManager"/> directly.
+/// serving; GET /status is the ambient read of the detected-project list (the connect picker). Everything else drives <see cref="ConnectionManager"/> directly.
 /// </summary>
 public class ControlServerTests : IDisposable
 {
@@ -29,13 +28,11 @@ public class ControlServerTests : IDisposable
         Func<Task<ConnectorView>>? snapshot = null,
         Func<Task<(string, double)>>? openSession = null,
         Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>>? sync = null,
-        Func<string, Task>? closeSession = null,
-        Action<string>? restart = null)
+        Func<string, Task>? closeSession = null)
     {
         var empty = new ConnectorView(Array.Empty<ProjectView>(), Array.Empty<RefusedBridge>());
         _server = new ControlServer(
             snapshot ?? (() => Task.FromResult(empty)),
-            restart ?? (_ => { }),
             openSession ?? (() => Task.FromResult(("s1", 15.0))),
             sync ?? ((_, _) => Task.FromResult(empty)),
             closeSession ?? (_ => Task.CompletedTask),
@@ -119,7 +116,7 @@ public class ControlServerTests : IDisposable
         Assert.Equal("sess1", closed);
     }
 
-    // ── the ambient read + worker restart ──
+    // ── the ambient read ──
 
     [Fact]
     public async Task Status_returns_the_detected_project_list()
@@ -161,18 +158,6 @@ public class ControlServerTests : IDisposable
         var responses = await Task.WhenAll(polls);
 
         Assert.All(responses, r => Assert.Equal(200, (int)r.StatusCode));
-    }
-
-    [Fact]
-    public async Task A_worker_restart_route_calls_restart_with_the_per_xae_id()
-    {
-        string? restarted = null;
-        Start(restart: id => restarted = id);
-
-        var r = await Post("workers/twincat.17844/restart"); // the DOT must survive the '/' split
-
-        Assert.Equal(200, (int)r.StatusCode);
-        Assert.Equal("twincat.17844", restarted);
     }
 
     [Fact]

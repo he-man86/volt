@@ -17,8 +17,8 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void The_measured_not_accepted_answer_is_a_refusal_with_the_vendors_words()
         {
-            Assert.Equal(Measured, CodesysDriver.ChildRefusal(new InvalidOperationException(Measured)));
-            Assert.Equal(Measured, CodesysDriver.ChildRefusal(new TargetInvocationException(new InvalidOperationException(Measured))));
+            Assert.Equal(Measured, CodesysDriver.Refusal(new InvalidOperationException(Measured))?.Message);
+            Assert.Equal(Measured, CodesysDriver.Refusal(new TargetInvocationException(new InvalidOperationException(Measured)))?.Message);
         }
 
         /// <summary>openspec <c>push-keeps-what-landed</c> gate step 1: the live PLCAssist repro (CODESYS SP21, 2026-10-03,
@@ -29,8 +29,8 @@ namespace Volt.Ide.Codesys.Tests
         public void The_measured_name_not_valid_answer_is_a_refusal_with_the_vendors_words()
         {
             const string log = "The name 'Log' is not valid for this object.";
-            Assert.Equal(log, CodesysDriver.ChildRefusal(new InvalidOperationException(log)));
-            Assert.Equal(log, CodesysDriver.ChildRefusal(new TargetInvocationException(new InvalidOperationException(log))));
+            Assert.Equal(log, CodesysDriver.Refusal(new InvalidOperationException(log))?.Message);
+            Assert.Equal(log, CodesysDriver.Refusal(new TargetInvocationException(new InvalidOperationException(log)))?.Message);
         }
 
         /// <summary>…and the driver says WHICH refusal it is, so the push words a name refusal as one and never sends the
@@ -91,6 +91,6 @@ namespace Volt.Ide.Codesys.Tests
         [InlineData("Object reference not set to an instance of an object.")]
         [InlineData("CODESYS: no create for item kind 9999 ('M')")]
         public void Any_other_failure_is_not_a_refusal(string message) =>
-            Assert.Null(CodesysDriver.ChildRefusal(new InvalidOperationException(message)));
+            Assert.Null(CodesysDriver.Refusal(new InvalidOperationException(message))?.Message);
     }
 }

@@ -62,7 +62,6 @@ namespace Volt.Connector
     ///   DELETE /session/{id}                  → 204                            — clean shutdown
     ///
     ///   GET  /status                 → ConnectorView (the unified, self-describing project list — the ambient read)
-    ///   POST /workers/{id}/restart   → respawn a worker
     /// </summary>
     public sealed class ControlServer : IDisposable
     {
@@ -80,7 +79,6 @@ namespace Volt.Connector
         // Async so GET /status can refresh-if-stale before answering: a client that polls must not read the tray
         // tick's cache, or a change made outside Volt (an IDE closing) lags by the tick PLUS the client's own poll.
         private readonly Func<Task<ConnectorView>> _snapshot;
-        private readonly Action<string> _restart;             // worker id
         // The session API — the ONLY way to drive serving (a client declares its interests; the connector reconciles).
         private readonly Func<Task<(string SessionId, double LeaseSeconds)>> _openSession;
         private readonly Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>> _sync; // declare + renew + read
@@ -96,14 +94,12 @@ namespace Volt.Connector
         /// connector already listening on 8550 on a dev box.</param>
         public ControlServer(
             Func<Task<ConnectorView>> snapshot,
-            Action<string> restart,
             Func<Task<(string SessionId, double LeaseSeconds)>> openSession,
             Func<string, IReadOnlyCollection<Interest>, Task<ConnectorView>> sync,
             Func<string, Task> closeSession,
             int port)
         {
             _snapshot = snapshot;
-            _restart = restart;
             _openSession = openSession;
             _sync = sync;
             _closeSession = closeSession;
@@ -192,14 +188,6 @@ namespace Volt.Connector
 
             // The ambient read — the detected-project list (the init/connect picker reads this before any session).
             if (method == "GET" && path == "status") { WriteJson(ctx, 200, await _snapshot().ConfigureAwait(false)); return; }
-
-            // POST workers/{id}/restart
-            if (method == "POST" && parts.Length == 3 && parts[0] == "workers" && parts[2] == "restart")
-            {
-                _restart(parts[1]);
-                WriteJson(ctx, 200, new { ok = true });
-                return;
-            }
 
             WriteJson(ctx, 404, new { error = $"no route for {method} /{path}" });
         }

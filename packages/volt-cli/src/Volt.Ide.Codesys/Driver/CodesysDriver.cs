@@ -124,7 +124,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override string? Unsupported => _unsupported;
 
     // Keyed on whether a project is actually OPEN (cached _hasProject), not just the persistent projects
-    // collection (HasProjects) — otherwise a closed project still reports "connected" with a null project name.
+    // collection — otherwise a closed project still reports "connected" with a null project name.
     // A reopen recovers on its own: the live PrimaryProject lookup makes the next probe flip _hasProject back.
     public override bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
     public override string Vendor => Vendors.Codesys;

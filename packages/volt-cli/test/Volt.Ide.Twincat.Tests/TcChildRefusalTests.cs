@@ -24,7 +24,7 @@ public class TcChildRefusalTests
     public void The_measured_SubType_mismatch_is_a_refusal_with_the_vendors_words() =>
         Assert.Equal("Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type " +
                      "'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)",
-                     BeckhoffDriver.ChildRefusal(new COMException(Measured)));
+                     BeckhoffDriver.Refusal(new COMException(Measured))?.Message);
 
     /// <summary>openspec <c>push-keeps-what-landed</c> gate step 1, measured live 2026-10-03 (TcXaeShell, the e2e
     /// <c>push-keeps-what-landed.test.ts</c> 1.1 on the fixture): XAE refuses a METHOD named <c>Log</c> under a function
@@ -39,7 +39,7 @@ public class TcChildRefusalTests
             "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'Log' is not possible " +
             "on node (Name mismatch)\nPath: 'TIPC^Untitled1^Untitled1 Project^VltE2E_ref_na_b' (ITcSmTreeItem:CreateChild.";
         Assert.Equal("Creating the child named 'Log' is not possible on node (Name mismatch)",
-                     BeckhoffDriver.ChildRefusal(new COMException(log)));
+                     BeckhoffDriver.Refusal(new COMException(log))?.Message);
     }
 
     /// <summary>…and the driver says WHICH refusal it is (openspec <c>push-keeps-what-landed</c> design D2).</summary>
@@ -55,5 +55,5 @@ public class TcChildRefusalTests
     [InlineData("Unbound tree item")]
     [InlineData("The RPC server is unavailable.")]
     public void Any_other_failure_is_not_a_refusal(string message) =>
-        Assert.Null(BeckhoffDriver.ChildRefusal(new COMException(message)));
+        Assert.Null(BeckhoffDriver.Refusal(new COMException(message))?.Message);
 }

@@ -719,37 +719,4 @@ internal sealed partial class TcObjectModel
 
     private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
 
-    /// <summary>Walk up to the enclosing POU (FB / function / program / interface). Only called for items
-    /// the language gate already classified as graphical POUs, so the POU is found at/near hop 0.</summary>
-    private dynamic? EnclosingPou(dynamic item)
-    {
-        dynamic node = item;
-        for (var hops = 0; hops < 32; hops++)
-        {
-            int t = ItemType((object)node);   // shared read: an unreadable node yields ItemKind.Unknown, never 0 (SystemRoot)
-            if (ItemKind.HoldsMembers(t)) return node;
-            node = node.Parent;
-            if (node == null) return null;
-        }
-        return null;
-    }
-
-    /// <summary>PLC-project-relative selection path for PlcOpenExport ('.'-separated, folder-qualified).
-    /// MEASURED (DIALECT C2a/D9): the dotted project-relative path is the grammar. `POUs.PLC_PRG` and
-    /// `VltProbeF.VltProbeDutF` both export; the BARE name of a foldered item does not — `PlcOpenExport('PLC_PRG')`
-    /// answers "Selection 'PLC_PRG' not found!". A root-level item's bare name works because its dotted path IS
-    /// its name. Reading that refusal as a vendor limit is what produced the retracted C2.</summary>
-    private string PouSelectionPath(dynamic pou)
-    {
-        try
-        {
-            string pouPath = (string)pou.PathName;
-            string plcPath = (string)((dynamic)PlcRoot()).PathName;
-            if (pouPath.StartsWith(plcPath + "^", StringComparison.Ordinal))
-                return pouPath.Substring(plcPath.Length + 1).Replace('^', '.');
-            return pouPath.Replace('^', '.');
-        }
-        catch { try { return (string)pou.Name; } catch { return ""; } }
-    }
-
 }

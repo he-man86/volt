@@ -13,6 +13,15 @@ public static class Vendors
     public const string CodesysDisplay = "CODESYS";
     public const string TwincatDisplay = "TwinCAT";
 
+    /// <summary>The human name of a vendor id ("codesys" → "CODESYS"). An id that is not a vendor is a caller bug, not
+    /// a name to guess, so it throws.</summary>
+    public static string Display(string vendor) => vendor switch
+    {
+        Codesys => CodesysDisplay,
+        Twincat => TwincatDisplay,
+        _ => throw new ArgumentException($"'{vendor}' is not a Volt vendor id ({Codesys} | {Twincat})", nameof(vendor)),
+    };
+
     /// <summary>The XAE shells' process names: TcXaeShell 15 (32-bit) and TwinCAT 4026's 64-bit TcXaeShell64 — read by the
     /// connector's window diagnosis and by the CLI naming an elevated XAE it cannot reach.</summary>
     public static readonly string[] TwincatShellProcesses = { "TcXaeShell", "TcXaeShell64" };

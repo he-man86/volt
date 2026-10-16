@@ -35,7 +35,7 @@ public static class BridgeResolver
         if (pipes.Count == 0 && string.Equals(vendor, Vendors.Twincat, StringComparison.OrdinalIgnoreCase)
             && UnreachableXae(ProcessElevation.Of(Vendors.TwincatShellProcesses), ProcessElevation.Self()) is { } why)
             throw new BridgeError(BridgeErrorCodes.PlcDisconnected, why);
-        var pipe = ChooseBridgePipe(pipes, bound, isInit, ProjectNamesOf, DisplayOf(vendor));
+        var pipe = ChooseBridgePipe(pipes, bound, isInit, ProjectNamesOf, Vendors.Display(vendor.ToLowerInvariant()));
         return new BridgeClient(pipe);
     }
 
@@ -126,7 +126,4 @@ public static class BridgeResolver
         catch (BridgeError e) when (e.Code == BridgeError.AccessDeniedCode) { throw; }
         catch { return Array.Empty<string>(); } // that host went away between discovery and probe — it just won't match
     }
-
-    private static string DisplayOf(string vendor) =>
-        string.Equals(vendor, Vendors.Twincat, StringComparison.OrdinalIgnoreCase) ? Vendors.TwincatDisplay : Vendors.CodesysDisplay;
 }

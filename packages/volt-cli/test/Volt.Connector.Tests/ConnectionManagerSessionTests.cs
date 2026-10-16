@@ -26,7 +26,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Sync_declaring_an_interest_resumes_the_project()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A"); // idle
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
@@ -43,7 +43,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Aggregate_is_Connected_only_once_a_project_is_both_serving_AND_wanted()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A", serving: true);            // a loaded host, already serving
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         await mgr.RefreshAsync();
@@ -65,7 +65,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Aggregate_is_Degraded_when_any_served_and_wanted_project_is_degraded()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var healthy = cds.Add("A", serving: true);
         var sick = cds.Add("B", serving: true, status: HealthStatus.Degraded);
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
@@ -85,7 +85,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task The_union_keeps_a_project_served_until_the_last_session_leaves()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A", serving: true); // a loaded host, already serving
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (s1, _) = await mgr.OpenSessionAsync();
@@ -103,7 +103,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task An_empty_sync_gates_the_projects_that_session_had()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A", serving: true);
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
@@ -116,8 +116,8 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Two_sessions_on_two_projects_serve_independently()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
-        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var cds = new FakeProjectSource("codesys");
+        var tc = new FakeProjectSource("twincat");
         var a = cds.Add("A");
         var b = tc.Add("B");
         var mgr = new ConnectionManager(new IProjectSource[] { cds, tc }, wantedFile: TempWanted());
@@ -136,7 +136,7 @@ public class ConnectionManagerSessionTests
     {
         // The standalone-CLI guarantee at the manager level: a project no session declares keeps its default serving
         // state — the loop never gates it.
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("A", serving: true);
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();
@@ -150,7 +150,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Batch_force_off_and_ForceOffIds_track_the_supervisor_override()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A", serving: true);
         var b = cds.Add("B", serving: true);
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
@@ -169,7 +169,7 @@ public class ConnectionManagerSessionTests
     [Fact]
     public async Task Force_off_gates_a_project_and_clearing_it_lets_a_session_resume()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         var a = cds.Add("A", serving: true);
         var mgr = new ConnectionManager(new IProjectSource[] { cds }, wantedFile: TempWanted());
         var (sid, _) = await mgr.OpenSessionAsync();

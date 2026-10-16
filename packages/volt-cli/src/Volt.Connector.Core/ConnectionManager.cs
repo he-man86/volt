@@ -143,10 +143,6 @@ namespace Volt.Connector
             return _state.Sessions.Values.Any(s => s.ExpiresAt > now && s.Interests.Count > 0);
         }
 
-        /// <summary>Human platform name for a vendor id ("codesys" → "CODESYS").</summary>
-        public string DisplayNameOf(string vendor) =>
-            _byVendor.TryGetValue(vendor, out var s) ? s.DisplayName : vendor;
-
         // ── the session API (declarative desired-state) ──────────────────────────────────────────────────────────
 
         /// <summary>Open a session and return its id + the lease seconds the client must renew within. Registers an

@@ -17,7 +17,6 @@ namespace Volt.Connector.Tests;
 internal sealed class FakeProjectSource : IProjectSource
 {
     public string Vendor { get; }
-    public string DisplayName { get; }
     public List<DetectedProject> Projects { get; } = new();
     /// <summary>Whether the bridge answered this tick — the one bit the rows can't express (up-but-empty vs down).</summary>
     public bool Reachable { get; set; } = true;
@@ -32,13 +31,12 @@ internal sealed class FakeProjectSource : IProjectSource
     public List<DetectedProject> Bound { get; } = new();
     public List<DetectedProject> Unbound { get; } = new();
 
-    public FakeProjectSource(string vendor, string display) { Vendor = vendor; DisplayName = display; }
+    public FakeProjectSource(string vendor) { Vendor = vendor; }
 
     public DetectedProject Add(string name, bool dirty = false, bool serving = false, string status = HealthStatus.Healthy)
     {
-        var attach = new ProjectRef(name);
         // serving folds into status: a not-serving row is "idle"; a serving one carries its channel status.
-        var p = new DetectedProject(DetectedProject.MakeId(Vendor, attach), name, Vendor, dirty, attach, Status: serving ? status : HealthStatus.Idle);
+        var p = new DetectedProject(DetectedProject.MakeId(Vendor, name), name, Vendor, dirty, Status: serving ? status : HealthStatus.Idle);
         Projects.Add(p);
         return p;
     }
@@ -66,8 +64,8 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Merges_projects_from_all_sources_into_one_list()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
-        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var cds = new FakeProjectSource("codesys");
+        var tc = new FakeProjectSource("twincat");
         cds.Add("MachineA");
         tc.Add("MachineB");
         var mgr = Mgr(cds, tc);
@@ -77,14 +75,6 @@ public class ConnectionManagerTests
         Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.ProjectName).OrderBy(x => x));
         Assert.Equal("codesys", mgr.Projects.Single(p => p.ProjectName == "MachineA").Vendor);
         Assert.Equal("twincat", mgr.Projects.Single(p => p.ProjectName == "MachineB").Vendor);
-    }
-
-    [Fact]
-    public void DisplayName_lookup_backs_the_platform_prefix_and_notification()
-    {
-        var mgr = Mgr(new FakeProjectSource("codesys", "CODESYS"), new FakeProjectSource("twincat", "TwinCAT"));
-        Assert.Equal("CODESYS", mgr.DisplayNameOf("codesys"));
-        Assert.Equal("TwinCAT", mgr.DisplayNameOf("twincat"));
     }
 
     [Theory]
@@ -97,8 +87,8 @@ public class ConnectionManagerTests
     public async Task Aggregate_with_nothing_wanted_is_Unavailable_iff_any_channel_is_reachable(
         bool aReachable, bool bReachable, BridgeStatus expected)
     {
-        var s1 = new FakeProjectSource("codesys", "CODESYS") { Reachable = aReachable };
-        var s2 = new FakeProjectSource("twincat", "TwinCAT") { Reachable = bReachable };
+        var s1 = new FakeProjectSource("codesys") { Reachable = aReachable };
+        var s2 = new FakeProjectSource("twincat") { Reachable = bReachable };
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();
         Assert.Equal(expected, mgr.Aggregate());
@@ -108,9 +98,9 @@ public class ConnectionManagerTests
     public async Task A_refused_bridge_of_any_source_is_carried_to_the_view()
     {
         // Gate 2b (environment-dependency-audit 2.2): a pipe that refused the connector names its IDE in the view.
-        var s1 = new FakeProjectSource("codesys", "CODESYS");
+        var s1 = new FakeProjectSource("codesys");
         s1.Refused.Add(new RefusedBridge("codesys", "volt.bridge.codesys.7", "refused"));
-        var s2 = new FakeProjectSource("twincat", "TwinCAT");
+        var s2 = new FakeProjectSource("twincat");
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();
         Assert.Equal("volt.bridge.codesys.7", Assert.Single(mgr.Refused).Pipe);
@@ -121,9 +111,9 @@ public class ConnectionManagerTests
     {
         // Four IDEs, two serving: each row's serving is its OWN bridge's fact, so one connected IDE never flips
         // another's connection state.
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("A", serving: true); cds.Add("B", serving: false);
-        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var tc = new FakeProjectSource("twincat");
         tc.Add("C", serving: true); tc.Add("D", serving: false);
         var mgr = Mgr(cds, tc);
         await mgr.RefreshAsync();
@@ -139,9 +129,9 @@ public class ConnectionManagerTests
     public async Task Same_name_across_different_vendors_stays_distinct()
     {
         // vendor+name is the identity, so "Shared" on CODESYS and "Shared" on TwinCAT are TWO rows.
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("Shared");
-        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var tc = new FakeProjectSource("twincat");
         tc.Add("Shared");
         var mgr = Mgr(cds, tc);
         await mgr.RefreshAsync();
@@ -155,7 +145,7 @@ public class ConnectionManagerTests
     {
         // Two CODESYS on an identically-named project collapse to one row (vendor+name identity). If the enumeration
         // lists the IDLE one first, the SERVING instance must still win.
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA", serving: false);
         cds.Add("MachineA", serving: true);
         var mgr = Mgr(cds);
@@ -169,7 +159,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Two_projects_with_the_same_name_collapse_to_one_row()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA");
         cds.Add("MachineA");
         var mgr = Mgr(cds);
@@ -183,9 +173,9 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Merges_four_projects_across_multiple_sources_into_one_list()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA"); cds.Add("MachineB");
-        var tc = new FakeProjectSource("twincat", "TwinCAT");
+        var tc = new FakeProjectSource("twincat");
         tc.Add("Line1"); tc.Add("Line2");
         var mgr = Mgr(cds, tc);
 
@@ -202,9 +192,9 @@ public class ConnectionManagerTests
     {
         var entered = new CountdownEvent(2);
         var release = new TaskCompletionSource();
-        var cds = new FakeProjectSource("codesys", "CODESYS") { ScanEntered = entered, ScanRelease = release.Task };
+        var cds = new FakeProjectSource("codesys") { ScanEntered = entered, ScanRelease = release.Task };
         cds.Add("MachineA");
-        var tc = new FakeProjectSource("twincat", "TwinCAT") { ScanEntered = entered, ScanRelease = release.Task };
+        var tc = new FakeProjectSource("twincat") { ScanEntered = entered, ScanRelease = release.Task };
         tc.Add("Line1");
         var mgr = Mgr(cds, tc);
 
@@ -219,9 +209,9 @@ public class ConnectionManagerTests
     [Fact]
     public async Task An_unreachable_source_contributes_nothing_and_does_not_break_refresh()
     {
-        var ok = new FakeProjectSource("codesys", "CODESYS");
+        var ok = new FakeProjectSource("codesys");
         ok.Add("MachineA");
-        var down = new FakeProjectSource("twincat", "TwinCAT") { ThrowOnEnumerate = true };
+        var down = new FakeProjectSource("twincat") { ThrowOnEnumerate = true };
         var mgr = Mgr(ok, down);
 
         await mgr.RefreshAsync();
@@ -232,7 +222,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task RefreshIfStale_reprobes_when_old_and_skips_when_fresh()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA");
         var mgr = Mgr(cds);
 
@@ -250,7 +240,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Readers_never_see_a_torn_or_mixed_generation_while_refreshes_churn()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA");
         cds.Add("MachineB");
         var mgr = Mgr(cds);
@@ -275,7 +265,7 @@ public class ConnectionManagerTests
     [Fact]
     public async Task Concurrent_refreshes_do_not_corrupt_the_published_state()
     {
-        var cds = new FakeProjectSource("codesys", "CODESYS");
+        var cds = new FakeProjectSource("codesys");
         cds.Add("MachineA");
         cds.Add("MachineB");
         var mgr = Mgr(cds);

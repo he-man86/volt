@@ -39,12 +39,6 @@ namespace Volt.Ide.Codesys
             return createExt.MakeGenericMethod(baseType).Invoke(se, new[] { node })!;
         }
 
-        private static object? InvokeWith(object target, System.Reflection.MethodInfo m, params object?[] args)
-        {
-            try { return m.Invoke(target, args); }
-            catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
-        }
-
 
         private static object Create(object container, string method, params object?[] leadingArgs) =>
             Unwrap(InvokeWithOptionals(container, method, leadingArgs))!;

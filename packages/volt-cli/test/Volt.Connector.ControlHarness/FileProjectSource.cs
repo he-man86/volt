@@ -29,16 +29,13 @@ sealed class FileProjectSource : IProjectSource
     // default looks to the reconciler).
     private readonly Dictionary<string, bool> _serving = new(StringComparer.Ordinal);
 
-    public FileProjectSource(string vendor, string displayName, string viewPath)
+    public FileProjectSource(string vendor, string viewPath)
     {
         Vendor = vendor;
-        DisplayName = displayName;
         _viewPath = viewPath;
     }
 
     public string Vendor { get; }
-
-    public string DisplayName { get; }
 
     public Task<SourceScan> ScanAsync()
     {
@@ -48,7 +45,7 @@ sealed class FileProjectSource : IProjectSource
             var mine = rows
                 .Where(r => r.Vendor == Vendor)
                 .Select(r => new DetectedProject(
-                    r.Id, r.ProjectName, r.Vendor, r.Dirty, new ProjectRef(r.ProjectName), r.Pipe, r.IdeVersion,
+                    r.Id, r.ProjectName, r.Vendor, r.Dirty, r.Pipe, r.IdeVersion,
                     Status(r), r.Unsupported, r.ProductName, r.ProductVersion, r.ProductVendor, r.BridgeVersion))
                 .ToList();
             // Always reachable: the "bridge" is a file. Zero rows here means the scenario has none, not a down pipe.

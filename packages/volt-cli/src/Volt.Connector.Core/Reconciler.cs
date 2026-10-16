@@ -106,10 +106,10 @@ namespace Volt.Connector
         /// <summary>Resolve a durable interest to the currently-detected project by vendor+name — the same match
         /// <c>boundStatus</c>/<c>reconnectBound</c> use. Null when that project isn't detected (its IDE is closed);
         /// the interest then waits until it reappears. Same-name collapse upstream makes this a lookup, not an
-        /// ambiguity — at most one detected row per (vendor, name). Matched against <see cref="DetectedProject.Attach"/>
+        /// ambiguity — at most one detected row per (vendor, name). Matched against <see cref="DetectedProject.ProjectName"/>
         /// — the BINDING name the interest is declared from (the same field the TS client's <c>matchesBinding</c> and
         /// the control plane's <c>ProjectView.ProjectName</c> use), not the display label.</summary>
         private static DetectedProject? Resolve(Interest i, IReadOnlyList<DetectedProject> detected) =>
-            detected.FirstOrDefault(p => p.Vendor == i.Vendor && p.Attach.Project == i.ProjectName);
+            detected.FirstOrDefault(p => p.Vendor == i.Vendor && p.ProjectName == i.ProjectName);
     }
 }

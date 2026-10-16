@@ -353,7 +353,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 11),
         ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
         ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
-        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 4),
+        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7)
         ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),

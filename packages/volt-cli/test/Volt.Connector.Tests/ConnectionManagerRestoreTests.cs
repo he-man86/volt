@@ -35,7 +35,7 @@ public class ConnectionManagerRestoreTests : IDisposable
     [Fact]
     public async Task A_restored_project_is_not_gated_during_the_startup_grace_window()
     {
-        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var src = new FakeProjectSource(Vendors.Codesys);
         var p = src.Add("MyMachine", serving: true);
         SeedWanted(p.Id);
 
@@ -56,7 +56,7 @@ public class ConnectionManagerRestoreTests : IDisposable
     [Fact]
     public async Task Claiming_one_restored_project_does_not_release_the_hold_on_another()
     {
-        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var src = new FakeProjectSource(Vendors.Codesys);
         var mine = src.Add("MyMachine", serving: true);
         var other = src.Add("OtherMachine", serving: true);
         SeedWanted(mine.Id, other.Id);
@@ -78,7 +78,7 @@ public class ConnectionManagerRestoreTests : IDisposable
     [Fact]
     public async Task The_startup_hold_does_not_DESTROY_the_restored_edge()
     {
-        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var src = new FakeProjectSource(Vendors.Codesys);
         var p = src.Add("MyMachine", serving: true);
         SeedWanted(p.Id);
 
@@ -96,7 +96,7 @@ public class ConnectionManagerRestoreTests : IDisposable
     [Fact]
     public async Task An_EMPTY_sync_does_not_disarm_the_grace_hold()
     {
-        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var src = new FakeProjectSource(Vendors.Codesys);
         var p = src.Add("MyMachine", serving: true);
         SeedWanted(p.Id);
 
@@ -123,7 +123,7 @@ public class ConnectionManagerRestoreTests : IDisposable
     [Fact]
     public void A_restored_project_is_WANTED_not_force_off()
     {
-        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var src = new FakeProjectSource(Vendors.Codesys);
         var p = src.Add("MyMachine", serving: true);
         SeedWanted(p.Id);
 

@@ -30,8 +30,8 @@ var viewPath = args[0];
 var conn = new ConnectionManager(
     new IProjectSource[]
     {
-        new FileProjectSource(Vendors.Codesys, Vendors.CodesysDisplay, viewPath),
-        new FileProjectSource(Vendors.Twincat, Vendors.TwincatDisplay, viewPath),
+        new FileProjectSource(Vendors.Codesys, viewPath),
+        new FileProjectSource(Vendors.Twincat, viewPath),
     },
     // Beside the scenario file (the e2e mkdtemps a fresh directory per run) so this NEVER reads or writes the
     // machine's real %LOCALAPPDATA%\Volt\wanted.json — inheriting a live run's desired set is how two unit tests
@@ -40,7 +40,7 @@ var conn = new ConnectionManager(
 
 // The unified, self-describing project list — the same projection TrayContext.Snapshot() ships.
 ConnectorView View() => new(conn.Projects
-    .Select(p => new ProjectView(p.Id, p.Vendor, p.Dirty, p.Status, p.Attach.Project, p.Pipe, p.IdeVersion, p.Unsupported,
+    .Select(p => new ProjectView(p.Id, p.Vendor, p.Dirty, p.Status, p.ProjectName, p.Pipe, p.IdeVersion, p.Unsupported,
         p.ProductName, p.ProductVersion, p.ProductVendor, p.BridgeVersion))
     .ToList(), conn.Refused);
 
@@ -54,7 +54,6 @@ async Task<ConnectorView> SnapshotAsync()
 
 using var server = new ControlServer(
     snapshot: SnapshotAsync,
-    restart: _ => { },
     openSession: () => conn.OpenSessionAsync(),
     // Declare the FULL set + renew + read, one round-trip: SyncAsync reconciles and re-scans before it returns, so
     // the view already reflects what the bridges now serve.

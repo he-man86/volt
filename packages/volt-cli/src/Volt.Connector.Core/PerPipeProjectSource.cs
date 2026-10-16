@@ -20,20 +20,18 @@ namespace Volt.Connector
     public sealed class PerPipeProjectSource : IProjectSource
     {
         public string Vendor { get; }
-        public string DisplayName { get; }
 
         // Overridable for tests (scripted pipes + wires); production discovers real pipes by the vendor prefix.
         private readonly Func<IReadOnlyList<string>> _livePipes;
         private readonly Func<string, IBridgeWire> _wireFor;
 
-        public PerPipeProjectSource(string vendor, string displayName, string prefix)
-            : this(vendor, displayName, () => PipeDiscovery.List(prefix), pipe => new PipeBridgeWire(pipe)) { }
+        public PerPipeProjectSource(string vendor, string prefix)
+            : this(vendor, () => PipeDiscovery.List(prefix), pipe => new PipeBridgeWire(pipe)) { }
 
-        public PerPipeProjectSource(string vendor, string displayName,
+        public PerPipeProjectSource(string vendor,
             Func<IReadOnlyList<string>> livePipes, Func<string, IBridgeWire> wireFor)
         {
             Vendor = vendor;
-            DisplayName = displayName;
             _livePipes = livePipes;
             _wireFor = wireFor;
         }
@@ -82,7 +80,7 @@ namespace Volt.Connector
             // lived in Volt.Engine — a project it deliberately cannot reference — so it wrote an anonymous
             // payload and a test in Volt.Connector.Tests pinned the two spellings together. That test was the
             // sole reason a connector test project referenced the Engine at all. One declaration, no pin needed.
-            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new ConnectRequest { Project = project.Attach.Project });
+            return _wireFor(project.Pipe!).CallAsync(Ops.Connect, new ConnectRequest { Project = project.ProjectName });
         }
 
         public async Task UnbindAsync(DetectedProject project)
@@ -130,12 +128,11 @@ namespace Volt.Connector
             foreach (var p in parsed?.Projects ?? Enumerable.Empty<ProjectEntry>())
             {
                 if (p.Project is null) continue;
-                var attach = new ProjectRef(p.Project);
                 // `unsupported` is a bridge-process fact (top level, like `ideVersion`): the IDE lacks what the bridge
                 // needs, so every row of that bridge carries the reason — it is what the tray and the frontends show,
                 // and what keeps the reconciler from sending a `connect` the bridge refuses every cycle. The identity
                 // (product, vendor, bridge release) is a process fact too, and rides onto every row the same way.
-                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version,
+                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, p.Project), p.Project, vendor, p.Dirty, pipe, p.Version,
                     p.Status ?? HealthStatus.Idle, parsed!.Unsupported,
                     parsed.ProductName, parsed.ProductVersion, parsed.ProductVendor, parsed.BridgeVersion));
             }

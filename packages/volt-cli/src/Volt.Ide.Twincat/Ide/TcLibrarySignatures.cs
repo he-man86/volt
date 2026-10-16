@@ -17,7 +17,8 @@ namespace Volt.Ide.Twincat;
 /// hover and go-to-definition on every library FB silently did nothing on one vendor and worked on the other.
 /// The reason recorded for that — "TwinCAT has no equivalent surface" — was already known to be wrong: DIALECT
 /// C2c measured this exact call returning 181,179 chars out-of-process. Only the FORMAT was missing, and no
-/// fixture recorded it; <c>--probe-libsig</c> captured it from the live IDE.</para>
+/// fixture recorded it; a single-use worker probe captured it from the live IDE (DIALECT D27; the probe is deleted —
+/// <c>git show 56fa8e6418:packages/volt-cli/src/Volt.Ide.Twincat/Program.cs</c>).</para>
 ///
 /// <para><b>The format, measured.</b> Not one document: the call returns the libraries' XML CONCATENATED, so
 /// three referenced libraries come back as three <c>&lt;Library&gt;</c> roots in sequence, which no XML parser

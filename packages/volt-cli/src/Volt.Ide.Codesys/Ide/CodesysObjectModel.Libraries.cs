@@ -17,13 +17,11 @@ namespace Volt.Ide.Codesys
         /// object. These are NOT tree <c>IObject</c>s (no handle/guid/source) — they
         /// live in the <c>ILibManObject</c> collection — so each is surfaced as a
         /// synthetic <see cref="LibRefNode"/> the adapter emits as a `library` item,
-        /// matching TwinCAT's flat library refs. Read-only (no push target).</summary>
-        public List<LibRefNode> GetLibraryRefs(object libManNode) => GetLibraryRefs(libManNode, out _);
-
-        /// <summary>…and what the manager holds that no manifest spells, each a reason for the pull report
+        /// matching TwinCAT's flat library refs. Read-only (no push target).
+        /// <para>…and what the manager holds that no manifest spells, each a reason for the pull report
         /// (<paramref name="unspelled"/>; openspec bridge-one-to-one §1.1 library manager, gate review of step 3, finding
         /// 4): a redirection of a placeholder no reference here names, and the parameter values the project sets (their
-        /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</summary>
+        /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</para></summary>
         public List<LibRefNode> GetLibraryRefs(object libManNode, out List<string> unspelled)
         {
             // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
@@ -508,8 +506,7 @@ namespace Volt.Ide.Codesys
                 // default declaration; we overwrite it via WriteSourceText. create_property
                 // also auto-creates the Get/Set accessors. (Decompiled from
                 // ScriptDriverProjects.ScriptIecLanguageMemberContainer.)
-                case ItemKind.PlcMethod: return CreateNamed(MemberContainer(parent), "create_method",
-                    ("name", name), ("language", LanguageArg(language)));
+                case ItemKind.PlcMethod:
                 case ItemKind.PlcItfMeth: return CreateNamed(MemberContainer(parent), "create_method",
                     ("name", name), ("language", LanguageArg(language)));
                 case ItemKind.PlcAction: return CreateNamed(MemberContainer(parent), "create_action",

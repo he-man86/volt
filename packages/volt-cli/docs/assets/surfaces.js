@@ -58,19 +58,6 @@ window.VOLT_SURFACES = {
             "when": "always"
           }
         ]
-      },
-      {
-        "method": "POST",
-        "path": "/workers/{id}/restart",
-        "summary": "Respawn a bridge worker \u2014 the recovery the tray offers when one has gone unresponsive.",
-        "body": null,
-        "result": "{ ok: true }",
-        "responses": [
-          {
-            "code": 200,
-            "when": "the restart was requested"
-          }
-        ]
       }
     ],
     "errors": [

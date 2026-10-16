@@ -46,15 +46,15 @@ public class PerPipeProjectSourceTests
     private const string Pipe = "volt.bridge.twincat.1";
 
     // A source over a single scripted pipe (the smallest fan-out) — models one running IDE.
-    private static PerPipeProjectSource One(string vendor, string display, IBridgeWire wire, string pipe = Pipe)
-        => new(vendor, display, () => new[] { pipe }, _ => wire);
+    private static PerPipeProjectSource One(string vendor, IBridgeWire wire, string pipe = Pipe)
+        => new(vendor, () => new[] { pipe }, _ => wire);
 
     [Fact]
     public async Task Enumerate_maps_a_project_with_no_subprojects_to_one_entry()
     {
         var wire = new FakeBridgeWire().On("health",
             """{ "projects": [ { "project": "MyMachine", "dirty": true } ] }""");
-        var src = One("codesys", "CODESYS", wire, "volt.bridge.codesys.1");
+        var src = One("codesys", wire, "volt.bridge.codesys.1");
 
         var projects = (await src.ScanAsync()).Projects;
 
@@ -62,7 +62,6 @@ public class PerPipeProjectSourceTests
         Assert.Equal("MyMachine", p.ProjectName);
         Assert.Equal("codesys", p.Vendor);
         Assert.True(p.Dirty);
-        Assert.Equal(new ProjectRef("MyMachine"), p.Attach);
         Assert.Equal("volt.bridge.codesys.1", p.Pipe); // the serving pipe is stamped onto the row
     }
 
@@ -77,20 +76,18 @@ public class PerPipeProjectSourceTests
                 { "project": "TwinCAT Project13" },
                 { "project": "TwinCAT Project14" } ] }
             """);
-        var src = One("twincat", "TwinCAT", wire);
+        var src = One("twincat", wire);
 
         var projects = (await src.ScanAsync()).Projects;
 
         Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.ProjectName));
-        Assert.Equal(new ProjectRef("TwinCAT Project13"), projects[0].Attach);
-        Assert.Equal(new ProjectRef("TwinCAT Project14"), projects[1].Attach);
     }
 
     [Fact]
     public async Task Bind_sends_select_with_the_projects_name_targeting_its_own_pipe()
     {
         var wire = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "TwinCAT Project1" } ] }""");
-        var src = One("twincat", "TwinCAT", wire);
+        var src = One("twincat", wire);
 
         var proj = (await src.ScanAsync()).Projects.Single(); // carries Pipe = the serving pipe
         wire.Calls.Clear();
@@ -114,7 +111,7 @@ public class PerPipeProjectSourceTests
             ["volt.bridge.codesys.111"] = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineA" } ] }"""),
             ["volt.bridge.codesys.222"] = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineB" } ] }"""),
         };
-        var src = new PerPipeProjectSource("codesys", "CODESYS", () => wires.Keys.ToList(), pipe => wires[pipe]);
+        var src = new PerPipeProjectSource("codesys", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
         var projects = (await src.ScanAsync()).Projects.OrderBy(p => p.ProjectName).ToList();
 
@@ -129,7 +126,7 @@ public class PerPipeProjectSourceTests
     {
         var wire = new FakeBridgeWire().On("health",
             """{ "projects": [ { "project": "MyMachine", "status": "healthy", "dirty": true } ] }""");
-        var src = One("codesys", "CODESYS", wire, "volt.bridge.codesys.1");
+        var src = One("codesys", wire, "volt.bridge.codesys.1");
 
         var scan = await src.ScanAsync();
 
@@ -155,7 +152,7 @@ public class PerPipeProjectSourceTests
         for (int i = 1; i <= n; i++)
             wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { Entered = entered, Release = release.Task }
                 .On("health", $$"""{ "projects": [ { "project": "M{{i}}" } ] }""");
-        var src = new PerPipeProjectSource("codesys", "CODESYS", () => wires.Keys.ToList(), pipe => wires[pipe]);
+        var src = new PerPipeProjectSource("codesys", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
         var scanTask = src.ScanAsync();
         Assert.True(entered.Wait(30_000), "pipe fan-out was serialized — one pipe blocked the others");
@@ -168,11 +165,11 @@ public class PerPipeProjectSourceTests
     [Fact]
     public async Task No_pipes_is_not_reachable_but_a_live_pipe_is()
     {
-        var none = new PerPipeProjectSource("codesys", "CODESYS", () => new List<string>(), _ => throw new InvalidOperationException());
+        var none = new PerPipeProjectSource("codesys", () => new List<string>(), _ => throw new InvalidOperationException());
         Assert.False((await none.ScanAsync()).Reachable);
 
         // A live pipe existing IS the reachability bit, even if that host answers with no project rows.
-        var some = new PerPipeProjectSource("codesys", "CODESYS", () => new List<string> { "volt.bridge.codesys.9" }, _ => new FakeBridgeWire());
+        var some = new PerPipeProjectSource("codesys", () => new List<string> { "volt.bridge.codesys.9" }, _ => new FakeBridgeWire());
         Assert.True((await some.ScanAsync()).Reachable);
     }
 
@@ -181,7 +178,7 @@ public class PerPipeProjectSourceTests
     {
         var wire = new FakeBridgeWire();
         wire.Throw.Add("health"); // discovery rides on health
-        var src = One("codesys", "CODESYS", wire, "volt.bridge.codesys.1");
+        var src = One("codesys", wire, "volt.bridge.codesys.1");
 
         var scan = await src.ScanAsync();
         Assert.Empty(scan.Projects);            // that host went away mid-scan — no rows
@@ -195,7 +192,7 @@ public class PerPipeProjectSourceTests
     public async Task A_refusing_pipe_is_carried_as_a_named_refusal_not_dropped()
     {
         var ok = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "Mine" } ] }""");
-        var src = new PerPipeProjectSource("codesys", "CODESYS",
+        var src = new PerPipeProjectSource("codesys",
             () => new[] { "volt.bridge.codesys.1", "volt.bridge.codesys.2" },
             pipe => pipe == "volt.bridge.codesys.2" ? new RefusingWire(pipe) : ok);
 
@@ -213,7 +210,7 @@ public class PerPipeProjectSourceTests
     {
         var gone = new FakeBridgeWire();
         gone.Throw.Add("health");
-        var scan = await One("codesys", "CODESYS", gone, "volt.bridge.codesys.1").ScanAsync();
+        var scan = await One("codesys", gone, "volt.bridge.codesys.1").ScanAsync();
         Assert.Empty(scan.Refused);
     }
 

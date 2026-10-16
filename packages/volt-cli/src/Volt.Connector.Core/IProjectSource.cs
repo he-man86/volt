@@ -30,9 +30,6 @@ namespace Volt.Connector
         /// <summary>Vendor id: "codesys" | "twincat" — matches <see cref="DetectedProject.Vendor"/> + the pipe name.</summary>
         string Vendor { get; }
 
-        /// <summary>Human platform name for the prefix/logo ("CODESYS" | "TwinCAT").</summary>
-        string DisplayName { get; }
-
         /// <summary>One `health` poll: the projects this source can currently connect to (each row self-describing —
         /// serving/status/dirty) plus whether the bridge was reachable. <c>Reachable</c> = this source found at least
         /// one live bridge ENDPOINT; an endpoint that is discovered but then fails to answer is still
@@ -41,7 +38,7 @@ namespace Volt.Connector
         Task<SourceScan> ScanAsync();
 
         /// <summary>Bind the given project so its bridge serves it (retarget the worker / rebind the in-proc host).
-        /// The project's <see cref="DetectedProject.Attach"/> is this source's own payload.</summary>
+        /// The source binds by <see cref="DetectedProject.ProjectName"/>.</summary>
         Task BindAsync(DetectedProject project);
 
         /// <summary>Stop serving the given project (the reconciler's unbind) — the bridge refuses sync ops until the

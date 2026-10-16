@@ -78,7 +78,7 @@ namespace Volt.Connector
             // single-instance mutex by the same number so the two instances can't collide.
             var port = ControlServer.ConfiguredPort;
             _control = new ControlServer(
-                FreshSnapshotAsync, RestartWorker,
+                FreshSnapshotAsync,
                 openSession: () => _conn.OpenSessionAsync(),
                 sync: SessionSyncAsync,
                 closeSession: id => _conn.CloseSessionAsync(id),
@@ -147,7 +147,7 @@ namespace Volt.Connector
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.Vendor, p.Dirty,
                 p.Status, // serving derives from status (!= "idle") on the client
-                p.Attach.Project, p.Pipe, p.IdeVersion, p.Unsupported,
+                p.ProjectName, p.Pipe, p.IdeVersion, p.Unsupported,
                 p.ProductName, p.ProductVersion, p.ProductVendor, p.BridgeVersion)).ToList(),
             _conn.Refused);
 
@@ -181,19 +181,10 @@ namespace Volt.Connector
             await _fleet.Tick(_twincatExe, TimeSpan.FromSeconds(6));
         }
 
-        private void RestartWorker(string id)
-        {
-            // Kill it; the next reconcile respawns it. StopWorker drops the worker entry and TwincatFleet.Tick
-            // calls EnsureWorker for EVERY live XAE pid, so a still-present XAE gets a fresh worker on the next tick.
-            // (TwincatSupervisor.Forget was called here to force that respawn; it couldn't — its only effect was on the
-            // spawn list, which this tray discards. Deleted rather than left looking load-bearing.)
-            _fleet.StopWorker(id);
-        }
-
         // ── notifications ──────────────────────────────────────────────────
         private void OnAggregateChanged(BridgeStatus prev, BridgeStatus now)
         {
-            if (prev != BridgeStatus.Connected || now is not (BridgeStatus.Unreachable or BridgeStatus.Unavailable or BridgeStatus.Unknown))
+            if (prev != BridgeStatus.Connected || now is not (BridgeStatus.Unavailable or BridgeStatus.Unknown))
                 return;
 
             // Only an UNEXPECTED loss is worth interrupting for. `Connected` means "serving ∧ wanted", so it also
@@ -372,7 +363,7 @@ namespace Volt.Connector
                     // escape hatch. A serving row can be force-off'd (paused regardless of interest) and a paused row
                     // resumed — those rows are clickable to toggle it. A merely-detected row is status-only (greyed).
                     var tag = p.Unsupported != null ? "   ✕ IDE not supported" : paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
-                    var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty ? " *" : "")}{tag}";
+                    var label = $"{Vendors.Display(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty ? " *" : "")}{tag}";
                     var actionable = serving || paused;
                     var id = p.Id;
                     var row = new ToolStripMenuItem(label, null, actionable ? async (_, _) => await ToggleForceOff(id, !paused) : null)
@@ -547,7 +538,6 @@ namespace Volt.Connector
                 BridgeStatus.Connected => Color.LimeGreen,
                 BridgeStatus.Degraded => Color.Gold,
                 BridgeStatus.Unavailable => Color.Orange,
-                BridgeStatus.Unreachable => Color.Firebrick,
                 _ => Color.Gray,
             };
             const int size = 32;

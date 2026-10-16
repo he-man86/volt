@@ -211,13 +211,6 @@ public sealed partial class CodesysDriver
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
-    /// <summary>Is this CODESYS's own refusal of a child under its parent? Measured wording (SP21, DIALECT C2k,
-    /// `kind-audit2.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/kind-audit2.log`)): "Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or
-    /// device description)" — for a member under FUNCTION text, and a method or property under text that declares
-    /// nothing. Anything else (a stale handle, a transport fault) is not a refusal and is not reported as one.
-    /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
-    public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
-
     /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word CODESYS was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="CodesysRefusedNames"/>, the
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
@@ -257,10 +250,15 @@ public sealed partial class CodesysDriver
     /// name's (<c>StReader.Words</c>) — so every such name reaches this answer.</summary>
     private static bool IsBacktickQuoted(string name) => name.Length >= 2 && name[0] == '`' && name.IndexOf('`', 1) > 0;
 
-    /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
+    /// <summary>The refusal and what it refuses: the child's KIND under this parent (below), or its NAME —
     /// "The name 'Log' is not valid for this object." — a METHOD named <c>Log</c> under a function block (SP21, openspec
     /// <c>push-keeps-what-landed</c> 1.1, measured live 2026-10-03): the NAME is refused, whatever the declaration says.
-    /// Only measured wording; no guessed reserved-word list — in every language CODESYS ships.</summary>
+    /// Only measured wording; no guessed reserved-word list — in every language CODESYS ships.
+    /// <para>Is this CODESYS's own refusal of a child under its parent? Measured wording (SP21, DIALECT C2k,
+    /// `kind-audit2.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/kind-audit2.log`)): "Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or
+    /// device description)" — for a member under FUNCTION text, and a method or property under text that declares
+    /// nothing. Anything else (a stale handle, a transport fault) is not a refusal and is not reported as one.
+    /// The vendor's message is found wherever it sits in the chain (a reflective call wraps it); null when none.</para></summary>
     public static (string Message, ChildRefusalCause Cause)? Refusal(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
@@ -308,7 +306,7 @@ public sealed partial class CodesysDriver
         var iobj = _om.ReadObject(node);
         // The CLASS decides, and no aspect is read: a POU is `X.pou` whatever its text says (openspec
         // `push-without-header-check` 5.Q), so the walk no longer opens a POU's declaration to name it.
-        return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), false, _om.GetName(node), iobj);
+        return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), _om.GetName(node), iobj);
     }
 }
 

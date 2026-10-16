@@ -44,10 +44,9 @@ namespace Volt.Ide.Codesys
             _objMgr = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "ObjectMgr");
         }
 
-        public bool HasProjects => _projects != null;
         public bool HasObjectManager => _objMgr != null;
-        // Whether a project is actually OPEN — a live lookup (unlike HasProjects, which only checks the
-        // persistent projects collection). Must be read on the primary thread; the driver caches the result so
+        // Whether a project is actually OPEN — a live lookup, not whether the persistent projects collection
+        // exists. Must be read on the primary thread; the driver caches the result so
         // health can report it off-thread. This is what makes a project close/reopen reflect correctly.
         public bool HasPrimaryProject => PrimaryProject != null;
 

@@ -109,7 +109,7 @@ public class PushKeepsWhatLandedTests
     /// <summary>Gate step 1 review: the REAL PLCAssist path, offline. The live <c>METHOD Log</c> refusal is an exception
     /// the driver does not classify, raised by <c>CreateChild</c> inside a create of a multi-op push — caught only by the
     /// rollback filter, so it reaches the client <c>INTERNAL_ERROR</c> with no word of the rollback (measured live,
-    /// task 1.1). The engine cannot classify it (the CODESYS driver's <c>ChildRefusal</c> must — its own test), but
+    /// task 1.1). The engine cannot classify it (the CODESYS driver's <c>Refusal</c> must — its own test), but
     /// whatever its code, the conflict must say what of the op the IDE kept: here nothing, the create rolled back.
     /// Measured on this tree before the change: <c>accepted:false</c>, one <c>F.pou [INTERNAL_ERROR]</c> "The name 'M'
     /// is not valid for this object. — NOTE: 2 of 3 …", no receipt; F rolled back.</summary>

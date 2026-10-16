@@ -19,9 +19,7 @@ internal static class ComMessageFilter
     [DllImport("ole32.dll")]
     private static extern int CoRegisterMessageFilter(IMessageFilter? newFilter, out IMessageFilter? oldFilter);
 
-    private static IMessageFilter? _oldFilter;
-
-    public static void Register() => CoRegisterMessageFilter(new MessageFilter(), out _oldFilter);
+    public static void Register() => CoRegisterMessageFilter(new MessageFilter(), out _);
 
     /// <summary>The standard OLE <c>IMessageFilter</c> contract. The GUID is its well-known interface id
     /// (<c>IID_IMessageFilter</c>, from <c>objidl.h</c> — one of the original OLE interfaces in the

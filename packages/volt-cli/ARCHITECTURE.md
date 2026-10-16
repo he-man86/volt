@@ -496,7 +496,7 @@ ITcPlcDeclaration         DeclarationText, and NOTHING else
 `ITcPlcImplementation` members are in the TLB; against a live POU only two answer. `Language` throws
 `RuntimeBinderException` — the interface declares it, this object does not implement it — and `ImplementationXml`
 returns byte-for-byte the same string as `ImplementationText`, not a second representation. Reading the surface
-tells you what to try; only the running IDE tells you what is there (`--probe-pou`, DIALECT N3).
+tells you what to try; only the running IDE tells you what is there (measured live, DIALECT N3).
 
 That last line is worth keeping: Beckhoff's own object model encodes the fact that **an ACTION has no
 declaration**, which this repo previously learned the hard way. When a vendor fact and a Volt assumption

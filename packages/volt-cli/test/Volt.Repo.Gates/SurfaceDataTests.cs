@@ -66,11 +66,6 @@ public class SurfaceDataTests
             + "init/connect picker shows BEFORE any session exists.",
             null, "ConnectorView",
             new[] { (200, "always") }),
-
-        new("POST", "/workers/{id}/restart",
-            "Respawn a bridge worker — the recovery the tray offers when one has gone unresponsive.",
-            null, "{ ok: true }",
-            new[] { (200, "the restart was requested") }),
     };
 
     /// <summary>The shapes the control plane answers with, spelled from the records in `ControlServer.cs`.</summary>
@@ -254,7 +249,6 @@ public class SurfaceDataTests
                      ("path == \"session\"", "/session"),
                      ("path == \"status\"", "/status"),
                      ("parts[2] == \"sync\"", "/session/{id}/sync"),
-                     ("parts[0] == \"workers\"", "/workers/{id}/restart"),
                  })
         {
             // ASSERT THE LITERAL IS THERE, rather than checking the route only when it is. An `if` here would

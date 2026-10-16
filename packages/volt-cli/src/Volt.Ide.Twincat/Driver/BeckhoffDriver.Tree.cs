@@ -306,13 +306,6 @@ public sealed partial class BeckhoffDriver
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
-    /// <summary>Is this TwinCAT's own refusal of a child under its parent? Measured wording (TcXaeShell, DIALECT C2k,
-    /// `tc-function-members.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-function-members.log`)): "Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node
-    /// type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)" — a method under FUNCTION text. Anything else (an "Unbound
-    /// tree item", a COM fault) is not a refusal and is not reported as one.
-    /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
-    public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
-
     /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word TwinCAT was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="TcRefusedNames"/>, the
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
@@ -366,11 +359,16 @@ public sealed partial class BeckhoffDriver
             ? $"TwinCAT does not take '{name}' as a name (\"Creating the child named '{name}' is not possible on node (Name mismatch)\")"
             : null;
 
-    /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
+    /// <summary>The refusal and what it refuses: the child's KIND under this parent (below), or its NAME —
     /// "… Creating the child named 'Log' is not possible on node (Name mismatch)" — a METHOD named <c>Log</c> under a
     /// function block (TcXaeShell, openspec <c>push-keeps-what-landed</c> 1.G F3, measured live 2026-10-03): the NAME
     /// is refused, whatever the declaration says.
-    /// Only measured wording; no guessed reserved-word list.</summary>
+    /// Only measured wording; no guessed reserved-word list.
+    /// <para>Is this TwinCAT's own refusal of a child under its parent? Measured wording (TcXaeShell, DIALECT C2k,
+    /// `tc-function-members.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-function-members.log`)): "Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node
+    /// type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)" — a method under FUNCTION text. Anything else (an "Unbound
+    /// tree item", a COM fault) is not a refusal and is not reported as one.
+    /// The vendor's message is found wherever it sits in the chain (a reflective call wraps it); null when none.</para></summary>
     public static (string Message, ChildRefusalCause Cause)? Refusal(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
@@ -516,8 +514,6 @@ public sealed partial class BeckhoffDriver
     // shape keeps the OLD code in the live session until a reload re-derives it (DIALECT C2e).
     private int ClassifiedKind(object node) =>
         node is TcProjectSettingsNode ? ItemKind.PlcProjectSettings : _om.ItemType(node);
-
-    private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();
 
     /// <summary>Log an unmapped TwinCAT PLC tree-item code once, so a kind we may be missing is visible. The node is
     /// NOT skipped here — the walk emits it and Core drops it later as unmapped-kind; say so, because "(skipped)"

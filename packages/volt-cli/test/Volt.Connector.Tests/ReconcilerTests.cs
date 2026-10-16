@@ -22,7 +22,7 @@ public class ReconcilerTests
     /// <summary>A detected project. A UNIQUE pipe per project by default (so nothing false-contends); pass the SAME
     /// pipe to two to model a shared TwinCAT worker.</summary>
     private static DetectedProject Proj(string vendor, string name, bool serving = false, string? pipe = null) =>
-        new(DetectedProject.MakeId(vendor, new ProjectRef(name)), name, vendor, false, new ProjectRef(name),
+        new(DetectedProject.MakeId(vendor, name), name, vendor, false,
             Pipe: pipe ?? $"volt.bridge.{vendor}.{name}",
             Status: serving ? HealthStatus.Healthy : HealthStatus.Idle);
 

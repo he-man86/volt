@@ -18,12 +18,10 @@ namespace Volt.Ide.Codesys
     /// </summary>
     internal static class CodesysTypeMap
     {
-        /// <summary>Classify from the IObject's interface-name set (+ folder flag, + the object an accessor's GET or SET
-        /// is read off, + its name for a log line). Never from the object's text.</summary>
-        public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name, object? iobj)
+        /// <summary>Classify from the IObject's interface-name set (+ the object an accessor's GET or SET is read off,
+        /// + its name for a log line). Never from the object's text.</summary>
+        public static int CodeForObject(HashSet<string> ifaces, string? name, object? iobj)
         {
-            if (isFolder) return ItemKind.PlcFolder;
-
             // Transient / hidden: task POU-call refs, runtime copies, hidden visu
             // styles — same name as a real object → never emit.
             if (Has(ifaces, "ITransientObject") || Has(ifaces, "IHiddenObject")) return ItemKind.Skip;
