@@ -636,7 +636,7 @@ and every V2 spelling the rules replace is DELETED, not kept beside the new one.
       guards, R2 the statement-level enabled box as `IF c THEN … END_IF;`, R3 the statement-level ENO chain as one IF
       with several statements, R4 `(a > b ENABLE c)`, R5 `split<n>`, R6 the pragma DELETED (`NetworkPragma.cs`,
       `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc section) with its
-      members derived in the drivers, R7 PARALLEL one branch per line, `NOT(a)` refused, bare string literals, `DISABLED`
+      members derived in the drivers, R7 PARALLEL one branch per line, R8 the MOVE prefix operator, `NOT(a)` refused, bare string literals, `DISABLED`
       first, `LET` unreserved. The LSP refuses while typing what a push would refuse (ELSE, a non-chain IF body).
       `docs/network-text.html` rewritten to the result; the corpora re-pulled and their before/after line counts recorded.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,

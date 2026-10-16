@@ -31,13 +31,13 @@ NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
 END_NETWORK
 ```
 
-**Proposed** (R1–R7 below; the `ENABLE` lines are option R4b):
+**Proposed** (R1–R8 below; the `ENABLE` lines are option R4b):
 
 ```
 NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
   VAR_TEMP split174, split175, split176, split177 : BOOL; END_VAR
   split174 := TRUE;
-  IF split174 THEN tInt := 0; END_IF;
+  IF split174 THEN tInt := MOVE 0; END_IF;
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= split174 AND NOT HMI_Var.Test_Prod;
   split175 := split174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation
               AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock;
@@ -47,14 +47,14 @@ NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
        NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper,
        Mach1_Data.AUTOSPEED <= 40 ENABLE Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
      AND NOT HMI_Var.Btn_Cleaning
-  THEN tInt := Mach1_Data.AUTOSPEED; END_IF;
+  THEN tInt := MOVE Mach1_Data.AUTOSPEED; END_IF;
   IF (Mach1_Data.AUTOSPEED > 40 ENABLE split176 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
      AND NOT HMI_Var.Btn_Cleaning
-  THEN tInt := 30; END_IF;
-  IF split176 AND HMI_Var.Btn_Cleaning THEN tInt := 6; END_IF;
+  THEN tInt := MOVE 30; END_IF;
+  IF split176 AND HMI_Var.Btn_Cleaning THEN tInt := MOVE 6; END_IF;
   split177 := split175 AND Mach1.GenFlags.RunMan;
   tMainDriveJog := oMainDriveJog := Mach1_Safety.Control.RequestManSpeed := split177;
-  IF split177 THEN tInt := Mach1_Data.MANUALSPEED; END_IF;
+  IF split177 THEN tInt := MOVE Mach1_Data.MANUALSPEED; END_IF;
   RPM_To_DriveSpeed(iEN := split174, iRPM := tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 END_NETWORK
 ```
@@ -83,7 +83,7 @@ x := a = b = c;                             // refused, same
 
 ```
 MOVE(EN := c, src, => dst);                 // today
-IF c THEN dst := src; END_IF;               // proposed
+IF c THEN dst := MOVE src; END_IF;          // proposed
 
 ADD(EN := c, x, 5, => x);                   // today
 IF c THEN x := x + 5; END_IF;               // proposed
@@ -91,12 +91,13 @@ IF c THEN x := x + 5; END_IF;               // proposed
 LIMIT(EN := c, 0, v, 100, => y);            // today
 IF c THEN y := LIMIT(0, v, 100); END_IF;    // proposed
 ```
-The statement's top operator IS the enabled box. A MOVE is implied only when the value is a plain operand; a MOVE
-around a box is written out, or `IF c THEN x := a + b;` would be two trees:
+The statement's top operator IS the enabled box, and a MOVE box is always spelled `MOVE` — never implied. Inside the
+IF, `x :=` is the box's output pin (a coil after an enabled box would read its ENO, N21):
 ```
 IF c THEN x := a + b; END_IF;               // ADD(EN := c, a, b, => x)
-IF c THEN x := MOVE(a + b); END_IF;         // MOVE(EN := c, (a + b), => x)
-IF c THEN x := y; END_IF;                   // MOVE(EN := c, y, => x)
+IF c THEN x := MOVE (a + b); END_IF;        // MOVE(EN := c, (a + b), => x)
+IF c THEN x := MOVE y; END_IF;              // MOVE(EN := c, y, => x)
+IF c THEN x := y; END_IF;                   // refused: no box to enable
 ```
 Only what one box can be — anything else is refused, by the LSP while typing:
 ```
@@ -113,16 +114,16 @@ MOVE(EN := MOVE(EN := MOVE(EN := MOVE(EN := (g329 AND TRUE), 175, => VelUnit).EN
 Proposed — statement N is the box enabled by statement N-1's ENO:
 ```
 IF split329 AND TRUE THEN
-  VelUnit := 175;
-  DecUnit := 2000;
-  AccUnit := 750;
-  TorqueLimit := 100;
+  VelUnit := MOVE 175;
+  DecUnit := MOVE 2000;
+  AccUnit := MOVE 750;
+  TorqueLimit := MOVE 100;
 END_IF;
 ```
 Distinct from four boxes sharing one wire, which stays four IFs:
 ```
-IF split329 THEN VelUnit := 175; END_IF;
-IF split329 THEN DecUnit := 2000; END_IF;
+IF split329 THEN VelUnit := MOVE 175; END_IF;
+IF split329 THEN DecUnit := MOVE 2000; END_IF;
 ```
 A chain whose last ENO is CONSUMED (feeds a coil or a Parallel) keeps `.ENO`, laid out one box per line:
 ```
@@ -165,6 +166,17 @@ lamp := PARALLEL(IN := start, a, (b AND (speed <= 40)));            // today
 lamp := PARALLEL(IN := start,                                       // proposed
           a,
           b AND speed <= 40);
+```
+
+### R8 — MOVE is a prefix operator, always written
+
+The same move as `a OR b` / `PARALLEL`: an operator for the box, not a function call. `MOVE` is a standard function
+name, so it can never be a variable.
+```
+a := b;                      // an assign, no box
+a := MOVE b;                 // a MOVE box, then the assign        (today: a := MOVE(b);)
+MOVE b => a;                 // a MOVE box writing its output pin  (today: MOVE(b, => a);)
+IF c THEN a := MOVE b; END_IF;   // the enabled MOVE, R2           (today: MOVE(EN := c, b, => a);)
 ```
 
 ### Small ones
