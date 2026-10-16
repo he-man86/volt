@@ -1,11 +1,7 @@
 /**
  * THE MAP'S ROW TYPE — what `map.generated.ts` holds, beside it.
  *
- * Pure data shapes, no logic: the generated map and the `./conformance` package export reach this file, and the
- * published build (`tsconfig.build.json`) compiles what they reach. The functions that COMPUTE a row live in
- * `../support/transpile/` and `../support/notes/`, test-runner helpers on Bun-only APIs (`Bun.spawnSync` through
- * `rustc.ts`) that a `dist/` for a runtime that is not Bun must never contain — so the map imports its types from here,
- * not there.
+ * Pure data shapes, no logic. The functions that COMPUTE a row live in `../support/transpile/` and `../support/notes/`.
  */
 import type { LanguageTest } from "../types.js"
 

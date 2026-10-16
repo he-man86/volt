@@ -3,9 +3,9 @@
  * the output, and the type a by-reference argument is compared by. A `_` helper of `call-arguments.ts` (openspec
  * lsp-same-standard design.md §2.2), its tests in `_argument-types.test.ts`.
  */
+import { type Expr } from "../../../frontend/syntax/index.js"
+import { type Scope } from "../../../frontend/symbols/index.js"
 import {
-  type Expr,
-  type Scope,
   type Type,
   inferExprType,
   literalOwnType,
@@ -15,7 +15,7 @@ import {
   renderType,
   type CalleeInfo,
   isIntLiteral,
-} from "../../../frontend/index.js"
+} from "../../../frontend/types/index.js"
 import { GENERIC_PARAMETER_TYPES, genericParameterAccepts } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { type DiagnosticItem, SOURCE, withFixes } from "../../shared/diagnostic-item.js"

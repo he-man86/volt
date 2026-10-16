@@ -79,8 +79,6 @@ const SYNTAX_FOLDERS: Record<string, (target: string) => boolean> = {
 }
 // transpile is a sibling backend, not a stack rung: it may only reach the front-end.
 const TRANSPILE_ALLOWED = FRONTEND
-// The top-level file that may import anything: the package barrel (the CLI entry is `server/bin.ts`).
-const BARRELS = new Set(["index.ts"])
 
 const slash = (p: string): string => p.split("\\").join("/")
 
@@ -104,7 +102,7 @@ interface Place {
 }
 function placeOf(relSrc: string): Place {
   const parts = relSrc.split("/")
-  if (parts.length === 1) return { layer: BARRELS.has(relSrc) ? null : "workspace" }
+  if (parts.length === 1) return { layer: "workspace" } // no loose top-level file exists (structure.test.ts)
   if (parts[0] === "frontend") {
     if (parts.length === 2) return { layer: "frontend", inner: parts[1] }
     return { layer: parts[1]!, inner: parts.slice(2).join("/") }

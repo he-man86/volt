@@ -3,7 +3,8 @@
  * apart, and its types and folds (0.4). One concern of `bound-census.ts` (openspec lsp-same-standard 4.4).
  */
 import { isSfcStepBase } from "../../src/frontend/types/index.js"
-import { exprText, inferExprType, isIntegerType, renderType, type Expr } from "../../src/index.js"
+import { exprText, type Expr } from "../../src/frontend/syntax/index.js"
+import { inferExprType, isIntegerType, renderType } from "../../src/frontend/types/index.js"
 import { tally } from "../baseline/baseline.js"
 import { countTypes, type BoundCensus, type SiteFacts, type VendorFacts } from "./bound-census-untyped.js"
 import { foldDump, typeRows, sites, resolutionDump, valueChildren } from "./dumps-bound.js"

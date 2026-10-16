@@ -3,7 +3,9 @@
  * long enough) and the in-outs a call left unbound. A `_` helper of `call-arguments.ts` (openspec lsp-same-standard
  * design.md §2.2), its tests in `_in-out-arguments.test.ts`.
  */
-import type { CallArg, CalleeInfo, Expr, Scope, Span } from "../../../frontend/index.js"
+import type { CallArg, Expr, Span } from "../../../frontend/syntax/index.js"
+import type { CalleeInfo } from "../../../frontend/types/index.js"
+import type { Scope } from "../../../frontend/symbols/index.js"
 import {
   constancyOf,
   DEFAULT_STRING_LENGTH,

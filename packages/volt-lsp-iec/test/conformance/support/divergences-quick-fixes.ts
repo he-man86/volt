@@ -45,7 +45,7 @@
  *        no check names a bound that does not fold. Niche: accepted loss (0 occurrences in the corpora — their one
  *        constant with no initial value, bakon-nano's `defaultXYA`, is a STRUCT that bounds nothing).
  */
-import type { Vendor } from "../../../src/index.js"
+import type { Vendor } from "../../../src/analysis/index.js"
 
 export const QUICK_FIX_BEFORE_CASCADES: Record<Vendor, readonly string[]> = {
   codesys: ["qf_c0046_before_declare_argument", "qf_c0046_before_declare_condition", "qf_c0077_before", "qf_c0533_before", "qf_access_before", "qf_c0228_bound_subrange", "qf_c0228_bound_inline_subrange"],

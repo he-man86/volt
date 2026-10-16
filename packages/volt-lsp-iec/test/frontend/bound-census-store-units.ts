@@ -7,26 +7,17 @@ import { bodyConditionWorld } from "../../src/frontend/symbols/index.js"
 import { compilerTypeText } from "../../src/frontend/syntax/index.js"
 import {
   type Expr,
-  type Scope,
   type Statement,
   type TopLevel,
-  UNKNOWN,
   allUnits,
   bodyStatements,
-  inferExprType,
-  initializerWarnedTwice,
   isStBody,
-  isStructInit,
-  lookup,
-  messagesFor,
-  resolveNamedType,
-  resolveTypeExpr,
-  scopeForUnit,
-  scopeUri,
-  structEcho,
   unitBodies,
   walkStatements,
-} from "../../src/index.js"
+} from "../../src/frontend/syntax/index.js"
+import { type Scope, lookup, scopeForUnit, scopeUri } from "../../src/frontend/symbols/index.js"
+import { UNKNOWN, inferExprType, resolveNamedType, resolveTypeExpr } from "../../src/frontend/types/index.js"
+import { initializerWarnedTwice, isStructInit, messagesFor, structEcho } from "../../src/analysis/index.js"
 import { BOOL, type Store, StoreWalk, unknownTarget } from "./bound-census-stores.js"
 import { sites } from "./dumps-bound.js"
 import type { Bound } from "./dumps.js"

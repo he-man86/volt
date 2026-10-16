@@ -4,16 +4,9 @@
  * One concern of `bound-census.ts` (openspec lsp-same-standard 4.4).
  */
 import { declaredValue } from "../../src/frontend/types/index.js"
-import {
-  type Expr,
-  decodeStringLiteral,
-  elementaryType,
-  type Scope,
-  resolveMemberChain,
-  type Symbol,
-  lookup,
-  rootOf,
-} from "../../src/index.js"
+import { type Expr, decodeStringLiteral } from "../../src/frontend/syntax/index.js"
+import { elementaryType, resolveMemberChain } from "../../src/frontend/types/index.js"
+import { type Scope, type Symbol, lookup, rootOf } from "../../src/frontend/symbols/index.js"
 import { tally } from "../baseline/baseline.js"
 import { RUN, plcScope, pathExpr } from "./bound-census-runs.js"
 import type { BoundCensus } from "./bound-census-untyped.js"

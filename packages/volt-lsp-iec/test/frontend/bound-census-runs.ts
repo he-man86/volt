@@ -10,17 +10,13 @@ import {
   parseExprFromTokens,
   lex,
   isTrivia,
-  type Scope,
-  scopeForUnit,
   type Dialect,
   allUnits,
   unitBodies,
   isStBody,
-  inferExprType,
-  renderType,
-  lookupLocal,
-  lookupMember,
-} from "../../src/index.js"
+} from "../../src/frontend/syntax/index.js"
+import { type Scope, scopeForUnit, lookupLocal, lookupMember } from "../../src/frontend/symbols/index.js"
+import { inferExprType, renderType } from "../../src/frontend/types/index.js"
 import { tally } from "../baseline/baseline.js"
 import { storesOf } from "./bound-census-store-units.js"
 import { typeKey, type Store } from "./bound-census-stores.js"

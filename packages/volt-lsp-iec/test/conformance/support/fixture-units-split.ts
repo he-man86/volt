@@ -2,7 +2,13 @@
  * A FIXTURE'S SOURCE CUT INTO THE IDE'S OBJECTS — one load unit per top-level unit, its members, declaration and code
  * text, and the pragmas that stand before it. One concern of `fixture-units.ts` (openspec lsp-same-standard 4.4).
  */
-import { type TopLevel, type VarSection, parseSource, type Span, type BodySpan } from "../../../src/index.js"
+import {
+  type TopLevel,
+  type VarSection,
+  parseSource,
+  type Span,
+  type BodySpan,
+} from "../../../src/frontend/syntax/index.js"
 import type { LanguageTest } from "../types.js"
 import type { LoadUnit, LoadMember, LoadAccessor } from "./fixture-units.js"
 

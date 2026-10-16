@@ -13,8 +13,8 @@ import {
   runRegistry,
   computeNetworkTextDiagnostics,
   messagesFor,
-} from "../../src/index.js"
-import { ALL_TESTS } from "../conformance/index.js"
+} from "../../src/analysis/index.js"
+import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { comparable } from "../conformance/support/compare-message.js"
 import { TWINCAT_TRIAGE, CODESYS_TRIAGE } from "../conformance/support/divergences-triage.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"

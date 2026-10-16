@@ -5,7 +5,7 @@
  */
 import { readdirSync, statSync, readFileSync } from "node:fs"
 import { join, relative, sep } from "node:path"
-import { CHECK_REGISTRY, messagesFor, type Messages, type Vendor } from "../../src/index.js"
+import { CHECK_REGISTRY, messagesFor, type Messages, type Vendor } from "../../src/analysis/index.js"
 import { PACKAGE, normMessage } from "../frontend/sources.js"
 
 export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]

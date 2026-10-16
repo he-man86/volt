@@ -43,14 +43,13 @@ A  syntax        vocabulary · lexer · complete AST · parser · literals · pr
 ## The tree
 
 One line per folder, held to the disk both ways by `test/package/structure.test.ts`: a folder missing here, or a line
-naming a folder that is gone, fails it — so does a loose file at the top of `src/` other than the package barrel, and a
+naming a folder that is gone, fails it — so does a loose file at the top of `src/`, and a
 script not in `scripts/README.md`. Network text (LD/FBD) is another language the LSP reads, so it has no root folder:
 each layer holds its part in a `network/` folder. Unit tests sit beside their module; `test/` holds what crosses
 modules.
 
 ```
 src/  the product code, one folder per layer; imports point down the stack (scripts/check-layering.ts)
-  index.ts  the package barrel (package.json exports) — the one file at the top of src/
   frontend/  A–C — the front-end every consumer asks: syntax, symbols, types, and the library format
     library/  the Volt library format: path layout, manifest, materialization (a leaf that imports nothing)
     syntax/  A — ST text to a tree: vocabulary, lexer, AST, parser, literals, pragmas, the workspace file format
@@ -169,7 +168,7 @@ values, the pragmas and the workspace-format surface; `symbols/index.ts` — the
 EXTENDS chains, precedence, the scoped-body iterator) plus a `build` namespace (`buildSymbolTable`, `bindFile`,
 `unbindFile`, `relink`, `localScope`), so a reader and a builder cannot be confused; `types/index.ts` — every type
 fact, rule and engine a consumer asks; `library/index.ts` — the path layout, the manifest and the materialization
-format. `frontend/index.ts` re-exports the three language indexes for the package barrel (`src/index.ts`) alone.
+format. There is no front-end-wide index and no package barrel: a consumer imports the sub-layer index it needs.
 
 **Import rules** (`scripts/check-layering.ts`, over `src/`, `test/`, `scripts/` and `libraries/`, tests included; run
 inside `bun test` by `test/package/layering.test.ts`, which fails on any violation — there is no known-violation

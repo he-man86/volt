@@ -17,12 +17,12 @@ import {
   type Dialect,
   lex,
   isTrivia,
-  formatDocument,
   parseDocument,
   exprText,
   parseExprFromTokens,
   type ParseResult,
-} from "../../src/index.js"
+} from "../../src/frontend/syntax/index.js"
+import { formatDocument } from "../../src/services/index.js"
 import { type Parsed, at } from "./dumps.js"
 
 // ─── 0.2 the printer ─────────────────────────────────────────────────────────────────────────────────────────

@@ -16,18 +16,12 @@ import {
 } from "../../src/frontend/types/index.js"
 import {
   classifyConversion,
-  type Scope,
-  type Expr,
   inferExprType,
-  rootOf,
   type Type,
   elementaryRef,
   constEval,
-  bareConversionArgument,
   checkedMeetType,
-  compilerExprText,
   elementaryTypeRef,
-  exprText,
   integerOfWidth,
   literalCheckType,
   literalErrorType,
@@ -37,12 +31,12 @@ import {
   renderType,
   resolveCallee,
   resolveTypeExpr,
-  stringLiteralMessageType,
   unaryOperandConversion,
   UNKNOWN,
-  lookupMember,
-  type TypeExpr,
-} from "../../src/index.js"
+} from "../../src/frontend/types/index.js"
+import { type Scope, rootOf, lookupMember } from "../../src/frontend/symbols/index.js"
+import { type Expr, exprText, type TypeExpr } from "../../src/frontend/syntax/index.js"
+import { bareConversionArgument, compilerExprText, stringLiteralMessageType } from "../../src/analysis/index.js"
 import { valueExprs } from "./dumps-bound.js"
 import { unparsedIn } from "./dumps-printer.js"
 import type { Bound } from "./dumps.js"

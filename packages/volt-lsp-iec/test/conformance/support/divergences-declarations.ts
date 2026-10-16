@@ -3,7 +3,7 @@
  * conditional pragmas: the fixtures whose recorded answer the LSP does not give, each set with its reason. One concern of
  * `divergences.ts`, which assembles `KNOWN_DIVERGENCES` (openspec lsp-same-standard 4.4).
  */
-import type { Vendor } from "../../../src/index.js"
+import type { Vendor } from "../../../src/analysis/index.js"
 import { TYPE_EXPRESSION_RECOVERY } from "./divergences-units.js"
 
 /**

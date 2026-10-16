@@ -10,16 +10,6 @@
   },
   "description": "TypeScript-native language server for IEC 61131-3 Structured Text (+ the VG graphical sublanguage) \u2014 diagnostics, nav, completion, hover, signature help, semantic tokens.",
   "type": "module",
-  "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "default": "./dist/src/index.js"
-    },
-    "./conformance": {
-      "bun": "./test/conformance/index.ts",
-      "default": "./dist/test/conformance/index.js"
-    }
-  },
   "bin": {
     "volt-lsp-iec": "./dist/src/server/bin.js"
   },

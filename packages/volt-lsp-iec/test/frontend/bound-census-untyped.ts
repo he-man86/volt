@@ -9,19 +9,15 @@ import { isElementaryTypeName, resolveBareName } from "../../src/frontend/types/
 import {
   allUnits,
   bodyStatements,
-  compilerExprText,
-  inferExprType,
   isStBody,
-  lookup,
-  resolveMemberChain,
-  resolveTypeExpr,
-  rootOf,
   unitBodies,
   walkExpr,
   walkStatements,
   type Expr,
-  type Scope,
-} from "../../src/index.js"
+} from "../../src/frontend/syntax/index.js"
+import { compilerExprText } from "../../src/analysis/index.js"
+import { inferExprType, resolveMemberChain, resolveTypeExpr } from "../../src/frontend/types/index.js"
+import { lookup, rootOf, type Scope } from "../../src/frontend/symbols/index.js"
 import { tally } from "../baseline/baseline.js"
 import { isSignedUntypedNumber } from "./bound-census-stores.js"
 import { undecidedExprCount, typeRows, sites, valueExprs } from "./dumps-bound.js"

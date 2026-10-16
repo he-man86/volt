@@ -7,24 +7,23 @@ import { bodyConditionWorld } from "../../src/frontend/symbols/index.js"
 import { type BareName, isSfcStepBase, resolveBareName, resolveGlobalName } from "../../src/frontend/types/index.js"
 import {
   type Expr,
-  type Scope,
   allUnits,
-  scopeForUnit,
   unitBodies,
   isStBody,
   bodyStatements,
   sourceStatements,
-  type Symbol,
+} from "../../src/frontend/syntax/index.js"
+import { type Scope, scopeForUnit, type Symbol, lookupMember } from "../../src/frontend/symbols/index.js"
+import {
   resolveMemberChain,
   type CalleeInfo,
-  lookupMember,
   resolveCallee,
   renderType,
   inferExprType,
   type ConstValue,
   constEval,
   constancyOf,
-} from "../../src/index.js"
+} from "../../src/frontend/types/index.js"
 import { declExprs, statementExprs } from "./dumps-printer.js"
 import { type Bound, at } from "./dumps.js"
 

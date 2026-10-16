@@ -1,6 +1,6 @@
 /**
  * THE PACKAGE'S STRUCTURE IS EXPLAINED AND KEPT (openspec lsp-package-structure, task 3.1): `src/` holds no loose source
- * file but the package barrel, every folder of `src/` and `test/` has its sentence in `docs/architecture.md` "The tree"
+ * file (the package has no barrel — nothing imports it as a module; the server entry is `server/bin.ts`), every folder of `src/` and `test/` has its sentence in `docs/architecture.md` "The tree"
  * (and that tree names no folder that is gone), and every file of `scripts/` is listed in `scripts/README.md`. The
  * layer imports are `layering.test.ts`'s, beside this file.
  *
@@ -23,8 +23,6 @@ import { dirname, join } from "node:path"
 import { importGraph } from "../../scripts/check-layering.js"
 
 const PACKAGE = join(import.meta.dir, "..", "..")
-/** The one file `src/` may hold at its top: the package barrel `package.json` exports. */
-const SRC_ROOT_FILES: ReadonlySet<string> = new Set(["index.ts"])
 /** Folders whose sub-folders are data, described as one entry. */
 const DATA_TREES: ReadonlySet<string> = new Set(["test/conformance/fixtures", "test/conformance/recordings"])
 
@@ -76,10 +74,8 @@ export function describedFolders(architecture: string): { described: Map<string,
   return { described, malformed }
 }
 
-test("src/ holds no loose source file at its top level but the package barrel", () => {
-  const loose = readdirSync(join(PACKAGE, "src")).filter(
-    (n) => statSync(join(PACKAGE, "src", n)).isFile() && !SRC_ROOT_FILES.has(n),
-  )
+test("src/ holds no loose source file at its top level", () => {
+  const loose = readdirSync(join(PACKAGE, "src")).filter((n) => statSync(join(PACKAGE, "src", n)).isFile())
   expect(loose).toEqual([])
 })
 
