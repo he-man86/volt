@@ -628,7 +628,7 @@ the small ones). The model, the drivers and the push pairing stay; the TEXT laye
 parser/checks, docs, goldens) is rewritten to it, and every V2 spelling the rules replace is DELETED, not kept beside the
 new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the member pragma).
 
-- [ ] 2R.1 The checks C1–C5 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
+- [x] 2R.1 The checks C1–C5 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
       vendors where the fact exists on both) and on the six corpora. Each answer recorded in design.md with its evidence.
       A check that contradicts a rule, and either of the two "Open" items: write it and the alternatives into design.md
       and STOP for the owner.
@@ -650,7 +650,13 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       failed under the parallel LSP run and passed alone — openspec `packaging-test-sweep-access-denied`), Connector
       148, Contracts 37, Repo.Gates 243; volt-cli unit 158; typecheck, lint, `bun run check` (18) green; fixture map
       unaskable 106 → 115 (the nine `ng_r1_*`); LSP full suite (VOLT_REQUIRE_FULL=1, 10632 tests, 533 s) 10170 pass, 34 skip, 0 fail (a first run under the parallel C# suites timed out two `ir-walk.test.ts` cases at 7.8 s / 8.5 s against 5 s — 4.7 s alone; re-run with nothing beside it, green).
-- [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
+- [ ] 2R.2 **Owner 2026-10-16 ("build it"), after 2R.1:** build `readability.md` AS IT IS NOW (B1–B8 with the
+      `BRANCH` lines + `feed INTO BRANCHES [SHORTCIRCUIT]` parallel, B4 `ENO` + one `;` per item, B6 `split<VarId>`
+      without `VAR_TEMP`, P1–P16). The partial 2R.2 section already in design.md was written against an older
+      readability.md (`ENABLE`/`THEN`/`FEED`): rewrite it, do not build on it. 2R.1 Open items: 1 → bare `EN`; 2 → (a)
+      `a ADD b => x;`; 3 → P10 call form `AND(a, NOT IN2 := b)`; 4 → `EXECUTE EN c`; 5 → **(a) lost on rebuild, NOT
+      refused**, with 2R.4's behaviour measurement per member deciding — a member whose loss changes behaviour makes
+      its network refused on rebuild. design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
