@@ -76,7 +76,7 @@ export function imageRuns(lw: Lowering, name: string): Runs | undefined {
 }
 
 /** An escaped FB type's image layout: its runs, each image field's offset, and the bytes an instance takes. */
-export interface Runs {
+interface Runs {
   readonly runs: [number, number][]
   readonly offsets: Map<string, number>
   readonly size: number

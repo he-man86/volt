@@ -22,7 +22,7 @@ export function collectBodyUntil(c: Cursor, ender: Keyword, context: string, own
 /**
  * `collectBodyUntil` with several acceptable terminators — any one of `enders` closes the body and is consumed.
  */
-export function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], context: string, owner: BodyOwner): BodySpan {
+function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], context: string, owner: BodyOwner): BodySpan {
   const startSpan = c.peek().span
   const { tokens, closer } = consumeBodyUntilAny(c, { consumeEnders: enders })
   if (closer !== undefined) {

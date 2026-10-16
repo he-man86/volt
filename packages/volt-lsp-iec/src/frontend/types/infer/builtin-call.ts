@@ -33,7 +33,7 @@ import { resolveMemberChain, insideOwnBody } from "./member.js"
  * to say "always LREAL", from recollection — which made the narrowing check warn on `real := EXPT(real, real)`, code the
  * compiler accepts silently.
  */
-export function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
+function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
   // Each argument is REAL, NOT REAL, or unknown. An integer LITERAL has no width but can never be a REAL, so it counts
   // as not-REAL: `REAL_TO_DINT(EXPT(10, n))` warns LREAL → REAL in a real project (build conformance). A REAL literal
   // can take either width, so it stays unknown.

@@ -13,7 +13,7 @@ import { type Lowering, zeroInit } from "./lowering.js"
  * reads slots by index, so only the emitter noticed. A `statement` temp is `scoped` (`IrSlot.scoped`): the Rust prints
  * it as a local of the fn that runs the statement, never a field (lean 7.6.1).
  */
-export function temp(lw: Lowering, name: string, type: Type, written: TempWrite): number {
+function temp(lw: Lowering, name: string, type: Type, written: TempWrite): number {
   lw.slots.push({ name: `__${name}_${lw.slots.length}`, type, section: "temp", init: zeroInit(type), ...(written === "statement" ? { scoped: true as const } : {}) })
   return lw.slots.length - 1
 }
@@ -23,7 +23,7 @@ export function temp(lw: Lowering, name: string, type: Type, written: TempWrite)
  * (a chain's value, a property's, an in-out's frozen index, guard or address, a kept `__base`); `branches` — in several
  * arms (`__QUERYINTERFACE`'s found flag, one store per tag), so it stays a field in a body.
  */
-export type TempWrite = "statement" | "branches"
+type TempWrite = "statement" | "branches"
 
 /** A temp as a place — a per-call local inside a routine, a field or slot elsewhere. */
 export function tempPlace(lw: Lowering, purpose: string, type: Type, span: Span, written: TempWrite): Place {

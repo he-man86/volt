@@ -51,7 +51,7 @@ export function temporalResultType(op: "+" | "-", left: string, right: string): 
  * (`durationScaleConversion`). A bit string is the unsigned integer of its width (TIME × LWORD is ULINT, recorded
  * 2026-10-10). An integer ÷ a duration, MOD, a BIT or a REAL beside a duration were not asked: undefined.
  */
-export function durationScaleResultType(op: string, left: string, right: string): string | undefined {
+function durationScaleResultType(op: string, left: string, right: string): string | undefined {
   return durationScale(op, left, right)?.result
 }
 

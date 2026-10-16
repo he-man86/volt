@@ -10,7 +10,6 @@ import { localScope } from "./scope.js"
 // the model
 export {
   isPouSymbol,
-  POU_SYMBOL_KINDS,
   type DeviceInstance,
   type Scope,
   type ScopeKind,
@@ -23,9 +22,9 @@ export { type SymbolTableInput } from "./binder.js"
 export { gvlName } from "./bind-globals.js"
 
 // navigation
-export { childScopesByName, enclosingPou, externalGlobal, findChildScope, hasUnresolvedBase, lookup, lookupUnit, lookupGlobal, lookupMember, rootOf, symbolDefinedAt, visibleNames, type LookupResult } from "./scope-nav.js"
+export { childScopesByName, enclosingPou, externalGlobal, findChildScope, hasUnresolvedBase, lookup, lookupUnit, lookupGlobal, lookupMember, rootOf, symbolDefinedAt, visibleNames } from "./scope-nav.js"
 export { resolveQualifiedConst } from "./qualified.js"
-export { bareEnumMember, resolveBareEnumMember, type BareEnumMember } from "./qualified.js"
+export { bareEnumMember, resolveBareEnumMember } from "./qualified.js"
 export { gvlBlockOf, resolveGvlMember } from "./qualified.js"
 export { findScopeByName, scopeForUnit } from "./name-index.js"
 export { ancestry, baseOf, basesOf, extendsChain, extendsCycle } from "./extends.js"
@@ -39,7 +38,7 @@ export { declaresNoBase, instanceless, selfRefAllowed } from "./self-ref.js"
 export { bodyConditionWorld, conditionWorld } from "./condition-world.js"
 
 // the bodies analysed, each in its scope
-export { bodies, bodiesAt, bodiesThroughErrors, forEachDecl, forEachExpr, sourceBodies, type UnitBody } from "./scoped-bodies.js"
+export { bodies, bodiesAt, bodiesThroughErrors, forEachDecl, forEachExpr, sourceBodies } from "./scoped-bodies.js"
 
 /**
  * BUILDING THE TABLE — a whole project from its files (`buildSymbolTable`); the incremental unit of work the live

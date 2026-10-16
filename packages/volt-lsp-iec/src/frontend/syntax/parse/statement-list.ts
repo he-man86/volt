@@ -243,7 +243,7 @@ export function endStatement(cur: Cursor): Token | undefined {
  * keyword of `STMT_SYNC` but END_REPEAT (no statement stands before it: UNTIL's condition does) asked
  * (`stmt_assign_no_semicolon_before_*`, review 2.6).
  */
-export function resyncAfterMissingSemicolon(cur: Cursor): void {
+function resyncAfterMissingSemicolon(cur: Cursor): void {
   const t = cur.peek()
   // before the end of the POU or a block's END_*, the `;` it names is the whole repair (`qf_c0002_semicolon_end`, `_block`)
   const semicolon = { text: ";", at: cur.previous().span.end, layout: "tight" } as const

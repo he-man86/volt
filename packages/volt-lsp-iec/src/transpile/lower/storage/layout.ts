@@ -77,7 +77,7 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
 type LayoutSymbol = ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never
 
 /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
-export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: Span): void {
+function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: Span): void {
   const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
   nested.selfType = t
   nested.codeOwner = t.scope

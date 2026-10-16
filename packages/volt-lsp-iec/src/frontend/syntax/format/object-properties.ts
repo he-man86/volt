@@ -39,7 +39,7 @@ const PROPERTY_KEYS = [
   "NETVAR",
   "FILE_LINK",
 ] as const
-export type PropertyKey = (typeof PROPERTY_KEYS)[number]
+type PropertyKey = (typeof PROPERTY_KEYS)[number]
 
 const FLAGS: ReadonlySet<string> = new Set(["EXCLUDE_FROM_BUILD", "LINK_ALWAYS", "EXTERNAL", "ENABLE_SYSTEM_CALL", "PARAMETER_LIST"])
 const REPEATING: ReadonlySet<string> = new Set(["UNDEFINE", "NETVAR"])

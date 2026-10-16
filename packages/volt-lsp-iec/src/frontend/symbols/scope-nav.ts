@@ -20,7 +20,7 @@ import { isLibraryAsker, libraryRank, pickForAsker, scopeUri } from "./precedenc
 import { childIndex } from "./cache.js"
 import { ancestry } from "./extends.js"
 
-export interface LookupResult {
+interface LookupResult {
   symbol: Symbol
   /** The scope where we found it (innermost match if it shadows). */
   foundIn: Scope

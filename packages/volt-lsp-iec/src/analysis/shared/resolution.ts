@@ -19,7 +19,7 @@ import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMemb
 import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
 
-export interface BareRef {
+interface BareRef {
   name: string
   span: Span
 }
@@ -118,7 +118,7 @@ export function bindableMember(scope: Scope, name: string): Symbol | undefined {
 
 const BINDABLE_SECTIONS: ReadonlySet<string> = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"])
 
-export interface MemberRef {
+interface MemberRef {
   member: string
   typeName: string
   span: Span

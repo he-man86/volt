@@ -33,7 +33,7 @@ import { checkFormatHints, checkSplitsReused } from "./_format.js"
 import { checkBinaryOps, checkConversionArgs, checkUndeclared } from "./_operands.js"
 
 /** What the network pass reads of a document: its uri and its parse. */
-export interface NetworkTextDocument {
+interface NetworkTextDocument {
   uri: string
   parseResult: ParseResult
 }

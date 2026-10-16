@@ -44,7 +44,7 @@ const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
 export const HOLE_EVIDENCE_CODES: ReadonlySet<string> = new Set([...RESOLUTION_FAILURE, ...REFUSED_OUTRIGHT, TYPE_CALLED])
 
 /** A view of what the earlier checks found, which is the only evidence a hole is reported on. */
-export interface Reported {
+interface Reported {
   explained: readonly Span[]
   refused: readonly Span[]
   /** C0230's spans — a hole only where one is a call's callee (`TYPE_CALLED`). */

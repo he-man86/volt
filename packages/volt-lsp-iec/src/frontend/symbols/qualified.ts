@@ -38,7 +38,7 @@ export function gvlBlockOf(base: Expr, scope: Scope, project: Scope): Symbol | u
  * ambiguity among the asker's OWN enums is "Ambiguous use of name" on both vendors; one among a referenced library's is
  * only "Identifier not defined" (`enum_library_same_member_one_library`, `_two_libraries`, CODESYS 2026-10-02).
  */
-export type BareEnumMember = { kind: "member"; symbol: Symbol } | { kind: "ambiguous"; candidates: readonly Symbol[]; said: boolean }
+type BareEnumMember = { kind: "member"; symbol: Symbol } | { kind: "ambiguous"; candidates: readonly Symbol[]; said: boolean }
 
 /**
  * A bare enum member (`StateAutomatic`), as the name written in `asker` reaches it — structural, no type inference, hence

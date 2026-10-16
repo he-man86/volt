@@ -98,14 +98,14 @@ function fromText(v: string, to: Elementary, from: Type): Val {
 }
 
 /** numeric → BOOL is "not zero". */
-export function toBool(v: Val): Val {
+function toBool(v: Val): Val {
   return typeof v === "boolean" ? v : typeof v === "bigint" ? v !== 0n : v instanceof NaNBits || v !== 0
 }
 
 /** → REAL: an integer rounds to the target's width ONCE: `Number(n)` then `fit`'s `Math.fround` rounds a 64-bit value
  *  twice, and 2^60+2^36+1 lands on REAL's halfway point in LREAL and ties down to 2^60 — CODESYS and Rust `as f32` say
  *  2^60+2^37 (`tr_47_i2r_lint_to_real_double_round`). */
-export function toReal(n: Val, to: Elementary): Val {
+function toReal(n: Val, to: Elementary): Val {
   return typeof n === "bigint" ? (to.elem.bits === 32 ? toSingle(n) : Number(n)) : n
 }
 

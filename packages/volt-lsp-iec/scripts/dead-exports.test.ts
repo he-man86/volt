@@ -1,10 +1,10 @@
 /**
  * `dead-exports.ts` (openspec transpile-restructure task 1.0.4; lsp-same-standard task 1.1): a scope keeps only the
  * exports declared under it, less every exported union's members and the transpile barrel's deliberate surface; the
- * `--gate` fails on any NOBODY export.
+ * `--gate` fails on any NOBODY export. A use is an IMPORT of the name (`importedNames`), never a word mention.
  */
 import { expect, test } from "bun:test"
-import { deadExports, exportRows, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
+import { deadExports, exportRows, importedNames, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
 
 const texts = new Map<string, string>([
   [
@@ -18,7 +18,8 @@ const texts = new Map<string, string>([
   ["src/analysis/c.ts", "export const ELSEWHERE = 1\n"],
   [
     "src/frontend/syntax/ast/nodes.ts",
-    "export interface IfStatement { kind: 'if' }\nexport interface ForStatement { kind: 'for' }\n" +
+    "import type { Imported } from './other.js'\n" +
+      "export interface IfStatement { kind: 'if' }\nexport interface ForStatement { kind: 'for' }\n" +
       "export type Statement = IfStatement | ForStatement | Imported\nexport type Alias = IfStatement\n",
   ],
   ["src/frontend/syntax/ast/other.ts", "export interface Imported { kind: 'x' }\n"],
@@ -51,15 +52,15 @@ test("--gate: every NOBODY export fails by name and file", () => {
 })
 
 test("an exclusion is bound to its declaring file: a same-named dead export elsewhere is still reported", () => {
-  // The transpile surface is a hand list: its names are excluded only where src/transpile/ declares them, so a dead
-  // `IrValue` or `lowerSource` in services/ is reported. (A namesake of a union member or an `ir/` type is never NOBODY
-  // — the declaring file mentions the word — so those halves are pinned by the keyed `unionMembers` test above.)
+  // The transpile surface is a hand list and `ir/`'s types a folder: their names are excluded only where src/transpile/
+  // declares them, so a dead `IrValue` or `lowerSource` in services/ is reported — the barrel naming `IrValue` is no use.
   const texts = new Map<string, string>([
     ["src/transpile/ir/program.ts", "export type IrValue = number\n"],
-    ["src/transpile/index.ts", "export type { IrValue } from './ir/program.js'\n"],
+    ["src/transpile/lower/entry.ts", "export function lowerSource() {}\n"],
+    ["src/transpile/index.ts", "export type { IrValue } from './ir/program.js'\nexport { lowerSource } from './lower/entry.js'\n"],
     ["src/services/x.ts", "export function IrValue() {}\nexport const lowerSource = 1\n"],
   ])
-  expect(deadExports(texts)).toEqual(["lowerSource src/services/x.ts"])
+  expect(deadExports(texts)).toEqual(["IrValue src/services/x.ts", "lowerSource src/services/x.ts"])
   const alone = new Map([["src/services/x.ts", "export function IrValue() {}\nexport const lowerSource = 1\n"]])
   expect(deadExports(alone)).toEqual(["IrValue src/services/x.ts", "lowerSource src/services/x.ts"])
 })
@@ -67,12 +68,35 @@ test("an exclusion is bound to its declaring file: a same-named dead export else
 test("the gates' own files, tests included, are not a use: a name they plant cannot keep a real export alive", () => {
   const texts = new Map<string, string>([
     ["src/a.ts", "export const Planted = 1\n"],
-    ["scripts/dead-exports.ts", "Planted\n"],
-    ["scripts/dead-exports.test.ts", "Planted\n"],
-    ["scripts/check-size.ts", "Planted\n"],
-    ["scripts/check-size.test.ts", "Planted\n"],
+    ["scripts/dead-exports.ts", "import { Planted } from '../src/a.js'\n"],
+    ["scripts/dead-exports.test.ts", "import { Planted } from '../src/a.js'\n"],
+    ["scripts/check-size.ts", "import { Planted } from '../src/a.js'\n"],
+    ["scripts/check-size.test.ts", "import { Planted } from '../src/a.js'\n"],
   ])
   expect(exportRows(texts)).toEqual([{ name: "Planted", file: "src/a.ts", src: 0, test: 0, script: 0 }])
+})
+
+test("a use is an import: a comment, fixture text or a barrel's `export { … } from` line is none", () => {
+  const texts = new Map<string, string>([
+    ["src/a.ts", "export const InComment = 1\nexport const InFixture = 2\nexport const ThroughBarrel = 3\nexport const Imported = 4\n"],
+    ["src/index.ts", "export { ThroughBarrel, Imported } from './a.js'\n"],
+    ["src/b.ts", "// InComment is cited here\nconst st = `InFixture := 1;`\nimport { Imported } from './index.js'\n"],
+  ])
+  expect(deadExports(texts)).toEqual(["InComment src/a.ts", "InFixture src/a.ts", "ThroughBarrel src/a.ts"])
+})
+
+test("every import form is a use: named (one line or many, aliased, typed), destructured dynamic, a type query, a namespace", () => {
+  const text = [
+    "import { a, type B, c as cc } from './x.js'",
+    "import type {\n  D,\n  E,\n} from './y.js'",
+    "const { f, g: gg } = await import('./z.js')",
+    "const { h } = require('./w.js') as typeof import('./w.js')",
+    "let i: ReturnType<typeof import('./v.js').I>",
+    "import * as ns from './u.js'",
+    "ns.j(ns.k)",
+    "export { notAUse } from './t.js'",
+  ].join("\n")
+  expect([...importedNames(text)].sort()).toEqual(["B", "D", "E", "I", "a", "c", "f", "g", "h", "j", "k"])
 })
 
 test("src/ exports nothing nobody reads (lsp-same-standard 1.1; transpile-restructure 7.10.4)", () => {

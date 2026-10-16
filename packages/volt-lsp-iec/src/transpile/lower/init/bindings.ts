@@ -50,7 +50,7 @@ function staticPlace(p: Place): boolean {
  * A BINDING: a store into a whole pointer or reference slot of the frame of a tag (a constant) or of the address of the
  * frame's own storage at a static path (`ADR(x)`, `ADR(rec.f)`, `REF= arr[2]`).
  */
-export function bindingOf(s: IrStmt): Binding | undefined {
+function bindingOf(s: IrStmt): Binding | undefined {
   if (s.kind !== "assign" || !wholeSlot(s.target)) return undefined
   if (s.target.type.kind !== "pointer" && s.target.type.kind !== "reference") return undefined
   return s.value.kind === "const" || (s.value.kind === "address" && staticPlace(s.value.place)) ? s : undefined

@@ -67,7 +67,7 @@ export const SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set(["GET", "SET", "O
  * (`XSIZEOF(DINT)` names a type), nor a member's name (`bx.INT`, rule E32). `CAL` is a keyword (`KEYWORDS`); `CALC` is
  * none of these — it parses as a conditional call (`analysis/checks/names/conditional-call.ts`).
  */
-export const IL_OPERATOR_WORDS: ReadonlySet<string> = new Set([
+const IL_OPERATOR_WORDS: ReadonlySet<string> = new Set([
   "R", "S", "LD", "LDN", "ST", "STN", "RET", "RETC", "RETCN", "JMPC", "JMPCN", "CALCN", "ANDN", "ORN", "XORN",
 ])
 

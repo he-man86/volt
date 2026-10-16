@@ -110,7 +110,7 @@ import { checkParseErrors } from "../checks/syntax/parse-errors.js"
 import { checkInoutInitializer } from "../checks/declarations/inout-initializer.js"
 
 /** The folders under `checks/` — a check's group. (`network` joins with the network-text check, design.md §3, parked.) */
-export type CheckGroup = "types" | "declarations" | "names" | "oop" | "calls" | "flow" | "pragmas" | "syntax"
+type CheckGroup = "types" | "declarations" | "names" | "oop" | "calls" | "flow" | "pragmas" | "syntax"
 
 interface RegistryEntry {
   check: Check

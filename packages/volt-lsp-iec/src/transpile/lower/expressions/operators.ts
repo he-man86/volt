@@ -62,7 +62,7 @@ const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
   OR_ELSE: "or_else",
 }
 
-export const COMPARISONS: ReadonlySet<IrBinOp> = new Set(["eq", "ne", "lt", "le", "gt", "ge"])
+const COMPARISONS: ReadonlySet<IrBinOp> = new Set(["eq", "ne", "lt", "le", "gt", "ge"])
 
 /** The operators whose operands are promoted (see `promoted`). Arithmetic is measured, and so are AND/OR/XOR:
  *  `minus1 AND 255` with `minus1 : SINT := -1` stored into an INT is 255 — the AND happens in DINT, after the -1
@@ -70,7 +70,7 @@ export const COMPARISONS: ReadonlySet<IrBinOp> = new Set(["eq", "ne", "lt", "le"
  *  never change its answer, while a narrow compare against an out-of-range literal would. Unary NOT is NOT
  *  promoted — `NOT u255` with `u255 : USINT` stored into a DINT is 0 — and it is not a binary operator anyway.
  *  On BOOL operands `promoted` is the identity, so AND/OR/XOR on BOOLs are untouched. */
-export const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub", "mul", "div", "mod", "and", "or", "xor"])
+const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub", "mul", "div", "mod", "and", "or", "xor"])
 
 /** `-x`, `NOT x`, `+x`: a negative literal as the constant it is; otherwise the operator, on an operand it has a meaning for. */
 export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, expected: Type | undefined): IrExpr | undefined {

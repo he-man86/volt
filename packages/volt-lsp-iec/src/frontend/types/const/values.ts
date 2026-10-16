@@ -87,7 +87,7 @@ export function isRecursiveConstant(symbol: Symbol): boolean {
  * (or `VAR_IN_OUT CONSTANT`) is read-only but holds the caller's argument — its default only when none is passed:
  * `F(n := 3)` steps `BY n` by 3 (conformance `var_input_constant_default_as_step`, LIVE; transpile-review-2026-09-29 task 4).
  */
-export function compileTimeConstant(symbol: Symbol): boolean {
+function compileTimeConstant(symbol: Symbol): boolean {
   return symbol.constant === true && symbol.varSection !== "VAR_INPUT" && symbol.varSection !== "VAR_IN_OUT"
 }
 
@@ -166,7 +166,7 @@ function enumValue(sym: Symbol, ctx: FoldContext): Folded {
  * constant carries its declared width but NOT a rounded value — the fold it is named in rounds once, at its end. A
  * non-constant symbol has none.
  */
-export function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
+function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   const constancy: Constancy = "constant"
   if (ctx.folding.has(symbol) && ctx.cycle?.start === symbol) ctx.cycle.hit = true
   if (!compileTimeConstant(symbol) || ctx.folding.has(symbol)) return { value: undefined, constancy }

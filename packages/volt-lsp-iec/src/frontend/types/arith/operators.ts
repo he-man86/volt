@@ -45,9 +45,9 @@ const MEASURED_SHORT_CIRCUIT_BITS = 16
 export const COMPARISON_OPERATORS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
 /** The comparisons as function-form boxes (a network's `GT`, `EQ` …): BOOL whatever their operands. */
-export const COMPARISON_FUNCTIONS: ReadonlySet<string> = new Set(["GT", "GE", "LT", "LE", "EQ", "NE"])
+const COMPARISON_FUNCTIONS: ReadonlySet<string> = new Set(["GT", "GE", "LT", "LE", "EQ", "NE"])
 /** The bit operators as function-form boxes: their result has their operands' bit-string type. */
-export const BIT_OPERATOR_FUNCTIONS: ReadonlySet<string> = new Set(["AND", "OR", "XOR", "NOT"])
+const BIT_OPERATOR_FUNCTIONS: ReadonlySet<string> = new Set(["AND", "OR", "XOR", "NOT"])
 
 /**
  * Which operand of a same-width signed/unsigned pair converts, per operator (measured on CODESYS SP21, conformance

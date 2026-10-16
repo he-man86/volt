@@ -20,7 +20,7 @@ import { parseCondition, type ConditionParse } from "./condition-parse.js"
 export type MessageSeverity = "text" | "info" | "warning" | "error"
 
 /** What a pragma token says, when it is a directive the statement parser acts on. */
-export type Directive =
+type Directive =
   | { kind: "if" | "elsif"; condition: ConditionParse }
   | { kind: "else" }
   | { kind: "end_if" }

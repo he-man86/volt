@@ -47,7 +47,7 @@ export interface Emitted {
 }
 
 /** How a HARNESS emits a POU — the default emission, what a user gets, sets none of this. */
-export interface EmitOptions {
+interface EmitOptions {
   /** Panic when one loop enters its body more than this many times — the interpreter's `run(pou, { loopGuard })`,
    *  counted the same way. CODESYS caps no loop (`tr_27_loop_cap_*`), so only a harness bounds a runaway one. */
   readonly loopGuard?: number

@@ -160,7 +160,7 @@ const isUnitStarter = (k: string | undefined): k is UnitStarter => k !== undefin
  * Dispatch on the next keyword. Returns `undefined` only when the cursor doesn't sit on a unit starter — the caller is
  * responsible for error recovery in that case. `units/namespace.ts` recurses into it through a `parseInner` callback.
  */
-export function parseTopLevel(c: Cursor): TopLevel | undefined {
+function parseTopLevel(c: Cursor): TopLevel | undefined {
   const next = c.peek()
   if (next.kind !== "keyword" || !isUnitStarter(next.keyword)) return undefined
   return UNIT_PARSERS[next.keyword](c)

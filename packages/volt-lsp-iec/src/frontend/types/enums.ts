@@ -52,7 +52,7 @@ export function enumDefault(project: Scope, t: Type, valueOf: EnumeratorValue): 
  * THE DECLARATION AN ENUM TYPE RESOLVED TO, by its scope's file — undefined for an implicit enum or one not resolved. A
  * bare `lookupUnit` lost who asked and which namespace: `v : B.E` took the first `E` by URI (another library's).
  */
-export function enumDeclaration(project: Scope, t: Type): TypeDecl | undefined {
+function enumDeclaration(project: Scope, t: Type): TypeDecl | undefined {
   if (t.kind !== "enum" || t.name === "(implicit)") return undefined
   const uri = t.scope?.defUri
   const sym = uri === undefined ? undefined : lookupLocal(project, t.name).find((s) => s.kind === "type" && s.uri === uri)

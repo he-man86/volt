@@ -18,7 +18,7 @@ type Yield =
   | { readonly kind: "if"; readonly cond: IrExpr; readonly then: Tail; readonly else: Tail; readonly span: Span }
 
 /** A block that yields the result: its statements, then what yields it. */
-export interface Tail {
+interface Tail {
   readonly before: readonly IrStmt[]
   readonly yields: Yield
 }

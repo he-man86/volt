@@ -180,7 +180,7 @@ const RESERVED_FN_NAMES: ReadonlySet<string> = new Set(["new", "call", "scan", "
 /** A routine's Rust fn name BEFORE deduping: snake_case, with a keyword or a reserved name suffixed `_` — and a FUNCTION's,
  *  a free fn beside the runtime's, suffixed when it names a runtime item: a user FUNCTION `iec_div` printed a second
  *  `fn iec_div` beside the zero-divisor check (E0428; 7.1.5, was appendix 6.A.7). */
-export function baseFnName(routine: IrRoutine): string {
+function baseFnName(routine: IrRoutine): string {
   const snaked = snake(routine.name.slice(routine.name.lastIndexOf(".") + 1))
   const reserved = RUST_KEYWORDS.has(snaked) || RESERVED_FN_NAMES.has(snaked) || (routine.kind === "function" && RUNTIME_ITEMS.has(snaked))
   return reserved ? `${snaked}_` : snaked

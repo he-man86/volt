@@ -62,12 +62,12 @@ export {
   type Type,
 } from "./type.js"
 export { isDialectType, resolveNamedType, resolveTypeExpr } from "./resolve.js"
-export { enumDeclaration, enumDefault, enumDefaultValue, inlineEnumDefault, numberEnumerators, strictEnum } from "./enums.js"
+export { enumDefault, enumDefaultValue, inlineEnumDefault, numberEnumerators, strictEnum } from "./enums.js"
 export { renderType } from "./render.js"
 
 // inference
 export { inferExprType } from "./infer/expr.js"
-export { alignUp, packFields, typeBytes, type Bytes, type PackedField } from "./layout.js"
+export { alignUp, packFields, typeBytes } from "./layout.js"
 export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/member.js"
 export { isPositionalSection, resolveCallee, takesNoPositionalArguments, type CalleeInfo } from "./infer/callee.js"
 export { isSfcStepBase } from "./infer/sfc-step.js"
@@ -83,8 +83,6 @@ export { checkedMeetType, checkedNegationType, literalOperandType } from "./arit
 export { durationScaleConversion, narrowDateWideDuration, temporalArithmeticType, temporalResultType } from "./arith/temporal.js"
 export {
   ARITHMETIC_OPERATORS,
-  BIT_OPERATOR_FUNCTIONS,
-  COMPARISON_FUNCTIONS,
   comparisonConverts,
   negativeLiteralComparisonTarget,
   notResultType,
@@ -95,7 +93,7 @@ export {
   shortCircuitType,
   unaryOperandConversion,
 } from "./arith/operators.js"
-export { atomicOperand, BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, COMPILER_IMPLICITS, exptResultType, selectionValueArguments, type AtomicOperand, type BuiltinName } from "./builtins.js"
+export { atomicOperand, BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, COMPILER_IMPLICITS, exptResultType, selectionValueArguments, type BuiltinName } from "./builtins.js"
 export { resolveBareName, resolveGlobalName, type BareName } from "./names.js"
 
 // network text — the reader typed by the operators' rule, and each network's wire scope over the POU's

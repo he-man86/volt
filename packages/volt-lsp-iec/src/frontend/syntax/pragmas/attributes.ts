@@ -15,8 +15,8 @@ import type { Token } from "../lex/tokens.js"
 
 /** The ATTRIBUTES THE FRONT-END ANSWERS BY (design.md §4 2.7): resolution (`qualified_only`), typing (`strict`,
  *  `to_string`) and constancy (`const_replaced`, `const_non_replaced`). Every other attribute is a consumer's. */
-export const FRONTEND_ATTRIBUTES = ["qualified_only", "strict", "to_string", "const_replaced", "const_non_replaced"] as const
-export type FrontendAttribute = (typeof FRONTEND_ATTRIBUTES)[number]
+const FRONTEND_ATTRIBUTES = ["qualified_only", "strict", "to_string", "const_replaced", "const_non_replaced"] as const
+type FrontendAttribute = (typeof FRONTEND_ATTRIBUTES)[number]
 
 /** Does `node` carry the front-end attribute `name`? */
 export function hasFrontendAttribute(node: { attributes?: readonly Attribute[] }, name: FrontendAttribute): boolean {

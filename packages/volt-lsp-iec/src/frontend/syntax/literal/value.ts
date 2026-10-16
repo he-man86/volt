@@ -79,7 +79,7 @@ export function parseLiteralValue(kind: LiteralKind, text: string): ParsedLitera
  * (`lit_uchar_high_escape`, `lit_uchar_escape_80`, CODESYS 2026-10-01). The decoder keeps a STRING as its UTF-8
  * bytes, so the characters are read back from those bytes, never counted off the byte string itself.
  */
-export type TypedLiteralForm =
+type TypedLiteralForm =
   | { kind: "typed"; prefix: string; body: string }
   | { kind: "char"; code: bigint }
   | { kind: "utf8"; raw: string }

@@ -44,7 +44,7 @@ export interface Target {
 
 /** What the project's compile settings say, each part known or not: its compile defines (CODESYS's Application > Build >
  *  Compiler defines, the TwinCAT PLC project's "Compiler defines") and its task configuration. */
-export interface ProjectFacts {
+interface ProjectFacts {
   defines?: ReadonlySet<string>
   tasks?: ReadonlySet<string>
 }

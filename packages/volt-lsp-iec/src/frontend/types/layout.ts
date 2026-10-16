@@ -25,13 +25,13 @@ import { resolveTypeExpr } from "./resolve.js"
 import type { Type } from "./type.js"
 
 /** A size and an alignment, in bytes. */
-export interface Bytes {
+interface Bytes {
   size: bigint
   align: bigint
 }
 
 /** One field to pack: its size and alignment, a BIT (packed with its neighbours), or unmeasured (undefined). */
-export interface PackedField {
+interface PackedField {
   name: string
   bytes: Bytes | "bit" | undefined
 }

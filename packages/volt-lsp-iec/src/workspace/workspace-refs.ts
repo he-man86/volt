@@ -44,7 +44,7 @@ const MEASURED_DEVICE_TARGETS: ReadonlyMap<string, Target> = new Map([["CODESYS 
 
 /** The target the device descriptors' names give: the one measured device's, or undefined when none is measured — or
  *  two measured devices disagree, which no single-application workspace can mean. */
-export function targetOfDevices(deviceNames: readonly string[]): Target | undefined {
+function targetOfDevices(deviceNames: readonly string[]): Target | undefined {
   const targets = new Set(deviceNames.flatMap((n) => MEASURED_DEVICE_TARGETS.get(n) ?? []))
   return targets.size === 1 ? [...targets][0] : undefined
 }

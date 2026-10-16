@@ -49,7 +49,7 @@ export type SymbolKind =
   | "device"
 
 /** The symbol kinds that are POUs — what a call or an instance names: a FUNCTION, a FUNCTION_BLOCK, a PROGRAM. */
-export const POU_SYMBOL_KINDS: ReadonlySet<SymbolKind> = new Set(["function", "function_block", "program"])
+const POU_SYMBOL_KINDS: ReadonlySet<SymbolKind> = new Set(["function", "function_block", "program"])
 
 /** Is `sym` a POU (`POU_SYMBOL_KINDS`)? */
 export function isPouSymbol(sym: Symbol): boolean {

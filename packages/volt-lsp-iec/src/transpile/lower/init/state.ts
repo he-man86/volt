@@ -38,7 +38,7 @@ export interface PendingInit {
 }
 
 /** A frame's initializers that run rather than fold (each was a field of the `Lowering`). */
-export interface InitFrame {
+interface InitFrame {
   /** Every non-constant initializer of the frame, in declaration order (`PendingInit`). */
   readonly pendingInits: PendingInit[]
   /** A VAR_TEMP's initializer that is not a constant — and a METHOD's or FUNCTION's VAR's, its temporary section — by

@@ -28,7 +28,7 @@ import type { Document } from "../services/index.js"
 
 /** Where a document that could not be analysed is told — the server logs it to the client. REQUIRED, never
  *  defaulted: a test passes one that rethrows. */
-export type FailureReport = (uri: string, error: unknown) => void
+type FailureReport = (uri: string, error: unknown) => void
 
 export class WorkspaceStore {
   private open = new Map<string, TextDocument>()

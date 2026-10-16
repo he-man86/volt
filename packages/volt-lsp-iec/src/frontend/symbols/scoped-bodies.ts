@@ -37,7 +37,7 @@ import { scopeForUnit } from "./name-index.js"
 import { conditionWorld } from "./condition-world.js"
 import type { Scope } from "./model.js"
 
-export interface UnitBody {
+interface UnitBody {
   unit: TopLevel
   body: BodySpan
   scope: Scope

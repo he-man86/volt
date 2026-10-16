@@ -171,7 +171,7 @@ function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol 
 
 /** Every occurrence of `target` (or of any of several) across ST bodies (via `findReferences`) AND network-text operand
  *  networks. */
-export function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol | readonly Symbol[]): Ref[] {
+function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol | readonly Symbol[]): Ref[] {
   const all = [...docs] // iterated twice (ST pass, then network text pass)
   const t = targetsOf(target)
   const out = findReferences(all, project, target)

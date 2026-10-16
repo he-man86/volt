@@ -85,16 +85,16 @@ export { parseExprFromTokens } from "./parse/expression.js"
 export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
 // literal values
-export { DURATION_UNITS_NS, typedLiteralForm, type TypedLiteralForm } from "./literal/value.js"
+export { DURATION_UNITS_NS, typedLiteralForm } from "./literal/value.js"
 export { decodeStringLiteral, decodeUtf8Literal } from "./literal/string.js"
-export { addressShape, type AddressShape } from "./literal/address.js"
+export { addressShape } from "./literal/address.js"
 export { calendarNanoseconds } from "./literal/calendar.js"
 
 // pragmas
-export { declarationAttributes, FRONTEND_ATTRIBUTES, hasFrontendAttribute, memberAttributes, readAttribute, unitAttributes, type FrontendAttribute } from "./pragmas/attributes.js"
+export { declarationAttributes, hasFrontendAttribute, memberAttributes, readAttribute, unitAttributes } from "./pragmas/attributes.js"
 export { attributeNames, isKnownAttribute } from "./pragmas/known-attributes.js"
 export { directiveOf } from "./pragmas/conditional.js"
-export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts, Target } from "./pragmas/condition-eval.js"
+export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, Target } from "./pragmas/condition-eval.js"
 
 // the Volt workspace file format
 export {
@@ -102,7 +102,6 @@ export {
   IMPLEMENTATION_KEYWORD,
   implementationLine,
   implementationWords,
-  isNeverShown,
   lookalikeLine,
   statedLine,
 } from "./format/implementation-line.js"

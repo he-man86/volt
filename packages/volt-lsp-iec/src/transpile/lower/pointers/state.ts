@@ -42,7 +42,7 @@ export interface Cursor {
 }
 
 /** What a frame keeps about its pointers and its pointer-like parameters (each was a field of the `Lowering`). */
-export interface PointerFrame {
+interface PointerFrame {
   /** The pointers and references this body stores at depth 0, by `pointerKey` — so far, in source order. */
   readonly boundPointers: Set<string>
   /** A routine's ANY / ANY_* inputs, upper-cased: each a hidden DINT holding the argument's `diSize` — the one part of

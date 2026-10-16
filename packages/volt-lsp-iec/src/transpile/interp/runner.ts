@@ -11,7 +11,7 @@ import type { Located } from "./frame.js"
 import { Machine } from "./machine.js"
 
 /** How a harness runs a POU. */
-export interface RunOptions {
+interface RunOptions {
   /** Throw `LoopGuardError` when one loop enters its body more than this many times. Unset: no bound. */
   readonly loopGuard?: number
 }

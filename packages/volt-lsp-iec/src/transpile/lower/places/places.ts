@@ -66,7 +66,7 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
  * (`libraries/Standard`). One walk decides both, so the base is never lowered twice (a probe that did, and threw its
  * diagnostics away, also threw away a GVL's declaration errors and the refusal of a call inside the index).
  */
-export type Indexed = { place: Place } | { char: { place: Place; index: IrExpr; unit: Type } }
+type Indexed = { place: Place } | { char: { place: Place; index: IrExpr; unit: Type } }
 
 export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "deref" }>, notAMember?: string): Indexed | undefined {
   if (e.kind === "deref") {

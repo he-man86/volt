@@ -80,12 +80,6 @@ const NEVER_SHOWN = new Set(["CFC", "SFC", "IL"])
 /** The six languages Volt knows. Any other word is a language only as a hidden body: `IMPLEMENTATION UML UNSUPPORTED`. */
 const KNOWN = new Set(["ST", "LD", "FBD", ...NEVER_SHOWN])
 
-/** Is this a language Volt never shows a body in (CFC, SFC, IL) — as opposed to LD/FBD, hidden only when network text
- *  cannot represent the body? */
-export function isNeverShown(language: string): boolean {
-  return NEVER_SHOWN.has(language)
-}
-
 /** The line of a body Volt does not show, in its one spelling. */
 function unsupportedLine(language: string): string {
   return `${IMPLEMENTATION_KEYWORD} ${language} ${UNSUPPORTED_WORD}`
@@ -175,7 +169,7 @@ export type BodyOwner = "member" | "pou" | "accessor"
  * `IMPLEMENTATION ST` is NOT reported here: the push writes it as sent (openspec bridge-refusal-review 1.1), and the
  * build reads it as the ST it is stated to be — the ST parser answers it, as the build does (`rcc_st_body_network`).
  */
-export function splitImplementation(
+function splitImplementation(
   tokens: Token[],
   owner: BodyOwner,
   report: ReportAt,

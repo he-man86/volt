@@ -3,7 +3,7 @@
 import { DURATION_UNITS_NS } from "../../frontend/syntax/index.js"
 
 /** Days since 1970 as a civil year, month and day — Hinnant's days-from-civil inverse, mirrored by the prelude's `iec_civil`. */
-export function civilDate(days: bigint): [bigint, bigint, bigint] {
+function civilDate(days: bigint): [bigint, bigint, bigint] {
   const z = days + 719468n
   const era = (z >= 0n ? z : z - 146096n) / 146097n
   const doe = z - era * 146097n

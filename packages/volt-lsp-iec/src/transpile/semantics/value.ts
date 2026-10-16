@@ -28,7 +28,7 @@ const isComposite = (v: Val): v is Val[] | { [field: string]: Val } => typeof v 
 
 /** A composite value copied, so a store of one struct or array into another shares nothing with its source. Element by
  *  element, not `structuredClone`: that makes a `NaNBits` a plain record, which no longer reads as a NaN. */
-export function copy(v: Val): Val {
+function copy(v: Val): Val {
   if (Array.isArray(v)) return v.map(copy)
   return isComposite(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copy(x)])) : v
 }

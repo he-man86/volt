@@ -14,7 +14,7 @@ import type { Check, CheckContext } from "./context.js"
 import { applyPolicy } from "./policy.js"
 import { REGISTRY } from "./registry.js"
 
-export interface DiagnosticsArgs {
+interface DiagnosticsArgs {
   parseResult: ParseResult
   source: string
   project: Scope

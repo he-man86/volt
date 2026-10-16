@@ -22,11 +22,10 @@
  *                     server harness have no other caller by design — but it is where a rule that outlived
  *                     its use hides, so it is worth a look when the list grows.
  *
- * DELIBERATELY TEXTUAL, not a type-aware graph. A name is "used" when it appears as a word in another file,
- * which over-counts (a mention in a comment reads as a use) and never under-counts. That direction is the safe
- * one for a tool whose output is a deletion list: it will miss something dead before it accuses something live.
- * The 92-name NOBODY list it printed on 2026-09-21 was almost entirely union members, and the two real finds —
- * `detectVendor` and `installCorpus`, 465 lines with no caller in a private package — were already known.
+ * IMPORT-BASED, not a type-aware graph: a name is "used" when another file IMPORTS it (`importedNames`), from any
+ * module — a name imported elsewhere under the same spelling still counts, the safe direction for a deletion list.
+ * It counted any word mention until 2026-10-16, and a name cited in a comment or written in ST fixture text kept its
+ * dead `export` alive (28 of them, found by an import scan), as did a barrel's `export { … } from` line.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
@@ -54,7 +53,7 @@ const NOT_A_USE: ReadonlySet<string> = new Set([
 
 /** `export function|const|class|interface|type|enum <name>` — the declaration forms; `export {…}` re-exports
  *  are deliberately not counted, since a barrel naming something is not a USE of it. */
-const EXPORT = /^export\s+(?:async\s+)?(?:function|const|class|interface|type|enum)\s+(\w+)/gm
+const EXPORT = /^export\s+(?:async\s+)?(?:abstract\s+)?(?:function\*?|const\s+enum|const|let|class|interface|type|enum)\s+(\w+)/gm
 /** An exported type or interface (what `ir/`'s barrel carries as "its types"). */
 const EXPORT_TYPE = /^export\s+(?:interface|type)\s+(\w+)/gm
 
@@ -66,19 +65,40 @@ export interface Row {
   script: number
 }
 
-/** Every export declared in `src/` (not in a test), with how many other files of each kind mention it. */
+/** The names in a `{ a, type B, c as d }` list, each by the name it is imported AS FROM its module (`a`, `B`, `c`). */
+const listNames = (list: string): string[] =>
+  list
+    .split(",")
+    .map((s) => s.trim().replace(/^type\s+/, "").split(/\s*(?:\bas\b|:)\s*/)[0]!.trim())
+    .filter((n) => /^\w+$/.test(n))
+
+/**
+ * Every name `text` takes from another module — what counts as a USE: an `import { … } from` (multi-line too), a
+ * destructured `await import(…)` / `require(…)`, a `import(…).Name` type query, and `ns.Name` through an
+ * `import * as ns`. Not a use: a mention in a comment or in fixture text, and an `export { … } from` line — a barrel
+ * naming a name passes it on; the files that import it through the barrel are its uses.
+ */
+export function importedNames(text: string): Set<string> {
+  const out = new Set<string>()
+  for (const m of text.matchAll(/^\s*import\s+(?:type\s+)?(?:\w+\s*,\s*)?\{([^}]*)\}\s*from\s/gm)) for (const n of listNames(m[1]!)) out.add(n)
+  for (const m of text.matchAll(/\{([^{}]*)\}\s*=\s*(?:await\s+import|require)\(/g)) for (const n of listNames(m[1]!)) out.add(n)
+  for (const m of text.matchAll(/\bimport\([^)]*\)\.(\w+)/g)) out.add(m[1]!)
+  for (const ns of text.matchAll(/^\s*import\s+\*\s+as\s+(\w+)\s+from\s/gm))
+    for (const m of text.matchAll(new RegExp(`\\b${ns[1]}\\.(\\w+)`, "g"))) out.add(m[1]!)
+  return out
+}
+
+/** Every export declared in `src/` (not in a test), with how many other files of each kind import it. */
 export function exportRows(texts: ReadonlyMap<string, string>): Row[] {
   const rows: Row[] = []
-  // each file's words once (`\bname\b` for a word `name` is exactly membership here) — a regex per export per file
-  // took 8 s over the package
-  const words = new Map([...texts].map(([f, text]) => [f, new Set(text.match(/\w+/g))]))
+  const imports = new Map([...texts].map(([f, text]) => [f, importedNames(text)]))
   for (const [file, body] of texts) {
     if (!file.startsWith("src/") || isTest(file)) continue
     for (const m of body.matchAll(EXPORT)) {
       const name = m[1]!
       const row: Row = { name, file, src: 0, test: 0, script: 0 }
       for (const [other] of texts) {
-        if (other === file || NOT_A_USE.has(other) || !words.get(other)!.has(name)) continue
+        if (other === file || NOT_A_USE.has(other) || !imports.get(other)!.has(name)) continue
         if (isScript(other)) row.script += 1
         else if (isTest(other)) row.test += 1
         else row.src += 1

@@ -305,7 +305,7 @@ export function twincatXaddResultType(first: Type): Type {
  *                         `POINTER TO LWORD`.
  * `refuses` judges a KNOWN operand type; an unknown one is never refused.
  */
-export type AtomicOperand = { type: Type; store: true } | { type: Type; store: false; refuses: (operand: Type) => boolean }
+type AtomicOperand = { type: Type; store: true } | { type: Type; store: false; refuses: (operand: Type) => boolean }
 
 export function atomicOperand(name: string, dialect: Dialect | undefined): AtomicOperand | undefined {
   const upper = name.toUpperCase()

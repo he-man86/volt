@@ -64,6 +64,6 @@ export function call(m: Caller, s: IrCall): void {
 }
 
 /** Per-run locals at their initial values — what every run of a body starts with. */
-export function fresh(m: Pick<Caller, "layouts">, locals: readonly IrSlot[]): Val[] {
+function fresh(m: Pick<Caller, "layouts">, locals: readonly IrSlot[]): Val[] {
   return locals.map((s) => instantiate(s.type, s.init, m.layouts))
 }

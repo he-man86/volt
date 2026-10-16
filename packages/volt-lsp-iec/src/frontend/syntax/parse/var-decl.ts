@@ -37,7 +37,7 @@ export interface DeclList {
  * VAR_GLOBAL list (`global`) the error carries that fact: CODESYS reports nothing for a missing `;` there, TwinCAT the
  * same words (`pwh_gvl_missing_semicolon`) — `ParseError.globalMissingSemicolon`.
  */
-export function endAfterType(c: Cursor, global: boolean): Token | undefined {
+function endAfterType(c: Cursor, global: boolean): Token | undefined {
   const next = c.peek()
   const at = next.kind === "keyword" && next.keyword === "AT"
   // TwinCAT's `F<6>`: no generic value list there (`parse/type-expr` reads one on CODESYS only) — "';, :=, REF=, ( or ['

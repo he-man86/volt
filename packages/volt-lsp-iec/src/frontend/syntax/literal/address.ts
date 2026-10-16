@@ -11,7 +11,7 @@
  *   malformed    no size letter, or the wrong number of segments — "Direct address '%I?0.0' malformed", the missing
  *                size letter echoed as `?`
  */
-export type AddressShape =
+type AddressShape =
   | { kind: "complete" }
   | { kind: "incomplete" }
   | { kind: "no-position" }

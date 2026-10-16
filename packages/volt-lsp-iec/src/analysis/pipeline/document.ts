@@ -31,7 +31,7 @@ import type { DiagnosticItem } from "../shared/diagnostic-item.js"
 import { computeDiagnostics } from "./diagnostics.js"
 
 /** What one document's findings are composed from. */
-export interface DocumentFindingsArgs {
+interface DocumentFindingsArgs {
   doc: { uri: string; source: string; parseResult: ParseResult }
   project: Scope
   config: ResolvedConfig
