@@ -10,7 +10,7 @@
 #
 # NAMES: keep the job ids stable so the run history stays readable, NOT because anything gates on them.
 #
-# `volt-cli` (the C# toolchain) and the C# half of `cultures` run on windows-latest — the net48/net10-windows IDE hosts + WinForms
+# `volt-cli` (the C# toolchain, every culture) runs on windows-latest — the net48/net10-windows IDE hosts + WinForms
 # connector don't build on Linux.
 name: ci
 
@@ -26,9 +26,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BUN_VERSION: 1.4.2
-
 jobs:
   # The cheap checks, in ONE job. typecheck, lint and the openspec validation were three jobs that each paid a
   # checkout + setup-bun + `bun install --frozen-lockfile` to do a few seconds of work — three installs for
@@ -40,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: package.json # packageManager — the one place the bun version is written
       - run: bun install --frozen-lockfile
       - name: Typecheck (every package + the repo scripts)
         run: |
@@ -86,7 +83,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: package.json # packageManager — the one place the bun version is written
       # The toolchain is the one `packages/volt-lsp-iec/rust-toolchain.toml` names — NOT `stable`: the fixture map's
       # stored lint rows are clippy's output, and the day's `stable` lints differently from the release they were
       # written with (1.99.0 here vs 1.96.0 there dropped `expr_not_not`'s nonminimal_bool on 2026-10-04).
@@ -108,7 +105,7 @@ jobs:
           fetch-depth: 0 # test:ext derives the extension version from the commit COUNT (see version.ts)
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: package.json # packageManager — the one place the bun version is written
       - run: bun install --frozen-lockfile
       - name: Build binaries (feeds the wiring check)
         run: |
@@ -127,11 +124,24 @@ jobs:
       - name: Extension packaging (version is git-derived, not the base)
         run: bun run test:ext
 
-  # The unified C# toolchain (packages/volt-cli). Windows-only: the solution builds the net48 in-proc CODESYS host,
-  # the net10-windows TwinCAT worker, and the WinForms connector, none of which compile on Linux. Advisory, like
-  # every job here.
+  # The unified C# toolchain (packages/volt-cli) — every C# suite, ONE definition, run once per culture. Windows-only:
+  # the solution builds the net48 in-proc CODESYS host, the net10-windows TwinCAT worker, and the WinForms connector,
+  # none of which compile on Linux.
+  #
+  # LOCALE RUNS (openspec environment-dependency-audit 1.1): `machine` is the runner's own culture; the others are the
+  # three customers have shown Volt bugs in or run it on — tr-TR (dotless ı: `VAR_INPUT` stopped matching), ru-RU (a
+  # TwinCAT customer), de-DE (decimal comma). The suites cover net10 AND net48 — the CODESYS bridge runs in-proc under
+  # the IDE's culture. A runner's Windows locale cannot be set per job, so the switch is in-process: VOLT_TEST_CULTURE
+  # (unset for `machine`), read when each C# test assembly loads (test/shared/TestCulture.cs); each suite has a sentinel
+  # test that fails a run whose culture did not switch.
   volt-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        culture: [machine, tr-TR, ru-RU, de-DE]
     runs-on: windows-latest
+    env:
+      VOLT_TEST_CULTURE: ${{ matrix.culture != 'machine' && matrix.culture || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -144,55 +154,8 @@ jobs:
           key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
       - name: Build the whole toolchain (all TFMs — CLI, IDE hosts, connector)
         run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
-      - name: Test — pipe transport + ported sync + black-box + CODESYS multi-instance
-        run: dotnet test packages/volt-cli/test/Volt.Cli.Tests/Volt.Cli.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — shared engine (ST + network text + push/validate incl. delete-idempotency)
-        run: dotnet test packages/volt-cli/test/Volt.Engine.Tests/Volt.Engine.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — connector (connection model, discovery source, single-active + disconnect)
-        run: dotnet test packages/volt-cli/test/Volt.Connector.Tests/Volt.Connector.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — TwinCAT driver (archive round-trip; the item-relocation window)
-        run: dotnet test packages/volt-cli/test/Volt.Ide.Twincat.Tests/Volt.Ide.Twincat.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — CODESYS driver (NWL object model, offline; net48 like the in-proc host)
-        run: dotnet test packages/volt-cli/test/Volt.Ide.Codesys.Tests/Volt.Ide.Codesys.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — wire contracts (VoltLog, Severity)
-        run: dotnet test packages/volt-cli/test/Volt.Contracts.Tests/Volt.Contracts.Tests.csproj -c Release --nologo --blame-hang-timeout 10m
-      - name: Test — repo gates (stale namespaces, test-only code in src, fixture-project integrity)
-        run: dotnet test packages/volt-cli/test/Volt.Repo.Gates/Volt.Repo.Gates.csproj -c Release --nologo --blame-hang-timeout 10m
-
-  # LOCALE RUNS (openspec environment-dependency-audit 1.1): the C# suites (net10 AND net48 — the CODESYS bridge runs
-  # in-proc under the IDE's culture) re-run under the three cultures customers have shown Volt bugs in or run it on —
-  # tr-TR (dotless ı: `VAR_INPUT` stopped matching), ru-RU (a TwinCAT customer), de-DE (decimal comma). A runner's
-  # Windows locale cannot be set per job, so the switch is in-process: VOLT_TEST_CULTURE, read when each C# test assembly
-  # loads (test/shared/TestCulture.cs) and by the TS preload (volt-lsp-iec/test/support/culture.ts); each suite has a
-  # sentinel test that fails a run whose culture did not switch. The TS cell runs volt-control — the package holding the
-  # product TS's one locale-sensitive call (diagnostics.ts) — and the LSP's sentinel only: the LSP's src calls no
-  # locale-sensitive API (JS toUpperCase and /i ignore the locale), so a full LSP run per culture could only go red on
-  # the sentinel; a NEW locale call anywhere in product TS is the repo gate's (CultureInvariantOperationsTests), not this.
-  cultures:
-    strategy:
-      fail-fast: false
-      matrix:
-        culture: [tr-TR, ru-RU, de-DE]
-        suite: [cli, ts]
-    runs-on: ${{ matrix.suite == 'cli' && 'windows-latest' || 'ubuntu-latest' }}
-    env:
-      VOLT_TEST_CULTURE: ${{ matrix.culture }}
-    steps:
-      - uses: actions/checkout@v4
-      - if: matrix.suite == 'cli'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      - if: matrix.suite == 'cli'
-        uses: actions/cache@v4
-        with:
-          path: packages/volt-cli/.cache/mingit
-          key: mingit-${{ hashFiles('packages/volt-cli/src/Volt.Cli/MinGit.targets') }}
-      - if: matrix.suite == 'cli'
-        name: Build the whole toolchain
-        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
-      - if: matrix.suite == 'cli'
-        name: Every C# suite under ${{ matrix.culture }}
+      # Every suite runs even after one fails, so a red cell names every suite it broke.
+      - name: Every C# suite (${{ matrix.culture }} culture)
         shell: pwsh
         run: |
           $failed = @()
@@ -200,19 +163,31 @@ jobs:
             dotnet test "packages/volt-cli/test/$p/$p.csproj" -c Release --no-build --nologo --blame-hang-timeout 10m
             if ($LASTEXITCODE -ne 0) { $failed += $p }
           }
-          if ($failed) { Write-Error "red under $env:VOLT_TEST_CULTURE: $($failed -join ', ')"; exit 1 }
-      - if: matrix.suite == 'ts'
-        uses: oven-sh/setup-bun@v2
+          if ($failed) { Write-Error "red under the ${{ matrix.culture }} culture: $($failed -join ', ')"; exit 1 }
+
+  # The TS half of the locale runs (see `volt-cli` above): volt-control — the package holding the product TS's one
+  # locale-sensitive call (diagnostics.ts) — and the LSP's sentinel only, via the TS preload
+  # (volt-lsp-iec/test/support/culture.ts). The LSP's src calls no locale-sensitive API (JS toUpperCase and /i ignore
+  # the locale), so a full LSP run per culture could only go red on the sentinel; a NEW locale call anywhere in product
+  # TS is the repo gate's (CultureInvariantOperationsTests), not this. The machine culture is the `test` job.
+  cultures:
+    strategy:
+      fail-fast: false
+      matrix:
+        culture: [tr-TR, ru-RU, de-DE]
+    runs-on: ubuntu-latest
+    env:
+      VOLT_TEST_CULTURE: ${{ matrix.culture }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - if: matrix.suite == 'ts'
-        run: bun install --frozen-lockfile
-      - if: matrix.suite == 'ts'
-        name: volt-control under ${{ matrix.culture }}
+          bun-version-file: package.json # packageManager — the one place the bun version is written
+      - run: bun install --frozen-lockfile
+      - name: volt-control under ${{ matrix.culture }}
         working-directory: packages/volt-control
         run: bun test src
-      - if: matrix.suite == 'ts'
-        name: The LSP's locale sentinel under ${{ matrix.culture }}
+      - name: The LSP's locale sentinel under ${{ matrix.culture }}
         working-directory: packages/volt-lsp-iec
         run: bun test test/support/culture.test.ts
 
@@ -225,7 +200,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version-file: package.json # packageManager — the one place the bun version is written
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
