@@ -149,14 +149,37 @@ t1(IN := go, PT := T#1S);                                           // proposed
 The bridge fills them from the declaration on push, like the editor does, or drops them if CODESYS recomputes them (C1).
 A member that can be neither → that network `UNSUPPORTED` (C6 counts how many).
 
-### B8 — PARALLEL, one branch per line
+### B8 — PARALLEL is a word too; its feed is a `FEED` tail
 
+The drawn parallel branch is a box like the others, so it gets the same treatment as `a OR b`. Its feed (the rung
+before the branch) is NOT an `AND` box, so it is never spelled with `AND` (that is what broke the earlier infix try:
+7 of 12 real Parallel networks read two ways). It is a tail inside the Parallel's own brackets, like `ENABLE`:
 ```
-lamp := PARALLEL(IN := start, a, (b AND (speed <= 40)));    // today
-lamp := PARALLEL(IN := start,                               // proposed
-          a,
-          b AND speed LE 40);
+lamp := PARALLEL(IN := start, a, b);                     // today
+lamp := a PARALLEL b FEED start;                         // proposed
+
+lamp := PARALLEL(a, b, c);                               // today, unfed
+lamp := a PARALLEL b PARALLEL c;                         // proposed
+
+lamp := PARALLEL(MODE := Sequential, IN := start, a, b); // today
+lamp := a PARALLEL b FEED start SEQUENTIAL;              // proposed: mode last, only off the default
 ```
+The cases that broke the `start AND (…)` form, each one text now:
+```
+x := s AND (a PARALLEL b);              // an AND box holding an unfed Parallel
+x := (a PARALLEL b FEED s);             // a Parallel fed by s
+x := a PARALLEL (b PARALLEL c FEED e);  // a fed Parallel inside a branch
+x := a PARALLEL b FEED (x PARALLEL y);  // a Parallel fed by a Parallel
+```
+Lenze `MainDrive` (the one Sequential Parallel):
+```
+tInt MOVE Mach1_Data.AUTOSPEED ENABLE
+     (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper
+      PARALLEL (Mach1_Data.AUTOSPEED LE 40 ENABLE Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)
+      FEED split176 SEQUENTIAL)
+     AND NOT HMI_Var.Btn_Cleaning;
+```
+One branch per line when it does not fit. A one-branch Parallel (pushes, does not compile, C0023) is refused.
 
 ### Small ones
 
@@ -171,7 +194,7 @@ LET                           →  no longer reserved
 ### Unchanged
 
 ```
-a := b S= c R= value;    PARALLEL(…)    NOT x    R_EDGE(x)    F_EDGE(x)    f(NOT IN := v)
+a := b S= c R= value;    NOT x    R_EDGE(x)    F_EDGE(x)    f(NOT IN := v)
 JMP l;   RETURN;   IF c THEN JMP l; END_IF;   EXECUTE … END_EXECUTE;   ??? : TON(…)
 fb(…).name   F => dst   ``   ???   UNSUPPORTED "<shape>";
 ```
