@@ -50,19 +50,15 @@ namespace Volt.Ide.Codesys.Tests
         public void A_word_asked_on_an_interface_member_is_refused_there(string kind, string word) =>
             Assert.Equal(Refused(word), CodesysDriver.NameRefusal(kind, word));
 
-        /// <summary>bridge-refusal-review 3.1: every name that is no ASCII identifier and does not open with a backtick
-        /// was refused by SP21 for all six kinds, with the word refusal's own message (<c>vendor-facts.codesys.json, fact identifier-shapes</c>,
-        /// 37 shapes x 6 kinds, 222 refusals). It was <c>StReader.IsIdentifier</c>'s INVALID_ST, unmeasured.</summary>
+        /// <summary>bridge-refusal-review 3.1: every ASCII name that is no identifier and does not open with a backtick
+        /// was refused by SP21 for all six kinds, with the word refusal's own message (<c>vendor-facts.codesys.json, fact
+        /// identifier-shapes</c>), and still is with the project's "Unicode identifiers" option on (DIALECT C28b). It was
+        /// <c>StReader.IsIdentifier</c>'s INVALID_ST, unmeasured.</summary>
         [Theory]
-        [InlineData("Fööbar")]
-        [InlineData("Ünit")]
-        [InlineData("Привет")]
         [InlineData("2Fast")]
         [InlineData("My-Name")]
         [InlineData("a.b")]
         [InlineData("a$b")]
-        [InlineData("a b")]        // a no-break space: the signature line does not split at it
-        [InlineData("a​b")]
         [InlineData("`ab")]             // a backtick that never closes
         [InlineData("a`b")]             // a backtick inside a plain name
         public void A_name_shape_CODESYS_refused_is_refused_for_every_kind(string name)
@@ -71,6 +67,30 @@ namespace Volt.Ide.Codesys.Tests
                                          ItemKind.Kinds.Property, ItemKind.Kinds.InterfaceMethod,
                                          ItemKind.Kinds.InterfaceProperty })
                 Assert.Equal(Refused(name), CodesysDriver.NameRefusal(kind, name));
+        }
+
+        /// <summary>A name holding a character past ASCII is the IDE's to judge (openspec
+        /// <c>codesys-existing-unicode-members</c>, DIALECT C28b): SP21 refuses <c>Fööbar</c>, <c>Привет</c>, <c>名前</c> with
+        /// the project's "Unicode identifiers" option off and CREATES them with it on — a Chinese customer's project holds
+        /// and builds such methods — so the word alone decides nothing, and the IDE's own refusal (a no-break or zero-width
+        /// space, a leading digit before CJK: refused with the option on too) arrives in its own words, in its own language.
+        /// The rows: the shapes SP21 refused with the option off, and the be8c6faa names.</summary>
+        [Theory]
+        [InlineData("Fööbar")]
+        [InlineData("Ünit")]
+        [InlineData("Привет")]
+        [InlineData("名前")]
+        [InlineData("从Modbus读取命令")]
+        [InlineData("区域可占用")]
+        [InlineData("a b")]
+        [InlineData("a​b")]
+        [InlineData("1点")]
+        public void A_name_past_ASCII_reaches_the_IDE_for_every_kind(string name)
+        {
+            foreach (var kind in new[] { ItemKind.Kinds.Pou, ItemKind.Kinds.Method, ItemKind.Kinds.Action,
+                                         ItemKind.Kinds.Property, ItemKind.Kinds.InterfaceMethod,
+                                         ItemKind.Kinds.InterfaceProperty })
+                Assert.Null(CodesysDriver.NameRefusal(kind, name));
         }
 
         /// <summary>…and a BACKTICK-QUOTED name was CREATED for all six kinds and built clean — whatever stands between the

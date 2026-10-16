@@ -238,12 +238,15 @@ public sealed partial class CodesysDriver
         CodesysObjectModel.RequireCodesysMembers(settings);
     }
 
-    /// <summary>A measured word (for the kinds the words were asked on), or a name SHAPE SP21 refused for every kind
-    /// (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>): no ASCII identifier and no
-    /// backtick-quoted name. Both answer with the same vendor sentence — measured, the IDE words them alike.</summary>
+    /// <summary>A measured word (for the kinds the words were asked on), or an ASCII name SHAPE SP21 refused for every
+    /// kind (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>):
+    /// no identifier and no backtick-quoted name. Both answer with the same vendor sentence — measured, the IDE words them
+    /// alike. A name holding a character past ASCII is the IDE's to judge, by the project's "Unicode identifiers" option
+    /// (DIALECT C28b, openspec <c>codesys-existing-unicode-members</c>): it reaches the IDE, whose refusal comes back in
+    /// its own words.</summary>
     internal static string? NameRefusal(string kind, string name) =>
         (Volt.Engine.Ide.MeasuredNames.WordMeasuredFor(kind, name) && CodesysRefusedNames.Words.Contains(name))
-        || !(Volt.Engine.Ide.MeasuredNames.IsAsciiIdentifier(name) || IsBacktickQuoted(name))
+        || (Volt.Engine.Ide.MeasuredNames.IsAsciiNonIdentifier(name) && !IsBacktickQuoted(name))
             ? $"CODESYS does not take '{name}' as a name (\"The name '{name}' is not valid for this object.\")"
             : null;
 

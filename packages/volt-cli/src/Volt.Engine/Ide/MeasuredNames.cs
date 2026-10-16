@@ -25,19 +25,26 @@ public static class MeasuredNames
     private static readonly HashSet<string> AskedOnInterfaceMembers =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "a__b" };
 
-    /// <summary>An ASCII identifier: a letter or underscore, then letters, digits and underscores. Measured on both
-    /// vendors for a POU and every member kind (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>
-    /// and <c>vendor-facts.twincat.json, fact identifier-shapes</c>): every name outside it that was asked — non-ASCII letters, a leading
-    /// digit, every ASCII punctuation mark, a no-break or zero-width space — was refused by the IDE's own NAME refusal,
-    /// a lone <c>_</c> was created. CODESYS adds one shape of its own (a backtick-quoted name), which its driver
-    /// states.</summary>
-    public static bool IsAsciiIdentifier(string name)
+    /// <summary>An ASCII name that is no identifier: not a letter or underscore, then letters, digits and underscores
+    /// (a leading digit, an ASCII punctuation mark, an ASCII blank). Measured refused by both vendors for a POU and every
+    /// member kind (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>
+    /// and <c>vendor-facts.twincat.json, fact identifier-shapes</c>), and on CODESYS whatever the project's "Unicode
+    /// identifiers" option (DIALECT C28b), so it is refused before the batch's first write. A lone <c>_</c> is an
+    /// identifier. CODESYS adds one shape of its own (a backtick-quoted name), which its driver states.
+    ///
+    /// <para><b>A name holding any character past ASCII is never judged here</b> (openspec
+    /// <c>codesys-existing-unicode-members</c>): CODESYS takes <c>Fööbar</c>, <c>Привет</c>, <c>名前</c> exactly when the
+    /// PROJECT's Compile option "Unicode identifiers" is on (measured SP21, C28b); a Chinese customer's project holds and
+    /// builds such methods. No driver can refuse one from the word alone: it goes to the IDE, and the IDE's own refusal,
+    /// in its own words and language, is the answer (<c>ChildRefusedException</c>).</para></summary>
+    public static bool IsAsciiNonIdentifier(string name)
     {
-        if (name.Length == 0) return false;
-        if (!IsAsciiLetter(name[0]) && name[0] != '_') return false;
+        foreach (var c in name) if (c > 0x7f) return false;
+        if (name.Length == 0) return true;
+        if (!IsAsciiLetter(name[0]) && name[0] != '_') return true;
         for (var i = 1; i < name.Length; i++)
-            if (!IsAsciiLetter(name[i]) && (name[i] < '0' || name[i] > '9') && name[i] != '_') return false;
-        return true;
+            if (!IsAsciiLetter(name[i]) && (name[i] < '0' || name[i] > '9') && name[i] != '_') return true;
+        return false;
     }
 
     private static bool IsAsciiLetter(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');

@@ -52,14 +52,10 @@ public class TcNameRefusalTests
     /// kinds, "Name mismatch" (<c>vendor-facts.twincat.json, fact identifier-shapes</c>, 45 of its 50 shapes x 6 kinds, 270 refusals) — a backtick-quoted
     /// name too, which CODESYS creates.</summary>
     [Theory]
-    [InlineData("Fööbar")]
-    [InlineData("Ünit")]
-    [InlineData("Привет")]
     [InlineData("2Fast")]
     [InlineData("My-Name")]
     [InlineData("a.b")]
     [InlineData("a$b")]
-    [InlineData("a b")]
     [InlineData("`ab`")]
     [InlineData("`a-b`")]
     [InlineData("`ab")]
@@ -69,6 +65,24 @@ public class TcNameRefusalTests
                                      ItemKind.Kinds.Property, ItemKind.Kinds.InterfaceMethod,
                                      ItemKind.Kinds.InterfaceProperty })
             Assert.Equal(Refused(name), BeckhoffDriver.NameRefusal(kind, name));
+    }
+
+    /// <summary>A name holding a character past ASCII reaches the IDE, as on CODESYS (openspec
+    /// <c>codesys-existing-unicode-members</c>): TcXaeShell refused the ones asked, but whether a project takes one is its
+    /// "Unicode identifiers" option (DIALECT C28b, D39), not the word, and the IDE's "Name mismatch" comes back as the
+    /// apply loop's <c>ChildRefusedException</c>. An EXISTING such member is never asked (the engine's pre-flight).</summary>
+    [Theory]
+    [InlineData("Fööbar")]
+    [InlineData("Ünit")]
+    [InlineData("Привет")]
+    [InlineData("区域可占用")]
+    [InlineData("a b")]
+    public void A_name_past_ASCII_reaches_the_IDE_for_every_kind(string name)
+    {
+        foreach (var kind in new[] { ItemKind.Kinds.Pou, ItemKind.Kinds.Method, ItemKind.Kinds.Action,
+                                     ItemKind.Kinds.Property, ItemKind.Kinds.InterfaceMethod,
+                                     ItemKind.Kinds.InterfaceProperty })
+            Assert.Null(BeckhoffDriver.NameRefusal(kind, name));
     }
 
     [Theory]

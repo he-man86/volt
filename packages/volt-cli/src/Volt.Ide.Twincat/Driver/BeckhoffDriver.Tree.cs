@@ -354,11 +354,15 @@ public sealed partial class BeckhoffDriver
               "states no type, and TwinCAT creates an interface member with its type as the create argument. Give it a type."
             : null;
 
-    /// <summary>A measured word (for the kinds the words were asked on), or a name that is no ASCII identifier — refused
+    /// <summary>A measured word (for the kinds the words were asked on), or an ASCII name that is no identifier — refused
     /// by TcXaeShell for every kind asked, backtick-quoted names included (openspec <c>bridge-refusal-review</c> 3.1,
-    /// <c>scripts/vendor-facts.twincat.json, fact identifier-shapes</c>: 45 of its 50 shapes x 6 kinds, every one "Name mismatch").</summary>
+    /// <c>scripts/vendor-facts.twincat.json, fact identifier-shapes</c>: 45 of its 50 shapes x 6 kinds, every one "Name mismatch").
+    /// A name holding a character past ASCII reaches the IDE, as on CODESYS (openspec
+    /// <c>codesys-existing-unicode-members</c>): TcXaeShell refused every one asked, but its language model carries the
+    /// "Unicode identifiers" option CODESYS gates them on (DIALECT D39), so the word alone does not decide it; the IDE's
+    /// own "Name mismatch" does, through the apply loop's <c>ChildRefusedException</c>.</summary>
     internal static string? NameRefusal(string kind, string name) =>
-        (MeasuredNames.WordMeasuredFor(kind, name) && TcRefusedNames.Words.Contains(name)) || !MeasuredNames.IsAsciiIdentifier(name)
+        (MeasuredNames.WordMeasuredFor(kind, name) && TcRefusedNames.Words.Contains(name)) || MeasuredNames.IsAsciiNonIdentifier(name)
             ? $"TwinCAT does not take '{name}' as a name (\"Creating the child named '{name}' is not possible on node (Name mismatch)\")"
             : null;
 

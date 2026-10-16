@@ -32,10 +32,11 @@ const reasons = (r: any) => ((r?.conflicts ?? []) as any[]).map((c) => String(c.
 /** The text from a member's header to the next member's (or the file's end): what "the method is unchanged" compares. */
 const member = (text: string, name: string) => {
 	const ls = lf(text).split("\n")
-	const at = ls.findIndex((l) => new RegExp(`^METHOD\\s+(.*\\s)?${name}\\b`).test(l))
+	const at = ls.findIndex((l) => new RegExp(`^METHOD\\s+(.*\\s)?${name}(\\s|:|$)`).test(l))
 	if (at < 0) throw new Error(`no METHOD ${name} in:\n${text}`)
-	const end = ls.findIndex((l, i) => i > at && /^(METHOD|PROPERTY|ACTION|END_FUNCTION_BLOCK)\b/.test(l))
-	return ls.slice(at, end < 0 ? undefined : end).join("\n")
+	const end = ls.findIndex((l, i) => i > at && l === "END_METHOD")
+	if (end < 0) throw new Error(`METHOD ${name} has no END_METHOD in:\n${text}`)
+	return ls.slice(at, end + 1).join("\n")
 }
 
 const items = (await bridge.refs()).items ?? {}
@@ -64,10 +65,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 
 	it("a NEW method named in CJK is created: the IDE takes it (its project has Unicode identifiers on)", async () => {
 		const now = await fetchItem(FB)
-		const added = lf(now.sourceText).replace(
-			/END_FUNCTION_BLOCK\s*$/,
-			"METHOD 读取命令 : BOOL\nIMPLEMENTATION ST\n读取命令 := TRUE;\n\nEND_FUNCTION_BLOCK\n",
-		)
+		const added = lf(now.sourceText) + "\nMETHOD 读取命令 : BOOL\n\nIMPLEMENTATION ST\n读取命令 := TRUE;\n\nEND_METHOD\n"
 		const r = await pushOps([{ op: "set", name: FB, sourceText: added, ifVersion: now.version }])
 		expect(landedInFull(r), reasons(r)).toBe(true)
 		expect(member((await fetchItem(FB)).sourceText, "读取命令")).toContain("读取命令 := TRUE;")
@@ -77,10 +75,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 		// A leading digit before CJK: refused by SP21 with Unicode identifiers on (DIALECT C28b) — the IDE's verdict, not
 		// a pre-flight guess, so it arrives as the IDE words it.
 		const now = await fetchItem(FB)
-		const bad = lf(now.sourceText).replace(
-			/END_FUNCTION_BLOCK\s*$/,
-			"METHOD 1点 : BOOL\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
-		)
+		const bad = lf(now.sourceText) + "\nMETHOD 1点 : BOOL\n\nIMPLEMENTATION ST\n\nEND_METHOD\n"
 		const r = await pushOps([{ op: "set", name: FB, sourceText: bad, ifVersion: now.version }])
 		expect(landedInFull(r)).toBe(false)
 		expect(reasons(r)).toContain("The name '1点' is not valid for this object.")
