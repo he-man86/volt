@@ -626,7 +626,7 @@ The rules are `readability.md` (R1–R7 + the small ones; R4 is the `ENABLE` tai
 and the push pairing stay; the TEXT layer (writer, reader, gate, LSP parser/checks, docs, goldens) is rewritten to it,
 and every V2 spelling the rules replace is DELETED, not kept beside the new one.
 
-- [ ] 2R.1 The checks C1–C5 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
+- [ ] 2R.1 The checks C1–C6 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
       vendors where the fact exists on both) and on the six corpora. Each answer recorded in design.md with its evidence.
       A check that contradicts a rule: write the contradiction and the alternative into design.md and STOP for the owner.
 - [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition

@@ -91,6 +91,13 @@ IF c THEN x := x + 5; END_IF;               // proposed
 LIMIT(EN := c, 0, v, 100, => y);            // today
 IF c THEN y := LIMIT(0, v, 100); END_IF;    // proposed
 ```
+The statement's top operator IS the enabled box. A MOVE is implied only when the value is a plain operand; a MOVE
+around a box is written out, or `IF c THEN x := a + b;` would be two trees:
+```
+IF c THEN x := a + b; END_IF;               // ADD(EN := c, a, b, => x)
+IF c THEN x := MOVE(a + b); END_IF;         // MOVE(EN := c, (a + b), => x)
+IF c THEN x := y; END_IF;                   // MOVE(EN := c, y, => x)
+```
 Only what one box can be — anything else is refused, by the LSP while typing:
 ```
 IF c THEN a := 1; ELSE a := 2; END_IF;      // refused: ELSE has no LD drawing
@@ -185,6 +192,7 @@ f(…).ENO  (consumed)   F => dst   EN := ,   `` (empty operand)   UNSUPPORTED "
 | C2 | Is ENO = EN for every box in a statement-level chain (MOVE, operators, functions)? A chain of FBs with their own ENO logic keeps `.ENO`. | R3 |
 | C3 | Does any corpus network hold an IF-shaped text that R2/R3 would read two ways? (census of every enabled box at statement level) | R2, R3 |
 | C4 | Does any IDE store a 3-input SUB/EQ box? | R1 guard |
+| C6 | R6 relaxes one-to-one: the TEXT plus the project's declarations give the NWL tree, not the text alone. Per member, how many corpus networks would go `UNSUPPORTED` because the bridge cannot derive the stored value (1b.2 reach: `Fixed` 1914, `Boolean` 2347, `Address` sentinel 258, `BranchCounter` 23 bodies)? If that is more than a handful, STOP for the owner — R6 then needs another answer. | R6 |
 | C5 | Corpus count of each rule's reach, and the line count of the six corpora before/after | all |
 
 ## Cost
