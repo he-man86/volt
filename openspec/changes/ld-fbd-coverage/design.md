@@ -535,3 +535,58 @@ measured by 2R.3's re-pull (no B-writer exists yet).
    rule, 2R.4 measures it per member — a drawn corpus-shaped network and its rebuild, both run (`record:exec`) on the
    same inputs, outputs compared — and a member whose loss changes behaviour makes its network refused on rebuild
    ((b) for that member), not lost.
+
+## 2R.2 Readability — the grammar 2R.3 builds, and every member under B7 (2026-10-16)
+
+**Target.** `readability.md` AS IT IS NOW is the grammar, whole: B1–B8, the small ones, P1–P16 — one rule, a box is its
+NAME (`a ADD b`, `a GT 40`, `MOVE b => a`), `:=`/`S=`/`R=` are coils only (`a := b`: a coil, no box), `EN` the enable
+after the box, a line without `;` hands its root box's ENO to the next line's one `ENO` (one `;` = one NWL item), jumps
+are coils (`JMP l := c;`), `split<VarId>` with no `VAR_TEMP` (type inline only where it differs), the drawn parallel as
+`BRANCH` lines combined by `feed INTO BRANCHES [SHORTCIRCUIT]` (inline `INTO (BRANCH … BRANCH …)` only inside a branch).
+That file is the spec; 2R.3 writes `docs/network-text.html` from it. This section's earlier draft (`ENABLE`/`THEN`/`FEED`)
+is replaced, not amended. Model, drivers and push pairing (1b.4) do not change.
+
+**2R.1's open items (owner, tasks 2R.2).** 1 empty enable → bare `EN` (`iRPM MUL 6 => oDrive EN;`; 37 in 33 networks).
+Rejected: ``EN `` `` (the empty-text operand, another tree), `EN ???` (the unnamed instance). · 2 operator box with an
+output pin and no EN → `a ADD b => x;` (0; rejected: refuse — refusing a buildable tree for no gain). · 3 negated
+operator pin → P10's call form `AND(a, NOT IN2 := b)` (4 boxes, 3 networks). Rejected: "the IMPLEMENTATION line decides"
+(`NOT x` would mean the pin in FBD and the operand in LD — one text, two trees across bodies); `UNSUPPORTED` (the call
+form already exists). · 4 → `EXECUTE EN c … END_EXECUTE` (11 networks + TwinCAT 1; rejected: keep `EXECUTE(EN := c)`, a
+second EN spelling). · 5 B7 vs C4 → **lost on rebuild, not refused**: an unchanged network is never rebuilt (N28) and
+keeps every member byte for byte; an edited one is built with the derivation and `RebuildLoss` names each dropped value
+(P15's code lens). Rejected: strict B7 (90 % of networks, 348 of 388, uneditable over members no run has shown to
+matter); the pragma (owner, 2R). 2R.4 runs drawn vs rebuilt per member (`record:exec`); a member whose loss changes
+behaviour makes its networks refused on rebuild.
+
+**Member disposition (no pragma; codes: S spelled · D derived on push from text + declarations, as the editor does ·
+C editor cache, dropped · L lost on rebuild until 2R.4 · E shown, edit refused · X the network `UNSUPPORTED`).**
+- **S:** `DefaultViewMode`, `NetworkList`, `Label`, `OutCommented`, `Title` exact (21 differ from today's trim — the
+  trims go), `Comment` verbatim (P12; the CR LF fold goes), items, Assign targets/value, `BoxType` of an operator or
+  function, `Instance`, inputs, `STSnippet`, Demux `VarId`/`Input`, Parallel `Branches`/`Input`/`Mode` (`SHORTCIRCUIT`
+  where it differs from the editor's `Sequential`: 16 of 17), Operand name + flags, box `Flags`, a negated pin.
+- **D:** an FB/program `BoxType`, a call's whole output list and `InputParam`/`OutputParam` `Types` from the callee's
+  declaration (a library POU through the bridge's signature read — 2R.3 measures it on both vendors first, L until
+  then; today's 249 `Names` + 288 `Types` pragmas, 195 networks, become 413 derivations), `CallType`, the stored `EN`/`ENO`
+  bools, `InputFlags` null-or-zeros, `Instance.Type`, `Operand.Type` (a split's differing type is S, 0 in the corpora),
+  `Comment`/`LValue`/`IsInstance`, `Extensible`, `IL*`/`FBDValid`, the item's Jump/Return bit (0 — the writer stops ORing
+  it), body `NetworkListComment`/`ValidIds` (a differing value → the body `UNSUPPORTED`, P13; 0).
+- **C:** item `Id`s, STSnippet line ids, the TextDocument caches (N29, N30, C1/N38: no refill on a pushed network).
+- **L:** `Fixed` (340 networks), `Boolean` (296), the `Address` sentinel (27), a function's result name `'   '` (82 —
+  no box Volt builds can hold it, N37), a bit operator's stored slot `['']` (11), stored values that differ from D
+  (15 `BoxType` spellings, 47 `Instance.Type`, stale `Operand.Type`, `EN`/`ENO`, zero-only `InputFlags`). Body
+  `BranchCounter` (22 of 44 bodies): a network rebuild never writes the body, so it survives; a body create takes the
+  IDE's count.
+- **E:** `SymbolComment` (10 operands, 1 network; `RefuseSymbolCommentLoss` stays until 2R.4), S4 `fb(…).name` and an
+  enabled comparison value (N21, P5), as 1b.4.
+- **X / refused by name:** non-default `Terminator`, `BoxTreeMux`, `ILStatement`, `Connectors`, `ILLines`; a box
+  consuming two ENOs; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3); every old spelling (P14) —
+  all 0 in the corpora.
+
+**Corpus reach (C5; 388 CODESYS + 6 TwinCAT networks, 392 of 394 spell clean, P16).** B1 74 non-AND/OR boxes in 35
+networks + 826 AND/OR groups · B2 102 MOVEs / 44 · B3 225 enabled boxes / 95 · B4 58 lines reading `ENO` / 29 · B4b 1
+conditional `RETURN`, 0 `JMP` · B5 483 bracketed values / 211 · B6 139 splits / 99, inline types 0 · B7 195 networks lose
+their pragma · B8 17 parallels / 12 (5 unfed) · P1 backticks 4 · P10 call form 4 pins. Lines: 1945 before; after: 2R.3.
+
+**Migration.** No users, no compat: 2R.3 replaces writer, reader, gate and LSP parser in one pass, deletes every V2
+spelling (`NetworkPragma.cs`, the pragma text half, `syntax/network/pragma.ts`) and refuses each old form with a pointer
+to the new (P14); recordings stand (the model is unchanged), goldens and the corpora are re-pulled.
