@@ -623,20 +623,23 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
 
 Owner: "i think the V1 was much more readable then what we have now", "remove all and implement in the new way".
 The rules are `readability.md` — ONE rule: a box is always its NAME (`a ADD b`, `a GT 40`, `MOVE b => a`), `:=`/`S=`/`R=`
-are coils only (`a := b` is the assignment without a box), `ENABLE` is the enable input, `THEN` the ENO chain (B1–B8 +
+are coils only (`a := b` is the assignment without a box), `EN` is the enable input, `THEN … ENO` the ENO (B1–B8 +
 the small ones). The model, the drivers and the push pairing stay; the TEXT layer (writer, reader, gate, LSP
 parser/checks, docs, goldens) is rewritten to it, and every V2 spelling the rules replace is DELETED, not kept beside the
-new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, the member pragma).
+new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the member pragma).
 
 - [ ] 2R.1 The checks C1–C5 of `readability.md`, live on own instances (`ide.ps1 -Instance ld-fbd-readability`, both
       vendors where the fact exists on both) and on the six corpora. Each answer recorded in design.md with its evidence.
       A check that contradicts a rule, and either of the two "Open" items: write it and the alternatives into design.md
       and STOP for the owner.
+      **Stopped 2026-10-16 for the owner:** design.md "2R.1" — C1 (CODESYS: no refill, N38), C2, C3 (CODESYS builds
+      refuse every 3-input SUB/DIV/MOD/comparison; 0 in the corpora), C4 (90 % of networks), C5 answered; five Open items
+      with a default each. Owed: TwinCAT's C1/C3 runs (an orphaned worker of this instance blocks `ide.ps1 up`).
 - [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
-      guards, B2 `MOVE b => a`, B3 `ENABLE`, B4 `THEN` and `( … ).ENO`, B5 bare values, B6 `split<n>`, B7 the pragma DELETED
+      guards, B2 `MOVE b => a`, B3 `EN`, B4 `THEN … ENO` (`.ENO` deleted), B5 bare values, B6 `split<n>`, B7 the pragma DELETED
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
       section) with its members derived in the drivers, B8 `a PARALLEL b FEED s [SEQUENTIAL]`, and the small ones. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
