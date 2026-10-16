@@ -129,6 +129,9 @@ export type Step = StepBase &
     | { op: "build" }
     /** Save, close and reopen the same copy. */
     | { op: "reload" }
+    /** The subject's own editor opened in the IDE and closed again (CODESYS `IFrame.OpenEditorView` / `CloseView`;
+     *  TwinCAT its DTE project item opened and closed saving) — what an engineer does by looking at a body. */
+    | { op: "editor"; on: Handle }
     | { op: "invoke"; on?: Handle; path: string; args?: Arg[] }
     | { op: "invoke"; on?: Handle; path: string; set: Arg }
     /** Each name, one at a time: a create of `kind` under `parent` through the vendor API, the name read back, the object
@@ -786,6 +789,49 @@ const NWL_R_CALLS = nwlProgram(
     "j := (i + 1);",
   ],
 )
+/** ld-fbd-coverage 2R.1 C1: the boxes whose `OutputParam` Names/Types an IDE-drawn box stores and a pushed one derives —
+ *  a function's result, an FB call with no output wired, an FB consumed by its main output, an operator group, an
+ *  arithmetic box and a comparison — and the networks where an editor would have a reason to touch the other members:
+ *  a negated contact, a parallel branch (`BranchCounter`), an enabled MOVE and an enabled function read through its
+ *  ENO (`EN`/`ENO`). */
+const NWL_EDITOR = nwlProgram(
+  "VltF_RE",
+  [
+    "a : BOOL", "b : BOOL", "c : BOOL", "i : INT", "j : INT", "k : INT", "m : INT", "o1 : BOOL", "o2 : BOOL",
+    "o3 : BOOL", "o4 : BOOL", "o5 : BOOL", "o6 : BOOL", "t1 : TON", "t2 : TON",
+  ],
+  "LD",
+  [
+    "k := VltF_RFn(x := i);",
+    "t1(IN := a, PT := T#1S);",
+    "o1 := t2(IN := b, PT := T#2S);",
+    "o2 := (a AND b);",
+    "j := (i + 1);",
+    "o3 := (i > j);",
+    "o4 := (a AND NOT b);",
+    "o5 := PARALLEL(IN := a, b, NOT c);",
+    "MOVE(EN := a, 750, => m);",
+    "o6 := VltF_RFn(EN := b, i).ENO;",
+  ],
+)
+/** The FBD half of C1: an operator tree, a negated operator PIN (FBD's negation, `InputFlags`), an enabled function
+ *  read through its ENO and an enabled MOVE. */
+const NWL_EDITOR_FBD = nwlProgram(
+  "VltF_RF",
+  ["a : BOOL", "b : BOOL", "c : BOOL", "q : BOOL", "i : INT", "m : INT", "o : BOOL", "p : BOOL", "ok : BOOL"],
+  "FBD",
+  [
+    "o := (((a AND b AND c) OR (a AND b)) AND q);",
+    "p := AND(NOT IN1 := a, b);",
+    "ok := VltF_RFn(EN := a, i).ENO;",
+    "MOVE(EN := b, 7, => m);",
+  ],
+)
+/** The members C1 reads at every point (the input pin flags too: FBD's negation). */
+const NWL_EDITOR_MEMBERS = [
+  "BoxType", "Names", "Types", "Names#count", "Types#count", "OutputItems#count", "Fixed", "Boolean", "Address",
+  "BranchCounter", "EN", "ENO", "CallType", "InputFlags",
+]
 /** An Execute box (CallType None; the snippet's per-line ids). */
 const NWL_R_EXEC = nwlProgram("VltF_RX", ["a : BOOL", "k : INT"], "LD", [
   { lines: ["EXECUTE(EN := a)", "k := k + 1;", "k := k * 2;", "END_EXECUTE;"] },
@@ -4580,6 +4626,50 @@ export const ROWS: Row[] = [
     vendors: { codesys: true, twincat: true },
     steps: nwlSteps({ as: "rc", name: "VltF_RC", source: NWL_R_CALLS }, ["fn", "prg"]),
     reads: nwlReads("rc", ["CallType", "BoxType"]),
+  },
+  // ── ld-fbd-coverage 2R.1, check C1: does an IDE fill a box's OutputParam Names/Types — and the other members B7 must
+  // drop, derive or refuse (Fixed, Boolean, Address, BranchCounter, EN/ENO, CallType) — itself, on opening the body in
+  // its own editor, on a build, on a reopen, after a push wrote what it writes today? (B7: drop it if so.) ──
+  {
+    id: "nwl-editor-refill",
+    dialect: ["N38"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      { op: "create", as: "callee_fn", kind: "function", name: "VltF_RFn", parent: "root", via: "push", source: NWL_CALLEE.fn },
+      { op: "create", as: "rf", kind: "program", name: "VltF_RF", parent: "root", via: "push", source: NWL_EDITOR_FBD },
+      { tag: "pushed", op: "create", as: "re", kind: "program", name: "VltF_RE", parent: "root", via: "push", source: NWL_EDITOR },
+      { op: "find", as: "main", name: "PLC_PRG" },
+      { vendor: "codesys", tag: "called", op: "setText", on: "main", via: "script", impl: "VltF_RE();\nVltF_RF();\n" },
+      { vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "IMPLEMENTATION ST", add: "VltF_RE(); VltF_RF();" } },
+      { op: "editor", on: "re" },
+      { tag: "edited", op: "editor", on: "rf" },
+      { tag: "built", op: "build" },
+      { tag: "reloaded", op: "reload" },
+      { op: "editor", on: "re" },
+      { tag: "edited-again", op: "editor", on: "rf" },
+      { tag: "rebuilt", op: "build" },
+      { tag: "reloaded-again", op: "reload" },
+    ],
+    reads: [
+      {
+        key: "nwl",
+        at: ["pushed", "edited", "built", "reloaded", "edited-again", "rebuilt", "reloaded-again"],
+        on: "re",
+        op: "nwl",
+        members: NWL_EDITOR_MEMBERS,
+      },
+      {
+        key: "nwl-fbd",
+        at: ["pushed", "edited", "built", "reloaded", "edited-again", "rebuilt", "reloaded-again"],
+        on: "rf",
+        op: "nwl",
+        members: NWL_EDITOR_MEMBERS,
+      },
+      { key: "fetched", at: ["pushed", "reloaded", "reloaded-again"], on: "re", op: "fetched" },
+      { key: "fetched-fbd", at: ["pushed", "reloaded", "reloaded-again"], on: "rf", op: "fetched" },
+      { key: "diagnostics", at: ["built", "rebuilt"], op: "diagnostics" },
+    ],
   },
   {
     id: "nwl-assign-item-flags",

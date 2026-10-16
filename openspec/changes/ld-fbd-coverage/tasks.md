@@ -649,7 +649,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **Numbers:** C# Engine 2624 + 1 skipped, CODESYS 438, TwinCAT 526, Cli 295 (one `BridgePackagingTests` case
       failed under the parallel LSP run and passed alone — openspec `packaging-test-sweep-access-denied`), Connector
       148, Contracts 37, Repo.Gates 243; volt-cli unit 158; typecheck, lint, `bun run check` (18) green; fixture map
-      unaskable 106 → 115 (the nine `ng_r1_*`); LSP full suite: LSP_FULL_NUMBERS.
+      unaskable 106 → 115 (the nine `ng_r1_*`); LSP full suite (VOLT_REQUIRE_FULL=1, 10632 tests, 533 s) 10170 pass, 34 skip, 0 fail (a first run under the parallel C# suites timed out two `ir-walk.test.ts` cases at 7.8 s / 8.5 s against 5 s — 4.7 s alone; re-run with nothing beside it, green).
 - [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).

@@ -422,3 +422,116 @@ the pragma, S2's pair, the pin `NOT` and `SUPER^`; `docs/network-text.html` gain
   `Operand.Type` on a box's operands, `Instance.Type`, input `ParamList.Types`/`InputFlags` zero-list, `EN`/`ENO`,
   `CallType`, exact titles/comments, the item Jump/Return bit, `SymbolComment`. Their inference rules stand (below in
   tasks 2.3: 8 families → 4) and their ledger entries are unchanged.
+
+## 2R.1 The readability checks C1–C5 — what they answered (2026-10-16)
+
+Evidence: the vendor-fact row `nwl-editor-refill` (DIALECT N38), the nine recorded fixtures `ng_r1_<op>_three_inputs`
+(`network-graphical-c.ts`), and a census of every LD/FBD network of the six corpora — the five CODESYS archives
+(`test/fixtures/nwl-corpus`, 44 bodies, 388 networks; CodesysTestProject holds none) and twincat-project14 (2 bodies, 6
+networks) — read through the shipped reader and today's writer (a single-use probe, deleted). The owner's word on this
+run: "a := b is the assignment without a move" — B2 as written: `a := b` is a coil fed by a leaf, `a MOVE b` a MOVE box;
+two trees, two texts.
+
+**C1 — does an IDE refill `OutputParam` (or any member B7 would drop) itself? CODESYS, on a network a push wrote: no.**
+Two pushed bodies (DIALECT N38 — after review widened from one LD program of six single-box networks, where every member
+sat at its empty value, to an LD body of ten networks with a negated contact, a `PARALLEL`, an enabled MOVE and an
+enabled function through its ENO, plus an FBD body with an operator tree, a negated operator pin, an enabled function
+and an enabled MOVE), each opened in its own editor (`IFrame.OpenEditorView`, the view's `Editor` checked to hold that
+object, `CloseView`), built, reopened, and all three again: 493 archived members identical at all seven points, both
+builds clean. That covers `OutputParam.Names`/`.Types` (the push's derivation stays — never the drawn `'   '` /
+`['Q', 'ET']` lists), `EN`/`ENO`, `CallType`, `InputFlags`, and `Flags.Fixed`, `Operand.Boolean`, `Address`,
+`BranchCounter` AT THE VALUES A PUSH WRITES. So on a pushed network no member is a cache the IDE re-derives. **What C1
+does not show:** an engineer's EDIT in the editor (open and close, no edit); what the editor does with a network it
+DREW — a push cannot write the drawn values of `Fixed`, `Boolean`, the `Address` sentinel or `BranchCounter` (N29), so
+the probe cannot ask whether the editor keeps, recomputes or needs them; and whether code generation reads them. Those
+are 2R.4's to measure per member (an IDE-drawn fixture network, edited and rebuilt, built and RUN against the
+original). **TwinCAT: owed.** The row and its `editor` step (DTE project item opened, closed saving) are written; the run
+was blocked — an orphaned `VoltBridgeTwincat --xae-pid 13656` of this change's own instance (its XAE gone) locks the
+bridge DLLs, so `ide.ps1 up` cannot rebuild, and stopping the worker was refused by this session's permission policy.
+
+**C2 — two trees with one text, or one text with two readings (the model census, rule by rule).**
+- *Negation on an operator input — no B1 spelling.* FBD stores a negation on the box PIN (`InputFlags`: 4 AND boxes and
+  1 call, 2 bodies — lenze-mid `call_FirstErrorCapture_FB`, pro2193 `SetAlarm`; 0 negated operands in the 10 FBD
+  bodies); LD stores it on the OPERAND (605 negated contacts in 34 LD bodies, 0 pin flags). Today the pin is
+  `AND(x, NOT IN2 := y)`; under B1 `x AND NOT y` would name both trees. → **Open item 3 below.**
+- *EXECUTE's enable.* 11 networks (lenze-mid; 5 of them an empty EN) and TwinCAT's `POUexecute` write
+  `EXECUTE(EN := c)`. B3 deletes `EN :=` on a box; "Unchanged" keeps `EXECUTE … END_EXECUTE`. → **Open item 4 below.**
+- *An enabled box consumed by its parent* — distinct, as the vendor stores it: 57 non-comparison boxes, every one through
+  its ENO (`( … ).ENO`), 40 comparisons, every one through its result (bare `(a GT 40 ENABLE c)`), N21. A bare enabled
+  non-comparison or a comparison's `.ENO`: 0 in the corpora — refused by name.
+- *`ENABLE (A).ENO` vs `A THEN B`*: one tree (B's EN is A's ENO), two texts — the reader refuses the first where `THEN`
+  says it (13 chains, 16 coils on an ENO, 57 consumed ENOs, in 28 networks). `( … THEN … ).ENO` is a chain read by a
+  consumer.
+- *`ENABLE` as a name.* CODESYS reserves no `ENABLE`: one FB formal (`BLINK_0(ENABLE := TRUE, …)`, lenze-mid
+  `General` #6) and 3 variables named `Enable` (none read in a network). No second reading — the keyword stands only
+  after a complete box, a formal only before `:=`, an operand only where an operand is expected — but the LSP must lex
+  it in context, not as a reserved word. `THEN` is reserved; no FB declares an output `ENO`.
+- *`split<n>`*: 0 of 573 wires collide with a declared name; a collision is refused by name, as `g<n>` is today.
+- *NOT box vs a negated value*: no box stores a negated OUTPUT (0 box `Flags` ≠ 0), and the NOT box keeps its formal
+  (`NOT(IN := a)`, 3 boxes) — `NOT (a OR b)` has one reading.
+- *`ENABLE`'s reach*: at the statement head it runs to `;` or `THEN`; anywhere else the box is bracketed, so `)` ends it
+  (a `,` is never reached). An IF/JMP condition counts as "anywhere else" (0 enabled boxes there in the corpora).
+- *n-ary vs nested, B5*: brackets are box boundaries; B5 drops only the bracket around a whole coil value, and the
+  reader refuses a redundant one (`x := (a AND b)`) so one tree keeps one text.
+- *MOVE vs an operator's output pin*: `a MOVE b` (the target first) and `a ADD b => x` (the pin after) read one way each;
+  `MOVE b => a` is refused (B2's spelling only).
+
+The mechanical half of C2 — print every corpus network under B1–B8 and read it back to the same tree — needs the new
+writer; 2R.3's pull → push → pull fixed point over the corpora is that check.
+
+**C3 — does an IDE store a 3-input SUB/DIV/MOD/comparison box? It stores it and REFUSES TO BUILD IT.** CODESYS took the
+nine pushes and every build failed: "'-' needs exactly '2' operands" (`'/'`, `'MOD'`, `'>'`, `'>='`, `'<'`, `'<='`,
+`'='`, `'<>'`). The corpora hold 0 of them (every SUB/DIV/MOD/comparison box has 2 inputs; only AND/OR have more, up
+to 9). B1's guard is the compiler's rule. Disagreement pinned by the nine recordings: today's push and LSP accept the
+group (the LSP is silent on all nine — each fixture carries `deferred.lsp`, so the gap replays as an expected
+failure and the mark goes stale the day the LSP agrees); B1's guard lands in 2R.3. TwinCAT not recorded (C1's blocker).
+
+**C4 — networks B7 would refuse, per member, if neither cache nor derivable.** C1 found no refill on a pushed network
+(not a proof that no member is a cache on a DRAWN one — C1's limits above), and 1b.2 found no derivation for these four:
+
+| member | CODESYS nodes | CODESYS networks (of 388) | TwinCAT (of 6) |
+|---|---|---|---|
+| `Flags.Fixed` true | 1908 | 340 | 5 |
+| `Operand.Boolean` true | 2346 | 296 | 1 |
+| `Address` sentinel | 258 | 27 | 0 |
+| `BranchCounter` ≠ 0 | — | 22 of 44 bodies | 1 of 2 bodies |
+| any of the first three | | **348 (90 %)** | 5 |
+
+Plus the drawn names 2.3 spells by pragma today (`'   '`, an FB's unwired output list): 195 networks carry a pragma.
+**More than a handful → Open item 5 below.**
+
+**C5 — corpus reach per rule (CODESYS networks; TwinCAT's 6 add only EXECUTE and an empty named pin).** B1 operator
+words: 74 SUB/ADD/MUL/DIV/comparison boxes in 35 networks (every one enabled — `GT(EN := …)` today), plus 826 AND/OR
+groups whose spelling is unchanged · B2 MOVE: 102 boxes in 44 networks · B3 ENABLE: 225 enabled boxes in 95 networks ·
+B4 THEN / `.ENO`: 86 ENO uses in 28 networks · B5: 483 bracketed values in 211 networks · B6 split: 573 wires in 99
+networks · B7: 249 `OutputParam.Names` + 288 `.Types` pragmas in 195 networks · B8 PARALLEL: 17 in 12 networks · small:
+7 back-ticked strings, 3 NOT boxes, 3 disabled networks. **Lines before** (NETWORK … END_NETWORK, non-blank): lenze-mid
+1820, bakon-nano 86, pro2193 11, awa-palletizer 6, CodesysTestProject 0, twincat-project14 22 — **1945**. **After:**
+measured by 2R.3's re-pull (no B-writer exists yet).
+
+### 2R.1 Open — for the owner (2R.1 stops here)
+
+1. **The empty enable** (readability.md Open): 37 in 33 lenze-mid networks — MOVE 6, GE 5, EXECUTE 5, LT 4, EQ 2,
+   LE/GT/MUL/ADD 1 each, 11 program/FB calls. Alternatives: **(a) `ENABLE` with nothing after it** (`tInt MOVE 0
+   ENABLE;`, `IDB_WSM(…) ENABLE`) — distinct from no ENABLE and from `ENABLE TRUE` · (b) `ENABLE` followed by the
+   empty back-tick pair — no: that pair is the empty-text OPERAND (lenze-mid's `fbTonEnableDelay` `PT`), another tree ·
+   (c) `ENABLE ???` — no: `???` is the unnamed instance. A named input left empty (`t2(IN := , PT := e1)`, TwinCAT) keeps `IN := ,`. **Default: (a).**
+2. **An operator box with an output pin and no EN** (readability.md Open): 0 in the corpora. Alternatives: **(a) `a ADD
+   b => x;`** (B3 without its ENABLE) · (b) refuse it by name (niche: 0). **Default: (a).**
+3. **A negated operator pin (C2).** Alternatives: **(a) the body's language decides — in FBD `NOT x` on an operator's
+   operand IS the pin's negation, in LD the contact's** (the corpora partition exactly so; a text that needs the other
+   one is refused by name) · (b) keep the call form for it, `AND(x, NOT IN2 := y)` (a second spelling of AND) · (c) its
+   network `UNSUPPORTED` (niche: 4 boxes in 2 bodies). **Default: (a).**
+4. **EXECUTE's enable (C2).** Alternatives: **(a) `EXECUTE ENABLE c` … `END_EXECUTE;`** (B3's word; an empty one per
+   item 1) · (b) keep `EXECUTE(EN := c)` as the one exception. **Default: (a).**
+5. **B7 against C4.** Strict B7 refuses 90 % of the corpora's networks. Alternatives: **(a) these members are LOST ON
+   REBUILD, not refused** — an unchanged network is never rebuilt (N28), so a pull/push keeps every one byte for byte;
+   a network the engineer edits is built fresh with the push's values, and `RebuildLoss` names each value it drops
+   (today's interim window, made the rule) · (b) strict B7: those networks `UNSUPPORTED` · (c) keep the member pragma
+   (rejected by the owner, 2R). **Default: (a)** — but (a) is NOT shown safe. What 2.2 recorded is only that a pushed
+   network without them BUILDS clean on both vendors. Whether the vendor's code generation reads `Address` or
+   `Operand.Boolean` (or `Fixed`, `BranchCounter`), so that a rebuilt network could BEHAVE unlike the drawn one, has not
+   been asked: no run or exec comparison of a rebuilt network against its drawn original exists. Before (a) becomes the
+   rule, 2R.4 measures it per member — a drawn corpus-shaped network and its rebuild, both run (`record:exec`) on the
+   same inputs, outputs compared — and a member whose loss changes behaviour makes its network refused on rebuild
+   ((b) for that member), not lost.

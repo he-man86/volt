@@ -9,7 +9,7 @@
 # request per stdin line, one answer per stdout line, marked `@@vf ` (anything else printed is log).
 #
 # It implements the table's closed vocabulary ONCE, the same interface as the CODESYS core (vendor-facts.codesys.py):
-# the steps that are not a push (create, find, setText, rename, move, delete, reload, invoke, tryNames) and the reads
+# the steps that are not a push (create, find, setText, rename, move, delete, reload, invoke, editor, tryNames) and the reads
 # (member, class, guid, parent, children, xml, same, process, tried, and the completeness oracle's archive and objects). `build` and `diagnostics` are the runner's on
 # TwinCAT (the bridge's own build: a DTE build out of process leaves every Output pane empty). No fact has a code path
 # of its own here.
@@ -479,6 +479,22 @@ function MoveItem($step) {
     } finally { Remove-Item $zip -ErrorAction SilentlyContinue }
 }
 
+# The object's own editor opened in XAE and closed again, saving (ld-fbd-coverage 2R.1, C1): the backing file's DTE
+# ProjectItem opened in its primary view, the window given time to load, then closed with vsSaveChangesYes. A file
+# the solution does not hold, or a window the shell does not open, is a probe fault, never an outcome.
+function Open-Editor($step) {
+    $item = Single (Resolve $step["on"])
+    $path = BackingFile $item
+    $pi = $script:dte.Solution.FindProjectItem($path)
+    if ($null -eq $pi) { Fault "the solution holds no project item for $path" }
+    $win = $pi.Open("{00000000-0000-0000-0000-000000000000}")
+    if ($null -eq $win) { Fault "$path opened no window" }
+    $win.Activate()
+    Start-Sleep -Seconds 3
+    $win.Close(1)
+    Start-Sleep -Seconds 1
+}
+
 function Do-Step($step) {
     switch ($step["op"]) {
         "create" { if ($step["via"] -ne "script") { Fault "a push create is the runner's, not the core's" }; CreateItem $step }
@@ -502,6 +518,7 @@ function Do-Step($step) {
         }
         "reload" { Reload }
         "invoke" { Invoke-Step $step }
+        "editor" { Open-Editor $step }
         default { Fault "TwinCAT has no step '$($step["op"])' (open/close have no TwinCAT row; build is the runner's)" }
     }
 }

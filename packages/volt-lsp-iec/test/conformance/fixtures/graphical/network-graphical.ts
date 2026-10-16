@@ -25,5 +25,10 @@
 import type { LanguageTest } from "../../types.js"
 import { NETWORK_GRAPHICAL_TESTS_A } from "./network-graphical-a.js"
 import { NETWORK_GRAPHICAL_TESTS_B } from "./network-graphical-b.js"
+import { NETWORK_GRAPHICAL_TESTS_C } from "./network-graphical-c.js"
 
-export const NETWORK_GRAPHICAL_TESTS: readonly LanguageTest[] = [...NETWORK_GRAPHICAL_TESTS_A, ...NETWORK_GRAPHICAL_TESTS_B]
+export const NETWORK_GRAPHICAL_TESTS: readonly LanguageTest[] = [
+  ...NETWORK_GRAPHICAL_TESTS_A,
+  ...NETWORK_GRAPHICAL_TESTS_B,
+  ...NETWORK_GRAPHICAL_TESTS_C,
+]

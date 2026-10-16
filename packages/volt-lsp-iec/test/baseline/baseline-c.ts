@@ -46,7 +46,14 @@ const BEFORE_CASCADES: readonly CeilingException[] = (
  * `qf_c0228_bound_inline_subrange`, an INLINE subrange's (gate of step 1, 2026-10-12).
  */
 const ROOT_GAPS: readonly CeilingException[] = [
-  { baseline: "fixtures.twincat", fixture: "qf_c0077_before", measure: "total: GAP", by: 3, task: "lsp-quick-fixes 2.4: the TwinCAT `References/` library rule, after which `unknownTypeName` judges bare type names on TwinCAT too", why: "C0077 is judged on CODESYS only until TwinCAT's libraries are known as libraries" },
+  {
+    baseline: "fixtures.twincat",
+    fixture: "qf_c0077_before",
+    measure: "total: GAP",
+    by: 3,
+    task: "lsp-quick-fixes 2.4: the TwinCAT `References/` library rule, after which `unknownTypeName` judges bare type names on TwinCAT too",
+    why: "C0077 is judged on CODESYS only until TwinCAT's libraries are known as libraries",
+  },
   ...(
     [
       ["fixtures.codesys", "total: GAP", 2],
@@ -71,14 +78,16 @@ const ROOT_GAPS: readonly CeilingException[] = [
  * too large" (`qf_c0228_bound_literal_two_below`, gate of step 1), as it does for `decl_array_reversed_bounds` — a
  * message about the target's memory segment (`census.ts` project-config), after the border error the LSP gives.
  */
-const REVERSED_ARRAY_SIZE: readonly CeilingException[] = (["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
-  baseline: "fixtures.codesys",
-  measure,
-  by: 1,
-  fixture: "qf_c0228_bound_literal_two_below",
-  task: "none: a project-config message (census.ts), as on decl_array_reversed_bounds",
-  why: "CODESYS's \"variable is too large\" after the reversed array the LSP refuses — the target's segment, not the language",
-}))
+const REVERSED_ARRAY_SIZE: readonly CeilingException[] = (["total: GAP", "total: unowned GAP"] as const).map(
+  (measure) => ({
+    baseline: "fixtures.codesys",
+    measure,
+    by: 1,
+    fixture: "qf_c0228_bound_literal_two_below",
+    task: "none: a project-config message (census.ts), as on decl_array_reversed_bounds",
+    why: "CODESYS's \"variable is too large\" after the reversed array the LSP refuses — the target's segment, not the language",
+  }),
+)
 
 /** …and one type-dump count: `qf_indexof_before`'s INDEXOF call, untyped on both vendors as here. */
 const INDEXOF_UNTYPED: readonly CeilingException[] = (["codesys", "twincat"] as const).map((vendor) => ({
@@ -87,7 +96,7 @@ const INDEXOF_UNTYPED: readonly CeilingException[] = (["codesys", "twincat"] as 
   by: 1,
   fixture: "qf_indexof_before",
   task: "none: the vendors type it no more than the LSP does",
-  why: "INDEXOF, which both vendors refuse (\"The operator INDEXOF is no longer supported\") — its call has no result type there either, as in `atomic_indexof_variable`",
+  why: 'INDEXOF, which both vendors refuse ("The operator INDEXOF is no longer supported") — its call has no result type there either, as in `atomic_indexof_variable`',
 }))
 
 /**
@@ -105,4 +114,35 @@ const NEGATED_INT_PIN: readonly CeilingException[] = [
   },
 ]
 
-export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [...BEFORE_CASCADES, ...ROOT_GAPS, ...REVERSED_ARRAY_SIZE, ...INDEXOF_UNTYPED, ...NEGATED_INT_PIN]
+/**
+ * …and C3's three-input operator boxes (ld-fbd-coverage 2R.1): the nine `ng_r1_<op>_three_inputs` record CODESYS's build
+ * refusal "'<op>' needs exactly '2' operands", which the LSP does not give yet — new ground, each fixture's
+ * `deferred.lsp` the reason; B1's two-input guard (2R.3) ends both the mark and these exceptions.
+ */
+const THREE_INPUT_OPERATORS: readonly CeilingException[] = [
+  "sub",
+  "div",
+  "mod",
+  "gt",
+  "ge",
+  "lt",
+  "le",
+  "eq",
+  "ne",
+].map((op) => ({
+  baseline: "fixtures.codesys",
+  measure: "total: GAP",
+  by: 1,
+  fixture: `ng_r1_${op}_three_inputs`,
+  task: "ld-fbd-coverage 2R.3 (B1's two-input guard) — the fixture's deferred.lsp",
+  why: "an operator box with three inputs where the operator takes two: CODESYS refuses the build, the LSP says nothing",
+}))
+
+export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
+  ...BEFORE_CASCADES,
+  ...ROOT_GAPS,
+  ...REVERSED_ARRAY_SIZE,
+  ...INDEXOF_UNTYPED,
+  ...NEGATED_INT_PIN,
+  ...THREE_INPUT_OPERATORS,
+]

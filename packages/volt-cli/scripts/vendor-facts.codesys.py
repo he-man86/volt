@@ -12,7 +12,7 @@
 #   ready   : the file `ready`, once the timer is armed
 #
 # It implements the table's closed vocabulary ONCE (vendor-facts.table.ts): the steps that are not a push (create, find,
-# setText, rename, move, delete, open, close, build, reload, invoke, tryNames) and every read (member, class, guid,
+# setText, rename, move, delete, open, close, build, reload, invoke, editor, tryNames) and every read (member, class, guid,
 # parent, children, signature, parse, same, diagnostics, process, tried, and the completeness oracle's archive and objects).
 # No fact has a code path of its own here.
 #
@@ -638,6 +638,41 @@ def _open(path):
     _P.open(path)
 
 
+def _editor(o):
+    """Open the object's own editor in the IDE and close it again (ld-fbd-coverage 2R.1, C1): the vendor's
+    `IFrame.OpenEditorView(metaObjectStub, SelectEditorViewFactory(stub), null)`, the UI pumped so the editor loads its
+    object, then `IFrame.CloseView`. Whatever the editor writes into the object on load or on close is then in the
+    project, where the next read sees it. A view the frame does not open is a probe fault, never an outcome."""
+    t = _find_type("_3S.CoDeSys.Core.SystemInstances")
+    engine = t.GetProperty("Engine").GetValue(None, None) if t is not None else None
+    frame = vp.prop(engine, "Frame")
+    if frame is None:
+        raise ProbeError("SystemInstances.Engine.Frame is unavailable")
+    ok, stub = vp.call(vp.object_manager(), "GetMetaObjectStub", [_project_handle(), _guid(o)])
+    if not ok or stub is None:
+        raise ProbeError("GetMetaObjectStub: %s" % stub)
+    ok, factory = vp.call(frame, "SelectEditorViewFactory", [stub])
+    if not ok:
+        raise ProbeError("SelectEditorViewFactory: %s" % factory)
+    ok, view = vp.call(frame, "OpenEditorView", [stub, factory, None])
+    if not ok or view is None:
+        raise ProbeError("OpenEditorView: %s" % view)
+    for _ in range(20):
+        System.Windows.Forms.Application.DoEvents()
+        System.Threading.Thread.Sleep(50)
+    # The view must hold an editor that loaded THIS object — an open that loaded nothing would read like "no refill".
+    editor = vp.prop(view, "Editor")
+    if editor is None:
+        raise ProbeError("the opened view %s holds no editor" % view.GetType().FullName)
+    loaded = vp.prop(editor, "ObjectGuid")
+    if loaded is None or str(loaded) != str(_guid(o)):
+        raise ProbeError("the editor %s loaded %s, not the object %s" % (editor.GetType().FullName, loaded, _guid(o)))
+    ok, why = vp.call(frame, "CloseView", [view])
+    if not ok:
+        raise ProbeError("CloseView: %s" % why)
+    System.Windows.Forms.Application.DoEvents()
+
+
 def _step(step, req):
     op = step["op"]
     if op == "create":
@@ -690,6 +725,8 @@ def _step(step, req):
         _open(path)
     elif op == "invoke":
         _invoke(step)
+    elif op == "editor":
+        _editor(_resolve(step["on"]))
     else:
         raise ProbeError("unknown step op '%s'" % op)
 
