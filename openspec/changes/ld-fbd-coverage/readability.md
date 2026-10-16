@@ -356,6 +356,19 @@ P15 LSP: hover ENO → its box (line N); hover split<n> → feeder, type, refere
     lines; bare `EN` hint "EN shown, nothing wired"; a code lens on a changed network listing what the rebuild
     drops (B7 members); every push refusal above is also an LSP error while typing; the VS Code extension sets
     files.trimTrailingWhitespace false for network text (comments and EXECUTE bodies are stored verbatim).
+
+P16 From the corpus + fixture conversion (392 of 394 real networks clean, 0 unspellable):
+    - A coil's whole value is never bracketed, an enabled comparison included:  x := a GT b EN c;
+    - P6/P7's "keep the brackets" applies to NAMED pins; a call's sole positional input is not double-bracketed:
+      R_EDGE(a AND b), f(a OR b).
+    - MOVE keeps its call form where the word form cannot carry the tree (two inputs, none, an empty or named input):
+      MOVE(a, b);   MOVE();   MOVE(IN := ) => x;   MOVE(a, b) EN c⏎ n := ENO;
+    - A named ENO output pin is the same tree as a coil on ENO? — measured in 2R.3; until then it keeps its own
+      spelling inside the call: MOVE(0, ENO => lamp) EN c;
+    - The empty positional slot keeps today's form in the call fallback: MUL(, m, 6).
+    - A feed that is a word box is bracketed before INTO: (split1 AND bSync) INTO BRANCHES; an empty feed (the
+      terminator) stays refused.
+    - P1's reservation is case-insensitive: f(`execute` := a, `parallel` := b).
 ```
 
 ## Open
