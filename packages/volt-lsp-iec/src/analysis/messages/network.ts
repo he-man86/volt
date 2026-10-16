@@ -43,18 +43,12 @@ export interface NetworkMessages {
    */
   unresolvedAssignTarget(): string
   /**
-   * `.ENO` read on an operator box that has no EN (`x := ADD(a, b).ENO;`): CODESYS builds the box with no ENO
-   * output and its build answers this (`rcc_network_eno_without_en`, SP21 2026-10-04; DIALECT N21). Undefined on TwinCAT:
-   * its driver refuses that box before anything is written (`TcEnoRefusal`), so no TwinCAT build has ever answered it and
-   * there is no wording to give.
+   * ENO read on a FUNCTION's box that has no EN (`F(a, b)` ⏎ `x := ENO;`): CODESYS reads the ENO as a member of the
+   * function's result — "'ENO' is no component of 'F'" and, where a coil takes it, the shared "Cannot convert type
+   * 'Unknown type: 'F.ENO'' to type '<the coil's>'" (`rcc_network_eno_function_without_en`, SP21, re-recorded 2026-10-16
+   * on the box 2R.3's push builds). Undefined on TwinCAT: its driver refuses the box before a build (`TcEnoRefusal`).
    */
-  missingEnPin(): string | undefined
-  /**
-   * `.ENO` read on a FUNCTION's box that has no EN (`x := F(a, b).ENO;`): CODESYS answers about the source, not the pin
-   * (`rcc_network_eno_function_without_en`, SP21 2026-10-04 — the same sentence a `??? :=` coil over a call gets).
-   * Undefined on TwinCAT, as `missingEnPin`: its driver refuses the box before a build.
-   */
-  assignmentSourceIncorrect(): string | undefined
+  enoOfAFunction(head: string): string | undefined
 }
 
 export function networkMessages({ tc }: VendorWording): NetworkMessages {
@@ -65,7 +59,6 @@ export function networkMessages({ tc }: VendorWording): NetworkMessages {
     unresolvedOperand: () => "Expression expected instead of '?'",
     unresolvedOperandToken: () => (tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"),
     unresolvedAssignTarget: () => (tc ? "Assignment target not specified" : "The assignment target is not specified."),
-    missingEnPin: () => (tc ? undefined : "An inconsistent element has been detected (Missing EN pin). Consider making a correction."),
-    assignmentSourceIncorrect: () => (tc ? undefined : "The assignment source is incorrect."),
+    enoOfAFunction: (head) => (tc ? undefined : `'ENO' is no component of '${head}'`),
   }
 }

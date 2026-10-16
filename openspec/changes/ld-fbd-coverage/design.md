@@ -667,7 +667,9 @@ wire divergence is a defect; only the declaration source differs).
 **Stays refused by name** (in `refuse/`, both sides): non-default `Terminator`, `BoxTreeMux`, `ILStatement`,
 `Connectors`, `ILLines`; a one-branch parallel (C0023); a 3-input SUB/DIV/MOD/comparison (C3
 — the nine `ng_r1_*` lose their `deferred.lsp` mark when the LSP refuses them); `a MOVE b` and the MOVE call form
-where the word form fits; a redundant bracket (P4); a `split<n>` colliding with a declaration; every P12 old spelling (as its error).
+where the word form fits; a redundant bracket (P4); every P12 old spelling (as its error). (A `split<n>` beside a declaration of
+its name was on this list; the 2R.3 review took it off: P1 reserves the pattern, so the variable is the backticked word, and both
+IDEs build the shape clean, `rcc_network_wire_named_like_variable`.)
 Two ENOs into one box is spelled (P3), not refused.
 Shown, edit refused (E): `SymbolComment`, S4 `fb(…).name`, an enabled comparison value. `VOLT_GRAPHICAL` stays off in
 the shipped build.
@@ -677,3 +679,35 @@ the shipped build.
 forms are `refuse/` cases whose error names the new spelling (P12). Recordings stand (the model is unchanged); goldens are regenerated from the
 archives; the corpora re-pulled with before/after line counts in tasks.md; the network files' shrink-only entries
 re-measured, not raised.
+
+**As built (2026-10-16) — where reality forced another choice, and why.**
+- **D, the derivation, stays where it was: call output lists are B7 L in 2R.3, derived in 2R.4.** Measured over the
+  279 CODESYS call boxes of the archives before relying on it: the output list a callee's declaration gives matches the
+  stored one on ~231 (Programs 11/11, project FBs 34/36, functions 106/110, library FBs 78/119); the misses are stale
+  editor caches (`TON` stored `['Q']` where it declares `Q, ET`) and Lenze's rendered library signatures (internals,
+  upper-cased names). A derivation that disagrees with 48 drawn boxes is no derivation yet, so a call's stored output
+  names and types are lost on rebuild (named by `RebuildLoss`), never guessed; deriving them is 2R.4's, member by member.
+- **The re-recorded answers moved where the push now builds another box.** "Recordings stand" held for every graphical
+  fixture whose model is unchanged (re-recorded on both vendors in one batch each, English UIs — CODESYS `--culture=en`,
+  XAE `/LCID 1033`; a German UI had answered `Zuweisungsziel nicht angegeben`). Three did not: an ENO read off a
+  function box with no EN now builds with its output list derived from the text (ENO first), and CODESYS answers
+  "'ENO' is no component of …" and a conversion error where it said "The assignment source is incorrect."
+  (`rcc_network_eno_function_without_en`; the LSP's `network-missing-en` now gives the two new sentences, and the
+  builder of the old one went with its last true positive), and the two `???`-target fixtures behind an enable answer
+  the target alone. Fixtures the push now refuses carry `vendorRefuses` and the replay skips them (their rows predate the
+  refusal): the nine `ng_r1_*` (B1, both vendors), `rcc_network_eno_without_en` (P3/N21), a split named like a variable;
+  on TwinCAT `TcEnoRefusal` (2026-09-26) and the import's item count now refuse four whose rows were taken before it.
+  The VAR_TEMP-only fixtures went with VAR_TEMP (an empty block, a declared wire nothing defines, a late block).
+- **P5's two ENO trees, measured live:** `MOVE(0, ENO => lamp) EN c;` and `MOVE 0 => x EN c` / `lamp := ENO;` store,
+  pull back as written and build clean on CODESYS — two trees, two texts. TwinCAT refuses both before its import
+  (a result pin, unmeasured), by name.
+- **A TwinCAT comment's CR LF (found by the live round trip):** the archive's XML folds a raw CR LF to LF on every
+  parse, so a two-line comment came back as a bare LF and its whole body pulled as the marker. The TwinCAT write keeps
+  a CR as `&#xD;` (`TcArchive.Text`) and the read takes the parsed LF as the comment's line break
+  (`TcNetworkReader.Comment`), which is P10's CR LF; `TcCommentLineEndTests`.
+- **The corpus re-pull kept the network bodies only.** The six were re-pulled live through `volt init`; every LD/FBD
+  file was taken, everything else restored, because the same pull also moved library materialization (another
+  change's work, `Library Manager/(unresolved)/…`) that 2R.3 has no business committing.
+- **Not built in 2R.3:** P13's code lens (what a rebuild drops needs the stored members, which the LSP never sees — the
+  push's `RebuildLoss` names them) and P9's renumber quick fix (a fix ships only with a recorded AFTER, lsp-quick-fixes
+  §3); the P9 warning, the bare-`EN` and rail-coil hints and the VS Code `files.trimTrailingWhitespace` default are.

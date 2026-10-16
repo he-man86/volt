@@ -1,5 +1,5 @@
 /**
- * The network-text box checks (`_boxes.ts`): an FB instance's pins, and `.ENO` read off a box with no EN.
+ * The network-text box checks (`_boxes.ts`): an FB instance's pins, and ENO read off a box with no EN (an open line).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
@@ -38,14 +38,15 @@ END_FUNCTION_BLOCK`
   expect(vgByCode(src, "network-unknown-pin")).toBe(0) // TON is not a project FB → skipped, no guess
 })
 
-test("network text: EN is a pin of every box and ENO its suffix, not unknown pins", () => {
+test("network text: EN and ENO are every box's own, not unknown pins", () => {
   // EN/ENO are IMPLICIT on every FBD/LD box — not declared in the FB. lenze-mid drives EN on four project FBs and its
   // recorded build accepts every one.
   const src = `FUNCTION_BLOCK Outer
 VAR inner : Inner; go : BOOL; done : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  done := inner(EN := go).ENO;
+  inner() EN go
+  done := ENO;
 END_NETWORK
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK Inner
@@ -68,27 +69,27 @@ END_FUNCTION_BLOCK`
   expect(vgDiags(src).map((d) => d.code)).toContain("network-unknown-pin")
 })
 
-test("network text: `.ENO` on an operator box with no EN is CODESYS's 'Missing EN pin'; on an FB it is the FB's own", () => {
-  // openspec bridge-refusal-review 1.5: the push builds the box the text describes and CODESYS's build answers it
-  // (`rcc_network_eno_without_en`, SP21 2026-10-04; DIALECT N21). An FB may declare ENO without EN (Lenze `Dryer`, N16).
+test("network text: an operator box read through ENO with no EN has no text; on an FB its ENO is the FB's own", () => {
+  // N21: an operator box shows ENO only with EN, so the reader refuses an open line holding one (P3) — the push never
+  // builds it. An FB may declare ENO without EN (Lenze `Dryer`, N16): nothing is said.
   const fb = (vars: string, statement: string) =>
-    `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; ${vars} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
-  const missing = "An inconsistent element has been detected (Missing EN pin). Consider making a correction."
-  expect(vgDiags(fb("", "x := ADD(a, b).ENO;")).map((d) => d.message)).toContain(missing)
-  expect(vgDiags(fb("", "x := ADD(EN := go, a, b).ENO;")).map((d) => d.message)).not.toContain(missing)
-  expect(vgDiags(fb("t : FB_T;", "x := t(IN := go).ENO;")).map((d) => d.message)).not.toContain(missing)
+    `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; sv : INT; ${vars} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  expect(vgDiags(fb("", "a ADD b => sv\n  x := ENO;")).map((d) => d.code)).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(vgDiags(fb("", "a ADD b => sv EN go\n  x := ENO;"))).toEqual([])
+  expect(vgDiags(fb("t : FB_T;", "t(IN := go)\n  x := ENO;"))).toEqual([])
 })
 
-test("network text: `.ENO` with no EN on a FUNCTION's box is CODESYS's 'The assignment source is incorrect.', a qualified one too", () => {
-  // review 5+6, measured (`rcc_network_eno_function_without_en`, SP21 2026-10-04): a FUNCTION's box answers about the
-  // source, not the pin — the check had borrowed the operator box's "Missing EN pin" for every head that is no variable.
-  // And a member head used to count as a path to a variable whatever it named, so `Lib.F(a, b).ENO` passed for an FB
-  // call: a namespace qualifying a POU names a function.
+test("network text: ENO with no EN on a FUNCTION's box is no component of its result, a qualified one too", () => {
+  // Measured (`rcc_network_eno_function_without_en`, SP21, re-recorded 2026-10-16 on the box 2R.3's push builds): a
+  // FUNCTION's box read through its ENO, its ENO read as a member of the result, and the coil typed against it. (Before
+  // 2R.3 the build answered "The assignment source is incorrect." of a box built without its output list.) A member head
+  // used to count as a path to a variable whatever it named, so `Lib.F(a, b)` read through ENO passed for an FB call: a
+  // namespace qualifying a POU names a function.
   const lib = "file:///w/Library Manager/Util"
   const manifest = { uri: `${lib}/Util.library`, folder: "Util", dir: `${lib}/`, namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
   const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
-  const source = "The assignment source is incorrect."
-  const missing = "An inconsistent element has been detected (Missing EN pin). Consider making a correction."
+  const member = (head: string) => [`'ENO' is no component of '${head}'`, `Cannot convert type 'Unknown type: '${head}.ENO'' to type 'BOOL'`]
+  const source = "'ENO' is no component of"
   const run = (statement: string) => {
     const src = `FUNCTION FUN : INT\nVAR_INPUT a : INT; b : INT; END_VAR\nFUN := a + b;\nEND_FUNCTION\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
     const d = doc(src)
@@ -98,14 +99,40 @@ test("network text: `.ENO` with no EN on a FUNCTION's box is CODESYS's 'The assi
     )
     return computeNetworkTextDiagnostics(d, p, messagesFor("codesys")).map((m) => m.message)
   }
-  expect(run("x := FUN(a, b).ENO;")).toEqual([source])
-  expect(run("x := Util.Twice(a, b).ENO;")).toEqual([source])
-  expect(run("x := FUN(EN := go, a, b).ENO;")).not.toContain(source)
-  expect(run("x := Util.Twice(EN := go, a, b).ENO;")).not.toContain(source)
-  expect(run("x := ADD(a, b).ENO;")).toContain(missing)
+  expect(run("FUN(a, b)\n  x := ENO;")).toEqual(member("FUN"))
+  expect(run("Util.Twice(a, b)\n  x := ENO;")).toEqual(member("Util.Twice"))
+  const none = (statement: string) => expect(run(statement).filter((m) => m.startsWith(source))).toEqual([])
+  none("FUN(a, b) EN go\n  x := ENO;")
+  none("Util.Twice(a, b) EN go\n  x := ENO;")
   // a member the namespace does not show is unknown — it could be a library global instance — so nothing rests on it
-  const unknown = run("x := Util.gInst(IN := go).ENO;")
-  expect([unknown.includes(source), unknown.includes(missing)]).toEqual([false, false])
-  // nor on an unmeasured box kind: MOVE is no operator of the table and resolves to no declared callable
-  expect(run("x := MOVE(a).ENO;")).not.toContain(missing)
+  none("Util.gInst(IN := go)\n  x := ENO;")
+})
+
+// `??? := ENO` is recorded on three heads only — an operator (NOT), a PROGRAM and a FUNCTION (network-unresolved.ts:
+// _unnamed_target_en, _void_caller, _valued_call). An FB INSTANCE read through its ENO has no recording, so nothing is
+// said there (gate 2R.3, finding 4): a missing diagnostic is a coverage gap, a wrong one a hard failure.
+test("network text: `??? := ENO` off an FB instance's box is unrecorded and says nothing; off a function it is the target complaint", () => {
+  const fb = `FUNCTION_BLOCK F
+VAR t1 : TON; go : BOOL; a : BOOL; END_VAR
+IMPLEMENTATION LD
+NETWORK
+  t1(IN := a, PT := T#1S) EN go
+  ??? := ENO;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const said = (src: string) => vgDiags(src).filter((d) => d.message === "The assignment target is not specified.").length
+  expect(said(fb)).toBe(0)
+  const fn = `FUNCTION FN : BOOL
+VAR_INPUT x : BOOL; END_VAR
+FN := x;
+END_FUNCTION
+FUNCTION_BLOCK F
+VAR go : BOOL; a : BOOL; END_VAR
+IMPLEMENTATION LD
+NETWORK
+  FN(a) EN go
+  ??? := ENO;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(said(fn)).toBe(1)
 })

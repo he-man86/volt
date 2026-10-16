@@ -93,7 +93,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a box with an unconnected input survives, or is refused", async () => {
 		const name = id("rp_pin")
-		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := ( * m * 6);\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := MUL(, m, 6);\nEND_NETWORK\n`))
 	})
 
 	/** The same fact in the other syntax — an FB call whose pins are declared but unwired, which is how a
@@ -117,7 +117,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
 			fid("rp_wire", "pou"),
-			program(name, "LD", `NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  out := g0;\nEND_NETWORK\n`),
+			program(name, "LD", `NETWORK\n  split0 := a AND b;\n  out := split0;\nEND_NETWORK\n`),
 		)
 	})
 
@@ -142,7 +142,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * spellings go through the IDE here, because only the IDE can say they stayed different.
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
-		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := NOT(a);\nEND_NETWORK\n`)
+		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := NOT(IN := a);\nEND_NETWORK\n`)
 		expect(await roundTrip(fid("rp_notbox", "pou"), boxSrc)).toBe(boxSrc)
 
 		const flagSrc = program(id("rp_notflag"), "FBD", `NETWORK\n  out := NOT a;\nEND_NETWORK\n`)
@@ -159,7 +159,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 			id("rp_text"),
 			"LD",
 			// A quote in a title is ST's own `$"` (network text v2 titles use ST's string escapes).
-			`NETWORK TITLE: "Muting of alarm $"No bunch$""\n  //     aligned on purpose\n  out := (a AND b);\nEND_NETWORK\n`,
+			`NETWORK TITLE: "Muting of alarm $"No bunch$""\n  //     aligned on purpose\n  out := a AND b;\nEND_NETWORK\n`,
 		)
 
 		expect(await roundTrip(full, src)).toBe(src)
@@ -184,7 +184,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_fix"),
 			"LD",
-			`NETWORK TITLE: "a rung"\n  out :=\n  out2 := (a AND b);\nEND_NETWORK\n` +
+			`NETWORK TITLE: "a rung"\n  out := out2 := a AND b;\nEND_NETWORK\n` +
 				`NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`,
 		)
 
@@ -195,7 +195,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		expect(twice).toBe(once)
 	})
 	/**
-	 * A PARALLEL BRANCH (network text v2: `PARALLEL(…)`, `MODE := Sequential` off the default). CODESYS builds a
+	 * A PARALLEL BRANCH (`feed BRANCH (a, b)`, `SHORTCIRCUIT` off the editor's Sequential default, B8). CODESYS builds a
 	 * `BoxTreeParallel` natively and must hand it back exactly, fed and unfed, in both modes — v1 rebuilt one as AND/OR
 	 * and a fresh one as `Sequential` (DIALECT N20). TwinCAT's import has no element for one (D30), so the push is
 	 * refused by name before the import (task 4.2). Of Lenze's 17 Parallels the v2 pull spells 4, all in bodies holding
@@ -207,8 +207,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_par"),
 			"LD",
-			`NETWORK\n  out := PARALLEL(IN := go, a, b);\nEND_NETWORK\n` +
-				`NETWORK\n  out2 := (a AND PARALLEL(MODE := Sequential, b, go));\nEND_NETWORK\n`,
+			`NETWORK\n  out := go BRANCH (a,\n                    b) SHORTCIRCUIT;\nEND_NETWORK\n` +
+				`NETWORK\n  out2 := a AND (BRANCH (b,\n                         go));\nEND_NETWORK\n`,
 		)
 		const refs = await bridge.refs()
 		const r = await bridge.push({
@@ -218,7 +218,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		if (VENDOR === "twincat") {
 			expect(r.accepted, "TwinCAT accepted a Parallel its import cannot build").toBe(false)
 			expect(JSON.stringify(r.conflicts)).toContain("NETWORK_UNSUPPORTED")
-			expect(JSON.stringify(r.conflicts)).toContain("PARALLEL")
+			expect(JSON.stringify(r.conflicts)).toContain("BRANCH")
 			return
 		}
 		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)

@@ -13,7 +13,8 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  o_xCamControl := PARALLEL(IN := i_xEnable, LE(EN := GE(EN := LT(EN := , i_intStartCam, i_intStopCam), i_lrMachinePosition, i_intStartCam), i_lrMachinePosition, i_intStopCam), PARALLEL(IN := GT(EN := , i_intStartCam, i_intStopCam), GE(EN := , i_lrMachinePosition, i_intStartCam), LE(EN := , i_lrMachinePosition, i_intStopCam)));
+  o_xCamControl := i_xEnable BRANCH ((i_lrMachinePosition LE i_intStopCam EN (i_lrMachinePosition GE i_intStartCam EN (i_intStartCam LT i_intStopCam EN))),
+                                     (i_intStartCam GT i_intStopCam EN) BRANCH ((i_lrMachinePosition GE i_intStartCam EN), (i_lrMachinePosition LE i_intStopCam EN)) SHORTCIRCUIT) SHORTCIRCUIT;
 END_NETWORK
 
 END_FUNCTION

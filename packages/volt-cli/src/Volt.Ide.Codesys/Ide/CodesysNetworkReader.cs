@@ -56,9 +56,9 @@ namespace Volt.Ide.Codesys
 
         private static Network Header(object net, int order) =>
             new(order,
-                Clean(NwlInterop.Text(net, "Title")),
+                NetworkText.Stored(NwlInterop.Text(net, "Title")),
                 Clean(NwlInterop.Text(net, "Label")),
-                Clean(NwlInterop.Text(net, "Comment")),
+                NetworkText.Stored(NwlInterop.Text(net, "Comment")),
                 NwlInterop.Flag(net, "OutCommented"),
                 Array.Empty<Node>());
 
@@ -221,7 +221,7 @@ namespace Volt.Ide.Codesys
 
         /// <summary>One of an <c>IParamList</c>'s two string arrays (<c>Names</c>, <c>Types</c>), or null when the list or
         /// the array is absent.</summary>
-        private static List<string?>? Strings(object? paramList, string member) =>
+        internal static List<string?>? Strings(object? paramList, string member) =>
             paramList != null && NwlInterop.Get(paramList, member) is System.Collections.IEnumerable values
                 ? values.Cast<object?>().Select(x => x?.ToString()).ToList()
                 : null;
@@ -370,7 +370,7 @@ namespace Volt.Ide.Codesys
                 MainOutputName: consumed ? Box.NameOfMainOutput(type, mainOutput, outputNames) : null,
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
-                Members: NwlMembers.Of((NetworkMembers.OutputNames, PragmaValue.Texts(outputNames.Select(x => x ?? "")))));
+                Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames.Select(x => x ?? "")))));
         }
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — every box a push built

@@ -162,8 +162,8 @@ public class TcImporterSplitTests
 
         Assert.Contains("done := t1.Q;", text);
         Assert.DoesNotContain("done := ()", text);
-        // The import's own output list rides as the call's pragma (ld-fbd-coverage 2.3); the pins are the call's.
-        Assert.Contains("t1(IN := a, PT := pt){OutputParam.Names := ['Out1']}", text);
+        // The import's own output list is a stored member the text derives (B7); the pins are the call's.
+        Assert.Contains("t1(IN := a, PT := pt);", text);
     }
 
     /// <summary>The pushed body, read against a scope whose declarations say <c>t1 : TON</c>.</summary>

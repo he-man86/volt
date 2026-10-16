@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 using Volt.Contracts;
 
@@ -10,16 +9,15 @@ internal enum TokKind
 {
     Marker,     // the body's IMPLEMENTATION line; Text = FBD | LD
     Word,       // an identifier or dotted path
-    Number,
+    Number,     // 5, 1.5, -1 (the minus touching the digit, P14)
     Typed,      // T#1S, 16#FF
     Address,    // %IX0.0
     Unnamed,    // ???
     Backtick,   // Text = the verbatim content between the backticks
-    String,     // a TITLE; Text = the DECODED value
+    DString,    // a double-quoted string, as written (quotes included): a TITLE, or a WSTRING literal
+    SString,    // a single-quoted ST string literal, as written (quotes included)
     Comment,    // a // line; Text = what follows `//` and one space
     Snippet,    // an EXECUTE body; Text = its lines joined by \n
-    Wires,      // a whole VAR_TEMP block, as the post-push comparison keys it; Text = name:type per wire, by VarId
-    Pragma,     // `{Member := value}`; Text = what stands between the braces (NetworkPragma reads it)
     Sym,        // punctuation and operators
     Error,      // Text = message, Code = its NETWORK_* code
     Eof,
@@ -38,10 +36,11 @@ internal readonly record struct Tok(TokKind Kind, string Text, int Offset, int L
 }
 
 /// <summary>
-/// The network text v2 lexer: on demand, one token at a time, so the parser can switch it into the one raw mode
-/// the grammar has — an EXECUTE body, whose lines are verbatim ST and end at the first line whose first word is
-/// <c>END_EXECUTE</c>. Newlines are otherwise layout; the header ending at its newline is decided by the parser
-/// from token positions, and a <c>//</c> comment ends at its newline by construction.
+/// The network text lexer (openspec <c>ld-fbd-coverage</c> 2R.3, <c>readability.md</c>): on demand, one token at a time,
+/// with one raw mode — an EXECUTE body, whose lines are verbatim ST from the line after <c>EXECUTE [EN [c]]</c> to the
+/// first line whose first word is <c>END_EXECUTE</c> (P9). That mode is entered by the token walk
+/// (<see cref="Walk"/>), which every reader of the text goes through, so no reader can lex an ST body as network text.
+/// Newlines are otherwise layout to the lexer: where a LINE ends (P2) is the parser's to decide from token positions.
 ///
 /// <para>A lexical error is a token (<see cref="TokKind.Error"/>) that has consumed its text, never an exception:
 /// the parser turns it into a diagnostic at its span, and recovery can always make progress past it.</para>
@@ -59,13 +58,7 @@ internal sealed class NetworkLexer
         for (var k = 0; k < s.Length; k++) if (s[k] == '\n') _lineStarts.Add(k + 1);
     }
 
-    /// <summary>A lexer standing where this one stands, for a look ahead that must not move this one.</summary>
-    private NetworkLexer(NetworkLexer at)
-    {
-        _s = at._s;
-        _lineStarts = at._lineStarts;
-        _i = at._i;
-    }
+    public string Source => _s;
 
     public (int Line, int Column) LineCol(int offset)
     {
@@ -79,6 +72,22 @@ internal sealed class NetworkLexer
     }
 
     public int LineOf(int offset) => LineCol(offset).Line;
+
+    /// <summary>The end of the line <paramref name="offset"/> stands on (the offset of its LF, or the text's end).</summary>
+    public int LineEndOf(int offset) => LineEnd(offset);
+
+    /// <summary>Every token from the lexer's position to the end, EXECUTE bodies taken by the walk's rule.</summary>
+    public List<Tok> Tokenize()
+    {
+        var all = new List<Tok>();
+        var w = new Walk(this);
+        while (true)
+        {
+            var t = w.Next();
+            all.Add(t);
+            if (t.Kind == TokKind.Eof) return all;
+        }
+    }
 
     public Tok Next()
     {
@@ -96,7 +105,8 @@ internal sealed class NetworkLexer
             var text = WithoutLayoutCr(_s.Substring(_i, end - _i));
             _i = end;
             if (text.IndexOf('\r') >= 0) return LoneCr(start);
-            // `//` and ONE space are syntax; the rest — indentation, a leading `//` — is the comment's text.
+            // `//` and ONE space are syntax; the rest — indentation, trailing spaces, a leading `//` — is the comment's
+            // text (P12: stored verbatim).
             if (text.StartsWith(" ", StringComparison.Ordinal)) text = text.Substring(1);
             return new Tok(TokKind.Comment, text, start, end - start, atLineStart);
         }
@@ -104,10 +114,11 @@ internal sealed class NetworkLexer
         if (c == '`')
         {
             var close = _s.IndexOf('`', _i + 1);
-            if (close < 0)
+            var eol = LineEnd(_i);
+            if (close < 0 || close > eol)
             {
-                _i = _s.Length;
-                return Error(start, "an unclosed backtick: backticked text runs to the next backtick.", ConflictCodes.NetworkParse);
+                _i = eol;
+                return Error(start, "an unclosed backtick: backticked text runs to the next backtick, on its line.", ConflictCodes.NetworkParse);
             }
             var inner = _s.Substring(_i + 1, close - _i - 1);
             _i = close + 1;
@@ -124,9 +135,7 @@ internal sealed class NetworkLexer
             return new Tok(TokKind.Backtick, inner, start, _i - start, atLineStart);
         }
 
-        if (c == '"') return Title(start, atLineStart);
-
-        if (c == '{') return Pragma(start, atLineStart);
+        if (c == '"' || c == '\'') return Quoted(start, atLineStart, c);
 
         if (c == '?' && Peek(1) == '?' && Peek(2) == '?')
         {
@@ -144,23 +153,23 @@ internal sealed class NetworkLexer
             }
         }
 
+        // P14: a negative literal is the minus TOUCHING the digit, `-1`; `- 1`, `-x` and `+1` stay symbols the parser
+        // refuses by name.
+        if (c == '-' && Peek(1) is >= '0' and <= '9')
+        {
+            var m = NumberAt.Match(_s, _i + 1);
+            _i += 1 + m.Length;
+            if (_i < _s.Length && _s[_i] == '#') return TypedRest(start, atLineStart);
+            return new Tok(TokKind.Number, _s.Substring(start, _i - start), start, _i - start, atLineStart);
+        }
+
         // ASCII only, as NetworkSpelling's patterns are: a letter or digit outside ASCII is no character of a bare
-        // token, so it falls through to a one-character symbol the parser refuses. Taken as a word character it
-        // would reach NumberAt, which matches nothing there, and the lexer would stand still on it forever.
+        // token, so it falls through to a one-character symbol the parser refuses.
         if (IsWordChar(c))
         {
             while (_i < _s.Length && IsWordChar(_s[_i])) _i++;
             // A typed literal: the word before `#` is its type or base (T#1S, 16#FF, DT#2020-01-01-12:00:00).
-            if (_i < _s.Length && _s[_i] == '#')
-            {
-                var j = _i + 1;
-                while (j < _s.Length && (IsWordChar(_s[j]) || ".:+-".IndexOf(_s[j]) >= 0)) j++;
-                if (j > _i + 1)
-                {
-                    _i = j;
-                    return new Tok(TokKind.Typed, _s.Substring(start, _i - start), start, _i - start, atLineStart);
-                }
-            }
+            if (_i < _s.Length && _s[_i] == '#') return TypedRest(start, atLineStart);
             if (c is >= '0' and <= '9')
             {
                 _i = start;
@@ -174,8 +183,6 @@ internal sealed class NetworkLexer
                 _i++;
                 while (_i < _s.Length && IsWordChar(_s[_i])) _i++;
             }
-            // `S=` / `R=` are a word and `=`, as `S = x` is: which of the storage operator and a comparison with a
-            // variable named S it is, is the PARSER's call from the position — whitespace plays no part.
             var word = _s.Substring(start, _i - start);
             return new Tok(TokKind.Word, word, start, word.Length, atLineStart);
         }
@@ -191,7 +198,64 @@ internal sealed class NetworkLexer
         return new Tok(TokKind.Sym, c.ToString(), start, 1, atLineStart);
     }
 
-    /// <summary>The next non-whitespace character, across lines, or null at the end.</summary>
+    private Tok TypedRest(int start, bool atLineStart)
+    {
+        var j = _i + 1;
+        while (j < _s.Length && (IsWordChar(_s[j]) || ".:+-".IndexOf(_s[j]) >= 0)) j++;
+        if (j == _i + 1)
+        {
+            _i = j;
+            return Error(start, "a typed literal with nothing after its `#`.", ConflictCodes.NetworkParse);
+        }
+        _i = j;
+        return new Tok(TokKind.Typed, _s.Substring(start, _i - start), start, _i - start, atLineStart);
+    }
+
+    /// <summary>A quoted string, kept AS WRITTEN (quotes and <c>$</c> escapes included): an ST string literal is an operand's
+    /// text verbatim, and a TITLE is decoded by the header (<see cref="DecodeTitle"/>). It ends at its closing quote on its
+    /// line; <c>$</c> takes the character after it.</summary>
+    private Tok Quoted(int start, bool atLineStart, char quote)
+    {
+        _i++;
+        while (true)
+        {
+            if (_i >= _s.Length || _s[_i] == '\n' || _s[_i] == '\r')
+                return Error(start, quote == '"'
+                        ? "an unclosed double-quoted string: it ends at its closing quote, on its line (a newline inside a TITLE is $N)."
+                        : "an unclosed string literal: it ends at its closing quote, on its line.",
+                    ConflictCodes.NetworkParse);
+            var c = _s[_i];
+            if (c == quote) { _i++; break; }
+            if (c == '$') { _i += _i + 1 < _s.Length && _s[_i + 1] != '\n' ? 2 : 1; continue; }
+            _i++;
+        }
+        return new Tok(quote == '"' ? TokKind.DString : TokKind.SString, _s.Substring(start, _i - start), start, _i - start, atLineStart);
+    }
+
+    /// <summary>A TITLE's value: the double-quoted token decoded with the escapes the writer writes (owner decision
+    /// 2026-09-26) — <c>$N</c>, <c>$R</c>, <c>$"</c>, <c>$$</c>. Null and <paramref name="error"/> for any other escape.</summary>
+    public static string? DecodeTitle(string quoted, out string? error)
+    {
+        error = null;
+        var sb = new System.Text.StringBuilder();
+        for (var i = 1; i < quoted.Length - 1; i++)
+        {
+            var c = quoted[i];
+            if (c != '$') { sb.Append(c); continue; }
+            var e = i + 1 < quoted.Length - 1 ? quoted[i + 1] : '\0';
+            string? v = e switch { 'N' or 'n' => "\n", 'R' or 'r' => "\r", '"' => "\"", '$' => "$", _ => null };
+            if (v is null)
+            {
+                error = $"the escape '${e}' in a TITLE: a title spells $N, $R, $\" and $$ only.";
+                return null;
+            }
+            sb.Append(v);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>The next character after whitespace, without moving.</summary>
     public char? PeekChar()
     {
         var j = _i;
@@ -199,66 +263,23 @@ internal sealed class NetworkLexer
         return j < _s.Length ? _s[j] : null;
     }
 
-    /// <summary>Whether <c>=</c> — and not <c>=&gt;</c> — is next, across layout. Asked after an <c>S</c> or <c>R</c>
-    /// that follows a target: it makes the pair the storage operator whatever the spacing.</summary>
-    public bool EqualsFollows()
-    {
-        var j = _i;
-        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
-        return j < _s.Length && _s[j] == '=' && (j + 1 >= _s.Length || _s[j + 1] != '>');
-    }
-
     /// <summary>
-    /// Whether the pair of parentheses that comes next holds an infix operator at its OWN depth. Asked right after
-    /// an operator word: parentheses are structural (spec), so after <c>AND</c> a pair holding an operator is a
-    /// group and the word was the operator after an empty slot (<c>( AND (x OR y))</c>), while any other pair is
-    /// the word's argument list (<c>AND(EN := go, a, b)</c>, <c>AND((x OR y), c)</c>). Spacing plays no part,
-    /// which is what makes the writer's <c>AND (</c> and a hand-typed <c>AND(</c> the same text.
-    ///
-    /// <para>Scanned on a fork of the lexer, token by token, so backticks, titles and EXECUTE bodies inside the
-    /// pair are skipped as the units they are — an <c>AND</c> in a snippet's ST is not the pair's operator.</para>
-    /// </summary>
-    public bool PairAheadHoldsOperator()
-    {
-        var f = new NetworkLexer(this);
-        var w = new Walk(f);
-        if (!w.Next().IsSym("(")) return false;
-        while (true)
-        {
-            var t = w.Next();
-            if (t.Kind == TokKind.Eof) return false;
-            if (t.IsSym(")") && w.Depth == 0) return false;
-            // An operator word is an infix operator here unless it is a pin's name or a CALL HEAD — a word whose own
-            // pair holds no operator (the same rule, one level down): the argument list of `and(or(a, b), c)` holds
-            // a call, not an operator, and is an argument list itself.
-            if (w.Depth == 1 && IsOperator(t) &&
-                !(t.Kind == TokKind.Word && (f.PinOperatorFollows() || (f.PeekChar() == '(' && !f.PairAheadHoldsOperator()))))
-                return true;
-        }
-    }
-
-    /// <summary>
-    /// The tokens of a text as the reader consumes them, without reading it: every EXECUTE body is entered where the
-    /// reader enters one — at an <c>EXECUTE</c> that is no pin's name, right after it or after the pin list
-    /// <c>(EN := …)</c> that follows it, however deep that list nests another EXECUTE — and comes out as its snippet
-    /// and its <c>END_EXECUTE</c>. It is the ONE scope-free copy of that rule: the look-ahead above and the gate's
-    /// post-push comparison (<see cref="NetworkTextGate.SameTokens"/>) both walk through it, so the two cannot enter
-    /// a body at different places, and an ST line inside a snippet is never lexed as network tokens.
+    /// THE ONE WALK OVER THE TEXT'S TOKENS, raw mode included: the reader, the gate's token compare and the v1 scan all
+    /// read through it. <c>EXECUTE</c> in value position opens a body at the END OF ITS LINE (P9: <c>EXECUTE [EN [c]]</c>
+    /// ends at its line) — the header's <c>LABEL: Execute</c> and <c>JMP Execute</c> (labels, which the reader takes as
+    /// names) open none. A variable or pin named EXECUTE is backticked (P1), so no other place can mean it.
     /// </summary>
     public sealed class Walk
     {
         private readonly NetworkLexer _lx;
-        private readonly Stack<int> _executeAt = new();   // the depth an `EXECUTE(EN := …)` head's pair closes back to
-        private readonly Queue<Tok> _body = new();
+        private readonly Queue<Tok> _queued = new();
+        private int? _bodyAt;   // the end of an EXECUTE's line: its body starts after it
 
         public Walk(NetworkLexer lx) => _lx = lx;
 
-        /// <summary>Open parentheses after the last token returned.</summary>
-        public int Depth { get; private set; }
-
         public Tok Next()
         {
-            var t = _body.Count > 0 ? _body.Dequeue() : Lexed();
+            var t = _queued.Count > 0 ? _queued.Dequeue() : Lexed();
             (_before, _last) = (_last, t);
             return t;
         }
@@ -268,86 +289,34 @@ internal sealed class NetworkLexer
 
         private Tok Lexed()
         {
+            if (_bodyAt is { } at)
+            {
+                // The next token on a later line than EXECUTE's (or the end) is where the body starts: what stands
+                // between EXECUTE and its line's end is its `EN [c]`, lexed as tokens.
+                var j = _lx._i;
+                while (j < _lx._s.Length && char.IsWhiteSpace(_lx._s[j])) j++;
+                if (j > at || j >= _lx._s.Length)
+                {
+                    _bodyAt = null;
+                    _lx._i = at;
+                    var (snippet, end) = _lx.ExecuteBody();
+                    if (snippet.Kind != TokKind.Error) _queued.Enqueue(end);
+                    return snippet;
+                }
+            }
             var t = _lx.Next();
-            if (t.IsSym("(")) Depth++;
-            else if (t.IsSym(")"))
-            {
-                Depth--;
-                if (_executeAt.Count > 0 && _executeAt.Peek() == Depth) { _executeAt.Pop(); Body(); }
-            }
-            // In VALUE position only, as the reader opens one: a pin's name (`execute :=`) and a label — the header's
-            // `LABEL: Execute` and `JMP Execute`, legal IEC labels the reader takes as names — open no body. Entered
-            // at a label, the walk swallowed the rest of the text into one error token.
-            else if (t.Is("EXECUTE") && !_lx.PinOperatorFollows() && !_last.Is("JMP") &&
-                     !(_last.IsSym(":") && _before.Is("LABEL")))
-            {
-                if (_lx.PeekOnLine() == '(') _executeAt.Push(Depth);
-                else Body();
-            }
+            if (t.Is("EXECUTE") && !_last.Is("JMP") && !(_last.IsSym(":") && _before.Is("LABEL")))
+                _bodyAt = _lx.LineEnd(t.Offset);
             return t;
         }
-
-        private void Body()
-        {
-            var (snippet, end) = _lx.ExecuteBody();
-            _body.Enqueue(snippet);
-            // An error has consumed its text and the lexer goes on from it, as the reader's recovery does.
-            if (snippet.Kind != TokKind.Error) _body.Enqueue(end);
-        }
     }
 
-    /// <summary>An infix operator of the table: a symbol, or one of the operator words.</summary>
-    public static bool IsOperator(Tok t) =>
-        (t.Kind == TokKind.Sym && FbdOperators.SymbolToType.ContainsKey(t.Text)) ||
-        (t.Kind == TokKind.Word && (t.Is("AND") || t.Is("OR") || t.Is("XOR") || t.Is("MOD")));
-
-    /// <summary>Whether <c>:=</c> or <c>=&gt;</c> is next, across layout. Asked right after a word inside an
-    /// argument list: it makes that word a PIN NAME before it is read as a value, so a formal spelled like a
-    /// construct of the text (<c>execute :=</c>, a real pin of Lenze's <c>identPolePosition</c>) is a name and
-    /// never opens the construct.</summary>
-    public bool PinOperatorFollows()
-    {
-        var j = _i;
-        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
-        return j + 1 < _s.Length && ((_s[j] == ':' && _s[j + 1] == '=') || (_s[j] == '=' && _s[j + 1] == '>'));
-    }
-
-    /// <summary>Whether a pin's NAME and <c>:=</c> come next, across layout — asked right after a <c>NOT</c> inside an argument
-    /// list: <c>NOT xEnable := v</c> is a negated PIN (S6, ld-fbd-coverage 2.3), where <c>NOT x</c> negates a value.</summary>
-    public bool NamedPinFollows()
-    {
-        var j = _i;
-        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
-        var start = j;
-        while (j < _s.Length && IsWordChar(_s[j])) j++;
-        if (j == start || _s[start] is >= '0' and <= '9') return false;
-        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
-        return j + 1 < _s.Length && _s[j] == ':' && _s[j + 1] == '=';
-    }
-
-    /// <summary>The next non-blank character on the current line, or null at its end. Lets the parser see
-    /// whether an <c>EXECUTE</c> carries <c>(EN := …)</c> without lexing into its body.</summary>
-    public char? PeekOnLine()
-    {
-        var j = _i;
-        while (j < _s.Length && (_s[j] == ' ' || _s[j] == '\t' || _s[j] == '\r')) j++;
-        return j < _s.Length && _s[j] != '\n' ? _s[j] : null;
-    }
-
-    /// <summary>An EXECUTE body: the rest of the current line must be blank; the body is every line after it up
-    /// to the first line whose first word is <c>END_EXECUTE</c>, verbatim (a <c>\r</c> dropped, as the writer
-    /// drops it). Returns the snippet and the <c>END_EXECUTE</c> word, or an error token.</summary>
+    /// <summary>An EXECUTE body, from <see cref="_i"/> standing at the end of the <c>EXECUTE</c> line: its lines verbatim
+    /// up to the first line whose first word is <c>END_EXECUTE</c>, and that word as a token of its own. A CR is
+    /// layout only right before a LF; a lone one is refused, as in a comment.</summary>
     public (Tok Snippet, Tok End) ExecuteBody()
     {
         var eol = LineEnd(_i);
-        if (_s.Substring(_i, eol - _i).Trim().Length != 0)
-        {
-            var at = _i;
-            _i = eol;
-            var e = Error(at, "an EXECUTE body starts on the line after EXECUTE; nothing may follow it on its own line.",
-                ConflictCodes.NetworkParse);
-            return (e, e);
-        }
         var bodyStart = Math.Min(eol + 1, _s.Length);
         var lines = new List<string>();
         int? loneCr = null;
@@ -364,7 +333,7 @@ internal sealed class NetworkLexer
                 // Reported once the body's end is found, so the parser resumes after END_EXECUTE and not inside ST.
                 if (loneCr is { } cr) { var e = LoneCr(cr); return (e, e); }
                 var snippet = string.Join("\n", lines);
-                return (new Tok(TokKind.Snippet, snippet, bodyStart, wordAt - bodyStart, true),
+                return (new Tok(TokKind.Snippet, snippet, bodyStart, Math.Max(0, wordAt - bodyStart), true),
                         new Tok(TokKind.Word, _s.Substring(wordAt, "END_EXECUTE".Length), wordAt, "END_EXECUTE".Length, true));
             }
             var at = line.IndexOf('\r');
@@ -378,68 +347,9 @@ internal sealed class NetworkLexer
         return (err, err);
     }
 
-    /// <summary>A pragma, <c>{Member := value}</c> (ld-fbd-coverage 2.3): one token up to the brace that closes it, a
-    /// <c>}</c> inside a quoted string being text. It ends on its own line — the writer writes one line — so a brace left
-    /// open does not swallow the network.</summary>
-    private Tok Pragma(int start, bool atLineStart)
-    {
-        var quoted = false;
-        for (var k = _i + 1; k < _s.Length; k++)
-        {
-            var c = _s[k];
-            if (c == '\n') break;
-            if (quoted && c == '$') { k++; continue; }   // `$'` is a quote inside the string, `$$` the dollar
-            if (c == '\'') quoted = !quoted;
-            else if (c == '}' && !quoted)
-            {
-                var inner = _s.Substring(_i + 1, k - _i - 1);
-                _i = k + 1;
-                return new Tok(TokKind.Pragma, inner, start, _i - start, atLineStart);
-            }
-        }
-        _i = LineEnd(_i);
-        return Error(start, "an unclosed pragma: `{Member := value}` closes with `}` on its own line.", ConflictCodes.NetworkParse);
-    }
-
-    private Tok Title(int start, bool atLineStart)
-    {
-        var sb = new StringBuilder();
-        _i++;
-        while (true)
-        {
-            if (_i >= _s.Length || _s[_i] == '\n' || _s[_i] == '\r')
-                return Error(start, "an unclosed TITLE string: a title ends at its closing quote, on the header's line (a newline inside it is $N).",
-                    ConflictCodes.NetworkParse);
-            var c = _s[_i];
-            if (c == '"') { _i++; break; }
-            if (c == '$')
-            {
-                // ST's string escapes, the ones the writer writes (owner decision 2026-09-26): $N, $R, $", $$.
-                var e = Peek(1);
-                string? v = e switch { 'N' or 'n' => "\n", 'R' or 'r' => "\r", '"' => "\"", '$' => "$", _ => null };
-                if (v is null)
-                {
-                    _i += 2;
-                    return Error(start, $"the escape '${e}' in a TITLE: a title spells $N, $R, $\" and $$ only.", ConflictCodes.NetworkParse);
-                }
-                sb.Append(v);
-                _i += 2;
-                continue;
-            }
-            sb.Append(c);
-            _i++;
-        }
-        return new Tok(TokKind.String, sb.ToString(), start, _i - start, atLineStart);
-    }
-
-    /// <summary>A line's text without the CR of a CR LF, which is the file's layout — ONE CR, so a CR before it is
-    /// still a lone one.</summary>
     private static string WithoutLayoutCr(string line) =>
         line.EndsWith("\r", StringComparison.Ordinal) ? line.Substring(0, line.Length - 1) : line;
 
-    /// <summary>Spec: a line ending in a lone CR goes to the marker on pull, so on push it has no reading. It ends a
-    /// line wherever it stands — an editor breaks the line there — and taking it as text would carry what follows
-    /// into the comment or the ST, where the engineer sees a line of its own.</summary>
     private Tok LoneCr(int at) =>
         new(TokKind.Error,
             "a lone carriage return (CR without LF) in a comment or EXECUTE line: a line ends at LF, and a CR is layout only right before one.",
@@ -468,8 +378,9 @@ internal sealed class NetworkLexer
 
     private static bool IsWordChar(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '_';
 
-    // Longest first: `:=` before `:`, `<=` / `<>` before `<`.
-    private static readonly string[] Syms = { ":=", "=>", "<=", ">=", "<>", "(", ")", ",", ";", ":", ".", "=", "<", ">", "+", "-", "*", "/" };
+    // Longest first: `:=` before `:`, `<=` / `<>` before `<`. The ST operator symbols are lexed so the parser can refuse
+    // them BY NAME (P14: "write ADD / GT / …"), never as a stray character.
+    private static readonly string[] Syms = { ":=", "=>", "<=", ">=", "<>", "(", ")", ",", ";", ":", ".", "=", "<", ">", "+", "-", "*", "/", "{", "}" };
 
     // The token shapes are NetworkSpelling's, anchored here at the lexer's position: the writer leaves a text bare by
     // the same pattern this reads it back by.

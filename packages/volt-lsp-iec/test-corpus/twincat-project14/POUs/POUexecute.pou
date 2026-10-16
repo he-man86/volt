@@ -15,22 +15,21 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  EXECUTE(EN := TRUE)
+  EXECUTE EN TRUE
 iCount:=icount+1;
 
   END_EXECUTE;
 END_NETWORK
 NETWORK
-  output := t1(IN := in1, PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};
+  output := t1(IN := in1, PT := e1);
 END_NETWORK
 NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := b;
-  out1 := ((a OR g1){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']} AND c){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']};
-  out2 := g1;
+  split1 := b;
+  out1 := (a OR split1) AND c;
+  out2 := split1;
 END_NETWORK
 NETWORK
-  output := t2(IN := , PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};
+  output := t2(IN := , PT := e1);
 END_NETWORK
 
 END_PROGRAM

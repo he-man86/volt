@@ -28,7 +28,7 @@ public sealed class NetworkScope
     /// <param name="names">Every name in scope.</param>
     /// <param name="pous">The POUs the body can call (functions, FB types, programs). Each is also a name in scope.</param>
     /// <param name="instanceTypes">FB instance name → its FB type. Each instance is also a name in scope. A key is
-    /// a NAME a declaration makes — an identifier, or a qualified one (<c>GVL.fbTimer</c>) — never an expression
+    /// a NAME a declaration makes — an identifier, or a qualified one (<c>GVL.fbTimer</c>), or <c>SUPER^</c> — never an expression
     /// such as <c>fbs[1]</c>: no declaration produces that key, so a scope holding one would let the text round-trip
     /// an instance the push path cannot resolve.</param>
     public NetworkScope(IEnumerable<string> names, IEnumerable<string> pous, IReadOnlyDictionary<string, string> instanceTypes)
@@ -39,7 +39,8 @@ public sealed class NetworkScope
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in instanceTypes)
         {
-            if (!NetworkSpelling.IsName(kv.Key))
+            // `SUPER^` (S5) is the one instance no declaration names, as `FromDeclarations` answers it.
+            if (!NetworkSpelling.IsName(kv.Key) && !string.Equals(kv.Key, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"the FB instance '{kv.Key}' is no name a declaration makes.", nameof(instanceTypes));
             instances[kv.Key] = kv.Value;
         }

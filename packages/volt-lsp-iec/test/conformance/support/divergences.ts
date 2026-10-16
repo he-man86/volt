@@ -218,7 +218,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...units.UNIT_HEADER_RECOVERY,
     ...units.MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
     ...units.PROPERTY_WITHOUT_A_TYPE,
-    ...units.ENO_WITHOUT_EN_OUTPUT_TYPE,
     ...units.ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...units.FB_ACCESS_AT_THE_CALL,
     ...units.ENUM_TO_ENUM_IS_A_WARNING,

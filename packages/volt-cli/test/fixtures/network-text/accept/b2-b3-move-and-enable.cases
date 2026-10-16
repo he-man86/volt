@@ -1,0 +1,243 @@
+#### move-to — B2: MOVE writes its target as an output pin, `MOVE b => a`
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE b => a;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE b =>0:a eno:0)
+
+#### move-then-coil — B2: `a := MOVE b;` is a MOVE box, then a coil
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  a := MOVE b;
+END_NETWORK
+=== model
+NETWORK
+  (:= a (MOVE b conn:0 main:0 eno:0))
+
+#### coil-no-box — B2: `a := b;` is a coil fed by a leaf, no box
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  a := b;
+END_NETWORK
+=== model
+NETWORK
+  (:= a b)
+
+#### move-enabled — B3: `MOVE b => a EN c`, the enable after the box
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE b => a EN c;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE b =>1:a en:c eno:1)
+
+#### move-two-targets — B2: MOVE writes to as many targets as drawn
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 0 => a => b EN c;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE 0 =>1:a =>2:b en:c eno:1)
+
+#### add-enabled — B3: `x ADD 5 => x EN c`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x ADD 5 => x EN c;
+END_NETWORK
+=== model
+NETWORK
+  (ADD x 5 =>1:x en:c eno:1)
+
+#### enabled-comparison-operand — B3: inside another word it stands in brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND (b GT 40 EN c);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (AND a (GT b 40 en:c conn:0 main:0 eno:0)))
+
+#### call-enabled — B3: a call keeps its output pins inside its brackets, its EN after them
+=== text
+IMPLEMENTATION LD
+NETWORK
+  LIMIT(0, v, 100, => y) EN c;
+END_NETWORK
+=== model
+NETWORK
+  (LIMIT 0 v 100 =>1:y en:c eno:1)
+
+#### fb-enabled — B3: an FB call, enabled
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  t1(IN := go, PT := T#1S) EN c;
+END_NETWORK
+=== model
+NETWORK
+  (TON@t1 IN=go PT=T#1S en:c)
+
+#### empty-enable — 2R.1 Open item 1: `EN` with nothing after it, the enable wired to nothing
+=== text
+IMPLEMENTATION LD
+NETWORK
+  iRPM MUL 6 => oDrive EN;
+END_NETWORK
+=== model
+NETWORK
+  (MUL iRPM 6 =>1:oDrive en:_ eno:1)
+
+#### empty-enable-call — the empty enable on a call (Lenze `SideCorrection(=> ???) EN;`)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  SideCorrection(=> ???) EN;
+END_NETWORK
+=== model
+NETWORK
+  (SideCorrection =>1:??? en:_ eno:1)
+
+#### en-tail-is-a-chain — P4: EN takes the condition up to `;`, `)` or the line's end
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 6 => tInt EN ready AND btn;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE 6 =>1:tInt en:(AND ready btn) eno:1)
+
+#### en-belongs-to-its-level — P4: `x ADD f(b) EN c` enables the ADD
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x ADD f(b) => y EN c;
+END_NETWORK
+=== model
+NETWORK
+  (ADD x (f b conn:0 main:0 eno:0) =>1:y en:c eno:1)
+
+#### en-tail-with-an-enabled-comparison — P4 (2): an enabled comparison in an EN tail is bracketed, as everywhere; so is the value it enables
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (Pos LE Stop EN (Pos GE Start EN c));
+END_NETWORK
+=== model
+NETWORK
+  (:= x (LE Pos Stop en:(GE Pos Start en:c conn:0 main:0 eno:0) conn:0 main:0 eno:0))
+
+#### enabled-comparison-value — B3/P4 (2): an enabled comparison used as a value is bracketed, in every slot (a coil's value included)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (a GT 40 EN c);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (GT a 40 en:c conn:0 main:0 eno:0))
+
+#### enabled-comparison-in-call — P4 (2): in a call's argument too
+=== text
+IMPLEMENTATION LD
+NETWORK
+  y := f((a GT b EN c), d);
+END_NETWORK
+=== model
+NETWORK
+  (:= y (f (GT a b en:c conn:0 main:0 eno:0) d conn:0 main:0 eno:0))
+
+#### enabled-comparison-top — B4: a top-level enabled comparison is its line's root, not a value — no brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  a GT 40 EN c;
+END_NETWORK
+=== model
+NETWORK
+  (GT a 40 en:c)
+
+#### enabled-comparison-negated — P5: NOT's brackets carry an enabled comparison whole
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := NOT (a GT 40 EN c);
+END_NETWORK
+=== model
+NETWORK
+  (:= x not:(GT a 40 en:c conn:0 main:0 eno:0))
+
+#### move-call-form-two-inputs — P5: MOVE keeps its call form where the word form cannot carry the tree; a call keeps its outputs inside
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE(a, b, => x);
+END_NETWORK
+=== model
+NETWORK
+  (MOVE a b =>0:x eno:0)
+
+#### move-call-form-enabled — P5: `MOVE(a, b) EN c`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE(a, b) EN c;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE a b en:c)
+
+#### move-call-form-empty — P5: an empty input, `MOVE(IN := , => x)`
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE(IN := , => x);
+END_NETWORK
+=== model
+NETWORK
+  (MOVE _ =>0:x eno:0)
+
+#### move-call-form-none — P5: `MOVE()`, a MOVE with no input slot
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := MOVE();
+END_NETWORK
+=== model
+NETWORK
+  (:= x (MOVE conn:0 main:0 eno:0))
+
+#### move-operand-word-bracketed — B5: MOVE is a word, so a word box as its operand is bracketed
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE (a ADD b) => x;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE (ADD a b conn:0 main:0 eno:0) =>0:x eno:0)
+
+#### execute-enabled-word — 2R.1 Open item 4: `EXECUTE EN c … END_EXECUTE`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE EN c
+x := 1;
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "x := 1;" en:c)

@@ -122,7 +122,7 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
-            Assert.Contains("out := fbCap(xEnable := src){OutputParam.Names := ['xBusy', 'xErrorActive']}{OutputParam.Types := ['BOOL', 'BOOL']}.xErrorActive;", t);
+            Assert.Contains("out := fbCap(xEnable := src).xErrorActive;", t);
             return t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);

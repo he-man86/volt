@@ -15,11 +15,11 @@
  *
  *   evidence
  *     confirmed     3169
- *     refused       2106
+ *     refused       2108
  *     not-lowered    385
- *     lsp-gap         90
+ *     lsp-gap         88
  *     diverges         5
- *     unaskable      115
+ *     unaskable      109
  *
  *   tier                     lowered    clean
  *     decl                    842      842
@@ -3395,8 +3395,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   network_unnamed_input_pin: { evidence: "refused" },
   network_unnamed_instance: { evidence: "refused" },
   network_unnamed_target_behind_enable: { evidence: "refused", diverges: { codesys: "known" } },
-  network_unnamed_target_of_valued_call: { evidence: "lsp-gap" },
-  network_unnamed_target_of_void_call: { evidence: "lsp-gap" },
+  network_unnamed_target_of_valued_call: { evidence: "refused" },
+  network_unnamed_target_of_void_call: { evidence: "refused" },
   newdel_elementary: { evidence: "unaskable", diverges: { codesys: "known" } },
   newdel_in_method_with_pragma: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.9, shape: "f1c71c6e46", diverges: { codesys: "known" } },
   newdel_struct_with_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
@@ -3432,13 +3432,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r1_mod_three_inputs: { evidence: "unaskable" },
   ng_r1_ne_three_inputs: { evidence: "unaskable" },
   ng_r1_sub_three_inputs: { evidence: "unaskable" },
-  ng_s1_stored_slot: { evidence: "unaskable" },
-  ng_s1_stored_type_mistyped: { evidence: "unaskable" },
   ng_s2_nested_assign: { evidence: "unaskable" },
   ng_s2_nested_set_reset: { evidence: "unaskable" },
+  ng_s3a_leaf_split_into_int: { evidence: "unaskable" },
   ng_s3a_leaf_wire: { evidence: "unaskable" },
-  ng_s3a_leaf_wire_mistyped: { evidence: "unaskable" },
-  ng_s3a_leaf_wire_mistyped_bool_use: { evidence: "unaskable" },
   ng_s3b_rail_wire: { evidence: "unaskable" },
   ng_s5_super_call: { evidence: "unaskable" },
   ng_s6_negated_int_pin: { evidence: "unaskable" },
@@ -4228,16 +4225,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_implementation_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "dd164fb363" },
   rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_member_name_not_identifier: { evidence: "unaskable" },
-  rcc_network_empty_var_temp: { evidence: "unaskable" },
   rcc_network_eno_function_without_en: { evidence: "unaskable" },
-  rcc_network_eno_without_en: { evidence: "unaskable", diverges: { codesys: "known" } },
-  rcc_network_late_block_shadows_read: { evidence: "unaskable" },
+  rcc_network_eno_without_en: { evidence: "unaskable" },
   rcc_network_located_wire_shape: { evidence: "unaskable" },
   rcc_network_second_var_temp: { evidence: "unaskable" },
   rcc_network_undeclared_wire_shape: { evidence: "unaskable" },
   rcc_network_var_temp_after_statement: { evidence: "unaskable" },
   rcc_network_wire_named_like_variable: { evidence: "unaskable" },
-  rcc_network_wire_never_defined: { evidence: "unaskable" },
   rcc_property_empty_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_property_no_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_retired_comment_in_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "c19bf2911c" },

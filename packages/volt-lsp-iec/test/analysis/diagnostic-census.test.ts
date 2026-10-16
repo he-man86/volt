@@ -115,7 +115,7 @@ describe("the census rows are exactly the registry's entries", () => {
         const build = JSON.parse(readFileSync(join(import.meta.dir, "..", "conformance", "recordings", `${vendor}.build.json`), "utf8")) as {
           tests: Record<string, unknown>
         }
-        expect(census.report.measured[vendor]).toBe(ALL_TESTS.filter((t) => build.tests[t.name] !== undefined).length)
+        expect(census.report.measured[vendor]).toBe(ALL_TESTS.filter((t) => build.tests[t.name] !== undefined && t.vendorRefuses?.[vendor] === undefined).length)
       }
     },
     CENSUS_TIMEOUT,

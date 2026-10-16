@@ -39,11 +39,11 @@ const VARS = `VAR
 \tt1 : TON;
 END_VAR`
 
-/** The one network used throughout, in whichever language: `coil := (l AND r)`. Deliberately IDENTICAL across
+/** The one network used throughout, in whichever language: `coil := l AND r`. Deliberately IDENTICAL across
  *  every kind and both languages, so a failure isolates to the kind or the language and never to the network.
  *  It is also the canonical form both readers emit, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
-	`IMPLEMENTATION ${lang}\nNETWORK\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
+	`IMPLEMENTATION ${lang}\nNETWORK\n  ${coil} := ${l} AND ${r};\nEND_NETWORK`
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
@@ -123,7 +123,7 @@ for (const lang of ["FBD", "LD"]) {
 
 				const v1 = await fetchItem(full)
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // stayed graphical, not flattened to ST
-				expect(v1.sourceText).toContain("(a AND b)")
+				expect(v1.sourceText).toContain("a AND b")
 				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 			})
@@ -138,7 +138,7 @@ for (const lang of ["FBD", "LD"]) {
 				const v1 = await fetchItem(full)
 				expect(v1.sourceText).toContain("out := a;")          // the parent's own body stayed TEXTUAL…
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // …and only the member is graphical
-				expect(v1.sourceText).toContain(`${coil} := (`)
+				expect(v1.sourceText).toContain(`${coil} := `)
 				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 				await ensureCompiles(name)
@@ -154,8 +154,8 @@ for (const lang of ["FBD", "LD"]) {
 			// TWO networks, one per accessor, each keeping its own coil. A splice that wrote both accessors from
 			// the same body would still show two networks — the coils are what tell them apart.
 			expect(networkLangs(v1.sourceText)).toEqual([lang, lang])
-			expect(v1.sourceText).toContain("P_G := (a AND b)")     // the GET drives the property…
-			expect(v1.sourceText).toContain("out := (P_G AND a)")   // …and the SET is driven by it
+			expect(v1.sourceText).toContain("P_G := a AND b")     // the GET drives the property…
+			expect(v1.sourceText).toContain("out := P_G AND a")   // …and the SET is driven by it
 			expectNoOperandsLost(src.property(name), v1.sourceText)
 			await isFixedPoint(full, v1)
 			await ensureCompiles(name)

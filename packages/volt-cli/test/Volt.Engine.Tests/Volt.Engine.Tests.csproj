@@ -21,6 +21,9 @@
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <!-- The shared network-text case set (test/fixtures/network-text), read by this suite and the LSP's alike. -->
+    <Compile Include="..\shared\NetworkModelDump.cs" Link="NetworkModelDump.cs" />
+    <Compile Include="..\shared\NetworkTextCases.cs" Link="NetworkTextCases.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <!-- The LSP corpus as projects: the scope a corpus body is read against (shared with the NWL completeness oracle). -->
     <Compile Include="..\shared\CorpusProjects.cs" Link="CorpusProjects.cs" />

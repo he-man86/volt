@@ -19,9 +19,9 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NetworkScopeTests
 {
-    const string Owner = "FUNCTION_BLOCK FB_Axis\nVAR\n    G3 : BOOL;\n    t1 : TON;\nEND_VAR";
+    const string Owner = "FUNCTION_BLOCK FB_Axis\nVAR\n    G3 : BOOL;\n    SPLIT3 : BOOL;\n    t1 : TON;\nEND_VAR";
     const string Method = "METHOD Run : BOOL\nVAR_INPUT\n    speed : INT;\nEND_VAR";
-    const string Gvl = "VAR_GLOBAL\n    G7 : BOOL;\n    fbGlobal : TOF;\nEND_VAR";
+    const string Gvl = "VAR_GLOBAL\n    G7 : BOOL;\n    split7 : BOOL;\n    fbGlobal : TOF;\nEND_VAR";
     const string Machine = "VAR_GLOBAL\n    timers : ST_Timers;\nEND_VAR";
     const string Timers = "TYPE ST_Timers :\nSTRUCT\n    offDelay : TOF;\nEND_STRUCT\nEND_TYPE";
     const string REdge = "FUNCTION R_EDGE : BOOL\nVAR_INPUT\n    x : BOOL;\nEND_VAR";
@@ -63,57 +63,58 @@ public class NetworkScopeTests
 
     static NetworkGateResult Gate(string text, NetworkScope scope) => NetworkTextGate.Validate(text, scope);
 
-    /// <summary>The text reads, and the wire-shaped name is the network's WIRE — not the variable in scope it shares a
-    /// name with (openspec <c>bridge-refusal-review</c> 2.10: wires resolve first, and which name the writer picks is its
-    /// own choice on the next pull). The READER's answer; the gate stops refusing a non-canonical spelling with 2.12.</summary>
-    static void ReadAsTheWire(string text, NetworkScope scope)
+    /// <summary>B6, P1: a split's name IS its VarId, and the split pattern is reserved — so a split named like a name in
+    /// scope reads as the split, and the gate takes it: the variable of that name is the backticked word, never the bare
+    /// one. Both IDEs build the shape clean (<c>rcc_network_wire_named_like_variable</c>: <c>[]</c>); it was refused until
+    /// the 2R.3 review, for a collision P1 had already removed.</summary>
+    static void AcceptedBesideADeclarationOfItsName(string text, NetworkScope scope)
     {
-        var r = NetworkTextReader.Read(text, scope);
+        var read = NetworkTextReader.Read(text, scope);
+        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        Assert.IsType<Demux>(Assert.Single(read.Body!.Networks).Trees[0]);
+        var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        var trees = Assert.Single(r.Body!.Networks).Trees;
-        var wire = Assert.IsType<Demux>(trees[0]).VarId;
-        Assert.Equal(wire, Assert.IsType<Demux>(Assert.IsType<Assign>(trees[^1]).Value).VarId);
     }
 
-    // ── a wire named like a name in scope, case-insensitively ───────────────────────────────────
+    // ── a split named like a name in scope, case-insensitively ──────────────────────────────────
 
     public static TheoryData<string> Bodies() => new() { "method", "action" };
 
     static NetworkScope In(string where) => where == "method" ? InMethod : InAction;
 
-    /// <summary>A wire spelled like a GLOBAL (<c>G7</c>, declared in a GVL, not in the POU), read in a method or an
-    /// action, is the network's wire. It used to be refused as a duplicate name (spec "a wire that differs from a
-    /// variable only in case"); that rule is gone (2.10).</summary>
+    /// <summary>A split spelled like a GLOBAL (<c>split7</c>, declared in a GVL), read in a method or an action.</summary>
     [Theory]
     [MemberData(nameof(Bodies))]
-    public void A_wire_named_like_a_GVL_global_is_the_wire(string where) =>
-        ReadAsTheWire(Src("VAR_TEMP g7 : BOOL; END_VAR", "g7 := TRUE;", "out := g7;"), In(where));
+    public void A_split_named_like_a_GVL_global_is_accepted(string where) =>
+        AcceptedBesideADeclarationOfItsName(Src("split7 := TRUE;", "out := split7;"), In(where));
 
-    /// <summary>…and so is one spelled like the OWNING FB's member, seen from its method or action: <c>G3</c> is the FB's.</summary>
+    /// <summary>…and one spelled like the OWNING FB's member, seen from its method or action (<c>SPLIT3</c>).</summary>
     [Theory]
     [MemberData(nameof(Bodies))]
-    public void A_wire_named_like_the_owning_FBs_member_is_the_wire(string where) =>
-        ReadAsTheWire(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), In(where));
+    public void A_split_named_like_the_owning_FBs_member_is_accepted(string where) =>
+        AcceptedBesideADeclarationOfItsName(Src("split3 := TRUE;", "out := split3;"), In(where));
 
-    /// <summary>Spec, "the writer avoids a collision": a Demux whose VarId names a global or the owner's member is
-    /// written as the lowest free <c>g&lt;n&gt;</c>, and the reader accepts that text against the SAME built scope.</summary>
+    /// <summary>The writer writes a Demux whose VarId spells a global or the owner's member, against the SAME built
+    /// scope, as it writes one whose VarId spells nothing in scope.</summary>
     [Theory]
     [MemberData(nameof(Bodies))]
-    public void The_writer_renames_around_a_global_and_the_owners_member_and_the_reader_accepts_it(string where)
+    public void The_writer_writes_a_split_named_like_a_global_or_the_owners_member(string where)
     {
         var scope = In(where);
-        var model = Body(Net(Def(3, L("TRUE")), Def(7, Op("AND", Ref(3), L("a"))), Set(Ref(7), T("out"))));
-
-        var text = NetworkTextWriter.Write(model, scope);
-
-        // g3 is the owner's member G3 and g7 the global G7: each takes the lowest g<n> nothing holds, in item order.
-        Assert.Contains("  VAR_TEMP g0, g1 : BOOL; END_VAR\n  g0 := TRUE;\n  g1 := (g0 AND a);\n  out := g1;\n", text);
+        foreach (var taken in new[] { 3, 7 })
+        {
+            var named = NetworkTextWriter.Write(Body(Net(Def(taken, L("TRUE")), Set(Ref(taken), T("out")))), scope);
+            Assert.Contains($"  split{taken} := TRUE;\n  out := split{taken};\n", named);
+            Assert.True(Gate(named, scope).Ok);
+        }
+        var text = NetworkTextWriter.Write(Body(Net(Def(4, L("TRUE")), Def(5, Op("AND", Ref(4), L("a"))), Set(Ref(5), T("out")))), scope);
+        Assert.Contains("  split4 := TRUE;\n  split5 := split4 AND a;\n  out := split5;\n", text);
         var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
     }
 
-    /// <summary>A wire-shaped name the scope DOES hold — here a global — is that variable, bare; the undeclared-wire
-    /// refusal is only for a name in no scope (spec, "an undeclared wire-shaped name").</summary>
+    /// <summary>A <c>g&lt;n&gt;</c> name is no word of the text (B6 retired the g wires): a global of that name is the
+    /// variable, bare.</summary>
     [Fact]
     public void A_wire_shaped_global_is_the_variable_not_an_undeclared_wire()
     {
@@ -255,7 +256,7 @@ public class NetworkScopeTests
         RoundTrips(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
             ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("T1(IN := a);"));
 
-    const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\nEND_VAR";
+    const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\n    split3 : BOOL;\nEND_VAR";
     const string Child = "FUNCTION_BLOCK FB_Child EXTENDS FB_Base\nVAR\n    a : BOOL;\nEND_VAR";
 
     static NetworkScope Inheriting(string? declaration) =>
@@ -294,17 +295,15 @@ public class NetworkScopeTests
         Assert.Equal(LdSrc("tBase(IN := a);"),
             NetworkTextWriter.Write(Ld1(Fb("tBase", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")), InChild(where)));
 
-    /// <summary>Spec, "reserved names are one case-insensitive set" — for the WRITER: every name in scope, an inherited
-    /// member too. A wire <c>g3</c> beside the base's <c>G3</c> reads as the wire (2.10) and is renamed on write.</summary>
+    /// <summary>One case-insensitive set of names for the WRITER: every name in scope, an inherited member too — a split
+    /// <c>split3</c> beside the base's <c>split3</c> is the split, the member <c>`split3`</c>.</summary>
     [Theory]
     [MemberData(nameof(InheritingBodies))]
-    public void A_wire_named_like_an_inherited_member_is_the_wire_and_renamed_on_write(string where)
+    public void A_split_named_like_an_inherited_member_is_accepted(string where)
     {
         var scope = InChild(where);
-        Assert.True(scope.Contains("G3"));
-        ReadAsTheWire(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), scope);
-        Assert.Contains("VAR_TEMP g0 : BOOL; END_VAR",
-            NetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope));
+        Assert.True(scope.Contains("SPLIT3"));
+        AcceptedBesideADeclarationOfItsName(Src("split3 := TRUE;", "out := split3;"), scope);
     }
 
     /// <summary>A base that extends in turn is followed to the root (a header may wrap <c>EXTENDS</c> onto its own

@@ -475,19 +475,19 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 
 ## network text (FBD/LD as text)
 
-**As-built (network text v2, openspec `network-text-literal-nwl`; `src/frontend/syntax/network/`).** The body is read by a port of
-the bridge reader (`parser.ts` and the files it builds on — `cursor.ts`, `values.ts`, `calls.ts`, `statements.ts`, `pair-kind.ts` — over its own `lexer.ts`): one statement per vendor network item, the values a tree of
-their own (`NetworkValue`) because the text spells things ST has no node for — an empty slot, an edge FLAG, `PARALLEL`,
-an EXECUTE box, `.ENO`, `=> v`. Every operand, target and backticked text is still an ST `Expr`, and `exprs.ts` gives
+**As-built (network text after the readability pass, openspec `ld-fbd-coverage` 2R.3; `src/frontend/syntax/network/`).** The
+body is read by a port of the bridge reader (`parser.ts` and the files it builds on — `cursor.ts`, `boxes.ts`, `targets.ts`, `values.ts`, `calls.ts`,
+`statements.ts` — over its own `lexer.ts`, with the words in `words.ts`): one item per `;`, the values a tree of their own
+(`NetworkValue`) because the text spells things ST has no node for — a box word (`a ADD b`, `MOVE b => a`), an empty slot,
+an edge FLAG, a `BRANCH` parallel, an EXECUTE box, `ENO` taking an open line, `=> v`, `EN` after a box. Every operand, target and backticked text is still an ST `Expr`, and `exprs.ts` gives
 each value its ST reading where it has one (`networkValueExpr`) and the operands of the ones it has not
 (`statementExprs`), so the ONE type engine / `resolveMemberChain` / nav / hover / rename run unchanged. An EXECUTE box's
 lines are ordinary ST, parsed with the ST statement parser into a `StatementList`.
 
 ```ts
-// The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them). The two the
-// LSP adds from the declarations (a wire named like a name in scope, a POU named like a construct) are
-// NETWORK_DUPLICATE_NAME / NETWORK_UNSUPPORTED from `network-analysis.ts`. (NETWORK_NOT_CANONICAL is gone: canonical
-// form is no refusal, bridge-refusal-review 2.12.)
+// The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them, the same
+// cases both sides read from packages/volt-cli/test/fixtures/network-text). The format's own findings are no NETWORK_ code:
+// network-split-reused (warning, P9), network-en-unwired and network-coil-on-rail (hints, P12/P13), `_format.ts`.
 type NetworkDiagnosticCode =
   | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NAME"
   | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNSUPPORTED" | "NETWORK_UNKNOWN_OPERATOR"
@@ -496,17 +496,17 @@ interface NetworkTextDiagnostic { code: NetworkDiagnosticCode; message: string; 
 interface NetworkTextBody { kind: "network_body"; language?: "FBD" | "LD"; networks: NetworkTextNetwork[]; diagnostics: NetworkTextDiagnostic[]; span: Span }
 interface NetworkTextNetwork {
   index: number; title?: string; label?: NetworkName; disabled: boolean; comment?: string
-  wires: NetworkWire[]                      // the network's VAR_TEMP block: g<digits> with their declared type
+  splits: NetworkSplit[]                    // split<VarId> := value; — its definition and references, no type (B6)
   statements: NetworkTextStatement[]; span: Span; headerSpan: Span
 }
-type NetworkTextStatement = NetworkAssign | NetworkWireDef | NetworkValueStatement | NetworkJump | NetworkReturn | NetworkEmpty
-//   assign: t1 := t2 S= … value;   wire_def: g1 := value;   value: value;   jump/return: [IF c THEN] JMP l; / RETURN;   empty: ;
-type NetworkValue = NetworkEmptySlot | NetworkOperand | NetworkWireRef | NetworkNot | NetworkEdge | NetworkGroup
-                  | NetworkCall | NetworkParallel | NetworkExecute
+type NetworkTextStatement = NetworkAssign | NetworkSplitDef | NetworkValueStatement | NetworkJump | NetworkReturn | NetworkEmpty
+//   assign: t1 := t2 S= … value;   split_def: split1 := value;   value: value;   jump/return: JMP l [:= c]; / RETURN [:= c];   empty: ;
+type NetworkValue = NetworkNestedAssign | NetworkEmptySlot | NetworkOperand | NetworkSplitRef | NetworkNot | NetworkEdge
+                  | NetworkWordBox | NetworkCall | NetworkParallel | NetworkExecute | NetworkEno
 
-// Analysis (F.2b) — a per-network resolution scope layering the network's VAR_TEMP wires, typed AS DECLARED, over the
-// POU scope; the shared infer engine resolves wires like real variables.
-interface NetworkTextAnalysis { vg: NetworkTextBody; pou: Scope; networkScopes: Map<NetworkTextNetwork, Scope>; wires: Map<Symbol, NetworkWire> }
+// Analysis (F.2b) — a per-network resolution scope layering the network's splits, each typed by its FEEDER (B6), over the
+// POU scope; the shared infer engine resolves a split like a real variable.
+interface NetworkTextAnalysis { vg: NetworkTextBody; pou: Scope; networkScopes: Map<NetworkTextNetwork, Scope>; splits: Map<Symbol, NetworkSplit> }
 ```
 
 <details><summary>Pre-rebuild operand tree (historical — NOT built; operands are `Expr`)</summary>
@@ -563,6 +563,6 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
 - **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
   nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`
-  binary node's. A network's `VAR_TEMP` wires become per-network symbols typed as declared
+  binary node's. A network's splits become per-network symbols typed by their feeder
   (`NetworkTextAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
   the earlier "operator info as a fact on `NetworkGroup`" refinement (there is no `NetworkGroup`).

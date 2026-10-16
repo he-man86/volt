@@ -119,10 +119,8 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // name, which an ACTION's body does not carry (`CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`); TwinCAT has no `__POUNAME`
     // and agrees, so it cannot be written on the fixture as a deferral (agreeing would end it there)
     "ar_pouname_type",
-    // the `???` target over a CALL. The fixture and the corpus disagree because the compiler never reads network
-    // text at all — see `network/network-analysis.ts`.
-    "network_unnamed_target_of_void_call",
-    "network_unnamed_target_of_valued_call",
+    // (the `???` target over a CALL read through its ENO left 2026-10-16, ld-fbd-coverage 2R.3: re-recorded on the box
+    // 2R.3's push builds, CODESYS answers the target, and `checkUnresolvedBoxes` says so.)
     // partial access CODESYS refuses — `.%B0` of an INT ("Partial access is only supported on ANY_BIT types and not on
     // 'INT'"), `.%W1` of a WORD ("'%W1' is not a valid partial component of 'WORD'"; transpile-refusal-classification 2.2).
     // TwinCAT has no `.%` access and the LSP's TwinCAT parse agrees, so it cannot be a deferral on the fixture. niche:

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-// The network-text injection grammar against network text v2 (openspec network-text-literal-nwl 5.4). The rules are
+// The network-text injection grammar against network text (readability.md, openspec ld-fbd-coverage 2R.3). The rules are
 // Oniguruma regexes, and every one used here is also a valid JavaScript regex, so they are exercised as written: a
 // rule that stops matching the text the writer writes is a colouring the editor silently loses.
 
@@ -33,7 +33,7 @@ const re = (src: string): RegExp => new RegExp(src.replace(/^\(\?i\)/, ""), src.
 const matches = (r: Rule, text: string): string[] => [...text.matchAll(re(r.match ?? r.begin!))].map((m) => m[0])
 
 test("the header is NETWORK with its named fields and no order number or language", () => {
-	const m = re(network.begin!).exec('NETWORK LABEL: Done TITLE: "Tray $"A$" ready" DISABLED')
+	const m = re(network.begin!).exec('NETWORK LABEL: Done DISABLED TITLE: "Tray $"A$" ready"')
 	expect(m).not.toBeNull()
 	const caps = network.beginCaptures!
 	const named = Object.entries(caps).map(([i, c]) => [c.name, m![Number(i)]])
@@ -52,26 +52,25 @@ test("backticked text is one operand, whatever it holds", () => {
 	])
 })
 
-test("the edge words and PARALLEL are the text's own constructs", () => {
+test("the edge words are the text's own constructs", () => {
 	const r = rule("keyword.other.construct.vg")
-	expect(matches(r, "MOVE(EN := R_EDGE(b), 1); x := F_EDGE(NOT y); out := PARALLEL(IN := g1, a, b);")).toEqual([
-		"R_EDGE",
-		"F_EDGE",
-		"PARALLEL",
-	])
+	expect(matches(r, "MOVE 1 => m EN R_EDGE(b); x := F_EDGE(NOT y);")).toEqual(["R_EDGE", "F_EDGE"])
 	// …only as the construct: a variable merely containing the word is not one.
-	expect(matches(r, "xR_EDGE := PARALLEL_count;")).toEqual([])
+	expect(matches(r, "xR_EDGE := F_EDGE_count;")).toEqual([])
 })
 
-test("a network's VAR_TEMP block declares its wires", () => {
-	const block = inner.find((p) => p.name === "meta.wires.vg")!
-	expect(re(block.begin!).test("VAR_TEMP g22, g23 : BOOL; END_VAR")).toBe(true)
-	const wire = block.patterns!.find((p) => p.name === "variable.other.wire.vg")!
-	expect(matches(wire, "VAR_TEMP g22, G23 : BOOL; END_VAR")).toEqual(["g22", "G23"])
+test("a split is its VarId, split<n>, and the pattern alone tells one (B6, P1)", () => {
+	expect(matches(rule("variable.other.wire.vg"), "split22 := a AND b; x := split22 OR `split5`; mysplit3 := s.split4;")).toEqual(["split22", "split22"])
 })
 
-test(".ENO is the box's ENO output, not a member access", () => {
-	expect(matches(rule("keyword.other.eno.vg"), "lamp := MOVE(EN := c, 0).ENO; x := s.ENOUGH;")).toEqual([".ENO"])
+test("EN, ENO, BRANCH and SHORTCIRCUIT are words of the text; a box is its word (B1-B4, B8)", () => {
+	expect(matches(rule("keyword.other.eno.vg"), "MOVE 0 => x EN c\nlamp := ENO BRANCH (a, b) SHORTCIRCUIT; x := s.ENOUGH OR `EN`;")).toEqual([
+		"EN",
+		"ENO",
+		"BRANCH",
+		"SHORTCIRCUIT",
+	])
+	expect(matches(rule("keyword.operator.word.vg"), "x := a ADD b; MOVE x => y; t := addr GT 1; z := LIMIT(0, v, 9);")).toEqual(["ADD", "MOVE", "GT"])
 })
 
 test("LET is gone: v1 text is refused, so nothing colours it as syntax", () => {
@@ -79,9 +78,9 @@ test("LET is gone: v1 text is refused, so nothing colours it as syntax", () => {
 })
 
 test("the LSP's wire token class is declared, with variable as its super type", () => {
-	// The server paints a wire with its own semantic token type, `wire` (openspec network-text-literal-nwl 5.3). A client
+	// The server paints a split with its own semantic token type, `wire` (openspec network-text-literal-nwl 5.3). A client
 	// that has no declaration for a custom type drops the token, so the extension declares it — and as a kind of
-	// variable, so a theme that knows nothing of wires still colours one like the variable it reads as.
+	// variable, so a theme that knows nothing of splits still colours one like the variable it reads as.
 	const manifest = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as {
 		contributes: { semanticTokenTypes?: { id: string; superType?: string }[] }
 	}

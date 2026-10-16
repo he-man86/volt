@@ -271,15 +271,6 @@ export const MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD: readonly string[] = [
 export const PROPERTY_WITHOUT_A_TYPE: readonly string[] = ["rcc_property_no_type", "rcc_property_empty_type"]
 
 /**
- * BRIDGE-REFUSAL-REVIEW 1.5 (2026-10-04) — `.ENO` on an operator box with no EN (`x := ADD(a, b).ENO;`). CODESYS reports
- * "Missing EN pin" (the LSP does, `network-missing-en`) AND the box's data output against the target, "Cannot convert type
- * 'INT' to type 'BOOL'": an operator box in call form has no ST reading in the network analysis (`callReading`), so its
- * type is not given. CODESYS only — TwinCAT's driver refuses the box before a build (`TcEnoRefusal`); niche: accepted loss
- * (0 occurrences in the corpora — all 26 `.ENO` reads there are on a box with an EN).
- */
-export const ENO_WITHOUT_EN_OUTPUT_TYPE: readonly string[] = ["rcc_network_eno_without_en"]
-
-/**
  * FRONTEND-CONFORMANCE 2.10 (2026-10-02) — an accessor's text the PUSH drops, U16's accessor cells: the push reads an
  * accessor's declaration from the lines UNDER its keyword line and drops that line whole, so `GET PRIVATE` reaches both
  * IDEs as `GET`; and it closes a `GET` without END_GET at its own line, so the getter's body never reaches them (both

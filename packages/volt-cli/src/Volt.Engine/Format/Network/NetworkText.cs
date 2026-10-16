@@ -21,14 +21,10 @@ public static class NetworkText
     /// <summary>The text is an editable graphical network-text body — its first line states LD or FBD.</summary>
     public static bool Is(string? impl) => LanguageOf(impl) != null;
 
-    /// <summary>A network's TITLE or comment as the drivers hold it: trimmed at the end, and none where nothing is
-    /// left. Both vendors' readers trim these (the IDE keeps the newline an engineer typed after a title) and both
-    /// writers compare ignoring trailing whitespace, so a trailing space, an empty title or a closing empty <c>//</c>
-    /// line is no fact a push can write. The one rule: the vendor readers build the model by it, the text reader reads
-    /// by it — so such a text is written as the model and comes back canonical — and the text writer refuses a model that
-    /// breaks it.</summary>
-    public static string? Stored(string? s) =>
-        string.IsNullOrEmpty(s) ? null : s!.TrimEnd() is { Length: > 0 } t ? t : null;
+    /// <summary>A network's TITLE or comment as the drivers hold it: EXACTLY as the IDE stores it (2R.2 S: "Title exact",
+    /// "Comment verbatim" — the trailing trim and the CR LF fold went), and none where it stores nothing. The one rule the
+    /// vendor readers build the model by and both writers compare by.</summary>
+    public static string? Stored(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     /// <summary>The body's language ("FBD"/"LD", from the <c>IMPLEMENTATION</c> line it opens with), or null if not a
     /// network-text body. The line is the body's FIRST line: a network-text body is that line and its networks, nothing
@@ -110,20 +106,6 @@ public static class NetworkText
         b.HasEnoOutput ?? NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
                                                      enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
 
-    /// <summary>A WIRE'S PRODUCER, CARRYING THE TYPE THE TEXT DECLARED THE WIRE WITH as the stored output type of the slot
-    /// the wire is connected to (<see cref="Box.OutputTypes"/>) — what a driver building the box writes where its vendor
-    /// keeps a box's output type. The text states a data wire's type only in its <c>VAR_TEMP</c> (spec: "on push the
-    /// declared type is taken as written"), and the vendor derives none itself (DIALECT N21: CODESYS's
-    /// <c>OutputParams</c> holds exactly what the writer appended). Built without it, <c>g1 := (a + b);</c> declared
-    /// <c>INT</c> read back as a wire of unknown type: the next pull was UNSUPPORTED, and the next push of the same text
-    /// was refused by the change gate rendering the live network. Only a box connected by a data slot takes it — a
-    /// consumer of ENO reads a BOOL the rule already knows, and a bit operator stores no slot to carry one (census 1.6);
-    /// a type already stored is its own answer.</summary>
-    public static Node WithDeclaredType(Node producer, string? declared) =>
-        producer is Box { OutputTypes: null, StCode: null, ConnectedSlot: { } slot } b && declared is not null
-        && !NetworkSpelling.ConnectedByEno(b)
-            ? b with { OutputTypes = Enumerable.Repeat<string?>(null, slot).Append(declared).ToList() }
-            : producer;
 
     /// <summary>Whether a refusal met in a network's trees can stand as that network's <c>UNSUPPORTED</c> line
     /// (<see cref="Network.Unsupported"/>): its reason is a phrase the line can spell. The door the drivers' readers have to

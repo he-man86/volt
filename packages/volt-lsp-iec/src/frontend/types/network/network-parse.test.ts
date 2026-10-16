@@ -1,8 +1,9 @@
 /**
- * The network text v2 parser (openspec network-text-literal-nwl 5.1): one statement per vendor item, the per-network
- * `VAR_TEMP` wire block, chained targets, backticks, `.ENO`, `=> v`, EN on any call, `R_EDGE`/`F_EDGE`, structural
- * parentheses, `PARALLEL`, `value;`, `END_IF;`/`END_EXECUTE;` and EXECUTE's value form — each raising the bridge
- * reader's finding where the bridge raises it (`NetworkTextReaderTests`, `NetworkTextGateTests` in volt-cli).
+ * The network-text reader's TREE (openspec ld-fbd-coverage 2R.3, `readability.md`): what the parse hands the checks and
+ * the services — one statement per NWL item, the open lines reached through the ENO that takes each (P3), the splits and
+ * their references (B6), the parallel (B8), a box's type as the reader decided it, the ST readings the type engine runs
+ * over, and the recovery that keeps what was read. Which texts are accepted and which refused, by name, is the shared case
+ * set's (`network-cases.test.ts`, the bridge's `NetworkTextCaseTests`) — not repeated here.
  */
 import { expect, test } from "bun:test"
 import {
@@ -20,6 +21,7 @@ import {
   STRUCTURE_ONLY,
   unitBodies,
   walkExpr,
+  walkValues,
 } from "../../syntax/index.js"
 import { parseNetworkText } from "./network-parse.js"
 
@@ -30,21 +32,22 @@ function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {
   if (b === undefined) throw new Error("no graphical body")
   return b
 }
-const parse = (networks: string): NetworkTextBody => parseNetworkText(body(networks), STRUCTURE_ONLY, "codesys")
+const parse = (networks: string, scope: NetworkScopeView | typeof STRUCTURE_ONLY = STRUCTURE_ONLY): NetworkTextBody =>
+  parseNetworkText(body(networks), scope, "codesys")
 const net = (statements: string, header = "NETWORK"): string => `${header}\n${statements}\nEND_NETWORK`
 const codes = (networks: string): string[] => parse(networks).diagnostics.map((d) => d.code)
-const clean = (networks: string): NetworkTextStatement[] => {
-  const b = parse(networks)
+const clean = (networks: string, scope: NetworkScopeView | typeof STRUCTURE_ONLY = STRUCTURE_ONLY): NetworkTextStatement[] => {
+  const b = parse(networks, scope)
   expect(b.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
   return b.networks.flatMap((n) => n.statements)
 }
-const only = (statements: string): NetworkTextStatement => {
-  const s = clean(net(statements))
+const only = (statements: string, scope: NetworkScopeView | typeof STRUCTURE_ONLY = STRUCTURE_ONLY): NetworkTextStatement => {
+  const s = clean(net(statements), scope)
   expect(s).toHaveLength(1)
   return s[0]!
 }
 const valueOf = (s: NetworkTextStatement): NetworkValue => {
-  if (s.kind === "assign" || s.kind === "wire_def" || s.kind === "value") return s.value
+  if (s.kind === "assign" || s.kind === "split_def" || s.kind === "value") return s.value
   throw new Error(`no value on a ${s.kind}`)
 }
 const idents = (e: Expr | undefined): string[] => {
@@ -52,6 +55,11 @@ const idents = (e: Expr | undefined): string[] => {
   if (e !== undefined) walkExpr(e, (x) => x.kind === "ident_expr" && out.push(x.name))
   return out
 }
+const scope = (instances: Record<string, string> = {}, pous: string[] = [], names: string[] = []): NetworkScopeView => ({
+  isPou: (n) => pous.some((p) => p.toUpperCase() === n.toUpperCase()),
+  instanceType: (h) => Object.entries(instances).find(([k]) => k.toUpperCase() === h.toUpperCase())?.[1],
+  declares: (n) => [...Object.keys(instances), ...pous, ...names].some((x) => x.toUpperCase() === n.toUpperCase()),
+})
 
 // ── the body and its header ─────────────────────────────────────────────────────────────────
 
@@ -64,454 +72,177 @@ test("the line states the language and a network has no order number", () => {
 })
 
 test("v1 text is refused naming a re-pull, never read", () => {
-  // v1 under the line stating LD — what a clean merge makes of an un-pushed v1 edit: the line decides the reader, and
-  // the reader refuses v1 once, by name, reading no statement of it. (The bare comment marker that used to head a v1
-  // body is no boundary any more: such a body is ST to this server, and the older-format manifest says re-pull.)
-  const v1 = parseNetworkText(body("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK"), STRUCTURE_ONLY, "codesys")
+  const v1 = parse("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK")
   expect(v1.networks.flatMap((n) => n.statements)).toEqual([])
-  expect(v1.diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
-  expect(v1.diagnostics[0]!.message).toContain("re-pull")
-  // …and inside a v2 body, a LET statement or a numbered header is v1 too.
+  expect(v1.diagnostics.every((d) => d.code === "NETWORK_PARSE" && d.message.includes("re-pull"))).toBe(true)
   expect(parse(net("LET g0 := TRUE;")).diagnostics[0]!.message).toContain("re-pull")
-  expect(parse("NETWORK 3 LD\n  out := a;\nEND_NETWORK").diagnostics[0]!.message).toContain("re-pull")
 })
 
-test("the header carries LABEL, TITLE and DISABLED, and a title spells ST's escapes", () => {
-  const n = parse(net("out := a;", 'NETWORK LABEL: Done TITLE: "Tray $"A$" ready$Nnext $$5" DISABLED')).networks[0]!
+test("the header carries LABEL, DISABLED and TITLE, exact, ST's escapes decoded", () => {
+  const n = parse(net("out := a;", 'NETWORK LABEL: Done DISABLED TITLE: "Tray $"A$" ready$Nnext $$5 "')).networks[0]!
   expect(n.label?.text).toBe("Done")
-  expect(n.title).toBe('Tray "A" ready\nnext $5')
+  expect(n.title).toBe('Tray "A" ready\nnext $5 ')
   expect(n.disabled).toBe(true)
 })
 
-test("the header ends at its newline: DISABLED on the next line is a statement", () => {
-  const s = clean(net("DISABLED := a;"))
-  expect(parse(net("DISABLED := a;")).networks[0]!.disabled).toBe(false)
-  expect(s[0]!.kind).toBe("assign")
-})
-
-test("a header field twice, or a word the header does not hold, is refused", () => {
-  expect(codes(net("out := a;", "NETWORK LABEL: a LABEL: b"))).toEqual(["NETWORK_PARSE"])
-  expect(codes(net("out := a;", "NETWORK LD"))).toEqual(["NETWORK_PARSE"])
-})
-
-test("the comment is the // lines before the first statement, and one after a statement is refused", () => {
-  const n = parse(net("// step:\n//\n//     indented\n// // quoted\nout := a;")).networks[0]!
-  expect(n.comment).toBe("step:\n\n    indented\n// quoted")
-  expect(codes(net("out := a;\n// trailing"))).toEqual(["NETWORK_PARSE"])
-})
-
 test("an unclosed network is NETWORK_NOT_CLOSED", () => {
-  expect(codes("NETWORK\n  out := a;\n")).toEqual(["NETWORK_NOT_CLOSED"])
+  expect(codes("NETWORK\n  out := a;")).toEqual(["NETWORK_NOT_CLOSED"])
 })
 
-// ── wires ───────────────────────────────────────────────────────────────────────────────────
+test("the comment is the // lines before the first statement, trailing spaces kept", () => {
+  const n = parse(net("// step:  \n//\n//     indented\n// // quoted\nout := a;")).networks[0]!
+  expect(n.comment).toBe("step:  \n\n    indented\n// quoted")
+})
 
-test("a VAR_TEMP wire is defined by assignment and referenced bare", () => {
-  const b = parse(net("VAR_TEMP g0, g1 : BOOL; END_VAR\ng0 := TRUE;\ng1 := (g0 AND a);\nout := g1;"))
+test("a finding keeps the statements read before it, and the next network is read", () => {
+  const b = parse(net("x := a;\ny := (b);\nz := c;") + "\n" + net("w := d;"))
+  expect(b.diagnostics.map((d) => d.code)).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(b.networks[0]!.statements.map((s) => s.kind)).toEqual(["assign"])
+  expect(b.networks[1]!.statements).toHaveLength(1)
+})
+
+test("a finding stands at the token the bridge names", () => {
+  const b = parse(net("x := a ADD b MUL c;"))
+  const d = b.diagnostics[0]!
+  expect(d.code).toBe("NETWORK_BAD_EXPRESSION")
+  expect(d.message).toContain("one word = one box")
+  expect(d.span.startCol).toBe(13) // `MUL`, 0-based: two spaces of indentation, then `x := a ADD b `
+})
+
+// ── splits (B6) ─────────────────────────────────────────────────────────────────────────────
+
+test("a split is its VarId: defined once, referenced below, and listed with its references", () => {
+  const b = parse(net("split175 := TRUE;\nsplit176 := split175 AND a;\nx := split176;\ny := split176 AND split175;"))
   expect(b.diagnostics).toEqual([])
   const n = b.networks[0]!
-  expect(n.wires.map((w) => `${w.name.text}:${w.typeText}`)).toEqual(["g0:BOOL", "g1:BOOL"])
-  expect(n.statements.map((s) => s.kind)).toEqual(["wire_def", "wire_def", "assign"])
-  expect(valueOf(n.statements[2]!).kind).toBe("wire_ref")
-  expect(n.wires[1]!.definition).toBe(n.statements[1] as never)
-})
-
-test("the block may run across lines, and its type is parsed", () => {
-  const n = parse(net("VAR_TEMP\n  g1 : BOOL;\n  g2 : STRING (80);\nEND_VAR\ng1 := a;\ng2 := s;\nout := g1;")).networks[0]!
-  expect(n.wires.map((w) => w.typeText)).toEqual(["BOOL", "STRING (80)"])
-  expect(n.wires[0]!.type?.kind).toBe("named_type")
-})
-
-test("an undeclared assignment is a coil on a variable, never a wire", () => {
-  const s = only("g5 := a;")
-  expect(s.kind).toBe("assign")
-})
-
-const WIRE_MISUSE: ReadonlyArray<[string, string, string]> = [
-  ["referenced before its definition", "VAR_TEMP g1 : BOOL; END_VAR\nout := g1;\ng1 := a;", "NETWORK_BAD_EXPRESSION"],
-  ["defined with S=", "VAR_TEMP g1 : BOOL; END_VAR\ng1 S= a;", "NETWORK_BAD_EXPRESSION"],
-  ["defined inside a chain", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := out := a;", "NETWORK_BAD_EXPRESSION"],
-  ["not named g<digits>", "VAR_TEMP speed : BOOL; END_VAR\nout := a;", "NETWORK_BAD_EXPRESSION"],
-  ["declared twice", "VAR_TEMP g1, G1 : BOOL; END_VAR\ng1 := a;", "NETWORK_DUPLICATE_NAME"],
-  ["defined twice", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\ng1 := b;", "NETWORK_DUPLICATE_NAME"],
-]
-for (const [what, statements, code] of WIRE_MISUSE)
-  test(`a wire ${what} is ${code}`, () => {
-    expect(codes(net(statements))).toContain(code)
-  })
-
-// THE LAYOUT RULES ARE GONE (openspec bridge-refusal-review 2.7-2.11, the bridge reader's): each text below reads to a
-// model the push writes, the writer canonicalizes it on the next pull, and neither build has anything to say about it.
-// Reporting them made the LSP refuse what the push takes.
-const WIRE_LAYOUT: ReadonlyArray<[string, string]> = [
-  ["declared and never defined (dropped on write, 2.8)", "VAR_TEMP g1 : BOOL; END_VAR\nout := a;"],
-  ["in a second block (2.7)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nVAR_TEMP g2 : BOOL; END_VAR\ng2 := g1;\nout := g2;"],
-  ["in a block after a statement (2.7)", "out := a;\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := b;\nlamp := g1;"],
-  ["an empty block (2.9)", "VAR_TEMP END_VAR\nout := a;"],
-  ["also spelled as a call head (2.11)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\n`g1`(x);"],
-  ["also spelled in a label (2.11)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nIF g1 THEN JMP g1; END_IF;"],
-]
-for (const [what, statements] of WIRE_LAYOUT)
-  test(`a wire ${what} is read, and no finding`, () => {
-    expect(codes(net(statements))).toEqual([])
-  })
-
-// ── statements ──────────────────────────────────────────────────────────────────────────────
-
-test("a chained assignment is ONE assign with its targets and storage in order", () => {
-  const s = only("x :=\ny S=\nz R= v;")
-  expect(s.kind).toBe("assign")
-  if (s.kind === "assign") {
-    expect(s.targets.map((t) => `${t.op} ${t.text}`)).toEqual([":= x", "S= y", "R= z"])
-    expect(idents(s.targets[1]!.expr)).toEqual(["y"])
-  }
-})
-
-test("S= is the storage operator after a target however spaced, and a comparison inside a group", () => {
-  const s = only("x S = a;")
-  expect(s.kind === "assign" && s.targets[0]!.op).toBe("S=")
-  const g = valueOf(only("out := (R = x);"))
-  expect(g.kind === "group" && g.op).toBe("=")
-})
-
-test("a top-level value, the empty item, and the IF form each are one statement", () => {
-  expect(clean(net("MOVE(EN := a, b);\n;\nIF a THEN JMP Done; END_IF;\nRETURN;")).map((s) => s.kind)).toEqual([
-    "value",
-    "empty",
-    "jump",
-    "return",
+  expect(n.splits.map((s) => [s.name.text, s.varId, s.references.length])).toEqual([
+    ["split175", 175, 2],
+    ["split176", 176, 2],
   ])
+  expect(n.statements.map((s) => s.kind)).toEqual(["split_def", "split_def", "assign", "assign"])
+  expect(valueOf(n.statements[2]!).kind).toBe("split_ref")
 })
 
-test("END_IF without its ; is NETWORK_PARSE, and a statement without ; too", () => {
-  expect(codes(net("IF a THEN JMP Done; END_IF"))).toEqual(["NETWORK_PARSE"])
-  expect(codes(net("out := a"))).toEqual(["NETWORK_PARSE"])
+test("a split beside a declaration of its name is the split; the variable is the backticked word (P1)", () => {
+  const text = net("split1 := a;\nx := split1;\n`split1` := split1;")
+  expect(parse(text).diagnostics).toEqual([])
+  const scoped = parse(text, scope({}, [], ["split1"]))
+  expect(scoped.diagnostics).toEqual([])
+  expect(scoped.networks[0]!.statements.map((s) => s.kind)).toEqual(["split_def", "assign", "assign"])
 })
 
-test("after JMP a word of the text is the label", () => {
-  const s = only("JMP Execute;")
-  expect(s.kind === "jump" && s.target.text).toBe("Execute")
+// ── open lines (B4, P3) ─────────────────────────────────────────────────────────────────────
+
+test("an open line is the box the ENO below it takes: one item, one tree", () => {
+  const s = only("MOVE 860 => AutoSpeed EN go\nStartAuto := ENO;")
+  const v = valueOf(s)
+  expect(v.kind).toBe("eno")
+  if (v.kind !== "eno") return
+  expect(v.box.kind).toBe("word")
+  expect(v.box.kind === "word" && v.box.word).toBe("MOVE")
+  expect(v.box.span.startLine).toBe(v.span.startLine - 1)
 })
 
-// ── values ──────────────────────────────────────────────────────────────────────────────────
-
-test("a backticked operand is ONE operand whose text is parsed as an ST expression", () => {
-  const v = valueOf(only("P := `fc_dinttotime(T.Start,2)`;"))
-  expect(v.kind).toBe("operand")
-  if (v.kind === "operand") {
-    expect(v.backticked).toBe(true)
-    expect(v.expr?.kind).toBe("call")
-    expect(idents(v.expr)).toEqual(["fc_dinttotime", "T", "Start"])
-  }
+test("each ENO takes the oldest open line not yet taken: a mix reads by level", () => {
+  const s = only("MOVE 1 => R EN c\nMOVE 2 => P EN d\nMOVE 3 => Q EN ENO\nx := ENO AND ENO;")
+  const and = valueOf(s)
+  expect(and.kind).toBe("word")
+  if (and.kind !== "word") return
+  const targets = and.operands.map((o) => (o.kind === "eno" && o.box.kind === "word" ? o.box.outputs[0]!.text : "?"))
+  expect(targets).toEqual(["P", "Q"])
+  const q = and.operands[1]!
+  expect(q.kind === "eno" && q.box.kind === "word" && q.box.en?.kind).toBe("eno") // Q takes R
 })
 
-test("a backticked target and a backticked call head", () => {
-  const s = only("`arr[i + 1]` := `Network`(x);")
-  expect(s.kind).toBe("assign")
-  if (s.kind === "assign") {
-    expect(s.targets[0]!.expr?.kind).toBe("index")
-    expect(s.value.kind === "call" && s.value.head.text).toBe("Network")
-  }
+test("the empty enable is an empty slot, and the box's EN token is kept", () => {
+  const v = valueOf(only("iRPM MUL 6 => oDrive EN;"))
+  expect(v.kind).toBe("word")
+  if (v.kind !== "word") return
+  expect(v.en?.kind).toBe("empty_slot")
+  expect(v.enSpan).toBeDefined()
 })
 
-test("a keyword of the text at operand position is refused unless backticked", () => {
-  expect(codes(net("out := Let;"))).toContain("NETWORK_BAD_EXPRESSION")
-  expect(codes(net("out := `Let`;"))).toEqual([])
+// ── the parallel (B8) ───────────────────────────────────────────────────────────────────────
+
+test("a parallel is its feed, its branches in stored order and its mode", () => {
+  const v = valueOf(only("lamp := start BRANCH (a,\n                       b AND c) SHORTCIRCUIT;"))
+  expect(v.kind).toBe("parallel")
+  if (v.kind !== "parallel") return
+  expect(v.input?.kind).toBe("operand")
+  expect(v.branches.map((b) => b.kind)).toEqual(["operand", "word"])
+  expect(v.shortCircuit).toBe(true)
+  const unfed = valueOf(only("lamp := BRANCH (a, b);"))
+  expect(unfed.kind === "parallel" && unfed.input === undefined && !unfed.shortCircuit).toBe(true)
 })
 
-test("EN is a pin of any call, `EN := ,` an unwired one, and .ENO a suffix", () => {
-  const v = valueOf(only("lamp := MOVE(EN := c, 0, => Status).ENO;"))
-  expect(v.kind).toBe("call")
-  if (v.kind === "call") {
-    expect(v.eno).toBe(true)
-    expect(v.pins.map((p) => `${p.kind}:${p.name?.text ?? ""}`)).toEqual(["input:EN", "input:", "output:"])
-  }
-  const u = valueOf(only("out := GE(EN := , a, b);"))
-  expect(u.kind === "call" && u.pins[0]!.kind === "input" && u.pins[0]!.value.kind).toBe("empty_slot")
-  expect(clean(net("Prog(EN := go);"))[0]!.kind).toBe("value")
-})
-
-test(".ENO on a box nothing consumes is NETWORK_BAD_EXPRESSION, as is ENO =>", () => {
-  expect(codes(net("MOVE(EN := c, 0).ENO;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(net("f(ENO => x);"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-})
-
-test("=> v fills an output slot, a named pin names one, and a bare => passes one over", () => {
-  const v = valueOf(only("t1(IN := a, PT := pt, ET => el, => , => q);"))
-  expect(v.kind === "call" && v.pins.map((p) => (p.kind === "output" ? `${p.name?.text ?? "_"}=>${p.target?.text ?? ""}` : "in"))).toEqual([
-    "in",
-    "in",
-    "ET=>el",
-    "_=>",
-    "_=>q",
-  ])
-})
-
-test("edges are flags on their operand, NOT inside, and nested edges or NOT outside refused", () => {
-  const e = valueOf(only("MOVE(EN := R_EDGE(bStart), 1, => nMode);"))
-  expect(e.kind === "call" && e.pins[0]!.kind === "input" && e.pins[0]!.value.kind).toBe("edge")
-  const f = valueOf(only("out := F_EDGE(NOT x);"))
-  expect(f.kind === "edge" && !f.rising && f.operand.kind).toBe("not")
-  expect(codes(net("out := NOT R_EDGE(x);"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(net("out := R_EDGE(F_EDGE(x));"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(net("out := R_EDGE(NOT NOT x);"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-})
-
-test("a flag on a wire reference, a Parallel or an empty slot is NETWORK_UNSUPPORTED", () => {
-  expect(codes(net("VAR_TEMP g3 : BOOL; END_VAR\ng3 := a;\nout := NOT g3;"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(net("out := NOT PARALLEL(a, b);"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(net("f(NOT , a);"))).toEqual(["NETWORK_UNSUPPORTED"])
-})
-
-test("parentheses are structural: the NOT box, the modifier, and a pair that is no box", () => {
-  const kinds = clean(net("o1 := NOT(a);\no2 := NOT a;\no3 := NOT (a AND b);\no4 := NOT((a AND b));\no5 := NOT (a);")).map((s) => {
-    const v = valueOf(s)
-    return v.kind === "not" ? `not ${v.operand.kind}` : v.kind === "call" ? `call ${v.head.text}` : v.kind
-  })
-  expect(kinds).toEqual(["call NOT", "not operand", "not group", "call NOT", "call NOT"])
-  expect(codes(net("out := ((a AND b));"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-})
-
-test("an operator word before a group is the operator after an empty slot, before a pin list a call head", () => {
-  const g = valueOf(only("out := ( AND (x OR y));"))
-  expect(g.kind === "group" && g.operands.map((o) => o.kind)).toEqual(["empty_slot", "group"])
-  const c = valueOf(only("AND(EN := go, a, b, => out);"))
-  expect(c.kind === "call" && c.head.text).toBe("AND")
-})
-
-test("one operator kind per group, and an unknown operator named", () => {
-  expect(codes(net("out := (a AND b OR c);"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(net("out := (a ^ b);"))).toContain("NETWORK_UNKNOWN_OPERATOR")
-})
-
-test("PARALLEL is its own value: fed, unfed, a measured MODE, and IN := , refused", () => {
-  const p = valueOf(only("ResetSafetyGuard S= PARALLEL(IN := g54x, StartFlag, tReset);"))
-  expect(p.kind === "parallel" && [p.input?.kind, p.branches.length]).toEqual(["operand", 2])
-  const q = valueOf(only("out := PARALLEL(MODE := Sequential, IN := f, a, b);"))
-  expect(q.kind === "parallel" && q.mode?.text).toBe("Sequential")
-  expect(codes(net("out := PARALLEL(IN := , a, b);"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(net("out := PARALLEL(MODE := Other, a, b);"))).toEqual(["NETWORK_UNSUPPORTED"])
-})
-
-test("EXECUTE: a statement, the empty body, and the value form, its lines parsed as ST", () => {
-  const b = parse(net("EXECUTE(EN := bRun)\nIF bStart THEN\n\ttarget := 40 + 2;\nEND_IF\n  END_EXECUTE;\nEXECUTE\n\n  END_EXECUTE;\nout := EXECUTE\nx := 1;\n  END_EXECUTE.ENO;"))
-  expect(b.diagnostics).toEqual([])
-  const values = b.networks[0]!.statements.map(valueOf)
-  expect(values.map((v) => v.kind === "execute" && [v.en !== undefined, v.ok, v.eno, v.statements.length])).toEqual([
-    [true, true, false, 1],
-    [false, true, false, 0],
-    [false, true, true, 1],
-  ])
-  expect(codes(net("out := EXECUTE\nx := 1;\n  END_EXECUTE;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(net("EXECUTE\nx := 1;\n  END_EXECUTE"))).toEqual(["NETWORK_PARSE"])
-})
-
-test("a snippet line starting with Network is snippet text, not a header", () => {
-  expect(clean(net("EXECUTE\nNetworkState := 1;\n  END_EXECUTE;"))).toHaveLength(1)
-})
-
-test("??? : TYPE(…) is an unnamed instance call, and ??? an operand or a target", () => {
-  const v = valueOf(only("??? : TON(IN := a, PT := t);"))
-  expect(v.kind === "call" && v.unnamedType?.text).toBe("TON")
-  const s = only("??? := a;")
-  expect(s.kind === "assign" && s.targets[0]!.unnamed).toBe(true)
-})
-
-test("a backticked head that is no name, or a POU named like a construct, is NETWORK_UNSUPPORTED", () => {
-  expect(codes(net("`fbs[1]`(IN := a);"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(net("`R_EDGE`(x);"))).toEqual(["NETWORK_UNSUPPORTED"])
-})
-
-// ── the ST reading ──────────────────────────────────────────────────────────────────────────
-
-// An edge and a box read through `.ENO` have a reading: spec 5.1 types `R_EDGE`/`F_EDGE` BOOL→BOOL and `.ENO` BOOL (their
-// typing is held in checks/network/_assignments.test.ts). Only a Parallel and a group with an empty slot have none.
-test("a group, a NOT, a call, an edge and an .ENO have an ST reading; a Parallel and an empty slot do not", () => {
-  const read = (statements: string) => networkValueExpr(valueOf(only(statements)))?.kind
-  expect(read("out := ((a AND b) OR c);")).toBe("paren")
-  expect(read("out := NOT a;")).toBe("unary")
-  expect(read("out := MAX(a, b);")).toBe("call")
-  expect(read("out := R_EDGE(a);")).toBeDefined()
-  expect(read("out := MOVE(EN := c, 0, => s).ENO;")).toBeDefined()
-  expect(read("out := PARALLEL(a, b);")).toBeUndefined()
-  expect(read("out := ( * a);")).toBeUndefined()
-})
-
-test("every operand is read once, inside the constructs ST cannot spell", () => {
-  const names = (statements: string) => statementExprs(only(statements)).flatMap(idents)
-  expect(names("out := PARALLEL(IN := f, R_EDGE(a), (b AND c));").sort()).toEqual(["a", "b", "c", "f", "out"])
-  expect(names("AND(EN := go, x, y, => q);").sort()).toEqual(["go", "q", "x", "y"])
-  expect(names("lamp := MOVE(EN := c, R_EDGE(e), => s).ENO;").sort()).toEqual(["EN", "MOVE", "c", "e", "lamp", "s"]) // the pin name is a param ident, as in ST
-})
-
-// ── section-5 review: where the LSP read text otherwise than the bridge reader ─────────────────────
-
-/** A scope as the parser asks it — the bridge's `NetworkScope.IsPou` / `InstanceType`: `pous` are POUs, `instances` maps
- *  an FB instance to its FB type. `names` are the variables a test states its scope holds: the parser asks nothing of
- *  them since a bare word is a variable whatever is declared (bridge-refusal-review 1.3/2.10), and a test passing them
- *  says the answer does not depend on them. */
-const scope = (pous: string[], _names: string[] = [], instances: Record<string, string> = {}): NetworkScopeView => {
-  const has = (list: string[], n: string) => list.some((c) => c.toUpperCase() === n.toUpperCase())
-  const inst = (n: string) => Object.entries(instances).find(([k]) => k.toUpperCase() === n.toUpperCase())?.[1]
-  return {
-    isPou: (n) => has(pous, n),
-    instanceType: inst,
-  }
-}
-const scoped = (networks: string, sc: NetworkScopeView): string[] =>
-  parseNetworkText(body(networks), sc, "codesys").diagnostics.map((d) => `${d.code}: ${d.message}`)
-
-test("an operator head's argument list holding an EXECUTE box whose ST holds an operator word is a call", () => {
-  // The bridge writer's own text: its reader accepts it, because the look-ahead walks THROUGH the EXECUTE body.
-  const b = parse(
-    "NETWORK\n  out := AND(EN := go, EXECUTE\n  x := a AND b;\n  END_EXECUTE.ENO, c);\nEND_NETWORK\nNETWORK\n  y := a;\nEND_NETWORK",
-  )
-  expect(b.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
-  expect(b.networks.map((n) => n.statements.length)).toEqual([1, 1])
-  const v = valueOf(b.networks[0]!.statements[0]!)
-  expect(v.kind === "call" && [v.head.text, v.pins.length]).toEqual(["AND", 3])
-})
-
-test("a wire's VarId out of the vendor's range is refused, as the bridge's int parse refuses it", () => {
-  expect(parse(net("VAR_TEMP g99999999999 : BOOL; END_VAR\ng99999999999 := a;\nout := g99999999999;")).diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([
-    "NETWORK_BAD_EXPRESSION: the wire g99999999999 carries a VarId out of range.",
-  ])
-  expect(codes(net("VAR_TEMP g2147483647 : BOOL; END_VAR\ng2147483647 := a;\nout := g2147483647;"))).toEqual([])
-  expect(codes(net("VAR_TEMP g2147483648 : BOOL; END_VAR\ng2147483648 := a;\nout := g2147483648;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-})
-
-test("an output pin's target records no storage operator: the text holds `=>`, not `:=`", () => {
-  const v = valueOf(only("t1(IN := a, Q => out, => q);"))
-  expect(v.kind === "call" && v.pins.flatMap((p) => (p.kind === "output" ? [p.target?.op] : []))).toEqual([undefined, undefined])
-  const s = only("x := y S= a;")
-  expect(s.kind === "assign" && s.targets.map((t) => t.op)).toEqual([":=", "S="])
-})
-
-test("a POU or instance named like a construct is refused at the call, whatever its argument list", () => {
-  for (const [statement, word] of [
-    ["R_EDGE(IN := a, PT := T#1S);", "R_EDGE"],
-    ["o := F_EDGE(a, b);", "F_EDGE"],
-    ["o := r_edge(a);", "R_EDGE"],
-    ["PARALLEL(x := 1);", "PARALLEL"],
-  ] as const) {
-    const got = scoped(net(statement), scope([word]))
-    expect(got).toHaveLength(1)
-    expect(got[0]).toStartWith(`NETWORK_UNSUPPORTED: a POU or instance named ${word}:`)
-  }
-  // A VARIABLE of that name is no reason — it never heads a call.
-  expect(scoped(net("o := R_EDGE(a);"), scope([], ["R_EDGE"]))).toEqual([])
-})
-
-test("a bare wire-shaped name no VAR_TEMP declares is a variable, declared or not: the build answers for it", () => {
-  // openspec bridge-refusal-review 1.3: whether `g5` is declared is the build's question ("Identifier 'g5' not defined",
-  // `rcc_network_undeclared_wire_shape`), and only the network's own block makes a name a wire — no parser finding.
-  const sc = scope(["f"], ["out", "x"])
-  for (const statement of ["out := g5;", "g5 := x;", "f(x, => g5);", "out := (x AND g5);", "out := `g5`;"])
-    expect(scoped(net(statement), sc)).toEqual([])
-  expect(scoped(net("out := g5;"), scope(["f"], ["out", "g5"]))).toEqual([])
-})
-
-test("a wire named like a name in scope is the wire: wires resolve first", () => {
-  // openspec bridge-refusal-review 2.10: wires are VarIds in the IDE; which name the writer picks is its own choice.
-  const got = parseNetworkText(body(net("VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nout := g1;")), scope([], ["G1", "out", "a"]), "codesys")
-  expect(got.diagnostics).toEqual([])
-  expect(valueOf(got.networks[0]!.statements[1]!).kind).toBe("wire_ref")
-})
-
-test("a late block may not take a name the network already read as a variable: NETWORK_DUPLICATE_NAME, naming that line", () => {
-  // The bridge's rule (bridge-refusal-review 2.7, review 1+2d; `NetworkTextGateTests`): before the block `g1` is the
-  // scope's variable, after it the wire — one spelling, two things. Lines as the push names them: 1 is the
-  // IMPLEMENTATION line, 2 the NETWORK header, 3 the earlier use.
-  for (const earlier of ["out := g1;", "g1 := a;"])
-    expect(scoped(net(`${earlier}\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := (a AND b);\nout2 := g1;`), scope([], ["g1", "out", "out2", "a", "b"]))).toEqual([
-      "NETWORK_DUPLICATE_NAME: the wire g1 is declared after line 3 read g1 as a variable: one name would mean the variable " +
-        "before this block and the wire after it. Declare the wire before its first use, or give it another name.",
-    ])
-})
-
-// ── section-5 second review ────────────────────────────────────────────────────────────────────
-
-test("the scope is an explicit argument: structure-only is a value, never an omitted one", () => {
-  // A reader of the statements that forgot the POU's scope lost the three scope findings without a trace; the type
-  // now refuses the omission (the bridge's `NetworkScope.Empty`, "explicit, never a default").
-  // @ts-expect-error — the scope is required
-  expect(() => parseNetworkText(body(net("out := a;")))).not.toThrow()
-  expect(parseNetworkText(body(net("out := g5;")), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
-  // …and the scope still decides what the text reads: a POU named like a construct is refused at its call.
-  expect(scoped(net("o := R_EDGE(a);"), scope(["R_EDGE"], ["o", "a"]))).toHaveLength(1)
-  expect(parseNetworkText(body(net("o := R_EDGE(a);")), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
-})
-
-test("a call of an instance is typed by the instance's FB: one whose FB is named like a construct is refused", () => {
-  const sc = scope(["R_EDGE", "TMR"], ["a"], { e1: "R_EDGE", R_EDGE: "TMR" })
-  expect(scoped(net("e1(CLK := a);"), sc)).toEqual([
-    "NETWORK_UNSUPPORTED: a POU named R_EDGE: the text reads R_EDGE(…) as its own construct, so a call of it has no spelling.",
-  ])
-  expect(scoped(net("`R_EDGE`(IN := a);"), sc)).toEqual([
-    "NETWORK_UNSUPPORTED: an instance named R_EDGE: the text reads it as its own construct.",
-  ])
-})
-
-test("the line may end in blanks, as the bridge's line may", () => {
-  const b = parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD \t"), STRUCTURE_ONLY, "codesys")
-  expect([b.language, b.diagnostics, b.networks.map((n) => n.statements.length)]).toEqual(["FBD", [], [1]])
-})
+// ── calls ───────────────────────────────────────────────────────────────────────────────────
 
 test("a call box carries its type as the reader decided it: an instance's FB, an unnamed instance's type, a POU's name", () => {
-  // The fact lived in a side table keyed by the node, read back with a fallback to the HEAD: a call built anywhere but
-  // parseCall would have been typed by its instance name — `t1`, not its FB — silently.
-  const sc = scope(["F_Scale"], ["a", "x", "out"], { t1: "TON" })
-  const call = (statements: string) => {
-    const b = parseNetworkText(body(net(statements)), sc, "codesys")
-    expect(b.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
-    const v = valueOf(b.networks[0]!.statements[0]!)
-    if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)
+  const sc = scope({ t1: "TON" })
+  const call = (s: NetworkTextStatement) => {
+    const v = valueOf(s)
+    if (v.kind !== "call") throw new Error(v.kind)
     return v
   }
-  expect(call("t1(IN := a);").boxType).toBe("TON")
-  expect(call("out := F_Scale(x);").boxType).toBe("F_Scale")
-  expect(call("??? : TOF(IN := a);").boxType).toBe("TOF")
+  const fb = call(only("q := t1(IN := go, PT := T#1S);", sc))
+  expect([fb.boxType, fb.instance]).toEqual(["TON", true])
+  const unnamed = call(only("??? : L_MC1P_Axis(xEnable := go);", sc))
+  expect([unnamed.boxType, unnamed.unnamedType?.text]).toEqual(["L_MC1P_Axis", "L_MC1P_Axis"])
+  const fn = call(only("x := LIMIT(0, v, 100);", sc))
+  expect([fn.boxType, fn.instance]).toEqual(["LIMIT", undefined])
 })
 
-// ── openspec ld-fbd-coverage 2.3: the census shapes the text spells ───────────────────────────────
-
-test("S2: an assignment below the top level is its own pair — its targets written, its value passed through", () => {
-  const v = valueOf(only("t1(IN := (x S= y := NOT a), PT := pt);"))
-  if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)
-  const pin = v.pins[0]!
-  if (pin.kind !== "input" || pin.value.kind !== "nested_assign") throw new Error("no nested assign")
-  expect(pin.value.targets.map((t) => [t.text, t.op])).toEqual([
-    ["x", "S="],
-    ["y", ":="],
-  ])
-  expect(pin.value.value.kind).toBe("not")
-  expect([...statementTargets(only("t1(IN := (x S= y := NOT a), PT := pt);"))].map((t) => t.text)).toEqual(["x", "y"])
-  // `(R = x)` stays a comparison: storage is decided after a target.
-  expect(valueOf(only("out := (R = x);")).kind).toBe("group")
-  // A wire is defined by a statement of its own, never inside a pair.
-  expect(codes(net("VAR_TEMP g1 : BOOL; END_VAR\nt1(IN := (g1 := a));\nout := g1;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(net("t1(IN := (x := a PT := b);"))).toEqual(["NETWORK_PARSE"])
+test("the named ENO pin is an output pin of the call, and no parameter of the callee", () => {
+  const v = valueOf(only("MOVE(0, ENO => lamp) EN c;"))
+  expect(v.kind === "call" && v.pins.map((p) => p.kind)).toEqual(["input", "output"])
+  expect([...statementTargets(only("MOVE(0, ENO => lamp) EN c;"))].map((t) => t.text)).toEqual(["lamp"])
 })
 
-test("S6: `NOT name := v` negates the PIN, and the enable holds no flag", () => {
-  const v = valueOf(only("out := AND(a, NOT IN2 := b);"))
-  if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)
-  expect(v.pins.map((p) => (p.kind === "input" ? [p.name?.text, p.negated === true, p.value.kind] : []))).toEqual([
-    [undefined, false, "operand"],
-    ["IN2", true, "operand"],
-  ])
-  // `NOT x` in a pin's VALUE is the value's negation, not the pin's.
-  const w = valueOf(only("out := f(IN1 := NOT b);"))
-  expect(w.kind === "call" && w.pins[0]!.kind === "input" && [w.pins[0]!.negated, w.pins[0]!.value.kind]).toEqual([undefined, "not"])
-  expect(codes(net("out := MOVE(NOT EN := a, b);"))).toEqual(["NETWORK_UNSUPPORTED"])
+test("EXECUTE: its lines are ST, parsed as such", () => {
+  const s = only("EXECUTE EN go\ni := i + 1;\n  END_EXECUTE;")
+  const v = valueOf(s)
+  expect(v.kind === "execute" && v.ok && v.statements.length).toBe(1)
 })
 
-test("S3: a leaf-fed wire is its declaration; in LD a wire fed by nothing is the rail, BOOL", () => {
-  // The leaf stores the type it is declared with (S3a): no use of the wire contradicts it.
-  expect(codes(net("VAR_TEMP g1 : INT; END_VAR\ng1 := x;\nout := g1;"))).toEqual([])
-  // A literal says its own type.
-  expect(codes(net("VAR_TEMP g1 : INT; END_VAR\ng1 := TRUE;\nout := g1;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  // S3b: in LD the empty producer is the left rail.
-  expect(codes(net("VAR_TEMP g2 : BOOL; END_VAR\ng2 := ;\nout := (g2 AND a);"))).toEqual([])
-  expect(codes(net("VAR_TEMP g2 : INT; END_VAR\ng2 := ;\nout := g2;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+// ── the ST readings ─────────────────────────────────────────────────────────────────────────
+
+test("a box word reads as ST's operator over its operands; MOVE as ST's MOVE call", () => {
+  const add = networkValueExpr(valueOf(only("x := a ADD b ADD c;")))
+  expect(add?.kind).toBe("paren")
+  expect(add?.kind === "paren" && add.inner.kind === "binary" && add.inner.op).toBe("+")
+  const gt = networkValueExpr(valueOf(only("x := a GT 40;")))
+  expect(gt?.kind === "paren" && gt.inner.kind === "binary" && gt.inner.op).toBe(">")
+  const move = networkValueExpr(valueOf(only("x := MOVE b;")))
+  expect(move?.kind === "call" && move.callee.kind === "ident_expr" && move.callee.name).toBe("MOVE")
+})
+
+test("ENO and an edge read as an opaque BOOL; a parallel has no reading", () => {
+  const eno = networkValueExpr(valueOf(only("MOVE 1 => A EN c\nx := ENO;")))
+  expect(eno?.kind === "literal" && eno.literalKind).toBe("bool")
+  const edge = networkValueExpr(valueOf(only("x := R_EDGE(a);")))
+  expect(edge?.kind === "literal" && edge.literalKind).toBe("bool")
+  expect(networkValueExpr(valueOf(only("x := s BRANCH (a, b);")))).toBeUndefined()
+})
+
+test("every operand is read once — inside an open line, an EN tail, a parallel and a box's => pins", () => {
+  const s = only("tMul MUL height => tInt EN go AND descend\nlamp R= ENO BRANCH ((elev GE tInt EN), down) SHORTCIRCUIT;")
+  const names = statementExprs(s).flatMap(idents).sort()
+  expect(names).toEqual(["descend", "down", "elev", "go", "height", "lamp", "tInt", "tInt", "tMul"].sort())
+})
+
+test("a backticked operand is ONE operand whose text is parsed as an ST expression", () => {
+  const v = valueOf(only("MOVE `DINT_TO_LREAL(pos)/10` => target EN go;"))
+  expect(v.kind).toBe("word")
+  if (v.kind !== "word") return
+  const operand = v.operands[0]!
+  expect(operand.kind === "operand" && operand.backticked && operand.expr?.kind).toBe("binary")
+})
+
+test("every value of a statement is walked, the open lines' boxes included", () => {
+  const s = only("MOVE 1 => A EN c\nMOVE 2 => B EN ENO\nx := ENO;")
+  expect([...walkValues(s)].filter((v) => v.kind === "word").length).toBe(2)
+})
+
+test("the structure-only reader asks the declarations nothing", () => {
+  expect(codes(net("q := t1(IN := go);"))).toEqual([])
 })

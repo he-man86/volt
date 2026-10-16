@@ -1,6 +1,6 @@
 /**
  * Semantic tokens (`semantic-tokens.ts`): 5-int tuples with valid type indices; an elementary type name colours as
- * `type`, not `variable` (P2), only in a dialect that has it; network-text structure words, operands and wires; a
+ * `type`, not `variable` (P2), only in a dialect that has it; network-text structure words, operands and splits; a
  * declared name over the keyword list; comments line by line; and the implementation keyword line.
  */
 import { describe, expect, test } from "bun:test"
@@ -31,11 +31,11 @@ VAR
 \ta : BOOL; out : BOOL; g2 : BOOL; st : INT;
 END_VAR
 IMPLEMENTATION LD
-NETWORK TITLE: "A title" DISABLED
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := R_EDGE(a);
-  out S= PARALLEL(IN := g1, g2, a);
-  out := MOVE(EN := g1, 0, => st).ENO;
+NETWORK DISABLED TITLE: "A title"
+  split1 := R_EDGE(a);
+  out S= split1 BRANCH (g2, a);
+  MOVE 0 => st EN split1
+  out := ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -61,14 +61,14 @@ function typesOf(src: string, of: readonly string[]): Record<string, string> {
 }
 
 test("semantic tokens: network structure words colour as keywords, not variables", () => {
-  const t = typesOf(GRAPHICAL, ["NETWORK", "END_NETWORK", "TITLE", "DISABLED", "R_EDGE", "PARALLEL", "ENO"])
+  const t = typesOf(GRAPHICAL, ["NETWORK", "END_NETWORK", "TITLE", "DISABLED", "R_EDGE", "BRANCH", "ENO"])
   expect(t).toEqual({
     NETWORK: "keyword",
     END_NETWORK: "keyword",
     TITLE: "keyword",
     DISABLED: "keyword",
     R_EDGE: "keyword",
-    PARALLEL: "keyword",
+    BRANCH: "keyword",
     ENO: "keyword",
   })
 })
@@ -76,18 +76,17 @@ test("semantic tokens: network structure words colour as keywords, not variables
 test("semantic tokens: operands inside a network still colour as what they are", () => {
   // The point is to colour the SYNTAX, not to repaint the body — `a`/`out` are still variables, and `g2`, a
   // variable the POU declares that merely LOOKS like a wire, is one too.
-  const t = typesOf(GRAPHICAL, ["a", "out", "g2", "VAR_TEMP"])
+  const t = typesOf(GRAPHICAL, ["a", "out", "g2", "st"])
   expect(t.a).toBe("variable")
   expect(t.out).toBe("variable")
   expect(t.g2).toBe("variable")
-  expect(t.VAR_TEMP).toBe("keyword") // an ST keyword already — unchanged by this
+  expect(t.st).toBe("variable")
 })
 
 test("semantic tokens: a wire has its own class, resolved through its network's scope", () => {
-  // openspec network-text-literal-nwl 5.3. A wire is a vendor Demux — a fan-out point on the drawing — declared in the
-  // network's own VAR_TEMP block, so it resolves only there: the POU scope has no `g1`, and without the network scope
-  // the classifier painted it a plain variable of nothing. Every occurrence gets the class: the declaration, the
-  // definition and each reference.
+  // A split is a vendor Demux — a fan-out point on the drawing — spelled `split<VarId>` and defined in its network
+  // (B6, no declaration), so it resolves only there: the POU scope has no `split1`, and without the network scope the
+  // classifier painted it a plain variable of nothing. Every occurrence gets the class: the definition and each reference.
   const src = GRAPHICAL
   const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
@@ -103,7 +102,7 @@ test("semantic tokens: a wire has its own class, resolved through its network's 
     if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "wire")
       wires.push(`${line}:${lines[line]!.slice(ch, ch + data[i + 2]!)}`)
   }
-  expect(wires).toEqual(["6:g1", "7:g1", "8:g1", "9:g1"])
+  expect(wires).toEqual(["6:split1", "7:split1", "8:split1"])
 })
 
 test("semantic tokens: a declared name beats the keyword list", () => {

@@ -26,9 +26,9 @@ const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements
-	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "  out := (a AND b);"],
+	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "  out := a AND b;"],
 	["one wire, two coils", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-		"  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a AND b);\n  out1 := g1;\n  out2 := g1;"],
+		"  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;"],
 	["two disconnected sinks", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
 		"  out1 := a;\n  out2 := b;"],
 	["fb call + output read", "\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;",

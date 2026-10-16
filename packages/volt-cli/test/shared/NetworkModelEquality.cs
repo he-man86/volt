@@ -97,7 +97,6 @@ public static class NetworkModelEquality
 
             case (Demux x, Demux y):
                 if (x.VarId != y.VarId) return Diff(at + ".VarId", x.VarId, y.VarId);
-                if (x.Type != y.Type) return Diff(at + ".Type", x.Type, y.Type);
                 return NodeDiff(at + ".Input", x.Input, y.Input);
 
             default:

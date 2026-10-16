@@ -50,18 +50,18 @@ public class TcInPlaceSilentNoOpTests
     public void A_multi_output_assign_rewritten_as_a_wire_is_not_swallowed()
     {
         var (before, model) = Edited("MultiOutput.derived.TcPOU", BodyLanguage.Ld,
-            "  xoutput :=\n  xoutput2 := (xtest OR xtest2);",
-            "  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (xtest OR xtest2);\n  xoutput := g1;\n  xoutput2 := g1;");
+            "  xoutput := xoutput2 := xtest OR xtest2;",
+            "  split1 := xtest OR xtest2;\n  xoutput := split1;\n  xoutput2 := split1;");
 
         Assert.Throws<NotSupportedException>(() => TcText.Apply(before, model));
     }
 
-    /// <summary>`.ENO` on a consumed call moves its consumer from the main output (Q) to the ENO — a connection and an
-    /// ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote nothing.</summary>
+    /// <summary>Reading a consumed call through ENO (an open line, B4) moves its consumer from the main output (Q) to the
+    /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
+    /// nothing.</summary>
     [Theory]
-    // The call's stored output list rides as its pragma (ld-fbd-coverage 2.3), before the suffix.
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1(IN := TRUE, PT := T#5s){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};", "output := t1(IN := TRUE, PT := T#5s){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']}.ENO;")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1(IN := in1, PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};", "output := t1(IN := in1, PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']}.ENO;")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1(IN := TRUE, PT := T#5s);", "t1(IN := TRUE, PT := T#5s)\n  output := ENO;")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1(IN := in1, PT := e1);", "t1(IN := in1, PT := e1)\n  output := ENO;")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         var (before, model) = Edited(fixture, language, from, to);

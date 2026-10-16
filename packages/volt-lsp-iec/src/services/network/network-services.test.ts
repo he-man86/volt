@@ -20,51 +20,63 @@ import { doc, project, projectDiags, vgBody, vgDiags } from "../../../test/suppo
 // ─── F.2d services ────────────────────────────────────────────────────────────
 
 const WIRED = `FUNCTION_BLOCK F
-VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
+VAR a : BOOL; b : BOOL; out : BOOL; s : INT; END_VAR
 IMPLEMENTATION LD
 NETWORK
-VAR_TEMP g1 : BOOL; END_VAR
-g1 := (a AND b);
-out := g1;
+split1 := a AND b;
+out := split1;
+MOVE 1 => s EN a
+out := ENO BRANCH (split1,
+                   b) SHORTCIRCUIT;
 END_NETWORK
 END_FUNCTION_BLOCK`
 
-test("network text hover: a wire shows its declaration and its producer", () => {
+test("network text hover: a split shows its feeder, its VarId and its references (P13)", () => {
   const d = doc(WIRED)
-  const off = WIRED.indexOf("out := g1") + "out := ".length // the `g1` USE
+  const off = WIRED.indexOf("out := split1") + "out := ".length // the `split1` USE
   const value = (networkHover(d, project(d), off) as { contents: { value: string } })?.contents.value
-  expect(value).toContain("g1 : BOOL")
-  expect(value).toContain("g1 := (a AND b);")
+  expect(value).toContain("split1 := a AND b;")
+  expect(value).toContain("VarId 1, 2 references")
+})
+
+test("network text hover: ENO names the open line it takes, BRANCH its branches and mode (P13)", () => {
+  const d = doc(WIRED)
+  const eno = (networkHover(d, project(d), WIRED.indexOf("ENO BRANCH")) as { contents: { value: string } })?.contents.value
+  expect(eno).toContain("ENO of line")
+  expect(eno).toContain("MOVE 1 => s EN a")
+  const branch = (networkHover(d, project(d), WIRED.indexOf("BRANCH (")) as { contents: { value: string } })?.contents.value
+  expect(branch).toContain("2 branches")
+  expect(branch).toContain("SHORTCIRCUIT")
 })
 
 test("network text hover: a real variable shows its declared type", () => {
   const d = doc(WIRED)
-  const off = WIRED.indexOf("(a AND b)") + 1 // the `a` operand
+  const off = WIRED.indexOf("a AND b") // the `a` operand
   const h = networkHover(d, project(d), off)
   expect((h as { contents: { value: string } })?.contents.value).toContain("a : BOOL")
 })
 
-test("network text definition: a wire use jumps to its VAR_TEMP declaration", () => {
+test("network text definition: a split use jumps to its definition", () => {
   const d = doc(WIRED)
-  const useOff = WIRED.indexOf("out := g1") + "out := ".length
+  const useOff = WIRED.indexOf("out := split1") + "out := ".length
   const loc = networkDefinition(d, project(d), useOff)
-  const declLine = WIRED.slice(0, WIRED.indexOf("VAR_TEMP")).split("\n").length - 1 // 0-based line of the block
-  expect(loc?.range.start.line).toBe(declLine)
+  const defLine = WIRED.slice(0, WIRED.indexOf("split1 :=")).split("\n").length - 1 // 0-based line of the definition
+  expect(loc?.range.start.line).toBe(defLine)
 })
 
 test("network text definition: a real-var operand jumps to its declaration", () => {
   const d = doc(WIRED)
-  const off = WIRED.indexOf("(a AND b)") + 1
+  const off = WIRED.indexOf("a AND b")
   const loc = networkDefinition(d, project(d), off)
   expect(loc?.range.start.line).toBe(1) // the VAR line
 })
 
-test("network text completion: offers POU vars AND the network's wires", () => {
+test("network text completion: offers POU vars AND the network's splits", () => {
   const d = doc(WIRED)
-  const off = WIRED.indexOf("out := g1") + "out := ".length
+  const off = WIRED.indexOf("out := split1") + "out := ".length
   const labels = networkCompletion(d, project(d), off).map((c) => c.label)
   expect(labels).toContain("out") // POU var
-  expect(labels).toContain("g1") // network wire
+  expect(labels).toContain("split1") // network split
 })
 
 test("network text resolve: a member chain operand resolves to its field", () => {

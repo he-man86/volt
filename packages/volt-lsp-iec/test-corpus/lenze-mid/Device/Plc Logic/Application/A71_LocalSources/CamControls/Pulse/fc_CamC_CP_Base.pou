@@ -20,10 +20,10 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  tBool := (GE(EN := , iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN);
+  tBool := (iMachinePosition GE iStartCam EN) AND NOT iResetFlag AND iEN;
 END_NETWORK
 NETWORK
-  fc_CamC_CP_Base := (tbool AND NOT ioAuxOneShot);
+  fc_CamC_CP_Base := tbool AND NOT ioAuxOneShot;
 END_NETWORK
 NETWORK
   ioAuxOneShot := tbool;

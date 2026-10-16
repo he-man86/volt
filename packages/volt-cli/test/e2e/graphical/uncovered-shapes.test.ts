@@ -91,7 +91,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("an empty network round-trips, or is refused by name", async () => {
 		const name = id("enet")
-		const src = prg(name, "LD", `NETWORK\n  out := (a AND b);\nEND_NETWORK\nNETWORK\nEND_NETWORK\n`)
+		const src = prg(name, "LD", `NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n`)
 
 		const outcome = await expectRoundTripOrRefusal(fid("enet", "pou"), src, "network")
 		console.log(`  [empty network] ${BASE}: ${outcome}`)
@@ -156,7 +156,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  latched S= g0;\n  cleared R= g0;\nEND_NETWORK\n`,
+			`NETWORK\n  split0 := a AND b;\n  latched S= split0;\n  cleared R= split0;\nEND_NETWORK\n`,
 			"\ta : BOOL;\n\tb : BOOL;\n\tlatched : BOOL;\n\tcleared : BOOL;\n",
 		)
 
@@ -174,7 +174,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 		// Each coil keeps its own storage — a SET that came back as the RESET's (or plain) is the bug this pins.
 		expect(back, "the SET or the RESET coil lost its storage")
-			.toContain("  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  latched S= g0;\n  cleared R= g0;\n")
+			.toContain("  split0 := a AND b;\n  latched S= split0;\n  cleared R= split0;\n")
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([
@@ -195,7 +195,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := (R_EDGE(a) AND b);\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := R_EDGE(a) AND b;\nEND_NETWORK\n`),
 		)
 
 		expect(back, "the rising edge was dropped").toContain("R_EDGE(a)")
@@ -206,7 +206,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := (F_EDGE(a) AND b);\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := F_EDGE(a) AND b;\nEND_NETWORK\n`),
 		)
 
 		expect(back, "the falling edge was dropped").toContain("F_EDGE(a)")

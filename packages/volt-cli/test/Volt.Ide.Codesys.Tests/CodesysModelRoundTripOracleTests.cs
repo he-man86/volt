@@ -248,7 +248,7 @@ public class CodesysModelRoundTripOracleTests
             };
             var use = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeDemux { VarId = 1 } };
             use.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
-            Fbd("Reader.A_wire_fed_by_a_data_box_is_declared_with_its_stored_output_type",
+            Fbd("Reader.A_split_fed_by_a_data_box_reads_its_stored_output_type_and_writes_none",
                 new Nwl.BoxTreeDemux { VarId = 1, Input = add }, use);
         }
         {
@@ -341,12 +341,13 @@ public class CodesysModelRoundTripOracleTests
             // is the symbol comment read from the archive (ld-fbd-coverage 1b.3): the model's operand equality does not
             // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss). The 40th is a
             // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); of the pin-flag doubles left, an
-            // EDGE on a pin has no spelling (design 1.1, X) and a negated unnamed pin of a call (MOVE, beside EN) has no formal
-            // to stand on — both refused by name.
-            bodies: 40, networks: 40, refused: new Dictionary<string, int>
+            // EDGE on a pin has no spelling (design 1.1, X) and is refused by name, while MOVE's negated pin beside EN is the
+            // call form naming its default formal since 2R.3 (P5, `MOVE(NOT IN := value) EN rung`). The enabled MOVE whose
+            // list names no ENO is refused as what it is to the text first — an enabled box read as a value (B4) — before
+            // its unstated slot.
+            bodies: 41, networks: 41, refused: new Dictionary<string, int>
             {
                 ["a flag on a box input pin"] = 1,
-                ["a negated unnamed pin of a call"] = 1,
-                ["a consumed box with no stored connection slot"] = 1,
+                ["an enabled box read as a value"] = 1,
             });
 }

@@ -1,148 +1,237 @@
 /**
- * The reader's VALUES — an operand, a group, the NOT modifier and the edge flags, and what a bare token resolves to (a
- * wire reference, a variable, a target). A call, PARALLEL and EXECUTE are values too; they are `calls.ts`'s, which
- * builds on this file. Whether a pair after a word is its argument list or a group is `pair-kind.ts`'s.
+ * The reader's VALUES — a port of the bridge reader's `ParseLevel` … `Finalize` (`NetworkTextReader.cs`, openspec
+ * ld-fbd-coverage 2R.3): one BRACKET LEVEL (P4) — a box word with its operands, MOVE and its operand, a parallel, or one
+ * operand — each with its `=>` pins and its `EN` tail; an operand (a leaf, a split, `ENO`, a call, `NOT x`, an edge, a
+ * bracket); the bracket rules (B5, P4); and a box given its ROLE — a top-level item, an open line a later `ENO` takes, or
+ * a value — the one place the refusals that depend on the role are raised. The same messages at the same tokens, so what
+ * the editor underlines is what the push refuses.
  */
-import type { Expr } from "../ast/nodes/index.js"
-import type { NetworkCall, NetworkExecute, NetworkName, NetworkNestedAssign, NetworkParallel, NetworkTarget, NetworkValue } from "./ast.js"
-import { NetworkCursor, type ParseError, type PVal, IDENTIFIER, isName } from "./cursor.js"
-import { OPERATOR_HEADS, type Tok, isOperator, isSym, isWord } from "./lexer.js"
-import { argumentListAhead, isEmptyAt, isPinNameAt, isStorageAt } from "./pair-kind.js"
-import { CONSTRUCT_WORDS, NETWORK_TEXT_WORDS } from "./words.js"
+import type { NetworkCall, NetworkExecute, NetworkName, NetworkValue, NetworkWordBox } from "./ast.js"
+import { type Syn, enabledComparison, syn } from "./boxes.js"
+import { type Tok, isSym, isWord } from "./lexer.js"
+import { TargetReader } from "./targets.js"
+import { CONSTRUCT_WORDS, OPERATOR_WORDS, SPLIT_SHAPE, TWO_INPUT_OPERATORS, isLiteral, isReserved } from "./words.js"
 
-const STRUCTURAL = new Set([",", ")", "(", ";", ":=", "=>", ".", ":"])
+/** One item's OPEN LINES (P3): each line without `;` hands its root box to the queue, and each `ENO` takes the oldest one
+ *  not yet taken. */
+interface OpenLine {
+  box: NetworkWordBox | NetworkCall | NetworkExecute
+  at: Tok
+}
 
-export abstract class ValueReader extends NetworkCursor {
-  /** A call's pins after its `(`, the `)`, and an optional suffix (`calls.ts`). */
-  protected abstract parseCall(head: Tok, consumed: boolean, first: PVal | undefined, unnamedType?: NetworkName): NetworkCall
-  /** `PARALLEL(…)` (`calls.ts`). */
-  protected abstract parseParallel(): NetworkParallel
-  /** `EXECUTE … END_EXECUTE` (`calls.ts`). */
-  protected abstract parseExecute(consumed: boolean): NetworkExecute
+export abstract class ValueReader extends TargetReader {
+  protected open: OpenLine[] = []
+  /** The network's split points defined so far: VarId → the definition's name and every reference. */
+  protected splits = new Map<number, { name: NetworkName; references: NetworkName[] }>()
 
-  /** @param consumed whether something consumes this value — as opposed to a top-level item whose output goes nowhere.
-   *  @param defer keep a bare token unresolved: it may turn out to be a target or a pin's name. */
-  protected parseValue(consumed: boolean, defer = false): PVal {
-    const t = this.peek()
-    if (this.isEmptyHere(t)) return { node: { kind: "empty_slot", span: this.emptySpan(t) }, start: t }
+  protected abstract parseCall(head: Tok, unnamedType: Tok | undefined, operatorCall: boolean, type: string | undefined): Syn
 
-    if (isWord(t, "NOT")) {
+  // ── one bracket level ───────────────────────────────────────────────────────────────────────
+
+  protected parseLevel(): Syn {
+    const start = this.peek()
+    if (isWord(start, "BRANCH")) {
+      if (!isSym(this.peekAt(1), "("))
+        throw this.err(start, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` — a BRANCH line is gone (B8, P12).")
       this.next()
-      const n = this.peek()
-      if (this.isEmptyHere(n))
-        throw this.err(t, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
-      if (isSym(n, "(")) return { node: this.parseAfterNotParen(t, consumed), start: t }
-      // The vendor negates BEFORE it detects the edge (DIALECT N17), so the one spelling is R_EDGE(NOT x).
-      if (isWord(n, "R_EDGE") || isWord(n, "F_EDGE"))
-        throw this.err(
-          t,
-          "NETWORK_BAD_EXPRESSION",
-          `NOT outside ${n.text.toUpperCase()}(…): the IDE negates before it detects the edge, so the one spelling is ${n.text.toUpperCase()}(NOT x).`,
-        )
-      const core = this.held(this.resolve(this.parseCore(consumed, false)), t)
-      return { node: { kind: "not", operand: core, span: this.span(t.offset, this.lastEnd) }, start: t }
+      return this.parseParallel(undefined, start, start)
     }
+    if (isWord(start, "MOVE") && (!isSym(this.peekAt(1), "(") || this.moveOperandBracket())) return this.parseMove(start)
 
-    if (isWord(t, "R_EDGE") || isWord(t, "F_EDGE")) return { node: this.parseEdge(consumed), start: t }
-
-    const v = this.parseCore(consumed, defer)
-    return defer || v.node !== undefined ? v : { node: this.resolve(v), start: t }
-  }
-
-  /** `R_EDGE(x)` / `F_EDGE(x)`: a flag on `x`, never a box. */
-  private parseEdge(consumed: boolean): NetworkValue {
-    const kw = this.next()
-    const rising = isWord(kw, "R_EDGE")
-    const word = kw.text.toUpperCase()
-    // Asked BEFORE the argument list is read as the edge's: a call of a POU named so has pins the edge does not.
-    if (this.constructTaken(word))
-      throw this.err(kw, "NETWORK_UNSUPPORTED", `a POU or instance named ${word}: the text reads ${word}(…) as the edge flag, so the call has no spelling.`)
-    this.expectSym("(", `${word}(x)`)
-    let n = this.peek()
-    // `NOT(a)` — NOT with a pair holding no operator — is the NOT BOX, an argument like any other. Any other NOT is the
-    // negation modifier, which belongs inside the edge: the vendor negates before it detects the edge (DIALECT N17).
-    let not: Tok | undefined
-    if (isWord(n, "NOT") && !argumentListAhead(this.lx)) {
-      not = this.next()
-      n = this.peek()
-      if (isWord(n, "NOT") && !argumentListAhead(this.lx))
-        throw this.err(n, "NETWORK_BAD_EXPRESSION", `a second modifier inside ${word}(…): the one modifier an edge's argument carries is one NOT.`)
-    }
-    if (isWord(n, "R_EDGE") || isWord(n, "F_EDGE"))
-      throw this.err(n, "NETWORK_UNSUPPORTED", "nested edges: one operand carries one edge flag, and rising with falling has no spelling.")
-    if (this.isEmptyHere(n))
-      throw this.err(not ?? kw, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
-    let core: NetworkValue
-    if (not === undefined) core = this.resolve(this.parseCore(consumed, false))
-    else if (isSym(n, "(")) core = this.parseAfterNotParen(not, consumed)
-    else {
-      const inner = this.held(this.resolve(this.parseCore(consumed, false)), not)
-      core = { kind: "not", operand: inner, span: this.span(not.offset, this.lastEnd) }
-    }
-    this.expectSym(")", `${word}(x)`)
-    return { kind: "edge", rising, operand: this.held(core, kw), span: this.span(kw.offset, this.lastEnd) }
-  }
-
-  private parseCore(consumed: boolean, defer: boolean): PVal {
+    const first = this.parseOperand()
     const t = this.peek()
+
+    if (t.kind === "word" && OPERATOR_WORDS.has(t.text.toUpperCase())) return this.parseWordLevel(first, t)
+
+    if (isWord(t, "MOVE"))
+      throw this.err(t, "NETWORK_BAD_EXPRESSION", "`a MOVE b` is not network text: MOVE writes its target as an output pin, `MOVE b => a` (B2, P12).")
+
+    if (isWord(t, "BRANCH")) {
+      if (first.empty) throw this.err(t, "NETWORK_PARSE", "BRANCH with an empty feed before it: an unfed parallel is `BRANCH (a, b)` alone (B8).")
+      if (first.node?.kind === "empty_slot") throw this.err(t, "NETWORK_UNSUPPORTED", "a parallel fed by the empty terminator (B8, P6).")
+      if (!isSym(this.peekAt(1), "(")) throw this.err(t, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).")
+      const feed = this.operand(first)
+      this.next()
+      return this.parseParallel(feed, first.start, t)
+    }
+
+    if (first.box !== undefined && !first.bracketed) {
+      this.parseEn(first.box)
+      first.box.to = this.lastEnd()
+    } else if (isWord(t, "EN") && !first.empty)
+      throw this.err(
+        t,
+        "NETWORK_BAD_EXPRESSION",
+        first.bracketed
+          ? "EN after a bracket: EN belongs to the box of its own bracket level — write it inside the brackets (P4)."
+          : "EN after a value that is no box: EN follows the box it enables (B3).",
+      )
+    return first
+  }
+
+  /** B2: `MOVE b => a EN c`. */
+  private parseMove(start: Tok): Syn {
+    this.next()
+    const operand = this.parseOperand()
+    if (operand.empty) throw this.err(start, "NETWORK_BAD_EXPRESSION", "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).")
+    const box = this.newBox("word", "MOVE", start, start)
+    const value = this.operand(operand)
+    box.operands.push(value)
+    box.inputs.push({ value, negated: false })
+    if (this.peek().kind === "word" && OPERATOR_WORDS.has(this.peek().text.toUpperCase()))
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "a box word after MOVE's operand: MOVE takes ONE operand — bracket a box (B2, P4).")
+    if (isWord(this.peek(), "BRANCH"))
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "BRANCH after MOVE's operand: a parallel as MOVE's operand stands in brackets (B8, P4).")
+    this.parseArrows(box)
+    this.parseEn(box)
+    box.to = this.lastEnd()
+    return syn(start, { box, word: true })
+  }
+
+  /** B1: `a ADD b ADD c` — one word, one box, n inputs. */
+  private parseWordLevel(first: Syn, t: Tok): Syn {
+    if (first.empty) throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' with no operand before it.`)
+    const word = t.text.toUpperCase()
+    const box = this.newBox("word", word, t, first.start)
+    const add = (v: NetworkValue): void => {
+      box.operands.push(v)
+      box.inputs.push({ value: v, negated: false })
+    }
+    add(this.operand(first))
+    for (let w = this.peek(); w.kind === "word" && OPERATOR_WORDS.has(w.text.toUpperCase()); w = this.peek()) {
+      if (w.text.toUpperCase() !== word)
+        throw this.err(
+          w,
+          "NETWORK_BAD_EXPRESSION",
+          `'${word}' and '${w.text.toUpperCase()}' at one bracket level: one word = one box, so brackets separate boxes — \`a ${word} (b ${w.text.toUpperCase()} c)\` (B1, P4).`,
+        )
+      this.next()
+      const op = this.parseOperand()
+      if (op.empty) throw this.err(w, "NETWORK_BAD_EXPRESSION", `'${word}' with no operand after it.`)
+      add(this.operand(op))
+    }
+    if (isWord(this.peek(), "MOVE"))
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "MOVE inside another word's level: MOVE is a box of its own, bracketed (B2, P4).")
+    if (isWord(this.peek(), "BRANCH"))
+      throw this.err(
+        this.peek(),
+        "NETWORK_BAD_EXPRESSION",
+        "BRANCH after a box word at its level: a feed that is a box word is bracketed, `(a AND b) BRANCH (x, y)` (B8, P4).",
+      )
+    if (TWO_INPUT_OPERATORS.has(word) && box.inputs.length > 2)
+      throw this.err(
+        t,
+        "NETWORK_UNSUPPORTED",
+        `${word} takes 2 inputs, and this one holds ${box.inputs.length}: the build refuses it ("needs exactly '2' operands", C3) — bracket one box per two operands (B1).`,
+      )
+    this.parseArrows(box)
+    this.parseEn(box)
+    box.to = this.lastEnd()
+    return syn(first.start, { box, word: true })
+  }
+
+  /** B8, P6: the parallel's branch list after `BRANCH` — a bracketed comma list of slots, at least two, none empty — and
+   *  its mode: `SHORTCIRCUIT` where it is not the editor's. */
+  private parseParallel(feed: NetworkValue | undefined, start: Tok, branch: Tok): Syn {
+    const open = this.next()
+    if (!isSym(open, "(")) throw this.err(open, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).")
+    const branches: NetworkValue[] = []
+    for (;;) {
+      const at = this.peek()
+      if (isSym(at, ",") || isSym(at, ")")) {
+        if (isSym(at, ")") && branches.length === 0)
+          throw this.err(at, "NETWORK_UNSUPPORTED", "a parallel with no branch: `BRANCH ()` holds none (B8, P6).")
+        throw this.err(at, "NETWORK_UNSUPPORTED", "an empty branch: each branch of a parallel holds a box, `(a, , b)` is refused (B8, P6).")
+      }
+      branches.push(this.slot(this.parseLevel(), at))
+      const sep = this.peek()
+      if (isSym(sep, ",")) {
+        this.next()
+        continue
+      }
+      if (isSym(sep, ")")) {
+        this.next()
+        break
+      }
+      throw this.unexpected(sep, "a parallel's branches are separated by `,` and closed by `)`")
+    }
+    if (branches.length === 1)
+      throw this.err(
+        open,
+        "NETWORK_UNSUPPORTED",
+        "a parallel with one branch: it pushes, and does not compile (C0023) — write the branch as the value itself (B8, P6).",
+      )
+    let shortCircuit = false
+    if (isWord(this.peek(), "SHORTCIRCUIT")) {
+      this.next()
+      shortCircuit = true
+    }
+    if (isWord(this.peek(), "EN")) throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "EN after a parallel: a parallel is no box, and has no enable (B8).")
+    if (isSym(this.peek(), "=>"))
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "`=>` after a parallel: a parallel is no box, and has no output pin (B8).")
+    const node: NetworkValue = {
+      kind: "parallel",
+      ...(feed !== undefined ? { input: feed } : {}),
+      branches,
+      shortCircuit,
+      branchWord: this.tokSpan(branch),
+      span: this.spanFrom(start),
+    }
+    return syn(start, { node, word: true })
+  }
+
+  // ── one operand ─────────────────────────────────────────────────────────────────────────────
+
+  /** One operand of a level: a leaf, a split, `ENO`, a call, `NOT x`, an edge, or a bracket holding a box word, a
+   *  parallel or an enabled comparison — never a bare box word. */
+  protected parseOperand(): Syn {
+    const t = this.peek()
+    if (this.atEnd() || isSym(t, ",") || isSym(t, ")") || isSym(t, ";") || t.kind === "snippet") return syn(t, { empty: true })
+
+    if (isWord(t, "NOT")) return this.parseNot(t)
+    if (isWord(t, "R_EDGE") || isWord(t, "F_EDGE")) return this.parseEdge(t)
+
     switch (t.kind) {
       case "sym":
-        if (t.text === "(") {
-          this.next()
-          // THE THIRD PAIR KIND (S2): a target and a storage operator at the pair's own depth — an assignment below
-          // the top level. `(R = x)` stays a comparison: storage is decided after a target.
-          const first = this.parseValue(true, true)
-          if (first.bare !== undefined && this.atStorage()) return { node: this.parseNestedAssign(t, first), start: t }
-          return { node: this.parseGroupRest(t, this.resolve(first)), start: t }
-        }
+        if (t.text === "(") return this.parseBracket(t)
         break
-      case "unnamed":
+      case "unnamed": {
         this.next()
         if (isSym(this.peek(), ":")) {
           // `??? : TYPE(…)` — the vendor's unnamed instance, which carries its type because no declaration can.
           this.next()
           const ty = this.next()
-          if (ty.kind !== "word" || !IDENTIFIER.test(ty.text))
+          if (ty.kind !== "word" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(ty.text))
             throw this.err(ty, "NETWORK_BAD_EXPRESSION", "`??? : TYPE(…)` names the FB type, an identifier.")
           this.expectSym("(", "??? : TYPE(pins)")
-          return { node: this.parseCall(t, consumed, undefined, this.name(ty)), start: t }
+          return this.parseCall(t, ty, false, undefined)
         }
-        if (isSym(this.peek(), "("))
-          throw this.err(t, "NETWORK_BAD_EXPRESSION", "??? is no call head; an unnamed instance is written `??? : TYPE(…)`.")
-        return this.bare(t, defer)
+        if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", "??? is no call head; an unnamed instance is written `??? : TYPE(…)`.")
+        return this.leaf(t)
+      }
       case "word":
-        if (isWord(t, "PARALLEL")) return { node: this.parseParallel(), start: t }
-        if (isWord(t, "EXECUTE")) return { node: this.parseExecute(consumed), start: t }
-        this.next()
-        if (isSym(this.peek(), "(")) {
-          if (!(isName(t.text) && (!NETWORK_TEXT_WORDS.has(t.text.toUpperCase()) || OPERATOR_HEADS.has(t.text.toUpperCase()))))
-            throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' is a keyword of the text and no call head.`)
-          this.next()
-          return { node: this.parseCall(t, consumed, undefined), start: t }
-        }
-        if (NETWORK_TEXT_WORDS.has(t.text.toUpperCase()))
-          throw this.err(
-            t,
-            "NETWORK_BAD_EXPRESSION",
-            `'${t.text}' at operand position: an operand spelled like a keyword of the text is written between backticks.`,
-          )
-        return this.bare(t, defer)
+        return this.parseWord(t)
       case "backtick":
         this.next()
         if (isSym(this.peek(), "(")) {
           this.next()
-          return { node: this.parseCall(t, consumed, undefined), start: t }
+          return this.parseCall(t, undefined, false, undefined)
         }
-        return this.bare(t, defer)
+        if (isLiteral(t.text)) throw this.err(t, "NETWORK_BAD_EXPRESSION", `a literal between backticks: write it bare, ${t.text} (P12).`)
+        return this.leaf(t)
       case "number":
       case "typed":
       case "address":
+      case "sstring":
+      case "dstring":
         this.next()
         if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' is a literal and no call head.`)
-        return this.bare(t, defer)
-      default:
-        break
+        return this.leaf(t)
+      case "error":
+        throw this.err(t, (t.code ?? "NETWORK_PARSE") as never, t.text)
     }
+    const old = this.oldSymbol(t)
+    if (old !== undefined) throw old
     throw this.err(
       t,
       "NETWORK_PARSE",
@@ -152,199 +241,127 @@ export abstract class ValueReader extends NetworkCursor {
     )
   }
 
-  private bare(t: Tok, defer: boolean): PVal {
-    return defer ? { bare: t, start: t } : { node: this.resolve({ bare: t, start: t }), start: t }
-  }
-
-  /** A group's remainder, after `(` and its first operand: one operator kind, then `)`. Every pair of parentheses is
-   *  exactly one box, so a pair holding no operator is refused, not read as grouping. */
-  private parseGroupRest(open: Tok, first: NetworkValue): NetworkValue {
-    const op = this.peek()
-    if (!isOperator(op)) {
-      if (isSym(op, ")"))
-        throw this.err(open, "NETWORK_BAD_EXPRESSION", "a pair of parentheses that is no box: a group holds an infix operator, and a call's pair follows its head.")
-      throw this.notAnOperator(op)
-    }
-    const sym = operatorSymbol(op)
-    const operands = [first]
-    while (isOperator(this.peek())) {
-      const o = this.next()
-      if (operatorSymbol(o) !== sym)
-        throw this.err(o, "NETWORK_BAD_EXPRESSION", `'${sym}' and '${o.text}' in one group: a group is one operator box, so it holds one operator kind.`)
-      operands.push(this.resolve(this.parseValue(true)))
-    }
-    if (!isSym(this.peek(), ")")) throw this.notAnOperator(this.peek())
+  private parseNot(t: Tok): Syn {
     this.next()
-    const pragmas = this.readPragmas()
-    return { kind: "group", op: sym, operands, ...(pragmas !== undefined ? { pragmas } : {}), span: this.span(open.offset, this.lastEnd) }
-  }
-
-  private notAnOperator(t: Tok): ParseError {
-    if (t.kind === "word" && NETWORK_TEXT_WORDS.has(t.text.toUpperCase()))
-      return this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' at operand position: an operand spelled like a keyword of the text is written between backticks.`)
-    if (t.kind === "word" || (t.kind === "sym" && !STRUCTURAL.has(t.text)))
-      return this.err(t, "NETWORK_UNKNOWN_OPERATOR", `'${t.text}' is not an operator of the table (AND OR XOR + - * / MOD > < >= <= = <>).`)
-    return this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' inside a group: a group is \`(a OP b …)\`.`)
-  }
-
-  /** After `NOT` and `(`: a group under the negation modifier if the pair holds an operator, else the NOT box's
-   *  argument list. */
-  private parseAfterNotParen(not: Tok, consumed: boolean): NetworkValue {
-    const open = this.next()
-    if (isSym(this.peek(), ")") || isSym(this.peek(), "=>") || this.isPinName(this.peek()))
-      return this.parseCall(not, consumed, undefined)
-    const v = this.parseValue(true, true)
-    if (v.bare !== undefined && (isSym(this.peek(), ":=") || isSym(this.peek(), "=>"))) return this.parseCall(not, consumed, v)
-    if (isOperator(this.peek())) {
-      const group = this.parseGroupRest(open, this.resolve(v))
-      return { kind: "not", operand: group, span: this.span(not.offset, this.lastEnd) }
+    const n = this.peek()
+    if (
+      isSym(n, "(") &&
+      ((isWord(this.peekAt(1), "IN") && isSym(this.peekAt(2), ":=")) || (isWord(this.peekAt(1), "NOT") && isWord(this.peekAt(2), "IN") && isSym(this.peekAt(3), ":=")))
+    ) {
+      // P5: `NOT(IN := a)` is the NOT box; `NOT (` + anything else negates that bracket.
+      this.next()
+      return this.parseCall(t, undefined, true, "NOT")
     }
-    return this.parseCall(not, consumed, v)
+    if (isWord(n, "R_EDGE") || isWord(n, "F_EDGE"))
+      throw this.err(
+        t,
+        "NETWORK_BAD_EXPRESSION",
+        `NOT outside ${n.text.toUpperCase()}(…): the IDE negates before it detects the edge, so the one spelling is ${n.text.toUpperCase()}(NOT x).`,
+      )
+    if (this.atEnd() || isSym(n, ",") || isSym(n, ")") || isSym(n, ";"))
+      throw this.err(t, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
+    const inner = this.parseOperand()
+    return this.flagged(inner, t, "not")
   }
 
-  /** `(t1 := t2 S= … value)` after its `(` and first target (S2, the bridge's `ParseNestedAssign`): one Assign item
-   *  below the top level. A wire is defined only by a statement of its own. */
-  private parseNestedAssign(open: Tok, first: PVal): NetworkNestedAssign {
-    const targets: NetworkTarget[] = []
-    let cur = first
-    let value: NetworkValue
-    for (;;) {
-      const bare = cur.bare
-      if (bare === undefined)
-        throw this.err(cur.start, "NETWORK_BAD_EXPRESSION", "an assignment target is one variable: a token, or text between backticks.")
-      const w = bare.kind === "word" ? this.wires.get(bare.text.toUpperCase()) : undefined
-      if (w !== undefined)
-        throw this.err(
-          bare,
-          "NETWORK_BAD_EXPRESSION",
-          `the wire ${w.wire.name.text} is defined inside an assignment's pair; a wire's definition is its own statement \`${w.wire.name.text} := value;\`.`,
-        )
-      const op = this.takeStorage()
-      targets.push(this.target(bare, op.text as NetworkTarget["op"]))
-      const v = this.parseValue(true, true)
-      if (v.bare !== undefined && this.atStorage()) {
-        cur = v
-        continue
-      }
-      value = this.resolve(v)
-      break
-    }
-    if (!isSym(this.peek(), ")"))
-      throw this.err(this.peek(), "NETWORK_PARSE", `'${this.peek().text}' in an assignment's pair: \`(t := value)\` closes after its value.`)
+  private parseEdge(t: Tok): Syn {
     this.next()
-    return { kind: "nested_assign", targets, value, span: this.span(open.offset, this.lastEnd) }
+    if (CONSTRUCT_WORDS.has(t.text.toUpperCase()) && this.isCallable(t.text))
+      throw this.err(
+        t,
+        "NETWORK_UNSUPPORTED",
+        `a POU or instance named ${t.text.toUpperCase()}: the text reads ${t.text.toUpperCase()}(…) as the edge flag, so the call has no spelling.`,
+      )
+    this.expectSym("(", `${t.text.toUpperCase()}(x)`)
+    const inner = this.parseLevel()
+    if (inner.empty) throw this.err(t, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
+    if (inner.bracketed)
+      throw this.err(
+        inner.start,
+        "NETWORK_BAD_EXPRESSION",
+        `${t.text.toUpperCase()}((…)): an edge's brackets carry its argument whole — a redundant bracket is refused (P4).`,
+      )
+    this.expectSym(")", `${t.text.toUpperCase()}(x)`)
+    const flagged = this.flagged(inner, t, isWord(t, "R_EDGE") ? "rise" : "fall")
+    flagged.word = false
+    flagged.bracketed = false
+    return flagged
   }
 
-  /** A storage operator next (`pair-kind.ts` `isStorageAt`): `:=`, or ExST's `S=` / `R=`. */
-  protected atStorage(): boolean {
-    return isStorageAt(this.peek(), this.lx)
+  private parseBracket(t: Tok): Syn {
+    this.next()
+    // S2: a target and a storage operator at the pair's own depth — an assignment below the top level.
+    if (this.isTargetToken(this.peek()) && this.storageAt(this.p + 1)) return syn(t, { node: this.parseNestedAssign(t) })
+    const inner = this.parseLevel()
+    if (!isSym(this.peek(), ")")) throw this.unexpected(this.peek(), "a bracket closes after the box it holds")
+    this.next()
+    if (inner.empty || inner.bracketed || !(inner.word || enabledComparison(inner)))
+      throw this.err(
+        t,
+        "NETWORK_BAD_EXPRESSION",
+        "a redundant bracket: brackets mark a box word or a parallel as another word's operand, an enabled comparison, and a nested assignment — nothing else (B5, P4).",
+      )
+    inner.bracketed = true
+    inner.start = t
+    if (inner.box !== undefined) inner.box.from = t
+    return inner
   }
 
-  /** The storage operator `atStorage` found, as one token `:=`, `S=` or `R=` spanning both parts. */
-  protected takeStorage(): Tok {
-    const t = this.next()
-    if (isSym(t, ":=")) return t
-    const eq = this.next()
-    return { kind: "sym", text: `${t.text.toUpperCase()}=`, offset: t.offset, length: eq.offset + eq.length - t.offset, atLineStart: t.atLineStart }
-  }
-
-  // ── operands ────────────────────────────────────────────────────────────────────────────────
-
-  protected resolve(v: PVal): NetworkValue {
-    if (v.node !== undefined) return v.node
-    const t = v.bare!
-    const w = t.kind === "word" ? this.wires.get(t.text.toUpperCase()) : undefined
-    if (w !== undefined) {
-      if (!w.defined)
+  private parseWord(t: Tok): Syn {
+    if (isWord(t, "ENO")) {
+      this.next()
+      // P3: the oldest open line of the item not yet taken.
+      const line = this.open.shift()
+      if (line === undefined)
         throw this.err(
           t,
           "NETWORK_BAD_EXPRESSION",
-          `the wire ${w.wire.name.text} is referenced before its definition: a wire is defined by \`${w.wire.name.text} := value;\` before its first use.`,
+          "ENO with no open line above it to take: ENO reads the box of the oldest line above it without `;` that no ENO has taken yet (B4, P3).",
         )
-      return { kind: "wire_ref", name: this.name(t), span: this.tokSpan(t) }
+      return syn(t, { node: { kind: "eno", box: line.box, span: this.tokSpan(t) } })
     }
-    // A word no VAR_TEMP declares is a variable, whatever its shape: whether it is declared is the build's question
-    // (bridge-refusal-review 1.3, `rcc_network_undeclared_wire_shape`), and only this network's own block makes a name
-    // a wire. A wire spelled again as another name is no finding either (2.11): the writer names its wires around
-    // every other name on the next pull.
-    if (t.kind === "word") this.readAsAVariable(t)
-    const unnamed = t.kind === "unnamed"
-    const backticked = t.kind === "backtick"
-    const expr = unnamed ? undefined : backticked ? this.stExpr(t.offset + 1, t.offset + t.length - 1) : this.stExpr(t.offset, t.offset + t.length)
-    return { kind: "operand", text: t.text, backticked, unnamed, ...(expr !== undefined ? { expr } : {}), span: this.tokSpan(t) }
-  }
-
-  /** An assignment target (`op` its storage operator) or a `=>` pin's (no operator): a token or backticked text. */
-  protected target(t: Tok, op?: NetworkTarget["op"]): NetworkTarget {
-    switch (t.kind) {
-      case "word":
-        if (NETWORK_TEXT_WORDS.has(t.text.toUpperCase()))
-          throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' as a target: a target spelled like a keyword of the text is written between backticks.`)
-        this.readAsAVariable(t)
-        return this.targetOf(t, op, this.stExpr(t.offset, t.offset + t.length))
-      case "backtick":
-        return this.targetOf(t, op, this.stExpr(t.offset + 1, t.offset + t.length - 1))
-      case "unnamed":
-        return this.targetOf(t, op, undefined)
-      case "address":
-        return this.targetOf(t, op, this.stExpr(t.offset, t.offset + t.length))
-      default:
-        throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' as a target: a target is a variable, a token or text between backticks.`)
+    if (SPLIT_SHAPE.test(t.text)) {
+      this.next()
+      if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", `${t.text} is a split, never a call head (P9).`)
+      const id = this.splitId(t)
+      const split = this.splits.get(id)
+      if (split === undefined)
+        throw this.err(
+          t,
+          "NETWORK_BAD_EXPRESSION",
+          `the split ${t.text} is referenced before its definition: a split is defined by \`${t.text} := value;\` before its first use (P9).`,
+        )
+      const name = this.name(t)
+      split.references.push(name)
+      return syn(t, { node: { kind: "split_ref", name, span: name.span } })
     }
-  }
-
-  private targetOf(t: Tok, op: NetworkTarget["op"] | undefined, expr: Expr | undefined): NetworkTarget {
-    return {
-      text: t.text,
-      ...(expr !== undefined ? { expr } : {}),
-      ...(op !== undefined ? { op } : {}),
-      backticked: t.kind === "backtick",
-      unnamed: t.kind === "unnamed",
-      span: this.tokSpan(t),
+    if ((isWord(t, "MOVE") || OPERATOR_WORDS.has(t.text.toUpperCase())) && isSym(this.peekAt(1), "(")) {
+      this.next()
+      this.next()
+      return this.parseCall(t, undefined, true, t.text)
     }
-  }
-
-  /** A bare word read as a variable, remembered at its first reading (`declare`'s late-block rule). */
-  private readAsAVariable(t: Tok): void {
-    const key = t.text.toUpperCase()
-    if (!this.readAsVariable.has(key)) this.readAsVariable.set(key, t)
-  }
-
-  /** Whether a POU or FB instance in scope carries a construct word (`NetworkSpelling.ConstructTaken`). */
-  protected constructTaken(word: string): boolean {
-    return (
-      this.scope !== undefined &&
-      CONSTRUCT_WORDS.has(word.toUpperCase()) &&
-      (this.scope.isPou(word) || this.scope.instanceType(word) !== undefined)
-    )
-  }
-
-  /** DIALECT N20: the IDE holds no flag on a wire reference or a Parallel, so `NOT g3`, `R_EDGE(g3)` and
-   *  `NOT PARALLEL(…)` state logic the push would drop. */
-  private held(core: NetworkValue, modifier: Tok): NetworkValue {
-    if (core.kind === "wire_ref")
+    if (isWord(t, "PARALLEL") && isSym(this.peekAt(1), "(") && !this.isCallable(t.text))
       throw this.err(
-        modifier,
-        "NETWORK_UNSUPPORTED",
-        `${modifier.text.toUpperCase()} on a wire reference: the IDE holds no flag on a wire; put it on the wire's producer.`,
+        t,
+        "NETWORK_PARSE",
+        "PARALLEL(…) is not network text: a parallel is its feed, the word BRANCH and its branches, `feed BRANCH (a, b)` (B8, P12).",
       )
-    if (core.kind === "parallel")
-      throw this.err(modifier, "NETWORK_UNSUPPORTED", `${modifier.text.toUpperCase()} on PARALLEL(…): the IDE holds no flag on a Parallel.`)
-    return core
+    if (isWord(t, "EXECUTE"))
+      throw this.err(t, "NETWORK_BAD_EXPRESSION", "EXECUTE where a value stands: an EXECUTE box is a line of its own, never a value (P8).")
+    if (isWord(t, "BRANCH"))
+      throw this.err(t, "NETWORK_BAD_EXPRESSION", "an unfed parallel as an operand stands in brackets, `x AND (BRANCH (a, b))` (B8, P4).")
+    if (isReserved(t.text))
+      throw this.err(
+        t,
+        "NETWORK_BAD_EXPRESSION",
+        `'${t.text}' at operand position: a variable spelled like a word of the text is written between backticks (P1).`,
+      )
+    this.next()
+    if (isSym(this.peek(), "(")) {
+      this.next()
+      return this.parseCall(t, undefined, false, undefined)
+    }
+    if (isSym(this.peek(), ".") && isWord(this.peekAt(1), "ENO")) throw this.oldEno(this.peek())
+    return this.leaf(t)
   }
-
-  // ── what a position holds (`pair-kind.ts`), asked of the lexer standing after the lookahead ──
-
-  protected isEmptyHere(t: Tok): boolean {
-    return isEmptyAt(t, this.lx)
-  }
-
-  protected isPinName(t: Tok): boolean {
-    return isPinNameAt(t, this.lx)
-  }
-}
-
-/** The operator a token spells, as a group compares it: a word upper-cased, a symbol as written. */
-function operatorSymbol(t: Tok): string {
-  return t.kind === "word" ? t.text.toUpperCase() : t.text
 }

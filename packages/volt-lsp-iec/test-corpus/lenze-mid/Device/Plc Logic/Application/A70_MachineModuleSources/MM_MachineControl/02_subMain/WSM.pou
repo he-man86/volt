@@ -58,6 +58,74 @@ VAR RETAIN PERSISTENT
 	stPhotocellWrapperFault: BOOL;
 	stFeedForward: BOOL;
 END_VAR
-IMPLEMENTATION LD UNSUPPORTED
+IMPLEMENTATION LD
+NETWORK TITLE: "DONE Network 2: State: Initialise"
+  split8 := iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply;
+  stRestposition S= split8;
+  stSupplyWrapper R= stWrapperPresent R= stNoWrapper R= stPhotocellWrapperFault R= split8;
+END_NETWORK
+NETWORK TITLE: "DONE Network 3: State: Restposition"
+  stRestposition S= stWrapperPresent R= stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent;
+END_NETWORK
+NETWORK TITLE: "DONE Network 4: State: Supply wrapper"
+  stSupplyWrapper S= stRestposition R= stNoWrapper R= stPhotocellWrapperFault R= ioManualStartSupply R= (stRestposition AND ((iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto)) OR ioManualStartSupply)) OR (stNoWrapper AND iGenFlags.StartFlag) OR (stPhotocellWrapperFault AND iGenFlags.StartFlag);
+END_NETWORK
+NETWORK TITLE: "DONE Network 5: State: Wrapper Present"
+  split15 := iWrapperPresentForLeafCarrier AND stSupplyWrapper;
+  stWrapperPresent S= split15;
+  1 ADD HMI_Var.Mach1.PRDWrapCurrentCntr => HMI_Var.Mach1.PRDWrapCurrentCntr EN split15;
+  1 ADD HMI_Var.Mach1.PRDWrapDayCounter => HMI_Var.Mach1.PRDWrapDayCounter EN split15;
+  stSupplyWrapper R= split15;
+END_NETWORK
+NETWORK TITLE: "DONE Network 6: State: No Wrapper"
+  stNoWrapper S= stSupplyWrapper R= TMR_TimeOutSupply(IN := stSupplyWrapper AND stFeedForward, PT := iTimeOutSupplyWrapper);
+END_NETWORK
+NETWORK TITLE: "DONE Network 7: State: Photocell wrapper fault"
+  stPhotocellWrapperFault S= stSupplyWrapper R= TMR_TimeOutPhotocell(IN := stSupplyWrapper AND stFeedForward AND iPhotocellWrapper, PT := T#10S);
+END_NETWORK
+NETWORK TITLE: "DONE Network 8: Faults"
+  split21 := True;
+  oFaultWaitingForWrapper := split21 AND stSupplyWrapper AND iTakeOverCycle;
+  oFaultNoWrapper := split21 AND stNoWrapper;
+  oFaultPhotocellWrapper := split21 AND stPhotocellWrapperFault;
+END_NETWORK
+NETWORK TITLE: "DONE Network 9: Ventilation motor"
+  oVentilationMotor := iGenFlags.EnableAuxDrive AND iTest_Prod AND NOT iCleaning;
+END_NETWORK
+NETWORK TITLE: "DONE Network 10:"
+  split23 := iGenFlags.EnableAuxDrive AND stSupplyWrapper AND NOT iGenFlags.StopFlag;
+  stFeedForward := split23;
+  oPositionMotor := split23;
+END_NETWORK
+NETWORK TITLE: "DONE Network 11: Winding motor"
+  oWindingMotor := iGenFlags.EnableAuxDrive AND NOT iGenFlags.StopFlag AND iTest_Prod AND NOT iCleaning;
+END_NETWORK
+NETWORK TITLE: "DONE Network 12: Start spray cycle"
+  split46 := stFeedForward;
+  stSprayCycleActive S= stRePositionMotor(CLK := split46);
+  stSprayCycleActive S= TMR_DelayContinuousSpraying(IN := split46, PT := iDelayContSpraying);
+END_NETWORK
+NETWORK TITLE: "DONE Network 13: Timing spray cycle"
+  stSprayCycleActive R= TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime) AND NOT TMR_DelayContinuousSpraying.Q;
+END_NETWORK
+NETWORK TITLE: "DONE Network 14: Spraying valve"
+  oSprayingValve := ioEnableSpraying AND stSprayCycleActive;
+END_NETWORK
+NETWORK TITLE: "DONE Network 15: Automatic trigger of water"
+  ioEnableSpraying S= FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForLeafCarrier AND iTest_Prod AND NOT iCleaning;
+END_NETWORK
+NETWORK TITLE: "DONE Network 16: Water level control"
+  oWaterLevelValve := ioEnableSpraying AND iWaterLevelSensor;
+END_NETWORK
+NETWORK TITLE: "DONE Network 17: Manual spray cycle"
+  split45 := iScreenForOperatorSettingsActivated;
+  MOVE 0 => ioManualSprayCycleActualCount EN split45 AND iManualSprayCycleReset;
+  stManualSprayCycleStarted := (ioManualSprayCycleActualCount LT iMaxNumberOfSprayPulses EN split45 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset);
+  ioManualSprayCycleActualCount ADD 1 => ioManualSprayCycleActualCount EN TMR_ManualSprayCycleIdle(IN := split45 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS)
+  stSprayCycleActive S= ENO;
+END_NETWORK
+NETWORK TITLE: "DONE Network 18: SAVE RLO"
+  `ENO` := `EN`;
+END_NETWORK
 
 END_FUNCTION_BLOCK

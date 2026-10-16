@@ -116,8 +116,15 @@ public class TcRebuildLossTests
             "TwinCAT: network 1 is rebuilt from its text, which does not carry these stored values, and the rebuilt " +
             $"network does not hold them: Flags.Fixed ×{itemFixed} (vendor-facts row nwl-flags-fixed), " +
             $"Operand.Boolean ×{booleanN} (vendor-facts row nwl-operand-boolean), Operand.Address ×1 (vendor-facts row " +
-            "nwl-address-sentinel) (openspec", said);
+            "nwl-address-sentinel), " + AndOutputList, said);
     }
+
+    /// <summary>The AND's stored output list (<c>['']</c> / <c>['BOOL']</c>, the bit operator's slot, design 2R.2 L),
+    /// which the stamp replaces with the text's derivation (<c>[]</c>): 2R.3 B7 lost on rebuild, named since the
+    /// pragma went.</summary>
+    const string AndOutputList =
+        "OutputParam.Names ×1 (vendor-facts row nwl-output-param-names), OutputParam.Types ×1 (vendor-facts row " +
+        "nwl-param-types) (openspec";
 
     /// <summary>The reverse: an operand that stored <c>Fixed = false</c> (533 in the fixtures) comes back true from the
     /// import — a change a vendor-neutral "non-default" test could not see, named here; the values it gives back
@@ -139,7 +146,30 @@ public class TcRebuildLossTests
         var operandFixed = Values(live, "Fixed").Count(OnOperand);
         Assert.True(operandFixed > 0);
         Assert.Contains(
-            $"and the rebuilt network does not hold them: Flags.Fixed ×{operandFixed} (vendor-facts row nwl-flags-fixed) (openspec", said);
+            $"and the rebuilt network does not hold them: Flags.Fixed ×{operandFixed} (vendor-facts row nwl-flags-fixed), " + AndOutputList, said);
+    }
+
+    /// <summary>A BIT OPERATOR'S STORED SLOT <c>['']</c> (2R.3 B7; design 2R.2 L, "S1 17": the fan-out's AND in
+    /// <c>fanout.test.ts</c>): the text does not carry it, so an import that does not give it back loses it — and the
+    /// warning names it. Before, the TwinCAT collector held only <c>'   '</c>, and the slot went unnamed.</summary>
+    [Fact]
+    public void A_bit_operators_stored_output_slot_the_import_does_not_give_back_is_named()
+    {
+        var doc = XElement.Parse(DrawnBody(), LoadOptions.PreserveWhitespace);
+        var first = TcArchive.List(Impl(doc), "NetworkList")[0];
+        var and = first.Descendants("o").First(o => TcArchive.Str(o, "BoxType") == "AND");
+        var names = TcArchive.Obj(and, "OutputParam")!.Elements("l2").First(l => (string?)l.Attribute("n") == "Names");
+        names.RemoveNodes();
+        names.Add(new XElement("v", ""));
+        var body = doc.ToString(SaveOptions.DisableFormatting);
+        var live = TcArchive.List(Impl(XElement.Parse(body)), "NetworkList")[0];
+        var pushed = AndGainsAnInput(body);
+
+        // The import double gives the [''] back; the stamp then writes the text's derivation over it (B7: the text
+        // states no member), so the rebuilt AND holds [] — and that is a loss the warning has to name.
+        var said = CaptureStdErr(() => TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, _ => Imported(live)));
+
+        Assert.Contains("OutputParam.Names ×1 (vendor-facts row nwl-output-param-names)", said);
     }
 
     /// <summary>The import mints the network's Ids in its scratch POU's own space; spliced into the live body they are

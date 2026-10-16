@@ -49,8 +49,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			// NO blank line between networks — not the canonical form a PULL emits. It is written all the same
 			// (bridge-refusal-review 2.12: the layout-only gate is gone) and the pull below returns the canonical text.
-			`IMPLEMENTATION FBD\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
-			`NETWORK\n  out2 := (b OR c);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
+			`NETWORK\n  out2 := b OR c;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -61,8 +61,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		// BOTH networks survived, each with its own content - not one merged network, not a dropped second.
 		// Headers carry no order number, so the count is the check: two `NETWORK` lines, not one merged.
 		expect(v1.sourceText.match(/^NETWORK$/gm)?.length, "the two networks did not come back as two").toBe(2)
-		expect(v1.sourceText).toMatch(/out1 := \(a AND b\);/)
-		expect(v1.sourceText).toMatch(/out2 := \(b OR c\);/)
+		expect(v1.sourceText).toMatch(/out1 := a AND b;/)
+		expect(v1.sourceText).toMatch(/out2 := b OR c;/)
 
 		// …and the whole thing is a FIXED POINT, which is what proves the ids the IDE minted are consistent.
 		const refs = await bridge.refs()

@@ -20,7 +20,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  out := ((a AND b) OR c);
+  out := (a AND b) OR c;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -36,12 +36,12 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  out := (a AND b AND c);
+  out := a AND b AND c;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#operator-group--operand-op-operand-op-operand-`),
-  ng("ng_group_arithmetic", "FB_NG_arith", "the arithmetic operator boxes (`+` → ADD), which no graphical fixture had reached",
+  ng("ng_group_arithmetic", "FB_NG_arith", "the arithmetic operator boxes (ADD, MOD), which no graphical fixture had reached",
     `FUNCTION_BLOCK FB_NG_arith
 VAR
 \tx : INT := 2;
@@ -53,15 +53,15 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  sum := (x + y + z);
+  sum := x ADD y ADD z;
 END_NETWORK
 NETWORK
-  rest := (x MOD y);
+  rest := x MOD y;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#7-operators`),
-  ng("ng_group_comparison", "FB_NG_compare", "the comparison operator boxes (`<` → LT), whose result is BOOL whatever the operands are",
+  ng("ng_group_comparison", "FB_NG_compare", "the comparison operator boxes (LT, EQ), whose result is BOOL whatever the operands are",
     `FUNCTION_BLOCK FB_NG_compare
 VAR
 \tx : INT := 2;
@@ -72,16 +72,16 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  below := (x < y);
+  below := x LT y;
 END_NETWORK
 NETWORK
-  same := (x = y);
+  same := x EQ y;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#7-operators`),
   // ─── wires and fan-out (§6) ────────────────────────────────────────────────
-  ng("ng_fanout_let", "FB_NG_fanout", "a named wire feeding TWO sinks — the one named thing, declared in the network's VAR_TEMP",
+  ng("ng_fanout_let", "FB_NG_fanout", "a split feeding TWO sinks — the one named thing, `split<VarId>`, defined before its uses (B6)",
     `FUNCTION_BLOCK FB_NG_fanout
 VAR
 \ta : BOOL;
@@ -92,15 +92,14 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := (a OR b);
-  out1 := g1;
-  out2 := g1;
+  split1 := a OR b;
+  out1 := split1;
+  out2 := split1;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#wire-definition--let-name--producer`),
-  ng("ng_coil_storage", "FB_NG_coils", "all three coil kinds off ONE wire — plain, SET and RESET",
+  ng("ng_coil_storage", "FB_NG_coils", "all three coil kinds off ONE split — plain, SET and RESET",
     `FUNCTION_BLOCK FB_NG_coils
 VAR
 \ta : BOOL;
@@ -112,11 +111,10 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := (a OR b);
-  plain := g1;
-  latched S= g1;
-  cleared R= g1;
+  split1 := a OR b;
+  plain := split1;
+  latched S= split1;
+  cleared R= split1;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -132,7 +130,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  out := (a AND \`NOT b\`);
+  out := a AND \`NOT b\`;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -230,12 +228,13 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  out := AND(EN := go, a, b).ENO;
+  a AND b EN go
+  out := ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#eneno--let-en--src-if-en-then-result-end_if`),
-  ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled box whose result is a NAMED wire, so it can fan out past the IF",
+  ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled box whose ENO is a split, so it can fan out to two coils",
     `FUNCTION_BLOCK FB_NG_enwire
 VAR
 \tgo : BOOL;
@@ -247,10 +246,10 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := OR(EN := go, b, c).ENO;
-  out := g1;
-  out3 := g1;
+  b OR c EN go
+  split1 := ENO;
+  out := split1;
+  out3 := split1;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -265,7 +264,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE(EN := bRun)
+  EXECUTE EN bRun
 IF bStart THEN
 	target := 40 + 2;
 END_IF
@@ -305,10 +304,10 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  IF cond THEN JMP Tail; END_IF;
+  JMP Tail := cond;
 END_NETWORK
 NETWORK
-  IF cond THEN RETURN; END_IF;
+  RETURN := cond;
 END_NETWORK
 NETWORK LABEL: Tail
   done := TRUE;
@@ -332,7 +331,7 @@ END_VAR
 IMPLEMENTATION FBD
 NETWORK TITLE: "the interlock"
   // both have to be true
-  out := (a AND b);
+  out := a AND b;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -367,17 +366,17 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  fromFbd := (a AND b);
+  fromFbd := a AND b;
 END_NETWORK
 NETWORK
-  fromLd := (a OR b);
+  fromLd := a OR b;
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#networks-comments-flags`,
     "\"A body may even mix FBD and LD networks, vendor permitting\" — the spec's own hedge, and this is what settles it for CODESYS."),
   // ─── an error path the graphical fixtures did not cover ────────────────────
-  ng("ng_sink_type_mismatch", "FB_NG_badsink", "a BOOL wire driven into an INT coil — the network type-check against a real build",
+  ng("ng_sink_type_mismatch", "FB_NG_badsink", "a BOOL box driven into an INT coil — the network type-check against a real build",
     `FUNCTION_BLOCK FB_NG_badsink
 VAR
 \ta : BOOL;
@@ -387,7 +386,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  count := (a AND b);
+  count := a AND b;
 END_NETWORK
 
 END_FUNCTION_BLOCK

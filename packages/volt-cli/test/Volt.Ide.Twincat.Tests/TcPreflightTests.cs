@@ -69,7 +69,7 @@ public class TcPreflightTests
     [Fact]
     public void A_model_it_can_express_passes()
     {
-        new BeckhoffDriver(new TcObjectModel()).ValidateSource(null, new[] { Body("out := (a AND b);") });
+        new BeckhoffDriver(new TcObjectModel()).ValidateSource(null, new[] { Body("out := a AND b;") });
     }
 
     // ── 2.28: per body ─────────────────────────────────────────────────────────────────────────────

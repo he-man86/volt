@@ -113,7 +113,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 
 	it("an LD member added and edited beside the hidden members (TwinCAT: a whole-POU re-import) moves no hidden body", async () => {
 		const ld = (coil: string) =>
-			`\nMETHOD VltE2E_Ld : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${coil} := (p AND bGo);\nEND_NETWORK\nEND_METHOD\n`
+			`\nMETHOD VltE2E_Ld : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${coil} := p AND bGo;\nEND_NETWORK\nEND_METHOD\n`
 		const added = pulled + ld("VltE2E_Ld")
 		const bodies = (await heldImplementations(BARE, project)).length
 		await push(added)
@@ -126,8 +126,8 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		expect(await hidden()).toEqual(before)
 
 		// The graphical member EDIT is `SetMemberBodies` on TwinCAT — the path that re-imports the whole document.
-		await push(got.replace("VltE2E_Ld := (p AND bGo);", "VltE2E_Ld := (bGo AND p);"))
-		expect((await fetchItem(name)).sourceText).toContain("VltE2E_Ld := (bGo AND p);")
+		await push(got.replace("VltE2E_Ld := p AND bGo;", "VltE2E_Ld := bGo AND p;"))
+		expect((await fetchItem(name)).sourceText).toContain("VltE2E_Ld := bGo AND p;")
 		expect(await hidden()).toEqual(before)
 	})
 

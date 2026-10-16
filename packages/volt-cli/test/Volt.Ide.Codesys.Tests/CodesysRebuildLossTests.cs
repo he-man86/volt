@@ -85,7 +85,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x6", 60));
 
-        var said = Push(impl, t => t.Replace("x6 := (a AND b);", "x6 := (a AND c);"));
+        var said = Push(impl, t => t.Replace("x6 := a AND b;", "x6 := a AND c;"));
 
         Assert.Contains(
             "CODESYS: network 6 is rebuilt from its text, which does not carry these stored values, and the rebuilt network " +
@@ -102,7 +102,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x6", 60, negateB: true));
 
-        var said = Push(impl, t => t.Replace("x6 := (a AND NOT b);", "x6 := (c AND NOT b);"));
+        var said = Push(impl, t => t.Replace("x6 := a AND NOT b;", "x6 := c AND NOT b;"));
 
         Assert.Contains("does not hold them: Flags.Fixed ×2 (vendor-facts row nwl-flags-fixed), Operand.Boolean ×3", said);
     }
@@ -134,6 +134,44 @@ public class CodesysRebuildLossTests
         var said = Push(impl, t => t.Replace("x6 :=", "x7 :="));
 
         Assert.Contains("OutputItemList.OutputItems ×1 (vendor-facts row nwl-output-param-names)", said);
+    }
+
+    /// <summary>A CALL'S STORED OUTPUT LIST (2R.3 B7, design "2R.3, as built": "lost on rebuild (named by RebuildLoss),
+    /// never guessed"): a TON storing <c>['Q', 'ET']</c> / <c>['BOOL', 'TIME']</c> with only Q wired is rebuilt from the
+    /// text's own pins, so its ET slot and both stored types go — and the warning says so. Before, the candidates held
+    /// only the function result <c>'   '</c>, and this rebuild said nothing.</summary>
+    [Fact]
+    public void A_rebuilt_call_names_its_stored_output_list_and_types()
+    {
+        static Nwl.BoxTreeBox Call(string input)
+        {
+            var call = new Nwl.BoxTreeBox
+            {
+                BoxType = "TON",
+                Instance = new Nwl.Operand { OperandExpr = "t1", IsInstance = true, Type = "TON" },
+                InputItemList = new object[] { Nwl.Leaf(input), Nwl.Leaf("b") },
+                InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+                OutputParams = new Nwl.ParamList { Names = new[] { "Q", "ET" }, Types = new[] { "BOOL", "TIME" } },
+            };
+            call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
+            call.Outputs.List.Add(null!);
+            return call;
+        }
+        var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
+        impl.NetworkList.Add(new Nwl.Network().With(Call("a")));
+        var shown = CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd);
+        var scope = new NetworkScope(new[] { "a", "b", "c", "x6", "t1" }, Array.Empty<string>(),
+            new Dictionary<string, string> { ["t1"] = "TON" });
+        var pulled = NetworkTextWriter.WritePulled(shown, scope);
+        var edited = pulled.Replace("IN := a", "IN := c");
+        Assert.NotEqual(pulled, edited);
+        var read = NetworkTextReader.Read(edited, scope);
+        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + edited);
+
+        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read.Body!, scope));
+
+        Assert.Contains("OutputParam.Names ×1 (vendor-facts row nwl-output-param-names)", said);
+        Assert.Contains("OutputParam.Types ×1 (vendor-facts row nwl-param-types)", said);
     }
 
     /// <summary>An unchanged network is kept — nothing is rebuilt and nothing is said about it; a header-only edit is

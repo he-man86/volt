@@ -87,9 +87,9 @@ export function bodyOf(src: string): string {
 
 /** Everything in a network line that is grammar rather than the engineer's program. */
 const NETWORK_KEYWORDS = new Set([
-	"NETWORK", "END_NETWORK", "DISABLED", "LABEL", "TITLE", "VAR_TEMP", "END_VAR", "NOT", "AND", "OR", "XOR", "MOD",
-	"IF", "THEN", "END_IF", "JMP", "RETURN", "EXECUTE", "END_EXECUTE", "PARALLEL", "MODE", "R_EDGE", "F_EDGE", "ENO",
-	"TRUE", "FALSE",
+	"NETWORK", "END_NETWORK", "DISABLED", "LABEL", "TITLE", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
+	"GT", "GE", "EQ", "NE", "LE", "LT", "MOVE", "EN", "ENO", "BRANCH", "SHORTCIRCUIT", "JMP", "RETURN", "EXECUTE",
+	"END_EXECUTE", "R_EDGE", "F_EDGE", "UNSUPPORTED", "TRUE", "FALSE",
 ])
 
 /**
@@ -102,8 +102,8 @@ const NETWORK_KEYWORDS = new Set([
  * <p>What survives every one of those rewrites is the SET OF OPERANDS, so that is what this asserts. It catches
  * the whole measured loss class — a dropped unconsumed block, a jump's discarded condition spine, an FB instance
  * written with `typeName=""`, a flattened accessor — while staying blind to reformatting, which is the IDE's
- * business. A wire name (declared in its network's `VAR_TEMP` block) is excluded: it names a branch point, not an
- * operand of the program, and an importer that folds the wire away drops the name with nothing lost.</p>
+ * business. A split name (`split<VarId>`) is excluded: it names a branch point, not an operand of the program, and an
+ * importer that folds the split away drops the name with nothing lost.</p>
  *
  * <p>It is loose by design, and loose assertions rot into vacuous ones — which is how the graphical evidence in
  * this repo once stayed green over a body it was destroying. `test/unit/oracle.test.ts` pins the three measured
@@ -114,12 +114,7 @@ export function expectNoOperandsLost(pushed: string, fetched: string): void {
 		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !NETWORK_KEYWORDS.has(w.toUpperCase()))
 
 	const body = bodyOf(pushed)
-	const bound = new Set(
-		[...body.matchAll(/VAR_TEMP([\s\S]*?)END_VAR/g)].flatMap((m) => m[1].match(/\bg\d+\b/g) ?? []),
-	)
-	// A wire's declared TYPE is grammar of the block, not an operand either.
-	const types = new Set([...body.matchAll(/VAR_TEMP([\s\S]*?)END_VAR/g)].flatMap((m) => [...m[1].matchAll(/:\s*([A-Za-z_]\w*)/g)].map((t) => t[1])))
-	const want = [...new Set(idents(body))].filter((w) => !bound.has(w) && !types.has(w))
+	const want = [...new Set(idents(body))].filter((w) => !/^split\d+$/i.test(w))
 	const got = new Set(idents(bodyOf(fetched)))
 
 	const lost = want.filter((w) => !got.has(w))

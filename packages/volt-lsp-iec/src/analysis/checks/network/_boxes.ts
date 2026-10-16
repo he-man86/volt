@@ -2,8 +2,8 @@
  * The network-text BOX checks (`network-analysis.ts` runs them per network): the vendor's unconnected-slot marker
  * `???`, an FB instance's pins, and `.ENO` read off a box with no EN.
  */
-import { type NetworkTextStatement, type NetworkValue, type Span, callReading, SYMBOL_TO_TYPE, walkValues } from "../../../frontend/syntax/index.js"
-import { headIsVariable, instanceFb, resolveCallee } from "../../../frontend/types/index.js"
+import { type NetworkEno, type NetworkTextStatement, type NetworkValue, type Span, callReading, walkValues } from "../../../frontend/syntax/index.js"
+import { headIsVariable, inferExprType, instanceFb, renderType, resolveCallee } from "../../../frontend/types/index.js"
 import { extendsChain, hasUnresolvedBase, type Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import type { Messages } from "../../messages/index.js"
@@ -62,23 +62,20 @@ export function checkPins(
 }
 
 /**
- * network-missing-en: `.ENO` read on a box with no EN that is no FB call. The push writes the box the text describes
- * (openspec bridge-refusal-review 1.5) and CODESYS's build answers it, by the box's kind (SP21, 2026-10-04):
+ * network-missing-en: an open line whose box has no EN, read through its `ENO` (B4, P3), on a box that is no FB call.
+ * The push writes the box the text describes (openspec bridge-refusal-review 1.5) — since 2R.3 with its output list
+ * derived from the text, ENO first — and CODESYS's build reads the ENO as a member of the FUNCTION's result
+ * (SP21, re-recorded 2026-10-16, `rcc_network_eno_function_without_en`):
  *
- *   an operator box  `x := ADD(a, b).ENO;`              "… (Missing EN pin). …" (`rcc_network_eno_without_en`; N21)
- *   a FUNCTION's box `x := FUN(a, b).ENO;`              "The assignment source is incorrect."
- *                                                       (`rcc_network_eno_function_without_en`)
+ *   `FUN(a, b)` ⏎ `x := ENO;`      "'ENO' is no component of 'FUN'"
+ *                                  "Cannot convert type 'Unknown type: 'FUN.ENO'' to type 'BOOL'" (the coil's type)
  *
- * The operator boxes are the bridge's `CallKind.Operator` — the infix table's types and NOT (`NetworkSpelling.KindOf`);
- * ADD is the one measured. A FUNCTION's box is a head that resolves to a declared callable (`isRealCall`, the same
- * resolution the `??? :=` rule splits on), a namespace-qualified one included. An FB call may declare ENO without EN
- * (Lenze `Dryer`, N16): there `.ENO` is the FB's own output — a box headed by a variable (`headIsVariable`, whether or
- * not its FB type resolves) or the vendor's unnamed instance `??? : TYPE(…)`, and nothing is said. Any other head (a
- * MOVE, a SEL, a name nothing declares) is unmeasured, and nothing is said either.
- *
- * The build ALSO reports an operator box's data output against the target (`Cannot convert type 'INT' to type 'BOOL'`
- * for an ADD into a BOOL): not given — an operator box has no ST reading here (`callReading`), and the shape is a known
- * divergence, niche (`rcc_network_eno_without_en`).
+ * (Before 2R.3 the box was built without that list and the build answered "The assignment source is incorrect.")
+ * A FUNCTION's box is a head that resolves to a declared callable (`isRealCall`, the same resolution the `??? :=` rule
+ * splits on), a namespace-qualified one included. An FB call may declare ENO without EN (Lenze `Dryer`, N16): there ENO
+ * is the FB's own output — a box headed by a variable (`headIsVariable`, whether or not its FB type resolves) or the
+ * vendor's unnamed instance `??? : TYPE(…)`, and nothing is said. An OPERATOR box read so has no text at all (the reader
+ * refuses it, P3, N21 — "an operator box shows ENO only with EN"), and any other head is unmeasured: nothing is said.
  */
 export function checkEnoWithoutEn(
   statements: readonly NetworkTextStatement[],
@@ -89,21 +86,21 @@ export function checkEnoWithoutEn(
 ): void {
   for (const s of statements)
     for (const v of walkValues(s)) {
-      if (v.kind !== "call" || !v.eno) continue
-      if (v.pins.some((p) => p.kind === "input" && p.name?.text.toUpperCase() === "EN")) continue
-      if (v.unnamedType !== undefined) continue
-      if (v.headExpr === undefined || headIsVariable(v.headExpr, scope, project)) continue
-      const message = isRealCall(v, scope, project)
-        ? messages.assignmentSourceIncorrect()
-        : OPERATOR_BOXES.has(v.head.text.toUpperCase())
-          ? messages.missingEnPin()
-          : undefined
-      if (message !== undefined) out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message })
+      if (v.kind !== "eno" || v.box.kind !== "call") continue
+      const box = v.box
+      if (box.en !== undefined || box.unnamedType !== undefined) continue
+      if (box.headExpr === undefined || headIsVariable(box.headExpr, scope, project)) continue
+      if (!isRealCall(box, scope, project)) continue
+      // the coil the ENO drives is typed against the member the build could not find (measured on a coil only)
+      const target = s.kind === "assign" && s.value === v ? s.targets[s.targets.length - 1]?.expr : undefined
+      const to = target === undefined ? undefined : renderType(inferExprType(target, scope, project), { form: "compiler" })
+      const member = messages.enoOfAFunction(box.head.text)
+      if (member === undefined) continue
+      out.push({ severity: "error", span: box.span, source: SOURCE, code: "network-missing-en", message: member })
+      if (to !== undefined)
+        out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message: messages.cannotConvert(messages.unknownType(`${box.head.text}.ENO`), to) })
     }
 }
-
-/** The bridge's `CallKind.Operator` boxes: the infix table's types (`SYMBOL_TO_TYPE`) and NOT. */
-const OPERATOR_BOXES: ReadonlySet<string> = new Set([...SYMBOL_TO_TYPE.values(), "NOT"])
 
 /**
  * An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is
@@ -181,21 +178,21 @@ export function checkUnresolvedBoxes(
     error({ ...span, end: span.start + 1, endLine: span.startLine, endCol: span.startCol + 1 }, messages.unresolvedOperandToken())
   }
   for (const s of statements) {
-    // A TARGET MARKER OVER A CALL IS NOT A TARGET COMPLAINT — measured, not reasoned. Four shapes were recorded on
-    // live SP21 (2026-09-06) and they split cleanly on ONE thing — whether the assigned value is a real CALL:
+    // A TARGET MARKER — measured, not reasoned (live SP21; the network_unnamed_* fixtures, re-recorded 2026-10-16 on
+    // the boxes 2R.3's push builds):
     //
-    //   `??? := a`               variable   -> "The assignment target is not specified."
-    //   `??? := NOT(a)`          operator   -> the same, plus two about an implicit temp
-    //   `??? := <PROGRAM>()`     void call  -> "The assignment source is incorrect."
-    //   `??? := <FUNCTION:BOOL>()` valued   -> the same source answer
+    //   `??? := a`                         variable          -> "The assignment target is not specified."
+    //   `NOT(IN := a) EN` / `??? := ENO;`  operator via ENO  -> the same, plus two about an implicit temp
+    //   `P() EN go` / `??? := ENO;`        PROGRAM via ENO   -> "The assignment target is not specified."
+    //   `F(a) EN` / `??? := ENO;`          FUNCTION via ENO  -> the same
     //
-    // So over a call the compiler answers about the SOURCE and never about the target, and the target message is one
-    // it does not emit. Voidness looked like the line and is not: a `FUNCTION : BOOL` gets the same answer as a
-    // `PROGRAM` (`network_unnamed_target_of_void_call` / `_of_valued_call`). Nothing is emitted in its place: one of
-    // the two messages names an implicit temp whose number cannot be known, and the other belongs to an
-    // assignment-source rule that does not exist yet. A missing diagnostic is a reported coverage gap; a wrong one is
-    // a hard failure.
-    if (s.kind === "assign" && !isRealCall(s.value, scope, project))
+    // So a coil read off THOSE heads' ENO is a target complaint (`enoHeadRecorded`); an FB instance's or an EXECUTE
+    // box's ENO has no recording and says nothing (gate 2R.3). (Before 2R.3 the push built the call box
+    // without its output list and the build answered "The assignment source is incorrect." instead.) A coil over a
+    // CALL'S OWN VALUE (`??? := P();`) has no recording, so nothing is emitted for it: a missing diagnostic is a
+    // reported coverage gap; a wrong one is a hard failure. The corpora hold neither — lenze-mid's four vendor
+    // drawings are unconnected output pins, `P(=> ???) EN`, which is no coil (below).
+    if (s.kind === "assign" && (s.value.kind === "eno" ? enoHeadRecorded(s.value.box, scope, project) : !isRealCall(s.value, scope, project)))
       for (const t of s.targets) if (t.unnamed) error(t.span, messages.unresolvedAssignTarget())
     for (const v of walkValues(s)) {
       if (v.kind === "operand" && v.unnamed) operand(v.span)
@@ -211,10 +208,21 @@ export function checkUnresolvedBoxes(
 }
 
 /**
- * Whether a `??? :=` coil's value is a real CALL — see `checkUnresolvedBoxes`. The call may be consumed through its ENO
- * (`??? := f(EN := c).ENO;`): the value is the box either way, and the marker sits in the same target slot.
- * RESOLUTION IS THE TEST, and it is what separates a CALL from an OPERATOR: `NOT(a)` and `MOVE(x)` read as calls too,
- * and the compiler DOES answer about the target for those (`_behind_enable`) — they resolve to no declared callable.
+ * Whether a `??? := ENO` coil reads a box of a RECORDED head: an operator (a call-form head resolving to no declared
+ * callable, or a word), a PROGRAM or a FUNCTION. Not an FB instance (a variable head, or the vendor's unnamed
+ * `??? : TYPE(…)`) and not an EXECUTE box — neither is recorded, so neither is reported.
+ */
+function enoHeadRecorded(box: NetworkEno["box"], scope: Scope, project: Scope): boolean {
+  if (box.kind === "execute") return false
+  if (box.kind !== "call") return true
+  if (box.unnamedType !== undefined) return false
+  return box.headExpr === undefined || !headIsVariable(box.headExpr, scope, project)
+}
+
+/**
+ * Whether a `??? :=` coil's value is a real CALL's own value — see `checkUnresolvedBoxes` (an ENO read is decided
+ * there, before this). RESOLUTION IS THE TEST, and it is what separates a CALL from an OPERATOR: `NOT(IN := a)` and
+ * `MOVE b` read as calls too, and resolve to no declared callable.
  */
 function isRealCall(value: NetworkValue, scope: Scope, project: Scope): boolean {
   const call = value.kind === "call" ? callReading(value) : undefined

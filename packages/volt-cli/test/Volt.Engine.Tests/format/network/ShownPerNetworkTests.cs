@@ -116,7 +116,7 @@ public class ShownPerNetworkTests
     [Fact]
     public void A_network_the_text_cannot_spell_is_shown_as_its_UNSUPPORTED_line()
     {
-        var nested = new Network(0, "Calc", "L1", "why\nit is", false,
+        var nested = new Network(0, "Calc", "L1", "why\r\nit is", false,
             new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
         var plain = new Network(1, null, null, null, false, new Node[] { Set(L("a"), T("done")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { nested, plain });
@@ -146,7 +146,7 @@ public class ShownPerNetworkTests
     [Theory]
     [InlineData("done := a;", "UNSUPPORTED \"a flag on a box input pin\";")]
     [InlineData("UNSUPPORTED \"a flag on a box input pin\";", "done := a;")]
-    [InlineData("VAR_TEMP g1 : BOOL; END_VAR", "UNSUPPORTED \"a flag on a box input pin\";")]
+    [InlineData("MOVE 1 => A EN c", "UNSUPPORTED \"a flag on a box input pin\";")]
     public void The_UNSUPPORTED_line_is_its_networks_only_line(string first, string second)
     {
         var read = NetworkTextReader.Read(Src(first, second), Scope);
@@ -179,8 +179,8 @@ public class ShownPerNetworkTests
     [Fact]
     public void A_header_the_text_cannot_carry_still_hides_the_body()
     {
-        var body = new NetworkBody(BodyLanguage.Fbd, new[] { new Network(0, "trailing ", null, null, false, new Node[] { Set(L("a"), T("done")) }) });
-        Assert.Equal("a title the IDE does not store", Refused(() => NetworkTextWriter.WritePulled(body, Scope)).Reason);
+        var body = new NetworkBody(BodyLanguage.Fbd, new[] { new Network(0, null, null, "why\nit is", false, new Node[] { Set(L("a"), T("done")) }) });
+        Assert.Equal("a comment line ending in a bare line feed", Refused(() => NetworkTextWriter.WritePulled(body, Scope)).Reason);
     }
 
     // ── (c) the pairing ──────────────────────────────────────────────────────────────────────────

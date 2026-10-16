@@ -5900,8 +5900,8 @@
 	"nwl-address-sentinel": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Address": "",
 			"NetworkList[0].NetworkItems[0].RValue.InputItems[0].Operand.Address": "",
@@ -5975,8 +5975,8 @@
 	"nwl-assign-item-flags": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RJ\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\nNETWORK\n  IF b THEN JMP l1; END_IF;\nEND_NETWORK\nNETWORK LABEL: l1\n  o1 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RJ\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\nNETWORK\n  IF b THEN JMP l1; END_IF;\nEND_NETWORK\nNETWORK LABEL: l1\n  o1 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RJ\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  RETURN := a;\nEND_NETWORK\nNETWORK\n  JMP l1 := b;\nEND_NETWORK\nNETWORK LABEL: l1\n  o1 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RJ\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  RETURN := a;\nEND_NETWORK\nNETWORK\n  JMP l1 := b;\nEND_NETWORK\nNETWORK LABEL: l1\n  o1 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].Label": "",
 			"NetworkList[0].NetworkItems[0].Flags": "<NWLObject.Flags>",
@@ -6118,7 +6118,7 @@
 	"nwl-bitop-stored-slot": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"drawn.fetched": "// Control a dual output cylinder. Two sensors check if the cylinder is in position.\n{attribute 'symbol' := 'none'}\nFUNCTION_BLOCK PUBLIC Cylinder_53ValveFB\nEXTENDS Cylinder_BaseFB\nIMPLEMENTS IActuator\nVAR_INPUT\n\trGiveAirToBothOutputs\t: REAL := 0.2;\t// When a 5/3 valve is set while both outputs are low, give air to both outputs for this time. To avoid fast moving cylinder. Default is 200MS.\n\txEnableOutputs\t\t\t: BOOL;\t\t\t// Use like this: 'G_xEnableMainvalve OR System.On'. Resets outputs when air pressure is killed. Alarms are disables when low. Set to TRUE to disable this feature.\nEND_VAR\nVAR\n\t{attribute 'symbol' := 'readwrite'}\tmiddleButton\t\t\t: BOOL;\t\t\t// Enable adjust mode for cylinder\n\t{attribute 'symbol' := 'read'}\t\tOutputIn\t\t\t\t: ActuatorFB;\t// Output when cylinder moves in\n\t{attribute 'symbol' := 'read'}\t\tOutputOut\t\t\t\t: ActuatorFB;\t// Output when cylinder moves out\n\n\tmiddleTrigger\t\t\t: TriggerFB;\n\n\tswitchBothOutputs\t\t: BTON;\n\tEnableOutputs\t\t\t: BTOF;\n\txStartGoInDelay\t\t\t: BOOL;\n\txStartGoOutDelay\t\t: BOOL;\nEND_VAR\n\nIMPLEMENTATION ST\n// Execute base cylinder fb\nSUPER^();\n\n// Instantiate the outputs\nOutputIn();\nOutputOut();\n\n// Keep xEnableOutputs high for half a second. So if air pressure drops for 0,5 sec. the outputs are reset.\nIF NOT EnableOutputs.Set(In := xEnableOutputs, Pt := 0.5) THEN\n\tReset();\nEND_IF\n\nswitchBothOutputs.Set(\n\tIn := xStartGoInDelay OR xStartGoOutDelay,\n\tPt := rGiveAirToBothOutputs);\n\nIF switchBothOutputs.Q THEN\n\tSetOrReset(xStartGoOutDelay);\n\txStartGoInDelay\t\t:= FALSE;\n\txStartGoOutDelay\t:= FALSE;\nEND_IF\n\nIF middleButton THEN\n\tGlobalVars.manualControlRequested := TRUE;\nEND_IF\n\n\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED Alarms\n\nIMPLEMENTATION ST\n// Set the alarm messages\nSetSensorOutAlarm(\n\tSetAlarm(\n\t\txOutput\t:= OutputOut.Map(),\n\t\txOutInv\t:= OutputIn.Map(),\n\t\txSensor\t:= inputOut));\n\nSetSensorInAlarm(\n\tSetAlarm(\n\t\txOutput\t:= OutputIn.Map(),\n\t\txOutInv\t:= OutputOut.Map(),\n\t\txSensor\t:= inputIn));\n\nEND_METHOD\n\n// Set both outputs (=True)\nMETHOD PUBLIC FINAL GoForceMiddle : BOOL\n\nIMPLEMENTATION ST\nOutputIn.Set();\nOutputOut.Set();\n\nEND_METHOD\n\n// The cylinder moves in. Returns true when cylinder is in.\nMETHOD PUBLIC GoIn : BOOL\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Both outputs are switched off, and the cylinder is not already in position\nIF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputIn THEN\n\tIF inputOut THEN\t\t// Cylinder is on the opposite side\n\t\tOutputOut.Set();\t\t// Send cylinder to opposite direction\n\t\tOutputIn.Reset();\n\t\txStartGoInDelay\t:= TRUE;\n\tELSE\t\t\t\t\t// Cylinder is in between sensors\n\t\tGoForceMiddle();\t// Give air to both sides of the cylinder\n\t\txStartGoInDelay\t:= TRUE;\n\tEND_IF\nELSIF NOT xStartGoInDelay THEN\n\tOutputOut.Reset();\n\tOutputIn.Set();\n\n\tGoIn := IsIn;\nEND_IF\n\nEND_METHOD\n\n// Reset both outputs. The 5/3 valve goes to middle position.\nMETHOD PUBLIC GoMiddle\n\nIMPLEMENTATION ST\nReset();\nEND_METHOD\n\n// The cylinder moves out. Returns true when cylinder is out.\nMETHOD PUBLIC GoOut : BOOL\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Both outputs are switched off, and the cylinder is not already in position\nIF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputOut THEN\n\tIF inputIn THEN\t\t// Cylinder is on the opposite side\n\t\tOutputOut.Reset();\n\t\tOutputIn.Set();\t\t// Send cylinder to opposite direction\n\t\txStartGoOutDelay\t:= TRUE;\n\tELSE\t\t\t\t\t// Cylinder is in between sensors\n\t\tGoForceMiddle();\t// Give air to both sides of the cylinder\n\t\txStartGoOutDelay\t:= TRUE;\n\tEND_IF\nELSIF NOT xStartGoOutDelay THEN\n\tOutputOut.Set();\n\tOutputIn.Reset();\n\n\tGoOut := IsOut;\nEND_IF\n\nEND_METHOD\n\nMETHOD PROTECTED ManualControl\nVAR_INPUT\n\tminButtonPushed\t\t\t: BOOL;\t\t// Both the software button (on screen) and the hardware button (if attached)\n\tplusButtonPushed\t\t: BOOL;\t\t// Both the software button (on screen) and the hardware button (if attached)\nEND_VAR\n\nIMPLEMENTATION ST\nIF inAdjustMode THEN\n\tSetOrReset(Blinker.OUT);\nELSIF plusButtonPushed THEN\n\tIF OutputOut.Map() THEN\n\t\tGoMiddle();\n\tELSE\n\t\tGoOut();\n\tEND_IF\nELSIF minButtonPushed THEN\n\tIF OutputIn.Map() THEN\n\t\tGoMiddle();\n\tELSE\n\t\tGoIn();\n\tEND_IF\nELSIF middleTrigger.Rising(CLK := middleButton) THEN\n\tGoMiddle();\nEND_IF\n\nEND_METHOD\n\n{attribute 'hide'}\nMETHOD Map : BOOL\n\nIMPLEMENTATION ST\nThrowException('Use other mapping methods instead');\n\nEND_METHOD\n\n// Maps the output when cylinder moves Out to the physical output\nMETHOD MapIn : BOOL\n\nIMPLEMENTATION ST\nMapIn := OutputIn.Map();\n\nEND_METHOD\n\n// Maps the output when cylinder moves Out to the physical output\nMETHOD MapOut : BOOL\n\nIMPLEMENTATION ST\nMapOut := OutputOut.Map();\n\nEND_METHOD\n\n// Reset the outputs (=False)\nMETHOD Reset\n\nIMPLEMENTATION ST\nOutputIn.Reset();\nOutputOut.Reset();\n\nEND_METHOD\n\n// Set the outputs (=True)\nMETHOD Set : BOOL\n\nIMPLEMENTATION ST\nGoOut();\n\nEND_METHOD\n\nMETHOD PRIVATE SetAlarm : BOOL\nVAR_INPUT\n\txOutput\t\t: BOOL;\t\t// The output\n\txOutInv\t\t: BOOL;\t\t// The output that moves the cylinder the other way.\n\txSensor\t\t: BOOL;\t\t// The sensor on the cylinder.\nEND_VAR\n\nIMPLEMENTATION FBD\nNETWORK\n  SetAlarm := ((AND(xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']} OR AND(xOutInv, NOT IN2 := xOutput, xSensor){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']} OR (xOutput AND xOutInv AND xSensor){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']}) AND EnableOutputs.Q){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']};\nEND_NETWORK\nEND_METHOD\n\n// Set the output True or False\nMETHOD SetOrReset\nVAR_INPUT\n\txValue\t: BOOL;\nEND_VAR\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Timer expired, so both outputs are high. Just switch to desired output.\nIF switchBothOutputs.Q THEN\n\tOutputOut.SetOrReset(xValue);\n\tOutputIn.SetOrReset(NOT xValue);\n// Both outputs are switched off. Give air to both sides of the valve. Start timer.\nELSIF NOT OutputIn.Map() AND NOT OutputOut.Map() THEN\n\tGoForceMiddle();\n\txStartGoInDelay\t\t:= NOT xValue;\t// Choose direction to move to when timer expires.\n\txStartGoOutDelay\t:= xValue;\n// Normal operation\nELSIF NOT xStartGoInDelay AND NOT xStartGoOutDelay THEN\n\tOutputOut.SetOrReset(xValue);\n\tOutputIn.SetOrReset(NOT xValue);\nEND_IF\n\nEND_METHOD\n\n// Set both the outputs of the valve immediately\nMETHOD SetOrResetBothOutputs : BOOL\nVAR_INPUT\n\txOutput2\t: BOOL;\t\t// Output when cylinder moves out\n\txOutput1\t: BOOL;\t\t// Output when cylinder moves in\nEND_VAR\n\nIMPLEMENTATION ST\nOutputOut.SetOrReset(xOutput2);\nOutputIn.SetOrReset(xOutput1);\n\nEND_METHOD\n\n{attribute 'monitoring':='call'}\nPROPERTY OnTargetPos : BOOL\n\nGET\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\nOnTargetPos\t:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND\n\t\t\t(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);\n\nEND_GET\nEND_PROPERTY\n",
+		"drawn.fetched": "// Control a dual output cylinder. Two sensors check if the cylinder is in position.\n{attribute 'symbol' := 'none'}\nFUNCTION_BLOCK PUBLIC Cylinder_53ValveFB\nEXTENDS Cylinder_BaseFB\nIMPLEMENTS IActuator\nVAR_INPUT\n\trGiveAirToBothOutputs\t: REAL := 0.2;\t// When a 5/3 valve is set while both outputs are low, give air to both outputs for this time. To avoid fast moving cylinder. Default is 200MS.\n\txEnableOutputs\t\t\t: BOOL;\t\t\t// Use like this: 'G_xEnableMainvalve OR System.On'. Resets outputs when air pressure is killed. Alarms are disables when low. Set to TRUE to disable this feature.\nEND_VAR\nVAR\n\t{attribute 'symbol' := 'readwrite'}\tmiddleButton\t\t\t: BOOL;\t\t\t// Enable adjust mode for cylinder\n\t{attribute 'symbol' := 'read'}\t\tOutputIn\t\t\t\t: ActuatorFB;\t// Output when cylinder moves in\n\t{attribute 'symbol' := 'read'}\t\tOutputOut\t\t\t\t: ActuatorFB;\t// Output when cylinder moves out\n\n\tmiddleTrigger\t\t\t: TriggerFB;\n\n\tswitchBothOutputs\t\t: BTON;\n\tEnableOutputs\t\t\t: BTOF;\n\txStartGoInDelay\t\t\t: BOOL;\n\txStartGoOutDelay\t\t: BOOL;\nEND_VAR\n\nIMPLEMENTATION ST\n// Execute base cylinder fb\nSUPER^();\n\n// Instantiate the outputs\nOutputIn();\nOutputOut();\n\n// Keep xEnableOutputs high for half a second. So if air pressure drops for 0,5 sec. the outputs are reset.\nIF NOT EnableOutputs.Set(In := xEnableOutputs, Pt := 0.5) THEN\n\tReset();\nEND_IF\n\nswitchBothOutputs.Set(\n\tIn := xStartGoInDelay OR xStartGoOutDelay,\n\tPt := rGiveAirToBothOutputs);\n\nIF switchBothOutputs.Q THEN\n\tSetOrReset(xStartGoOutDelay);\n\txStartGoInDelay\t\t:= FALSE;\n\txStartGoOutDelay\t:= FALSE;\nEND_IF\n\nIF middleButton THEN\n\tGlobalVars.manualControlRequested := TRUE;\nEND_IF\n\n\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED Alarms\n\nIMPLEMENTATION ST\n// Set the alarm messages\nSetSensorOutAlarm(\n\tSetAlarm(\n\t\txOutput\t:= OutputOut.Map(),\n\t\txOutInv\t:= OutputIn.Map(),\n\t\txSensor\t:= inputOut));\n\nSetSensorInAlarm(\n\tSetAlarm(\n\t\txOutput\t:= OutputIn.Map(),\n\t\txOutInv\t:= OutputOut.Map(),\n\t\txSensor\t:= inputIn));\n\nEND_METHOD\n\n// Set both outputs (=True)\nMETHOD PUBLIC FINAL GoForceMiddle : BOOL\n\nIMPLEMENTATION ST\nOutputIn.Set();\nOutputOut.Set();\n\nEND_METHOD\n\n// The cylinder moves in. Returns true when cylinder is in.\nMETHOD PUBLIC GoIn : BOOL\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Both outputs are switched off, and the cylinder is not already in position\nIF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputIn THEN\n\tIF inputOut THEN\t\t// Cylinder is on the opposite side\n\t\tOutputOut.Set();\t\t// Send cylinder to opposite direction\n\t\tOutputIn.Reset();\n\t\txStartGoInDelay\t:= TRUE;\n\tELSE\t\t\t\t\t// Cylinder is in between sensors\n\t\tGoForceMiddle();\t// Give air to both sides of the cylinder\n\t\txStartGoInDelay\t:= TRUE;\n\tEND_IF\nELSIF NOT xStartGoInDelay THEN\n\tOutputOut.Reset();\n\tOutputIn.Set();\n\n\tGoIn := IsIn;\nEND_IF\n\nEND_METHOD\n\n// Reset both outputs. The 5/3 valve goes to middle position.\nMETHOD PUBLIC GoMiddle\n\nIMPLEMENTATION ST\nReset();\nEND_METHOD\n\n// The cylinder moves out. Returns true when cylinder is out.\nMETHOD PUBLIC GoOut : BOOL\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Both outputs are switched off, and the cylinder is not already in position\nIF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputOut THEN\n\tIF inputIn THEN\t\t// Cylinder is on the opposite side\n\t\tOutputOut.Reset();\n\t\tOutputIn.Set();\t\t// Send cylinder to opposite direction\n\t\txStartGoOutDelay\t:= TRUE;\n\tELSE\t\t\t\t\t// Cylinder is in between sensors\n\t\tGoForceMiddle();\t// Give air to both sides of the cylinder\n\t\txStartGoOutDelay\t:= TRUE;\n\tEND_IF\nELSIF NOT xStartGoOutDelay THEN\n\tOutputOut.Set();\n\tOutputIn.Reset();\n\n\tGoOut := IsOut;\nEND_IF\n\nEND_METHOD\n\nMETHOD PROTECTED ManualControl\nVAR_INPUT\n\tminButtonPushed\t\t\t: BOOL;\t\t// Both the software button (on screen) and the hardware button (if attached)\n\tplusButtonPushed\t\t: BOOL;\t\t// Both the software button (on screen) and the hardware button (if attached)\nEND_VAR\n\nIMPLEMENTATION ST\nIF inAdjustMode THEN\n\tSetOrReset(Blinker.OUT);\nELSIF plusButtonPushed THEN\n\tIF OutputOut.Map() THEN\n\t\tGoMiddle();\n\tELSE\n\t\tGoOut();\n\tEND_IF\nELSIF minButtonPushed THEN\n\tIF OutputIn.Map() THEN\n\t\tGoMiddle();\n\tELSE\n\t\tGoIn();\n\tEND_IF\nELSIF middleTrigger.Rising(CLK := middleButton) THEN\n\tGoMiddle();\nEND_IF\n\nEND_METHOD\n\n{attribute 'hide'}\nMETHOD Map : BOOL\n\nIMPLEMENTATION ST\nThrowException('Use other mapping methods instead');\n\nEND_METHOD\n\n// Maps the output when cylinder moves Out to the physical output\nMETHOD MapIn : BOOL\n\nIMPLEMENTATION ST\nMapIn := OutputIn.Map();\n\nEND_METHOD\n\n// Maps the output when cylinder moves Out to the physical output\nMETHOD MapOut : BOOL\n\nIMPLEMENTATION ST\nMapOut := OutputOut.Map();\n\nEND_METHOD\n\n// Reset the outputs (=False)\nMETHOD Reset\n\nIMPLEMENTATION ST\nOutputIn.Reset();\nOutputOut.Reset();\n\nEND_METHOD\n\n// Set the outputs (=True)\nMETHOD Set : BOOL\n\nIMPLEMENTATION ST\nGoOut();\n\nEND_METHOD\n\nMETHOD PRIVATE SetAlarm : BOOL\nVAR_INPUT\n\txOutput\t\t: BOOL;\t\t// The output\n\txOutInv\t\t: BOOL;\t\t// The output that moves the cylinder the other way.\n\txSensor\t\t: BOOL;\t\t// The sensor on the cylinder.\nEND_VAR\n\nIMPLEMENTATION FBD\nNETWORK\n  SetAlarm := (AND(xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR AND(xOutInv, NOT IN2 := xOutput, xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q;\nEND_NETWORK\nEND_METHOD\n\n// Set the output True or False\nMETHOD SetOrReset\nVAR_INPUT\n\txValue\t: BOOL;\nEND_VAR\n\nIMPLEMENTATION ST\n// Do not move cylinder if outputs are not enabled.\nIF NOT EnableOutputs.Q THEN\n\tRETURN;\nEND_IF\n\n// Timer expired, so both outputs are high. Just switch to desired output.\nIF switchBothOutputs.Q THEN\n\tOutputOut.SetOrReset(xValue);\n\tOutputIn.SetOrReset(NOT xValue);\n// Both outputs are switched off. Give air to both sides of the valve. Start timer.\nELSIF NOT OutputIn.Map() AND NOT OutputOut.Map() THEN\n\tGoForceMiddle();\n\txStartGoInDelay\t\t:= NOT xValue;\t// Choose direction to move to when timer expires.\n\txStartGoOutDelay\t:= xValue;\n// Normal operation\nELSIF NOT xStartGoInDelay AND NOT xStartGoOutDelay THEN\n\tOutputOut.SetOrReset(xValue);\n\tOutputIn.SetOrReset(NOT xValue);\nEND_IF\n\nEND_METHOD\n\n// Set both the outputs of the valve immediately\nMETHOD SetOrResetBothOutputs : BOOL\nVAR_INPUT\n\txOutput2\t: BOOL;\t\t// Output when cylinder moves out\n\txOutput1\t: BOOL;\t\t// Output when cylinder moves in\nEND_VAR\n\nIMPLEMENTATION ST\nOutputOut.SetOrReset(xOutput2);\nOutputIn.SetOrReset(xOutput1);\n\nEND_METHOD\n\n{attribute 'monitoring':='call'}\nPROPERTY OnTargetPos : BOOL\n\nGET\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\nOnTargetPos\t:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND\n\t\t\t(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);\n\nEND_GET\nEND_PROPERTY\n",
 		"drawn.network-0": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Operand": "SetAlarm",
 			"NetworkList[0].NetworkItems[0].RValue.InputItems[0].InputItems[0].InputItems[0].Operand": "<NWLObject.Operand>",
@@ -6299,8 +6299,8 @@
 			"NetworkList[0].NetworkItems[0].RValue.OutputParam.Types#count": 1,
 			"NetworkList[0].NetworkItems[0].RValue.OutputParam.Types[0]": "BOOL"
 		},
-		"plain.fetched@pushed": "PROGRAM VltF_S1\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\to : BOOL;\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := (((a AND b AND c) OR (a AND b) OR (b AND c)) AND q);\nEND_NETWORK\nNETWORK\n  p := (NOT (a AND b) AND c);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"plain.fetched@reloaded": "PROGRAM VltF_S1\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\to : BOOL;\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := (((a AND b AND c) OR (a AND b) OR (b AND c)) AND q);\nEND_NETWORK\nNETWORK\n  p := (NOT (a AND b) AND c);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"plain.fetched@pushed": "PROGRAM VltF_S1\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\to : BOOL;\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := ((a AND b AND c) OR (a AND b) OR (b AND c)) AND q;\nEND_NETWORK\nNETWORK\n  p := NOT (a AND b) AND c;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"plain.fetched@reloaded": "PROGRAM VltF_S1\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\to : BOOL;\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := ((a AND b AND c) OR (a AND b) OR (b AND c)) AND q;\nEND_NETWORK\nNETWORK\n  p := NOT (a AND b) AND c;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"plain@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems#count": 1,
 			"NetworkList[0].NetworkItems[0].RValue.BoxType": "AND",
@@ -6695,8 +6695,8 @@
 	"nwl-box-en-eno": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].RValue.BoxType": "VltF_RFn",
 			"NetworkList[0].NetworkItems[0].RValue.EN": null,
@@ -6780,8 +6780,8 @@
 	"nwl-branch-counter": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RP\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := PARALLEL(IN := a, b, NOT c);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RP\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := PARALLEL(IN := a, b, NOT c);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RP\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a BRANCH (b,\n                  NOT c) SHORTCIRCUIT;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RP\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\to1 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a BRANCH (b,\n                  NOT c) SHORTCIRCUIT;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"BranchCounter": 1,
 			"NetworkList[0].NetworkItems[0].RValue.Mode": "BoxShortCircuit"
@@ -6811,8 +6811,8 @@
 	"nwl-call-type": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].RValue.BoxType": "VltF_RFn",
 			"NetworkList[0].NetworkItems[0].RValue.CallType": "None",
@@ -6876,12 +6876,12 @@
 	"nwl-editor-refill": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched-fbd@pushed": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := (((a AND b AND c) OR (a AND b)) AND q);\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  ok := VltF_RFn(EN := a, i).ENO;\nEND_NETWORK\nNETWORK\n  MOVE(EN := b, 7, => m);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched-fbd@reloaded": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := (((a AND b AND c) OR (a AND b)) AND q);\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  ok := VltF_RFn(EN := a, i).ENO;\nEND_NETWORK\nNETWORK\n  MOVE(EN := b, 7, => m);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched-fbd@reloaded-again": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := (((a AND b AND c) OR (a AND b)) AND q);\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  ok := VltF_RFn(EN := a, i).ENO;\nEND_NETWORK\nNETWORK\n  MOVE(EN := b, 7, => m);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@pushed": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\nNETWORK\n  o3 := (i > j);\nEND_NETWORK\nNETWORK\n  o4 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  o5 := PARALLEL(IN := a, b, NOT c);\nEND_NETWORK\nNETWORK\n  MOVE(EN := a, 750, => m);\nEND_NETWORK\nNETWORK\n  o6 := VltF_RFn(EN := b, i).ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\nNETWORK\n  o3 := (i > j);\nEND_NETWORK\nNETWORK\n  o4 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  o5 := PARALLEL(IN := a, b, NOT c);\nEND_NETWORK\nNETWORK\n  MOVE(EN := a, 750, => m);\nEND_NETWORK\nNETWORK\n  o6 := VltF_RFn(EN := b, i).ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded-again": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\nNETWORK\n  o3 := (i > j);\nEND_NETWORK\nNETWORK\n  o4 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  o5 := PARALLEL(IN := a, b, NOT c);\nEND_NETWORK\nNETWORK\n  MOVE(EN := a, 750, => m);\nEND_NETWORK\nNETWORK\n  o6 := VltF_RFn(EN := b, i).ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched-fbd@pushed": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := ((a AND b AND c) OR (a AND b)) AND q;\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN a\n  ok := ENO;\nEND_NETWORK\nNETWORK\n  MOVE 7 => m EN b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched-fbd@reloaded": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := ((a AND b AND c) OR (a AND b)) AND q;\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN a\n  ok := ENO;\nEND_NETWORK\nNETWORK\n  MOVE 7 => m EN b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched-fbd@reloaded-again": "PROGRAM VltF_RF\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tq : BOOL;\n\ti : INT;\n\tm : INT;\n\to : BOOL;\n\tp : BOOL;\n\tok : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  o := ((a AND b AND c) OR (a AND b)) AND q;\nEND_NETWORK\nNETWORK\n  p := AND(NOT IN1 := a, b);\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN a\n  ok := ENO;\nEND_NETWORK\nNETWORK\n  MOVE 7 => m EN b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\nNETWORK\n  o3 := i GT j;\nEND_NETWORK\nNETWORK\n  o4 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  o5 := a BRANCH (b,\n                  NOT c) SHORTCIRCUIT;\nEND_NETWORK\nNETWORK\n  MOVE 750 => m EN a;\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN b\n  o6 := ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\nNETWORK\n  o3 := i GT j;\nEND_NETWORK\nNETWORK\n  o4 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  o5 := a BRANCH (b,\n                  NOT c) SHORTCIRCUIT;\nEND_NETWORK\nNETWORK\n  MOVE 750 => m EN a;\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN b\n  o6 := ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded-again": "PROGRAM VltF_RE\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\tm : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\n\to6 : BOOL;\n\tt1 : TON;\n\tt2 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := t2(IN := b, PT := T#2S);\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\nNETWORK\n  o3 := i GT j;\nEND_NETWORK\nNETWORK\n  o4 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  o5 := a BRANCH (b,\n                  NOT c) SHORTCIRCUIT;\nEND_NETWORK\nNETWORK\n  MOVE 750 => m EN a;\nEND_NETWORK\nNETWORK\n  VltF_RFn(i) EN b\n  o6 := ENO;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl-fbd@built": {
 			"BranchCounter": 0,
 			"NetworkList[0].NetworkItems[0].Flags.Fixed": false,
@@ -10381,8 +10381,8 @@
 	"nwl-flags-fixed": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].Flags.Fixed": false,
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Flags.Fixed": false,
@@ -10480,8 +10480,8 @@
 	"nwl-input-flags-list": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].RValue.BoxType": "AND",
 			"NetworkList[0].NetworkItems[0].RValue.InputFlags": null,
@@ -10656,8 +10656,8 @@
 	"nwl-instance-type": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].IsInstance": false,
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Type": "",
@@ -10829,8 +10829,8 @@
 	"nwl-item-id": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].Id": 22,
 			"NetworkList[0].NetworkItems[0].Id": 30,
@@ -10972,9 +10972,9 @@
 	"nwl-keep-network-in-place": {
 		"diagnostics@built": [],
 		"diagnostics@built-first": [],
-		"fetched@made": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o3 := b;\nEND_NETWORK\nNETWORK\n  o4 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@pushed": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := (a AND b);\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@made": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  o3 := b;\nEND_NETWORK\nNETWORK\n  o4 := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a;\nEND_NETWORK\nNETWORK\n  o5 := b;\nEND_NETWORK\nNETWORK\n  o2 := a AND b;\nEND_NETWORK\nNETWORK\n  o4 := b;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"kept.box-fixed.third@built": false,
 		"kept.box-fixed.third@pushed": false,
 		"kept.box-fixed.third@reloaded": false,
@@ -11039,11 +11039,11 @@
 	"nwl-leaf-wire-type": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_Lw\nVAR\n\ta : BOOL;\n\ti : INT;\n\tal : VltF_LwAl;\n\td : DINT;\n\te : DINT;\n\tf : DINT;\n\tk : INT;\n\tt1 : TON;\n\tr1 : R_TRIG;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := i;\n  d := VltF_LwFn(x := g1);\n  e := VltF_LwFn(x := g1);\nEND_NETWORK\nNETWORK\n  VAR_TEMP g2 : VltF_LwAl; END_VAR\n  g2 := al;\n  f := VltF_LwFn(x := g2);\n  k := MOVE(g2);\nEND_NETWORK\nNETWORK\n  VAR_TEMP g3 : BOOL; END_VAR\n  g3 := a;\n  t1(IN := g3, PT := T#1S);\n  r1(CLK := g3);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_Lw\nVAR\n\ta : BOOL;\n\ti : INT;\n\tal : VltF_LwAl;\n\td : DINT;\n\te : DINT;\n\tf : DINT;\n\tk : INT;\n\tt1 : TON;\n\tr1 : R_TRIG;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := i;\n  d := VltF_LwFn(x := g1);\n  e := VltF_LwFn(x := g1);\nEND_NETWORK\nNETWORK\n  VAR_TEMP g2 : VltF_LwAl; END_VAR\n  g2 := al;\n  f := VltF_LwFn(x := g2);\n  k := MOVE(g2);\nEND_NETWORK\nNETWORK\n  VAR_TEMP g3 : BOOL; END_VAR\n  g3 := a;\n  t1(IN := g3, PT := T#1S);\n  r1(CLK := g3);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_Lw\nVAR\n\ta : BOOL;\n\ti : INT;\n\tal : VltF_LwAl;\n\td : DINT;\n\te : DINT;\n\tf : DINT;\n\tk : INT;\n\tt1 : TON;\n\tr1 : R_TRIG;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := i;\n  d := VltF_LwFn(x := split1);\n  e := VltF_LwFn(x := split1);\nEND_NETWORK\nNETWORK\n  split2 := al;\n  f := VltF_LwFn(x := split2);\n  k := MOVE split2;\nEND_NETWORK\nNETWORK\n  split3 := a;\n  t1(IN := split3, PT := T#1S);\n  r1(CLK := split3);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_Lw\nVAR\n\ta : BOOL;\n\ti : INT;\n\tal : VltF_LwAl;\n\td : DINT;\n\te : DINT;\n\tf : DINT;\n\tk : INT;\n\tt1 : TON;\n\tr1 : R_TRIG;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := i;\n  d := VltF_LwFn(x := split1);\n  e := VltF_LwFn(x := split1);\nEND_NETWORK\nNETWORK\n  split2 := al;\n  f := VltF_LwFn(x := split2);\n  k := MOVE split2;\nEND_NETWORK\nNETWORK\n  split3 := a;\n  t1(IN := split3, PT := T#1S);\n  r1(CLK := split3);\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "INT",
+			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[0].NetworkItems[0].VarId": 1,
 			"NetworkList[0].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[0].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11060,7 +11060,7 @@
 			"NetworkList[0].NetworkItems[2].RValue.Instance.Type": "",
 			"NetworkList[0].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "VltF_LwAl",
+			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[1].NetworkItems[0].VarId": 2,
 			"NetworkList[1].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[1].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11077,7 +11077,7 @@
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types[0]": "",
 			"NetworkList[2].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "BOOL",
+			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[2].NetworkItems[0].VarId": 3,
 			"NetworkList[2].NetworkItems[1].InputItems[0].Input": null,
 			"NetworkList[2].NetworkItems[1].InputItems[0].VarId": 3,
@@ -11096,7 +11096,7 @@
 		},
 		"nwl@pushed": {
 			"NetworkList[0].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "INT",
+			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[0].NetworkItems[0].VarId": 1,
 			"NetworkList[0].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[0].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11113,7 +11113,7 @@
 			"NetworkList[0].NetworkItems[2].RValue.Instance.Type": "",
 			"NetworkList[0].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "VltF_LwAl",
+			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[1].NetworkItems[0].VarId": 2,
 			"NetworkList[1].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[1].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11130,7 +11130,7 @@
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types[0]": "",
 			"NetworkList[2].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "BOOL",
+			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[2].NetworkItems[0].VarId": 3,
 			"NetworkList[2].NetworkItems[1].InputItems[0].Input": null,
 			"NetworkList[2].NetworkItems[1].InputItems[0].VarId": 3,
@@ -11149,7 +11149,7 @@
 		},
 		"nwl@rebuilt": {
 			"NetworkList[0].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "INT",
+			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[0].NetworkItems[0].VarId": 1,
 			"NetworkList[0].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[0].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11166,7 +11166,7 @@
 			"NetworkList[0].NetworkItems[2].RValue.Instance.Type": "",
 			"NetworkList[0].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "VltF_LwAl",
+			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[1].NetworkItems[0].VarId": 2,
 			"NetworkList[1].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[1].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11183,7 +11183,7 @@
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types[0]": "",
 			"NetworkList[2].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "BOOL",
+			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[2].NetworkItems[0].VarId": 3,
 			"NetworkList[2].NetworkItems[1].InputItems[0].Input": null,
 			"NetworkList[2].NetworkItems[1].InputItems[0].VarId": 3,
@@ -11202,7 +11202,7 @@
 		},
 		"nwl@reloaded": {
 			"NetworkList[0].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "INT",
+			"NetworkList[0].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[0].NetworkItems[0].VarId": 1,
 			"NetworkList[0].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[0].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11219,7 +11219,7 @@
 			"NetworkList[0].NetworkItems[2].RValue.Instance.Type": "",
 			"NetworkList[0].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "VltF_LwAl",
+			"NetworkList[1].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[1].NetworkItems[0].VarId": 2,
 			"NetworkList[1].NetworkItems[1].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[1].NetworkItems[1].RValue.InputItems[0].Input": null,
@@ -11236,7 +11236,7 @@
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[1].NetworkItems[2].RValue.OutputParam.Types[0]": "",
 			"NetworkList[2].NetworkItems[0].Input": "<NWLObject.BoxTreeOperand>",
-			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "BOOL",
+			"NetworkList[2].NetworkItems[0].Input.Operand.Type": "",
 			"NetworkList[2].NetworkItems[0].VarId": 3,
 			"NetworkList[2].NetworkItems[1].InputItems[0].Input": null,
 			"NetworkList[2].NetworkItems[1].InputItems[0].VarId": 3,
@@ -11269,8 +11269,8 @@
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
 		"drawn": "absent: no committed fixture holds an IDE-drawn assign below the top level: the corpora's 6 networks are lenze-mid's (SpeedCalculationDryer 0, Mach1_MIDS 7/29/52, Dryer 1, TrayFiller 30), recorded in nwl-corpus/lenze-mid.nwl.xml",
-		"fetched@pushed": "PROGRAM VltF_S2\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  MOVE(EN := (o1 := (a AND b)), 750, => k);\nEND_NETWORK\nNETWORK\n  MOVE(EN := (o2 S= (a AND b)), 7, => k);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_S2\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  MOVE(EN := (o1 := (a AND b)), 750, => k);\nEND_NETWORK\nNETWORK\n  MOVE(EN := (o2 S= (a AND b)), 7, => k);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_S2\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  MOVE 750 => k EN (o1 := a AND b);\nEND_NETWORK\nNETWORK\n  MOVE 7 => k EN (o2 S= a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_S2\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  MOVE 750 => k EN (o1 := a AND b);\nEND_NETWORK\nNETWORK\n  MOVE 7 => k EN (o2 S= a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].Flags": "<NWLObject.Flags>",
 			"NetworkList[0].NetworkItems[0].Flags.Flags": 0,
@@ -11508,8 +11508,8 @@
 	"nwl-operand-boolean": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Boolean": false,
 			"NetworkList[0].NetworkItems[0].RValue.InputItems[0].Operand.Boolean": false,
@@ -11583,8 +11583,8 @@
 	"nwl-operand-type": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := (a AND NOT b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_R\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\to1 : BOOL;\n\to2 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  o1 := a AND NOT b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o2 := t1.Q;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems[0].Type": "",
 			"NetworkList[0].NetworkItems[0].RValue.InputItems[0].Operand.Type": "",
@@ -11658,8 +11658,8 @@
 	"nwl-output-param-names": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].OutputItems.OutputItems#count": 1,
 			"NetworkList[0].NetworkItems[0].RValue.BoxType": "VltF_RFn",
@@ -11859,8 +11859,8 @@
 	"nwl-param-types": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg(EN := b);\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := (a AND b);\nEND_NETWORK\nNETWORK\n  j := (i + 1);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RC\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\n\to1 : BOOL;\n\tt1 : TON;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  k := VltF_RFn(x := i);\nEND_NETWORK\nNETWORK\n  VltF_RPrg() EN b;\nEND_NETWORK\nNETWORK\n  t1(IN := a, PT := T#1S);\nEND_NETWORK\nNETWORK\n  o1 := a AND b;\nEND_NETWORK\nNETWORK\n  j := i ADD 1;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl@built": {
 			"NetworkList[0].NetworkItems[0].RValue.InputParam.Names": "<Utilities.LList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]>",
 			"NetworkList[0].NetworkItems[0].RValue.InputParam.Names[0]": "x",
@@ -12012,10 +12012,10 @@
 	"nwl-rail-fed-wire": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched.rail@pushed": "PROGRAM VltF_Rail\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := ;\n  o1 := (g1 AND a);\n  o2 := (g1 AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched.rail@reloaded": "PROGRAM VltF_Rail\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := ;\n  o1 := (g1 AND a);\n  o2 := (g1 AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched.railTrue@pushed": "PROGRAM VltF_RailT\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  o1 := (g1 AND a);\n  o2 := (g1 AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched.railTrue@reloaded": "PROGRAM VltF_RailT\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  o1 := (g1 AND a);\n  o2 := (g1 AND b);\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched.rail@pushed": "PROGRAM VltF_Rail\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := ;\n  o1 := split1 AND a;\n  o2 := split1 AND b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched.rail@reloaded": "PROGRAM VltF_Rail\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := ;\n  o1 := split1 AND a;\n  o2 := split1 AND b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched.railTrue@pushed": "PROGRAM VltF_RailT\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  o1 := split1 AND a;\n  o2 := split1 AND b;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched.railTrue@reloaded": "PROGRAM VltF_RailT\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  o1 := split1 AND a;\n  o2 := split1 AND b;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"nwl.rail@built": {
 			"NetworkList[0].NetworkItems[0].Input": "<NWLObject.BoxTreeTerminator>",
 			"NetworkList[0].NetworkItems[0].Input.Input": null,
@@ -12170,8 +12170,8 @@
 	"nwl-stsnippet-line-ids": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],
-		"fetched@pushed": "PROGRAM VltF_RX\nVAR\n\ta : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  EXECUTE(EN := a)\n  k := k + 1;\n  k := k * 2;\n  END_EXECUTE;\nEND_NETWORK\n\nEND_PROGRAM\n",
-		"fetched@reloaded": "PROGRAM VltF_RX\nVAR\n\ta : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  EXECUTE(EN := a)\n  k := k + 1;\n  k := k * 2;\n  END_EXECUTE;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@pushed": "PROGRAM VltF_RX\nVAR\n\ta : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  EXECUTE EN a\n  k := k + 1;\n  k := k * 2;\n  END_EXECUTE;\nEND_NETWORK\n\nEND_PROGRAM\n",
+		"fetched@reloaded": "PROGRAM VltF_RX\nVAR\n\ta : BOOL;\n\tk : INT;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  EXECUTE EN a\n  k := k + 1;\n  k := k * 2;\n  END_EXECUTE;\nEND_NETWORK\n\nEND_PROGRAM\n",
 		"line-id-0@built": -1,
 		"line-id-0@pushed": -1,
 		"line-id-0@rebuilt": 14,

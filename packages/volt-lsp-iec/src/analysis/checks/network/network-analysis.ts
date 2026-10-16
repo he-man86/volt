@@ -29,6 +29,7 @@ import type { Messages } from "../../messages/index.js"
 import { checkHoles, checkStatements } from "./_assignments.js"
 import { checkEnoWithoutEn, checkPins, checkUnresolvedBoxes } from "./_boxes.js"
 import { checkLabels } from "./_labels.js"
+import { checkFormatHints, checkSplitsReused } from "./_format.js"
 import { checkBinaryOps, checkConversionArgs, checkUndeclared } from "./_operands.js"
 
 /** What the network pass reads of a document: its uri and its parse. */
@@ -61,10 +62,12 @@ export function computeNetworkTextDiagnostics(
       checkPins(network.statements, scope, project, messages, out)
       checkEnoWithoutEn(network.statements, scope, project, messages, out)
       checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
+      checkFormatHints(network.statements, out)
     }
 
     // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
     checkLabels(analysis.vg.networks, messages, out)
+    checkSplitsReused(analysis.vg.networks, out)
   }
   return out
 }

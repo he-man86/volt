@@ -50,11 +50,11 @@ public class ModelRoundTripOracleTests
     {
         // Every corpus body is v2 text the pull wrote; its own reader must read every one of them. And the writer has
         // already written every one, so a refusal here is the writer refusing a model it read back from its own text —
-        // none is expected. (The 34 are every v2 marker in the corpus; what the pull refused is its marker, not here.)
+        // none is expected. (2R.3's re-pull, 2026-10-16: all 46 LD/FBD bodies of the six corpora spelled, 0 markers.)
         Assert.True(Corpus.Value.Unreadable.Count == 0, "v2 cannot read: " + string.Join("\n", Corpus.Value.Unreadable));
         NetworkModelOracle.AssertTally("corpus",
             Corpus.Value.Read.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value.Body, kv.Value.Scope)),
-            bodies: 34, networks: 157, refused: new Dictionary<string, int>());
+            bodies: 46, networks: 394, refused: new Dictionary<string, int>());
     }
 
     /// <summary>The corpus again, ONE NETWORK AT A TIME. The marker is per body, so one refused network hides
@@ -80,7 +80,7 @@ public class ModelRoundTripOracleTests
     public void Corpus_network_tally() =>
         NetworkModelOracle.AssertTally("corpus networks",
             CorpusNetworks.Value.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value.Body, kv.Value.Scope)),
-            bodies: 157, networks: 157, refused: new Dictionary<string, int>());
+            bodies: 394, networks: 394, refused: new Dictionary<string, int>());
 
     // ── harvesting ──────────────────────────────────────────────────────────────────────────────────
 

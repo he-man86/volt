@@ -428,13 +428,10 @@ public sealed record Terminator(Flags Flags) : Node(Flags)
 ///   BoxTreeDemux VarId=24                                  // a reference
 /// </code>
 ///
-/// <para><see cref="Type"/> is the type network text v2 DECLARED the wire with (<c>VAR_TEMP g1 : INT;</c>) — a
-/// fact of the TEXT, not of the vendor, whose Demux holds no type. The v2 reader fills it on a definition and the
-/// v2 writer declares it where the producer does not say the type by itself (a box read from text carries no
-/// <c>OutputTypes</c>): without it, <c>g1 := ADD(a, b);</c> read back from the engineer's own file could not be
-/// written again. A driver never fills it; one that BUILDS the producer reads it once, as the box's stored output type
-/// (<see cref="NetworkText.WithDeclaredType"/>) — the vendor derives none, so a pushed data wire read back typeless.
-/// Null means "no text declared one" (every vendor-read model).</para>
+/// <para><b>It holds NO type</b> (B6): the type a split carries is its feeder's — a box's stored output type, a leaf's
+/// variable — so the text writes none (<c>split176 := split175 AND RunAuto;</c>) and a push builds the feeder with the
+/// derivation. A drawn split whose stored feeder type differs from it is lost on rebuild (B7 L, 0 in the corpora; the
+/// build ignores it, N25).</para>
 ///
 /// <para><b>It carries no <see cref="Flags"/></b> (always <see cref="Flags.None"/>), definition or reference: the
 /// vendor's <c>BoxTreeDemux.Flags</c> hands out an object the node never stores, so a negation or an edge set there
@@ -442,7 +439,7 @@ public sealed record Terminator(Flags Flags) : Node(Flags)
 /// fact, not chance. With a field for it, the v1 text <c>out := NOT g1;</c> became a flagged reference that the
 /// CODESYS writer "wrote" and the IDE ran as <c>out := g1</c>. A modifier rides the wire's producer or a consumer.</para>
 /// </summary>
-public sealed record Demux(int VarId, Node? Input, string? Type = null) : Node(Flags.None)
+public sealed record Demux(int VarId, Node? Input) : Node(Flags.None)
 {
     public override Flags Flags { get => Flags.None; init => RefuseFlag(value, "a wire (Demux)"); }
 

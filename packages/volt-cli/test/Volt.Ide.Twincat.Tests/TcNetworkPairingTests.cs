@@ -100,7 +100,7 @@ public class TcNetworkPairingTests
         var pushed = Pushed(body, t =>
         {
             Assert.Contains("UNSUPPORTED \"a flag on a box input pin\";", t);
-            return t.Replace("NETWORK DISABLED", "NETWORK TITLE: \"edited\" DISABLED");
+            return t.Replace("NETWORK DISABLED", "NETWORK DISABLED TITLE: \"edited\"");
         });
 
         var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, Never);

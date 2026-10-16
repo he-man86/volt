@@ -24,6 +24,11 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "[structured-text]": {
+        "files.trimTrailingWhitespace": false
+      }
+    },
     "colors": [
       {
         "id": "volt.driftIncomingForeground",

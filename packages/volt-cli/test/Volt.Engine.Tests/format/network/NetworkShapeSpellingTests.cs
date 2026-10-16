@@ -12,8 +12,9 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// openspec <c>ld-fbd-coverage</c> 2.3, the census shapes the text could not spell (tasks 0.1, design "1.1"): each is
-/// written, read back to the model it came from (the model oracle), and its refusals stay by name. S1 and the pragma are
-/// <see cref="NetworkPragmaTests"/>; S4 is <see cref="ShownPerNetworkTests"/>.
+/// written, read back to the model it came from (the model oracle), and its refusals stay by name — in the grammar of
+/// <c>readability.md</c> (2R.3: S1's stored slot is lost on rebuild, B7; S3's types are the split's feeder's, B6). S4 is
+/// <see cref="ShownPerNetworkTests"/>.
 /// </summary>
 public class NetworkShapeSpellingTests
 {
@@ -38,7 +39,7 @@ public class NetworkShapeSpellingTests
     {
         var nested = new Assign(Op("AND", L("a"), L("b")), new[] { T("x"), T("y", SetBit), T("out", ResetBit) }, Flags.None);
         var model = Fbd1(Set(Call("MOVE", new[] { In(L("1")) }, en: nested, connected: 0, eno: true), T("c")));
-        Assert.Equal(Src("c := MOVE(EN := (x := y S= out R= (a AND b)), 1).ENO;"), NetworkTextWriter.Write(model, Scope));
+        Assert.Equal(Src("MOVE 1 EN (x := y S= out R= a AND b)", "c := ENO;"), NetworkTextWriter.Write(model, Scope));
         Assert.Null(NetworkModelOracle.Check("S2 chain", model).Reason);
     }
 
@@ -54,15 +55,15 @@ public class NetworkShapeSpellingTests
     }
 
     [Fact]
-    public void A_comparison_on_a_variable_named_R_stays_a_group()
+    public void A_comparison_on_a_variable_named_R_is_its_word()
     {
-        var read = NetworkTextReader.Read(Src("out := (R = x);"), new NetworkScope(new[] { "R", "x", "out" }, Array.Empty<string>(), new Dictionary<string, string>()));
+        var read = NetworkTextReader.Read(Src("out := R EQ x;"), new NetworkScope(new[] { "R", "x", "out" }, Array.Empty<string>(), new Dictionary<string, string>()));
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         Assert.Equal("EQ", Assert.IsType<Box>(Assert.IsType<Assign>(read.Body!.Networks[0].Trees[0]).Value).Type);
     }
 
     [Theory]
-    [InlineData("VAR_TEMP g1 : BOOL; END_VAR\n  t1(IN := (g1 := go), PT := pt);\n  out := g1;", "is defined inside an assignment's pair")]
+    [InlineData("t1(IN := (split1 := go), PT := pt);", "never a coil")]
     [InlineData("t1(IN := (x := go PT := pt);", "closes after its value")]
     public void S2_a_pair_the_text_cannot_read_is_refused_by_name(string statements, string why)
     {
@@ -71,34 +72,33 @@ public class NetworkShapeSpellingTests
         Assert.Contains(why, read.Diagnostics.First().Message);
     }
 
-    // ── S3: a wire of unknown type ─────────────────────────────────────────────────────────────────
+    // ── S3: a split of unknown type (B6: no type is written) ───────────────────────────────────────
 
-    /// <summary>S3a — WSM #10: a leaf feeding a wire is declared with the type the IDE-drawn leaf stores, read back onto the
-    /// leaf (vendor-facts <c>nwl-leaf-wire-type</c>); its uses play no part (task 1.17's guess, deleted).</summary>
+    /// <summary>S3a — WSM #10: a leaf feeding a split. B6: its type is the leaf's own, so the text writes none — the leaf's
+    /// stored type is the push's derivation (lost on rebuild where it differs, B7), and a text read stores none.</summary>
     [Fact]
-    public void S3a_a_leaf_fed_wire_is_declared_with_the_leafs_stored_type()
+    public void S3a_a_leaf_fed_split_writes_no_type()
     {
         var model = Fbd1(Def(46, LT("stFeedForward", "BOOL")), Fb("t1", new[] { In(Ref(46), "IN"), In(L("pt"), "PT") }, type: "TON"));
-        Assert.Equal(Src("VAR_TEMP g46 : BOOL; END_VAR", "g46 := stFeedForward;", "t1(IN := g46, PT := pt);"), NetworkTextWriter.Write(model, Scope));
+        Assert.Equal(Src("split46 := stFeedForward;", "t1(IN := split46, PT := pt);"), NetworkTextWriter.Write(model, Scope));
         Assert.Null(NetworkModelOracle.Check("S3a", model).Reason);
-        var read = NetworkTextReader.Read(Src("VAR_TEMP g1 : INT; END_VAR", "g1 := x;", "out := g1;"), Scope);
-        Assert.Equal("INT", Assert.IsType<Leaf>(Assert.IsType<Demux>(read.Body!.Networks[0].Trees[0]).Input).Operand.Type);
+        var read = NetworkTextReader.Read(Src("split1 := x;", "out := split1;"), Scope);
+        Assert.Null(Assert.IsType<Leaf>(Assert.IsType<Demux>(read.Body!.Networks[0].Trees[0]).Input).Operand.Type);
     }
 
-    /// <summary>S3b — GeneralProgramFlags #4–#7: in LD a wire fed by nothing is fed by the left rail, a BOOL — `g := ;`.
-    /// In FBD there is no rail: refused by name.</summary>
+    /// <summary>S3b — GeneralProgramFlags #4–#7: in LD a split fed by nothing is fed by the left rail — `split2 := ;`. With
+    /// no type to write (B6), FBD's split fed by nothing is that text too.</summary>
     [Fact]
-    public void S3b_a_rail_fed_wire_is_BOOL_in_LD_and_refused_in_FBD()
+    public void S3b_a_rail_fed_split_is_its_empty_feed_in_LD_and_FBD_alike()
     {
         var ton = Fb("t1", new[] { In(Op("AND", Ref(2), L("a")), "IN"), In(L("pt"), "PT") }, type: "TON")
             with { ConnectedSlot = 0, MainOutputIndex = 0, HasEnoOutput = false };
         Node[] trees = { Def(2, Empty), Set(ton, T("out")) };
         var ld = Ld1(trees);
-        Assert.Equal(LdSrc("VAR_TEMP g2 : BOOL; END_VAR", "g2 := ;", "out := t1(IN := (g2 AND a), PT := pt);"),
+        Assert.Equal(LdSrc("split2 := ;", "out := t1(IN := split2 AND a, PT := pt);"),
             NetworkTextWriter.Write(ld, Scope));
         Assert.Null(NetworkModelOracle.Check("S3b", ld).Reason);
-        Assert.Equal("a wire fed by the empty terminator in FBD",
-            Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(Fbd1(trees), Scope)).Reason);
+        Assert.Null(NetworkModelOracle.Check("S3b FBD", Fbd1(trees)).Reason);
     }
 
     // ── S5: a SUPER^ call ──────────────────────────────────────────────────────────────────────────

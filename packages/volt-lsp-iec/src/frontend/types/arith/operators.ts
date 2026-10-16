@@ -50,28 +50,6 @@ export const COMPARISON_FUNCTIONS: ReadonlySet<string> = new Set(["GT", "GE", "L
 export const BIT_OPERATOR_FUNCTIONS: ReadonlySet<string> = new Set(["AND", "OR", "XOR", "NOT"])
 
 /**
- * What a function-form operator box hands back (a network's `GT`, `AND` …), whatever its operands: a comparison is BOOL,
- * a bit operator a type of ANY_BIT — its operands' own, BOOL among them. Undefined for any other box. The network-text
- * reader types its wires by this and keeps no list of its own (design.md P6, task 4.4).
- */
-export function operatorFunctionResult(name: string): { exact: "BOOL" } | { group: "ANY_BIT" } | undefined {
-  const upper = name.toUpperCase()
-  if (COMPARISON_FUNCTIONS.has(upper)) return { exact: "BOOL" }
-  if (BIT_OPERATOR_FUNCTIONS.has(upper)) return { group: "ANY_BIT" }
-  return undefined
-}
-
-/**
- * Is `name` a type a bit-operator BOX's output wire may be declared — BOOL, BYTE, WORD, DWORD, LWORD: the ANY_BIT group
- * without BIT, as the bridge's gate has it (`NetworkSpelling.BitStrings`). BIT is a 1-bit member of a STRUCT or a
- * function block, never a network's VAR_TEMP wire, and the push refuses a wire declared BIT, so the reader does too.
- */
-export function isBitOperatorWireType(name: string): boolean {
-  const facts = elementaryType(name)
-  return facts !== undefined && inTypeGroup("ANY_BIT", facts) && (facts.family === "bool" || facts.bits > 1)
-}
-
-/**
  * Which operand of a same-width signed/unsigned pair converts, per operator (measured on CODESYS SP21, conformance
  * `cc_add_*`, `cc_max_*`, `cc_bitwise_*`, `cc_not_*`, `cc_compare_*`, `same_width_*`, `signed_unsigned_comparison`):
  *   `signed`       arithmetic (and MAX/MIN) meet in the SIGNED operand's type: the unsigned operand converts;

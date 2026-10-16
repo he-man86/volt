@@ -215,7 +215,10 @@ VAR_INPUT
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
 
-IMPLEMENTATION FBD UNSUPPORTED
+IMPLEMENTATION FBD
+NETWORK
+  SetAlarm := (AND(xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR AND(xOutInv, NOT IN2 := xOutput, xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q;
+END_NETWORK
 END_METHOD
 
 // Set the output True or False

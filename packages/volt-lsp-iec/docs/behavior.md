@@ -620,13 +620,14 @@ body can be read, edited, and written entirely as network text without drift.
 ### Requirement: The bridge owns format, the LSP owns code correctness
 
 The bridge SHALL enforce network-text *structural* well-formedness (the `NETWORK_*` gate) since those checks depend
-only on the text. The LSP SHALL provide *code* correctness — type checks against each wire's declared type, undeclared-variable
+only on the text. The LSP SHALL provide *code* correctness — type checks against each split's feeder type, undeclared-variable
 detection, hover, completion, navigation — and SHOULD mirror the structural codes as diagnostics so a body is fixed
 before it is pushed.
 
-#### Scenario: A wire hovers as its declaration and its producer
-- **WHEN** the LSP hovers a wire declared in its network's `VAR_TEMP` block (network text v2)
-- **THEN** it shows the declaration (`g22 : BOOL`) and the value that produces it (`g22 := (a AND b);`)
+#### Scenario: A split hovers as its definition, its VarId and its references
+- **WHEN** the LSP hovers a split (`split22`, readability.md B6)
+- **THEN** it shows the definition (`split22 := a AND b;`), the VarId and the reference count; `ENO` hovers as the
+  open line it takes and `BRANCH` as its branches and mode (P13)
 
 ### Requirement: FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED
 

@@ -87,21 +87,50 @@ export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefi
 }
 
 /**
- * Hover for a network-text operand/wire — a symbol's declaration or a built-in reference entry. A WIRE shows its
- * `VAR_TEMP` declaration (`g22 : BOOL`) and the value that produces it (`g22 := (a AND b);`): a wire stands for a
- * vendor Demux, a fan-out point on the drawing, and what it carries is the one thing its name does not say.
+ * Hover for a network-text word or operand (openspec ld-fbd-coverage 2R.3, P13): `ENO` names the open line it takes, `BRANCH`
+ * its parallel's branches and mode, a split its feeder, type and references — what each stands for on the drawing and
+ * its name does not say; any other operand its symbol's declaration or a built-in reference entry.
  */
 export function networkHover(doc: Document, project: Scope, offset: number): Hover | undefined {
+  const word = networkWordHover(doc, project, offset)
+  if (word !== undefined) return word
   const found = networkSymbolAt(doc, project, offset)
   if (found !== undefined) {
     const hover = symbolHover(found.sym)
-    const def = found.analysis.wires.get(found.sym)?.definition
-    if (def === undefined) return hover
-    const producer = doc.source.slice(def.value.span.start, def.value.span.end)
+    const split = found.analysis.splits.get(found.sym)
+    if (split === undefined) return hover
+    const feeder = doc.source.slice(split.definition.value.span.start, split.definition.value.span.end)
     const value = (hover.contents as { value: string }).value
-    return { contents: { kind: "markdown", value: `${value}\n\n\`\`\`iecst\n${def.wire.text} := ${producer};\n\`\`\`` } }
+    const uses = split.references.length === 1 ? "1 reference" : `${split.references.length} references`
+    return {
+      contents: {
+        kind: "markdown",
+        value: `${value}\n\n_split point (a fan-out the drawing stores), VarId ${split.varId}, ${uses}_\n\n\`\`\`iecst\n${split.name.text} := ${feeder};\n\`\`\``,
+      },
+    }
   }
   return builtinHover(doc, project, offset)
+}
+
+/** P13: the hover of `ENO` (the line it takes) and of `BRANCH` (its branches, in stored order, and its mode). */
+function networkWordHover(doc: Document, project: Scope, offset: number): Hover | undefined {
+  const found = vgBodyAt(doc, offset)
+  if (found === undefined) return undefined
+  const analysis = analyzeNetworkText(found.unit, found.body, project, doc.uri)
+  for (const network of analysis.vg.networks)
+    for (const s of network.statements)
+      for (const v of walkValues(s)) {
+        if (v.kind === "eno" && spanContains(v.span, offset)) {
+          const line = v.box.span.startLine
+          const text = doc.source.slice(v.box.span.start, v.box.span.end)
+          return { contents: { kind: "markdown", value: `_ENO of line ${line}_ — the enable output of the open line this ENO takes:\n\n\`\`\`iecst\n${text}\n\`\`\`` } }
+        }
+        if (v.kind === "parallel" && spanContains(v.branchWord, offset)) {
+          const mode = v.shortCircuit ? "SHORTCIRCUIT (the old short-circuit mode)" : "Sequential (the editor's)"
+          return { contents: { kind: "markdown", value: `_parallel branch_ — ${v.branches.length} branches, in stored order; mode ${mode}` } }
+        }
+      }
+  return undefined
 }
 
 /** Go-to-definition for a network-text operand/wire reference. */
@@ -307,9 +336,9 @@ function networkSymbolAt(
   const { network, scope } = here
   const hit = (sym: Symbol | undefined) => (sym !== undefined ? { sym, analysis } : undefined)
 
-  // Cursor on a wire's name in the network's `VAR_TEMP` block → the wire symbol itself.
-  for (const wire of network.wires)
-    if (offset >= wire.name.span.start && offset < wire.name.span.end) return hit(lookupLocal(scope, wire.name.text)[0])
+  // Cursor on a split's name where it is defined → the split symbol itself.
+  for (const split of network.splits)
+    if (offset >= split.name.span.start && offset < split.name.span.end) return hit(lookupLocal(scope, split.name.text)[0])
 
   // Operand path — wrap the network's operand Exprs as statements and reuse the ST descent.
   const stmts = operandStatements(network.statements)
@@ -323,15 +352,15 @@ function networkSymbolAt(
   return undefined
 }
 
-/** Wrap every network-text operand `Expr` as an `expr_stmt` so `exprAtOffset`/`memberAtOffset` descend it — a wire's
- *  definition target included, so a cursor on `g1` in `g1 := …;` finds the wire, and a rename of it edits that name. */
+/** Wrap every network-text operand `Expr` as an `expr_stmt` so `exprAtOffset`/`memberAtOffset` descend it — a split's
+ *  definition included, so a cursor on `split1` in `split1 := …;` finds the split, and a rename of it edits that name. */
 function operandStatements(statements: readonly NetworkTextStatement[]): Statement[] {
   const out: Statement[] = []
   const push = (e: Expr): void => {
     out.push({ kind: "expr_stmt", expr: e, span: e.span })
   }
   for (const s of statements) {
-    if (s.kind === "wire_def") push({ kind: "ident_expr", name: s.wire.text, span: s.wire.span })
+    if (s.kind === "split_def") push({ kind: "ident_expr", name: s.split.text, span: s.split.span })
     for (const e of statementExprs(s)) push(e)
     for (const x of executeBoxes(s)) out.push(...x.statements)
   }

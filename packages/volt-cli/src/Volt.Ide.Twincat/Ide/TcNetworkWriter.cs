@@ -111,7 +111,7 @@ internal static class TcNetworkWriter
             at += k;
         }
 
-        return merged ? doc.ToString(SaveOptions.DisableFormatting) : null;
+        return merged ? TcArchive.Text(doc, bodyXml) : null;
     }
 
     private static XElement? ItemList(XElement network) =>
@@ -185,8 +185,9 @@ internal static class TcNetworkWriter
                     $"TwinCAT: the import built {networks.Count} network(s) for the {body.Networks.Count} pushed, so its " +
                     "networks cannot be stamped one for one: the import drops an empty network and builds one network per " +
                     "connected rung (DIALECT D25).");
-            for (int i = 0; i < networks.Count; i++) changed |= WriteNetwork(networks[i], body.Networks[i], scope);
-            return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
+            // Stamping: the import's fresh boxes take the derived members (WriteOutputParam), as on a rebuild/insert.
+            Stamping(() => { for (int i = 0; i < networks.Count; i++) changed |= WriteNetwork(networks[i], body.Networks[i], scope); });
+            return changed ? TcArchive.Text(doc, bodyXml) : null;
         }
 
         // AN EDIT PAIRS THE LIVE NETWORKS WITH THE PUSHED ONES BY TEXT, NOT POSITION (ld-fbd-coverage 1b.4,
@@ -236,7 +237,7 @@ internal static class TcNetworkWriter
                     var rebuilt = Imported(model, resolve!);
                     var held = Held(net).ToList();
                     Splice(impl, net, rebuilt);
-                    WriteNetwork(rebuilt, model, scope);      // stamp the values the rebuild could not carry
+                    Stamping(() => WriteNetwork(rebuilt, model, scope));      // stamp the values the rebuild could not carry
                     // What it resets without a refusal: the element is replaced whole, so a stored value of a member the
                     // text does not carry yet that the import does not answer goes with it — named in one warning
                     // (ld-fbd-coverage 2.2, the loss window), measured against what the import and the stamp made.
@@ -258,7 +259,7 @@ internal static class TcNetworkWriter
                     if (last is not null) last.AddAfterSelf(inserted);
                     else impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList").AddFirst(inserted);
                     MintFreshIds(impl, inserted);
-                    WriteNetwork(inserted, model, scope);     // stamp the values the import could not carry
+                    Stamping(() => WriteNetwork(inserted, model, scope));     // stamp the values the import could not carry
                     last = inserted;
                     changed = true;
                     break;
@@ -266,7 +267,7 @@ internal static class TcNetworkWriter
             }
         }
 
-        return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
+        return changed ? TcArchive.Text(doc, bodyXml) : null;
     }
 
     /// <summary>One network built by the IDE's import, ready to splice in — refused before the IDE is asked where the
@@ -335,18 +336,46 @@ internal static class TcNetworkWriter
             "Address" => new RebuildLoss.Held("Operand.Address", Owner(v.Parent), v.Value.Trim().Trim('"')),
             _ => (RebuildLoss.Held?)null,
         }).Where(x => x is not null).Select(x => x!.Value)
-        // A drawn function's result pin name, in the notation the CODESYS driver holds it in: whether the import gives
-        // it back is unmeasured (no TwinCAT archive holds one), so a rebuild that does not is named, never assumed.
-        .Concat(net.Descendants("l2")
-            .Where(l => (string?)l.Attribute("n") == "Names" && (string?)l.Parent?.Attribute("n") == "OutputParam")
-            .Where(l => l.Elements("v").Any(v => v.Value == NetworkMembers.FunctionResult))
-            .Select(l => new RebuildLoss.Held("OutputParam.Names", Owner(l.Parent?.Parent), "'" + NetworkMembers.FunctionResult + "'")))
+        // An operand's stored type; an instance's is the box's Instance.Type (below).
+        .Concat(net.Descendants("o").Where(o => Owner(o) == "Operand" && (string?)o.Attribute("n") != "Instance")
+            .Select(o => new RebuildLoss.Held("Operand.Type", "Operand", Scalar(o, "Type"))))
+        // B7 (2R.3): the box members the text does not carry, each as the archive stores it, in the notation the CODESYS
+        // driver holds them in — the whole output and input lists (a call's unwired pins, a bit operator's [''], a
+        // function's '   '), the type spelling, Instance.Type, EN/ENO, CallType and the pin flag list
+        // (RebuildLoss.Candidates). Whether the import gives each back is measured against what it built, never assumed.
+        .Concat(net.DescendantsAndSelf("o").Where(o => Owner(o) == "BoxTreeBox").SelectMany(o => new[]
+        {
+            new RebuildLoss.Held("OutputParam.Names", "BoxTreeBox", StringList(TcArchive.Obj(o, "OutputParam"), "Names")),
+            new RebuildLoss.Held("OutputParam.Types", "BoxTreeBox", StringList(TcArchive.Obj(o, "OutputParam"), "Types")),
+            new RebuildLoss.Held("InputParam.Names", "BoxTreeBox", StringList(TcArchive.Obj(o, "InputParam"), "Names")),
+            new RebuildLoss.Held("InputParam.Types", "BoxTreeBox", StringList(TcArchive.Obj(o, "InputParam"), "Types")),
+            new RebuildLoss.Held("BoxType", "BoxTreeBox", Scalar(o, "BoxType")),
+            new RebuildLoss.Held("Instance.Type", "BoxTreeBox", Scalar(TcArchive.Obj(o, "Instance"), "Type")),
+            new RebuildLoss.Held("EN", "BoxTreeBox", Scalar(o, "EN")),
+            new RebuildLoss.Held("ENO", "BoxTreeBox", Scalar(o, "ENO")),
+            new RebuildLoss.Held("CallType", "BoxTreeBox", Scalar(o, "CallType")),
+            new RebuildLoss.Held("InputFlags", "BoxTreeBox",
+                o.Elements("l2").FirstOrDefault(l => (string?)l.Attribute("n") == "InputFlags") is { } flags
+                    ? flags.Elements().Count().ToString(CultureInfo.InvariantCulture) + " sets"
+                    : null),
+        }))
         // Output slots beyond the names, as the CODESYS driver holds them (RebuildLoss.ExtraSlots).
         .Concat(net.DescendantsAndSelf("o").Where(o => (string?)o.Attribute("t") == "BoxTreeBox")
             .Select(o => RebuildLoss.ExtraSlots(Owner(o),
                 TcArchive.Slots(TcArchive.Obj(o, "OutputItems"), "OutputItems").Count,
                 TcArchive.Strings(TcArchive.Obj(o, "OutputParam"), "Names").Count))
             .Where(x => x is not null).Select(x => x!.Value));
+
+    /// <summary>A scalar member as stored — unquoted, <c>""</c> kept apart from an absent or null (<c>&lt;n/&gt;</c>) one.</summary>
+    private static string? Scalar(XElement? owner, string name) =>
+        owner?.Elements("v").FirstOrDefault(v => (string?)v.Attribute("n") == name)?.Value.Trim().Trim('"');
+
+    /// <summary>A stored string list (<c>&lt;l2 n="Names" cet="String"&gt;</c>) in <see cref="RebuildLoss.List"/>'s
+    /// notation, or null where the archive holds none.</summary>
+    private static string? StringList(XElement? owner, string name) =>
+        owner?.Elements("l2").FirstOrDefault(l => (string?)l.Attribute("n") == name) is { } l
+            ? RebuildLoss.List(l.Elements("v").Select(v => v.Value))
+            : null;
 
     /// <summary>The class of the archive object <paramref name="o"/> (its <c>t</c>), or the class its list declares for
     /// its items (<c>cet</c>) where the item carries none.</summary>
@@ -445,7 +474,11 @@ internal static class TcNetworkWriter
         // Compared as TEXT, through the same reader and writer a pull uses, because two bodies are equal exactly
         // when they materialize to the same file. This is the rule CODESYS's writer already follows, so it is
         // also the two vendors agreeing on when a push is a no-op.
-        if (Unchanged(net, model, scope)) return false;
+        //
+        // NOT WHILE STAMPING: a stamp writes the derivation over an IMPORT's fresh network, whose members (the import's
+        // `[Out1]`) the text does not show (B7) — so the import renders exactly as pushed, and the gate skipped every plain
+        // call: the created calls program kept `[Out1]` everywhere and did not build (gate 2R.3, vendor-facts NWL_R_CALLS).
+        if (!_stamping && Unchanged(net, model, scope)) return false;
 
         // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
         // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
@@ -473,9 +506,9 @@ internal static class TcNetworkWriter
     }
 
     private static bool WriteHeader(XElement net, Network model) =>
-        SetText(net, "Title", model.Title)
+        SetExact(net, "Title", model.Title)
         | SetText(net, "Label", model.Label)
-        | SetText(net, "Comment", model.Comment)
+        | SetComment(net, model.Comment)
         | SetBool(net, "OutCommented", model.Disabled);
 
     /// <summary>HOW MANY INDEPENDENT RUNGS a network holds: its top-level items grouped by the wires that connect them.
@@ -703,12 +736,11 @@ internal static class TcNetworkWriter
             }
 
             case Demux d when type == "BoxTreeDemux":
-                // The producer carries the type the text declared the wire with (NetworkText.WithDeclaredType), as on
-                // CODESYS: a box whose stored type is the derivation spells no pragma, so the text-read box holds none,
-                // and its output types written without the wire's type erased the archive's (gate 2-3 review).
+                // B6: the split's type is its feeder's, whose stored output types the in-place write keeps
+                // (WriteOutputParam); the text states none.
                 return changed
                      | SetInt(e, "VarId", d.VarId)
-                     | WriteChild(e, "Input", d.Input is { } src ? NetworkText.WithDeclaredType(src, d.Type) : null);
+                     | WriteChild(e, "Input", d.Input);
 
             case Parallel p when type == "BoxTreeParallel":
             {
@@ -882,10 +914,25 @@ internal static class TcNetworkWriter
     /// the function result pin <c>'   '</c>), and an in-place write keeps the box the IDE drew, which holds its own
     /// names. Applied here, it replaced a spelled <c>'   '</c> and every other name and type of the box with the
     /// derivation, and no rebuild-loss warning named it (gate 2-3 review).</para></summary>
+    [ThreadStatic] private static bool _stamping;
+
+    /// <summary>Run a write that stamps the values an import's fresh network could not carry (<see cref="WriteOutputParam"/>).</summary>
+    private static void Stamping(Action write)
+    {
+        var was = _stamping;
+        _stamping = true;
+        try { write(); }
+        finally { _stamping = was; }
+    }
+
     private static bool WriteOutputParam(XElement e, Box b, bool consumed)
     {
         var param = TcArchive.Obj(e, "OutputParam")
                     ?? throw Refuse($"box '{b.Type}' has no OutputParam for the output names the text states");
+        // B7: a box read from text states no member. Written in place, the archive's own (the box the IDE drew) are kept,
+        // as an unchanged network keeps every one; stamped over the import's fresh box, the derivation is — what a push
+        // builds from the text, the rule CODESYS builds a box by.
+        if (!NetworkMembers.Stated(b) && !_stamping) return false;
         var site = new BoxSite(consumed);
         return SetStrings(param, "Names", NetworkMembers.Effective(b, site, NetworkMembers.OutputNames).AsTexts)
              | SetStrings(param, "Types", NetworkMembers.Effective(b, site, NetworkMembers.OutputTypes).AsTexts);
@@ -1004,7 +1051,7 @@ internal static class TcNetworkWriter
     public static string DropImporterBoxOutputs(string bodyXml)
     {
         var doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace);
-        return DropImporterBoxOutputs(doc) ? doc.ToString(SaveOptions.DisableFormatting) : bodyXml;
+        return DropImporterBoxOutputs(doc) ? TcArchive.Text(doc, bodyXml) : bodyXml;
     }
 
     /// <summary>The same repair on a live element, for the SPLICE path — where the IDE rebuilds one network
@@ -1209,6 +1256,17 @@ internal static class TcNetworkWriter
         (TcArchive.Str(owner, name) ?? "").TrimEnd() == (text ?? "").TrimEnd()
             ? false
             : SetString(owner, name, text);
+
+    /// <summary>A title or comment, compared EXACTLY (2R.2 S: the model holds them as the IDE stores them).</summary>
+    private static bool SetExact(XElement owner, string name, string? text) =>
+        string.Equals(TcArchive.Str(owner, name) ?? "", text ?? "", StringComparison.Ordinal) ? false : SetString(owner, name, text);
+
+    /// <summary>The comment, compared as the reader reads it (<see cref="TcNetworkReader.Comment"/>): the archive's
+    /// parsed LF is the IDE's CR LF, so an unchanged comment writes nothing.</summary>
+    private static bool SetComment(XElement net, string? text) =>
+        string.Equals(TcNetworkReader.Comment(TcArchive.Str(net, "Comment")) ?? "", text ?? "", StringComparison.Ordinal)
+            ? false
+            : SetString(net, "Comment", text);
 
     private static bool SetString(XElement owner, string name, string? text) =>
         Set(owner, name, "\"" + (text ?? "") + "\"", "\"" + (TcArchive.Str(owner, name) ?? "") + "\"");

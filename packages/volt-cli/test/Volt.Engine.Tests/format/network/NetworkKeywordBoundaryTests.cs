@@ -14,8 +14,8 @@ namespace Volt.Engine.Tests;
 /// <item>The header ENDS at its newline: a statement on the next line that starts <c>DISABLED :=</c>,
 /// <c>TITLE :=</c> or <c>LABEL :=</c> is an assignment to a variable of that name, never a header field.</item>
 /// <item>A <c>//</c> comment ends at its newline: the statement on the next line is a statement.</item>
-/// <item>Header fields in another order are read, and written back in the one order (openspec
-/// <c>bridge-refusal-review</c> 2.12; they were <c>NETWORK_NOT_CANONICAL</c>).</item>
+/// <item>Header fields stand in their one order (P12: <c>NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]</c>), so one header
+/// has one text.</item>
 /// </list>
 /// </summary>
 public class NetworkKeywordBoundaryTests
@@ -33,7 +33,7 @@ public class NetworkKeywordBoundaryTests
     [InlineData("NETWORKSTATE")]
     public void An_identifier_beginning_with_NETWORK_is_not_a_network_header(string lvalue)
     {
-        var body = Read(FbdMarker + $"NETWORK\n  {lvalue} := (a AND b);\nEND_NETWORK\n");
+        var body = Read(FbdMarker + $"NETWORK\n  {lvalue} := a AND b;\nEND_NETWORK\n");
         var assign = Assert.IsType<Assign>(Assert.Single(Assert.Single(body.Networks).Trees));
         Assert.Equal(lvalue, assign.Targets.Single().Text);
     }
@@ -61,7 +61,7 @@ public class NetworkKeywordBoundaryTests
     [Fact]
     public void The_same_words_on_the_header_line_are_its_fields()
     {
-        var net = Read(FbdMarker + "NETWORK LABEL: Done TITLE: \"t\" DISABLED\n  TITLE := x;\nEND_NETWORK\n").Networks.Single();
+        var net = Read(FbdMarker + "NETWORK LABEL: Done DISABLED TITLE: \"t\"\n  TITLE := x;\nEND_NETWORK\n").Networks.Single();
         Assert.Equal(("t", "Done", true), (net.Title, net.Label, net.Disabled));
         Assert.Equal("TITLE", Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
     }
@@ -76,16 +76,17 @@ public class NetworkKeywordBoundaryTests
         Assert.Equal("DISABLED", Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
     }
 
+    /// <summary>P12: the fields in their one order are read; any other order is refused, naming it.</summary>
     [Theory]
     [InlineData("NETWORK TITLE: \"t\" LABEL: Done")]
     [InlineData("NETWORK DISABLED LABEL: Done")]
-    [InlineData("NETWORK DISABLED TITLE: \"t\"")]
-    public void Header_fields_out_of_order_are_accepted_and_written_in_order(string header)
+    [InlineData("NETWORK TITLE: \"t\" DISABLED")]
+    public void Header_fields_out_of_order_are_refused(string header)
     {
-        // Canonical form is not a refusal (openspec bridge-refusal-review 2.12): the fields are read in any order and
-        // the canonical text — LABEL, TITLE, DISABLED — comes back.
         var r = NetworkTextGate.Validate(FbdMarker + header + "\n  ;\nEND_NETWORK\n", NetworkScope.Empty);
-        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        Assert.Matches(@"NETWORK (LABEL: Done ?)?(TITLE: ""t"" ?)?(DISABLED)?\n", r.Canonical);
+        var d = Assert.Single(r.Diagnostics);
+        Assert.Equal(("NETWORK_PARSE", 2), (d.Code, d.Line));
+        Assert.Contains("in that order", d.Message);
+        Assert.True(NetworkTextGate.Validate(FbdMarker + "NETWORK LABEL: Done DISABLED TITLE: \"t\"\n  ;\nEND_NETWORK\n", NetworkScope.Empty).Ok);
     }
 }

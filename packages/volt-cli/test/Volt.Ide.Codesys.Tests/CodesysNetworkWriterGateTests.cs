@@ -543,7 +543,7 @@ public class CodesysCoilFlagTests
     /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
     /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("x := MOVE(EN := c, a).ENO;", true)]
+    [InlineData("MOVE a EN c\n  x := ENO;", true)]
     [InlineData("n := LIMIT(a, b, n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
@@ -586,9 +586,7 @@ public class CodesysCoilFlagTests
     /// Volt can build the box the text describes, so it is written and CODESYS reports it (openspec
     /// <c>bridge-refusal-review</c> 1.5; see the theory below).</summary>
     [Theory]
-    [InlineData("lamp := MOVE(EN := c, a, => sv);", "MOVE", "`.ENO`")]
-    [InlineData("x := GT(EN := c, a, b);", "GT", "comparison")]
-    [InlineData("x := GT(EN := c, a, b).ENO;", "GT", "comparison")]
+    [InlineData("x := (a GT b EN c);", "GT", "comparison")]
     public void A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed(
         string statement, string box, string why)
     {
@@ -612,7 +610,7 @@ public class CodesysCoilFlagTests
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
-            var (model, scope) = Pushed($"x := {op}(EN := c, a, b);");
+            var (model, scope) = Pushed($"x := (a {op} b EN c);");
             var ex = Assert.Throws<NotSupportedException>(() =>
                 CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), Different(), model, BodyLanguage.Fbd, scope));
             Assert.Contains($"'{op}'", ex.Message);
@@ -625,10 +623,9 @@ public class CodesysCoilFlagTests
     /// <c>.ENO</c> on an operator with no EN is built too: the box the text describes, which CODESYS's build answers
     /// with "Missing EN pin" (DIALECT N21) — the build's error, not a reason for the push to refuse (1.5).</summary>
     [Theory]
-    [InlineData("MOVE(EN := c, a, => sv);")]
-    [InlineData("GT(EN := c, a, b, => x);")]
-    [InlineData("lamp := MOVE(EN := c, a, => sv).ENO;")]
-    [InlineData("x := ADD(a, b).ENO;")]
+    [InlineData("MOVE a => sv EN c;")]
+    [InlineData("a GT b => x EN c;")]
+    [InlineData("MOVE a => sv EN c\n  lamp := ENO;")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);
@@ -647,7 +644,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_wire_is_written_under_the_models_VarId_verbatim()
     {
-        var (model, scope) = Pushed("VAR_TEMP g28 : BOOL; END_VAR\n  g28 := (x AND lamp);\n  x := g28;\n  lamp := g28;");
+        var (model, scope) = Pushed("split28 := x AND lamp;\n  x := split28;\n  lamp := split28;");
         Assert.Equal(28, Assert.IsType<Demux>(model.Trees[0]).VarId);
         var live = Different();
 
@@ -658,30 +655,28 @@ public class CodesysCoilFlagTests
         Assert.Equal(new[] { 28, 28, 28 }, ids);
     }
 
-    /// <summary>A DATA WIRE A PUSH BUILDS COMES BACK AS THE TEXT DECLARED IT, and pushes again unchanged. The text says
-    /// the wire's type only in <c>VAR_TEMP g1 : INT</c>; the vendor keeps a box's output type in <c>OutputParams.Types</c>
-    /// and derives none itself (DIALECT N21), so a writer that appended no type built an ADD whose re-read stored none —
-    /// the next pull turned the body into the marker ("a wire of unknown type") and the next push of the very same text
-    /// was refused by the change gate rendering the live network. Spec: "on push the declared type is taken as
-    /// written".</summary>
+    /// <summary>A DATA SPLIT A PUSH BUILDS COMES BACK AS THE SAME TEXT, and pushes again unchanged. B6: the text states no
+    /// type for a split — its feeder's is the push's derivation (<c>NetworkMembers.DerivedOutputTypes</c>: none for an
+    /// ADD) — and with no type in the text a re-read feeder storing none is no longer "a wire of unknown type": the
+    /// next pull writes the same `split1 := a ADD b;`, and the next push of it finds the network unchanged.</summary>
     [Fact]
-    public void A_data_wire_a_push_built_reads_back_with_its_declared_type_and_pushes_again()
+    public void A_data_split_a_push_built_reads_back_as_written_and_pushes_again()
     {
-        var (model, scope) = Pushed("VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;");
+        var (model, scope) = Pushed("split1 := a ADD b;\n  n := split1;\n  sv := split1;");
         var live = Different();
 
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
 
-        // The type rides the param list, and the connected slot holds the vendor's NULL (ld-fbd-coverage 2.3, through
-        // InsertOutputItem) — never an empty operand, an assignment to nothing the live build refused ("The assignment
-        // target is not specified").
+        // The derived type rides the param list (none for an ADD), and the connected slot holds the vendor's NULL
+        // (ld-fbd-coverage 2.3, through InsertOutputItem) — never an empty operand, an assignment to nothing the live
+        // build refused ("The assignment target is not specified").
         var add = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeDemux>(live.GetTree(0)).Input);
-        Assert.Equal(new[] { "INT" }, Assert.IsType<Nwl.ParamList>(add.OutputParams).Types);
+        Assert.Equal(new[] { "" }, Assert.IsType<Nwl.ParamList>(add.OutputParams).Types);
         Assert.Equal(new object?[] { null }, add.Outputs.List.ToArray());
 
         var reread = CodesysNetworkReader.ReadNetwork(live, 0);
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { reread });
-        Assert.Contains("VAR_TEMP g1 : INT; END_VAR", NetworkTextWriter.Write(body, scope));
+        Assert.Contains("split1 := a ADD b;", NetworkTextWriter.Write(body, scope));
         Assert.Null(Record.Exception(() =>
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope)));
     }
@@ -930,7 +925,7 @@ public class CodesysViewFlipParallelTests
         var pulled = Pull(impl);
         Assert.Equal(BodyLanguage.Ld, pulled.Language);
         var ldText = NetworkTextWriter.Write(pulled, ScopeOf(pulled));
-        Assert.Contains("PARALLEL", ldText);
+        Assert.Contains(" BRANCH (", ldText);
 
         // The flip: the pulled body under the other IMPLEMENTATION line, nothing else changed.
         var nets = impl.NetworkList.Cast<Nwl.Network>().ToArray();

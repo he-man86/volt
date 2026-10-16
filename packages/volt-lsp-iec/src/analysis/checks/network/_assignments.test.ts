@@ -1,6 +1,6 @@
 /**
  * The network-text assignment checks (`_assignments.ts`): the `target := value` pairs the ST assignment rules apply to
- * — coils, wires read by a coil, EXECUTE boxes' own lines — and what is no pair (a box's output, `.ENO`).
+ * — coils, splits read by a coil, EXECUTE boxes' own lines — and what is no pair (a box's output, its ENO).
  */
 import { test, expect } from "bun:test"
 import { vgDiags } from "../../../../test/support/network-docs.js"
@@ -22,7 +22,7 @@ test("network text: a well-typed sink over real vars yields no code diagnostic",
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
-out := (a AND b);
+out := a AND b;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(src)).toEqual([])
@@ -86,17 +86,16 @@ END_FUNCTION_BLOCK`
   expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).not.toEqual([])
 })
 
-test("network text: a wire's type is its declaration, and it types what reads it", () => {
+test("network text: a split's type is its feeder's, and it types what reads it", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : INT; END_VAR
 IMPLEMENTATION LD
 NETWORK
-VAR_TEMP g1 : BOOL; END_VAR
-g1 := a;
-out := g1;
+split1 := a;
+out := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  // g1 is declared BOOL; assigning it to an INT coil is a mismatch — proves the wire resolves with its declared type.
+  // split1 is fed by the BOOL a; assigning it to an INT coil is a mismatch — the split resolves with its feeder's type.
   expect(vgDiags(src).some((d) => d.code === "assignment-type-mismatch")).toBe(true)
 })
 
@@ -128,23 +127,23 @@ END_NETWORK
 END_FUNCTION_BLOCK`
 const enoDiags = (statement: string): string[] => vgDiags(ENO_TYPES.replace("%s", statement)).map((d) => d.message)
 
-test("network text: .ENO is BOOL wherever it stands, not the box's result", () => {
-  expect(enoDiags("out := (F_Int(EN := a, iRPM).ENO AND b);")).toEqual([])
-  expect(enoDiags("out := NOT(F_Int(EN := a, iRPM).ENO);")).toEqual([])
-  expect(enoDiags("iRPM := (F_Int(EN := a, iRPM).ENO OR b);")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
+test("network text: ENO is BOOL wherever it stands, not the box's result", () => {
+  expect(enoDiags("F_Int(iRPM) EN a\n  out := ENO AND b;")).toEqual([])
+  expect(enoDiags("F_Int(iRPM) EN a\n  out := NOT ENO;")).toEqual([])
+  expect(enoDiags("F_Int(iRPM) EN a\n  iRPM := ENO OR b;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
 })
 
 test("network text: an edge used directly is typed as the same value through a wire is", () => {
-  // An edge is no box: `x := R_EDGE(a)` reads as an opaque BOOL, as the BOOL wire it could have gone through does. (A
-  // box's own output — `x := f(…).ENO` — stays the IDE's, network-real-shapes "a box's output, by its data pin or its ENO".)
-  const viaWire = enoDiags("VAR_TEMP g1 : BOOL; END_VAR\n  g1 := R_EDGE(a);\n  iRPM := g1;")
+  // An edge is no box: `x := R_EDGE(a)` reads as an opaque BOOL, as the BOOL split it could have gone through does. (A
+  // box's own output — `x := ENO` under its open line — stays the IDE's, network-real-shapes.)
+  const viaWire = enoDiags("split1 := R_EDGE(a);\n  iRPM := split1;")
   expect(viaWire).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
   expect(enoDiags("iRPM := R_EDGE(a);")).toEqual(viaWire)
   expect(enoDiags("out := R_EDGE(a);")).toEqual([])
 })
 
-test("network text: the operands inside an .ENO box and an edge are still resolved", () => {
-  expect(enoDiags("out := (F_Int(EN := a, nope).ENO AND b);")).toContain("Identifier 'nope' not defined")
+test("network text: the operands inside an open line's box and an edge are still resolved", () => {
+  expect(enoDiags("F_Int(nope) EN a\n  out := ENO AND b;")).toContain("Identifier 'nope' not defined")
   expect(enoDiags("out := R_EDGE(nope);")).toContain("Identifier 'nope' not defined")
 })
 

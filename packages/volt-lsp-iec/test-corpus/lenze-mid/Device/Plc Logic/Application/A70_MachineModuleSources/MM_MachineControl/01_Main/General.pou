@@ -14,23 +14,22 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  GeneralProgramFlags(EN := TRUE);
+  GeneralProgramFlags() EN TRUE;
 END_NETWORK
 NETWORK
-  fc_Information(EN := TRUE);
+  fc_Information() EN TRUE;
 END_NETWORK
 NETWORK
   WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 END_NETWORK
 NETWORK
-  VAR_TEMP g16 : BOOL; END_VAR
-  g16 := NOT HMI_Var.ForceOutputs;
-  Mach1_MIDS(EN := g16);
-  fc_Visualisation_HMI(EN := g16);
-  SMC_BitsToBytes(EN := g16);
+  split16 := NOT HMI_Var.ForceOutputs;
+  Mach1_MIDS() EN split16;
+  fc_Visualisation_HMI() EN split16;
+  SMC_BitsToBytes() EN split16;
 END_NETWORK
 NETWORK
-  Status_ForceOutputs(EN := TRUE);
+  Status_ForceOutputs() EN TRUE;
 END_NETWORK
 NETWORK
   LST_General.FirstCycle R= ;
@@ -45,7 +44,7 @@ NETWORK
   TON_1(IN := Bugs.reportConnectionAlive, PT := T#2S);
 END_NETWORK
 NETWORK
-  Bugs.restart := (TON_0.Q OR TON_1.Q);
+  Bugs.restart := TON_0.Q OR TON_1.Q;
 END_NETWORK
 
 END_PROGRAM

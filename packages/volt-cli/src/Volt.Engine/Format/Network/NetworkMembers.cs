@@ -1,96 +1,131 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Volt.Engine.Format.Network;
 
-/// <summary>Which model node a member belongs to — the node its pragma is written after.</summary>
-public enum MemberOwner { Box }
+/// <summary>Where a box stands, for the derivations that depend on it: whether something consumes it.</summary>
+public sealed record BoxSite(bool Consumed);
 
-/// <summary>Where a box stands, for the derivations that depend on it: whether something consumes it, and — when it is a
-/// wire's producer — the type the wire is declared with.</summary>
-public sealed record BoxSite(bool Consumed, string? WireType = null);
+/// <summary>The kinds of value a stored member takes.</summary>
+public enum MemberKind { Text, List }
 
 /// <summary>
-/// ONE MEMBER THE TEXT SPELLS BY PRAGMA (openspec <c>ld-fbd-coverage</c> design "1b.2", "2.3"): its path as the pragma names
-/// it, the node it belongs to, the kind of value it takes, how the model holds it, and its DERIVATION — the value the text
-/// implies where no pragma states one. The writer spells a stored value only where it differs from the derivation; the
-/// reader keeps a spelled one; a driver building the node writes the stored value, else the derivation
-/// (<see cref="NetworkMembers.Effective(Box, BoxSite, string)"/>). A derivation reads the CARRIED model only — what the
-/// text says — so a text read gives back the vendor read.
+/// ONE STORED VALUE OF AN NWL MEMBER a vendor reader read (openspec <c>ld-fbd-coverage</c> design "1b.2"). Structural
+/// equality, so a model holding it compares by value. B7 (2R.3): the text spells no member — a stored value is the
+/// vendor's, carried for the rebuild-loss warning (<see cref="RebuildLoss"/>) and for the in-place write that keeps an
+/// unchanged box, never written into the text.
 /// </summary>
-public sealed class BoxMember
+public sealed class MemberValue : IEquatable<MemberValue>
 {
-    internal BoxMember(string name, PragmaKind kind, Func<Box, PragmaValue?> get, Func<Box, PragmaValue, Box> with,
-        Func<Box, BoxSite, PragmaValue> derive)
+    private MemberValue(MemberKind kind, string? scalar, IReadOnlyList<MemberValue>? items)
     {
-        Name = name; Kind = kind; Get = get; With = with; Derive = derive;
+        Kind = kind;
+        Scalar = scalar;
+        Items = items;
     }
 
-    public string Name { get; }
-    public PragmaKind Kind { get; }
-    /// <summary>The stored value the model holds, or null where none was read (a text read: the derivation).</summary>
-    public Func<Box, PragmaValue?> Get { get; }
-    /// <summary>The box holding <c>value</c> as this member's stored value.</summary>
-    public Func<Box, PragmaValue, Box> With { get; }
-    /// <summary>The value the text implies for the box at its site.</summary>
-    public Func<Box, BoxSite, PragmaValue> Derive { get; }
+    public MemberKind Kind { get; }
+    public string? Scalar { get; }
+    public IReadOnlyList<MemberValue>? Items { get; }
+
+    public static MemberValue Text(string s) => new(MemberKind.Text, s ?? throw new ArgumentNullException(nameof(s)), null);
+    public static MemberValue List(IEnumerable<MemberValue> items) => new(MemberKind.List, null, items.ToList());
+    public static MemberValue Texts(IEnumerable<string> items) => List(items.Select(Text));
+
+    public IReadOnlyList<string> AsTexts =>
+        Kind == MemberKind.List && Items!.All(i => i.Kind == MemberKind.Text)
+            ? Items!.Select(i => i.Scalar!).ToList()
+            : throw new InvalidOperationException($"a {Kind} member value is no list of strings");
+
+    public bool Equals(MemberValue? other) =>
+        other is not null && Kind == other.Kind && Scalar == other.Scalar &&
+        (Items is null ? other.Items is null : other.Items is not null && Items.SequenceEqual(other.Items));
+
+    public override bool Equals(object? obj) => Equals(obj as MemberValue);
+
+    public override int GetHashCode()
+    {
+        var h = ((int)Kind * 397) ^ (Scalar?.GetHashCode() ?? 0);
+        if (Items is not null) foreach (var i in Items) h = (h * 31) ^ i.GetHashCode();
+        return h;
+    }
+
+    public override string ToString() =>
+        Kind == MemberKind.Text ? "'" + Scalar + "'" : "[" + string.Join(", ", Items!.Select(i => i.ToString())) + "]";
+
+    public static bool operator ==(MemberValue? a, MemberValue? b) => a is null ? b is null : a.Equals(b);
+    public static bool operator !=(MemberValue? a, MemberValue? b) => !(a == b);
 }
 
-/// <summary>THE MEMBER TABLE THE PRAGMA SPELLS — the engine's half of design "1b.2" (the oracle's half is the test
-/// suites' <c>NwlDisposition</c>): every member a pragma may name, with its derivation. A pragma naming anything else is
-/// refused by name.</summary>
+/// <summary>
+/// THE STORED VALUES OF A NODE'S MEMBERS a vendor reader read: member path → value, with structural equality. A text read
+/// states none (B7): an absent member is its derivation (<see cref="NetworkMembers.Effective"/>), never "unknown".
+/// </summary>
+public sealed class NwlMembers : IEquatable<NwlMembers>
+{
+    public static readonly NwlMembers Empty = new(Array.Empty<KeyValuePair<string, MemberValue>>());
+
+    private readonly IReadOnlyList<KeyValuePair<string, MemberValue>> _entries;
+
+    private NwlMembers(IReadOnlyList<KeyValuePair<string, MemberValue>> entries) => _entries = entries;
+
+    public IReadOnlyList<KeyValuePair<string, MemberValue>> Entries => _entries;
+    public int Count => _entries.Count;
+
+    public MemberValue? this[string member] =>
+        _entries.FirstOrDefault(e => string.Equals(e.Key, member, StringComparison.Ordinal)).Value;
+
+    public NwlMembers With(string member, MemberValue? value)
+    {
+        var list = _entries.Where(e => !string.Equals(e.Key, member, StringComparison.Ordinal)).ToList();
+        if (value is not null) list.Add(new KeyValuePair<string, MemberValue>(member, value));
+        list.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+        return new NwlMembers(list);
+    }
+
+    public static NwlMembers Of(params (string Member, MemberValue? Value)[] members) =>
+        members.Aggregate(Empty, (m, x) => m.With(x.Member, x.Value));
+
+    public bool Equals(NwlMembers? other) =>
+        other is not null && _entries.Count == other._entries.Count &&
+        _entries.Zip(other._entries, (a, b) => a.Key == b.Key && a.Value == b.Value).All(x => x);
+
+    public override bool Equals(object? obj) => Equals(obj as NwlMembers);
+
+    public override int GetHashCode() => _entries.Aggregate(17, (h, e) => (h * 31) ^ e.Key.GetHashCode() ^ e.Value.GetHashCode());
+
+    public override string ToString() => string.Join(", ", _entries.Select(e => e.Key + " = " + e.Value));
+
+    public static bool operator ==(NwlMembers? a, NwlMembers? b) => a is null ? b is null : a.Equals(b);
+    public static bool operator !=(NwlMembers? a, NwlMembers? b) => !(a == b);
+}
+
+/// <summary>
+/// THE DERIVED MEMBERS (openspec <c>ld-fbd-coverage</c> 2R.2 "D", B7): what a push builds a box with from the text alone —
+/// its output names and types — and, where a vendor reader read them, the stored ones (<see cref="Effective"/>). The text
+/// spells neither: a stored value that differs from the derivation is LOST ON REBUILD (2R.2 Open item 5, owner), named by
+/// <see cref="RebuildLoss"/>, and kept byte for byte by every push that does not rebuild its network (N28).
+/// </summary>
 public static class NetworkMembers
 {
     public const string OutputNames = "OutputParam.Names";
     public const string OutputTypes = "OutputParam.Types";
 
-    /// <summary>The box members, in the order the writer spells them.</summary>
-    public static readonly IReadOnlyList<BoxMember> OfBox = new[]
+    /// <summary>The value a box holds: the stored one a vendor reader read, else the derivation.</summary>
+    public static MemberValue Effective(Box b, BoxSite site, string member) => member switch
     {
-        // A box's output pin names, index-aligned with its output slots — S1's stored slot on a bit operator ([''] where
-        // the plain box holds none), a call's whole output list (its unconnected pins included). Derivation: the names
-        // the text's own pins give — ENO first where the box has one, then each `=>` pin's formal at its slot — and
-        // none at all where no slot is named.
-        new BoxMember(OutputNames, PragmaKind.List,
-            b => b.Members?[OutputNames],
-            (b, v) => b with { Members = (b.Members ?? NwlMembers.Empty).With(OutputNames, v) },
-            (b, site) => PragmaValue.Texts(DerivedOutputNames(b, site.Consumed))),
-
-        // The stored output types, index-aligned with the slots — the model's OutputTypes (an entry the vendor stores
-        // empty is null there). Derivation: what a push writes from the text alone — "" for each named slot, and a wire
-        // producer's declared type at the slot its consumer is connected to (NetworkText.WithDeclaredType).
-        new BoxMember(OutputTypes, PragmaKind.List,
-            b => b.OutputTypes is { } t ? PragmaValue.Texts(t.Select(x => x ?? "")) : null,
-            (b, v) => b with { OutputTypes = v.AsTexts.Select(x => x.Length == 0 ? null : x).ToList() },
-            (b, site) => PragmaValue.Texts(DerivedOutputTypes(b, site))),
+        OutputNames => b.Members?[OutputNames] ?? MemberValue.Texts(DerivedOutputNames(b, site.Consumed)),
+        OutputTypes => b.OutputTypes is { } t ? MemberValue.Texts(t.Select(x => x ?? "")) : MemberValue.Texts(DerivedOutputTypes(b, site)),
+        _ => throw new ArgumentException($"'{member}' is no box member", nameof(member)),
     };
 
-    private static readonly Dictionary<string, int> OrderOf =
-        OfBox.Select((m, i) => (m.Name, i)).ToDictionary(x => x.Name, x => x.i, StringComparer.Ordinal);
+    /// <summary>Whether the model states the box's stored members — a vendor read — or derives them all (a text read).</summary>
+    public static bool Stated(Box b) => b.Members is not null || b.OutputTypes is not null;
 
-    /// <summary>A member's place in the spelling order; an unknown one sorts last.</summary>
-    public static int Order(string member) => OrderOf.TryGetValue(member, out var i) ? i : int.MaxValue;
-
-    public static BoxMember? BoxMemberNamed(string name) => OfBox.FirstOrDefault(m => string.Equals(m.Name, name, StringComparison.Ordinal));
-
-    /// <summary>The value a driver builds the box with: the stored one, else the derivation.</summary>
-    public static PragmaValue Effective(Box b, BoxSite site, string member)
-    {
-        var m = BoxMemberNamed(member) ?? throw new ArgumentException($"'{member}' is no box member", nameof(member));
-        return m.Get(b) ?? m.Derive(b, site);
-    }
-
-    /// <summary>The pragmas the writer spells after <paramref name="b"/>: each stored value that differs from its
-    /// derivation.</summary>
-    public static IEnumerable<(string Member, PragmaValue Value)> Spelled(Box b, BoxSite site) =>
-        OfBox.Select(m => (m, stored: m.Get(b)))
-           .Where(x => x.stored is not null && x.stored != x.m.Derive(b, site))
-           .Select(x => (x.m.Name, x.stored!));
-
-    /// <summary>The output names the text's own pins give (see <see cref="OfBox"/>): the box's slots as
-    /// <see cref="TextOutputSlots"/> lays them out. A bit operator or a call names its outputs only where the text names
-    /// one (none otherwise: the plain AND/OR, census 1.6 — S1's stored slot and a call's list are pragmas).</summary>
+    /// <summary>The output names the text's own pins give: the box's slots as <see cref="TextOutputSlots"/> lays them out,
+    /// none at all where no slot is named (the plain AND/OR, census 1.6).</summary>
     public static IReadOnlyList<string> DerivedOutputNames(Box b, bool consumed)
     {
         var slots = TextOutputSlots(b, consumed);
@@ -101,10 +136,9 @@ public static class NetworkMembers
 
     /// <summary>
     /// THE OUTPUT NAMES AND TYPES A PUSH CAN BUILD: the box's own (<see cref="Effective"/>), except where they hold a
-    /// FUNCTION'S RESULT PIN (<see cref="FunctionResult"/>, <c>'   '</c>) — which only a box the IDE resolved can hold:
-    /// built by Volt, whose box has no main output index (read-only, DIALECT N21), CODESYS answers "'   ' is no component
-    /// of 'F'" (vendor-facts nwl-output-param-names, re-run 2026-10-16). There the derivation is built — the layout every
-    /// Volt-built function box has had — and the drawn name is the rebuild's loss, named by <see cref="RebuildLoss"/>.
+    /// FUNCTION'S RESULT PIN (<see cref="FunctionResult"/>, <c>'   '</c>) — which only a box the IDE resolved can hold
+    /// (DIALECT N37). There the derivation is built, and the drawn name is the rebuild's loss, named by
+    /// <see cref="RebuildLoss"/>.
     /// </summary>
     public static (IReadOnlyList<string> Names, IReadOnlyList<string> Types) Buildable(Box b, BoxSite site)
     {
@@ -113,36 +147,24 @@ public static class NetworkMembers
         return (DerivedOutputNames(b, site.Consumed), DerivedOutputTypes(b, site));
     }
 
-    /// <summary>The output types a push writes from the text (see <see cref="OfBox"/>).</summary>
+    /// <summary>The output types a push writes from the text: BOOL for the ENO echo (186 of 186 stored ENO slots) and a
+    /// comparison's result (45 of 45); any other slot the text does not type (the push's derivation is the IDE's).</summary>
     public static IReadOnlyList<string> DerivedOutputTypes(Box b, BoxSite site)
     {
         var names = DerivedOutputNames(b, site.Consumed);
-        var typed = site.WireType is { } w ? NetworkText.WithDeclaredType(b with { OutputTypes = null }, w) as Box : null;
-        var declared = typed?.OutputTypes;
-        var count = Math.Max(names.Count, declared?.Count ?? 0);
         var result = ResultSlot(b, site.Consumed);
-        // The ENO echo is BOOL (186 of 186 stored ENO slots in the corpora), and so is a comparison's result (45 of 45);
-        // a wire's slot its declared type; any other slot the text does not type.
-        return Enumerable.Range(0, count).Select(i =>
-            declared is not null && i < declared.Count && declared[i] is { } d ? d
-            : i < names.Count && names[i] == Volt.Engine.Format.Network.Box.EnoPin ? NetworkSpelling.Bool
+        return Enumerable.Range(0, names.Count).Select(i =>
+            names[i] == Box.EnoPin ? NetworkSpelling.Bool
             : i == result && NetworkSpelling.Comparisons.Contains(b.Type) ? NetworkSpelling.Bool
             : "").ToList();
     }
 
     /// <summary>A function's result pin as the vendor names it: three spaces (97 of 97 corpus function boxes without
-    /// EN; with EN a function lists only its ENO, 8 of 8). An operator's result is unnamed (<c>''</c>). NOT a derivation:
-    /// a box Volt builds cannot hold it (<see cref="Buildable"/>), so a drawn function box spells it by its pragma, and the
-    /// derivation is the layout a push builds — no result slot.</summary>
+    /// EN). NOT a derivation: a box Volt builds cannot hold it (<see cref="Buildable"/>).</summary>
     public const string FunctionResult = "   ";
 
-    /// <summary>
-    /// THE OPERATOR BOXES — the IEC operators CODESYS resolves to an <c>Operator</c> member of its own (<c>CallType</c>
-    /// <c>Move</c>, <c>Add</c>, <c>Gt</c>, <c>Conversion</c> …), as opposed to a call of a FUNCTION POU (<c>Function</c>).
-    /// The two name their result differently (an operator <c>''</c>, after its ENO; a function <c>'   '</c>, and none at
-    /// all beside an ENO), so the derivation asks the box type, the one fact the text has: the operator words, and the
-    /// type conversions <c>X_TO_Y</c>. A box the IDE stores otherwise is spelled by its pragma.
-    /// </summary>
+    /// <summary>The IEC operators CODESYS resolves to an <c>Operator</c> member of its own, as opposed to a call of a
+    /// FUNCTION POU — the two name their result differently (an operator <c>''</c>, a function <c>'   '</c>).</summary>
     private static bool IsOperatorType(string type) =>
         OperatorTypes.Contains(type) ||
         System.Text.RegularExpressions.Regex.IsMatch(type, @"^[A-Za-z]+_TO_[A-Za-z]+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
@@ -154,12 +176,7 @@ public static class NetworkMembers
         "TAN", "ASIN", "ACOS", "ATAN", "TRUNC", "SIZEOF", "ADR", "BITADR", "INDEXOF",
     };
 
-    /// <summary>The slot of the box's data result in <see cref="TextOutputSlots"/>, or null where it lists none.
-    /// <para>A box with a NAMED output pin lists no result slot: a push builds the named pin in the slot after the ENO (the
-    /// layout every Volt-built box has had — `next := F(src, doubled =&gt; twice)` compiles so, e2e refused-shapes), and the
-    /// result slot before it would need an output item where the consumer is connected, which the vendor stores as null
-    /// and will not take (<c>AppendOutputItem(null)</c> throws). The IDE's own drawing of such a box — the result named
-    /// first — is spelled by its pragma (8 corpus boxes).</para></summary>
+    /// <summary>The slot of the box's data result in <see cref="TextOutputSlots"/>, or null where it lists none.</summary>
     private static int? ResultSlot(Box b, bool consumed)
     {
         if (b.StCode is not null || b.Instance is not null || !IsOperatorType(b.Type) || NetworkSpelling.BitOperators.Contains(b.Type)) return null;
@@ -167,15 +184,12 @@ public static class NetworkMembers
         return CarriedHasEno(b, consumed) ? 1 : 0;
     }
 
-    /// <summary>The box's output slots as the text states them, the formals: the ENO echo first where the box has one
-    /// (an Execute box always — its only output, 11 of 11 corpus Execute boxes), then the data result of an operator
-    /// (<c>''</c>) or a function (<see cref="FunctionResult"/>, none beside an ENO), then each pin — a positional
-    /// <c>=&gt; v</c> at its slot (the result's own, or one passed over as null), a named pin at the next, as its slot is
-    /// the box type's and the text names the pin.</summary>
+    /// <summary>The box's output slots as the text states them: the ENO echo first where the box has one, then the data
+    /// result of an operator, then each pin.</summary>
     private static IReadOnlyList<string?> TextOutputSlots(Box b, bool consumed)
     {
         var slots = new List<string?>();
-        if (b.StCode is not null || CarriedHasEno(b, consumed)) slots.Add(Volt.Engine.Format.Network.Box.EnoPin);
+        if (b.StCode is not null || CarriedHasEno(b, consumed)) slots.Add(Box.EnoPin);
         if (ResultSlot(b, consumed) is { } r)
         {
             while (slots.Count < r) slots.Add(null);
@@ -195,9 +209,7 @@ public static class NetworkMembers
         return slots;
     }
 
-    /// <summary>Whether the box has an ENO output AS THE TEXT CARRIES IT: the model's fact where the text states it
-    /// (<see cref="NetworkSpelling.EnoCarried"/>), else the text's own reading — never a vendor fact the text does not
-    /// hold, which a derivation computed on a vendor read would otherwise see and a text read would not.</summary>
+    /// <summary>Whether the box has an ENO output AS THE TEXT CARRIES IT.</summary>
     private static bool CarriedHasEno(Box b, bool consumed)
     {
         if (NetworkSpelling.EnoCarried(b, consumed) && b.HasEnoOutput is { } stated) return stated;

@@ -341,8 +341,8 @@ public class TcPlcOpenWriterTests
     public void A_wire_feeding_two_consumers_becomes_one_shared_refLocalId()
     {
         // The gate is handed the BODY only - everything from the first NETWORK marker on - not a whole POU.
-        var model = Read("IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n" +
-                         "  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
+        var model = Read("IMPLEMENTATION FBD\nNETWORK\n  split7 := a AND b;\n" +
+                         "  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n");
 
         var written = Lower(model);
 

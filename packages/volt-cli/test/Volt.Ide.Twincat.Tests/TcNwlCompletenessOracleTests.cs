@@ -380,7 +380,7 @@ public class TcNwlCompletenessOracleTests
     // The create path compares NO network of this corpus (gate 1b-3): POUexecute's whole-body lowering is refused (its
     // wire network, TcUnmeasured), and ladderLabel's import drops its EMPTY network (PLCopen has no network element,
     // D25), so the stamp refuses the count — a create of either is refused by name, never applied thinner.
-    const string WireUnmeasured = "TwinCAT: network {0} changes shape and holds the wire g1 fed by the leaf 'b'. Volt rebuilds a " +
+    const string WireUnmeasured = "TwinCAT: network {0} changes shape and holds the split split1 fed by the leaf 'b'. Volt rebuilds a " +
         "changed network through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused " +
         "before the import rather than risk a network that comes back different. The IDE can make this change.";
 
@@ -423,6 +423,8 @@ public class TcNwlCompletenessOracleTests
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
         new("Operand.Type in BoxTreeOperand.Operand — changed", 2, 4, "2.2 nwl-operand-type (R)"),
         new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 2, 2, "2.3 D (the null slots) + design gap (1b.3): a call's unconnected output pins"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 2, 2, "2R.3 B7 L: the pragma is gone, so the TON's stored output names ['Q', 'ET'] are the import's ['Out1'] after a rebuild — until a call's output list is derived from the callee's declaration (owed to 2R.4, as CODESYS's ledger says)"),
         new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 2, 2, "2R.3 B7 L: the types of the TON's stored output names, which go with the names"),
     };
 }

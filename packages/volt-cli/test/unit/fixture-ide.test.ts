@@ -10,7 +10,7 @@ import { describe, expect, it } from "bun:test"
 import { existsSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { bitnessOf, compileTempEnv, e2eReport, FixtureRefusal, ideLine, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
+import { bitnessOf, compileTempEnv, e2eReport, FixtureRefusal, ideLine, parseRecords, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
 
 const TEMP = "C:\\Users\\eng\\AppData\\Local\\Temp"
 const T0 = "638900000000000000" // .NET ticks — beyond 2^53, so they stay strings
@@ -92,6 +92,15 @@ describe("e2e fixture-IDE resolver", () => {
 		expect(resolveFixturePipes(ok, { instance: "x" })).toEqual(["volt.bridge.twincat.777"])
 		const foreign = facts("twincat", [xae(`"C:\\XAE\\TcXaeShell.exe" "D:\\Customer\\Line4.sln"`)], [inst], PIPES)
 		expect(() => resolveFixturePipes(foreign, { instance: "x" })).toThrow(/refusing to touch.*Line4\.sln/)
+	})
+
+	// A bare `<pid>` record (no start time) once counted as the PARENT of anything: the engineer's CODESYS (parent 1200,
+	// long dead) became "ours" the day a launch got that number (ld-fbd-coverage gate 2R.3). It names nothing now.
+	it("a pid record with no start time is skipped, so a reused number never claims a stranger", () => {
+		expect(parseRecords(`1200\r\n5000 ${T0}\r\nnot-a-pid\r\n`)).toEqual([{ pid: 5000, ticks: T0 }])
+		const bare: InstanceRecord = { instance: "e2e-hygiene", records: parseRecords("1200\n"), projects: ours.projects }
+		const f = facts("codesys", [engineer], [bare], ["volt.bridge.codesys.39448"])
+		expect(() => resolveFixturePipes(f, { instance: "e2e-hygiene" })).toThrow(/refusing to touch.*39448/)
 	})
 })
 

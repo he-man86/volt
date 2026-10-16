@@ -851,7 +851,7 @@ public class CodesysNetworkReaderTests
         var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
         var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains("IF ioAxis.xVirtual THEN RETURN; END_IF;", text);
+        Assert.Contains("RETURN := ioAxis.xVirtual;", text);
         Assert.DoesNotContain("???", text);
     }
 
@@ -935,7 +935,7 @@ public class CodesysNetworkReaderTests
         Assert.Equal(0, Assert.Single(read.Outputs).Slot);
         Assert.False(read.HasEnoOutput);
         Assert.Null(read.ConnectedSlot);   // a top-level box has no consumer
-        Assert.Contains("  MOVE(src, => dst);\n", NetworkTextWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains("  MOVE src => dst;\n", NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>A CONSUMED box records the slot its consumer reads (task 3.10). NWL stores no connection slot — the
@@ -979,9 +979,9 @@ public class CodesysNetworkReaderTests
     // The output names Volt builds an operator with (ld-fbd-coverage 2.3, NetworkMembers.DerivedOutputNames): its data
     // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
     [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
-    [InlineData("ADD", false, new[] { "" }, 0, "n := (a + b);")]
-    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND(EN := c, a, b).ENO;")]
-    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE(EN := c, a, b).ENO;")]
+    [InlineData("ADD", false, new[] { "" }, 0, "n := a ADD b;")]
+    [InlineData("AND", true, new[] { "ENO" }, 0, "a AND b EN c\n  n := ENO;")]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "MOVE(a, b) EN c\n  n := ENO;")]
     [InlineData("MOVE", true, new string[0], null, null)]
     public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(
         string type, bool enabled, string[] outputNames, int? slot, string? text)
@@ -1017,7 +1017,7 @@ public class CodesysNetworkReaderTests
     /// to the marker as "a wire of unknown type" although the vendor stores it. An empty entry is an unresolved slot,
     /// an unknown type — null, never a default.</summary>
     [Fact]
-    public void A_wire_fed_by_a_data_box_is_declared_with_its_stored_output_type()
+    public void A_split_fed_by_a_data_box_reads_its_stored_output_type_and_writes_none()
     {
         var add = new Nwl.BoxTreeBox
         {
@@ -1033,7 +1033,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(Assert.IsType<Demux>(body.Networks.Single().Trees[0]).Input);
         Assert.Equal(new[] { "INT" }, read.OutputTypes);
-        Assert.Contains("  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n",
+        Assert.Contains("  split1 := a ADD b;\n",
             NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
     }
     /// <summary>A NETWORK THAT REPORTS MORE ITEMS THAN IT HAS reads as the trees it really has — the phantom slot

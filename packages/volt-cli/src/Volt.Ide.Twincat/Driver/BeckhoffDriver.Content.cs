@@ -637,7 +637,7 @@ public sealed partial class BeckhoffDriver
         }
         // Never an ENO refusal: after the import it is the answer (the text reads an output the imported box does not
         // give), not the regrouping this shrugs at.
-        catch (NotSupportedException ex) when (ex is not TcEnoRefusal && !CarriesDetail(model) && !LostNetworks(built, model))
+        catch (NotSupportedException ex) when (ex is not TcEnoRefusal and not TcRawLineEndRefusal && !CarriesDetail(model) && !LostNetworks(built, model))
         {
             // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
             // LOGGED, because the catch takes a NotSupportedException it never names (D24, task 3.7): which ones reach

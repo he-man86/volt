@@ -82,17 +82,16 @@ public class TcDemuxTests
         Assert.Equal((0, 0), (and.ConnectedSlot, and.MainOutputIndex));
     }
 
-    /// <summary>...and it renders as the format's own spelling for a fan-out: the wire declared in its network's
-    /// <c>VAR_TEMP</c> block, typed off its producer (a ladder leaf every use of which is a contact is BOOL), defined
-    /// by an assignment and referenced by name.</summary>
+    /// <summary>...and it renders as the format's own spelling for a fan-out: the split named by its VarId, no
+    /// declaration and no type (B6), defined by an assignment and referenced by name.</summary>
     [Fact]
     public void It_materializes_as_a_named_wire_and_its_uses()
     {
         var text = TcText.Write(Read());
 
-        Assert.Contains("  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := b;\n", text);
-        Assert.Contains("out2 := g1;", text);          // one consumer
-        Assert.Contains("(a OR g1)", text);            // ...and the other, inside the OR box
+        Assert.Contains("  split1 := b;\n", text);
+        Assert.Contains("out2 := split1;", text);      // one consumer
+        Assert.Contains("a OR split1", text);          // ...and the other, inside the OR box
     }
 
     /// <summary>A NO-OP PUSH MUST NOT REWRITE IT — the rule every other fixture is held to, now over a node type
@@ -136,7 +135,7 @@ public class TcDemuxTests
     /// by the contact <c>b</c>; here it is fed by the rung's AND box instead, stored as a bitwise <c>WORD</c> AND.
     /// Without the stored type the wire was declared <c>BOOL</c>: a different type, stated silently.</summary>
     [Fact]
-    public void A_wire_fed_by_a_box_is_declared_with_its_stored_output_type()
+    public void A_split_fed_by_a_box_writes_no_type_whatever_its_feeder_stores()
     {
         var root = XElement.Parse(Body(), LoadOptions.PreserveWhitespace);
         var feed = root.Descendants("o").Single(o => Is(o, "BoxTreeDemux") && o.Elements("o").Any(i => Named(i, "Input")))
@@ -156,14 +155,14 @@ public class TcDemuxTests
 
         var text = TcText.Write(Read(root));
 
-        Assert.Contains("  VAR_TEMP g1 : WORD; END_VAR\n", text);
+        // B6: no type is written, whatever the feeder stores.
+        Assert.Contains("  split1 := ", text);
+        Assert.DoesNotContain("WORD", text);
     }
 
-    /// <summary>…and AN IN-PLACE PUSH KEEPS THAT STORED TYPE (gate 2-3 review). The text spells no <c>OutputParam.Types</c>
-    /// pragma — the wire's declared type is its derivation — so the box read back from the text holds no stored types,
-    /// and the in-place write derived them WITHOUT the wire's type: the archive's <c>['WORD']</c> became <c>[]</c>, and
-    /// the next pull showed the network UNSUPPORTED, "a wire of unknown type". The Demux arm hands its producer the
-    /// declared type, as the CODESYS writer does (<see cref="NetworkText.WithDeclaredType"/>).</summary>
+    /// <summary>…and AN IN-PLACE PUSH KEEPS THAT STORED TYPE (gate 2-3 review). The text spells no output type (B6, B7),
+    /// so the box read back from the text states none, and the in-place write leaves the archive's <c>['WORD']</c> as the
+    /// IDE drew it — an edit elsewhere in the network does not reset it (N28).</summary>
     [Fact]
     public void An_in_place_push_keeps_the_stored_type_of_a_box_fed_wire()
     {
@@ -187,15 +186,18 @@ public class TcDemuxTests
 
         Assert.Null(TcText.Apply(archive, TcText.Validate(text, TcText.ScopeOf(pulled))));
 
-        var edited = text.Replace("out2 := g1;", "out := g1;");
+        var edited = text.Replace("out2 := split1;", "out := split1;");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);
-        Assert.Contains("  VAR_TEMP g1 : WORD; END_VAR\n", TcText.Write(Read(XElement.Parse(written!, LoadOptions.PreserveWhitespace))));
+        var after = XElement.Parse(written!, LoadOptions.PreserveWhitespace).Descendants("o").First(o => Is(o, "BoxTreeBox") &&
+                        o.Elements("v").Any(v => Named(v, "BoxType") && v.Value == "\"AND\""));
+        Assert.Equal(new[] { "WORD" }, after.Elements("o").Single(o => Named(o, "OutputParam")).Elements("l2")
+            .Single(l => Named(l, "Types")).Elements("v").Select(v => v.Value));
     }
 
     /// <summary>AN IN-PLACE PUSH IS NOT A CONSTRUCTION (gate 2-3 review): the box stays the one the IDE drew, so it keeps
-    /// the stored output names the text spells by pragma — the function result pin <c>'   '</c> among them, which only a
+    /// the stored output names the text derives (B7) — the function result pin <c>'   '</c> among them, which only a
     /// box VOLT BUILDS cannot hold (CODESYS, DIALECT N37; <see cref="NetworkMembers.Buildable"/>). The in-place write
     /// applied that construction limit and replaced the archive's names and types with the derivation, unnamed.</summary>
     [Fact]
@@ -209,9 +211,9 @@ public class TcDemuxTests
         var archive = root.ToString(SaveOptions.DisableFormatting);
         var pulled = Read(root);
         var text = TcText.Write(pulled);
-        Assert.Contains("{OutputParam.Names := ['   ']}", text);
+        Assert.DoesNotContain("'   '", text);
 
-        var edited = text.Replace("out2 := g1;", "out := g1;");
+        var edited = text.Replace("out2 := split1;", "out := split1;");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);

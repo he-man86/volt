@@ -127,7 +127,8 @@ public class TcDrawnJumpTests
         var branch = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
         branch.Attribute("n")!.Remove();
         terminator.ReplaceWith(new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
-            new XElement("n", new XAttribute("n", "Input")), new XElement("l2", new XAttribute("n", "Trees"), branch),
+            // Two branches: one is a parallel that pushes and does not compile (C0023, P6) — refused by name.
+            new XElement("n", new XAttribute("n", "Input")), new XElement("l2", new XAttribute("n", "Trees"), branch, new XElement(branch)),
             XElement.Parse($"<v n=\"Mode\" t=\"OperationMode\">{mode}</v>")));
         nwl.Descendants("o").Single(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "Operand" && v.Value == "\"out\""))
            .Remove();

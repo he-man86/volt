@@ -1,0 +1,608 @@
+#### three-input-sub — C3/B1: SUB takes 2 inputs (the build refuses a third)
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  i := j SUB k SUB m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED SUB takes 2 inputs
+
+#### three-input-div — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  i := j DIV k DIV m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED DIV takes 2 inputs
+
+#### three-input-mod — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  i := j MOD k MOD m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED MOD takes 2 inputs
+
+#### three-input-gt — C3/B1: every comparison takes 2
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j GT k GT m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED GT takes 2 inputs
+
+#### three-input-ge — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j GE k GE m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED GE takes 2 inputs
+
+#### three-input-lt — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j LT k LT m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED LT takes 2 inputs
+
+#### three-input-le — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j LE k LE m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED LE takes 2 inputs
+
+#### three-input-eq — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j EQ k EQ m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED EQ takes 2 inputs
+
+#### three-input-ne — C3/B1
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := j NE k NE m;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED NE takes 2 inputs
+
+#### three-input-sub-call-form — C3: in the call form too
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  i := SUB(j, k, m);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED SUB takes 2 inputs
+
+#### mixed-words — B1/P4: one word kind per bracket level, two boxes on one level are refused
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD b MUL c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION one word = one box
+
+#### call-form-where-word-fits — P5: the call form only where the word cannot carry the tree
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := ADD(a, b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION where its word fits
+
+#### and-call-form-where-word-fits — P5
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := AND(a, b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION where its word fits
+
+#### move-call-form-where-word-fits — P5: `MOVE(b, => a)` where `MOVE b => a` fits
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE(b, => a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION where its word fits
+
+#### move-enabled-call-form-where-word-fits — P5: `MOVE(b, => a) EN c` where `MOVE b => a EN c` fits
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE(b, => a) EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION where its word fits
+
+#### not-box-unnamed — P5: bare `NOT(a)` negates a bracket, and a bracket around a leaf is redundant
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := NOT(a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### word-without-operand — B1: a box word between two operands
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := ADD b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION at operand position
+
+#### move-inside-word — P4: MOVE inside another word's level is refused
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD MOVE b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION at operand position
+
+#### enabled-add-as-value — B4: an enabled box is the root of its line; `x := a ADD b EN c;` is no text
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a ADD b EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION read as a value
+
+#### enabled-move-coil — B4: `a := MOVE b EN c;` is no text, write `MOVE b => a EN c`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  a := MOVE b EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION read as a value
+
+#### enabled-call-as-value — B4: a coil reading an enabled call reads its ENO — the call on its own line, then `x := ENO;`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := f(b) EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION read as a value
+
+#### enabled-call-in-word — B4: an enabled call is no value, so no bracket holds it as one
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a ADD (f(b) EN c);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### open-line-at-network-end — P3: an open line nothing takes
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN c
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an open line nothing takes
+
+#### open-line-not-taken-by-item — P3: one `;` = one item, and every open line above it is taken by then
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN c
+  x := y;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an open line nothing takes
+
+#### open-line-one-of-two-taken — P3: every open line is taken exactly once
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN c
+  MOVE 2 => B EN d
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an open line nothing takes
+
+#### eno-after-semicolon — P3: ENO with no open line — a `;` ended the item above
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN c;
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION ENO with no open line
+
+#### eno-one-line-read-twice — P3: an open line is taken once; a second ENO has none left
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN c
+  x := ENO AND ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION ENO with no open line
+
+#### eno-root-coil — P3: a coil hands no ENO
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a ADD b
+  y := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a coil ends its item
+
+#### eno-root-leaf — P3: a leaf hands no ENO
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x
+  y := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION whose root is no box with an ENO
+
+#### eno-root-parallel — P3: a parallel hands no ENO
+=== text
+IMPLEMENTATION LD
+NETWORK
+  s BRANCH (a, b)
+  y := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION whose root is no box with an ENO
+
+#### eno-root-split — P3: a split definition ends its item
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a
+  y := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a split's definition ends its item
+
+#### eno-move-without-en — P3/N21: `MOVE 1 => A` has no EN, so no ENO
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION without EN on an open line
+
+#### eno-comparison — P3/N21: a comparison has no ENO
+=== text
+IMPLEMENTATION LD
+NETWORK
+  a GT b EN c
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a comparison on an open line
+
+#### eno-modifier-on-root — P3: the modifier goes at the ENO token
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT f(a) EN c
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a modifier on an open line
+
+#### jump-no-semicolon — P3/P7: a jump ends its item
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done := c
+  x := ENO;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a jump ends its item
+
+#### one-branch — B8/P6/C0023: a parallel with one branch pushes and does not compile (2R.5)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a parallel with one branch
+
+#### no-branch — P6
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH ();
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a parallel with no branch
+
+#### empty-branch — P6: `(a, , b)` is refused
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a, , b);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an empty branch
+
+#### trailing-empty-branch — P6
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a, b, );
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an empty branch
+
+#### branch-without-list — B8: BRANCH takes a bracketed list
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH a;
+END_NETWORK
+=== refused
+NETWORK_PARSE bracketed list
+
+#### flag-on-parallel — P6/N20: the IDE holds no flag on a parallel; `NOT s BRANCH (a, b)` negates the feed
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := NOT (s BRANCH (a, b));
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED on a parallel
+
+#### feed-word-unbracketed — P4: a feed that is a box word is bracketed before BRANCH
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s AND t BRANCH (a, b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a feed that is a box word is bracketed
+
+#### parallel-operand-unbracketed — P4: a parallel as a word's operand is bracketed
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a, b) AND c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION after a bracket level that already holds a box
+
+#### unfed-parallel-operand-unbracketed — P4
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := c AND BRANCH (a, b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION stands in brackets
+
+#### parallel-enabled — B8: a parallel has no EN
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a, b) EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION EN after a parallel
+
+#### shortcircuit-on-no-parallel — B8
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND b SHORTCIRCUIT;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION SHORTCIRCUIT after something no parallel
+
+#### redundant-parallel-bracket — P4: a branch is a slot, a nested parallel there takes no brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a, (c BRANCH (b, d)));
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### redundant-coil-bracket — B5/P4: a coil's value is a slot, never bracketed
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (a AND b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### redundant-line-bracket — B5/P4: a line's whole value is never bracketed
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  (a ADD b => x);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION brackets around a line's whole value
+
+#### bracket-no-box — P4: a bracket around a leaf is redundant
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND (b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### bracket-around-call — P4: a call carries its own brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND (f(b));
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### double-bracket — P4: one pair separates one box
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND ((b OR c));
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### call-argument-bracketed — P4: a call argument is a slot, a word box there takes no brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := f((a OR b));
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### call-argument-bracketed-beside — P4: beside other pins too (28 corpus networks wrote `IN := (a AND b)`)
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := t1(IN := (a AND b), PT := T#1S);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### en-tail-redundant — P4: an EN tail is a slot, its box stands without brackets
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN (a AND b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### enabled-comparison-unbracketed — P4 (2): an enabled comparison used as a value is bracketed
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a GT b EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an enabled comparison used as a value stands in brackets
+
+#### enabled-comparison-in-tail-unbracketed — P4 (2): in an EN tail too
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => A EN a GT b EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an enabled comparison used as a value stands in brackets
+
+#### enabled-comparison-in-branch-unbracketed — P4 (2): and as a branch
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a GT b EN c, d);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an enabled comparison used as a value stands in brackets
+
+#### en-in-call-argument — P4 (2): an enabled value in a call's argument is a bracketed comparison
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := f(a GT b EN c, d);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION an enabled comparison used as a value stands in brackets
+
+#### en-after-bracket — P4: EN belongs to the box of its own bracket level
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (a GT b) EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION EN after a bracket
+
+#### en-on-leaf — B3: EN follows a box
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION no box
+
+#### edge-double-bracket — P4: an edge's brackets carry its argument whole
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := R_EDGE((a AND b));
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a redundant bracket
+
+#### arrow-without-target — a box word's `=>` takes a target; a slot passed over is the call form's
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  a ADD b => => x;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION with no target
+
+#### arrow-after-en — P4: `MOVE b EN c => a` is refused, `=>` comes before EN
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE b EN c => a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION `=>` after EN
+
+#### eno-pin-without-eno — P5: a box without EN has no ENO to wire
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  f(a, ENO => lamp);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION that has no ENO
+
+#### eno-input-pin — P5: ENO is an output
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  f(a, ENO := b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION ENO is an output

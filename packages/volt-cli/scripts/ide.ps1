@@ -163,14 +163,16 @@ function Get-ServingPids([string]$vendor) {
 # WHAT `up` STARTED, one process per line as `<pid> <start time, UTC ticks>`. The start time is what makes a line
 # mean ONE process: a pid is reused once its process exits, and a pid alone named whatever later got the number.
 # A corrupt line is skipped, not fatal — the file is written by a previous run and read by this one, so it is the
-# least trustworthy input the script has. A bare `<pid>` line (written before the start time was recorded) still
-# counts, as it always did.
+# least trustworthy input the script has. A bare `<pid>` line (no start time) names NOTHING and is skipped, said
+# aloud: as a recorded PARENT it named any process whose dead parent's number Windows had handed to a launch of ours
+# — another session's TcXaeShell and every worker attached to it, closed together (ld-fbd-coverage gate 2R.3).
 function Read-Records([string]$path) {
     if (-not (Test-Path $path)) { return @() }
     @(Get-Content $path | ForEach-Object {
         $f = @($_.Trim() -split '\s+')
         if ($f[0] -match '^\d+$') {
-            [pscustomobject]@{ Pid = [int]$f[0]; Ticks = $(if ($f.Count -gt 1 -and $f[1] -match '^\d+$') { [long]$f[1] } else { $null }) }
+            if ($f.Count -gt 1 -and $f[1] -match '^\d+$') { [pscustomobject]@{ Pid = [int]$f[0]; Ticks = [long]$f[1] } }
+            else { Write-Warning "pid record '$($_.Trim())' in $path has no start time - skipped (a bare pid names whatever later reuses the number)" }
         }
     })
 }
@@ -197,9 +199,9 @@ function Test-Ours([int]$procId, $records) {
         if ($null -eq $p) { return $false }
         $ticks = $p.CreationDate.ToUniversalTime().Ticks
         foreach ($r in $records) {
-            if ($depth -eq 0 -and $r.Pid -eq $cur -and ($null -eq $r.Ticks -or $r.Ticks -eq $ticks)) { return $true }
+            if ($depth -eq 0 -and $r.Pid -eq $cur -and $r.Ticks -eq $ticks) { return $true }
             # A recorded PARENT: the child must not predate it, or the parent pid is a reused number.
-            if ($r.Pid -eq $p.ParentProcessId -and ($null -eq $r.Ticks -or $r.Ticks -le $ticks)) { return $true }
+            if ($r.Pid -eq $p.ParentProcessId -and $r.Ticks -le $ticks) { return $true }
         }
         $cur = [int]$p.ParentProcessId
         if ($cur -le 0) { return $false }
@@ -214,11 +216,17 @@ function Test-Ours([int]$procId, $records) {
 # that IDE as ours. A stale record cannot name a stranger — its start time no longer matches anything.
 # `@(...)` on both sides is load-bearing: Get-Content returns a SCALAR for a one-line file, and `$a + $b` then
 # concatenated strings ("22620" + 10388 → "2262010388"), which once left ten TcXaeShell windows orphaned.
-function Save-Pids([string]$path, [int[]]$new) {
-    $lines = @(Read-Records $path | ForEach-Object { "$($_.Pid) $($_.Ticks)".Trim() })
-    foreach ($procId in $new) {
-        $t = Get-StartTicks $procId
-        $lines = @($lines) + @($(if ($null -ne $t) { "$procId $t" } else { "$procId" }))
+# Every record carries its START TIME, read from the Process object `Start-Process -PassThru` returned — it holds the
+# process handle, so the time answers even when the process has already exited (a launcher that re-execs), where CIM
+# finds nothing. Truncated to the microsecond CIM's CreationDate carries, so Test-Ours compares like with like. A
+# process whose start cannot be read is NOT recorded — it was written as a bare pid, which named strangers (Read-Records).
+function Save-Pids([string]$path, [System.Diagnostics.Process[]]$new) {
+    $lines = @(Read-Records $path | ForEach-Object { "$($_.Pid) $($_.Ticks)" })
+    foreach ($proc in $new) {
+        $t = $null
+        try { $t = $proc.StartTime.ToUniversalTime().Ticks; $t -= $t % 10 } catch { $t = Get-StartTicks $proc.Id }
+        if ($null -eq $t) { Write-Warning "pid $($proc.Id): its start time cannot be read - not recorded, so ``down`` will not close it by its pid"; continue }
+        $lines = @($lines) + @("$($proc.Id) $t")
     }
     @($lines | Select-Object -Unique) | Out-File $path -Encoding ascii
 }
@@ -335,7 +343,7 @@ function Get-OurProcesses([string]$vendor) {
         $wTicks = $w.CreationDate.ToUniversalTime().Ticks
         # Attached to an XAE we hold now, or to one the record names (the worker no older than that XAE, so a reused
         # pid number is not mistaken for ours).
-        $mine = ($ours -contains $xae) -or @($records | Where-Object { $_.Pid -eq $xae -and ($null -eq $_.Ticks -or $_.Ticks -le $wTicks) }).Count -gt 0
+        $mine = ($ours -contains $xae) -or @($records | Where-Object { $_.Pid -eq $xae -and $_.Ticks -le $wTicks }).Count -gt 0
         if ($mine) { $ours += $wid }
     }
     [pscustomobject]@{ Ours = $ours; Others = @($candidates | Where-Object { $ours -notcontains $_ }) }
@@ -724,7 +732,7 @@ function Up-Codesys {
     else { Write-Host "DLL:     $($env:VOLT_BRIDGE_DLL)" }
     Write-Host "Project: $($env:VOLT_FIXTURE_PROJECT)"
     $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Normal
-    Save-Pids $pidFile @($proc.Id)
+    Save-Pids $pidFile @($proc)
     Write-Host "CODESYS launched (pid $($proc.Id))."
 }
 
@@ -828,13 +836,15 @@ function Up-Twincat {
     }
 
     $launched = @()
+    $launchedProcs = @()
     foreach ($k in $open.Keys) {
         $sln = $open[$k]
         $p = Start-Process -FilePath $ide -ArgumentList ('{0}"{1}"' -f $lcidArg, (Resolve-Path $sln).Path) -PassThru
         $launched += $p.Id
+        $launchedProcs += $p
         Write-Host "opened $([System.IO.Path]::GetFileNameWithoutExtension($sln)) (TcXaeShell pid $($p.Id))"
     }
-    Save-Pids $pidFile $launched
+    Save-Pids $pidFile $launchedProcs
 
     # WHEN is the XAE ready for a worker? Not when the process exists, and — measured — not when it appears in
     # the COM ROT either: `--list-xae-pids` answers within a second of launch, while the PLC project is still
@@ -866,12 +876,22 @@ function Up-Twincat {
             if (-not $ready) { Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue }
         }
         if (-not $ready) { throw "no worker could ATTACH to XAE $procId after 10 tries - is the PLC project actually opening? (ide.ps1 logs -Vendor twincat)" }
-        Save-Pids $pidFile @($w.Id)   # the worker is ours too — its parent is this shell, not a recorded IDE
+        Save-Pids $pidFile @($w)   # the worker is ours too — its parent is this shell, not a recorded IDE
         Write-Host "worker attached to XAE $procId -> $pipe"
     }
 }
 
 # ── verbs ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+# ONE `up` OR `down` AT A TIME PER INSTANCE. Two `up`s started together both saw the instance down, and the second's
+# Clear-InstanceLeftovers deleted the copy the first had just opened. A named mutex, released by Windows when this
+# process ends however it ends; a second caller is refused by name, never queued behind a launch it cannot see.
+if ($Action -in @("up", "down")) {
+    $instanceLock = New-Object System.Threading.Mutex($false, "Local\volt-ide-$Vendor$sfx")
+    $held = $false
+    try { $held = $instanceLock.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $held = $true }
+    if (-not $held) { throw "another ide.ps1 is bringing instance $(if ($Instance) { $Instance } else { '(default)' }) of $Vendor up or down right now - wait for it, or use another -Instance" }
+}
 
 switch ($Action) {
     "pipe" {
@@ -908,10 +928,17 @@ switch ($Action) {
         # than left alone, because a shell that set it once would otherwise hand it on and the check would prove nothing.
         if ($Production) { Remove-Item Env:VOLT_GRAPHICAL -ErrorAction SilentlyContinue }
         else { $env:VOLT_GRAPHICAL = "1" }
-        # FIRST what this instance left last time: an IDE or worker still running (closed as `down` closes it), a worker
-        # whose XAE is gone, the XAE recovery entries naming this copy, and the copy itself. Without this, the IDE about
-        # to open shows a modal recovery dialog and the worker attaches to nothing. One `up` owns its instance: a second
-        # `up` on the same -Instance replaces the first (use a second -Instance for two windows a run can drive).
+        # AN INSTANCE THAT IS UP IS SOMEBODY'S. A second `up` on it used to REPLACE it: close its IDE, then delete its
+        # copy file by file — under a run still driving it (two agents of one workflow share an -Instance; the copy was
+        # found gutted, its .plcproj listing files already deleted, ld-fbd-coverage gate 2R.3). An IDE of this instance
+        # still running is now refused by name; `down` is the one verb that ends an instance.
+        $live = @((Get-OurProcesses $Vendor).Ours | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -ne "VoltBridgeTwincat" })
+        if ($live.Count -gt 0) {
+            throw "instance $(if ($Instance) { $Instance } else { '(default)' }) of $Vendor is UP (pid $($live -join ', ')) - another run may be driving it. If it is a leftover: ide.ps1 down -Vendor $Vendor$(if ($Instance) { " -Instance $Instance" }); else use another -Instance."
+        }
+        # FIRST what this instance left last time: a worker whose XAE is gone (closed as `down` closes it), the XAE
+        # recovery entries naming this copy, and the copy itself. Without this, the IDE about to open shows a modal
+        # recovery dialog and the worker attaches to nothing.
         [void](Close-Instance $Vendor -Quiet)
         Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue
         Clear-InstanceLeftovers $Vendor

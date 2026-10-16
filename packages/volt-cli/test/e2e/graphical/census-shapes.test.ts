@@ -52,7 +52,7 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S1: a bit operator storing an output slot is its pragmas, and the IDE keeps them", async () => {
-		await shape("s1", (n) => fb(n, "FBD", "  out := (a AND b){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']};"))
+		await shape("s1", (n) => fb(n, "FBD", "  out := a AND b;"))
 	})
 
 	it("S2: an assignment below the top level is its own pair", async () => {
@@ -60,11 +60,11 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S3a: a leaf-fed wire is declared with the leaf's stored type", async () => {
-		await shape("s3a", (n) => fb(n, "LD", "  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := a;\n  out := (g1 AND b);\n  out2 := g1;"), "fed by the leaf 'a'")
+		await shape("s3a", (n) => fb(n, "LD", "  split1 := a;\n  out := split1 AND b;\n  out2 := split1;"), "fed by the leaf 'a'")
 	})
 
 	it("S3b: in LD a wire fed by nothing is the left rail, BOOL", async () => {
-		await shape("s3b", (n) => fb(n, "LD", "  VAR_TEMP g2 : BOOL; END_VAR\n  g2 := ;\n  out := (g2 AND a);\n  out2 := g2;"))
+		await shape("s3b", (n) => fb(n, "LD", "  split2 := ;\n  out := split2 AND a;\n  out2 := split2;"))
 	})
 
 	it("S6: a negated pin is spelled on its formal, on an operator's and on a call's", async () => {

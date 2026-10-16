@@ -1,108 +1,161 @@
 /**
- * The reader's STATEMENTS — one per NWL item: the empty item, an assignment (a chain of targets, each with its storage
- * operator) or a wire's definition, a value whose output goes nowhere, and a jump (`JMP`, `RETURN`, under `IF … THEN`).
+ * The reader's STATEMENTS — a port of the bridge reader's `ParseStatement` (`NetworkTextReader.cs`, openspec
+ * ld-fbd-coverage 2R.3): one per LINE — the empty item, a jump or return (B4b, a coil: `JMP l := c;`), an EXECUTE box
+ * (P8), a split's definition (B6), a coil (a chain of targets, each with its storage operator), or a box — and the line's
+ * end: `;` where the item ends, or none where it is an OPEN line a later `ENO` takes (B4, P3).
  */
-import type { NetworkAssign, NetworkName, NetworkTarget, NetworkTextStatement, NetworkValue } from "./ast.js"
-import { IDENTIFIER } from "./cursor.js"
+import type { NetworkName, NetworkTarget, NetworkTextStatement, NetworkValue, NetworkWordBox, NetworkCall, NetworkExecute } from "./ast.js"
 import { CallReader } from "./calls.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
-import { v1Refusal } from "./words.js"
+import type { Role } from "./boxes.js"
+import { IDENTIFIER, NETWORK_TEXT_WORDS, SPLIT_SHAPE } from "./words.js"
+
+/** What one line read: the statement it is, or — on an open line — the box a later ENO takes. */
+type LineRead = { statement: NetworkTextStatement } | { open: NetworkWordBox | NetworkCall | NetworkExecute } | { notABox: true }
 
 export abstract class StatementReader extends CallReader {
-  protected parseStatement(): NetworkTextStatement {
+  /** One line, `semi` whether it ends with `;`. */
+  protected parseLine(semi: boolean): LineRead {
     const t = this.peek()
+    const role: Role = semi ? "top" : "eno"
 
     // The empty statement IS the empty item — a `;` that closes no statement.
     if (isSym(t, ";")) {
       this.next()
-      return { kind: "empty", span: this.tokSpan(t) }
+      this.atLineEnd("the empty item is `;` alone")
+      return { statement: { kind: "empty", span: this.tokSpan(t) } }
     }
 
-    if (isWord(t, "LET")) throw this.err(t, "NETWORK_PARSE", v1Refusal("`LET` statements"))
+    if (isWord(t, "JMP") || isWord(t, "RETURN")) return { statement: this.parseJump(t, semi) }
 
-    if (isWord(t, "IF")) {
-      this.next()
-      const condTok = this.peek()
-      const cond = this.resolve(this.parseValue(true))
-      if (cond.kind === "empty_slot")
-        throw this.err(condTok, "NETWORK_BAD_EXPRESSION", "IF with no condition: an unconditional jump is `JMP l;`.")
-      this.expectWord("THEN", "IF c THEN JMP l; END_IF;")
-      const jump = this.parseJump(cond)
-      this.expectSym(";", "IF c THEN JMP l; END_IF;")
-      this.expectWord("END_IF", "IF c THEN JMP l; END_IF;")
-      this.expectSym(";", "every statement ends with `;`, END_IF; included")
-      return { ...jump, span: this.span(t.offset, this.lastEnd) }
-    }
+    if (isWord(t, "EXECUTE")) return this.parseExecute(role, semi)
 
-    if (isWord(t, "JMP") || isWord(t, "RETURN")) {
-      const jump = this.parseJump(undefined)
-      this.expectSym(";", "every statement ends with `;`")
-      return { ...jump, span: this.span(t.offset, this.lastEnd) }
-    }
+    if ((isWord(t, "IF") || isWord(t, "VAR_TEMP")) && !this.storageAt(this.p + 1))
+      throw this.err(
+        t,
+        "NETWORK_PARSE",
+        isWord(t, "IF")
+          ? "IF … THEN is gone: a jump is a coil, `JMP l := c;`, and a return `RETURN := c;` (B4b, P12)."
+          : "VAR_TEMP is gone: a split is defined by `split<VarId> := value;` and needs no declaration (B6, P12).",
+      )
 
-    const first = this.parseValue(false, true)
-    if (this.atStorage()) {
-      const targets: { tok: Tok; op: Tok }[] = []
-      let cur = first
-      let value: NetworkValue
-      for (;;) {
-        if (cur.bare === undefined)
-          throw this.err(cur.start, "NETWORK_BAD_EXPRESSION", "an assignment target is one variable: a token, or text between backticks.")
-        targets.push({ tok: cur.bare, op: this.takeStorage() })
-        const v = this.parseValue(true, true)
-        if (this.atStorage()) {
-          cur = v
-          continue
-        }
-        value = this.resolve(v)
-        break
+    if (t.kind === "word" && SPLIT_SHAPE.test(t.text) && (isSym(this.peekAt(1), ":=") || isSym(this.peekAt(1), ":")))
+      return { statement: this.parseSplitDefinition(semi) }
+
+    if (t.kind === "word" && NETWORK_TEXT_WORDS.has(t.text.toUpperCase()) && this.storageAt(this.p + 1))
+      throw this.err(
+        t,
+        "NETWORK_BAD_EXPRESSION",
+        `'${t.text}' as a target: a target spelled like a word of the text is written between backticks, \`${t.text}\` (P1).`,
+      )
+
+    if (this.isTargetToken(t) && this.storageAt(this.p + 1)) {
+      const targets: NetworkTarget[] = []
+      let op: Tok = t
+      while (this.isTargetToken(this.peek()) && this.storageAt(this.p + 1)) {
+        const tt = this.next()
+        op = this.takeStorage()
+        targets.push(this.lvalue(tt, op))
       }
-      this.expectSym(";", "every statement ends with `;`")
-      return this.buildAssign(targets, value, t)
+      const value = this.slotValue(op)
+      this.endStatement(semi, "a coil")
+      return { statement: { kind: "assign", targets, value, span: this.spanFrom(t) } }
     }
 
-    const value = this.resolve(first)
-    this.expectSym(";", "every statement ends with `;`")
-    return { kind: "value", value, span: this.span(t.offset, this.lastEnd) }
+    const root = this.parseLevel()
+    if (root.empty) throw this.err(t, "NETWORK_PARSE", "a value is expected here.")
+    if (root.bracketed)
+      throw this.err(root.start, "NETWORK_BAD_EXPRESSION", "brackets around a line's whole value: a line holds one box, never bracketed (B5, P4).")
+    const node = root.box !== undefined ? this.finalize(root.box, role) : root.node!
+    this.endStatement(semi, undefined)
+    if (semi) return { statement: { kind: "value", value: node, span: this.spanFrom(t) } }
+    return node.kind === "word" || node.kind === "call" || node.kind === "execute" ? { open: node } : { notABox: true }
   }
 
-  private buildAssign(targets: { tok: Tok; op: Tok }[], value: NetworkValue, start: Tok): NetworkTextStatement {
-    for (const { tok } of targets) {
-      const w = tok.kind === "word" ? this.wires.get(tok.text.toUpperCase()) : undefined
-      if (w === undefined) continue
-      const name = w.wire.name.text
-      if (targets.length > 1)
-        throw this.err(tok, "NETWORK_BAD_EXPRESSION", `the wire ${name} is defined inside a chain; a wire's definition is its own statement \`${name} := value;\`.`)
-      if (targets[0]!.op.text !== ":=")
-        throw this.err(targets[0]!.op, "NETWORK_BAD_EXPRESSION", `the wire ${name} is defined with ${targets[0]!.op.text}; a wire is defined with \`:=\`, and S=/R= are coils.`)
-      if (w.defined) throw this.err(tok, "NETWORK_DUPLICATE_NAME", `the wire ${name} is defined twice.`)
-      w.defined = true
-      const def = { kind: "wire_def" as const, wire: this.name(tok), value, span: this.span(start.offset, this.lastEnd) }
-      w.wire.definition = def
-      return def
-    }
-    const out: NetworkAssign = {
-      kind: "assign",
-      targets: targets.map(({ tok, op }) => this.target(tok, op.text as NetworkTarget["op"])),
-      value,
-      span: this.span(start.offset, this.lastEnd),
-    }
-    return out
-  }
-
-  /** `JMP label` / `RETURN`. After JMP a word can be nothing but the label, words of the text included. */
-  private parseJump(
-    condition: NetworkValue | undefined,
-  ): { kind: "jump"; target: NetworkName; condition?: NetworkValue } | { kind: "return"; condition?: NetworkValue } {
-    const t = this.next()
-    const cond = condition !== undefined ? { condition } : {}
+  /** `JMP label` / `RETURN`, on the rail or driven by `:=` (P7). */
+  private parseJump(t: Tok, semi: boolean): NetworkTextStatement {
+    this.next()
+    let target: NetworkName | undefined
     if (isWord(t, "JMP")) {
       const l = this.next()
-      if (l.kind !== "word" || !IDENTIFIER.test(l.text))
-        throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
-      return { kind: "jump", target: this.name(l), ...cond }
+      if (l.kind !== "word" || !IDENTIFIER.test(l.text)) throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
+      target = this.name(l)
     }
-    if (isWord(t, "RETURN")) return { kind: "return", ...cond }
-    throw this.err(t, "NETWORK_PARSE", "IF c THEN takes `JMP label;` or `RETURN;`.")
+    let condition: NetworkValue | undefined
+    if (isSym(this.peek(), ":=")) {
+      const op = this.next()
+      if (this.atEnd() || isSym(this.peek(), ";"))
+        throw this.err(
+          op,
+          "NETWORK_BAD_EXPRESSION",
+          `\`${t.text.toUpperCase()} … := ;\`: a jump on the rail is \`${isWord(t, "JMP") ? "JMP l;" : "RETURN;"}\` (P7, one spelling).`,
+        )
+      condition = this.slotHere()
+    } else if (this.storageAt(this.p))
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", `${t.text.toUpperCase()} with S= or R=: a jump or return is driven by \`:=\` (P7).`)
+    this.endStatement(semi, "a jump")
+    const span = this.spanFrom(t)
+    return target !== undefined
+      ? { kind: "jump", target, ...(condition !== undefined ? { condition } : {}), span }
+      : { kind: "return", ...(condition !== undefined ? { condition } : {}), span }
+  }
+
+  /** P8: `EXECUTE [EN [c]]` on its line, the verbatim ST below it, `END_EXECUTE`, and `;` — or no `;`, where it is an
+   *  open line a later ENO takes. Never a value. */
+  private parseExecute(role: Role, semi: boolean): LineRead {
+    const kw = this.next()
+    if (isSym(this.peek(), "(")) throw this.err(this.peek(), "NETWORK_PARSE", "EXECUTE(EN := c) is gone: write `EXECUTE EN c` on the EXECUTE line (B3, P12).")
+    const box = this.newBox("execute", "EXECUTE", kw, kw)
+    this.parseEn(box)
+    // The body's lexical error (a lone CR) stands where the body would: past this line's tokens.
+    if (this.atEnd() && this.raw(this.p).kind === "error") {
+      const e = this.raw(this.p)
+      throw this.err(e, (e.code ?? "NETWORK_PARSE") as never, e.text)
+    }
+    const snippet = this.next()
+    if (snippet.kind !== "snippet")
+      throw this.err(snippet, "NETWORK_PARSE", "EXECUTE [EN [c]] ends at its line; its ST starts on the next line (P8).")
+    const end = this.next()
+    if (!isWord(end, "END_EXECUTE")) throw this.err(end, "NETWORK_PARSE", "an EXECUTE body ends with END_EXECUTE.")
+    const st = this.stStatements(snippet.offset, snippet.offset + snippet.length)
+    box.execute = { statements: st.statements, ok: st.ok }
+    box.to = this.lastEnd()
+    const node = this.finalize(box, role)
+    this.endStatement(semi, undefined)
+    if (semi) return { statement: { kind: "value", value: node, span: this.spanFrom(kw) } }
+    return node.kind === "execute" ? { open: node } : { notABox: true }
+  }
+
+  /** B6, P9: `split<n> := value;` — the split's one definition, before its references. No type is ever written. */
+  private parseSplitDefinition(semi: boolean): NetworkTextStatement {
+    const name = this.next()
+    const id = this.splitId(name)
+    if (isSym(this.peek(), ":"))
+      throw this.err(
+        this.peek(),
+        "NETWORK_BAD_EXPRESSION",
+        `a type on the split ${name.text}: a split's type is its feeder's and is never written — \`${name.text} := value;\` (B6, P9).`,
+      )
+    const op = this.next()
+    if (!isSym(op, ":=")) throw this.err(op, "NETWORK_BAD_EXPRESSION", `a split is defined with \`:=\`, and S=/R= are coils (${name.text}, P9).`)
+    if (this.splits.has(id)) throw this.err(name, "NETWORK_DUPLICATE_NAME", `the split ${name.text} is defined twice (P9).`)
+    const value = this.slotValue(op)
+    this.endStatement(semi, "a split's definition")
+    this.splits.set(id, { name: this.name(name), references: [] })
+    return { kind: "split_def", split: this.name(name), value, span: this.spanFrom(name) }
+  }
+
+  /** The line's end: `;` where the line has one (its last token), nothing else after the statement. */
+  private endStatement(semi: boolean, what: string | undefined): void {
+    if (semi) {
+      if (!isSym(this.peek(), ";")) throw this.unexpected(this.peek())
+      this.next()
+    } else if (what !== undefined)
+      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", `${what} ends its item with \`;\`: only a box with an ENO stands on an open line (B4, P3).`)
+    this.atLineEnd(undefined)
+  }
+
+  private atLineEnd(what: string | undefined): void {
+    if (this.p < this.end) throw this.unexpected(this.raw(this.p), what)
   }
 }

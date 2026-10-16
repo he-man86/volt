@@ -35,7 +35,7 @@ const itemOf = (lang: string) => fid(`hidnet_${lang.toLowerCase()}`, "pou")
 /** A PROGRAM whose body is one network in `lang` — the shape both vendors create and read back (graphical-kinds). */
 const created = (lang: string) =>
 	`PROGRAM ${bareOf(lang)}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-	`IMPLEMENTATION ${lang}\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`IMPLEMENTATION ${lang}\nNETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 /** The file as a PRODUCTION pull writes it: the same declaration, the body replaced by its UNSUPPORTED line. */
 function asProductionPull(pulled: string, stated: string): string {
@@ -154,7 +154,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const name = itemOf("LD")
 		const before = (await fetchItem(name)).sourceText as string
 		const bytes = await heldBytes("LD")
-		const rewired = before.replace("out := (a AND b);", "out := (a OR b);")
+		const rewired = before.replace("out := a AND b;", "out := a OR b;")
 		expect(rewired).not.toBe(before)
 		try {
 			expect((await set(name, rewired)).accepted).toBe(true)

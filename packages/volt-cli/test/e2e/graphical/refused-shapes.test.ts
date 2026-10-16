@@ -100,10 +100,10 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  IF cond THEN JMP Tail; END_IF;
+  JMP Tail := cond;
 END_NETWORK
 NETWORK
-  IF cond THEN RETURN; END_IF;
+  RETURN := cond;
 END_NETWORK
 NETWORK LABEL: Tail
   done := TRUE;
@@ -132,7 +132,7 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE(EN := bRun)
+  EXECUTE EN bRun
 IF bStart THEN
 \ttarget := 40 + 2;
 END_IF
@@ -273,16 +273,16 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["NETWORK", "  IF a THEN JMP Done; END_IF;", "END_NETWORK", "NETWORK LABEL: Done", "  out := a;", "END_NETWORK"],
-			from: "IF a THEN JMP Done; END_IF;",
+			nets: ["NETWORK", "  JMP Done := a;", "END_NETWORK", "NETWORK LABEL: Done", "  out := a;", "END_NETWORK"],
+			from: "JMP Done := a;",
 			to: "JMP Done;",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["NETWORK", "  IF a THEN RETURN; END_IF;", "END_NETWORK", "NETWORK", "  out := a;", "END_NETWORK"],
-			from: "IF a THEN RETURN; END_IF;",
+			nets: ["NETWORK", "  RETURN := a;", "END_NETWORK", "NETWORK", "  out := a;", "END_NETWORK"],
+			from: "RETURN := a;",
 			to: "RETURN;",
 		},
 		{
@@ -372,7 +372,7 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE(EN := bRun)
+  EXECUTE EN bRun
 target := 40 + 2;
   END_EXECUTE;
 END_NETWORK

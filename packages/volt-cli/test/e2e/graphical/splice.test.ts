@@ -34,10 +34,10 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  out1 := (a AND b);
+  out1 := a AND b;
 END_NETWORK
 NETWORK
-  out2 := (a OR b);
+  out2 := a OR b;
 END_NETWORK
 END_PROGRAM
 `
@@ -65,7 +65,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		expect(nets1.length).toBe(2)
 
 		// Edit network 1 ONLY. Network 0's text is byte-identical, so the splice must carry it.
-		const edited = nets1[1].replace("out2 :=", "out2b :=").replace("(a OR b)", "(a AND NOT b)")
+		const edited = nets1[1].replace("out2 :=", "out2b :=").replace("a OR b;", "a AND NOT b;")
 		expect(edited).not.toBe(nets1[1])
 		const pushed = v1.replace(nets1[1], edited).replace("\tout2 : BOOL;", "\tout2b : BOOL;")
 
@@ -82,7 +82,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		expect(nets2.length).toBe(2)
 		expect(nets2[0]).toBe(nets1[0])                 // untouched network: carried, unchanged
 		expect(v2).toContain("out2b")                   // and the edit really landed
-		expect(v2).not.toContain("(a OR b)")
+		expect(v2).not.toContain("a OR b;")
 	})
 
 	it("a spliced body still COMPILES — the importer accepted it as a program, not just as XML", async () => {
@@ -100,10 +100,10 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  out1 := (a AND b);
+  out1 := a AND b;
 END_NETWORK
 NETWORK
-  out2 := (a OR b);
+  out2 := a OR b;
 END_NETWORK
 END_FUNCTION_BLOCK
 `
@@ -111,7 +111,7 @@ END_FUNCTION_BLOCK
 		const v1 = (await fetchItem(full)).sourceText
 		const nets1 = networks(v1)
 
-		const pushed = v1.replace(nets1[1], nets1[1].replace("(a OR b)", "(a AND NOT b)"))
+		const pushed = v1.replace(nets1[1], nets1[1].replace("a OR b;", "a AND NOT b;"))
 		const refs = await bridge.refs()
 		expect((await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
@@ -128,7 +128,7 @@ END_FUNCTION_BLOCK
 
 		const v1 = (await fetchItem(full)).sourceText
 		const nets = networks(v1)
-		const pushed = v1.replace(nets[1], nets[1].replace("(a OR b)", "(a AND NOT b)"))
+		const pushed = v1.replace(nets[1], nets[1].replace("a OR b;", "a AND NOT b;"))
 
 		const r1 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r1.projectVersion,

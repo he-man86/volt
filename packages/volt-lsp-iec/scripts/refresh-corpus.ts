@@ -49,7 +49,8 @@ if (!name) {
 	process.exit(1)
 }
 
-const VOLT = join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
+// VOLT_EXE: a volt.exe built elsewhere, for when the Release one is held open by a running `volt` (a build cannot replace it).
+const VOLT = process.env.VOLT_EXE ?? join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
 const corpus = join(import.meta.dir, "..", "test-corpus", name)
 
 // A temp dir OUTSIDE the repo (a `volt init` here would nest a .git inside the monorepo).

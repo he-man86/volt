@@ -300,7 +300,7 @@ public class TcNetworkWriterTests
     {
         var impl = System.Xml.Linq.XElement.Parse(body, System.Xml.Linq.LoadOptions.PreserveWhitespace)
             .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
-        return TcArchive.List(impl, "NetworkList")[index].ToString(System.Xml.Linq.SaveOptions.DisableFormatting);
+        return TcArchive.Text(TcArchive.List(impl, "NetworkList")[index], body);
     }
 
     private static NetworkBody Replace(NetworkBody body, Node tree) =>

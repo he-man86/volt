@@ -32,6 +32,12 @@ internal static class TcUnmeasured
 
     /// <summary>The push side of the same fact: a body spelling <c>R_EDGE(NOT x)</c> (or <c>F_EDGE</c>) is refused before
     /// anything is written, naming the node.</summary>
+    /// <summary>An archive about to be written back whose values carry a raw CR is refused (<see cref="TcRawLineEndRefusal"/>).</summary>
+    public static void RefuseRawLineEnd(string handed)
+    {
+        if (TcArchive.HoldsRawLineEnd(handed)) throw new TcRawLineEndRefusal();
+    }
+
     public static void RefuseEdgeOrder(NetworkBody body)
     {
         foreach (var network in body.Networks)
@@ -86,8 +92,8 @@ internal static class TcUnmeasured
     private static string? Unmeasured(Node n, bool top = false) => n switch
     {
         Assign a when !top => $"an assignment to '{a.Targets.FirstOrDefault()?.Text}' below the top level",
-        Parallel => "a `PARALLEL` branch",
-        Demux { Input: Leaf leaf } d => $"the wire g{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
+        Parallel => "a parallel branch (`feed BRANCH (a, b)`)",
+        Demux { Input: Leaf leaf } d => $"the split split{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
         Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin =>
             $"the result pin `=> {pin.Value.Text}` of the '{b.Type}' box",
         Box b when string.Equals(b.Instance?.Text, Volt.Engine.Format.St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase) =>
@@ -100,7 +106,7 @@ internal static class TcUnmeasured
 
 /// <summary>
 /// The push half of "EN is a pin, ENO is spelled" on TwinCAT: the text reads a box through an output the box the IDE
-/// holds does not give — <c>.ENO</c> on a box with no ENO output, or no suffix on a box whose main output is ENO. The
+/// holds does not give — <c>ENO</c> on a box with no ENO output, or its data on a box whose main output is ENO. The
 /// box's output list is read as CODESYS reads it (<see cref="Box.HasEnoSlot"/>). A <see cref="NotSupportedException"/>
 /// so the in-place pass routes the network to the IDE to rebuild; its own type so the create path does not mistake
 /// it, after the import, for a regrouping it may shrug at.
@@ -109,10 +115,30 @@ internal sealed class TcEnoRefusal : NotSupportedException
 {
     public TcEnoRefusal(string box, bool textReadsEno)
         : base(textReadsEno
-            ? $"TwinCAT: the text reads `.ENO` on the '{box}' box, and the IDE builds that box with no ENO output — the " +
-              "suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds."
-            : $"TwinCAT: the text reads the '{box}' box without `.ENO`, and the IDE builds that box with ENO as its main " +
-              "output — the text states a data output the box does not have. With `.ENO` the text matches the box the " +
-              "IDE builds.")
+            ? $"TwinCAT: the text reads the '{box}' box through ENO (an open line a later ENO takes, B4), and the IDE " +
+              "builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text " +
+              "matches the box the IDE builds."
+            : $"TwinCAT: the text reads the '{box}' box as a value, and the IDE builds that box with ENO as its main " +
+              "output — the text states a data output the box does not have. Written as an open line and read through " +
+              "ENO (B4), the text matches the box the IDE builds.")
+    { }
+}
+
+/// <summary>
+/// AN ARCHIVE WHOSE VALUES CARRY A RAW CARRIAGE RETURN IS NOT WRITTEN (gate 2R.3, review finding 2). Whether the XAE hands
+/// a CR in a value (a network comment's CR LF) as <c>&amp;#xD;</c> or raw is not measured. Entitized, the parse keeps it and
+/// <see cref="TcArchive.Text"/> writes it back as it came. Raw, the parse folds the CR LF into LF and the write would hand
+/// every untouched value back as a bare LF — a change in the IDE the next pull hides (it reads LF as the IDE's CR LF,
+/// <see cref="TcNetworkReader.Comment"/>). So it is refused by name, never written by a guess; the measurement that
+/// lifts it is the archive string the bridge receives for a two-line comment (<c>comments.test.ts</c> on TwinCAT pushes
+/// over one). Its own type so the create's stamp does not take it for a regrouping it may shrug at.
+/// </summary>
+internal sealed class TcRawLineEndRefusal : NotSupportedException
+{
+    public TcRawLineEndRefusal()
+        : base("TwinCAT: the IDE handed this body's archive with a raw carriage return in a value (a multi-line comment " +
+               "or title), and whether that line end is the IDE's CR LF or its LF is not measured — rewriting the body " +
+               "would change every untouched one of them. Volt refuses the write rather than guess; edit the body in " +
+               "the IDE.")
     { }
 }

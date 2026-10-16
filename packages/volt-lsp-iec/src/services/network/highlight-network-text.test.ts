@@ -14,7 +14,7 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-out := (a AND b);
+out := a AND b;
 END_NETWORK
 END_FUNCTION_BLOCK`
 
@@ -22,8 +22,8 @@ test("highlighting a network-text operand includes its declaration AND its in-ne
   const parseResult = parseSource(LD, { networkText: true }, "codesys")
   const doc = { uri: "file:///F.pou", source: LD, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }], [], "codesys")
-  // Cursor on `a` inside the network `out := (a AND b)`.
-  const ranges = documentHighlightsAnywhere(doc, project, LD.indexOf("(a AND") + 1)
+  // Cursor on `a` inside the network `out := a AND b`.
+  const ranges = documentHighlightsAnywhere(doc, project, LD.indexOf("a AND"))
   expect(ranges).toBeDefined()
   expect(ranges!.length).toBe(2) // the `a : BOOL` declaration + the network operand use
 })

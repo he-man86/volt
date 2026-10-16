@@ -128,6 +128,12 @@ END_FUNCTION_BLOCK
     note: "The exact shape the two LIVE Lenze POUs carry, and the reason it is here: an unconnected EN does NOT excuse the marker — the compiler still errors. That rules out 'the rung is not generated' as the explanation for those POUs building clean, leaving exclude-from-build.",
     plcPrgVar: "fb_nute : FB_LANG_network_unnamed_target_en;",
     plcPrgBody: "fb_nute();",
+    // TwinCAT's import builds this NOT box with no ENO output, so `TcEnoRefusal` refuses a text that reads one (the
+    // driver's rule since 2026-10-04; the older TwinCAT row predates it — re-recorded 2026-10-16, ld-fbd-coverage 2R.3).
+    vendorRefuses: {
+      twincat:
+        "TwinCAT: the text reads the 'NOT' box through ENO (an open line a later ENO takes, B4), and the IDE builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text matches the box the IDE builds. (Volt's driver, `TcEnoRefusal`, measured 2026-10-16.)",
+    },
     source: `FUNCTION_BLOCK FB_LANG_network_unnamed_target_en
 VAR
 \ta : BOOL;
@@ -135,7 +141,8 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  ??? := NOT(EN := , a).ENO;
+  NOT(IN := a) EN
+  ??? := ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -181,7 +188,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  out := (??? AND a);
+  out := ??? AND a;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -195,19 +202,19 @@ END_FUNCTION_BLOCK
     fromDoc: "network-text.html#sink",
     note:
       "THE SHAPE THE CORPUS ACTUALLY CARRIES, and the one the other target fixtures do not reach. " +
-      "`network_unnamed_assignment_target` measures `??? := a` and the EN variant `??? := NOT(a)`; both have a " +
+      "`network_unnamed_assignment_target` measures `??? := a` and the EN variant `??? := NOT(IN := a)`; both have a " +
       "real value to leave unassigned, and CODESYS errors. A PROGRAM box has NO output pin at all, so there is " +
       "nothing unassigned — and lenze-mid carries four of exactly this (`??? := SpeedCalculationDryer();` and " +
       "friends, in Mach1_MIDS.pou and AHWF.pou) while its recorded build reports buildSuccess with no such " +
       "error. Volt is faithful here: a plain void call round-trips as `P();`, measured live, so the `???` is " +
-      "the vendor's own. ANSWERED: all four are false positives. The compiler answers about the SOURCE over " +
-      "any real call, so the target message is one it never emits here — and voidness is not the line, as " +
-      "`network_unnamed_target_of_valued_call` shows. `Mach1_MIDS` is LIVE (`General.pou:29` calls it and " +
-      "`general` is a task root), so the excluded-from-build reading this fixture tested is WRONG. " +
-      "RESOLVED 2026-09-19: the compiler never reads network text — the recorder pushes this through the BRIDGE, " +
-      "which writes PlcOpen XML. So this measures the XML the bridge makes of a `???`; lenze-mid measures the XML " +
-      "its author drew, an unconnected output pin, which is legal. The gap is `volt-cli` round-trip fidelity, not " +
-      "an LSP check, and the LSP stays silent so it does not flag the vendor's own drawing.",
+      "the vendor's own. `Mach1_MIDS` is LIVE (`General.pou:29` calls it and `general` is a task root), so the " +
+      "excluded-from-build reading this fixture tested is WRONG. RESOLVED 2026-09-19: the compiler never reads " +
+      "network text — the recorder pushes this through the BRIDGE, so this measures the box the bridge builds of a " +
+      "`???`; lenze-mid's drawings are unconnected output pins, which network text now spells as such " +
+      "(`SpeedCalculationDryer(=> ???) EN;`, no coil, no LSP error). RE-RECORDED 2026-10-16 (ld-fbd-coverage 2R.3): on " +
+      "the box 2R.3's push builds (its output list derived from the text, ENO first) the answer is the TARGET, " +
+      "\"The assignment target is not specified.\" — before 2R.3 it was the lazy-type pair plus \"The assignment " +
+      "source is incorrect.\" The LSP gives the target message for a `???` coil read off a box's ENO.",
     plcPrgBody: "PRG_LANG_network_unnamed_void_caller();",
     vendorRefuses: { twincat: twincatSeedLag("PRG_LANG_network_unnamed_void_callee") },
     source: `PROGRAM PRG_LANG_network_unnamed_void_callee
@@ -226,7 +233,8 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  ??? := PRG_LANG_network_unnamed_void_callee(EN := go).ENO;
+  PRG_LANG_network_unnamed_void_callee() EN go
+  ??? := ENO;
 END_NETWORK
 
 END_PROGRAM
@@ -239,13 +247,12 @@ END_PROGRAM
     feature: "`???` as the target of a FUNCTION call that DOES return a value",
     fromDoc: "network-text.html#sink",
     note:
-      "The last unmeasured target shape, and the one lenze-mid's surviving corpus divergence sits on " +
-      "(`??? := Alarms_V5_1_100(...)`, a `FUNCTION … : BOOL`). The neighbours bracket it without covering it: " +
-      "`??? := NOT(a)` is an OPERATOR and errors on the target, `??? := <PROGRAM>()` returns NOTHING and errors " +
-      "on the source. A valued call is a call with a value, so either answer is credible and only the compiler " +
-      "settles it. Same unconnected enable as the corpus and as the `_behind_enable` fixture, so the enable is " +
-      "held constant and the CALL is the only thing that varies. Answered with its void twin, below, and for " +
-      "the same reason: this is the BRIDGE's XML for a `???`, not the XML a real project carries.",
+      "The valued twin of `network_unnamed_target_of_void_call`, for lenze-mid's `Alarms_V5_1_100(…, => ???) EN` (a " +
+      "`FUNCTION … : BOOL`; now spelled as its unconnected output pin, no coil). Same unconnected enable as the " +
+      "`_behind_enable` fixture, so the CALL is the only thing that varies. RE-RECORDED 2026-10-16 (ld-fbd-coverage " +
+      "2R.3): read through its ENO on the box 2R.3's push builds, the answer is the TARGET, \"The assignment target " +
+      "is not specified.\", as for the PROGRAM twin and the operator — before 2R.3, the lazy-type pair plus \"The " +
+      "assignment source is incorrect.\" This is the BRIDGE's box for a `???`, not one a real project carries.",
     plcPrgVar: "fb_nvc : FB_LANG_network_unnamed_valued_call;",
     plcPrgBody: "fb_nvc();",
     vendorRefuses: { twincat: twincatSeedLag("FUN_LANG_network_unnamed_valued") },
@@ -265,7 +272,8 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  ??? := FUN_LANG_network_unnamed_valued(EN := , a).ENO;
+  FUN_LANG_network_unnamed_valued(a) EN
+  ??? := ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK

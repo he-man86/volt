@@ -24,7 +24,7 @@ NETWORK
 END_NETWORK
 NETWORK
   // On a rising edge of the output, save the current date/time
-  MOVE(EN := R_EDGE(output), TimeSettings.dtNow, => TimeOfLastSwitch);
+  MOVE TimeSettings.dtNow => TimeOfLastSwitch EN R_EDGE(output);
 END_NETWORK
 END_METHOD
 

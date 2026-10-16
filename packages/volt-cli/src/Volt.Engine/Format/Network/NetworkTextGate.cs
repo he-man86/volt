@@ -81,8 +81,8 @@ public static class NetworkTextGate
 
     /// <summary>
     /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, as the gate
-    /// compares them — whitespace significant only inside backticks, a TITLE, a comment line and an EXECUTE body, and
-    /// a VAR_TEMP block compared by what it declares (<see cref="NetworkSpelling.WireBlockKey"/>). A push in another
+    /// compares them — whitespace significant only inside backticks, a TITLE, a comment line and an EXECUTE body, and a
+    /// line's end at bracket depth 0 a token of its own (P2: an open line is no layout). A push in another
     /// layout is adopted as that layout when the IDE gives it back canonically; one in another SPELLING (tokens) is
     /// written all the same (<see cref="Validate"/>) and its canonical text comes back on the next pull.
     ///
@@ -117,60 +117,27 @@ public static class NetworkTextGate
         var first = text.Substring(start, eol - start).TrimEnd('\r');
         var keys = new List<(TokKind, string)> { (TokKind.Marker, St.ImplementationMarker.LanguageOf(first) ?? first) };
 
-        var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
+        // A LINE is no layout (P2): a line without `;` is open for a later line's ENO (P3), so where a line ends is a token
+        // of its own here — marked where a token starts a new line at bracket depth 0 after a token that can end one.
+        var lx = new NetworkLexer(text, eol);
+        var walk = new NetworkLexer.Walk(lx);
+        Tok prev = default, before = default;
+        var depth = 0;
         for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())
         {
             if (t.Kind == TokKind.Error) return null;
-            if (!t.Is("VAR_TEMP")) { keys.Add(t.Key); continue; }
-            var block = new List<Tok> { t };
-            for (var u = walk.Next(); ; u = walk.Next())
+            if (prev.Text is not null)
             {
-                if (u.Kind == TokKind.Error) return null;
-                block.Add(u);
-                if (u.Kind == TokKind.Eof || u.Is("END_VAR")) break;
+                var continues = NetworkSpelling.ContinuesLine(prev, before);
+                if (depth == 0 && t.Kind != TokKind.Snippet && prev.Kind != TokKind.Snippet && prev.Kind != TokKind.Marker &&
+                    lx.LineOf(t.Offset) > lx.LineOf(prev.Offset) && !continues)
+                    keys.Add((TokKind.Sym, "\n"));
             }
-            // A block that is no list of declarations has no key but its tokens: such a text never passed the gate,
-            // and its tokens compared one by one are the strict answer.
-            if (WireBlock(text, block) is { } declared) keys.Add((TokKind.Wires, declared));
-            else foreach (var u in block) if (u.Kind != TokKind.Eof) keys.Add(u.Key);
-            if (block[block.Count - 1].Kind == TokKind.Eof) break;
+            if (t.IsSym("(")) depth++;
+            else if (t.IsSym(")")) depth = Math.Max(0, depth - 1);
+            keys.Add(t.Key);
+            (before, prev) = (prev, t);
         }
         return keys;
-    }
-
-    /// <summary>A <c>VAR_TEMP … END_VAR</c> block's <see cref="NetworkSpelling.WireBlockKey"/>, read by its shape
-    /// alone — <c>g1, g2 : TYPE;</c> declarations — or null when it has another.</summary>
-    private static string? WireBlock(string text, List<Tok> block)
-    {
-        if (!block[block.Count - 1].Is("END_VAR")) return null;
-        var end = block.Count - 1;
-        var wires = new List<(int, string, string)>();
-        var i = 1;
-        while (i < end)
-        {
-            var names = new List<Tok>();
-            while (true)
-            {
-                var n = block[i++];
-                if (i >= end || n.Kind != TokKind.Word || !NetworkSpelling.WireName.IsMatch(n.Text)) return null;
-                names.Add(n);
-                if (block[i].IsSym(",")) { i++; continue; }
-                if (block[i].IsSym(":")) { i++; break; }
-                return null;
-            }
-            var from = i;
-            while (i < end && !block[i].IsSym(";")) i++;
-            if (i == from || i >= end) return null;
-            var last = block[i - 1];
-            var type = NetworkSpelling.WireType(text.Substring(block[from].Offset, last.Offset + last.Length - block[from].Offset));
-            foreach (var n in names)
-            {
-                if (!int.TryParse(n.Text.Substring(1), System.Globalization.NumberStyles.None,
-                        System.Globalization.CultureInfo.InvariantCulture, out var id)) return null;
-                wires.Add((id, n.Text, type));
-            }
-            i++;   // the `;`
-        }
-        return wires.Count == 0 ? null : NetworkSpelling.WireBlockKey(wires);
     }
 }

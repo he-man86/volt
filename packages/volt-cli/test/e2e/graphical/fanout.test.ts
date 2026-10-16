@@ -45,7 +45,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -56,7 +56,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		// THE VALUE AND BOTH CONSUMERS ARE THERE ON BOTH VENDORS — and the SHAPE they come back in is not the
 		// same, which nothing could see until network text learned to tell the two apart (2026-09-22).
 		//
-		// A wire declared in the network's `VAR_TEMP` block is a real fan-out (a `BoxTreeDemux` the editor draws);
+		// A split (`split<VarId> := …`) is a real fan-out (a `BoxTreeDemux` the editor draws);
 		// a chained assignment (`out1 :=` / `out2 := v;`) is ONE item driving several coils. v1 spelled both as
 		// `LET g`, so this assertion passed on both vendors while one of them was RESHAPING the body: TwinCAT's only
 		// create door is `PlcOpenImport`, whose lowering turns a fan-out into a single assign with two targets —
@@ -69,10 +69,10 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		// either way (one value, two coils), which is why it is named here rather than refused: refusing would make
 		// every fan-out body uncreatable on TwinCAT, and `Lenze_MID-S100` alone holds 573 of them.
 		const shape = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
-			codesys: () => "  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\n",
-			// The import's folded AND stores an output slot (`OutputParam.Names = ['']`, its type empty) — the S1 form,
-			// spelled by its pragmas since ld-fbd-coverage 2.3 (the create's stamp does not reach a regrouped network).
-			twincat: () => "  out1 :=\n  out2 := (a AND b){OutputParam.Names := ['']}{OutputParam.Types := ['']};\n",
+			codesys: () => "  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\n",
+			// The import's folded AND stores an output slot (`OutputParam.Names = ['']`) — the S1 form, which the text no
+			// longer spells (B7: lost on rebuild, kept while the network is unchanged).
+			twincat: () => "  out1 := out2 := a AND b;\n",
 		})
 		expect(v1.sourceText).toContain(shape)
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.
@@ -92,14 +92,14 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		await clean()
 	})
 	/**
-	 * A DATA WIRE (review of section 4). The text states its type only in `VAR_TEMP g1 : INT`, and CODESYS keeps a
+	 * A DATA SPLIT (review of section 4). The text states no type (B6: the feeder's), and CODESYS keeps a
 	 * box's output type in `OutputParams.Types`, which it never fills itself (DIALECT N21). The writer appended no type,
 	 * so the pushed ADD re-read typeless: the next pull was the marker ("a wire of unknown type") and the next push of
 	 * the same text was refused. Every other wire here is BOOL, which the rule types without a stored type — so nothing
 	 * pushed a data wire until this. It must come back as written, push again unchanged, and BUILD (the box now carries
 	 * a typed output slot the vendor's own boxes carry). TwinCAT's import folds a fan-out into one assign (D22).
 	 */
-	it("a data wire comes back declared as pushed, pushes again, and builds", async () => {
+	it("a data split comes back as pushed, pushes again, and builds", async () => {
 		const name = id("fanint")
 		const wire = fid("fanint", "pou")
 		const clean = async () => {
@@ -114,15 +114,15 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		const shape = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
-			codesys: () => "  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\n",
-			twincat: () => "  n :=\n  sv := (a + b);\n",
+			codesys: () => "  split1 := a ADD b;\n  n := split1;\n  sv := split1;\n",
+			twincat: () => "  n := sv := a ADD b;\n",
 		})
 		expect(v1.sourceText).toContain(shape)
 
@@ -152,7 +152,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out1 := g1;\n  out2 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		const outcome = expectVendorDifference("spec: a leaf wire is refused before TwinCAT's unmeasured import", {
@@ -164,7 +164,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			const why = JSON.stringify(created.conflicts)
 			expect(why).toContain("NETWORK_UNSUPPORTED")
 			expect(why).toContain("network 1")
-			expect(why).toContain("g1")
+			expect(why).toContain("split1")
 			return
 		}
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

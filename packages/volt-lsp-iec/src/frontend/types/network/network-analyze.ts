@@ -1,15 +1,14 @@
 /**
  * network-text analysis core (Layer F, F.2b) — the adapter onto the shared type engine. Parses a graphical body and
- * builds, per network, a scope that layers the network's WIRES over the POU scope, so the one type engine,
- * `resolveMemberChain`, hover and rename resolve a wire reference exactly like a variable.
+ * builds, per network, a scope that layers the network's SPLITS over the POU scope, so the one type engine,
+ * `resolveMemberChain`, hover and rename resolve a split reference exactly like a variable.
  *
- * A wire is declared in its network's own `VAR_TEMP … END_VAR` block with its type (network text v2; spec, "a wire is a
- * Demux declared in its network's VAR_TEMP block"). Its USES are typed as a build types them (`usesTypeOf`): by the
- * declaration only where the producer rule names that type exactly, since the vendor's Demux holds no type and the
- * compiler checks a consumer against the producer.
+ * A split is a vendor Demux named by its VarId (`split176`, openspec ld-fbd-coverage 2R.3, B6): no declaration and no
+ * type. Its USES are typed as a build types them (`usesTypeOf`): by its FEEDER, since the vendor's Demux holds no type
+ * and the compiler checks a consumer against the producer.
  *
- * Wires are network-scoped (VarIds are per network), so each network owns its own scope and `g1` in network 0 never
- * shadows `g1` in network 1.
+ * Splits are network-scoped (VarIds are per network), so each network owns its own scope and `split1` in network 0
+ * never shadows `split1` in network 1.
  */
 import {
   build,
@@ -27,97 +26,116 @@ import {
   type BodySpan,
   type Expr,
   type NetworkScopeView,
+  type NetworkSplit,
   type NetworkTextBody,
   type NetworkTextNetwork,
-  type NetworkWire,
+  type NetworkValue,
   type TopLevel,
   type TypeExpr,
+  COMPARISONS,
   isTrivia,
   lex,
   networkValueExpr,
   parseExprFromTokens,
+  parseTypeExprFromTokens,
 } from "../../syntax/index.js"
 import type { FunctionBlockType } from "../type.js"
 import { inferExprType } from "../infer/expr.js"
-import { isSameType } from "../compat.js"
-import { resolveTypeExpr } from "../resolve.js"
+import { renderType } from "../render.js"
 import { parseNetworkText } from "./network-parse.js"
 
 export interface NetworkTextAnalysis {
   vg: NetworkTextBody
   /** The enclosing POU scope (fallback for offsets outside any network). */
   pou: Scope
-  /** Each network's resolution scope (POU + its wires). */
+  /** Each network's resolution scope (POU + its splits). */
   networkScopes: Map<NetworkTextNetwork, Scope>
-  /** The wire each wire symbol stands for — what a hover shows the producer of. */
-  wires: Map<StSymbol, NetworkWire>
+  /** The split each split symbol stands for — what a hover shows the feeder of. */
+  splits: Map<StSymbol, NetworkSplit>
 }
 
-// ponytail: a wire is a declaration with no ST AST node; readers of `sym.ast` all cast-and-read optional fields
+// ponytail: a split is a declaration with no ST AST node; readers of `sym.ast` all cast-and-read optional fields
 // (guarded), so an empty object is a safe placeholder that never throws.
-const WIRE_AST = {} as StSymbol["ast"]
+const SPLIT_AST = {} as StSymbol["ast"]
 
 export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scope, uri: string): NetworkTextAnalysis {
   const pou = scopeForUnit(project, unit) ?? project
   const vg = parseNetworkText(body, scopeView(pou, project), dialectOf(project))
   const networkScopes = new Map<NetworkTextNetwork, Scope>()
-  const wires = new Map<StSymbol, NetworkWire>()
+  const splits = new Map<StSymbol, NetworkSplit>()
   for (const network of vg.networks) {
     const scope = build.localScope(pou, "pou", `${pou.name}$net${network.index}`, network.span)
-    for (const wire of network.wires) {
+    for (const split of network.splits) {
       const sym: StSymbol = {
         kind: "var",
-        name: wire.name.text,
-        span: wire.name.span,
-        declarationSpan: wire.span,
+        name: split.name.text,
+        span: split.name.span,
+        declarationSpan: split.definition.span,
         owner: scope,
         uri,
         varSection: "VAR_TEMP",
-        ...usesTypeOf(wire, network.wires, pou, project),
-        ast: WIRE_AST,
+        ...usesTypeOf(split.definition.value, network, vg, pou, project, new Set()),
+        ast: SPLIT_AST,
       }
       defineSymbol(scope, sym)
-      wires.set(sym, wire)
+      splits.set(sym, split)
     }
     networkScopes.set(network, scope)
   }
-  return { vg, pou, networkScopes, wires }
+  return { vg, pou, networkScopes, splits }
 }
 
 /**
- * The type a wire's USES are checked by — the one a build gives them, or none. A declaration its producer contradicts
- * types nothing: it is refused at the wire, and the push never lets the body reach a build, so a message at the consumer
- * would be one no build gives. Anywhere else the push takes the declaration as written, and the vendor, whose Demux
- * holds no type, compiles the consumer against the PRODUCER. So the declaration types the uses only where the producer
- * is known to yield it — the producer rule names it exactly, or the ST engine types the producer's expression as it —
- * and a variable leaf passes on its own declared type. Anything else (a box, an expression the engine cannot type)
- * types nothing: a declaration the vendor discards is never what a consumer is checked against.
+ * The type a split's USES are checked by — the one a build gives them, its FEEDER's (B6: the Demux holds none), or none
+ * where the feeder's is unknown. BOOL for what is BOOL by the text alone (an ENO, an edge, a parallel, a comparison, the
+ * left rail in LD); a variable leaf passes on its own declared type; another split carries what that one carries; any
+ * other feeder the type its ST reading has, where the engine types it — never a guess.
  */
 function usesTypeOf(
-  wire: NetworkWire,
-  wires: readonly NetworkWire[],
+  v: NetworkValue,
+  network: NetworkTextNetwork,
+  vg: NetworkTextBody,
   pou: Scope,
   project: Scope,
-  seen = new Set<NetworkWire>(),
+  seen: Set<NetworkSplit>,
 ): { typeExpr?: TypeExpr } {
-  if (wire.typeRefused === true || seen.has(wire)) return {}
-  seen.add(wire)
-  const v = wire.definition?.value
-  // A wire forwarding another carries what that one carries: the rule "confirms" it against the other's DECLARATION,
-  // which is itself only the build's type where its own producer yields it.
-  if (v?.kind === "wire_ref") {
-    const other = wires.find((w) => w.name.text.toUpperCase() === v.name.text.toUpperCase())
-    return other !== undefined ? usesTypeOf(other, wires, pou, project, seen) : {}
+  switch (v.kind) {
+    case "eno":
+    case "edge":
+    case "parallel":
+      return named("BOOL", project)
+    case "empty_slot":
+      return vg.language === "LD" ? named("BOOL", project) : {}
+    case "word":
+      if (COMPARISONS.has(v.word)) return named("BOOL", project)
+      break
+    case "split_ref": {
+      const other = network.splits.find((s) => s.name.text.toUpperCase() === v.name.text.toUpperCase())
+      if (other === undefined || seen.has(other)) return {}
+      seen.add(other)
+      return usesTypeOf(other.definition.value, network, vg, pou, project, seen)
+    }
+    case "operand":
+      if (v.expr?.kind === "ident_expr") {
+        const sym = lookup(pou, v.expr.name)?.symbol
+        if (sym !== undefined && VARIABLE_KINDS.has(sym.kind) && sym.typeExpr !== undefined) return { typeExpr: sym.typeExpr }
+      }
+      break
+    case "call":
+    case "execute":
+      return {}
   }
-  if (wire.type === undefined) return {}
-  if (wire.typeConfirmed === true) return { typeExpr: wire.type }
-  if (v?.kind === "operand" && v.expr?.kind === "ident_expr") {
-    const sym = lookup(pou, v.expr.name)?.symbol
-    return sym !== undefined && VARIABLE_KINDS.has(sym.kind) && sym.typeExpr !== undefined ? { typeExpr: sym.typeExpr } : {}
-  }
-  const expr = v === undefined || v.kind === "call" || v.kind === "execute" ? undefined : networkValueExpr(v)
+  const expr = networkValueExpr(v)
   if (expr === undefined) return {}
-  return isSameType(inferExprType(expr, pou, project), resolveTypeExpr(wire.type, project, 0, pou)) ? { typeExpr: wire.type } : {}
+  const t = inferExprType(expr, pou, project)
+  return t.kind === "elementary" ? named(renderType(t), project) : {}
+}
+
+/** A type named by its spelling, as a declaration would write it. */
+function named(text: string, project: Scope): { typeExpr?: TypeExpr } {
+  const toks = lex(text, dialectOf(project)).filter((t) => t.kind !== "eof" && !isTrivia(t.kind))
+  const type = parseTypeExprFromTokens(toks, dialectOf(project))
+  return type !== undefined ? { typeExpr: type } : {}
 }
 
 /** The network containing `offset` paired with its resolution scope, or undefined when outside all. */
@@ -128,11 +146,12 @@ export function networkNetworkAt(analysis: NetworkTextAnalysis, offset: number):
   return undefined
 }
 
-/** The POU's scope as the parser asks it — the bridge's `NetworkScope`: whether a name is a POU, and the FB type of an
- *  instance. (Whether a name is declared at all is no question of the parser's any more: a bare word is a variable, and
- *  the build — here `network-undeclared-identifier` — answers whether it exists, bridge-refusal-review 1.3/2.10.) */
+/** The POU's scope as the parser asks it — the bridge's `NetworkScope`: whether a name is a POU, the FB type of an
+ *  instance, and whether a declaration makes a name (what a split may not be named like, B6). Whether an operand is
+ *  declared at all is no question of the parser's: the build — here `network-undeclared-identifier` — answers it. */
 function scopeView(pou: Scope, project: Scope): NetworkScopeView {
   return {
+    declares: (name) => lookup(pou, name) !== undefined,
     isPou: (name) => {
       const sym = lookup(pou, name)?.symbol
       return sym !== undefined && isPouSymbol(sym)
@@ -151,17 +170,13 @@ const VARIABLE_KINDS: ReadonlySet<string> = new Set(["var", "gvl_var", "method_p
 /**
  * The FB an instance is of, when `head` is an FB INSTANCE — a variable, or a path to one (`GVL.timers.t1`), whose type
  * is a function block — else undefined (`NetworkScope.InstanceType`). The ONE answer to "is this head an instance":
- * the parser asks it for the construct check (an instance whose FB is R_EDGE has no spelling) and the pin check asks it
- * for the pins, so the two cannot disagree about the same head. A head that names a POU is a function (or the vendor's
- * own box), whose parameters are no FB's pins: resolving a bare POU name by TYPE found the wrong thing where two
- * libraries share it (bakon-nano's `DELETE(STR := …)`, the Standard function, against a `CAA File` FB, task 5.5).
+ * the parser asks it for the construct check and the pin check asks it for the pins, so the two cannot disagree about
+ * the same head. A head that names a POU is a function (or the vendor's own box), whose parameters are no FB's pins.
  */
 export function instanceFb(head: Expr, scope: Scope, project: Scope): FunctionBlockType | undefined {
   // S5 (openspec ld-fbd-coverage 2.3): `SUPER^` is the instance a derived FB calls its base through — its type is the base
   // the EXTENDS names, as the type engine reads `SUPER^` in ST.
   if (head.kind === "deref" && head.base.kind === "ident_expr" && head.base.name.toUpperCase() === "SUPER") {
-    // Asked of the scope and outward: a network's own scope is a local one under the POU (`analyzeNetworkText`), and the
-    // base is the POU's.
     for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) {
       const t = inferExprType(head, s, project)
       if (t.kind === "function_block") return t
@@ -177,12 +192,10 @@ export function instanceFb(head: Expr, scope: Scope, project: Scope): FunctionBl
 }
 
 /**
- * Whether `head` heads an FB call — names a variable, whatever its type resolves to (an instance of a type the project
- * may not resolve is still an instance): an identifier a declaration makes a variable, or a path (`GVL.timers.t1`,
- * `inst.inner`, `Lib.gInst`). Any other head names a function or the vendor's own operator box — a bare POU name, and a
- * POU a namespace qualifies (`Util.Twice`, review 5+6: a member head used to count as a path whatever it named, so a
- * library function's `.ENO` with no EN passed for an FB call). A qualifier whose member the namespace does not show is
- * left a path: unknown, so no finding rests on it.
+ * Whether `head` heads an FB call — names a variable, whatever its type resolves to: an identifier a declaration makes a
+ * variable, or a path (`GVL.timers.t1`, `inst.inner`, `Lib.gInst`). Any other head names a function or the vendor's own
+ * operator box — a bare POU name, and a POU a namespace qualifies (`Util.Twice`). A qualifier whose member the namespace
+ * does not show is left a path: unknown, so no finding rests on it.
  */
 export function headIsVariable(head: Expr, scope: Scope, project: Scope): boolean {
   if (head.kind === "member") {

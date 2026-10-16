@@ -21,10 +21,10 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  RecipeManager(EN := TRUE, sDatabaseName := `'Recipes'`, iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual);
+  RecipeManager(sDatabaseName := 'Recipes', iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual) EN TRUE;
 END_NETWORK
 NETWORK
-  MachineParManager(EN := TRUE, sDatabaseName := `'MachinePar'`, iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue);
+  MachineParManager(sDatabaseName := 'MachinePar', iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue) EN TRUE;
 END_NETWORK
 
 END_PROGRAM

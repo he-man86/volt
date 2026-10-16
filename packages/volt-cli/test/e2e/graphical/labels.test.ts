@@ -53,8 +53,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// that lives on the network object rather than in the statements.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
+			`NETWORK LABEL: Done\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -90,8 +90,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := a;\nEND_NETWORK\n` +
+			`NETWORK LABEL: Done\n  out := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -131,8 +131,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\n` +
-			`NETWORK\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  RETURN := a;\nEND_NETWORK\n` +
+			`NETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -173,7 +173,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
 			`NETWORK\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -198,7 +198,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done;\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
@@ -222,10 +222,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * jump to a label no network carries.
 	 */
 	const SHAPES: readonly (readonly [string, string])[] = [
-		["twice", "NETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\nNETWORK LABEL: DONE\n  q := a;\nEND_NETWORK\n"],
-		["disabled_target", "NETWORK\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := (a OR b);\nEND_NETWORK\n"],
-		["jump_disabled", "NETWORK DISABLED\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n"],
-		["missing", "NETWORK\n  IF a THEN JMP Nowhere; END_IF;\nEND_NETWORK\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n"],
+		["twice", "NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\nNETWORK LABEL: DONE\n  q := a;\nEND_NETWORK\n"],
+		["disabled_target", "NETWORK\n  JMP Done := a;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a OR b;\nEND_NETWORK\n"],
+		["jump_disabled", "NETWORK DISABLED\n  JMP Done := a;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n"],
+		["missing", "NETWORK\n  JMP Nowhere := a;\nEND_NETWORK\nNETWORK\n  out := a AND b;\nEND_NETWORK\n"],
 	]
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {

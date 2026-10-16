@@ -27,7 +27,10 @@ namespace Volt.Engine.Format.Network;
 ///
 /// <para>The members are the design's loss candidates whose stored value a rebuild resets and that their 2.2 rows
 /// (DIALECT N29) measured as not re-derived: <c>Flags.Fixed</c>, <c>Operand.Boolean</c> and the <c>Address</c> archive
-/// sentinel — each leaves <see cref="Candidates"/> when 2.3 spells it. The item <c>Id</c> is not one: both IDEs mint
+/// sentinel — and, since 2R.3 deleted the pragma (B7), every member design 2R.2 files L "lost on rebuild": a box's
+/// stored output and input lists and their types, its <c>BoxType</c> spelling, <c>Instance.Type</c>, <c>Operand.Type</c>,
+/// <c>EN</c>/<c>ENO</c>, <c>CallType</c> and its pin flag list; each leaves <see cref="Candidates"/> when 2R.4 derives or
+/// measures it. The item <c>Id</c> is not one: both IDEs mint
 /// every Id themselves (vendor-facts <c>nwl-item-id</c>), and TwinCAT's splice gives a rebuilt network Ids no other
 /// network of the body holds (<c>TcNetworkWriter.Splice</c>). <c>BranchCounter</c> lives on the body, which a network
 /// rebuild does not touch.</para>
@@ -38,8 +41,9 @@ namespace Volt.Engine.Format.Network;
 /// </summary>
 public static class RebuildLoss
 {
-    /// <summary>A member a rebuild resets, and its 2.2 row.</summary>
-    public sealed record Candidate(string Member, string Row);
+    /// <summary>A member a rebuild resets, and its vendor-facts row — null where no row measures it yet (design 2R.2
+    /// files it L on the census alone).</summary>
+    public sealed record Candidate(string Member, string? Row);
 
     /// <summary>One stored value: the member (<c>Flags.Fixed</c>), the class that owns it (<c>Operand</c>,
     /// <c>BoxTreeBox</c>, …) and the value in the shared notation.</summary>
@@ -54,9 +58,24 @@ public static class RebuildLoss
         new Candidate("Flags.Fixed", "nwl-flags-fixed"),
         new Candidate("Operand.Boolean", "nwl-operand-boolean"),
         new Candidate("Operand.Address", "nwl-address-sentinel"),
-        // A drawn function box's result pin name ('   '), which a box Volt builds cannot hold (NetworkMembers.Buildable,
-        // DIALECT N21): spelled by the text, and lost by every rebuild of its network — a vendor limit, not a window.
+        // B7 (2R.3): the text spells no member, so a box's STORED output list goes with every rebuild that does not
+        // build the same one — a call's unwired pins (a TON's ET; ~48 of 279 corpus call boxes store a list that is not
+        // even their declaration's), a drawn function's result name '   ' (no box Volt builds can hold it, DIALECT
+        // N21/N37), a bit operator's slot [''] (17 boxes, design 2R.2 L). Held as the whole list (List), per box.
         new Candidate("OutputParam.Names", "nwl-output-param-names"),
+        new Candidate("OutputParam.Types", "nwl-param-types"),
+        new Candidate("InputParam.Names", "nwl-param-types"),
+        new Candidate("InputParam.Types", "nwl-param-types"),
+        // The other values design 2R.2 files L until 2R.4 measures them: a stored BoxType spelling the text writes
+        // otherwise (15: `ton`, `R_Trig`, a namespace), Instance.Type (47 differ from BoxType), a stale Operand.Type,
+        // the EN/ENO bools, CallType, and the pin flag list (a zero-only InputFlags).
+        new Candidate("BoxType", null),
+        new Candidate("Instance.Type", "nwl-instance-type"),
+        new Candidate("Operand.Type", "nwl-operand-type"),
+        new Candidate("EN", "nwl-box-en-eno"),
+        new Candidate("ENO", "nwl-box-en-eno"),
+        new Candidate("CallType", "nwl-call-type"),
+        new Candidate("InputFlags", "nwl-input-flags-list"),
         // A box storing more output slots than output names — an enabled PROGRAM call's two null slots for its one name
         // ['ENO'] (10 corpus boxes, DIALECT N37): a rebuild lays out one slot per name, so the extra slot goes with it.
         // Held as "<slots> slots for <names> names" on a box whose counts differ (gate 2-3 review: it went unnamed).
@@ -65,6 +84,11 @@ public static class RebuildLoss
 
     /// <summary>The member a box's extra output slots are held under (<see cref="Candidates"/>).</summary>
     public const string ExtraOutputSlots = "OutputItemList.OutputItems";
+
+    /// <summary>A stored string list in the shared notation — <c>['Q', 'ET']</c>, <c>['']</c>, <c>[]</c> — or null where
+    /// the member holds no list at all, so the three stay apart.</summary>
+    public static string? List(IEnumerable<string?>? items) =>
+        items is null ? null : MemberValue.Texts(items.Select(i => i ?? "")).ToString();
 
     /// <summary>A box's output slots beyond its output names, in the shared notation, or null where the counts agree.</summary>
     public static Held? ExtraSlots(string owner, int slots, int names) =>
@@ -108,9 +132,10 @@ public static class RebuildLoss
         var counts = Count(held, rebuilt);
         if (counts.Count == 0) return null;
         var named = string.Join(", ", counts.Select(x =>
-            string.Format(CultureInfo.InvariantCulture, "{0} ×{1} (vendor-facts row {2})", x.Candidate.Member, x.Count, x.Candidate.Row)));
+            string.Format(CultureInfo.InvariantCulture, "{0} ×{1} ({2})", x.Candidate.Member, x.Count,
+                x.Candidate.Row is { } row ? "vendor-facts row " + row : "no vendor-facts row yet; design 2R.2 L")));
         return $"{vendorDisplay}: network {(order + 1).ToString(CultureInfo.InvariantCulture)} is rebuilt from its text, " +
                $"which does not carry these stored values, and the rebuilt network does not hold them: {named} " +
-               "(openspec ld-fbd-coverage 2.2, the interim loss window).";
+               "(openspec ld-fbd-coverage 2.2 / 2R.3 B7: lost on rebuild, never guessed).";
     }
 }

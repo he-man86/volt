@@ -1,11 +1,7 @@
 /**
  * The network-text pass (`computeNetworkTextDiagnostics`): the reader's structural findings lifted into the server's
  * items beside the checks' (each check family's own cases are its `_<family>.test.ts`), what the push refuses and what
- * it writes for the build to answer, and the types a wire's declaration gives its uses.
- *
- * A wire's type is the type its `VAR_TEMP` declaration names, exactly (consolidate-lsp-structure A11, carried to network
- * text v2). The wire's type used to be rebuilt from a bare type NAME, which dropped a string's declared length; a v2 wire
- * is declared with its full type, and the message a mismatch prints must keep it.
+ * it writes for the build to answer, and the types a split's feeder gives its uses (B6: the split itself has none).
  */
 import { expect, test } from "bun:test"
 import { isGraphicalBody, parseSource, STRUCTURE_ONLY, unitBodies } from "../../../frontend/syntax/index.js"
@@ -21,14 +17,13 @@ const messages = (source: string): string[] => {
   return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 
-test("a wire declared STRING(10) keeps the length a message prints", () => {
+test("a split carries its feeder's type, a string's declared length included", () => {
   const src = `FUNCTION_BLOCK F
 VAR s10 : STRING(10); i : INT; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-VAR_TEMP g1 : STRING(10); END_VAR
-g1 := s10;
-i := g1;
+split1 := s10;
+i := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(messages(src)).toContain("Cannot convert type 'STRING(10)' to type 'INT'")
@@ -43,23 +38,15 @@ ${lines}
 END_NETWORK
 END_PROGRAM`
 
-test("a declaration the producer rule does not confirm is not the uses' type: the build types the consumer by the producer", () => {
-  // The vendor's Demux holds no type, and on push the declaration is taken as written — so where the producer rule says
-  // nothing (an FBD leaf feeding a data pin or a coil), a declaration that differs from what the producer yields is
-  // accepted, and the IDE compiles `out := a`, clean. Typing the consumer by the declaration gave a compiler message no
-  // build gives. The consumer is typed by the producer instead, as the compiler types it.
-  expect(messages(fbd("a : BOOL; out : BOOL;", "VAR_TEMP g1 : INT; END_VAR\ng1 := a;\nout := g1;"))).toEqual([])
-  expect(messages(fbd("i : INT; j : INT;", "VAR_TEMP g1 : STRING; END_VAR\ng1 := i;\nj := g1;"))).toEqual([])
-  // …through a wire that forwards another, too.
-  expect(messages(fbd("i : INT; j : INT;", "VAR_TEMP g1 : STRING; g2 : STRING; END_VAR\ng1 := i;\ng2 := g1;\nj := g2;"))).toEqual([])
-  // A producer the build DOES type the consumer by is still checked: `j := s` is the build's own error.
-  expect(messages(fbd("sx : STRING; j : INT;", "VAR_TEMP g1 : INT; END_VAR\ng1 := sx;\nj := g1;"))).toContain(
-    "Cannot convert type 'STRING' to type 'INT'",
-  )
+test("a split's uses are typed by its feeder, as the build types the consumer by the producer", () => {
+  // The vendor's Demux holds no type (B6), so the IDE compiles each consumer against the feeder.
+  expect(messages(fbd("a : BOOL; out : BOOL;", "split1 := a;\nout := split1;"))).toEqual([])
+  expect(messages(fbd("i : INT; j : INT;", "split1 := i;\nsplit2 := split1;\nj := split2;"))).toEqual([])
+  expect(messages(fbd("sx : STRING; j : INT;", "split1 := sx;\nj := split1;"))).toContain("Cannot convert type 'STRING' to type 'INT'")
 })
 
 // ─── openspec ld-fbd-coverage 1b.4: `fb(…).name` (S4) and the network shown as its `UNSUPPORTED "<shape>";` line ─────
-// The bridge's `NetworkTextReader` reads both; the LSP parses them the same way (`frontend/syntax/network/shown.ts`),
+// The bridge's `NetworkTextReader` reads both; the LSP parses them the same way (`frontend/syntax/network/parser.ts`),
 // types `fb(…).name` as the instance's output (`fb.name`), and reports nothing inside an UNSUPPORTED network.
 
 const parseNt = (source: string) => parseSource(source, { networkText: true }, "codesys")
@@ -101,14 +88,14 @@ const projectMessages = (source: string): string[] => {
 }
 
 /** The value of `cap(…).name` is the instance's output `cap.name`: what consumes it is read as that member — an output the
- *  FB does not declare is reported as `cap.nope` is — while the box's own wire to a coil stays the IDE's, as
- *  `x := f(…).ENO` does (`assignmentPairs`). */
+ *  FB does not declare is reported as `cap.nope` is — while the box's own wire to a coil stays the IDE's, as a call's
+ *  value is (`assignmentPairs`). */
 test("a box read through a named output is read as the instance's output where it is consumed", () => {
   const vars = "cap : Capture; go : BOOL; elapsed : TIME; i : INT;"
-  const named = projectMessages(nets(vars, "i := (cap(xEnable := go).nope + i);"))
+  const named = projectMessages(nets(vars, "i := cap(xEnable := go).nope ADD i;"))
   expect(named).toContain("'nope' is no component of 'Capture'")
-  expect(named).toEqual(projectMessages(nets(vars, "i := (cap.nope + i);")))
-  expect(projectMessages(nets(vars, "i := (cap(xEnable := go).tElapsed + i);"))).toEqual(projectMessages(nets(vars, "i := (cap.tElapsed + i);")))
+  expect(named).toEqual(projectMessages(nets(vars, "i := cap.nope ADD i;")))
+  expect(projectMessages(nets(vars, "i := cap(xEnable := go).tElapsed ADD i;"))).toEqual(projectMessages(nets(vars, "i := cap.tElapsed ADD i;")))
   expect(projectMessages(nets(vars, "elapsed := cap(xEnable := go).tElapsed;"))).toEqual([])
 })
 
@@ -133,23 +120,21 @@ test("the text's own refusals around the two spellings are the bridge reader's",
   expect(codes(nets(vars, "elapsed := t1(IN := go, PT := T#1S).ET;"))).toEqual([])
 })
 
-test("network text: EN is a pin and .ENO the rung continuing from the box", () => {
+test("network text: EN follows the box, and the coil below reads the box's ENO (B3, B4)", () => {
   const src = `FUNCTION_BLOCK F
 VAR c : BOOL; lamp : BOOL; status : INT; END_VAR
 IMPLEMENTATION LD
 NETWORK
-lamp := MOVE(EN := c, 0, => status).ENO;
+MOVE 0 => status EN c
+lamp := ENO;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const s = vg.networks[0]!.statements[0]!
   expect(s.kind).toBe("assign")
-  if (s.kind === "assign" && s.value.kind === "call") {
-    expect(s.value.eno).toBe(true)
-    const en = s.value.pins[0]!
-    expect(en.kind === "input" && en.name?.text).toBe("EN")
-  }
+  if (s.kind === "assign" && s.value.kind === "eno") expect(s.value.box.kind === "word" && s.value.box.en?.kind).toBe("operand")
+  else throw new Error("the coil reads no ENO")
   expect(vgDiags(src)).toEqual([]) // a box output is the IDE's to type, not an ST assignment
 })
 
@@ -192,14 +177,13 @@ test("network text: a double-quoted title is consumed, not parsed as a statement
 VAR a : BOOL; b : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK TITLE: "Some title"
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := a;
-  b := g1;
+  split1 := a;
+  b := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.title).toBe("Some title")
-  expect(net.statements.map((s) => s.kind)).toEqual(["wire_def", "assign"])
+  expect(net.statements.map((s) => s.kind)).toEqual(["split_def", "assign"])
   expect(vgDiags(src)).toEqual([])
 })
 
@@ -294,29 +278,10 @@ test("network text: an ST body whose first statement starts with a variable name
   expect(vgDiags(v1).map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
-test("network text: a wire declared unlike its producer is the push's refusal, at the wire, and no message at its consumer", () => {
-  // Spec, "a hand-edited type": the bridge reader's `CheckWireTypes`, by `NetworkSpelling.ProducerType`.
-  const fb = (wires: string, def: string) =>
-    `FUNCTION_BLOCK FB\nVAR a : BOOL; b : BOOL; out : BOOL; w1 : WORD; w2 : WORD; i : INT; j : INT; END_VAR\nIMPLEMENTATION LD\nNETWORK\nVAR_TEMP ${wires} END_VAR\n${def}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
-  expect(vgDiags(fb("g1 : INT;", "g1 := (a AND b);\nout := g1;")).map((d) => `${d.code}: ${d.message}`)).toEqual([
-    "NETWORK_BAD_EXPRESSION: the wire g1 is declared INT and its producer is a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD).",
-  ])
-  expect(vgDiags(fb("g1 : WORD;", "g1 := (i > j);\nw1 := g1;")).map((d) => d.message)).toEqual([
-    "the wire g1 is declared WORD and its producer is BOOL.",
-  ])
-  // What the producer allows is no finding: a bitwise AND on WORDs, an ADD (the text carries no stored type).
-  expect(vgDiags(fb("g1 : WORD;", "g1 := (w1 AND w2);\nw1 := g1;"))).toEqual([])
-  expect(vgDiags(fb("g1 : INT;", "g1 := (i + j);\ni := g1;"))).toEqual([])
-  // BIT is in ANY_BIT but not among the bridge's bit strings (`NetworkSpelling.BitStrings`): the push refuses it, so the LSP does.
-  expect(vgDiags(fb("g1 : BIT;", "g1 := (a AND b);\nout := g1;")).map((d) => d.message)).toEqual([
-    "the wire g1 is declared BIT and its producer is a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD).",
-  ])
-})
-
-test("network text: a wire named like a POU variable is the wire for every use after its block — no finding", () => {
-  // openspec bridge-refusal-review 2.10: the push writes it (wires resolve first, the writer renames on the next pull),
-  // so the analysis types `g1` as the wire, never as the INT the POU declares under that name.
-  const src = `FUNCTION_BLOCK FB\nVAR g1 : INT; a : BOOL; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := a;\n  out := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+test("network text: a split beside a POU variable of its name is no finding (B6, P1)", () => {
+  // The name IS the VarId, and P1 reserves the pattern: the bare word is the split, the variable `split1`. Both IDEs
+  // build the shape clean (`rcc_network_wire_named_like_variable`: []), so nothing is said while it is typed.
+  const src = `FUNCTION_BLOCK FB\nVAR split1 : INT; a : BOOL; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := a;\n  out := split1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 

@@ -115,28 +115,21 @@ const NEGATED_INT_PIN: readonly CeilingException[] = [
 ]
 
 /**
- * …and C3's three-input operator boxes (ld-fbd-coverage 2R.1): the nine `ng_r1_<op>_three_inputs` record CODESYS's build
- * refusal "'<op>' needs exactly '2' operands", which the LSP does not give yet — new ground, each fixture's
- * `deferred.lsp` the reason; B1's two-input guard (2R.3) ends both the mark and these exceptions.
+ * …and the gap 2R.3 left unowned (ld-fbd-coverage, re-recorded 2026-10-16): `ng_box_output_arrow` records "The
+ * assignment source is incorrect." for a function's result pin wired straight to a variable, and the one builder that
+ * spelled the sentence answered ENO read off a FUNCTION's box — which CODESYS now answers otherwise for the box 2R.3's
+ * push builds ("'ENO' is no component of …"), so the builder went with its last true positive. The gap is the same gap.
  */
-const THREE_INPUT_OPERATORS: readonly CeilingException[] = [
-  "sub",
-  "div",
-  "mod",
-  "gt",
-  "ge",
-  "lt",
-  "le",
-  "eq",
-  "ne",
-].map((op) => ({
-  baseline: "fixtures.codesys",
-  measure: "total: GAP",
-  by: 1,
-  fixture: `ng_r1_${op}_three_inputs`,
-  task: "ld-fbd-coverage 2R.3 (B1's two-input guard) — the fixture's deferred.lsp",
-  why: "an operator box with three inputs where the operator takes two: CODESYS refuses the build, the LSP says nothing",
-}))
+const SOURCE_SENTENCE_UNOWNED: readonly CeilingException[] = [
+  {
+    baseline: "fixtures.codesys",
+    measure: "total: unowned GAP",
+    by: 1,
+    fixture: "ng_box_output_arrow",
+    task: "none: the LSP gives no answer for a function's result pin wired to a variable (a gap before 2R.3 too)",
+    why: "its builder answered ENO off a function box, which the 2R.3 recording no longer answers so",
+  },
+]
 
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...BEFORE_CASCADES,
@@ -144,5 +137,5 @@ export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...REVERSED_ARRAY_SIZE,
   ...INDEXOF_UNTYPED,
   ...NEGATED_INT_PIN,
-  ...THREE_INPUT_OPERATORS,
+  ...SOURCE_SENTENCE_UNOWNED,
 ]

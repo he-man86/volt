@@ -22,10 +22,10 @@ import { NOT_ST } from "../graphical/network-graphical-shared.js"
 const doc = "openspec bridge-refusal-review — What the LSP must pick up (task 5.1)"
 const asSent = "bridge-refusal-review: the item's text as a workspace file holds it — the push writes it as sent"
 
-/** The push's refusal of `rcc_network_late_block_shadows_read` — Volt's own reader, before either IDE sees the text
- *  (`NetworkTextReader`, bridge-refusal-review 2.7 review; `NetworkTextGateTests`), the LSP's NETWORK_DUPLICATE_NAME. */
-const LATE_BLOCK_SHADOWS_READ =
-  "NETWORK_DUPLICATE_NAME: the wire g1 is declared after line 3 read g1 as a variable: one name would mean the variable before this block and the wire after it. Declare the wire before its first use, or give it another name. — Volt's push, before the IDE is asked"
+/** The push's refusal of `rcc_network_eno_without_en` since 2R.3 (P3, DIALECT N21): an operator box shows ENO only with
+ *  an EN, so an open line holding one has no text — Volt's reader, before either IDE sees it. */
+const OPERATOR_ENO_WITHOUT_EN =
+  "NETWORK_BAD_EXPRESSION: ADD without EN on an open line: an operator box shows ENO only with EN (N21) — end the line with `;` (P3). — Volt's push, before the IDE is asked (2R.3)"
 
 /** A graphical FB, instantiated in PLC_PRG — the shape of `network-graphical.ts`'s fixtures. */
 function network(
@@ -136,11 +136,11 @@ END_TYPE
     plcPrgBody: "e_rie := DUT_LANG_rcc_impl_enum.Implementation;",
   },
 
-  // ─── 1.3 — a wire-shaped name no VAR_TEMP declares is a variable ───
+  // ─── 1.3 — a name once shaped like a wire (`g<n>`, before 2R.3's `split<VarId>`) is a variable ───
   network(
     "rcc_network_undeclared_wire_shape",
     "FB_LANG_rcc_nw_g7",
-    "an operand shaped like a wire (`g7`) that nothing declares — the build's undeclared identifier",
+    "an operand shaped like a v2 wire (`g7`) that nothing declares — the build's undeclared identifier",
     "\tout : BOOL;",
     "  out := g7;",
   ),
@@ -152,19 +152,14 @@ END_TYPE
     "  out := g5;",
   ),
 
-  // ─── 1.5 — `.ENO` on a box with no EN ───
+  // ─── 1.5 — ENO on a box with no EN ───
   network(
     "rcc_network_eno_without_en",
     "FB_LANG_rcc_nw_eno",
-    "`.ENO` read on an ADD box that has no EN — written as the text describes it, and the build's to answer",
+    "ENO read on an ADD box that has no EN — CODESYS built it and refused it (\"Missing EN pin\"); since 2R.3 the text has no spelling for it (P3, N21)",
     "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "  x := ADD(a, b).ENO;",
-    {
-      vendorRefuses: {
-        twincat:
-          "TwinCAT: the text reads `.ENO` on the 'ADD' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds. (Volt's driver, `TcEnoRefusal`, before the first write — measured 2026-10-04.)",
-      },
-    },
+    "  a ADD b\n  x := ENO;",
+    { vendorRefuses: { codesys: OPERATOR_ENO_WITHOUT_EN, twincat: OPERATOR_ENO_WITHOUT_EN } },
   ),
 
   // …and on a user FUNCTION's box: the network-missing-en check takes every head that is no variable, and only ADD (an
@@ -173,7 +168,7 @@ END_TYPE
     name: "rcc_network_eno_function_without_en",
     pouName: "FB_LANG_rcc_nw_eno_fun",
     kind: "function_block",
-    feature: "`.ENO` read on a user FUNCTION's box that has no EN",
+    feature: "ENO read on a user FUNCTION's box that has no EN",
     fromDoc: doc,
     source: `FUNCTION FUN_LANG_rcc_twice : INT
 VAR_INPUT
@@ -192,7 +187,8 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  x := FUN_LANG_rcc_twice(a, b).ENO;
+  FUN_LANG_rcc_twice(a, b)
+  x := ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -202,56 +198,33 @@ END_FUNCTION_BLOCK
     execSkip: NOT_ST,
     vendorRefuses: {
       twincat:
-        "TwinCAT: the text reads `.ENO` on the 'FUN_LANG_rcc_twice' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds. (Volt's driver, `TcEnoRefusal`, before the first write — measured 2026-10-04.)",
+        "TwinCAT: the text reads ENO on the 'FUN_LANG_rcc_twice' box, and the IDE builds that box with no ENO output — the text names an output the box does not have. (Volt's driver, `TcEnoRefusal`, before the first write — measured 2026-10-04.)",
     },
   },
 
-  // ─── 2.7–2.10 — the network layout rules the push dropped (task 5.2d): each is written as sent now ───
+  // ─── 2.7–2.10 — the network layout rules the push dropped (task 5.2d). 2R.3 deleted VAR_TEMP (B6): a split is
+  // `split<VarId>`, defined once before its references, wherever in the network — so an empty block, a declared wire
+  // nothing defines and a late block shadowing a read have no spelling left, and their fixtures went with it ───
   network(
     "rcc_network_var_temp_after_statement",
     "FB_LANG_rcc_nw_late",
-    "a VAR_TEMP block standing after the network's first statement (2.7)",
+    "a split defined after the network's first statement (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "  out := a;\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a OR b);\n  lamp1 := g1;\n  lamp2 := g1;",
+    "  out := a;\n  split1 := a OR b;\n  lamp1 := split1;\n  lamp2 := split1;",
   ),
   network(
     "rcc_network_second_var_temp",
     "FB_LANG_rcc_nw_two_blocks",
-    "a second VAR_TEMP block in one network, adding to the first (2.7)",
+    "two splits in one network, the second defined after the first's uses (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\n\tout3 : BOOL;\n\tout4 : BOOL;",
-    "  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a AND b);\n  out1 := g1;\n  out2 := g1;\n  VAR_TEMP g2 : BOOL; END_VAR\n  g2 := (b OR c);\n  out3 := g2;\n  out4 := g2;",
-  ),
-  network(
-    "rcc_network_empty_var_temp",
-    "FB_LANG_rcc_nw_empty_block",
-    "an empty VAR_TEMP block (2.9)",
-    "\ta : BOOL;\n\tout : BOOL;",
-    "  VAR_TEMP END_VAR\n  out := a;",
-  ),
-  network(
-    "rcc_network_wire_never_defined",
-    "FB_LANG_rcc_nw_undefined_wire",
-    "a wire VAR_TEMP declares and no statement defines (2.8)",
-    "\ta : BOOL;\n\tout : BOOL;",
-    "  VAR_TEMP g1 : BOOL; END_VAR\n  out := a;",
+    "  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\n  split2 := b OR c;\n  out3 := split2;\n  out4 := split2;",
   ),
   network(
     "rcc_network_wire_named_like_variable",
     "FB_LANG_rcc_nw_wire_shadow",
-    "a wire spelled like a variable of the POU (`g1 : INT` beside the wire `g1 : BOOL`) — the wire, for every use after its block (2.10)",
-    "\tg1 : INT;\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-    // fed by a group, not a bare leaf: TwinCAT's driver refuses a wire fed by a leaf as an unmeasured import shape
-    // (NETWORK_UNSUPPORTED, 2026-10-04), which is no answer about the name
-    "  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a OR b);\n  out1 := g1;\n  out2 := g1;",
-  ),
-  // the one rule the reader ADDED (2.7 review): a late block may not take a name the network already read as a variable
-  network(
-    "rcc_network_late_block_shadows_read",
-    "FB_LANG_rcc_nw_late_shadow",
-    "a late VAR_TEMP block declaring a name the network read as a variable above it — the push refuses it",
-    "\tg1 : BOOL;\n\ta : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "  out := g1;\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := a;\n  lamp1 := g1;\n  lamp2 := g1;",
-    { vendorRefuses: { codesys: LATE_BLOCK_SHADOWS_READ, twincat: LATE_BLOCK_SHADOWS_READ } },
+    "a split spelled like a variable of the POU (`split1 : INT`) — P1 reserves the pattern, so the bare word is the split and the variable `split1` (2.10; refused by the push until the 2R.3 review)",
+    "\tsplit1 : INT;\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
+    "  split1 := a OR b;\n  out1 := split1;\n  out2 := split1;",
   ),
 
   // ─── 2.1 — a retired `(* @volt-… *)` comment in a current-format POU ───

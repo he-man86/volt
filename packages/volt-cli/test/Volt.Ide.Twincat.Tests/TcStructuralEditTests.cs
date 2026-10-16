@@ -45,28 +45,28 @@ public class TcStructuralEditTests
     [Fact]
     public void A_Parallel_in_a_structurally_changed_network_is_refused_before_the_importer()
     {
-        var ex = RefusedBeforeImport(Pushed("xoutput := PARALLEL(xtest, xtest2);"));
+        var ex = RefusedBeforeImport(Pushed("xoutput := BRANCH (xtest, xtest2);"));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("network 1", ex.Message);
-        Assert.Contains("PARALLEL", ex.Message);
+        Assert.Contains("parallel branch", ex.Message);
     }
 
     [Fact]
     public void A_wire_of_a_leaf_in_a_structurally_changed_network_is_refused_before_the_importer()
     {
-        var ex = RefusedBeforeImport(Pushed("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "xoutput := g1;", "xoutput2 := g1;"));
+        var ex = RefusedBeforeImport(Pushed("split1 := TRUE;", "xoutput := split1;", "xoutput2 := split1;"));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("network 1", ex.Message);
-        Assert.Contains("g1", ex.Message);
+        Assert.Contains("split1", ex.Message);
         Assert.Contains("leaf", ex.Message);
     }
 
     [Fact]
     public void A_result_pin_in_a_structurally_changed_network_is_refused_before_the_importer()
     {
-        var ex = RefusedBeforeImport(Pushed("MOVE(xtest, => xoutput);"));
+        var ex = RefusedBeforeImport(Pushed("MOVE xtest => xoutput;"));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("network 1", ex.Message);
@@ -76,8 +76,8 @@ public class TcStructuralEditTests
     /// <summary>A CREATE is an import too, and the push's pre-flight (<c>BeckhoffDriver.ValidateSource</c>, creates only)
     /// runs this same lowering — so the refusal is the same, by the same code, before any op is written.</summary>
     [Theory]
-    [InlineData("xoutput := PARALLEL(xtest, xtest2);", "PARALLEL")]
-    [InlineData("MOVE(xtest, => xoutput);", "=> xoutput")]
+    [InlineData("xoutput := BRANCH (xtest, xtest2);", "parallel branch")]
+    [InlineData("MOVE xtest => xoutput;", "=> xoutput")]
     public void A_create_holding_an_unmeasured_shape_is_refused_by_the_lowering(string statement, string named)
     {
         var ex = Assert.Throws<NetworkTextException>(() => TcPlcOpenWriter.WriteProject("P", Pushed(statement)));
@@ -103,7 +103,7 @@ public class TcStructuralEditTests
         Assert.Contains("Condition to set the alarm.", xml);   // the injection landed
 
         var ex = Assert.Throws<NetworkTextException>(() =>
-            TcNetworkWriter.Apply(xml, Pushed("xoutput := (xtest AND xtest2);"), Scope, NeverImported));
+            TcNetworkWriter.Apply(xml, Pushed("xoutput := xtest AND xtest2;"), Scope, NeverImported));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("network 1", ex.Message);
@@ -115,7 +115,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_network_holding_a_symbol_comment_pushed_back_unchanged_writes_nothing()
     {
-        Assert.Null(TcNetworkWriter.Apply(LadderWithSymbolComment(), Pushed("xoutput := (xtest OR xtest2);"), Scope, NeverImported));
+        Assert.Null(TcNetworkWriter.Apply(LadderWithSymbolComment(), Pushed("xoutput := xtest OR xtest2;"), Scope, NeverImported));
     }
 
     /// <summary>The refusal is about THOSE shapes: a structural change without one still reaches the importer — a
@@ -124,7 +124,7 @@ public class TcStructuralEditTests
     public void A_structural_change_without_those_shapes_still_reaches_the_importer()
     {
         var reached = Assert.Throws<Xunit.Sdk.XunitException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := (xtest AND xtest2);"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := xtest AND xtest2;"), Scope, NeverImported));
         Assert.Contains("importer was reached", reached.Message);
     }
 
@@ -249,6 +249,47 @@ public class TcStructuralEditTests
         Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd), scope));
     }
 
+    /// <summary>THE CREATE'S STAMP WRITES THE DERIVED OUTPUT NAMES (gate 2R.3, finding 1). A box read from text states no
+    /// member (B7), so the in-place writer keeps the IDE's own output names — but over the IMPORT's fresh box the stamp
+    /// writes the derivation, on the create's by-position route as on the rebuild/insert ones. Without it the import's
+    /// <c>[Out1]</c> stayed on every function box of a created POU (TwinCAT vendor-facts NWL_R_CALLS: an enabled program
+    /// call stored <c>['Out1']</c> where it stored <c>['ENO']</c>, and the build said "Identifier not defined").</summary>
+    [Fact]
+    public void The_create_stamp_writes_the_derived_output_names_over_the_imports()
+    {
+        var built = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        Assert.Contains("<v>Out1</v>", built);
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+
+        var stamped = BeckhoffDriver.Stamp(built, pushed, scope);
+
+        Assert.DoesNotContain("<v>Out1</v>", stamped);
+        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(stamped)!, BodyLanguage.Fbd), scope));
+    }
+
+    /// <summary>…EVEN WHERE THE TEXT CANNOT TELL THE IMPORT FROM THE PUSH (gate 2R.3, found live on the calls program): the
+    /// import's <c>[Out1]</c> on <c>t1(IN := , PT := )</c> is no text (B7), so the import's network renders exactly as
+    /// pushed, and the change gate skipped it — the stamp wrote nothing on any network it could not tell apart, which
+    /// is every plain call. The stamp is not an edit of an IDE-drawn network: it always writes the derivation.</summary>
+    [Fact]
+    public void The_create_stamp_writes_the_derivation_on_a_network_the_text_cannot_tell_apart()
+    {
+        var built = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        Assert.Contains("<v>Out1</v>", built);
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope);
+
+        var stamped = BeckhoffDriver.Stamp(built, NetworkText.Validate(text, scope), scope);
+
+        Assert.DoesNotContain("<v>Out1</v>", stamped);
+        Assert.Equal(text, NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(stamped)!, BodyLanguage.Ld), scope));
+    }
+
     [Fact]
     public void A_pin_name_the_IDE_holds_is_not_blanked_by_a_positional_push()
     {
@@ -263,7 +304,7 @@ public class TcStructuralEditTests
     }
 
     /// <summary>AN UNWIRED PIN THE IMPORT BUILT READS AS THE EMPTY SLOT IT IS. <c>importer-unwired.TcPOU</c> is real XAE
-    /// output of <c>n := ( * m * 6);</c> and <c>t1(IN := , PT := );</c>: the import holds each unconnected pin as an
+    /// output of <c>n := MUL(, m, 6);</c> and <c>t1(IN := , PT := );</c>: the import holds each unconnected pin as an
     /// operand with no text, where CODESYS holds a terminator, and it came back <c>(`` * m * 6)</c> (found live,
     /// <c>real-project-shapes.test.ts</c>). Read as the model's one "unconnected", and pushed back unchanged.</summary>
     [Fact]
@@ -277,9 +318,9 @@ public class TcStructuralEditTests
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var text = NetworkTextWriter.Write(pulled, scope);
 
-        Assert.Contains("  n := ( * m * 6);\n", text);
-        // The import's output list rides as the call's pragma (ld-fbd-coverage 2.3).
-        Assert.Contains("  t1(IN := , PT := ){OutputParam.Names := ['Out1']}{OutputParam.Types := ['']};\n", text);
+        Assert.Contains("  n := MUL(, m, 6);\n", text);
+        // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
+        Assert.Contains("  t1(IN := , PT := );\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -300,7 +341,7 @@ public class TcStructuralEditTests
         Assert.IsType<Terminator>(box.Enable);
 
         var text = NetworkTextWriter.Write(pulled, scope);
-        Assert.Contains("  t1(EN := , PT := ){OutputParam.Names := ['Out1']}{OutputParam.Types := ['']};\n", text);
+        Assert.Contains("  t1(PT := ) EN;\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -313,8 +354,8 @@ public class TcStructuralEditTests
     [Fact]
     public void A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer()
     {
-        var pushed = Pushed("VAR_TEMP g1 : BOOL; END_VAR", "g1 := (xtest AND xtest2);", "xoutput := (g1 OR c);",
-                            "xoutput2 := (g1 AND c);");
+        var pushed = Pushed("split1 := xtest AND xtest2;", "xoutput := split1 OR c;",
+                            "xoutput2 := split1 AND c;");
 
         var reached = Assert.Throws<Xunit.Sdk.XunitException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, NeverImported));
         Assert.Contains("importer was reached", reached.Message);
@@ -325,7 +366,7 @@ public class TcStructuralEditTests
     public void Two_rungs_sharing_no_wire_are_still_refused_as_a_split()
     {
         var ex = Assert.Throws<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := (xtest AND xtest2);", "xoutput2 := (xtest OR c);"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := xtest AND xtest2;", "xoutput2 := xtest OR c;"), Scope, NeverImported));
         Assert.Contains("2 independent rungs", ex.Message);
     }
 
@@ -346,29 +387,28 @@ public class TcStructuralEditTests
         return net;
     };
 
-    /// <summary>A consumer written WITHOUT <c>.ENO</c> on a box the IDE builds with ENO as its main output states a data
+    /// <summary>A consumer reading the box as a VALUE on a box the IDE builds with ENO as its main output states a data
     /// output the box does not have (spec, "ENO is the main output") — refused naming the box, after the import, from
     /// the imported box's output list.</summary>
     [Fact]
     public void A_consumer_without_ENO_on_a_box_the_import_gives_an_ENO_main_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := MOVE(EN := c, xtest);"), Scope, ImportedAs("MOVE", "ENO", "")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := MOVE xtest;"), Scope, ImportedAs("MOVE", "ENO", "")));
 
         Assert.Contains("'MOVE'", ex.Message);
-        Assert.Contains("without `.ENO`", ex.Message);
+        Assert.Contains("as a value", ex.Message);
     }
 
-    /// <summary>…and <c>.ENO</c> on a box the IDE builds with no ENO output names an output that is not there (spec, "a
-    /// box that has no ENO output says .ENO").</summary>
+    /// <summary>…and ENO read on a box the IDE builds with no ENO output names an output that is not there (B4).</summary>
     [Fact]
     public void ENO_on_a_box_the_import_gives_no_ENO_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND(xtest, xtest2).ENO;"), Scope, ImportedAs("AND")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xtest AND xtest2 EN c", "xoutput := ENO;"), Scope, ImportedAs("AND")));
 
         Assert.Contains("'AND'", ex.Message);
-        Assert.Contains("`.ENO`", ex.Message);
+        Assert.Contains("through ENO", ex.Message);
         Assert.Contains("no ENO output", ex.Message);
     }
 
@@ -424,7 +464,7 @@ public class TcStructuralEditTests
     public void A_negation_with_an_edge_is_refused_on_push()
     {
         var ex = Assert.Throws<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := (R_EDGE(NOT xtest) OR xtest2);"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT xtest) OR xtest2;"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("xtest", ex.Message);
     }

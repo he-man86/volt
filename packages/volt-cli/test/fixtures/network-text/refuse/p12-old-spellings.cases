@@ -1,0 +1,295 @@
+#### old-eno-suffix — P12: `.ENO` is not network text
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := f(a).ENO;
+END_NETWORK
+=== refused
+NETWORK_PARSE `.ENO` is not network text
+
+#### old-if-then — P12/B4b: IF … THEN is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  IF a AND b THEN JMP Done; END_IF;
+END_NETWORK
+=== refused
+NETWORK_PARSE IF … THEN is gone
+
+#### old-plus — P12: ST's `+` is not network text
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := (a + b);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write ADD
+
+#### old-minus — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a - b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write SUB
+
+#### old-times — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a * b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write MUL
+
+#### old-divide — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a / b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write DIV
+
+#### old-greater — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a > 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write GT
+
+#### old-less — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a < 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write LT
+
+#### old-greater-equal — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a >= 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write GE
+
+#### old-less-equal — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a <= 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write LE
+
+#### old-equal — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a = 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write EQ
+
+#### old-not-equal — P12
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a <> 40;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write NE
+
+#### old-a-move-b — B2: `a MOVE b` is gone
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  a MOVE b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION `a MOVE b` is not network text
+
+#### old-parallel — P12/B8: `PARALLEL(…)` is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := PARALLEL(IN := start, a, b);
+END_NETWORK
+=== refused
+NETWORK_PARSE PARALLEL(…) is not network text
+
+#### old-parallel-mode — P12: `MODE :=` went with PARALLEL
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := PARALLEL(MODE := Sequential, IN := start, a, b);
+END_NETWORK
+=== refused
+NETWORK_PARSE PARALLEL(…) is not network text
+
+#### old-en-pin — P12/B3: `EN :=` on a box is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE(EN := c, b, => a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION `EN :=` on a box is not network text
+
+#### old-en-pin-call — P12/B3
+=== text
+IMPLEMENTATION LD
+NETWORK
+  f(EN := c, a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION `EN :=` on a box is not network text
+
+#### old-var-temp — P12/B6: VAR_TEMP is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := a;
+END_NETWORK
+=== refused
+NETWORK_PARSE VAR_TEMP is gone
+
+#### old-pragma — P12/B7: the member pragma is gone
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := t1(IN := a, PT := T#1S){OutputParam.Names := ['Q', 'ET']};
+END_NETWORK
+=== refused
+NETWORK_PARSE the member pragma
+
+#### old-backticked-literal — P12: a literal is bare
+=== text
+IMPLEMENTATION LD
+NETWORK
+  sName := `'Recipes'`;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a literal between backticks
+
+#### old-backticked-number — P12
+=== text
+IMPLEMENTATION LD
+NETWORK
+  n := `-1`;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a literal between backticks
+
+#### old-spaced-minus — P12: `- 1` is refused, the minus touches its digit
+=== text
+IMPLEMENTATION LD
+NETWORK
+  n := - 1;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION the minus touching its digit
+
+#### old-plus-sign — P12: `+1` is refused
+=== text
+IMPLEMENTATION LD
+NETWORK
+  n := +1;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION '+' sign is not written
+
+#### old-minus-variable — P12: `-x` is refused
+=== text
+IMPLEMENTATION LD
+NETWORK
+  n := -x;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a negation of a value is a box
+
+#### old-execute-paren — P12/B3: `EXECUTE(EN := c)` is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE(EN := TRUE)
+x := 1;
+  END_EXECUTE;
+END_NETWORK
+=== refused
+NETWORK_PARSE EXECUTE(EN := c) is gone
+
+#### v1-let — v1 text is refused, re-pull
+=== text
+IMPLEMENTATION LD
+NETWORK
+  LET g0 := TRUE;
+END_NETWORK
+=== refused
+NETWORK_PARSE re-pull
+
+#### old-branch-lines — P12/B8: BRANCH lines and `feed INTO BRANCHES` are gone — a parallel is `feed BRANCH (a, b)`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  BRANCH a
+  BRANCH b
+  lamp := start INTO BRANCHES;
+END_NETWORK
+=== refused
+NETWORK_PARSE a BRANCH line is gone
+
+#### old-into — P12/B8: `INTO` is not network text
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := start INTO BRANCHES;
+END_NETWORK
+=== refused
+NETWORK_PARSE 'INTO' is not network text
+
+#### old-inline-branches — P12/B8: the inline `(BRANCH a BRANCH b)` is gone
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := (BRANCH a BRANCH b);
+END_NETWORK
+=== refused
+NETWORK_PARSE a BRANCH line is gone
+
+#### old-split-type — P12/B6: a split's inline type is gone, no type is written
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  split1 : INT := a GT b;
+  x := split1;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a type on the split
+
+#### unknown-operator — B1: a symbol that is no word of the text and no ST operator
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ^ b;
+END_NETWORK
+=== refused
+NETWORK_UNKNOWN_OPERATOR is no operator of network text
+
+#### ampersand-unknown — B1: ST's `&` is no word of the text either
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a & b;
+END_NETWORK
+=== refused
+NETWORK_UNKNOWN_OPERATOR is no operator of network text

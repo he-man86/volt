@@ -1,0 +1,162 @@
+#### add-coil — B1: an ADD box is its word, infix, then a coil
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD b;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a b conn:0 main:0 eno:0))
+
+#### gt-coil — B1: a comparison is its word
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  out := a GT 40;
+END_NETWORK
+=== model
+NETWORK
+  (:= out (GT a 40 conn:0 main:0 eno:0))
+
+#### every-word — B1: the fourteen words, each one box
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  b1 := a AND b;
+  b2 := a OR b;
+  b3 := a XOR b;
+  i1 := i ADD j;
+  i2 := i SUB j;
+  i3 := i MUL j;
+  i4 := i DIV j;
+  i5 := i MOD j;
+  c1 := i GT j;
+  c2 := i GE j;
+  c3 := i EQ j;
+  c4 := i NE j;
+  c5 := i LE j;
+  c6 := i LT j;
+END_NETWORK
+=== model
+NETWORK
+  (:= b1 (AND a b))
+  (:= b2 (OR a b))
+  (:= b3 (XOR a b))
+  (:= i1 (ADD i j conn:0 main:0 eno:0))
+  (:= i2 (SUB i j conn:0 main:0 eno:0))
+  (:= i3 (MUL i j conn:0 main:0 eno:0))
+  (:= i4 (DIV i j conn:0 main:0 eno:0))
+  (:= i5 (MOD i j conn:0 main:0 eno:0))
+  (:= c1 (GT i j conn:0 main:0 eno:0))
+  (:= c2 (GE i j conn:0 main:0 eno:0))
+  (:= c3 (EQ i j conn:0 main:0 eno:0))
+  (:= c4 (NE i j conn:0 main:0 eno:0))
+  (:= c5 (LE i j conn:0 main:0 eno:0))
+  (:= c6 (LT i j conn:0 main:0 eno:0))
+
+#### one-word-three-inputs — B1: one word = one box, so `a ADD b ADD c` is one ADD with three inputs
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD b ADD c;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a b c conn:0 main:0 eno:0))
+
+#### brackets-separate-boxes — B1: `a ADD (b ADD c)` is two ADD boxes
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD (b ADD c);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a (ADD b c conn:0 main:0 eno:0) conn:0 main:0 eno:0))
+
+#### mixed-words-bracketed — B1: one word kind per bracket level, so a second word is a bracketed box
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := start AND (a OR b) AND NOT stop;
+END_NETWORK
+=== model
+NETWORK
+  (:= lamp (AND start (OR a b) not:stop))
+
+#### and-nine-inputs — B1: AND and OR take as many inputs as drawn (up to 9 in the corpora)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := a AND b AND c AND d AND e AND f AND g AND h AND i;
+END_NETWORK
+=== model
+NETWORK
+  (:= q (AND a b c d e f g h i))
+
+#### top-level-word-with-output — 2R.1 Open item 2: an operator box with an output pin and no EN, `a ADD b => x;`
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  a ADD b => x;
+END_NETWORK
+=== model
+NETWORK
+  (ADD a b =>0:x eno:0)
+
+#### lowercase-word-reads-as-the-word — B1/P1: the words are case-insensitive; the canonical form is upper case
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a add b;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a b conn:0 main:0 eno:0))
+=== canonical
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD b;
+END_NETWORK
+
+#### negated-group — a NOT on a box word: the box stands in brackets under it
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := NOT (a AND b);
+END_NETWORK
+=== model
+NETWORK
+  (:= x not:(AND a b))
+
+#### word-operand-call — a call is an operand of a word without brackets
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a ADD f(b);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a (f b conn:0 main:0 eno:0) conn:0 main:0 eno:0))
+
+#### operand-word-in-word-bracketed — P4 (1): a box word that is an operand of another word stands in brackets
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := (a ADD b) MUL c;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (MUL (ADD a b conn:0 main:0 eno:0) c conn:0 main:0 eno:0))
+
+#### word-in-call-argument-unbracketed — P4: a call argument is a slot, holding one box without brackets (28 corpus networks)
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := t1(IN := a AND b, PT := T#1S);
+END_NETWORK
+=== model
+NETWORK
+  (:= q (TON@t1 IN=(AND a b) PT=T#1S conn:0 main:0 eno:0))

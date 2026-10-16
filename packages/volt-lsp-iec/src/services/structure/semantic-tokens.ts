@@ -152,22 +152,19 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
 }
 
 /**
- * Where each network-text wire is spelled — its `VAR_TEMP` declaration, its definition and every reference — as start
- * offsets. Resolved through the NETWORK's scope, the one place a wire is declared: the parser reads a bare name as a
- * wire exactly when its network's block declares it, so a POU variable merely named `g2` is not one, and `g1` in
- * network 0 is not the `g1` of network 1. Read off the same analysis every other network service reads — the parse
- * depends on the POU's scope, so a parse of its own could see other statements than the diagnostics do.
+ * Where each network-text split is spelled — its definition and every reference — as start offsets (B6: `split<VarId>`,
+ * a pattern the text reserves, so a POU variable named like one is backticked and is no split). Read off the same
+ * analysis every other network service reads — the parse depends on the POU's scope, so a parse of its own could see
+ * other statements than the diagnostics do.
  */
 function wireOccurrences(doc: Document, project: Scope): Set<number> {
   const at = new Set<number>()
   for (const { unit, body } of graphicalBodies(doc.parseResult.units))
-    for (const network of analyzeNetworkText(unit, body, project, doc.uri).vg.networks) {
-      for (const w of network.wires) at.add(w.name.span.start)
-      for (const s of network.statements) {
-        if (s.kind === "wire_def") at.add(s.wire.span.start)
-        for (const v of walkValues(s)) if (v.kind === "wire_ref") at.add(v.name.span.start)
+    for (const network of analyzeNetworkText(unit, body, project, doc.uri).vg.networks)
+      for (const split of network.splits) {
+        at.add(split.name.span.start)
+        for (const r of split.references) at.add(r.span.start)
       }
-    }
   return at
 }
 

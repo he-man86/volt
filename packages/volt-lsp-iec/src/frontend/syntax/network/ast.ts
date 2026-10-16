@@ -1,20 +1,20 @@
 /**
- * Network-text AST — the textual form of an FBD/LD body, v2 (`volt-cli/docs/network-text.html`, openspec
- * network-text-literal-nwl). A body is network text when its line states it — `IMPLEMENTATION FBD` or
- * `IMPLEMENTATION LD` (`syntax/format/implementation-line`, `syntax/isGraphicalBody`). One statement per vendor network item:
+ * Network-text AST — the textual form of an FBD/LD body (`volt-cli/docs/network-text.html`, openspec ld-fbd-coverage 2R.3,
+ * `readability.md`). A body is network text when its line states it — `IMPLEMENTATION FBD` or `IMPLEMENTATION LD`. One
+ * statement per vendor network ITEM: the item's lines up to its `;`, a box on an OPEN line (no `;`) reached through the
+ * `ENO` that takes it (P3) — so a statement is one tree, as the vendor holds it.
  *
  *   body      = "IMPLEMENTATION" ( "FBD" | "LD" ) NL , { network }
- *   network   = "NETWORK" [LABEL: x] [TITLE: "…"] [DISABLED] NL , { "//" line } , [ VAR_TEMP wires END_VAR ] ,
- *               { statement } , "END_NETWORK"
- *   statement = ( assign | jump | IF c THEN jump ; END_IF | value ) ";"   — a lone ";" is the empty item
+ *   network   = "NETWORK" [LABEL: x] [DISABLED] [TITLE: "…"] NL , { "//" line } , { item } , "END_NETWORK"
+ *   item      = { open line } , ( coil | split | jump | value ) ";"   — a lone ";" is the empty item
  *
- * The tree mirrors the bridge reader's (`NetworkTextReader.cs`) closely enough to report its structural findings live;
- * the operands inside it are ST `Expr`s so the one type engine, resolution, hover and rename apply unchanged. What
- * the text spells that ST has no node for — an empty slot, `PARALLEL`, an edge, `.ENO`, an EXECUTE box, `=> v` — is a
- * node of its own here, and `networkValueExpr` says which values have an ST reading at all.
+ * The tree mirrors the bridge reader's (`NetworkTextReader.cs`) closely enough to report its findings live; the operands
+ * inside it are ST `Expr`s so the one type engine, resolution, hover and rename apply unchanged. What the text spells
+ * that ST has no node for — an empty slot, a parallel, an edge, ENO, an EXECUTE box, `=> v` — is a node of its own here,
+ * and `networkValueExpr` says which values have an ST reading at all.
  */
 import type { Span } from "../span.js"
-import type { Expr, StatementList, TypeExpr } from "../ast/nodes/index.js"
+import type { Expr, StatementList } from "../ast/nodes/index.js"
 
 export type NetworkLanguage = "FBD" | "LD"
 
@@ -30,49 +30,31 @@ export interface NetworkTextBody {
 export interface NetworkTextNetwork {
   /** Position in the body, 0-based. The text carries no order number (v1's `NETWORK <n>` is refused). */
   index: number
-  /** The network's TITLE — free text, ST string escapes decoded. */
+  /** The network's TITLE — exact, ST string escapes decoded. */
   title?: string
   /** The network's LABEL — the jump target `JMP` resolves against. A property of the network, on its header. */
   label?: NetworkName
   disabled: boolean
-  /** The `//` lines between the header and the wire block or first statement, joined by `\n`. */
+  /** The `//` lines between the header and the first statement, joined by `\n`. */
   comment?: string
-  /** The network's `VAR_TEMP` wire declarations, in source order. */
-  wires: NetworkWire[]
-  /** `UNSUPPORTED "<shape>";` — the network's trees the text has no spelling for, shown as one line (openspec
-   *  ld-fbd-coverage 1b.4, the bridge's `Network.Unsupported`). An opaque network: no statement, no diagnostic inside. */
+  /** The network's split points (B6), in definition order: `split<VarId> := value;`, and every reference to each. */
+  splits: NetworkSplit[]
+  /** `UNSUPPORTED "<shape>";` — the network's trees the text has no spelling for, shown as one line (1b.4). */
   unsupported?: NetworkName
   statements: NetworkTextStatement[]
   span: Span
   headerSpan: Span
 }
 
-/** A wire — a vendor Demux — declared in the network's `VAR_TEMP` block. `g<digits>`, carrying the VarId. */
-export interface NetworkWire {
+/** A split point — a vendor Demux (B6): its name IS its VarId, it has no declaration and no type. */
+export interface NetworkSplit {
   name: NetworkName
-  /** The declared type as written (layout collapsed), and parsed where it parses. */
-  typeText: string
-  type?: TypeExpr
-  /** The declaration: `g1 : BOOL;` (the names of a shared declaration share its span). */
-  span: Span
-  /** The wire's definition `g1 := value;`, once read. */
-  definition?: NetworkWireDef
-  /** Set when the declared type contradicts the producer (spec "a hand-edited type"; the push refuses it): the
-   *  declaration is then no fact to type the wire's uses by. */
-  typeRefused?: true
-  /** Set when the producer rule names the declared type exactly (an edge, `.ENO`, a comparison, a boolean leaf, a wire
-   *  of that type): only then is the declaration the type a build gives the wire's uses. Otherwise the push takes the
-   *  declaration as written and the vendor, whose Demux holds no type, compiles the consumer against the producer. */
-  typeConfirmed?: true
+  varId: number
+  definition: NetworkSplitDef
+  references: NetworkName[]
 }
 
-export type NetworkTextStatement =
-  | NetworkAssign
-  | NetworkWireDef
-  | NetworkValueStatement
-  | NetworkJump
-  | NetworkReturn
-  | NetworkEmpty
+export type NetworkTextStatement = NetworkAssign | NetworkSplitDef | NetworkValueStatement | NetworkJump | NetworkReturn | NetworkEmpty
 
 /** `t1 := t2 S= … tn R= value;` — ONE vendor Assign with its targets in order (a chained assignment). */
 export interface NetworkAssign {
@@ -82,22 +64,22 @@ export interface NetworkAssign {
   span: Span
 }
 
-/** `g1 := value;` — the definition of a wire declared in the network's `VAR_TEMP`. */
-export interface NetworkWireDef {
-  kind: "wire_def"
-  wire: NetworkName
+/** `split1 := value;` — the definition of a split point. */
+export interface NetworkSplitDef {
+  kind: "split_def"
+  split: NetworkName
   value: NetworkValue
   span: Span
 }
 
-/** `value;` — a top-level item whose output goes nowhere (a box, a leaf, a wire reference, a Parallel). */
+/** `value;` — a top-level item whose output goes nowhere (a box, a leaf, a split reference, a parallel). */
 export interface NetworkValueStatement {
   kind: "value"
   value: NetworkValue
   span: Span
 }
 
-/** `JMP label;` or `IF c THEN JMP label; END_IF;`. */
+/** `JMP label;` on the rail, or `JMP label := c;` (B4b). */
 export interface NetworkJump {
   kind: "jump"
   target: NetworkName
@@ -105,7 +87,7 @@ export interface NetworkJump {
   span: Span
 }
 
-/** `RETURN;` or `IF c THEN RETURN; END_IF;`. */
+/** `RETURN;` on the rail, or `RETURN := c;` (B4b). */
 export interface NetworkReturn {
   kind: "return"
   condition?: NetworkValue
@@ -135,17 +117,16 @@ export type NetworkValue =
   | NetworkNestedAssign
   | NetworkEmptySlot
   | NetworkOperand
-  | NetworkWireRef
+  | NetworkSplitRef
   | NetworkNot
   | NetworkEdge
-  | NetworkGroup
+  | NetworkWordBox
   | NetworkCall
   | NetworkParallel
   | NetworkExecute
+  | NetworkEno
 
-/** `(t1 := t2 S= … value)` — an assignment BELOW the top level (S2, openspec ld-fbd-coverage 2.3): ONE vendor Assign item
- *  in a pin or under another box, its value passing through to the consumer. A pair holding a storage operator at its own
- *  depth is the third pair kind (a group, an argument list, this). */
+/** `(t1 := t2 S= … value)` — an assignment BELOW the top level (S2): one vendor Assign item, its value passing through. */
 export interface NetworkNestedAssign {
   kind: "nested_assign"
   targets: NetworkTarget[]
@@ -153,7 +134,7 @@ export interface NetworkNestedAssign {
   span: Span
 }
 
-/** An unconnected position: `f(a, )`, `coil := ;`, `( * x)`. */
+/** An unconnected position: `f(a, )`, `coil := ;`, `EN` with nothing after it. */
 export interface NetworkEmptySlot {
   kind: "empty_slot"
   span: Span
@@ -170,14 +151,14 @@ export interface NetworkOperand {
   span: Span
 }
 
-/** A reference to a wire the network declares. */
-export interface NetworkWireRef {
-  kind: "wire_ref"
+/** A reference to a split point the network defines above it (B6). */
+export interface NetworkSplitRef {
+  kind: "split_ref"
   name: NetworkName
   span: Span
 }
 
-/** The negation modifier: `NOT a`, `NOT (a AND b)`. (`NOT(a)` is the NOT box — a call.) */
+/** The negation modifier: `NOT a`, `NOT (a AND b)`. (`NOT(IN := a)` is the NOT box — a call.) */
 export interface NetworkNot {
   kind: "not"
   operand: NetworkValue
@@ -192,33 +173,22 @@ export interface NetworkEdge {
   span: Span
 }
 
-/** `(a OP b …)` — one operator box, one operator kind. */
-export interface NetworkGroup {
-  kind: "group"
-  /** The operator as written (`AND`, `+`, `>=`). */
-  op: string
+/** A box written as its WORD (B1, B2): `a ADD b ADD c`, `MOVE b`, each with its `=> v` pins and its `EN` tail. */
+export interface NetworkWordBox {
+  kind: "word"
+  /** The word, upper case: a box word of the table, or MOVE. */
+  word: string
+  /** The word as written — its span is where the box is named. */
+  head: NetworkName
   operands: NetworkValue[]
-  /** The box's stored members the text spells (`pragma.ts`), after its closing paren. */
-  pragmas?: NetworkPragma[]
+  outputs: NetworkTarget[]
+  /** The enable after the box (B3); an empty slot for `EN` with nothing after it. */
+  en?: NetworkValue
+  enSpan?: Span
   span: Span
 }
 
-/** A pragma's value as the text spells it (`pragma.ts`; the bridge's `PragmaValue`). */
-export type PragmaValue =
-  | { kind: "text"; text: string }
-  | { kind: "bool"; value: boolean }
-  | { kind: "int"; value: number }
-  | { kind: "word"; word: string }
-  | { kind: "list"; items: PragmaValue[] }
-
-/** `{Member := value}` — a stored member of the node it follows (openspec ld-fbd-coverage 2.3, `pragma.ts`). */
-export interface NetworkPragma {
-  member: string
-  value: PragmaValue
-  span: Span
-}
-
-/** A call box: `head(pins)`, `??? : TYPE(pins)`, optionally `.ENO`. */
+/** A call box: `head(pins)`, `??? : TYPE(pins)`, optionally `.name` and an `EN` tail. */
 export interface NetworkCall {
   kind: "call"
   /** The head as written: a BoxType or an FB instance (backticks stripped). */
@@ -229,26 +199,23 @@ export interface NetworkCall {
   /** `??? : TYPE(…)` — the vendor's unnamed instance, which carries its type because no declaration can. */
   unnamedType?: NetworkName
   /** The box's TYPE as the reader decided it — an instance's FB (from the declarations), an unnamed instance's written
-   *  type, else the head: a function or operator box is named by its type. On the node, never re-derived from the head,
-   *  which for an instance is its NAME. */
+   *  type, else the head. */
   boxType: string
   pins: NetworkPin[]
-  /** Consumed through its ENO output. */
-  eno: boolean
-  /** `fb(…).name` — consumed through its output of that name, a main output that is not the box's first slot (S4, openspec
-   *  ld-fbd-coverage 1b.4): the name the box itself stores, so no library signature is needed. */
+  /** `fb(…).name` — consumed through its output of that name, a main output that is not the box's first slot (S4). */
   output?: NetworkName
   /** The head is an FB instance the declarations name (an unnamed instance `??? : TYPE` is not one). */
   instance?: true
-  /** The box's stored members the text spells (`pragma.ts`), after its closing paren and before its suffix. */
-  pragmas?: NetworkPragma[]
+  /** An operator written in its call form (P5): `ADD(a)`, `MOVE()`, `AND(a, NOT IN2 := b)`, `NOT(IN := a)`. */
+  operatorCall?: true
+  en?: NetworkValue
+  enSpan?: Span
   span: Span
 }
 
 export type NetworkPin = NetworkInputPin | NetworkOutputPin
 
-/** `F := v` or a positional `v`; `EN := c` is the enable. `NOT F := v` negates the PIN (S6, openspec ld-fbd-coverage 2.3),
- *  where `F := NOT v` negates the value. */
+/** `F := v` or a positional `v`. `NOT F := v` negates the PIN (S6), where `F := NOT v` negates the value. */
 export interface NetworkInputPin {
   kind: "input"
   name?: NetworkName
@@ -257,7 +224,7 @@ export interface NetworkInputPin {
   span: Span
 }
 
-/** `F => v` or a positional `=> v`; a bare `=>` passes a slot over. */
+/** `F => v` or a positional `=> v`; a bare `=>` passes a slot over; `ENO => v` the named ENO pin (P5). */
 export interface NetworkOutputPin {
   kind: "output"
   name?: NetworkName
@@ -265,24 +232,32 @@ export interface NetworkOutputPin {
   span: Span
 }
 
-/** `PARALLEL([MODE := m,] [IN := feed,] b1, b2, …)` — the LD BoxTreeParallel. */
+/** `[feed] BRANCH (b1, b2, …) [SHORTCIRCUIT]` — the LD BoxTreeParallel (B8). */
 export interface NetworkParallel {
   kind: "parallel"
-  mode?: NetworkName
   input?: NetworkValue
   branches: NetworkValue[]
+  /** The old short-circuit mode; the editor's Sequential is written as nothing (B7). */
+  shortCircuit: boolean
+  /** The word BRANCH. */
+  branchWord: Span
   span: Span
 }
 
-/** `EXECUTE[(EN := c)]` … verbatim ST … `END_EXECUTE`, `.ENO` where consumed. Its lines are ST, parsed as such. */
+/** `EXECUTE [EN [c]]` … verbatim ST … `END_EXECUTE` (P8). Its lines are ST, parsed as such. */
 export interface NetworkExecute {
   kind: "execute"
   en?: NetworkValue
+  enSpan?: Span
   statements: StatementList
   ok: boolean
-  eno: boolean
-  /** The box's stored members the text spells (`pragma.ts`), after END_EXECUTE. */
-  pragmas?: NetworkPragma[]
+  span: Span
+}
+
+/** `ENO` — the enable output of the oldest open line above it not yet taken (B4, P3): that line's box. */
+export interface NetworkEno {
+  kind: "eno"
+  box: NetworkWordBox | NetworkCall | NetworkExecute
   span: Span
 }
 
@@ -293,7 +268,7 @@ export interface NetworkName {
 
 /**
  * The structural codes the LSP reports live — the bridge gate's `NETWORK_*` vocabulary (`ConflictCodes`), each raised
- * where the bridge reader raises it. (`NETWORK_NOT_CANONICAL` is gone: canonical form is no refusal, bridge-refusal-review 2.12.)
+ * where the bridge reader raises it.
  */
 export type NetworkDiagnosticCode =
   | "NETWORK_PARSE"
@@ -311,11 +286,11 @@ export interface NetworkTextDiagnostic {
 
 // ─── walks ────────────────────────────────────────────────────────────────────
 
-/** The values a statement holds at its top: an assign's or a wire's value, a jump's condition, a value statement. */
+/** The values a statement holds at its top: an assign's or a split's value, a jump's condition, a value statement. */
 export function statementValues(s: NetworkTextStatement): NetworkValue[] {
   switch (s.kind) {
     case "assign":
-    case "wire_def":
+    case "split_def":
     case "value":
       return [s.value]
     case "jump":
@@ -326,7 +301,7 @@ export function statementValues(s: NetworkTextStatement): NetworkValue[] {
   }
 }
 
-/** A value's direct sub-values. */
+/** A value's direct sub-values, in text order. */
 export function valueChildren(v: NetworkValue): NetworkValue[] {
   switch (v.kind) {
     case "not":
@@ -334,14 +309,16 @@ export function valueChildren(v: NetworkValue): NetworkValue[] {
       return [v.operand]
     case "nested_assign":
       return [v.value]
-    case "group":
-      return v.operands
+    case "word":
+      return [...v.operands, ...(v.en !== undefined ? [v.en] : [])]
     case "call":
-      return v.pins.flatMap((p) => (p.kind === "input" ? [p.value] : []))
+      return [...v.pins.flatMap((p) => (p.kind === "input" ? [p.value] : [])), ...(v.en !== undefined ? [v.en] : [])]
     case "parallel":
       return [...(v.input !== undefined ? [v.input] : []), ...v.branches]
     case "execute":
       return v.en !== undefined ? [v.en] : []
+    case "eno":
+      return [v.box]
     default:
       return []
   }
@@ -357,11 +334,12 @@ export function* walkValues(s: NetworkTextStatement): Generator<NetworkValue> {
   }
 }
 
-/** Every target a statement writes: an assign's targets and every `=>` pin's. */
+/** Every target a statement writes: an assign's targets, a nested assignment's, and every `=>` pin's. */
 export function* statementTargets(s: NetworkTextStatement): Generator<NetworkTarget> {
   if (s.kind === "assign") yield* s.targets
   for (const v of walkValues(s)) {
     if (v.kind === "nested_assign") yield* v.targets
+    if (v.kind === "word") yield* v.outputs
     if (v.kind === "call") for (const p of v.pins) if (p.kind === "output" && p.target !== undefined) yield p.target
   }
 }

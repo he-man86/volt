@@ -2,17 +2,6 @@
 import { expect, test } from "bun:test"
 import { elementaryType, type Type } from "../index.js"
 
-test("operatorFunctionResult: a comparison box is BOOL, a bit-operator box a type of ANY_BIT, any other box nothing", async () => {
-  const { operatorFunctionResult, isBitOperatorWireType } = await import("../index.js")
-  for (const box of ["GT", "ge", "LT", "LE", "EQ", "NE"]) expect(operatorFunctionResult(box)).toEqual({ exact: "BOOL" })
-  for (const box of ["AND", "or", "XOR", "NOT"]) expect(operatorFunctionResult(box)).toEqual({ group: "ANY_BIT" })
-  expect(operatorFunctionResult("ADD")).toBeUndefined()
-  expect(operatorFunctionResult("TON")).toBeUndefined()
-  // a bit-operator box's wire is BOOL or a bit string — ANY_BIT without BIT, as the bridge's gate (`NetworkSpelling.BitStrings`)
-  for (const t of ["BOOL", "BYTE", "WORD", "DWORD", "LWORD"]) expect(isBitOperatorWireType(t)).toBe(true)
-  for (const t of ["BIT", "INT", "UDINT", "REAL", "TIME", "STRING", "NotAType"]) expect(isBitOperatorWireType(t)).toBe(false)
-})
-
 test("shortCircuitType: two BOOLs are BOOL, integers meet in the unsigned integer of their width (cb_and_then_*, CB5)", async () => {
   const { shortCircuitType } = await import("../index.js")
   const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type

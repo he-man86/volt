@@ -45,6 +45,68 @@ VAR RETAIN PERSISTENT
 	stReStopFeedForward: R_TRIG;
 	TMR_HeaterTimeOut: TON;
 END_VAR
-IMPLEMENTATION LD UNSUPPORTED
+IMPLEMENTATION LD
+NETWORK TITLE: "DONE Network 1: Convert speed to cycle time"
+  // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
+  EXECUTE EN
+tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptying);
+
+  END_EXECUTE;
+END_NETWORK
+NETWORK TITLE: "DONE Network 2: Feed forward dryer"
+  oFeedForward := stAuxFeedForward(SET := iStartFeedForward OR (TMR_IntervalTimerEmptying(IN := (tConditionHeaterTimeOut := NOT(IN := stReFeedForward(CLK := stAuxFeedForward.Q1))), PT := `DINT_TO_TIME(tEmptyingCycleInterval)`) AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream), RESET1 := stReStopFeedForward(CLK := iStopFeedForward));
+END_NETWORK
+NETWORK TITLE: "DONE Network 3: Enable heaters"
+  split36 := TRUE;
+  TMR_HeaterTimeOut(IN := split36 AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS, PT := T#7S);
+  split37 := split36 AND iGenFlags.EnableAuxDrive AND iPermissionDownstream AND NOT TMR_HeaterTimeOut.Q AND iSwitchDryer;
+  oEnableHeaters := split37;
+  tEnableHeaters := split37;
+END_NETWORK
+NETWORK TITLE: "DONE Network 4: Output power heater 1"
+  split0 := True;
+  MOVE 0 => stActPowerHeater1 EN split0 AND NOT tEnableHeaters;
+  split1 := split0 AND tEnableHeaters;
+  stActPowerHeater1 ADD 10 => stActPowerHeater1 EN split1 AND LST_General.Imp100ms;
+  MOVE iSetPowerHeater1 => stActPowerHeater1 EN (stActPowerHeater1 GT iSetPowerHeater1 EN split1);
+  EXECUTE EN split0 AND NOT iPowerOrAnalog
+oPowerHeater1:=INT_TO_WORD(stActPowerHeater1*27648/1000);
+
+
+  END_EXECUTE;
+  MOVE `INT_TO_WORD(stActPowerHeater1)` => oPowerHeater1 EN split0 AND iPowerOrAnalog;
+END_NETWORK
+NETWORK TITLE: "DONE Network 5: Output power heater 2"
+  split6 := True;
+  MOVE 0 => stActPowerHeater2 EN split6 AND NOT tEnableHeaters;
+  split7 := split6 AND tEnableHeaters;
+  stActPowerHeater2 ADD 10 => stActPowerHeater2 EN split7 AND LST_General.Imp100ms;
+  MOVE iSetPowerHeater2 => stActPowerHeater2 EN (stActPowerHeater2 GT iSetPowerHeater2 EN split7);
+  EXECUTE EN split6 AND NOT iPowerOrAnalog
+oPowerHeater2:=INT_TO_WORD(stActPowerHeater2*27648/1000);
+
+
+  END_EXECUTE;
+  MOVE `INT_TO_WORD(stActPowerHeater2)` => oPowerHeater2 EN split6 AND iPowerOrAnalog;
+END_NETWORK
+NETWORK TITLE: "DONE Network 6: Output power heater 3"
+  split8 := True;
+  MOVE 0 => stActPowerHeater3 EN split8 AND NOT tEnableHeaters;
+  split9 := split8 AND tEnableHeaters;
+  stActPowerHeater3 ADD 10 => stActPowerHeater3 EN split9 AND LST_General.Imp100ms;
+  MOVE iSetPowerHeater3 => stActPowerHeater3 EN (stActPowerHeater3 GT iSetPowerHeater3 EN split9);
+  EXECUTE EN split8 AND NOT iPowerOrAnalog
+oPowerHeater3:=INT_TO_WORD(stActPowerHeater3*27648/1000);
+
+
+  END_EXECUTE;
+  MOVE `INT_TO_WORD(stActPowerHeater3)` => oPowerHeater3 EN split8 AND iPowerOrAnalog;
+END_NETWORK
+NETWORK TITLE: "DONE Network 37: Fault: dryer opened"
+  oFaultDryerOpened := stFaultDryerOpened(SET1 := TMR_DryerOpened(IN := iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1, PT := T#5S), RESET := iGenFlags.StartFlag);
+END_NETWORK
+NETWORK
+  `ENO` := ;
+END_NETWORK
 
 END_FUNCTION_BLOCK

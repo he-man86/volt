@@ -24,22 +24,22 @@ import type { Messages } from "../../messages/index.js"
  * The `target := value` pairs an assignment rule applies to: an assign's value against the target it is written to,
  * and the plain assignments inside EXECUTE boxes.
  *
- * NOT a pair: a value that is a box's OUTPUT — `x := f(…)`, `x := f(…).ENO`, an EXECUTE box — nor a box's `=> v` pin.
+ * NOT a pair: a value that is a box's OUTPUT — `x := f(…)`, `x := MOVE v`, `x := ENO` (the open line's box), an EXECUTE box — nor a box's `=> v` pin.
  * In FBD/LD such a target is a wire from a box pin, whose type is the IDE's remit (the box's declared pin type, through
  * EN/ENO), not an ST assignment; the LSP applying its assignment rule there invented errors on box wiring the editor
- * owns. Whether a value IS a box is a fact of the tree (`call`, `execute`), never a guess from its ST reading: an edge
+ * owns. Whether a value IS a box is a fact of the tree (`call`, `execute`, `eno`), never a guess from its ST reading: an edge
  * is no box (`x := R_EDGE(a)` pairs as `x := <BOOL>`, its opaque reading), backticked text is an operand whatever it
- * spells, and an EXECUTE box's own lines are ST the IDE compiles as ST, `o := F(k);` included. Nor a wire's
- * definition: the vendor's Demux holds no type, so a wire is no assignment target a build checks — its producer flows
+ * spells, and an EXECUTE box's own lines are ST the IDE compiles as ST, `o := F(k);` included. Nor a split's
+ * definition: the vendor's Demux holds no type, so a split is no assignment target a build checks — its feeder flows
  * to its consumers, which are typed as the build types them (`network-analyze` `usesTypeOf`). Nor a value with no ST
- * reading (`PARALLEL`, a group with an empty slot): its type is no expression's.
+ * reading (a `BRANCH` parallel, a box with an empty slot): its type is no expression's.
  */
 function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignment[] {
   const pairs: Assignment[] = []
   for (const s of statements) {
     // A CHAINED assignment (`a := b S= v;`) writes ONE value to every target: each target is its own assignment to
     // type-check, but the value — and so a hole in it — is one (see `checkHoles`).
-    // The value's own box is the IDE's, through `.ENO` too: `x := f(…).ENO` reads BOOL for what CONSUMES it (a
+    // The value's own box is the IDE's, through ENO too: `x := ENO` reads BOOL for what CONSUMES it (a
     // group, a NOT), but the assignment is still a wire from the box's pin, not an ST assignment.
     // An assignment below the top level (S2, `(t := v)`) is the same Assign item, one level down.
     if (s.kind === "assign") pairOf(s.targets, s.value, pairs)
@@ -55,7 +55,7 @@ function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignmen
 }
 
 function pairOf(targets: readonly NetworkTarget[], v: NetworkValue, pairs: Assignment[]): void {
-  const box = v.kind === "call" || v.kind === "execute"
+  const box = v.kind === "call" || v.kind === "execute" || v.kind === "eno" || (v.kind === "word" && v.word === "MOVE")
   const value = networkValueExpr(v)
   if (value !== undefined && !box) pairs.push({ targets: targets.flatMap((t) => (t.expr === undefined ? [] : [t.expr])), value })
 }

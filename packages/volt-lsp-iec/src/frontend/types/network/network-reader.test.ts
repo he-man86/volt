@@ -1,7 +1,7 @@
 /**
  * The network-text reader WHOLE, read from POU sources as the editor meets them: its files in `syntax/network` (the
  * cursor, values, calls, statements, the body and its networks), composed by `parseNetworkText`. Rule by rule the
- * reader is `network-parse.test.ts`'s; these read whole bodies — a header's fields, a wire block, one statement per
+ * reader is `network-parse.test.ts`'s; these read whole bodies — a header's fields, a split, one statement per
  * item — and were the services' one network test (`git show 1bb889bdfc:packages/volt-lsp-iec/src/services/network/network.test.ts`)
  * until openspec ld-fbd-coverage 2.1 split it per subject.
  */
@@ -39,7 +39,7 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-out := (a AND b);
+out := a AND b;
 END_NETWORK
 END_FUNCTION_BLOCK`
 
@@ -57,39 +57,38 @@ test("network text: a single LD network with a coil parses clean", () => {
     expect(idents(assign.targets[0]!.expr)).toEqual(["out"]) // the target parsed as an Expr
     const value = networkValueExpr(assign.value)
     expect(idents(value)).toEqual(["a", "b"]) // the value read as a real ST expression
-    expect(value?.kind).toBe("paren") // `(a AND b)` — a parenthesised binary
+    expect(value?.kind).toBe("paren") // `a AND b` — one AND box, read as a parenthesised binary
   }
 })
 
-test("network text: a VAR_TEMP wire keeps its name, type and value", () => {
+test("network text: a split keeps its name, VarId and feeder", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-VAR_TEMP g1 : BOOL; END_VAR
-g1 := (a AND b);
-out := g1;
+split1 := a AND b;
+out := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const n = vg.networks[0]!
-  expect(n.wires.map((w) => `${w.name.text} : ${w.typeText}`)).toEqual(["g1 : BOOL"])
-  const [wire, coil] = n.statements
-  expect(wire?.kind).toBe("wire_def")
-  if (wire?.kind === "wire_def") {
-    expect(wire.wire.text).toBe("g1")
-    expect(idents(networkValueExpr(wire.value))).toEqual(["a", "b"]) // its producer, an Expr
+  expect(n.splits.map((s) => `${s.name.text} : ${s.varId}`)).toEqual(["split1 : 1"])
+  const [split, coil] = n.statements
+  expect(split?.kind).toBe("split_def")
+  if (split?.kind === "split_def") {
+    expect(split.split.text).toBe("split1")
+    expect(idents(networkValueExpr(split.value))).toEqual(["a", "b"]) // its feeder, an Expr
   }
   expect(coil?.kind).toBe("assign")
-  if (coil?.kind === "assign") expect(coil.value.kind).toBe("wire_ref") // a wire reference
+  if (coil?.kind === "assign") expect(coil.value.kind).toBe("split_ref") // a split reference
 })
 
 test("network text: the header parses the named LABEL/TITLE fields and DISABLED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 IMPLEMENTATION FBD
-NETWORK LABEL: skipRest TITLE: "my title" DISABLED
+NETWORK LABEL: skipRest DISABLED TITLE: "my title"
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
@@ -101,10 +100,7 @@ END_FUNCTION_BLOCK`
   expect(n.disabled).toBe(true)
 })
 
-test("network text: LABEL and TITLE parse in either order", () => {
-  // Header fields out of order are written by the push and come back canonical (bridge-refusal-review 2.12); the
-  // parser reads both
-  // orders, so a hand-written header is still understood while it is being typed.
+test("network text: the header's fields stand in one order, LABEL DISABLED TITLE (P10)", () => {
   const swapped = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 IMPLEMENTATION LD
@@ -112,9 +108,9 @@ NETWORK TITLE: "t" LABEL: skipRest
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const n = parseNetworkText(vgBody(swapped), STRUCTURE_ONLY, "codesys").networks[0]!
-  expect(n.label?.text).toBe("skipRest")
-  expect(n.title).toBe("t")
+  const vg = parseNetworkText(vgBody(swapped), STRUCTURE_ONLY, "codesys")
+  expect(vg.diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
+  expect(vg.diagnostics[0]!.message).toContain("in that order")
 })
 
 // A network titled `"DISABLED during commissioning"` stays ENABLED — the flag is a header keyword, and text
@@ -153,15 +149,14 @@ END_FUNCTION_BLOCK`
   expect(codes).toContain("NETWORK_NOT_CLOSED")
 })
 
-test("network text: a wire defined twice reports NETWORK_DUPLICATE_NAME", () => {
+test("network text: a split defined twice reports NETWORK_DUPLICATE_NAME", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-VAR_TEMP g1 : BOOL; END_VAR
-g1 := (a AND a);
-g1 := (a OR a);
-out := g1;
+split1 := a AND a;
+split1 := a OR a;
+out := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)
@@ -225,11 +220,11 @@ END_FUNCTION_BLOCK`
   expect(parseNetworkText(vgBody(src("'Network 3'")), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
-test("network text: DISABLED still parses after a title", () => {
+test("network text: DISABLED stands before the title", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
 IMPLEMENTATION FBD
-NETWORK TITLE: "T" DISABLED
+NETWORK DISABLED TITLE: "T"
   a := a;
 END_NETWORK
 END_FUNCTION_BLOCK`

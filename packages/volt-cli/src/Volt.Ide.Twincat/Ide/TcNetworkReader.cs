@@ -44,7 +44,16 @@ internal static class TcNetworkReader
     ///
     /// <para>The archive keeps its own bytes: <see cref="TcNetworkWriter"/> compares these with trailing
     /// whitespace ignored, so a push that changed nothing still writes nothing.</para></summary>
-    private static string? Trimmed(string? s) => NetworkText.Stored(s);
+    private static string? Trimmed(string? s) =>
+        string.IsNullOrEmpty(s) ? null : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
+
+    /// <summary>A network comment as the archive's XML hands it over. XML's end-of-line normalization turns every CR LF
+    /// of a value into LF on the parse, so a line break arrives as LF whatever the IDE holds, and the text's comment lines
+    /// are CR LF (P10): each LF is the IDE's line break, read back as CR LF. Without it a two-line comment read as a bare
+    /// LF, which the text cannot spell, and its whole body was hidden (measured 2026-10-16, ld-fbd-coverage 2R.3). The
+    /// writer compares through the same reading and writes CR as <c>&amp;#xD;</c> (<see cref="TcArchive.Text"/>).</summary>
+    internal static string? Comment(string? archived) =>
+        NetworkText.Stored(archived?.Replace("\r\n", "\n").Replace("\n", "\r\n"));
 
     /// <summary>One live network AS A PULL SHOWS IT — what the pull and the writer's pairing and change gate read. A
     /// NETWORK THE TEXT CANNOT HOLD IS SHOWN, NOT ITS BODY HIDDEN (ld-fbd-coverage 1b.4), CODESYS's reader's rule: a
@@ -66,9 +75,9 @@ internal static class TcNetworkReader
 
     private static Network Header(XElement net, int order) =>
         new(order,
-            Trimmed(TcArchive.Str(net, "Title")),
+            NetworkText.Stored(TcArchive.Str(net, "Title")),
             Trimmed(TcArchive.Str(net, "Label")),
-            Trimmed(TcArchive.Str(net, "Comment")),
+            Comment(TcArchive.Str(net, "Comment")),
             TcArchive.Bool(net, "OutCommented"),
             Array.Empty<Node>());
 
@@ -162,7 +171,7 @@ internal static class TcNetworkReader
                     MainOutputName: Box.NameOfMainOutput(TcArchive.Str(e, "BoxType") ?? "", connected, Names(e, "OutputParam")),
                     // The stored output names whole (ld-fbd-coverage 2.3), as CODESYS reads them: S1's slot on a bit
                     // operator, a call's unconnected pins — the text spells them where they differ from what its pins give.
-                    Members: NwlMembers.Of((NetworkMembers.OutputNames, PragmaValue.Texts(Names(e, "OutputParam")))));
+                    Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(Names(e, "OutputParam")))));
             }
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.

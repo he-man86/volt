@@ -198,7 +198,7 @@ export const RULES_I: readonly Rule[] = [
       },
       {
         file: "src/frontend/types/network/network-parse.test.ts",
-        title: "the header carries LABEL, TITLE and DISABLED, and a title spells ST's escapes",
+        title: "the header carries LABEL, DISABLED and TITLE, exact, ST's escapes decoded",
       },
       { file: "src/frontend/types/network/network-parse.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
     ],

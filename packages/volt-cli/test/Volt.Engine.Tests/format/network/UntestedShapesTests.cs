@@ -35,16 +35,16 @@ public class UntestedShapesTests
         // An LD rising contact: the vendor holds it as the Rtrig bit on the contact's OPERAND (DIALECT N4; census 1.7
         // found one, pro2193 `Counters`) — a flag, never an R_TRIG box.
         ["an LD rising contact"] = (Ld1(Set(Op("AND", L("a", Rise), L("b")), T("out"))),
-            LdSrc("out := (R_EDGE(a) AND b);")),
+            LdSrc("out := R_EDGE(a) AND b;")),
         // …and a falling one with the negation the vendor applies first (DIALECT N17).
         ["an LD negated falling contact"] = (Ld1(Set(Op("AND", L("a", Neg with { Falling = true }), L("b")), T("out"))),
-            LdSrc("out := (F_EDGE(NOT a) AND b);")),
+            LdSrc("out := F_EDGE(NOT a) AND b;")),
 
         // Edges on a Parallel's branches (and on its feed): the flags ride on the branch operands — the Parallel
         // itself holds none (DIALECT N20). Census 1.3/7.12: MainDrive net1's Parallel has a negated branch.
         ["edges in PARALLEL branches"] = (Ld1(Set(new Parallel(L("c", Rise),
                 new Node[] { L("a", Rise), L("b", Neg with { Falling = true }), L("d", Neg) }, ParallelMode.BoxShortCircuit), T("out"))),
-            LdSrc("out := PARALLEL(IN := R_EDGE(c), R_EDGE(a), F_EDGE(NOT b), NOT d);")),
+            LdSrc("out := R_EDGE(c) BRANCH (R_EDGE(a),", "                         F_EDGE(NOT b),", "                         NOT d) SHORTCIRCUIT;")),
 
         // ENO into a DATA pin — Lenze AHWF (the fc_CamC_CP_UDT shape): a MOVE's ENO feeds the function's first
         // input, `iEN : BOOL`, an ordinary data pin and not an EN; the function's result drives two reset coils.
@@ -59,10 +59,9 @@ public class UntestedShapesTests
                         In(L("Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP")),
                     }, main: 0, connected: 0, eno: false),
                     T("Mach1_AuxData.MemWrapperPresentForLeafCarrier", ResetBit), T("Mach1_AuxData.MemWrapperPassedUnderTheSensor", ResetBit))),
-            LdSrc("VAR_TEMP g10 : BOOL; END_VAR",
-                "g10 := True;",
-                "Mach1_AuxData.MemWrapperPresentForLeafCarrier R=",
-                "Mach1_AuxData.MemWrapperPassedUnderTheSensor R= fc_CamC_CP_UDT(MOVE(EN := g10, Mach1_Data.CamControls.TakeOverCycle_C.Stop, => Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP.Start).ENO, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);")),
+            LdSrc("split10 := True;",
+                "MOVE Mach1_Data.CamControls.TakeOverCycle_C.Stop => Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP.Start EN split10",
+                "Mach1_AuxData.MemWrapperPresentForLeafCarrier R= Mach1_AuxData.MemWrapperPassedUnderTheSensor R= fc_CamC_CP_UDT(ENO, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);")),
 
         // A DISABLED header with and without LABEL, with and without a wire block — the four combinations, none with
         // a TITLE or comment to lean on. DISABLED without LABEL beside a wire block is the common real shape (262 in
@@ -70,10 +69,10 @@ public class UntestedShapesTests
         ["DISABLED, no LABEL, no wire block"] = (Body(new Network(0, null, null, null, true, new Node[] { Set(L("a"), T("out")) })),
             FbdMarker + "NETWORK DISABLED\n  out := a;\nEND_NETWORK\n"),
         ["DISABLED, no LABEL, a wire block"] = (Body(new Network(0, null, null, null, true, new Node[] { Def(1, L("TRUE")), Set(Ref(1), T("out")) })),
-            FbdMarker + "NETWORK DISABLED\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out := g1;\nEND_NETWORK\n"),
+            FbdMarker + "NETWORK DISABLED\n  split1 := TRUE;\n  out := split1;\nEND_NETWORK\n"),
         ["DISABLED with a LABEL, no wire block"] = (Body(new Network(0, null, "Done", null, true, new Node[] { Set(L("a"), T("out")) })),
             FbdMarker + "NETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n"),
         ["DISABLED with a LABEL and a wire block"] = (Body(new Network(0, null, "Done", null, true, new Node[] { Def(1, L("TRUE")), Set(Ref(1), T("out")) })),
-            FbdMarker + "NETWORK LABEL: Done DISABLED\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out := g1;\nEND_NETWORK\n"),
+            FbdMarker + "NETWORK LABEL: Done DISABLED\n  split1 := TRUE;\n  out := split1;\nEND_NETWORK\n"),
     };
 }

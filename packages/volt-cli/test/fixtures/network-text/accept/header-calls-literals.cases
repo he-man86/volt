@@ -1,0 +1,360 @@
+#### header-order — P10: `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]`, in that order
+=== text
+IMPLEMENTATION LD
+NETWORK LABEL: Start DISABLED TITLE: "Calc"
+  x := a;
+END_NETWORK
+=== model
+NETWORK label:Start disabled title:"Calc"
+  (:= x a)
+
+#### title-exact — 2R.2 S: the title exactly as the IDE stores it, trailing space and escapes included
+=== text
+IMPLEMENTATION LD
+NETWORK TITLE: "Calc $"A$" $$5 $R$N"
+  x := a;
+END_NETWORK
+=== model
+NETWORK title:"Calc \"A\" $5 \r\n"
+  (:= x a)
+
+#### comment-lines — P10: `//` lines between header and body, joined as CR LF; `// ` and one space are syntax
+=== text
+IMPLEMENTATION LD
+NETWORK
+  // first line
+  //   indented
+  //
+  // last
+  x := a;
+END_NETWORK
+=== model
+NETWORK comment:"first line\r\n  indented\r\n\r\nlast"
+  (:= x a)
+
+#### comment-trailing-line — P10: a trailing CR LF in the stored comment is a final bare `//` line
+=== text
+IMPLEMENTATION LD
+NETWORK
+  // only
+  //
+  x := a;
+END_NETWORK
+=== model
+NETWORK comment:"only\r\n"
+  (:= x a)
+
+#### empty-network — a network with no item
+=== text
+IMPLEMENTATION LD
+NETWORK
+END_NETWORK
+=== model
+NETWORK
+
+#### empty-item — `;` alone is the empty item
+=== text
+IMPLEMENTATION LD
+NETWORK
+  ;
+END_NETWORK
+=== model
+NETWORK
+  _
+
+#### unsupported-line — 1b.4: a network the text cannot spell, shown as its one line
+=== text
+IMPLEMENTATION LD
+NETWORK TITLE: "kept"
+  UNSUPPORTED "a flag on a box input pin";
+END_NETWORK
+=== model
+NETWORK title:"kept" unsupported:"a flag on a box input pin"
+
+#### fb-call-coil — an FB call read by its main output
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  output := t1(IN := in1, PT := e1);
+END_NETWORK
+=== model
+NETWORK
+  (:= output (TON@t1 IN=in1 PT=e1 conn:0 main:0 eno:0))
+
+#### fb-call-empty-pin — a named input left empty keeps `IN := ,`
+=== scope
+instance t2 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  output := t2(IN := , PT := e1);
+END_NETWORK
+=== model
+NETWORK
+  (:= output (TON@t2 IN=_ PT=e1 conn:0 main:0 eno:0))
+
+#### named-main-output — S4: a call read through its named output, `fb(…).name`
+=== scope
+instance fbCap FB_Cap
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := fbCap(xEnable := go).xErrorActive;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (FB_CAP@fbCap xEnable=go eno:0 name:xErrorActive))
+
+#### unnamed-instance — `??? : TYPE(…)`, the vendor's unnamed instance
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  ??? : L_MC1P_Axis(xEnable := go);
+END_NETWORK
+=== model
+NETWORK
+  (L_MC1P_Axis@??? xEnable=go)
+
+#### negated-pin-call-form — 2R.1 Open item 3 / P5: a negated operator pin keeps the call form
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := AND(a, b, NOT IN3 := c);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (AND a b !c))
+
+#### one-input-call-form — P5: an operator with one input keeps its call form
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := ADD(a);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (ADD a conn:0 main:0 eno:0))
+
+#### empty-slot-call-form — P5: the empty positional slot keeps the call fallback, `MUL(, m, 6)`
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := MUL(, m, 6);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (MUL _ m 6 conn:0 main:0 eno:0))
+
+#### lowercase-call-form — P5: a lowercase type is the one case-carrying form
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := and(a, b);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (and a b))
+
+#### not-box — small ones / P5: the NOT box names its input, `NOT(IN := a)`
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := NOT(IN := a);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (NOT a))
+
+#### negated-contact — `NOT x` is the negated contact, a flag
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a AND NOT b;
+END_NETWORK
+=== model
+NETWORK
+  (:= x (AND a not:b))
+
+#### edges — `R_EDGE(x)`, `F_EDGE(x)`, `R_EDGE(NOT x)`: the IDE negates before the edge
+=== text
+IMPLEMENTATION LD
+NETWORK
+  a := R_EDGE(x);
+  b := F_EDGE(x);
+  c := R_EDGE(NOT x);
+END_NETWORK
+=== model
+NETWORK
+  (:= a rise:x)
+  (:= b fall:x)
+  (:= c rise:not:x)
+
+#### negated-pin-of-fb — `f(NOT IN := v)`: the flag on the pin
+=== scope
+instance t1 TON
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  q := t1(NOT IN := v, PT := T#1S);
+END_NETWORK
+=== model
+NETWORK
+  (:= q (TON@t1 !IN=v PT=T#1S conn:0 main:0 eno:0))
+
+#### string-literal — small ones / P12: a literal is bare, `sName := 'Recipes';`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  sName := 'Recipes';
+  n := -1;
+  r := -1.5;
+  t := T#1S;
+  w := 16#FF;
+END_NETWORK
+=== model
+NETWORK
+  (:= sName 'Recipes')
+  (:= n -1)
+  (:= r -1.5)
+  (:= t T#1S)
+  (:= w 16#FF)
+
+#### expression-operand — an operand that is no one token is written between backticks
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE `DINT_TO_LREAL(pos)/10` => target EN go;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE `DINT_TO_LREAL(pos)/10` =>1:target en:go eno:1)
+
+#### empty-text-operand — the empty back-tick pair is the empty-text operand
+=== scope
+instance ton1 TON
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := ton1(IN := TRUE, PT := ``);
+END_NETWORK
+=== model
+NETWORK
+  (:= q (TON@ton1 IN=TRUE PT=`` conn:0 main:0 eno:0))
+
+#### reserved-backticked — P1: a variable spelled like a word of the text is backticked
+=== text
+IMPLEMENTATION LD
+NETWORK
+  y := `ENO`;
+  `EN` := c;
+  z := `Branch` AND `ShortCircuit`;
+END_NETWORK
+=== model
+NETWORK
+  (:= y ENO)
+  (:= EN c)
+  (:= z (AND Branch ShortCircuit))
+
+#### old-words-are-names — P1: IF, THEN, LET, VAR_TEMP, FEED, PARALLEL, INTO and BRANCHES are not words
+=== text
+IMPLEMENTATION LD
+NETWORK
+  Parallel := Feed AND Then AND Into AND Branches;
+END_NETWORK
+=== model
+NETWORK
+  (:= Parallel (AND Feed Then Into Branches))
+
+#### reserved-pin-backticked — P1: P1's reservation is case-insensitive, pins included
+=== text
+IMPLEMENTATION LD
+NETWORK
+  f(`execute` := a, `branch` := b);
+END_NETWORK
+=== model
+NETWORK
+  (f execute=a branch=b)
+
+#### line-wrapped — P2: a line breaks after a word that cannot end it, and the reader joins it
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split174 := TRUE;
+  split175 := split174 AND enable AND
+              ready AND NOT stop;
+  x := f(a,
+         b);
+END_NETWORK
+=== model
+NETWORK
+  (split 174 TRUE)
+  (split 175 (AND #174 enable ready not:stop))
+  (:= x (f a b conn:0 main:0 eno:0))
+=== canonical
+IMPLEMENTATION LD
+NETWORK
+  split174 := TRUE;
+  split175 := split174 AND enable AND ready AND NOT stop;
+  x := f(a, b);
+END_NETWORK
+
+#### execute-on-rail — P8: `EXECUTE` on its line, the ST verbatim below, `END_EXECUTE;`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE EN TRUE
+iCount:=icount+1;
+
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "iCount:=icount+1;\n" en:TRUE)
+
+#### execute-unenabled — P8: an EXECUTE box with no EN
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+x := 1;
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "x := 1;")
+
+#### header-disabled-title — small ones / P10: `NETWORK DISABLED TITLE: "x"`
+=== text
+IMPLEMENTATION FBD
+NETWORK DISABLED TITLE: "x"
+  y := a;
+END_NETWORK
+=== model
+NETWORK disabled title:"x"
+  (:= y a)
+
+#### named-eno-pin — P5: the named ENO pin, a variable stored on the ENO output, is the call form's `ENO => lamp`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE(0, ENO => lamp) EN c;
+END_NETWORK
+=== model
+NETWORK
+  (MOVE 0 =>ENO:lamp en:c)
+
+#### call-sole-argument-word — P4: a call's argument is a slot — a box word there takes no brackets, alone or beside others
+=== text
+IMPLEMENTATION LD
+NETWORK
+  q := f(a OR b);
+  r := f(a OR b, c);
+  s := R_EDGE(a AND b);
+END_NETWORK
+=== model
+NETWORK
+  (:= q (f (OR a b) conn:0 main:0 eno:0))
+  (:= r (f (OR a b) c conn:0 main:0 eno:0))
+  (:= s rise:(AND a b))

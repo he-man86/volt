@@ -33,7 +33,7 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  out := (a AND b);
+  out := a AND b;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -75,10 +75,12 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  out := PARALLEL(IN := go, a, b);
+  out := go BRANCH (a,
+                    b) SHORTCIRCUIT;
 END_NETWORK
 NETWORK
-  out2 := (a AND PARALLEL(MODE := Sequential, b, go));
+  out2 := a AND (BRANCH (b,
+                         go));
 END_NETWORK
 
 END_FUNCTION_BLOCK

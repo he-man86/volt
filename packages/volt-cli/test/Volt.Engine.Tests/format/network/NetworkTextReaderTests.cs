@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -9,11 +9,10 @@ using Parallel = Volt.Engine.Format.Network.Parallel;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// Network text v2 reader: each construct parses to the model the spec and the page say it is, and the model
-/// oracle <c>Read(Write(m)) ≅ m</c> holds over every model the writer goldens pin. Expected texts come from
-/// <c>docs/network-text.html</c> and the scenarios in
-/// <c>openspec/changes/network-text-literal-nwl/specs/network-text/spec.md</c>; expected models are built by hand
-/// in the shape the reader produces (<see cref="NetworkTextFacts"/> lists what the text does not carry).
+/// The network text reader (openspec <c>ld-fbd-coverage</c> 2R.3): each construct reads to the model
+/// <c>readability.md</c> says it is, built here by hand in the shape the reader produces — the raw model, so a fact the
+/// oracle's <see cref="NetworkTextFacts"/> would normalise away is still pinned. The grammar's breadth is the shared case
+/// set (<see cref="NetworkTextCaseTests"/>); this file pins the model details a case's dump abbreviates.
 /// </summary>
 public class NetworkTextReaderTests
 {
@@ -29,91 +28,39 @@ public class NetworkTextReaderTests
     static void AssertModel(NetworkBody expected, NetworkBody actual) =>
         Assert.Null(NetworkModelEquality.FirstDifference(expected, actual));
 
-    /// <summary>A box as the reader builds it from a call consumed by its main output: the text reads that as
-    /// slot 0 (spec, "a consumed box without EN keeps its main output"), and as a main output that is not ENO — so
-    /// the box has no ENO output (census 1.6: the main output is ENO exactly when the box has one).</summary>
+    /// <summary>A box as the reader builds it read by its data: connected by its main output, slot 0, which is no ENO.</summary>
     static Box Consumed(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null) =>
         Call(type, inputs, outputs, main: 0, connected: 0, eno: false, kind: NetworkSpelling.KindOf(type, hasInstance: false));
 
-    /// <summary>A bit operator's box (AND/OR/XOR/NOT) as the reader builds it from a call consumed by its main
-    /// output: connected by no stored slot, as the vendor keeps no main output index on these boxes (census 1.6:
-    /// None on the AND/OR boxes) — the same model the writer goldens build for the NOT box.</summary>
+    /// <summary>A bit operator's box (AND/OR/XOR/NOT) read by its data: connected by no stored slot (census 1.6).</summary>
     static Box ConsumedBitOp(string type, IEnumerable<Input> inputs) =>
         Call(type, inputs, main: null, connected: null, kind: CallKind.Operator);
 
-    /// <summary>A box as the reader builds it at the top level: nothing connected, no main output read, and its ENO
-    /// stated only where positional pins make the text say it (<paramref name="eno"/>).</summary>
+    /// <summary>A box as the reader builds it at the top level: nothing connected, its ENO stated only where positional
+    /// pins make the text say it (<paramref name="eno"/>).</summary>
     static Box Top(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null, Flags? f = null,
                     bool? eno = null) =>
         Call(type, inputs, outputs, en: en, main: null, connected: null, f: f, kind: NetworkSpelling.KindOf(type, hasInstance: false), eno: eno);
 
+    /// <summary>A box read by the next line's ENO (B4): connected by its ENO slot, which it has.</summary>
+    static Box ByEno(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null) =>
+        Call(type, inputs, outputs, en: en, main: null, connected: 0, eno: true, kind: NetworkSpelling.KindOf(type, hasInstance: false));
+
     static Operand Coil(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
 
-    // ── the model oracle: Read(Write(m)) ≅ m ────────────────────────────────────────────────────
+    // ── the model oracle ────────────────────────────────────────────────────────────────────────
 
-    public static TheoryData<string> Goldens()
-    {
-        var d = new TheoryData<string>();
-        foreach (var k in WriterGoldens.Keys) d.Add(k);
-        return d;
-    }
-
-    /// <summary>Spec, "the round trip is checked on tokens and on models": the writer's output reads back to the
-    /// model it was written from, up to what the text does not carry — and the gate accepts it as canonical.</summary>
-    [Theory]
-    [MemberData(nameof(Goldens))]
-    public void Every_writer_golden_reads_back_to_its_model(string name)
-    {
-        var m = WriterGoldens[name];
-        var scope = ScopeOf(m);
-        var text = NetworkTextWriter.Write(m, scope);
-        var back = Read(text, scope);
-        Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(back)));
-
-        var gate = NetworkTextGate.Validate(text, scope);
-        Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)));
-    }
-
-    /// <summary>THE GOLDEN COPY IS COMPLETE. <see cref="WriterGoldens"/> copies the writer tests' models by hand (a
-    /// model built inside a test method cannot be harvested), so a writer test added without its model never reached
-    /// the oracle above — section 2 added nine that way. Every writer test is a golden under its own name or listed in
-    /// <see cref="NotGolden"/> with the reason; no key names a test that is gone.</summary>
-    [Fact]
-    public void Every_writer_test_is_a_golden_or_says_why_not()
-    {
-        static HashSet<string> TestsOf(Type t) => t.GetMethods()
-            .Where(m => m.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0)   // Theory is a Fact
-            .Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
-        const string agreement = nameof(WriterReaderAgreementTests) + ".";
-        var writer = TestsOf(typeof(NetworkTextWriterTests));
-        var agreed = TestsOf(typeof(WriterReaderAgreementTests));
-        var named = WriterGoldens.Keys.Select(k => k.Split('/')[0]).ToHashSet(StringComparer.Ordinal);
-
-        var missing = writer.Where(t => !named.Contains(t) && !NotGolden.ContainsKey(t)).OrderBy(t => t, StringComparer.Ordinal).ToList();
-        var gone = named.Where(k => k.StartsWith(agreement, StringComparison.Ordinal)
-                ? !agreed.Contains(k.Substring(agreement.Length))
-                : !writer.Contains(k))
-            .Concat(NotGolden.Keys.Where(t => !writer.Contains(t))).OrderBy(t => t, StringComparer.Ordinal).ToList();
-        var both = named.Where(NotGolden.ContainsKey).ToList();
-        Assert.True(missing.Count == 0 && gone.Count == 0 && both.Count == 0,
-            "writer tests with no golden model and no reason: " + string.Join(", ", missing) +
-            "\nnamed here but no longer a test: " + string.Join(", ", gone) +
-            "\nboth a golden and excused: " + string.Join(", ", both));
-    }
-
-    /// <summary>Review of section 2: the oracle also writes a body against the scope of its callables only — no
-    /// variable declared, as a pull meets it until task 3.9 — so a writer that leaves an undeclared
-    /// <c>g&lt;digits&gt;</c> bare for its own reader to refuse fails here, not only in the one writer test.</summary>
+    /// <summary>The oracle writes a body against the scope of its callables only too — so a writer that leaves a
+    /// split-shaped variable bare for its own reader to read as a split fails here.</summary>
     [Fact]
     public void The_oracle_writes_against_a_scope_without_the_bodys_variables()
     {
-        Assert.False(NetworkModelOracle.CallablesOf(Body(Set(L("g5"), T("out")))).Contains("g5"));
-        foreach (var (tree, line) in NetworkTextWriterTests.WireShapedNames)
+        Assert.False(NetworkModelOracle.CallablesOf(Body(Set(L("split5"), T("out")))).Contains("split5"));
+        foreach (var (tree, line) in NetworkTextWriterTests.SplitShapedNames)
             Assert.Null(NetworkModelOracle.Check(line, Body(tree)).Reason);
     }
 
-    /// <summary>Spec, "pull-side loss is caught": the oracle fails on a dropped fact even where the text is a
-    /// fixed point. A model whose flag the writer would not carry must not compare equal to one without it.</summary>
+    /// <summary>"Pull-side loss is caught": the oracle fails on a dropped fact even where the text is a fixed point.</summary>
     [Fact]
     public void The_oracle_sees_a_fact_the_text_dropped()
     {
@@ -122,42 +69,22 @@ public class NetworkTextReaderTests
         Assert.NotNull(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(with), NetworkTextFacts.Carried(without)));
     }
 
-    /// <summary>Spec, "the writer avoids a collision": the renamed wire reads back, carrying the new VarId the
-    /// push then writes.</summary>
+    // ── one ; per NWL item (B4) ─────────────────────────────────────────────────────────────────
+
     [Fact]
-    public void A_renamed_wire_reads_back_under_its_new_VarId()
-    {
-        var scope = new NetworkScope(new[] { "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
-        var text = NetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope);
-        AssertModel(Body(Net(Def(0, L("TRUE"), "BOOL"), Set(Ref(0), Coil("out")))), Read(text, scope));
-
-        var scope2 = new NetworkScope(new[] { "G0", "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
-        var text2 = NetworkTextWriter.Write(
-            Body(Net(Def(1, L("TRUE")), Def(3, Op("AND", Ref(1), L("G0"))), Set(Ref(3), T("G3")))), scope2);
-        AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("G0")), "BOOL"), Set(Ref(2), Coil("G3")))),
-            Read(text2, scope2));
-    }
-
-    // ── one statement per NWL item ──────────────────────────────────────────────────────────────
-
-    /// <summary>Spec, "a single-consumer producer is nested".</summary>
-    [Fact]
-    public void A_nested_group_is_two_nested_boxes() =>
+    public void A_word_level_nested_in_brackets_is_two_nested_boxes() =>
         AssertModel(Body(Set(Op("OR", Op("AND", L("a"), L("b")), L("c")), Coil("out"))),
-            Read(Src("out := ((a AND b) OR c);")));
+            Read(Src("out := (a AND b) OR c;")));
 
-    /// <summary>Spec, "a multi-output assign is one statement".</summary>
     [Fact]
     public void A_chained_assignment_is_one_assign_with_several_coils() =>
-        AssertModel(Body(Set(L("v"), Coil("x"), Coil("y", SetBit))), Read(Src("x :=", "y S= v;")));
+        AssertModel(Body(Set(L("v"), Coil("x"), Coil("y", SetBit))), Read(Src("x := y S= v;")));
 
-    /// <summary>Spec, "END_IF; is one item, not two".</summary>
     [Fact]
-    public void END_IF_semicolon_is_one_item() =>
+    public void A_conditional_jump_is_one_item() =>
         AssertModel(Body(new Assign(L("a"), new[] { Coil("Done", JumpBit) }, JumpBit)),
-            Read(Src("IF a THEN JMP Done; END_IF;")));
+            Read(Src("JMP Done := a;")));
 
-    /// <summary>Spec, "the empty statement is the empty item".</summary>
     [Fact]
     public void The_empty_statement_is_the_empty_item()
     {
@@ -166,51 +93,44 @@ public class NetworkTextReaderTests
         Assert.Equal(text, NetworkTextWriter.Write(Read(text), NetworkScope.Empty));
     }
 
-    /// <summary>Spec, "a top-level box with nothing connected".</summary>
     [Fact]
     public void A_flagged_top_level_box_is_a_value_statement() =>
         AssertModel(Body(Top("f", new[] { In(L("x")) }, f: Neg)), Read(Src("NOT f(x);")));
 
     [Fact]
-    public void Top_level_leaf_wire_and_parallel_are_value_statements()
+    public void Top_level_leaf_split_and_parallel_are_value_items()
     {
         AssertModel(Body(L("a")), Read(Src("a;")));
-        AssertModel(Body(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit)), Read(Src("PARALLEL(a, b);")));
-        AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Ref(1))), Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "g1;")));
+        AssertModel(Body(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit)),
+            Read(Src("BRANCH (a, b) SHORTCIRCUIT;")));
+        AssertModel(Body(Net(Def(1, L("TRUE")), Ref(1))), Read(Src("split1 := TRUE;", "split1;")));
     }
 
-    // ── the VAR_TEMP wire ───────────────────────────────────────────────────────────────────────
-
-    /// <summary>Spec, "a single-consumer Demux survives": the declaration alone makes it a wire.</summary>
+    /// <summary>B4: the ENO lines of one item — every line without <c>;</c> is a box the next line reads, so the item is
+    /// one tree whatever its line count.</summary>
     [Fact]
-    public void A_declared_wire_is_a_Demux_whatever_its_use_count() =>
-        AssertModel(Body(Net(Def(28, Op("AND", L("a"), L("b")), "BOOL"), Set(Ref(28), Coil("out")))),
-            Read(Src("VAR_TEMP g28 : BOOL; END_VAR", "g28 := (a AND b);", "out := g28;")));
-
-    /// <summary>Spec, "the block across lines": read, and accepted by the gate.</summary>
-    [Fact]
-    public void The_wire_block_reads_across_lines()
+    public void Lines_without_a_semicolon_are_one_item_read_through_ENO()
     {
-        var text = FbdMarker + "NETWORK\n  VAR_TEMP\n    g1 : BOOL;\n    g2 : BOOL;\n  END_VAR\n  g1 := TRUE;\n  g2 := (g1 AND a);\n  out := g2;\nEND_NETWORK\n";
-        AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("a")), "BOOL"), Set(Ref(2), Coil("out")))),
-            Read(text));
-        Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
+        var a = ByEno("MOVE", new[] { In(L("1")) }, new[] { Out("A", 1) }, en: L("c"));
+        var b = ByEno("MOVE", new[] { In(L("2")) }, new[] { Out("B", 1) }, en: a);
+        AssertModel(Body(Set(b, Coil("done"))), Read(Src("MOVE 1 => A EN c", "MOVE 2 => B EN ENO", "done := ENO;")));
     }
 
-    /// <summary>Spec, "an undeclared assignment is a coil".</summary>
-    [Fact]
-    public void An_undeclared_wire_shaped_target_in_scope_is_a_coil() =>
-        AssertModel(Body(Set(L("x"), Coil("g5"))),
-            Read(Src("g5 := x;"), new NetworkScope(new[] { "g5" }, Array.Empty<string>(), new Dictionary<string, string>())));
+    // ── splits (B6) ─────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void A_wire_takes_the_type_it_is_declared_with_where_the_producer_does_not_say() =>
-        AssertModel(Body(Net(Def(1, Consumed("ADD", new[] { In(L("a")), In(L("b")) }), "INT"), Set(Consumed("GT", new[] { In(Ref(1)), In(L("c")) }), Coil("o")))),
-            Read(Src("VAR_TEMP g1 : INT; END_VAR", "g1 := ADD(a, b);", "o := (g1 > c);")));
+    public void A_split_is_a_Demux_whatever_its_use_count() =>
+        AssertModel(Body(Net(Def(28, Op("AND", L("a"), L("b"))), Set(Ref(28), Coil("out")))),
+            Read(Src("split28 := a AND b;", "out := split28;")));
 
-    // ── the header and its comment ──────────────────────────────────────────────────────────────
+    /// <summary>B6: a leaf split's leaf stores no type from the text — the push's derivation is the IDE's.</summary>
+    [Fact]
+    public void A_ladder_leaf_split_reads_untyped() =>
+        AssertModel(Body(Net(Def(1, L("nSpeed")), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
+            Read(LdMarker + "NETWORK\n  split1 := nSpeed;\n  MOVE split1 => nOut;\nEND_NETWORK\n"));
 
-    /// <summary>Spec, "a variable named like a header field".</summary>
+    // ── the header and its comment (P12) ────────────────────────────────────────────────────────
+
     [Fact]
     public void A_statement_after_the_header_line_is_a_statement()
     {
@@ -219,26 +139,26 @@ public class NetworkTextReaderTests
         Assert.False(body.Networks[0].Disabled);
     }
 
-    /// <summary>Spec, "a multi-line comment keeps its shape"; page: a blank line between // lines is layout.</summary>
+    /// <summary>P12: the comment's lines, joined as the IDE stores them (CR LF); a blank line between `//` lines is layout.</summary>
     [Fact]
     public void A_multi_line_comment_reads_back_line_for_line()
     {
-        var body = Read(FbdMarker + "NETWORK\n  // step:\n  //\n\n  //     indented\n  // // quoted\n  out := a;\nEND_NETWORK\n");
-        Assert.Equal("step:\n\n    indented\n// quoted", body.Networks[0].Comment);
+        var body = Read(FbdMarker + "NETWORK\n  // step:\n  //\n\n  //     indented  \n  // // quoted\n  out := a;\nEND_NETWORK\n");
+        Assert.Equal("step:\r\n\r\n    indented  \r\n// quoted", body.Networks[0].Comment);
     }
 
     [Fact]
     public void The_header_fields_and_the_title_escapes()
     {
-        var body = Read(FbdMarker + "NETWORK LABEL: Done TITLE: \"Tray $\"A$\" line 1$Nline 2 costs $$5\" DISABLED\n  ;\nEND_NETWORK\n");
+        var body = Read(FbdMarker + "NETWORK LABEL: Done DISABLED TITLE: \"Tray $\"A$\" line 1$Nline 2 costs $$5 \"\n  ;\nEND_NETWORK\n");
         var n = body.Networks[0];
-        Assert.Equal(("Done", "Tray \"A\" line 1\nline 2 costs $5", true), (n.Label, n.Title, n.Disabled));
+        Assert.Equal(("Done", "Tray \"A\" line 1\nline 2 costs $5 ", true), (n.Label, n.Title, n.Disabled));
     }
 
-    // ── labels, jumps, returns ──────────────────────────────────────────────────────────────────
+    // ── jumps and returns (B4b) ─────────────────────────────────────────────────────────────────
 
-    /// <summary>Page, "LABEL, JMP and RETURN": the vendor's own shapes — unconditional is an empty Terminator
-    /// (census 1.2, DIALECT C11), the bit rides on the target and the item (C13), a return's target is ???.</summary>
+    /// <summary>The vendor's shapes: on the rail an empty Terminator (DIALECT C11), the bit on the target and the item
+    /// (C13), a return's target <c>???</c>.</summary>
     [Fact]
     public void Jumps_and_returns_read_as_the_vendor_holds_them()
     {
@@ -249,57 +169,50 @@ public class NetworkTextReaderTests
                 Net(new Assign(L("a"), new[] { ret }, ReturnBit)) with { Order = 1 },
                 Net(new Assign(Empty, new[] { ret }, ReturnBit)) with { Order = 2 },
             }),
-            Read(FbdMarker + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\nNETWORK\n  RETURN;\nEND_NETWORK\n"));
+            Read(FbdMarker + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK\n  RETURN := a;\nEND_NETWORK\nNETWORK\n  RETURN;\nEND_NETWORK\n"));
     }
 
     // ── EN, ENO and output slots ────────────────────────────────────────────────────────────────
 
-    /// <summary>Spec, "an enabled box drives a lamp".</summary>
     [Fact]
     public void An_enabled_box_consumed_by_its_ENO() =>
-        AssertModel(Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), main: null, connected: 0, eno: true), Coil("lamp"))),
-            Read(Src("lamp := MOVE(EN := c, 0, => Status).ENO;")));
+        AssertModel(Body(Set(ByEno("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c")), Coil("lamp"))),
+            Read(Src("MOVE 0 => Status EN c", "lamp := ENO;")));
 
-    /// <summary>Spec, "an enabled comparison consumed by its main output" (task 2.5, census 1.6): EN is a pin like any
-    /// other and says nothing about ENO — a consumer with no suffix reads a main output that is not ENO.</summary>
+    /// <summary>B4, P4 (2): an enabled comparison is the one enabled VALUE, bracketed, connected by its main output, with no ENO.</summary>
     [Fact]
-    public void An_enabled_box_consumed_without_a_suffix_reads_its_main_output() =>
+    public void An_enabled_comparison_read_as_a_value_reads_its_main_output() =>
         AssertModel(Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: 0, connected: 0, eno: false,
                 kind: CallKind.Operator), Coil("out"))),
-            Read(Src("out := GT(EN := c, a, b);")));
+            Read(Src("out := (a GT b EN c);")));
 
-    /// <summary>Spec, "`.ENO` on a box without EN SHALL be accepted where the box has an ENO output": `.ENO` means
-    /// connected to the ENO output, so the box has one, and a positional pin fills the slot after it.</summary>
+    /// <summary>P3: a call with an ENO and no EN hands its ENO on; a positional pin fills the slot after it.</summary>
     [Fact]
-    public void ENO_without_EN_reads_as_a_box_with_an_ENO_output() =>
-        AssertModel(Body(Set(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, main: null, connected: 0, eno: true), Coil("out"))),
-            Read(Src("out := Dryer(a, => speed).ENO;")));
+    public void A_call_without_EN_read_by_ENO_has_an_ENO_output() =>
+        AssertModel(Body(Set(ByEno("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }), Coil("out"))),
+            Read(Src("Dryer(a, => speed)", "out := ENO;")));
 
-    /// <summary>Spec, "a consumed box without EN keeps its main output for its consumer".</summary>
     [Fact]
     public void A_consumed_box_without_EN_reads_its_positional_pin_on_slot_1() =>
         AssertModel(Body(Set(Consumed("f", new[] { In(L("src")) }, new[] { Out("err", 1) }), Coil("out"))),
             Read(Src("out := f(src, => err);")));
 
-    /// <summary>Spec, "an operator box in call form".</summary>
-    /// <summary>Found by the model oracle on the Lenze corpus (<c>identPolePosition_FeedforwardWrapper(execute :=
-    /// …)</c>): a pin is named by the <c>:=</c> / <c>=&gt;</c> after it, so a formal spelled like a construct of
-    /// the text is a pin name and never opens the construct.</summary>
+    /// <summary>P1/P16: a pin named like a word of the text is backticked — and is a pin.</summary>
     [Fact]
-    public void A_pin_named_like_a_construct_of_the_text_is_a_pin() =>
-        AssertModel(Body(Top("f", new[] { In(L("a"), "execute"), In(L("b"), "parallel") }, new[] { Out("x", null, "not") })),
-            Read(Src("f(execute := a, parallel := b, not => x);")));
+    public void A_pin_named_like_a_word_of_the_text_is_a_backticked_pin() =>
+        AssertModel(Body(Top("f", new[] { In(L("a"), "execute"), In(L("b"), "branch") }, new[] { Out("x", null, "not") })),
+            Read(Src("f(`execute` := a, `branch` := b, `not` => x);")));
 
+    /// <summary>B1, B3: an operator box with an output pin and EN is its word, the pin before the EN.</summary>
     [Fact]
-    public void An_operator_box_in_call_form_has_its_BoxType_as_head() =>
+    public void An_operator_word_with_an_output_and_EN() =>
         AssertModel(Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, kind: CallKind.Operator, eno: true)),
-            Read(Src("AND(EN := go, a, b, => out);")));
+            Read(Src("a AND b => out EN go;")));
 
-    /// <summary>Spec, "a consumed Execute box without EN".</summary>
     [Fact]
     public void A_consumed_execute_box_without_EN() =>
         AssertModel(Body(Set(Exec("x := 1;", connected: 0), Coil("out"))),
-            Read(FbdMarker + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE.ENO;\nEND_NETWORK\n"));
+            Read(FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\n  out := ENO;\nEND_NETWORK\n"));
 
     [Fact]
     public void A_bare_arrow_passes_an_output_slot_over() =>
@@ -312,19 +225,19 @@ public class NetworkTextReaderTests
         var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
         AssertModel(Body(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", null, "ET") }, "TON")),
             Read(Src("t1(IN := a, PT := pt, ET => el);"), scope));
-        // The same text with no instance declared is a function call named t1 — the text alone cannot tell.
         AssertModel(Body(Top("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", null, "ET") })),
             Read(Src("t1(IN := a, PT := pt, ET => el);")));
     }
 
-    // ── parentheses, NOT and edges ──────────────────────────────────────────────────────────────
+    // ── brackets, NOT and edges ─────────────────────────────────────────────────────────────────
 
-    /// <summary>Spec, "the NOT box and the modifier" and "spacing does not change the box".</summary>
+    /// <summary>P5: <c>NOT(IN := a)</c> is the NOT box, <c>NOT (</c> + anything else negates that bracket; spacing plays no
+    /// part.</summary>
     [Fact]
-    public void Parentheses_decide_the_NOT_box_and_spacing_does_not()
+    public void The_NOT_box_names_its_input_and_NOT_before_a_bracket_negates_it()
     {
         var notBox = ConsumedBitOp("NOT", new[] { In(L("a")) });
-        var body = Read(Src("o1 := NOT(a);", "o2 := NOT a;", "o3 := NOT (a AND b);", "o4 := NOT((a AND b));", "o5 := NOT (a);"));
+        var body = Read(Src("o1 := NOT(IN := a);", "o2 := NOT a;", "o3 := NOT (a AND b);", "o4 := NOT(IN := a AND b);", "o5 := NOT (IN := a);"));
         AssertModel(Body(Net(
             Set(notBox, Coil("o1")),
             Set(L("a", Neg), Coil("o2")),
@@ -333,57 +246,53 @@ public class NetworkTextReaderTests
             Set(notBox, Coil("o5")))), body);
     }
 
-    /// <summary>Spec, "an edge on EN" and "negation with an edge".</summary>
     [Fact]
     public void Edges_are_flags_on_their_operand_never_a_box()
     {
         AssertModel(Body(Top("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise), eno: true)),
-            Read(Src("MOVE(EN := R_EDGE(bStart), 1, => nMode);")));
+            Read(Src("MOVE 1 => nMode EN R_EDGE(bStart);")));
         AssertModel(Body(Set(L("x", Neg with { Falling = true }), Coil("out"))), Read(Src("out := F_EDGE(NOT x);")));
-        AssertModel(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Rise }, Coil("lamp"))), Read(Src("lamp := R_EDGE((a AND b));")));
+        AssertModel(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Rise }, Coil("lamp"))), Read(Src("lamp := R_EDGE(a AND b);")));
     }
 
-    // ── empty slots, PARALLEL, EXECUTE, backticks ───────────────────────────────────────────────
+    // ── empty slots, the parallel, EXECUTE, backticks ───────────────────────────────────────────
 
-    /// <summary>Spec, "zero inputs versus one unwired input".</summary>
     [Fact]
     public void An_empty_argument_list_is_no_input_slot_and_a_named_empty_pin_is_one()
     {
         AssertModel(Body(Top("MOVE", Array.Empty<Input>())), Read(Src("MOVE();")));
-        AssertModel(Body(Top("MOVE", new[] { In(Empty, "IN") })), Read(Src("MOVE(IN := );")));
+        AssertModel(Body(Top("MOVE", new[] { In(Empty) })), Read(Src("MOVE(IN := );")));
     }
 
-    /// <summary>Spec, "a result pin is not an assign".</summary>
+    /// <summary>B2: <c>MOVE b =&gt; a</c> is a result pin, <c>a := MOVE b</c> a coil over the box — two items.</summary>
     [Fact]
     public void A_result_pin_and_an_assign_over_the_box_are_different_items()
     {
-        AssertModel(Body(Top("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)), Read(Src("MOVE(src, => dst);")));
-        AssertModel(Body(Set(Consumed("MOVE", new[] { In(L("src")) }), Coil("dst"))), Read(Src("dst := MOVE(src);")));
+        AssertModel(Body(Top("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)), Read(Src("MOVE src => dst;")));
+        AssertModel(Body(Set(Consumed("MOVE", new[] { In(L("src")) }), Coil("dst"))), Read(Src("dst := MOVE src;")));
     }
 
-    /// <summary>Spec, "a Parallel is not rebuilt as AND/OR" and "an unfed Parallel".</summary>
+    /// <summary>B8: a parallel is <c>[feed] BRANCH (a, b)</c>, fed or unfed; the editor's Sequential mode is written as nothing.</summary>
     [Fact]
-    public void PARALLEL_is_a_Parallel_fed_or_unfed()
+    public void A_BRANCH_list_is_a_Parallel_fed_or_unfed()
     {
-        AssertModel(Body(Net(Def(54, L("TRUE"), "BOOL"), Set(new Parallel(Ref(54), new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), Coil("out")))),
-            Read(Src("VAR_TEMP g54 : BOOL; END_VAR", "g54 := TRUE;", "out := PARALLEL(IN := g54, a, b);")));
-        AssertModel(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), Coil("out"))),
-            Read(Src("out := PARALLEL(a, b);")));
+        AssertModel(Body(Net(Def(54, L("TRUE")), Set(new Parallel(Ref(54), new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), Coil("out")))),
+            Read(Src("split54 := TRUE;", "out := split54 BRANCH (a, b) SHORTCIRCUIT;")));
+        AssertModel(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.Sequential), Coil("out"))),
+            Read(Src("out := BRANCH (a, b);")));
         AssertModel(Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), Coil("out"))),
-            Read(Src("out := PARALLEL(MODE := Sequential, IN := f, a, b);")));
+            Read(Src("out := f BRANCH (a,", "                  b);")));
     }
 
-    /// <summary>Spec, "an empty Execute box" and "a snippet line starting with Network".</summary>
     [Fact]
     public void EXECUTE_bodies_are_verbatim_lines()
     {
-        AssertModel(Body(Exec("", L("bRun"))), Read(FbdMarker + "NETWORK\n  EXECUTE(EN := bRun)\n\n  END_EXECUTE;\nEND_NETWORK\n"));
+        AssertModel(Body(Exec("", L("bRun"))), Read(FbdMarker + "NETWORK\n  EXECUTE EN bRun\n\n  END_EXECUTE;\nEND_NETWORK\n"));
         var text = FbdMarker + "NETWORK\n  EXECUTE\nNetworkState := 1;\n  END_EXECUTE;\nEND_NETWORK\n";
         AssertModel(Body(Exec("NetworkState := 1;")), Read(text));
         Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
     }
 
-    /// <summary>Spec, "a typed call stays one operand".</summary>
     [Fact]
     public void Backticked_text_is_one_operand_never_parsed()
     {
@@ -393,25 +302,20 @@ public class NetworkTextReaderTests
         AssertModel(Body(Set(L("x"), Coil("arr[i + 1]"))), Read(Src("`arr[i + 1]` := x;")));
     }
 
-    [Fact]
-    public void A_ladder_body_reads_with_its_marker() =>
-        AssertModel(Body(Net(Def(1, LT("x", "BOOL"), "BOOL"), Set(Ref(1), Coil("o"))), BodyLanguage.Ld),
-            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n"));
-
     // ── diagnostics are findings, not exceptions ────────────────────────────────────────────────
 
     [Fact]
     public void A_bad_network_does_not_hide_the_next_ones_finding()
     {
         var r = NetworkTextReader.Read(
-            FbdMarker + "NETWORK\n  out := ((a AND b));\nEND_NETWORK\nNETWORK\n  out := (a & b);\nEND_NETWORK\nNETWORK\n  ok := a;\nEND_NETWORK\n", NetworkScope.Empty);
+            FbdMarker + "NETWORK\n  out := (a AND b);\nEND_NETWORK\nNETWORK\n  out := a + b;\nEND_NETWORK\nNETWORK\n  ok := a;\nEND_NETWORK\n", NetworkScope.Empty);
         Assert.Null(r.Body);
-        Assert.Equal(new[] { ("NETWORK_BAD_EXPRESSION", 3), ("NETWORK_UNKNOWN_OPERATOR", 6) },
+        Assert.Equal(new[] { ("NETWORK_BAD_EXPRESSION", 3), ("NETWORK_BAD_EXPRESSION", 6) },
             r.Diagnostics.Select(d => (d.Code, d.Line)).ToArray());
     }
-    // ── review 2026-09-26: what the writer writes, the reader reads back unchanged ──────────────
 
-    /// <summary>The written text read back must be the model it was written from, raw — no normalisation.</summary>
+    // ── what the writer writes, the reader reads back unchanged ─────────────────────────────────
+
     static void RoundTrips(NetworkBody m, NetworkScope scope)
     {
         var text = NetworkTextWriter.Write(m, scope);
@@ -420,25 +324,11 @@ public class NetworkTextReaderTests
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)) + "\n\n" + text);
     }
 
-    /// <summary>Spec, "parentheses are structural": after an operator word, a pair holding an operator is a group
-    /// (the word was the operator after an empty slot), any other pair is the call's argument list — and
-    /// whitespace plays no part. The writer's <c>( AND (x OR y))</c> must not read as the call head <c>AND(</c>.</summary>
-    [Fact]
-    public void An_empty_slot_before_a_group_is_not_a_call_head()
-    {
-        RoundTrips(Body(Set(Op("AND", Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NetworkScope.Empty);
-        RoundTrips(Body(Set(Op("AND", L("a"), Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NetworkScope.Empty);
-        AssertModel(Body(Set(Op("AND", Empty, Op("OR", L("x"), L("y"))), Coil("out"))), Read(Src("out := (AND(x OR y));")));
-        // A pair holding no operator at its own depth is still the call's: a group nested inside it does not count.
-        AssertModel(Body(Set(ConsumedBitOp("NOT", new[] { In(ConsumedBitOp("AND", new[] { In(Op("OR", L("x"), L("y"))) })) }), Coil("out"))),
-            Read(Src("out := NOT(AND((x OR y)));")));
-    }
-
-    /// <summary>A JMP takes one label, and after <c>JMP</c> a word can be nothing else — so a label spelled like a
-    /// word of the text (a legal IEC label the header already accepts) is read as the label.</summary>
+    /// <summary>A JMP takes one label: after <c>JMP</c> a word can be nothing else, so a label spelled like a word of the
+    /// text is read as the label.</summary>
     [Theory]
     [InlineData("Execute")]
-    [InlineData("Parallel")]
+    [InlineData("Branch")]
     [InlineData("Network")]
     [InlineData("Let")]
     [InlineData("END_IF")]
@@ -457,7 +347,6 @@ public class NetworkTextReaderTests
         RoundTrips(Body(L("let")), NetworkScope.Empty);
     }
 
-    /// <summary>A box type spelled like a word of the text is a backticked head, and reads back as that type.</summary>
     [Fact]
     public void A_box_type_spelled_like_a_word_of_the_text_round_trips()
     {
@@ -466,26 +355,10 @@ public class NetworkTextReaderTests
         RoundTrips(Body(Top("EXECUTE", new[] { In(L("x")) })), NetworkScope.Empty);
     }
 
-    /// <summary>An operator type in another case keeps its spelling through call form.</summary>
     [Fact]
     public void An_operator_type_in_another_case_round_trips() =>
         RoundTrips(Body(Set(Call("and", new[] { In(L("a")), In(L("b")) }, main: null, kind: CallKind.Operator), Coil("o"))), NetworkScope.Empty);
 
-    /// <summary>A wire fed by a bit operator is BOOL or another bit-string type — whichever the text declares.</summary>
-    [Fact]
-    public void A_bit_operator_wire_reads_the_bit_string_type_it_is_declared_with() =>
-        AssertModel(Body(Net(Def(5, Op("AND", L("w1"), L("w2")), "WORD"), Set(Ref(5), Coil("o1")), Set(Ref(5), Coil("o2")))),
-            Read(Src("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2);", "o1 := g5;", "o2 := g5;")));
-
-    /// <summary>Task 1.17: in ladder a leaf is boolean only where every use is — a leaf feeding a MOVE's data pin
-    /// is a data value, and the engineer's own declared type for it is accepted, never overruled as BOOL.</summary>
-    [Fact]
-    public void A_ladder_leaf_wire_feeding_a_data_pin_takes_its_declared_type() =>
-        // S3a (ld-fbd-coverage 2.3): the leaf stores the type its wire is declared with.
-        AssertModel(Body(Net(Def(1, LT("nSpeed", "INT"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
-            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(g1, => nOut);\nEND_NETWORK\n"));
-
-    /// <summary>An EXECUTE snippet's trailing newlines are its own content.</summary>
     [Fact]
     public void An_EXECUTE_snippet_with_trailing_newlines_round_trips()
     {
@@ -494,9 +367,8 @@ public class NetworkTextReaderTests
         RoundTrips(Body(Exec("")), NetworkScope.Empty);
     }
 
-    /// <summary>Spec, "pull-side loss is caught": ≅ compares the output slots and the connection slot as stored.
-    /// A box whose main output is slot 1 and one whose main output is slot 0 print the same text; they must not
-    /// compare equal, or a push would wire <c>err</c> to the result slot while the oracle stayed green.</summary>
+    /// <summary>≅ compares the output slots and the connection slot as stored: main output slot 1 and slot 0 print the
+    /// same text, and must not compare equal.</summary>
     [Fact]
     public void The_oracle_sees_an_output_moved_to_another_slot()
     {
@@ -505,8 +377,6 @@ public class NetworkTextReaderTests
         Assert.NotNull(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(one), NetworkTextFacts.Carried(zero)));
     }
 
-    /// <summary>The oracle's ≅ holds no equivalence the spec does not state: a snippet's trailing newline is a
-    /// difference. (An unconditional jump's null value was the other; the model has none since task 1.10.)</summary>
     [Fact]
     public void The_oracle_sees_a_trailing_newline()
     {
@@ -514,9 +384,7 @@ public class NetworkTextReaderTests
             NetworkTextFacts.Carried(Body(Exec("x := 1;\n"))), NetworkTextFacts.Carried(Body(Exec("x := 1;")))));
     }
 
-    /// <summary>Census 1.12: the oracle's scope holds only what a declaration can name. <c>SUPER^</c> is no
-    /// declared instance, so the body is refused by name — the check the push path runs, not one the oracle
-    /// makes pass by declaring every instance text it finds.</summary>
+    /// <summary>Census 1.12: the oracle's scope holds only what a declaration can name — <c>SUPER^</c> is refused by name.</summary>
     [Fact]
     public void The_oracle_does_not_declare_an_instance_no_declaration_names()
     {

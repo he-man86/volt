@@ -195,6 +195,8 @@ export function fixtureCensus(vendor: Vendor, gaps: Gaps): VendorCensus {
     // a fixture whose code sits only in the synthesized PLC_PRG (`inProgram`) has an empty own source and is measured
     // like any other: the replay compares it, so the census does
     if (recorded === undefined) continue
+    // the replay skips a fixture whose push this vendor now refuses (`vendorRefuses`): its row predates the refusal
+    if (t.vendorRefuses?.[vendor] !== undefined) continue
     measured++
     const lsp = fixtureFindings(i, vendor, rec)
     const ide = recorded.diagnostics.filter(isReported)

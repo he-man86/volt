@@ -686,7 +686,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **2R.2 amended 2026-10-16 (owner, "yes put it in"):** readability.md simplified (S1–S4, S6, S8, S11 of the
       review; parallel = `feed BRANCH (a, b)`), design.md "2R.2" updated to match. The P-numbers in this entry are the
       old P1–P16: now P10 → P5, P14 → P12, P15 → P13, P16 → P5 (MOVE call form, named ENO pin) / the corpus line.
-- [ ] 2R.3 **Owner note 2026-10-16:** readability.md was simplified 2026-10-16 after 2R.3 started; the uncommitted
+- [x] 2R.3 **Owner note 2026-10-16:** readability.md was simplified 2026-10-16 after 2R.3 started; the uncommitted
       partial rewrite in the working tree was written against BRANCH lines and the old bracket/ENO rules — adapt it to
       the current readability.md, don't build on the old rules.
       The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
@@ -695,6 +695,28 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       section) with its members derived in the drivers, B8 `[feed] BRANCH (a, b, …) [SHORTCIRCUIT]` (P6), the small ones, and every "Precise rules" P1–P13 item. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora
       re-pulled and their before/after line counts recorded.
+      **Done 2026-10-16 (uncommitted, for the gate).** The shared case set `volt-cli/test/fixtures/network-text`: 109
+      accept + 126 refuse cases (every readability.md example, P1–P13, every P12 old spelling naming its new one), read
+      by the bridge's `NetworkTextCaseTests` and the LSP's `network-cases.test.ts`, green on both. Writer, reader and gate
+      (C#) and the LSP parser rewritten to them; `NetworkPragma.cs`, the text half of `NetworkMembers.cs`, the LSP's
+      `pragma.ts`/`wire-producer.ts`/`pair-kind.ts`/`shown.ts` deleted. **Corpus, offline then live:** all 46 LD/FBD
+      bodies / 394 networks of the six corpora round-trip archive → text → model (`ModelRoundTripOracleTests`, 0
+      refused, `SUPER^` now a scope key); re-pulled live (CODESYS SP21, TwinCAT Project14) — **before:** 157 networks
+      spelled, 12 bodies hidden under the marker, 1085 non-blank NETWORK…END_NETWORK lines (lenze-mid 740, bakon-nano
+      243, pro2193 41, awa-palletizer 39, twincat-project14 22; the 1945 above was 2R.1's count of all 394 networks in the
+      2.3 writer's text); **after:** 394 networks, 0 bodies hidden, **2083** lines (lenze-mid 1736, bakon-nano 243,
+      pro2193 44, awa-palletizer 39, twincat-project14 21) — the rise is the 237 networks the old pull hid, plus one line
+      per open ENO line and per branch; only the LD/FBD files were taken from the re-pull (design "2R.3", as built).
+      **Live, both vendors:** the 60 graphical conformance fixtures pushed and built in one batch per vendor (English UIs)
+      — 50 CODESYS / 34 TwinCAT rows re-recorded, the rest refused by name; the graphical e2e tier pull → push → pull
+      green: CODESYS 135 tests, TwinCAT 143 tests run file by file (the whole tier in one process gutted the TwinCAT
+      project copy's folders mid-run — a cross-file harness interaction, not a format failure; every file passes on its
+      own); P5's two ENO trees measured (design). Found and fixed: a TwinCAT comment's CR LF lost in the archive's XML
+      (`TcCommentLineEndTests`). **Numbers:** C# Engine 2931 + 1 skipped, CODESYS 439, TwinCAT 529, Cli 295, Repo.Gates
+      243, Contracts 37, Connector 148; volt-cli unit 158; LSP src, test/frontend, test/conformance, test/analysis,
+      test/corpus green (final counts in the gate's run); `rate:fixtures` rewritten (`map.generated.ts`). Not built: P13's
+      code lens and P9's renumber quick fix (design "2R.3", as built); the vendor-facts table now pushes 2R.3 text, its
+      recordings are not re-run.
       **Owner 2026-10-16 (docs):** `docs/network-text.html` explains ONLY the current implementation — no history, no
       "VAR_TEMP / IF … THEN / PARALLEL(…) are gone", no list of retired words; a refused spelling appears only as the
       error a push gives today.
@@ -703,6 +725,59 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       No edge cases in the language (owner): a rule the doc can only state with an exception or a special case is a
       grammar defect — list each one for the owner in the step's report instead of documenting it.
       Examples are small made-up networks (`a`, `b`, `start`, `lamp`), never taken from the corpora (owner).
+      **Review fixes 2026-10-16 (uncommitted, for the gate).** (1) `RebuildLoss` names every member 2R.2 files L: a box's
+      whole stored `OutputParam`/`InputParam` Names and Types (a TON's unwired ET, a bit operator's `['']`, a function's
+      `'   '`), its `BoxType` spelling, `Instance.Type`, `Operand.Type`, `EN`/`ENO`, `CallType`, `InputFlags` — both
+      drivers collect them (`RebuildLossTests`, `CodesysRebuildLossTests`, `TcRebuildLossTests`; on TwinCAT the stamp's
+      derivation over the import's `['']` is now named). (2) `TcArchive.Text` writes through an XmlWriter that entitizes
+      new lines: a bare LF stays LF (it became CR LF in every multi-line value of the body), a real CR stays `&#xD;`
+      (`TcCommentLineEndTests`). (3) `??? :=` read off a box's ENO gives "The assignment target is not specified." —
+      the re-recorded answer on both `_target_of_*` fixtures (re-recorded again, same answer); the coil over a call's own
+      value stays unmeasured and silent; their `MEASURED_SILENT` marks went. (4) The TwinCAT graphical tier ran WHOLE in
+      one process on Project14 (VOLT_VENDOR=twincat): 134 pass, 1 skip, 0 fail, and a FileSystemWatcher on the copy saw
+      no deletion during it — the earlier gutting is not reproduced by Volt; a copy found gutted at 21:28:20, before any
+      test ran and before the worker attached, points outside the run (unexplained, not the product). (5) vendor-facts
+      re-run for every nwl row on both vendors (`--write --only`): CODESYS 52 differences (the 2R.3 texts; N32's split
+      leaf `Type ""`, DIALECT N32 re-run note); TwinCAT 57 — and a NEW TwinCAT FINDING, left red in
+      `vendor-facts.test.ts` ("CLOSED 2.3: the pushed calls program builds clean"): `VltF_RC` (NWL_R_CALLS) is created,
+      fetches back as pushed, yet the build says "Identifier 'VltF_RC' not defined" (C2i-like); its enabled program
+      call stores `OutputParam.Names ['Out1']` where it stored `['ENO']`, and pushed bit operators/functions keep the
+      import's `['']`/`['Out1']` (no stamp on a create). `nwl-editor-refill` was never run on TwinCAT and aborts there
+      (both creates refused, then `editor re` has no handle — a probe bug), so it was left out. (6) The LSP case-set
+      test compares each accept case's model SHAPE (derived members dropped), so an ENO pairing change fails it.
+      (7) A split beside a declaration of its name is written and accepted (P1 makes the variable `` `split1` ``):
+      writer and LSP refusal deleted; `rcc_network_wire_named_like_variable` re-recorded, `[]` on both vendors.
+      **Gate 2R.3 (2026-10-16) — the four review findings, test first.** (1) TwinCAT's CREATE stamp wrote no member:
+      the by-position arm of `TcNetworkWriter.Apply` ran outside `Stamping`, AND (found live) the change gate skipped
+      every network the text cannot tell from the import (the import's `[Out1]` is no text, B7), so the stamp wrote
+      nothing on a plain call. Both fixed: the by-position loop runs under `Stamping`, and `WriteNetwork`'s change gate
+      does not apply while stamping (`TcStructuralEditTests` `The_create_stamp_writes_the_derived_output_names_over_the_imports`,
+      `…_on_a_network_the_text_cannot_tell_apart`, red first). Live, TwinCAT Project14 (`-Instance ld-fbd-coverage`):
+      the five calls rows (`nwl-instance-type`, `nwl-param-types`, `nwl-box-en-eno`, `nwl-output-param-names`,
+      `nwl-call-type`) re-run `--write`, 18 differences: `VltF_RC` builds clean again ("Identifier not defined" gone),
+      the enabled program call stores `['ENO']`/`['BOOL']`, a function/FB call no name, AND none; `vendor-facts.test.ts`
+      "CLOSED 2.3" green. (2) The CR LF halves: whether the XAE hands a CR as `&#xD;` or raw stays UNMEASURED, so
+      neither is assumed — an archive whose VALUES carry a raw CR (told apart by a normalizing vs non-normalizing parse;
+      formatting white space between elements is not a value) is refused by name on write (`TcRawLineEndRefusal`,
+      never swallowed by the create's catch); an entitized one is written back as it came (`TcCommentLineEndTests`, 3
+      new). The measurement that lifts it: the archive string the bridge receives for a two-line comment
+      (`comments.test.ts` on TwinCAT pushes over one — if the XAE hands raw CRs, that test turns red with this refusal).
+      (3) `ide.ps1`: (a) a pid record without a start time names nothing (skipped, said aloud) — the start time now
+      comes from the `Start-Process` object, which answers after the process exits (measured: equal to CIM's to the
+      microsecond); the e2e harness reads records by the same rule (`parseRecords`, `fixture-ide.test.ts`); repro
+      verified: a bare record of a running XAE's dead parent no longer claims it (`down -DryRun`). (b) An instance is
+      exclusive: `up`/`down` hold a named mutex (`Local\volt-ide-<vendor>[-<instance>]`, a second caller refused by
+      name — verified), and `up` refuses an instance whose IDE is still running instead of replacing it (`down` ends
+      an instance). (4) LSP `??? := ENO` reports only on the recorded heads (an operator, a PROGRAM, a FUNCTION); an
+      FB instance's or an EXECUTE box's ENO is unrecorded and says nothing (`_boxes.test.ts`, red first).
+      Also fixed for green (all in this step's uncommitted work): `values.ts` (909 lines, `finalize` 83) split into
+      `boxes.ts` / `targets.ts` / `values.ts` (309 / 240 / 367; `finalize` under 80) and its four dead exports and
+      `LineRead` un-exported; `network-cases.test.ts` imports through `syntax/index.js` (layering); a comment's "(B6)"
+      read as a DIALECT citation (`bun run check`); DIALECT N39's `[PROBE: tc-languagemodel]` marker dropped — its probe
+      was single-use and deleted, so no table row exists (Repo.Gates, red at HEAD from twincat-inproc-host).
+      **Numbers:** C# Engine 2935 + 1 skipped, CODESYS 446, TwinCAT 547, Cli 297, Repo.Gates 243, Contracts 42,
+      Connector 146; volt-cli unit 154; LSP full (VOLT_REQUIRE_FULL=1) 10366 pass, 34 skip, 428 todo, 0 fail (10828 tests, 372 files); volt-vscode 39; `bun run check` 16/16;
+      `rate:fixtures` — map unchanged.
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.

@@ -43,9 +43,9 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK TITLE: "the interlock"\n` +
 			`  // holds the drive off while the guard is open\n` +
 			`  // second line of the same comment\n` +
-			`  out1 := (a AND b);\n` +
+			`  out1 := a AND b;\n` +
 			`END_NETWORK\n` +
-			`NETWORK\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`NETWORK\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

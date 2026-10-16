@@ -52,6 +52,10 @@ export const KNOWN_UNMAPPED = new Set([
   // `rcc_network_eno_without_en`): a graphical-model message no catalog entry documents a number for — the 220
   // documented codes hold no such sentence, and the recorded build carries none.
   "network-missing-en",
+  // The format's own findings (readability.md P9, P12, P13; `checks/network/_format.ts`): no compiler message at all.
+  "network-split-reused",
+  "network-en-unwired",
+  "network-coil-on-rail",
 ])
 
 /** A code is an allowed wire identity: a compiler code, a network-text code, no code (parse), or a known gap. */

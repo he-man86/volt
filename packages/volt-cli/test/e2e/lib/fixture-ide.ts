@@ -45,7 +45,7 @@ export type Proc = { pid: number; ppid: number; ticks?: string; name?: string; c
 /** One `ide.ps1` instance's record: `%LOCALAPPDATA%\volt-bridge\<vendor>-ide[-<instance>].pids` + `.projects`. */
 export type InstanceRecord = {
 	instance: string
-	records: { pid: number; ticks?: string }[]
+	records: { pid: number; ticks: string }[]
 	projects: string[]
 }
 
@@ -87,12 +87,8 @@ export function isRecorded(pid: number, inst: InstanceRecord, procs: Map<number,
 		const p = procs.get(cur)
 		if (!p) return false
 		for (const r of inst.records) {
-			if (depth === 0 && r.pid === cur && (r.ticks === undefined || r.ticks === p.ticks)) return true
-			if (
-				r.pid === p.ppid &&
-				(r.ticks === undefined || (p.ticks !== undefined && BigInt(r.ticks) <= BigInt(p.ticks)))
-			)
-				return true
+			if (depth === 0 && r.pid === cur && r.ticks === p.ticks) return true
+			if (r.pid === p.ppid && p.ticks !== undefined && BigInt(r.ticks) <= BigInt(p.ticks)) return true
 		}
 		cur = p.ppid
 		if (cur <= 0) return false
@@ -263,8 +259,18 @@ function workDir(): string {
 	return win32.join(base, "volt-bridge")
 }
 
-/** Every `ide.ps1` instance of a vendor that has a record. Lines are `<pid> [<start ticks>]`; anything else is skipped,
- *  exactly as `ide.ps1`'s Read-Records skips it. */
+/** One `.pids` file's records. Lines are `<pid> <start ticks>`; anything else — a bare `<pid>` included — is skipped,
+ *  exactly as `ide.ps1`'s Read-Records skips it: a pid with no start time names whatever later reuses the number (as a
+ *  recorded PARENT it claimed another session's IDE, ld-fbd-coverage gate 2R.3). */
+export function parseRecords(text: string): InstanceRecord["records"] {
+	return text
+		.split(/\r?\n/)
+		.map((l) => l.trim().split(/\s+/))
+		.filter((x) => /^\d+$/.test(x[0] ?? "") && /^\d+$/.test(x[1] ?? ""))
+		.map((x) => ({ pid: Number(x[0]), ticks: x[1]! }))
+}
+
+/** Every `ide.ps1` instance of a vendor that has a record (`parseRecords`). */
 export function readInstances(vendor: Vendor): InstanceRecord[] {
 	const dir = workDir()
 	if (!existsSync(dir)) return []
@@ -272,11 +278,7 @@ export function readInstances(vendor: Vendor): InstanceRecord[] {
 	for (const f of readdirSync(dir)) {
 		const m = new RegExp(`^${vendor}-ide(?:-(.+))?\\.pids$`).exec(f)
 		if (!m) continue
-		const records = readFileSync(win32.join(dir, f), "utf8")
-			.split(/\r?\n/)
-			.map((l) => l.trim().split(/\s+/))
-			.filter((x) => /^\d+$/.test(x[0] ?? ""))
-			.map((x) => ({ pid: Number(x[0]), ticks: /^\d+$/.test(x[1] ?? "") ? x[1] : undefined }))
+		const records = parseRecords(readFileSync(win32.join(dir, f), "utf8"))
 		const projFile = win32.join(dir, f.replace(/\.pids$/, ".projects"))
 		const projects = existsSync(projFile)
 			? readFileSync(projFile, "utf8").replace(/^﻿/, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)

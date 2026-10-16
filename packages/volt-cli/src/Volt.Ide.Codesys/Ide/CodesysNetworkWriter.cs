@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Network;
@@ -238,15 +239,13 @@ namespace Volt.Ide.Codesys
             {
                 var readsEno = NetworkText.HasEnoOutput(b, consumed: true);
                 if (b.Enable is not null && NetworkText.IsComparison(b.Type))
-                    throw Unbuildable(b, "a consumed enabled comparison: CODESYS does not compile one Volt builds, " +
-                                         "with or without `.ENO` (its result variable hangs off an output index Volt " +
-                                         "cannot set, DIALECT N21)");
+                    throw Unbuildable(b, "a consumed enabled comparison: CODESYS does not compile one Volt builds " +
+                                         "(its result variable hangs off an output index Volt cannot set, DIALECT N21)");
                 if (b.Enable is not null && !readsEno)
-                    throw Unbuildable(b, "the text reads its main output (no `.ENO`), and CODESYS reads a box Volt " +
-                                         "builds with EN through its ENO (DIALECT N21) — the push would feed the " +
-                                         "consumer the enable, not the data. Write `.ENO` if that is meant");
-                // `.ENO` on a box with no EN is NOT refused (openspec bridge-refusal-review 1.5): Volt builds the box the
-                // text describes, and CODESYS's build reports it ("Missing EN pin", DIALECT N21) — the build's error.
+                    throw Unbuildable(b, "the model reads its main output, and CODESYS reads a box Volt builds with EN " +
+                                         "through its ENO (DIALECT N21) — the push would feed the consumer the enable, " +
+                                         "not the data. Write the box as an open line and read it as ENO (B4)");
+                // An operator read through ENO with no EN never reaches here from the text (the reader refuses it, P3, N21).
             }
             // Everything below the top level is consumed by its parent.
             foreach (var child in n.Children()) RefuseUnbuildableEno(child, consumed: true);
@@ -276,11 +275,23 @@ namespace Volt.Ide.Codesys
                         Item(NwlInterop.Get(o, "RValue"));
                         break;
                     case "BoxTreeBox":
-                        Operand(NwlInterop.Get(o, "Instance"));
-                        // A drawn function's result pin name, which a rebuild cannot keep (NetworkMembers.Buildable).
-                        if (NwlInterop.Get(NwlInterop.Get(o, "OutputParams"), "Names") is System.Collections.IEnumerable outNames &&
-                            outNames.Cast<object?>().Any(n => n as string == NetworkMembers.FunctionResult))
-                            held.Add(new("OutputParam.Names", "BoxTreeBox", "'" + NetworkMembers.FunctionResult + "'"));
+                        Operand(NwlInterop.Get(o, "Instance"), instance: true);
+                        // B7 (2R.3): the members the text does not carry, each as the box stores it — its whole output
+                        // and input lists (a call's unwired pins, a function's '   ', a bit operator's ['']), its type
+                        // spelling, EN/ENO, CallType and pin flag list (RebuildLoss.Candidates).
+                        foreach (var (member, list) in new[] { ("OutputParam", "OutputParams"), ("InputParam", "InputParams") })
+                        {
+                            var param = NwlInterop.Get(o, list);
+                            held.Add(new(member + ".Names", "BoxTreeBox", RebuildLoss.List(CodesysNetworkReader.Strings(param, "Names"))));
+                            held.Add(new(member + ".Types", "BoxTreeBox", RebuildLoss.List(CodesysNetworkReader.Strings(param, "Types"))));
+                        }
+                        held.Add(new("BoxType", "BoxTreeBox", NwlInterop.Text(o, "BoxType")));
+                        held.Add(new("EN", "BoxTreeBox", Bool(NwlInterop.Get(o, "En"))));
+                        held.Add(new("ENO", "BoxTreeBox", Bool(NwlInterop.Get(o, "Eno"))));
+                        held.Add(new("CallType", "BoxTreeBox", NwlInterop.Get(o, "CallType")?.ToString()));
+                        held.Add(new("InputFlags", "BoxTreeBox", NwlInterop.Get(o, "InputFlags") is System.Collections.IEnumerable pinFlags
+                            ? pinFlags.Cast<object?>().Count().ToString(CultureInfo.InvariantCulture) + " sets"
+                            : null));
                         // Output slots beyond the names (an enabled PROGRAM call's second null slot), counted raw: the
                         // slots are nulls, which NwlInterop.Items drops.
                         if (NwlInterop.Get(NwlInterop.Get(o, "OutputParams"), "Names") is System.Collections.IEnumerable slotNames &&
@@ -299,9 +310,10 @@ namespace Volt.Ide.Codesys
                         break;
                 }
             }
-            void Operand(object? op)
+            void Operand(object? op, bool instance = false)
             {
                 if (op is null) return;
+                held.Add(new(instance ? "Instance.Type" : "Operand.Type", instance ? "BoxTreeBox" : "Operand", NwlInterop.Text(op, "Type")));
                 held.Add(new("Operand.Boolean", "Operand", Bool(NwlInterop.Get(op, "Boolean"))));
                 held.Add(new("Operand.Address", "Operand", NwlInterop.Call(op, "GetSerializableValue", "Address") as string));
                 if (NwlInterop.Get(op, "Flags") is { } flags) held.Add(new("Flags.Fixed", "Operand", Bool(NwlInterop.Get(flags, "Fixed"))));
@@ -323,7 +335,7 @@ namespace Volt.Ide.Codesys
         private static void SetIfChanged(object o, string member, string value)
         {
             var current = NwlInterop.Text(o, member) ?? "";
-            if (current.TrimEnd() != value.TrimEnd()) NwlInterop.Set(o, member, value);
+            if (!string.Equals(current, value, StringComparison.Ordinal)) NwlInterop.Set(o, member, value);
         }
 
         /// <summary>Per-network build state.</summary>
@@ -628,9 +640,8 @@ namespace Volt.Ide.Codesys
                         NwlInterop.Set(dm, "VarId", d.VarId);
                         // With an Input this DEFINES the wire; without one it REFERENCES the definition
                         // carrying the same id.
-                        // The producer carries the type the text declared the wire with, which the box writes into
-                        // `OutputParams.Types` — the one place the vendor keeps it, and it derives none itself (N21).
-                        if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(NetworkText.WithDeclaredType(src, d.Type)));
+                        // B6: the split's type is its feeder's — derived, never written; the text states none.
+                        if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(src));
                         // No flags: the model has none on a Demux, because the IDE stores none (DIALECT N20). This
                         // used to call Flagged(dm, d.Flags), which set bits on an IFlags the node hands out and never
                         // keeps — the push reported success and the wire ran un-negated.

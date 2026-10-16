@@ -28,14 +28,13 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual(["Identifier 'nope' not defined"])
 })
 
-test("network text: declared vars and VAR_TEMP wires resolve (no undeclared diagnostic)", () => {
+test("network text: declared vars and splits resolve (no undeclared diagnostic)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-VAR_TEMP g1 : BOOL; END_VAR
-g1 := (a AND b);
-out := g1;
+split1 := a AND b;
+out := split1;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(src)).toEqual([])
@@ -124,15 +123,16 @@ test("network text: a bad binary operand (MOD on REAL) is flagged like ST", () =
 VAR a : REAL; b : REAL; out : REAL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-out := (a MOD b);
+out := a MOD b;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgByCode(src, "binary-op-type-mismatch")).toBe(1)
 })
 
-test("network text: an undeclared wire-shaped name is a compiler message, not a push refusal", () => {
+test("network text: an undeclared name of the old wire shape is a compiler message, not a push refusal", () => {
   // openspec bridge-refusal-review 1.3: the push writes it as a variable and the build reports it — both vendors,
-  // `rcc_network_undeclared_wire_shape` (2026-10-04): "Identifier 'g7' not defined" and the hole it leaves.
+  // `rcc_network_undeclared_wire_shape` (2026-10-04): "Identifier 'g7' not defined" and the hole it leaves. (P12: the
+  // old `g<n>` wires fail as what they are now, an undeclared variable.)
   const fb = (statement: string) =>
     `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(fb("out := g5;")).map((d) => d.message).sort()).toEqual([

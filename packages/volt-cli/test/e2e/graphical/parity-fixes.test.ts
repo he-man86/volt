@@ -50,10 +50,10 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_en", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\n` +
-			// The enable is the box's own EN pin and the rung continues from its ENO (network text v2). The ENO form,
-			// because a box CODESYS builds with EN is read through its ENO whatever Volt writes (DIALECT N21) — the
-			// suffix-less `out := AND(EN := go, a, b);` is refused by name there, and this test is about the EN pin.
-			`NETWORK\n  out := AND(EN := go, a, b).ENO;\nEND_NETWORK\n\n` +
+			// The enable is the box's own EN pin and the rung continues from its ENO on the next line (B3, B4): an
+			// enabled box is its line's root, since CODESYS reads a box built with EN through its ENO (DIALECT N21) —
+			// and this test is about the EN pin.
+			`NETWORK\n  a AND b EN go\n  out := ENO;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -73,7 +73,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 
 		if (!r.accepted) {
 			// …naming the EN/ENO pair it could not build: TwinCAT's import builds an enabled AND with no ENO output,
-			// so the text's `.ENO` is refused by name (task 4.2, `TcEnoRefusal`).
+			// so the text's ENO is refused by name (task 4.2, `TcEnoRefusal`).
 			expect(JSON.stringify(r.conflicts)).toMatch(/\bENO?\b/)
 			return
 		}
@@ -169,7 +169,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION LD\nNETWORK\n  out := NOT a AND b;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -209,7 +209,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION LD\nNETWORK\n  out S= NOT a AND b;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -221,7 +221,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	/**
 	 * EDITING A NETWORK DOES NOT RENAME THE WIRES IN IT.
 	 *
-	 * A fan-out is a named wire in the text (`VAR_TEMP g0 : BOOL; END_VAR` + `g0 := ...`), named by the id the vendor
+	 * A fan-out is a split in the text (`split0 := ...`), named by the id the vendor
 	 * holds. CODESYS re-minted every id on write, so touching one operand renumbered the whole network: measured
 	 * live, `LET g0` came back as `LET g2` after a one-word edit, while the untouched network beside it kept
 	 * `g1` because the change gate spared it. Nothing was lost and nothing miscompiled — the diff just claimed
@@ -247,17 +247,15 @@ END_VAR
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
 			`IMPLEMENTATION FBD
 NETWORK
-  VAR_TEMP g0 : BOOL; END_VAR
-  g0 := (a AND b);
-  p := g0;
-  q := g0;
+  split0 := a AND b;
+  p := split0;
+  q := split0;
 END_NETWORK
 ` +
 			`NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := (a OR b);
-  r := g1;
-  s := g1;
+  split1 := a OR b;
+  r := split1;
+  s := split1;
 END_NETWORK
 
 ` +
@@ -267,7 +265,7 @@ END_NETWORK
 		// Edit the PULLED text, not the authored text: the IDE owns its own network boundaries (D25), so a
 		// re-stated body can differ in shape for reasons that have nothing to do with wire names.
 		const before = await roundTrip(full, src)
-		const wires = (t: string) => t.match(/VAR_TEMP [^;]*;/g) ?? []
+		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
 		// A CREATE keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into
 		// one assign driving two coils (D22 / C25, `fanout.test.ts`) — so there the property is that the edit keeps
 		// the body as it was, which the last assertion states for both.
@@ -276,7 +274,7 @@ END_NETWORK
 			twincat: () => 0,
 		}))
 
-		const edited = before.replace("(a AND b)", "(a AND p)")
+		const edited = before.replace("a AND b;", "a AND p;")
 		expect(edited).not.toBe(before)              // the edit really applied
 		const after = await roundTrip(full, edited)
 

@@ -156,12 +156,12 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 *  could tell them apart (`network-unresolved.ts` in the LSP conformance set records the difference).
 	 *  TwinCAT's import has no unmeasured result pin in a structurally changed network, so it refuses one by name. */
 	it("`???` on a box's RESULT pin", async () => {
-		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE(src, => ???);\nEND_NETWORK\n", BOOLS, "result pin")
+		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE src => ???;\nEND_NETWORK\n", BOOLS, "result pin")
 	})
 
 	/** …and the Assign the v1 spelling also meant: a coil nobody named, driven by a box. */
 	it("`???` as the target of an assign driven by a box", async () => {
-		await roundTrips("qmark_asg", "FBD", "NETWORK\n  ??? := MOVE(src);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_asg", "FBD", "NETWORK\n  ??? := MOVE src;\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** A COIL WITH NO TARGET. `??? := ioAxis.xVirtual;` is the shape a real project carried, and the reason the
@@ -179,9 +179,9 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			// The NOT box shows EN (wired to nothing) and its consumer reads ENO, as the recorded LSP fixture has it —
 			// the ENO form because a box CODESYS builds with EN is read through its ENO (DIALECT N21), so the
 			// suffix-less spelling is refused there.
-			"NETWORK\n  ??? := NOT(EN := , a).ENO;\nEND_NETWORK\n",
+			"NETWORK\n  NOT(IN := a) EN\n  ??? := ENO;\nEND_NETWORK\n",
 			BOOLS,
-			// TwinCAT: its import builds the NOT box with no ENO output, so `.ENO` names an output the box would not
+			// TwinCAT: its import builds the NOT box with no ENO output, so ENO names an output the box would not
 			// have and the push is refused by name before anything is written — the same measured refusal the EN-pin
 			// case in `parity-fixes.test.ts` accepts (task 4.4). v1's `IF en1 THEN … END_IF` spelled the enable
 			// without saying which output the rung reads, which is how it passed there.
@@ -191,6 +191,6 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 
 	/** AN OPERAND INSIDE A GROUP — the marker where a plain variable belongs. */
 	it("`???` as an operand in a group", async () => {
-		await roundTrips("qmark_operand", "FBD", "NETWORK\n  out := (??? AND a);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_operand", "FBD", "NETWORK\n  out := ??? AND a;\nEND_NETWORK\n", BOOLS)
 	})
 })

@@ -21,17 +21,17 @@ public class PushedTextTests
 
     /// <summary>A graphical body laid out otherwise is the same item; a changed token is not.</summary>
     [Theory]
-    [InlineData("  out := ( a AND\n    b );", true)]
-    [InlineData("  out := (a OR b);", false)]
+    [InlineData("  out := a AND\n    b;", true)]
+    [InlineData("  out := a OR b;", false)]
     // Another SPELLING of the same program is written since 2.12 and comes back canonical: the same item, not "another
     // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed).
-    [InlineData("  out := AND(a, b);", true)]
-    [InlineData("  out := OR(a, b);", false)]
+    [InlineData("  out := a and b;", true)]
+    [InlineData("  out := a or b;", false)]
     public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
     {
         static string Prg(string s) =>
             "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
-        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := (a AND b);"), Prg(statement)));
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := a AND b;"), Prg(statement)));
     }
 
     /// <summary>A variable of an elementary type is no FB instance to the CLI either (review of
@@ -39,26 +39,15 @@ public class PushedTextTests
     /// (<c>BothVendorsRefusedNames</c>). Read with no refused name at all, a BOOL named <c>R_EDGE</c> was an "instance"
     /// that took the edge construct, neither text read, and two spellings of one program were called different.</summary>
     [Theory]
-    [InlineData("  out := (R_EDGE(a) AND b);", "  out := AND(R_EDGE(a), b);", true)]
-    [InlineData("  out := (a AND b);", "  out := AND(a, b);", true)]
-    [InlineData("  out := (R_EDGE(a) AND b);", "  out := OR(R_EDGE(a), b);", false)]
+    [InlineData("  out := R_EDGE(a) AND b;", "  out := R_EDGE(a) and b;", true)]
+    [InlineData("  out := a AND b;", "  out := a and b;", true)]
+    [InlineData("  out := R_EDGE(a) AND b;", "  out := R_EDGE(a) OR b;", false)]
     public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
     {
         static string Prg(string s) =>
             "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s +
             "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(x), Prg(y)));
-    }
-
-    /// <summary>A wire block written late is the same program as the canonical one at the network's head (2.7).</summary>
-    [Fact]
-    public void A_late_wire_block_is_the_same_body()
-    {
-        static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  a, b, c, out, out2 : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "END_NETWORK\nEND_PROGRAM\n";
-        Assert.True(PushedText.SameExceptLayout("P.pou",
-            Prg("  out := c;\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a AND b);\n  out := (g1 OR c);\n  out2 := g1;\n"),
-            Prg("  VAR_TEMP g1 : BOOL; END_VAR\n  out := c;\n  g1 := (a AND b);\n  out := (g1 OR c);\n  out2 := g1;\n")));
     }
 
     /// <summary>The extension is the kind wherever a wire name exists (the ST reader's contract), and the text's header

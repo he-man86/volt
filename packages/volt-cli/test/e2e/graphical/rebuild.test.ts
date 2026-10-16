@@ -67,7 +67,7 @@ END_VAR
 ` +
 			`IMPLEMENTATION LD
 NETWORK
-  out := (a AND b);
+  out := a AND b;
 END_NETWORK
 ` +
 			`
@@ -80,7 +80,7 @@ END_FUNCTION_BLOCK
 		// Edit the PULLED text — the IDE owns its own network boundaries — and change an OPERAND, so the
 		// change gate cannot skip the rebuild.
 		const pulled = await fetchItem(full)
-		const edited = pulled.sourceText.replace("(a AND b)", "(a AND c)")
+		const edited = pulled.sourceText.replace("a AND b;", "a AND c;")
 		expect(edited, "the edit did not apply").not.toBe(pulled.sourceText)
 
 		const refs = await bridge.refs()
@@ -122,17 +122,15 @@ END_VAR
 ` +
 			`IMPLEMENTATION LD
 NETWORK
-  VAR_TEMP g0 : BOOL; END_VAR
-  g0 := (a AND b);
-  p := g0;
-  q := g0;
+  split0 := a AND b;
+  p := split0;
+  q := split0;
 END_NETWORK
 ` +
 			`NETWORK
-  VAR_TEMP g1 : BOOL; END_VAR
-  g1 := (a OR b);
-  r := g1;
-  s := g1;
+  split1 := a OR b;
+  r := split1;
+  s := split1;
 END_NETWORK
 ` +
 			`
@@ -141,7 +139,7 @@ END_FUNCTION_BLOCK
 
 		await createItem(fid("rb_scope"), src, "")
 		const before = (await fetchItem(full)).sourceText
-		const wires = (t: string) => t.match(/VAR_TEMP [^;]*;/g) ?? []
+		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
 		// A create keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into one
 		// assign driving two coils (D22 / C25, `fanout.test.ts`), so there the evidence is the byte-identical body.
 		expect(wires(before).length).toBe(expectVendorDifference("DIALECT D22 / C25 — the importer folds a fan-out wire", {
@@ -149,7 +147,7 @@ END_FUNCTION_BLOCK
 			twincat: () => 0,
 		}))
 
-		const edited = before.replace("(a AND b)", "(a AND c)")
+		const edited = before.replace("a AND b;", "a AND c;")
 		expect(edited).not.toBe(before)
 
 		const refs = await bridge.refs()
@@ -198,7 +196,7 @@ IMPLEMENTATION LD
 			`NETWORK LABEL: Guard TITLE: "interlock"
   // holds the drive off while the guard is open
   // second line of the same comment
-  out := (a AND b);
+  out := a AND b;
 END_NETWORK
 ` +
 			`
@@ -213,7 +211,7 @@ END_FUNCTION_BLOCK
 
 		// Change the LOGIC, which is what forces the rebuild. A title-only edit would leave the trees
 		// untouched and the change gate would skip it — the opposite of what this asks.
-		const edited = before.replace("(a AND b)", "(a AND c)")
+		const edited = before.replace("a AND b;", "a AND c;")
 		expect(edited, "the edit did not apply").not.toBe(before)
 
 		const refs = await bridge.refs()

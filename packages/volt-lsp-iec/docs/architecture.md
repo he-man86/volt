@@ -59,7 +59,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       format/  the Volt workspace file format: the IMPLEMENTATION line, folders, which reader reads a body
       lex/  the vocabulary, the token kinds and the hand-written ST lexer
       literal/  literal values: numbers, strings, durations, calendar values, direct addresses
-      network/  the network-text (LD/FBD) lexer, AST, value walks and reader (it types wires by a rule types/ hands it)
+      network/  the network-text (LD/FBD) words, lexer, AST, value walks and reader
       parse/  the ST parser: bodies, statements, expressions, type expressions, declarations
         units/  one parser per top-level unit (PROGRAM, FUNCTION_BLOCK, METHOD, PROPERTY, TYPE, GVL …)
       pragmas/  attributes in the AST, the attribute names each dialect knows, and the conditional-compilation pragmas
@@ -68,7 +68,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       arith/  the operators' typing rules: runtime and checked arithmetic, temporal arithmetic
       const/  constancy and the AST constant fold
       infer/  expression type inference and a call's callee
-      network/  network text typed: the reader composed with the operators' rule, each network's wire scope
+      network/  network text typed: the reader composed, each network's split scope
   analysis/  D — the diagnostics: pipeline and registry, per-vendor messages, shared rules, the checks
     checks/  one folder per concern; a check imports no other check, its test sits beside it
       calls/  call arguments against the callee's parameters
@@ -303,13 +303,13 @@ elementary facts, `syntax/pragmas/known-attributes.ts`); the hover TEXT for it i
 attribute the dialect lacks gets no tooltip. Ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
 language the layers read, **reusing the shared core** — one type engine, one orchestrator, one service set.
 `frontend/syntax/network/` reads the text (lexer, AST, reader; the format specified in
-`packages/volt-cli/docs/network-text.html`) and types its wires by the operators' rule the type layer hands it — the
-reader one concern per file, each building on the one before: `cursor` (tokens, positions, findings, the ST inside) →
-`values` → `calls` → `statements` → `parser` (the body, a network, its header and wires), with `pair-kind` deciding what
-a position holds and `wire-producer` a wire's producer type; `frontend/types/network/` composes that reader
-(`parseNetworkText`) and builds each network's wire scope over the POU's (`analyzeNetworkText`);
-`analysis/checks/network/` holds its findings (`network-analysis.ts`, the pass, over one `_<family>.ts` per check
-family: labels, boxes, operands, assignments); `services/network/` its services.
+`packages/volt-cli/docs/network-text.html`, its cases in `packages/volt-cli/test/fixtures/network-text`) — the reader one
+concern per file, each building on the one before: `words` (the box words and the text's own) → `cursor` (tokens,
+positions, findings, the ST inside) → `values` → `calls` → `statements` → `parser` (the body, a network, its header,
+its open lines and splits); `frontend/types/network/` composes that reader (`parseNetworkText`) and builds each
+network's split scope over the POU's, a split typed by its feeder (`analyzeNetworkText`); `analysis/checks/network/`
+holds its findings (`network-analysis.ts`, the pass, over one `_<family>.ts` per check family: labels, boxes, operands,
+assignments, format); `services/network/` its services.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle — the LSP

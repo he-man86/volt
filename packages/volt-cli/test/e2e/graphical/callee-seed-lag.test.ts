@@ -1,14 +1,14 @@
 /**
- * A GRAPHICAL `.ENO` ON A BOX CALLING A POU THIS SESSION CREATED — a KNOWN DIVERGENCE on TwinCAT (openspec
+ * A GRAPHICAL ENO READ OFF A BOX CALLING A POU THIS SESSION CREATED — a KNOWN DIVERGENCE on TwinCAT (openspec
  * `push-without-header-check` 5.Q, design S1, tasks 5.Q.9), held here as a ratchet.
  *
  * <p>Since 5.Q every POU is created as a FUNCTION_BLOCK (TwinCAT tree code 604) whatever its text, and TwinCAT keeps
  * that code until the solution is reloaded (DIALECT C2f/C2h). Its COMPILER takes the text, but its GRAPHICAL layer builds
  * a call box from the tree code: a box calling a PROGRAM or a FUNCTION that the same session created is built as a
- * function-block box, which has no ENO output, so a network reading `.ENO` on it is refused by the driver ("the IDE
+ * function-block box, which has no ENO output, so a network reading its ENO is refused by the driver ("the IDE
  * builds that box with no ENO output"). Under the old per-kind seeds (`.prg` → 602, `.fun` → 603) it was accepted.
  * Measured 2026-10-02 (`probe-tc-graphical-callee-seed.ts` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-tc-graphical-callee-seed.ts`) → `tc-graphical-callee-seed.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-graphical-callee-seed.log`)): a build in
- * between does not re-derive the code; a call WITHOUT `.ENO` is accepted, fetches back identical and builds clean.</p>
+ * between does not re-derive the code; a call whose ENO nothing reads is accepted, fetches back identical and builds clean.</p>
  *
  * <p>Triage: niche, accepted loss — 0 such calls in the TwinCAT corpus, 2 in the six corpora (all lenze-mid, a CODESYS
  * project, where nothing lags). The two conformance fixtures of this shape carry it as `vendorRefuses.twincat`.</p>
@@ -48,19 +48,19 @@ interface Case {
 
 const CASES: readonly Case[] = [
 	{
-		what: "`.ENO` on a box calling a PROGRAM created by the same push",
+		what: "ENO read off a box calling a PROGRAM created by the same push",
 		callee: { name: fid("lagP"), source: program(id("lagP")) },
-		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `done := ${id("lagP")}(EN := go).ENO;`) },
+		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `${id("lagP")}() EN go\n  done := ENO;`) },
 		twincatRefuses: true,
 	},
 	{
-		what: "`.ENO` on a box calling a FUNCTION created by the same push",
+		what: "ENO read off a box calling a FUNCTION created by the same push",
 		callee: { name: fid("lagF"), source: fun(id("lagF")) },
-		caller: { name: fid("lagFc"), source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}(EN := go, n).ENO;`) },
+		caller: { name: fid("lagFc"), source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(n) EN go\n  ok := ENO;`) },
 		twincatRefuses: true,
 	},
 	{
-		what: "a box WITHOUT `.ENO` calling a FUNCTION created by the same push",
+		what: "a box whose ENO nothing reads calling a FUNCTION created by the same push",
 		callee: { name: fid("lagG"), source: fun(id("lagG")) },
 		caller: { name: fid("lagGc"), source: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(n);`) },
 		twincatRefuses: false,

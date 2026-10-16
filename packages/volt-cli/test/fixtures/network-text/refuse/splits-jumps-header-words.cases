@@ -1,0 +1,247 @@
+#### split-before-definition — P9: a split is defined before its references
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := split3;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION referenced before its definition
+
+#### split-leading-zero — P9: no leading zeros
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split05 := a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION no leading zeros
+
+#### split-defined-twice — P9: defined once
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a;
+  split1 := b;
+END_NETWORK
+=== refused
+NETWORK_DUPLICATE_NAME defined twice
+
+#### split-coil-target — P9: never a coil target
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 S= a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION never a coil
+
+#### split-output-target — P9: never a `=>` target
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE a => split1;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION never a target
+
+#### split-call-head — P9: never a call head
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a;
+  x := split1(a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION never a call head
+
+#### split-redundant-type — B6/P9: no type is written, even the feeder's
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  split1 : BOOL := a GT b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a type on the split
+
+#### split-type-the-push-derives — B6/P9: no type is ever written
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  split1 : INT := a ADD b;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a type on the split
+
+#### jump-rail-assign — P7: `JMP l := ;` is refused, one spelling
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done := ;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a jump on the rail is
+
+#### return-rail-assign — P7
+=== text
+IMPLEMENTATION LD
+NETWORK
+  RETURN := ;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a jump on the rail is
+
+#### jump-set — P7: `JMP l S= c` is refused
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done S= c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION with S= or R=
+
+#### return-set — P7
+=== text
+IMPLEMENTATION LD
+NETWORK
+  RETURN S= c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION with S= or R=
+
+#### jump-in-a-value — P7: a nested jump
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := JMP Done;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION at operand position
+
+#### title-empty — P10: `TITLE: ""` is refused (no TITLE = empty)
+=== text
+IMPLEMENTATION LD
+NETWORK TITLE: ""
+  x := a;
+END_NETWORK
+=== refused
+NETWORK_PARSE TITLE: ""
+
+#### header-order — P10: in that order
+=== text
+IMPLEMENTATION LD
+NETWORK TITLE: "x" DISABLED
+  x := a;
+END_NETWORK
+=== refused
+NETWORK_PARSE in that order
+
+#### header-twice — P10
+=== text
+IMPLEMENTATION LD
+NETWORK DISABLED DISABLED
+  x := a;
+END_NETWORK
+=== refused
+NETWORK_PARSE DISABLED twice
+
+#### comment-after-statement — P10: comment lines only between header and body
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a;
+  // late
+END_NETWORK
+=== refused
+NETWORK_PARSE a // comment after a statement
+
+#### not-closed — every NETWORK has an END_NETWORK
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a;
+=== refused
+NETWORK_NOT_CLOSED no END_NETWORK
+
+#### reserved-operand — P1: a reference never falls back to a variable
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := SHORTCIRCUIT;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION at operand position
+
+#### reserved-target — P1: a target spelled like a word is backticked
+=== text
+IMPLEMENTATION LD
+NETWORK
+  ENO := a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION as a target
+
+#### reserved-word-target — P1: every box word is reserved
+=== text
+IMPLEMENTATION LD
+NETWORK
+  Add := a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION as a target
+
+#### reserved-pin — P1: a pin spelled like a word is backticked
+=== text
+IMPLEMENTATION LD
+NETWORK
+  f(branch := a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a word of the text
+
+#### execute-as-value — P8: never a value
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := EXECUTE
+y := 1;
+  END_EXECUTE;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION never a value
+
+#### unsupported-beside-statements — 1b.4: the UNSUPPORTED line is its network's only line
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a;
+  UNSUPPORTED "a flag on a box input pin";
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED beside other statements
+
+#### two-statements-one-line — each line is one statement: a second one on a line without `;` is refused
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a y := b;
+END_NETWORK
+=== refused
+NETWORK_PARSE where the line ends
+
+#### reserved-branch-operand — P1: BRANCH heads a branch list and is never a variable
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := BRANCH;
+END_NETWORK
+=== refused
+NETWORK_PARSE bracketed list
+
+#### reserved-split-pattern-target — P1: the split pattern is reserved, a variable of that shape is backticked
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE a => Split7 EN c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION never a target

@@ -26,16 +26,15 @@ public class RebuildLossTests
             Op("Flags.Fixed", "true"), Op("Flags.Fixed", "false"), Box("Flags.Fixed", "true"),
             Op("Operand.Boolean", "true"), Op("Operand.Boolean", "false"),
             Op("Operand.Address", RebuildLoss.AddressSentinel), Op("Operand.Address", ""),
-            // Not candidates, not counted: the Id is an IDE allocator (vendor-facts nwl-item-id, DIALECT N29), the Type
-            // an R member a rebuild drops but no loss candidate of the design's window.
-            Op("Id", "7"), Op("Operand.Type", "BOOL"),
+            // Not a candidate, not counted: the Id is an IDE allocator (vendor-facts nwl-item-id, DIALECT N29).
+            Op("Id", "7"),
         };
         var rebuilt = new[]
         {
             Op("Flags.Fixed", "true"), Op("Flags.Fixed", "false"), Box("Flags.Fixed", "false"),
             Op("Operand.Boolean", "false"), Op("Operand.Boolean", "false"),
             Op("Operand.Address", ""), Op("Operand.Address", ""),
-            Op("Id", "2"), Op("Operand.Type", ""),
+            Op("Id", "2"),
         };
 
         var counts = RebuildLoss.Count(held, rebuilt).ToDictionary(x => x.Candidate.Member, x => x.Count);
@@ -44,6 +43,61 @@ public class RebuildLossTests
         Assert.Equal(1, counts["Operand.Boolean"]);
         Assert.Equal(1, counts["Operand.Address"]);
         Assert.Equal(3, counts.Count);
+    }
+
+    /// <summary>2R.3 B7 (design "2R.3, as built"; 2R.2 Open item 5): the text carries no member, so every value design
+    /// 2R.2 files as L — a call's stored output list and its types (a TON's unwired <c>ET</c>), a bit operator's stored
+    /// slot <c>['']</c>, a box type's stored spelling, <c>Instance.Type</c>, <c>Operand.Type</c>, the <c>EN</c>/<c>ENO</c>
+    /// bools, the input names and types, <c>CallType</c>, <c>InputFlags</c> — is LOST ON REBUILD, "named by
+    /// <c>RebuildLoss</c>, never guessed". Each is counted like the 2.2 window's members; a value the rebuild gives back
+    /// (the input names the text spells) is not.</summary>
+    [Fact]
+    public void Every_member_the_text_does_not_carry_is_named_when_the_rebuild_does_not_hold_it()
+    {
+        var held = new[]
+        {
+            Box("OutputParam.Names", RebuildLoss.List(new[] { "Q", "ET" })),
+            Box("OutputParam.Types", RebuildLoss.List(new[] { "BOOL", "TIME" })),
+            Box("OutputParam.Names", RebuildLoss.List(new[] { "" })),
+            Box("InputParam.Names", RebuildLoss.List(new[] { "IN", "PT" })),
+            Box("InputParam.Types", RebuildLoss.List(new[] { "BOOL", "TIME" })),
+            Box("BoxType", "ton"), Box("Instance.Type", "TON"), Op("Operand.Type", "BOOL"),
+            Box("EN", "false"), Box("ENO", "false"), Box("CallType", "FunctionBlock"), Box("InputFlags", "2 sets"),
+        };
+        var rebuilt = new[]
+        {
+            Box("OutputParam.Names", RebuildLoss.List(new[] { "Q" })),
+            Box("OutputParam.Types", RebuildLoss.List(new[] { "" })),
+            Box("OutputParam.Names", RebuildLoss.List(System.Array.Empty<string>())),
+            Box("InputParam.Names", RebuildLoss.List(new[] { "IN", "PT" })),
+            Box("InputParam.Types", RebuildLoss.List(new[] { "", "" })),
+            Box("BoxType", "TON"), Box("Instance.Type", ""), Op("Operand.Type", ""),
+            Box("EN", null), Box("ENO", null), Box("CallType", "None"), Box("InputFlags", null),
+        };
+
+        var counts = RebuildLoss.Count(held, rebuilt).ToDictionary(x => x.Candidate.Member, x => x.Count);
+
+        Assert.Equal(2, counts["OutputParam.Names"]);
+        Assert.Equal(1, counts["OutputParam.Types"]);
+        Assert.Equal(1, counts["InputParam.Types"]);
+        Assert.False(counts.ContainsKey("InputParam.Names"));
+        foreach (var m in new[] { "BoxType", "Instance.Type", "Operand.Type", "EN", "ENO", "CallType", "InputFlags" })
+            Assert.Equal(1, counts[m]);
+        var w = RebuildLoss.Warning("CODESYS", 0, held, rebuilt)!;
+        Assert.Contains("OutputParam.Names ×2 (vendor-facts row nwl-output-param-names)", w);
+        Assert.Contains("OutputParam.Types ×1 (vendor-facts row nwl-param-types)", w);
+        Assert.Contains("EN ×1 (vendor-facts row nwl-box-en-eno)", w);
+        Assert.Contains("BoxType ×1 (no vendor-facts row yet; design 2R.2 L)", w);
+    }
+
+    /// <summary>A list's notation tells the empty list, a list of one empty name and no list at all apart.</summary>
+    [Fact]
+    public void A_list_notation_keeps_empty_and_absent_apart()
+    {
+        Assert.Equal("[]", RebuildLoss.List(System.Array.Empty<string>()));
+        Assert.Equal("['']", RebuildLoss.List(new[] { "" }));
+        Assert.Equal("['Q', 'ET']", RebuildLoss.List(new[] { "Q", "ET" }));
+        Assert.Null(RebuildLoss.List(null));
     }
 
     /// <summary>The TwinCAT import's answer (vendor-facts nwl-flags-fixed, nwl@built): <c>Fixed = true</c> on every

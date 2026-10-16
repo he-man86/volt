@@ -457,21 +457,21 @@ public class PushServiceTests
     }
 
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
-    /// <c>ICodeStore.NetworkScopeFor</c>). A wire <c>g7</c> in a POU of a project whose GVL declares <c>G7</c> is the
-    /// network's wire (openspec <c>bridge-refusal-review</c> 2.10: wires resolve first) and the body is written, with
-    /// the global in the project or without it; the writer names the wire around the global on the next pull (2.12:
-    /// canonical form is not a refusal). It was refused NETWORK_DUPLICATE_NAME with the global.</summary>
+    /// <c>ICodeStore.NetworkScopeFor</c>). B6, P1: a split's name IS its VarId and the pattern is reserved, so a split
+    /// <c>split7</c> in a POU of a project whose GVL declares <c>SPLIT7</c> is the split (the global is <c>`SPLIT7`</c>)
+    /// and the body is written, as it is without the global — both IDEs build the shape clean
+    /// (<c>rcc_network_wire_named_like_variable</c>). It was refused by name until the 2R.3 review.</summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_wire_named_like_a_projects_global_is_written(bool withGlobal)
+    public void A_split_named_like_a_projects_global_is_written(bool withGlobal)
     {
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
             new("PLC_PRG", ItemKind.PlcPou, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
                 "IMPLEMENTATION LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
         };
-        if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  G7 : BOOL;\nEND_VAR", ""));
+        if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  SPLIT7 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
 
@@ -480,10 +480,9 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
-                         "NETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := TRUE;\n  out := g7;\nEND_NETWORK\n\nEND_PROGRAM\n",
+                         "NETWORK\n  split7 := TRUE;\n  out := split7;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
-        _ = withGlobal;
         Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
     }
 

@@ -105,7 +105,54 @@ internal static class TcArchive
         var want = "\"" + mode + "\"";
         if (slot.Value == want) return null;
         slot.Value = want;
-        return doc.ToString(SaveOptions.DisableFormatting);
+        return Text(doc, bodyXml);
+    }
+
+    /// <summary>The archive's VALUES (a text holding more than white space, or an attribute) carry a RAW carriage
+    /// return — one XML's end-of-line normalization folds, where an entitized <c>&amp;#xD;</c> survives. Told apart by
+    /// parsing twice: without normalization a raw CR stays, with it only the entitized one does. White space between
+    /// elements is the archive's formatting, not a value, and is not asked about.</summary>
+    internal static bool HoldsRawLineEnd(string xml)
+    {
+        if (xml.IndexOf('\r') < 0) return false;
+        XElement raw;
+        using (var r = new System.Xml.XmlTextReader(new System.IO.StringReader(xml))
+               {
+                   Normalization = false,
+                   WhitespaceHandling = System.Xml.WhitespaceHandling.All,
+                   DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+               })
+            raw = XElement.Load(r, LoadOptions.PreserveWhitespace);
+        return ValueCarriageReturns(raw) != ValueCarriageReturns(XElement.Parse(xml, LoadOptions.PreserveWhitespace));
+    }
+
+    private static int ValueCarriageReturns(XElement root) =>
+        root.DescendantNodesAndSelf().OfType<XText>().Where(t => !string.IsNullOrWhiteSpace(t.Value)).Sum(t => t.Value.Count(c => c == '\r'))
+        + root.DescendantsAndSelf().SelectMany(e => e.Attributes()).Sum(a => a.Value.Count(c => c == '\r'));
+
+    /// <summary>An archive as the IDE is handed it. A carriage return in a value (a network comment's CR LF, P10) is
+    /// written as <c>&amp;#xD;</c>: raw, XML's end-of-line normalization folds it into the LF beside it on the IDE's parse,
+    /// and a two-line comment came back holding a bare LF, which hid its body (measured 2026-10-16, ld-fbd-coverage
+    /// 2R.3). Written by an XmlWriter that ENTITIZES new lines (text: a CR as <c>&amp;#xD;</c>, an LF as is; attributes:
+    /// both entitized) and never replaces them: <c>XNode.ToString</c> writes every LF as the platform's new line (CR LF
+    /// on Windows), so entitizing the CR after it turned each bare LF of the whole body — an untouched network's title,
+    /// an EXECUTE box's ST lines — into CR LF in the IDE (2R.3 review).
+    /// <para><paramref name="handed"/> is the archive string the IDE handed: one whose VALUES carry a raw CR is refused
+    /// (<see cref="TcUnmeasured.RefuseRawLineEnd"/>) — its parse folds that CR LF into LF, and this write would hand every
+    /// untouched value back as LF.</para></summary>
+    internal static string Text(XNode doc, string handed)
+    {
+        TcUnmeasured.RefuseRawLineEnd(handed);
+        var sb = new System.Text.StringBuilder();
+        var settings = new System.Xml.XmlWriterSettings
+        {
+            OmitXmlDeclaration = true,
+            Indent = false,
+            NewLineHandling = System.Xml.NewLineHandling.Entitize,
+            ConformanceLevel = System.Xml.ConformanceLevel.Auto,
+        };
+        using (var w = System.Xml.XmlWriter.Create(sb, settings)) doc.WriteTo(w);
+        return sb.ToString();
     }
 
     /// <summary>A named object member: <c>&lt;o n="Name"&gt;</c>. An explicit <c>&lt;n n="Name"/&gt;</c> is a

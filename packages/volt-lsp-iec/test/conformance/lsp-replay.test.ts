@@ -476,6 +476,9 @@ for (const { vendor, floor } of FLOORS) {
       if (!SELECTION.has(t.name)) continue
       const rec = expected.tests[t.name]
       if (rec === undefined) continue
+      // A fixture whose PUSH this vendor now refuses (`vendorRefuses`) has no build to replay: a row it still carries
+      // predates the refusal (`check-recording.ts` names it so), and the LSP's answer is the push's, not the build's.
+      if (t.vendorRefuses?.[vendor] !== undefined) continue
       const lsp = runLsp(i, vendor)
       const ide = ideMsgs(rec.diagnostics)
       // A KNOWN DIVERGENCE is still replayed, as an expected failure: exempt from the false-positive gate, and
