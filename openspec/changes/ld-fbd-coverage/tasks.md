@@ -564,6 +564,61 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       recorded" — the TwinCAT calls build, the S3a leaf-fed and S3b terminator-fed silent drops, the `g1 := TRUE;` wire
       divergence), each mark removed in the step whose re-record closes it; and the five calls-subject rows re-run on
       TwinCAT once its build of the subject succeeds (until then their TwinCAT half is unmeasured).
+      **Gate 2-3 (2026-10-16) — the shapes S1, S2, S3a, S3b, S6, S5 and the first member (`OutputParam.Names`/`Types`)
+      landed; the other 1b.2 members did not (design "2.3", as built), so 2.3 stays open.** The pragma
+      (`NetworkPragma.cs`, `NetworkMembers.cs`; LSP `syntax/network/pragma.ts`) is written after a box only where the
+      stored value differs from the derivation. Writer, reader, gate (`NetworkTextFacts.Carried`, `NetworkModelEquality`
+      compare `Box.Members`), both drivers, the LSP parser/checks (`nested_assign`, `NOT name :=`, `SUPER^` through
+      EXTENDS, `producerType` from the leaf / LD rail / pragma) and `docs/network-text.html` (section "Members — the pragma").
+      **Recorded on both vendors** (own instance `ld-fbd-coverage`): vendor-facts all 21 `nwl-*` rows re-run (CODESYS
+      SP21 Patch 4 en-US, TwinCAT TcXaeShell 15.0 / Project14); e2e `test/e2e/graphical/census-shapes.test.ts` (6 shapes:
+      round-trip + build on CODESYS; TwinCAT round-trips S1 and S3b and refuses S2, S3a, S5, S6 by name, `TcUnmeasured`);
+      LSP conformance fixtures `ng_s1_stored_slot`, `ng_s2_nested_assign`, `ng_s3a_leaf_wire`, `ng_s3b_rail_wire`,
+      `ng_s5_super_call`, `ng_s6_negated_pin` (`network-graphical-b.ts`): CODESYS 6 build clean, TwinCAT 2 build clean and
+      4 `vendorRefuses`; the LSP raises nothing on any (parse/analysis baselines: counts only).
+      **Carried from 2.2:** the TwinCAT calls build CLOSED (`VltF_RC` builds and pulls on both; the five calls rows
+      re-ran on TwinCAT); S3a CLOSED on CODESYS; S3b CLOSED on both; `g1 := TRUE;` stands (TwinCAT refuses a leaf-fed wire,
+      N22) — `test/unit/vendor-facts.test.ts` now asserts the closed three as facts. `text-blob-serialisation` row: not run.
+      DIALECT N31–N36 carry the re-runs; N37 is new (a drawn function's result pin `'   '` cannot be built by Volt;
+      `InsertOutputItem(i, null)` measured).
+      **Inference rule families: 8 → 4.** Deleted: `EveryUseIsBoolean` (wire type from its uses; C# and LSP),
+      `WithoutStoredTypes`, the S1 stored-slot refusal, and the bit operator's "no stored slot" connected-slot default
+      (now `Box.BitOperatorSlot` from the stored names). Remaining, with their members: the title/comment trims
+      (`NetworkText.Stored`, CODESYS `Clean`, TwinCAT `Trimmed`), the comment CR LF fold, the item-bit OR (C13),
+      `NetworkText.RefuseSymbolCommentLoss`. (The unstored main output of a Volt-built non-bit box stays N21's measured
+      read, not a guess.)
+      **Completeness oracle, CODESYS:** text refusals 22 → 0 (S1 8, S2 6, S3 6, S5 1, S6 1); push refusals N21 comparison
+      23 → 26, S4 named output 2; the `OutputParam` Names/Types entries closed; OutputItems divergences 160/227 + 60/111 →
+      1/1 + 83/108 (N37 function result, 10 PROGRAM-call boxes); new N37 entries (75 networks / 98 nodes); Known 39
+      entries. TwinCAT: 2 stale `OutputParam` entries removed. Round-trip oracle 40/40, refused: a pin flag 1, "a negated
+      unnamed pin of a call" 1 (niche: accepted loss, 1 occurrence in the corpora), a consumed box 1.
+      **Gate 2-3 review (2026-10-16), five findings, each test-first:** (1) TwinCAT's in-place write erased a box-fed
+      wire's stored output type (no pragma: the declared type is the derivation; `WriteOutputParam` derived without it) —
+      the Demux arm now hands its producer `NetworkText.WithDeclaredType`, as CODESYS does
+      (`TcDemuxTests.An_in_place_push_keeps_the_stored_type_of_a_box_fed_wire`). (2) S3a with a declaration unlike the
+      leaf's variable — RECORDED, no code change: CODESYS types the wire's uses by the VARIABLE (`ng_s3a_leaf_wire_mistyped`
+      `g1 : INT := a(BOOL)` into an INT use: "Cannot convert type 'BOOL' to type 'INT'"; `…_mistyped_bool_use` into a
+      BOOL use: builds clean), which is the LSP's producer rule — both agree; `docs/network-text.html` says so. The
+      related one-happy-path gap: `ng_s1_stored_type_mistyped` (a Types pragma `['INT']` on an AND consumed by a BOOL —
+      clean on both vendors, LSP agrees), `ng_s2_nested_set_reset` (S=, R= and a chained pair nested — clean, agrees),
+      `ng_s6_negated_int_pin` (a negated INT pin of ADD — CODESYS warns twice of a sign change through UINT; the LSP is
+      silent: `deferred.lsp` "niche: accepted loss (0 occurrences in the corpora)", ceiling exception
+      `NEGATED_INT_PIN`); TwinCAT refuses the S2/S3a/S6 ones before its import (`TWINCAT_REFUSES`). (3) TwinCAT's
+      in-place write applied `NetworkMembers.Buildable` (a CONSTRUCTION limit) and replaced a spelled `'   '` with the
+      derivation — it writes `Effective` now (`TcDemuxTests.An_in_place_push_keeps_a_spelled_function_result_name`), and
+      its `Held` names `OutputParam.Names` `'   '` like CODESYS's. (4) The enabled PROGRAM call's second null output slot
+      is a `RebuildLoss` candidate (`OutputItemList.OutputItems`, "<slots> slots for <names> names", row
+      `nwl-output-param-names`) on both drivers (`CodesysRebuildLossTests.A_rebuilt_enabled_program_call_names_the_output_slot_it_drops`).
+      (5) `$hh` in a pragma string is exactly two hex digits in C# too (`'$A '` refused, as the LSP refuses it; cases in
+      both `NetworkPragmaTests` and `network-pragma.test.ts`).
+      **Gate 2-3 numbers:** C# Engine 2624 + 1 skipped, CODESYS 438, TwinCAT 526, Cli 295, Connector 148, Contracts 37,
+      Repo.Gates 243 — all green; volt-cli unit 158; LSP full suite (VOLT_REQUIRE_FULL=1, 10632 tests, 626 s) 10169 pass, 34 skip, 1 fail — `structure.test.ts`: `network-pragma.test.ts` named after no file beside it, now a listed topic suite (re-run green); typecheck, lint, `bun run check` green; recordings:
+      CODESYS +5 fixtures (recorder testCount 5595 → 5606, the ten 2.3 ones), TwinCAT +1 (5572 → 5575); fixture map unaskable 95 → 106 (the
+      ten `ng_s*` rows now in the map); analysis census CODESYS TP 5843 → 5844, GAP 518 → 520 (2 excepted).
+      **Remaining in 2.3:** the members `Fixed`, `Boolean`, `Address`, `BranchCounter`, box-operand `Operand.Type`,
+      `Instance.Type`, input `ParamList.Types` / `InputFlags`, `EN`/`ENO`, `CallType` (then TwinCAT's program-call
+      import), exact titles/comments, the item Jump/Return bit (`nwl-assign-item-flags` re-run), `SymbolComment`; TwinCAT
+      import measurement for S2/S3a/S5/S6; the `text-blob-serialisation` row; `RebuildLoss` empty.
 ## 3. Verify and close
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both

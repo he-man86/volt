@@ -62,7 +62,10 @@ internal static class TcUnmeasured
     /// no round trip either — a leaf wire read by two coils comes back as ONE chained assign (C25's fold), and one read
     /// inside a box comes back a wire under an importer-minted VarId (<c>g1883419948</c>). A refusal costs a detour; a
     /// reshape costs a drawing, so it stays refused. 1.16 would say how many rung edits this blocks;</item>
-    /// <item>a box's result pin <c>=&gt; v</c> — the importer lowers an output pin to a separate assignment (C20).</item>
+    /// <item>a box's result pin <c>=&gt; v</c> — the importer lowers an output pin to a separate assignment (C20);</item>
+    /// <item>a negated box input pin (S6), an assignment below the top level (S2) and a <c>SUPER^</c> call (S5) —
+    /// ld-fbd-coverage 2.3 spells all three, and no import of any is measured (the vendor-facts rows
+    /// <c>nwl-input-pin-flag</c>, <c>nwl-nested-assign</c>, <c>nwl-super-call</c>).</item>
     /// </list>
     /// A shape leaves this list only when a live import measures it round-tripping; task 4.4 measured the leaf wire
     /// (N22) and it stays, the other two are not yet measured.
@@ -78,15 +81,20 @@ internal static class TcUnmeasured
     }
 
     private static string? FirstUnmeasured(IEnumerable<Node> trees) =>
-        trees.Select(Unmeasured).FirstOrDefault(x => x != null);
+        trees.Select(t => Unmeasured(t, top: true)).FirstOrDefault(x => x != null);
 
-    private static string? Unmeasured(Node n) => n switch
+    private static string? Unmeasured(Node n, bool top = false) => n switch
     {
+        Assign a when !top => $"an assignment to '{a.Targets.FirstOrDefault()?.Text}' below the top level",
         Parallel => "a `PARALLEL` branch",
         Demux { Input: Leaf leaf } d => $"the wire g{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
         Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin =>
             $"the result pin `=> {pin.Value.Text}` of the '{b.Type}' box",
-        _ => n.Children().Select(Unmeasured).FirstOrDefault(x => x != null),
+        Box b when string.Equals(b.Instance?.Text, Volt.Engine.Format.St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase) =>
+            $"a call of the base FB through SUPER^ (the '{b.Type}' box)",
+        Box b when b.Inputs.Select((p, i) => (p, i)).FirstOrDefault(x => !x.p.Flags.IsNone) is { p: not null } flagged =>
+            $"a negated input pin ({flagged.p.Formal ?? $"input {flagged.i}"}) of the '{b.Type}' box",
+        _ => n.Children().Select(c => Unmeasured(c)).FirstOrDefault(x => x != null),
     };
 }
 

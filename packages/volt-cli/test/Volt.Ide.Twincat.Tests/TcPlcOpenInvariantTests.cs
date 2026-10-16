@@ -38,14 +38,20 @@ public class TcPlcOpenInvariantTests
         Assert.Contains("Volt bug", ex.Message);
     }
 
-    [Fact]
-    public void A_statement_wired_where_a_value_goes_is_an_invariant()
+    /// <summary>AN ASSIGNMENT BELOW THE TOP LEVEL IS NO LONGER A MODEL THE READER NEVER BUILDS: network text spells it
+    /// (S2, openspec ld-fbd-coverage 2.3, <c>(b := a)</c>), so a push of one meets TwinCAT's import, which is not measured
+    /// for it — refused by name, UNSUPPORTED (<c>TcUnmeasured</c>), before the lowering. These were the lowering's
+    /// "statement where a value goes" invariants while no text could say it.</summary>
+    private static void UnmeasuredNested(params Node[] trees)
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            TcPlcOpenWriter.WriteProject("P", One(Coil(And(Coil(Var("a"), "b"), Var("c")), "out"))));
-        Assert.Contains("box input wired to a statement", ex.Message);
-        Assert.Contains("Volt bug", ex.Message);
+        var ex = Assert.Throws<NetworkTextException>(() => TcPlcOpenWriter.WriteProject("P", One(trees)));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, ex.Code);
+        Assert.Contains("an assignment to 'b' below the top level", ex.Message);
     }
+
+    [Fact]
+    public void A_statement_wired_where_a_value_goes_is_refused_by_name() =>
+        UnmeasuredNested(Coil(And(Coil(Var("a"), "b"), Var("c")), "out"));
 
     /// <summary>A node kind the model has and the lowering does not — the switch's default arm.</summary>
     private sealed record Alien() : Node(Flags.None)
@@ -67,24 +73,20 @@ public class TcPlcOpenInvariantTests
     // no value" arm is deleted: `Assign.Value` is never null in the model, and the walks before the lowering fault on one first.
 
     [Fact]
-    public void An_assignment_from_a_statement_is_an_invariant() =>
-        Assert.Contains("an assignment from a statement", InvariantOf(Coil(Coil(Var("a"), "b"), "out")).Message);
+    public void An_assignment_from_a_statement_is_refused_by_name() => UnmeasuredNested(Coil(Coil(Var("a"), "b"), "out"));
 
     [Fact]
-    public void A_RETURN_conditioned_on_a_statement_is_an_invariant() =>
-        Assert.Contains("a RETURN conditioned on a statement",
-            InvariantOf(new Assign(Coil(Var("a"), "b"), Array.Empty<Operand>(), Flags.None with { Return = true })).Message);
+    public void A_RETURN_conditioned_on_a_statement_is_refused_by_name() =>
+        UnmeasuredNested(new Assign(Coil(Var("a"), "b"), Array.Empty<Operand>(), Flags.None with { Return = true }));
 
     [Fact]
-    public void A_jump_conditioned_on_a_statement_is_an_invariant() =>
-        Assert.Contains("a jump conditioned on a statement",
-            InvariantOf(new Assign(Coil(Var("a"), "b"), new[] { new Operand("Done") }, Flags.None with { Jump = true })).Message);
+    public void A_jump_conditioned_on_a_statement_is_refused_by_name() =>
+        UnmeasuredNested(new Assign(Coil(Var("a"), "b"), new[] { new Operand("Done") }, Flags.None with { Jump = true }));
 
     [Fact]
-    public void A_wire_defined_from_a_statement_is_an_invariant() =>
-        Assert.Contains("a wire defined from a statement",
-            InvariantOf(Coil(new Demux(1, Coil(Var("a"), "b")), "x"), Coil(And(new Demux(1, null), Var("c")), "y"),
-                        Coil(And(new Demux(1, null), Var("d")), "z")).Message);
+    public void A_wire_defined_from_a_statement_is_refused_by_name() =>
+        UnmeasuredNested(Coil(new Demux(1, Coil(Var("a"), "b")), "x"), Coil(And(new Demux(1, null), Var("c")), "y"),
+                         Coil(And(new Demux(1, null), Var("d")), "z"));
 
     [Fact]
     public void A_call_kind_with_no_PLCopen_call_type_is_an_invariant()

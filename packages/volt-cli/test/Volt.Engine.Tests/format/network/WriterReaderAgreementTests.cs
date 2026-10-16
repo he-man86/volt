@@ -92,17 +92,22 @@ public class WriterReaderAgreementTests
 
     // ── a wire's type (spec, "a wire's type is read off its producer") ─────────────────────────────
 
-    /// <summary>A stored type the text's own rule contradicts cannot be declared: the reader reads the producer
-    /// without the vendor's stored types. Refused by name, never written as text the reader refuses.</summary>
+    /// <summary>A stored type the text's own rule contradicts cannot be declared where the text does not carry it: the
+    /// reader reads such a producer without the vendor's stored types. Refused by name, never written as text the reader
+    /// refuses. Where the stored types are a member the text does not imply, their pragma carries them
+    /// (ld-fbd-coverage 2.3), and the declaration is the stored type, read back as stated.</summary>
     [Fact]
     public void A_stored_output_type_the_text_reads_otherwise_goes_to_the_marker()
     {
+        // A plain AND stores no slot, so no type is implied for it: the stored DINT is spelled, and comes back.
         var and = new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Flags.None,
             OutputTypes: new string?[] { "DINT" });
         var m = Body(Net(Def(1, and), Set(Ref(1), T("c"))));
-        Assert.Equal("a stored output type the text reads otherwise", RefusedBy(m, NetworkScope.Empty));
-        Assert.Equal("a stored output type the text reads otherwise", NetworkModelOracle.Check("and-dint", m).Reason);
+        Assert.Contains("g1 := (a AND b){OutputParam.Types := ['DINT']};", NetworkTextWriter.Write(m, NetworkScope.Empty));
+        Assert.Null(NetworkModelOracle.Check("and-dint", m).Reason);
 
+        // A comparison's slot type IS the wire's declared one (the text implies it), so the rule reads it: BOOL, not INT
+        // (DIALECT N25, kept).
         var gt = Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new string?[] { "INT" });
         Assert.Equal("a stored output type the text reads otherwise",
             RefusedBy(Body(Net(Def(1, gt), Set(Ref(1), T("c")))), NetworkScope.Empty));

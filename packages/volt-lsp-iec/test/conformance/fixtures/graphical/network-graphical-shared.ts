@@ -62,4 +62,23 @@ export const TWINCAT_REFUSES: Record<string, string | undefined> = {
     "TwinCAT's PLCopen importer honours a box output pin wired straight to a variable and then lowers it to a SEPARATE assignment, so the body that came back would not be the one pushed — `volt push` refuses rather than writing a body the IDE would silently change (measured 2026-09-21).",
   ng_execute_box:
     "an Execute box is a TwinCAT construct Volt cannot express as PLCopen; the IDE has to draw it (measured 2026-09-21).",
+  // ld-fbd-coverage 2.3: shapes TwinCAT's PLCopen import is not measured for, refused by `TcUnmeasured` before it
+  // (DIALECT N22, N34–N36; the census-shapes e2e holds the same refusals against a live XAE).
+  ng_s2_nested_assign:
+    "an assignment to 'out' below the top level: Volt rebuilds a changed network through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused before the import (2026-10-16).",
+  ng_s3a_leaf_wire:
+    "the wire g1 fed by the leaf 'a': TwinCAT's PLCopen import is not measured for a leaf-fed wire (N22), so the push is refused before the import (2026-10-16).",
+  ng_s5_super_call:
+    "a call of the base FB through SUPER^: TwinCAT's PLCopen import is not measured for it, so the push is refused before the import (2026-10-16).",
+  ng_s6_negated_pin:
+    "a negated input pin: TwinCAT's PLCopen import is not measured for it, so the push is refused before the import (2026-10-16).",
+  // Gate 2-3: the same refusals (TcUnmeasured.RefuseImport), on the fixtures the review added beyond each happy path.
+  ng_s2_nested_set_reset:
+    "an assignment to 'out' below the top level: Volt rebuilds a changed network through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused before the import (2026-10-16).",
+  ng_s3a_leaf_wire_mistyped:
+    "the wire g1 fed by the leaf 'a': TwinCAT's PLCopen import is not measured for a leaf-fed wire (N22), so the push is refused before the import (2026-10-16).",
+  ng_s3a_leaf_wire_mistyped_bool_use:
+    "the wire g1 fed by the leaf 'a': TwinCAT's PLCopen import is not measured for a leaf-fed wire (N22), so the push is refused before the import (2026-10-16).",
+  ng_s6_negated_int_pin:
+    "a negated input pin: TwinCAT's PLCopen import is not measured for it, so the push is refused before the import (2026-10-16).",
 }

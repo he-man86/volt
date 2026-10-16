@@ -159,7 +159,10 @@ internal static class TcNetworkReader
                     // Whether the box HAS an ENO output: its output list's first name, as CODESYS reads it (task 3.10).
                     HasEnoOutput: HasEno(e),
                     // S4 (ld-fbd-coverage 1b.4): the stored name of a main output the text spells by name, as CODESYS.
-                    MainOutputName: Box.NameOfMainOutput(TcArchive.Str(e, "BoxType") ?? "", connected, Names(e, "OutputParam")));
+                    MainOutputName: Box.NameOfMainOutput(TcArchive.Str(e, "BoxType") ?? "", connected, Names(e, "OutputParam")),
+                    // The stored output names whole (ld-fbd-coverage 2.3), as CODESYS reads them: S1's slot on a bit
+                    // operator, a call's unconnected pins — the text spells them where they differ from what its pins give.
+                    Members: NwlMembers.Of((NetworkMembers.OutputNames, PragmaValue.Texts(Names(e, "OutputParam")))));
             }
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.
@@ -267,7 +270,9 @@ internal static class TcNetworkReader
         // A bit operator stores no main output (census 1.6), so its consumer is connected by no stored slot — what
         // the archive's single null output item on an AND box would otherwise be read as. CODESYS reads the same box
         // as `MainOutputIndex` None; one model, one answer.
-        if (Box.StoresNoMainOutput(TcArchive.Str(box, "BoxType") ?? "")) return null;
+        // S1 (ld-fbd-coverage 2.3): one that stores an output (the editor's `Names = ['']`, drawn here as on CODESYS) is
+        // connected by it, slot 0 — Box.BitOperatorSlot, the one rule both readers and the text share.
+        if (Box.StoresNoMainOutput(TcArchive.Str(box, "BoxType") ?? "")) return Box.BitOperatorSlot(Names(box, "OutputParam").Count);
         if (HasEno(box)) return 0;
         var holder = TcArchive.Obj(box, "OutputItems");
         if (holder is null) return null;
@@ -279,6 +284,11 @@ internal static class TcNetworkReader
         // states must read the same.
         if (slots.Count <= 1 && slots.All(s => s is not null && string.IsNullOrEmpty(TcArchive.Str(s, "Operand")))
             && Names(box, "OutputParam").Count == 1)
+            return 0;
+        // A box that stores no output at all — no name, no slot: a function box a push built, its names the text's (none:
+        // a function's result pin is no name a built box can hold, NetworkMembers.Buildable, ld-fbd-coverage 2.3) — is read
+        // through the one output it has, its result, slot 0: as CODESYS reads a box Volt built (DIALECT N21).
+        if (slots.Count == 0 && Names(box, "OutputParam").Count == 0)
             return 0;
         var nulls = slots.Select((slot, i) => (slot, i)).Where(x => x.slot is null).Select(x => x.i).ToList();
         return nulls.Count == 1 ? nulls[0] : null;

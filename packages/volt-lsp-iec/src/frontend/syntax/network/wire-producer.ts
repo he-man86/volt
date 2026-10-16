@@ -3,9 +3,10 @@
  * feeds (`producerType`, over the text's tree), and how that disagrees with the wire's declaration. The reader's
  * `checkWireTypes` (`parser.ts`) asks these once a network is read.
  */
-import type { NetworkLanguage, NetworkTextStatement, NetworkValue, NetworkWire } from "./ast.js"
+import type { NetworkLanguage, NetworkPragma, NetworkValue, NetworkWire } from "./ast.js"
 import type { NetworkWireTyping } from "./cursor.js"
 import { SYMBOL_TO_TYPE } from "./lexer.js"
+import { pragmaStrings } from "./pragma.js"
 
 const BOOL = "BOOL"
 
@@ -38,6 +39,18 @@ function boxProduces(type: string, typing: NetworkWireTyping): Produced {
   return "exact" in result ? { exact: result.exact } : { anyBit: true }
 }
 
+/** The output type a box STORES at the slot its consumer reads, where its pragma spells its types (openspec
+ *  ld-fbd-coverage 2.3, `NetworkSpelling.ProducerType`): the main output — on a bit operator the stored one, where it
+ *  stores an output (S1), or the one slot it types. Undefined where the text spells none, or the slot's is empty. */
+function storedType(pragmas: readonly NetworkPragma[] | undefined, bitOperator: boolean): string | undefined {
+  const types = pragmaStrings(pragmas, "OutputParam.Types")
+  if (types === undefined) return undefined
+  const names = pragmaStrings(pragmas, "OutputParam.Names")
+  const slot = !bitOperator || (names?.length ?? 0) > 0 || types.length === 1 ? 0 : undefined
+  const t = slot !== undefined ? types[slot] : undefined
+  return t !== undefined && t.trim().length > 0 ? t : undefined
+}
+
 /** A type as the comparison reads it: its tokens, not its layout (`STRING (80)` is `STRING(80)`). */
 const typeKey = (t: string): string => t.replace(/\s+/g, "").toUpperCase()
 
@@ -50,11 +63,11 @@ export function disagreement(p: Produced, declared: string, typing: NetworkWireT
 }
 
 /** `NetworkSpelling.ProducerType` over the text's tree. A modifier (`NOT`) is a flag on the node it stands on, so it
- *  is looked through; an edge flag makes anything BOOL. */
+ *  is looked through; an edge flag makes anything BOOL. A leaf says nothing but a literal's BOOL: the type it stores IS
+ *  the wire's declaration (S3a, openspec ld-fbd-coverage 2.3 — what replaced reading it off the wire's uses), and in LD
+ *  the left rail, a wire fed by nothing, is BOOL (S3b). */
 export function producerType(
   v: NetworkValue,
-  wire: NetworkWire,
-  statements: readonly NetworkTextStatement[],
   wires: readonly NetworkWire[],
   language: NetworkLanguage,
   typing: NetworkWireTyping,
@@ -65,81 +78,26 @@ export function producerType(
     case "execute":
       return { exact: BOOL }
     case "not":
-      return producerType(v.operand, wire, statements, wires, language, typing)
+      return producerType(v.operand, wires, language, typing)
+    case "nested_assign":
+      return producerType(v.value, wires, language, typing)
     case "operand":
-      if (/^(TRUE|FALSE)$/i.test(v.text)) return { exact: BOOL }
-      return everyUseIsBoolean(wire, statements, language, typing) ? { exact: BOOL } : {}
+      return /^(TRUE|FALSE)$/i.test(v.text) ? { exact: BOOL } : {}
     case "wire_ref": {
       const other = wires.find((w) => w.name.text.toUpperCase() === v.name.text.toUpperCase())
       return other !== undefined ? { exact: other.typeText } : {}
     }
-    case "group":
-      return boxProduces(operatorType(v.op), typing)
-    case "call":
-      return v.eno ? { exact: BOOL } : boxProduces(v.boxType, typing)
+    case "group": {
+      const type = operatorType(v.op)
+      const stored = storedType(v.pragmas, isBitOperatorBox(type, typing))
+      return stored !== undefined ? { exact: stored } : boxProduces(type, typing)
+    }
+    case "call": {
+      if (v.eno) return { exact: BOOL }
+      const stored = storedType(v.pragmas, isBitOperatorBox(v.boxType.toUpperCase(), typing))
+      return stored !== undefined ? { exact: stored } : boxProduces(v.boxType, typing)
+    }
     case "empty_slot":
-      return {}
+      return language === "LD" ? { exact: BOOL } : {}
   }
-}
-
-/** Whether `wire` is referenced at least once and only where a BOOL is taken (`NetworkSpelling.EveryUseIsBoolean`):
- *  an EN, a Parallel, a jump condition, and in ladder a coil or a contact (a bit operator's input). */
-function everyUseIsBoolean(
-  wire: NetworkWire,
-  statements: readonly NetworkTextStatement[],
-  language: NetworkLanguage,
-  typing: NetworkWireTyping,
-): boolean {
-  const key = wire.name.text.toUpperCase()
-  const ld = language === "LD"
-  let any = false
-  let all = true
-  const walk = (v: NetworkValue, boolean: boolean): void => {
-    switch (v.kind) {
-      case "wire_ref":
-        if (v.name.text.toUpperCase() !== key) return
-        any = true
-        all &&= boolean
-        return
-      case "not":
-      case "edge":
-        return walk(v.operand, boolean)
-      case "group": {
-        const contacts = ld && isBitOperatorBox(operatorType(v.op), typing)
-        for (const o of v.operands) walk(o, contacts)
-        return
-      }
-      case "call": {
-        const contacts = ld && isBitOperatorBox(v.boxType.toUpperCase(), typing)
-        for (const p of v.pins) if (p.kind === "input") walk(p.value, p.name?.text.toUpperCase() === "EN" || contacts)
-        return
-      }
-      case "execute":
-        if (v.en !== undefined) walk(v.en, true)
-        return
-      case "parallel":
-        if (v.input !== undefined) walk(v.input, true)
-        for (const b of v.branches) walk(b, true)
-        return
-      default:
-        return
-    }
-  }
-  for (const s of statements)
-    switch (s.kind) {
-      case "assign":
-        walk(s.value, ld) // a ladder coil takes a BOOL
-        break
-      case "jump":
-      case "return":
-        if (s.condition !== undefined) walk(s.condition, true)
-        break
-      case "wire_def": // boolean or not rides the other wire's uses — not proven
-      case "value": // a top-level output goes nowhere
-        walk(s.value, false)
-        break
-      case "empty":
-        break
-    }
-  return any && all
 }

@@ -38,6 +38,8 @@ export abstract class CallReader extends ValueReader {
         throw this.err(sep, "NETWORK_PARSE", `'${sep.text}' in a call: pins are separated by \`,\` and closed by \`)\`.`)
       }
     }
+    // The box's stored members, after its closing paren and before the suffix (ld-fbd-coverage 2.3).
+    const pragmas = this.readPragmas()
 
     const { eno, output } = this.callSuffix()
 
@@ -71,6 +73,7 @@ export abstract class CallReader extends ValueReader {
       eno,
       ...(output !== undefined ? { output: this.name(output) } : {}),
       ...(fbType !== undefined ? { instance: true as const } : {}),
+      ...(pragmas !== undefined ? { pragmas } : {}),
       span: this.span(head.offset, this.lastEnd),
     }
     return call
@@ -130,6 +133,15 @@ export abstract class CallReader extends ValueReader {
       return hadEn
     }
 
+    // S6: `NOT name := v` negates the PIN; the enable is the rung itself and holds no flag of its own.
+    let negated = false
+    if (pre === undefined && isWord(at, "NOT") && this.lx.namedPinFollows()) {
+      const not = this.next()
+      if (isWord(this.peek(), "EN"))
+        throw this.err(not, "NETWORK_UNSUPPORTED", "a flag on the EN pin: the enable is the rung itself, and the IDE holds no modifier on it — negate what feeds it.")
+      negated = true
+    }
+
     // A pin name is decided by the `:=` / `=>` after it, BEFORE the word is read as a value: read first,
     // `execute := x` would open an EXECUTE body.
     const pinName =
@@ -149,7 +161,13 @@ export abstract class CallReader extends ValueReader {
           if (hadEn) throw this.err(pinName, "NETWORK_BAD_EXPRESSION", "a call names EN twice.")
           hadEn = true
         }
-        pins.push({ kind: "input", name: this.name(pinName), value, span: this.span(pinName.offset, this.lastEnd) })
+        pins.push({
+          kind: "input",
+          name: this.name(pinName),
+          value,
+          ...(negated ? { negated: true as const } : {}),
+          span: this.span(negated ? at.offset : pinName.offset, this.lastEnd),
+        })
         return hadEn
       }
       if (isEn || pinName.text.toUpperCase() === "ENO")
@@ -239,6 +257,7 @@ export abstract class CallReader extends ValueReader {
     if (snippet.kind === "error") throw this.err(snippet, (snippet.code ?? "NETWORK_PARSE") as NetworkDiagnosticCode, snippet.text)
     this.lastEnd = end.offset + end.length
     const parsed = this.stStatements(snippet.offset, snippet.offset + snippet.length)
+    const pragmas = this.readPragmas()
 
     let eno = false
     if (isSym(this.peek(), ".")) {
@@ -255,6 +274,7 @@ export abstract class CallReader extends ValueReader {
       statements: parsed.statements,
       ok: parsed.ok,
       eno,
+      ...(pragmas !== undefined ? { pragmas } : {}),
       span: this.span(kw.offset, this.lastEnd),
     }
   }

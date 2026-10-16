@@ -461,6 +461,35 @@ public static class NetworkTextReader
             return new Tok(TokKind.Sym, t.Text.ToUpperInvariant() + "=", t.Offset, eq.Offset + eq.Length - t.Offset, t.AtLineStart);
         }
 
+        /// <summary><c>(t1 := t2 S= … value)</c> after its <c>(</c> and first target (S2, ld-fbd-coverage 2.3): one Assign item
+        /// below the top level, its value passing through to the consumer. A wire is defined only by a statement of its own,
+        /// so a target that is this network's wire is refused here.</summary>
+        private Assign ParseNestedAssign(Tok open, PVal first)
+        {
+            var targets = new List<(Tok Target, Tok Op)>();
+            var cur = first;
+            Node value;
+            while (true)
+            {
+                if (cur.Bare is not { } bare)
+                    throw Err(cur.Start, ConflictCodes.NetworkBadExpression,
+                        "an assignment target is one variable: a token, or text between backticks.");
+                if (bare.Kind == TokKind.Word && _wires.TryGetValue(bare.Text, out var w))
+                    throw Err(bare, ConflictCodes.NetworkBadExpression,
+                        $"the wire {w.Name} is defined inside an assignment's pair; a wire's definition is its own statement `{w.Name} := value;`.");
+                targets.Add((bare, TakeStorage()));
+                var v = ParseValue(consumed: true, defer: true);
+                if (v.Bare is not null && AtStorage()) { cur = v; continue; }
+                value = Resolve(v, consumed: true);
+                break;
+            }
+            if (!Peek().IsSym(")"))
+                throw Err(Peek(), ConflictCodes.NetworkParse,
+                    $"'{Peek().Text}' in an assignment's pair: `(t := value)` closes after its value.");
+            Next();
+            return (Assign)BuildAssign(targets, value);
+        }
+
         private Node BuildAssign(List<(Tok Target, Tok Op)> targets, Node value)
         {
             foreach (var (tok, _) in targets)
@@ -477,6 +506,14 @@ public static class NetworkTextReader
                 // The declared type is checked against the producer once the network is read
                 // (CheckWireTypes): a leaf's type depends on how the wire is USED, which the statements below say.
                 w.Defined = true;
+                // S3a (ld-fbd-coverage 2.3): a leaf feeding a wire stores the type the wire is declared with — the
+                // IDE-drawn leaf holds its declared type, and the push writes it onto the leaf.
+                if (value is Leaf leaf && !NetworkSpelling.IsBoolLiteral(leaf.Operand.Text))
+                {
+                    var typed = leaf with { Operand = leaf.Operand with { Type = w.Type } };
+                    if (Spans.TryGetValue(leaf, out var at)) Spans[typed] = at;
+                    value = typed;
+                }
                 return new Demux(w.VarId, value, w.Type);
             }
 
@@ -597,8 +634,15 @@ public static class NetworkTextReader
             switch (t.Kind)
             {
                 case TokKind.Sym when t.Text == "(":
+                {
                     Next();
-                    return PVal.Of(Mark(ParseGroupRest(t, Resolve(ParseValue(consumed: true), consumed: true), consumed), t.Offset), t);
+                    // THE THIRD PAIR KIND (S2, ld-fbd-coverage 2.3): a pair whose first value is a target followed by a
+                    // storage operator at its own depth is an assignment below the top level, `(t := v)`. Any other pair
+                    // after a value is a group. (`(R = x)` stays a comparison: storage is decided after a target.)
+                    var first = ParseValue(consumed: true, defer: true);
+                    if (first.Bare is not null && AtStorage()) return PVal.Of(Mark(ParseNestedAssign(t, first), t.Offset), t);
+                    return PVal.Of(Mark(ParseGroupRest(t, Resolve(first, consumed: true), consumed), t.Offset), t);
+                }
 
                 case TokKind.Unnamed:
                     Next();
@@ -680,10 +724,11 @@ public static class NetworkTextReader
             }
             if (!Peek().IsSym(")")) throw NotAnOperator(Peek());
             Next();
+            var pragmas = ParsePragmas();
             var type = FbdOperators.SymbolToType[sym];
-            var connected = consumed ? NetworkSpelling.MainSlotOfCall(type) : null;
-            var box = new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None,
-                MainOutputIndex: connected, ConnectedSlot: connected);
+            var box = WithPragmas(new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None), pragmas);
+            var connected = consumed ? MainSlot(box) : null;
+            box = box with { MainOutputIndex = connected, ConnectedSlot = connected };
             // A group has no suffix and no EN (a box consumed by ENO is a call — NetworkSpelling.IsInfix), so where the
             // text carries ENO at all the one rule answers "none". Asked rather than written `false`: a literal here
             // would be a second copy of TextHasEno, free to drift from the writer's.
@@ -693,6 +738,45 @@ public static class NetworkTextReader
                     ? NetworkSpelling.TextHasEno(isExecute: false, hasEnable: false, enoSuffix: false, consumed) : null,
             };
         }
+
+        /// <summary>The slot a consumer of a GROUP is connected by: slot 0, and on a bit operator its stored output where it
+        /// stores one (S1, <see cref="Box.BitOperatorSlot"/>).</summary>
+        private static int? MainSlot(Box group) =>
+            NetworkSpelling.MainSlotOfCall(group.Type)
+            ?? Box.BitOperatorSlot(group.Members?[NetworkMembers.OutputNames]?.AsTexts.Count ?? 0);
+
+        // ── pragmas ─────────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The pragmas standing right after a node: <c>{Member := value}</c>, each read and checked against the
+        /// member table (<see cref="NetworkMembers"/>) — an unknown member, a value of another kind, or one member twice is
+        /// refused by name (design "2.3": "a pragma naming a member the 1b.2 table does not hold, or a value its member
+        /// cannot take").</summary>
+        private List<(Tok At, BoxMember Member, PragmaValue Value)> ParsePragmas()
+        {
+            var read = new List<(Tok, BoxMember, PragmaValue)>();
+            while (Peek().Kind == TokKind.Pragma)
+            {
+                var t = Next();
+                var p = NetworkPragma.Parse(t.Text, out var error) ?? throw Err(t, ConflictCodes.NetworkParse, error!);
+                var member = NetworkMembers.BoxMemberNamed(p.Member)
+                             ?? throw Err(t, ConflictCodes.NetworkUnsupported,
+                                 $"a pragma naming '{p.Member}', which is no member of a box the text spells (the member table: " +
+                                 string.Join(", ", NetworkMembers.OfBox.Select(m => m.Name)) + ").");
+                if (p.Value.Kind != member.Kind || (p.Value.Kind == PragmaKind.List && p.Value.Items!.Any(i => i.Kind != PragmaKind.Text)))
+                    throw Err(t, ConflictCodes.NetworkBadExpression,
+                        $"'{p.Member}' takes {(member.Kind == PragmaKind.List ? "a list of strings" : "a " + member.Kind.ToString().ToLowerInvariant())}, not {p.Value.Spell()}.");
+                if (read.Any(r => r.Item2 == member))
+                    throw Err(t, ConflictCodes.NetworkDuplicateName, $"the pragma '{p.Member}' twice on one node.");
+                read.Add((t, member, p.Value));
+            }
+            return read;
+        }
+
+        private static Box WithPragmas(Box box, List<(Tok At, BoxMember Member, PragmaValue Value)> pragmas) =>
+            pragmas.Aggregate(box, (b, p) => p.Member.With(b, p.Value));
+
+        private static int? SpelledCount(List<(Tok At, BoxMember Member, PragmaValue Value)> pragmas, string member) =>
+            pragmas.FirstOrDefault(p => p.Member.Name == member).Value?.AsTexts.Count;
 
         private ParseError NotAnOperator(Tok t) =>
             t.Kind == TokKind.Word && NetworkSpelling.TextWords.Contains(t.Text)
@@ -744,6 +828,8 @@ public static class NetworkTextReader
                     throw Err(sep, ConflictCodes.NetworkParse, $"'{sep.Text}' in a call: pins are separated by `,` and closed by `)`.");
                 }
             }
+            // The box's stored members, after its closing paren and before the suffix (ld-fbd-coverage 2.3).
+            var pragmas = ParsePragmas();
 
             var eno = false;
             Tok? named = null;
@@ -790,6 +876,13 @@ public static class NetworkTextReader
                 throw Err(head, ConflictCodes.NetworkUnsupported,
                     $"a POU named {type.ToUpperInvariant()}: the text reads {type.ToUpperInvariant()}(…) as its own construct, so a call of it has no spelling.");
 
+            // S6: an operator's negated pin is named by its default formal only so the flag has a place to stand; the
+            // operator stores no input names (census 1.13), so the pin reads back unnamed (NetworkSpelling.DefaultFormal).
+            for (var i = 0; i < inputs.Count; i++)
+                if (inputs[i].Flags.Negated && NetworkSpelling.DefaultFormal(type, i) is { } dflt &&
+                    string.Equals(inputs[i].Formal, dflt, StringComparison.OrdinalIgnoreCase))
+                    inputs[i] = inputs[i] with { Formal = null };
+
             // The slot rule: ENO is never an `=>` slot, nor is the slot a consumer is connected to; positional pins
             // fill the rest in order. Whether the box HAS an ENO output is read by the one rule the writer refuses
             // against (NetworkSpelling.TextHasEno): `.ENO` says so, a consumer without it reads a main output that is
@@ -811,8 +904,13 @@ public static class NetworkTextReader
 
             var hasEno = NetworkSpelling.TextHasEno(isExecute: false, hadEn, eno, consumed);
             int? enoSlot = NetworkSpelling.EnoSlot(isExecute: false, hasEnoOutput: hasEno);
-            // A `.name` box states no slot: the text has no position for the index (Box.MainOutputName).
-            int? connected = eno ? enoSlot : named is not null ? null : consumed ? NetworkSpelling.MainSlotOfCall(type) : null;
+            // A `.name` box states no slot: the text has no position for the index (Box.MainOutputName). A bit operator is
+            // connected by its stored output exactly when it stores one (S1, Box.BitOperatorSlot): the pragma
+            // states the outputs, and a named `=>` pin is one the text gives.
+            int? connected = eno ? enoSlot : named is not null ? null
+                : !consumed ? null
+                : NetworkSpelling.MainSlotOfCall(type) is { } main ? main
+                : Box.BitOperatorSlot(SpelledCount(pragmas, NetworkMembers.OutputNames) ?? (outputs.Any(o => !o.Positional) ? 1 : 0));
             var next = 0;
             var built = new List<Output>();
             foreach (var (formal, target, positional) in outputs)
@@ -830,9 +928,9 @@ public static class NetworkTextReader
                 throw Err(head, ConflictCodes.NetworkBadExpression,
                     $"`.ENO` on '{head.Text}', which nothing consumes: a top-level box's output goes nowhere.");
 
-            var box = new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, built, en, null,
+            var box = WithPragmas(new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, built, en, null,
                 Flags.None, MainOutputIndex: consumed && !eno ? connected : null, ConnectedSlot: connected,
-                MainOutputName: named?.Text);
+                MainOutputName: named?.Text), pragmas);
             // Stated only where the text carries it; elsewhere the text says nothing about ENO, and null says so.
             box = box with { HasEnoOutput = NetworkSpelling.EnoCarried(box, consumed) ? hasEno : null };
             return Mark(box, head.Offset);
@@ -847,6 +945,18 @@ public static class NetworkTextReader
                 // `=> v` fills the next output slot; a bare `=>` passes one over.
                 outputs.Add((null, IsEmptyHere(Peek()) ? null : Next(), true));
                 return;
+            }
+
+            // S6 (ld-fbd-coverage 2.3): `NOT name := v` is a NEGATED PIN — the flag on the pin, where `name := NOT v` puts
+            // it on the value. The enable is a tree, not a pin, and holds no flag of its own.
+            var pinFlags = Flags.None;
+            if (pre is null && Peek().Is("NOT") && _lx!.NamedPinFollows())
+            {
+                var not = Next();
+                if (Peek().Is(Box.EnablePin))
+                    throw Err(not, ConflictCodes.NetworkUnsupported,
+                        "a flag on the EN pin: the enable is the rung itself, and the IDE holds no modifier on it — negate what feeds it.");
+                pinFlags = Flags.None with { Negated = true };
             }
 
             // A pin name is decided by the `:=` / `=>` after it, BEFORE the word is read as a value: read first,
@@ -868,7 +978,7 @@ public static class NetworkTextReader
                         en = value;
                         hadEn = true;
                     }
-                    else inputs.Add(new Input(name.Text, value, Flags.None));
+                    else inputs.Add(new Input(name.Text, value, pinFlags));
                     return;
                 }
                 if (isEn || string.Equals(name.Text, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
@@ -960,6 +1070,7 @@ public static class NetworkTextReader
             if (snippet.Kind == TokKind.Error) throw Err(snippet, snippet.Code!, snippet.Text);
             Consumed.Add(snippet);
             Consumed.Add(end);
+            var pragmas = ParsePragmas();
 
             var eno = false;
             if (Peek().IsSym("."))
@@ -976,8 +1087,8 @@ public static class NetworkTextReader
                 throw Err(kw, ConflictCodes.NetworkBadExpression, "`.ENO` on an EXECUTE box nothing consumes.");
             // An Execute box's only output is its ENO (census 1.11); which slot that is, NetworkSpelling.EnoSlot says —
             // the one definition the writer's `.ENO` is decided by, never a second copy of the number here.
-            var box = new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false),
-                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None);
+            var box = WithPragmas(new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false),
+                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None), pragmas);
             return eno ? box with { ConnectedSlot = NetworkSpelling.EnoSlot(box) } : box;
         }
 
@@ -1043,7 +1154,7 @@ public static class NetworkTextReader
                 if (!_byId.TryGetValue(d.VarId, out var w))
                     throw new InvalidOperationException(
                         $"network text v2: a wire definition with VarId {d.VarId} that no VAR_TEMP declaration made.");
-                var produced = NetworkSpelling.ProducerType(d.Input!, d.VarId, trees, _lang,
+                var produced = NetworkSpelling.ProducerType(d.Input!, _lang,
                     id => _byId.TryGetValue(id, out var o) ? o.Type : null);
                 if (NetworkSpelling.Disagreement(produced, w.Type) is { } says)
                     Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,

@@ -568,11 +568,14 @@ public class NetworkTextGateTests
     /// <summary>Task 1.17: in ladder a leaf wire whose every use is boolean (a coil) is BOOL, so another declared
     /// type is refused by name — the same rule the writer declares with.</summary>
     [Fact]
-    public void A_ladder_leaf_wire_used_only_as_a_contact_is_BOOL()
+    public void A_ladder_leaf_wire_takes_its_declared_type_as_the_leafs_own()
     {
-        var d = Refused("NETWORK_BAD_EXPRESSION", 3,
-            LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n");
-        Assert.Contains("BOOL", d.Message);
+        // S3a (ld-fbd-coverage 2.3): the declaration IS the leaf's stored type, so no use can contradict it — a contact
+        // reading an INT wire is the build's finding, not the text's (the uses were task 1.17's guess, deleted).
+        Accepted(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n");
+        // A literal says its own type, and a declaration it contradicts is refused.
+        Assert.Contains("BOOL", Refused("NETWORK_BAD_EXPRESSION", 3,
+            LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := TRUE;\n  o := g1;\nEND_NETWORK\n").Message);
     }
 
     /// <summary>A bit operator's wire is BOOL or another bit-string type; a numeric type is refused, naming both.</summary>

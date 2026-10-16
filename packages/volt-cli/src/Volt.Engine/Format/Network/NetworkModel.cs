@@ -137,7 +137,8 @@ public sealed record Box(
     int? ConnectedSlot = null,
     IReadOnlyList<string?>? OutputTypes = null,
     bool? HasEnoOutput = null,
-    string? MainOutputName = null) : Node(Flags)
+    string? MainOutputName = null,
+    NwlMembers? Members = null) : Node(Flags)
 {
     /// <summary>The enable first (it is input slot 0 on the vendor), then the pins' values.</summary>
     public override IEnumerable<Node> Children()
@@ -181,6 +182,9 @@ public sealed record Box(
     //                   from text, a `.name` box carries the name and NO slot: the text has no position for the index,
     //                   and a push never builds such a box (MainOutputIndex is read-only on a built box, DIALECT N21) —
     //                   it keeps the IDE's network whose text is unchanged (NetworkPairing).
+    //  Members          the stored values of the box's members the text spells by pragma (ld-fbd-coverage 2.3,
+    //                   NetworkMembers.OfBox): every one a vendor reader read, only the spelled ones on a text read —
+    //                   an absent member is its derivation (NetworkMembers.Effective), never "unknown".
 
 
     /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,
@@ -233,6 +237,15 @@ public sealed record Box(
     /// <c>MainOutputIndex</c> None on 823 AND/OR boxes), whose consumer is therefore connected by no stored slot. One
     /// definition for the readers and the text's own slot rule (<c>NetworkSpelling.MainSlotOfCall</c>).</summary>
     public static bool StoresNoMainOutput(string type) => NetworkSpelling.BitOperators.Contains(type);
+
+    /// <summary>
+    /// S1 (ld-fbd-coverage 2.3): the slot a consumer of a BIT OPERATOR is connected by — the box's first output where it
+    /// stores one (the editor's form: <c>OutputParam.Names = ['']</c>, an output slot, main output 0), and none where it
+    /// stores none (the plain AND/OR, census 1.6). One output slot per stored name: the pragma
+    /// <c>{OutputParam.Names := ['']}</c> states the outputs, and this reads the connection off them — the vendor readers,
+    /// the text reader and the writer alike.
+    /// </summary>
+    public static int? BitOperatorSlot(int storedOutputs) => storedOutputs > 0 ? 0 : null;
 
     /// <summary>THE NAME A READER STATES FOR A CONSUMED BOX'S MAIN OUTPUT (<see cref="MainOutputName"/>, ld-fbd-coverage
     /// 1b.4, S4): the box's own stored output name at <paramref name="mainOutput"/>, where that slot is NOT the one the text

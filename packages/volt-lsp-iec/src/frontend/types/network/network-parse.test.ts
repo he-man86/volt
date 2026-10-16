@@ -16,6 +16,7 @@ import {
   networkValueExpr,
   parseSource,
   statementExprs,
+  statementTargets,
   STRUCTURE_ONLY,
   unitBodies,
   walkExpr,
@@ -470,4 +471,47 @@ test("a call box carries its type as the reader decided it: an instance's FB, an
   expect(call("t1(IN := a);").boxType).toBe("TON")
   expect(call("out := F_Scale(x);").boxType).toBe("F_Scale")
   expect(call("??? : TOF(IN := a);").boxType).toBe("TOF")
+})
+
+// ── openspec ld-fbd-coverage 2.3: the census shapes the text spells ───────────────────────────────
+
+test("S2: an assignment below the top level is its own pair — its targets written, its value passed through", () => {
+  const v = valueOf(only("t1(IN := (x S= y := NOT a), PT := pt);"))
+  if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)
+  const pin = v.pins[0]!
+  if (pin.kind !== "input" || pin.value.kind !== "nested_assign") throw new Error("no nested assign")
+  expect(pin.value.targets.map((t) => [t.text, t.op])).toEqual([
+    ["x", "S="],
+    ["y", ":="],
+  ])
+  expect(pin.value.value.kind).toBe("not")
+  expect([...statementTargets(only("t1(IN := (x S= y := NOT a), PT := pt);"))].map((t) => t.text)).toEqual(["x", "y"])
+  // `(R = x)` stays a comparison: storage is decided after a target.
+  expect(valueOf(only("out := (R = x);")).kind).toBe("group")
+  // A wire is defined by a statement of its own, never inside a pair.
+  expect(codes(net("VAR_TEMP g1 : BOOL; END_VAR\nt1(IN := (g1 := a));\nout := g1;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(codes(net("t1(IN := (x := a PT := b);"))).toEqual(["NETWORK_PARSE"])
+})
+
+test("S6: `NOT name := v` negates the PIN, and the enable holds no flag", () => {
+  const v = valueOf(only("out := AND(a, NOT IN2 := b);"))
+  if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)
+  expect(v.pins.map((p) => (p.kind === "input" ? [p.name?.text, p.negated === true, p.value.kind] : []))).toEqual([
+    [undefined, false, "operand"],
+    ["IN2", true, "operand"],
+  ])
+  // `NOT x` in a pin's VALUE is the value's negation, not the pin's.
+  const w = valueOf(only("out := f(IN1 := NOT b);"))
+  expect(w.kind === "call" && w.pins[0]!.kind === "input" && [w.pins[0]!.negated, w.pins[0]!.value.kind]).toEqual([undefined, "not"])
+  expect(codes(net("out := MOVE(NOT EN := a, b);"))).toEqual(["NETWORK_UNSUPPORTED"])
+})
+
+test("S3: a leaf-fed wire is its declaration; in LD a wire fed by nothing is the rail, BOOL", () => {
+  // The leaf stores the type it is declared with (S3a): no use of the wire contradicts it.
+  expect(codes(net("VAR_TEMP g1 : INT; END_VAR\ng1 := x;\nout := g1;"))).toEqual([])
+  // A literal says its own type.
+  expect(codes(net("VAR_TEMP g1 : INT; END_VAR\ng1 := TRUE;\nout := g1;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+  // S3b: in LD the empty producer is the left rail.
+  expect(codes(net("VAR_TEMP g2 : BOOL; END_VAR\ng2 := ;\nout := (g2 AND a);"))).toEqual([])
+  expect(codes(net("VAR_TEMP g2 : INT; END_VAR\ng2 := ;\nout := g2;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
 })

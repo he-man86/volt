@@ -601,8 +601,8 @@ public class CodesysNwlCompletenessOracleTests
     /// <summary>NO LD/FBD BODY IS UNSUPPORTED FOR ONE NETWORK (openspec ld-fbd-coverage 1b.4): every corpus body pulls — the
     /// shipped pull read (<c>ReadShown</c>) and render (<c>WritePulled</c>) over the recorded archive — as network text, a
     /// network the text cannot spell shown as its <c>UNSUPPORTED "&lt;shape&gt;";</c> line. The 12 bodies the census found
-    /// UNSUPPORTED (tasks 0.1) are network text now, holding exactly the text writer's 22 refusals as lines; and every
-    /// body's text reads back to the same text (pushed back unchanged, every network pairs with itself).</summary>
+    /// UNSUPPORTED (tasks 0.1) held 22 such lines until 2.3 spelled S1, S2, S3, S5 and S6: no corpus network is a line
+    /// now; and every body's text reads back to the same text (pushed back unchanged, every network pairs with itself).</summary>
     [Fact]
     public void Every_body_pulls_as_network_text_with_its_unspellable_networks_as_lines()
     {
@@ -626,8 +626,7 @@ public class CodesysNwlCompletenessOracleTests
                 if (n > 0) lines[id] = n;
             }
         }
-        Assert.Equal(12, lines.Count);
-        Assert.Equal(22, lines.Values.Sum());
+        Assert.Empty(lines);
         // The same networks the round trip's text writer refuses, body for body.
         var refused = outcomes.SelectMany(o => o.Refused.Where(r => r.Value.StartsWith("text: ", StringComparison.Ordinal)))
             .GroupBy(r => r.Key.Substring(0, r.Key.LastIndexOf('#')), StringComparer.Ordinal)
@@ -648,19 +647,18 @@ public class CodesysNwlCompletenessOracleTests
 
     static readonly Dictionary<string, int> RefusedByReason = new(StringComparer.Ordinal)
     {
-        // The census's UNSUPPORTED shapes (tasks 0.1, the per-tree scan): S1 7, S2 6, S3 6, S4 1, S5 1, S6 1 — and since
-        // 1b.4 spells S4 (`fbCap(…).xErrorActive`), its one network (lenze FirstErrorCapture.call_FirstErrorCapture_FB #2)
-        // is refused by the NEXT shape the scan meets in it: an AND box connected by a stored slot, S1 — 8 = 7 + 1 until
-        // S1's spelling lands (2.3).
-        ["text: a bit operator box connected by a stored output slot"] = 8,
-        ["text: an assign below the top level"] = 6,
-        ["text: a wire of unknown type"] = 6,
-        ["text: an FB instance the declarations do not name"] = 1,
-        ["text: a flag on a box input pin"] = 1,
-        // DIALECT N21: a consumed enabled comparison does not build in any shape Volt can write, so a network holding
-        // one pulls and is refused when edited — 23 networks of lenze-mid (the 40 drawn comparisons).
+        // The census's UNSUPPORTED shapes (tasks 0.1): S1 7, S2 6, S3 6, S4 1, S5 1, S6 1 — every one spelled since 2.3
+        // (S4 since 1b.4): the text writer refuses no corpus network. What is left is the PUSH's own refusals over the
+        // networks the text now reaches, each a network a push keeps untouched while its text is unchanged (1b.4):
+        // DIALECT N21: a consumed enabled comparison does not build in any shape Volt can write — 26 networks of lenze-mid
+        // (23 before 2.3, and 3 of the S1/S2 networks hold one too).
         ["push: NotSupportedException: CODESYS: the '…' box is a consumed enabled comparison: CODESYS does not compile one " +
-         "Volt builds, with or without `.ENO` (its result variable hangs off an output index Volt cannot set, DIALECT N21)"] = 23,
+         "Volt builds, with or without `.ENO` (its result variable hangs off an output index Volt cannot set, DIALECT N21)"] = 26,
+        // S4 (1b.4): a call read through a named main output other than its first — its MainOutputIndex is read-only on a
+        // box Volt builds (N21). Lenze FirstErrorCapture.call_FirstErrorCapture_FB #2 and #8, which the S1 and S6 lines hid.
+        ["push: NotSupportedException: CODESYS: network 1 changed, and its '…' box is read through its output '…', which is " +
+         "not the box's first output: a box Volt builds cannot be read through any other (its main output index is read-only, " +
+         "DIALECT N21), so the consumer would read another value than the text says"] = 2,
     };
 
     /// <summary>THE ORACLE: every non-cache member of every compared network comes back, or its loss is a known one.</summary>
@@ -677,42 +675,47 @@ public class CodesysNwlCompletenessOracleTests
     /// written".</summary>
     static readonly NwlKnown[] Known =
     {
-        new("BoxTreeBox.BoxType — changed", 15, 15, "2.3 design gap (1b.3): an FB/program call's BoxType is the instance's declared type — D with {BoxType := '…'}"),
-        new("BoxTreeBox.CallType — changed", 289, 986, "2.2 nwl-call-type (R): a fresh box holds None"),
-        new("BoxTreeBox.EN — changed", 145, 185, "2.2 nwl-box-en-eno (R)"),
-        new("BoxTreeBox.ENO — changed", 145, 185, "2.2 nwl-box-en-eno (R)"),
-        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 103, 218, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
-        new("Flags.Fixed in BoxTreeBox.Flags — changed", 133, 165, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
-        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 238, 1229, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
+        // ld-fbd-coverage 2.3 brought the S1/S2/S3/S5/S6 networks (25, but the 2 S4 and 3 more N21 ones a push refuses)
+        // into the comparison: the counts below grew by what those networks hold, and OutputParam's four entries closed
+        // (its Names and Types are the box's pragma members, NetworkMembers.OfBox).
+                        new("BoxTreeBox.BoxType — changed", 19, 19, "2.3 design gap (1b.3): an FB/program call's BoxType is the instance's declared type — D with {BoxType := '…'}"),
+        new("BoxTreeBox.CallType — changed", 306, 1063, "2.2 nwl-call-type (R): a fresh box holds None"),
+        new("BoxTreeBox.EN — changed", 162, 227, "2.2 nwl-box-en-eno (R)"),
+        new("BoxTreeBox.ENO — changed", 162, 227, "2.2 nwl-box-en-eno (R)"),
+        new("BoxTreeBox.InputFlags — changed", 2, 2, "2.3 nwl-input-flags-list (R): a zero-only InputFlags list (lenze FirstErrorCapture #3, #4) — the API answers an archived null as unset flags (KnownApiShapes), so the reader must read the archive, as SymbolComment (N27)"),
+        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 106, 222, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
+        new("Flags.Fixed in BoxTreeBox.Flags — changed", 144, 182, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
+        new("Flags.Fixed in BoxTreeBox.InputFlags — changed", 1, 4, "2.2 nwl-flags-fixed (R): a pin's flag set (S6's pro2193 SetAlarm)"),
+        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 251, 1279, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
         new("Flags.Flags in BoxTreeAssign.Flags — changed", 1, 1, "2.2 nwl-assign-item-flags (R); 2.3: the writer ORs the target's Return onto the item"),
         new("NWLImplementationObject.BranchCounter — not written", 44, 44, "2.2 nwl-branch-counter (R)"),
         new("NWLImplementationObject.NetworkListComment — not written", 44, 44, "2.3 D: the writer sets the constant"),
         new("NWLImplementationObject.ValidIds — not written", 44, 44, "2.3 D: the writer sets the constant"),
-        new("Network.Comment — changed", 7, 7, "2.3 S: the CR LF fold and the trailing trim go; {Comment := '…'}"),
+        new("Network.Comment — changed", 8, 8, "2.3 S: the CR LF fold and the trailing trim go; {Comment := '…'}"),
         new("Network.Title — changed", 21, 21, "2.3 S exact: the trailing trim goes"),
-        new("Operand.Address in BoxTreeAssign.OutputItems.OutputItems — changed", 14, 27, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Address in BoxTreeBox.Instance — changed", 7, 7, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Address in BoxTreeOperand.Operand — changed", 24, 181, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 223, 492, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
-        new("Operand.Boolean in BoxTreeOperand.Operand — changed", 251, 1536, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
-        new("Operand.IsInstance in BoxTreeBox.Instance — changed", 296, 993, "2.3 D: true exactly for the box's Instance"),
-        new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 234, 505, "2.3 D: true exactly for an assign target or a box output slot"),
-        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 45, 105, "2.3 D: true exactly for an assign target or a box output slot"),
-        new("Operand.Operand in BoxTreeBox.Instance — changed", 256, 884, "2.3 D: null on a function/operator instance (the writer writes '')"),
-        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 234, 505, "2.2 nwl-operand-type (R)"),
-        new("Operand.Type in BoxTreeBox.Instance — changed", 104, 128, "2.2 nwl-instance-type (R)"),
-        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 41, 101, "2.2 nwl-operand-type (R)"),
-        new("Operand.Type in BoxTreeOperand.Operand — changed", 309, 2320, "2.2 nwl-operand-type (R)"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — changed", 59, 109, "2.3 D: the null slot(s) — the writer puts an empty operand in the ENO/main slot"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 144, 186, "2.3 D (the null slots) + design gap (1b.3): a call's unconnected output pins"),
-        new("ParamList.Names in BoxTreeBox.InputParam — list length changed", 34, 71, "2.3 D: a partial list names only the named pins — the writer pads every input"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — changed", 8, 8, "2.3 D: the result pin '   ' / the connected pin's name"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 131, 172, "2.3 D ('   ') + design gap (1b.3): a call's unconnected output pins"),
-        new("ParamList.Types in BoxTreeBox.InputParam — changed", 179, 1153, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.InputParam — list length changed", 34, 71, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 63, 155, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 131, 172, "2.2 nwl-param-types (R)"),
-        new("TextDocument.TextBlobForSerialisation in STSnippet.STSnippet.TextDocument — a cache citing no vendor-facts row ('text-blob-serialisation')", 7, 7,
-            "2.3: the vendor-facts row text-blob-serialisation, carried from 2.2 (not in 2.2's row list; bridge-one-to-one left it open: completeness.known.ts)"),
+        new("Operand.Address in BoxTreeAssign.OutputItems.OutputItems — changed", 16, 30, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
+        new("Operand.Address in BoxTreeBox.Instance — changed", 8, 8, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
+        new("Operand.Address in BoxTreeBox.OutputItems.OutputItems — changed", 3, 16, "2.2 nwl-address-sentinel (R): an unwired output slot's stored sentinel, compared since the slots are laid out as the vendor's (2.3)"),
+        new("Operand.Address in BoxTreeOperand.Operand — changed", 26, 204, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
+        new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 234, 514, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
+        new("Operand.Boolean in BoxTreeOperand.Operand — changed", 264, 1596, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
+        new("Operand.IsInstance in BoxTreeBox.Instance — changed", 313, 1070, "2.3 D: true exactly for the box's Instance"),
+        new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 246, 528, "2.3 D: true exactly for an assign target or a box output slot"),
+        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 92, 385, "2.3 D: true exactly for an assign target or a box output slot — the unwired slots a push lays out are empty operands the writer does not mark"),
+        new("Operand.Operand in BoxTreeBox.Instance — changed", 271, 933, "2.3 D: null on a function/operator instance (the writer writes '')"),
+        new("Operand.SymbolComment in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
+        new("Operand.SymbolComment in BoxTreeOperand.Operand — changed", 1, 9, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
+        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 246, 528, "2.2 nwl-operand-type (R)"),
+        new("Operand.Type in BoxTreeBox.Instance — changed", 119, 156, "2.2 nwl-instance-type (R)"),
+        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 84, 352, "2.2 nwl-operand-type (R): an output slot's stored type, the unwired ones included since the slots are laid out as the vendor's"),
+        new("Operand.Type in BoxTreeOperand.Operand — changed", 325, 2421, "2.2 nwl-operand-type (R) — a leaf feeding a wire writes its stored type since S3a (2.3)"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — changed", 1, 1, "2.3: S4's top-level call (lenze FirstErrorCapture #4) stores its null on its main output, slot 1 — a main output index no push can set (N21); every other box's slots are laid out as the vendor's"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 83, 108, "DIALECT N37: a drawn function box's null result slot, which goes with its name '   ' (98 boxes); and 2.3 R nwl-output-param-names: a PROGRAM call with EN stores two null output slots for its one name ['ENO'] (10 boxes) — one slot per name is every other box's layout"),
+        new("ParamList.Names in BoxTreeBox.InputParam — list length changed", 35, 73, "2.3 D: a partial list names only the named pins — the writer pads every input"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 75, 98, "DIALECT N37 (a vendor limit, 2.3): a drawn FUNCTION box's result pin '   ' — spelled by its pragma, and no box Volt builds can hold it (CODESYS: ''   ' is no component of F', its main output index read-only, N21); every rebuild of its network names the loss (RebuildLoss)"),
+        new("ParamList.Types in BoxTreeBox.InputParam — changed", 194, 1228, "2.2 nwl-param-types (R)"),
+        new("ParamList.Types in BoxTreeBox.InputParam — list length changed", 35, 73, "2.2 nwl-param-types (R)"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 75, 98, "DIALECT N37 (a vendor limit, 2.3): the type of a drawn function box's result pin '   ', which goes with the name (see ParamList.Names)"),
+        new("TextDocument.TextBlobForSerialisation in STSnippet.STSnippet.TextDocument — a cache citing no vendor-facts row ('text-blob-serialisation')", 7, 7, "2.3: the vendor-facts row text-blob-serialisation, carried from 2.2 (not in 2.2's row list; bridge-one-to-one left it open: completeness.known.ts)"),
     };
 }

@@ -117,16 +117,16 @@ public class ShownPerNetworkTests
     public void A_network_the_text_cannot_spell_is_shown_as_its_UNSUPPORTED_line()
     {
         var nested = new Network(0, "Calc", "L1", "why\nit is", false,
-            new Node[] { Set(Op("AND", Set(L("a"), T("x")), L("b")), T("out")) });
+            new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
         var plain = new Network(1, null, null, null, false, new Node[] { Set(L("a"), T("done")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { nested, plain });
 
         Assert.Equal(
             LdMarker +
-            "NETWORK LABEL: L1 TITLE: \"Calc\"\n  // why\n  // it is\n  UNSUPPORTED \"an assign below the top level\";\nEND_NETWORK\n" +
+            "NETWORK LABEL: L1 TITLE: \"Calc\"\n  // why\n  // it is\n  UNSUPPORTED \"a flag on a box input pin\";\nEND_NETWORK\n" +
             "NETWORK\n  done := a;\nEND_NETWORK\n",
             NetworkTextWriter.WritePulled(body, Scope));
-        Assert.Equal("an assign below the top level", Refused(() => NetworkTextWriter.Write(body, Scope)).Reason);
+        Assert.Equal("a flag on a box input pin", Refused(() => NetworkTextWriter.Write(body, Scope)).Reason);
     }
 
     /// <summary>The line reads back into the network it stands for — no trees, the shape kept — and writes back the same
@@ -134,11 +134,11 @@ public class ShownPerNetworkTests
     [Fact]
     public void The_UNSUPPORTED_line_reads_back_and_writes_the_same_text()
     {
-        var text = LdMarker + "NETWORK TITLE: \"Calc\"\n  // why\n  UNSUPPORTED \"an assign below the top level\";\nEND_NETWORK\n";
+        var text = LdMarker + "NETWORK TITLE: \"Calc\"\n  // why\n  UNSUPPORTED \"a flag on a box input pin\";\nEND_NETWORK\n";
         var read = NetworkTextReader.Read(text, Scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var net = Assert.Single(read.Body!.Networks);
-        Assert.Equal(("an assign below the top level", "Calc", "why", 0), (net.Unsupported, net.Title, net.Comment, net.Trees.Count));
+        Assert.Equal(("a flag on a box input pin", "Calc", "why", 0), (net.Unsupported, net.Title, net.Comment, net.Trees.Count));
         Assert.Equal(text, NetworkTextWriter.Write(read.Body, Scope));
         Assert.True(NetworkTextGate.Validate(text, Scope).Ok);
     }
@@ -244,7 +244,7 @@ public class ShownPerNetworkTests
     {
         var plan = NetworkPairing.Plan(new[] { new NetworkKey("A", "A") }, new[] { new NetworkKey(null, null) });
         Assert.Equal("R00", Show(plan));
-        var nested = new Network(0, null, null, null, false, new Node[] { Set(Op("AND", Set(L("a"), T("x")), L("b")), T("out")) });
+        var nested = new Network(0, null, null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
         // The live one is shown as its UNSUPPORTED line; the same model PUSHED has no spelling, so the two never pair — and
         // a live UNSUPPORTED network is never rebuilt from other trees (gate 1b-4): it is removed, the pushed one inserted.
         Assert.Equal("X0 I0", Show(NetworkPairing.Plan(new[] { nested }, new[] { nested }, BodyLanguage.Fbd, Scope)));
@@ -293,7 +293,7 @@ public class ShownPerNetworkTests
     public void An_UNSUPPORTED_network_replaced_by_other_trees_is_refused()
     {
         var readerRefused = new Network(0, "T", null, null, false, Array.Empty<Node>(), "a vendor split point");
-        var writerRefused = new Network(0, "T", null, null, false, new Node[] { Set(Op("AND", Set(L("a"), T("x")), L("b")), T("out")) });
+        var writerRefused = new Network(0, "T", null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
         foreach (var live in new[] { readerRefused, writerRefused })
         {
             var e = Loss(new[] { live }, new[] { live with { Trees = new Node[] { Set(L("a"), T("done")) }, Unsupported = null } });
@@ -302,7 +302,7 @@ public class ShownPerNetworkTests
             Assert.Contains("UNSUPPORTED", e.Message);
             Assert.NotNull(Loss(new[] { live }, new[] { live with { Trees = Array.Empty<Node>(), Unsupported = null } }));
             // The line pushed back as the pull showed it, under an edited title.
-            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "an assign below the top level" };
+            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "a flag on a box input pin" };
             Assert.Null(Loss(new[] { live }, new[] { line with { Title = "edited" } }));
         }
         Assert.Null(Loss(new[] { readerRefused, Numbered(1, Set(L("a"), T("done"))) }, new[] { Numbered(0, Set(L("a"), T("done"))) }));
@@ -313,7 +313,7 @@ public class ShownPerNetworkTests
     [Fact]
     public void Deleting_one_of_two_identically_shown_networks_with_unseen_content_is_refused()
     {
-        var x = new Network(0, null, null, null, false, Array.Empty<Node>(), "an assign below the top level");
+        var x = new Network(0, null, null, null, false, Array.Empty<Node>(), "a flag on a box input pin");
         var e = Loss(new[] { x, x with { Order = 1 } }, new[] { x });
         Assert.NotNull(e);
         Assert.Contains("the same text", e!.Message);
@@ -338,10 +338,10 @@ public class ShownPerNetworkTests
     [Fact]
     public void The_pairing_render_is_the_pull_render_without_a_position()
     {
-        var nested = Set(Op("AND", Set(L("a"), T("x")), L("b")), T("out"));
+        var nested = Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out"));
         var at0 = new Network(0, null, null, null, false, new Node[] { nested });
         Assert.Equal(NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope), NetworkPairing.Render(at0 with { Order = 7 }, BodyLanguage.Fbd, Scope));
-        Assert.Contains("UNSUPPORTED \"an assign below the top level\";", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
+        Assert.Contains("UNSUPPORTED \"a flag on a box input pin\";", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
     }
 
     static UnrepresentableBodyException Refused(Func<string> write) => Assert.Throws<NetworkUnrepresentableException>(write);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
@@ -45,14 +45,15 @@ public class CodesysNetworkPairingTests
         return a;
     }
 
-    /// <summary>A rung whose AND box carries a negation on an input PIN (S6), which the text has no spelling for yet.</summary>
+    /// <summary>A rung whose AND box carries an EDGE on an input pin, which the text has no spelling for (design 1.1, X —
+    /// a NEGATED pin is S6's spelling since ld-fbd-coverage 2.3).</summary>
     static Nwl.BoxTreeAssign PinFlagRung()
     {
         var and = new Nwl.BoxTreeBox
         {
             BoxType = "AND",
             InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
-            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Rtrig = true } },
         };
         var a = new Nwl.BoxTreeAssign { RValue = and };
         a.Outputs.List.Add(new Nwl.Operand { OperandExpr = "y", IsLValue = true });
@@ -120,7 +121,8 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(S4Rung(), Rung("o1", "a"));
         var pushed = Pushed(impl, t =>
         {
-            Assert.Contains("out := fbCap(xEnable := src).xErrorActive;", t);
+            // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
+            Assert.Contains("out := fbCap(xEnable := src){OutputParam.Names := ['xBusy', 'xErrorActive']}{OutputParam.Types := ['BOOL', 'BOOL']}.xErrorActive;", t);
             return t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);

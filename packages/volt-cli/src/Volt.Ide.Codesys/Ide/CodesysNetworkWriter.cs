@@ -277,6 +277,16 @@ namespace Volt.Ide.Codesys
                         break;
                     case "BoxTreeBox":
                         Operand(NwlInterop.Get(o, "Instance"));
+                        // A drawn function's result pin name, which a rebuild cannot keep (NetworkMembers.Buildable).
+                        if (NwlInterop.Get(NwlInterop.Get(o, "OutputParams"), "Names") is System.Collections.IEnumerable outNames &&
+                            outNames.Cast<object?>().Any(n => n as string == NetworkMembers.FunctionResult))
+                            held.Add(new("OutputParam.Names", "BoxTreeBox", "'" + NetworkMembers.FunctionResult + "'"));
+                        // Output slots beyond the names (an enabled PROGRAM call's second null slot), counted raw: the
+                        // slots are nulls, which NwlInterop.Items drops.
+                        if (NwlInterop.Get(NwlInterop.Get(o, "OutputParams"), "Names") is System.Collections.IEnumerable slotNames &&
+                            NwlInterop.Get(NwlInterop.Get(o, "Outputs"), "List") is System.Collections.IEnumerable rawSlots &&
+                            RebuildLoss.ExtraSlots("BoxTreeBox", rawSlots.Cast<object?>().Count(), slotNames.Cast<object?>().Count()) is { } extra)
+                            held.Add(extra);
                         foreach (var i in NwlInterop.Items(NwlInterop.Get(o, "InputItemList"), listMember: "")) Item(i);
                         foreach (var t in NwlInterop.Items(NwlInterop.Get(o, "Outputs"))) Operand(t);
                         break;
@@ -497,6 +507,7 @@ namespace Volt.Ide.Codesys
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
+                        if (b.Inputs.Any(p => !p.Flags.IsNone)) WritePinFlags(box, b);
 
                         // FORMAL PIN NAMES, where the model has them. `AppendInputItem` supplies only the value
                         // WIRED to a pin, never the pin's name, and `InputParams` is where the reader looks for
@@ -547,7 +558,12 @@ namespace Volt.Ide.Codesys
                         // where the text DOES state the fact never gets this far: the change gate renders the model
                         // first, and the text writer refuses it by name.
                         var eno = NetworkText.HasEnoOutput(b, consumed);
-                        var slots = OutputSlots(b, eno);
+                        // THE NAMES AND TYPES ARE THE BOX'S MEMBERS (ld-fbd-coverage 2.3): the stored ones the text spells by
+                        // pragma — S1's `['']` on a bit operator, a call's whole output list — else what the text's own
+                        // pins give (NetworkMembers.DerivedOutputNames / DerivedOutputTypes). The output items are laid
+                        // out by them: each pin in the slot its name holds.
+                        var (names, types) = NetworkMembers.Buildable(b, new BoxSite(consumed));
+                        var slots = OutputSlots(b, eno, names);
                         if (slots.Count > 0)
                         {
                             var outs = NwlInterop.Require(box, "Outputs");
@@ -557,8 +573,15 @@ namespace Volt.Ide.Codesys
                             // the shape its own PLCopen importer hangs off a box (see <c>DropImporterBoxOutputs</c>
                             // on the TwinCAT side) and the shape of every unwired pin on a resolved FB box, and the
                             // reader skips an empty output slot, so it round-trips as the nothing it is.
-                            foreach (var (_, value) in slots)
-                                NwlInterop.Call(outs, "AppendOutputItem", Operand(value ?? new Operand("")));
+                            foreach (var slot in slots)
+                                NwlInterop.Call(outs, "AppendOutputItem", Operand(slot.Value ?? new Operand("")));
+                            // The vendor's null where it stores one: in place of the empty operand appended there.
+                            for (var i = 0; i < slots.Count; i++)
+                                if (slots[i].IsNull)
+                                {
+                                    NwlInterop.Call(outs, "RemoveOutputItem", i);
+                                    NwlInterop.Call(outs, "InsertOutputItem", i, null);
+                                }
                         }
 
                         // THE OUTPUT NAMES AND STORED TYPES, index-aligned with the slots as the reader reads them back
@@ -568,13 +591,11 @@ namespace Volt.Ide.Codesys
                         // wire is connected to) gets a param and NO output item: the vendor stores the connected slot as
                         // null, and an empty operand there is an assignment to nothing — measured live, the build answers
                         // "The assignment target is not specified".
-                        var types = b.OutputTypes ?? Array.Empty<string?>();
-                        if (slots.Any(x => !string.IsNullOrEmpty(x.Formal)) || types.Any(t => t is not null))
+                        if (names.Count > 0 || types.Count > 0)
                         {
                             var outPins = NwlInterop.Require(box, "OutputParams");
-                            for (var i = 0; i < Math.Max(slots.Count, types.Count); i++)
-                                NwlInterop.Call(outPins, "AppendParam",
-                                    (i < slots.Count ? slots[i].Formal : null) ?? "", (i < types.Count ? types[i] : null) ?? "");
+                            for (var i = 0; i < Math.Max(names.Count, types.Count); i++)
+                                NwlInterop.Call(outPins, "AppendParam", i < names.Count ? names[i] : "", i < types.Count ? types[i] : "");
                         }
 
                         // THE REFUSAL THAT USED TO STAND HERE said a box's embedded output "has no network
@@ -639,29 +660,96 @@ namespace Volt.Ide.Codesys
                 }
             }
 
-            /// <summary>The box's output slots as the vendor lists them: the <c>ENO</c> echo first when the box has
-            /// an ENO output, then each pin AT ITS SLOT (task 3.10) — a positional <c>=&gt; v</c> is spelled by the slot it
-            /// fills, so <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on slot 2 with slot 1 passed over, and writing the
-            /// pins one after another would move <c>x</c> onto slot 1: another output, a different program. A pin
-            /// with no stored slot (a named one — the text carries its name, not its position) takes the next.</summary>
-            private static List<(string? Formal, Operand? Value)> OutputSlots(Box b, bool eno)
+            /// <summary>
+            /// THE BOX'S OUTPUT ITEMS AS THE VENDOR LISTS THEM — one per output NAME (ld-fbd-coverage 2.3: the names are the
+            /// box's member, and the IDE draws a slot for each): the MAIN output's slot null, as the vendor stores it whether
+            /// or not a consumer reads it (the ENO echo where the box has one, else slot 0 — census 1b.1: `n`, `nR`, `ne`,
+            /// `neee` on 1,300 boxes), each pin in the slot its name holds — a positional <c>=&gt; v</c> in the slot it fills
+            /// (task 3.10), so <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on slot 2 — and every other slot an empty operand,
+            /// the shape of an unwired pin on a drawn box. Null is <see cref="OutputSlot.Null"/>: the vendor takes it through
+            /// <c>InsertOutputItem</c> (measured live 2026-10-15, a TON consumed by Q with ET wired: pushed, pulled
+            /// byte-identical, built clean), where <c>AppendOutputItem(null)</c> throws.
+            /// </summary>
+            private static List<OutputSlot> OutputSlots(Box b, bool eno, IReadOnlyList<string> names)
             {
-                var slots = new List<(string? Formal, Operand? Value)>();
-                if (eno) slots.Add((Box.EnoPin, null));
+                var slots = new List<OutputSlot?>();
+                void At(int at, OutputSlot slot, string what)
+                {
+                    while (slots.Count <= at) slots.Add(null);
+                    if (slots[at] is not null)
+                        throw new NotSupportedException(
+                            $"CODESYS: the '{b.Type}' box wires output slot {at} to {what}, a slot " +
+                            (eno && at == 0 ? "its ENO echo holds" : "another pin already holds") +
+                            " — refusing rather than write the pin onto another output.");
+                    slots[at] = slot;
+                }
+                if (eno) At(0, OutputSlot.Null, "ENO");
                 foreach (var o in b.Outputs)
                 {
-                    if (o.Slot is { } at)
+                    int at;
+                    if (o.Formal is { } formal)
                     {
-                        if (at < slots.Count)
+                        var named = Enumerable.Range(0, names.Count)
+                            .Where(i => string.Equals(names[i], formal, StringComparison.OrdinalIgnoreCase) && (i >= slots.Count || slots[i] is null))
+                            .ToList();
+                        if (named.Count == 0)
                             throw new NotSupportedException(
-                                $"CODESYS: the '{b.Type}' box wires output slot {at} to '{o.Value.Text}', a slot " +
-                                (eno && at == 0 ? "its ENO echo holds" : "another pin already holds") +
-                                " — refusing rather than write the pin onto another output.");
-                        while (slots.Count < at) slots.Add((null, null));
+                                $"CODESYS: the '{b.Type}' box's output names ({string.Join(", ", names.Select(n => "'" + n + "'"))}) " +
+                                $"hold no '{formal}' for the pin wired to '{o.Value.Text}'.");
+                        at = named[0];
                     }
-                    slots.Add((o.Formal, o.Value));
+                    else
+                        at = o.Slot ?? throw new InvalidOperationException(
+                            $"network model invariant: the '{b.Type}' box's positional output to '{o.Value.Text}' has no slot; the reader places every one.");
+                    At(at, OutputSlot.Of(o.Value), "'" + o.Value.Text + "'");
                 }
-                return slots;
+                while (slots.Count < names.Count) slots.Add(null);
+                // The main output: slot 0 (the ENO echo, set above, where the box has one) — null where no pin holds it.
+                if (slots.Count > 0 && slots[0] is null) slots[0] = OutputSlot.Null;
+                return slots.Select(s => s ?? OutputSlot.Empty).ToList();
+            }
+
+            /// <summary>One output item: a pin's operand, an empty operand (an unwired slot), or the vendor's null.</summary>
+            private sealed class OutputSlot
+            {
+                private OutputSlot(Operand? value, bool isNull) { Value = value; IsNull = isNull; }
+                public Operand? Value { get; }
+                public bool IsNull { get; }
+                public static readonly OutputSlot Null = new(null, true);
+                public static readonly OutputSlot Empty = new(new Operand(""), false);
+                public static OutputSlot Of(Operand value) => new(value, false);
+            }
+
+            /// <summary>
+            /// THE FLAGS ON A BOX'S INPUT PINS (S6, ld-fbd-coverage 2.3) — the vendor's <c>InputFlags</c>, one flag set per input
+            /// item (the EN slot included), index-aligned, which the reader reads into <see cref="Input.Flags"/>. Written
+            /// through the box's own <c>SetInputFlag(int, IFlags2)</c> (SP21 <c>NWLObject.plugin</c> 4.6.0.0: <c>InputFlags</c>
+            /// is a getter, an array the box hands out) with a flag set made by its public constructor, and READ BACK: a pin
+            /// whose negation the box does not keep is refused by name rather than built plain — inverted logic in the PLC,
+            /// with the text saying otherwise.
+            /// </summary>
+            private static void WritePinFlags(object box, Box b)
+            {
+                var first = b.Enable is null ? 0 : 1;
+                for (var i = 0; i < b.Inputs.Count; i++)
+                {
+                    if (b.Inputs[i].Flags.IsNone) continue;
+                    var set = NwlInterop.New(box, "Flags");
+                    SetBits(set, b.Inputs[i].Flags);
+                    NwlInterop.Call(box, "SetInputFlag", first + i, set);
+                }
+                var kept = (NwlInterop.Get(box, "InputFlags") as System.Collections.IEnumerable)?.Cast<object?>().ToList()
+                           ?? throw new NotSupportedException(
+                               $"CODESYS: the '{b.Type}' box answers no InputFlags after its pin flags were set.");
+                if (kept.Count != first + b.Inputs.Count)
+                    throw new NotSupportedException(
+                        $"CODESYS: the '{b.Type}' box answers {kept.Count} pin flag set(s) for {first + b.Inputs.Count} input(s), " +
+                        "so which pin a flag belongs to is unknown. Refusing rather than flag another pin.");
+                for (var i = 0; i < b.Inputs.Count; i++)
+                    if (b.Inputs[i].Flags.Negated && !(kept[first + i] is { } k && NwlInterop.Flag(k, "Negation")))
+                        throw new NotSupportedException(
+                            $"CODESYS: the '{b.Type}' box did not keep the negation written on its pin {b.Inputs[i].Formal ?? $"input {i}"} — " +
+                            "refusing rather than build the pin plain, the inverse of the text.");
             }
 
             /// <summary>Name the function-block instance a box calls — by MUTATING the operand the box already
@@ -714,6 +802,10 @@ namespace Volt.Ide.Codesys
                 // from anything Volt holds (census 1b.1: 4 of the 10 in the corpora are ANOTHER variable's
                 // comment). So a network holding one never reaches this builder: `WriteNetwork` refuses it
                 // first (`NetworkText.RefuseSymbolCommentLoss`) rather than erase it unseen.
+                // ...except where the TEXT states it: a leaf feeding a wire stores the type the wire is declared with (S3a,
+                // ld-fbd-coverage 2.3) — the IDE-drawn leaf holds its declared type and a pushed one held none, so the pull
+                // read the wire back "of unknown type" (vendor-facts nwl-leaf-wire-type, DIALECT N32).
+                if (!string.IsNullOrEmpty(o.Type)) NwlInterop.Set(op, "Type", o.Type);
                 ApplyFlags(op, o.Flags);
                 if (!extra.IsNone) ApplyFlags(op, extra);
                 return op;
@@ -742,9 +834,15 @@ namespace Volt.Ide.Codesys
                         "via Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should " +
                         "never have produced.");
 
-                var target = NwlInterop.Get(item, "Flags")
+                SetBits(NwlInterop.Get(item, "Flags")
                     ?? throw new InvalidOperationException(
-                        $"CODESYS: '{item.GetType().Name}' carries no Flags, so its modifiers cannot be written");
+                        $"CODESYS: '{item.GetType().Name}' carries no Flags, so its modifiers cannot be written"), f);
+            }
+
+            /// <summary>The bits of <paramref name="f"/> set, by name, on a flag set itself — an item's <c>Flags</c>, or one
+            /// of a box's <c>InputFlags</c> (S6).</summary>
+            private static void SetBits(object target, Flags f)
+            {
                 if (f.Negated) NwlInterop.Set(target, "Negation", true);
                 if (f.Set) NwlInterop.Set(target, "Set", true);
                 if (f.Jump) NwlInterop.Set(target, "Jump", true);

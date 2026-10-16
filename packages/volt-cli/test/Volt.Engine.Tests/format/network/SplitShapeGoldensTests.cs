@@ -105,14 +105,14 @@ public class SplitShapeGoldensTests
         // FanOutShapeTests — the chain (one Assign, several coils) and the wire (a Demux) are two texts.
         ["FanOutShape.MultiOutputAssign"] = (Ld1(Set(L("a"), T("out1"), T("out2"))),
             LdSrc("out1 :=", "out2 := a;")),
-        ["FanOutShape.DemuxAndTwoAssigns"] = (Ld1(Def(1, L("a")), Set(Ref(1), T("out1")), Set(Ref(1), T("out2"))),
+        ["FanOutShape.DemuxAndTwoAssigns"] = (Ld1(Def(1, LT("a", "BOOL")), Set(Ref(1), T("out1")), Set(Ref(1), T("out2"))),
             LdSrc("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "out1 := g1;", "out2 := g1;")),
         ["FanOutShape.A_fold_keeps_each_targets_own_operator"] = (Ld1(Set(L("a"), T("out1"), T("out2", SetBit))),
             LdSrc("out1 :=", "out2 S= a;")),
         ["FanOutShape.An_enabled_box_driving_several_coils"] = (Ld1(Set(
                 EnEno("AND", L("en"), new[] { In(L("a")), In(L("b")) }, consumed: true) with { MainOutputIndex = null }, T("out1"), T("out2"))),
             LdSrc("out1 :=", "out2 := AND(EN := en, a, b).ENO;")),
-        ["FanOutShape.A_folded_assign_fed_by_a_WIRE"] = (Ld1(Def(3, L("a")), Set(Ref(3), T("single")), Set(Ref(3), T("out1"), T("out2"))),
+        ["FanOutShape.A_folded_assign_fed_by_a_WIRE"] = (Ld1(Def(3, LT("a", "BOOL")), Set(Ref(3), T("single")), Set(Ref(3), T("out1"), T("out2"))),
             LdSrc("VAR_TEMP g3 : BOOL; END_VAR", "g3 := a;", "single := g3;", "out1 :=", "out2 := g3;")),
 
         // LiteralFanoutBugTests: a literal leaf fanning out to two boxes is the vendor's Demux of a leaf — LEGAL

@@ -147,15 +147,15 @@ public class WireVocabularyTests
 
         // ── the graphical body format ──────────────────────────────────────────────────────────────────────────
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
-            ("Volt.Engine/Format/Network/NetworkLexer.cs", 6),
+            ("Volt.Engine/Format/Network/NetworkLexer.cs", 7),   // +1 an unclosed pragma (ld-fbd-coverage 2.3)
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 22))),   // +1 an UNSUPPORTED line whose shape is no quoted phrase (ld-fbd-coverage 1b.4)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 24))),   // +1 an UNSUPPORTED line whose shape is no quoted phrase (ld-fbd-coverage 1b.4); +2 a pragma that is no `{Member := value}`, an assignment's pair not closed after its value (2.3)
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 4))),
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 5))),   // +1 one pragma twice on one node (ld-fbd-coverage 2.3)
         new("a malformed operator group", "fix the expression", "NETWORK_BAD_EXPRESSION", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 39))),   // +2 `.name` on a box nothing consumes / on a bit operator (1b.4)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 42))),   // +2 `.name` on a box nothing consumes / on a bit operator (1b.4); +3 a pragma value its member cannot take, a wire defined in an assignment's pair, a target that is no variable there (2.3)
         new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
@@ -163,7 +163,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
             ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 15),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 17),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4); +2 a pragma naming no member of the table, a flag on the EN pin (2.3)
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1))),
     };
 
@@ -331,6 +331,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 1),
         ("Volt.Engine/Format/Network/NetworkTextGate.cs", 3),
         ("Volt.Engine/Format/Network/NetworkTextReader.cs", 4),
+        ("Volt.Engine/Format/Network/NetworkPragma.cs", 5),   // a pragma value read as a kind it is not (AsBool, AsInt, AsText, AsWord, AsTexts): Volt's own invariant (ld-fbd-coverage 2.3)
         ("Volt.Engine/Format/St/ImplementationMarker.cs", 2),
         ("Volt.Engine/Format/St/PropertyLines.cs", 2),
         ("Volt.Engine/Format/St/StReader.cs", 1),
@@ -340,7 +341,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // a body site read with no object (abstract-member-push, gate 3); a member object, a property-write precondition (bridge-one-to-one §3)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
-        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 10),   // +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4)
+        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 15),   // +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 5),

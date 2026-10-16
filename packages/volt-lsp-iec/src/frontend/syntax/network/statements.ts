@@ -6,7 +6,6 @@ import type { NetworkAssign, NetworkName, NetworkTarget, NetworkTextStatement, N
 import { IDENTIFIER } from "./cursor.js"
 import { CallReader } from "./calls.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
-import { isStorageAt } from "./pair-kind.js"
 import { v1Refusal } from "./words.js"
 
 export abstract class StatementReader extends CallReader {
@@ -65,18 +64,6 @@ export abstract class StatementReader extends CallReader {
     const value = this.resolve(first)
     this.expectSym(";", "every statement ends with `;`")
     return { kind: "value", value, span: this.span(t.offset, this.lastEnd) }
-  }
-
-  /** A storage operator next (`pair-kind.ts` `isStorageAt`). */
-  private atStorage(): boolean {
-    return isStorageAt(this.peek(), this.lx)
-  }
-
-  private takeStorage(): Tok {
-    const t = this.next()
-    if (isSym(t, ":=")) return t
-    const eq = this.next()
-    return { kind: "sym", text: `${t.text.toUpperCase()}=`, offset: t.offset, length: eq.offset + eq.length - t.offset, atLineStart: t.atLineStart }
   }
 
   private buildAssign(targets: { tok: Tok; op: Tok }[], value: NetworkValue, start: Tok): NetworkTextStatement {

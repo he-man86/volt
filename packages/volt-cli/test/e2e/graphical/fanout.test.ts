@@ -70,7 +70,9 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		// every fan-out body uncreatable on TwinCAT, and `Lenze_MID-S100` alone holds 573 of them.
 		const shape = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
 			codesys: () => "  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\n",
-			twincat: () => "  out1 :=\n  out2 := (a AND b);\n",
+			// The import's folded AND stores an output slot (`OutputParam.Names = ['']`, its type empty) — the S1 form,
+			// spelled by its pragmas since ld-fbd-coverage 2.3 (the create's stamp does not reach a regrouped network).
+			twincat: () => "  out1 :=\n  out2 := (a AND b){OutputParam.Names := ['']}{OutputParam.Types := ['']};\n",
 		})
 		expect(v1.sourceText).toContain(shape)
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.

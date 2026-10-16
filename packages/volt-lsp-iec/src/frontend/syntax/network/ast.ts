@@ -132,6 +132,7 @@ export interface NetworkTarget {
 }
 
 export type NetworkValue =
+  | NetworkNestedAssign
   | NetworkEmptySlot
   | NetworkOperand
   | NetworkWireRef
@@ -141,6 +142,16 @@ export type NetworkValue =
   | NetworkCall
   | NetworkParallel
   | NetworkExecute
+
+/** `(t1 := t2 S= … value)` — an assignment BELOW the top level (S2, openspec ld-fbd-coverage 2.3): ONE vendor Assign item
+ *  in a pin or under another box, its value passing through to the consumer. A pair holding a storage operator at its own
+ *  depth is the third pair kind (a group, an argument list, this). */
+export interface NetworkNestedAssign {
+  kind: "nested_assign"
+  targets: NetworkTarget[]
+  value: NetworkValue
+  span: Span
+}
 
 /** An unconnected position: `f(a, )`, `coil := ;`, `( * x)`. */
 export interface NetworkEmptySlot {
@@ -187,6 +198,23 @@ export interface NetworkGroup {
   /** The operator as written (`AND`, `+`, `>=`). */
   op: string
   operands: NetworkValue[]
+  /** The box's stored members the text spells (`pragma.ts`), after its closing paren. */
+  pragmas?: NetworkPragma[]
+  span: Span
+}
+
+/** A pragma's value as the text spells it (`pragma.ts`; the bridge's `PragmaValue`). */
+export type PragmaValue =
+  | { kind: "text"; text: string }
+  | { kind: "bool"; value: boolean }
+  | { kind: "int"; value: number }
+  | { kind: "word"; word: string }
+  | { kind: "list"; items: PragmaValue[] }
+
+/** `{Member := value}` — a stored member of the node it follows (openspec ld-fbd-coverage 2.3, `pragma.ts`). */
+export interface NetworkPragma {
+  member: string
+  value: PragmaValue
   span: Span
 }
 
@@ -212,16 +240,20 @@ export interface NetworkCall {
   output?: NetworkName
   /** The head is an FB instance the declarations name (an unnamed instance `??? : TYPE` is not one). */
   instance?: true
+  /** The box's stored members the text spells (`pragma.ts`), after its closing paren and before its suffix. */
+  pragmas?: NetworkPragma[]
   span: Span
 }
 
 export type NetworkPin = NetworkInputPin | NetworkOutputPin
 
-/** `F := v` or a positional `v`; `EN := c` is the enable. */
+/** `F := v` or a positional `v`; `EN := c` is the enable. `NOT F := v` negates the PIN (S6, openspec ld-fbd-coverage 2.3),
+ *  where `F := NOT v` negates the value. */
 export interface NetworkInputPin {
   kind: "input"
   name?: NetworkName
   value: NetworkValue
+  negated?: true
   span: Span
 }
 
@@ -249,6 +281,8 @@ export interface NetworkExecute {
   statements: StatementList
   ok: boolean
   eno: boolean
+  /** The box's stored members the text spells (`pragma.ts`), after END_EXECUTE. */
+  pragmas?: NetworkPragma[]
   span: Span
 }
 
@@ -298,6 +332,8 @@ export function valueChildren(v: NetworkValue): NetworkValue[] {
     case "not":
     case "edge":
       return [v.operand]
+    case "nested_assign":
+      return [v.value]
     case "group":
       return v.operands
     case "call":
@@ -324,6 +360,8 @@ export function* walkValues(s: NetworkTextStatement): Generator<NetworkValue> {
 /** Every target a statement writes: an assign's targets and every `=>` pin's. */
 export function* statementTargets(s: NetworkTextStatement): Generator<NetworkTarget> {
   if (s.kind === "assign") yield* s.targets
-  for (const v of walkValues(s))
+  for (const v of walkValues(s)) {
+    if (v.kind === "nested_assign") yield* v.targets
     if (v.kind === "call") for (const p of v.pins) if (p.kind === "output" && p.target !== undefined) yield p.target
+  }
 }

@@ -157,6 +157,17 @@ const VARIABLE_KINDS: ReadonlySet<string> = new Set(["var", "gvl_var", "method_p
  * libraries share it (bakon-nano's `DELETE(STR := …)`, the Standard function, against a `CAA File` FB, task 5.5).
  */
 export function instanceFb(head: Expr, scope: Scope, project: Scope): FunctionBlockType | undefined {
+  // S5 (openspec ld-fbd-coverage 2.3): `SUPER^` is the instance a derived FB calls its base through — its type is the base
+  // the EXTENDS names, as the type engine reads `SUPER^` in ST.
+  if (head.kind === "deref" && head.base.kind === "ident_expr" && head.base.name.toUpperCase() === "SUPER") {
+    // Asked of the scope and outward: a network's own scope is a local one under the POU (`analyzeNetworkText`), and the
+    // base is the POU's.
+    for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) {
+      const t = inferExprType(head, s, project)
+      if (t.kind === "function_block") return t
+    }
+    return undefined
+  }
   if (head.kind === "ident_expr") {
     const kind = lookup(scope, head.name)?.symbol.kind
     if (kind === undefined || !VARIABLE_KINDS.has(kind)) return undefined

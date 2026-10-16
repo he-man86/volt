@@ -77,6 +77,8 @@ public static class NetworkModelEquality
                     return Diff(at + ".MainOutputName", x.MainOutputName, y.MainOutputName);
                 if (x.HasEnoOutput != y.HasEnoOutput)
                     return Diff(at + ".HasEnoOutput", x.HasEnoOutput, y.HasEnoOutput);
+                if (x.Members != y.Members)
+                    return Diff(at + ".Members", x.Members, y.Members);
                 if ((x.OutputTypes is null) != (y.OutputTypes is null))
                     return Diff(at + ".OutputTypes", Describe(x.OutputTypes), Describe(y.OutputTypes));
                 return (x.OutputTypes is null ? null

@@ -119,6 +119,11 @@ public sealed class NetworkScope
         // FB named INT that the gate let through.
         string? InstanceType(string head)
         {
+            // S5 (ld-fbd-coverage 2.3): `SUPER^` is the instance a derived FB calls its base through — no name a declaration
+            // makes, and an instance all the same, of the base the POU's (or its owner's) EXTENDS names. The text spells
+            // it between backticks, `` `SUPER^`(…) ``.
+            if (string.Equals(head, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase))
+                return St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf);
             if (!NetworkSpelling.IsName(head)) return null;
             var type = St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf)
                        ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(head)

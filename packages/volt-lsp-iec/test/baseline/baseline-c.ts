@@ -90,4 +90,19 @@ const INDEXOF_UNTYPED: readonly CeilingException[] = (["codesys", "twincat"] as 
   why: "INDEXOF, which both vendors refuse (\"The operator INDEXOF is no longer supported\") — its call has no result type there either, as in `atomic_indexof_variable`",
 }))
 
-export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [...BEFORE_CASCADES, ...ROOT_GAPS, ...REVERSED_ARRAY_SIZE, ...INDEXOF_UNTYPED]
+/**
+ * …and the S6 pin of another type than BOOL (ld-fbd-coverage gate 2-3): `ng_s6_negated_int_pin` records CODESYS's two
+ * sign-change warnings through UINT, which the LSP does not give — new ground, its `deferred.lsp` the reason.
+ */
+const NEGATED_INT_PIN: readonly CeilingException[] = [
+  {
+    baseline: "fixtures.codesys",
+    measure: "total: GAP",
+    by: 2,
+    fixture: "ng_s6_negated_int_pin",
+    task: "none: niche, accepted loss (0 occurrences in the corpora) — the fixture's deferred.lsp",
+    why: "a negated INT input pin: CODESYS warns twice of a sign change through UINT, the LSP says nothing",
+  },
+]
+
+export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [...BEFORE_CASCADES, ...ROOT_GAPS, ...REVERSED_ARRAY_SIZE, ...INDEXOF_UNTYPED, ...NEGATED_INT_PIN]

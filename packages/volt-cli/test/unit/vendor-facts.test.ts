@@ -1004,37 +1004,34 @@ describe("the known divergences the 2.2 rows recorded (ld-fbd-coverage, closed b
   const UNKNOWN_WIRE = 'UNSUPPORTED "a wire of unknown type";'
   const count = (text: unknown, part: string) => (typeof text === "string" ? text.split(part).length - 1 : 0)
 
-  // The calls subject (`VltF_RC`: a function call, an enabled PROGRAM call, an FB call, AND, ADD) — pushed and accepted
-  // on both vendors, built clean on CODESYS, and NOT built on TwinCAT: PLC_PRG reports `VltF_RC` undefined, and the
-  // bridge's build names nothing in VltF_RC itself. The cause is unmeasured (the program call's import as `CallType
-  // Function` is a candidate, not a finding). So TwinCAT's verdict on what a build fills in for these five rows is NO
-  // evidence either way: the build that would fill them did not succeed. 2.3's call-type fixture measures it.
+  // CLOSED by 2.3 (re-run 2026-10-16): the calls subject (`VltF_RC`) was pushed on both vendors and NOT built on
+  // TwinCAT ("Identifier 'VltF_RC' not defined"): its program call stored no output name and no slot, and the reader
+  // called it UNSUPPORTED. Read through its result (TcNetworkReader.ConnectedSlot), it now builds and pulls on both.
   const CALLS_ROWS = ["nwl-instance-type", "nwl-param-types", "nwl-box-en-eno", "nwl-output-param-names", "nwl-call-type"]
-  it("KNOWN: TwinCAT does not build the pushed calls program CODESYS builds clean (2.3, cause unmeasured)", () => {
+  it("CLOSED 2.3: the pushed calls program builds clean on both vendors", () => {
     for (const id of CALLS_ROWS) {
       expect(cs[id]["diagnostics@built"]).toEqual([])
       expect(cs[id]["diagnostics@rebuilt"]).toEqual([])
-      for (const at of ["diagnostics@built", "diagnostics@rebuilt"]) {
-        expect(tc[id][at].success).toBe(false)
-        expect(tc[id][at].diagnostics.map((d: any) => d.message)).toContain("Identifier 'VltF_RC' not defined")
-      }
-      expect(tc[id].steps).toContain("create rc (push): accepted")
+      for (const at of ["diagnostics@built", "diagnostics@rebuilt"]) expect(tc[id][at].success).toBe(true)
+      expect(tc[id]["fetched@pushed"]).toContain("  k := VltF_RFn(x := i);\n")
     }
   })
 
-  // S3a: a pushed LEAF-fed wire is accepted on CODESYS and comes back as UNSUPPORTED — the VAR_TEMP type the text
-  // carried is gone, and the network is no longer editable through Volt (design 2.2, N32; 2.3 puts the declared type on
-  // the leaf). TwinCAT refuses it before its import (TcUnmeasured).
-  it("KNOWN: a pushed leaf-fed wire is accepted on CODESYS and pulls back UNSUPPORTED (2.3 S3a)", () => {
-    for (const at of ["fetched@pushed", "fetched@reloaded"]) expect(count(cs["nwl-leaf-wire-type"][at], UNKNOWN_WIRE)).toBe(3)
+  // CLOSED by 2.3 S3a: a pushed LEAF-fed wire pulled back UNSUPPORTED on CODESYS (3 networks); the declared type now
+  // rides on the leaf, so it comes back as pushed. TwinCAT still refuses it before its import (TcUnmeasured).
+  it("CLOSED 2.3 S3a: a pushed leaf-fed wire comes back declared on CODESYS; TwinCAT refuses it by name", () => {
+    for (const at of ["fetched@pushed", "fetched@reloaded"]) {
+      expect(count(cs["nwl-leaf-wire-type"][at], UNKNOWN_WIRE)).toBe(0)
+      expect(cs["nwl-leaf-wire-type"][at]).toContain("  VAR_TEMP g1 : INT; END_VAR\n  g1 := i;\n")
+    }
     expect(tc["nwl-leaf-wire-type"].steps.some((s: string) => s.startsWith("create lw (push): refused: NETWORK_UNSUPPORTED"))).toBe(true)
   })
 
-  // S3b: `g1 := ;` (a wire the empty terminator feeds) is accepted on BOTH vendors and pulls back UNSUPPORTED the same
-  // way (N33; 2.3's LD type rule types it BOOL).
-  it("KNOWN: a pushed terminator-fed wire `g1 := ;` is accepted on both vendors and pulls back UNSUPPORTED (2.3 S3b)", () => {
+  // CLOSED by 2.3 S3b: `g1 := ;` pulled back UNSUPPORTED on both vendors; LD types the empty terminator BOOL.
+  it("CLOSED 2.3 S3b: a pushed terminator-fed wire `g1 := ;` comes back as pushed on both vendors", () => {
     for (const s of [cs, tc])
-      for (const at of ["fetched.rail@pushed", "fetched.rail@reloaded"]) expect(count(s["nwl-rail-fed-wire"][at], UNKNOWN_WIRE)).toBe(1)
+      for (const at of ["fetched.rail@pushed", "fetched.rail@reloaded"])
+        expect(s["nwl-rail-fed-wire"][at]).toContain("  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := ;\n")
   })
 
   // A wire DIVERGENCE (memory: a wire divergence is a defect): `g1 := TRUE;` round-trips on CODESYS and is refused on

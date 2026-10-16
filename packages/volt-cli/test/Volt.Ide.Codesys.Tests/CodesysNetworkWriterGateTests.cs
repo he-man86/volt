@@ -465,11 +465,12 @@ public class CodesysCoilFlagTests
 
     /// <summary>A POSITIONAL OUTPUT PIN IS WRITTEN AT ITS SLOT (task 3.10). <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on
     /// output slot 1 with slot 0 passed over; writing the pins one after another put <c>x</c> on slot 0 — another
-    /// output, a different program — and the next pull read it back there. A slot passed over is the empty operand
-    /// an unwired pin is (the reader skips it), and an enabled box's ENO echo stays in front of the data slots.</summary>
+    /// output, a different program — and the next pull read it back there. Laid out as the vendor lays a box out
+    /// (ld-fbd-coverage 2.3): the main output's slot null (∅ — a function's result, or an enabled box's ENO echo), a slot
+    /// passed over the empty operand an unwired pin is (the reader skips it).</summary>
     [Theory]
-    [InlineData(false, new[] { "", "x" })]
-    [InlineData(true, new[] { "", "", "x" })]
+    [InlineData(false, new[] { "∅", "x" })]
+    [InlineData(true, new[] { "∅", "", "x" })]
     public void A_positional_output_pin_is_written_at_its_slot(bool enabled, string[] slots)
     {
         var model = new Network(0, null, null, null, false, new Node[]
@@ -485,7 +486,7 @@ public class CodesysCoilFlagTests
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
-        Assert.Equal(slots, written.Outputs.List.Select(o => Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
+        Assert.Equal(slots, written.Outputs.List.Select(o => o is null ? "∅" : Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
     }
 
     /// <summary>A box that does not record whether it has an ENO output, where the text DOES state it (a positional
@@ -553,8 +554,12 @@ public class CodesysCoilFlagTests
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
-        Assert.Equal(eno ? new[] { "ENO" } : Array.Empty<string>(), Assert.IsType<Nwl.ParamList>(written.OutputParams).Names);
-        Assert.Equal(eno ? 1 : 0, written.Outputs.List.Count);
+        // The names the IDE gives the box (ld-fbd-coverage 2.3, NetworkMembers.DerivedOutputNames): the ENO echo first
+        // where it has one, then its data result, unnamed — an operator's (MOVE, LIMIT) is ''.
+        Assert.Equal(eno ? new[] { "ENO", "" } : new[] { "" }, Assert.IsType<Nwl.ParamList>(written.OutputParams).Names);
+        // One output item per name, the main output's slot null as the vendor stores it (the ENO echo, else the result).
+        Assert.Equal(eno ? new object?[] { null, "" } : new object?[] { null },
+            written.Outputs.List.Select(o => o is null ? null : (object?)((Nwl.Operand)o).OperandExpr).ToArray());
     }
 
     /// <summary>One statement as the push reads it: validated against a declaration, as <c>PushService</c> does.</summary>
@@ -667,11 +672,12 @@ public class CodesysCoilFlagTests
 
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
 
-        // The type rides the param list, and the connected slot holds NO output item: an empty operand there is an
-        // assignment to nothing, which the live build refused ("The assignment target is not specified").
+        // The type rides the param list, and the connected slot holds the vendor's NULL (ld-fbd-coverage 2.3, through
+        // InsertOutputItem) — never an empty operand, an assignment to nothing the live build refused ("The assignment
+        // target is not specified").
         var add = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeDemux>(live.GetTree(0)).Input);
         Assert.Equal(new[] { "INT" }, Assert.IsType<Nwl.ParamList>(add.OutputParams).Types);
-        Assert.Empty(add.Outputs.List);
+        Assert.Equal(new object?[] { null }, add.Outputs.List.ToArray());
 
         var reread = CodesysNetworkReader.ReadNetwork(live, 0);
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { reread });
@@ -686,19 +692,28 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_pin_flag_in_the_model_is_refused_by_name_not_dropped()
     {
-        var model = new Network(0, null, null, null, false, new Node[]
+        static Network Model(Flags pin) => new(0, null, null, null, false, new Node[]
         {
             new Assign(new Box("AND", null, CallKind.Operator,
                            new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
-                                   new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None with { Negated = true }) },
+                                   new Input(null, new Leaf(new Operand("b"), Flags.None), pin) },
                            System.Array.Empty<Output>(), null, null, Flags.None),
                        new[] { new Operand("out", IsLValue: true) }, Flags.None),
         });
+
+        // S6 (ld-fbd-coverage 2.3): a NEGATED pin is spelled (`NOT IN2 := b`), and written through the box's own door,
+        // SetInputFlag (SP21 NWLObject.plugin 4.6.0.0) — on the pin, not on the operand feeding it.
+        var negated = Model(Flags.None with { Negated = true });
+        var written = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), written, negated, BodyLanguage.Fbd, ScopeOf(negated, BodyLanguage.Fbd));
+        var box = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(written.GetTree(written.NetworkItemCount - 1)).RValue);
+        Assert.Equal(new[] { false, true }, box.InputFlags!.Cast<Nwl.Flags>().Select(f => f.Negation));
+
+        // An EDGE on a pin has no spelling (design 1.1, X): refused by name, the live network untouched.
+        var edge = Model(Flags.None with { Rising = true });
         var live = Different();
-
         var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
-            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
-
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, edge, BodyLanguage.Fbd, ScopeOf(edge, BodyLanguage.Fbd)));
         Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Equal(1, live.NetworkItemCount);
     }

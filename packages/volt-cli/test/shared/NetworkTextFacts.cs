@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Parallel = Volt.Engine.Format.Network.Parallel;
@@ -113,7 +113,10 @@ public static class NetworkTextFacts
             ConnectedSlot: b.ConnectedSlot,
             OutputTypes: null,
             HasEnoOutput: NetworkSpelling.EnoCarried(b with { MainOutputName = byName }, consumed) ? b.HasEnoOutput : null,
-            MainOutputName: byName);
+            MainOutputName: byName,
+            // The members the pragma spells, by their EFFECTIVE value (ld-fbd-coverage 2.3): a text read states only the
+            // spelled ones and a vendor read every one, and the absent ones are their derivation.
+            Members: NwlMembers.Of((NetworkMembers.OutputNames, NetworkMembers.Effective(b, new BoxSite(consumed), NetworkMembers.OutputNames))));
     }
 
     /// <summary>An FB type as the text carries it: the name, not its namespace or its case (see the list above).</summary>

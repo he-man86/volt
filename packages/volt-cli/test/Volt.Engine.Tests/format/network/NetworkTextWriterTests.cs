@@ -20,6 +20,7 @@ public class NetworkTextWriterTests
     // ── builders ────────────────────────────────────────────────────────────────────────────────
 
     static Leaf L(string text, Flags? f = null) => new(new Operand(text), f ?? Flags.None);
+    static Leaf LT(string text, string type) => new(new Operand(text, Type: type), Flags.None);
     static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
     static Terminator Empty => new(Flags.None);
     static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
@@ -250,10 +251,16 @@ public class NetworkTextWriterTests
     /// <summary>Spec, "a pin flag on CODESYS"; phase-1 decision: the v2 writer refuses it by name as the v1
     /// drivers do.</summary>
     [Fact]
-    public void A_flag_on_a_box_input_pin_goes_to_the_marker()
+    public void A_negated_pin_is_spelled_on_its_formal_and_an_edge_on_a_pin_goes_to_the_marker()
     {
-        var box = Call("f", new[] { new Input("IN1", L("x"), Neg) });
-        Assert.Equal("a flag on a box input pin", Refused(() => Write(box)).Reason);
+        // S6 (ld-fbd-coverage 2.3): the negation on the PIN, spelled on its formal — `IN1 := NOT x` would negate the value.
+        Assert.Equal(Body("f(NOT IN1 := x);"), Write(Call("f", new[] { new Input("IN1", L("x"), Neg) })));
+        // An operator's unnamed pin takes its default formal, and forces the call form.
+        Assert.Equal(Body("o := AND(a, NOT IN2 := b);"),
+            Write(Set(Call("AND", new[] { In(L("a")), new Input(null, L("b"), Neg) }, main: null), T("o"))));
+        // An edge on a pin stays refused by name (design 1.1, X), as does a negated unnamed pin of a call.
+        Assert.Equal("a flag on a box input pin", Refused(() => Write(Call("f", new[] { new Input("IN1", L("x"), Rise) }))).Reason);
+        Assert.Equal("a negated unnamed pin of a call", Refused(() => Write(Call("f", new[] { new Input(null, L("x"), Neg) }))).Reason);
     }
 
     /// <summary>Census 1.1: no item-level flag on an Assign item; none has a position. (A Demux item cannot carry one
@@ -633,10 +640,10 @@ public class NetworkTextWriterTests
         var untyped = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false);
         Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, untyped), Set(Ref(1), T("o"))))).Reason);
 
-        // An FBD leaf that is not TRUE/FALSE says nothing about its type; the same leaf in LD is a contact.
-        Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))))).Reason);
+        // A leaf says its type by the one it stores (S3a, ld-fbd-coverage 2.3), in FBD and LD alike — never by its uses.
+        Assert.Equal("a leaf-fed wire whose leaf stores no type", Refused(() => Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))))).Reason);
         Assert.Equal(Ld + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n",
-            Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
+            Write(Net(Def(1, LT("x", "BOOL")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
     }
 
     /// <summary>A stored type is written in the text's one spelling of its tokens, not as the vendor laid it out: the
@@ -645,7 +652,8 @@ public class NetworkTextWriterTests
     public void A_stored_type_is_written_in_the_texts_spelling_of_its_tokens()
     {
         var concat = Call("CONCAT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new[] { "STRING (80)" });
-        Assert.Equal(Body("VAR_TEMP g1 : STRING(80); END_VAR", "g1 := CONCAT(a, b);", "o := g1;"),
+        // The declaration takes the text's spelling; the stored member keeps the vendor's, spelled by its pragma (2.3).
+        Assert.Equal(Body("VAR_TEMP g1 : STRING(80); END_VAR", "g1 := CONCAT(a, b){OutputParam.Types := ['STRING (80)']};", "o := g1;"),
             Write(Net(Def(1, concat), Set(Ref(1), T("o")))));
     }
 
@@ -795,7 +803,8 @@ public class NetworkTextWriterTests
     /// WORD, and the "AND is boolean" reading applies only where the vendor stored nothing.</summary>
     [Fact]
     public void A_wire_fed_by_a_bit_operator_takes_the_vendors_stored_type() =>
-        Assert.Equal(Body("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2);", "o1 := g5;", "o2 := g5;"),
+        // The stored type is a member the text does not imply on a plain bit operator: its pragma carries it (2.3).
+        Assert.Equal(Body("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2){OutputParam.Types := ['WORD']};", "o1 := g5;", "o2 := g5;"),
             Write(Net(Def(5, new Box("AND", null, CallKind.Operator, new[] { In(L("w1")), In(L("w2")) }, new Output[0], null, null, Flags.None,
                     OutputTypes: new[] { "WORD" })),
                 Set(Ref(5), T("o1")), Set(Ref(5), T("o2")))));
@@ -803,8 +812,8 @@ public class NetworkTextWriterTests
     /// <summary>Task 1.17: a leaf producer is boolean only when it is TRUE/FALSE or EVERY use is boolean — in
     /// ladder a leaf feeding a data pin is a data value, and its type is never guessed.</summary>
     [Fact]
-    public void A_ladder_leaf_wire_feeding_data_pins_is_of_unknown_type() =>
-        Assert.Equal("a wire of unknown type",
+    public void A_leaf_wire_whose_leaf_stores_no_type_is_refused_by_name() =>
+        Assert.Equal("a leaf-fed wire whose leaf stores no type",
             Refused(() => Write(Net(Def(1, L("nSpeed")),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) }, eno: false)), BodyLanguage.Ld)).Reason);
@@ -813,11 +822,11 @@ public class NetworkTextWriterTests
     /// leaf wire read only by the data pins of enabled MOVEs is a data value; a walk that counted position over the
     /// box's children would take the first pin for the enable the day that order changed, and declare it BOOL.</summary>
     [Fact]
-    public void A_ladder_leaf_wire_on_an_enabled_boxs_data_pins_is_of_unknown_type() =>
-        Assert.Equal("a wire of unknown type",
-            Refused(() => Write(Net(Def(1, L("nSpeed")),
+    public void A_ladder_leaf_wire_takes_its_leafs_stored_type_whatever_reads_it() =>
+        Assert.Equal(Ld + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(EN := x, g1, => y);\n  MOVE(EN := x, g1, => z);\nEND_NETWORK\n",
+            Write(Net(Def(1, LT("nSpeed", "INT")),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 1) }, en: L("x"), eno: true),
-                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld)).Reason);
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld));
 
     /// <summary>A head is the BoxType verbatim: an operator type not spelled as the table's own word (<c>and</c>)
     /// is written in call form with that spelling, never as the infix group that reads back as <c>AND</c>.</summary>

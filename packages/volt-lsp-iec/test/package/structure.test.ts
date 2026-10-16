@@ -267,6 +267,7 @@ const TOPIC_SUITES: ReadonlyMap<string, string> = new Map([
   ["src/transpile/lower/diagnostics/classification.test.ts", "every refusal code names one kind of thing: the codes' split, over all of lower/"],
   ["src/frontend/types/network/network-implementation-line.test.ts", NETWORK_TEXT],
   ["src/frontend/types/network/network-reader.test.ts", "the network-text reader whole: syntax/network's files, composed by parseNetworkText — no one file of it"],
+  ["src/frontend/types/network/network-pragma.test.ts", "the pragma through the network-text reader: syntax/network/pragma.ts composed by parseNetworkText (ld-fbd-coverage 2.3)"],
   ["src/services/network/network-real-shapes.test.ts", NETWORK_TEXT],
   ["src/services/network/highlight-network-text.test.ts", NETWORK_TEXT],
   ["src/services/network/named-output.test.ts", NETWORK_TEXT],

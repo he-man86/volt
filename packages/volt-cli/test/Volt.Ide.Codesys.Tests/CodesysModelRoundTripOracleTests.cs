@@ -339,10 +339,14 @@ public class CodesysModelRoundTripOracleTests
             // round-trip since the reader takes a Volt-built box's slot from the measured compiler reading (N21); the
             // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name. The 39th
             // is the symbol comment read from the archive (ld-fbd-coverage 1b.3): the model's operand equality does not
-            // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss).
-            bodies: 39, networks: 39, refused: new Dictionary<string, int>
+            // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss). The 40th is a
+            // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); of the pin-flag doubles left, an
+            // EDGE on a pin has no spelling (design 1.1, X) and a negated unnamed pin of a call (MOVE, beside EN) has no formal
+            // to stand on — both refused by name.
+            bodies: 40, networks: 40, refused: new Dictionary<string, int>
             {
-                ["a flag on a box input pin"] = 3,
+                ["a flag on a box input pin"] = 1,
+                ["a negated unnamed pin of a call"] = 1,
                 ["a consumed box with no stored connection slot"] = 1,
             });
 }

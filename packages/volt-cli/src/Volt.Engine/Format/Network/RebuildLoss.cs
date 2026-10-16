@@ -54,7 +54,24 @@ public static class RebuildLoss
         new Candidate("Flags.Fixed", "nwl-flags-fixed"),
         new Candidate("Operand.Boolean", "nwl-operand-boolean"),
         new Candidate("Operand.Address", "nwl-address-sentinel"),
+        // A drawn function box's result pin name ('   '), which a box Volt builds cannot hold (NetworkMembers.Buildable,
+        // DIALECT N21): spelled by the text, and lost by every rebuild of its network — a vendor limit, not a window.
+        new Candidate("OutputParam.Names", "nwl-output-param-names"),
+        // A box storing more output slots than output names — an enabled PROGRAM call's two null slots for its one name
+        // ['ENO'] (10 corpus boxes, DIALECT N37): a rebuild lays out one slot per name, so the extra slot goes with it.
+        // Held as "<slots> slots for <names> names" on a box whose counts differ (gate 2-3 review: it went unnamed).
+        new Candidate(ExtraOutputSlots, "nwl-output-param-names"),
     };
+
+    /// <summary>The member a box's extra output slots are held under (<see cref="Candidates"/>).</summary>
+    public const string ExtraOutputSlots = "OutputItemList.OutputItems";
+
+    /// <summary>A box's output slots beyond its output names, in the shared notation, or null where the counts agree.</summary>
+    public static Held? ExtraSlots(string owner, int slots, int names) =>
+        slots > names
+            ? new Held(ExtraOutputSlots, owner,
+                string.Format(CultureInfo.InvariantCulture, "{0} slots for {1} names", slots, names))
+            : null;
 
     /// <summary>Per candidate member, how many of the values <paramref name="held"/> stored the
     /// <paramref name="rebuilt"/> network does not hold (owner by owner, value by value); members no candidate names, and

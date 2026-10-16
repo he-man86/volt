@@ -19,6 +19,7 @@ internal enum TokKind
     Comment,    // a // line; Text = what follows `//` and one space
     Snippet,    // an EXECUTE body; Text = its lines joined by \n
     Wires,      // a whole VAR_TEMP block, as the post-push comparison keys it; Text = name:type per wire, by VarId
+    Pragma,     // `{Member := value}`; Text = what stands between the braces (NetworkPragma reads it)
     Sym,        // punctuation and operators
     Error,      // Text = message, Code = its NETWORK_* code
     Eof,
@@ -124,6 +125,8 @@ internal sealed class NetworkLexer
         }
 
         if (c == '"') return Title(start, atLineStart);
+
+        if (c == '{') return Pragma(start, atLineStart);
 
         if (c == '?' && Peek(1) == '?' && Peek(2) == '?')
         {
@@ -309,6 +312,19 @@ internal sealed class NetworkLexer
         return j + 1 < _s.Length && ((_s[j] == ':' && _s[j + 1] == '=') || (_s[j] == '=' && _s[j + 1] == '>'));
     }
 
+    /// <summary>Whether a pin's NAME and <c>:=</c> come next, across layout — asked right after a <c>NOT</c> inside an argument
+    /// list: <c>NOT xEnable := v</c> is a negated PIN (S6, ld-fbd-coverage 2.3), where <c>NOT x</c> negates a value.</summary>
+    public bool NamedPinFollows()
+    {
+        var j = _i;
+        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
+        var start = j;
+        while (j < _s.Length && IsWordChar(_s[j])) j++;
+        if (j == start || _s[start] is >= '0' and <= '9') return false;
+        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
+        return j + 1 < _s.Length && _s[j] == ':' && _s[j + 1] == '=';
+    }
+
     /// <summary>The next non-blank character on the current line, or null at its end. Lets the parser see
     /// whether an <c>EXECUTE</c> carries <c>(EN := …)</c> without lexing into its body.</summary>
     public char? PeekOnLine()
@@ -360,6 +376,29 @@ internal sealed class NetworkLexer
             ConflictCodes.NetworkParse);
         _i = _s.Length;
         return (err, err);
+    }
+
+    /// <summary>A pragma, <c>{Member := value}</c> (ld-fbd-coverage 2.3): one token up to the brace that closes it, a
+    /// <c>}</c> inside a quoted string being text. It ends on its own line — the writer writes one line — so a brace left
+    /// open does not swallow the network.</summary>
+    private Tok Pragma(int start, bool atLineStart)
+    {
+        var quoted = false;
+        for (var k = _i + 1; k < _s.Length; k++)
+        {
+            var c = _s[k];
+            if (c == '\n') break;
+            if (quoted && c == '$') { k++; continue; }   // `$'` is a quote inside the string, `$$` the dollar
+            if (c == '\'') quoted = !quoted;
+            else if (c == '}' && !quoted)
+            {
+                var inner = _s.Substring(_i + 1, k - _i - 1);
+                _i = k + 1;
+                return new Tok(TokKind.Pragma, inner, start, _i - start, atLineStart);
+            }
+        }
+        _i = LineEnd(_i);
+        return Error(start, "an unclosed pragma: `{Member := value}` closes with `}` on its own line.", ConflictCodes.NetworkParse);
     }
 
     private Tok Title(int start, bool atLineStart)

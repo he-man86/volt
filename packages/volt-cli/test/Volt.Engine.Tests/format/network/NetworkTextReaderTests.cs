@@ -395,7 +395,7 @@ public class NetworkTextReaderTests
 
     [Fact]
     public void A_ladder_body_reads_with_its_marker() =>
-        AssertModel(Body(Net(Def(1, L("x"), "BOOL"), Set(Ref(1), Coil("o"))), BodyLanguage.Ld),
+        AssertModel(Body(Net(Def(1, LT("x", "BOOL"), "BOOL"), Set(Ref(1), Coil("o"))), BodyLanguage.Ld),
             Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n"));
 
     // ── diagnostics are findings, not exceptions ────────────────────────────────────────────────
@@ -481,7 +481,8 @@ public class NetworkTextReaderTests
     /// is a data value, and the engineer's own declared type for it is accepted, never overruled as BOOL.</summary>
     [Fact]
     public void A_ladder_leaf_wire_feeding_a_data_pin_takes_its_declared_type() =>
-        AssertModel(Body(Net(Def(1, L("nSpeed"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
+        // S3a (ld-fbd-coverage 2.3): the leaf stores the type its wire is declared with.
+        AssertModel(Body(Net(Def(1, LT("nSpeed", "INT"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
             Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(g1, => nOut);\nEND_NETWORK\n"));
 
     /// <summary>An EXECUTE snippet's trailing newlines are its own content.</summary>

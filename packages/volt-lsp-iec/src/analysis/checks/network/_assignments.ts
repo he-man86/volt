@@ -2,7 +2,16 @@
  * The network-text ASSIGNMENT checks (`network-analysis.ts` runs them per network): each `target := value` pair the ST
  * assignment rules apply to — a mismatch, a narrowing, and the hole an untyped source carries to its destination.
  */
-import { type Expr, type NetworkTextStatement, executeBoxes, networkValueExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import {
+  type Expr,
+  type NetworkTarget,
+  type NetworkTextStatement,
+  type NetworkValue,
+  executeBoxes,
+  networkValueExpr,
+  walkStatements,
+  walkValues,
+} from "../../../frontend/syntax/index.js"
 import { inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -28,15 +37,13 @@ import type { Messages } from "../../messages/index.js"
 function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignment[] {
   const pairs: Assignment[] = []
   for (const s of statements) {
-    if (s.kind === "assign") {
-      // A CHAINED assignment (`a := b S= v;`) writes ONE value to every target: each target is its own assignment to
-      // type-check, but the value — and so a hole in it — is one (see `checkHoles`).
-      // The value's own box is the IDE's, through `.ENO` too: `x := f(…).ENO` reads BOOL for what CONSUMES it (a
-      // group, a NOT), but the assignment is still a wire from the box's pin, not an ST assignment.
-      const box = s.value.kind === "call" || s.value.kind === "execute"
-      const value = networkValueExpr(s.value)
-      if (value !== undefined && !box) pairs.push({ targets: s.targets.flatMap((t) => (t.expr === undefined ? [] : [t.expr])), value })
-    }
+    // A CHAINED assignment (`a := b S= v;`) writes ONE value to every target: each target is its own assignment to
+    // type-check, but the value — and so a hole in it — is one (see `checkHoles`).
+    // The value's own box is the IDE's, through `.ENO` too: `x := f(…).ENO` reads BOOL for what CONSUMES it (a
+    // group, a NOT), but the assignment is still a wire from the box's pin, not an ST assignment.
+    // An assignment below the top level (S2, `(t := v)`) is the same Assign item, one level down.
+    if (s.kind === "assign") pairOf(s.targets, s.value, pairs)
+    for (const v of walkValues(s)) if (v.kind === "nested_assign") pairOf(v.targets, v.value, pairs)
     for (const x of executeBoxes(s))
       if (x.ok)
         walkStatements(x.statements, (st) => {
@@ -45,6 +52,12 @@ function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignmen
         })
   }
   return pairs
+}
+
+function pairOf(targets: readonly NetworkTarget[], v: NetworkValue, pairs: Assignment[]): void {
+  const box = v.kind === "call" || v.kind === "execute"
+  const value = networkValueExpr(v)
+  if (value !== undefined && !box) pairs.push({ targets: targets.flatMap((t) => (t.expr === undefined ? [] : [t.expr])), value })
 }
 
 /** One value and the targets it is written to — several for a chained assignment. */

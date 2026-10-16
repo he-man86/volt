@@ -167,6 +167,23 @@ public class TcStructuralEditTests
         Assert.Contains("  n := MAX(", TcText.Write(body));
     }
 
+    /// <summary>…and a box that stores no output at all — the stamp writes a function box's names as the text's (none:
+    /// a function's result pin is no name a built box holds, ld-fbd-coverage 2.3) — is read through its result, slot 0, as
+    /// CODESYS reads a box Volt built (N21). Read as "no slot", the calls program of vendor-facts nwl-call-type pulled its
+    /// `k := VltF_RFn(x := i);` as an UNSUPPORTED line (re-run 2026-10-16).</summary>
+    [Fact]
+    public void A_consumed_box_storing_no_output_at_all_is_read_through_its_result()
+    {
+        var nwl = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace).Descendants("NWL").Single();
+        var box = nwl.Descendants("o").First(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "BoxType"));
+        var names = box.Elements("o").First(o => (string?)o.Attribute("n") == "OutputParam").Elements("l2").First(l => (string?)l.Attribute("n") == "Names");
+        names.RemoveNodes();
+
+        var read = TcNetworkReader.Read(nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Fbd);
+
+        Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks.Single().Trees.Single()).Value).ConnectedSlot);
+    }
+
     /// <summary>…and the same BEFORE the importer's empty operand is dropped, which is the state the stamp compares
     /// against (values first, then the repair — <c>BeckhoffDriver.Stamp</c>). Read as "no slot" there, the stamp refused
     /// ("the consumer of box 'MAX' moves to output slot 0"), the create path swallowed the refusal as a regrouping, and
@@ -261,7 +278,8 @@ public class TcStructuralEditTests
         var text = NetworkTextWriter.Write(pulled, scope);
 
         Assert.Contains("  n := ( * m * 6);\n", text);
-        Assert.Contains("  t1(IN := , PT := );\n", text);
+        // The import's output list rides as the call's pragma (ld-fbd-coverage 2.3).
+        Assert.Contains("  t1(IN := , PT := ){OutputParam.Names := ['Out1']}{OutputParam.Types := ['']};\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -282,7 +300,7 @@ public class TcStructuralEditTests
         Assert.IsType<Terminator>(box.Enable);
 
         var text = NetworkTextWriter.Write(pulled, scope);
-        Assert.Contains("  t1(EN := , PT := );\n", text);
+        Assert.Contains("  t1(EN := , PT := ){OutputParam.Names := ['Out1']}{OutputParam.Types := ['']};\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 

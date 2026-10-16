@@ -4,10 +4,10 @@
  * builds on this file. Whether a pair after a word is its argument list or a group is `pair-kind.ts`'s.
  */
 import type { Expr } from "../ast/nodes/index.js"
-import type { NetworkCall, NetworkExecute, NetworkName, NetworkParallel, NetworkTarget, NetworkValue } from "./ast.js"
+import type { NetworkCall, NetworkExecute, NetworkName, NetworkNestedAssign, NetworkParallel, NetworkTarget, NetworkValue } from "./ast.js"
 import { NetworkCursor, type ParseError, type PVal, IDENTIFIER, isName } from "./cursor.js"
 import { OPERATOR_HEADS, type Tok, isOperator, isSym, isWord } from "./lexer.js"
-import { argumentListAhead, isEmptyAt, isPinNameAt } from "./pair-kind.js"
+import { argumentListAhead, isEmptyAt, isPinNameAt, isStorageAt } from "./pair-kind.js"
 import { CONSTRUCT_WORDS, NETWORK_TEXT_WORDS } from "./words.js"
 
 const STRUCTURAL = new Set([",", ")", "(", ";", ":=", "=>", ".", ":"])
@@ -89,7 +89,11 @@ export abstract class ValueReader extends NetworkCursor {
       case "sym":
         if (t.text === "(") {
           this.next()
-          return { node: this.parseGroupRest(t, this.resolve(this.parseValue(true))), start: t }
+          // THE THIRD PAIR KIND (S2): a target and a storage operator at the pair's own depth — an assignment below
+          // the top level. `(R = x)` stays a comparison: storage is decided after a target.
+          const first = this.parseValue(true, true)
+          if (first.bare !== undefined && this.atStorage()) return { node: this.parseNestedAssign(t, first), start: t }
+          return { node: this.parseGroupRest(t, this.resolve(first)), start: t }
         }
         break
       case "unnamed":
@@ -171,7 +175,8 @@ export abstract class ValueReader extends NetworkCursor {
     }
     if (!isSym(this.peek(), ")")) throw this.notAnOperator(this.peek())
     this.next()
-    return { kind: "group", op: sym, operands, span: this.span(open.offset, this.lastEnd) }
+    const pragmas = this.readPragmas()
+    return { kind: "group", op: sym, operands, ...(pragmas !== undefined ? { pragmas } : {}), span: this.span(open.offset, this.lastEnd) }
   }
 
   private notAnOperator(t: Tok): ParseError {
@@ -195,6 +200,52 @@ export abstract class ValueReader extends NetworkCursor {
       return { kind: "not", operand: group, span: this.span(not.offset, this.lastEnd) }
     }
     return this.parseCall(not, consumed, v)
+  }
+
+  /** `(t1 := t2 S= … value)` after its `(` and first target (S2, the bridge's `ParseNestedAssign`): one Assign item
+   *  below the top level. A wire is defined only by a statement of its own. */
+  private parseNestedAssign(open: Tok, first: PVal): NetworkNestedAssign {
+    const targets: NetworkTarget[] = []
+    let cur = first
+    let value: NetworkValue
+    for (;;) {
+      const bare = cur.bare
+      if (bare === undefined)
+        throw this.err(cur.start, "NETWORK_BAD_EXPRESSION", "an assignment target is one variable: a token, or text between backticks.")
+      const w = bare.kind === "word" ? this.wires.get(bare.text.toUpperCase()) : undefined
+      if (w !== undefined)
+        throw this.err(
+          bare,
+          "NETWORK_BAD_EXPRESSION",
+          `the wire ${w.wire.name.text} is defined inside an assignment's pair; a wire's definition is its own statement \`${w.wire.name.text} := value;\`.`,
+        )
+      const op = this.takeStorage()
+      targets.push(this.target(bare, op.text as NetworkTarget["op"]))
+      const v = this.parseValue(true, true)
+      if (v.bare !== undefined && this.atStorage()) {
+        cur = v
+        continue
+      }
+      value = this.resolve(v)
+      break
+    }
+    if (!isSym(this.peek(), ")"))
+      throw this.err(this.peek(), "NETWORK_PARSE", `'${this.peek().text}' in an assignment's pair: \`(t := value)\` closes after its value.`)
+    this.next()
+    return { kind: "nested_assign", targets, value, span: this.span(open.offset, this.lastEnd) }
+  }
+
+  /** A storage operator next (`pair-kind.ts` `isStorageAt`): `:=`, or ExST's `S=` / `R=`. */
+  protected atStorage(): boolean {
+    return isStorageAt(this.peek(), this.lx)
+  }
+
+  /** The storage operator `atStorage` found, as one token `:=`, `S=` or `R=` spanning both parts. */
+  protected takeStorage(): Tok {
+    const t = this.next()
+    if (isSym(t, ":=")) return t
+    const eq = this.next()
+    return { kind: "sym", text: `${t.text.toUpperCase()}=`, offset: t.offset, length: eq.offset + eq.length - t.offset, atLineStart: t.atLineStart }
   }
 
   // ── operands ────────────────────────────────────────────────────────────────────────────────

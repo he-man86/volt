@@ -22,6 +22,7 @@ export interface Tok {
     | "string" // a TITLE; text = the DECODED value
     | "comment" // a // line; text = what follows `//` and one space
     | "snippet" // an EXECUTE body; text = its lines joined by \n
+    | "pragma" // `{Member := value}`; text = what stands between the braces (`pragma.ts` reads it)
     | "sym" // punctuation and operators
     | "error" // text = message, code = its NETWORK_* code
     | "eof"
@@ -102,6 +103,7 @@ export class NetworkLexer {
     if (c === "/" && s[this.i + 1] === "/") return this.comment(start, atLineStart)
     if (c === "`") return this.backticked(start, atLineStart)
     if (c === '"') return this.title(start, atLineStart)
+    if (c === "{") return this.pragma(start, atLineStart)
     if (c === "?" && s[this.i + 1] === "?" && s[this.i + 2] === "?") {
       this.i += 3
       return { kind: "unnamed", text: "???", offset: start, length: 3, atLineStart }
@@ -112,6 +114,29 @@ export class NetworkLexer {
     }
     if (isWordChar(c)) return this.wordLike(start, atLineStart)
     return this.symbol(start, atLineStart)
+  }
+
+  /** A pragma, `{Member := value}` (openspec ld-fbd-coverage 2.3): one token up to the brace that closes it, a `}` inside
+   *  a quoted string being text (`$'` a quote inside it). It ends on its own line, as the bridge's lexer reads it. */
+  private pragma(start: number, atLineStart: boolean): Tok {
+    const s = this.s
+    let quoted = false
+    for (let k = this.i + 1; k < s.length; k++) {
+      const c = s[k]
+      if (c === "\n") break
+      if (quoted && c === "$") {
+        k++
+        continue
+      }
+      if (c === "'") quoted = !quoted
+      else if (c === "}" && !quoted) {
+        const text = s.slice(this.i + 1, k)
+        this.i = k + 1
+        return { kind: "pragma", text, offset: start, length: this.i - start, atLineStart }
+      }
+    }
+    this.i = this.lineEnd(this.i)
+    return this.error(start, "an unclosed pragma: `{Member := value}` closes with `}` on its own line.", "NETWORK_PARSE")
   }
 
   /** A `//` line: its text is what follows `//` and one space. */
@@ -221,6 +246,18 @@ export class NetworkLexer {
     let j = this.i
     while (j < this.s.length && isSpace(this.s[j])) j++
     return (this.s[j] === ":" && this.s[j + 1] === "=") || (this.s[j] === "=" && this.s[j + 1] === ">")
+  }
+
+  /** Whether a pin's NAME and `:=` come next, across layout — asked right after a `NOT` inside an argument list: `NOT
+   *  xEnable := v` is a negated PIN (S6, openspec ld-fbd-coverage 2.3), as the bridge's lexer reads it. */
+  namedPinFollows(): boolean {
+    let j = this.i
+    while (j < this.s.length && isSpace(this.s[j])) j++
+    const start = j
+    while (j < this.s.length && isWordChar(this.s[j])) j++
+    if (j === start || /[0-9]/.test(this.s[start]!)) return false
+    while (j < this.s.length && isSpace(this.s[j])) j++
+    return this.s[j] === ":" && this.s[j + 1] === "="
   }
 
   /** The next non-blank character on the current line, or undefined at its end. */

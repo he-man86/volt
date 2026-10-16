@@ -334,7 +334,19 @@ internal static class TcNetworkWriter
             "Boolean" => new RebuildLoss.Held("Operand.Boolean", Owner(v.Parent), v.Value.Trim()),
             "Address" => new RebuildLoss.Held("Operand.Address", Owner(v.Parent), v.Value.Trim().Trim('"')),
             _ => (RebuildLoss.Held?)null,
-        }).Where(x => x is not null).Select(x => x!.Value);
+        }).Where(x => x is not null).Select(x => x!.Value)
+        // A drawn function's result pin name, in the notation the CODESYS driver holds it in: whether the import gives
+        // it back is unmeasured (no TwinCAT archive holds one), so a rebuild that does not is named, never assumed.
+        .Concat(net.Descendants("l2")
+            .Where(l => (string?)l.Attribute("n") == "Names" && (string?)l.Parent?.Attribute("n") == "OutputParam")
+            .Where(l => l.Elements("v").Any(v => v.Value == NetworkMembers.FunctionResult))
+            .Select(l => new RebuildLoss.Held("OutputParam.Names", Owner(l.Parent?.Parent), "'" + NetworkMembers.FunctionResult + "'")))
+        // Output slots beyond the names, as the CODESYS driver holds them (RebuildLoss.ExtraSlots).
+        .Concat(net.DescendantsAndSelf("o").Where(o => (string?)o.Attribute("t") == "BoxTreeBox")
+            .Select(o => RebuildLoss.ExtraSlots(Owner(o),
+                TcArchive.Slots(TcArchive.Obj(o, "OutputItems"), "OutputItems").Count,
+                TcArchive.Strings(TcArchive.Obj(o, "OutputParam"), "Names").Count))
+            .Where(x => x is not null).Select(x => x!.Value));
 
     /// <summary>The class of the archive object <paramref name="o"/> (its <c>t</c>), or the class its list declares for
     /// its items (<c>cet</c>) where the item carries none.</summary>
@@ -456,7 +468,7 @@ internal static class TcNetworkWriter
             throw Refuse($"network {model.Order + 1} changes from {items.Count} to {trees.Count} item(s)");
 
         for (int i = 0; i < items.Count; i++)
-            changed |= WriteNode(items[i], trees[i]);
+            changed |= WriteNode(items[i], trees[i], consumed: false);
         return changed;
     }
 
@@ -496,7 +508,9 @@ internal static class TcNetworkWriter
 
     /// <summary>Walk one archive item against one model node. The node KIND must still match what the IDE
     /// wrote — a leaf that became a box is a different object with a different member set, not an edit.</summary>
-    private static bool WriteNode(XElement e, Node n)
+    /// <param name="consumed">Whether something consumes the node — everything but a top-level item: a box's derived
+    /// output names depend on it (<see cref="NetworkMembers.DerivedOutputNames"/>).</param>
+    private static bool WriteNode(XElement e, Node n, bool consumed = true)
     {
         var type = TcArchive.TypeOf(e);
 
@@ -674,19 +688,27 @@ internal static class TcNetworkWriter
                     throw Refuse($"box '{b.Type}' gains an EN input, which this in-place write cannot add");
                 if (inputs.Count - enSlot != b.Inputs.Count)
                     throw Refuse($"box '{b.Type}' changes from {inputs.Count - enSlot} to {b.Inputs.Count} input(s)");
+                // A flag on a pin (S6) lives in the box's InputFlags, which no archive here has held populated (the reader
+                // refuses one): a pushed pin flag is a shape this write cannot make in place.
+                if (b.Inputs.Any(p => !p.Flags.IsNone))
+                    throw Refuse($"box '{b.Type}' carries a flag on an input pin, which this in-place write cannot add");
                 if (enSlot == 1) changed |= WriteNode(inputs[0], b.Enable!);
                 for (int i = 0; i < b.Inputs.Count; i++)
                     changed |= WriteNode(inputs[i + enSlot], b.Inputs[i].Value);
 
                 changed |= WriteFormalNames(e, b);
                 changed |= WriteBoxOutputs(e, b);
+                changed |= WriteOutputParam(e, b, consumed);
                 return changed;
             }
 
             case Demux d when type == "BoxTreeDemux":
+                // The producer carries the type the text declared the wire with (NetworkText.WithDeclaredType), as on
+                // CODESYS: a box whose stored type is the derivation spells no pragma, so the text-read box holds none,
+                // and its output types written without the wire's type erased the archive's (gate 2-3 review).
                 return changed
                      | SetInt(e, "VarId", d.VarId)
-                     | WriteChild(e, "Input", d.Input);
+                     | WriteChild(e, "Input", d.Input is { } src ? NetworkText.WithDeclaredType(src, d.Type) : null);
 
             case Parallel p when type == "BoxTreeParallel":
             {
@@ -849,6 +871,43 @@ internal static class TcNetworkWriter
         if (placed != b.Outputs.Count)
             throw Refuse($"box '{b.Type}' names an output pin the IDE has no slot for");
         return changed;
+    }
+
+    /// <summary>THE BOX'S OUTPUT NAMES AND TYPES ARE ITS MEMBERS (ld-fbd-coverage 2.3), written as the model states them —
+    /// the stored ones the text spells by pragma, else what the text's own pins give (<see cref="NetworkMembers.Effective"/>),
+    /// the one rule CODESYS builds a box by. Without it the import's own names stayed (<c>[Out1]</c> on a function, the
+    /// callee's whole list on a call) where the text says otherwise, and the next pull spelled them: a push was no fixed
+    /// point. Written into the lists the archive holds, never a list added.
+    /// <para>NOT <see cref="NetworkMembers.Buildable"/>: that is the limit of a box Volt CONSTRUCTS (CODESYS, DIALECT N37 —
+    /// the function result pin <c>'   '</c>), and an in-place write keeps the box the IDE drew, which holds its own
+    /// names. Applied here, it replaced a spelled <c>'   '</c> and every other name and type of the box with the
+    /// derivation, and no rebuild-loss warning named it (gate 2-3 review).</para></summary>
+    private static bool WriteOutputParam(XElement e, Box b, bool consumed)
+    {
+        var param = TcArchive.Obj(e, "OutputParam")
+                    ?? throw Refuse($"box '{b.Type}' has no OutputParam for the output names the text states");
+        var site = new BoxSite(consumed);
+        return SetStrings(param, "Names", NetworkMembers.Effective(b, site, NetworkMembers.OutputNames).AsTexts)
+             | SetStrings(param, "Types", NetworkMembers.Effective(b, site, NetworkMembers.OutputTypes).AsTexts);
+    }
+
+    /// <summary>A string list (<c>&lt;l2 n="Names"&gt;&lt;v&gt;…&lt;/v&gt;&lt;/l2&gt;</c>) set to <paramref name="values"/>, in the
+    /// vendor's two measured shapes: <c>&lt;l2 n="Names" /&gt;</c> when empty, <c>cet="String"</c> and one <c>&lt;v&gt;</c> per
+    /// entry otherwise (ladder.TcPOU's OR, ladder-demux.TcPOU's AND). A list the archive does not hold is refused, never
+    /// added.</summary>
+    private static bool SetStrings(XElement owner, string name, IReadOnlyList<string> values)
+    {
+        var list = owner.Elements("l2").FirstOrDefault(l => (string?)l.Attribute("n") == name)
+                   ?? throw Refuse($"'{name}' would have to be added to a '{TcArchive.TypeOf(owner) ?? "?"}', and the IDE did not write it there");
+        if (TcArchive.Strings(owner, name).SequenceEqual(values, StringComparer.Ordinal)) return false;
+        list.RemoveNodes();
+        if (values.Count == 0) list.SetAttributeValue("cet", null);
+        else
+        {
+            list.SetAttributeValue("cet", "String");
+            foreach (var v in values) list.Add(new XElement("v", v));
+        }
+        return true;
     }
 
     /// <summary>A box's FORMAL PIN NAMES, written alongside its input values.
@@ -1087,7 +1146,10 @@ internal static class TcNetworkWriter
     /// while it holds one (<c>NetworkText.RefuseSymbolCommentLoss</c>, in <c>Apply</c>).</para></summary>
     private static bool WriteOperandInto(XElement o, Operand op) =>
         SetString(o, "Operand", op.Text)
-      | WriteFlags(o, op.Flags);
+      | WriteFlags(o, op.Flags)
+      // The type the TEXT states — a leaf feeding a wire, declared with the wire's type (S3a, ld-fbd-coverage 2.3); every
+      // other operand's is the IDE's and is left as it holds it.
+      | (op.Type is { Length: > 0 } type && SetString(o, "Type", type));
 
     /// <summary>Volt's flags as the vendor's bit-field, written into the <c>Flags</c> object the IDE already
     /// put there. A <c>BoxTreeOperand</c> has NO such member — its flags live on the operand it holds — so a

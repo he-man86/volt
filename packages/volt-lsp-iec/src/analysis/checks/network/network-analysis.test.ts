@@ -319,3 +319,18 @@ test("network text: a wire named like a POU variable is the wire for every use a
   const src = `FUNCTION_BLOCK FB\nVAR g1 : INT; a : BOOL; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := a;\n  out := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
+
+test("S5 (ld-fbd-coverage 2.3): `SUPER^` heads a call of the base FB, its pins the base's", () => {
+  const src = (pin: string) => `FUNCTION_BLOCK B
+VAR_INPUT x : INT; END_VAR
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK D EXTENDS B
+VAR a : INT; END_VAR
+IMPLEMENTATION FBD
+NETWORK
+  \`SUPER^\`(${pin} := a);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(messages(src("x"))).toEqual([])
+  expect(messages(src("nope")).length).toBeGreaterThan(0)
+})

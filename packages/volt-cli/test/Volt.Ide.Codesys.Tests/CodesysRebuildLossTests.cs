@@ -107,6 +107,35 @@ public class CodesysRebuildLossTests
         Assert.Contains("does not hold them: Flags.Fixed ×2 (vendor-facts row nwl-flags-fixed), Operand.Boolean ×3", said);
     }
 
+    /// <summary>AN ENABLED PROGRAM CALL'S SECOND NULL OUTPUT SLOT (gate 2-3 review): the IDE draws one with two null
+    /// slots for its one output name <c>['ENO']</c> (10 corpus boxes, DIALECT N37), and a rebuild lays out one slot per
+    /// name — so the second slot went with every rebuild of its network, and nothing named it.</summary>
+    [Fact]
+    public void A_rebuilt_enabled_program_call_names_the_output_slot_it_drops()
+    {
+        static Nwl.BoxTreeAssign Rung(string target)
+        {
+            var call = new Nwl.BoxTreeBox
+            {
+                BoxType = "Prg", En = true, Eno = true,
+                InputParams = new Nwl.ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+                InputItemList = new object[] { new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", Boolean = true } } },
+                OutputParams = new Nwl.ParamList { Names = new[] { "ENO" }, Types = new[] { "BOOL" } },
+            };
+            call.Outputs.List.Add(null!);
+            call.Outputs.List.Add(null!);
+            var rung = new Nwl.BoxTreeAssign { RValue = call };
+            rung.Outputs.List.Add(new Nwl.Operand { OperandExpr = target, IsLValue = true, Boolean = true });
+            return rung;
+        }
+        var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
+            DrawnRung("x5", 50), Rung("x6"));
+
+        var said = Push(impl, t => t.Replace("x6 :=", "x7 :="));
+
+        Assert.Contains("OutputItemList.OutputItems ×1 (vendor-facts row nwl-output-param-names)", said);
+    }
+
     /// <summary>An unchanged network is kept — nothing is rebuilt and nothing is said about it; a header-only edit is
     /// written in place, its items untouched, and says nothing either.</summary>
     [Fact]

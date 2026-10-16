@@ -367,7 +367,10 @@ namespace Volt.Ide.Codesys
                 ConnectedSlot: consumed ? mainOutput : null,
                 OutputTypes: OutputTypes(n),
                 HasEnoOutput: Box.HasEnoSlot(outputNames),
-                MainOutputName: consumed ? Box.NameOfMainOutput(type, mainOutput, outputNames) : null);
+                MainOutputName: consumed ? Box.NameOfMainOutput(type, mainOutput, outputNames) : null,
+                // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
+                // pins — the text spells them where they differ from what its own pins give.
+                Members: NwlMembers.Of((NetworkMembers.OutputNames, PragmaValue.Texts(outputNames.Select(x => x ?? "")))));
         }
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — every box a push built
@@ -382,7 +385,7 @@ namespace Volt.Ide.Codesys
         private static int? UnstoredMainOutput(string type, bool enabled, IReadOnlyList<string?> outputNames)
         {
             if (enabled) return Box.HasEnoSlot(outputNames) ? 0 : null;
-            return Box.StoresNoMainOutput(type) ? null : 0;
+            return Box.StoresNoMainOutput(type) ? Box.BitOperatorSlot(outputNames.Count) : 0;
         }
 
         /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.

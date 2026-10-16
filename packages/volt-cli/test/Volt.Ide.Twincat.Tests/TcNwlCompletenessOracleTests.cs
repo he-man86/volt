@@ -423,8 +423,6 @@ public class TcNwlCompletenessOracleTests
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
         new("Operand.Type in BoxTreeOperand.Operand — changed", 2, 4, "2.2 nwl-operand-type (R)"),
         new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 2, 2, "2.3 D (the null slots) + design gap (1b.3): a call's unconnected output pins"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 2, 2, "2.2 nwl-output-param-names (R): the import names one generic 'Out1' for TON's Q, ET + design gap (1b.3)"),
         new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 2, 2, "2.2 nwl-param-types (R)"),
     };
 }

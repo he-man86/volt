@@ -104,6 +104,14 @@ public static class NetworkTextWriter
         private readonly Dictionary<int, string> _defined = new();
         private readonly List<int> _definitionOrder = new();
 
+        // The definition being written: its producer and the type the wire is declared with, which the producer's
+        // pragmas are judged against (BoxSite.WireType).
+        private Node? _wireProducer;
+        private string? _wireProducerType;
+
+        private BoxSite SiteOf(Box b, bool consumed) =>
+            new(consumed, ReferenceEquals(b, _wireProducer) ? _wireProducerType : null);
+
         public Emitter(Network net, BodyLanguage lang, NetworkScope scope)
         {
             _net = net;
@@ -284,7 +292,15 @@ public static class NetworkTextWriter
                     if (_defined.ContainsKey(d.VarId))
                         throw Unrepresentable("a wire defined twice",
                             $"two Demux items define VarId {d.VarId} in network {_net.Order}.");
-                    var value = Value(d.Input);
+                    // The producer's pragmas are judged against what the text implies, and a wire's producer implies
+                    // the wire's declared type at its connected slot (NetworkMembers.DerivedOutputTypes): asked first,
+                    // and asked again below, where a type the text cannot declare is refused by name.
+                    _wireProducer = d.Input;
+                    try { _wireProducerType = WireType(d); }
+                    catch (NetworkUnrepresentableException) { _wireProducerType = null; }
+                    string value;
+                    try { value = Value(d.Input); }
+                    finally { _wireProducer = null; _wireProducerType = null; }
                     // Defined AFTER its own value is rendered: a wire fed by a reference to itself is a reference
                     // before its definition, not a definition.
                     _defined[d.VarId] = WireType(d);
@@ -432,9 +448,21 @@ public static class NetworkTextWriter
                             $"an unconnected slot in network {_net.Order} carries {Describe(t.Flags)}, and an empty slot has no text to modify.");
                     return "";   // the empty slot: a position, never a token
 
-                case Assign:
-                    throw Unrepresentable("an assign below the top level",
-                        $"an Assign item in network {_net.Order} is nested inside another item.");
+                // S2 (ld-fbd-coverage 2.3): an assignment below the top level is ExST's assignment as an expression, in its
+                // own pair — `(t1 := t2 S= value)`, the targets in order and the value on the right — a pair holding a
+                // storage operator at its own depth (the third pair kind). The value passes through it to the consumer.
+                case Assign a:
+                {
+                    if (a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { } f && (f.Jump || f.Return)))
+                        throw Unrepresentable("a jump or return below the top level",
+                            $"an Assign item in network {_net.Order} that jumps or returns is nested inside another item, and `JMP`/`RETURN` are statements.");
+                    RefuseItemFlags(a.Flags, "an Assign item");
+                    if (a.Targets.Count == 0)
+                        throw Unrepresentable("an assign with no target",
+                            "an Assign item drives no target, and `(value)` is no pair the text reads.");
+                    var heads = a.Targets.Select(t => LValue(t, "an assignment target") + " " + StorageOp(t));
+                    return "(" + string.Join(" ", heads) + " " + Value(a.Value) + ")";
+                }
 
                 default:
                     throw Unrepresentable("an unknown network item",
@@ -447,10 +475,10 @@ public static class NetworkTextWriter
         private string BoxCore(Box b, bool consumed)
         {
             for (var i = 0; i < b.Inputs.Count; i++)
-                if (b.Inputs[i] is { Flags.IsNone: false } p)
-                    // Phase-1 decision: a modifier on the PIN (vendor InputFlags) has no spelling yet, so the fact
-                    // reaches the marker instead of the floor. The message names the pin by what feeds it where it can:
-                    // an engineer finds `xIsWarningInfo` in the diagram, not "input 1".
+                if (b.Inputs[i] is { Flags.IsNone: false } p && !(p.Flags with { Negated = false }).IsNone)
+                    // S6 (ld-fbd-coverage 2.3) spells a NEGATED pin, the one pin flag the corpora hold (census 1.13: 6 of
+                    // 6); an edge or any other bit on a pin stays refused by name (design 1.1, X). The message names the
+                    // pin by what feeds it where it can: an engineer finds `xIsWarningInfo` in the diagram, not "input 1".
                     throw Unrepresentable(BoxRefusals.PinFlagMarker,
                         $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? $"input {i}"}" +
                         (p.Value is Leaf feed ? $" fed by '{feed.Operand.Text}'." : "."));
@@ -467,9 +495,13 @@ public static class NetworkTextWriter
 
             var eno = NetworkSpelling.EnoSlot(b);
             var infix = NetworkSpelling.IsInfix(b);
-            var suffix = consumed ? Suffix(b) : "";
+            var site = SiteOf(b, consumed);
+            var suffix = consumed ? Suffix(b, site) : "";
+            // The stored members the text implies otherwise, one pragma each, after the box's closing paren
+            // (ld-fbd-coverage 2.3): before the suffix, which reads an output of the box the pragmas describe.
+            var pragmas = string.Concat(NetworkMembers.Spelled(b, site).Select(p => NetworkPragma.Spell(p.Member, p.Value)));
 
-            if (b.StCode is not null) return Execute(b) + suffix;
+            if (b.StCode is not null) return Execute(b) + pragmas + suffix;
 
             if (carried && b.HasEnoOutput is { } has)
             {
@@ -482,18 +514,26 @@ public static class NetworkTextWriter
                             : $"the '{b.Type}' box has EN and no ENO output, and the text reads a top-level box with EN as having one.");
             }
 
-            if (infix) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")";
+            if (infix) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")" + pragmas;
 
             var pins = new List<string>();
             if (b.Enable is not null) pins.Add("EN := " + Value(b.Enable));
-            foreach (var p in b.Inputs)
+            for (var i = 0; i < b.Inputs.Count; i++)
             {
-                if (p.Formal is { } f)
+                var p = b.Inputs[i];
+                // S6: a negated pin is spelled on its FORMAL, which forces the named form — `NOT xEnable := v` puts the
+                // flag on the pin, where `xEnable := NOT v` puts it on the value, another node. An operator's unnamed pin
+                // takes its default formal, `IN<n>` (NetworkSpelling.DefaultFormal), which the reader reads back unnamed.
+                var formal = p.Formal ?? (p.Flags.Negated ? NetworkSpelling.DefaultFormal(b.Type, i) : null);
+                if (p.Flags.Negated && formal is null)
+                    throw Unrepresentable("a negated unnamed pin of a call",
+                        $"the '{b.Type}' box has a negation on its unnamed input {i}, and the text spells a negated pin on its formal.");
+                if (formal is { } f)
                 {
                     if (string.Equals(f, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                         throw Unrepresentable("a data pin named EN",
                             $"the '{b.Type}' box has a data pin named EN, which the text reads as its enable.");
-                    pins.Add(Formal(f, b) + " := " + Value(p.Value));
+                    pins.Add((p.Flags.Negated ? "NOT " : "") + Formal(f, b) + " := " + Value(p.Value));
                 }
                 else pins.Add(Value(p.Value));
             }
@@ -504,14 +544,14 @@ public static class NetworkTextWriter
             if (pins.Count == 1 && pins[0].Length == 0)
                 throw Unrepresentable("a lone unconnected input slot with no formal",
                     $"the '{b.Type}' box has one input slot, wired to nothing and unnamed, and `{b.Type}()` is a box with none.");
-            return Head(b) + "(" + string.Join(", ", pins) + ")" + suffix;
+            return Head(b) + "(" + string.Join(", ", pins) + ")" + pragmas + suffix;
         }
 
         /// <summary>The slot rule on a CONSUMED box, group or call alike: connected by ENO → <c>.ENO</c>; by its main
         /// output → no suffix, read back by <see cref="NetworkSpelling.MainSlotOfCall"/>; anything that reading would
         /// get wrong has no spelling. The stored slots are compared as stored — a null against a stored index is a
         /// slot nobody read, never the main output by convention.</summary>
-        private string Suffix(Box b)
+        private string Suffix(Box b, BoxSite site)
         {
             var slot = b.ConnectedSlot;
             var hasEno = NetworkSpelling.EnoSlot(b) is not null;
@@ -540,13 +580,16 @@ public static class NetworkTextWriter
                 return "." + named;
             }
 
-            // A bit operator without ENO, group or call, reads back connected by no stored slot (the vendor keeps no
-            // main output index on AND/OR — census 1.6), so that is the one connection it can carry.
+            // A bit operator without ENO, group or call, is connected by its stored output slot exactly when it stores an
+            // output (S1, ld-fbd-coverage 2.3: the editor's form, `{OutputParam.Names := ['']}`) — and by none where it
+            // stores none (the vendor keeps no main output index on the plain AND/OR, census 1.6). The pragma states
+            // which, so a slot that rule would misread is the one connection it cannot carry.
             if (!hasEno && NetworkSpelling.MainSlotOfCall(b.Type) is null)
             {
-                if (slot is not null)
-                    throw Unrepresentable("a bit operator box connected by a stored output slot",
-                        $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the text reads a consumed bit operator as connected by none.");
+                var stored = Box.BitOperatorSlot(NetworkMembers.Effective(b, site, NetworkMembers.OutputNames).AsTexts.Count);
+                if (slot != stored)
+                    throw Unrepresentable("a bit operator box connected by an unspellable output slot",
+                        $"a consumer of the '{b.Type}' box is connected to its output slot {slot?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "(none)"}, and the text reads it as connected by {stored?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"} from the outputs it stores.");
                 return "";
             }
 
@@ -753,7 +796,7 @@ public static class NetworkTextWriter
         private string WireType(Demux d)
         {
             var name = _names[d.VarId];
-            var produced = NetworkSpelling.ProducerType(d.Input!, d.VarId, _net.Trees, _lang,
+            var produced = NetworkSpelling.ProducerType(d.Input!, _lang,
                 id => _defined.TryGetValue(id, out var t) ? t : null);
             if (d.Type is not null && NetworkSpelling.Disagreement(produced, d.Type) is { } says)
                 throw Unrepresentable("a wire typed unlike its producer",
@@ -761,8 +804,16 @@ public static class NetworkTextWriter
             var type = produced.Exact
                        ?? (produced.AnyBit ? d.Type ?? NetworkSpelling.Bool : null)
                        ?? d.Type
-                       ?? throw Unrepresentable("a wire of unknown type",
-                           $"the wire {name} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry.");
+                       ?? throw d.Input switch
+                       {
+                           // S3a/S3b (ld-fbd-coverage 2.3): what stays refused of the two, by name.
+                           Leaf leaf => Unrepresentable("a leaf-fed wire whose leaf stores no type",
+                               $"the wire {name} in network {_net.Order} is fed by the leaf '{leaf.Operand.Text}', which stores no type to declare it with."),
+                           Terminator => Unrepresentable("a wire fed by the empty terminator in FBD",
+                               $"the wire {name} in network {_net.Order} is fed by nothing, which only LD reads as its left rail (BOOL)."),
+                           _ => Unrepresentable("a wire of unknown type",
+                               $"the wire {name} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry."),
+                       };
             if (!NetworkSpelling.IsSpellableType(type))
                 throw Unrepresentable("a wire of unspellable type",
                     $"the wire {name} in network {_net.Order} has the type '{type}', which a VAR_TEMP declaration cannot hold.");
@@ -774,7 +825,7 @@ public static class NetworkTextWriter
             // stored output types, which the text has no position for. A stored type the text's own rule
             // contradicts (a bitwise AND stored as DINT, a comparison stored as INT) would be written into a
             // declaration the reader refuses.
-            var carried = NetworkSpelling.ProducerType(WithoutStoredTypes(d.Input!), d.VarId, _net.Trees, _lang,
+            var carried = NetworkSpelling.ProducerType(Carried(d.Input!, type), _lang,
                 id => _defined.TryGetValue(id, out var t) ? t : null);
             if (NetworkSpelling.Disagreement(carried, type) is { } rule)
                 throw Unrepresentable("a stored output type the text reads otherwise",
@@ -782,7 +833,13 @@ public static class NetworkTextWriter
             return type;
         }
 
-        private static Node WithoutStoredTypes(Node n) => n is Box b ? b with { OutputTypes = null } : n;
+        /// <summary>The producer as the text carries it: its stored output types where its pragma spells them, else none
+        /// (a text read holds what the pragma states, and the declared type is then the derivation).</summary>
+        private static Node Carried(Node n, string declared) =>
+            n is Box b && !NetworkMembers.Spelled(b, new BoxSite(Consumed: true, WireType: declared))
+                              .Any(p => p.Member == NetworkMembers.OutputTypes)
+                ? b with { OutputTypes = null }
+                : n;
 
         // ── names and operands ──────────────────────────────────────────────────────────────────────
 

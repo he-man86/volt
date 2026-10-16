@@ -44,6 +44,9 @@ export function networkValueExpr(v: NetworkValue): Expr | undefined {
       return v.eno ? bool("ENO", v.span) : v.output !== undefined ? namedOutputReading(v) : callReading(v)
     case "execute":
       return v.eno ? bool("ENO", v.span) : undefined
+    case "nested_assign":
+      // What the consumer reads is the value, passed through the assignment (S2); the targets are read on their own.
+      return networkValueExpr(v.value)
     default:
       return undefined
   }
@@ -99,6 +102,8 @@ export function callReading(v: NetworkCall): Expr | undefined {
 export function statementExprs(s: NetworkTextStatement): Expr[] {
   const out: Expr[] = []
   if (s.kind === "assign") for (const t of s.targets) if (t.expr !== undefined) out.push(t.expr)
+  // An assignment below the top level (S2) writes its targets as a statement's do.
+  for (const v of walkValues(s)) if (v.kind === "nested_assign") for (const t of v.targets) if (t.expr !== undefined) out.push(t.expr)
   for (const v of statementValues(s)) collect(v, out)
   return out
 }

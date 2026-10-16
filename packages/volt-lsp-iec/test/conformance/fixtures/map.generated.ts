@@ -19,7 +19,7 @@
  *     not-lowered    385
  *     lsp-gap         90
  *     diverges         5
- *     unaskable       95
+ *     unaskable      106
  *
  *   tier                     lowered    clean
  *     decl                    842      842
@@ -3423,6 +3423,17 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_network_disabled: { evidence: "unaskable" },
   ng_network_title_and_comment: { evidence: "unaskable" },
   ng_opaque_leaf_negation: { evidence: "unaskable" },
+  ng_s1_stored_slot: { evidence: "unaskable" },
+  ng_s1_stored_type_mistyped: { evidence: "unaskable" },
+  ng_s2_nested_assign: { evidence: "unaskable" },
+  ng_s2_nested_set_reset: { evidence: "unaskable" },
+  ng_s3a_leaf_wire: { evidence: "unaskable" },
+  ng_s3a_leaf_wire_mistyped: { evidence: "unaskable" },
+  ng_s3a_leaf_wire_mistyped_bool_use: { evidence: "unaskable" },
+  ng_s3b_rail_wire: { evidence: "unaskable" },
+  ng_s5_super_call: { evidence: "unaskable" },
+  ng_s6_negated_int_pin: { evidence: "unaskable" },
+  ng_s6_negated_pin: { evidence: "unaskable" },
   ng_sink_type_mismatch: { evidence: "unaskable" },
   ng_two_languages_one_body: { evidence: "unaskable" },
   no_assign: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805" },

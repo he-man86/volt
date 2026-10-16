@@ -186,6 +186,11 @@ internal static class Nwl
         /// <c>Count</c>, no indexer — so the writer calls this, and a double without it cannot complete a
         /// rebuild.</summary>
         public void AppendOutputItem(object item) => _list.Add(item);
+
+        /// <summary>The vendor's insert and remove (SP21 <c>NWLObject.plugin</c> 4.6.0.0). Insert TAKES a null — the slot the
+        /// vendor stores null — where append does not (measured live 2026-10-15).</summary>
+        public void InsertOutputItem(int index, object? item) => _list.Insert(index, item!);
+        public void RemoveOutputItem(int index) => _list.RemoveAt(index);
     }
 
     internal sealed class BoxTreeAssign
@@ -314,6 +319,17 @@ internal static class Nwl
         }
         private object[]? _inputFlags;
         private bool _inputFlagsSet;
+
+        /// <summary>The vendor's one door to a pin's flag set (SP21 <c>NWLObject.plugin</c> 4.6.0.0: <c>InputFlags</c> has no
+        /// setter; <c>SetInputFlag(int, IFlags2)</c> sets one), index-aligned with the input items. The other pins keep the
+        /// unset sets the box answers.</summary>
+        public void SetInputFlag(int index, object flags)
+        {
+            var sets = InputFlags ?? _inputs.Select(_ => (object)new Flags()).ToArray();
+            sets[index] = flags;
+            InputFlags = sets;
+
+        }
 
         /// <summary>The output side's name list, index-aligned with <see cref="Outputs"/> — present by
         /// default like the vendor's, where an operator box simply has an empty one.</summary>

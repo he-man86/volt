@@ -392,3 +392,33 @@ type (only pre-2.3 Volt pushes); a changed network holding S4 or an N21 comparis
 `UNSUPPORTED "<shape>";` lines of S1–S6 and adds the counted pragmas (listed in the close report). The LSP parser gains
 the pragma, S2's pair, the pin `NOT` and `SUPER^`; `docs/network-text.html` gains all four and loses the per-shape
 "Marker on pull" entries.
+
+**As built (gate 2-3, 2026-10-16) — where reality forced another choice, and why.**
+- **The derivation is per box kind, not "one slot per name, empty".** A pragma is written only where the stored value
+  differs from the DERIVATION (`NetworkMembers.OfBox`), so the derivation had to be the layout a push builds: an
+  operator's result slot is `''` (after `ENO` when it has EN); a FUNCTION has no derived result slot; ENO's and a
+  comparison's type is `BOOL`, a wire-fed slot takes the wire's declared type, every other type `''`. Why: a drawn
+  function's result pin is named `'   '` (three spaces, 97 of 97 corpus boxes), and a box Volt builds with that name
+  does not compile ("'   ' is no component of 'F'" — its main output index is read-only, N21; DIALECT N37). So
+  `'   '` is spelled by its pragma and is a vendor-limit loss on rebuild (`NetworkMembers.Buildable` builds the
+  derivation, `RebuildLoss` names it); an unchanged network is never rebuilt (1b.4).
+- **Unwired output slots are the vendor's null, measured.** `AppendOutputItem(null)` throws; `InsertOutputItem(i, null)`
+  takes it and the network builds (live SP21, single-use probe, deleted). The CODESYS writer lays slots out by NAME
+  (`OutputSlots`), so a named output lands where the vendor's own box holds it (found by the e2e `VltRefArrow`, which
+  put a named pin on the wrong slot under the first cut).
+- **S1 needs no slot rule of its own:** a bit operator's connected slot is `Box.BitOperatorSlot(names count)`, read by
+  both drivers and the text reader from the stored names — the "a stored slot is inert" rule and the S1 refusal are gone.
+- **S3a's type also drives the reader**, not only the writer: a leaf-fed wire's producer type is the leaf's own
+  (`NetworkSpelling.ProducerType`, the LSP's `producerType`), set from the wire's declaration on read; `TRUE`/`FALSE` are
+  BOOL. In FBD a terminator-fed wire stays refused by name ("a wire fed by the empty terminator in FBD").
+- **S6's operator pin is spelled on its default formal `IN<n>`** (an operator's pins have no formal in the model; the
+  reader normalises `IN<n>` back). A negated pin of a call with no formal stays refused ("a negated unnamed pin of a
+  call", 1 network in the corpora: niche, accepted loss).
+- **TwinCAT refuses S2, S3a, S5 and S6 by name before its import** (`TcUnmeasured`), as the design's "TwinCAT structural
+  edits are refused where the import is unmeasured" says — the import was not measured for them in this step. S1 and S3b
+  round-trip and build on TwinCAT. A program call storing no output name and no slot is read through its result
+  (`TcNetworkReader.ConnectedSlot`), which closed 2.2's `VltF_RC` build divergence (DIALECT N37).
+- **Not reached in this gate (the 1b.2 members after S5):** `Fixed`, `Boolean`, `Address`, `BranchCounter`,
+  `Operand.Type` on a box's operands, `Instance.Type`, input `ParamList.Types`/`InputFlags` zero-list, `EN`/`ENO`,
+  `CallType`, exact titles/comments, the item Jump/Return bit, `SymbolComment`. Their inference rules stand (below in
+  tasks 2.3: 8 families → 4) and their ledger entries are unchanged.

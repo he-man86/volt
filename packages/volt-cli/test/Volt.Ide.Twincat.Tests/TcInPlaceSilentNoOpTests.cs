@@ -59,8 +59,9 @@ public class TcInPlaceSilentNoOpTests
     /// <summary>`.ENO` on a consumed call moves its consumer from the main output (Q) to the ENO — a connection and an
     /// ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1(IN := TRUE, PT := T#5s);", "output := t1(IN := TRUE, PT := T#5s).ENO;")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1(IN := in1, PT := e1);", "output := t1(IN := in1, PT := e1).ENO;")]
+    // The call's stored output list rides as its pragma (ld-fbd-coverage 2.3), before the suffix.
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1(IN := TRUE, PT := T#5s){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};", "output := t1(IN := TRUE, PT := T#5s){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']}.ENO;")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1(IN := in1, PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};", "output := t1(IN := in1, PT := e1){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']}.ENO;")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         var (before, model) = Edited(fixture, language, from, to);

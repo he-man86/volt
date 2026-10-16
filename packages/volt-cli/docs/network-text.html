@@ -49,16 +49,17 @@
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>???</code>), else <code>`text`</code></td></tr>
   <tr><td class="name">IFlags on an operand or box</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>. Rising and falling together: no spelling</td></tr>
   <tr><td class="name">IFlags on a Parallel or wire reference</td><td>none: the IDE holds no flag on a <code>BoxTreeParallel</code> or <code>BoxTreeDemux</code> (DIALECT N20). <code>NOT g3</code>, <code>R_EDGE(g3)</code>, <code>NOT PARALLEL(…)</code> are refused with <code>NETWORK_UNSUPPORTED</code>; the flag goes on the wire's producer or a branch</td></tr>
-  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>no spelling. Populated and load-bearing on CODESYS (census 1.13: 6 pins, all negations); the writer refuses one by name (<code>a flag on a box input pin</code>), so a pulled one makes its network the <code>UNSUPPORTED</code> line, never dropped</td></tr>
+  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>, <code>InputFlags</code>)</td><td>a negation on the pin's formal: <code>f(NOT xEnable := v)</code>; an operator's unnamed pin by its default formal, <code>AND(a, NOT IN2 := b)</code>, read back unnamed (census 1.13: 6 pins, all negations; ld-fbd-coverage 2.3, S6). <code>xEnable := NOT v</code> negates the value, another node. An edge on a pin, a flag on EN, and a negated unnamed pin of a non-operator call have no spelling: refused by name (<code>a flag on a box input pin</code>, <code>a negated unnamed pin of a call</code>)</td></tr>
   <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>none (census 1.1). A Demux or Parallel carries no flags in the model (DIALECT N20). An Assign's item flags hold only its Jump/Return; a negation or edge there has no spelling</td></tr>
-  <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code>; infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin and absent-or-default formals (<a href="#group">below</a>)</td></tr>
+  <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code> · <code>`SUPER^`(pins)</code>, the base FB of the POU's <code>EXTENDS</code> (S5); infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin, no pin flag and absent-or-default formals (<a href="#group">below</a>)</td></tr>
+  <tr><td class="name">a box's stored members</td><td><code>{Member := value}</code> directly after the box's closing paren (before <code>.ENO</code> / <code>.name</code>), where the stored value differs from what the text implies (<a href="#pragma">the pragma</a>): <code>OutputParam.Names</code>, <code>OutputParam.Types</code></td></tr>
   <tr><td class="name">input slot / output slot</td><td><code>F := v</code> / <code>F =&gt; v</code> when named; <code>v</code> / <code>=&gt; v</code> when not, by the slot rule in <a href="#eneno">EN, ENO and output slots</a></td></tr>
   <tr><td class="name">EN (input slot 0) / ENO / main output</td><td><code>EN := c</code> (<code>EN := ,</code> shown but unwired) / <code>.ENO</code> where a consumer reads ENO / <code>.name</code> where a consumer reads a main output that is not slot 0</td></tr>
   <tr><td class="name">BoxTreeBox with STSnippet</td><td><code>EXECUTE[(EN := c)]</code> … verbatim ST … <code>END_EXECUTE</code>, <code>.ENO</code> where consumed</td></tr>
-  <tr><td class="name">BoxTreeAssign, targets t1…tn</td><td><code>t1 := t2 S= … tn R= value;</code></td></tr>
+  <tr><td class="name">BoxTreeAssign, targets t1…tn</td><td><code>t1 := t2 S= … tn R= value;</code>; below the top level (in a pin, under a box) its own pair, <code>(t1 := t2 S= value)</code> — ExST's assignment as an expression, its value passed through to the consumer (S2)</td></tr>
   <tr><td class="name">target storage bits</td><td><code>:=</code> none · <code>S=</code> Set · <code>R=</code> Negation+Set. A negated or edge coil: no spelling</td></tr>
   <tr><td class="name">Assign with Jump / Return</td><td><code>JMP l;</code> / <code>RETURN;</code>, or <code>IF c THEN JMP l; END_IF;</code> / <code>IF c THEN RETURN; END_IF;</code></td></tr>
-  <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only. A nested definition or a reference stored before it: no spelling (census 1.8)</td></tr>
+  <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only. A nested definition or a reference stored before it: no spelling (census 1.8). A leaf feeding a wire stores the type the wire is declared with (S3a: the IDE-drawn leaf holds its declared type; the push writes it onto the leaf — and a declaration unlike the variable's is no error of its own: CODESYS types the wire's uses by the VARIABLE, so <code>g1 : INT</code> fed by a BOOL builds clean into a BOOL use and fails "Cannot convert type 'BOOL' to type 'INT'" into an INT one, conformance <code>ng_s3a_leaf_wire_mistyped*</code>, 2026-10-16); in LD <code>g3 := ;</code> is the left rail, BOOL (S3b) — in FBD, refused by name</td></tr>
   <tr><td class="name">BoxTreeDemux without Input</td><td>the bare name <code>g3</code></td></tr>
   <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; no <code>IN</code> is no feed (census 1.2). A feed that is the empty terminator has no spelling; <code>IN := ,</code> is refused</td></tr>
   <tr><td class="name">Parallel.Mode</td><td><code>MODE := Sequential</code>, first in the list, only off the default <code>BoxShortCircuit</code> (census 1.3). Any other mode is unmeasured: refused with <code>NETWORK_UNSUPPORTED</code>, never written as a number</td></tr>
@@ -74,11 +75,11 @@
   <tr><td>Infix <code>(a AND b)</code>; absent ≡ default formals</td><td>Decided only by the box's own fields. The parentheses are the box. Absent and default <code>InputParams</code> names write the same text; the model oracle treats them as equal and the driver writes the defaults (census 1.5).</td></tr>
   <tr><td>FB BoxType not written</td><td>Recovered from the instance's declaration; <code>??? : TYPE</code> when there is no instance.</td></tr>
   <tr><td><code>.ENO</code>; the ENO slot</td><td><code>.ENO</code> says the consumer reads the ENO output, which only the box's outputs decide — an enabled GT has none (census 1.6).</td></tr>
-  <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant.</td></tr>
+  <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant. The corpus's one drawn <code>RETURN</code> holds the bit on its target only (ld-fbd-coverage 1b.2) — the item bit is a member a later step spells.</td></tr>
   <tr><td>Network position; Int64 Ids</td><td>Not in the text: CODESYS re-mints Ids on a changed network, and a push pairs networks <a href="#pairing">by text</a>.</td></tr>
   <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope or in the network, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n.</td></tr>
-  <tr><td>Shown as the <a href="#network-line"><code>UNSUPPORTED</code> line</a>, measured</td><td>No spelling, by census: a flag on a box input pin (1.13), an item flag on a Demux or Assign (1.1), a Demux defined below the top level or referenced before its definition (1.8), a wire whose producer states no type (1.17). Also: a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>, a rung driving a coil and a jump or several jumps (spelling it needs JMP as a target, which is not ST; <code>JumpDestinationTests</code>), a negated or edge coil (0 in 576 measured targets, census 1.7). Each is refused by name; dropping or reordering it would lose a vendor fact.</td></tr>
-  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place. A changed network shape (and every create) is rebuilt through the IDE's PLCopen import, which builds one network per connected rung (D25): a network holding several independent rungs is refused. <code>PARALLEL</code>, a wire fed by a leaf (measured to reshape, DIALECT N22) and a result pin <code>=&gt; v</code> are refused there with <code>NETWORK_UNSUPPORTED</code>, naming the network and the shape. <code>R_EDGE(NOT x)</code> is refused on TwinCAT (its evaluation order is unmeasured, N17) and shown as <code>UNSUPPORTED "a negation with an edge"</code> on pull.</td></tr>
+  <tr><td>Shown as the <a href="#network-line"><code>UNSUPPORTED</code> line</a>, measured</td><td>No spelling, by census: an edge on a box input pin (1.13), an item flag on a Demux or Assign (1.1), a Demux defined below the top level or referenced before its definition (1.8), a wire whose producer states no type (1.17: a box with no stored type, a leaf storing none, nothing feeding it in FBD), a jump or return below the top level. Also: a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>, a rung driving a coil and a jump or several jumps (spelling it needs JMP as a target, which is not ST; <code>JumpDestinationTests</code>), a negated or edge coil (0 in 576 measured targets, census 1.7). Each is refused by name; dropping or reordering it would lose a vendor fact.</td></tr>
+  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place. A changed network shape (and every create) is rebuilt through the IDE's PLCopen import, which builds one network per connected rung (D25): a network holding several independent rungs is refused. <code>PARALLEL</code>, a wire fed by a leaf (measured to reshape, DIALECT N22), a result pin <code>=&gt; v</code>, a negated pin (S6), an assignment below the top level (S2) and a <code>SUPER^</code> call (S5) are refused there with <code>NETWORK_UNSUPPORTED</code>, naming the network and the shape. <code>R_EDGE(NOT x)</code> is refused on TwinCAT (its evaluation order is unmeasured, N17) and shown as <code>UNSUPPORTED "a negation with an edge"</code> on pull.</td></tr>
 </table>
 
 <h2 id="path">The path a body travels</h2>
@@ -119,11 +120,15 @@ jump        = "JMP" , name | "RETURN" ;                              (* any iden
 
 value       = edge | [ "NOT" ] , core | (* empty *) ;
 edge        = ( "R_EDGE" | "F_EDGE" ) , "(" , [ "NOT" ] , core , ")" ;   (* a flag, not an FB *)
-core        = group | call , [ ".ENO" | "." , name ] | execute , [ ".ENO" ] | parallel | operand ;   (* ".name": a main output not slot 0 *)
+core        = group , { pragma } | call , { pragma } , [ ".ENO" | "." , name ] | execute , { pragma } , [ ".ENO" ]
+            | nested | parallel | operand ;                          (* ".name": a main output not slot 0 *)
 group       = "(" , value , operator , value , { operator , value } , ")" ;   (* one operator kind *)
+nested      = "(" , lvalue , op , { lvalue , op } , value , ")" ;  (* S2: an assign below the top level *)
 call        = ( "???" , ":" , name | head ) , "(" , [ pin , { "," , pin } ] , ")" ;   (* "()" = no input slot *)
-head        = boxtype | instance | backtick ;                        (* NOT(…) is the NOT box *)
-pin         = [ name , ":=" ] , value | name , "=&gt;" , lvalue | "=&gt;" , [ lvalue ] ;
+head        = boxtype | instance | backtick ;                        (* NOT(…) is the NOT box; `SUPER^` the base FB *)
+pin         = [ [ "NOT" ] , name , ":=" ] , value | name , "=&gt;" , lvalue | "=&gt;" , [ lvalue ] ;   (* NOT name: a negated pin *)
+pragma      = "{" , member , { "." , member } , ":=" , ( literal | "[" , [ literal , { "," , literal } ] , "]" ) , "}" ;
+literal     = st-string | integer | "TRUE" | "FALSE" | name ;     (* ST's literals; a string never spans a line *)
 execute     = "EXECUTE" , [ "(" , "EN" , ":=" , value , ")" ] , NL , st-lines , "END_EXECUTE" ;
 parallel    = "PARALLEL" , "(" , [ "MODE" , ":=" , mode , "," ] , [ "IN" , ":=" , value , "," ] , value , { "," , value } , ")" ;   (* MODE only off its default *)
 operand     = token | backtick ;
@@ -135,7 +140,9 @@ operator    = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   <li><b>Terminators:</b> every statement ends with <code>;</code> — <code>IF a THEN JMP Done; END_IF;</code> and
     <code>END_EXECUTE;</code> too. That <code>;</code> belongs to its statement; only a <code>;</code> that closes
     nothing is the empty item, written on its own line.</li>
-  <li><b>Parentheses are structural:</b> a pair is a group's (it holds an operator) or a call's (it follows a head).
+  <li><b>Parentheses are structural:</b> a pair is a group's (it holds an operator), a call's (it follows a head) or an
+    assignment's (a target and a storage operator open it: <code>(t := v)</code>, S2 — <code>(R = x)</code> stays a
+    comparison, since storage is decided after a target).
     After <code>NOT</code>, a pair holding an operator is a group under the modifier; any other pair is the NOT box's
     argument list. After an operator word (<code>AND</code>, <code>MOD</code>, …) the same: a pair holding an operator
     at its own depth is a group, so the word was the operator after an empty slot (<code>( AND (x OR y))</code>); any
@@ -147,8 +154,9 @@ operator    = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
     called <code>`Network`(x)</code>). An operator type spelled otherwise than the table (<code>and</code>) keeps its
     spelling in call form, never infix. An FB box's head is its instance. The FB's type is taken from the instance's
     declaration, and a declaration names a NAME — so an instance whose text is an expression (<code>fbs[1]</code>,
-    <code>SUPER^</code>, census 1.12) has no spelling, and a push of <code>`fbs[1]`(IN := a)</code> is refused rather
-    than read as a function named <code>fbs[1]</code>. A function box named like an instance in scope has no spelling
+    census 1.12) has no spelling, and a push of <code>`fbs[1]`(IN := a)</code> is refused rather than read as a function
+    named <code>fbs[1]</code>. The one such instance the scope answers is <code>`SUPER^`</code>: the base the POU's (or
+    its owner's) <code>EXTENDS</code> names (S5). A function box named like an instance in scope has no spelling
     either: its head would read back as that instance.</li>
   <li><b>lvalue:</b> an assign target or a <code>=&gt; v</code> pin is a token or a backtick, by the same rule as an
     operand (<code>`arr[i + 1]` := x;</code>); a literal target is backticked. A bare <code>=&gt;</code> is an output
@@ -209,7 +217,7 @@ operator    = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
 <pre>NETWORK LABEL: L1 TITLE: "Calc"
   // why
   // it is
-  UNSUPPORTED "an assign below the top level";
+  UNSUPPORTED "a flag on a box input pin";
 END_NETWORK</pre>
 <p>
   The line is its network's only statement (no wire block, nothing before or after it); the LSP reports nothing inside
@@ -422,7 +430,9 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
     has one. Any other connection slot has no spelling. A pushed consumer without a suffix on a box the IDE gives an
     ENO main output is refused, naming the box — the mirror of <code>.ENO</code> on a box with no ENO.</li>
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
-    box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
+    box no stored slot where it stores no output (the plain box, census 1.6) and slot 0 where it stores one — the
+    editor's form, <code>(a AND b){OutputParam.Names := ['']}</code> (S1, <a href="#pragma">the pragma</a>): one output
+    slot per stored name. The rule is the same for a
     group and a call: <code>(a &gt; b)</code> and <code>GT(a, b)</code> read to one box, connected by slot 0, and the
     slot never decides infix — except ENO: a group has no suffix position, so an operator box consumed by its ENO is
     a call, <code>out := ADD(a, b).ENO;</code>, never <code>(a + b)</code>, which is the same ADD consumed by its data
@@ -457,6 +467,26 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
   claim GT reads ADD's data output, which no measured ADD with EN is connected by; the push refuses what the IDE's box
   cannot connect.
 </p>
+
+<h3 id="pragma">Members — the pragma</h3>
+<pre>out := (a AND b){OutputParam.Names := ['']}{OutputParam.Types := ['BOOL']};
+t1(IN := go){OutputParam.Names := ['Q', 'ET']}{OutputParam.Types := ['BOOL', 'TIME']};</pre>
+<p>
+  <b>Network text is the NWL tree one to one for every member that is not a measured editor cache</b> (openspec
+  ld-fbd-coverage, design "1b.2", "2.3"). A member the statements above do not spell is a <b>pragma</b> directly after
+  its node — one <code>{Member := value}</code> per member, the value one of ST's literals (a single-quoted string with
+  ST's <code>$</code> escapes, an integer, <code>TRUE</code>/<code>FALSE</code>, an enum word) or a bracketed list of them.
+  Each member has a DERIVATION, what the text already implies, and the pragma is written only where the stored value
+  differs from it — so a body whose members are all their derivations reads as before. A text read keeps a spelled
+  value; a push writes the stored value, else the derivation. A pragma naming a member the table does not hold, a value
+  of another kind, or one member twice is refused by name (<code>NETWORK_UNSUPPORTED</code>,
+  <code>NETWORK_BAD_EXPRESSION</code>, <code>NETWORK_DUPLICATE_NAME</code>).
+</p>
+<table>
+  <tr><th>member (on a box)</th><th>derivation</th></tr>
+  <tr><td class="name">OutputParam.Names</td><td>The box's output slots as the text states them: <code>ENO</code> first where the box has one (an Execute box always), then the data result — an operator's <code>''</code>, a function's <code>'   '</code> (none beside an ENO) — then each pin, a positional <code>=&gt; v</code> at its slot and a named one after; on a bit operator and a call, none unless the text names one. S1's <code>['']</code> on a bit operator and a call's whole output list — its unconnected pins included — are spelled.</td></tr>
+  <tr><td class="name">OutputParam.Types</td><td><code>BOOL</code> at the ENO slot and at a comparison's result, the wire's declared type at the slot a wire is connected to, <code>''</code> elsewhere (the callee's pin types are no fact of the text, and no library signature is read).</td></tr>
+</table>
 
 <h3 id="parallel">PARALLEL</h3>
 <pre>ResetSafetyGuard S= PARALLEL(IN := g54, StartFlag, tResetSafetyGuard);

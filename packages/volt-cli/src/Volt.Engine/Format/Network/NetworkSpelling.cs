@@ -225,6 +225,8 @@ internal static class NetworkSpelling
     /// would take.</summary>
     public static bool IsInfix(Box b) =>
         b.Enable is null && b.Instance is null && b.Outputs.Count == 0 && b.StCode is null && !ConnectedByEno(b) &&
+        // A flag on a pin (S6) is spelled on its formal, which only a call has.
+        b.Inputs.All(p => p.Flags.IsNone) &&
         FbdOperators.TypeToSymbol.ContainsKey(b.Type) &&
         string.Equals(b.Type, b.Type.ToUpperInvariant(), StringComparison.Ordinal) && b.Inputs.Count >= 2 &&
         b.Inputs.Select((p, i) => p.Formal is null ||
@@ -240,6 +242,18 @@ internal static class NetworkSpelling
     /// with every positional output moved — which is why it is refused, not renumbered.
     /// </summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
+
+    /// <summary>
+    /// THE DEFAULT FORMAL OF AN OPERATOR'S UNNAMED PIN (S6, ld-fbd-coverage 2.3): <c>IN&lt;n&gt;</c>, 1-based — the name the
+    /// text gives a pin it must name to flag it (<c>AND(a, NOT IN2 := b)</c>), and reads back as no name, the vendor's own
+    /// (an operator box stores no input names, census 1.13). Null for any other box: its unnamed pin has no formal to
+    /// stand on. The one definition the writer and the reader share, as <see cref="IsInfix"/>'s <c>IN&lt;n&gt;</c> is.
+    /// </summary>
+    public static string? DefaultFormal(string type, int pin) =>
+        FbdOperators.TypeToSymbol.ContainsKey(type) || string.Equals(type, "NOT", StringComparison.OrdinalIgnoreCase)
+            ? "IN" + (pin + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : null;
+
 
     /// <summary>
     /// THE NAMED MAIN OUTPUT (ld-fbd-coverage 1b.4, S4): the output name a consumed box is spelled with — <c>fb(…).name</c>
@@ -337,30 +351,34 @@ internal static class NetworkSpelling
     }
 
     /// <summary>
-    /// The type the producer of wire <paramref name="varId"/> says by itself (spec, "a wire's type is read off its
-    /// producer"), decided the same way by the writer, which declares it, and the reader, which checks a declared
-    /// one against it:
+    /// The type a wire's producer says by itself (spec, "a wire's type is read off its producer"), decided the same way by
+    /// the writer, which declares it, and the reader, which checks a declared one against it:
     /// <list type="bullet">
     /// <item>BOOL: an edge, <c>TRUE</c>/<c>FALSE</c>, a Parallel, an Execute box or a box consumed by <c>.ENO</c>, a
-    /// comparison — and a leaf whose EVERY use is boolean (task 1.17): an EN, a Parallel, a jump condition, an
-    /// edge on the reference, and in ladder a coil or a contact (an AND/OR/XOR/NOT input). A leaf feeding a data pin
-    /// is a data value, whatever the language.</item>
+    /// comparison — and in LD the left rail, a wire fed by the empty terminator (S3b, ld-fbd-coverage 2.3).</item>
+    /// <item>A leaf's stored type (S3a, ld-fbd-coverage 2.3): the IDE-drawn leaf holds its declared type (vendor-facts
+    /// <c>nwl-leaf-wire-type</c>), and the text carries it as the wire's declaration — read back onto the leaf, written onto
+    /// it on push. It replaced the reading of a leaf's type off the wire's USES (task 1.17's <c>EveryUseIsBoolean</c>): a
+    /// guess the stored member now answers.</item>
     /// <item>The vendor's stored output type (<see cref="Box.OutputTypes"/>) of the slot the wire is connected to —
     /// before any rule, so a bitwise AND on WORDs is a WORD.</item>
     /// <item>A bit operator with no stored type: BOOL or another bit string.</item>
     /// <item>A reference to another wire: that wire's type.</item>
     /// </list>
     /// </summary>
-    public static ProducedType ProducerType(Node producer, int varId, IReadOnlyList<Node> network, BodyLanguage lang,
-                                            Func<int, string?> wireType)
+    public static bool IsBoolLiteral(string text) =>
+        string.Equals(text, "TRUE", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "FALSE", StringComparison.OrdinalIgnoreCase);
+
+    public static ProducedType ProducerType(Node producer, BodyLanguage lang, Func<int, string?> wireType)
     {
         if (producer.Flags.Rising || producer.Flags.Falling) return ProducedType.Of(Bool);
         switch (producer)
         {
             case Leaf l:
-                if (string.Equals(l.Operand.Text, "TRUE", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(l.Operand.Text, "FALSE", StringComparison.OrdinalIgnoreCase)) return ProducedType.Of(Bool);
-                return EveryUseIsBoolean(varId, network, lang) ? ProducedType.Of(Bool) : ProducedType.Nothing;
+                if (IsBoolLiteral(l.Operand.Text)) return ProducedType.Of(Bool);
+                return l.Operand.Type is { Length: > 0 } leafType ? ProducedType.Of(leafType) : ProducedType.Nothing;
+            case Terminator:
+                return lang == BodyLanguage.Ld ? ProducedType.Of(Bool) : ProducedType.Nothing;
             case Parallel:
                 return ProducedType.Of(Bool);
             case Demux d:
@@ -389,46 +407,4 @@ internal static class NetworkSpelling
             : p.AnyBit && !BitStrings.Contains(WireType(declared))
                 ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
                 : null;
-
-    /// <summary>Whether wire <paramref name="varId"/> is referenced at least once and only where a BOOL is taken.
-    /// A walk over the whole network per leaf-fed wire: a leaf's type is decided by its USES, the one fact of a
-    /// wire that lies below its definition.</summary>
-    private static bool EveryUseIsBoolean(int varId, IReadOnlyList<Node> network, BodyLanguage lang)
-    {
-        var any = false;
-        var all = true;
-        void Walk(Node n, bool boolean)
-        {
-            switch (n)
-            {
-                case Demux { Input: null } d:
-                    if (d.VarId != varId) break;
-                    any = true;
-                    all &= boolean;
-                    break;
-                // Sub-trees through `Children()`, the model's one list of them; only the context each is taken in is
-                // decided here, per kind.
-                case Demux d:
-                    foreach (var c in d.Children()) Walk(c, false);   // boolean or not rides the other wire's uses — not proven
-                    break;
-                case Assign a:
-                    var controlFlow = a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { } f && (f.Jump || f.Return));
-                    foreach (var c in a.Children()) Walk(c, controlFlow || lang == BodyLanguage.Ld);   // a condition; a ladder coil
-                    break;
-                case Box b:
-                    // Not through `Children()`: the context differs per slot — the enable is always a BOOL, the pins are
-                    // contacts or not by the box kind — and the record already keeps the two apart, so counting position
-                    // in a uniform walk would only restate that, and break the day the walk's order changed.
-                    if (b.Enable is { } en) Walk(en, true);
-                    var contacts = lang == BodyLanguage.Ld && b.StCode is null && BitOperators.Contains(b.Type);
-                    foreach (var pin in b.Inputs) Walk(pin.Value, contacts);
-                    break;
-                case Parallel p:
-                    foreach (var c in p.Children()) Walk(c, true);
-                    break;
-            }
-        }
-        foreach (var t in network) Walk(t, false);   // a top-level value's output goes nowhere
-        return any && all;
-    }
 }

@@ -93,7 +93,7 @@ public class LadderOracleTests
             LdMarker +
             "NETWORK\n" +
             "  EtherCAT_Master.xRestart :=\n" +
-            "  REQ_RestartComm S= TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S);\n" +
+            "  REQ_RestartComm S= TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S){OutputParam.Types := ['BOOL']};\n" +
             "END_NETWORK\n"),
 
         // A call whose only output is ENO (`Names=['ENO']`), its EN wired to TRUE, read through the ENO as a
@@ -149,7 +149,7 @@ public class LadderOracleTests
             LdMarker +
             "NETWORK TITLE: \"DONE NETWORK 2: Condition: Rest position\"\n" +
             "  VAR_TEMP g0 : BOOL; END_VAR\n" +
-            "  g0 := (TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS) OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag));\n" +
+            "  g0 := (TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS){OutputParam.Types := ['BOOL', 'TIME']} OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag));\n" +
             "  stRestposition S=\n" +
             "  stLowerInpusher R=\n" +
             "  stInfeedTray R=\n" +
@@ -178,7 +178,7 @@ public class LadderOracleTests
             "  stInpushingRow R=\n" +
             "  stLightCurtainInterruptedDuringInpushing R=\n" +
             "  stSrCigarAtEndBeforeLast R=\n" +
-            "  stSrCigarAtEnd R= ADD(EN := ((TMR_DelayDescend(IN := (stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher), PT := T#500MS) OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1), ioActNumberOfRows, 1, => ioActNumberOfRows).ENO;\n" +
+            "  stSrCigarAtEnd R= ADD(EN := ((TMR_DelayDescend(IN := (stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher), PT := T#500MS){OutputParam.Types := ['BOOL', 'TIME']} OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1), ioActNumberOfRows, 1, => ioActNumberOfRows){OutputParam.Types := ['BOOL', 'INT']}.ENO;\n" +
             "END_NETWORK\n"),
 
         // The page's "honest regression": three wires, two edge FBs, a top-level enabled ADD writing its own pin,
@@ -212,11 +212,11 @@ public class LadderOracleTests
             "  g2 := True;\n" +
             "  g3 := (g2 AND True);\n" +
             "  g4 := (g3 AND iPulseCounterElevator);\n" +
-            "  tBool := stRePulseCounter(CLK := g4);\n" +
-            "  tBool S= stFePulseCounter(CLK := g4);\n" +
-            "  ADD(EN := (g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher)), stActHeightElevator, 5, => stActHeightElevator);\n" +
+            "  tBool := stRePulseCounter(CLK := g4){OutputParam.Types := ['BOOL']};\n" +
+            "  tBool S= stFePulseCounter(CLK := g4){OutputParam.Types := ['BOOL']};\n" +
+            "  ADD(EN := (g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher)), stActHeightElevator, 5, => stActHeightElevator){OutputParam.Types := ['BOOL', 'INT']};\n" +
             "  stTrayDecended S=\n" +
-            "  stDecendTray R= PARALLEL(IN := ADD(EN := MUL(EN := (g2 AND stDecendTray), ioActNumberOfRows, iRowHeight, => tInt).ENO, tInt, iInitialDescentValue, => tInt).ENO, GE(EN := , stActHeightElevator, tInt), iPsElevatorDown);\n" +
+            "  stDecendTray R= PARALLEL(IN := ADD(EN := MUL(EN := (g2 AND stDecendTray), ioActNumberOfRows, iRowHeight, => tInt){OutputParam.Types := ['BOOL', 'INT']}.ENO, tInt, iInitialDescentValue, => tInt){OutputParam.Types := ['BOOL', 'INT']}.ENO, GE(EN := , stActHeightElevator, tInt), iPsElevatorDown);\n" +
             "END_NETWORK\n"),
     };
 }

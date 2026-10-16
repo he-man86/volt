@@ -69,7 +69,8 @@ public class TcDemuxTests
     /// <summary>THE SLOT A CONSUMER READS, from the archive (task 3.10). The archive serializes no
     /// <c>MainOutputIndex</c>; the connected output is the one slot stored NULL, as the CODESYS census found beside the
     /// index (DIALECT N16). The hand-drawn TON read by its coil holds <c>[null, ""]</c> — <c>Q</c> connected, <c>ET</c>
-    /// unwired — and an AND box, which stores no main output, is connected by none.</summary>
+    /// unwired — and an AND box storing an output (<c>Names = ['']</c>, the editor's form: S1, ld-fbd-coverage 2.3) is
+    /// connected by it, slot 0, as CODESYS reads the same box.</summary>
     [Fact]
     public void A_consumed_box_records_the_slot_its_consumer_reads()
     {
@@ -78,7 +79,7 @@ public class TcDemuxTests
         var ton = boxes.First(b => b.Type == "TON");
         Assert.Equal((0, 0, false), (ton.ConnectedSlot, ton.MainOutputIndex, ton.HasEnoOutput));
         var and = boxes.First(b => b.Type == "AND");
-        Assert.Equal((null, null), (and.ConnectedSlot, and.MainOutputIndex));
+        Assert.Equal((0, 0), (and.ConnectedSlot, and.MainOutputIndex));
     }
 
     /// <summary>...and it renders as the format's own spelling for a fan-out: the wire declared in its network's
@@ -156,6 +157,70 @@ public class TcDemuxTests
         var text = TcText.Write(Read(root));
 
         Assert.Contains("  VAR_TEMP g1 : WORD; END_VAR\n", text);
+    }
+
+    /// <summary>…and AN IN-PLACE PUSH KEEPS THAT STORED TYPE (gate 2-3 review). The text spells no <c>OutputParam.Types</c>
+    /// pragma — the wire's declared type is its derivation — so the box read back from the text holds no stored types,
+    /// and the in-place write derived them WITHOUT the wire's type: the archive's <c>['WORD']</c> became <c>[]</c>, and
+    /// the next pull showed the network UNSUPPORTED, "a wire of unknown type". The Demux arm hands its producer the
+    /// declared type, as the CODESYS writer does (<see cref="NetworkText.WithDeclaredType"/>).</summary>
+    [Fact]
+    public void An_in_place_push_keeps_the_stored_type_of_a_box_fed_wire()
+    {
+        var root = XElement.Parse(Body(), LoadOptions.PreserveWhitespace);
+        var feed = root.Descendants("o").Single(o => Is(o, "BoxTreeDemux") && o.Elements("o").Any(i => Named(i, "Input")))
+                       .Elements("o").Single(i => Named(i, "Input"));
+        var and = new XElement(root.Descendants("o").First(o => Is(o, "BoxTreeBox") &&
+                                  o.Elements("v").Any(v => Named(v, "BoxType") && v.Value == "\"AND\"")));
+        and.SetAttributeValue("n", "Input");
+        foreach (var reference in and.Descendants("o").Where(o => Is(o, "BoxTreeDemux")).ToList())
+        {
+            var leaf = new XElement(feed);
+            leaf.SetAttributeValue("n", null);
+            reference.ReplaceWith(leaf);
+        }
+        and.Elements("o").Single(o => Named(o, "OutputParam")).Elements("l2").Single(l => Named(l, "Types")).Element("v")!.Value = "WORD";
+        feed.ReplaceWith(and);
+        var archive = root.ToString(SaveOptions.DisableFormatting);
+        var pulled = Read(root);
+        var text = TcText.Write(pulled);
+
+        Assert.Null(TcText.Apply(archive, TcText.Validate(text, TcText.ScopeOf(pulled))));
+
+        var edited = text.Replace("out2 := g1;", "out := g1;");
+        Assert.NotEqual(text, edited);
+        var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
+        Assert.NotNull(written);
+        Assert.Contains("  VAR_TEMP g1 : WORD; END_VAR\n", TcText.Write(Read(XElement.Parse(written!, LoadOptions.PreserveWhitespace))));
+    }
+
+    /// <summary>AN IN-PLACE PUSH IS NOT A CONSTRUCTION (gate 2-3 review): the box stays the one the IDE drew, so it keeps
+    /// the stored output names the text spells by pragma — the function result pin <c>'   '</c> among them, which only a
+    /// box VOLT BUILDS cannot hold (CODESYS, DIALECT N37; <see cref="NetworkMembers.Buildable"/>). The in-place write
+    /// applied that construction limit and replaced the archive's names and types with the derivation, unnamed.</summary>
+    [Fact]
+    public void An_in_place_push_keeps_a_spelled_function_result_name()
+    {
+        var root = XElement.Parse(Body(), LoadOptions.PreserveWhitespace);
+        var and = root.Descendants("o").First(o => Is(o, "BoxTreeBox") &&
+                      o.Elements("v").Any(v => Named(v, "BoxType") && v.Value == "\"AND\""));
+        and.Elements("o").Single(o => Named(o, "OutputParam")).Elements("l2").Single(l => Named(l, "Names")).Element("v")!.Value =
+            NetworkMembers.FunctionResult;
+        var archive = root.ToString(SaveOptions.DisableFormatting);
+        var pulled = Read(root);
+        var text = TcText.Write(pulled);
+        Assert.Contains("{OutputParam.Names := ['   ']}", text);
+
+        var edited = text.Replace("out2 := g1;", "out := g1;");
+        Assert.NotEqual(text, edited);
+        var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
+        Assert.NotNull(written);
+
+        var after = XElement.Parse(written!, LoadOptions.PreserveWhitespace).Descendants("o").First(o => Is(o, "BoxTreeBox") &&
+                        o.Elements("v").Any(v => Named(v, "BoxType") && v.Value == "\"AND\""));
+        var param = after.Elements("o").Single(o => Named(o, "OutputParam"));
+        Assert.Equal(new[] { NetworkMembers.FunctionResult }, param.Elements("l2").Single(l => Named(l, "Names")).Elements("v").Select(v => v.Value));
+        Assert.Equal(new[] { "BOOL" }, param.Elements("l2").Single(l => Named(l, "Types")).Elements("v").Select(v => v.Value));
     }
 
     private static bool Is(XElement e, string type) => (string?)e.Attribute("t") == type;

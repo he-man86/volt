@@ -625,12 +625,10 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { false, true }, pins.Select(p => p.Flags.Negated));
         Assert.True(((Leaf)pins[1].Value).Flags.IsNone, "the bit belongs to the pin, not to the operand feeding it");
 
+        // S6 (ld-fbd-coverage 2.3): the pull spells it on the pin's formal — an operator's default one, `IN2`.
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
+        Assert.Contains("  out := AND(a, NOT IN2 := xIsWarningInfo);\n",
             NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
-        Assert.Equal("a flag on a box input pin", ex.Reason);
-        Assert.Contains("AND", ex.Message);             // which box
-        Assert.Contains("xIsWarningInfo", ex.Message);  // which pin, by what feeds it
     }
 
     /// <summary>An edge on a pin is the same fact through another bit — read onto the pin it sits on.</summary>
@@ -978,8 +976,10 @@ public class CodesysNetworkReaderTests
     /// without EN keeps the text's reading (connected by none), and an enabled box with no ENO in its list has no slot
     /// the text could state: it stays unread, and the writer names it.</summary>
     [Theory]
-    [InlineData("MAX", false, new string[0], 0, "n := MAX(a, b);")]
-    [InlineData("ADD", false, new string[0], 0, "n := (a + b);")]
+    // The output names Volt builds an operator with (ld-fbd-coverage 2.3, NetworkMembers.DerivedOutputNames): its data
+    // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
+    [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
+    [InlineData("ADD", false, new[] { "" }, 0, "n := (a + b);")]
     [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND(EN := c, a, b).ENO;")]
     [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE(EN := c, a, b).ENO;")]
     [InlineData("MOVE", true, new string[0], null, null)]
@@ -995,7 +995,7 @@ public class CodesysNetworkReaderTests
             BoxType = type,
             InputItemList = inputs.ToArray(),
             InputParams = enabled ? new Nwl.ParamList { Names = new[] { "EN", "", "" }, Types = new[] { "", "", "" } } : new Nwl.ParamList(),
-            OutputParams = new Nwl.ParamList { Names = outputNames, Types = outputNames.Select(_ => "").ToArray() },
+            OutputParams = new Nwl.ParamList { Names = outputNames, Types = outputNames.Select(n => n == "ENO" ? "BOOL" : "").ToArray() },
         };
         foreach (var _ in outputNames) box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
         var assign = new Nwl.BoxTreeAssign { RValue = box };
@@ -1023,7 +1023,7 @@ public class CodesysNetworkReaderTests
         {
             BoxType = "ADD",
             InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
-            OutputParams = new Nwl.ParamList { Names = new[] { "", "" }, Types = new[] { "INT", "" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "INT" } },
             MainOutputIndex = 0,
         };
         var use = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeDemux { VarId = 1 } };
@@ -1032,7 +1032,7 @@ public class CodesysNetworkReaderTests
         var body = CodesysNetworkReader.Read(Nwl.Body(new Nwl.BoxTreeDemux { VarId = 1, Input = add }, use), BodyLanguage.Fbd);
 
         var read = Assert.IsType<Box>(Assert.IsType<Demux>(body.Networks.Single().Trees[0]).Input);
-        Assert.Equal(new[] { "INT", null }, read.OutputTypes);
+        Assert.Equal(new[] { "INT" }, read.OutputTypes);
         Assert.Contains("  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n",
             NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
     }

@@ -16,11 +16,13 @@ import type {
   NetworkDiagnosticCode,
   NetworkLanguage,
   NetworkName,
+  NetworkPragma,
   NetworkTextDiagnostic,
   NetworkValue,
   NetworkWire,
 } from "./ast.js"
 import { NetworkLexer, type Tok, isSym, isWord } from "./lexer.js"
+import { parsePragma, pragmaRefusal } from "./pragma.js"
 
 export const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 const PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/
@@ -151,6 +153,22 @@ export abstract class NetworkCursor {
     this.la = undefined
     if (t.kind !== "eof") this.lastEnd = t.offset + t.length
     return t
+  }
+
+  /** The pragmas standing right after a node, each read and held to the member table — an unknown member, a value of
+   *  another kind, or one member twice is refused by name, as the bridge's reader refuses it (`ParsePragmas`). */
+  protected readPragmas(): NetworkPragma[] | undefined {
+    const out: NetworkPragma[] = []
+    while (this.peek().kind === "pragma") {
+      const t = this.next()
+      const p = parsePragma(t.text)
+      if ("error" in p) throw this.err(t, "NETWORK_PARSE", p.error)
+      const refusal = pragmaRefusal(p.member, p.value)
+      if (refusal !== undefined) throw this.err(t, refusal.code, refusal.message)
+      if (out.some((x) => x.member === p.member)) throw this.err(t, "NETWORK_DUPLICATE_NAME", `the pragma '${p.member}' twice on one node.`)
+      out.push({ member: p.member, value: p.value, span: this.tokSpan(t) })
+    }
+    return out.length > 0 ? out : undefined
   }
 
   protected expectSym(sym: string, form: string): void {

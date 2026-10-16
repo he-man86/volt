@@ -15,6 +15,9 @@ namespace Volt.Engine.Tests;
 internal static class NetworkModels
 {
     public static Leaf L(string text, Flags? f = null) => new(new Operand(text), f ?? Flags.None);
+    /// <summary>A leaf as the IDE draws it, storing its declared type — what a leaf-fed wire is declared with (S3a,
+    /// ld-fbd-coverage 2.3).</summary>
+    public static Leaf LT(string text, string type) => new(new Operand(text, Type: type), Flags.None);
     public static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
     public static Terminator Empty => new(Flags.None);
     public static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
@@ -172,7 +175,13 @@ internal static class NetworkModels
         Add("A_wire_is_typed_from_its_producer_and_never_guessed/typed-box", Body(Net(Def(1, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" })),
             Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0, eno: false), T("o1")),
             Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0, eno: false), T("o2")))));
-        Add("A_wire_is_typed_from_its_producer_and_never_guessed/ld-leaf", Body(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
+        Add("A_negated_pin_is_spelled_on_its_formal_and_an_edge_on_a_pin_goes_to_the_marker/named", Body(Call("f", new[] { new Input("IN1", L("x"), Neg) })));
+        Add("A_negated_pin_is_spelled_on_its_formal_and_an_edge_on_a_pin_goes_to_the_marker/operator",
+            Body(Set(Call("AND", new[] { In(L("a")), new Input(null, L("b"), Neg) }, main: null), T("o"))));
+        Add("A_ladder_leaf_wire_takes_its_leafs_stored_type_whatever_reads_it", Body(Net(Def(1, LT("nSpeed", "INT")),
+            Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 1) }, en: L("x"), eno: true),
+            Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld));
+        Add("A_wire_is_typed_from_its_producer_and_never_guessed/ld-leaf", Body(Net(Def(1, LT("x", "BOOL")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
         Add("A_stored_type_is_written_in_the_texts_spelling_of_its_tokens", Body(Net(
             Def(1, Call("CONCAT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new[] { "STRING (80)" })),
             Set(Ref(1), T("o")))));
@@ -236,7 +245,6 @@ internal static class NetworkModels
         ["Operand_text_holding_a_backtick_goes_to_the_marker"] = "refused by the writer",
         ["A_wire_or_a_Parallel_cannot_carry_a_flag"] = "writes nothing: the model cannot hold the state",
         ["Rising_and_falling_on_one_operand_goes_to_the_marker"] = "refused by the writer",
-        ["A_flag_on_a_box_input_pin_goes_to_the_marker"] = "refused by the writer",
         ["A_flag_on_an_Assign_item_goes_to_the_marker"] = "refused by the writer",
         ["A_flag_on_an_empty_slot_goes_to_the_marker"] = "refused by the writer",
         ["A_connection_by_neither_the_main_output_nor_ENO_goes_to_the_marker"] = "refused by the writer",
@@ -251,8 +259,7 @@ internal static class NetworkModels
         ["A_flag_on_a_jump_or_return_target_goes_to_the_marker"] = "refused by the writer",
         ["A_coil_both_set_and_reset_goes_to_the_marker"] = "refused by the writer",
         ["An_FB_instance_the_declarations_do_not_name_goes_to_the_marker"] = "refused by the writer",
-        ["A_ladder_leaf_wire_feeding_data_pins_is_of_unknown_type"] = "refused by the writer",
-        ["A_ladder_leaf_wire_on_an_enabled_boxs_data_pins_is_of_unknown_type"] = "refused by the writer",
+        ["A_leaf_wire_whose_leaf_stores_no_type_is_refused_by_name"] = "refused by the writer",
         ["A_lone_CR_inside_a_comment_or_snippet_line_goes_to_the_marker"] = "refused by the writer",
         ["A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker"] = "refused by the writer",
         ["A_wire_whose_name_is_taken_is_renamed_to_the_lowest_free_g"] =

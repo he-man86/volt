@@ -183,7 +183,7 @@ class Parser extends StatementReader {
 
       // A wire declared and never defined carries no Demux: the model is complete without it and the writer drops its
       // declaration (2.8). A REFERENCE to one is refused where it stands (`resolve`): it has no producer.
-      this.checkWireTypes(wires, statements)
+      this.checkWireTypes(wires)
     } catch (e) {
       if (!(e instanceof ParseError)) throw e
       this.report(e)
@@ -331,9 +331,10 @@ class Parser extends StatementReader {
   /**
    * Spec, "a hand-edited type": each wire's declared type against what its producer says — the bridge reader's
    * `CheckWireTypes`, by the writer's rule (`NetworkSpelling.ProducerType`), because the vendor's Demux has no field
-   * that would keep a type the producer contradicts. Run once the network is read: a leaf's type is decided by how the
-   * wire is USED. Text carries no stored output type, so a box says BOOL (an EXECUTE, `.ENO`, a comparison), "BOOL or
-   * another bit string" (a bit operator) or nothing — exactly what the reader has to go on.
+   * that would keep a type the producer contradicts. Run once the network is read. A leaf says its own type (TRUE/FALSE
+   * BOOL, otherwise the type the reader puts on it), LD's empty terminator BOOL, a box the output type its pragma
+   * spells (ld-fbd-coverage 2.3), else BOOL (an EXECUTE, `.ENO`, a comparison), "BOOL or another bit string" (a bit
+   * operator) or nothing — exactly what the reader has to go on.
    *
    * A refused declaration types nothing downstream (`NetworkWire.typeRefused`): the push never lets the body reach a
    * build, so a compiler message at the wire's CONSUMER would be one no build gives, and it would steer the engineer
@@ -341,10 +342,10 @@ class Parser extends StatementReader {
    * build gives the uses (`NetworkWire.typeConfirmed`): where the rule says less, the push takes the declaration as
    * written and the vendor, whose Demux holds no type, compiles the consumer against the producer.
    */
-  private checkWireTypes(wires: readonly NetworkWire[], statements: readonly NetworkTextStatement[]): void {
+  private checkWireTypes(wires: readonly NetworkWire[]): void {
     for (const wire of wires) {
       if (wire.definition === undefined) continue
-      const produced = producerType(wire.definition.value, wire, statements, wires, this.language, this.typing)
+      const produced = producerType(wire.definition.value, wires, this.language, this.typing)
       const says = disagreement(produced, wire.typeText, this.typing)
       if (says === undefined) {
         if (produced.exact !== undefined) wire.typeConfirmed = true
