@@ -3,15 +3,10 @@
  * array LOCAL variable default stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const msgs = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "input-default-composite")
     .map((d) => d.message)
 }

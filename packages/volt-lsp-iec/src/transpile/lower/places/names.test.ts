@@ -3,14 +3,7 @@
  */
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
-import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // transpile-review-2026-09-29 task 19 (conformance `tr_19_method_inout_shadows_member`, `tr_19_method_inout_shadows_var_stat`,
 // recorded): a METHOD's own VAR_IN_OUT lost to the FB's field or VAR_STAT of the same name — `x := x + 100` wrote the member,

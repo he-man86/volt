@@ -8,6 +8,7 @@ import type { IrStmt } from "../../ir/index.js"
 import { Lowering } from "../core/lowering.js"
 import { lowerSource } from "../index.js"
 import { programReentrant, programTarget } from "./reentrancy.js"
+import { ir } from "../../../../test/support/transpile.js"
 
 const span = undefined as never
 const lw = new Lowering({} as Scope, {} as Scope)
@@ -30,13 +31,6 @@ test("a rule checks a reason only inside a program, or never", () => {
   expect(programReentrant(lw, quiet, { slot: 4, inside: false }, { touched: "always", dispatch: "inside" })).toBeUndefined()
   expect(programReentrant(lw, quiet, { slot: 4, inside: true }, { touched: "always", dispatch: "never" })).toBeUndefined()
 })
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
 
 // Review of the qualified-constant / program-instance batch (adversarial verify), each reproduced before its fix. Why
 // missed: the tests called the recorded shapes only — no PROPERTY on the instance, no runtime index, no body reaching the

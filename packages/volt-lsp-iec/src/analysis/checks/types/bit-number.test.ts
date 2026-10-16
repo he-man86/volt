@@ -7,12 +7,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const bits = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  w : WORD; b : BOOL; d : DWORD; re : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "invalid-bit-number")
     .map((d) => d.message)
 }

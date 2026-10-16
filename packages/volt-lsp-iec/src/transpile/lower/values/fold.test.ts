@@ -4,6 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { ir } from "../../../../test/support/transpile.js"
 
 const fb = (init: string) =>
   `FUNCTION_BLOCK FB\nVAR\n  d : LINT := ${init};\nEND_VAR\nd := d + 0;\nEND_FUNCTION_BLOCK\n` +
@@ -28,13 +29,6 @@ test("a platform-alias conversion in an initializer lowers as it does in a body,
   expect(value("5 + __XINT_TO_DINT(5)")).toBe(10n)
   expect(codes(fb("DINT_TO___UXINT(-1)"))).toEqual([])
 })
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
 
 // pro2193 sizes arrays and starts variables through qualified constants — `ARRAY[1..GVL_Constants.ChainProductsForReject]`,
 // `MaxVacuums : USINT := XiUnits.MaxVacuums`, `prevState : DINT := GVL_Constants.DintSmallest`. None folded (`constEval`

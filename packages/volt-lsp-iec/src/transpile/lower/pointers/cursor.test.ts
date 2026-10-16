@@ -4,13 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 describe("lower — a STRING CURSOR (a character pointer a caller fills with a string's address)", () => {
   /** A library function over a character pointer, as the library repo writes one — `uri` keeps it a library unit. */

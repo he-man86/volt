@@ -8,14 +8,13 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const cs = (arms: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src =
     `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  a : INT := 2;\nEND_VAR\nVAR CONSTANT\n  K : INT := 7;\nEND_VAR\n` +
     `CASE i OF\n${arms}\nEND_CASE\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }
@@ -63,9 +62,7 @@ test("CASE-label wording is per-vendor (verified live): CODESYS 'CASE', TwinCAT 
 // with its own message. Each was silent.
 const sint = (arms: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  sv : SINT;\n  res : INT;\nEND_VAR\nCASE sv OF\n${arms}\nELSE res := 2;\nEND_CASE\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }

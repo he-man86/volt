@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // `p := ADR(io.y)` in an FB with `io` a VAR_IN_OUT (conformance `mem_adr_of_inout_member`) was refused outright: the pointer
 // is a field and outlives the call. It is exact where the body stored it on this run; anywhere else is refused.

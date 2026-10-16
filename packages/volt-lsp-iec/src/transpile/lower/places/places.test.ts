@@ -4,15 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "../index.js"
 import { run } from "../../interp/index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
-
-const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+import { ir, wrap } from "../../../../test/support/transpile.js"
 
 describe("lower — STRING (design §18)", () => {
   test("a STRING slot carries its capacity — 80 when sizeless, as measured", () => {

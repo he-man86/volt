@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { emitRust } from "./index.js"
 import { lowerSource } from "../../lower/index.js"
-
-function rust(src: string): string {
-  const { pou, diagnostics } = lowerSource(src)
-  expect(diagnostics).toEqual([])
-  return emitRust(pou!).code
-}
+import { rust } from "../../../../test/support/transpile.js"
 
 describe("emit/rust", () => {
   test("CONTINUE leaves the loop's body, not the loop — the step and a tail test still run", () => {

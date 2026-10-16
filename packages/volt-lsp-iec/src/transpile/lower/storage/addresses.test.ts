@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Review 2026-09-15 (declarations). A root PROGRAM's VAR_IN_OUT lowered as a field the POU owned. An `AT` variable lowered
 // as plain storage — which the simulator agrees with (conformance `operand_hw_address_marker`) — even where its address

@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Recorded (`callshape_positional_arguments` `Mixed(counter, 3)`, `callshape_array_star_of_struct` `Shift(line := points)`):
 // an FB lending its own field to its own METHOD — two `&mut` of one instance. An open array is copied in and written back,

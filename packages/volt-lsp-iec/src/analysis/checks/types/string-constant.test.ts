@@ -6,12 +6,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const sc = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
 }
@@ -109,9 +108,7 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
   // `xo4_string_constant_too_long`'s recorded warnings were missing.
   const body = (decls: string, stmts: string): string[] => {
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)
   }
@@ -165,9 +162,7 @@ test("a capacity named by a local constant is the written name in the warning, a
 test("a literal too long for a VAR_IN_OUT or a REFERENCE is unwarned; through a POINTER it warns", () => {
   const body = (head: string, decls: string, stmts: string): string[] => {
     const src = `${head}\n${decls}\n${stmts}\nEND_${head.split(" ")[0]}`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)
   }

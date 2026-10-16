@@ -7,14 +7,13 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const run =
   (code: string, open = "PROGRAM P", close = "END_PROGRAM") =>
   (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
     const src = `${open}\n${body}\n${close}`
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -91,9 +90,7 @@ test("C0526 is not said for a PROGRAM's input, and is for a METHOD's (dflt_progr
     `FUNCTION_BLOCK FB\nVAR\n o : INT;\nEND_VAR\no := M(q := 1);\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nVAR_INPUT q:INT:=g;\nEND_VAR\nM := q;\nEND_METHOD\n` +
     `VAR_GLOBAL\n g : INT;\nEND_VAR`
   const said = (vendor: "codesys" | "twincat") => {
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "default-not-constant")
       .map((d) => d.message)
   }

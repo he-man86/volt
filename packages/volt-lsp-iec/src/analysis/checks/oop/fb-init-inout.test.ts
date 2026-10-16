@@ -7,13 +7,12 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const FB = `\nFUNCTION_BLOCK MyFB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nVAR_INPUT\n inp : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const diag = (decls: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM${FB}`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
 }
 const codes = (decls: string): string[] => diag(decls).map((d) => d.code)
 
@@ -54,9 +53,7 @@ test("a struct (non-FB) init is left alone — no FP", () => {
 test("C0179 — the value of a VAR_IN_OUT field converts into a REFERENCE TO the parameter's type", () => {
   const conv = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
     const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM${FB}`
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.message.startsWith("Cannot convert"))
       .map((d) => d.message)
   }

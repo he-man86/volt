@@ -4,10 +4,7 @@
  * The declared type is resolved, so array aliases stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const byCode =
   (code: string) =>
@@ -16,9 +13,7 @@ const byCode =
       `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\n` +
       `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n` +
       `TYPE HUE : (RED, GREEN, BLUE); END_TYPE`
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -93,9 +88,7 @@ const errors = (decls: string, vendor: "codesys" | "twincat" = "codesys"): strin
   const src =
     `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\n` +
     `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
     .map((d) => d.message)
 }

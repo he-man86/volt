@@ -3,17 +3,12 @@
  * concrete-FB assignment stay silent (zero-FP). Message names the target variable. Wording CODESYS-verified.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const ABS = `\nFUNCTION_BLOCK ABSTRACT AbstractPOU\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK ConcretePOU\nEND_FUNCTION_BLOCK`
 const diag = (decls: string, body: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM${ABS}`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
 }
 const codes = (decls: string, body: string): string[] => diag(decls, body).map((d) => d.code)
 

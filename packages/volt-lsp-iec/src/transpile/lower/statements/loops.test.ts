@@ -5,15 +5,7 @@ import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import type { IrAssign, IrLoop } from "../../ir/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
-
-const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+import { ir, wrap } from "../../../../test/support/transpile.js"
 
 describe("lower — total, never silently wrong", () => {
   // Refused (`for-step-runtime`) until recorded: a step decided at run time sets the direction (conformance

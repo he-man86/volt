@@ -4,10 +4,7 @@
  * `cc2_type_name_and_method_without_parens`); the parenthesis wording came from the documentation catalog.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const mr = (body: string): string[] => {
   const src = `FUNCTION_BLOCK FB
@@ -19,9 +16,7 @@ PROGRAM PLC_PRG
 VAR f : FB; y : INT; END_VAR
 ${body}
 END_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "method-referenced-without-parens")
     .map((d) => d.message)
 }

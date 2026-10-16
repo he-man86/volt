@@ -10,6 +10,7 @@ import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
 import { codes, FB_ONE_INPUT, caller, messagesOf } from "../../../../test/support/call-diagnostics.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const FB_TWO_INPUTS = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 
@@ -146,9 +147,7 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
   // to retain anything (conformance `callshape_function_input_no_default`).
   const call = (args: string) => {
     const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(${args});\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -165,9 +164,7 @@ test("the range wording is CODESYS's; TwinCAT says exactly", () => {
   // ONE PROJECT PER VENDOR — the parse and the symbol table are both dialect-bound, so sharing them across the
   // two would be asking TwinCAT's question of a CODESYS-bound project
   const of = (vendor: "codesys" | "twincat") => {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -209,9 +206,7 @@ END_VAR
 n := h.Blend(baseValue := 2);
 END_FUNCTION_BLOCK`
   const of = (vendor: "codesys" | "twincat") => {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -239,9 +234,7 @@ END_VAR
 n := F_c(extra := 1);
 END_FUNCTION_BLOCK`
   const of = (vendor: "codesys" | "twincat") => {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }

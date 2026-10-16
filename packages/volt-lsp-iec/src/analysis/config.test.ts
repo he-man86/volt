@@ -5,6 +5,7 @@ import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./ind
 import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
 import { uriFor } from "../../test/support/test-uri.js"
+import { diagnose } from "../../test/support/diagnose.js"
 
 /**
  * CODESYS's "Compiler warnings" dialog model: each configurable code is a 3-state control (off / warning /
@@ -12,9 +13,7 @@ import { uriFor } from "../../test/support/test-uri.js"
  * an "off" code and FORCES the chosen severity on the rest.
  */
 const diag = (src: string, opts?: Omit<Parameters<typeof resolveConfig>[0], "vendor">) => {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", ...opts }) })
+  return diagnose(src, "codesys", resolveConfig({ vendor: "codesys", ...opts }))
 }
 
 // C0139 no-op-statement: `i;` (a bare expression) has no effect — a configurable code Volt emits as warning.

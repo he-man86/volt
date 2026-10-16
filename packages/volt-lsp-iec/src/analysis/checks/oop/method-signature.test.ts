@@ -9,6 +9,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 /** The messages of `codes` (one, or several) — every FB of the source INSTANCED by a program, as the vendor compiles only
  *  an instanced FB (`analysis/shared/compiled.ts`). */
@@ -17,9 +18,7 @@ const msgs = (src0: string, codes: string | readonly string[], vendor: "codesys"
   const vars = fbs.map((n, i) => `\tinst${i} : ${n};`).join("\n")
   const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
   const wanted = typeof codes === "string" ? [codes] : codes
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => wanted.includes(d.code))
     .map((d) => d.message)
 }
@@ -126,9 +125,7 @@ test("an FB reached only through a POINTER TO it is checked (`inh_override_point
   const src0 = base(withInput("INT")) + withInput("DINT")
   const run = (tail: string) => {
     const src = `${src0}\n\n${tail}`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "override-mismatch-base")
       .map((d) => d.message)
   }

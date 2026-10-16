@@ -6,12 +6,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const fb = (body: string): string[] => {
   const src = `PROGRAM P\nVAR inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "fb-not-instantiated")
     .map((d) => d.message)
 }

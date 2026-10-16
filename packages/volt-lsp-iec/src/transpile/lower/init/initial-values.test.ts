@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Aggregate initializers (conformance `array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
 // `init_fb_instance_inputs`): refused outright before, so nothing modelled a field left out keeping its TYPE's value.

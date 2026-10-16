@@ -3,18 +3,13 @@
  * `inst : FB_G<6>;`. Wording measured on CODESYS SP21 (conformance `decl_var_generic_no_argument`, 2026-10-01).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const FB = `FUNCTION_BLOCK FB_G\nVAR_GENERIC CONSTANT\n\tN : UDINT := 4;\nEND_VAR\nVAR\n\ta : ARRAY[0..N] OF INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
 
 const errors = (decl: string): string[] => {
   const src = `${FB}\nPROGRAM P\nVAR\n\t${decl}\nEND_VAR\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }

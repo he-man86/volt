@@ -15,14 +15,13 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 describe("inout-external-access (C0178)", () => {
   const FB = `\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nVAR_INPUT\n inp : INT;\nEND_VAR\nVAR\n loc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
   const diag = (body: string): { code: string; message: string }[] => {
     const src = `PROGRAM PLC_PRG\nVAR\n inst : FB;\n i : INT;\nEND_VAR\n${body}\nEND_PROGRAM${FB}`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
   }
   const codes = (body: string): string[] => diag(body).map((d) => d.code)
 
@@ -60,9 +59,7 @@ describe("inout-external-access (C0178)", () => {
 describe("inout-own-access (C0371)", () => {
   // The check is ON by default; pass it explicitly to be robust to the default flipping.
   const diag = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
   }
 
   test("a method touching its FB's VAR_IN_OUT warns (C0371), byte-identical", () => {
@@ -131,9 +128,7 @@ describe("inout-own-access (C0371)", () => {
 // reading it draws no such warning (`cc4_inout_in_initializer`)
 describe("an initializer's access to a VAR_IN_OUT (C0371)", () => {
   const run = (src: string): string[] => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "inout-own-access")
       .map((d) => d.message)
   }

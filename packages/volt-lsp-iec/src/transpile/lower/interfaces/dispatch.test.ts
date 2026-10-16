@@ -3,7 +3,7 @@
  */
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
-import { lowerSource } from "../index.js"
+import { ir } from "../../../../test/support/transpile.js"
 
 // Interfaces (conformance `itf_*`): an interface variable had no representation (`slot-interface`), so nothing called
 // through one lowered. It holds the tag of its instance, and each call dispatches once every store has lowered.
@@ -12,13 +12,6 @@ const INTERFACES =
   "INTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\n" +
   "FUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n" +
   "FUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
 
 test("a call through an interface runs the instance it holds — a store later in the source reaches it next cycle", () => {
   const program = (vars: string, body: string) => `PROGRAM P\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; ${vars} END_VAR\n${body}\nEND_PROGRAM\n${INTERFACES}`

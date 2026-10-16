@@ -75,7 +75,7 @@ the findings compute and the file read), and the opt-in latency `bench` (`bun ru
 Plus the test SUPPORT that colocated tests under `src/` read (openspec lsp-same-standard 2.1: test support lives only under
 `test/`, and layering rule 6 bars only PRODUCT files from importing it): `lsp/harness.ts`, the LSP client the server's
 tests drive over two in-process pipes, with `lsp/sources.ts`, the documents and client steps those tests share;
-`support/test-uri.ts`, the URI a test names a source by; `support/network-text-on.ts`, the preload `bunfig.toml` names
+`support/test-uri.ts`, the URI a test names a source by; `support/diagnose.ts`, the one-source parse → bind → diagnose harness the colocated analysis tests share; `support/transpile.ts`, the transpiler tests' `ir` / `rust` / `wrap`; `support/network-text-on.ts`, the preload `bunfig.toml` names
 (LD and FBD network text on for every test); `support/culture.ts`, the second preload — `VOLT_TEST_CULTURE=tr-TR` runs every locale-sensitive operation under that locale, and `support/culture.test.ts` fails a locale run that did not switch (openspec environment-dependency-audit 1.1; volt-control preloads the same file — CI's `cultures` job runs volt-control and this sentinel, not the full LSP suite: the LSP's src calls no locale-sensitive API); and `support/call-diagnostics.ts`, the call-argument tests'
 harness. The corpus's
 wire-code debt list, `KNOWN_UNMAPPED`, is `corpus/support/diagnostic-codes.ts`.

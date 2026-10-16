@@ -7,6 +7,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 
 test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns twice", () => {
@@ -14,9 +15,7 @@ test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns tw
   // check it a second time (conformance `co_any_to_conversions` — one warning — against `ir_initializer_warning_*`).
   const run = (section: string) => {
     const src = `FUNCTION_BLOCK F\n${section}\ncLimit : DINT := 16#80000000;\nEND_VAR\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "sign-change-conversion")
       .map((d) => d.message)
   }
@@ -49,9 +48,7 @@ END_FUNCTION_BLOCK`
 /** The sign-change and narrowing messages over `body` in an FB declaring `vars`, as `vendor`. */
 const signMessages = (vars: string, body: string, vendor: "codesys" | "twincat"): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
     .map((d) => d.message)
 }
@@ -129,9 +126,7 @@ test("a NEGATIVE literal beside a 32- or 64-bit unsigned operand is unmeasured o
 test("LIMIT, SEL and MUX warn on each value argument that converts into the meet", () => {
   const run = (body: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n i : INT; ui : UINT; li : LINT; rv : REAL; g : BOOL; k : INT; out : STRING;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
       .map((d) => d.message)
   }
@@ -361,9 +356,7 @@ describe("implicit conversions", () => {
 describe("a negation's change of sign", () => {
   function warnings(decls: string, body: string) {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.severity === "warning" || d.severity === "error")
       .map((d) => d.message)
   }

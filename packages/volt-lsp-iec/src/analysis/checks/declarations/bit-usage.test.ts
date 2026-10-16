@@ -7,11 +7,10 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const errs = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
     .map((d) => d.message)
 }
@@ -70,9 +69,7 @@ test("a BIT in an FB's VAR_TEMP: CODESYS says the section AND the container, Twi
 // `refbit_inout_constant_bit`, `refbit_function_inout_bit` — TwinCAT says only the section's).
 test("a reference to a BIT: REFERENCE TO BIT on both vendors, a BIT in a VAR_IN_OUT on CODESYS", () => {
   const vendorErrs = (src: string, vendor: "codesys" | "twincat"): string[] => {
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
       .map((d) => d.message)
   }
@@ -102,9 +99,7 @@ test("a reference to a BIT: REFERENCE TO BIT on both vendors, a BIT in a VAR_IN_
 // array's own refusal (`refbit_struct_array_component`, `refbit_var_array_reference`, both vendors).
 test("a reference to a BIT in every POU kind, and as an array's element", () => {
   const vendorErrs = (src: string, vendor: "codesys" | "twincat"): string[] => {
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
       .map((d) => d.message)
   }

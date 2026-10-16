@@ -3,12 +3,7 @@ import { emitRust } from "./index.js"
 import { head } from "./expr.js"
 import { Prec, printed } from "./precedence.js"
 import { lowerSource } from "../../lower/index.js"
-
-function rust(src: string): string {
-  const { pou, diagnostics } = lowerSource(src)
-  expect(diagnostics).toEqual([])
-  return emitRust(pou!).code
-}
+import { rust } from "../../../../test/support/transpile.js"
 
 describe("emit/rust", () => {
 /**

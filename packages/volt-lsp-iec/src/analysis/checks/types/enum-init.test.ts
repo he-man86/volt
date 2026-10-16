@@ -3,15 +3,10 @@
  * sibling members, and plain enums are not.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const ei = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "enum-init-not-convertible")
     .map((d) => d.message)
 }
@@ -32,9 +27,7 @@ test("integer inits, sibling references, and plain enums are not flagged", () =>
 /** Every error and warning an enum `(A := 0, B := <value>)` gives, with `before` ahead of it. */
 const enumAll = (value: string, before = ""): string[] => {
   const src = `${before}TYPE DUT : (A := 0, B := ${value}); END_TYPE`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => (d.severity === "error" || d.severity === "warning") && d.code !== "signature-name-mismatch")
     .map((d) => `${d.severity}: ${d.message}`)
     .sort()
@@ -68,9 +61,7 @@ test("each value kind an enum member refuses, as both vendors word it (eninit_*)
 // (`enumdup_inline_enum`). A refused value leaves 0 (`eninit_*` beside `A := 0`; `eninit_invalid_first_member`,
 // `_beside_nonzero` silent), and the member after it is no fact (`enumdup_after_refused_implicit`: (1, 2.5, C) is silent).
 const dups = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "enum-duplicate-value")
     .map((d) => `${d.severity}: ${d.message}`)
 }

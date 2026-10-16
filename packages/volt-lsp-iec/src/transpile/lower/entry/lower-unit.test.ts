@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Recorded (`fbcall_program_own_members`: calls 4, deep 40, tidied 200, doubled 8 after two cycles): a PROGRAM calling its
 // own METHODs and ACTION bare runs them on its one instance. Lowered as the root it was `call-this` (~25 corpus POUs:

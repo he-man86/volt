@@ -6,11 +6,10 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const errs = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "this-not-allowed" || d.code === "super-not-allowed")
     .map((d) => d.message)
 }
@@ -30,9 +29,7 @@ test("THIS/SUPER in a PROGRAM are flagged; in a FUNCTION_BLOCK they are fine", (
 // `expr_super_without_base`, both vendors 2026-10-02). There was a fixed "… instead of 'SUPER^'" on every SUPER here.
 test("SUPER in a base-less function block: not allowed, and its call no call target as written (refuse_super_without_base, expr_super_without_base, E27)", () => {
   const all = (src: string): string[] => {
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.severity === "error")
       .map((d) => d.message)
       .sort()
@@ -54,9 +51,7 @@ test("SUPER in a base-less function block: not allowed, and its call no call tar
 // `expr_super_without_deref`, both vendors 2026-10-02).
 test("a member off THIS or SUPER without its `^`: no structured variable (expr_this_member_without_deref, expr_super_without_deref, E27)", () => {
   const all = (src: string): string[] => {
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.severity === "error")
       .map((d) => d.message)
       .sort()

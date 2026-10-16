@@ -5,13 +5,7 @@ import { expect, test } from "bun:test"
 import { emitRust } from "../../emit/rust/index.js"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Corpus research (2026-09-15), each confirmed in a real project: an array bound that is the POU's or an FB's own VAR
 // CONSTANT (pro2193 `ARRAY[1..numberOfXYControls]`) was "not a sized array" — bounds folded in the project scope only; a

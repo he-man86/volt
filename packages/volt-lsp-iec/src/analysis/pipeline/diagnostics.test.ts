@@ -4,11 +4,10 @@ import { parseSource } from "../../frontend/syntax/index.js"
 import { computeDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../index.js"
 import { build } from "../../frontend/symbols/index.js"
 import { uriFor } from "../../../test/support/test-uri.js"
+import { diagnose } from "../../../test/support/diagnose.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
 }
 
 const codes = (src: string, v: Vendor): string[] =>

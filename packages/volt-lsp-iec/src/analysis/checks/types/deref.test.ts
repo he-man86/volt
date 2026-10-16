@@ -3,15 +3,11 @@
  * (pointer/reference/THIS/unresolved) stays quiet (zero-FP is the whole game — see the check header).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { type DiagnosticItem, type Vendor } from "../../index.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
 }
 
 /** deref-non-pointer messages only. */

@@ -2,12 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { emitRust } from "./index.js"
 import { lowerSource } from "../../lower/index.js"
 import { lowerAndEmit } from "../../pipeline/index.js"
-
-function rust(src: string): string {
-  const { pou, diagnostics } = lowerSource(src)
-  expect(diagnostics).toEqual([])
-  return emitRust(pou!).code
-}
+import { rust } from "../../../../test/support/transpile.js"
 
 const COUNTER = `
 PROGRAM Counter

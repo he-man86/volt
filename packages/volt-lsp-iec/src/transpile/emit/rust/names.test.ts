@@ -4,12 +4,7 @@ import { join } from "node:path"
 import { emitRust } from "./index.js"
 import { globalsArgs, globalsParams, snake, TEMP_PURPOSES, tmp } from "./names.js"
 import { lowerSource } from "../../lower/index.js"
-
-function rust(src: string): string {
-  const { pou, diagnostics } = lowerSource(src)
-  expect(diagnostics).toEqual([])
-  return emitRust(pou!).code
-}
+import { rust } from "../../../../test/support/transpile.js"
 
 describe("emit/rust", () => {
   test("field names are Rust: a keyword gets `_`, and two names that snake_case alike are REFUSED", () => {

@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // transpile-review 43: an FB output bound `name => target` converts like an assignment, not by family. CODESYS runs
 // WORD 16#FFFF => INT as -1, WORD => UDINT as 65535 and INT -3 => REAL as -3.0, and refuses DINT => INT ("Cannot convert

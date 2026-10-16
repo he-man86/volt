@@ -5,13 +5,7 @@ import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
 import { emitRust } from "../../emit/rust/index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // UNION (conformance `type_dut_union`, little-endian overlay): it had no layout at all (`layout-struct`).
 test("a UNION member's store shows through every member it overlays; a write the copy cannot follow is refused", () => {

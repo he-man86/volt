@@ -7,11 +7,10 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const sections = (src: string, vendor: Vendor): string[] => {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "var-section-placement")
     .map((d) => d.message)
 }
@@ -38,9 +37,7 @@ test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
 
 test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", () => {
   const run = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "retain-not-allowed")
       .map((d) => d.message)
   }

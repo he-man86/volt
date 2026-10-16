@@ -9,6 +9,7 @@ import type { IrAssign } from "../../ir/index.js"
 import { lowerSource } from "../index.js"
 import { Lowering, frameState } from "./lowering.js"
 import { newShared, sharedState } from "./shared.js"
+import { ir, wrap } from "../../../../test/support/transpile.js"
 
 const scope = {} as Scope
 
@@ -34,15 +35,6 @@ test("sharedState: one state per POU lowering, the same from every frame that sh
   expect(targets(nested)).toBe(targets(a))
   expect(targets(other).size).toBe(0)
 })
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
-
-const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
 
 describe("lower — the frame", () => {
   test("a slot without an initial value carries its type's zero in the IR — no backend picks one", () => {

@@ -3,15 +3,10 @@
  * conformance coverage; these pin the accept/reject boundary (arg widens into SRC ⇒ ok) + the skips.
  */
 import { test, expect, describe } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const conv = (src: string): string[] => {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "conversion-source-mismatch")
     .map((d) => d.message)
 }
@@ -42,9 +37,7 @@ test("only a single elementary positional arg is checked — everything else ski
 describe("what the analysis reports about a conversion name", () => {
   const diagnostics = (vars: string, body: string): string[] => {
     const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+    return diagnose(src).map((d) => d.message)
   }
 
   test("a spelled-out conversion name is an undefined identifier, as CODESYS reports it — it resolved silently", () => {

@@ -9,6 +9,7 @@ import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const ENUM = "TYPE E_Mode :\n(\n\tIdle,\n\tRunning\n);\nEND_TYPE\n"
 
@@ -129,9 +130,7 @@ test("…and as a bare conversion's argument it is converted to ANY, while the c
 
 /** The "no component" errors of one object's source, alone in its project. */
 function componentErrors(src: string): string[] {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "X.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "typed-literal")
     .map((d) => d.message)
 }

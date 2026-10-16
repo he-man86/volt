@@ -1,12 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { emitRust } from "./index.js"
-import { lowerSource } from "../../lower/index.js"
-
-function rust(src: string): string {
-  const { pou, diagnostics } = lowerSource(src)
-  expect(diagnostics).toEqual([])
-  return emitRust(pou!).code
-}
+import { rust } from "../../../../test/support/transpile.js"
 
 describe("emit/rust", () => {
   test("LIMIT prints as max-then-min, never `clamp` — Rust's clamp panics when MN > MX, CODESYS answers it", () => {

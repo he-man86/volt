@@ -7,8 +7,8 @@ import { elementaryRef, type Type } from "../../../frontend/types/index.js"
 import { run } from "../../interp/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { Lowering } from "../core/lowering.js"
-import { lowerSource } from "../index.js"
 import { meet } from "./promote.js"
+import { ir } from "../../../../test/support/transpile.js"
 
 const span = undefined as never
 const lw = new Lowering({} as Scope, {} as Scope)
@@ -44,13 +44,6 @@ test("for-compare: one type stays itself; two meet in their common type, promote
   expect(name(meet(lw, [variable(ty("UINT")), variable(ty("INT"))], { kind: "for-compare" }, span)!.type)).toBe("DINT")
   expect(name(meet(lw, [variable(ty("UDINT")), variable(ty("DINT"))], { kind: "for-compare" }, span)!.type)).toBe("DINT")
 })
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
 
 // transpile-review 6: an untyped literal beside a variable took the neighbour's type even when it did not fit, and wrapped
 // (`x + -3000000000` was 1294967301). CODESYS (`tr_6_literal_beyond_dint_neighbour`): the literal keeps its own type and the

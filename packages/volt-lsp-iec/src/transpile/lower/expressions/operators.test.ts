@@ -7,15 +7,7 @@ import type { IrAssign, IrIf, IrLoop } from "../../ir/index.js"
 import { lowerSource } from "../index.js"
 import { cannotFault } from "../../ir/faults.js"
 import { quiet } from "./operators.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
-
-const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+import { ir, wrap } from "../../../../test/support/transpile.js"
 
 describe("lower — semantics resolved before any backend sees them", () => {
   test("ELSIF becomes a nested IF, so a backend has one branch shape", () => {

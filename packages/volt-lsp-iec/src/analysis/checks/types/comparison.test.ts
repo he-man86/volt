@@ -7,12 +7,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const cmp = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT; re : REAL; str : STRING; b : BOOL; w : WORD;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "incompatible-comparison")
     .map((d) => d.message)
 }
@@ -54,9 +53,7 @@ test("C0354: comparing two different enumeration types is flagged; same-enum and
   const enums = `TYPE ENUM1 : (A, B); END_TYPE\nTYPE ENUM2 : (X, Y); END_TYPE\n`
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; e1 : ENUM1; ea : ENUM1; e2 : ENUM2; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)
   }
@@ -71,9 +68,7 @@ test("C0354 upper-cases both names, skips two enum VALUES, and treats a re-cased
   const enums = `TYPE E_Cmp_A : (A0, A1); END_TYPE\nTYPE E_Cmp_B : (B0, B1); END_TYPE\n`
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; ea : E_Cmp_A; eb : E_Cmp_B; ec : e_cmp_a;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)
   }
@@ -134,9 +129,7 @@ test("a pointer against an integer on the 64-bit target: 32 bits refused, a sign
 test("C0068: two arrays are one type by their FOLDED bounds, each named as the compiler echoes its bounds (cmpop_array_bound_*)", () => {
   const run = (decls: string, body: string) => {
     const src = `PROGRAM P\nVAR CONSTANT\n  N : INT := 2;\nEND_VAR\nVAR\n  b : BOOL;\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((x) => x.code.startsWith("compare-array"))
       .map((x) => x.message)
   }

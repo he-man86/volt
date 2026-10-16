@@ -6,14 +6,13 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const run =
   (code: string) =>
   (body: string): string[] => {
     const src = `PROGRAM P\nVAR i:INT; ii:INT;\nEND_VAR\nVAR CONSTANT j:INT:=0;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -96,9 +95,7 @@ END_FOR`)).toEqual(["'(INT#0 - ii)' is no valid assignment target"])
 test("a FOR counts in an integer: a REAL or a BOOL control variable does not convert to ANY_INT, a DWORD does (stmt_for_real_control, stmt_for_bool_control, stmt_for_dword_control, ST11)", () => {
   const forType = (decl: string, loop: string): string[] => {
     const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\n${loop}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "for-control-type" || d.code === "loop-exit-constant")
       .map((d) => d.message)
   }
@@ -115,9 +112,7 @@ test("a FOR counts in an integer: a REAL or a BOOL control variable does not con
 test("a FOR limit or step that does not convert into the counter is refused (for_limit_wider_than_counter_*, for_step_*, tr_35_*)", () => {
   const bound = (decl: string, loop: string): string[] => {
     const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\nVAR CONSTANT kc : DINT := 3;\nEND_VAR\n${loop}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.severity === "error")
       .map((d) => d.message)
   }

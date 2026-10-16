@@ -3,18 +3,13 @@
  * each test a recorded fixture's answer (`test/conformance/fixtures/grammar/type-expressions.ts`, 2026-10-01).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 type Vendor = "codesys" | "twincat"
 
 /** The messages of `code` for `src` (whole units), on `vendor`. */
 function run(code: string, src: string, vendor: Vendor = "codesys"): string[] {
-  const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === code)
     .map((d) => d.message)
 }

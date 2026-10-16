@@ -8,15 +8,14 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 
 test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the lower bound, TwinCAT does not", () => {
   // silent before: only declaration initializers were checked (conformance `subrange_assign_const_out`).
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 200;\nEND_METHOD`
   const run = (vendor: "codesys" | "twincat") => {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "subrange-out-of-range")
       .map((d) => d.message)
   }
@@ -36,9 +35,7 @@ test("an assignment INSIDE the subrange is silent", () => {
 
 /** The subrange messages of `src` (one file) on `vendor`. */
 function subrangeMessages(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "subrange-out-of-range")
     .map((d) => d.message)
 }

@@ -3,19 +3,14 @@
  * allocation statement is fine.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const MSG =
   "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
 
 const msgs = (body: string): string[] => {
   const src = `TYPE stv : STRUCT\n x:INT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n p : POINTER TO stv;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === "new-in-expression")
     .map((d) => d.message)
 }

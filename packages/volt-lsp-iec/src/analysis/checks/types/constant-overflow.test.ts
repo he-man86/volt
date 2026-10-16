@@ -8,12 +8,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const overflow = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  rv : LREAL;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "constant-too-large")
     .map((d) => d.message)
 }
@@ -60,9 +59,7 @@ test("a calendar literal with a field out of range is too large for its type, na
   // `lit_date_month_13`, `lit_tod_hour_25`, `lit_dt_leap_day_non_leap` — both vendors, identically (2026-10-01)
   const cal = (decl: string, body: string) => {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "constant-too-large")
       .map((d) => d.message)
   }
@@ -77,9 +74,7 @@ test("a 32-bit DATE or DT ends on 2106-02-07; an LDATE does not; hour 24 is out 
   // `lit_tod_hour_24` — CODESYS and TwinCAT identically (TwinCAT has no LDATE), 2026-10-01
   const cal = (decl: string, body: string) => {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "constant-too-large")
       .map((d) => d.message)
   }

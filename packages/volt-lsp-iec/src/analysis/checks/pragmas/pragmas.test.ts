@@ -7,6 +7,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 /** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
 function attrs(src: string, enabled: boolean, vendor: Vendor = "codesys") {
@@ -169,9 +170,7 @@ test("an attribute other than 'symbol' with an odd value is NOT value-checked (o
 // ─── conditional-compile balance ({IF}/{ELSIF}/{ELSE}/{END_IF}) — wording confirmed against live CODESYS + TwinCAT ───
 
 function condDiags(src: string, vendor: "codesys" | "twincat" = "codesys") {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) }).filter(
+  return diagnose(src, vendor).filter(
     (d) => d.code === "unterminated-conditional-pragma" || d.code === "orphan-conditional-pragma",
   )
 }
@@ -211,9 +210,7 @@ test("each unclosed {IF} in a nest is flagged; an orphan {END_IF} is separate", 
 // ─── C0051 — hasattribute() attribute operand must be a quoted string (verified live CODESYS 3.5.21) ───
 
 function attrValue(src: string) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
+  return diagnose(src).filter(
     (d) => d.code === "attribute-value-string",
   )
 }
@@ -232,9 +229,7 @@ test("a quoted attribute value, and a non-hasattribute condition, are not flagge
 test("an attribute's value is checked against its published set — unless the declaration is hidden", () => {
   const fb = (decls: string) => `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\nEND_FUNCTION_BLOCK`
   const attr = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((d) => d.code === "unknown-attribute")
       .map((d) => d.message)
   }
@@ -268,9 +263,7 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
  *  `cc4_not_instantiable` carries it on BOTH and records one warning, so it could never say which — which is why
  *  the halves were measured separately. */
 function abstractWarnings(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.code === "abstract-keyword-missing")
     .map((d) => d.message)
 }
@@ -325,9 +318,7 @@ test("a method with neither the attribute nor the keyword is silent", () => {
 // them case-insensitively, "unmeasured", and said a warning and an error no build says.
 test("a message pragma's word in upper or mixed case is no message pragma, in a body or out of one (prag_*_upper_case)", () => {
   const said = (src: string, vendor: Vendor) => {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code.startsWith("message-pragma"))
       .map((d) => `${d.severity}:${d.message}`)
   }

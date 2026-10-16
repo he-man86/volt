@@ -4,13 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Recorded first (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`): an ARRAY[*] VAR_IN_OUT takes the
 // bounds of the array it binds — passed on unchanged, per call on an FB, per dimension — and LOWER_BOUND/UPPER_BOUND are

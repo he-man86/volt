@@ -3,16 +3,11 @@
  * a bound within range, a non-constant bound, and a wider counter type all stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const diag = (decls: string, body: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
 }
 const codes = (decls: string, body: string): string[] => diag(decls, body).map((d) => d.code)
 
@@ -53,9 +48,7 @@ test("a bound beyond the counter that needs a wider type, or a typed constant, k
   expect(codes(decls, "FOR i := 0 TO 70000 DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
   const constants = (body: string): string[] => {
     const src = `PROGRAM PLC_PRG\nVAR CONSTANT\n cMax : DINT := 40000;\n cB : INT := 300;\nEND_VAR\nVAR\n i : INT;\n bt : BYTE;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
+    return diagnose(src).map((d) => d.code)
   }
   // …and a typed constant wider than the counter does not convert into it (`for_limit_wider_than_counter_dint_constant`:
   // "Cannot convert type 'DINT' to type 'INT'", lsp-transpile-review-gaps 2.1); whether C0266 joins it is unrecorded

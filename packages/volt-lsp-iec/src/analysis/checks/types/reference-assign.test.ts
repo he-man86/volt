@@ -8,12 +8,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const codes = (body: string, code: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT; i : INT;\nEND_VAR\nVAR CONSTANT K : INT := 7;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.code === code)
     .map((d) => d.message)
 }
@@ -62,9 +61,7 @@ test("a DECLARATION bound with REF= on a type that is no reference is refused, a
   // `decl_ref_init_on_value`, both vendors 2026-10-01; a REFERENCE TO bound so is fine (`refdecl_program_local`)
   const decl = (d: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n\tw : INT := 3;\n\t${d}\nEND_VAR\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return diagnose(src)
       .filter((x) => x.severity === "error")
       .map((x) => x.message)
   }
@@ -76,9 +73,7 @@ test("TwinCAT words a literal REF= the other way round: reference to literal (cc
   // `rv REF= 5;`: CODESYS "Cannot convert type 'SINT' to type 'REFERENCE TO INT'", TwinCAT "… 'REFERENCE TO INT' to type 'SINT'"
   const literal = (vendor: "codesys" | "twincat"): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT;\nEND_VAR\nrv REF= 5;\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)
   }
@@ -89,9 +84,7 @@ test("TwinCAT words a literal REF= the other way round: reference to literal (cc
 /** Every error for `body` in an FB with `vars`. */
 const errorsOf = (vars: string, body: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return diagnose(src)
     .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
     .map((d) => d.message)
 }

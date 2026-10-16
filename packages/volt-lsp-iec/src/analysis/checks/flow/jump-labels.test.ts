@@ -3,16 +3,11 @@
  * a well-formed JMP↔label pair stays silent (zero-FP contract).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 const codes = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
+  return diagnose(src).map((d) => d.code)
 }
 
 test("C0114 — JMP to a non-label destination", () => {
@@ -43,9 +38,7 @@ test("a keyword or a refused word as the destination: invalid, and the label 'IN
   for (const [vendor, jmp] of [["codesys", "JMP"], ["twincat", "JUMP"]] as const) {
     const msgs = (body: string): string[] => {
       const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-      const parseResult = parseSource(src, { networkText: true }, vendor)
-      const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], vendor)
-      return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+      return diagnose(src, vendor).map((d) => d.message)
     }
     const dot = vendor === "twincat" ? "." : ""
     expect(msgs("JMP ld;\ni := 1;")).toEqual([`Invalid destination ld for ${jmp}`, `No such label 'INVALID: LD' within the scope of the JMP statement${dot}`])

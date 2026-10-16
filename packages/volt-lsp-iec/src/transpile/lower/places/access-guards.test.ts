@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // VAR_IN_OUT CONSTANT (conformance `inout_const_*`): bound like a plain VAR_IN_OUT, so a STRING literal and a METHOD's
 // own field were refused, and a write inside the callee lowered. Why missed: no fixture held the section.

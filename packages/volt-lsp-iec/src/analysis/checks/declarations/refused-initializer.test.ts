@@ -10,17 +10,12 @@
  * (This was `time-literal-unit` and `wstring-escape`, two analysis checks that re-lexed what the lexer now refuses.)
  */
 import { test, expect, describe } from "bun:test"
-import { parseSource } from "../../../frontend/syntax/index.js"
-import { build } from "../../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
-import { uriFor } from "../../../../test/support/test-uri.js"
+import { diagnose } from "../../../../test/support/diagnose.js"
 
 function msgs(decl: string, vendor: Vendor = "codesys"): string[] {
   const src = `FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return diagnose(src, vendor)
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
     .sort() // the parser's two and the type check's one arrive from two passes; the recordings are compared sorted too
@@ -112,9 +107,7 @@ test("an unlisted `__` operator leading an initializer — TwinCAT's documented 
  */
 describe("names in an initializer", () => {
   function msgs(src: string, vendor: Vendor, codes?: readonly string[]): string[] {
-    const parseResult = parseSource(src, { networkText: true }, vendor)
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return diagnose(src, vendor)
       .filter((d) => codes === undefined || codes.includes(d.code))
       .map((d) => d.message)
   }

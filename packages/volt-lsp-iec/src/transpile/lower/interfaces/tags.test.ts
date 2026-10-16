@@ -8,6 +8,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { prepareProject, TRANSPILE_PARSE } from "../project/prepare.js"
 import { Lowering } from "../core/lowering.js"
 import { implementsInterface } from "./tags.js"
+import { ir } from "../../../../test/support/transpile.js"
 
 // Interfaces (conformance `itf_*`): an interface variable had no representation (`slot-interface`), so nothing called
 // through one lowered. It holds the tag of its instance, and each call dispatches once every store has lowered.
@@ -16,13 +17,6 @@ const INTERFACES =
   "INTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\n" +
   "FUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n" +
   "FUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
 
 // Interface inputs (conformance `itf_fb_input_*`, `itf_method_input_passed_on`, `itf_interface_variable_as_input`): refused as
 // `interface-input`. An FB keeps the instance given — a tag in its field — and each body that calls through one is lent a

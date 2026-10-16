@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // transpile-review 24: a VAR_TEMP whose initializer is not a constant was queued for the run-once init step and then
 // reset to its type's zero on every run — CODESYS evaluates it on EVERY call (`var_temp_dynamic_init`: 9 then 10).

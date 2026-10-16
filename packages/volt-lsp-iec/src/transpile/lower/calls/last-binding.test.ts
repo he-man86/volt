@@ -7,13 +7,7 @@ import { lowerSource } from "../index.js"
 import { emitRust } from "../../emit/rust/index.js"
 import { FAULT_TEXT } from "../../ir/faults.js"
 import { IecFault } from "../../semantics/faults.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Recorded (`callshape_inout_in_method_after_call`: 11 then 110, `callshape_inout_method_in_later_cycle`: 21 after three
 // cycles, `callshape_inout_method_before_binding`: the run stops): a METHOD called from outside its FB reaches the in-out

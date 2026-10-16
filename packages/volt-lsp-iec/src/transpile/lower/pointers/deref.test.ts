@@ -5,13 +5,7 @@ import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
 import { IecFault } from "../../semantics/index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 test("a pointer INPUT of the POU being lowered says nobody supplies it, rather than blaming the pointer order", () => {
   // The corpus shape, exactly: `Bools_To_Byte` copies its `POINTER TO BOOL` input into a local and dereferences

@@ -4,13 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-
-/** Lower and require success — most tests are about the SHAPE, not the failure path. */
-function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
-  expect(diagnostics).toEqual([])
-  return pou!
-}
+import { ir } from "../../../../test/support/transpile.js"
 
 // Both were refused (`pointer-step`) while a pointer was a tag — "the byte-addressable view" for a step off a single
 // variable, "whole elements of its array" for a step that is not one. MODEL 3 (design.md §3.3 step 4d) IS that view:
