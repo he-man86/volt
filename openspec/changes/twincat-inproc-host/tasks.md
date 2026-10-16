@@ -1,5 +1,7 @@
-Owner 2026-10-16: no in-proc host; the direction is a native-format writer (proposal "Decision"). Requires
-`ld-fbd-coverage` archived. Measure first; swap only with the owner's OK.
+Owner 2026-10-16: no in-proc host; the direction is a native-format writer (proposal "Decision"). Section 2 starts
+NOW (owner: "a nice task for tonight") in its own worktree, as NEW code beside today's writers — it must not edit
+`TcNetworkWriter`/`TcNetworkReader`/`TcPlcOpenWriter` (ld-fbd-coverage is rewriting them). Section 3 (the swap) waits
+for ld-fbd-coverage to archive and the owner's OK.
 
 ## 1. Correct the docs
 
