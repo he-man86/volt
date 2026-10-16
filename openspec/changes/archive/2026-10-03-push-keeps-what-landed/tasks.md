@@ -353,7 +353,8 @@
       accepted as another — the per-word verdict is measured, 0 such words); `VOLT_WRITE_REFUSED_NAMES=1` regenerates.
       The pre-flight (`PushService.ValidateSourceOrThrow`, every set op) asks the driver for every METHOD / ACTION /
       PROPERTY name the text carries (create and update — an existing member cannot hold a word its IDE refuses to
-      create, so only a new one can be refused) and, on a create, for a `.pou`'s own name; a refused name is
+      create, so only a new one can be refused; DISPROVED 2026-10-16, openspec `codesys-existing-unicode-members`: only
+      a member the push creates is asked now) and, on a create, for a `.pou`'s own name; a refused name is
       `UNSUPPORTED` (`ChildRefusedException`, cause NAME), e.g. "the IDE refuses to create method 'Log' in
       'VltE2E_pk_FB2': CODESYS does not take 'Log' as a name ("The name 'Log' is not valid for this object.")", and
       nothing is written. Not asked: interface members, DUT / GVL / interface item names (unmeasured kinds).

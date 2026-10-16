@@ -376,7 +376,9 @@ the pre-flight (D1), where it writes nothing and is named with the rest.
   them (Repo.Gates `RefusedNamesMatchTheLogsTests`). A word nobody asked reaches the IDE and gets D2's apply-time
   report — which is how the 4.1 e2e still exercises the apply path (`Vlt__Log`).
 - **Every member on an update too.** An existing member can not carry a word its IDE refuses to create, so asking for
-  every member name refuses only a new one. The item's own name only on a create, and only for `.pou` (the kind the
+  every member name refuses only a new one. **Disproved 2026-10-16** (openspec `codesys-existing-unicode-members`,
+  PLC Assist chat be8c6faa): a Chinese CODESYS project holds CJK methods its project option "Unicode identifiers" let
+  it create, so every write to their POUs was refused. The pre-flight now asks only members the push CREATES. The item's own name only on a create, and only for `.pou` (the kind the
   top-level probe measured); interface members and DUT / GVL names were not measured and are not asked.
 - **Code `UNSUPPORTED`** (`ChildRefusedException`, cause NAME) — the same class as the live refusal D2 classifies, so
   the CLI's advice by code is unchanged.

@@ -336,7 +336,9 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       a non-ASCII or non-identifier name (`Fööbar`, `a-b`). Clean vendor refusal → add it to the measured lists and
       delete `IsIdentifier`; otherwise `IsIdentifier` becomes the vendor's measured rule, beside the name lists.
       Done (step 3a) — MEASURED, CHANGED: a clean vendor refusal on both, so `IsIdentifier` is deleted and the shape is
-      the drivers' measured rule beside the word lists. CODESYS (`scripts/probe-identifier-names.py` ->
+      the drivers' measured rule beside the word lists. (2026-10-16, openspec `codesys-existing-unicode-members`: the
+      non-ASCII half was measured on a project with "Unicode identifiers" OFF; with it on, CODESYS creates them — DIALECT
+      C28b. The pre-flight now refuses only ASCII non-identifier shapes; a name past ASCII reaches the IDE.) CODESYS (`scripts/probe-identifier-names.py` ->
       `identifier-names.log`): 37 non-identifier shapes x 6 kinds (POU, METHOD, ACTION, PROPERTY, interface METHOD,
       interface PROPERTY) = 222 refusals, all "The name 'X' is not valid for this object."; a backtick-quoted name
       (`` `ab` ``, `` `a b` ``, `` `INT` ``, `` `a`b ``) is CREATED for all six and builds clean — a valid name
