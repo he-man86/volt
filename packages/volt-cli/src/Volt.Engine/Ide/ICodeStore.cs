@@ -9,29 +9,10 @@ namespace Volt.Engine.Ide;
 /// <see cref="ItemContent"/> in, an <see cref="ItemContent"/> out — and the engine never learns which
 /// transport produced it. Every method throws on real IDE failure; there is no silent fallback.
 ///
-/// <para><b>This interface used to demand a PLCopen document</b>:</para>
-/// <code>
-/// string ReadXml(ItemRef item);              // "export this POU as PLCopen XML"
-/// void   WriteXml(ItemRef item, string xml);
-/// string? BodyLanguage(ItemRef item);
-/// </code>
-/// <para>which made a vendor's file format part of the vendor-neutral contract. Three consequences, all of
-/// them real rather than theoretical:</para>
-/// <list type="bullet">
-/// <item>An IDE with no PLCopen export <b>could not implement the contract at all</b>. TIA Portal is the
-/// concrete case: Openness has its own representation and no PLCopen, so a Siemens driver was impossible for
-/// a reason that had nothing to do with Siemens.</item>
-/// <item>TwinCAT could not adopt its own better transport, because the engine would not accept it — which is
-/// how PLCopen's seven checklist failures on TwinCAT became Volt's failures.</item>
-/// <item>CODESYS could not hand over the typed objects it actually has, and had to serialize a document
-/// instead.</item>
-/// </list>
-///
-/// <para><b>What a driver now owns</b> is everything between its IDE and <see cref="ItemContent"/>: reading a
+/// <para><b>What a driver owns</b> is everything between its IDE and <see cref="ItemContent"/>: reading a
 /// declaration, deciding a body's language, rendering a graphical body to network text, and putting all of it
-/// back. What the ENGINE owns is unchanged and is Volt's own: the canonical <c>.pou</c> layout, network text,
-/// the model, and sync. <c>BodyLanguage</c> is gone from the contract because the language now arrives INSIDE
-/// the content — a second round-trip to ask "what language is this" was the transport leaking upward.</para>
+/// back. What the ENGINE owns is Volt's own: the canonical <c>.pou</c> layout, network text, the model, and sync.
+/// A body's language arrives INSIDE the content, so the contract has no separate "what language is this" call.</para>
 /// </summary>
 public interface ICodeStore
 {
@@ -77,9 +58,9 @@ public interface ICodeStore
     /// is the same seam <c>ICodeStore</c> keeps everywhere else — the engine owns the representation, the
     /// driver owns the vendor call.</para>
     ///
-    /// <para>CODESYS only. Every field is a live setter there (`probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`)); TwinCAT
-    /// renders a different `.task` shape entirely and REFUSES rather than guess at one nobody has
-    /// measured.</para></summary>
+    /// <para>Both vendors write it. On CODESYS every field is a live setter (`probe-task-writable.py`, deleted:
+    /// `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`); TwinCAT patches the linked system task
+    /// and refuses a setting it cannot express by name, before touching COM (<c>TcTaskSchedule.SysTaskPatch</c>).</para></summary>
     void WriteTask(ItemRef task, TaskSettings settings);
 
     /// <summary>Throw exactly what <see cref="WriteContent"/> would throw, for the reasons this driver can
@@ -88,8 +69,8 @@ public interface ICodeStore
     /// <para><b>Why the engine cannot do this itself.</b> Its own pre-flight covers everything decidable from
     /// the source text alone — a malformed document, network text that does not parse or is incomplete — and
     /// that is vendor-neutral by construction. What it cannot cover is a shape one VENDOR cannot express:
-    /// TwinCAT's PLCopen writer refuses an unconditional jump or return, an Execute box, and a box output pin
-    /// wired straight to a variable, and it refuses them from a pure function of the parsed body. Being pure is
+    /// TwinCAT's graphical CREATE goes through a PLCopen import (DIALECT D22), and its writer refuses an Execute box
+    /// and a box output pin wired straight to a variable (C20) from a pure function of the parsed body. Being pure is
     /// the whole point — it was being called from inside the write, so a push whose second item carried one left
     /// the first item in the project and told the caller it had failed.</para>
     ///

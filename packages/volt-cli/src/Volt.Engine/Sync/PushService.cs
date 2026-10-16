@@ -1507,11 +1507,6 @@ public static class PushService
 
         var impl = split.Body;
         var itemType = PouKindToCode(split.Kind);
-        // Only POUs (program/function/function_block) have an implementation-body slot. DUTs, GVLs and
-        // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
-        // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
-        // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
-
         // Read-only enforcement for an EXISTING graphical body is by LIVE IDE STATE, not content: it is refused
         // by the body-type guard below. On a CREATE there is no live state to read, and the UNSUPPORTED line is the only
         // evidence there is — see `BodyFormatGuard.RequireAuthorable`, called on that arm.
@@ -1692,19 +1687,6 @@ public static class PushService
                         "handle the member create invalidated");
 
             // ONE call, for create and update alike: declaration, body, members and accessors together.
-            //
-            // Everything that used to sit here went with the PLCopen transport, and each piece was a VENDOR fact
-            // wearing engine clothing:
-            //   - `ReadXml` + `PouDocument.Splice` + `WriteXml`: the document round-trip itself.
-            //   - `WriteDeclarations` AFTER the document write. That ordering was measured and real - TwinCAT's
-            //     importer REGENERATES a declaration from the typed <interface> when the document carries no
-            //     verbatim block, so an aspect write placed first was silently undone (`x : INT;` came back
-            //     `x: INT;`) - but it is a fact about one vendor's IMPORTER, and there is no import now.
-            //   - `RestoreChildFolders`: PLCopen carries no folder membership, so its import flattened a POU's
-            //     internal folders and Volt re-placed them from the pushed source. Nothing flattens them now.
-            //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
-            //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
-            //     the driver, which is the only layer that can ask the IDE cheaply.
             // A member the reconcile RENAMED is the live member under its new name (task 3.4): compared as that, so an
             // unchanged body — an abstract method's `IMPLEMENTATION NONE` on an object with no slot — is not written.
             ide.WriteContent(pou, OnlyChanged(AfterRenames(live, changes), split), source.Bodies);
@@ -1982,12 +1964,8 @@ public static class PushService
     /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
     /// project lacks, remove what the project has and the source dropped.
     ///
-    /// <para><b>This is new work, and it had no owner for a moment.</b> Nothing here used to create or remove a
-    /// member: the PLCopen IMPORT did it as a side effect of the document write — it "ADDS a child present only
-    /// in the document, REMOVES one absent from it" — so the engine only ever handed over a document. With the
-    /// document gone, the responsibility surfaced, and it belongs here rather than in a driver: creating and
-    /// deleting a child is <see cref="IProjectTree"/>, which both vendors already implement, and keeping it in
-    /// one place is what keeps the removal rule honest.</para>
+    /// <para>It lives here rather than in a driver: creating and deleting a child is <see cref="IProjectTree"/>, which
+    /// both vendors implement, and keeping it in one place is what keeps the removal rule honest.</para>
     ///
     /// <para><b>The removal rule is the dangerous half.</b> It reconciles against the members the driver
     /// REPORTS, which are only the kinds that materialize into the file. A transition is inlined in a POU and is
@@ -2296,8 +2274,4 @@ public static class PushService
         _ => throw new BridgeException(BridgeErrorCodes.InternalError,
             $"no create code for the top-level kind '{kind}': the pre-flight admits only a writable source kind"),
     };
-
-    // The splitter only ever emits method/action/property as textual children; interface vs non-interface is
-    // the isInterface flag (the parent's kind), NOT a distinct child-kind string — so there is no
-    // "interface_method"/"interface_property" arm. An unknown kind throws rather than defaulting to action.
 }

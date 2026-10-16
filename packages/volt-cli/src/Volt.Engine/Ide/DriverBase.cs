@@ -16,15 +16,14 @@ namespace Volt.Engine.Ide;
 /// and the COMPOSITION of the whole health response — the logic identical across vendors. A concrete driver
 /// overrides the abstract members for genuine IDE access (connect, tree, code, build), supplies its own
 /// <see cref="IdeVersion"/>, and supplies only the row SNAPSHOT via <see cref="SnapshotHealth"/>.
-/// <para>ARCH FOLLOW-UP RETIRED (health-compose-in-core): <c>BuildHealthResponse</c> used to be abstract, so the
-/// wire-visible health shape was composed TWICE, once per vendor — against "parity-critical decisions live in Core,
-/// once", and a vendor could silently skip <see cref="OverlayLiveHealth"/> entirely. It is composed here now (cache
-/// read + throttle + overlay); a vendor no longer returns a <see cref="HealthResponse"/> at all.</para></summary>
+/// <para>The wire-visible health shape is composed HERE, once (cache read + throttle + overlay): a vendor never returns
+/// a <see cref="HealthResponse"/>, so none can skip <see cref="OverlayLiveHealth"/> (health-compose-in-core).</para></summary>
 public abstract class DriverBase : IIdeSession
 {
     /// <summary>The push pre-flight, defaulting to REFUSE NOTHING — see <c>ICodeStore.ValidateSource</c>. A
     /// driver whose refusals need the live project leaves it alone rather than guessing at them here; TwinCAT
-    /// overrides it, because its PLCopen writer decides several of them from the parsed body alone.</summary>
+    /// overrides it, because its graphical-create writer (a PLCopen import, DIALECT D22) decides several of them from
+    /// the parsed body alone.</summary>
     public virtual void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies) { }
 
     /// <summary>No measured name refusal — see <c>ICodeStore.RefusedName</c>. A driver without measurements refuses
@@ -217,13 +216,11 @@ public abstract class DriverBase : IIdeSession
     /// was running. The floor is deliberately FAR below that 4s poll, so no client's own cadence is aliased: a poll a
     /// second or more after the last probe still probes, and only a burst that lands together collapses to one.
     /// <para><c>0</c> still means NO throttle (see <see cref="BuildHealthResponse"/>); no shipped driver asks for it.</para>
-    /// <para>ARCH FOLLOW-UP RETIRED (unify-probe-throttle) — and NOT as it was written. The plan was to collapse both
-    /// cadences into one <c>const</c> and delete this knob. The knob STAYS <c>virtual</c> and TwinCAT keeps its 5000,
-    /// because the two numbers are not the same quantity: CODESYS's snapshot is a handful of in-proc reflection reads,
-    /// TwinCAT's is EnsureAttached + ProbeIdeAlive + OwnSolution across a COM apartment boundary — a difference
-    /// downstream of the in-proc-vs-external hosting asymmetry ARCHITECTURE.md marks irreducible. Unifying UPWARD at
-    /// 5000 would also have put CODESYS's <c>IsConnected</c> — which only this probe writes — behind a window that
-    /// aliases against the 4s poll to ~8s, widening the very precondition staleness Conventions #3 forbids.</para></summary>
+    /// <para><c>virtual</c> on purpose (unify-probe-throttle): TwinCAT keeps 5000 because the two snapshots are not the
+    /// same quantity — CODESYS's is a handful of in-proc reflection reads, TwinCAT's is EnsureAttached + ProbeIdeAlive +
+    /// OwnSolution across a COM apartment boundary, downstream of the hosting asymmetry ARCHITECTURE.md marks
+    /// irreducible. One 5000 for both would put CODESYS's <c>IsConnected</c> — which only this probe writes — behind a
+    /// window that aliases against the 4s poll to ~8s (Conventions #3).</para></summary>
     internal const long DefaultProbeThrottleMs = 1000;
     protected virtual long ProbeThrottleMs => DefaultProbeThrottleMs;
 

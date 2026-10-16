@@ -31,8 +31,8 @@ public static class Versioning
         return (Hasher.ComputeItemVersion(FolderOf(kind, folder, name), mat.Text), mat);
     }
 
-    /// <summary>The version recorded for an item whose body can't be read (e.g. a malformed graphical POU whose
-    /// PLCopen export has no FBD/LD body). Stable, so the item looks unchanged across reads.</summary>
+    /// <summary>The version recorded for an item whose content can't be read (the driver's read threw). Stable, so the
+    /// item looks unchanged across reads.</summary>
     public const string Unreadable = "UNREADABLE000000";
 
     /// <summary>Record every object the walk saw and could not CLASSIFY (<see cref="WalkResult.UnreadableObjects"/>)

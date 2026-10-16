@@ -61,12 +61,12 @@ net10 standalone TwinCAT exe unchanged.
 
 ## How a request flows
 
-Every op is the same shape — `Core/Wire/BridgePipeHost` receives one request per connection, `Sync/*`
-services do the work over the `Ide/IIdeDriver` contract, `Item`/`Source` turn IDE items into
+Every op is the same shape — `Volt.Engine.Host/BridgePipeHost` receives one request per connection, `Sync/*`
+services do the work over the `Ide/IIdeDriver` contract, `Item`/`Format` turn IDE items into
 canonical text:
 
 ```
-volt CLI ──pipe──▶ BridgePipeHost (Core/Wire)
+volt CLI ──pipe──▶ BridgePipeHost (Volt.Engine.Host)
                      │  reads one {op,body} frame; single error boundary (throws → error frame)
                      ▼
                    RunOp ── marshals onto the IDE's required thread; threads an onP() progress callback
@@ -117,13 +117,13 @@ away from the only code that uses it.
 
 | Folder | Does | Key types |
 |---|---|---|
-| **`Ide/`** | **The contract a vendor bridge implements — and only this.** `IIdeDriver` = `IIdeSession` (attach/health/build) + `IProjectTree` (walk + CRUD + `Move`) + `ICodeStore` (the document, plus the textual aspects declaration-only kinds need). `DriverBase` owns the shared degraded-state machine, the single-flight health probe **and the whole health response** — `BuildHealthResponse` used to be abstract, which put a WIRE-VISIBLE shape behind the vendor seam and let the two drivers diverge unseen (they had). `TreeNav` and `ItemLookup` navigate a driver's tree; they live here, not with `Item/`, because they take an `IIdeDriver`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `TreeNav`, `ItemLookup` |
+| **`Ide/`** | **The contract a vendor bridge implements — and only this.** `IIdeDriver` = `IIdeSession` (attach/health/build) + `IProjectTree` (walk + CRUD + `Move`) + `ICodeStore` (content in and out as `ItemContent`, manifests, task settings, and the driver's pre-flight refusals). `DriverBase` owns the shared degraded-state machine, the single-flight health probe **and the whole health response** — a wire-visible shape, so it is composed once, above the vendor seam. `TreeNav` and `ItemLookup` navigate a driver's tree; they live here, not with `Item/`, because they take an `IIdeDriver`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `TreeNav`, `ItemLookup` |
 | **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the vendor-neutral item-type table (`docs/items.html`); `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. `ItemContent` is the one content record a read builds and a push applies; `ObjectProperties`, required on it and on every `Member`, carries every vendor member the text spells beside the code (the `%`-lines: class, build properties, comment, network-variable settings, file link). | `ItemKind`, `FolderPath`, `ItemRef`, `ProjectItem`, `WalkResult`, `ItemContent`, `ObjectProperties` |
 | **`Format/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. `PropertyLines` is the one spelling of an object's `%`-lines, both directions (the closed key list, canonical order, placement refusals). An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **The owner rule: an INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner — they disagreed once, and every interface with a member materialized as UNREADABLE. | `StWriter`, `StReader`, `PropertyLines`, `Descriptor`, `CodeHelper` |
 | **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (see `Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text v2 — one statement per NWL item, a name only where the vendor names a wire (`docs/network-text.html`); both read and write against a `NetworkScope` built from the declarations the body sees (`Ide/ProjectDeclarations`, the one reserved-name set and the FB instance types); `NetworkTextGate` is the token fixed-point gate; `NetworkSpelling` holds the rules writer and reader must agree on; `FbdOperators` is the operator table. v1 text is refused with a "re-pull" message, never translated. **Nothing here knows XML** — a vendor's own representation is the driver's business, which is why deleting the PLCopen transport did not touch this folder. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkTextGate`, `NetworkScope`, `NetworkSpelling`, `FbdOperators` |
-| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `BodyMarker` is the informational stand-in an unsupported language (CFC/SFC/IL) materializes as — never written back. There is no "graphical vs textual" boolean above this layer; that flag was the source of three silent data-loss bugs. | `BodyFormatGuard`, `BodyMarker`, `Languages` |
+| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `UnrepresentableBodyException` is how a reader says a body has no spelling, answered with the read-only `IMPLEMENTATION LD\|FBD UNSUPPORTED` line rather than by dropping the item. There is no "graphical vs textual" boolean above this layer; that flag was the source of three silent data-loss bugs. | `BodyFormatGuard`, `UnrepresentableBodyException`, `Languages` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body and hash basis, shared so the two vendors cannot drift on those bytes), `LibSignatureRenderer`, `LibraryLayout`, `LibraryFetch`, `LibSignature`. | `LibraryManifest`, `LibSignatureRenderer`, `LibSignature` |
-| **`Sync/`** | **One service per op** — `RefsService`, `FetchService` (`fetch` + `init`), `PushService`, `BuildService`. `Materializer` turns a project item into an `ItemContent` and hands it to `StWriter`; it routes POUs/interfaces through the document and declaration-only kinds (DUT/GVL) through the declaration aspect — a COST decision (~1 ms against ~20 ms per item, on a walk every `volt status` pays), NOT a capability one: both vendors export a DUT fine (DIALECT C2a). The WRITE has no such split; every kind travels as one document. `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning`, `Materializer` |
+| **`Sync/`** | **One service per op** — `RefsService`, `FetchService` (`fetch` + `init`), `PushService`, `BuildService`. `Materializer` turns a source item into an `ItemContent` (`ICodeStore.ReadContent`) and hands it to `StWriter`; a non-source item is its manifest (`ReadManifest`). The write is the same one call for every source kind (`WriteContent`). `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning`, `Materializer` |
 
 `BridgeException` and `Polyfills` sit at the root because their namespace is the root: `BridgeException` is the
 wire's error type and every layer throws it, so it is reachable without a `using` by design.
@@ -215,7 +215,7 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
   construction, so those need structural assertions too. Both kinds live in that same file.
 - **The DECL/IMPL boundary is STATED in the file: the line `IMPLEMENTATION <LANG>`** (`Format/St/ImplementationMarker`,
   the one spelling on the bridge side; the LSP mirrors it in `src/syntax/implementation-keyword.ts`). It stands
-  between a declaration and its body on exactly the kinds `ImplementationMarker.AppliesTo` covers (POU, method,
+  between a declaration and its body on exactly the kinds `ItemKind.ShapeOf` gives a body (POU, method,
   action, property getter and setter; a DUT/GVL/interface has none), and it states the body's language, ST
   included — the ONE signal for how the body is read: `ST` by the ST path, `LD`/`FBD` as network text. It is
   matched as a whole line outside every comment, `IMPLEMENTATION` is a reserved name, and a missing or unknown
@@ -223,7 +223,7 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
   boundary (last `END_VAR`, the end of a wrapped `EXTENDS`/`IMPLEMENTS` header, rules about which trailing comments
   and pragmas belonged to which side) — every one of those rules was written after a bug, which the class summary
   of `ImplementationMarker` lists. A file without the line (one written before it) is refused naming `volt pull`.
-- **Volt shows ST, FBD and LD; every other body is `IMPLEMENTATION <LANG> UNSUPPORTED`** (`Graph/NetworkCode`). CFC,
+- **Volt shows ST, FBD and LD; every other body is `IMPLEMENTATION <LANG> UNSUPPORTED`** (`ImplementationMarker.Unsupported`). CFC,
   SFC and IL always; an LD/FBD body when network text has no spelling for what it holds, or when network text is
   off in the build (`NetworkTextSwitch`, `VOLT_GRAPHICAL=1`). Nothing is shown under the line, the item's
   DECLARATION stays editable and pushes as usual, and a push never writes the IDE's body
@@ -231,10 +231,8 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
   nothing the IDE holds is overwritten. IL is in this set for a reason worth keeping: being textual, it once
   materialized as its raw source, so the engineer got an editable-looking file and the next push rewrote their IL
   body as ST.
-  Detection is `Document/BodyElement`, ONE scan shared by the reader and the codecs, searching a direct
-  `<body>` child and any depth under `<body>/<addData>`. Both halves must agree or the protection is not
-  protection: if only the reader recognises a nested diagram, `PresentWith` matches the empty `<ST>` the schema
-  makes a nested body carry, that counts as uncommitted, and the push flattens the diagram.
+  Detection is the driver's: it states each body's language as a vendor FACT (`Item/StatedLanguage`, openspec
+  `bridge-refusal-review` D6), and `BodyFormatGuard` judges a push by that fact, never by decoding the incoming text.
 - **Execute boxes round-trip as network text `EXECUTE … END_EXECUTE`** holding their ST verbatim (`Format/Network/NetworkTextReader`) — never a bare call that drops the ST.
 - **Container managers are folders, never items** (`Item/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
@@ -355,7 +353,7 @@ Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries abo
 is REACHED — they live below the `IIdeDriver` seam (and the pipe topology below `IProjectSource`). The wire
 behavior and error codes are identical across vendors by construction:
 - **Parity-critical decisions live in Core, once.** A choice a pipe client can observe — a `connect` post-condition,
-  the not-connected precondition on project-ops, an error mapping — is decided in `Wire/BridgePipeHost`, delegating
+  the not-connected precondition on project-ops, an error mapping — is decided in `Volt.Engine.Host/BridgePipeHost`, delegating
   only irreducible primitives (attach, tree-walk, code r/w) to the driver. The drivers can't diverge these; they
   don't own them. (E.g. a `connect` that can't attach the project, and any project-op on a not-connected bridge,
   both refuse with the shared `PLC_DISCONNECTED` on either vendor — the check is in Core, not per driver.)
@@ -402,7 +400,7 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
 5. **One error channel, one log path.** Only `BridgeException`/`BridgeErrorCodes` cross the wire — a driver must not
    leak a vendor exception. All logging goes through `Volt.Contracts/VoltLog`.
 6. **Parity-critical decisions live in Core, once.** Anything a pipe client can observe is decided in
-   `Wire/BridgePipeHost` or a `Sync/` service; drivers supply only irreducible primitives (attach, walk, code r/w).
+   `Volt.Engine.Host/BridgePipeHost` or a `Sync/` service; drivers supply only irreducible primitives (attach, walk, code r/w).
    See "Load-bearing asymmetries" above for what is *legitimately* per-vendor — do not unify those for symmetry.
 7. **Centralized vocabulary stays centralized.** `ItemKind.Kinds`, `BridgeErrorCodes`, `Ops`, `Vendors` are the
    spellings; re-spelling one as a literal outside its home file fails `WireVocabularyGuardTests`. That guard is

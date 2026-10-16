@@ -3,16 +3,9 @@
 namespace Volt.Engine.Item;
 
 /// <summary>
-/// ONE model for an item's content, in BOTH directions. A read builds it from the IDE's PLCopen document; the ST
-/// writer renders it to canonical workspace text; the ST reader parses that text back into it; a push splices it
-/// into a document. Same record, four users.
-/// <para><b>It used to be two records that were the same record.</b> The read path had
-/// <c>PouData</c>/<c>ChildData</c> and the write path had <c>StSplitResult</c>/<c>StChild</c>, differing only in
-/// field names (<c>BodyText</c> vs <c>Implementation</c>, <c>Kind</c> vs <c>PouKind</c>) and in how they spelled an
-/// accessor. Two spellings of one fact is how the read and the write come to disagree, and this layer has already
-/// paid for that three times — a graphical child flattened because the read said "graphical" and the write decided
-/// from text; a body spliced over a sibling method because the read scoped by name and the write by document
-/// order. Neither is possible between two users of the same record.</para>
+/// ONE model for an item's content, in BOTH directions. A driver's read builds it from the IDE; the ST writer renders
+/// it to canonical workspace text; the ST reader parses that text back into it; a driver's write applies it to the
+/// IDE. Same record, four users — one spelling of each fact, so the read and the write cannot disagree about it.
 /// <para>This is a TEXT-level model, deliberately: a body is workspace text — ST verbatim, a graphical body as
 /// network text, a body Volt cannot write as its UNSUPPORTED <c>IMPLEMENTATION</c> line. It is what the workspace stores
 /// and what the ST layer round-trips, and it is ALL the engine ever sees of a body. Whatever shape a vendor's own
@@ -84,9 +77,7 @@ public sealed record StatedLanguage(string Language, bool Hidden, bool IsNone = 
         : Hidden ? Volt.Engine.Format.St.ImplementationMarker.Unsupported(Language) : Language;
 }
 
-/// <summary>A method, action or property. A PROPERTY is a member like any other — it used to be a member in two of
-/// the four models and a separate list in the third, which forced <c>PouDocument.Splice</c> to union them back
-/// together before it could ask "what does this item have".
+/// <summary>A method, action or property. A PROPERTY is a member like any other, in the one member list.
 /// <para><see cref="ReturnType"/> and <see cref="DataType"/> are WRITE-only and vendor-driven: TwinCAT wants an
 /// interface member's type as the create's vInfo. They are read off the declaration by the ST reader and are null
 /// coming from the IDE, where nothing needs them.</para></summary>
@@ -108,14 +99,10 @@ public sealed record Member(
 /// and a push of that REMOVES it. That used to be a two-field convention on the read side (a getter existed if
 /// either its code or its declaration was non-null), which is a rule every reader of the record had to know and
 /// apply identically. A bodiless accessor — the interface case, where an accessor declares that a getter exists
-/// and nothing more — is an Accessor with an empty <see cref="Body"/>, NOT a null one.</summary>
-// <para><b>An accessor's declaration travels VERBATIM</b>, as every text does (openspec <c>bridge-one-to-one</c> §1.1
-// "every character"). It used to pass <c>AccessorDeclaration.Keep</c>, which first dropped a bare <c>VAR</c>/<c>END_VAR</c>
-// (CENSUSED against live SP21 over pro2193's 464 accessor nodes — <c>probe-accessor-census.py</c>, deleted: 35 DISTINCT
-// declaration values, 263 bare <c>VAR\nEND_VAR\n</c>, 107 EMPTY, 6 with a LEADING newline — all stored content), and
-// then still dropped the TRAILING newlines and read a whitespace-only one as none, on the reasoning that the file could not
-// carry them. It can: the writer puts the text and then its own separator, and the reader strips only that.</para>
-
+/// and nothing more — is an Accessor with an empty <see cref="Body"/>, NOT a null one.
+/// <para>Its declaration travels VERBATIM (openspec <c>bridge-one-to-one</c> §1.1), a bare <c>VAR</c>/<c>END_VAR</c>,
+/// an empty one and a leading newline included: the writer puts the text and then its own separator, and the reader
+/// strips only that.</para></summary>
 public sealed record Accessor(string? Declaration, string? Body, string? Unsupported = null, StatedLanguage? Stated = null)
 {
     /// <summary>The code to WRITE for this accessor — never null, because the accessor exists.

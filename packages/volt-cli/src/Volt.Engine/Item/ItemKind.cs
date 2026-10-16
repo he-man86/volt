@@ -288,14 +288,6 @@ public static class ItemKind
     public static bool IsContainerManager(int code) =>
         code is PlcLibMan or PlcVisMan or PlcRecipeMan or PlcRecipes;
 
-    /// <summary>Items that live INSIDE a parent POU (collected by SourceAssembler, not top-level).</summary>
-    /// <summary>Does this kind materialize as a MEMBER of its POU's file — a <c>METHOD</c>, <c>ACTION</c> or
-    /// <c>PROPERTY</c> block the ST layer can render and parse back?
-    /// <para>Narrower than <see cref="IsInlinedInPou"/>, and the difference is load-bearing. A TRANSITION is
-    /// inlined in a POU and is NOT a member: no reader models one, so it never reaches the item's file and can
-    /// never be in a pushed member set. Reconciling members against the wider set is exactly how a push once
-    /// deleted every transition of an SFC POU on the first write, silently. Accessors are excluded for a
-    /// different reason — a property's GET/SET are read WITH the property, not beside it.</para></summary>
     /// <summary>The IDE kind code for a member kind — the inverse of <see cref="Map"/> over
     /// <see cref="IsMember"/>'s set, for creating a member the pushed source declares but the project does not
     /// have yet.</summary>
@@ -335,6 +327,13 @@ public static class ItemKind
                     $"member '{member}' has item type {code}, a member Volt has no kind for — refusing to treat it as a method"),
     };
 
+    /// <summary>Does this kind materialize as a MEMBER of its POU's file — a <c>METHOD</c>, <c>ACTION</c> or
+    /// <c>PROPERTY</c> block the ST layer can render and parse back?
+    /// <para>Narrower than <see cref="IsInlinedInPou"/>, and the difference is load-bearing. A TRANSITION is
+    /// inlined in a POU and is NOT a member: no reader models one, so it never reaches the item's file and can
+    /// never be in a pushed member set. Reconciling members against the wider set is exactly how a push once
+    /// deleted every transition of an SFC POU on the first write, silently. Accessors are excluded for a
+    /// different reason — a property's GET/SET are read WITH the property, not beside it.</para></summary>
     public static bool IsMember(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
 

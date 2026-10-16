@@ -17,8 +17,8 @@ namespace Volt.Engine.Sync;
 /// the receipt as its IDE baseline, no follow-up <c>refs</c>) then hit a spurious "pull first" on its next
 /// push. Re-materializing every item from the SAME walk <c>refs</c> uses makes that drift impossible.
 ///
-/// The gates match <c>refs</c> exactly: unmapped kinds and container-managers are skipped (exclude-from-build is
-/// NOT modeled — an excluded object syncs as an ordinary file, see <see cref="Ide.ProjectItem"/>). <c>fetch</c>
+/// The gates match <c>refs</c> exactly: unmapped kinds and container-managers are skipped (an object excluded from
+/// build is an ordinary item, see <see cref="Item.ProjectItem"/>). <c>fetch</c>
 /// keeps its own walk (it layers changed-body + onlyItems + library-signature logic on top) but is documented to
 /// produce the same version map for the same gates.
 /// </summary>

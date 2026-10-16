@@ -13,12 +13,7 @@ namespace Volt.Engine.Format.St;
 
 /// <summary>Assembles a <see cref="ItemContent"/> into canonical workspace Structured Text — the inverse of
 /// <see cref="StReader"/>, and the SOLE owner of that format — the two sit in this folder together for
-/// exactly that reason.
-/// <para>The dict-based <c>StAssembler</c> that used to share this format is DELETED, retiring its
-/// `ponytail:` note (which prescribed exactly this once the two round-trip tests stopped driving it): it had no
-/// production call site, and it had already diverged here — it invented `END_&lt;KIND&gt;` where this throws
-/// a coded refusal. ChildDirectiveTests and InterfaceRoundTripTests now certify THIS emitter, against
-/// a golden of the whole emitted text.</para></summary>
+/// exactly that reason.</summary>
 public static class StWriter
 {
     public static string Write(ItemContent item)
@@ -159,9 +154,8 @@ public static class StWriter
 
     private static string AssembleAccessor(string keyword, string? decl, string? impl, bool marked)
     {
-        // NOT trimmed. `AccessorDeclaration.Keep` already dropped the trailing newlines this join would
-        // double, and a LEADING newline is the engineer's blank line - six accessors in pro2193 hold one.
-        // Trimming here took back exactly what the read had just been fixed to preserve.
+        // NOT trimmed: the declaration travels verbatim, and a LEADING newline is the engineer's blank line (six
+        // accessors in pro2193 hold one).
         var d = decl ?? "";
         var (boundary, i) = ImplementationMarker.Split(impl ?? "");
         var lines = new List<string> { keyword };

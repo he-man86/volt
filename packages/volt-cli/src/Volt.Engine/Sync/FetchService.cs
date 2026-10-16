@@ -25,9 +25,9 @@ namespace Volt.Engine.Sync;
 /// item can be pulled and never pushed back. The identity is derived in ONE place,
 /// <c>Versioning.VersionedItem.Identity</c>, and every map below keys on it.
 ///
-/// Every walked item is returned as ordinary source — the bridge draws no build-relevance distinction.
-/// Dead (uncalled) code and exclude-from-build objects alike ship as plain files; the LSP decides
-/// reachability itself.</summary>
+/// Every walked item is returned as ordinary source. Dead (uncalled) code and exclude-from-build objects alike
+/// ship as plain files (the exclusion is a <c>%EXCLUDE_FROM_BUILD</c> property line); the LSP decides reachability
+/// itself.</summary>
 public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
@@ -337,13 +337,6 @@ public static class FetchService
     }
 
 
-    // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
-    // in the client's knownItems (only .library keys are relevant to the library-change decision).
-
-    // The RESOLUTION line of a `.library` manifest (written by LibraryManifest.Build). Hoisted to a static so it
-    // isn't recompiled per library item on every walk.
-
-
     /// <summary>Format the non-zero drop tallies for the completion log — e.g. <c> (skipped: 2 unmapped-kind,
     /// 1 unreadable)</c>, or empty when nothing was dropped. Keeps the common clean-pull line uncluttered.</summary>
     private static string Drops(params (string Label, int Count)[] tallies)
@@ -351,8 +344,6 @@ public static class FetchService
         var hit = tallies.Where(t => t.Count > 0).Select(t => $"{t.Count} {t.Label}").ToList();
         return hit.Count == 0 ? "" : $" (skipped: {string.Join(", ", hit)})";
     }
-
-
 
     /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
     /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>

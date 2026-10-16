@@ -315,14 +315,6 @@ public static class StReader
 		return at == words.Count || words[at] is "EXTENDS" or "IMPLEMENTS";
 	}
 
-	/// <summary>The word a MEMBER's declaration opens with, as the child splitter reads it — upper case — or null when it
-	/// holds no code at all. The splitter knows a member block by the keyword that leads its first line of code
-	/// (<see cref="SplitChildren"/>: METHOD / ACTION / PROPERTY), read through the same <see cref="StTrivia.Code"/> — the ONE
-	/// trivia skipper, which NESTS comments (<c>(* a (* b *) c *)</c> is one comment) — so this is the keyword the push
-	/// would read the member as. The PULL holds it to the member's CLASS (openspec <c>push-without-header-check</c> 5.Q.5,
-	/// <c>Materializer</c>): an IDE can store a method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file
-	/// carrying it would be read back as a property — a delete of the method and a create of a property, under an ordinary
-	/// push. A line that opens with a string opens with its quote.</summary>
 	/// <summary>The keyword the child splitter reads a member of <paramref name="kind"/> by, when its DECLARATION opens
 	/// with one: METHOD for a method, PROPERTY for a property (interface members too). Null for a kind whose block line is
 	/// written from its class (an action, a transition) or that is no member. The splitter's own vocabulary
@@ -334,6 +326,14 @@ public static class StReader
 		_ => null,
 	};
 
+	/// <summary>The word a MEMBER's declaration opens with, as the child splitter reads it — upper case — or null when it
+	/// holds no code at all. The splitter knows a member block by the keyword that leads its first line of code
+	/// (<see cref="SplitChildren"/>: METHOD / ACTION / PROPERTY), read through the same <see cref="StTrivia.Code"/> — the ONE
+	/// trivia skipper, which NESTS comments (<c>(* a (* b *) c *)</c> is one comment) — so this is the keyword the push
+	/// would read the member as. The PULL holds it to the member's CLASS (openspec <c>push-without-header-check</c> 5.Q.5,
+	/// <c>Materializer</c>): an IDE can store a method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file
+	/// carrying it would be read back as a property — a delete of the method and a create of a property, under an ordinary
+	/// push. A line that opens with a string opens with its quote.</summary>
 	public static string? MemberHeaderKeyword(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
@@ -921,8 +921,7 @@ public static class StReader
 		var (name, returnType) = ParseMethodOrActionSignature(lines[sigLine], code[sigLine], kind, at.Line(sigLine));
 		if (splitOnly) return new Member(kind, name, "", "", ObjectProperties.None, ReturnType: returnType);
 
-		// Split decl from impl inside the block (excluding the sigLine's
-		// own line and the trailing END_X). Re-scan to find last END_VAR.
+		// Split decl from impl inside the block (excluding the sigLine's own line and the trailing END_X).
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
 		var what = $"{kind} '{name}'";
 		if (!marked)

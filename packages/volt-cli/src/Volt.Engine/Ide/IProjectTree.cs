@@ -33,24 +33,13 @@ public interface IProjectTree
     ItemRef ChildAt(ItemRef parent, int index1Based);
     /// <summary>The item's parent. Called only on an item the walk/lookup already found, and only rootward of it
     /// (<c>PushService</c>'s delete + move-recreate), so the contract has no no-parent case.
-    /// <para>ARCH FOLLOW-UP: that is why it is non-nullable — and why both drivers launder a possibly-null native
-    /// handle into <see cref="ItemRef.Native"/>, so a call ON the tree root dies as a NullReferenceException inside
-    /// vendor reflection and reaches the client as INTERNAL_ERROR instead of a coded error. Make it honest
-    /// (<c>ItemRef?</c> the caller refuses on, or a coded IDE_LOST_ITEM in each driver) and reject a null native in the
-    /// <see cref="ItemRef"/> constructor so it cannot be laundered past the typed boundary.</para></summary>
+    /// <para>That is why it is non-nullable. A call ON the tree root has no parent to wrap, and the
+    /// <see cref="ItemRef"/> constructor refuses the null native — a driver bug, not a coded error.</para></summary>
     ItemRef Parent(ItemRef item);
     string Name(ItemRef item);
     /// <summary>The item's vendor-neutral kind code (see <c>ItemKind</c>).</summary>
     int KindCode(ItemRef item);
 
-    /// <summary>Create a child. <paramref name="seed"/> is the ONE value the vendor wants at creation time, and
-    /// WHICH value that is depends on the kind: the body LANGUAGE for a POU or a POU member, and the declared
-    /// TYPE for an interface member (TwinCAT's <c>CreateChild</c> takes it as <c>vInfo</c>, and a null there
-    /// fails with "Object reference not set to an instance of an object").
-    /// <para>This used to be called <c>language</c>, which is how the bug arrived: the engine passed a body
-    /// language for an interface member because that is what the parameter asked for, so every interface
-    /// property create failed. <see cref="Member.ReturnType"/> and <see cref="Member.DataType"/> exist to
-    /// supply the other half and had no reader at all.</para></summary>
     /// <summary>Does a handle into this project SURVIVE creating or deleting one of its children?
     ///
     /// <para>On CODESYS yes: the scripting objects are live, and adding a method does not disturb a handle to the
@@ -63,7 +52,11 @@ public interface IProjectTree
     /// CODESYS never needed — the cost of one vendor's quirk, charged to both.</para></summary>
     bool HandlesSurviveStructureChange { get; }
 
-    /// <summary>…and <paramref name="cls"/> is the vendor CLASS to make it as, where the text names one (<c>%CLASS</c>,
+    /// <summary>Create a child. <paramref name="seed"/> is the ONE value the vendor wants at creation time, and
+    /// WHICH value that is depends on the kind: the body LANGUAGE for a POU or a POU member, and the declared
+    /// TYPE for an interface member (TwinCAT's <c>CreateChild</c> takes it as <c>vInfo</c>, and a null there
+    /// fails with "Object reference not set to an instance of an object"; <see cref="Member.ReturnType"/> and
+    /// <see cref="Member.DataType"/> supply it). <paramref name="cls"/> is the vendor CLASS to make it as, where the text names one (<c>%CLASS</c>,
     /// openspec <c>bridge-one-to-one</c> §3) — null for the kind's plain class. REQUIRED, like <paramref name="seed"/>:
     /// a class never changes in place (DIALECT C2l), so a create that made the plain class and was converted afterwards
     /// is no path; the driver makes the class at the create, through the vendor's own Add Object path (C2r), or refuses
@@ -77,28 +70,16 @@ public interface IProjectTree
     /// TwinCAT reads presence out of the enclosing interface's own XML instead, where a property carries its
     /// <c>&lt;Get&gt;</c>/<c>&lt;Set&gt;</c> elements directly.</para>
     ///
-    /// <para>This existed before, answered off the PLCopen export, and went with it. Without it an interface
-    /// property round-trips with NO accessors — the pull writes a bare <c>PROPERTY x : T END_PROPERTY</c> and
-    /// the next push deletes the accessors the engineer actually has.</para></summary>
+    /// <para>Without it an interface property round-trips with NO accessors — the pull writes a bare
+    /// <c>PROPERTY x : T END_PROPERTY</c> and the next push deletes the accessors the engineer actually has.</para></summary>
     (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property);
     void Delete(ItemRef parent, string name);
     void Rename(ItemRef item, string newName);
 
-    /// <summary>Re-place an EXISTING item under <paramref name="target"/>, keeping its identity and content —
-    /// the one structural primitive a PLCopen import cannot express.
-    /// <para>A POU write is one merge import (content), and that import FLATTENS the POU's internal child
-    /// folders: measured on CODESYS 3.5.21.40 against <c>FB_FolderChild</c>, <c>testfolder</c> is pruned and the
-    /// action lands at the POU root. The document CAN describe the folders (<c>bExportFolderStructure</c> emits a
-    /// <c>projectstructure</c> block) but emits them <c>handleUnknown="discard"</c>, and that is exactly what the
-    /// import does. So placement is restored afterwards, here.</para>
-    /// <para>This interface previously had no move, which is why the change was twice stopped on "there is no
-    /// move primitive" — a conclusion read off THIS file rather than off the vendor. CODESYS's scripting
-    /// <c>ScriptObject</c> has one and it works.</para>
-    /// <para><b>BOTH vendors implement this now.</b> TwinCAT was refused here for a third time, on a note saying
-    /// its COM surface "has not been measured for an equivalent" — and it had not been. Enumerating
-    /// <c>ITcSmTreeItem</c>'s real dispatch table confirms there is no <c>Move</c> member, but its
-    /// <c>ExportChild</c>/<c>ImportChild</c> pair IS one: the archive is a zip whose ENTRY NAME carries the item's
-    /// source path, and flattening that name turns "recreate the path under the target" into a move (DIALECT D4f).
-    /// So a driver-specific refusal is no longer an expected state of this method.</para></summary>
+    /// <summary>Re-place an EXISTING item under <paramref name="target"/>, keeping its identity and content.
+    /// <para>BOTH vendors implement it: CODESYS through its scripting <c>ScriptObject.move</c>; TwinCAT, whose
+    /// <c>ITcSmTreeItem</c> has no <c>Move</c>, through the <c>ExportChild</c>/<c>ImportChild</c> pair — the archive is a
+    /// zip whose ENTRY NAME carries the item's source path, and flattening that name turns "recreate the path under the
+    /// target" into a move (DIALECT D4f). A driver-specific refusal is not an expected state of this method.</para></summary>
     void Move(ItemRef item, ItemRef target);
 }
