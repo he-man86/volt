@@ -127,47 +127,52 @@ x := a ADD (f(b) EN c);              // refused: an enabled MOVE/ADD/call is rea
                                      //   write `f(b) EN c;` then `x := a ADD ENO;`
 ```
 
-### B4 — `ENO` is the enable output of the box on the line above
+### B4 — `ENO` is the enable output of the line above; `;` ends the item
 
-**In a line, the word `ENO` is the ENO of the box on the line directly above. That line is then part of this line's
-NWL item (CODESYS stores the chain as one nested tree), not an item of its own.** No `THEN`, no `.ENO`:
+**One `;` = one NWL item. A line WITHOUT `;` hands its box's ENO to the next line, where the word `ENO` reads it
+(exactly once); the item ends at the line with `;`.** No `THEN`, no `.ENO`:
 ```
 // ENO → next box (Lenze AHWF; today 4 nested MOVE(EN := …).ENO)
-MOVE 175  => VelUnit EN split329 AND TRUE;
-MOVE 2000 => DecUnit EN ENO;
-MOVE 750  => AccUnit EN ENO;
+MOVE 175  => VelUnit EN split329 AND TRUE
+MOVE 2000 => DecUnit EN ENO
+MOVE 750  => AccUnit EN ENO
 MOVE 100  => TorqueLimit EN ENO;
 
 // ENO → coil (today: StartAuto := MOVE(EN := split20, 860, => AutoSpeed).ENO;)
-MOVE 860 => AutoSpeed EN split20;
+MOVE 860 => AutoSpeed EN split20
 StartAuto := ENO;
 
 // ENO mixed with contacts (Lenze AHWF N2)
-IDB_WSM(iGenflags := Mach1.GenFlags, …) EN;
+IDB_WSM(iGenflags := Mach1.GenFlags, …) EN
 PneumValveTerminalSMC.Pos1B := ENO AND EnablePneumPressurised AND AllDoorsActuallyClosed AND tSprayingValve;
 
 // ENO plus extra logic on the next EN
-MOVE 1 => A EN c;
+MOVE 1 => A EN c
 MOVE 2 => B EN ENO AND x;
 
 // ENO feeding a PARALLEL
-ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray;
-tInt ADD iInitialDescentValue => tInt EN ENO;
+ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray
+tInt ADD iInitialDescentValue => tInt EN ENO
 stDecendTray R= iPsElevatorDown PARALLEL (stActHeightElevator GE tInt EN) FEED ENO;
 
 // ENO used twice: CODESYS stores a split point there, so it is a split wire
-MOVE 860 => AutoSpeed EN split20;
+MOVE 860 => AutoSpeed EN split20
 split21 := ENO;
 
 // a jump at the end of a chain
-MOVE 1 => x EN c;
+MOVE 1 => x EN c
 JMP Done := ENO;
+
+// two items: the box on its own, then B read by StartAuto
+MOVE 1 => A EN c;
+MOVE 2 => B EN d
+StartAuto := ENO;
 ```
-Refused: `ENO` when the line above has no box (a coil, a jump, nothing), `ENO` twice in one line, a line above whose box
-is already consumed. The LSP shows the link (hover "ENO of `MOVE 175 => VelUnit`"). A comparison has no ENO: an enabled
-comparison whose result is used stays a bracketed value, `(a GT 40 EN c)`.
-`a := MOVE b EN c;` is refused: it reads "a gets b", but CODESYS hands a coil after an enabled box its ENO (N21) —
-write `MOVE b => a EN c;` then `coil := ENO;`.
+Moving a whole item (up to its `;`) only reorders items, like moving a rung. Moving one line out of a chain is
+refused, never silent: a line without `;` must be followed by a line that reads `ENO`, and `ENO` only reads a line
+without `;`. A comparison has no ENO: an enabled comparison whose result is used stays a bracketed value,
+`(a GT 40 EN c)`. `a := MOVE b EN c;` is refused: it reads "a gets b", but CODESYS hands a coil after an enabled box its
+ENO (N21) — write `MOVE b => a EN c` then `coil := ENO;`.
 
 ### B4b — jumps and returns are coils; no IF
 
@@ -264,19 +269,18 @@ P1  Reserved text words: EN ENO FEED SEQUENTIAL JMP RETURN EXECUTE END_EXECUTE a
     backticked:  y := `ENO`;   `ENO` := ok;   x := a PARALLEL `Feed`(IN := y);
     IF THEN END_IF LET leave the word list.
 
-P2  ENO = the ENO of the box at the ROOT of the directly preceding STATEMENT (statements, not lines — a statement
-    may span lines, an EXECUTE spans many). Refused when that root is not a box (a coil, a split definition, a jump,
-    `;`, a leaf, a PARALLEL, UNSUPPORTED):
-        x := a ADD b;   y := ENO;          // refused: the root above is a coil
+P2  ENO = the ENO of the box at the ROOT of the preceding line, which has NO `;` (B4). Only the item's last line
+    has `;`. Refused: a line without `;` not followed by a line reading ENO; ENO after a line with `;`; a line
+    without `;` whose root is not a box (a coil, a split definition, a jump, a leaf, a PARALLEL):
+        x := a ADD b         // refused: no `;`, but the root is a coil
+        y := ENO;
     A consumed box carries no modifier; its NOT/R_EDGE is written at the ENO token:
-        MOVE 1 => A EN c;   x := NOT ENO;  // ok
-        NOT (MOVE 1 => A EN c);  x := ENO; // refused
-    One ENO token per statement. A box consuming TWO ENOs (two enabled branches ANDed) has no text:
+        MOVE 1 => A EN c
+        x := NOT ENO;
+    One ENO token per line. A box consuming TWO ENOs (two enabled branches ANDed) has no text:
         UNSUPPORTED "a box consuming two ENO outputs";      (0 in the corpora)
-    The writer indents a consumed statement, so the link is visible (layout only):
-        MOVE 175  => VelUnit EN go;
-          MOVE 2000 => DecUnit EN ENO;
-            StartAuto := ENO;
+    "Line" is a statement up to its end: a long one may wrap; an EXECUTE spans to END_EXECUTE (no `;` after
+    END_EXECUTE when its ENO feeds the next line). Indentation is layout only.
 
 P3  Who owns EN / => at a bracket level: its word box, or its single call when the level holds nothing else.
     EN takes everything up to `;` or `)`. A second box's EN or => at the same level is refused unless bracketed:
