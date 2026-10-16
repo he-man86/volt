@@ -117,7 +117,7 @@ iRPM MUL 6 => oDrive EN;             // proposed: `EN` with nothing after it
 EXECUTE(EN := c) … END_EXECUTE;      // today
 EXECUTE EN c … END_EXECUTE;          // proposed
 ```
-`EN` takes the condition up to `;`, `)`, `,` or `THEN`.
+`EN` takes the condition up to `;`, `)` or `,`.
 
 **Which box:** `EN`, `=>` and `ENO` belong to the box of their own bracket level; any other box is bracketed (the
 writer always brackets it):
@@ -125,44 +125,62 @@ writer always brackets it):
 x := a ADD (f(b) EN c);              // f is enabled
 x := (a ADD f(b)) EN c;              // refused: a value box with EN is a statement or bracketed, see B4
 ```
-`IF x THEN JMP l; END_IF;` keeps its `THEN`: inside an IF condition, `THEN` is always the IF's.
 
-### B4 — the ENO is `THEN … ENO`
+### B4 — `ENO` is the enable output of the box on the line above
 
-**`box THEN next`: in `next`, the word `ENO` is that box's ENO, used exactly once.** One rule for every consumer —
-`.ENO` is gone:
+**In a line, the word `ENO` is the ENO of the box on the line directly above. That line is then part of this line's
+NWL item (CODESYS stores the chain as one nested tree), not an item of its own.** No `THEN`, no `.ENO`:
 ```
 // ENO → next box (Lenze AHWF; today 4 nested MOVE(EN := …).ENO)
-MOVE 175  => VelUnit EN split329 AND TRUE
-THEN MOVE 2000 => DecUnit EN ENO
-THEN MOVE 750  => AccUnit EN ENO
-THEN MOVE 100  => TorqueLimit EN ENO;
+MOVE 175  => VelUnit EN split329 AND TRUE;
+MOVE 2000 => DecUnit EN ENO;
+MOVE 750  => AccUnit EN ENO;
+MOVE 100  => TorqueLimit EN ENO;
 
 // ENO → coil (today: StartAuto := MOVE(EN := split20, 860, => AutoSpeed).ENO;)
-MOVE 860 => AutoSpeed EN split20
-THEN StartAuto := ENO;
+MOVE 860 => AutoSpeed EN split20;
+StartAuto := ENO;
 
 // ENO mixed with contacts (Lenze AHWF N2)
-IDB_WSM(iGenflags := Mach1.GenFlags, …) EN
-THEN PneumValveTerminalSMC.Pos1B := ENO AND EnablePneumPressurised AND AllDoorsActuallyClosed AND tSprayingValve;
+IDB_WSM(iGenflags := Mach1.GenFlags, …) EN;
+PneumValveTerminalSMC.Pos1B := ENO AND EnablePneumPressurised AND AllDoorsActuallyClosed AND tSprayingValve;
 
 // ENO plus extra logic on the next EN
-MOVE 1 => A EN c
-THEN MOVE 2 => B EN ENO AND x;
+MOVE 1 => A EN c;
+MOVE 2 => B EN ENO AND x;
 
 // ENO feeding a PARALLEL
-ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray
-THEN tInt ADD iInitialDescentValue => tInt EN ENO
-THEN stDecendTray R= iPsElevatorDown PARALLEL (stActHeightElevator GE tInt EN) FEED ENO;
+ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray;
+tInt ADD iInitialDescentValue => tInt EN ENO;
+stDecendTray R= iPsElevatorDown PARALLEL (stActHeightElevator GE tInt EN) FEED ENO;
 
 // ENO used twice: CODESYS stores a split point there, so it is a split wire
-MOVE 860 => AutoSpeed EN split20
-THEN split21 := ENO;
+MOVE 860 => AutoSpeed EN split20;
+split21 := ENO;
+
+// a jump at the end of a chain
+MOVE 1 => x EN c;
+JMP Done := ENO;
 ```
-Refused: no `ENO` after `THEN`, or `ENO` twice. Still ONE statement (one `;`), so still one NWL item. A comparison has
-no ENO: an enabled comparison whose result is used stays a bracketed value, `(a GT 40 EN c)`.
+Refused: `ENO` when the line above has no box (a coil, a jump, nothing), `ENO` twice in one line, a line above whose box
+is already consumed. The LSP shows the link (hover "ENO of `MOVE 175 => VelUnit`"). A comparison has no ENO: an enabled
+comparison whose result is used stays a bracketed value, `(a GT 40 EN c)`.
 `a := MOVE b EN c;` is refused: it reads "a gets b", but CODESYS hands a coil after an enabled box its ENO (N21) —
-write `MOVE b => a EN c THEN coil := ENO;`.
+write `MOVE b => a EN c;` then `coil := ENO;`.
+
+### B4b — jumps and returns are coils; no IF
+
+A jump sits where a coil sits — the rung drives it — so it is written like one:
+```
+IF a AND b THEN JMP Done; END_IF;     // today
+JMP Done := a AND b;                  // proposed
+
+JMP Done;                             // unconditional — unchanged
+RETURN := NOT xReady;                 // conditional return
+```
+With IF gone the text has no ST control statement at all; the words are `EN ENO FEED SEQUENTIAL JMP RETURN EXECUTE
+END_EXECUTE`, the box words, and `:= S= R=`. Functions with 3+ inputs stay calls: `y := SEL(g, a, b);`,
+`SEL(g, a, b, => y) EN c;`.
 
 ### B5 — values without outer brackets
 
@@ -233,7 +251,7 @@ LET                           →  no longer reserved
 
 ```
 a := b S= c R= value;    NOT x    R_EDGE(x)    F_EDGE(x)    f(NOT IN := v)
-JMP l;   RETURN;   IF c THEN JMP l; END_IF;   EXECUTE … END_EXECUTE;   ??? : TON(…)
+EXECUTE … END_EXECUTE;   ??? : TON(…)
 fb(…).name   F => dst   ``   ???   UNSUPPORTED "<shape>";
 ```
 
