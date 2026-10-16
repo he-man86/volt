@@ -54,7 +54,20 @@ Investigated 2026-10-16 (live, TcXaeShell 15 x86, fixture 13). The evidence is i
   - **Risks:** unwritten serializer rules, C2i crashes, no Parallel template, and a slow reload per push.
 - **C — keep today's route** with its refusals and reshapes.
 
-## Decisions for the owner
+## Decision (owner, 2026-10-16): C — PLCopen stays on TwinCAT
+
+"This is not how TwinCAT intended it." Beckhoff's door for an outside tool is the Automation Interface (COM). For
+graphical code that door is `PlcOpenImport` / export. An in-proc TcXaeShell extension is how Beckhoff ships its own
+add-ons, and it needs an admin install per machine. Hand-built archives are validated by nothing on load and can crash
+the IDE. Both alternatives were measured (proposal "Findings", research.md) and rejected, so PLCopen on TwinCAT is an
+accepted vendor difference (wire-divergence rule: two measured alternatives + owner OK). The CODESYS side keeps its one
+in-proc writer.
+
+What remains worth doing, within the PLCopen route:
+- correct the false parity claims (task 1.1);
+- per refused shape, check whether PLCopen can express it after all, and keep refusing only what it measurably cannot.
+
+## Decisions that were open (superseded by C above)
 
 1. **Admin:** is a one-time admin install of a TcXaeShell extension acceptable for TwinCAT users? They already install
    TwinCAT as admin. If not, only B or C remain.
