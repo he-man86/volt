@@ -10,7 +10,6 @@ import {
   IMPLEMENTATION_KEYWORD,
   isTrivia,
   lookalikeLine,
-  retiredCommentIn,
   unitBodies,
   type BodySpan,
   type TopLevel,
@@ -52,6 +51,6 @@ export function missingLanguage({ body, what }: UnstatedBody): DiagnosticItem {
     span: first?.span ?? body.span,
     source: SOURCE,
     code: MISSING_LANGUAGE,
-    message: missingLanguageMessage(what, IMPLEMENTATION_KEYWORD, lookalikeLine(body.tokens), retiredCommentIn(body.tokens)),
+    message: missingLanguageMessage(what, IMPLEMENTATION_KEYWORD, lookalikeLine(body.tokens)),
   }
 }

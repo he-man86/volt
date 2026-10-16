@@ -163,18 +163,18 @@ export const RULES_I: readonly Rule[] = [
     id: "FMT7",
     area: 2,
     section: "2.10",
-    rule: "a retired `(* @volt-… *)` comment is a comment: nothing is reported, and in a body that states no language it is that finding's hint (bridge-refusal-review 1.4/2.1)",
-    home: "format/retired-comments",
+    rule: "a `(* @volt-… *)` comment is a comment: nothing is reported, and a body that states no language is told to `volt pull` (bridge-refusal-review 1.4/2.1)",
+    home: "format/source-object",
     gap: false,
     fixtures: ["rcc_retired_comment_in_body", "pwh_gvl_retired_volt_comment"],
     tests: [
       {
-        file: "src/frontend/syntax/format/retired-comments.test.ts",
-        title: "a (* @volt-… *) comment in a file that states its bodies is a comment: nothing is reported",
+        file: "src/frontend/syntax/format/source-object.test.ts",
+        title: "a POU still is — and so is text read with no object",
       },
       {
         file: "src/server/handlers/diagnostics.test.ts",
-        title: "server: without a manifest, a file an older Volt pulled is told to `volt pull` naming its comment — its ladder is not ST errors",
+        title: "server: without a manifest, a file whose bodies state no language is told to `volt pull` — its ladder is not ST errors",
       },
     ],
     design: "rcc_retired_comment_in_body, `retired-comments.test.ts`",

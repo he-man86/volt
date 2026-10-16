@@ -11,7 +11,6 @@
  */
 import {
   MATERIALIZATION,
-  MATERIALIZATION_FORMATS,
   newerLibraryManifests,
   staleLibraryManifests,
   type LibraryManifest,
@@ -28,8 +27,7 @@ const warning = (code: string, message: string): DiagnosticItem => ({ severity: 
 /** Each manifest another materialization wrote, by its path, with its one warning. */
 export function materializationFindings(manifests: readonly LibraryManifest[]): Map<string, DiagnosticItem[]> {
   const older = staleLibraryManifests(manifests).map((m): [string, DiagnosticItem[]] => {
-    const lacks = MATERIALIZATION_FORMATS.filter(([format]) => m.materialization < format).map(([, what]) => what)
-    return [m.uri, [warning("library-stale", libraryStaleMessage(m.library, m.materialization, MATERIALIZATION, lacks))]]
+    return [m.uri, [warning("library-stale", libraryStaleMessage(m.library, m.materialization, MATERIALIZATION))]]
   })
   const newer = newerLibraryManifests(manifests).map((m): [string, DiagnosticItem[]] => [
     m.uri,

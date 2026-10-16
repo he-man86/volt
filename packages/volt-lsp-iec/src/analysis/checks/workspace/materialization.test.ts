@@ -1,6 +1,6 @@
 /**
  * The manifest warnings (`materialization.ts`): one per manifest another materialization wrote, keyed by its path —
- * older names what the workspace lacks and the CLI as a possible stale side, newer names the language server — and none
+ * older names the re-pull and the CLI as a possible stale side, newer names the language server — and none
  * for a manifest at this server's own format.
  */
 import { expect, test } from "bun:test"
@@ -18,16 +18,13 @@ const manifest = (materialization: number): LibraryManifest => ({
 })
 const only = (materialization: number) => [...materializationFindings([manifest(materialization)]).values()].flat()
 
-// Every format below this server's own must say what it lacks: the stale-manifest warning is built from that list,
-// and a format with no entry printed "…(format 3, now 4): . Run `volt pull`…" — an empty clause, no failure.
-test("every older format names what the workspace lacks", () => {
+// Every format below this server's own is told to re-pull, naming both formats (no users, no backward compat: the
+// warning no longer lists what each older format lacked).
+test("every older format is told to re-pull, naming its format and this server's", () => {
   for (let format = 1; format < MATERIALIZATION; format++) {
     const [warning] = only(format)
     expect(warning?.code).toBe("library-stale")
-    expect(warning!.message).not.toContain("): .")
-    const clause = warning!.message.split(`(format ${format}, now ${MATERIALIZATION}): `)[1] ?? ""
-    expect(clause.startsWith(".")).toBe(false)
-    expect(clause.length).toBeGreaterThan(0)
+    expect(warning!.message).toContain(`(format ${format}, now ${MATERIALIZATION}). Run \`volt pull\``)
   }
 })
 

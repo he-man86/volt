@@ -7,7 +7,6 @@ export { isLibraryUri, libraryOf } from "./path.js"
 export { libraryResolution, parseLibraryManifest, type LibraryManifest } from "./manifest.js"
 export {
   MATERIALIZATION,
-  MATERIALIZATION_FORMATS,
   materializationMismatch,
   newerLibraryManifests,
   staleLibraryManifests,

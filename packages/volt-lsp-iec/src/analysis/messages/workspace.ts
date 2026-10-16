@@ -5,11 +5,11 @@
  * the vendors' recordings).
  */
 
-/** A manifest an OLDER Volt wrote (format `format`, below `current`): what the workspace lacks, and the repair — a
- *  re-pull, naming the CLI as the possible stale side (the volt-vscode bundle can be ahead of the CLI on PATH). */
-export const libraryStaleMessage = (library: string, format: number, current: number, lacks: readonly string[]): string =>
-  `${library} was materialized by an older Volt (format ${format}, now ${current}): ` +
-  `${lacks.join("; and ")}. Run \`volt pull\` to re-materialize the workspace. If the pull leaves it at ` +
+/** A manifest an OLDER Volt wrote (format `format`, below `current`): the repair — a re-pull, naming the CLI as the
+ *  possible stale side (the volt-vscode bundle can be ahead of the CLI on PATH). */
+export const libraryStaleMessage = (library: string, format: number, current: number): string =>
+  `${library} was materialized by an older Volt (format ${format}, now ${current}). ` +
+  `Run \`volt pull\` to re-materialize the workspace. If the pull leaves it at ` +
   `format ${format}, the volt CLI on PATH is the stale side (it writes format ${format}, ` +
   `this language server reads format ${current}): update the volt CLI, then pull.`
 

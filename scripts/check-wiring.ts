@@ -170,7 +170,7 @@ check(`lsp SCANNED_EXTENSIONS (scanned + watched) reference exts ⊆ canonical [
 
 // ── Materialization parity (one format number, two runtimes) ──────────────────────────────────────
 // The CLI states its materialization format on every library manifest it writes (C# `LibraryManifest.Materialization`)
-// and the LSP compares it with its own (`MATERIALIZATION`, the last row of `MATERIALIZATION_FORMATS`). A manifest the
+// and the LSP compares it with its own (`MATERIALIZATION`). A manifest the
 // LSP reads as another format silences EVERY network-text diagnostic in the workspace and flags each manifest
 // `library-stale`/`materialization-newer` — so a bump on one side only would ship a server that checks no graphical
 // body, with every test still green (each side's tests build their manifests from their own constant).
@@ -179,15 +179,10 @@ check("C# LibraryManifest.Materialization == LSP MATERIALIZATION", () => {
 	const cs = /public const int Materialization = (\d+);/.exec(
 		readRepo("packages/volt-cli/src/Volt.Engine/Library/LibraryManifest.cs"));
 	if (!cs) return "could not find `public const int Materialization = N;` in LibraryManifest.cs";
-	const table = /MATERIALIZATION_FORMATS[^=]*=\s*\[([\s\S]*?)\n\]/.exec(
+	const ts = /export const MATERIALIZATION: number = (\d+)/.exec(
 		readRepo("packages/volt-lsp-iec/src/frontend/library/materialization.ts"));
-	if (!table) return "could not find the MATERIALIZATION_FORMATS table in materialization.ts";
-	const formats = [...table[1].matchAll(/^\s*\[(\d+),/gm)].map((m) => Number(m[1]));
-	if (formats.length === 0) return "MATERIALIZATION_FORMATS has no rows";
-	const lsp = formats[formats.length - 1];
-	return Number(cs[1]) === lsp
-		|| `mismatch: C# writes format ${cs[1]}, the LSP reads format ${lsp} — bump BOTH (the LSP by adding a ` +
-			"MATERIALIZATION_FORMATS row that says what the older format lacks)";
+	if (!ts) return "could not find `export const MATERIALIZATION: number = N` in materialization.ts";
+	return cs[1] === ts[1] || `mismatch: C# writes format ${cs[1]}, the LSP reads format ${ts[1]} — bump BOTH`;
 });
 
 // THESE RUN BEFORE THE SUMMARY AND ITS EXIT. They were printed after both, so a failing citation check never

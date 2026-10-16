@@ -211,9 +211,7 @@ once by the parser to the unit, member or declaration it decorates (`attributes.
 front-end answers by). `format/` — the Volt workspace file format, which is not
 CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, the `%`-lines (`object-properties.ts`: an
 object's properties — `%CLASS`, `%FOLDER`, `%EXCLUDE_FROM_BUILD`, … — the closed key list the bridge's
-`PropertyLines` spells, read and reported but never analysed as code; any other `%…` line is code), the retired `(* @volt-… *)`
-comments (read only as the hint of a body that states no language — a comment everywhere else, bridge-refusal-review
-2.1), which reader reads a body — its stated language alone, never what the text looks like — and what a file's
+`PropertyLines` spells, read and reported but never analysed as code; any other `%…` line is code), which reader reads a body — its stated language alone, never what the text looks like — and what a file's
 extension says its object is (a DUT's or a GVL's
 text is read as the IDE reads it — nothing is declared, and nothing reported, unless the text opens with TYPE /
 VAR_GLOBAL). A parse takes `ParseOptions` (`networkText`: whether an LD/FBD body is read as network text — the server

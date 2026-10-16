@@ -116,22 +116,21 @@ test("server: a workspace an OLDER Volt pulled is told once, on its manifests �
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
-  expect(manifest[0]!.message).toContain("network text v1")
   expect(manifest[0]!.message).toContain("volt pull")
   expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
 test("server: a workspace format 3 pulled is told once that its bodies state no language — its ladders are not ST errors", async () => {
   // Format 3 marked the boundary with a comment: to this server a line-less ladder is an ST body, and every rung a
-  // parse error. The manifest names the re-pull, and the bodies that state no language stay quiet.
+  // parse error. The manifest names the re-pull (once — it no longer lists what each format lacked), and the bodies that
+  // state no language stay quiet.
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 3\n"),
     "F.pou": RETIRED_MARKER_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
-  expect(manifest[0]!.message).toContain("IMPLEMENTATION line")
-  expect(manifest[0]!.message).not.toContain("network text v1")
+  expect(manifest[0]!.message).toContain("volt pull")
   expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
@@ -166,15 +165,14 @@ test("server: a workspace at the LSP's own materialization says nothing about it
   expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
-test("server: without a manifest, a file an older Volt pulled is told to `volt pull` naming its comment — its ladder is not ST errors", async () => {
+test("server: without a manifest, a file whose bodies state no language is told to `volt pull` — its ladder is not ST errors", async () => {
   // No manifest states a format (a workspace with no library), so the file itself is the only place left to say it —
-  // and it does: the body states no language, which the push refuses naming `volt pull` (`StReader.Unmarked`), and
-  // every Volt before the line wrote a `(* @volt-… *)` comment there, which that one finding names as its hint
-  // (bridge-refusal-review 2.1). Read as ST every rung would be a parse error meaning only "this file is from an older
-  // Volt": those stay quiet.
-  for (const [format, body, comment] of [
-    ["format 2 (v1)", V1_BODY, "(* @volt-implementation *)"],
-    ["format 3", RETIRED_MARKER_BODY, "(* @volt-implementation LD *)"],
+  // and it does: the body states no language, which the push refuses naming `volt pull` (`StReader.Unmarked`). A
+  // `(* @volt-… *)` comment there is a comment, named by nothing (no users, no backward compat). Read as ST every rung
+  // would be a parse error meaning only "this body states no language": those stay quiet.
+  for (const [format, body] of [
+    ["format 2 (v1)", V1_BODY],
+    ["format 3", RETIRED_MARKER_BODY],
   ] as const) {
     const messages = [
       ...new Set(((await workspaceDiagnostics({ "F.pou": body })).get("F.pou") ?? []).map((d) => d.message)),
@@ -184,12 +182,10 @@ test("server: without a manifest, a file an older Volt pulled is told to `volt p
       format,
       count: messages.length,
       pull: first.includes("volt pull"),
-      hint: first.includes(comment),
     }).toEqual({
       format,
       count: 1,
       pull: true,
-      hint: true,
     })
   }
 })

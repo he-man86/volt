@@ -46,21 +46,18 @@ export function syntaxMessages({ tc }: VendorWording): SyntaxMessages {
 /**
  * A body that states no language (`checks/syntax/missing-language.ts`) — the push's own refusal of the file
  * (`StReader.Unmarked`), Volt's text and no compiler's, so a plain builder beside the slice (see `workspace.ts`). Its
- * hint is the push's: a line that looks like the boundary and what it lacks, else an older Volt's `(* @volt-… *)`
- * comment in the body.
+ * hint is the push's: a line that looks like the boundary and what it lacks, else the re-pull.
  */
 export function missingLanguageMessage(
   what: string,
   keyword: string,
   lookalike: { text: string; lacks: string } | undefined,
-  retired: string | undefined,
 ): string {
   return (
     `'${what}' states no language: its body opens with no '${keyword} <ST|LD|FBD>' line, so the file ` +
     "does not say where its declaration ends or what language its body is in, and neither reader reads it. " +
     (lookalike !== undefined
       ? `It holds '${lookalike.text}', ${lookalike.lacks}`
-      : (retired !== undefined ? `It holds '${retired}', the comment a Volt from before that line wrote in its place. ` : "") +
-        "Run `volt pull` once to rewrite the workspace in the current format.")
+      : "Run `volt pull` once to rewrite the workspace in the current format.")
   )
 }

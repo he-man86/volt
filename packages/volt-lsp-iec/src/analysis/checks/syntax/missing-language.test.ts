@@ -35,9 +35,3 @@ test("the finding stands on the body's first line of code, an error with the slu
   expect(finding.message).toStartWith("'F' states no language: its body opens with no 'IMPLEMENTATION <ST|LD|FBD>' line")
   expect(finding.message).toEndWith("Run `volt pull` once to rewrite the workspace in the current format.")
 })
-
-test("an older Volt's comment in the body is named as the hint", () => {
-  const source = "FUNCTION_BLOCK F\nVAR a : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  a := TRUE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n"
-  const [body] = unstatedBodies(parse(source))
-  expect(missingLanguage(body!).message).toContain("It holds '(* @volt-implementation LD *)'")
-})
