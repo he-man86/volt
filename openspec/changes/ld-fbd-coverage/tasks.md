@@ -702,6 +702,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       examples over prose, one example per rule, the P-rules as a compact reference.
       No edge cases in the language (owner): a rule the doc can only state with an exception or a special case is a
       grammar defect — list each one for the owner in the step's report instead of documenting it.
+      Examples are small made-up networks (`a`, `b`, `start`, `lamp`), never taken from the corpora (owner).
 - [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
