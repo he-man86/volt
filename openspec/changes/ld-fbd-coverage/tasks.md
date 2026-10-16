@@ -700,12 +700,15 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       and the E rows (`SymbolComment`, S4 `fb(…).name`, an enabled comparison value). Per row: first make it live in
       the editor (or by import) on both vendors; a row the IDE cannot store stays refused, with that measurement as
       its reason. Only old spellings (P14) stay refused by design.
-      **"Possible" = an engineer can make it in the editor** (owner, same day, after seeing it): a shape only a push
-      can create is not drawn properly and cannot be made by hand, so it stays refused with that as its reason.
-      Measured 2026-10-16, CODESYS 3.5.21 (EnoDemo, scratchpad move-demo): an AND fed by two MOVE ENOs pushes,
-      round-trips and builds (0 errors), but the editor draws it broken (the second ENO and the AND's third input
-      dangle, no clean wire) and offers no way to draw it → "a box consuming two ENO outputs" STAYS refused. Each
-      other row: try it in the editor on both vendors first; spell only what the editor can make.
+      **"Possible" = the IDE stores it and it RUNS** (owner, same day, after running it in simulation: "it is an
+      editor issue — the logic behind it works"). How well the editor draws it does not decide. Measured 2026-10-16,
+      CODESYS 3.5.21 (EnoDemo, scratchpad move-demo): an AND fed by two MOVE ENOs pushes, round-trips, builds (0
+      errors) and runs correctly in simulation; the editor draws it broken (the second ENO and a third AND input
+      dangle) → "a box consuming two ENO outputs" GETS a spelling. Starting point, to be checked:
+      `MOVE 1 => A EN c` / `MOVE 2 => B EN d` / `x := ENO AND ENO;` — `ENO`s take the open lines above in order,
+      top to bottom, like `BRANCH`. Each other row: push it, build it, run it in simulation on both vendors; spell
+      what stores and runs. Side finding to check in 2R.3: that body was pushed as `IMPLEMENTATION FBD`, the editor
+      showed it as LD, and after the owner opened/ran it a pull returned `IMPLEMENTATION LD`.
 
 ## 3. Verify and close
 
