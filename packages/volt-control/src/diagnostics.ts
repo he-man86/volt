@@ -58,9 +58,11 @@ export function describeDiagnostics(d: { errors: number; warnings: number }): st
 
 // ── server resolution ────────────────────────────────────────────────────────
 let serverModule: string | undefined
-/** Point the collector at volt-lsp-iec's stdio entry (dist/src/server/bin.js). Set once by the host. */
+/** Point the collector at volt-lsp-iec's stdio entry (dist/src/server/bin.js, or the shipped volt-lsp-iec.exe). Set
+ *  once by the host; a path that does not exist is refused by name. */
 export function setLspServer(path: string): void {
-  if (existsSync(path)) serverModule = path
+  if (!existsSync(path)) throw new Error(`The volt-lsp-iec server is not at ${path} — build it, or reinstall Volt.`)
+  serverModule = path
 }
 
 /**

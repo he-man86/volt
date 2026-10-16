@@ -23,14 +23,17 @@ const repo = resolve(import.meta.dirname, "..")
 // <maj>.<min>.<count> (e.g. 0.1.15940), NOT a bare 0.1.0. That matters: the connector's updater compares with
 // System.Version, and a low bare base reads as OLDER than the dev channel's <maj>.<min>.<count>, so a fresh local
 // install would falsely show "update available" on the dev channel. Never recompute here — version.ts is the source.
-const version =
-  process.env.VOLT_VERSION ||
-  (spawnSync("bun", [resolve(repo, "scripts/version.ts")], { cwd: repo, encoding: "utf8" }).stdout ?? "")
-    .split("\n")
-    .find((l) => l.startsWith("version="))
-    ?.slice("version=".length)
-    .trim() ||
-  (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
+// No third fallback to volt-desktop's package.json: that is the bare base, the version this computation exists to avoid.
+const version = process.env.VOLT_VERSION || localVersion()
+function localVersion(): string {
+  const r = spawnSync("bun", [resolve(repo, "scripts/version.ts"), "--version"], { cwd: repo, encoding: "utf8" })
+  const v = (r.stdout ?? "").trim()
+  if (r.status !== 0 || v === "") {
+    console.error(`✗ scripts/version.ts failed — no version to build: ${(r.stderr ?? "").trim()}`)
+    process.exit(1)
+  }
+  return v
+}
 const payload = resolve(repo, "dist/volt")
 const stage = resolve(repo, "dist/stage")
 const release = resolve(repo, "dist/release")

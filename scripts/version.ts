@@ -25,11 +25,20 @@ import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
-const git = (args: string): string => spawnSync("git", args.split(" "), { cwd: repo, encoding: "utf8" }).stdout?.trim() ?? ""
+const git = (args: string): string => {
+  const r = spawnSync("git", args.split(" "), { cwd: repo, encoding: "utf8" })
+  if (r.status !== 0) {
+    console.error(`✗ git ${args} failed (${r.error?.message ?? `exit ${r.status}`}): ${(r.stderr ?? "").trim()}`)
+    process.exit(1)
+  }
+  return r.stdout.trim()
+}
 
 const pkgVersion: string = (await import(resolve(repo, "packages/volt-desktop/package.json"))).default.version
 const [maj, min] = pkgVersion.split(".")
-const count = git("rev-list HEAD --count") || "0"
+// NO fallback: an empty count would yield the bare base version — the exact never-out-versions-an-install bug
+// test:ext exists to catch. A count git could not give is a failed build.
+const count = git("rev-list HEAD --count")
 const version = `${maj}.${min}.${count}` // e.g. 0.1.15940 — VOLT_VERSION, the desktop, the extension, the release tag
 
 if (!/^\d+\.\d+\.\d+$/.test(version)) {

@@ -9,6 +9,7 @@ import { dirname, join } from "node:path"
 import {
   setBundledCli,
   setLspServer,
+  voltLog,
   loadDiff,
   closeSession,
   startConnectorFeed,
@@ -44,9 +45,11 @@ function configureTools() {
     setBundledCli(join(bin, "volt.exe"))
     setLspServer(join(bin, "volt-lsp-iec.exe"))
   } else {
-    // Dev: the C# volt.exe from build-cli.ps1 (setBundledCli no-ops if absent → the CLI is `volt` on PATH); the LSP
-    // is still the bundled .js run via ELECTRON_RUN_AS_NODE.
-    setBundledCli(join(__dirname, "..", "volt-cli", "dist", "Cli", "volt.exe"))
+    // Dev: the C# volt.exe from build-cli.ps1 when it has been built, else — DELIBERATELY, and only here — the `volt`
+    // on PATH (a dev box usually has an installed Volt), said in the log. The LSP is the .js run via ELECTRON_RUN_AS_NODE.
+    const devCli = join(__dirname, "..", "volt-cli", "dist", "Cli", "volt.exe")
+    if (existsSync(devCli)) setBundledCli(devCli)
+    else voltLog("desktop", `dev: no ${devCli} (run build-cli.ps1) — using the volt on PATH`, "warn")
     setLspServer(join(__dirname, "..", "volt-lsp-iec", "dist", "src", "server", "bin.js"))
   }
 }
@@ -148,7 +151,14 @@ app.whenReady().then(async () => {
     return
   }
 
-  configureTools()
+  // A packaged app missing its own CLI or LSP is a broken install: say so and stop, rather than run another `volt`.
+  try {
+    configureTools()
+  } catch (err) {
+    dialog.showErrorBox("Volt cannot start", err instanceof Error ? err.message : String(err))
+    app.exit(1)
+    return
+  }
   setRecentFile(join(app.getPath("userData"), "last-workspace.json"))
   void restoreWorkspace()
 

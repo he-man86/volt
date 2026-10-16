@@ -1,6 +1,13 @@
 import { test, expect } from "bun:test"
 import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-protocol/node"
-import { byFileRank, countDiagnostics, describeDiagnostics } from "./diagnostics.js"
+import { byFileRank, countDiagnostics, describeDiagnostics, setLspServer } from "./diagnostics.js"
+
+// A host's configured server path that does not exist is refused by name, at the moment it is configured — not left
+// unset to surface later as a vaguer "server not set" from whichever collect ran first.
+test("setLspServer refuses a path that does not exist, naming it", () => {
+  const missing = "C:/no-such-dir/volt-lsp-iec.exe"
+  expect(() => setLspServer(missing)).toThrow(missing)
+})
 
 const diag = (severity: number, source?: string): Diagnostic => ({
   range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },

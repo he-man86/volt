@@ -5,8 +5,11 @@ import { existsSync } from "node:fs"
  *  installed-Volt lookup). Unset, the CLI is the bare `volt` on PATH. */
 let bundledCli: string | undefined
 
+/** Point every spawn at this `volt.exe`. A path that does not exist is REFUSED by name, never quietly replaced by
+ *  whatever `volt` is on PATH: a packaged desktop whose `bin\volt.exe` is missing must say so, not run another build. */
 export function setBundledCli(path: string): void {
-	if (existsSync(path)) bundledCli = path
+	if (!existsSync(path)) throw new Error(`The volt CLI is not at ${path} — the Volt install is incomplete. Reinstall Volt.`)
+	bundledCli = path
 }
 
 /** Spawn the volt CLI — the set `volt.exe`, or the bare `volt` on PATH. */
