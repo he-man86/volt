@@ -217,3 +217,18 @@ test("an address's `*` stands right after its area letter, nowhere else (A1, A2)
   expect(shape("%IW*")).toEqual([["address_lit", "%IW"], ["punct", "*"]])
   expect(shape("%MW0*2")).toEqual([["address_lit", "%MW0"], ["punct", "*"], ["int_lit", "2"]])
 })
+
+// A NAME IN ANY SCRIPT (openspec `codesys-existing-unicode-members` 3.2, DIALECT C28b): with "Unicode identifiers" on,
+// CODESYS 3.5.21.40 creates and builds each of these names, and refuses a leading digit, a no-break and a zero-width space.
+const words = (src: string) => code(src).filter((t) => t.kind !== "eof").map((t) => [t.kind, t.text])
+
+test("a name CODESYS builds is one identifier token, in any script", () => {
+  for (const name of ["Fööbar", "Ünit", "Привет", "αβ", "名前", "点1", "点_a", "_点", "a٣", "从Modbus读取命令"])
+    expect(words(name)).toEqual([["identifier", name]])
+})
+
+test("a name CODESYS refuses is no single identifier", () => {
+  expect(words("1点")[0]).not.toEqual(["identifier", "1点"])
+  expect(words("a\u00a0b")).not.toEqual([["identifier", "a\u00a0b"]])
+  expect(words("a\u200bb")).not.toEqual([["identifier", "a\u200bb"]])
+})

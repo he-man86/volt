@@ -36,7 +36,14 @@
 
 ## 3. Language server
 
-- [ ] 3.1 Corpus case: the DUT and FB from chat `be8c6faa` (CJK identifiers, built clean by CODESYS) produce zero
+- [x] 3.1 Corpus case: the DUT and FB from chat `be8c6faa` (CJK identifiers, built clean by CODESYS) produce zero
       diagnostics. Today: `syntax-error` "Identifier expected instead of '点'".
-- [ ] 3.2 The lexer's identifier rule accepts Unicode letters (and digits after the first), matching what the IDEs build.
+      Done: `parse-errors.test.ts` "a Chinese project's DUT, FB with CJK methods and their caller produce no diagnostics" -
+      the fixture's three objects as pulled (red before: the lexer split every CJK name into unknown tokens). The be8c6faa
+      files themselves are not in the repo; the fixture is their shape. No conformance fixture: the build-recording
+      oracle's host project has "Unicode identifiers" off, where CODESYS refuses these names (C28b).
+- [x] 3.2 The lexer's identifier rule accepts Unicode letters (and digits after the first), matching what the IDEs build.
       Republish `volt-lsp-iec` for PLC Assist.
+      Done: `lex/chars.ts` `isIdentStart` / `isIdentCont` take `\p{L}` (and `\p{Nd}` after the first), as measured (C28b),
+      pinned in `lexer.test.ts`. The option is not read: with it off the IDE's error goes unreported (a false negative,
+      never a false positive). Republish `volt-lsp-iec` for PLC Assist: LEFT FOR THE OWNER.

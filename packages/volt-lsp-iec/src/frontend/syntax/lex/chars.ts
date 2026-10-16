@@ -53,10 +53,22 @@ export function isAlnum(c: string): boolean {
   return isAlpha(c) || isDigit(c)
 }
 
+/** A letter of any script past ASCII (`ö`, `П`, `α`, `点`) and a decimal digit past ASCII (`٣`). */
+const UNICODE_LETTER = /^\p{L}$/u
+const UNICODE_DIGIT = /^\p{Nd}$/u
+
+/**
+ * An identifier opens with a letter or `_` and goes on in letters, digits and `_`, in ANY script: CODESYS creates and
+ * builds `Fööbar`, `Привет`, `αβ`, `名前`, `点1`, `_点`, `a٣` when the project's Compile option "Unicode identifiers" is
+ * on, and refuses `1点`, a no-break and a zero-width space (measured SP21, DIALECT C28b; openspec
+ * `codesys-existing-unicode-members` — a Chinese customer's project). With the option off CODESYS refuses those names
+ * too; the language server does not read that option, so it never reports the IDE's error there — a name the IDE then
+ * refuses is the build's to report, which beats a false positive on every name of a project that builds.
+ */
 export function isIdentStart(c: string): boolean {
-  return isAlpha(c) || c === "_"
+  return isAlpha(c) || c === "_" || (c > "\x7f" && UNICODE_LETTER.test(c))
 }
 
 export function isIdentCont(c: string): boolean {
-  return isAlnum(c) || c === "_"
+  return isAlnum(c) || c === "_" || (c > "\x7f" && (UNICODE_LETTER.test(c) || UNICODE_DIGIT.test(c)))
 }
