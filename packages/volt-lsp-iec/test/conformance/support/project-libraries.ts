@@ -12,7 +12,7 @@ import { join } from "node:path"
 import { withImplementations } from "../../../libraries/index.js"
 import { parseSource, type Dialect } from "../../../src/frontend/syntax/index.js"
 import type { DeviceInstance } from "../../../src/frontend/symbols/index.js"
-import { loadDeviceInstances } from "../../../src/workspace/workspace-refs.js"
+import { scanWorkspaceRefs } from "../../../src/workspace/workspace-refs.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../../src/frontend/library/index.js"
 import { libraryBase, type LibraryBase, type LibraryFile } from "../../../src/transpile/index.js"
 import { walkSources } from "../../corpus/support/project.js"
@@ -49,7 +49,7 @@ export const PROJECT_BASE: LibraryBase = libraryBase(PROJECT_LOWERING)
  */
 const CORPUS = join(import.meta.dir, "..", "..", "..", "test-corpus")
 const DEVICES = {
-  codesys: loadDeviceInstances(join(CORPUS, "CodesysTestProject")),
-  twincat: loadDeviceInstances(join(CORPUS, "twincat-project14")),
+  codesys: scanWorkspaceRefs(join(CORPUS, "CodesysTestProject")).refs.devices,
+  twincat: scanWorkspaceRefs(join(CORPUS, "twincat-project14")).refs.devices,
 } as const satisfies Record<Dialect, readonly DeviceInstance[]>
 export const projectDevices = (vendor: Dialect): readonly DeviceInstance[] => DEVICES[vendor]

@@ -21,7 +21,7 @@ import { NETWORK_TEXT_ENABLED } from "../../src/server/config.js"
 import { documentDiagnostics } from "../../src/server/document-diagnostics.js"
 import { resolveConfig } from "../../src/analysis/index.js"
 import { definition } from "../../src/services/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace/workspace-refs.js"
+import { scanWorkspaceRefs } from "../../src/workspace/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../../src/workspace/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
@@ -75,7 +75,8 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
     console.log(`[bench] project=${dir.split(/[\\/]/).pop()} files=${files.length}`)
 
     const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-    store.setRefs(loadWorkspaceRefs(dir), loadTaskRoots(dir))
+    const scan = scanWorkspaceRefs(dir)
+    store.setRefs(scan.refs, scan.taskRoots)
     store.seedDisk(files.map((p) => ({ uri: pathToFileURL(p).href, source: readFileSync(p, "utf8") })))
 
     // Edit target: the largest PROJECT POU (.pou, not a library file) — a representative real edit.

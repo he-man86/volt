@@ -1,84 +1,34 @@
 /**
- * symbol-kinds (Layer E · shared). The ONE mapping from our `SymbolKind` to the LSP `SymbolKind` enum
- * and to a human label. `humanKind` is used by BOTH hover and completion, so the label reads identically
- * everywhere (the hover↔completion parity test guards it).
+ * symbol-kinds (Layer E · shared). The ONE table from our `SymbolKind` to everything a service shows for it: the LSP
+ * `SymbolKind`, the human label, the completion kind, the semantic-token type and the declaration keyword hover writes
+ * for a symbol without a type. A `Record` over `SymbolKind`, so a new kind does not compile until every column has its
+ * answer. `humanKind` is read by BOTH hover and completion, so the label reads identically everywhere (the
+ * hover↔completion parity test guards it).
  */
-import { SymbolKind as Lsp } from "vscode-languageserver-protocol"
+import { CompletionItemKind, SymbolKind as Lsp } from "vscode-languageserver-protocol"
 import type { SymbolKind } from "../../frontend/symbols/index.js"
 
-export function lspSymbolKind(kind: SymbolKind): Lsp {
-  switch (kind) {
-    case "function_block":
-    case "program":
-      return Lsp.Class
-    case "function":
-      return Lsp.Function
-    case "method":
-    case "action":
-      return Lsp.Method
-    case "property":
-    case "interface_property":
-      return Lsp.Property
-    case "interface":
-      return Lsp.Interface
-    case "interface_method":
-      return Lsp.Method
-    case "type":
-      return Lsp.Struct
-    case "enum_value":
-      return Lsp.EnumMember
-    case "struct_field":
-      return Lsp.Field
-    case "var":
-    case "gvl_var":
-      return Lsp.Variable
-    case "method_param":
-      return Lsp.Variable
-    case "gvl_block":
-      return Lsp.Namespace
-    case "namespace":
-      return Lsp.Namespace
-    case "device":
-      return Lsp.Object
-  }
-}
+export const SYMBOL_KINDS = {
+  function_block: { lsp: Lsp.Class, human: "function block", completion: CompletionItemKind.Class, token: "class", keyword: "FUNCTION_BLOCK" },
+  program: { lsp: Lsp.Class, human: "program", completion: CompletionItemKind.Class, token: "class", keyword: "PROGRAM" },
+  function: { lsp: Lsp.Function, human: "function", completion: CompletionItemKind.Function, token: "function", keyword: "FUNCTION" },
+  method: { lsp: Lsp.Method, human: "method", completion: CompletionItemKind.Method, token: "method", keyword: "METHOD" },
+  action: { lsp: Lsp.Method, human: "action", completion: CompletionItemKind.Method, token: "method", keyword: "ACTION" },
+  property: { lsp: Lsp.Property, human: "property", completion: CompletionItemKind.Property, token: "property", keyword: "PROPERTY" },
+  interface: { lsp: Lsp.Interface, human: "interface", completion: CompletionItemKind.Interface, token: "interface", keyword: "INTERFACE" },
+  interface_method: { lsp: Lsp.Method, human: "method", completion: CompletionItemKind.Method, token: "method", keyword: "METHOD" },
+  interface_property: { lsp: Lsp.Property, human: "property", completion: CompletionItemKind.Property, token: "property", keyword: "PROPERTY" },
+  type: { lsp: Lsp.Struct, human: "type", completion: CompletionItemKind.Struct, token: "type", keyword: "TYPE" },
+  var: { lsp: Lsp.Variable, human: "variable", completion: CompletionItemKind.Variable, token: "variable", keyword: "VARIABLE" },
+  method_param: { lsp: Lsp.Variable, human: "parameter", completion: CompletionItemKind.Variable, token: "parameter", keyword: "PARAMETER" },
+  struct_field: { lsp: Lsp.Field, human: "field", completion: CompletionItemKind.Field, token: "property", keyword: "FIELD" },
+  enum_value: { lsp: Lsp.EnumMember, human: "enum value", completion: CompletionItemKind.EnumMember, token: "enumMember", keyword: "ENUM VALUE" },
+  gvl_var: { lsp: Lsp.Variable, human: "global variable", completion: CompletionItemKind.Variable, token: "variable", keyword: "GLOBAL VARIABLE" },
+  gvl_block: { lsp: Lsp.Namespace, human: "global variable list", completion: CompletionItemKind.Variable, token: "namespace", keyword: "VAR_GLOBAL" },
+  namespace: { lsp: Lsp.Namespace, human: "namespace", completion: CompletionItemKind.Variable, token: "namespace", keyword: "NAMESPACE" },
+  device: { lsp: Lsp.Object, human: "device", completion: CompletionItemKind.Variable, token: "variable", keyword: "DEVICE" },
+} as const satisfies Record<SymbolKind, { lsp: Lsp; human: string; completion: CompletionItemKind; token: string; keyword: string }>
 
-export function humanKind(kind: SymbolKind): string {
-  switch (kind) {
-    case "function_block":
-      return "function block"
-    case "program":
-      return "program"
-    case "function":
-      return "function"
-    case "method":
-      return "method"
-    case "action":
-      return "action"
-    case "property":
-    case "interface_property":
-      return "property"
-    case "interface":
-      return "interface"
-    case "interface_method":
-      return "method"
-    case "type":
-      return "type"
-    case "var":
-      return "variable"
-    case "method_param":
-      return "parameter"
-    case "struct_field":
-      return "field"
-    case "enum_value":
-      return "enum value"
-    case "gvl_var":
-      return "global variable"
-    case "gvl_block":
-      return "global variable list"
-    case "namespace":
-      return "namespace"
-    case "device":
-      return "device"
-  }
-}
+export const lspSymbolKind = (kind: SymbolKind): Lsp => SYMBOL_KINDS[kind].lsp
+
+export const humanKind = (kind: SymbolKind): string => SYMBOL_KINDS[kind].human

@@ -8,9 +8,9 @@
  * back to scope completion. Upgrade to full-chain resolution when a case needs it.
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
-import { dialectOf, findChildScope, lookup, type Scope, type Symbol, type SymbolKind, visibleNames } from "../../frontend/symbols/index.js"
+import { dialectOf, findChildScope, lookup, type Scope, type Symbol, visibleNames } from "../../frontend/symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
-import { humanKind, scopeAtOffset } from "../shared/index.js"
+import { SYMBOL_KINDS, scopeAtOffset } from "../shared/index.js"
 import { attributeNames, type Dialect } from "../../frontend/syntax/index.js"
 import { pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
@@ -129,32 +129,5 @@ function addOnce(seen: Set<string>, name: string): boolean {
 }
 
 function item(sym: Symbol): CompletionItem {
-  return { label: sym.name, kind: completionKind(sym.kind), detail: humanKind(sym.kind) }
-}
-
-function completionKind(kind: SymbolKind): CompletionItemKind {
-  switch (kind) {
-    case "function_block":
-    case "program":
-      return CompletionItemKind.Class
-    case "function":
-      return CompletionItemKind.Function
-    case "method":
-    case "action":
-    case "interface_method":
-      return CompletionItemKind.Method
-    case "property":
-    case "interface_property":
-      return CompletionItemKind.Property
-    case "interface":
-      return CompletionItemKind.Interface
-    case "type":
-      return CompletionItemKind.Struct
-    case "enum_value":
-      return CompletionItemKind.EnumMember
-    case "struct_field":
-      return CompletionItemKind.Field
-    default:
-      return CompletionItemKind.Variable
-  }
+  return { label: sym.name, kind: SYMBOL_KINDS[sym.kind].completion, detail: SYMBOL_KINDS[sym.kind].human }
 }

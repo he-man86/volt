@@ -8,8 +8,8 @@
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { renderTypeExpr, type Dialect } from "../../frontend/syntax/index.js"
-import { dialectOf, type Scope, type Symbol, type SymbolKind } from "../../frontend/symbols/index.js"
-import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
+import { dialectOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
+import { humanKind, rangeFromSpan, resolveAt, SYMBOL_KINDS } from "../shared/index.js"
 import { builtinHover, pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
@@ -61,31 +61,5 @@ export function symbolHover(sym: Symbol): Hover {
 /** Reconstruct a one-line declaration from the symbol: `name : Type` for typed things, else `KEYWORD name`. */
 function declarationLine(sym: Symbol): string {
   if (sym.typeExpr !== undefined) return `${sym.name} : ${renderTypeExpr(sym.typeExpr)}`
-  return `${declKeyword(sym.kind)} ${sym.name}`
-}
-
-function declKeyword(kind: SymbolKind): string {
-  switch (kind) {
-    case "function_block":
-      return "FUNCTION_BLOCK"
-    case "program":
-      return "PROGRAM"
-    case "function":
-      return "FUNCTION"
-    case "interface":
-      return "INTERFACE"
-    case "type":
-      return "TYPE"
-    case "namespace":
-      return "NAMESPACE"
-    case "method":
-    case "interface_method":
-      return "METHOD"
-    case "action":
-      return "ACTION"
-    case "gvl_block":
-      return "VAR_GLOBAL"
-    default:
-      return humanKind(kind).toUpperCase()
-  }
+  return `${SYMBOL_KINDS[sym.kind].keyword} ${sym.name}`
 }

@@ -19,9 +19,9 @@ import {
   NETWORK_TEXT_KEYWORDS,
   walkValues,
 } from "../../frontend/syntax/index.js"
-import { bareEnumMember, dialectOf, lookup, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
+import { bareEnumMember, dialectOf, lookup, type Scope } from "../../frontend/symbols/index.js"
 import { analyzeNetworkText, isKnownPrimitive } from "../../frontend/types/index.js"
-import { scopeAtOffset } from "../shared/index.js"
+import { scopeAtOffset, SYMBOL_KINDS } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
@@ -140,7 +140,7 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
   // Identifier — refine by the symbol it names in scope, else an elementary type name, else a plain variable.
   const scope = scopeAtOffset(doc, project, tok.span.start)
   const sym = lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
-  if (sym !== undefined) return SYMBOL_TYPE[sym.kind]
+  if (sym !== undefined) return SYMBOL_KINDS[sym.kind].token
   // A network-text keyword. These are syntax of the FBD/LD sublanguage but NOT of ST, so the lexer returns
   // them as identifiers and `NETWORK`/`END_NETWORK`/`PARALLEL` painted the same as a variable. Only inside a
   // graphical body, and only AFTER the symbol lookup: a declared name wins, so a project that really has an
@@ -200,25 +200,4 @@ const KIND_TYPE: Partial<Record<TokenKind, TokenType>> = {
   line_comment: "comment",
   block_comment: "comment",
   pragma: "macro",
-}
-
-const SYMBOL_TYPE: Record<SymbolKind, TokenType> = {
-  function_block: "class",
-  program: "class",
-  function: "function",
-  method: "method",
-  action: "method",
-  property: "property",
-  interface: "interface",
-  interface_method: "method",
-  interface_property: "property",
-  type: "type",
-  var: "variable",
-  method_param: "parameter",
-  struct_field: "property",
-  enum_value: "enumMember",
-  gvl_var: "variable",
-  gvl_block: "namespace",
-  namespace: "namespace",
-  device: "variable",
 }

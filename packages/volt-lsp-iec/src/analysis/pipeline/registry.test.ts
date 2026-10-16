@@ -5,9 +5,8 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { parseSource } from "../../frontend/syntax/index.js"
 import { build } from "../../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig, runRegistry, messagesFor, type CheckContext } from "../index.js"
+import { resolveConfig, runRegistry, messagesFor, type CheckContext } from "../index.js"
 import { REGISTRY } from "./registry.js"
 
 const ANALYSIS = join(import.meta.dir, "..")
@@ -179,43 +178,6 @@ describe("the vendor table", () => {
     }
     runRegistry(ctx, (check) => ran.push(check.name))
     expect(ran).toEqual(REGISTRY.filter((e) => e.vendors !== "codesys").map((e) => e.check.name))
-  })
-})
-
-describe("groups", () => {
-  const SEMANTIC = `FUNCTION_BLOCK FB_G
-VAR
-  nVal : INT;
-END_VAR
-nVal := nope;
-END_FUNCTION_BLOCK
-`
-  const SYNTAX = SEMANTIC.replace("nVal := nope;", "nVal := ;")
-  const run = (groups?: Parameters<typeof computeDiagnostics>[0]["groups"], src = SEMANTIC) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
-    const project = build.buildSymbolTable([{ uri: "FB_G.pou", parseResult, source: src }], [], "codesys")
-    return computeDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }), uri: "FB_G.pou", groups })
-  }
-
-  test("unset runs every check", () => {
-    expect(run().map((d) => d.code)).toEqual(["unresolved-identifier", "unknown-source"])
-    expect(run(undefined, SYNTAX).map((d) => d.code)).toEqual(["syntax-error"])
-  })
-
-  test("a list runs only the checks of those groups", () => {
-    expect(run(["names"]).map((d) => d.code)).toEqual(["unresolved-identifier"])
-    expect(run(["syntax"])).toEqual([])
-    expect(run(["syntax"], SYNTAX)).toEqual(run(undefined, SYNTAX))
-    expect(run([])).toEqual([])
-  })
-
-  test("a list that holds a check reading earlier findings, but not every group, is refused by name", () => {
-    // unknown-source (types) reports only where an earlier check of ANY group explained the hole: a "types" run would
-    // silently drop the types finding CODESYS reports ("Cannot convert type 'Unknown type: 'nope'' to type 'INT'")
-    expect(() => run(["types"])).toThrow(/checkUnknownSource.*reads/)
-    expect(() => run(["types", "names"])).toThrow(/checkUnknownSource/)
-    const every = [...new Set(REGISTRY.map((e) => e.group))]
-    expect(run(every)).toEqual(run())
   })
 })
 

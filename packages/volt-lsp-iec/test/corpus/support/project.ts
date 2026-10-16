@@ -14,7 +14,7 @@ import type { Vendor } from "../../../src/analysis/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
 import { EXEC_ORACLE_DIALECT } from "../../../src/transpile/lower/conditions.js"
 import { SOURCE_EXTENSION_SET } from "../../../src/workspace/source-extensions.js"
-import { readSourceText, scanLibraryManifests } from "../../../src/workspace/workspace-refs.js"
+import { readSourceText, scanWorkspaceRefs } from "../../../src/workspace/workspace-refs.js"
 import { withImplementations } from "../../../libraries/index.js"
 
 /**
@@ -96,5 +96,5 @@ export function loweringProject(dir: string, parsed: readonly ParsedFile[] = par
       return body
     })
     .filter((f) => f.parseResult.errors.length === 0)
-  return { ...prepareProject(files, scanLibraryManifests(dir)), files }
+  return { ...prepareProject(files, scanWorkspaceRefs(dir).refs.libraryManifests), files }
 }

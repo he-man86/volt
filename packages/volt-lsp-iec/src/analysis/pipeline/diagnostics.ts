@@ -1,7 +1,7 @@
 /**
  * THE ONE PIPELINE (openspec analysis-conformance design.md P1, task 1.6). Pure data in → pure data out: it knows nothing
  * about LSP transport. `computeDiagnostics` asserts one vendor across project, parse and config, runs the registry's
- * checks for that vendor (optionally only some groups), and applies the policy once. Vendor-keyed: the active vendor
+ * checks for that vendor, and applies the policy once. Vendor-keyed: the active vendor
  * selects the message wording (and, via the registry and each check, which diagnostics fire) — because CODESYS and
  * TwinCAT diverge at times.
  */
@@ -12,7 +12,7 @@ import { messagesFor } from "../messages/index.js"
 import { withdrawBlockedFixes, type DiagnosticItem } from "../shared/diagnostic-item.js"
 import type { Check, CheckContext } from "./context.js"
 import { applyPolicy } from "./policy.js"
-import { REGISTRY, type CheckGroup } from "./registry.js"
+import { REGISTRY } from "./registry.js"
 
 export interface DiagnosticsArgs {
   parseResult: ParseResult
@@ -22,8 +22,6 @@ export interface DiagnosticsArgs {
   config: ResolvedConfig | AnalysisInitOptions
   /** The document's URI, so a type name resolves the way it does for the file that wrote it. */
   uri: string
-  /** Run only the checks of these groups (unset: every check). */
-  groups?: readonly CheckGroup[]
 }
 
 export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
@@ -57,7 +55,7 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
     messages: messagesFor(config.vendor),
     tokens: () => args.parseResult.tokens,
   }
-  return runRegistry(ctx, undefined, args.groups)
+  return runRegistry(ctx)
 }
 
 /** The check registry in run order, READ-ONLY — exported for the diagnostic census (`test/analysis/census.ts`), which
@@ -65,7 +63,7 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
 export const CHECK_REGISTRY: readonly Check[] = REGISTRY.map((e) => e.check)
 
 /**
- * Run the registry's checks for `ctx`'s vendor (only `groups`' when given) and apply the policy (configurable severity /
+ * Run the registry's checks for `ctx`'s vendor and apply the policy (configurable severity /
  * off, TwinCAT's per-line dedupe) — the whole of `computeDiagnostics` after its dialect assertions. `onCheck` sees each
  * check that ran, with the findings it appended (its slice of `out`, before the policy): the census attributes every
  * finding to its check through it.
@@ -73,28 +71,12 @@ export const CHECK_REGISTRY: readonly Check[] = REGISTRY.map((e) => e.check)
 export function runRegistry(
   ctx: CheckContext,
   onCheck?: (check: Check, emitted: readonly DiagnosticItem[]) => void,
-  groups?: readonly CheckGroup[],
 ): DiagnosticItem[] {
   const out: DiagnosticItem[] = []
   // ONE PLACE DECIDES WHICH CHECKS RUN FOR WHICH VENDOR, in both directions: the registry's `vendors`. A check that opens
   // with its own whole-body `if (vendor !== …) return` is the shape C6 removed, and it grew back the moment a rule ran
   // the other way — so the registry stays the only answer to "does this check apply here?".
-  // THE ORDER CONTRACT HOLDS FOR A SUBSET TOO. A check with `reads` reports only where earlier findings — of any group —
-  // explained the hole; run without their producers it says nothing where the vendor reports. Which checks produce a
-  // code is the registry test's static measure, not runtime data, so a subset that holds a reader is refused unless it
-  // keeps every group.
-  if (groups !== undefined) {
-    const missing = [...new Set(REGISTRY.map((e) => e.group))].filter((g) => !groups.includes(g))
-    const reader = missing.length > 0 ? REGISTRY.find((e) => e.reads !== undefined && groups.includes(e.group)) : undefined
-    if (reader !== undefined)
-      throw new Error(
-        `groups [${groups.join(", ")}] hold ${reader.check.name}, which reads earlier findings of every group, but leave ` +
-          `out [${missing.join(", ")}]: run it with every group, or leave its group out.`,
-      )
-  }
-  const active = REGISTRY.filter(
-    (e) => (e.vendors === "both" || e.vendors === ctx.config.vendor) && (groups === undefined || groups.includes(e.group)),
-  ).map((e) => e.check)
+  const active = REGISTRY.filter((e) => e.vendors === "both" || e.vendors === ctx.config.vendor).map((e) => e.check)
   if (CHECK_TIMING !== undefined) {
     for (const check of active) {
       const t = Number(process.hrtime.bigint())

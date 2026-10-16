@@ -1,5 +1,5 @@
 /**
- * workspace-refs loaders — the FS scanners that feed dead-code seeding (`.task` `Calls:`) and what the symbol table
+ * workspace-refs — the FS scan that feed dead-code seeding (`.task` `Calls:`) and what the symbol table
  * binds beside the sources (`.library` manifests, `.device` instances). Regex/parse bugs here silently break
  * resolution, so pin the extraction + the graceful-empty fallbacks on a hermetic temp workspace.
  */
@@ -7,7 +7,7 @@ import { test, expect, beforeAll, afterAll } from "bun:test"
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
+import { scanWorkspace, scanWorkspaceRefs } from "./workspace-refs.js"
 import { WorkspaceStore } from "./workspace-store.js"
 import { failLoud } from "../../test/support/fail-loud.js"
 import { NETWORK_TEXT_ENABLED } from "../server/config.js"
@@ -42,8 +42,8 @@ beforeAll(() => {
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-test("loadTaskRoots: `Calls:` PROGRAM names, lowercased, recursive; comma lists split; no-Calls skipped", () => {
-  expect(loadTaskRoots(root)).toEqual(
+test("the scan's task roots: `Calls:` PROGRAM names, lowercased, recursive; comma lists split; no-Calls skipped", () => {
+  expect(scanWorkspaceRefs(root).taskRoots).toEqual(
     new Set([
       "cyclictask",
       "program_motion",
@@ -57,21 +57,21 @@ test("loadTaskRoots: `Calls:` PROGRAM names, lowercased, recursive; comma lists 
   )
 })
 
-test("loadDeviceInstances: one instance per `.device` descriptor, named as the file's stem is spelled", () => {
-  expect(loadDeviceInstances(root)).toEqual([{ kind: "device", name: "EtherCAT_Master", uri: join(root, "EtherCAT_Master.device") }])
+test("the scan's devices: one instance per `.device` descriptor, named as the file's stem is spelled", () => {
+  expect(scanWorkspaceRefs(root).refs.devices).toEqual([{ kind: "device", name: "EtherCAT_Master", uri: join(root, "EtherCAT_Master.device") }])
 })
 
-test("loadWorkspaceRefs: the library manifests (each with its NAMESPACE; one without is no manifest) + the device instances", () => {
-  const refs = loadWorkspaceRefs(root)
+test("the scan's refs: the library manifests (each with its NAMESPACE; one without is no manifest) + the device instances", () => {
+  const { refs } = scanWorkspaceRefs(root)
   expect(refs.libraryManifests.map((m) => m.namespace)).toEqual(["_3S_LICENSE"])
   expect(refs.devices.map((d) => d.name)).toEqual(["EtherCAT_Master"])
 })
 
 test("a missing / empty root yields nothing, never throws (safe fallback)", () => {
   const missing = join(root, "does-not-exist")
-  expect(loadTaskRoots(missing).size).toBe(0)
-  expect(loadDeviceInstances(missing)).toEqual([])
-  const empty = loadWorkspaceRefs("")
+  expect(scanWorkspaceRefs(missing).taskRoots.size).toBe(0)
+  expect(scanWorkspaceRefs(missing).refs.devices).toEqual([])
+  const empty = scanWorkspaceRefs("").refs
   expect(empty.libraryManifests).toEqual([])
   expect(empty.devices).toEqual([])
 })
@@ -154,7 +154,7 @@ test("the workspace scan strips every leading BOM, as the push does", () => {
  * Everything around this was already covered — `projectDiagnosticsFrom` parses the lines (config.test.ts),
  * `scanWorkspace` finds the file (above), and `resolveConfig` gives the project the last word — and a chain
  * of green links is still not a connected chain. `projectDiagnostics` rides on the SCAN, beside `refs` rather
- * than inside it, so a consumer holding only `loadWorkspaceRefs(dir)` gets a workspace where the project's
+ * than inside it, so a consumer holding only `scanWorkspaceRefs(dir).refs` gets a workspace where the project's
  * compiler settings silently do nothing. Every test above passes in that world.
  *
  * So this asks the only question that matters end to end: with the file on disk, is the diagnostic GONE?
@@ -167,7 +167,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
   const noOpCount = (): number => {
     const scan = scanWorkspace(dir)
     const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnostics: scan.projectDiagnostics }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-    store.setRefs(loadWorkspaceRefs(dir), loadTaskRoots(dir))
+    store.setRefs(scan.refs, scan.taskRoots)
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     let n = 0
     for (const d of store.workspace())
