@@ -104,7 +104,7 @@ describe("script pipe resolver (one pipe, never the first of several)", () => {
 		name: "TcXaeShell.exe",
 		commandLine: `"C:\\XAE\\TcXaeShell.exe" "${root}\\${sln}\\${sln}.sln"`,
 	})
-	// `ide.ps1 up -Vendor twincat` with the default `-Fixture both`: Project13 (x64) and Project14 (ARM, 32-bit).
+	// `ide.ps1 up -Vendor twincat -Fixture both`: Project13 (x64) and Project14 (ARM, 32-bit).
 	const both: InstanceRecord = {
 		instance: "",
 		records: [

@@ -4,7 +4,7 @@
  * wire" — there is no HTTP wire any more, and has not been since the bridge moved to named pipes.)
  *
  * THE PIPE IS AN `ide.ps1` FIXTURE INSTANCE'S, and only that (`bridge.ts`): `VOLT_E2E_INSTANCE` names the instance
- * (unset = the default one); an instance serving two projects — TwinCAT's default `-Fixture both` — is refused until
+ * (unset = the default one); an instance serving two projects — TwinCAT's `-Fixture both` — is refused until
  * `VOLT_PIPE` names one of its pipes exactly (verified the same way) or `-Fixture 13` serves one:
  *
  *   VOLT_VENDOR=codesys bun run scripts/record-language.ts                                   # CODESYS

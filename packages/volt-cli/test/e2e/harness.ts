@@ -13,7 +13,7 @@
  * <code>get("/health")</code> — to a wire that has not been HTTP for a long time), <code>plcRoot</code>,
  * <code>bodyOf</code> and the <code>Snapshot</code> type had no importers outside the harness itself.</p>
  */
-export { VENDOR, BASE, currentPipe, livePipes, livePipesFor } from "./lib/pipe"
+export { VENDOR, BASE, currentPipe } from "./lib/pipe"
 export { bridge, clientFor, opErrorCode, serving, healthStatus, expectVendorDifference, type PipeClient } from "./lib/bridge"
 export {
 	PREFIX,

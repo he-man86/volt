@@ -29,7 +29,14 @@
 .PARAMETER Fixture Vendor-interpreted selector for WHICH committed fixture to serve:
                      codesys — a .project path (default: test/fixtures/CodesysTestProject.<CodesysVersion>.project,
                                the project native to that version; CodesysTestProject.project where none exists)
-                     twincat — "13" | "14" | "both" (default), or a .sln path
+                     twincat — "13" | "14" (default) | "both", or a .sln path. "both" opens two XAE windows in
+                               ONE instance, which nothing that drives a bridge accepts (the e2e harness, the
+                               scripts and the LSP recorders each refuse an instance serving two pipes) - it is
+                               for looking at two windows by hand. The default is 14 because it is the TwinCAT
+                               fixture: the release matrix and vendor-facts serve it, and the IDE-authored
+                               objects the suite needs (VltFixtureMembers, scripts/author-hidden-member-fixture-tc.ps1)
+                               live only there. "both" was the default until 2026-10-16, a leftover of one worker
+                               seeing every XAE; the harness then drove whichever pid sorted first.
 .PARAMETER InPlace Serve the committed tree ITSELF instead of a copy. The default is a copy under the system
                    temp dir, because THE IDE WRITES THE PROJECT IT HAS OPEN: every recording and every e2e run
                    saves the fixture back to disk, and pointed at the repo that is tracked files changing under
@@ -778,7 +785,7 @@ function Up-Twincat {
         "13" = Join-Path $FIXTURES "TwinCAT Project13\TwinCAT Project13.sln"
         "14" = Join-Path $FIXTURES "TwinCAT Project14\TwinCAT Project14.sln"
     }
-    $sel = if ($Fixture) { $Fixture } else { "both" }
+    $sel = if ($Fixture) { $Fixture } else { "14" }
     # An explicit .sln replaces the fixture picks entirely: a caller that names one wants THAT open and nothing
     # else, and silently adding the fixtures beside it would give the worker two windows to choose between.
     $open = if ($sel -like "*.sln") {
@@ -904,7 +911,7 @@ switch ($Action) {
         # FIRST what this instance left last time: an IDE or worker still running (closed as `down` closes it), a worker
         # whose XAE is gone, the XAE recovery entries naming this copy, and the copy itself. Without this, the IDE about
         # to open shows a modal recovery dialog and the worker attaches to nothing. One `up` owns its instance: a second
-        # `up` on the same -Instance replaces the first (use `-Fixture both`, or a second -Instance, for two windows).
+        # `up` on the same -Instance replaces the first (use a second -Instance for two windows a run can drive).
         [void](Close-Instance $Vendor -Quiet)
         Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue
         Clear-InstanceLeftovers $Vendor

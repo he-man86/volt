@@ -9,7 +9,8 @@
  * hidden sibling through a re-serialization. That path once turned the siblings' CRLF into LF and dropped their
  * indentation and BOM (fixed offline in `TcItemArchive`, `TcHiddenBodyWriteTests`); this is the live proof.</p>
  *
- * <p>The fixture `VltFixtureMembers` is committed into both fixture projects, authored by each IDE itself
+ * <p>The fixture `VltFixtureMembers` is committed into one fixture project per vendor — the CODESYS test project and
+ * TwinCAT Project14 (NOT Project13, so a `-Fixture 13` run fails here, loudly) — authored by each IDE itself
  * (`scripts/author-hidden-member-fixture.py` / `-tc.ps1`): Volt never creates a diagram, so a test cannot make one.
  * Each case edits something Volt DOES write — the hidden member's declaration, an ST member's body, a new LD member,
  * a hidden member's folder — and asserts the push is accepted and the hidden bodies are byte for byte what they were
@@ -62,7 +63,8 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		const full = Object.keys(refs.items).find((n) => n.startsWith(`${BARE}.`))
 		if (!full)
 			throw new Error(
-				`fixture POU '${BARE}' is missing from this project — it is committed, authored by the IDE ` +
+				`fixture POU '${BARE}' is missing from ${project} — it is committed into the CODESYS test project and ` +
+					"TwinCAT Project14 (ide.ps1's TwinCAT default), authored by the IDE " +
 					"(scripts/author-hidden-member-fixture.py / -tc.ps1); the suite cannot create a diagram",
 			)
 		name = full

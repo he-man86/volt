@@ -39,7 +39,7 @@ recorders import it too, via `volt-lsp-iec/scripts/bridge.ts`): `scriptPipe(vend
 (unset = the default instance) or a `VOLT_PIPE` naming one exact `volt.bridge.<vendor>.<pid>` that an instance
 provably owns — `ide.ps1` recorded the process, it opened a copy under that instance's root, and a TwinCAT XAE's
 own command line names that copy's `.sln`. Anything else is refused, naming the pipe and its project; so are several
-pipes (`-Fixture both`) — a script drives ONE. A PowerShell script asks the same code through its CLI,
+pipes (`-Fixture both`) — a script drives ONE, and so does the e2e suite. A PowerShell script asks the same code through its CLI,
 `bun ../test/e2e/lib/fixture-ide.ts <vendor> [instance]` (prints the pipe, or the refusal and exit 1). `vendor-facts.ts`
 resolves through `scriptPipe`; before this the `.ts` probes took `VOLT_PIPE` unchecked. An IronPython runscript calls no
 pipe: it runs INSIDE the CODESYS `ide.ps1 -RunScript` (or a hand-started `--runscript`) launched, and the CODESYS

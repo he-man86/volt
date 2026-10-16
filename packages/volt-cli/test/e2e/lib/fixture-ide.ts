@@ -26,8 +26,9 @@
  *
  * <p><b>The ONE implementation of the rule, for everything that drives a bridge from this checkout</b> — the e2e suite,
  * the volt-cli probes and `corpus-migration.ts`, and the LSP recorders (`volt-lsp-iec/scripts/bridge.ts` imports it
- * across the package boundary). A script drives exactly ONE pipe: {@link scriptPipe} narrows the instance's pipes to one
- * and refuses several (TwinCAT's `-Fixture both` serves two). A PowerShell script asks the same code through the CLI
+ * across the package boundary). A run drives exactly ONE pipe: {@link resolveOnePipe} narrows the instance's pipes to
+ * one and refuses several (TwinCAT's `-Fixture both` serves two) — for a script ({@link scriptPipe}) and the e2e suite
+ * (`pipe.ts`) alike. A PowerShell script asks the same code through the CLI
  * below — `bun test/e2e/lib/fixture-ide.ts <vendor> [instance]` prints the pipe or exits 1 with the refusal — rather
  * than carrying a second copy of it.</p>
  */
@@ -175,17 +176,18 @@ export function resolveFixturePipes(facts: Facts, opts: { instance: string; expl
 }
 
 /**
- * THE ONE pipe a script drives — {@link resolveFixturePipes} narrowed to exactly one. Several pipes owned by the instance
- * are refused too, not "the first": `ide.ps1 up -Vendor twincat` opens Project13 (x64) AND Project14 (ARM, 32-bit) by
- * default, and a recorder that took whichever pid sorted first recorded the wrong target.
+ * THE ONE pipe a run drives — {@link resolveFixturePipes} narrowed to exactly one. Several pipes owned by the instance
+ * are refused too, not "the first": `ide.ps1 up -Vendor twincat -Fixture both` opens Project13 (x64) AND Project14
+ * (ARM, 32-bit) — it was the default until 2026-10-16 — and a recorder that took whichever pid sorted first recorded
+ * the wrong target, as the e2e suite drove the wrong project (`pipe.ts` onePipe).
  */
 export function resolveOnePipe(facts: Facts, opts: { instance: string; explicit?: string }): string {
 	const pipes = resolveFixturePipes(facts, opts)
 	if (pipes.length === 1) return pipes[0]!
 	throw new FixtureRefusal(
 		`instance ${label(opts.instance)} (${facts.vendor}) serves ${pipes.length} fixture pipes ` +
-			`(${pipes.map((p) => describePipe(facts, p)).join(", ")}) and a script drives ONE: name it with VOLT_PIPE ` +
-			`(verified the same way), or serve one project (\`-Fixture 13\`)`,
+			`(${pipes.map((p) => describePipe(facts, p)).join(", ")}) and a run drives ONE: name it with VOLT_PIPE ` +
+			`(verified the same way), or serve one project (\`-Fixture 13\` or \`-Fixture 14\`)`,
 	)
 }
 

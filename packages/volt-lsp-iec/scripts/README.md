@@ -16,7 +16,7 @@ To bring a bridge up: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
 implementation of the rule for every script in the repo): `VOLT_E2E_INSTANCE=<name>` names the instance (unset = the
 default one), or `VOLT_PIPE=volt.bridge.<vendor>.<pid>` names one exact pipe that an instance provably owns. A pipe no
 instance owns — an engineer's own IDE, another session's — is refused, naming it and its project; there is no prefix
-discovery and no default pipe name. An instance serving two projects (TwinCAT's `-Fixture both`) is refused too until
+discovery and no default pipe name. An instance serving two projects (TwinCAT `-Fixture both`) is refused too until
 `VOLT_PIPE` picks one or `-Fixture 13` serves one. (2026-10-03: prefix discovery once made the e2e suite write into an
 engineer's 881-item project.) `record-exec.ts` is the exception that needs none of this: it talks to no pipe at all —
 its half inside CODESYS is the runscript of the headless CODESYS it spawned itself (`spawnSync`, so its hang guard kills

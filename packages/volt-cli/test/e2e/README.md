@@ -79,7 +79,8 @@ Instead of running against whatever you happen to have open, the suite targets c
 | `CodesysTestProject.<version>.project` | CODESYS | the source made NATIVE to each installed version (`scripts/author-version-fixture.py`): what `ide.ps1 up -CodesysVersion <v>` serves by default and the release matrix runs; 3.5.18.30's holds its own differences (`lib/platform.ts`) |
 | `CodesysOneToOne.project` | CODESYS | CodesysTestProject + the IDE-authored `bridge-one-to-one` objects (`one-to-one/`, the completeness oracle) |
 | `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild` (ST FB + **CFC method child**), `FB_FolderChild` (**action inside a folder**) |
-| `TwinCAT Project13/`, `TwinCAT Project14/` | TwinCAT | single / **multi-XAE** |
+| `TwinCAT Project14/` | TwinCAT | THE TwinCAT e2e fixture — what `ide.ps1 up -Vendor twincat` serves by default and the release matrix runs; holds every IDE-authored object the suite needs (`VltFixtureCfc`/`VltFixtureSfc` as function blocks, `VltFixtureMembers`) |
+| `TwinCAT Project13/` | TwinCAT | the 64-bit (`TwinCAT RT (x64)`) target the LSP recorders need (`-Fixture 13`); a smaller project, its diagram fixtures are PROGRAMs and it has no `VltFixtureMembers` |
 
 `Untitled1.project` holds the two shapes the write path is hardest on, both hand-authored because a test cannot
 provision the first at all (CFC is unsupported, so Volt never creates one):
@@ -159,8 +160,8 @@ TwinCAT has **no in-proc host and no headless mode** (TcXaeShell is Visual-Studi
 *opens* the fixtures:
 
 ```powershell
-pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat            # both fixtures = the multi-XAE scenario
-pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 13  # just one
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat            # Project14, the e2e fixture
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 13  # Project13 instead
 pwsh packages/volt-cli/scripts/ide.ps1 down -Vendor twincat          # close the ones it opened
 
 # TcXaeShell takes ~30-60s to load; the runner resolves the instance's pipe + selects the project + waits, so just:
@@ -202,8 +203,10 @@ Two practical rules follow. **Suspect the project before the code when a live fa
 matching change**, and confirm by stashing rather than by reasoning. And **compare like with like**: the
 latency baselines in `stability/latency.test.ts` were recorded on `TwinCAT Project13` (9 items), while a
 session that happens to bind `Project14` (17 items, PackML FBs, several graphical bodies) reads 8x worse and
-invites a vendor-performance conclusion the numbers do not support. `ide.ps1 up` opens BOTH, and discovery
-takes the first live pipe — so which project a run measures is not something the run chooses.
+invites a vendor-performance conclusion the numbers do not support. `ide.ps1 up` used to open BOTH and
+discovery took the first live pipe, so which project a run measured was not something the run chose; since
+2026-10-16 it serves Project14 unless `-Fixture` says otherwise, and the harness refuses an instance serving
+two pipes (`-Fixture both`) instead of picking one.
 
 **And the suite USED TO PASS ON LITTER, which is the sharpest version of this.** `plcFolder(sub)` builds its
 path from `plcRoot()`, the MAIN program's own folder — so in a project whose main program lives in `POUs`, the
@@ -282,14 +285,15 @@ VOLT_VENDOR=codesys bun test test/e2e/production
 **`graphical/unsupported.test.ts` runs on both**, but only because both fixture projects carry a committed
 CFC and SFC POU (`VltFixtureCfc` / `VltFixtureSfc`). Volt can never create one — a diagram has no text form to
 push — so each IDE authored its own: CODESYS via `create_pou(language=cfc|sfc)` in a `--runscript`, TwinCAT via
-`CreateChild(name, 602, "", "CFC")` over the COM ROT. Their KIND differs by vendor (a function block on CODESYS, a program on
-TwinCAT; both `X.pou` on the wire since 5.Q) and the suite resolves the wire names from `refs` rather than assuming an extension. **If you ever
+`CreateChild(name, 602, "", "CFC")` over the COM ROT. Their KIND differs by fixture (a function block on CODESYS and in TwinCAT
+Project14, a program in Project13; all `X.pou` on the wire since 5.Q), so no suite may assume one, and the suite resolves the wire names from `refs` rather than assuming an extension. **If you ever
 regenerate a fixture project, these two POUs must survive** — without them the suite fails loudly rather than
 skipping, which is deliberate: silently losing the only live coverage of a data-loss guard is the failure mode
 worth being noisy about.
 
 **`graphical/hidden-members.test.ts` needs a third: `VltFixtureMembers`**, an ST function block with a CFC method
-and an SFC action (Volt shows neither) beside an ST method, in both fixture projects. It proves the hidden MEMBERS'
+and an SFC action (Volt shows neither) beside an ST method, in one fixture per vendor: the CODESYS test project and
+TwinCAT Project14 (not Project13 — a `-Fixture 13` run fails it, loudly). It proves the hidden MEMBERS'
 bodies are never written while Volt pushes the POU around them — TwinCAT's whole-POU re-imports included (a graphical
 member edit, a member move). Authored by each IDE: `scripts/author-hidden-member-fixture.py` (CODESYS, `--runscript`
 on a copy) and `scripts/author-hidden-member-fixture-tc.ps1` (TwinCAT, over the COM ROT against an `ide.ps1` copy).
@@ -307,9 +311,6 @@ and `VltOto_CommentTask` (a commented call of `VltOto_Called`), and the standalo
 `VltFixtureSfc`. Authored by the IDE through its own Add Object path, `scripts/author-one-to-one-fixture.py` (`--runscript`
 on a copy of CodesysTestProject, saved as CodesysOneToOne and committed — Volt's push makes the plain class, the defect the tests pin). Its tests are expected
 failures (`it.failing`) until step 3 closes each; without the objects the CODESYS part skips, loudly.
-
-**`graphical/hidden-members.test.ts` needs a third: `VltFixtureMembers`**, an ST function block with a CFC method
-and an SFC action (Volt shows neither) beside an ST method, in both fixture projects. It proves the hidden MEMBERS
 
 **`graphical/refused-shapes.test.ts` runs on both, and expects a DIFFERENT verdict from each.** Four bodies -
 an unconditional `JMP`, an unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a

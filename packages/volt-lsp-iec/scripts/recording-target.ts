@@ -5,7 +5,8 @@
  * "Cannot convert type 'LINT' to type 'STRING'" on a 64-bit target, 'DINT' on a 32-bit one. Both oracles are 64-bit
  * (`test/conformance/support/recording-environment.ts` states it): CODESYS on `CODESYS Control Win V3 x64`, TwinCAT on
  * `TwinCAT RT (x64)` — the `TwinCAT Project13` fixture. `TwinCAT Project14` opens on `TwinCAT CE7 (ARMV7)` (32-bit),
- * and `ide.ps1 up -Vendor twincat` opens both by default. The recorders no longer pick a pipe by prefix (`bridge.ts`
+ * and `ide.ps1 up -Vendor twincat` opens THAT one by default (it is the e2e fixture), so a recording serves
+ * `-Fixture 13`. The recorders no longer pick a pipe by prefix (`bridge.ts`
  * resolves the instance's ONE pipe and refuses two), but which of an instance's projects a `VOLT_PIPE` names is still
  * the caller's word — so a recording, whole or a `RECORD_ONLY` merge, is judged by this probe, and refused on any other
  * target.

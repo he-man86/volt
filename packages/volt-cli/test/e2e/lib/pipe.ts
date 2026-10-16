@@ -13,7 +13,7 @@
  */
 import { readdirSync } from "node:fs"
 import { connect } from "node:net"
-import { E2E_INSTANCE, fixturePipesFor } from "./fixture-ide"
+import { E2E_INSTANCE, gatherFacts, resolveFixturePipes, resolveOnePipe, type Vendor } from "./fixture-ide"
 
 /** Which vendor's bridge this run targets. Tests must not branch on it — see `bridge.ts`. */
 export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
@@ -37,34 +37,37 @@ function present(pipe: string): boolean {
 }
 
 /**
- * The fixture pipe(s) this run may drive — ONLY those an `ide.ps1` instance provably started on a fixture copy
- * (`fixture-ide.ts`). Throws a refusal naming every pipe it will not touch. There is no prefix-wide discovery and no
- * "first pipe found": that is how the suite once wrote `VltE2E_*` items into an engineer's 881-item project.
+ * THE ONE fixture pipe a run drives for `vendor` — only one an `ide.ps1` instance provably started on a fixture copy
+ * (`fixture-ide.ts`), and only when that instance serves exactly ONE. `explicit` (`VOLT_PIPE` / `VOLT_PIPE_<VENDOR>`)
+ * names one exactly, verified the same way. Throws a refusal naming every pipe it will not touch.
+ *
+ * <p>There is no prefix-wide discovery and no "first pipe found": that is how the suite once wrote `VltE2E_*` items
+ * into an engineer's 881-item project. Nor is there a "first of the instance's pipes": `ide.ps1 up -Vendor twincat`
+ * used to open Project13 AND Project14 by default and this took `pipes[0]`, so which project a run drove followed the
+ * order the two XAE pids sorted in — the same command passed three graphical tests on one and failed them on the
+ * other. The scripts and LSP recorders already refused an instance serving several (`resolveOnePipe`); the suite asks
+ * the same question now and gets the same answer.</p>
  */
-export function livePipes(): string[] {
-	return fixturePipesFor(VENDOR, EXPLICIT_PIPE)
+function onePipe(vendor: Vendor, explicit: string | undefined): string {
+	return resolveOnePipe(gatherFacts(vendor), { instance: E2E_INSTANCE, explicit })
 }
 
-/** The fixture pipe(s) of a NAMED vendor — for the cross-vendor suite, the only thing driving two at once. Same rule:
- *  `VOLT_PIPE_<VENDOR>` names one exactly (and is verified), else the `VOLT_E2E_INSTANCE` instance's. */
-export function livePipesFor(vendor: "codesys" | "twincat"): string[] {
-	return fixturePipesFor(vendor, process.env[`VOLT_PIPE_${vendor.toUpperCase()}`])
-}
-
-/** The pipe a cross-vendor suite uses for a vendor — ONLY a fixture IDE's (<c>livePipesFor</c>), or undefined, a SKIP
- *  that says what it refused. It was `livePipesFor(v)[0]` over every `volt.bridge.<vendor>.*` on the machine, and on
- *  2026-10-03 it created and deleted items in an engineer's project that happened to sort first. A pipe the caller
- *  NAMED (`VOLT_PIPE_<VENDOR>`) that is not a fixture is a failure, not a skip: they asked for it by name. */
+/** The pipe a cross-vendor suite uses for a vendor — {@link onePipe}, or undefined when that vendor has NO fixture IDE
+ *  of ours: a SKIP that says what it refused. It was `livePipesFor(v)[0]` over every `volt.bridge.<vendor>.*` on the
+ *  machine, and on 2026-10-03 it created and deleted items in an engineer's project that happened to sort first. An
+ *  instance serving SEVERAL of that vendor's pipes is a failure, not a skip — an IDE is up, the run just cannot say
+ *  which one it means. So is a pipe the caller NAMED (`VOLT_PIPE_<VENDOR>`) that is not a fixture: they asked for it. */
 export function fixturePipeOrSkip(vendor: "codesys" | "twincat", suite: string): string | undefined {
+	const explicit = process.env[`VOLT_PIPE_${vendor.toUpperCase()}`] || undefined
+	const facts = gatherFacts(vendor)
 	try {
-		const ours = livePipesFor(vendor)
-		if (ours.length > 1) console.log(`${suite}: ${ours.length} fixture ${vendor} pipes (${ours.join(", ")}); using ${ours[0]}.`)
-		return ours[0]
+		resolveFixturePipes(facts, { instance: E2E_INSTANCE, explicit })
 	} catch (e) {
-		if (process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]) throw e
+		if (explicit) throw e
 		console.log(`${suite}: ${vendor}: ${(e as Error).message}`)
 		return undefined
 	}
+	return resolveOnePipe(facts, { instance: E2E_INSTANCE, explicit })
 }
 
 let cachedPipe: string | undefined
@@ -77,10 +80,7 @@ let cachedPipe: string | undefined
 function resolvePipe(): string {
 	if (cachedPipe && present(cachedPipe)) return cachedPipe
 	cachedPipe = undefined
-	const pipes = livePipes()
-	if (pipes.length > 1)
-		console.log(`[e2e] instance ${E2E_INSTANCE || "(default)"} serves ${pipes.length} fixture pipes (${pipes.join(", ")}); driving ${pipes[0]}`)
-	cachedPipe = pipes[0]!
+	cachedPipe = onePipe(VENDOR, EXPLICIT_PIPE)
 	// Stamp the RESOLVED name into the environment, because a spawned `volt` inherits it — and VOLT_PIPE is how the
 	// CLI is told which bridge to drive. The invariant is not "the harness uses one pipe"; it is that EVERYTHING
 	// driving this bridge does. Only a resolved, verified pipe is ever stamped.

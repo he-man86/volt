@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { basename, join } from "node:path"
-import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe, livePipes } from "../harness"
+import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe } from "../harness"
 import { servedSolutionDir } from "../lib/tc-files"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
@@ -51,23 +51,14 @@ function reopenIde(): void {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/** This test kills and reopens "the" IDE, so it REQUIRES its fixture instance to serve exactly one XAE: with two, the
- *  harness's pick after a restart could land on the other and the failures look like product bugs (they aren't). */
-function requireSingleIde(): void {
-	const pipes = livePipes()
-	if (pipes.length !== 1)
-		throw new Error(
-			`ide-restart needs its fixture instance to serve EXACTLY ONE TwinCAT XAE, found ${pipes.length} (${pipes.join(", ")}). ` +
-				`Reset with: pwsh scripts/ide.ps1 up -Vendor twincat -Fixture 13 -Wait`,
-		)
-}
+// It kills and reopens "the" IDE, so its fixture instance must serve exactly one XAE — which every run now requires:
+// the harness refuses an instance serving several (`lib/pipe.ts` onePipe) instead of picking the first.
 
 describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (${BASE})`, () => {
 	setDefaultTimeout(300_000) // a fresh IDE boot + build is minutes
 	let bound: Bound = {}
 
 	beforeAll(async () => {
-		requireSingleIde()
 		await requireHealthy()
 		captureTarget()
 		const row = (await bridge.projects())?.[0]
