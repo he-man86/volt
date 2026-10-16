@@ -1121,20 +1121,27 @@ public static class PushService
 
         // A NAME THE IDE REFUSES, from the word alone (openspec `push-keeps-what-landed` 3.1). Both vendors refuse a POU
         // or a METHOD / ACTION / PROPERTY named like a reserved word (`Log`, `INT_TO_REAL`, `__NEW` …) whatever the
-        // project and the member kind, and only the driver knows its vendor's measured words. Every member the text
-        // carries is asked, on an update too: an existing member cannot hold a word its IDE refuses to create, so only a
-        // NEW one can be refused. A name that is no identifier is the same refusal by the same door (bridge-refusal-review
-        // 3.1, measured on both vendors for all six kinds). Each name is asked with the kind it creates: a driver answers
-        // its words only for the kinds they were measured on.
+        // project and the member kind, and only the driver knows its vendor's measured words. Measured live the refusal
+        // came from the apply loop, after the batch's earlier ops had landed. Only a member the push CREATES is asked: one
+        // the IDE already holds under the item (same kind, same name) is written through, and its name is the IDE's own
+        // (openspec codesys-existing-unicode-members: a Chinese project's CJK methods made every write to their POUs
+        // refused, though nothing was created). A name that is no identifier is the same refusal by the same door
+        // (bridge-refusal-review 3.1). Each name is asked with the kind it creates: a driver answers its words only for
+        // the kinds they were measured on. The IDE's members are read only when a name is refused, which is rare.
         if (isCreate && wireKind == ItemKind.Kinds.Pou && ide.RefusedName(ItemKind.Kinds.Pou, name) is { } pouRefusal)
             throw new ChildRefusedException($"the IDE refuses to create '{name}': {pouRefusal}", ChildRefusalCause.Name);
-        foreach (var m in split.Members)
+        var refusedNames = split.Members
+            .Where(m => m.Kind is ItemKind.Kinds.Method or ItemKind.Kinds.Action or ItemKind.Kinds.Property
+                            or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty)
+            .Select(m => (Member: m, Why: ide.RefusedName(m.Kind, m.Name)))
+            .Where(x => x.Why is not null).ToList();
+        if (refusedNames.Count > 0)
         {
-            if (m.Kind is ItemKind.Kinds.Method or ItemKind.Kinds.Action or ItemKind.Kinds.Property
-                    or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty
-                && ide.RefusedName(m.Kind, m.Name) is { } memberRefusal)
-                throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {memberRefusal}",
-                                                ChildRefusalCause.Name);
+            var held = HeldMembers(ide, name, isCreate, existing);
+            foreach (var (m, why) in refusedNames)
+                if (!Holds(held, m))
+                    throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {why}",
+                                                    ChildRefusalCause.Name);
         }
         RefuseMemberCreates(ide, name, split, isCreate, existing);
         // …and object properties the vendor has no measured member for (openspec bridge-one-to-one §1.1: TwinCAT, every
@@ -1210,15 +1217,23 @@ public static class PushService
             .Select(m => (Member: m, Why: ide.RefusedMemberCreate(m.Kind, m.Name, CreateSeed(m))))
             .Where(x => x.Why is not null).ToList();
         if (refused.Count == 0) return;
-        var held = new List<Member>();
-        if (!isCreate && (existing ?? ItemLookup.Find(ide, name)) is { } item) held = ReadLive(ide, item, name).Members.ToList();
+        var held = HeldMembers(ide, name, isCreate, existing);
         foreach (var (m, why) in refused)
         {
-            if (held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind)) continue;
+            if (Holds(held, m)) continue;
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{name}': the IDE cannot create its {m.Kind.Replace('_', ' ')} '{m.Name}': {why}");
         }
     }
+
+    /// <summary>The members the IDE holds under the item an update writes (none for a create), read live — the set a
+    /// pushed member is "existing" against (<see cref="ReconcileMembers"/>'s rule: same name, case-insensitively, and
+    /// same kind).</summary>
+    private static List<Member> HeldMembers(IIdeDriver ide, string name, bool isCreate, ItemRef? existing) =>
+        !isCreate && (existing ?? ItemLookup.Find(ide, name)) is { } item ? ReadLive(ide, item, name).Members.ToList() : new List<Member>();
+
+    private static bool Holds(List<Member> held, Member m) =>
+        held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind);
 
     /// <summary>Does this op CREATE — is there no such item right now?
     ///
