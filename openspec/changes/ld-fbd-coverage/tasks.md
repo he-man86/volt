@@ -635,11 +635,26 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **Stopped 2026-10-16 for the owner:** design.md "2R.1" — C1 (CODESYS: no refill, N38), C2, C3 (CODESYS builds
       refuse every 3-input SUB/DIV/MOD/comparison; 0 in the corpora), C4 (90 % of networks), C5 answered; five Open items
       with a default each. Owed: TwinCAT's C1/C3 runs (an orphaned worker of this instance blocks `ide.ps1 up`).
+      **Gate 2R.1 (2026-10-16) — the three review findings, fixed:** (1) the nine `ng_r1_<op>_three_inputs` carry
+      `deferred.lsp` (2R.3's B1 guard), so lsp-replay holds them as expected failures that go stale the day the LSP
+      agrees; their nine census GAPs are ceiling exceptions (`baseline-c.ts` `THREE_INPUT_OPERATORS`), census baseline
+      re-measured (CODESYS GAP 520 → 529, fixtures measured 5603 → 5612). (2) N38/C1 narrowed to what was measured
+      AND the row widened and re-run live (CODESYS SP21, own instance `ld-fbd-coverage`, 27.7 s): an LD body of ten
+      networks (negated contact, PARALLEL, enabled MOVE, enabled function's ENO) and an FBD body of four (operator
+      tree, negated pin, enabled function, enabled MOVE), the `editor` step now checking the view's `Editor` holds that
+      object; 493 members identical at all seven points, both builds clean. Stated as NOT measured: an edit, a DRAWN
+      network's `Fixed`/`Boolean`/`Address`/`BranchCounter`, execution; the LD body's `BranchCounter` read 0 with a
+      Parallel (N29's read 1) — unexplained, recorded. (3) Open item 5's default (a) no longer reads as safe: only a
+      clean BUILD is recorded; 2R.4 owes a run comparison of a rebuilt network against its drawn original per member.
+      **Numbers:** C# Engine 2624 + 1 skipped, CODESYS 438, TwinCAT 526, Cli 295 (one `BridgePackagingTests` case
+      failed under the parallel LSP run and passed alone — openspec `packaging-test-sweep-access-denied`), Connector
+      148, Contracts 37, Repo.Gates 243; volt-cli unit 158; typecheck, lint, `bun run check` (18) green; fixture map
+      unaskable 106 → 115 (the nine `ng_r1_*`); LSP full suite: LSP_FULL_NUMBERS.
 - [ ] 2R.2 design.md section "Readability": the final grammar from `readability.md` + 2R.1, and the member disposition
       re-done under B7: every NWL member is an editor cache (dropped), derived by the bridge on push from the declaration
       (as the editor does), or its network is `UNSUPPORTED` — never a pragma. Corpus reach per rule (C5).
 - [ ] 2R.3 The rewrite, test-first, both vendors (pull → push → pull fixed point + build): B1 operator words with their
-      guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` = the box on the line above, one `;` per NWL item (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 bare values, B6 `split<n>`, B7 the pragma DELETED
+      guards, B2 `MOVE b => a`, B3 `EN`, B4 `ENO` = the box on the line above, one `;` per NWL item (`.ENO` and `THEN` deleted), B4b jumps as coils (`IF … THEN JMP` deleted), B5 bare values, B6 `split<VarId>` with no `VAR_TEMP` (type inline only where it differs), B7 the pragma DELETED — a member is written only where it differs from the derivation, in a natural spelling
       (`NetworkPragma.cs`, `NetworkMembers.cs` text half, LSP `syntax/network/pragma.ts`, the "Members — the pragma" doc
       section) with its members derived in the drivers, B8 `a PARALLEL b FEED s [SEQUENTIAL]`, the small ones, and every "Precise rules" P1–P10 item. The LSP
       refuses while typing what a push would refuse. `docs/network-text.html` rewritten to the result; the corpora

@@ -35,7 +35,6 @@ END_NETWORK
 
 ```
 NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
-  VAR_TEMP split174, split175, split176, split177 : BOOL; END_VAR
   split174 := TRUE;
   MOVE 0 => tInt EN split174;
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= split174 AND NOT HMI_Var.Test_Prod;
@@ -195,21 +194,34 @@ g176 := (g175 AND RunAuto);      // today
 split176 := split175 AND RunAuto;      // proposed
 ```
 
-### B6 — split wires are named as splits
+### B6 — split points: the name is the VarId, no `VAR_TEMP`
 
+A split point is NWL's `BoxTreeDemux`: one definition node (holding the feeder) and reference nodes elsewhere, linked
+by `VarId`. The Demux holds NO type — the type is the feeder's (a box's stored `OutputParam.Types`, a leaf's variable).
 ```
-VAR_TEMP g176 : BOOL; END_VAR          // today: reads as a global; clashes with Lenze's enum G01
-VAR_TEMP split176 : BOOL; END_VAR      // proposed; the number stays (it is CODESYS's VarId); no leading zeros
+VAR_TEMP g176 : BOOL; END_VAR          // today: a block, `g` reads as a global, clashes with Lenze's enum G01
+g176 := (g175 AND RunAuto);
+
+split176 := split175 AND RunAuto;      // proposed: the definition declares it; 176 IS the VarId (no leading zeros)
+split12  := a ADD b;                   // type derived from the feeder (INT) — nothing written
+split1 : INT := a;                     // the stored type differs from the feeder's (a is BOOL): written inline
 ```
+No `VAR_TEMP` block. The common case shows no type: an editor-drawn network stores the feeder's own type.
 
-### B7 — no member pragmas in the text
+### B7 — hidden members: derived; written only where the stored value differs
 
+**The bridge derives every stored member from the text and the declarations (as the editor does). A member is
+written only where the stored value differs from that derivation, and then in a natural spelling — never a
+`{Member := …}` pragma:**
 ```
 t1(IN := go, PT := T#1S){OutputParam.Types := ['BOOL', 'TIME']};   // today (2.3)
-t1(IN := go, PT := T#1S);                                           // proposed
+t1(IN := go, PT := T#1S);                                           // proposed: derived
+split1 : INT := a;                                                  // differs: the split's type, inline (B6)
+NETWORK TITLE: "Calc "                                              // differs: the exact title, in its quotes
 ```
-The bridge fills them from the declaration on push, like the editor does, or drops them if CODESYS recomputes them (C1).
-A member that can be neither → that network `UNSUPPORTED` (C6 counts how many).
+A member that differs and has no natural spelling (candidates: a bare `a AND b` drawn by the editor — a stored
+output slot — and the function result name `'   '` on 97 of 97 function boxes) is counted by C4: rare → that
+network `UNSUPPORTED`; common → STOP for the owner.
 
 ### B8 — PARALLEL is a word too; its feed is a `FEED` tail
 
