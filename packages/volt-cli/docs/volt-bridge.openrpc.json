@@ -326,9 +326,9 @@
               "type": "string"
             }
           },
-          "knownFolders": {
-            "type": "object",
-            "additionalProperties": {
+          "knownApplications": {
+            "type": "array",
+            "items": {
               "type": "string"
             }
           },
@@ -352,9 +352,9 @@
               "type": "string"
             }
           },
-          "folders": {
-            "type": "object",
-            "additionalProperties": {
+          "applications": {
+            "type": "array",
+            "items": {
               "type": "string"
             }
           },
@@ -386,7 +386,7 @@
         "required": [
           "projectVersion",
           "items",
-          "folders",
+          "applications",
           "unreadable",
           "removed",
           "unwalkedFolders"
@@ -416,9 +416,9 @@
               "type": "string"
             }
           },
-          "knownFolders": {
-            "type": "object",
-            "additionalProperties": {
+          "knownApplications": {
+            "type": "array",
+            "items": {
               "type": "string"
             }
           },
@@ -463,9 +463,9 @@
               "type": "string"
             }
           },
-          "folders": {
-            "type": "object",
-            "additionalProperties": {
+          "applications": {
+            "type": "array",
+            "items": {
               "type": "string"
             }
           },
@@ -499,7 +499,7 @@
           "librariesRefreshed",
           "projectVersion",
           "items",
-          "folders",
+          "applications",
           "unreadable",
           "removed",
           "unwalkedFolders"
@@ -509,9 +509,6 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
-          },
-          "folder": {
             "type": "string"
           },
           "sourceText": {
@@ -615,10 +612,7 @@
       "SetItemOp": {
         "type": "object",
         "properties": {
-          "toName": {
-            "type": "string"
-          },
-          "toFolder": {
+          "to": {
             "type": "string"
           },
           "sourceText": {
@@ -659,12 +653,6 @@
             "type": "string"
           },
           "newItems": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "newFolders": {
             "type": "object",
             "additionalProperties": {
               "type": "string"

@@ -35,7 +35,7 @@ public class TcWriteTakesModelTests
         var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nthis is no network text",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
-        TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou), content,
+        TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou), content,
             new[] { new PushedNetworkBody(BodySite.Item, model, scope) });
 
         Assert.Equal(0, pou.ImplementationWrites);   // the archive already says exactly this model
@@ -51,7 +51,7 @@ public class TcWriteTakesModelTests
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou), content, Array.Empty<PushedNetworkBody>()));
+            TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou), content, Array.Empty<PushedNetworkBody>()));
         Assert.Contains("the item", ex.Message);
         Assert.Equal(0, pou.ImplementationWrites);
     }

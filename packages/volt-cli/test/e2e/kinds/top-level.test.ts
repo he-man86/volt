@@ -1,7 +1,7 @@
 /** Top-level kinds the lifecycle doesn't fully cover: function/alias type fidelity, interface, folders.
  *  (The CRUD lifecycle already asserts kind for fb/prog/gvl/struct/enum/union/alias.) */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE, projectRoot, fileOf } from "../harness"
 import { func, aliasDut, iface, fb } from "../fixtures"
 
 describe(`kinds / top-level (${BASE})`, () => {
@@ -36,7 +36,7 @@ describe(`kinds / top-level (${BASE})`, () => {
 		const back = await fetchSource(wire)
 		expect(back).toContain(`INTERFACE ${name}`)
 		expect(back).toContain("END_INTERFACE")
-		expect(Object.keys((await bridge.refs()).items)).toContain(wire)
+		expect(Object.keys((await bridge.refs()).items).map(fileOf)).toContain(wire)
 	})
 
 	// Interface members test declaration-only method + property create + round-trip. The property is
@@ -54,11 +54,11 @@ describe(`kinds / top-level (${BASE})`, () => {
 	it("creates at the project root and in a nested folder", async () => {
 		const root = id("k_root"), nested = id("k_nested")
 		const rootWire = fid("k_root"), nestedWire = fid("k_nested")
-		await createItem(rootWire, fb(root), "")
+		await createItem(rootWire, fb(root), await projectRoot())
 		await ensureCompiles(root)
 		await createItem(nestedWire, fb(nested), await plcFolder("POUs/Sub/Deep"))
 		await ensureCompiles(nested)
-		// Root item (toFolder:"") lands at the project's DEFAULT root — which is INTENTIONALLY vendor-
+		// Root item (projectRoot()) lands at the project's DEFAULT root — which is INTENTIONALLY vendor-
 		// structure-dependent (CODESYS Application, TwinCAT the literal PLC-project root), NOT the main
 		// program's folder — so we don't pin its absolute path; create + compile (above) proves it works.
 		// The explicit nested path IS deterministic and must be honored identically on both bridges.

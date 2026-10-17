@@ -260,7 +260,7 @@ public class DirectedReadPerKindTests
 
     // ── the reads ────────────────────────────────────────────────────────────────────────────────────────
 
-    private static string Describe(FetchedItem c) => $"{c.Folder}|{c.Name}|{c.Version}|{c.SourceText}";
+    private static string Describe(FetchedItem c) => $"{c.Name}|{c.Version}|{c.SourceText}";
 
     private static FetchResponse Full(FakeIde ide) => FetchService.Handle(ide, new FetchRequest { Init = true });
 
@@ -276,13 +276,13 @@ public class DirectedReadPerKindTests
         var row = RowFor(kind);
         var name = row.ReadName ?? LibraryName(vendor);
         var full = Full(row.Fixture!(vendor));
-        var item = full.Changed.SingleOrDefault(c => c.Name == name);
+        var item = full.Changed.SingleOrDefault(c => c.File() == name);
         Assert.True(item is not null, $"the {kind} fixture's full fetch has no '{name}' ({string.Join(", ", full.Changed.Select(c => c.Name))})");
 
-        var directed = Directed(row.Fixture!(vendor), name);
+        var directed = Directed(row.Fixture!(vendor), item!.Name);   // by its path, as the full fetch published it
 
         var expected = kind == ItemKind.Kinds.Library
-            ? full.Changed.Where(c => c.Folder == item!.Folder)
+            ? full.Changed.Where(c => c.Folder() == item!.Folder())
             : new[] { item! };
         Assert.Equal(expected.Select(Describe).OrderBy(s => s, StringComparer.Ordinal),
                      directed.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal));
@@ -297,12 +297,12 @@ public class DirectedReadPerKindTests
     {
         var row = RowFor(kind);
         var full = Full(row.Fixture!(vendor));
-        var owner = full.Changed.SingleOrDefault(c => c.Name == row.ReadName);
+        var owner = full.Changed.SingleOrDefault(c => c.File() == row.ReadName);
         Assert.True(owner is not null, $"the {kind} fixture's full fetch has no owner '{row.ReadName}'");
         Assert.True(owner!.SourceText.Contains(row.Shows!, StringComparison.Ordinal),
             $"the {kind} child's text '{row.Shows}' is not in the full fetch's '{row.ReadName}':\n{owner.SourceText}");
 
-        var directed = Directed(row.Fixture!(vendor), row.ReadName!);
+        var directed = Directed(row.Fixture!(vendor), owner.Name);
 
         Assert.Equal(new[] { Describe(owner) }, directed.Changed.Select(Describe).ToArray());
     }
@@ -319,12 +319,12 @@ public class DirectedReadPerKindTests
         var row = RowFor(kind);
         var owner = row.ReadName!.Substring(0, row.ReadName!.LastIndexOf('.'));
         var full = Full(row.Fixture!(vendor));
-        var directed = Directed(row.Fixture!(vendor), row.ReadName!);
+        var directed = Directed(row.Fixture!(vendor), Volt.Engine.Item.ItemPath.Of(Base(vendor), row.ReadName!));
 
         foreach (var answer in new[] { full, directed })
         {
             Assert.DoesNotContain(answer.Changed, c => c.SourceText.Contains(row.Shows!, StringComparison.Ordinal));
-            Assert.Contains(owner, answer.Unreadable.Select(u => u.Name));
+            Assert.Contains(owner, answer.Unreadable.Select(u => Volt.Engine.Item.ItemPath.FileOf(u.Name)));
         }
     }
 

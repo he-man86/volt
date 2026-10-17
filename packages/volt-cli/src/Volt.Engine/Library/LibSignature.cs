@@ -42,4 +42,8 @@ public sealed record LibSignature(
     string Flags = "",
     // Methods of an FB or interface (declaration only). Null/empty for elements that have none. Folded into the
     // parent's rendered text as METHOD blocks so a library FB's methods are known to the LSP, not unknown-member.
-    IReadOnlyList<LibMethod>? Methods = null);
+    IReadOnlyList<LibMethod>? Methods = null,
+    // The root path of the APPLICATION this signature was extracted for (CODESYS: one precompile per application, each
+    // with its own Library Manager; TwinCAT: one per PLC project) — its signatures land beside THAT application's
+    // `.library` (openspec multi-application-tree, design §6). Null: the driver extracted for the project as a whole.
+    string? Application = null);

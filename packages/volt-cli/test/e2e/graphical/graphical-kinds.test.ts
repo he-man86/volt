@@ -22,7 +22,7 @@
  *      graphical POU once landed with an empty VAR section, its contacts referencing undeclared variables.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR, expectNoOperandsLost } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR, expectNoOperandsLost, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -94,7 +94,7 @@ const networkLangs = (src: string) => [...String(src).matchAll(/^IMPLEMENTATION 
 
 /** Re-push exactly what was fetched and assert nothing moved. The property that keeps `volt status` quiet. */
 async function isFixedPoint(fullName: string, fetched: any) {
-	// An UPDATE omits toFolder — a `""` here would read as "move to root" against the
+	// An UPDATE sends no `to` — one here would read as a move against the
 	// Device/Plc Logic/Application structure and be refused as a move.
 	const refs = await bridge.refs()
 	const r = await bridge.push({
@@ -118,8 +118,8 @@ for (const lang of ["FBD", "LD"]) {
 		for (const [kind, key] of [["function_block", "fb"], ["program", "prg"], ["function", "fun"]] as const) {
 			it(`a ${lang} ${kind} round-trips`, async () => {
 				const name = id(`net_${tag}_${key}`)
-				const full = fid(`net_${tag}_${key}`, "pou")
-				await createItem(full, src[key](name), "")
+				const full = inFolder(await projectRoot(), fid(`net_${tag}_${key}`, "pou"))
+				await createItem(full, src[key](name), await projectRoot())
 
 				const v1 = await fetchItem(full)
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // stayed graphical, not flattened to ST
@@ -132,8 +132,8 @@ for (const lang of ["FBD", "LD"]) {
 		for (const [what, key, coil] of [["METHOD", "method", "M_G"], ["ACTION", "action", "out"]] as const) {
 			it(`an FB with a textual body and a ${lang} ${what} round-trips and compiles`, async () => {
 				const name = id(`net_${tag}_${key}`)
-				const full = fid(`net_${tag}_${key}`, "pou")
-				await createItem(full, src[key](name), "")
+				const full = inFolder(await projectRoot(), fid(`net_${tag}_${key}`, "pou"))
+				await createItem(full, src[key](name), await projectRoot())
 
 				const v1 = await fetchItem(full)
 				expect(v1.sourceText).toContain("out := a;")          // the parent's own body stayed TEXTUAL…
@@ -147,8 +147,8 @@ for (const lang of ["FBD", "LD"]) {
 
 		it(`an FB whose PROPERTY has ${lang} in BOTH accessors round-trips and compiles`, async () => {
 			const name = id(`net_${tag}_prop`)
-			const full = fid(`net_${tag}_prop`, "pou")
-			await createItem(full, src.property(name), "")
+			const full = inFolder(await projectRoot(), fid(`net_${tag}_prop`, "pou"))
+			await createItem(full, src.property(name), await projectRoot())
 
 			const v1 = await fetchItem(full)
 			// TWO networks, one per accessor, each keeping its own coil. A splice that wrote both accessors from
@@ -197,8 +197,8 @@ for (const lang of ["FBD", "LD"]) {
 		for (const [what, key] of [["METHOD", "methodFbCall"], ["ACTION", "actionFbCall"]] as const) {
 			it(`a ${lang} ${what} may call an FB instance declared in the OWNER`, async () => {
 				const name = id(`net_${tag}_${key}`)
-				const full = fid(`net_${tag}_${key}`, "pou")
-				await createItem(full, (src as any)[key](name), "")
+				const full = inFolder(await projectRoot(), fid(`net_${tag}_${key}`, "pou"))
+				await createItem(full, (src as any)[key](name), await projectRoot())
 
 				const v1 = await fetchItem(full)
 				expect(v1.sourceText, "the call lost its instance").toContain("t1 : TON(IN := a")
@@ -209,7 +209,7 @@ for (const lang of ["FBD", "LD"]) {
 
 		it(`a ${lang} function_block compiles when referenced — build-verified on BOTH vendors`, async () => {
 			const name = id(`net_${tag}_compile`)
-			await createItem(fid(`net_${tag}_compile`, "pou"), src.fb(name), "")
+			await createItem(fid(`net_${tag}_compile`, "pou"), src.fb(name), await projectRoot())
 			await ensureCompiles(name)
 		})
 	})

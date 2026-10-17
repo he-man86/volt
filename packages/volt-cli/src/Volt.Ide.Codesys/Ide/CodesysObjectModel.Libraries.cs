@@ -257,7 +257,7 @@ namespace Volt.Ide.Codesys
         /// <c>SystemInstances.LanguageModelMgr.AllPrecompiledSignatures</c> — the same DLL the IDE's Library Manager
         /// renders from, and the same reflection the rest of the bridge uses. Vendor libraries only; system libraries
         /// are dropped by the caller. Filters compiler-mangled entries (<c>__</c>-prefixed) and non-library objects.</summary>
-        public List<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
+        public List<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures(object app)
         {
             // Ensure the libraries are PRECOMPILED: a freshly-opened project has an EMPTY precompiled set until a
             // build runs, so AllPrecompiledSignatures returns nearly nothing (verified: 2 sigs before a build, 5220
@@ -279,11 +279,6 @@ namespace Volt.Ide.Codesys
             // `FindLibraryManager` documents ("reporting 'no libraries' for a project that has them is worse
             // than a loud failure"), whose comment already claims the CODESYS twin throws on both of ITS
             // equivalents. It does. This third one, the precompile, was simply never covered.
-            var app = FindApplication()
-                      ?? throw new InvalidOperationException(
-                          "CODESYS: no Application node, so the referenced libraries cannot be precompiled and " +
-                          "their signatures would come back all but empty — which the client would apply as a " +
-                          "deletion of every library file it holds. Refusing instead.");
             Build(app);   // FALSE (a failing compile) is fine: libraries precompile independently of the app.
 
             var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr")

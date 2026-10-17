@@ -56,7 +56,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Draw.pou",
-                    ToName = "FB_Renamed.pou",
+                    To = "FB_Renamed.pou",
                     SourceText = MalformedBody,
                     IfVersion = refs.Items["FB_Draw.pou"],
                 },
@@ -91,7 +91,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.pou",
-                    ToName = "FB_New.pou",
+                    To = "FB_New.pou",
                     SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_PROGRAM\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
@@ -123,7 +123,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.pou",
-                    ToName = "FB_New.pou",
+                    To = "FB_New.pou",
                     SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 1;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
@@ -161,7 +161,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.pou",
-                    ToName = "FB_New.pou",
+                    To = "FB_New.pou",
                     SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
@@ -205,8 +205,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.pou",
-                    ToName = toName,
-                    ToFolder = toFolder,
+                    To = $"{toFolder}/{toName ?? "FB_Old.pou"}",
                     SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
@@ -244,8 +243,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.pou",
-                    ToName = toName,
-                    ToFolder = toFolder,
+                    To = $"{toFolder}/{toName ?? "FB_Old.pou"}",
                     SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
@@ -253,7 +251,7 @@ public class RenameBeforeWriteTests
         });
 
         Assert.True(res.Accepted, "a move+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.Contains((toName ?? "FB_Old.pou"), RefsService.Handle(ide).Items.Keys);
+        Assert.Contains($"{toFolder}/{toName ?? "FB_Old.pou"}", RefsService.Handle(ide).Items.Keys);
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:", System.StringComparison.Ordinal));
     }
 

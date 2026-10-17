@@ -51,7 +51,6 @@ const answers = new Map<string, Partial<Record<"codesys" | "twincat", unknown>>>
 const state = (r: any) => ({
 	projectVersion: r.projectVersion,
 	items: r.items,
-	folders: r.folders,
 	unreadable: r.unreadable,
 })
 
@@ -129,7 +128,7 @@ for (const vendor of VENDORS) {
 }
 
 describe.skipIf(VENDORS.length < 2)("refusals — CODESYS and TwinCAT answer byte-identically (8.1 d, 8.4)", () => {
-	it("UNREADABLE's POU, in the load that wrote it: the same version and the same ITEM_EXISTS on both vendors", () => {
+	it("UNREADABLE's POU, in the load that wrote it: the same ITEM_EXISTS on both vendors", () => {
 		expect(IN_SESSION.get("twincat"), "the TwinCAT UNREADABLE setup did not run").toBeDefined()
 		expect(IN_SESSION.get("twincat")).toEqual(IN_SESSION.get("codesys"))
 	})

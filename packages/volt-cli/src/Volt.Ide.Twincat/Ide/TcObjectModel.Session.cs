@@ -65,7 +65,7 @@ internal sealed partial class TcObjectModel
         FindTwinCatProject(null);
         if (_sysManager == null) return;   // no TwinCAT project open yet — the health poll takes it up when one is
         _wantProject = _projectName;
-        VoltLog.Info($"attach: serving '{_projectName}', the first TwinCAT project of [{string.Join(", ", SolutionProjectNames())}] — a select by name serves another");
+        VoltLog.Info($"attach: serving the solution '{_projectName}' — system projects [{string.Join(", ", _systems.Select(s => s.Name))}]");
     }
 
     /// <summary>Ambient re-attach for the health poll: if our held DTE is gone or dead, re-acquire OUR window by its
@@ -120,12 +120,12 @@ internal sealed partial class TcObjectModel
 
         if (_sysManager == null)
         {
-            VoltLog.Warn($"{tag}: project '{project}' NOT found in our XAE (pid {_xaePid}) — it has: [{string.Join(", ", SolutionProjectNames())}]");
+            VoltLog.Warn($"{tag}: project '{project}' NOT found in our XAE (pid {_xaePid}) — it has: {SolutionName() ?? "no solution file"}");
             return;
         }
-        // Bound. The PLC application is NOT resolved here — that's content, deferred to EnsurePlc on the first
-        // content op, which takes the first/default PLC project (connecting is identity-only, never a PLC pick).
-        VoltLog.Info($"{tag}: bound '{_projectName}' on instance serving [{string.Join(", ", SolutionProjectNames())}]");
+        // Bound. The PLC projects are NOT resolved here — that's content, deferred to EnsurePlc on the first content op
+        // (connecting is identity-only, never a PLC pick).
+        VoltLog.Info($"{tag}: bound '{_projectName}' — system projects [{string.Join(", ", _systems.Select(s => s.Name))}]");
     }
 
     // Retarget the DTE, releasing the previous handle when it's a DIFFERENT object. Re-binding our pid after a
@@ -148,7 +148,9 @@ internal sealed partial class TcObjectModel
         _productVersion = ReadStated(() => (string?)_dte.Version, "DTE.Version");
     }
 
-    /// <summary>The OWNED XAE window's (TwinCAT build, project names) — this worker's health list, ITS window only.
+    /// <summary>The OWNED XAE window's (TwinCAT build, served names) — this worker's health list, ITS window only: ONE
+    /// name, the open SOLUTION's (openspec multi-application-tree, design §7: one refs holds every system project of the
+    /// solution, so the solution is what is served), or none when no solution holding a TwinCAT project is open.
     /// Name-only — never touches the PLC tree (that can fault a fragile XAE in its own process). Runs on the STA thread.
     /// The build is re-read here, with the snapshot: it is the remote manager the open SOLUTION is pinned to, so it can
     /// change inside one DTE; empty with no solution open, which reads null (DIALECT V5).
@@ -169,7 +171,48 @@ internal sealed partial class TcObjectModel
             _ideVersion = build;
         }
         else _ideVersion = null;
-        return (_ideVersion, SolutionProjectNames().ToList());
+        return (_ideVersion, SolutionName() is { } name && TwinCatSystems().Count > 0 ? new List<string> { name } : new List<string>());
+    }
+
+    /// <summary>The open solution's name — its <c>.sln</c> file's, as the engineer sees it in XAE — or null when no
+    /// solution file is open (nothing is served then: an unsaved solution has no name to bind a workspace to).</summary>
+    private string? SolutionName()
+    {
+        if (_dte == null) return null;
+        string? file;
+        try { file = (string?)_dte.Solution.FullName; }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"twincat: the solution's file name is unreadable — nothing is served: {ex.Message}");
+            return null;
+        }
+        return string.IsNullOrEmpty(file) ? null : System.IO.Path.GetFileNameWithoutExtension(file);
+    }
+
+    /// <summary>Every TwinCAT system project of the solution, in solution order, each with its system manager — the
+    /// projects that are no TwinCAT project (a C# ADS client, a TcHmi) passed over, as <see cref="FindTwinCatProject"/>
+    /// always passed them over. Never touches a PLC tree.</summary>
+    private List<(string Name, dynamic Manager)> TwinCatSystems()
+    {
+        var found = new List<(string, dynamic)>();
+        if (_dte == null) return found;
+        int count;
+        try { count = (int)_dte.Solution.Projects.Count; }
+        catch (Exception ex) { VoltLog.Debug($"twincat: solution project count unreadable: {ex.Message}"); return found; }
+        for (int i = 1; i <= count; i++)
+        {
+            try
+            {
+                dynamic proj = _dte.Solution.Projects.Item(i);
+                // See the DO-NOT on FindTwinCatProject's former loop (TcSystemManager): ASKED by capability.
+                dynamic obj = proj.Object;
+                dynamic? mgr = TcSystemManager.Is(obj) ? obj : TcSystemManager.Nested(obj);
+                if (mgr == null) continue;
+                found.Add(((string)proj.Name, mgr));
+            }
+            catch (Exception ex) { VoltLog.Debug($"twincat: solution project #{i} skipped ({ex.Message})"); }
+        }
+        return found;
     }
 
     private bool _buildLogged;
@@ -208,99 +251,132 @@ internal sealed partial class TcObjectModel
         }
     }
 
-    // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
-    private IEnumerable<string> SolutionProjectNames()
-    {
-        if (_dte == null) yield break;
-        int count;
-        try { count = (int)_dte.Solution.Projects.Count; } catch { yield break; }
-        for (int i = 1; i <= count; i++)
-        {
-            string? nm = null;
-            // A project the user can SEE in the IDE but that we cannot name would simply not appear in the
-            // connect list, with nothing said. Still skipped (one bad entry must not empty the list), but named.
-            try { nm = (string)_dte.Solution.Projects.Item(i).Name; }
-            catch (Exception ex) { VoltLog.Warn($"twincat: solution project #{i} name unreadable — omitted from the project list: {ex.Message}"); }
-            if (nm != null) yield return nm;
-        }
-    }
-
+    /// <summary>Bind the open SOLUTION — every TwinCAT system project in it (openspec multi-application-tree, design §7:
+    /// one refs holds them all, so the solution is the bound project, named after its <c>.sln</c>). <paramref name="wantProject"/>
+    /// null takes what is open; a name binds only a solution of that name.
+    ///
+    /// <para>Start from a CLEAN slate. This only SETS the resolved fields on a match; it never cleared them once, so a
+    /// solution that isn't found left the PREVIOUS one's system manager in place — <c>IsConnected</c> wrongly true, the
+    /// OLD project served while a DIFFERENT one was requested. Reset first so a miss leaves the model NOT connected.</para>
+    ///
+    /// <para>Resolves ONLY the system projects (their system managers) and the name. The PLC projects inside are CONTENT
+    /// — NOT resolved here; <see cref="EnsurePlc"/> does that lazily on the first content op, so select/health stay out of
+    /// the projects' trees.</para></summary>
     private void FindTwinCatProject(string? wantProject)
     {
-        // Start from a CLEAN slate. This method only SETS the resolved-project fields on a match; it never cleared
-        // them, so a project that isn't found (or a fallback to a different DTE after a failed instance Bind) left
-        // the PREVIOUS project's _sysManager in place — making IsConnected wrongly true and silently serving the OLD
-        // project while a DIFFERENT one was requested. Reset first so a miss leaves the model NOT connected.
-        _sysManager = null; _plcNode = null; _projectName = null;
-        dynamic solution = _dte!.Solution;
-        dynamic projects = solution.Projects;
-        int count = projects.Count;
-        VoltLog.Debug($"FindTwinCatProject: want='{wantProject ?? "(first)"}' among {count} project(s) in the bound DTE");
-        for (int i = 1; i <= count; i++)
+        DropPlcs();
+        _sysManager = null; _projectName = null; _systems = new List<(string, dynamic)>();
+        var name = SolutionName();
+        if (name is null || (wantProject != null && !string.Equals(name, wantProject, StringComparison.Ordinal)))
         {
-            try
-            {
-                dynamic proj = projects.Item(i);
-                if (wantProject != null)
-                {
-                    string nm;
-                    try { nm = (string)proj.Name; } catch { continue; }
-                    if (nm != wantProject) continue;
-                }
-                // Resolve ONLY the TwinCAT project (its system manager) + name. The PLC application inside is CONTENT
-                // — NOT resolved here; EnsurePlc does that lazily on the first content op, so select/health stay out
-                // of the project's tree. TcXaeShell: proj.Object IS the SystemManager; full VS: obj.SystemManager.
-                //
-                // THIS USED TO ADOPT `proj.Object` WHATEVER IT WAS. It read
-                //     try { _sysManager = obj; } catch { _sysManager = null; }
-                //     if (_sysManager == null) { try { _sysManager = obj.SystemManager; } catch { continue; } }
-                // and `_sysManager = obj` is a dynamic-to-dynamic store — an identity conversion the compiler
-                // emits as a bare field write with NO runtime-binder call — so the catch could not fire, the
-                // field was never null, and BOTH escape hatches were dead: the full-VS fallback, and the
-                // `continue` that is this loop's only "not a TwinCAT project, keep looking" branch. With no
-                // discrimination left, a solution whose first project is a C# ADS client or a TcHmi (and a soft
-                // select, which `BridgePipeHost` documents as load-bearing, passes no name to filter on) bound
-                // THAT project: `IsConnected` true, `connect` ok, a GREEN health row — and every content op
-                // dying later at `LookupTreeItem("TIPC")` with an opaque "Cannot find PLC project under TIPC".
-                // The same fact is already recorded one file over on `IsConnected` ("`is not null` binds against
-                // the static type"); this call site never got it.
-                dynamic obj = proj.Object;
-                dynamic? mgr = TcSystemManager.Is(obj) ? obj : TcSystemManager.Nested(obj);
-                if (mgr == null) continue;
-                _sysManager = mgr; _projectName = proj.Name; break;
-            }
-            catch (Exception ex) { VoltLog.Debug($"FindTwinCatProject: project #{i} skipped ({ex.Message})"); }
+            // Do NOT throw here: BindAndResolve (the connector's `select`) checks _sysManager itself, else leaves the
+            // model not-connected for Core to refuse. Throwing would turn a clean PLC_DISCONNECTED into an opaque
+            // INTERNAL_ERROR.
+            VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(open)"}' not resolved in the bound DTE (it has: {name ?? "no solution file"})");
+            return;
         }
-        // Do NOT throw here: BindAndResolve (the connector's `select`) checks _sysManager itself and recovers by
-        // project name, else leaves the model not-connected for Core to refuse. Throwing would turn a clean
-        // PLC_DISCONNECTED into an opaque INTERNAL_ERROR.
-        if (_sysManager == null)
-            VoltLog.Debug($"FindTwinCatProject: '{wantProject ?? "(first)"}' not resolved in the bound DTE (has: [{string.Join(", ", SolutionProjectNames())}])");
+        var systems = TwinCatSystems();
+        if (systems.Count == 0)
+        {
+            VoltLog.Debug($"FindTwinCatProject: the solution '{name}' holds no TwinCAT project");
+            return;
+        }
+        _systems = systems;
+        _sysManager = systems[0].Manager;
+        _projectName = name;
     }
 
-    /// <summary>The FIRST PLC project under <c>TIPC</c>. A fault reading it propagates with its HRESULT: it was caught,
-    /// and the loop bound the NEXT PLC project — every op after it then read and wrote a PLC the engineer did not pick —
-    /// while an outer catch turned an RPC fault into a Warn, so the session never degraded (cli-bridges review B3).</summary>
-    private void FindPlcProject()
+    /// <summary>The solution's active target platform (<c>TwinCAT RT (x64)</c>) — what a system project's descriptor states
+    /// as its type — or null when the solution states none. A failing read propagates: it is a content read.</summary>
+    public string? TargetPlatform()
     {
-        dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
-        if ((int)tipc.ChildCount == 0) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
-        _plcNode = tipc.Child[1];
+        if (_dte == null) return null;
+        var platform = (string?)_dte.Solution.SolutionBuild.ActiveConfiguration.PlatformName;
+        return string.IsNullOrWhiteSpace(platform) ? null : platform;
     }
 
-    /// <summary>Resolve the PLC application node the FIRST time a content op needs it. select/health NEVER call this,
-    /// so the PLC tree is touched only when the user actually syncs (init/pull/push/build). Idempotent — a no-op once
-    /// resolved; DropProject clears it so a reconnect re-resolves. Resolves the first/default PLC project.</summary>
+    /// <summary>The system projects of the bound solution (<see cref="FindTwinCatProject"/>).</summary>
+    private List<(string Name, dynamic Manager)> _systems = new();
+
+    /// <summary>Every PLC project of every system project — resolved the first time a content op needs one. select and
+    /// health NEVER call this, so a PLC tree is touched only when the user actually syncs (init/pull/push/build). A fault
+    /// reading a <c>TIPC</c> propagates with its HRESULT (cli-bridges review B3): skipping a PLC project would answer a
+    /// walk without its items, read as deleted.</summary>
+    public IReadOnlyList<TcPlc> Plcs()
+    {
+        if (_plcs is { } known) return known;
+        if (_systems.Count == 0) throw new InvalidOperationException("no TwinCAT project bound");
+        var plcs = new List<TcPlc>();
+        foreach (var (system, manager) in _systems)
+        {
+            dynamic tipc = manager.LookupTreeItem("TIPC");
+            int count = tipc.ChildCount;
+            for (int i = 1; i <= count; i++)
+            {
+                dynamic plc = tipc.Child[i];
+                string plcName = plc.Name;
+                plcs.Add(new TcPlc(system, manager, plc, plcName));
+            }
+        }
+        if (plcs.Count == 0) throw new InvalidOperationException("Cannot find a PLC project under TIPC in any system project of the solution.");
+        _plcs = plcs;
+        return plcs;
+    }
+
+    /// <summary>The system projects of the bound solution, by name, each with its manager — for what hangs off a system
+    /// rather than a PLC project (its <c>.device</c> descriptor, its I/O tree).</summary>
+    public IReadOnlyList<(string Name, object Manager)> Systems() => _systems.Select(s => (s.Name, (object)s.Manager)).ToList();
+
+    private List<TcPlc>? _plcs;
+
+    /// <summary>The PLC project every tree read and write addresses: the one its node belongs to, set by the driver
+    /// before it touches a node (<see cref="Use"/>), and the first one until then.</summary>
+    public TcPlc CurrentPlc
+    {
+        get
+        {
+            EnsurePlc();
+            return _current!;
+        }
+    }
+
+    private TcPlc? _current;
+
+    /// <summary>Address <paramref name="plc"/> from here on: its system manager (task, I/O and path lookups) and its PLC
+    /// node (the tree root, its settings, its library manager). Each PLC project keeps its own Solution Explorer snapshot
+    /// for the operation (<see cref="TcPlc"/>), so moving between them reads none twice.</summary>
+    public void Use(TcPlc plc)
+    {
+        if (ReferenceEquals(_current, plc)) return;
+        _current = plc;
+        _plcNode = plc.Node;
+        _sysManager = plc.Manager;
+    }
+
+    /// <summary>Resolve the PLC projects the first time a content op needs them, and address the first. Idempotent;
+    /// DropProject clears it so a reconnect re-resolves.</summary>
     private void EnsurePlc()
     {
-        if (_plcNode != null) return;
-        if (_sysManager == null) throw new InvalidOperationException("no TwinCAT project bound");
-        FindPlcProject();
+        if (_current != null) return;
+        Use(Plcs()[0]);
+    }
+
+    private void DropPlcs()
+    {
+        if (_plcs is not null)
+            foreach (var p in _plcs) { try { Marshal.ReleaseComObject(p.Node); } catch { } }
+        _plcs = null;
+        _current = null;
+        _plcNode = null;
     }
 
     private dynamic LookupTreeItemDynamic(string path) => _sysManager!.LookupTreeItem(path);
 
     public object LookupTreeItem(string path) => LookupTreeItemDynamic(path);
+
+    /// <summary>A tree item of the system project <paramref name="manager"/> manages (one of <see cref="Systems"/>) — its
+    /// I/O tree is its own, whichever PLC project is addressed.</summary>
+    public object LookupIn(object manager, string path) => (object)((dynamic)manager).LookupTreeItem(path);
 
     public void Disconnect()
     {
@@ -328,8 +404,10 @@ internal sealed partial class TcObjectModel
     /// recovery (<see cref="ReattachProject"/>) — never by the health poll, which does no resolution.</summary>
     public void DropProject()
     {
-        if (_plcNode != null) { try { Marshal.ReleaseComObject(_plcNode); } catch { } _plcNode = null; }
-        if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
+        DropPlcs();
+        foreach (var (_, manager) in _systems) { try { Marshal.ReleaseComObject(manager); } catch { } }
+        _systems = new List<(string, dynamic)>();
+        _sysManager = null;
         _projectName = null;
     }
 

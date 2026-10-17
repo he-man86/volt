@@ -8,7 +8,7 @@
  * evidence of anything.</p>
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE, at } from "../harness"
 import { fb, METHOD, ACTION, MARK } from "../fixtures"
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
@@ -123,7 +123,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		["a PROPERTY GET", `\nPROPERTY Prop : INT\nGET\n${MARK}\n\tProp := zzChild;\nEND_GET\nEND_PROPERTY\n`, "Prop"],
 	] as [string, string, string][]) {
 		it(`an error inside ${label} names the FB and ${member}, once`, async () => {
-			const name = id(`b_child_${member}`), wire = fid(`b_child_${member}`)
+			const name = id(`b_child_${member}`), wire = await at(fid(`b_child_${member}`))
 			await createItem(wire, fb(name, { children }))
 			await instantiateInPlcPrg(name)
 
@@ -139,7 +139,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	// Both publish `member: Prop` (an accessor is read with its property), and TwinCAT writes no column - so a dedupe
 	// keyed on what the wire carries merged them, and TwinCAT returned one where CODESYS returned two.
 	it("the same error in a property's GET and SET is two diagnostics", async () => {
-		const name = id("b_child_getset"), wire = fid("b_child_getset")
+		const name = id("b_child_getset"), wire = await at(fid("b_child_getset"))
 		const children = `\nPROPERTY Prop : INT\nGET\n${MARK}\n\tProp := zzChild;\nEND_GET\nSET\n${MARK}\n\tx := zzChild;\nEND_SET\nEND_PROPERTY\n`
 		await createItem(wire, fb(name, { children }))
 		await instantiateInPlcPrg(name)
@@ -151,7 +151,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	})
 
 	it("an error in the FB's own body names the FB and no member, once", async () => {
-		const name = id("b_child_self"), wire = fid("b_child_self")
+		const name = id("b_child_self"), wire = await at(fid("b_child_self"))
 		await createItem(wire, fb(name, { body: "x := 1;\nzzSelf := 1;", children: METHOD("Compute") }))
 		await instantiateInPlcPrg(name)
 

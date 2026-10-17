@@ -38,7 +38,7 @@ public class TcLanguageChangeTests
     {
         var pou = new TcHiddenBodyWriteTests.Node("FB_L", ItemKind.PlcPou, "FUNCTION_BLOCK FB_L\nVAR\nEND_VAR", Ladder);
         var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
-            TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
+            TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou),
                 new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_L\nVAR\nEND_VAR", "x := 1;", new List<Member>(), ObjectProperties.None,
                                 Stated: StatedLanguage.St),
                 System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
@@ -58,14 +58,14 @@ public class TcLanguageChangeTests
         // The bodies as the push pre-flight hands them over (D8): validated once, by the engine.
         var bodies = Volt.Engine.Ide.SourceScopes.Validated(content,
             d => driver.NetworkScopeFor(d, Volt.Engine.Ide.PushedDeclarations.None));
-        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => driver.WriteContent(new ItemRef(pou), content, bodies));
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => driver.WriteContent(TcRefs.Ref(pou), content, bodies));
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("(from ST to LD)", ex.Message);
         Assert.Equal(0, pou.ImplementationWrites);
     }
 
     private static ItemContent Read(string implementation) =>
-        new BeckhoffDriver(new TcObjectModel()).ReadContent(new ItemRef(
+        new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(
             new TcHiddenBodyWriteTests.Node("FB_Odd", ItemKind.PlcPou, "FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR",
                                             implementation)));
 

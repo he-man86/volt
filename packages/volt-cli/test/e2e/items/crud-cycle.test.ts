@@ -11,7 +11,7 @@
  *   delete → assert {item:gone, project:Δ}     (delete)
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, plcFolder, BASE } from "../harness"
+import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, plcFolder, BASE, pathOf, inFolder, folderOf } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
@@ -55,7 +55,8 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 6. RENAME → projectVersion changes; the renamed item keeps its content version
 			const newWire = fid(`lc_${k.key}_r`, ext)
-			const rn = await pushOps([{ op: "set", name: wire, toName: newWire, ifVersion: snapshotItem(s3, wire) }])
+			const at = await pathOf(wire)
+			const rn = await pushOps([{ op: "set", name: at, to: inFolder(folderOf(at), newWire), ifVersion: snapshotItem(s3, wire) }])
 			expect(rn.accepted).toBe(true)
 			const s4 = await snapshot()
 			expect(snapshotHas(s4, wire)).toBe(false)
@@ -69,7 +70,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			// structural change Volt performs — left it identical, and this test asserted that as correct. A
 			// "did the tree shape change" signal that a move does not move is worse than none.
 			const movedFolder = await plcFolder("POUs/Moved")
-			const mv = await pushOps([{ op: "set", name: newWire, toFolder: movedFolder, ifVersion: snapshotItem(s4, newWire) }])
+			const mv = await pushOps([{ op: "set", name: await pathOf(newWire), to: inFolder(movedFolder, newWire), ifVersion: snapshotItem(s4, newWire) }])
 			expect(mv.accepted).toBe(true)
 			const s5 = await snapshot()
 			expect(snapshotItem(s5, newWire)).not.toBe(snapshotItem(s4, newWire))
@@ -77,7 +78,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			expect((await fetchItem(newWire)).folder).toBe(movedFolder)
 
 			// 8. DELETE
-			const del = await pushOps([{ op: "deleteItem", name: newWire, ifVersion: snapshotItem(s5, newWire) }])
+			const del = await pushOps([{ op: "deleteItem", name: await pathOf(newWire), ifVersion: snapshotItem(s5, newWire) }])
 			expect(del.accepted).toBe(true)
 			const s6 = await snapshot()
 			assertDelta(s5, s6, newWire, { item: "gone", project: true })

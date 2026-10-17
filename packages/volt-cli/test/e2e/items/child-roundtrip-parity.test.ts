@@ -14,7 +14,7 @@
  * file cleans with the UNREADABLE-sentinel delete, which removes the invisible items too.
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, pathIn, projectRoot } from "../harness"
 import { fb, iface, METHOD, ACTION, PROPERTY, ITF_PROPERTY } from "../fixtures"
 
 // A bodiless interface method (interfaces declare signatures only).
@@ -29,11 +29,16 @@ const CASES: Case[] = [
 	{ desc: "INTERFACE + PROPERTY", wire: fid("cp_itp", "itf"), src: iface(id("cp_itp"), ITF_PROPERTY("Ready", true, false)) },
 ]
 
-/** Delete each name with its /refs version, falling back to the UNREADABLE sentinel so a dropped/invisible
- *  item (accepted:true but not enumerated) is still removed and can't block a re-create. */
+/** Delete each file name — where refs holds it, else at the project's root where the case creates it — with its /refs
+ *  version, falling back to the UNREADABLE sentinel so a dropped/invisible item (accepted:true but not enumerated) is
+ *  still removed and can't block a re-create. */
 async function sentinelClean(names: string[]): Promise<void> {
 	const items = (await bridge.refs()).items ?? {}
-	for (const n of names) await pushOps([{ op: "deleteItem", name: n, ifVersion: items[n] ?? "UNREADABLE000000" }])
+	const root = await projectRoot()
+	for (const n of names) {
+		const path = pathIn(items, n) ?? inFolder(root, n)
+		await pushOps([{ op: "deleteItem", name: path, ifVersion: items[path] ?? "UNREADABLE000000" }])
+	}
 }
 
 describe(`lifecycle / child round-trip parity (${BASE})`, () => {
@@ -48,15 +53,16 @@ describe(`lifecycle / child round-trip parity (${BASE})`, () => {
 	for (const c of CASES) {
 		it(`${c.desc}: an accepted create is enumerable in /refs and fetchable`, async () => {
 			await sentinelClean([c.wire])
-			const r = await pushOps([{ op: "set", name: c.wire, toFolder: "", sourceText: c.src, ifVersion: null }])
+			const wire = inFolder(await projectRoot(), c.wire)
+			const r = await pushOps([{ op: "set", name: wire, sourceText: c.src, ifVersion: null }])
 			expect(r.accepted, `create '${c.wire}' was rejected: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 			// The contract: accepted ⇒ readable. These fail on TwinCAT for METHOD/INTERFACE items (the bug).
 			const refs = (await bridge.refs()).items ?? {}
-			expect(refs[c.wire], `'${c.wire}' was accepted but is absent from /refs (silently dropped)`).toBeDefined()
+			expect(refs[wire], `'${wire}' was accepted but is absent from /refs (silently dropped)`).toBeDefined()
 
-			const f = await bridge.fetch({ knownItems: {}, onlyItems: [c.wire] })
-			const fetched = (f.changed ?? []).find((i: any) => i.name === c.wire)
+			const f = await bridge.fetch({ knownItems: {}, onlyItems: [wire] })
+			const fetched = (f.changed ?? []).find((i: any) => i.name === wire)
 			expect(fetched, `'${c.wire}' was accepted but is not fetchable`).toBeDefined()
 		})
 	}

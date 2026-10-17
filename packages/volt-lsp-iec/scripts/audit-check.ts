@@ -11,6 +11,7 @@ import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
 import { call, landedInFull, VENDOR as V } from "./bridge.js"
+import { inFolder, legacyCreateFolder, mainProgram } from "../../volt-cli/test/e2e/lib/main-program.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const VENDOR: Vendor = V
@@ -36,9 +37,12 @@ const lsp = computeDiagnostics({ uri: "S.pou", parseResult: pr, source, project,
 
 // IDE side (live) — push a scratch POU named from the source's first unit, build, diff, delete.
 const unitName = /(?:FUNCTION_BLOCK|PROGRAM|FUNCTION)\s+(\w+)/.exec(source)?.[1] ?? "Scratch_audit"
-const wire = `${unitName}.pou`
 const refs0 = await call("refs")
-const plcName = ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n])!
+// The wire names an item by its PATH (openspec multi-application-tree): the main program where it sits, the scratch POU
+// where `toFolder: ""` created it before the path wire.
+const main = mainProgram(refs0)
+const plcName = main.path
+const wire = inFolder(legacyCreateFolder(main, V), `${unitName}.pou`)
 const plcOrig = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed.find((i: any) => i.name === plcName).sourceText
 const base = new Set(((await call("build", { buildType: "incremental" })).diagnostics ?? []).map(key))
 
@@ -49,12 +53,11 @@ const base = new Set(((await call("build", { buildType: "incremental" })).diagno
 // separates a real false positive from `Mach1_MIDS`/`AHWF` in Lenze_MID-S100 building clean around four
 // `???` markers the LSP (correctly) reports.
 const instantiate = process.env.VOLT_NO_INSTANTIATE !== "1"
-const ops: unknown[] = [{ op: "set", name: wire, toFolder: "", sourceText: source, ifVersion: null }]
+const ops: unknown[] = [{ op: "set", name: wire, sourceText: source, ifVersion: null }]
 if (instantiate)
   ops.push({
     op: "set",
     name: plcName,
-    toFolder: null,
     sourceText: `PROGRAM PLC_PRG\nVAR\n\tinst_audit : ${unitName};\nEND_VAR\nEND_PROGRAM\n`,
     ifVersion: await ver(plcName),
   })
@@ -63,7 +66,7 @@ if (!(await pushOps(ops))) {
 }
 const r = await call("build", { buildType: "incremental" })
 const ide = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map(key).filter((m: string) => !base.has(m)).sort()
-await pushOps([{ op: "deleteItem", name: wire, ifVersion: await ver(wire) }, { op: "set", name: plcName, toFolder: null, sourceText: plcOrig, ifVersion: await ver(plcName) }])
+await pushOps([{ op: "deleteItem", name: wire, ifVersion: await ver(wire) }, { op: "set", name: plcName, sourceText: plcOrig, ifVersion: await ver(plcName) }])
 
 console.log(`\nLSP(${VENDOR}):  ${lsp.join(" | ") || "(none)"}`)
 console.log(`IDE(${VENDOR}): ${ide.join(" | ") || "(none)"}  success=${r.success}`)

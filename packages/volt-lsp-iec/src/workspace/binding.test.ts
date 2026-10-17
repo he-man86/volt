@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { boundVendor } from "./binding.js"
+import { boundApplications, boundVendor } from "./binding.js"
 
 /** A folder whose `.git/volt/config.json` holds `body` (no file when `body` is undefined). */
 function folder(body?: string): string {
@@ -66,5 +66,28 @@ test("a linked worktree's or submodule's binding is read from the git dir its `.
     expect(() => boundVendor(broken)).toThrow(/\.git is a file that names no git dir/)
   } finally {
     rmSync(main, { recursive: true, force: true })
+  }
+})
+
+// THE APPLICATIONS THE IDE STATED (openspec multi-application-tree, design §3): `volt pull` records each application's
+// root in `<git dir>/volt/ide-refs.json` (`applications`, item paths under the workspace's `src/`). The LSP reads them
+// there, as the CLI pairs moves by them — it never parses a vendor segment (`Plc Logic`, `PLC`) out of a path.
+test("the applications are the ones `ide-refs.json` states, as folders under `src/`", () => {
+  const dir = folder()
+  try {
+    expect(boundApplications(dir)).toEqual([]) // no baseline yet: no application stated
+    mkdirSync(join(dir, ".git", "volt"), { recursive: true })
+    writeFileSync(
+      join(dir, ".git", "volt", "ide-refs.json"),
+      JSON.stringify({ projectVersion: "v", items: {}, applications: ["Device/Plc Logic/Application", "Device_1/Plc Logic/Application"] }),
+    )
+    expect(boundApplications(dir)).toEqual([
+      join(dir, "src", "Device", "Plc Logic", "Application"),
+      join(dir, "src", "Device_1", "Plc Logic", "Application"),
+    ])
+    writeFileSync(join(dir, ".git", "volt", "ide-refs.json"), JSON.stringify({ projectVersion: "v", items: {} }))
+    expect(() => boundApplications(dir)).toThrow(/ide-refs\.json states no applications/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })

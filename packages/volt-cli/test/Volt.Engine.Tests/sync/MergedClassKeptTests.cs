@@ -68,7 +68,7 @@ public class MergedClassKeptTests
     public void An_update_writes_the_object_in_place_and_keeps_its_class(string name, string ext, string label, FakeIde.Item item)
     {
         var ide = new FakeIde(item);
-        var wire = $"{name}.{ext}";
+        var wire = $"{item.Folder}/{name}.{ext}";
 
         var resp = Push(ide, new SetItemOp { Name = wire, SourceText = "// edited in the workspace\n" + Text(ide, wire) });
 
@@ -82,7 +82,7 @@ public class MergedClassKeptTests
     {
         var ide = new FakeIde(item);
 
-        var resp = Push(ide, new SetItemOp { Name = $"{name}.{ext}", ToName = $"Renamed_{name}.{ext}" });
+        var resp = Push(ide, new SetItemOp { Name = $"{item.Folder}/{name}.{ext}", To = $"{item.Folder}/Renamed_{name}.{ext}" });
 
         AssertKeptInPlace(ide, resp, $"Renamed_{name}", label);
         Assert.Contains(ide.Recorded, r => r == $"rename:{name}->Renamed_{name}");
@@ -93,9 +93,9 @@ public class MergedClassKeptTests
     public void A_move_with_an_edit_keeps_the_object_and_its_class(string name, string ext, string label, FakeIde.Item item)
     {
         var ide = new FakeIde(item);
-        var wire = $"{name}.{ext}";
+        var wire = $"{item.Folder}/{name}.{ext}";
 
-        var resp = Push(ide, new SetItemOp { Name = wire, ToFolder = "Elsewhere", SourceText = "// moved\n" + Text(ide, wire) });
+        var resp = Push(ide, new SetItemOp { Name = wire, To = $"Elsewhere/{name}.{ext}", SourceText = "// moved\n" + Text(ide, wire) });
 
         AssertKeptInPlace(ide, resp, name, label);
         Assert.Contains(ide.Recorded, r => r.StartsWith($"move:{name}->", System.StringComparison.Ordinal));
@@ -114,11 +114,11 @@ public class MergedClassKeptTests
                              "", null, null, Class: "AbstractPOUMethodObject"));
         const string label = "AbstractPOUMethodObject";
 
-        var text = Text(ide, "Base.pou");
+        var text = Text(ide, "FBs/Base.pou");
         Assert.Contains("METHOD ABSTRACT TakePicture", text);
         var update = Push(ide, new SetItemOp
         {
-            Name = "Base.pou",
+            Name = "FBs/Base.pou",
             SourceText = text.Replace("METHOD ABSTRACT TakePicture : BOOL", "METHOD ABSTRACT TakePicture : BOOL\n// edited"),
         });
         Assert.True(update.Accepted, update.Conflicts?.FirstOrDefault()?.Reason);
@@ -126,7 +126,7 @@ public class MergedClassKeptTests
         Assert.Equal(label, ide.ClassOf("TakePicture"));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal) || r == "create:TakePicture");
 
-        AssertKeptInPlace(ide, Push(ide, new SetItemOp { Name = "Base.pou", ToName = "Base2.pou" }), "TakePicture", label);
-        AssertKeptInPlace(ide, Push(ide, new SetItemOp { Name = "Base2.pou", ToFolder = "Elsewhere" }), "TakePicture", label);
+        AssertKeptInPlace(ide, Push(ide, new SetItemOp { Name = "FBs/Base.pou", To = "FBs/Base2.pou" }), "TakePicture", label);
+        AssertKeptInPlace(ide, Push(ide, new SetItemOp { Name = "FBs/Base2.pou", To = "Elsewhere/Base2.pou" }), "TakePicture", label);
     }
 }

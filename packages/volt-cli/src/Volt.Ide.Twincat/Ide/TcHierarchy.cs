@@ -45,6 +45,11 @@ internal static class TcHierarchy
         : xaeIs32Bit ? Reader.X86Helper
         : Reader.None;   // a 64-bit XAE and a 32-bit worker: Volt ships no 64-bit reader beside an x86 worker
 
+    /// <summary>The request for the PLC project <paramref name="plcProject"/> (its nested project's name) inside the system
+    /// project <paramref name="system"/> — what <see cref="Read"/> and the x86 reader take, one line: a name alone would
+    /// answer the first system project's PLC project of that name (<c>TcSolutionExplorer.ReadPlcProject</c>).</summary>
+    public static string Scoped(string system, string plcProject) => system + TcSolutionExplorer.ScopeSeparator + plcProject;
+
     /// <summary>The PLC project's hierarchy node of XAE <paramref name="xaePid"/> — see <c>TcSolutionExplorer.ReadPlcProject</c>.
     /// Throws <see cref="HierarchyUnreachableException"/> when no reader can unmarshal it, anything else when the read
     /// failed.</summary>

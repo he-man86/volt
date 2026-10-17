@@ -33,7 +33,7 @@ public sealed partial class BeckhoffDriver
 {
     public ItemContent ReadContent(ItemRef item)
     {
-        var declaration = _om.ReadDeclaration(item.Native);
+        var declaration = _om.ReadDeclaration(Com(item));
         var (body, unsupported, stated) = ReadBody(item, declaration);
 
         var members = new List<Member>();
@@ -42,7 +42,7 @@ public sealed partial class BeckhoffDriver
             members.Add(ReadMember(site, ownerIsInterface, declaration));
 
         // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text.
-        var facts = _om.SavedFacts(item.Native, $"'{Name(item)}'");
+        var facts = _om.SavedFacts(Com(item), $"'{Name(item)}'");
         if (ownerIsInterface && facts is not null) RequireMeasuredAccessorDeclarations(Name(item), facts, members);
 
         // Every text verbatim, trailing newlines included (openspec bridge-one-to-one §1.1, trailing-newline-cache).
@@ -171,7 +171,7 @@ public sealed partial class BeckhoffDriver
     /// Asked of the live tree exactly as the write asks it (<see cref="Collect"/>, <see cref="WriteOne"/>).</summary>
     private bool Creates(ItemRef item, BodySite site, ref Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members)
     {
-        if (site.Member is not { } name) return CreatesBody(_om.ReadImplementation(item.Native));
+        if (site.Member is not { } name) return CreatesBody(_om.ReadImplementation(Com(item)));
 
         members ??= Volt.Engine.Ide.MemberSites.Of(this, item)
             .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
@@ -179,12 +179,12 @@ public sealed partial class BeckhoffDriver
         // Not held under this name AND kind: the reconciler creates it (a retyped member is deleted and created again).
         if (!members.TryGetValue(name, out var member)
             || ItemKind.MemberKind(member.Code, KindCode(item) == ItemKind.PlcItf, member.Name) != site.MemberKind) return true;
-        if (site.Accessor is not { } accessor) return CreatesBody(_om.ReadImplementation(member.Ref.Native));
+        if (site.Accessor is not { } accessor) return CreatesBody(_om.ReadImplementation(Com(member.Ref)));
 
         var itf = site.MemberKind == ItemKind.Kinds.InterfaceProperty;
         var code = accessor == BodySite.Get ? (itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet)
                                             : (itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet);
-        return AccessorSite(member.Ref, code) is not { } node || CreatesBody(_om.ReadImplementation(node.Native));
+        return AccessorSite(member.Ref, code) is not { } node || CreatesBody(_om.ReadImplementation(Com(node)));
     }
 
     /// <summary>Does the write take the CREATE door for a body whose live implementation is <paramref name="existing"/>?
@@ -317,7 +317,7 @@ public sealed partial class BeckhoffDriver
 
         // A null site is an accessor the property does not carry. Collecting nothing leaves the report to
         // `WriteAccessor`, which is where that case is already decided.
-        var existing = site is { } s ? _om.ReadImplementation(s.Native) : null;
+        var existing = site is { } s ? _om.ReadImplementation(Com(s)) : null;
         RefuseLanguageChange(kind, existing, LanguageOf(model));
         if (ResolveBody(existing, model, graph.Scope) is { } nwl) into.Add((path, nwl));
     }
@@ -355,17 +355,17 @@ public sealed partial class BeckhoffDriver
     /// is read.</para></summary>
     internal ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
     {
-        var parent = _om.Parent(item.Native)
+        var parent = _om.Parent(Com(item))
             ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
-                $"'{_om.GetName(item.Native)}' has no parent, so its archive cannot be rewritten");
-        var pouName = _om.GetName(item.Native);
+                $"'{_om.GetName(Com(item))}' has no parent, so its archive cannot be rewritten");
+        var pouName = _om.GetName(Com(item));
 
         _om.SetMemberBodies(parent, pouName, resolved);
 
         // The POU was deleted and re-imported, so every handle into it is dead. The PARENT was not replaced,
         // so it is still good to walk.
         // The parent is a FOLDER, so it may hold a POU Volt must not open (DIALECT C2i): `ChildNamed` passes it over.
-        if (ChildNamed(new ItemRef(parent), pouName) is { } live) return live;
+        if (ChildNamed(Wrap(parent), pouName) is { } live) return live;
 
         throw new BridgeException(BridgeErrorCodes.IdeLostItem,
             $"'{pouName}' is not under its parent after the archive re-import — refusing to write through a " +
@@ -382,7 +382,7 @@ public sealed partial class BeckhoffDriver
     /// represent it: <see cref="NetworkText.Pulled"/>) — why, for the pull to report; null for every other body.</returns>
     private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(ItemRef item, string? declaration)
     {
-        var raw = _om.ReadImplementation(item.Native);
+        var raw = _om.ReadImplementation(Com(item));
         // Only NO text is no body: a whitespace-only one is stored characters, spelled under `IMPLEMENTATION ST` (openspec
         // bridge-one-to-one finding 8, task 3.5) — it was read as "no body", and a push then wrote the body empty.
         if (raw.Length == 0) return (null, null, null);
@@ -453,13 +453,13 @@ public sealed partial class BeckhoffDriver
         if (PushedNetworkBody.At(bodies, site, body) is { } graph)
         {
             var model = graph.Model;
-            var existing = _om.ReadImplementation(item.Native);
+            var existing = _om.ReadImplementation(Com(item));
             RefuseLanguageChange(kind, existing, LanguageOf(model));
 
             // CREATE builds the archive natively (TcArchiveBuilder); an EXISTING body is edited in place, where every id
             // and every unmodelled member survives (ResolveBody). A MEMBER comes through here too: by the time this
             // writes, its body is an archive like any other.
-            _om.WriteText(item.Native, declaration, ResolveBody(existing, model, graph.Scope));
+            _om.WriteText(Com(item), declaration, ResolveBody(existing, model, graph.Scope));
             return;
         }
 
@@ -469,8 +469,8 @@ public sealed partial class BeckhoffDriver
         // expose is refused by name in `WriteText`, which asks the OBJECT (openspec bridge-refusal-review D26). The kind
         // table that decided this here (`HasBodySlot`) dropped such a body in silence; it is deleted.
         var written = ImplementationMarker.Written(body);
-        if (written is not null) RefuseLanguageChange(kind, _om.ReadImplementation(item.Native), Languages.St);
-        _om.WriteText(item.Native, declaration, written);
+        if (written is not null) RefuseLanguageChange(kind, _om.ReadImplementation(Com(item)), Languages.St);
+        _om.WriteText(Com(item), declaration, written);
     }
 
     /// <summary>THE WRITE'S OWN LANGUAGE-CHANGE CHECK — the predicate the push's guard asks
@@ -566,7 +566,7 @@ public sealed partial class BeckhoffDriver
 
     private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
     {
-        var declaration = _om.ReadDeclaration(acc.Native);   // verbatim
+        var declaration = _om.ReadDeclaration(Com(acc));   // verbatim
         var (body, unsupported, stated) = ReadBody(acc, SourceScopes.Scope(declaration, propertyScope));
         return new Accessor(declaration, body, unsupported, stated);
     }
@@ -580,7 +580,7 @@ public sealed partial class BeckhoffDriver
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more
     /// item's declaration, and only the driver can ask its IDE for one.</para></summary>
     private ProjectDeclarations Declarations =>
-        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native), RefusedPouName, ExtractLibrarySignatures);
+        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(Com(item)), RefusedPouName, ExtractLibrarySignatures);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
@@ -594,7 +594,7 @@ public sealed partial class BeckhoffDriver
     {
         if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
 
-        var decl = _om.ReadDeclaration(site.Ref.Native);
+        var decl = _om.ReadDeclaration(Com(site.Ref));
         // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. It was
         // INTERNAL_ERROR, a Volt bug, for a broken item in the project (openspec bridge-refusal-review V.1).
         if (string.IsNullOrWhiteSpace(decl))
@@ -675,13 +675,23 @@ public sealed partial class BeckhoffDriver
     public string ReadManifest(ItemRef item, string kind)
     {
         // `Project Settings` → the SHARED compiler-settings descriptor, the rows CODESYS writes that TwinCAT has a
-        // source for (DIALECT D37-D39). Before ProduceXml: the item is synthesized (TcProjectSettingsNode), not a tree node.
-        if (kind == ItemKind.Kinds.ProjectSettings) return ProjectSettingsFormat.Write(_om.ReadProjectSettings());
+        // source for (DIALECT D37-D39). Before ProduceXml: the item is synthesized (TcProjectSettingsNode), not a tree node
+        // — one per PLC project, read from ITS project.
+        if (kind == ItemKind.Kinds.ProjectSettings)
+        {
+            if (item.Native is not TcProjectSettingsNode settings)
+                throw new BridgeException(BridgeErrorCodes.InternalError, $"'{Name(item)}' is no project-settings item of a PLC project");
+            _om.Use(settings.Plc);
+            return ProjectSettingsFormat.Write(_om.ReadProjectSettings());
+        }
+
+        // A system project's `.device` → the target, as CODESYS describes its device (design §2).
+        if (item.Native is SystemDescriptorNode system) return SystemDescriptor(system.System);
 
         // No silent catch: ProduceXml failing is a real error. An item that genuinely produces no XML
         // yields the canonical, kind-stamped empty manifest (deterministic version basis) — the SAME Core
         // helper CODESYS falls through to, so the two vendors cannot drift on those bytes.
-        string xml = _om.ProduceXml(item.Native);
+        string xml = _om.ProduceXml(Com(item));
         if (string.IsNullOrEmpty(xml)) return ItemKind.EmptyManifest(kind);
 
         // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
@@ -698,13 +708,23 @@ public sealed partial class BeckhoffDriver
         // `Name=` / `linked-task=`, which described Volt's difficulty rather than the task: `TIRT^PlcTask` is a
         // tree path, and the cycle time and POU calls an engineer actually wants were nowhere in the file.
         // Assembling it means reading the linked system task too — see TcTaskSchedule.
-        if (kind == ItemKind.Kinds.Task) return TaskDescriptorFormat.Write(_om.ReadTask(item.Native));
+        if (kind == ItemKind.Kinds.Task) return TaskDescriptorFormat.Write(_om.ReadTask(Com(item)));
 
         // ONE STUB FORM ON BOTH VENDORS (openspec bridge-one-to-one §1.1 "Non-source items and stubs", wire parity 2.3): a
         // kind with no descriptor reader is `ItemKind.EmptyManifest` — the kind and a newline — as on CODESYS. This wrote
         // `Name=<name>`, so the same visualization hashed differently per vendor; the name is the file's.
         return ItemKind.EmptyManifest(kind);
     }
+
+    /// <summary>A system project's read-only descriptor: the target, in the device descriptor's own format and width
+    /// (<see cref="TcDeviceDescriptor"/>) — its name, the solution's target platform as its type, and the TwinCAT build
+    /// as its version (openspec multi-application-tree, design §2). A field the IDE states none for has no line.</summary>
+    private string SystemDescriptor(string system) =>
+        new Volt.Engine.Format.St.Descriptor(14)
+            .Add("Name", system)
+            .Add("Type", _om.TargetPlatform())
+            .Add("Version", _om.IdeVersion)
+            .ToString();
 
     /// <summary>A reference's manifest, every member READ (openspec bridge-one-to-one finding 7/8, task 3.3): the namespace
     /// was defaulted to the name and the resolution to <c>""</c>, and <c>SYSTEM false</c> was hard-coded — TwinCAT has no

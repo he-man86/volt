@@ -22,7 +22,7 @@
  *     hash is a function of content: the same source pushed twice to the same vendor hashes the same.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { clientFor, PREFIX, type PipeClient } from "./harness"
+import { clientFor, PREFIX, type PipeClient, pathIn, inFolder, fileOf, folderOf } from "./harness"
 import { fixturePipeOrSkip } from "./lib/pipe"
 import { fb, prog, func, METHOD, ACTION, PROPERTY, structDut, enumDut, gvl, abstractFb, ABSTRACT_METHOD, ABSTRACT_PROPERTY } from "./fixtures"
 
@@ -55,24 +55,31 @@ if (!BOTH)
 			`Start both with scripts/ide.ps1 (instance ${process.env.VOLT_E2E_INSTANCE || "(default)"}), then re-run.`,
 	)
 
-/** Push one item, read it back. Returns the fetched wire row. */
+/** Where each client creates at its project's own root: CODESYS's tree root (the POU pool), TwinCAT's one PLC project
+ *  (its tree root holds system projects). Filled in `beforeAll`. */
+const roots = new Map<PipeClient, string>()
+
+/** Push one item (by file name: the path refs holds it under, or at its client's root), read it back. Returns the
+ *  fetched wire row. */
 async function roundTrip(c: PipeClient, name: string, src: string): Promise<any> {
 	const refs = await c.refs()
+	const path = pathIn(refs.items, name) ?? inFolder(roots.get(c)!, name)
 	const r = await c.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "set", name, toFolder: refs.items[name] ? null : "", sourceText: src, ifVersion: refs.items[name] ?? null }],
+		ops: [{ op: "set", name: path, sourceText: src, ifVersion: refs.items[path] ?? null }],
 	})
 	expect(r.accepted).toBe(true)
-	const f = await c.fetch({ knownItems: {}, onlyItems: [name] })
-	const it = f.changed.find((i: any) => i.name === name)
-	if (!it) throw new Error(`${c.pipe}: '${name}' accepted but absent from fetch`)
+	const f = await c.fetch({ knownItems: {}, onlyItems: [path] })
+	const it = f.changed.find((i: any) => i.name === path)
+	if (!it) throw new Error(`${c.pipe}: '${path}' accepted but absent from fetch`)
 	return it
 }
 
 async function removeIfPresent(c: PipeClient, name: string) {
 	const refs = await c.refs()
-	if (refs.items[name] === undefined) return
-	await c.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name, ifVersion: refs.items[name] }] })
+	const path = pathIn(refs.items, name)
+	if (path === undefined) return
+	await c.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name: path, ifVersion: refs.items[path] }] })
 }
 
 /** A folder path relative to that vendor's own project root — "" for the root itself.
@@ -102,14 +109,13 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			const first = (h.projects ?? [])[0]
 			if (first) await c.connect({ project: first.project ?? first.name }).catch(() => {})
 		}
-		// Learn each vendor's root by MEASURING it — push one item at `toFolder: ""` and see where it lands —
-		// rather than hardcoding two path strings that would rot the first time a fixture project is rearranged.
-		const probe = `${PREFIX}_par_root.pou`
-		;[rootA, rootB] = await Promise.all([a, b].map(async (c) => {
-			const row = await roundTrip(c, probe, fb(`${PREFIX}_par_root`))
-			await removeIfPresent(c, probe)
-			return row.folder as string
-		}))
+		// Each vendor's own root, read from what its walk states rather than hardcoded: CODESYS's tree root, TwinCAT's one
+		// PLC project (`applications`), which would rot the first time a fixture project is rearranged.
+		const apps: string[] = (await b.refs()).applications ?? []
+		if (apps.length !== 1) throw new Error(`vendor-parity serves one TwinCAT PLC project; ${b.pipe} states ${apps.length}`)
+		;[rootA, rootB] = ["", apps[0]!]
+		roots.set(a, rootA)
+		roots.set(b, rootB)
 	})
 
 	// One case per SHAPE, because divergence is shape-specific: it showed up historically in members (TwinCAT
@@ -138,25 +144,23 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			try {
 				const [ra, rb] = await Promise.all([roundTrip(a, name, src), roundTrip(b, name, src)])
 
-				// A fetch row is exactly { name, folder, sourceText, version } — checked against the live wire,
+				// A fetch row is exactly { name, sourceText, version } — checked against the live wire,
 				// not assumed. An earlier draft of this suite compared `row.kind`, which no vendor sends: both
 				// sides read `undefined`, the assertion passed on every case, and it proved nothing. Asserting
 				// the key set first is what stops that from coming back silently.
-				expect(Object.keys(rb).sort()).toEqual(["folder", "name", "sourceText", "version"])
-				expect(Object.keys(ra).sort()).toEqual(["folder", "name", "sourceText", "version"])
+				expect(Object.keys(rb).sort()).toEqual(["name", "sourceText", "version"])
+				expect(Object.keys(ra).sort()).toEqual(["name", "sourceText", "version"])
 
 				// The payload. Compared exactly, because this is what lands in a file and what git diffs: any
 				// difference is a phantom `volt status` diff for a user who switches vendors.
 				expect(rb.sourceText).toBe(ra.sourceText)
-				expect(rb.name).toBe(ra.name)
+				expect(fileOf(rb.name)).toBe(fileOf(ra.name))
 
 				// Placement is compared RELATIVE to each vendor's own root, never absolutely — the API layer is
 				// byte-identical, the TREE is not, so an absolute equality here would be asserting the vendors are
-				// the same product. (`toFolder: ""` used to land at "Device/Plc Logic/Application" on CODESYS and at
-				// "" on TwinCAT; empty now means the TREE ROOT on both, so the two agree here by construction. The
-				// roots are still MEASURED rather than hardcoded — that is what keeps this honest if they diverge.)
-				expect(rel(rb.folder, rootB)).toBe(rel(ra.folder, rootA))
-				expect(rel(ra.folder, rootA)).toBe("")            // both put a root push at their own root
+				// the same product.
+				expect(rel(folderOf(rb.name), rootB)).toBe(rel(folderOf(ra.name), rootA))
+				expect(rel(folderOf(ra.name), rootA)).toBe("")            // both put a root push at their own root
 			} finally {
 				await Promise.all([removeIfPresent(a, name), removeIfPresent(b, name)])
 			}
@@ -266,7 +270,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			// up — a folder the driver could not enumerate, which makes absence meaningless beneath it. `removed` is
 			// the engine's removal verdict over the names a client says it knows (`ReadResponse.Removed`, shared with
 			// `fetch`): refs carries it since removal is decided once, in the engine, for both read ops.
-			const shape = ["folders", "items", "platform", "projectName", "projectVersion", "removed", "unreadable", "unwalkedFolders"]
+			const shape = ["applications", "items", "platform", "projectName", "projectVersion", "removed", "unreadable", "unwalkedFolders"]
 			expect(Object.keys(ra).sort()).toEqual(shape)
 			expect(Object.keys(rb).sort()).toEqual(shape)
 			// Asked about no known names, neither vendor can report one removed.
@@ -278,15 +282,16 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			expect(ra.unreadable).toEqual([])
 			expect(rb.unreadable).toEqual([])
 
-			// The ITEM is ONE row keyed by its full wire name on both sides, and a METHOD child does not get a
+			// The ITEM is ONE row keyed by its path on both sides, and a METHOD child does not get a
 			// row of its own — the member rides inside its parent's document. That is the structural half of
 			// parity: a vendor that surfaced members as separate refs would still round-trip identical TEXT.
-			expect(Object.keys(ra.items)).toContain(name)
-			expect(Object.keys(rb.items)).toContain(name)
-			const memberRefs = (r: any) => Object.keys(r.items).filter((k: string) => k.startsWith(`${bare}.`) && k !== name)
-			expect(memberRefs(rb)).toEqual(memberRefs(ra))
-			expect(memberRefs(ra)).toEqual([])
-			expect(rel(rb.folders[name], rootB)).toBe(rel(ra.folders[name], rootA))
+			const pa = pathIn(ra.items, name), pb = pathIn(rb.items, name)
+			expect(pa).toBeDefined()
+			expect(pb).toBeDefined()
+			const memberRefs = (r: any, own: string) => Object.keys(r.items).filter((k: string) => fileOf(k).startsWith(`${bare}.`) && k !== own)
+			expect(memberRefs(rb, pb!)).toEqual(memberRefs(ra, pa!))
+			expect(memberRefs(ra, pa!)).toEqual([])
+			expect(rel(folderOf(pb!), rootB)).toBe(rel(folderOf(pa!), rootA))
 		} finally {
 			await Promise.all([removeIfPresent(a, name), removeIfPresent(b, name)])
 		}

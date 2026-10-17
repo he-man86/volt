@@ -14,9 +14,9 @@ namespace Volt.Engine.Sync;
 /// </summary>
 public static class PushedText
 {
-    /// <summary>Whether the IDE can publish the ONE object pushed as <paramref name="pushedWireName"/> under
-    /// <paramref name="heldWireName"/> instead: the same bare name in another CASE (IEC names are case-insensitive, and
-    /// the IDE keeps the spelling of the object it holds) and the same kind. A push writes the text as sent and never
+    /// <summary>Whether the IDE can publish the ONE object pushed at path <paramref name="pushedWireName"/> under the path
+    /// <paramref name="heldWireName"/> instead: the same folder and bare name in another CASE (IEC names are
+    /// case-insensitive, and the IDE keeps the spelling of the object it holds) and the same kind. A push writes the text as sent and never
     /// reads its header (openspec <c>push-without-header-check</c>), and a POU is <c>X.pou</c> and a DUT <c>X.dut</c>
     /// whatever their text says (5.Q, 5.P), so a text write moves no object to another name: the case-variant pair is
     /// all that is left, for every kind. Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
@@ -25,7 +25,7 @@ public static class PushedText
     {
         return !string.Equals(pushedWireName, heldWireName, System.StringComparison.Ordinal)
                && ItemKind.KindForWireName(pushedWireName) is { } kind && ItemKind.KindForWireName(heldWireName) == kind
-               && string.Equals(Materializer.Bare(pushedWireName), Materializer.Bare(heldWireName),
+               && string.Equals(ItemPath.BarePathOf(pushedWireName), ItemPath.BarePathOf(heldWireName),
                                 System.StringComparison.OrdinalIgnoreCase);
     }
 

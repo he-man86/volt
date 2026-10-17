@@ -19,14 +19,20 @@ internal sealed partial class TcObjectModel
         var path = TcProjectSettings.ProjectPath(ProduceXml(_plcNode!));
         return TcProjectSettings.Read(File.ReadAllText(path), nested);
     }
+
+    /// <summary>The directory of <paramref name="plc"/>'s <c>.plcproj</c> — where the compiler's file paths for its
+    /// objects lie.</summary>
+    public string PlcProjectDirectory(TcPlc plc) =>
+        Path.GetDirectoryName(Path.GetFullPath(TcProjectSettings.ProjectPath(ProduceXml(plc.Node))))!;
 }
 
-/// <summary>The handle of the synthesized <c>Project Settings</c> item. TwinCAT has no tree node for the compiler
-/// settings (they live on the PLC project's property pages), so the walk names one the way the CODESYS walk finds its
-/// <c>IWorkspaceObject</c> node, and this marker routes its kind, name and manifest; it is never handed to COM.</summary>
+/// <summary>The handle of one PLC project's synthesized <c>Project Settings</c> item. TwinCAT has no tree node for the
+/// compiler settings (they live on the PLC project's property pages), so the walk names one at each PLC project's root,
+/// the way the CODESYS walk finds its <c>IWorkspaceObject</c> node, and this marker routes its kind, name and manifest;
+/// it is never handed to COM.</summary>
 internal sealed class TcProjectSettingsNode
 {
-    public static readonly TcProjectSettingsNode Instance = new();
-    private TcProjectSettingsNode() { }
-    public override string ToString() => ProjectSettingsFormat.ItemName;
+    public TcProjectSettingsNode(TcPlc plc) => Plc = plc;
+    public TcPlc Plc { get; }
+    public override string ToString() => Plc.Path + "/" + ProjectSettingsFormat.ItemName;
 }

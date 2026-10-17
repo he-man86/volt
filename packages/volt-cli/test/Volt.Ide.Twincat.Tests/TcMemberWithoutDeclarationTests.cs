@@ -18,7 +18,7 @@ public class TcMemberWithoutDeclarationTests
         var pou = new TcHiddenBodyWriteTests.Node("FB_A", ItemKind.PlcPou, "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", ";",
             new TcHiddenBodyWriteTests.Node("Step", ItemKind.PlcMethod, "", "x := 1;"));
 
-        var ex = Assert.Throws<BridgeException>(() => TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(pou)));
+        var ex = Assert.Throws<BridgeException>(() => TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(pou)));
 
         Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("'Step'", ex.Message);

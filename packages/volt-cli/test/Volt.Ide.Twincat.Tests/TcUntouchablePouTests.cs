@@ -158,6 +158,8 @@ public class TcUntouchablePouTests
             _project = projectPath ?? Project;
         }
         public Node NestedProject { get; }
+        /// <summary>The PLC project's name, as the solution names it (<c>TIPC^Untitled2</c>).</summary>
+        public string Name => "Untitled2";
         private readonly string _project;
         private static readonly string Project = WriteProject();
         private static string WriteProject()
@@ -207,16 +209,24 @@ public class TcUntouchablePouTests
         var model = new TcObjectModel
         {
             BindWindow = _ => window,
-            ReadExplorer = explorer ?? ((_, name) => name == "Untitled2 Project" ? root.Explorer() : null),
+            // The read is scoped to its system project (TcHierarchy.Scoped): two systems may hold a PLC project of one name.
+            ReadExplorer = explorer ?? ((_, name) => name == "TwinCAT Project14|Untitled2 Project" ? root.Explorer() : null),
         };
         var driver = new BeckhoffDriver(model);
         driver.Connect(xaePid: 1);
+        TcRefs.Bound = model.Plcs()[0];
         return (driver, model, xae, root);
     }
 
     /// <summary>A driver bound to an empty PLC project whose Solution Explorer flags nothing — the state every
     /// production write runs in. For offline tests that drive a POU double directly: every child access goes through
     /// the C2i guard, which reads the bound project's hierarchy.</summary>
+    /// <summary>The PLC project's application root — where its items' paths start (openspec multi-application-tree).</summary>
+    internal const string App = "TwinCAT Project14/PLC/Untitled2";
+
+    /// <summary>The system project's <c>.device</c> descriptor — the walk's first item, before the PLC project's.</summary>
+    internal const string SystemDescriptor = "TwinCAT Project14";
+
     internal static BeckhoffDriver BoundDriver(string? plcproj = null) =>
         Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder), plcproj: plcproj).Driver;
 
@@ -241,9 +251,9 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Equal(new[] { "VltX_EG", "VltX_FP", "VltX_UCI", "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { SystemDescriptor, "VltX_EG", "VltX_FP", "VltX_UCI", "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
         var named = Assert.Single(walk.UnreadableObjects);
-        Assert.Equal(("VltX_UCFB", "VltCensus"), (named.Name, named.Folder));
+        Assert.Equal(("VltX_UCFB", App + "/VltCensus"), (named.Name, named.Folder));
         Assert.Contains("crashes TcXaeShell", named.Reason);
         Assert.Equal(new[] { ItemKind.Kinds.Pou }, named.Kinds);
         Assert.True(walk.Complete, string.Join(",", walk.UnwalkedFolders));   // a POU is no container: its folder was walked whole
@@ -255,8 +265,8 @@ public class TcUntouchablePouTests
     {
         var (driver, _, xae, _) = Project(Census);
 
-        Assert.NotNull(ItemLookup.Find(driver, "VltX_UCI"));
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "VltX_UCFB"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/VltCensus/VltX_UCI"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_UCFB"));
 
         Assert.Equal(BridgeErrorCodes.Unreadable, refusal.ErrorCode);
         Assert.Contains("'VltX_UCFB'", refusal.Message);
@@ -269,7 +279,7 @@ public class TcUntouchablePouTests
     public void A_delete_goes_through_the_parent_by_name_only()
     {
         var (driver, _, xae, root) = Project(Census);
-        var (_, untouchable) = ItemLookup.Locate(driver, "VltX_UCFB");
+        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB");
 
         driver.Delete(untouchable!.Parent, untouchable.Name);
 
@@ -291,11 +301,11 @@ public class TcUntouchablePouTests
             new Node(x, "POUs", ItemKind.PlcFolder, false,
                 new Node(x, "Motor1", ItemKind.PlcPou), new Node(x, "Motor2", ItemKind.PlcPou), new Node(x, "Motor3", ItemKind.PlcPou)),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
-        var motor1 = ItemLookup.Find(driver, "Motor1")!.Value;
+        var motor1 = ItemLookup.Find(driver, App + "/POUs/Motor1")!.Value;
 
         driver.Delete(driver.Parent(motor1), "Motor1");
 
-        Assert.NotNull(ItemLookup.Find(driver, "Motor3"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor3"));
         Assert.False(xae.Dead);
     }
 
@@ -335,7 +345,7 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Contains("F", walk.UnwalkedFolders);
+        Assert.Contains(App + "/F", walk.UnwalkedFolders);
         Assert.Contains("PLC_PRG", walk.Items.Select(i => i.Name));
     }
 
@@ -357,7 +367,7 @@ public class TcUntouchablePouTests
                 new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou))),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "P"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/F/X/P"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("Untitled2 Project^F'", refusal.Message);
@@ -377,7 +387,7 @@ public class TcUntouchablePouTests
         driver.WalkItems();
         root.Kids.Add(new Node(xae, "Added", ItemKind.PlcPou) { Owner = root });
 
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "PLC_PRG"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/PLC_PRG"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("'TIPC^Untitled2^Untitled2 Project'", refusal.Message);
@@ -398,7 +408,8 @@ public class TcUntouchablePouTests
                 .Concat(census.Children.Skip(1)).ToList(),
         };
 
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "PLC_PRG"));
+        // A lookup THROUGH the folder: an item's path names the folders it descends (openspec multi-application-tree).
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_EG"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("'VltCensus' holds 4 children", refusal.Message);
@@ -430,7 +441,7 @@ public class TcUntouchablePouTests
                 new Node(x, "PLC_PRG", ItemKind.PlcPouProg)),
             (_, name) =>
             {
-                if (name != "Untitled2 Project") return null;
+                if (name != "TwinCAT Project14|Untitled2 Project") return null;
                 var full = built!.Explorer();
                 var folder = full.Children[1];
                 return full with
@@ -442,7 +453,7 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Contains("X", walk.UnwalkedFolders);
+        Assert.Contains(App + "/X", walk.UnwalkedFolders);
         Assert.DoesNotContain("Hidden", walk.Items.Select(i => i.Name));
     }
 
@@ -460,9 +471,9 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
         var pathReadsInTheWalk = xae.PathReads;
 
-        Assert.Equal(motors.Append("PLC_PRG").Append("Project Settings"), walk.Items.Select(i => i.Name));
+        Assert.Equal(motors.Prepend(SystemDescriptor).Append("PLC_PRG").Append("Project Settings"), walk.Items.Select(i => i.Name));
         Assert.InRange(pathReadsInTheWalk, 1, 3);   // the PLC root once, and each of its two folders' scans
-        Assert.NotNull(ItemLookup.Find(driver, "Motor8"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor8"));
         Assert.Empty(xae.Lookups);
     }
 
@@ -484,7 +495,7 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Contains("VltCensus", walk.UnwalkedFolders);
+        Assert.Contains(App + "/VltCensus", walk.UnwalkedFolders);
         Assert.Contains("PLC_PRG", walk.Items.Select(i => i.Name));
     }
 
@@ -506,8 +517,8 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Contains("VltCensus", walk.UnwalkedFolders);
-        Assert.Equal(new[] { "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
+        Assert.Contains(App + "/VltCensus", walk.UnwalkedFolders);
+        Assert.Equal(new[] { SystemDescriptor, "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
     }
 
     /// <summary>A folder the hierarchy does not list at all leaves the PLC project short of a child: the whole tree is
@@ -641,7 +652,7 @@ public class TcUntouchablePouTests
         Assert.Equal("VltX_UCFB", Assert.Single(walk.UnreadableObjects).Name);
 
         // Volt deletes it through its parent and creates a new item of the name: that one opens.
-        var (_, untouchable) = ItemLookup.Locate(driver, "VltX_UCFB");
+        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB");
         driver.Delete(untouchable!.Parent, untouchable.Name);
         var fresh = new Node(xae, "VltX_UCFB", ItemKind.PlcPou) { Owner = root.Kids[0] };
         root.Kids[0].Kids.Add(fresh);
@@ -675,9 +686,9 @@ public class TcUntouchablePouTests
         Assert.False(xae.Dead);
         Assert.Contains("VltX_W", walk.Items.Select(i => i.Name));
         Assert.Equal(new[] { "VltX_UCFB" }, walk.UnreadableObjects.Select(u => u.Name));   // the one loaded broken stays
-        var (found, untouchable) = ItemLookup.Locate(driver, "VltX_W");
+        var (found, untouchable) = ItemLookup.Locate(driver, App + "/VltX_W");
         Assert.Null(untouchable);
-        Assert.Same(created, found!.Value.Native);
+        Assert.Same(created, ((BeckhoffDriver.TcNode)found!.Value.Native).Com);
     }
 
     /// <summary>…AND ONLY IN THIS LOAD. XAE loading the project again — a solution close + reopen, and a project
@@ -741,7 +752,7 @@ public class TcUntouchablePouTests
         var start = ladder.IndexOf("<NWL>", StringComparison.Ordinal);
         var nwl = ladder.Substring(start, ladder.IndexOf("</NWL>", StringComparison.Ordinal) + "</NWL>".Length - start);
 
-        var live = driver.WriteMemberBodies(new ItemRef(pou), new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
+        var live = driver.WriteMemberBodies(TcRefs.Ref(pou), new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
 
         Assert.False(xae.Dead);
         Assert.Equal("VltProbe_Hidden", driver.Name(live));

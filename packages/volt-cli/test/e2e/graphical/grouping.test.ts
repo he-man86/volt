@@ -17,9 +17,14 @@
  * engineer's networks, so it is asserted rather than remembered.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** The project's own root (`projectRoot()`), read once the bridge serves — every item here is made there. */
+let root = ""
+/** The path of the test item `s` at {@link root}. */
+const rid = (s: string, ext = "pou") => inFolder(root, fid(s, ext))
 
 /** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -39,6 +44,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 	setDefaultTimeout(180_000)
 	beforeAll(async () => {
 		await requireHealthy()
+		root = await projectRoot()
 	})
 
 	it("emits one network per connected component", async () => {
@@ -48,7 +54,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 		for (const [label, vars, body] of SHAPES) {
 			const tag = label.replace(/[^a-z]/gi, "").slice(0, 10)
 			const name = id(tag)
-			const item = fid(tag, "pou")
+			const item = rid(tag, "pou")
 
 			const clean = async () => {
 				const items = (await bridge.refs()).items ?? {}
@@ -63,7 +69,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 			try {
 
 				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
-				const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+				const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
 				if (!created.accepted) {
 					report.push(`  ${label.padEnd(24)} REFUSED: ${JSON.stringify(created.conflicts).slice(0, 90)}`)

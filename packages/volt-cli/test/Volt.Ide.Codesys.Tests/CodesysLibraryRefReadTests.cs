@@ -86,12 +86,13 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("PublishSymbolsInContainer", niche.Reason);
 
             // …so the client does not delete its file.
-            var file = NichePlaceholder + "." + ItemKind.Kinds.Library;
+            // Its path: its own folder under the manager, as every library's (LibraryLayout).
+            var file = ItemPath.Of(Volt.Engine.Library.LibraryLayout.FolderFor(Manager, NichePlaceholder),
+                                   NichePlaceholder + "." + ItemKind.Kinds.Library);
             var kinds = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);
             Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>(), kinds);
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { file },
-                new Dictionary<string, string> { { file, Manager } },
-                new HashSet<string>(), kinds, walk.UnwalkedFolders);
+                new HashSet<string>(), kinds, walk.UnwalkedFolders, walk.Applications, walk.Applications);
             Assert.Empty(removed);
         }
 

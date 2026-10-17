@@ -15,7 +15,7 @@
  * so the test that proves the rule cannot prove the rule was needed. This is the half only a live IDE can answer.
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, cleanup, requireHealthy, pushOps, fetchItem, plcFolder, BASE } from "../harness"
+import { id, fid, cleanup, requireHealthy, pushOps, fetchItem, plcFolder, BASE, inFolder } from "../harness"
 import { structDut, fb } from "../fixtures"
 
 describe(`lifecycle / folder-vs-object name clash (${BASE})`, () => {
@@ -41,9 +41,9 @@ describe(`lifecycle / folder-vs-object name clash (${BASE})`, () => {
 
 		const r = await pushOps([
 			// The sibling DUT, named exactly like the folder below it.
-			{ op: "set", name: fid("clash", "dut"), toFolder: root, sourceText: structDut(clash), ifVersion: null },
+			{ op: "set", name: inFolder(root, fid("clash", "dut")), sourceText: structDut(clash), ifVersion: null },
 			// ...and the folder's content, which is what forces the folder to exist.
-			{ op: "set", name: fid("clash_inner"), toFolder: inside, sourceText: fb(id("clash_inner")), ifVersion: null },
+			{ op: "set", name: inFolder(inside, fid("clash_inner")), sourceText: fb(id("clash_inner")), ifVersion: null },
 		])
 
 		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)

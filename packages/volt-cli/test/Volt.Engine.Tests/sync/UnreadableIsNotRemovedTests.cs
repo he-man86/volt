@@ -141,7 +141,7 @@ public class UnreadableIsNotRemovedTests
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Hidden.pou"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["POUs/FB_Hidden.pou"] = "v" },
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
 
@@ -159,10 +159,10 @@ public class UnreadableIsNotRemovedTests
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Hidden.pou"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["POUs/FB_Hidden.pou"] = "v" },
         });
 
-        Assert.Contains("FB_Hidden.pou", res.Removed);
+        Assert.Contains("POUs/FB_Hidden.pou", res.Removed);
     }
 
     /// <summary>The genuine case still works: a name the client knows and the walk did NOT see is removed.

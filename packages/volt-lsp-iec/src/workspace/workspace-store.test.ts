@@ -343,3 +343,29 @@ describe("generation, the per-file disk layer and the quarantine (openspec lsp-s
     expect([store.quarantined(A), store.workspace().length, failures.length]).toEqual([false, 2, 1])
   })
 })
+
+// AN EDIT REACHES ITS APPLICATION'S TABLE INCREMENTALLY (openspec multi-application-tree, design §8): a document is
+// rebound into the table of its own application and, a pool document, into every application's — never into another's.
+test("store: an edit rebinds into its own application's table, and a pool document into every one", () => {
+  const ws = resolve("/ws/src")
+  const appA = resolve(ws, "Device/Plc Logic/Application")
+  const appB = resolve(ws, "Device_1/Plc Logic/Application")
+  const uri = (p: string) => pathToFileURL(p).href
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  const gvlA = uri(resolve(appA, "GVL.gvl"))
+  const pool = uri(resolve(ws, "FB_Pool.pou"))
+  store.seedDisk([
+    { uri: gvlA, source: "VAR_GLOBAL\n\tg_a : INT;\nEND_VAR\n" },
+    { uri: uri(resolve(appB, "GVL.gvl")), source: "VAR_GLOBAL\n\tg_b : INT;\nEND_VAR\n" },
+  ])
+  const inA = uri(resolve(appA, "X.pou"))
+  const inB = uri(resolve(appB, "X.pou"))
+  const has = (at: string, name: string) => store.project(at).symbols.has(name)
+  expect([has(inA, "g_a"), has(inA, "g_b"), has(inB, "g_b"), has(inB, "g_a")]).toEqual([true, false, true, false])
+
+  store.upsertDisk(gvlA, "VAR_GLOBAL\n\tg_a : INT;\n\tg_a2 : INT;\nEND_VAR\n")
+  store.upsertDisk(pool, "FUNCTION_BLOCK FB_Pool\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n")
+  expect([has(inA, "g_a2"), has(inB, "g_a2"), has(inA, "fb_pool"), has(inB, "fb_pool")]).toEqual([true, false, true, true])
+  expect(store.workspace(inB).map((d) => d.uri).sort()).toEqual([pool, uri(resolve(appB, "GVL.gvl"))].sort())
+})

@@ -158,10 +158,16 @@ internal sealed partial class TcObjectModel
         return false;
     }
 
+    /// <summary>The file the compiler named for each diagnostic of the last <see cref="GetBuildDiagnostics"/> — what
+    /// tells which PLC project a diagnostic's item is in (openspec multi-application-tree): two PLC projects may each hold
+    /// a POU of the name the line carries.</summary>
+    public Dictionary<BridgeDiagnostic, string> LastDiagnosticFiles { get; } = new(ReferenceEqualityComparer.Instance);
+
     public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
     {
         var result = new List<BridgeDiagnostic>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        LastDiagnosticFiles.Clear();
         if (_dte == null) return result;
         try
         {
@@ -207,7 +213,7 @@ internal sealed partial class TcObjectModel
                     continue;
                 }
                 if (string.IsNullOrEmpty(text)) continue;
-                CollectPane(text, seen, result);
+                CollectPane(text, seen, result, LastDiagnosticFiles);
             }
         }
         catch (Exception ex)
@@ -243,10 +249,15 @@ internal sealed partial class TcObjectModel
     /// merged a GET's error into the SET's identical one - a real IDE diagnostic lost, while CODESYS returned both
     /// (openspec <c>codesys-diagnostic-child-names</c>). The MSBuild `N&gt;` prefix the Build pane adds is not in the
     /// key, which is what lets the two panes' copies of one error meet.</para></summary>
-    internal static void CollectPane(string text, HashSet<string> seen, List<BridgeDiagnostic> into)
+    internal static void CollectPane(string text, HashSet<string> seen, List<BridgeDiagnostic> into,
+                                     Dictionary<BridgeDiagnostic, string>? files = null)
     {
-        foreach (var (diagnostic, key) in ParseLines(text))
-            if (seen.Add(key)) into.Add(diagnostic);
+        foreach (var (diagnostic, key, file) in ParseLines(text))
+        {
+            if (!seen.Add(key)) continue;
+            into.Add(diagnostic);
+            if (files is not null && file is not null) files[diagnostic] = file;
+        }
     }
 
     /// <summary>One Output pane's text, parsed into diagnostics, each with its cross-pane identity (<see cref="CollectPane"/>).</summary>
@@ -261,9 +272,9 @@ internal sealed partial class TcObjectModel
     /// rather than by "the next line is not a diagnostic": the pane is full of build chrome, and appending that to
     /// the previous message would corrupt far more than the break does.
     /// </remarks>
-    private static List<(BridgeDiagnostic Diagnostic, string Key)> ParseLines(string text)
+    private static List<(BridgeDiagnostic Diagnostic, string Key, string? File)> ParseLines(string text)
     {
-        var parsed = new List<(BridgeDiagnostic, string)>();
+        var parsed = new List<(BridgeDiagnostic, string, string?)>();
         var regex = new Regex(
             @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -291,7 +302,8 @@ internal sealed partial class TcObjectModel
             };
             // Separated by U+0001 so no two field splits collide.
             parsed.Add((diagnostic,
-                $"{file}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}"));
+                $"{file}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}",
+                file is null ? null : PathOf(FileOf(captured))));
         }
         return parsed;
     }
@@ -348,6 +360,14 @@ internal sealed partial class TcObjectModel
     /// <para>The stem is BARE, and deliberately not turned into a wire name here: `.TcPOU` is one vendor file
     /// type covering `prg`, `fb` and `func`, so the extension on disk cannot say which kind the wire name
     /// carries — only the declaration can, and that lives above this seam.</para></summary>
+    /// <summary>The file path a compiler line names, without MSBuild's `N&gt;` project number.</summary>
+    private static string PathOf(string captured)
+    {
+        var s = captured.Trim();
+        var arrow = s.IndexOf('>');
+        return arrow > 0 && s.Substring(0, arrow).All(char.IsDigit) ? s.Substring(arrow + 1).Trim() : s;
+    }
+
     private static string? BareNameOf(string captured)
     {
         var s = captured.Trim();

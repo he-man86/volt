@@ -5,7 +5,9 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Ide;
 
 /// <summary>
-/// Find a TOP-LEVEL item by name — one walk, over the tree contract every driver already implements.
+/// Find a TOP-LEVEL item by its PATH — the descent to its folder and a scan of that folder alone, over the tree contract
+/// every driver already implements. Never a search of the whole tree (openspec <c>multi-application-tree</c>, design §4):
+/// two applications each holding <c>PLC_PRG</c> are two items, and only the folder tells which one an op names.
 /// <list type="bullet">
 /// <item><b>Case-insensitively</b>: IEC 61131-3 identifiers are case-insensitive and both IDEs treat them so —
 /// pushing <c>fb_Motor</c> at an IDE holding <c>FB_Motor</c> must find it, not CREATE a second one.</item>
@@ -21,13 +23,15 @@ public static class ItemLookup
     /// <summary>Depth guard against a cyclic or pathologically nested tree, not a limit any real project reaches.</summary>
     private const int MaxDepth = 14;
 
-    /// <summary>The top-level item named <paramref name="name"/>, or null.
-    /// <para>Descends from <see cref="IProjectTree.GetTreeRoot"/> — the same origin both driver walks used, and
-    /// the one the push's <c>toFolder</c> paths are measured from, so lookup and placement agree about where the
-    /// tree starts.</para></summary>
-    public static ItemRef? Find(IProjectTree tree, string name)
+    /// <summary>The top-level item at <paramref name="barePath"/> — <c>&lt;folder&gt;/&lt;bare name&gt;</c>
+    /// (<see cref="ItemPath.BarePathOf"/>), the folder as the walk spells it — or null.
+    /// <para>Descends from <see cref="IProjectTree.GetTreeRoot"/> — the same origin both driver walks use, and the one
+    /// the push's paths are measured from, so lookup and placement agree about where the tree starts — matching each
+    /// container by name as the push's placement does (<c>TreeNav</c>). A folder that is not there holds no item:
+    /// null.</para></summary>
+    public static ItemRef? Find(IProjectTree tree, string barePath)
     {
-        var (item, untouchable) = Locate(tree, name);
+        var (item, untouchable) = Locate(tree, barePath);
         if (untouchable is { } u)
             throw new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}");
         return item;
@@ -40,13 +44,17 @@ public static class ItemLookup
     /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
     /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
     /// allowed past an unreadable item: they delete it through its parent, by name.</summary>
-    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string name)
+    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string barePath)
     {
+        var name = ItemPath.FileOf(barePath);
+        var doing = $"looking for '{barePath}'";
+        var folderPath = ItemPath.FolderOf(barePath);
+        if (Descend(tree, folderPath, doing) is not { } folder) return (null, null);
         ItemRef? hit = null;
         Untouchable? untouchable = null;
-        Walk(tree, tree.GetTreeRoot(), $"looking for '{name}'", 0, (item, itemName, _) =>
+        Scan(tree, folder, doing, (item, itemName, kind) =>
         {
-            if (!string.Equals(itemName, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (!ItemKind.IsAddressableItem(kind) || !string.Equals(itemName, name, System.StringComparison.OrdinalIgnoreCase)) return true;
             hit = item;
             return false;
         }, (parent, u) =>
@@ -54,12 +62,83 @@ public static class ItemLookup
             if (!string.Equals(u.Name, name, System.StringComparison.OrdinalIgnoreCase)) return true;
             untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kinds);
             return false;
-        });
+        }, FolderPath.Segments(folderPath).Count());
         return (hit, untouchable);
     }
 
-    /// <summary>Every top-level item — its handle, name and tree kind — in ONE walk. For a caller asking about many
-    /// names, where a <see cref="Find"/> per name is a walk per name.</summary>
+    /// <summary>The node at the encoded <paramref name="folder"/>, descended from the tree root one container per
+    /// segment (a structural node, a container-manager, a user folder — anything that is not a top-level item, as the
+    /// push's placement matches them), or null when a segment is not there. A read the IDE refuses is not absence:
+    /// <c>ITEM_UNVERIFIED</c>, as for every lookup here.</summary>
+    private static ItemRef? Descend(IProjectTree tree, string folder, string doing)
+    {
+        var node = tree.GetTreeRoot();
+        var depth = 0;
+        foreach (var segment in FolderPath.Segments(folder))
+        {
+            ItemRef? next = null;
+            Scan(tree, node, doing, (child, childName, kind) =>
+            {
+                if (ItemKind.IsTopLevelCrud(kind) || !string.Equals(childName, segment, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+                next = child;
+                return false;
+            }, (_, _) => true, depth);
+            if (next is not { } found) return null;
+            node = found;
+            depth++;
+        }
+        return node;
+    }
+
+    /// <summary>Visit every DIRECT child of <paramref name="node"/> with its name and kind until <paramref name="visit"/>
+    /// answers false — the one child scan the descent and the lookup share, with <see cref="Walk"/>'s fault rules.</summary>
+    private static void Scan(IProjectTree tree, ItemRef node, string doing, System.Func<ItemRef, string, int, bool> visit,
+                             System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable, int depth = 1)
+    {
+        int count;
+        try { count = tree.ChildCount(node); }
+        catch (System.Exception ex) when (ex is not ICodedError)
+        {
+            throw new BridgeException(ConflictCodes.ItemUnverified,
+                $"could not read the children of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                $"({ex.Message}). Refusing to report it as absent.", ex);
+        }
+        for (var i = 1; i <= count; i++)
+        {
+            ItemRef child;
+            int kind;
+            try
+            {
+                child = tree.ChildAt(node, i);
+                kind = tree.KindCode(child);
+            }
+            catch (UnreadableItemException untouchable)
+            {
+                if (!visitUntouchable(node, untouchable)) return;
+                continue;
+            }
+            catch (System.Exception ex) when (ex is not ICodedError)
+            {
+                throw new BridgeException(ConflictCodes.ItemUnverified,
+                    $"could not read child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                    $"({ex.Message}). Refusing to report it as absent.", ex);
+            }
+            string name;
+            try { name = tree.Name(child); }
+            catch (System.Exception ex) when (ex is not ICodedError)
+            {
+                throw new BridgeException(ConflictCodes.ItemUnverified,
+                    $"could not read the name of child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused " +
+                    $"the read ({ex.Message}). Refusing to report it as absent.", ex);
+            }
+            if (!visit(child, name, kind)) return;
+        }
+    }
+
+    /// <summary>Every top-level item in the whole tree — its handle, name and tree kind — in ONE walk. For a caller asking
+    /// about many names (the declarations index, <see cref="ProjectDeclarations"/>), where a <see cref="Find"/> per name
+    /// is a descent per name.</summary>
     public static IReadOnlyList<(ItemRef Item, string Name, int Kind)> All(IProjectTree tree)
     {
         var found = new List<(ItemRef, string, int)>();

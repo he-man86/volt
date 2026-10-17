@@ -262,7 +262,7 @@ public class ReadOnlyBodyTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Chart.pou", ToName = renamed ? "FB_Moved.pou" : null, ToFolder = "Sub",
+                    Name = "FB_Chart.pou", To = renamed ? "Sub/FB_Moved.pou" : "Sub/FB_Chart.pou",
                     SourceText = pushed, IfVersion = refs.Items["FB_Chart.pou"],
                 },
             },
@@ -271,7 +271,7 @@ public class ReadOnlyBodyTests
         Assert.True(resp.Accepted, "push refused: " + Why(resp));
         var pou = renamed ? "FB_Moved" : "FB_Chart";
         Assert.Contains($"move:{pou}->Sub", ide.Recorded);                       // the move happened…
-        Assert.Equal("Sub", RefsService.Handle(ide).Folders[pou + ".pou"]);
+        Assert.Contains($"Sub/{pou}.pou", RefsService.Handle(ide).Items.Keys);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:" + pou) || r.StartsWith("delete:"));
         Assert.Equal(Held(language), ide.StoredImplementation(pou));             // …and wrote no hidden body
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));

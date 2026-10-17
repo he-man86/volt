@@ -30,20 +30,19 @@ public class DutOneNameTests
     {
         var ide = OneStruct();
         var refs = RefsService.Handle(ide);
-        Assert.Equal(new[] { "X.dut" }, refs.Items.Keys.ToArray());
+        Assert.Equal(new[] { "DUTs/X.dut" }, refs.Items.Keys.ToArray());
 
         var push = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "X.dut", IfVersion = refs.Items["X.dut"], SourceText = Enum } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "DUTs/X.dut", IfVersion = refs.Items["DUTs/X.dut"], SourceText = Enum } },
         });
 
         Assert.True(push.Accepted, string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new string[0]));
         Assert.Equal(new[] { "writecontent:X" }, ide.Recorded);
-        Assert.Equal(new[] { "X.dut" }, push.NewItems!.Keys.ToArray());
+        Assert.Equal(new[] { "DUTs/X.dut" }, push.NewItems!.Keys.ToArray());
         var after = RefsService.Handle(ide);
-        Assert.Equal(new[] { "X.dut" }, after.Items.Keys.ToArray());
-        Assert.Equal("DUTs", after.Folders["X.dut"]);
+        Assert.Equal(new[] { "DUTs/X.dut" }, after.Items.Keys.ToArray());
     }
 
     [Theory]
@@ -60,7 +59,7 @@ public class DutOneNameTests
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = force,
-            Ops = new List<PushOp> { new SetItemOp { Name = name, IfVersion = refs.Items["X.dut"], SourceText = Enum } },
+            Ops = new List<PushOp> { new SetItemOp { Name = name, IfVersion = refs.Items["DUTs/X.dut"], SourceText = Enum } },
         });
 
         Assert.False(push.Accepted);
@@ -94,8 +93,8 @@ public class DutOneNameTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = name, IfVersion = ifVersion } },
         });
 
-        var dutPush = Delete(dut, "X.dut");
-        var pouPush = Delete(pou, "X.pou");
+        var dutPush = Delete(dut, "DUTs/X.dut");
+        var pouPush = Delete(pou, "DUTs/X.pou");
 
         Assert.Equal(pouPush.Accepted, dutPush.Accepted);
         Assert.Equal(pouPush.Conflicts?.Select(c => c.Code), dutPush.Conflicts?.Select(c => c.Code));

@@ -53,7 +53,7 @@ public class SameBareNameVersionTests
 
         // The two items DO hash differently — otherwise the collision would be invisible and this test would
         // pass for the wrong reason.
-        Assert.NotEqual(refs.Items["CM_Carrier.pou"], refs.Items["CM_Carrier.visualization"]);
+        Assert.NotEqual(refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"], refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.visualization"]);
 
         var res = PushService.Handle(ide, new PushRequest
         {
@@ -62,10 +62,9 @@ public class SameBareNameVersionTests
             {
                 new SetItemOp
                 {
-                    Name = "CM_Carrier.pou",
-                    ToFolder = "02_ControlModules/CM_Carrier",
+                    Name = "02_ControlModules/CM_Carrier/CM_Carrier.pou",
                     SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\nIMPLEMENTATION ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
-                    IfVersion = refs.Items["CM_Carrier.pou"],
+                    IfVersion = refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"],
                 },
             },
         });
@@ -93,8 +92,7 @@ public class SameBareNameVersionTests
             {
                 new SetItemOp
                 {
-                    Name = "CM_Carrier.pou",
-                    ToFolder = "02_ControlModules/CM_Carrier",
+                    Name = "02_ControlModules/CM_Carrier/CM_Carrier.pou",
                     SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\nIMPLEMENTATION ST\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = "stale0000deadbeef",
                 },
@@ -103,9 +101,9 @@ public class SameBareNameVersionTests
 
         Assert.False(res.Accepted);
         var conflict = Assert.Single(res.Conflicts!);
-        Assert.Equal("CM_Carrier.pou", conflict.Name);
+        Assert.Equal("02_ControlModules/CM_Carrier/CM_Carrier.pou", conflict.Name);
         // …and it quotes the FB's OWN current version, not its neighbour's.
-        Assert.Equal(refs.Items["CM_Carrier.pou"], conflict.CurrentVersion);
+        Assert.Equal(refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"], conflict.CurrentVersion);
     }
 
     /// <summary>The other half of the collision: the VISUALIZATION's slot is not the FB's either. A visualization
@@ -121,13 +119,13 @@ public class SameBareNameVersionTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new DeleteItemOp { Name = "CM_Carrier.visualization", IfVersion = refs.Items["CM_Carrier.pou"] },
+                new DeleteItemOp { Name = "02_ControlModules/CM_Carrier/CM_Carrier.visualization", IfVersion = refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"] },
             },
         });
 
         Assert.False(res.Accepted);
         var conflict = Assert.Single(res.Conflicts!);
-        Assert.Equal("CM_Carrier.visualization", conflict.Name);
-        Assert.Equal(refs.Items["CM_Carrier.visualization"], conflict.CurrentVersion);
+        Assert.Equal("02_ControlModules/CM_Carrier/CM_Carrier.visualization", conflict.Name);
+        Assert.Equal(refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.visualization"], conflict.CurrentVersion);
     }
 }

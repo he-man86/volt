@@ -99,21 +99,29 @@ internal sealed partial class TcObjectModel
     /// mark every library call unresolved, which is worse than a loud failure.</para></summary>
     public IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
     {
-        var manager = FindLibraryManager(PlcRoot(), 0);
-        if (manager == null)
+        // ONCE PER PLC PROJECT (openspec multi-application-tree, design §6): each has its own library manager, and its
+        // signatures land beside ITS `.library` files — each signature carries the PLC project it was read from.
+        var all = new List<Volt.Engine.Library.LibSignature>();
+        foreach (var plc in Plcs())
         {
-            VoltLog.Debug("twincat lib signatures: no library manager under the PLC project — no references");
-            return System.Array.Empty<Volt.Engine.Library.LibSignature>();
-        }
+            Use(plc);
+            var manager = FindLibraryManager(PlcRoot(), 0);
+            if (manager == null)
+            {
+                VoltLog.Debug($"twincat lib signatures: no library manager under {plc} — no references");
+                continue;
+            }
 
-        // A manager that answers NO document is not a project with no libraries (cli-bridges review B7).
-        var xml = (string?)((dynamic)manager).ProduceAllLibrarySignatures()
-            ?? throw new InvalidOperationException(
-                "twincat: the library manager answered ProduceAllLibrarySignatures() with nothing — refused rather than " +
-                "read as a project with no libraries, which would delete every library-signature file");
-        var sigs = TcLibrarySignatures.Parse(xml);
-        VoltLog.Debug($"twincat lib signatures: {xml.Length} chars -> {sigs.Count} signatures");
-        return sigs;
+            // A manager that answers NO document is not a project with no libraries (cli-bridges review B7).
+            var xml = (string?)((dynamic)manager).ProduceAllLibrarySignatures()
+                ?? throw new InvalidOperationException(
+                    $"twincat: the library manager of {plc} answered ProduceAllLibrarySignatures() with nothing — refused " +
+                    "rather than read as a project with no libraries, which would delete every library-signature file");
+            var sigs = TcLibrarySignatures.Parse(xml);
+            VoltLog.Debug($"twincat lib signatures: {plc}: {xml.Length} chars -> {sigs.Count} signatures");
+            all.AddRange(sigs.Select(s => s with { Application = plc.Path }));
+        }
+        return all;
     }
 
     /// <summary>The library manager (TwinCAT names the node "References"), found by ITEM TYPE rather than by
@@ -155,8 +163,8 @@ internal sealed partial class TcObjectModel
     }
 
     // ── tree primitives ─────────────────────────────────────────────
-    /// <summary>The PLC project root (its NestedProject), the default parent for new POUs. Lazily resolves the PLC
-    /// node on first use (EnsurePlc) — this is THE point where a content op reaches into the PLC application.</summary>
+    /// <summary>The ADDRESSED PLC project's root (its NestedProject, <see cref="CurrentPlc"/>). Lazily resolves the PLC
+    /// projects on first use (EnsurePlc) — this is THE point where a content op reaches into a PLC application.</summary>
     public object PlcRoot()
     {
         EnsurePlc();
@@ -226,7 +234,7 @@ internal sealed partial class TcObjectModel
     {
         if (RelPath(node) is not { } rel || explorer.InsidePou(rel)) return;
         var listed = explorer.ListedChildren(rel);
-        if (listed != count && _staleSinceWrite)
+        if (listed != count && CurrentPlc.StaleSinceWrite)
         {
             // Volt's own create or delete in this operation is newer than the snapshot: ask a fresh one.
             ForgetExplorer();
@@ -275,32 +283,46 @@ internal sealed partial class TcObjectModel
         (_ideVersion is { } build ? $" (TwinCAT {build})" : "") +
         $": {missing}, so the bridge cannot read XAE's Solution Explorer and serves nothing (DIALECT C2i).";
 
-    private ExplorerSnapshot? _explorer;
-    private string? _plcRootPath;
+    /// <summary>The addressed PLC project's snapshot for this operation (<see cref="TcPlc.Explorer"/>).</summary>
+    private ExplorerSnapshot? _explorer
+    {
+        get => CurrentPlc.Explorer;
+        set => CurrentPlc.Explorer = value;
+    }
 
-    /// <summary>Every POU flagged in this session (keyed <c>plcProject|folder^name</c>) that Volt has not since deleted
+    /// <summary>The addressed PLC project root's tree path (<see cref="TcPlc.RootPath"/>).</summary>
+    private string? _plcRootPath
+    {
+        get => CurrentPlc.RootPath;
+        set => CurrentPlc.RootPath = value;
+    }
+
+    /// <summary>Every POU flagged in this session (keyed <c>&lt;PLC project path&gt;|folder^name</c>) that Volt has not since deleted
     /// through its parent. Its caption can heal while it stays the tree item that was loaded broken — the engineer
     /// fixes the text in the editor — and nothing measured says the crash follows the caption rather than the load
     /// (every measured repair made a NEW item: delete + create). So it stays unopened, refused by name, until Volt
     /// itself replaces it (a forced push).</summary>
     private readonly HashSet<string> _flaggedThisSession = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Drop the snapshot, so the next child access reads the hierarchy afresh. Called at the start of every
-    /// operation (<c>BeckhoffDriver.MarshalToIdeThread</c>), and after a structural write while something is flagged
-    /// (a create or delete changes the names a guarded folder is addressed by).</summary>
-    public void ForgetExplorer() { _explorer = null; _plcRootPath = null; _staleSinceWrite = false; }
+    /// <summary>Drop the snapshots — every PLC project's — so the next child access reads the hierarchy afresh. Called
+    /// at the start of every operation (<c>BeckhoffDriver.MarshalToIdeThread</c>), and after a structural write while
+    /// something is flagged (a create or delete changes the names a guarded folder is addressed by).</summary>
+    public void ForgetExplorer()
+    {
+        if (_plcs is null) return;
+        foreach (var plc in _plcs) { plc.Explorer = null; plc.RootPath = null; plc.StaleSinceWrite = false; }
+    }
 
     /// <summary>A CLEAN snapshot read before a structural write in this operation: it still lists the old child counts.
     /// Kept (a clean project addresses children by index and needs nothing else from it), but a count it disagrees on is
     /// asked again of a fresh read before the folder is refused (<see cref="RequireListed"/>) — the refusal is for a
     /// hierarchy that came back short, not for one Volt's own create or delete made stale (5Qa review: a create + update
-    /// + delete batch, and every member create's re-find, were refused live "holds 2 … the Solution Explorer lists 3").</summary>
-    private bool _staleSinceWrite;
-
+    /// + delete batch, and every member create's re-find, were refused live "holds 2 … the Solution Explorer lists 3").
+    /// Per PLC project: <see cref="TcPlc.StaleSinceWrite"/>.</summary>
     private void StructureChanged()
     {
         if (_explorer is { Clean: false }) ForgetExplorer();
-        else if (_explorer is not null) _staleSinceWrite = true;
+        else if (_explorer is not null) CurrentPlc.StaleSinceWrite = true;
     }
 
     /// <summary>The snapshot for this operation, read once. REQUIRED: without it Volt cannot know which child would
@@ -310,7 +332,9 @@ internal sealed partial class TcObjectModel
         if (_explorer is { } known) return known;
         var plcProject = GetName(PlcRoot());
         ExplorerNode? node;
-        try { node = ReadExplorer(_dte!, plcProject); }
+        // SCOPED TO ITS SYSTEM PROJECT: two system projects may each hold a PLC project of one name (`Untitled1` in
+        // `TwinCAT Project14` and in `TwinCAT Project1`), and a name alone would read the first one's hierarchy.
+        try { node = ReadExplorer(_dte!, TcHierarchy.Scoped(CurrentPlc.System, plcProject)); }
         catch (HierarchyUnreachableException ex) { throw Unreachable(ex.Message); }
         catch (Exception ex)
         {
@@ -322,7 +346,7 @@ internal sealed partial class TcObjectModel
             throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"the Solution Explorer hierarchy has no node for the PLC project '{plcProject}'; Volt does not walk " +
                 "the TwinCAT tree without it (DIALECT C2i)");
-        var key = plcProject + "|";
+        var key = CurrentPlc.Path + "|";
         // A bare-captioned POU the system manager still RESOLVES BY PATH is a tree item of this load — created or
         // rewritten since XAE loaded the project — and reads like any other, as CODESYS reads it. One loaded broken is
         // not in the path index: LookupTreeItem answers "not found" (0x98510001) without harm, where Child/LookupChild on
@@ -437,7 +461,7 @@ internal sealed partial class TcObjectModel
         var linked = LinkedTaskOfChild(parent, name);
         // Replaced by Volt: a recreated item of the name is a new tree item, and opens normally.
         if (_flaggedThisSession.Count > 0 && RelPath(parent) is { } rel)
-            _flaggedThisSession.Remove(GetName(PlcRoot()) + "|" + (rel.Length == 0 ? name : rel + "^" + name));
+            _flaggedThisSession.Remove(CurrentPlc.Path + "|" + (rel.Length == 0 ? name : rel + "^" + name));
         StructureChanged();
         ((dynamic)parent).DeleteChild(name);
         if (linked is { } path) DeleteSystemTask(path);

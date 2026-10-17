@@ -17,7 +17,7 @@
  * pull → push is a FIXED POINT.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -32,7 +32,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 	it("a wire feeding two consumers survives create → pull → push → pull", async () => {
 		const name = id("fanout")
-		const wire = fid("fanout", "pou")
+		const wire = inFolder(await projectRoot(), fid("fanout", "pou"))
 
 		// Clean with the item's REAL version, falling back to the UNREADABLE sentinel. A delete keyed only on
 		// the sentinel is rejected for an item that IS readable ("item changed since you fetched its version"),
@@ -48,7 +48,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
@@ -87,7 +87,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 	 */
 	it("a data split comes back as pushed, pushes again, and builds", async () => {
 		const name = id("fanint")
-		const wire = fid("fanint", "pou")
+		const wire = inFolder(await projectRoot(), fid("fanint", "pou"))
 		const clean = async () => {
 			const items = (await bridge.refs()).items ?? {}
 			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
@@ -102,7 +102,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
@@ -128,7 +128,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 	 */
 	it("a wire fed by a leaf round-trips", async () => {
 		const name = id("fanleaf")
-		const wire = fid("fanleaf", "pou")
+		const wire = inFolder(await projectRoot(), fid("fanleaf", "pou"))
 		const items = (await bridge.refs()).items ?? {}
 		await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
 
@@ -136,7 +136,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const back = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(back.sourceText).toBe(src)

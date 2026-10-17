@@ -17,7 +17,7 @@
  * XML — they assert what came back through the vendor's own resolution, which is the only thing that matters.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -42,7 +42,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 	it("a TWO-network body creates as two real networks", async () => {
 		const name = id("twonet")
-		const item = fid("twonet", "pou")
+		const item = inFolder(await projectRoot(), fid("twonet", "pou"))
 		await clean(item)
 
 		const src =
@@ -52,7 +52,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
 			`NETWORK\n  out2 := b OR c;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
@@ -83,14 +83,14 @@ describe(`graphical / create shapes (${BASE})`, () => {
 	 */
 	it("a box's embedded OUTPUT pin survives a create", async () => {
 		const name = id("boxout")
-		const item = fid("boxout", "pou")
+		const item = inFolder(await projectRoot(), fid("boxout", "pou"))
 		await clean(item)
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tel : TIME;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
 		// TwinCAT took this through its PLCopen importer, which lowered the pin to a separate assignment (DIALECT C20),
 		// so it was refused there. The native writer builds the pin on the box, as the IDE draws it (twincat-inproc-host).
@@ -109,14 +109,14 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 	it("a function-block CALL keeps its instance, not just its type", async () => {
 		const name = id("fbcall")
-		const item = fid("fbcall", "pou")
+		const item = inFolder(await projectRoot(), fid("fbcall", "pou"))
 		await clean(item)
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)

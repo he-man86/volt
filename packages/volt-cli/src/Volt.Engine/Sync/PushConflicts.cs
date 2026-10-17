@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 
@@ -33,32 +34,32 @@ internal static class PushConflicts
         // Force skips the per-item ifVersion checks entirely (apply unconditionally); the project gate above still ran.
         if (force) return conflicts;
 
-        // Forward simulation: name → version, mutated per op so in-batch dependencies validate. Every op
+        // Forward simulation: path → version, mutated per op so in-batch dependencies validate. Every op
         // is a SetItemOp or a DeleteItemOp.
         var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
         foreach (var op in ops)
         {
-            var name = op.Name;                       // FULL wire name — echoed back in the conflict
-            var bare = Materializer.Bare(name);
+            var name = op.Name;                       // the item's PATH — echoed back in the conflict
+            var bare = ItemPath.BarePathOf(name);     // its folder and bare name, the IDE's own key there
             var clientVersion = op.IfVersion;
-            // Resolve on the FULL name: that is the identity `refs`/`fetch` publish, so it is the only one the
-            // client can have quoted in `ifVersion`. The BARE fallback covers exactly one case — an UNREADABLE
-            // item, which never materialized, has no full name, and is therefore keyed bare (DIALECT C7). It is
-            // absent from refs, so no client holds a version for it; the fallback exists only so a CREATE cannot
-            // land on top of one.
+            // Resolve on the PATH: that is the identity `refs`/`fetch` publish, so it is the only one the client can
+            // have quoted in `ifVersion`. The BARE-PATH fallback covers exactly one case — an UNREADABLE item, which
+            // never materialized, has no kind extension, and is therefore keyed by its folder and bare name (DIALECT
+            // C7). It is absent from refs, so no client holds a version for it; the fallback exists only so a CREATE
+            // cannot land on top of one.
             //
             // CASE-INSENSITIVELY when the exact spelling misses: IEC identifiers ignore case, and the apply resolves
-            // the op through the item cache by bare name ignoring case. The gate must find the item the apply will
-            // find, or `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
+            // the op in its folder by bare name ignoring case. The gate must find the item the apply will find, or
+            // `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
             var key = pending.ContainsKey(name) ? name
                 : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
                   ?? pending.Keys.FirstOrDefault(k => string.Equals(k, bare, StringComparison.OrdinalIgnoreCase))
                   ?? bare;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
-            // AN OBJECT THE WALK COULD NOT CLASSIFY, under the bare name this op names. Its kind is unknown, so an op on
-            // ANY `X.<kind>` that is not a published identity may be that very object: the apply resolves by bare name
-            // and would land on it unchecked. Refused as what it is, by name — never a stale-version conflict quoting
+            // AN OBJECT THE WALK COULD NOT CLASSIFY, under the folder and bare name this op names. Its kind is unknown,
+            // so an op on ANY `X.<kind>` there that is not a published identity may be that very object: the apply
+            // resolves by bare name in that folder and would land on it unchecked. Refused as what it is, by name — never a stale-version conflict quoting
             // the sentinel (no pull can satisfy one: the object stays unreadable and no fetch ever sends it), and never
             // through the version map, which keys these objects by a path that is no wire name
             // (`Versioning.CountUnclassifiable`). Force skipped this whole loop above, as it does every item check.
@@ -68,7 +69,7 @@ internal static class PushConflicts
                 {
                     Name = name, YourVersion = clientVersion, CurrentVersion = null,
                     Code = BridgeErrorCodes.Unreadable,
-                    Reason = $"the IDE holds an object named '{bare}' whose kind the bridge could not read, so it cannot "
+                    Reason = $"the IDE holds an object '{bare}' whose kind the bridge could not read, so it cannot "
                            + "tell whether this item is that object, and a push cannot write it safely. It is named in "
                            + "the `unreadable` list of every refs/fetch. Fix it in the IDE, or push with --force.",
                 });
@@ -110,10 +111,10 @@ internal static class PushConflicts
                 {
                     conflicts.Add(VersionMismatch(name, clientVersion, currentVersion, walkComplete));
                 }
-                else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
+                else if (set.To is { } to && !string.Equals(to, name, StringComparison.OrdinalIgnoreCase))
                 {
-                    pending.Remove(key);              // rename: the new identity exists for later ops
-                    pending[toName] = "";
+                    pending.Remove(key);              // rename or move: the new path exists for later ops
+                    pending[to] = "";
                 }
             }
             else                                      // DeleteItemOp

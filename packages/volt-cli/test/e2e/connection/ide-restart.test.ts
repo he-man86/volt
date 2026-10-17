@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { basename, join } from "node:path"
-import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe } from "../harness"
+import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe, itemIn, pathOf } from "../harness"
 import { servedSolutionDir } from "../lib/tc-files"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
@@ -109,7 +109,7 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		expect(recovered).toBe(true)
 		expect(await fetchSource(name)).toContain("keep : INT := 99") // no corruption across the crash/restart
 
-		const v = (await bridge.refs()).items[name]
-		if (v) await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name, ifVersion: v }] })
+		const v = itemIn(await bridge.refs(), name)
+		if (v) await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: await pathOf(name), ifVersion: v }] })
 	})
 })

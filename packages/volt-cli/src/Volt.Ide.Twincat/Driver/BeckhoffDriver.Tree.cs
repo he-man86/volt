@@ -20,14 +20,14 @@ namespace Volt.Ide.Twincat;
 public sealed partial class BeckhoffDriver
 {
 
-    // TwinCAT's walk starts AT the PLC project root (folder paths are relative to it), so the tree root and the
-    // PLC-project root are the same node — full and relative toFolder coincide, and this stays a no-op vs CODESYS.
-    public ItemRef GetTreeRoot() => new(_om.PlcRoot());
+    // The tree root is the SOLUTION (openspec multi-application-tree): every system project, every PLC project in it,
+    // as the walk measures folders from it — so a push's path descends exactly the walk's segments (BeckhoffDriver.Nodes).
+    public ItemRef GetTreeRoot() => new(SolutionNode.Instance);
 
     /// <summary>Apply a task's settings — the mirror of the `.task` descriptor <c>ReadManifest</c> renders, so
     /// the pair cannot drift. The two tree items involved, and the fields TwinCAT cannot express (which are
     /// REFUSED, never dropped), are <see cref="TcTaskSchedule"/>'s subject.</summary>
-    public void WriteTask(ItemRef task, TaskSettings settings) => _om.WriteTask(task.Native, settings);
+    public void WriteTask(ItemRef task, TaskSettings settings) => _om.WriteTask(Com(task), settings);
 
     public WalkResult WalkItems()
     {
@@ -35,26 +35,41 @@ public sealed partial class BeckhoffDriver
         // it: an item created or renamed since the last one must be in the scope network text is written and read
         // against (ProjectDeclarations), or a pulled call through it would go to the marker as undeclared.
         _declarations = null;
-        // The Solution Explorer snapshot is read FIRST, outside the per-node catches below: without it the walk cannot
-        // know which child would crash XAE, so an unreadable hierarchy fails the walk rather than being swallowed as a
-        // child fault (DIALECT C2i).
         _om.ForgetExplorer();
-        _om.Explorer();
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();
-        WalkInner(_om.PlcRoot(), "", items, unwalked, unreadable);
-        // The compiler settings have no tree node on TwinCAT (they are the PLC project's property pages), so the item
-        // is NAMED here, at the project root where the CODESYS walk finds its `Project Settings` node, and read when
-        // its manifest is asked for (ReadManifest). Unconditional on purpose: an item whose presence depended on a read
-        // would vanish on a read fault, and absence reads as DELETED to a pull — a failed read is an unreadable item.
-        items.Add(new ProjectItem(ProjectSettingsFormat.ItemName, new ItemRef(TcProjectSettingsNode.Instance),
-                                  ItemKind.PlcProjectSettings, ""));
-        WalkIoDevices(items, unwalked);
-        return new WalkResult(items, unwalked, unreadable);
+        var applications = new List<string>();
+        // EVERY SYSTEM PROJECT, EVERY PLC PROJECT (openspec multi-application-tree): the walk read the first PLC project
+        // of the bound system project and skipped the others without a word.
+        foreach (var (system, manager) in _om.Systems())
+        {
+            var systemFolder = FolderPath.Encode(system);
+            // The system project is a container Volt does not edit: a read-only descriptor at its own path, as CODESYS's
+            // device is (design §2) — the same kind, `device`.
+            items.Add(new ProjectItem(system, new ItemRef(new SystemDescriptorNode(system)), ItemKind.PlcDevice, systemFolder));
+            foreach (var plc in PlcsOf(system))
+            {
+                _om.Use(plc);
+                // The Solution Explorer snapshot is read FIRST, outside the per-node catches below: without it the walk
+                // cannot know which child would crash XAE, so an unreadable hierarchy fails the walk rather than being
+                // swallowed as a child fault (DIALECT C2i).
+                _om.Explorer();
+                applications.Add(plc.Path);
+                WalkInner(_om.PlcRoot(), plc.Path, plc, items, unwalked, unreadable);
+                // The compiler settings have no tree node on TwinCAT (they are the PLC project's property pages), so the
+                // item is NAMED here, at the PLC project's root, and read when its manifest is asked for (ReadManifest).
+                // Unconditional on purpose: an item whose presence depended on a read would vanish on a read fault, and
+                // absence reads as DELETED to a pull — a failed read is an unreadable item.
+                items.Add(new ProjectItem(ProjectSettingsFormat.ItemName, new ItemRef(new TcProjectSettingsNode(plc)),
+                                          ItemKind.PlcProjectSettings, plc.Path));
+            }
+            WalkIoDevices(manager, systemFolder, items, unwalked);
+        }
+        return new WalkResult(items, unwalked, unreadable, applications);
     }
 
-    private void WalkInner(object node, string folderPath, List<ProjectItem> items, List<string> unwalked,
+    private void WalkInner(object node, string folderPath, TcPlc plc, List<ProjectItem> items, List<string> unwalked,
                            List<UnreadableObject> unreadable)
     {
         // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
@@ -119,7 +134,7 @@ public sealed partial class BeckhoffDriver
             if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
-                WalkInner(child, nested, items, unwalked, unreadable);
+                WalkInner(child, nested, plc, items, unwalked, unreadable);
                 continue;
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
@@ -152,12 +167,13 @@ public sealed partial class BeckhoffDriver
             bool isHybrid = childCount > 0 && !ItemKind.IsTopLevelCrud(itemType) && !ItemKind.InlinesItsChildren(itemType);
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
-            items.Add(new ProjectItem(name, new ItemRef(child), itemType, emitFolder));
-            if (isHybrid) WalkInner(child, emitFolder, items, unwalked, unreadable);
+            items.Add(new ProjectItem(name, new ItemRef(new TcNode(child, plc)), itemType, emitFolder));
+            if (isHybrid) WalkInner(child, emitFolder, plc, items, unwalked, unreadable);
         }
     }
 
-    /// <summary>The I/O tree, walked under the synthetic <c>I/O Devices</c> folder.
+    /// <summary>A system project's I/O tree, walked under the synthetic <c>I/O Devices</c> folder at the system project's
+    /// path (<paramref name="systemFolder"/>) — each system project has its own <c>TIID</c>.
     ///
     /// <para><b>It takes <paramref name="unwalked"/> for the same reason <see cref="WalkInner"/> does.</b> Every
     /// catch here used to answer <c>return</c> or <c>continue</c> and record NOTHING, so a COM fault on the TIID
@@ -172,13 +188,13 @@ public sealed partial class BeckhoffDriver
     /// TIID node, so this is a fault path, not a shape a real project takes. (Telling genuine absence from an
     /// unreadable node needs the not-found HRESULT — the same narrowing <c>LookupPath</c> wants; until that is
     /// measured, failing toward "keep the files" is the honest default.)</para></summary>
-    private void WalkIoDevices(List<ProjectItem> items, List<string> unwalked)
+    private void WalkIoDevices(object manager, string systemFolder, List<ProjectItem> items, List<string> unwalked)
     {
         // The synthetic label carries a literal '/', so it is encoded like any other segment.
-        var ioFolder = FolderPath.Encode("I/O Devices");
+        var ioFolder = FolderPath.Append(systemFolder, "I/O Devices");
 
         object tiid;
-        try { tiid = _om.LookupTreeItem("TIID"); }
+        try { tiid = _om.LookupIn(manager, "TIID"); }
         catch (Exception ex)
         {
             VoltLog.Warn($"twincat: the I/O tree (TIID) is unreadable — every device is OMITTED from this walk: {ex.Message}");
@@ -254,7 +270,7 @@ public sealed partial class BeckhoffDriver
             }
 
             var deviceFolder = FolderPath.Append(folderPath, name);
-            items.Add(new ProjectItem(name, new ItemRef(device), ItemKind.PlcDevice,
+            items.Add(new ProjectItem(name, new ItemRef(new IoNode(device)), ItemKind.PlcDevice,
                                       children > 0 ? deviceFolder : folderPath));
             if (children > 0) WalkIoNode(device, deviceFolder, items, unwalked);
         }
@@ -264,13 +280,50 @@ public sealed partial class BeckhoffDriver
     // made an unreadable or INVALIDATED node look like a leaf, which drops its whole subtree; answering "" for a
     // name (below) fabricated the wire IDENTITY. The walk in this file catches per node and logs, because a walk
     // can meaningfully skip one item; a caller asking about ONE item cannot.
-    public int ChildCount(ItemRef item) => _om.ChildCount(item.Native);
-    public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
-    public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));
-    public string Name(ItemRef item) => item.Native is TcProjectSettingsNode
-        ? ProjectSettingsFormat.ItemName
-        : _om.GetName(item.Native);   // never "" — the name is the wire identity
-    public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
+    // The solution's own levels answer from the bound solution; a PLC project and below, from its NestedProject.
+    public int ChildCount(ItemRef item) => item.Native switch
+    {
+        SolutionNode => SystemsWithPlcs().Count,
+        SystemNode => 1,   // its `PLC` node
+        PlcFolderNode folder => PlcsOf(folder.System).Count,
+        _ => _om.ChildCount(Com(item)),
+    };
+
+    public ItemRef ChildAt(ItemRef parent, int index1Based) => parent.Native switch
+    {
+        SolutionNode => new(new SystemNode(SystemsWithPlcs()[index1Based - 1])),
+        SystemNode system => index1Based == 1 ? new(new PlcFolderNode(system.Name)) : throw new ArgumentOutOfRangeException(nameof(index1Based)),
+        PlcFolderNode folder => new(new PlcProjectNode(PlcsOf(folder.System)[index1Based - 1])),
+        _ => Wrap(_om.ChildAt(Com(parent), index1Based)),
+    };
+
+    /// <summary>A node's parent. Called only on an item the walk/lookup already found (<c>IProjectTree.Parent</c>), and a
+    /// PLC project's root has none Volt hands out: its items' parent is the NestedProject node itself.</summary>
+    public ItemRef Parent(ItemRef item) => Wrap(_om.Parent(Com(item)));
+
+    public string Name(ItemRef item) => item.Native switch
+    {
+        TcProjectSettingsNode => ProjectSettingsFormat.ItemName,
+        SolutionNode => _om.ProjectName ?? "",
+        SystemNode system => system.Name,
+        PlcFolderNode => TcPlc.PlcSegment,
+        PlcProjectNode project => project.Plc.Name,
+        SystemDescriptorNode descriptor => descriptor.System,
+        _ => _om.GetName(Com(item)),   // never "" — the name is the wire identity
+    };
+
+    public int KindCode(ItemRef item) => item.Native switch
+    {
+        SolutionNode or PlcFolderNode => ItemKind.GenericContainer,
+        // A system project holds no item a push places (design §2): the device container, as CODESYS's device node.
+        SystemNode => ItemKind.Device,
+        // A PLC project holds items as an Application does (a move target, TreeNav.MoveHolders).
+        PlcProjectNode => ItemKind.Application,
+        SystemDescriptorNode => ItemKind.PlcDevice,
+        TcProjectSettingsNode => ItemKind.PlcProjectSettings,
+        IoNode => ItemKind.PlcDevice,
+        _ => ClassifiedKind(Com(item)),
+    };
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)
     {
@@ -298,7 +351,7 @@ public sealed partial class BeckhoffDriver
             : kindCode == ItemKind.PlcItfMeth ? ItemKind.Kinds.InterfaceMethod : null;
         if (memberKind is not null && UntypedInterfaceMember(memberKind, name, seed) is { } refusal)
             throw new NotSupportedException(refusal);
-        try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
+        try { return Wrap(_om.CreateChild(Com(parent), name, kindCode, seed)); }
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
@@ -381,7 +434,7 @@ public sealed partial class BeckhoffDriver
     /// the wire (openspec <c>bridge-refusal-review</c> 8.4).</summary>
     private static readonly System.Text.RegularExpressions.Regex VendorSentence =
         new(@"Creating the child [^\n]*?\((SubType|Name) mismatch\)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-    public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
+    public void Delete(ItemRef parent, string name) => _om.DeleteChild(Com(parent), name);
     /// <summary>Which accessors an INTERFACE property has — by ENUMERATING its children, the same way a
     /// non-interface property is read one file over.
     ///
@@ -417,7 +470,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>A member is not a separate file here, so placing one round-trips the enclosing POU through its own archive and the import REPLACES the item (DIALECT D4d/D4j) - every handle into it dies.</summary>
     public bool HandlesSurviveStructureChange => false;
 
-    public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
+    public void Rename(ItemRef item, string newName) => _om.Rename(Com(item), newName);
 
     /// <summary>The member move's post-condition: after the archive round trip, the member <paramref name="name"/> sits at
     /// its POU's root exactly when the move asked for the root (<paramref name="folder"/> empty). A broken post-condition
@@ -447,21 +500,26 @@ public sealed partial class BeckhoffDriver
     public void Move(ItemRef item, ItemRef target)
     {
         var name = Name(item);
+        var node = Com(item);
 
         // A POU MEMBER takes a different route, and the vendor forces it: `ExportChild` refuses a member because
         // TwinCAT keeps the whole POU — members and all — in ONE `.TcPOU`, so a member has no archive of its own.
         // Its placement is an attribute IN that file (`FolderPath`), which is what makes this expressible at all
         // (DIALECT D4j). So the round trip happens on the enclosing POU and only the attribute changes.
-        if (_om.EnclosingPouOf(item.Native) is { } pou)
+        if (_om.EnclosingPouOf(node) is { } pou)
         {
             var pouName = _om.GetName(pou);
-            var folder = _om.RelativePath(pou, target.Native);   // "" when the target IS the POU (back to its root)
-            _om.MoveMember(_om.Parent(pou), pouName, name, folder);
+            var folder = _om.RelativePath(pou, Com(target));   // "" when the target IS the POU (back to its root)
+            var pouParent = _om.Parent(pou);
+            // Its path, read BEFORE the round trip kills every handle into it (D4d): the lookup after it starts from the
+            // tree root, in the POU's own folder.
+            var pouPath = ItemPath.Of(WireFolderOf(pouParent), pouName);
+            _om.MoveMember(pouParent, pouName, name, folder);
 
             // CONFIRM it. The round trip reports success by side effect and has already deleted and re-imported
             // the POU by this point, so a placement that silently did not land would be indistinguishable from one
             // that did. Re-find the POU first: every handle into it is dead (D4d).
-            var written = ItemLookup.Find(this, pouName)
+            var written = ItemLookup.Find(this, pouPath)
                 ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"placed '{name}' but its POU '{pouName}' cannot be found afterwards");
             RequireMemberLanded(name, pouName, folder,
@@ -469,7 +527,7 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
-        _om.Move(_om.Parent(item.Native), target.Native, name);
+        _om.Move(_om.Parent(node), Com(target), name);
         // The archive round trip returns no handle and reports success by side effect, so CONFIRM it: a move that
         // silently landed nowhere would otherwise be indistinguishable from one that worked, and the caller has
         // already written the item's content by this point.
@@ -508,8 +566,17 @@ public sealed partial class BeckhoffDriver
     // is `X.dut` for every one of them (`Materializer`). The code says nothing reliable about the shape anyway: a
     // push-create always seeds 606 whatever the body (`TcObjectModel.CreateChild`), and an in-place write of another
     // shape keeps the OLD code in the live session until a reload re-derives it (DIALECT C2e).
-    private int ClassifiedKind(object node) =>
-        node is TcProjectSettingsNode ? ItemKind.PlcProjectSettings : _om.ItemType(node);
+    private int ClassifiedKind(object node) => _om.ItemType(node);
+
+    /// <summary>The wire folder of a COM folder node of the ADDRESSED PLC project: its PLC project's path, then each
+    /// segment below the PLC project's root, encoded as the walk encodes them.</summary>
+    private string WireFolderOf(object folder)
+    {
+        var path = _om.CurrentPlc.Path;
+        foreach (var segment in _om.RelativePath(_om.PlcRoot(), folder).Split('\\'))
+            if (segment.Length > 0) path = FolderPath.Append(path, segment);
+        return path;
+    }
 
     /// <summary>Log an unmapped TwinCAT PLC tree-item code once, so a kind we may be missing is visible. The node is
     /// NOT skipped here — the walk emits it and Core drops it later as unmapped-kind; say so, because "(skipped)"

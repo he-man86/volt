@@ -147,12 +147,15 @@ export class ServerState {
     return undefined
   }
 
-  project(): Scope {
-    return this.store.project()
+  /** The table names in `uri` resolve against — its application's (`WorkspaceStore.project`); the whole project's when
+   *  no document is named. */
+  project(uri?: string): Scope {
+    return this.store.project(uri)
   }
 
-  workspace(): Document[] {
-    return this.store.workspace()
+  /** The documents in `uri`'s scope — its application's and the pool's; every document when none is named. */
+  workspace(uri?: string): Document[] {
+    return this.store.workspace(uri)
   }
 
   doc(uri: string): Document | undefined {

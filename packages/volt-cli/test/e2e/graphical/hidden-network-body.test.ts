@@ -15,11 +15,16 @@
  */
 import { describe, expect, afterAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
-import { id, fid, bridge, fetchItem, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
+import { id, fid, bridge, fetchItem, pushOps, requireHealthy, expectVendorDifference, BASE, inFolder, projectRoot } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** The project's own root (`projectRoot()`), read once the bridge serves — every item here is made there. */
+let root = ""
+/** The path of the test item `s` at {@link root}. */
+const rid = (s: string, ext = "pou") => inFolder(root, fid(s, ext))
 
 /** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -30,7 +35,7 @@ const LANGS = ["LD", "FBD"] as const
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
 
 const bareOf = (lang: string) => id(`hidnet_${lang.toLowerCase()}`)
-const itemOf = (lang: string) => fid(`hidnet_${lang.toLowerCase()}`, "pou")
+const itemOf = (lang: string) => rid(`hidnet_${lang.toLowerCase()}`, "pou")
 
 /** A PROGRAM whose body is one network in `lang` — the shape both vendors create and read back (graphical-kinds). */
 const created = (lang: string) =>
@@ -64,6 +69,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 	// Its setup CREATES the LD/FBD items: on a version that cannot take one, that is the expectation (lib/platform.ts).
 	it.beforeAll(async () => {
 		await requireHealthy()
+		root = await projectRoot()
 		const health = await bridge.health()
 		// This suite needs the IDE's ladder READABLE, i.e. network text on in the bridge; a production bridge would pull
 		// the "before" as the UNSUPPORTED line too and the comparison would prove nothing.
@@ -72,7 +78,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		project = servedProject(health)
 		for (const lang of LANGS) {
 			await clean(itemOf(lang))
-			const r = await pushOps([{ op: "set", name: itemOf(lang), toFolder: "", sourceText: created(lang), ifVersion: null }])
+			const r = await pushOps([{ op: "set", name: itemOf(lang), sourceText: created(lang), ifVersion: null }])
 			expect(r.accepted, `create refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			await settle(lang)
 		}

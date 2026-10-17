@@ -29,6 +29,9 @@ import type { CompileEnvironment, Target } from "../frontend/syntax/index.js"
 export interface WorkspaceRefs {
   libraryManifests: readonly LibraryManifest[]
   devices: readonly DeviceInstance[]
+  /** The application roots the IDE stated, as absolute folders (`boundApplications`) — each a scope of its own
+   *  (openspec multi-application-tree, design §8). Empty: no baseline states any, and the workspace is one scope. */
+  applications: readonly string[]
   target?: Target
 }
 
@@ -58,8 +61,9 @@ export function workspaceEnvironment(refs: WorkspaceRefs): CompileEnvironment | 
 const deviceNameOf = (file: string): string | undefined => readFileSync(file, "utf8").match(/^Name:\s*(.+?)\s*$/m)?.[1]
 
 /** No workspace reference files known. */
-export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [] }
+export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [], applications: [] }
 import { SOURCE_EXTENSION_SET, SOURCE_EXTENSIONS } from "./source-extensions.js"
+import { boundApplications } from "./binding.js"
 
 /** The extensions of the reference files: the scanned ones that are no source. */
 export const REFERENCE_EXTENSIONS: ReadonlySet<string> = new Set([".library", ".device", ".projectsettings", ".task"])
@@ -159,6 +163,8 @@ const ioFailure = (e: unknown): string | undefined => {
 
 /** Collects the reference files one walk meets. */
 class RefCollector {
+  /** @param applications the workspace's application roots (`boundApplications`), read beside the reference files. */
+  constructor(private readonly applications: readonly string[]) {}
   private readonly libraryManifests: LibraryManifest[] = []
   private readonly devices: DeviceInstance[] = []
   private readonly deviceNames: string[] = []
@@ -189,7 +195,12 @@ class RefCollector {
 
   result(): Omit<WorkspaceRefScan, "unreadable"> {
     return {
-      refs: { libraryManifests: this.libraryManifests, devices: this.devices, ...withTarget(targetOfDevices(this.deviceNames)) },
+      refs: {
+        libraryManifests: this.libraryManifests,
+        devices: this.devices,
+        applications: this.applications,
+        ...withTarget(targetOfDevices(this.deviceNames)),
+      },
       taskRoots: this.taskRoots,
       paths: this.paths,
       ...(this.projectDiagnostics === undefined ? {} : { projectDiagnostics: this.projectDiagnostics }),
@@ -205,7 +216,7 @@ class RefCollector {
 export function scanWorkspace(root: string): WorkspaceScan {
   if (root.length === 0)
     return { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [], paths: [], unreadable: [], unreadableSources: [] }
-  const refs = new RefCollector()
+  const refs = new RefCollector(boundApplications(root))
   const sources: { path: string; source: string }[] = []
   const unreadable: Unreadable[] = []
   const unreadableSources: Unreadable[] = []
@@ -234,9 +245,9 @@ export function scanWorkspace(root: string): WorkspaceScan {
 
 /** The reference files alone — one walk that reads no source: what a reference-file or directory event re-runs. */
 export function scanWorkspaceRefs(root: string): WorkspaceRefScan {
-  const refs = new RefCollector()
   const unreadable: Unreadable[] = []
-  if (root.length === 0) return { ...refs.result(), unreadable } // no root: nothing known (`walkFiles("")` would walk the working directory)
+  if (root.length === 0) return { ...new RefCollector([]).result(), unreadable } // no root: nothing known (`walkFiles("")` would walk the working directory)
+  const refs = new RefCollector(boundApplications(root))
   const unlisted: Unreadable[] = []
   for (const file of walkFiles(root, unlisted)) {
     try {

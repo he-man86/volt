@@ -22,6 +22,7 @@ import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bu
 import { fixturePipeOrSkip } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { REF_PREFIX, bindBridge, normalize, pushFresh, refsOf, sweep, type Answer, type Bridge } from "./table"
+import { fileOf, folderOf, inFolder, mainProgram, pathIn } from "../lib/main-program"
 
 setDefaultTimeout(240_000)
 
@@ -49,7 +50,7 @@ async function errors(b: Bridge): Promise<string[]> {
 
 /** Reference `decl`/`body` from the main program, build, and put the main program back — whatever happens. */
 async function buildReferencing(b: Bridge, ref: { decl?: string; body?: string }): Promise<string[]> {
-	const main = "PLC_PRG.pou"
+	const main = mainProgram(await refsOf(b)).path
 	const m = await fetchOne(b, main)
 	if (!m) throw new Error(`${b.vendor}: the fixture has no ${main}`)
 	let src: string = m.sourceText
@@ -84,13 +85,13 @@ const ROWS: Row[] = [
 		run: async (b) => {
 			const bare = n("st_net")
 			const text = fb(bare, { body: "NETWORK\nx := 1;\nEND_NETWORK" })
-			const r = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: text, ifVersion: null }])
+			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.pou`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
-			expect(noBlanks((await fetchOne(b, `${bare}.pou`)).sourceText)).toBe(noBlanks(text))
+			expect(noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText)).toBe(noBlanks(text))
 			const errs = await buildReferencing(b, { decl: `v : ${bare};`, body: "v();" })
 			console.log(`[behaviour ${b.vendor}] 1.1 build:`, JSON.stringify(errs))
 			expect(errorsOf(errs, bare).length, `${b.vendor}: the build reported nothing at ${bare} for NETWORK under IMPLEMENTATION ST`).toBeGreaterThan(0)
-			return { text: noBlanks((await fetchOne(b, `${bare}.pou`)).sourceText) }
+			return { text: noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText) }
 		},
 	},
 	{
@@ -99,12 +100,12 @@ const ROWS: Row[] = [
 		run: async (b) => {
 			const bare = n("implv")
 			const text = fb(bare, { vars: "VAR\n\tx : INT;\n\timplementation : INT;\nEND_VAR", body: "x := implementation;" })
-			const r = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: text, ifVersion: null }])
+			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.pou`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
-			expect(noBlanks((await fetchOne(b, `${bare}.pou`)).sourceText)).toBe(noBlanks(text))
+			expect(noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText)).toBe(noBlanks(text))
 			const errs = await buildReferencing(b, { decl: `v : ${bare};`, body: "v();" })
 			expect(errs, `${b.vendor}: a variable named implementation does not build`).toEqual([])
-			return { text: noBlanks((await fetchOne(b, `${bare}.pou`)).sourceText) }
+			return { text: noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText) }
 		},
 	},
 	{
@@ -113,9 +114,9 @@ const ROWS: Row[] = [
 		run: async (b) => {
 			const bare = n("retired_st")
 			const text = fb(bare, { body: "(* @volt-x *)\nx := x + 1;" })
-			const r = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: text, ifVersion: null }])
+			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.pou`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
-			const back = noBlanks((await fetchOne(b, `${bare}.pou`)).sourceText)
+			const back = noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText)
 			expect(back).toBe(noBlanks(text))
 			return { text: back }
 		},
@@ -126,11 +127,11 @@ const ROWS: Row[] = [
 		run: async (b) => {
 			const bare = n("retired_gvl")
 			const text = `(* @volt-impl *)\nVAR_GLOBAL\n\t${bare}_g : INT;\nEND_VAR`
-			const r = await pushFresh(b, [{ op: "set", name: `${bare}.gvl`, toFolder: "", sourceText: text, ifVersion: null }])
+			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.gvl`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			const refs = await refsOf(b)
-			expect((refs.unreadable ?? []).map((u: { name: string }) => u.name)).not.toContain(bare)
-			const back = noBlanks((await fetchOne(b, `${bare}.gvl`)).sourceText)
+			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain(bare)
+			const back = noBlanks((await fetchOne(b, b.path(`${bare}.gvl`))).sourceText)
 			expect(back).toBe(noBlanks(text))
 			return { text: back }
 		},
@@ -145,9 +146,9 @@ const ROWS: Row[] = [
 		title: "4.26 a GVL text with a body after IMPLEMENTATION ST is written whole (nothing dropped); the build reports it",
 		run: async (b) => {
 			const bare = n("gvl_body")
-			const name = `${bare}.gvl`
+			const name = b.path(`${bare}.gvl`)
 			const text = `VAR_GLOBAL\n\t${bare}_g : INT;\nEND_VAR\n${MARK}\n${bare}_g := 1;\n`
-			const r = await pushFresh(b, [{ op: "set", name, toFolder: "", sourceText: text, ifVersion: null }])
+			const r = await pushFresh(b, [{ op: "set", name, sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			const back = (await fetchOne(b, name)).sourceText
 			expect(back, `${b.vendor}: the GVL is not held as sent`).toBe(text)
@@ -162,15 +163,15 @@ const ROWS: Row[] = [
 		title: "4.31 a move into the library manager (a node that is no folder) is refused in the pre-flight; nothing moves",
 		run: async (b) => {
 			const bare = n("mv_lib")
-			const name = `${bare}.pou`
-			const create = await pushFresh(b, [{ op: "set", name, toFolder: "", sourceText: fb(bare), ifVersion: null }])
+			const name = b.path(`${bare}.pou`)
+			const create = await pushFresh(b, [{ op: "set", name, sourceText: fb(bare), ifVersion: null }])
 			expect(accepted(create), `${b.vendor}: setup create refused: ${JSON.stringify(create)}`).toBe(true)
 			const before = await refsOf(b)
 			// The library manager node, from where the bridge itself puts a library: the parent of any `.library` folder.
-			const lib = Object.keys(before.folders).find((k) => k.endsWith(".library"))
+			const lib = Object.keys(before.items).find((k) => k.endsWith(".library"))
 			if (!lib) throw new Error(`${b.vendor}: the fixture references no library`)
-			const target = before.folders[lib].slice(0, before.folders[lib].lastIndexOf("/"))
-			const r = await pushFresh(b, [{ op: "set", name, toFolder: target, sourceText: fb(bare), ifVersion: before.items[name] }])
+			const target = folderOf(folderOf(lib))
+			const r = await pushFresh(b, [{ op: "set", name, to: inFolder(target, fileOf(name)), sourceText: fb(bare), ifVersion: before.items[name] }])
 			console.log(`[behaviour ${b.vendor}] 4.31:`, JSON.stringify(r).slice(0, 600))
 			const c = r.kind === "push" ? (r.response.conflicts ?? []).find((x: any) => x.name === name) : undefined
 			expect(c, `${b.vendor}: a move into '${target}' was not refused: ${JSON.stringify(r)}`).toBeDefined()
@@ -190,9 +191,10 @@ const ROWS: Row[] = [
 		title: "D27 a CFC body pulls whole — declaration and the language-naming marker, never a dropped POU",
 		run: async (b) => {
 			const refs = await refsOf(b)
-			expect(refs.items["VltFixtureCfc.pou"], `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
-			expect((refs.unreadable ?? []).map((u: { name: string }) => u.name)).not.toContain("VltFixtureCfc")
-			const text = (await fetchOne(b, "VltFixtureCfc.pou")).sourceText as string
+			const cfc = pathIn(refs.items, "VltFixtureCfc.pou")
+			expect(cfc, `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
+			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain("VltFixtureCfc")
+			const text = (await fetchOne(b, cfc!)).sourceText as string
 			expect(text).toContain("\nIMPLEMENTATION CFC UNSUPPORTED\n")
 			// Whole: the declaration (its header and its VAR block) stands above the marker — a marker alone is the drop
 			// D27 rules out. The KIND is each fixture's own (CODESYS authored a FUNCTION_BLOCK, TwinCAT a PROGRAM).
@@ -209,42 +211,43 @@ const ROWS: Row[] = [
 			const [fbA, fbB, fnA, fnB, p] = ["ren_fbA", "ren_fbB", "ren_fnA", "ren_fnG", "ren_call"].map(n)
 			const callerText = `PROGRAM ${p}\nVAR\n\tinst : ${fbA}; (* an ${fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${fnA}(a := 1); // calls ${fnA}\nEND_PROGRAM\n`
 			const made = await pushFresh(b, [
-				{ op: "set", name: `${fbA}.pou`, toFolder: "", ifVersion: null,
+				{ op: "set", name: b.path(`${fbA}.pou`), ifVersion: null,
 				  sourceText: `// ${fbA} helper\nFUNCTION_BLOCK ${fbA}\nVAR\n\tpSelf : POINTER TO ${fbA};\nEND_VAR\n${MARK}\npSelf := 0; // sets ${fbA}\nEND_FUNCTION_BLOCK\n` },
-				{ op: "set", name: `${fnA}.pou`, toFolder: "", ifVersion: null,
+				{ op: "set", name: b.path(`${fnA}.pou`), ifVersion: null,
 				  sourceText: `FUNCTION ${fnA} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${MARK}\n${fnA} := a > 0; // sets ${fnA}\nEND_FUNCTION\n` },
-				{ op: "set", name: `${p}.pou`, toFolder: "", ifVersion: null, sourceText: callerText },
+				{ op: "set", name: b.path(`${p}.pou`), ifVersion: null, sourceText: callerText },
 			])
 			expect(accepted(made), `${b.vendor}: setup refused: ${JSON.stringify(made)}`).toBe(true)
 			const v0 = (await refsOf(b)).items
-			const [fbText, fnText, callText] = await Promise.all([`${fbA}.pou`, `${fnA}.pou`, `${p}.pou`].map(async (x) => (await fetchOne(b, x)).sourceText as string))
+			const [fbText, fnText, callText] = await Promise.all([`${fbA}.pou`, `${fnA}.pou`, `${p}.pou`].map(async (x) => (await fetchOne(b, b.path(x))).sourceText as string))
 
 			// Alone: only the headers change; the caller and the items' own references keep the old names.
 			const alone = await pushFresh(b, [
-				{ op: "set", name: `${fbA}.pou`, toName: `${fbB}.pou`, ifVersion: v0[`${fbA}.pou`] },
-				{ op: "set", name: `${fnA}.pou`, toName: `${fnB}.pou`, ifVersion: v0[`${fnA}.pou`] },
+				{ op: "set", name: b.path(`${fbA}.pou`), to: b.path(`${fbB}.pou`), ifVersion: v0[b.path(`${fbA}.pou`)] },
+				{ op: "set", name: b.path(`${fnA}.pou`), to: b.path(`${fnB}.pou`), ifVersion: v0[b.path(`${fnA}.pou`)] },
 			], { returnSources: true })
 			expect(accepted(alone), `${b.vendor}: rename refused: ${JSON.stringify(alone)}`).toBe(true)
 			const v1 = (await refsOf(b)).items
-			expect((await fetchOne(b, `${fbB}.pou`)).sourceText).toBe(fbText.replace(`FUNCTION_BLOCK ${fbA}\n`, `FUNCTION_BLOCK ${fbB}\n`))
-			expect((await fetchOne(b, `${fnB}.pou`)).sourceText).toBe(fnText.replace(`FUNCTION ${fnA} :`, `FUNCTION ${fnB} :`))
-			expect((await fetchOne(b, `${p}.pou`)).sourceText, `${b.vendor}: the caller changed`).toBe(callText)
-			expect(v1[`${p}.pou`], `${b.vendor}: the caller's version moved`).toBe(v0[`${p}.pou`])
-			expect(Object.keys((alone as any).response.newSources ?? {}).sort()).toEqual([`${fbB}.pou`, `${fnB}.pou`].sort())
+			expect((await fetchOne(b, b.path(`${fbB}.pou`))).sourceText).toBe(fbText.replace(`FUNCTION_BLOCK ${fbA}\n`, `FUNCTION_BLOCK ${fbB}\n`))
+			expect((await fetchOne(b, b.path(`${fnB}.pou`))).sourceText).toBe(fnText.replace(`FUNCTION ${fnA} :`, `FUNCTION ${fnB} :`))
+			expect((await fetchOne(b, b.path(`${p}.pou`))).sourceText, `${b.vendor}: the caller changed`).toBe(callText)
+			expect(v1[b.path(`${p}.pou`)], `${b.vendor}: the caller's version moved`).toBe(v0[b.path(`${p}.pou`)])
+			expect(Object.keys((alone as any).response.newSources ?? {}).sort()).toEqual([b.path(`${fbB}.pou`), b.path(`${fnB}.pou`)].sort())
 
 			// With its caller, the caller FIRST (written before the renames): the caller holds the text sent.
 			const sent = callText.replace(`inst : ${fbA};`, `inst : ${fbB};`).replace(`ok := ${fnA}(`, `ok := ${fnB}(`)
 			const together = await pushFresh(b, [
-				{ op: "set", name: `${p}.pou`, sourceText: sent, ifVersion: v1[`${p}.pou`] },
-				{ op: "set", name: `${fbB}.pou`, toName: `${fbA}.pou`, ifVersion: v1[`${fbB}.pou`] },
+				{ op: "set", name: b.path(`${p}.pou`), sourceText: sent, ifVersion: v1[b.path(`${p}.pou`)] },
+				{ op: "set", name: b.path(`${fbB}.pou`), to: b.path(`${fbA}.pou`), ifVersion: v1[b.path(`${fbB}.pou`)] },
 			])
 			expect(accepted(together), `${b.vendor}: rename + caller refused: ${JSON.stringify(together)}`).toBe(true)
-			expect((await fetchOne(b, `${p}.pou`)).sourceText, `${b.vendor}: the caller does not hold the text sent`).toBe(sent)
-			expect((await fetchOne(b, `${fbA}.pou`)).sourceText).toBe(fbText)
+			expect((await fetchOne(b, b.path(`${p}.pou`))).sourceText, `${b.vendor}: the caller does not hold the text sent`).toBe(sent)
+			expect((await fetchOne(b, b.path(`${fbA}.pou`))).sourceText).toBe(fbText)
 
 			const refs = await refsOf(b)
-			const mine = Object.keys(refs.items).filter((k) => k.startsWith(n("ren_"))).sort()
-			return Object.fromEntries(await Promise.all(mine.map(async (k) => [k, { version: refs.items[k], text: (await fetchOne(b, k)).sourceText }])))
+			const mine = Object.keys(refs.items).filter((k) => fileOf(k).startsWith(n("ren_"))).sort()
+			// By file name and text: the path carries each vendor's spine, and a version is hashed over it.
+			return Object.fromEntries(await Promise.all(mine.map(async (k) => [fileOf(k), { text: (await fetchOne(b, k)).sourceText }])))
 		},
 	},
 ]
@@ -253,7 +256,7 @@ function accepted(a: Answer): boolean {
 	return a.kind === "push" && a.response.accepted === true && (a.response.conflicts ?? []).length === 0
 }
 
-const stateOf = (r: any) => ({ projectVersion: r.projectVersion, items: r.items, folders: r.folders, unreadable: r.unreadable })
+const stateOf = (r: any) => ({ projectVersion: r.projectVersion, items: r.items, unreadable: r.unreadable })
 
 for (const vendor of VENDORS) {
 	describe(`refusals — behaviour changes, live (${vendor})`, () => {

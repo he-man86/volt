@@ -3,7 +3,7 @@
  *
  * <p>`PushService` removes a folder this push emptied, the way git removes a directory once its last file
  * goes. That behaviour is asserted OFFLINE (`Volt.Engine.Tests/sync/FolderPruneTests`), and it has to be,
- * because an empty folder is UNREPRESENTABLE on this wire: `refs`/`fetch` publish `folders` keyed BY ITEM,
+ * because an empty folder is UNREPRESENTABLE on this wire: `refs`/`fetch` publish only item paths,
  * and `ProjectSnapshot.IsTracked` excludes container managers from the version hashes. A folder holding
  * nothing changes nothing a client can observe.</p>
  *
@@ -17,7 +17,7 @@
  * `probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`) and a COM tree walk.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, BASE } from "../harness"
+import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, BASE, inFolder, folderOf } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
@@ -34,10 +34,8 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 
 	/** Does any item sit in `folder`, or under it? That is the only question the wire can answer about a folder. */
 	const inhabited = async (folder: string): Promise<boolean> => {
-		const folders = (await bridge.refs()).folders ?? {}
-		return Object.values(folders).some(
-			(f) => typeof f === "string" && (f === folder || f.startsWith(folder + "/")),
-		)
+		const folders = Object.keys((await bridge.refs()).items ?? {}).map(folderOf)
+		return folders.some((f) => f === folder || f.startsWith(folder + "/"))
 	}
 
 	/**
@@ -51,10 +49,10 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 	 */
 	async function emptyBy(how: "delete" | "move", key: string, sub: string): Promise<string> {
 		const folder = await plcFolder(sub)
-		const name = fid(key)
+		const name = inFolder(folder, fid(key))
 
 		const created = await pushOps([
-			{ op: "set", name, toFolder: folder, sourceText: fb(id(key)), ifVersion: null },
+			{ op: "set", name, sourceText: fb(id(key)), ifVersion: null },
 		])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		expect(await inhabited(folder), "the item did not land in the folder under test").toBe(true)
@@ -63,7 +61,7 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const away =
 			how === "delete"
 				? [{ op: "deleteItem", name, ifVersion: refs.items[name] }]
-				: [{ op: "set", name, toFolder: await plcFolder(), ifVersion: refs.items[name] }]
+				: [{ op: "set", name, to: inFolder(await plcFolder(), fid(key)), ifVersion: refs.items[name] }]
 
 		const r = await pushOps(away)
 		expect(r.accepted, `${how} refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
@@ -81,9 +79,9 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 	/** A three-deep chain, which is the recursive case the offline suite asserts the removal of. */
 	it("a push that empties a three-deep chain is accepted", async () => {
 		const deep = await plcFolder("VltPruneChain/Mid/Leaf")
-		const name = fid("pr_chain")
+		const name = inFolder(deep, fid("pr_chain"))
 
-		expect((await pushOps([{ op: "set", name, toFolder: deep, sourceText: fb(id("pr_chain")), ifVersion: null }])).accepted).toBe(true)
+		expect((await pushOps([{ op: "set", name, sourceText: fb(id("pr_chain")), ifVersion: null }])).accepted).toBe(true)
 
 		const refs = await bridge.refs()
 		expect((await pushOps([{ op: "deleteItem", name, ifVersion: refs.items[name] }])).accepted).toBe(true)
@@ -97,12 +95,12 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 	it("a sibling in an untouched folder is not disturbed", async () => {
 		const parent = await plcFolder("VltPruneKeep")
 		const goes = await plcFolder("VltPruneKeep/Goes")
-		const stays = fid("pr_stay")
-		const leaves = fid("pr_leave")
+		const stays = inFolder(parent, fid("pr_stay"))
+		const leaves = inFolder(goes, fid("pr_leave"))
 
 		expect((await pushOps([
-			{ op: "set", name: stays, toFolder: parent, sourceText: fb(id("pr_stay")), ifVersion: null },
-			{ op: "set", name: leaves, toFolder: goes, sourceText: fb(id("pr_leave")), ifVersion: null },
+			{ op: "set", name: stays, sourceText: fb(id("pr_stay")), ifVersion: null },
+			{ op: "set", name: leaves, sourceText: fb(id("pr_leave")), ifVersion: null },
 		])).accepted).toBe(true)
 
 		const refs = await bridge.refs()

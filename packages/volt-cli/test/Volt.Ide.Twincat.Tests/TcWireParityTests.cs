@@ -24,7 +24,7 @@ public class TcWireParityTests
     }
 
     private static string Manifest(string xml, string kind) =>
-        new BeckhoffDriver(new TcObjectModel()).ReadManifest(new ItemRef(new XmlItem(xml)), kind);
+        new BeckhoffDriver(new TcObjectModel()).ReadManifest(TcRefs.LooseRef(new XmlItem(xml)), kind);
 
     [Theory]
     [InlineData(ItemKind.Kinds.Visualization, WireParityCases.VisualizationStub)]
@@ -105,9 +105,10 @@ public class TcWireParityTests
     {
         var getter = new TcHiddenBodyWriteTests.Node("Get", ItemKind.PlcItfPropGet, "", "");
         var property = new TcHiddenBodyWriteTests.Node("Speed", ItemKind.PlcItfProp, "PROPERTY Speed : INT", "", getter);
-        var site = new MemberSites.Site(null, new ItemRef(property), "Speed", ItemKind.PlcItfProp);
+        var driver = TcUntouchablePouTests.BoundDriver();
+        var site = new MemberSites.Site(null, TcRefs.Ref(property), "Speed", ItemKind.PlcItfProp);
 
-        var member = TcUntouchablePouTests.BoundDriver().ReadMember(site, ownerIsInterface: true, WireParityCases.InterfaceDeclaration);
+        var member = driver.ReadMember(site, ownerIsInterface: true, WireParityCases.InterfaceDeclaration);
 
         Assert.Equal(WireParityCases.InterfaceWithGetter,
             StWriter.Write(new ItemContent(ItemKind.Kinds.Interface, WireParityCases.InterfaceDeclaration, null,

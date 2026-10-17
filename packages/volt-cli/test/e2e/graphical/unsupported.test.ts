@@ -29,7 +29,7 @@
  * library functions are now skipped and counted (DIALECT D20).</p>
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, fetchItem, requireHealthy, BASE } from "../harness"
+import { bridge, fetchItem, requireHealthy, BASE, fileOf } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -43,7 +43,7 @@ const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 /** A well-formed ST body of the SAME KIND as the item named — so a push carries only the change under test. Every POU
  *  is `X.pou` (push-without-header-check 5.Q), so the kind is the one the item's own text declares. */
 function stOfSameKind(fullName: string, heldText: string): string {
-	const bare = fullName.split(".")[0]!
+	const bare = fileOf(fullName).split(".")[0]!
 	const kw = /^\s*(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b/m.exec(heldText)?.[1]
 	if (!kw) throw new Error(`${fullName} holds no PROGRAM / FUNCTION_BLOCK / FUNCTION header to match`)
 	const head = kw === "FUNCTION" ? `${kw} ${bare} : INT` : `${kw} ${bare}`
@@ -59,7 +59,7 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 		await requireHealthy()
 		const refs = await bridge.refs()
 		for (const [, bare] of CASES) {
-			const full = Object.keys(refs.items).find((n) => n.startsWith(`${bare}.`))
+			const full = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${bare}.`))
 			if (!full) throw new Error(
 				`fixture POU '${bare}' is missing from this project — it is committed, and the suite cannot ` +
 				`create one (Volt never creates a diagram). Re-add it in the IDE, not by hand.`)

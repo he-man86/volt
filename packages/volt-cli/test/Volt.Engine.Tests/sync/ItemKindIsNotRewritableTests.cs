@@ -57,7 +57,7 @@ public class ItemKindIsNotRewritableTests
             {
                 new SetItemOp
                 {
-                    Name = "K.pou", ToName = "K.dut", IfVersion = refs.Items["K.pou"],
+                    Name = "K.pou", To = "K.dut", IfVersion = refs.Items["K.pou"],
                     SourceText = "TYPE K :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n",
                 },
             },

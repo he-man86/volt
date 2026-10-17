@@ -50,3 +50,32 @@ export function boundVendor(folder: string): Vendor | undefined {
   if (vendor === "codesys" || vendor === "twincat") return vendor
   throw new Error(`${file} states no vendor (bridge.vendor is ${JSON.stringify(vendor)}) — re-run \`volt init --vendor <codesys|twincat>\``)
 }
+
+/**
+ * THE APPLICATIONS THE IDE STATED for the workspace at `folder` (openspec multi-application-tree, design §3): the roots
+ * `volt pull` recorded in `<git dir>/volt/ide-refs.json` (the C# `Sidecar.IdeRefs.Applications`), each an item path under
+ * the workspace's `src/` (the CLI's `Files.SrcDir`), as an absolute folder. A workspace with no baseline yet states none
+ * (`[]`); a baseline that does not state them is refused by name — it predates item paths, and guessing the applications
+ * from vendor segments would be a parse of the IDE's tree no client makes.
+ */
+export function boundApplications(folder: string): string[] {
+  const dir = gitDir(folder)
+  if (dir === undefined) return []
+  const file = join(dir, "volt", "ide-refs.json")
+  let raw: string
+  try {
+    raw = readFileSync(file, "utf8")
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT" || (e as NodeJS.ErrnoException).code === "ENOTDIR") return []
+    throw e
+  }
+  let applications: unknown
+  try {
+    applications = (JSON.parse(raw) as { applications?: unknown } | null)?.applications
+  } catch {
+    throw new Error(`${file} is not JSON — run \`volt pull\` to rebuild the baseline`)
+  }
+  if (!Array.isArray(applications) || !applications.every((a) => typeof a === "string"))
+    throw new Error(`${file} states no applications — it predates item paths: run \`volt pull\` to rebuild the baseline`)
+  return applications.map((a: string) => join(folder, "src", ...a.split("/")))
+}

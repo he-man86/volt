@@ -36,7 +36,7 @@ public class PushDeleteGuardTests
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+                new SetItemOp { Name = folder.Length == 0 ? $"{name}.pou" : $"{folder}/{name}.pou", SourceText = Prg(name), IfVersion = null },
             },
         });
         return ide;
@@ -134,7 +134,7 @@ public class PushDeleteGuardTests
     public void A_delete_of_an_item_the_walk_could_not_see_is_not_blamed_on_a_race()
     {
         var ide = WithItem("Hidden", folder: "Machine");
-        var version = RefsService.Handle(ide).Items["Hidden.pou"];
+        var version = RefsService.Handle(ide).Items["Machine/Hidden.pou"];
 
         // The folder stops enumerating: the pre-apply walk misses the item, `ItemLookup.Find` still resolves it.
         ide.UnwalkableFolders = new[] { "Machine" };
@@ -142,7 +142,7 @@ public class PushDeleteGuardTests
         // from the complete walk — is satisfied and the delete guard is the only thing left that can refuse.
         var lease = RefsService.Handle(ide).ProjectVersion;
 
-        var res = Delete(ide, "Hidden.pou", version, lease);
+        var res = Delete(ide, "Machine/Hidden.pou", version, lease);
 
         // Refused is right — a partial walk cannot verify anything. What must NOT happen is the delete guard
         // inventing a hash mismatch and reporting a concurrent edit.

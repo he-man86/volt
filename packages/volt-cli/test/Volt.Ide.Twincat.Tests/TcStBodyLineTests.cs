@@ -15,7 +15,7 @@ public class TcStBodyLineTests
     [InlineData("x := a OR\nIMPLEMENTATION")]
     public void An_ST_body_holding_the_identifier_on_its_own_line_is_pulled_as_written(string body)
     {
-        var read = new BeckhoffDriver(new TcObjectModel()).ReadContent(new ItemRef(
+        var read = new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(
             new TcHiddenBodyWriteTests.Node("FB", ItemKind.PlcPou, "FUNCTION_BLOCK FB\nVAR\n\ta, b, x, implementation : BOOL;\nEND_VAR", body)));
 
         Assert.Equal(body, read.Body);

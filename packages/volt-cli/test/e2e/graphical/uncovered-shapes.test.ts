@@ -19,7 +19,7 @@ import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:te
 import {
 
 	id, fid, bridge, requireHealthy, BASE, expectRoundTrip, expectRoundTripOrRefusal, diagnostics,
-	removeItem, createItem, fetchItem, pushOps, versionOf,
+	removeItem, createItem, fetchItem, pushOps, versionOf, fileOf, pathOf,
 } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
@@ -38,7 +38,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	// and that cascade is measured (`workspace.ts` sweepOnce).
 	afterAll(async () => {
 		const refs = await bridge.refs()
-		const mine = Object.keys(refs.items ?? {}).filter((n) => n.startsWith(id("")))
+		const mine = Object.keys(refs.items ?? {}).filter((n) => fileOf(n).startsWith(id("")))
 		if (mine.length === 0) return
 		await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
@@ -172,7 +172,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([
-			{ op: "set", name: item, toFolder: null, sourceText: back, ifVersion: await versionOf(item) },
+			{ op: "set", name: await pathOf(item), sourceText: back, ifVersion: await versionOf(item) },
 		])
 		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await fetchItem(item)).sourceText, "the body drifted on a second push").toBe(back)

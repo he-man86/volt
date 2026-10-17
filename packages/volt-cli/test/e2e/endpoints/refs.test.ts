@@ -1,6 +1,6 @@
 /** /refs — determinism and the parallel items/kinds/folders maps. */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE, inFolder } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / refs (${BASE})`, () => {
@@ -23,7 +23,7 @@ describe(`endpoints / refs (${BASE})`, () => {
 		// items; both maps are real objects, and `unreadable` is part of the contract too (an item the walk could
 		// not materialize is reported, never silently absent — absence is what a pull turns into a DELETION).
 		expect(r.items, "refs.items must be a map, not null").toBeInstanceOf(Object)
-		expect(r.folders, "refs.folders must be a map, not null").toBeInstanceOf(Object)
+		expect(Array.isArray(r.applications), "refs must state the applications").toBe(true)
 		expect(Object.keys(r.items).length, "the project under test has items").toBeGreaterThan(0)
 		expect(Array.isArray(r.unreadable), "refs must report unreadable items").toBe(true)
 	})
@@ -34,13 +34,11 @@ describe(`endpoints / refs (${BASE})`, () => {
 		expect(a.projectVersion).toBe(b.projectVersion)
 	})
 
-	it("the parallel maps are consistent for a created item", async () => {
+	it("a created item is keyed by its path: its folder and its file name", async () => {
 		const name = id("r_maps")
 		await createItem(fid("r_maps"), fb(name), await plcFolder("POUs/Sub"))
 		await ensureCompiles(name)
 		const r = await bridge.refs()
-		const fullName = name + ".pou"
-		expect(r.items[fullName]).toBeDefined()
-		expect(r.folders[fullName]).toBe(await plcFolder("POUs/Sub"))
+		expect(r.items[inFolder(await plcFolder("POUs/Sub"), name + ".pou")]).toBeDefined()
 	})
 })

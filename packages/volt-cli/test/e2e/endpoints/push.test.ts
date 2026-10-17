@@ -1,6 +1,6 @@
 /** /push — the 4 ops' guards, atomic batch, conflict shapes, and receipt==next-/refs. */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE, plcFolder } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE, plcFolder, at, applicationRoot } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / push (${BASE})`, () => {
@@ -11,10 +11,10 @@ describe(`endpoints / push (${BASE})`, () => {
 	afterAll(cleanup)
 
 	it("rejects an update with a wrong ifVersion", async () => {
-		const name = id("p_ver"), wire = fid("p_ver")
+		const name = id("p_ver"), wire = await at(fid("p_ver"))
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
-		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: await plcFolder(FOLDER), sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
+		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
 		// THE CODE, NOT THE SENTENCE. This asserted the exact English, back when the message was the only thing
 		// a caller could match on; the gate's four outcomes now carry four codes, and the versions ride along.
@@ -25,10 +25,10 @@ describe(`endpoints / push (${BASE})`, () => {
 	})
 
 	it("rejects a create (ifVersion=null) when the item already exists", async () => {
-		const name = id("p_exists"), wire = fid("p_exists")
+		const name = id("p_exists"), wire = await at(fid("p_exists"))
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
-		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: await plcFolder(FOLDER), sourceText: fb(name), ifVersion: null }] })
+		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, sourceText: fb(name), ifVersion: null }] })
 		expect(r.accepted).toBe(false)
 		expect(r.conflicts.some((c: any) => c.name === wire && c.code === "ITEM_EXISTS")).toBe(true)
 	})
@@ -40,7 +40,7 @@ describe(`endpoints / push (${BASE})`, () => {
 	})
 
 	it("rejects a delete with a wrong ifVersion", async () => {
-		const name = id("p_del"), wire = fid("p_del")
+		const name = id("p_del"), wire = await at(fid("p_del"))
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: wire, ifVersion: "wrongversion" }] })
@@ -57,7 +57,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		// A delete whose target doesn't exist is a no-op success — the goal state (absent) already holds. This is
 		// also the UNREADABLE-sentinel cleanup path (purge an accepted-but-unenumerable item without a real
 		// version). Before the fix this was rejected "expected item to exist but it doesn't".
-		const gone = fid("p_gone")   // never created
+		const gone = await at(fid("p_gone"))   // never created
 		const r = await bridge.push({
 			expectedProjectVersion: (await bridge.refs()).projectVersion,
 			ops: [{ op: "deleteItem", name: gone, ifVersion: "UNREADABLE000000" }],
@@ -75,8 +75,9 @@ describe(`endpoints / push (${BASE})`, () => {
 	// writing first makes a refusal atomic); the handle just cannot be reused across it.
 	it("moves an EXISTING item and edits it in one op", async () => {
 		const name = id("mv_edit")
-		const wire = fid("mv_edit")
-		await createItem(wire, fb(name), "")            // starts at the project root
+		const wire = await at(fid("mv_edit"), await applicationRoot())
+		const moved = await at(wire)
+		await createItem(wire, fb(name), await applicationRoot())            // starts at the application root (a move stays in its application)
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({
@@ -84,33 +85,34 @@ describe(`endpoints / push (${BASE})`, () => {
 			ops: [{
 				op: "set",
 				name: wire,
-				toFolder: await plcFolder(FOLDER),                        // …and moves into POUs
+				to: moved,                        // …and moves into POUs
 				sourceText: fb(name, { body: "x := 42;" }),
 				ifVersion: refs.items[wire],
 			}],
 		})
-		expect(r.accepted).toBe(true)
+		expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)
 
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [moved] })).changed.find((i: any) => i.name === moved)
 		expect(after).toBeDefined()
 		expect(after.sourceText).toContain("x := 42;")                     // the edit landed…
-		expect((await bridge.refs()).folders[wire]).toBe(await plcFolder(FOLDER))   // …and so did the move,
+		const items = (await bridge.refs()).items
+		expect([items[moved] !== undefined, items[wire] !== undefined]).toEqual([true, false])   // …and so did the move,
 		// to the REAL folder. This was `.endsWith(FOLDER)` because the push above sent a bare name and
 		// landed a stray `POUs` at the project root; an exact compare would have caught that.
 	})
 
 	it("applies create + update + delete atomically", async () => {
 		const add = id("p_add"), upd = id("p_upd"), del = id("p_del2")
-		const addKey = fid("p_add"), updKey = fid("p_upd"), delKey = fid("p_del2")
+		const addKey = await at(fid("p_add")), updKey = await at(fid("p_upd")), delKey = await at(fid("p_del2"))
 		await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [
-			{ op: "set", name: updKey, toFolder: await plcFolder(FOLDER), sourceText: fb(upd), ifVersion: null },
-			{ op: "set", name: delKey, toFolder: await plcFolder(FOLDER), sourceText: fb(del), ifVersion: null },
+			{ op: "set", name: updKey, sourceText: fb(upd), ifVersion: null },
+			{ op: "set", name: delKey, sourceText: fb(del), ifVersion: null },
 		] })
 		await ensureCompiles(upd)
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [
-			{ op: "set", name: addKey, toFolder: await plcFolder(FOLDER), sourceText: fb(add, { body: "x := 1;" }), ifVersion: null },
-			{ op: "set", name: updKey, toFolder: await plcFolder(FOLDER), sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[updKey] },
+			{ op: "set", name: addKey, sourceText: fb(add, { body: "x := 1;" }), ifVersion: null },
+			{ op: "set", name: updKey, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[updKey] },
 			{ op: "deleteItem", name: delKey, ifVersion: refs.items[delKey] },
 		] })
 		expect(r.accepted).toBe(true)
@@ -125,12 +127,12 @@ describe(`endpoints / push (${BASE})`, () => {
 
 	it("rejects the WHOLE batch if any op conflicts — nothing applied", async () => {
 		const ok = id("p_ok"), bad = id("p_bad")
-		const okKey = fid("p_ok"), badKey = fid("p_bad")
+		const okKey = await at(fid("p_ok")), badKey = await at(fid("p_bad"))
 		await createItem(badKey, fb(bad))
 		await ensureCompiles(bad)
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [
-			{ op: "set", name: okKey, toFolder: await plcFolder(FOLDER), sourceText: fb(ok), ifVersion: null },      // OK
+			{ op: "set", name: okKey, sourceText: fb(ok), ifVersion: null },      // OK
 			{ op: "deleteItem", name: badKey, ifVersion: "wrongversion" },                              // CONFLICT
 		] })
 		expect(r.accepted).toBe(false)

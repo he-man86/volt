@@ -93,7 +93,7 @@ public class TcHiddenBodyWriteTests
             }, ObjectProperties.None);
 
         // Bound, as every production write is: each child access passes the C2i guard (TcUntouchablePouTests).
-        TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou), content, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+        TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou), content, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
         Assert.Contains("bStart : BOOL;", pou.DeclarationText);
         Assert.Contains("n : INT;", method.DeclarationText);

@@ -49,7 +49,7 @@ public class TcWalkUnreadableObjectTests
         public Children Child { get; }
     }
 
-    public sealed class Plc { public Plc(Node nested) => NestedProject = nested; public Node NestedProject { get; } }
+    public sealed class Plc { public Plc(Node nested) => NestedProject = nested; public Node NestedProject { get; } public string Name => "Untitled2"; }
 
     [Fact]
     public void A_node_whose_kind_faults_is_named_with_its_folder_and_the_walk_goes_on()
@@ -65,10 +65,10 @@ public class TcWalkUnreadableObjectTests
 
         var walk = driver.WalkItems();
 
-        Assert.Equal(new[] { "PlcDataType", "Project Settings" }, walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { TcUntouchablePouTests.SystemDescriptor, "PlcDataType", "Project Settings" }, walk.Items.Select(i => i.Name));
         var lost = Assert.Single(walk.UnreadableObjects);
-        Assert.Equal(("SER_OperationModeType", "Data"), (lost.Name, lost.Folder));
-        Assert.Contains("Data", walk.UnwalkedFolders);
+        Assert.Equal(("SER_OperationModeType", TcUntouchablePouTests.App + "/Data"), (lost.Name, lost.Folder));
+        Assert.Contains(TcUntouchablePouTests.App + "/Data", walk.UnwalkedFolders);
     }
 
     /// <summary>A node at the PLC ROOT whose kind faults marks its own subtree as not walked, under the one root
@@ -88,9 +88,9 @@ public class TcWalkUnreadableObjectTests
         var walk = driver.WalkItems();
 
         var lost = Assert.Single(walk.UnreadableObjects);
-        Assert.Equal(("Machine", ""), (lost.Name, lost.Folder));
-        Assert.Contains("", walk.UnwalkedFolders);
-        Assert.Contains("Machine", walk.UnwalkedFolders);
+        Assert.Equal(("Machine", TcUntouchablePouTests.App), (lost.Name, lost.Folder));
+        Assert.Contains(TcUntouchablePouTests.App, walk.UnwalkedFolders);
+        Assert.Contains(TcUntouchablePouTests.App + "/Machine", walk.UnwalkedFolders);
         Assert.DoesNotContain("<root>", walk.UnwalkedFolders);   // (the double has no I/O tree: that is unwalked too)
     }
 }

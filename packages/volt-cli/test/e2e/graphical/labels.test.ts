@@ -12,7 +12,7 @@
  * than merely appeared once.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, expectRoundTrip, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, expectRoundTrip, BASE, inFolder, projectRoot, removeItem } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -46,7 +46,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	}
 
 	it("a labelled network survives a round trip", async () => {
-		const name = id("lbl"), item = fid("lbl", "pou")
+		const name = id("lbl"), item = inFolder(await projectRoot(), fid("lbl", "pou"))
 		await clean(item)
 
 		// Two networks, the second LABELLED. No jump yet - the label alone must survive, because it is the half
@@ -56,7 +56,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
@@ -84,7 +84,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * and disagreed with the vendor. Only a BUILD is outside that loop, so the build is part of the test now.
 	 */
 	it("a JMP to another network's label survives a round trip AND compiles", async () => {
-		const name = id("jmp"), item = fid("jmp", "pou")
+		const name = id("jmp"), item = inFolder(await projectRoot(), fid("jmp", "pou"))
 		await clean(item)
 		const before = await problems()
 
@@ -93,7 +93,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := a;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
@@ -125,7 +125,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * and the conditional one was compared against the archive as though a return had outputs.
 	 */
 	it("a conditional RETURN survives a round trip AND compiles", async () => {
-		const name = id("ret"), item = fid("ret", "pou")
+		const name = id("ret"), item = inFolder(await projectRoot(), fid("ret", "pou"))
 		await clean(item)
 		const before = await problems()
 
@@ -134,7 +134,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  RETURN := a;\nEND_NETWORK\n` +
 			`NETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
@@ -168,7 +168,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * instead of letting the vendor's null-reference reach the engineer.
 	 */
 	it("an unconditional RETURN round-trips, or is refused with a reason", async () => {
-		const name = id("uret"), item = fid("uret", "pou")
+		const name = id("uret"), item = inFolder(await projectRoot(), fid("uret", "pou"))
 		await clean(item)
 
 		const src =
@@ -176,7 +176,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
 			`NETWORK\n  RETURN := ;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
 			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional return/i)
 			return
@@ -192,7 +192,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 	/** The same fact for an unconditional JMP, which shared both bugs and both fixes. */
 	it("an unconditional JMP round-trips, or is refused with a reason", async () => {
-		const name = id("ujmp"), item = fid("ujmp", "pou")
+		const name = id("ujmp"), item = inFolder(await projectRoot(), fid("ujmp", "pou"))
 		await clean(item)
 
 		const src =
@@ -200,7 +200,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := ;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
 			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional jump/i)
 			return
@@ -230,12 +230,12 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {
 			const name = id(`lbl_${key}`), item = fid(`lbl_${key}`, "pou")
-			await clean(item)
+			await removeItem(item)
 			const src =
 				`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tq : BOOL;\nEND_VAR\n` +
 				`IMPLEMENTATION FBD\n${nets}\nEND_PROGRAM\n`
 			await expectRoundTrip(item, src)
-			await clean(item)
+			await removeItem(item)
 		})
 	}
 })

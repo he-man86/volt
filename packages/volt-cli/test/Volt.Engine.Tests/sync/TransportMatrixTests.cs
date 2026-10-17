@@ -203,7 +203,7 @@ public class TransportMatrixTests
         _ = (onUpdate, onCreate);
         var ide = Ide(code, src);
         var refs = RefsService.Handle(ide);
-        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], ToFolder = "Dest" });
+        var recorded = Apply(ide, new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items[$"K.{ext}"], To = $"Dest/K.{ext}" });
 
         Assert.Equal(new[] { "create:Dest", "move:K->Dest" }, recorded.ToArray());
         Assert.DoesNotContain(recorded, r => r.StartsWith("delete:") || r.StartsWith("write"));
@@ -365,11 +365,9 @@ public class TransportMatrixTests
 
         var refs = RefsService.Handle(ide);
         names.AddRange(refs.Items.Keys);
-        names.AddRange(refs.Folders.Keys);
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
         names.AddRange(fetch.Items.Keys);
-        names.AddRange(fetch.Folders.Keys);
         names.AddRange(fetch.Changed.Select(c => c.Name));
         names.AddRange(fetch.Removed);
 
@@ -379,18 +377,17 @@ public class TransportMatrixTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new()
             {
-                new SetItemOp { Name = "S.dut", IfVersion = refs.Items["S.dut"],
+                new SetItemOp { Name = "DUTs/S.dut", IfVersion = refs.Items["DUTs/S.dut"],
                                 SourceText = "TYPE S :\nSTRUCT\n\ta : DINT;\nEND_STRUCT\nEND_TYPE\n" },
-                new SetItemOp { Name = "N.dut", IfVersion = null, ToFolder = "DUTs",
+                new SetItemOp { Name = "DUTs/N.dut", IfVersion = null,
                                 SourceText = "TYPE N :\n(\n\tX := 0\n);\nEND_TYPE\n" },
             },
         });
         Assert.True(push.Accepted,
             "push rejected: " + string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         names.AddRange(push.NewItems!.Keys);
-        names.AddRange(push.NewFolders!.Keys);
 
-        Assert.Equal(new[] { "A.dut", "E.dut", "N.dut", "S.dut", "U.dut" },
+        Assert.Equal(new[] { "DUTs/A.dut", "DUTs/E.dut", "DUTs/N.dut", "DUTs/S.dut", "DUTs/U.dut" },
                      push.NewItems!.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
         Assert.All(names.Where(n => n.Contains('.')), n => Assert.EndsWith(".dut", n, System.StringComparison.Ordinal));
     }

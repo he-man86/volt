@@ -110,7 +110,7 @@ public static class Commands
         Git.ReadTreeToIndex(root, commit);
         Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
 
-        Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders });
+        Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Applications = fetched.Applications });
         // The seed is a pull like any other, so it names what a pull names: every body it brought in read-only.
         var unsupported = UnsupportedNote(fetched.Changed);
         return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus,
@@ -198,7 +198,7 @@ public static class Commands
                         ExpectedPlatform = bound.Platform,
                         ExpectedProjectName = bound.ProjectName,
                         KnownItems = sidecar?.Items,
-                        KnownFolders = sidecar?.Folders,
+                        KnownApplications = sidecar?.Applications,
                     }));
                 }
                 catch (PipeCallException e) when (e.Code == BridgeErrorCodes.WrongProject)
@@ -255,12 +255,10 @@ public static class Commands
 
         var cfg = Config.LoadConfig(root);
         var sidecar = Sidecar.LoadIdeRefs(root);
-        // What this client knows of the IDE, and where each item sat: the baseline, or — with none — the last
-        // `volt/ide` tree (see `KnownFromIdeTree`). The folders are what let the bridge decide removals on a
-        // PARTIAL walk too, and what a baseline-less partial pull keeps for the items it could not see.
-        var (knownItems, knownFolders) = sidecar is not null
-            ? (sidecar.Items, sidecar.Folders)
-            : KnownFromIdeTree(gitDir);
+        // What this client knows of the IDE, by path: the baseline, or — with none — the last `volt/ide` tree (see
+        // `KnownFromIdeTree`). A path carries its folder, which is what lets the bridge decide removals on a PARTIAL
+        // walk too, and what a baseline-less partial pull keeps for the items it could not see.
+        var knownItems = sidecar is not null ? sidecar.Items : KnownFromIdeTree(gitDir);
 
         // ONE path for dry-run and real pull. Always `fetch` (incremental), compute incoming, then the up-to-date
         // short-circuit; dry-run returns the preview, the real pull falls through to the merge. The fetch carries
@@ -276,7 +274,9 @@ public static class Commands
             fetched = bridge.FetchChanges(new FetchRequest
             {
                 KnownItems = knownItems,
-                KnownFolders = knownFolders,
+                // The applications that baseline was read with: they place a known path an unread device hides (none
+                // without a sidecar — the `volt/ide` tree alone does not say where an application begins).
+                KnownApplications = sidecar?.Applications,
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, progress.Wrap(0, "Fetching from IDE"));
@@ -303,7 +303,6 @@ public static class Commands
             Detail = $"{cfg.Project.Platform}/{cfg.Project.ProjectName}",
             ProjectMismatch = null,
             Items = fetched.Items,
-            Folders = fetched.Folders,
             ProjectVersion = fetched.ProjectVersion,
             UnwalkedFolders = fetched.UnwalkedFolders,
             Unreadable = fetched.Unreadable,
@@ -378,15 +377,7 @@ public static class Commands
         foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
         foreach (var name in fetched.Removed) newItems.Remove(name);
 
-        // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it: the folder is
-        // what the next partial walk judges an unseen item by, and an item with none is never removed by a partial
-        // walk — nor kept on purpose.
-        var newFolders = new Dictionary<string, string>(knownFolders, StringComparer.Ordinal);
-        foreach (var kv in fetched.Folders) newFolders[kv.Key] = kv.Value;
-        foreach (var name in newFolders.Keys.ToList())
-            if (!newItems.ContainsKey(name)) newFolders.Remove(name);   // the two halves name the same items
-
-        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = newFolders };
+        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Applications = fetched.Applications };
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
@@ -468,9 +459,8 @@ public static class Commands
             : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
         // A referenced library's files are read-only by LOCATION, not by extension. The element signatures the
         // bridge renders beside each `.library` stub carry ordinary SOURCE extensions, so `Extensions.IsReadOnly`,
-        // which keys on the extension alone, calls them WRITABLE. Pushing one is never right and is destructive,
-        // because a push op is keyed by NAME: `Library Manager/Util/BLINK.pou` pushes as item "BLINK.pou", which
-        // either creates junk inside the Library Manager or OVERWRITES the project's own item of that name.
+        // which keys on the extension alone, calls them WRITABLE. Pushing one is never right: it would create junk
+        // inside the Library Manager.
         var libraryRoots = IdeTree.LibraryRoots(Git.ListTree(gitDir, IdeTree.Range).Select(e => e.Path));
         var readOnly = affected.Where(p => Extensions.IsReadOnly(p) || IdeTree.IsUnderLibraryRoot(p, libraryRoots)).ToList();
         if (readOnly.Count > 0)
@@ -492,40 +482,55 @@ public static class Commands
         string HeadSrc(string rel) =>
             blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b).TrimStart('﻿') : "";
 
-        // A FILE MOVED AND EDITED PAST GIT'S RENAME THRESHOLD is a `Delete` row and an `Add` row whose paths map to the
-        // SAME item name — and the name is the identity, so the two rows are one item that moved, not a delete and a
-        // create. They are paired into ONE set (new folder, text, the baseline's version): exactly what git would have
-        // reported as a rename had the edit stayed under its threshold. Sent as two ops, the batch named one item twice,
-        // which the bridge refuses (one op per item); before that, forced, it LOST the object and with it any class the
-        // wire does not carry (openspec push-without-header-check 5.Q.6, DIALECT C2n). Name logic only — no kind.
-        //
-        // Git's rename pairing is by SIMILARITY, not by name, so it can pair two DIFFERENT items: delete `A`, move and
-        // rewrite `X` to resemble `A`, and git reports `Rename A → X` + `Delete X` — sent as is, `X` in two ops. A
-        // rename whose names another row ALSO names is therefore split back into its delete and its add before the
-        // pairing below, which then reads the batch by name (chains and swaps — `A → B` + `B → C` — included).
-        string? NameAt(string path) => Materialize.PathToItem(Files.StripSrcPrefix(path))?.Name;
-        IEnumerable<string> NamesOf(DiffRow r) => (r.Kind == DiffKinds.Rename ? new[] { NameAt(r.OldPath), NameAt(r.NewPath) }
-                : new[] { NameAt(r.Path) }).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
-        var rowsNaming = rows.SelectMany(NamesOf).GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
+        // An item's identity is its PATH, which IS its src-relative file path (openspec multi-application-tree). A MOVE
+        // pairs a deleted path and an added one only inside ONE application (design §5): the applications the bridge
+        // stated, with the POU pool (no application) its own. Anything else is a delete and a create — two items.
+        var applications = sidecar.Applications!;
+        string? AppOf(string path) => Volt.Engine.Item.ItemPath.ApplicationOf(path, applications);
+        bool SameApplication(string a, string b) => string.Equals(AppOf(a), AppOf(b), StringComparison.OrdinalIgnoreCase);
+        string? PathAt(string path) => Materialize.PathToItem(Files.StripSrcPrefix(path));
+
+        // An item is one IDE object per FILE NAME in ONE application (IEC names are unique within a kind per application,
+        // and the file name carries the kind): its key across the rows below.
+        string MoveKey(string path) => (AppOf(path) ?? "") + "\n" + Volt.Engine.Item.ItemPath.FileOf(path);
+
+        // Git's rename pairing is by SIMILARITY, not by item, so it can pair two DIFFERENT items: delete `A`, move and
+        // rewrite `X` to resemble `A`, and git reports `Rename A → X` + `Delete X` — sent as is, `X` in two ops. A rename
+        // whose items another row ALSO names is therefore split back into its delete and its add, and so is a rename
+        // across applications (no move, design §5), before the pairing below reads the batch by item.
+        IEnumerable<string> KeysOf(DiffRow r) => (r.Kind == DiffKinds.Rename ? new[] { PathAt(r.OldPath), PathAt(r.NewPath) }
+                : new[] { PathAt(r.Path) }).OfType<string>().Select(MoveKey).Distinct(StringComparer.OrdinalIgnoreCase);
+        var rowsNaming = rows.SelectMany(KeysOf).GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-        rows = rows.SelectMany(r => r.Kind == DiffKinds.Rename && NamesOf(r).Any(n => rowsNaming[n] > 1)
+        rows = rows.SelectMany(r => r.Kind == DiffKinds.Rename
+                && (KeysOf(r).Any(n => rowsNaming[n] > 1)
+                    || (PathAt(r.OldPath) is { } from && PathAt(r.NewPath) is { } to && !SameApplication(from, to)))
             ? new[] { new DiffRow(DiffKinds.Delete, Path: r.OldPath), new DiffRow(DiffKinds.Add, Path: r.NewPath) }
             : new[] { r }).ToList();
 
-        var deletedByName = new Dictionary<string, (string Name, string Folder)>(StringComparer.OrdinalIgnoreCase);
+        // A FILE MOVED AND EDITED PAST GIT'S RENAME THRESHOLD is a `Delete` row and an `Add` row of ONE item — one item
+        // that moved, not a delete and a create. They are paired into ONE set (the new path, the text, the baseline's
+        // version): exactly what git would have reported as a rename had the edit stayed under its threshold. Sent as
+        // two ops, forced, the object was LOST and with it any class the wire does not carry (openspec
+        // push-without-header-check 5.Q.6, DIALECT C2n). A key two deletes share is paired with nothing — no pairing is
+        // guessed.
+        var deletedByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows.Where(r => r.Kind == DiffKinds.Delete))
         {
             var rel = Files.StripSrcPrefix(row.Path);
-            if (Materialize.PathToItem(rel) is { } gone && Extensions.IsPushable(rel) && guardItems.ContainsKey(gone.Name))
-                deletedByName[gone.Name] = (gone.Name, gone.Folder);
+            if (PathAt(row.Path) is not { } gone || !Extensions.IsPushable(rel) || !guardItems.ContainsKey(gone)) continue;
+            var key = MoveKey(gone);
+            deletedByKey[key] = deletedByKey.ContainsKey(key) ? null : gone;
         }
-        var movedNames = new HashSet<string>(rows
-            .Where(r => r.Kind != DiffKinds.Delete && r.Kind != DiffKinds.Rename)
-            .Select(r => Files.StripSrcPrefix(r.Path))
-            .Where(Extensions.IsPushable)
-            .Select(rel => Materialize.PathToItem(rel)?.Name)
-            .OfType<string>()
-            .Where(deletedByName.ContainsKey), StringComparer.OrdinalIgnoreCase);
+        // The added path → the deleted path it moved from.
+        var movedFrom = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows.Where(r => r.Kind != DiffKinds.Delete && r.Kind != DiffKinds.Rename))
+        {
+            var rel = Files.StripSrcPrefix(row.Path);
+            if (!Extensions.IsPushable(rel) || PathAt(row.Path) is not { } added || guardItems.ContainsKey(added)) continue;
+            if (deletedByKey.TryGetValue(MoveKey(added), out var old) && old is not null) movedFrom[added] = old;
+        }
+        var movedOld = new HashSet<string>(movedFrom.Values, StringComparer.OrdinalIgnoreCase);
 
         var ops = new List<PushOp>();
         // Where each set op's file sits at HEAD, by op name — what `volt/ide` records for an op that LANDED when the push
@@ -533,31 +538,18 @@ public static class Commands
         var headPathOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         void SetForChange(string rel)
         {
-            var item = Materialize.PathToItem(rel);
-            if (item is null || !Extensions.IsPushable(rel)) return;
-            if (movedNames.Contains(item.Value.Name))
+            var path = Materialize.PathToItem(rel);
+            if (path is null || !Extensions.IsPushable(rel)) return;
+            if (movedFrom.TryGetValue(path, out var old))
             {
-                var old = deletedByName[item.Value.Name];
-                headPathOf[old.Name] = rel;
-                ops.Add(new SetItemOp
-                {
-                    Name = old.Name,
-                    ToName = old.Name != item.Value.Name ? item.Value.Name : null,
-                    ToFolder = old.Folder != item.Value.Folder ? item.Value.Folder : null,
-                    SourceText = HeadSrc(rel),
-                    IfVersion = guardItems[old.Name],
-                });
+                headPathOf[old] = rel;
+                ops.Add(new SetItemOp { Name = old, To = path, SourceText = HeadSrc(rel), IfVersion = guardItems[old] });
                 return;
             }
-            var ifVersion = guardItems.TryGetValue(item.Value.Name, out var v) ? v : null;
-            headPathOf[item.Value.Name] = rel;
-            ops.Add(new SetItemOp
-            {
-                Name = item.Value.Name,
-                ToFolder = ifVersion is null ? item.Value.Folder : null, // create: placement; update: unchanged
-                SourceText = HeadSrc(rel),
-                IfVersion = ifVersion,
-            });
+            var ifVersion = guardItems.TryGetValue(path, out var v) ? v : null;
+            headPathOf[path] = rel;
+            // A path the baseline does not hold is a create THERE — the path is the placement.
+            ops.Add(new SetItemOp { Name = path, SourceText = HeadSrc(rel), IfVersion = ifVersion });
         }
 
         foreach (var row in rows)
@@ -565,27 +557,27 @@ public static class Commands
             if (row.Kind == DiffKinds.Delete)
             {
                 var rel = Files.StripSrcPrefix(row.Path);
-                var item = Materialize.PathToItem(rel);
-                if (item is null || !Extensions.IsPushable(rel)) continue;
-                if (movedNames.Contains(item.Value.Name)) continue;   // the other half of a move+edit, sent as one set
-                if (guardItems.TryGetValue(item.Value.Name, out var v))
-                    ops.Add(new DeleteItemOp { Name = item.Value.Name, IfVersion = v });
+                var path = Materialize.PathToItem(rel);
+                if (path is null || !Extensions.IsPushable(rel)) continue;
+                if (movedOld.Contains(path)) continue;   // the other half of a move+edit, sent as one set
+                if (guardItems.TryGetValue(path, out var v))
+                    ops.Add(new DeleteItemOp { Name = path, IfVersion = v });
             }
             else if (row.Kind == DiffKinds.Rename)
             {
                 var newRel = Files.StripSrcPrefix(row.NewPath);
                 if (!Extensions.IsPushable(newRel)) continue;
                 var o = Materialize.PathToItem(Files.StripSrcPrefix(row.OldPath));
-                var n = Materialize.PathToItem(newRel)!.Value;
+                var n = Materialize.PathToItem(newRel)!;
                 if (o is null) { SetForChange(newRel); continue; }
-                if (!guardItems.TryGetValue(o.Value.Name, out var ver))
-                    throw new InvalidOperationException($"renamed item '{o.Value.Name}' has no known IDE version — run `volt pull` first");
-                headPathOf[o.Value.Name] = newRel;
+                if (!guardItems.TryGetValue(o, out var ver))
+                    throw new InvalidOperationException($"renamed item '{o}' has no known IDE version — run `volt pull` first");
+                headPathOf[o] = newRel;
                 ops.Add(new SetItemOp
                 {
-                    Name = o.Value.Name,
-                    ToName = o.Value.Name != n.Name ? n.Name : null,
-                    ToFolder = o.Value.Folder != n.Folder ? n.Folder : null,
+                    Name = o,
+                    // ORDINAL: a case-only rename is a rename (the engine asks "did the name change" ordinally).
+                    To = string.Equals(o, n, StringComparison.Ordinal) ? null : n,
                     SourceText = row.Identical ? null : HeadSrc(newRel),
                     IfVersion = ver,
                 });
@@ -637,7 +629,7 @@ public static class Commands
         foreach (var op in ops.Where(o => refusedOps.Contains(o.Name)))
         {
             conflictedNames.Add(op.Name);
-            if (op is SetItemOp { ToName: { } to }) conflictedNames.Add(to);
+            if (op is SetItemOp { To: { } to }) conflictedNames.Add(to);
         }
 
         // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
@@ -666,7 +658,7 @@ public static class Commands
         foreach (var op in landedOps)
         {
             pushed.Add(op.Name);
-            if (op is SetItemOp s && s.ToName is { } renamed) pushed.Add(renamed);
+            if (op is SetItemOp s && s.To is { } renamed) pushed.Add(renamed);
         }
         // ONE COMPARER throughout. `pushed` is OrdinalIgnoreCase (IEC names are case-insensitive) and the
         // sidecar is Ordinal, so a receipt key differing from the baseline only in case was adopted under the
@@ -692,29 +684,16 @@ public static class Commands
         // about names the baseline holds, so no later pull could report the old name removed. Deciding what is
         // GONE is the bridge's, on the next fetch (`Removed`); the baseline keeps the last version it was told.
         //
-        // Except a name THIS PUSH took out of the IDE: a delete, or the old name of a rename. The receipt lacks it
+        // Except a path THIS PUSH took out of the IDE: a delete, or the old path of a rename or a move. The receipt lacks it
         // because it is gone, not because it was unseen. Restored, the old name stayed in the baseline beside the
         // new one while the IDE and the workspace held only the new; the next change back to the old name then
         // went up as an UPDATE of an item the IDE no longer has, at a stale version, and was refused.
         var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
         foreach (var op in landedOps)
             if (op is DeleteItemOp) retiredByPush.Add(op.Name);
-            else if (op is SetItemOp { ToName: { } to } && to != op.Name) retiredByPush.Add(op.Name);
+            else if (op is SetItemOp { To: { } to } && to != op.Name) retiredByPush.Add(op.Name);
         foreach (var kv in known)
             if (!adopted.ContainsKey(kv.Key) && !retiredByPush.Contains(kv.Key)) adopted[kv.Key] = kv.Value;
-
-        // The FOLDER map is filtered the same way. It was written through unfiltered, so after a `--force` push
-        // against an IDE holding items this workspace has never seen, `Items` correctly omitted them while
-        // `Folders` still placed every one — a baseline whose two halves disagreed about which items exist.
-        // A conflicted item keeps its OLD folder with its old version: the two halves of its baseline entry are one fact.
-        var adoptedFolders = resp.NewFolders!.Where(kv => adopted.ContainsKey(kv.Key) && !conflictedNames.Contains(kv.Key))
-                                             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
-
-        // …and an item RESTORED from the old baseline keeps the folder it had. The receipt walk never saw it, so
-        // `resp.NewFolders` has no key for it — filtering that alone left an item with no folder, which the next
-        // partial pull drops by the same mechanism, and which `StatusModel` renders as a bare name with no path.
-        foreach (var kv in sidecar.Folders)
-            if (adopted.ContainsKey(kv.Key) && !adoptedFolders.ContainsKey(kv.Key)) adoptedFolders[kv.Key] = kv.Value;
 
         // THE REF FIRST, THEN THE SIDECAR — the order `init` and `pull` already use, and the only one of the two
         // that can heal itself.
@@ -759,10 +738,10 @@ public static class Commands
             }
             var canonicalNames = new HashSet<string>(canonical.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
             var landedFiles = landedOps.Where(o => o is SetItemOp s && headPathOf.ContainsKey(o.Name)
-                                                   && !canonicalNames.Contains(s.ToName ?? s.Name))
+                                                   && !canonicalNames.Contains(s.To ?? s.Name))
                 .Select(o => new MaterializedFile(headPathOf[o.Name], HeadBlob(headPathOf[o.Name])))
                 .Concat(canonicalFiles).ToList();
-            var landedRemovals = landedOps.Where(o => o is DeleteItemOp || (o is SetItemOp { ToName: { } t } && t != o.Name))
+            var landedRemovals = landedOps.Where(o => o is DeleteItemOp || (o is SetItemOp { To: { } t } && t != o.Name))
                 .Select(o => o.Name).ToList();
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, voltHead, landedFiles, landedRemovals, librariesRefreshed: false);
             ideCommit = IdeTree.CommitVoltIde(gitDir, tree, voltHead,
@@ -795,7 +774,8 @@ public static class Commands
         {
             ProjectVersion = resp.NewProjectVersion!,
             Items = adopted,
-            Folders = adoptedFolders,
+            // A push makes no application; the receipt states none, so the baseline keeps the ones the last read stated.
+            Applications = sidecar.Applications,
         });
         // …and the working tree follows it. volt/ide's parent IS HEAD, so this is a fast-forward over the pushed
         // items' files alone; nothing of the engineer's can conflict, because everything else in the commit is HEAD.
@@ -817,7 +797,6 @@ public static class Commands
             Detail = $"{cfg.Project.Platform}/{cfg.Project.ProjectName}",
             ProjectMismatch = null,
             Items = resp.NewItems!,
-            Folders = resp.NewFolders!,
             ProjectVersion = resp.NewProjectVersion!,
             UnwalkedFolders = resp.UnwalkedFolders,
             // Nothing is reported removed: the receipt is a walk the client sent no baseline to, and the baseline
@@ -863,7 +842,7 @@ public static class Commands
     /// names the old) would be refused <c>ITEM_MISSING</c>.</summary>
     private static bool PartlyLanded(PushOp op, IReadOnlyDictionary<string, string> known, PushResponse resp)
     {
-        if (op is SetItemOp { ToName: { } to } && to != op.Name
+        if (op is SetItemOp { To: { } to } && to != op.Name
             && resp.NewItems!.ContainsKey(to) && !resp.NewItems.ContainsKey(op.Name)) return true;
         if (!resp.NewItems!.TryGetValue(op.Name, out var now)) return false;
         return !known.TryGetValue(op.Name, out var was) || was != now;
@@ -915,10 +894,11 @@ public static class Commands
         var differ = new Dictionary<string, (string Text, string Version)>(StringComparer.Ordinal);
         foreach (var o in ops.OfType<SetItemOp>())
         {
-            var name = o.ToName ?? o.Name;
-            if (o.SourceText is null || !resp.NewItems!.TryGetValue(name, out var version)
-                || !resp.NewFolders!.TryGetValue(name, out var folder)) continue;
-            var pushedVersion = Volt.Engine.Sync.Hasher.ComputeItemVersion(folder, o.SourceText);
+            var name = o.To ?? o.Name;
+            if (o.SourceText is null || !resp.NewItems!.TryGetValue(name, out var version)) continue;
+            // The folder a version is hashed over is the path's own (a pushed item is never a library, the one kind
+            // reported in a folder of its own).
+            var pushedVersion = Volt.Engine.Sync.Hasher.ComputeItemVersion(Volt.Engine.Item.ItemPath.FolderOf(name), o.SourceText);
             if (pushedVersion != version) differ[name] = (o.SourceText, pushedVersion);
         }
         if (differ.Count == 0) return (new List<FetchedItem>(), new List<(string, string)>(), new List<(string, string)>());
@@ -963,12 +943,12 @@ public static class Commands
         var held = new List<(string, string, string)>();
         foreach (var o in ops.OfType<SetItemOp>())
         {
-            var name = o.ToName ?? o.Name;
+            var name = o.To ?? o.Name;
             if (o.SourceText is null || resp.NewItems!.ContainsKey(name)) continue;
             var other = resp.NewItems.Keys.Where(k => !known.ContainsKey(k) && !pushed.Contains(k) && PushedText.MayBeHeldAs(name, k))
                                           .ToList();
             if (other.Count != 1) continue;
-            held.Add((name, other[0], Volt.Engine.Sync.Hasher.ComputeItemVersion(resp.NewFolders![other[0]], o.SourceText)));
+            held.Add((name, other[0], Volt.Engine.Sync.Hasher.ComputeItemVersion(Volt.Engine.Item.ItemPath.FolderOf(other[0]), o.SourceText)));
         }
         return held;
     }
@@ -1013,7 +993,7 @@ public static class Commands
     {
         if (@ref == "BRIDGE")
         {
-            var name = Extensions.FullNameFromPath(rel);
+            var name = Materialize.PathToItem(rel);   // the item's wire path IS its src-relative path
             if (name is null) return (null, $"unrecognized path: {rel}", false);
             // THE BOUND IDENTITY, like every other read. This was the last call in the CLI that asked the live
             // IDE for content without saying which project it wanted — so with the wrong project open, `volt
@@ -1251,19 +1231,18 @@ public static class Commands
     ///
     /// <para>The empty versions make every item come back changed (there is no baseline to diff against), and
     /// the bridge's own removal pass decides what is gone, exactly as on every other pull. The same shape the
-    /// post-push re-fetch sends. Each name's FOLDER is the directory its file sits in — a pull writes an item at
-    /// <c>{folder}/{name}</c> — so a PARTIAL walk can still judge it (gone from a folder it read, unseen under one
-    /// it could not), and the partial pull keeps it for the next one. A library's rendered signatures are
+    /// post-push re-fetch sends. Each item is named by its PATH, which carries the folder its file sits in, so a
+    /// PARTIAL walk can still judge it (gone from a folder it read, unseen under one it could not), and the partial
+    /// pull keeps it for the next one. A library's rendered signatures are
     /// path-identified, never wire items, so they are not named — but its <c>.library</c> STUB is a wire item and
     /// IS named. Excluding every file under a library root dropped the stub too, so the bridge could not see a
     /// library the IDE had stopped referencing: nothing was removed, the libraries were not refreshed, and the stub
     /// and its signatures were carried forward into a baseline that no longer listed the stub, and so past every
     /// later pull as well.</para></summary>
-    private static (Dictionary<string, string> Items, Dictionary<string, string> Folders) KnownFromIdeTree(string gitDir)
+    private static Dictionary<string, string> KnownFromIdeTree(string gitDir)
     {
         var known = new Dictionary<string, string>(StringComparer.Ordinal);
-        var folders = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (IdeTree.VoltIdeHead(gitDir) is not { } parentIde) return (known, folders);
+        if (IdeTree.VoltIdeHead(gitDir) is not { } parentIde) return known;
         var paths = Git.ListTree(gitDir, parentIde).Select(e => e.Path).ToList();
         var libraryRoots = IdeTree.LibraryRoots(paths);
         foreach (var path in paths)
@@ -1271,12 +1250,10 @@ public static class Commands
             if (!path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal)) continue;
             var rel = path.Substring(Files.SrcDir.Length + 1);
             if (IdeTree.IsLibrarySignature(rel, libraryRoots)) continue;
-            if (Extensions.FullNameFromPath(rel) is not { } name) continue;
-            known[name] = "";
-            var slash = rel.LastIndexOf('/');
-            folders[name] = slash < 0 ? "" : rel.Substring(0, slash);
+            if (Materialize.PathToItem(rel) is not { } item) continue;
+            known[item] = "";
         }
-        return (known, folders);
+        return known;
     }
 
     private static BridgeSnapshot BuildSnap(bool online, string detail, ProjectMismatch? mismatch, RefsResponse refs) => new()
@@ -1285,7 +1262,6 @@ public static class Commands
         Detail = detail,
         ProjectMismatch = mismatch,
         Items = refs.Items,
-        Folders = refs.Folders,
         ProjectVersion = refs.ProjectVersion,
         // Carried so status can say the view is INCOMPLETE: with a folder unread, `Items` is a PARTIAL view.
         UnwalkedFolders = refs.UnwalkedFolders,

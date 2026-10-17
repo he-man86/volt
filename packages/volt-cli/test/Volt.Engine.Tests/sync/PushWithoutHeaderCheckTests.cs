@@ -29,7 +29,7 @@ public class PushWithoutHeaderCheckTests
         PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = wireName, IfVersion = null, ToFolder = "", SourceText = text } },
+            Ops = new List<PushOp> { new SetItemOp { Name = wireName, IfVersion = null, SourceText = text } },
         });
 
     private static string Reasons(PushResponse r) =>

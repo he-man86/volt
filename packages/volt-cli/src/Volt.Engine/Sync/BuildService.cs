@@ -68,14 +68,15 @@ public static class BuildService
         }
     }
 
-    /// <summary>Turn each diagnostic's BARE item name into the FULL wire name, or into null.
+    /// <summary>Turn each diagnostic's item into its wire PATH, or into null.
     ///
-    /// <para>A driver answers with the name its vendor gave it, which is the bare one — CODESYS resolves
-    /// <c>IMessage.ObjectGuid</c> to a node, TwinCAT takes the stem of the file path in its output pane. Neither
-    /// can produce a wire name, because a wire name is <c>name.kind</c> and the kind of a POU is not in its
-    /// vendor kind code: it comes from the DECLARATION (`PROGRAM`/`FUNCTION_BLOCK`/`FUNCTION`), which only
-    /// materialization reads. So the promotion happens here, above the seam, through the same
-    /// <c>Versioning.SafeVersion(...).Identity</c> every other map on this wire is keyed by.</para>
+    /// <para>A driver answers with what its vendor gave it: the item's folder and bare name (<c>&lt;folder&gt;/&lt;bare&gt;</c>,
+    /// the walk's folder — CODESYS resolves <c>IMessage.ObjectGuid</c> to a walked node), or the bare name alone (TwinCAT
+    /// takes the stem of the file path in its output pane). Neither is a wire path, because a path ends in
+    /// <c>name.kind</c> and the kind is the item's materialization's to state. So the promotion happens here, above the
+    /// seam, through the same <c>Versioning.SafeVersion(...).Identity</c> every other map on this wire is keyed by. A
+    /// folder-qualified name resolves in its folder alone, so the same message in two applications is two diagnostics,
+    /// each on its own application's item (openspec multi-application-tree, design §6).</para>
     ///
     /// <para>AMBIGUITY RESOLVES TO NULL, not to a guess. IEC guarantees unique names within a kind, not across
     /// them: <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> both exist in real projects, and a bare
@@ -105,27 +106,34 @@ public static class BuildService
         foreach (var d in diagnostics) { d.Name = null; d.Member = null; }
 
         var wanted = new HashSet<string>(
-            bare.Select(b => b.Name).Where(n => !string.IsNullOrEmpty(n))!,
+            bare.Select(b => b.Name).Where(n => !string.IsNullOrEmpty(n)).Select(n => ItemPath.FileOf(n!)),
             StringComparer.OrdinalIgnoreCase);
         if (wanted.Count == 0) return;
 
-        // null value = the bare name matched more than one item, so it names none of them. `holders` is the same
-        // map over the items that can hold a member, which is where a diagnostic carrying one is looked up.
+        // null value = the name matched more than one item, so it names none of them. Each item is recorded under its
+        // bare name AND under its folder + bare name, so a driver that names the folder is answered from it alone.
+        // `holders` is the same map over the items that can hold a member, which is where a diagnostic carrying one is
+        // looked up.
         var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var holders = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var pi in ide.WalkItems().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
             if (ItemKind.Map(pi.KindCode) is not { } kind) continue;
-            // `.Materialized?.FullName`, NOT `.Identity`. Identity falls back to the BARE name for an item that
-            // could not be materialized (`VersionedItem`: `materialized?.FullName ?? bareName`) — and a failing
-            // build is exactly when that item is present, since an unreadable body is the sort of thing a
-            // compiler complains about. Publishing the bare name there would break the one promise this field
-            // makes.
-            if (Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder).Materialized?.FullName is not { } identity)
-                continue;
+            // Only an item that MATERIALIZED has a path. `Identity` falls back to the BARE name for one that could not be
+            // (`VersionedItem`) — and a failing build is exactly when that item is present, since an unreadable body is
+            // the sort of thing a compiler complains about. Publishing that would break the one promise this field makes.
+            var v = Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder);
+            if (v.Materialized is null) continue;
+            var identity = v.Identity;
+            var barePath = ItemPath.Of(pi.Folder, pi.Name);
             Record(resolved, pi.Name, identity);
-            if (ItemKind.HoldsMembers(pi.KindCode)) Record(holders, pi.Name, identity);
+            Record(resolved, barePath, identity);
+            if (ItemKind.HoldsMembers(pi.KindCode))
+            {
+                Record(holders, pi.Name, identity);
+                Record(holders, barePath, identity);
+            }
         }
 
         for (var i = 0; i < diagnostics.Count; i++)

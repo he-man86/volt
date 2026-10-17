@@ -44,31 +44,28 @@ public class PushOp
     public string? IfVersion { get; set; }
 }
 
-/// <summary>Unified declarative item change: the item named <c>Name</c> should end up as
-/// <c>ToName ?? Name</c>, in <c>ToFolder ?? (current folder)</c>, with <c>SourceText ?? (current content)</c>.
-/// Each field absent = that facet unchanged. One op expresses create / update / rename / move and any
-/// combination, applied atomically — a rename uses the IDE's native rename and changes no item the push does not name
-/// (callers keep their text unless the push sends them — DIALECT C2p); a move
-/// recreates (names are globally unique, so name-based references survive).</summary>
+/// <summary>Unified declarative item change: the item at PATH <c>Name</c> should end up at <c>To ?? Name</c>, with
+/// <c>SourceText ?? (current content)</c>. Each field absent = that facet unchanged. A path that names no existing item is
+/// a create there. One op expresses create / update / rename / move and any combination, applied atomically — a rename
+/// (the file name changes) uses the IDE's native rename and changes no item the push does not name (callers keep their
+/// text unless the push sends them — DIALECT C2p); a move (the folder changes) relocates the object, within one
+/// application only (openspec <c>multi-application-tree</c>: a move to another application is a delete and a create).
+/// <para>A member the op does not have is refused, BAD_REQUEST naming it: a client still sending the retired
+/// <c>toFolder</c>/<c>toName</c> had them dropped in silence, and its bare name created the item at the tree root.</para></summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public class SetItemOp : PushOp
 {
-    [JsonPropertyName("toName")]
-    public string? ToName { get; set; }
-
-    /// <summary>Where the item should end up: the FULL path from the tree root, exactly as the walk emits it.
-    ///
-    /// <para><b>Absent and empty are different, and treating them as the same lost a move.</b> <c>null</c> is
-    /// "keep the current folder" — what an in-place edit sends. The EMPTY STRING is a destination: the tree
-    /// root, which on CODESYS is the project's own POU pool. The engine read empty as absent for a while, so
-    /// dragging an item out of the Application and into the pool sent <c>ToFolder = ""</c>, the push reported
-    /// ACCEPTED, nothing moved, and the next pull put the file back where it started.</para></summary>
-    [JsonPropertyName("toFolder")]
-    public string? ToFolder { get; set; }
+    /// <summary>The PATH the item should end up at, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>, exactly as the walk
+    /// publishes paths. Absent (<c>null</c>) keeps the item where and as it is — what an in-place edit sends. Its folder
+    /// may be the tree root (a path with no <c>/</c>), which on CODESYS is the project's own POU pool.</summary>
+    [JsonPropertyName("to")]
+    public string? To { get; set; }
 
     [JsonPropertyName("sourceText")]
     public string? SourceText { get; set; }
 }
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public class DeleteItemOp : PushOp
 {
 }
@@ -138,15 +135,15 @@ public class PushConflict
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PartiallyApplied { get; set; }
 
-    /// <summary>The FULL wire name (<c>name.kind</c>) the item has NOW, when a native rename ran before the op was refused
-    /// and stays: the item is no longer under <see cref="Name"/>. Absent otherwise.</summary>
+    /// <summary>The PATH the item has NOW, when a native rename ran before the op was refused and stays: the item is no
+    /// longer under <see cref="Name"/>. Absent otherwise.</summary>
     [JsonPropertyName("renamedTo")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RenamedTo { get; set; }
 
     /// <summary><c>true</c> when this op CREATED the item and the rollback of that create failed: the object stays in the
-    /// project under the name the op created it with — the op's <c>toName</c> when it carries one (a forced replace that
-    /// also renames creates under <c>toName</c>, and the original under <see cref="Name"/> is gone), else
+    /// project under the path the op created it at — the op's <c>to</c> when it carries one (a forced replace that
+    /// also renames creates at <c>to</c>, and the original under <see cref="Name"/> is gone), else
     /// <see cref="Name"/> — so a re-sent create would collide with it. Absent otherwise (a rolled-back create leaves
     /// nothing).</summary>
     [JsonPropertyName("remains")]
@@ -164,12 +161,6 @@ public class PushResponse
 
     [JsonPropertyName("newItems")]
     public Dictionary<string, string>? NewItems { get; set; }
-
-    /// <summary>Full name → folder path for the post-apply state, so the client refreshes its sidecar
-    /// folder map from the push receipt instead of a follow-up <c>refs</c>. Additive (nullable): an older client
-    /// ignores it, so this needs no wire-version bump. Populated only on an accepted push.</summary>
-    [JsonPropertyName("newFolders")]
-    public Dictionary<string, string>? NewFolders { get; set; }
 
     /// <summary>Folders the RECEIPT walk could not enumerate — normally empty, same meaning as on a read.
     ///
@@ -196,8 +187,8 @@ public class PushResponse
     [JsonPropertyName("currentProjectVersion")]
     public string? CurrentProjectVersion { get; set; }
 
-    /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and the push was ACCEPTED: full wire
-    /// name (<c>name.kind</c>, the <see cref="NewItems"/> key, in the IDE's spelling — a renamed item under its NEW name,
+    /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and the push was ACCEPTED: item path
+    /// (the <see cref="NewItems"/> key, in the IDE's spelling — a renamed item under its NEW path,
     /// an op named in another case under the IDE's case) → that item's stored text exactly as a fetch returns it, for
     /// every item the push changed: each item a landed <c>set</c> op left in the project, and each item whose version the
     /// push changed though no op names it (the call sites a native rename rewrote — TwinCAT does, CODESYS does not). The text is the receipt walk's own
@@ -211,19 +202,18 @@ public class PushResponse
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, string>? NewSources { get; set; }
 
-    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems, Dictionary<string, string> newFolders) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders };
+    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems };
 
     public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems,
-                                              Dictionary<string, string> newFolders, List<string> unwalkedFolders) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders,
+                                              List<string> unwalkedFolders) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems,
                 UnwalkedFolders = unwalkedFolders };
 
     /// <summary>An accepted push that did not land in full: the receipt, plus one conflict per op that did not land.</summary>
     public static PushResponse PartialResult(string newProjectVersion, Dictionary<string, string> newItems,
-                                             Dictionary<string, string> newFolders, List<string> unwalkedFolders,
-                                             List<PushConflict> notLanded) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders,
+                                             List<string> unwalkedFolders, List<PushConflict> notLanded) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems,
                 UnwalkedFolders = unwalkedFolders, Conflicts = notLanded };
 
     public static PushResponse RejectedResult(List<PushConflict> conflicts, string currentProjectVersion) =>

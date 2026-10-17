@@ -33,7 +33,7 @@ public class CreateOrderTests
     private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static SetItemOp Set(string wireName, string folder) =>
-        new() { Name = wireName, ToFolder = folder, SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };
+        new() { Name = folder.Length == 0 ? wireName : $"{folder}/{wireName}", SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };
 
     /// <summary>The order the fake was asked to create ITEMS in — folders excluded, in order.
     ///

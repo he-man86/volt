@@ -12,7 +12,7 @@
  * every helper here takes the authored source and keeps it as the reference.</p>
  */
 import { expect } from "bun:test"
-import { createItem, fetchItem, pushOps, removeItem, versionOf } from "./workspace"
+import { at, createItem, fetchItem, pathOf, projectRoot, pushOps, removeItem, versionOf } from "./workspace"
 
 /**
  * Create `src`, read it back, and assert it came back EXACTLY as authored — then that re-pushing what came back
@@ -28,7 +28,7 @@ export async function expectRoundTrip(name: string, src: string, folder?: string
 	const back = (await fetchItem(name)).sourceText
 	expect(back, `'${name}' did not come back as authored`).toBe(src)
 
-	const again = await pushOps([{ op: "set", name, toFolder: null, sourceText: back, ifVersion: await versionOf(name) }])
+	const again = await pushOps([{ op: "set", name: await pathOf(name), sourceText: back, ifVersion: await versionOf(name) }])
 	expect(again.accepted, `re-pushing '${name}' its own bytes was refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 	expect((await fetchItem(name)).sourceText, `'${name}' drifted on a second push`).toBe(back)
 	return back
@@ -51,7 +51,7 @@ export async function expectRoundTripOrRefusal(
 	folder?: string,
 ): Promise<"round-tripped" | "refused"> {
 	await removeItem(name)
-	const created = await pushOps([{ op: "set", name, toFolder: folder ?? "", sourceText: src, ifVersion: null }])
+	const created = await pushOps([{ op: "set", name: await at(name, folder ?? (await projectRoot())), sourceText: src, ifVersion: null }])
 
 	if (!created.accepted) {
 		expect(
@@ -69,7 +69,7 @@ export async function expectRoundTripOrRefusal(
  *  only case where a fetch is the best reference available, and then only as a stability claim. */
 export async function expectStable(name: string): Promise<void> {
 	const before = (await fetchItem(name)).sourceText
-	const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: before, ifVersion: await versionOf(name) }])
+	const r = await pushOps([{ op: "set", name: await pathOf(name), sourceText: before, ifVersion: await versionOf(name) }])
 	expect(r.accepted, `re-pushing '${name}' unchanged was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	expect((await fetchItem(name)).sourceText, `'${name}' changed on a no-op push`).toBe(before)
 }

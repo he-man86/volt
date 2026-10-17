@@ -31,7 +31,7 @@ public class UnopenedItemTests
             PushService.Handle(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-                Ops = new List<PushOp> { new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Fb(name) } },
+                Ops = new List<PushOp> { new SetItemOp { Name = folder.Length == 0 ? $"{name}.pou" : $"{folder}/{name}.pou", SourceText = Fb(name) } },
             });
         var baseline = RefsService.Handle(ide);
         ide.UnopenedItems.Add("Broken");
@@ -46,8 +46,8 @@ public class UnopenedItemTests
 
         var refs = RefsService.Handle(ide);
 
-        Assert.Equal(new[] { "Broken" }, refs.Unreadable.Select(u => u.Name));
-        Assert.Equal(new[] { "A.pou", "B.pou" }, refs.Items.Keys.OrderBy(k => k).ToArray());
+        Assert.Equal(new[] { "Data/Broken" }, refs.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "A.pou", "Data/B.pou" }, refs.Items.Keys.OrderBy(k => k).ToArray());
         Assert.Empty(refs.UnwalkedFolders);
         Assert.Empty(ide.OpenedUnopened);
     }
@@ -60,12 +60,12 @@ public class UnopenedItemTests
         var (ide, baseline) = Project();
         ide.RemoveItem("B");
 
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
 
-        Assert.Equal(new[] { "B.pou" }, refs.Removed);
-        Assert.Equal(new[] { "B.pou" }, fetch.Removed);
-        Assert.Equal(new[] { "Broken" }, fetch.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Data/B.pou" }, refs.Removed);
+        Assert.Equal(new[] { "Data/B.pou" }, fetch.Removed);
+        Assert.Equal(new[] { "Data/Broken" }, fetch.Unreadable.Select(u => u.Name));
         Assert.Empty(ide.OpenedUnopened);
     }
 
@@ -74,8 +74,8 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        Assert.NotNull(ItemLookup.Find(ide, "B"));
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "Broken"));
+        Assert.NotNull(ItemLookup.Find(ide, "Data/B"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "Data/Broken"));
         Assert.Equal(BridgeErrorCodes.Unreadable, refusal.ErrorCode);
         Assert.Contains("'Broken'", refusal.Message);
         Assert.DoesNotContain(ItemLookup.All(ide), x => x.Name == "Broken");
@@ -90,12 +90,12 @@ public class UnopenedItemTests
         var set = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText = Fb("Broken") } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText = Fb("Broken") } },
         });
         var delete = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.pou" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
         });
 
         Assert.False(set.Accepted);
@@ -122,14 +122,14 @@ public class UnopenedItemTests
             {
                 new SetItemOp { Name = "A.pou", IfVersion = baseline.Items["A.pou"],
                                 SourceText = Fb("A").Replace("n := 0;", "n := 1;") },
-                new DeleteItemOp { Name = "Broken.pou" },
+                new DeleteItemOp { Name = "Data/Broken.pou" },
             },
         });
 
         Assert.False(push.Accepted);
         var conflict = Assert.Single(push.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unreadable, conflict.Code);
-        Assert.Equal("Broken.pou", conflict.Name);
+        Assert.Equal("Data/Broken.pou", conflict.Name);
         Assert.DoesNotContain("already written", conflict.Reason);
         Assert.Empty(ide.Recorded);
         Assert.Empty(ide.OpenedUnopened);
@@ -143,7 +143,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.pou" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
         });
 
         Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
@@ -162,7 +162,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText = Fb("Broken") } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText = Fb("Broken") } },
         });
 
         Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
@@ -171,7 +171,7 @@ public class UnopenedItemTests
         Assert.Equal("create:Broken", touched[1]);
         var refs = RefsService.Handle(ide);
         Assert.Empty(refs.Unreadable);
-        Assert.Equal("Data", refs.Folders["Broken.pou"]);
+        Assert.Contains("Data/Broken.pou", refs.Items.Keys);
         Assert.Empty(ide.OpenedUnopened);
     }
 
@@ -185,7 +185,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.dut" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.dut" } },
         });
 
         Assert.False(push.Accepted);

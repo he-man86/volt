@@ -84,7 +84,7 @@ public class TcObjectPropertiesTests
         try
         {
             var ex = Assert.Throws<BridgeException>(() =>
-                TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(new SavedNode(file))));
+                TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(new SavedNode(file))));
             Assert.Contains("SpecialFunc=\"CheckBounds\"", ex.Message);
             Assert.Contains("'FB_Saved'", ex.Message);
         }
@@ -99,7 +99,7 @@ public class TcObjectPropertiesTests
         try
         {
             var ex = Assert.Throws<BridgeException>(() =>
-                TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(new SavedNode(file))));
+                TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(new SavedNode(file))));
             Assert.Contains("BuildProperty", ex.Message);
         }
         finally { File.Delete(file); }
@@ -114,7 +114,7 @@ public class TcObjectPropertiesTests
             "<ObjectProperties><XmlArchive><Data><o xml:space=\"preserve\" t=\"SFCProperty\" /></Data></XmlArchive></ObjectProperties>");
         try
         {
-            var read = TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(new SavedNode(file)));
+            var read = TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(new SavedNode(file)));
             Assert.Equal(ObjectProperties.None, read.Properties);
         }
         finally { File.Delete(file); }
@@ -140,7 +140,7 @@ public class TcObjectPropertiesTests
     public void An_item_publishing_no_saved_file_is_refused_by_name()
     {
         var ex = Assert.Throws<BridgeException>(() => TcUntouchablePouTests.BoundDriver()
-            .ReadContent(new ItemRef(new XmlPou("<TreeItem><ItemName>FB_Saved</ItemName><VSProperties /></TreeItem>"))));
+            .ReadContent(TcRefs.Ref(new XmlPou("<TreeItem><ItemName>FB_Saved</ItemName><VSProperties /></TreeItem>"))));
         Assert.Contains("'FB_Saved'", ex.Message);
         Assert.Contains("FullPath", ex.Message);
     }
@@ -151,7 +151,7 @@ public class TcObjectPropertiesTests
     {
         var missing = Path.Combine(Path.GetTempPath(), "volt-tc-missing-" + Guid.NewGuid().ToString("N") + ".TcPOU");
         var ex = Assert.Throws<BridgeException>(() => new SavedNode(missing) is var n
-            ? TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(n)) : null);
+            ? TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(n)) : null);
         Assert.Contains("'FB_Saved'", ex.Message);
         Assert.Contains("not on disk", ex.Message);
     }
@@ -178,7 +178,7 @@ public class TcObjectPropertiesTests
                 "</ItemGroup></Project>");
 
             var ex = Assert.Throws<BridgeException>(() =>
-                TcUntouchablePouTests.BoundDriver(plcproj).ReadContent(new ItemRef(new SavedNode(file))));
+                TcUntouchablePouTests.BoundDriver(plcproj).ReadContent(TcRefs.Ref(new SavedNode(file))));
             Assert.Contains("ExcludeFromBuild", ex.Message);
             Assert.Contains("'FB_Saved'", ex.Message);
         }
@@ -229,7 +229,7 @@ public class TcObjectPropertiesTests
         var file = SavedInterface("PUBLIC\r\nVAR\r\nEND_VAR");
         try
         {
-            var read = TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(Interface(file)));
+            var read = TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(Interface(file)));
             Assert.NotNull(Assert.Single(read.Members).Getter);
         }
         finally { File.Delete(file); }
@@ -243,7 +243,7 @@ public class TcObjectPropertiesTests
         try
         {
             var ex = Assert.Throws<BridgeException>(() =>
-                TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(Interface(file))));
+                TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(Interface(file))));
             Assert.Contains("'I_Saved'", ex.Message);
             Assert.Contains("'Speed' GET", ex.Message);
             Assert.Contains("x : INT;", ex.Message);
@@ -263,7 +263,7 @@ public class TcObjectPropertiesTests
                 new TcHiddenBodyWriteTests.Node("Get", ItemKind.PlcItfPropGet, "", ""),
                 new TcHiddenBodyWriteTests.Node("Set", ItemKind.PlcItfPropSet, "", "")));
 
-        var prop = Assert.Single(TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(itf)).Members);
+        var prop = Assert.Single(TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(itf)).Members);
 
         Assert.NotNull(prop.Getter);
         Assert.NotNull(prop.Setter);

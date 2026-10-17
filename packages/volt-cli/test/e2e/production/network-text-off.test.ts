@@ -21,7 +21,7 @@
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
-import { id, fid, bridge, fetchItem, pushOps, expectVendorDifference, BASE } from "../harness"
+import { id, fid, bridge, fetchItem, pushOps, expectVendorDifference, BASE, inFolder, projectRoot, fileOf } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
 
@@ -74,11 +74,11 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 	})
 
 	it("network text pushed is refused naming the switch, and nothing is created", async () => {
-		const name = fid("prod_ld", "pou")
+		const name = inFolder(await projectRoot(), fid("prod_ld", "pou"))
 		const src =
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`
-		const r = await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: null }])
+		const r = await pushOps([{ op: "set", name, sourceText: src, ifVersion: null }])
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts ?? r)).toContain(DISABLED)
 		expect((await bridge.refs()).items[name]).toBeUndefined()
@@ -91,7 +91,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const target = all.find((i) => /\.(prg|fb)$/.test(i.name) && networkLines(i.sourceText).length > 0)
 		if (!target) throw new Error(`no PROGRAM or FUNCTION_BLOCK with a hidden LD/FBD body in '${project}'`)
 		const name: string = target.name
-		const bare = name.split(".")[0]!
+		const bare = fileOf(name).split(".")[0]!
 		const pulled: string = target.sourceText
 		const own = /^IMPLEMENTATION [A-Z]+( UNSUPPORTED)?\r?$/m.exec(pulled)
 		if (!own) throw new Error(`${name} has no IMPLEMENTATION line`)

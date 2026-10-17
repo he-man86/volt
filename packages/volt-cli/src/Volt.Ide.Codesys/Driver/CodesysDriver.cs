@@ -209,16 +209,74 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
 
     public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 
-    public override bool Build() =>
-        _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
+    /// <summary>EVERY APPLICATION IS BUILT (openspec multi-application-tree, design §6) — it was only the first one
+    /// <c>FindApplication</c> met, so a project of two devices compiled one of them and reported the other clean.
+    /// <para>The IDE's Build message category holds ONE build's messages (a build replaces them, measured — see
+    /// <c>CodesysObjectModel.BuildMessages</c>), so each application's are read right after its own build and kept for
+    /// <see cref="GetBuildDiagnostics"/>. The build succeeds when every application's does.</para></summary>
+    public override bool Build()
+    {
+        var applications = Applications();
+        if (applications.Count == 0) throw new InvalidOperationException("CODESYS: no Application to build");
+        var builds = new List<List<Dictionary<string, object?>>>();
+        var success = true;
+        foreach (var (app, _) in applications)
+        {
+            success &= _om.Build(app);
+            builds.Add(_om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList());
+        }
+        _lastBuilds = builds;
+        return success;
+    }
 
-    // The precompile + read — FetchService calls this only when a .library version changed.
-    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
-        _om.ExtractLibrarySignatures();
+    /// <summary>The messages of every application's build, one list per build, read right after each
+    /// (<see cref="Build"/>); null before this session's first build, when the IDE's own last build is what the message
+    /// view holds.</summary>
+    private List<List<Dictionary<string, object?>>>? _lastBuilds;
+
+    /// <summary>The precompile + read — FetchService calls this only when a .library version changed. ONCE PER
+    /// APPLICATION (design §6): each has its own Library Manager, and its signatures land beside ITS `.library` files —
+    /// each signature carries the root of the application it was extracted for.</summary>
+    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
+    {
+        var applications = Applications();
+        if (applications.Count == 0)
+            throw new InvalidOperationException(
+                "CODESYS: no Application node, so the referenced libraries cannot be precompiled and their signatures " +
+                "would come back all but empty — which the client would apply as a deletion of every library file it " +
+                "holds. Refusing instead.");
+        var all = new List<Volt.Engine.Library.LibSignature>();
+        foreach (var (app, path) in applications)
+            all.AddRange(_om.ExtractLibrarySignatures(app).Select(s => s with { Application = path }));
+        return all;
+    }
+
+    /// <summary>Every Application node of the project with its root path, spelled as <see cref="WalkItems"/> spells
+    /// folders (the same appends, from the same root) — descending only containers (folders, devices, Plc Logic, an
+    /// application, the task configuration), never into a POU, as the walk descends them.</summary>
+    private List<(object Node, string Path)> Applications()
+    {
+        var found = new List<(object, string)>();
+        void Visit(object node, string path, int depth)
+        {
+            if (depth > 14) return;   // the object model's own depth guard (MaxTreeDepth)
+            foreach (var child in _om.GetChildren(node))
+            {
+                var code = KindCodeOf(child);
+                var childPath = FolderPath.Append(path, _om.GetName(child));
+                if (code == ItemKind.Application) found.Add((child, childPath));
+                if (code == ItemKind.PlcFolder || code == ItemKind.Device || CodesysTypeMap.IsRecurseOnlyContainer(code))
+                    Visit(child, childPath, depth + 1);
+            }
+        }
+        if (_om.PrimaryProject is { } root) Visit(root, "", 0);
+        return found;
+    }
 
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
     {
-        var raw = _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList();
+        var raw = FoldAcrossBuilds(_lastBuilds
+                                   ?? new() { _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList() });
         var names = NamesFor(raw);
         return raw.Select(m =>
         {
@@ -230,15 +288,44 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
                 Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
                 Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
                 Code = m.TryGetValue("code", out var code) ? code as string : null,
-                // The BARE name — BuildService promotes it to the wire's full `name.kind`. See its PromoteNames.
+                // The item's folder and BARE name — BuildService promotes it to the wire path. See its PromoteNames.
                 Name = placed?.Name,
                 Member = placed?.Member,
             };
         }).ToList();
     }
 
-    /// <summary>Where a diagnostic's object sits on the wire: the top-level item that owns it (BARE name), and the
-    /// child of that item it is inside — null when the object IS the item.</summary>
+    /// <summary>ONE DIAGNOSTIC PER MESSAGE ON AN OBJECT ACROSS BUILDS: an object two applications both compile (a POU of
+    /// the project's pool) is reported by each build — the same object, the same message — and that is one diagnostic,
+    /// not two. Only ANOTHER build's copy folds: a CODESYS message carries no position (line 0 on every recorded one), so
+    /// one build that repeats a message on one object (two empty CASE arms) reports it twice, and both are kept — the
+    /// oracle recordings take their diagnostics through this read. A later build adds a message only as often as it
+    /// repeats it beyond the most any earlier build did. A message on no object is each build's own line (its "Build
+    /// started: Application: …", its "Compile complete") and is always kept.</summary>
+    private static List<Dictionary<string, object?>> FoldAcrossBuilds(List<List<Dictionary<string, object?>>> builds)
+    {
+        var most = new Dictionary<string, int>(StringComparer.Ordinal);   // key -> the most any earlier build gave
+        var outv = new List<Dictionary<string, object?>>();
+        foreach (var build in builds)
+        {
+            var inThisBuild = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var m in build)
+            {
+                if (!(m.TryGetValue("objectGuid", out var o) && o is Guid)) { outv.Add(m); continue; }
+                var key = string.Join("\u0001", new[] { "severity", "message", "line", "column", "objectGuid", "code" }
+                    .Select(k => m.TryGetValue(k, out var v) ? v?.ToString() ?? "" : ""));
+                var n = inThisBuild[key] = (inThisBuild.TryGetValue(key, out var c) ? c : 0) + 1;
+                if (n <= (most.TryGetValue(key, out var earlier) ? earlier : 0)) continue;
+                most[key] = n;
+                outv.Add(m);
+            }
+        }
+        return outv;
+    }
+
+    /// <summary>Where a diagnostic's object sits on the wire: the top-level item that owns it (its walked folder and BARE
+    /// name, <c>&lt;folder&gt;/&lt;bare&gt;</c>, so two applications' items of one name stay apart), and the child of that item
+    /// it is inside — null when the object IS the item.</summary>
     private sealed class Placement
     {
         public Placement(string name, string? member) { Name = name; Member = member; }
@@ -278,7 +365,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
             // and nothing a build reports a message on.
             if (pi.Item.Native is LibRefNode) continue;
             var guid = _om.GuidOf(pi.Item.Native);
-            if (wanted.Contains(guid)) names[guid] = new Placement(pi.Name, null);
+            if (wanted.Contains(guid)) names[guid] = new Placement(ItemPath.Of(pi.Folder, pi.Name), null);
             // STOP once every guid is placed. This runs on the IDE's primary thread, and a failing build on a
             // real project asks about a handful of items out of hundreds.
             if (names.Count == wanted.Count) return names;
@@ -288,7 +375,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
             if (!ItemKind.HoldsMembers(pi.KindCode)) continue;
             foreach (var child in _om.GetChildren(pi.Item.Native))
             {
-                if (PlaceUnder(child, pi.Name, wanted, names) && names.Count == wanted.Count) return names;
+                if (PlaceUnder(child, ItemPath.Of(pi.Folder, pi.Name), wanted, names) && names.Count == wanted.Count) return names;
             }
         }
         return names;

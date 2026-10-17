@@ -81,7 +81,7 @@ public class TcPreflightTests
     public void A_new_member_in_an_existing_item_is_lowered_as_the_create_it_is()
     {
         var ex = Assert.Throws<NetworkTextException>(() =>
-            TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()), new[] { Body(Unimportable, Method("Fresh")) }));
+            TcUntouchablePouTests.BoundDriver().ValidateSource(TcRefs.Ref(Pou()), new[] { Body(Unimportable, Method("Fresh")) }));
         Assert.Contains("'Fresh'", ex.Message);
         Assert.Contains("parallel branch", ex.Message);
     }
@@ -91,7 +91,7 @@ public class TcPreflightTests
     public void An_existing_member_with_nothing_drawn_is_lowered_as_a_create()
     {
         Assert.Throws<NetworkTextException>(() =>
-            TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()), new[] { Body(Unimportable, Method("Empty")) }));
+            TcUntouchablePouTests.BoundDriver().ValidateSource(TcRefs.Ref(Pou()), new[] { Body(Unimportable, Method("Empty")) }));
     }
 
     /// <summary>A member of the same name but another kind is deleted and created again by the reconciler: a create.</summary>
@@ -99,7 +99,7 @@ public class TcPreflightTests
     public void A_retyped_member_is_lowered_as_a_create()
     {
         Assert.Throws<NetworkTextException>(() =>
-            TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()),
+            TcUntouchablePouTests.BoundDriver().ValidateSource(TcRefs.Ref(Pou()),
                 new[] { Body(Unimportable, new BodySite("Run", ItemKind.Kinds.Action, null)) }));
     }
 
@@ -108,7 +108,7 @@ public class TcPreflightTests
     [Fact]
     public void A_drawn_body_the_write_edits_is_not_lowered()
     {
-        TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()),
+        TcUntouchablePouTests.BoundDriver().ValidateSource(TcRefs.Ref(Pou()),
             new[] { Body(Unimportable), Body(Unimportable, Method("Run")) });
     }
 }

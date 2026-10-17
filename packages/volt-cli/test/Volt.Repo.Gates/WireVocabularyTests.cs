@@ -60,9 +60,10 @@ public class WireVocabularyTests
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
             ("Volt.Engine/Sync/FetchService.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 8),
+            ("Volt.Engine/Sync/PushService.cs", 10),   // +1 a move into another application; +1 a task moved out of its container (multi-application-tree)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 4),
             ("Volt.Relay/RelayTunnel.cs", 1),
             ("Volt.Wire/PipeServer.cs", 1))),
@@ -97,7 +98,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 7),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 a project-settings read of a node that is no PLC project's settings item (multi-application-tree)
             ("Volt.Relay/RelayTunnel.cs", 1),
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE no longer holds what Volt just wrote or read", "pull to see what landed, then push again",
@@ -136,10 +137,10 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 1))),
         new("the push could not read where the item lives", "fix what stops the IDE enumerating that place",
             "ITEM_UNVERIFIED", At(
-            ("Volt.Engine/Ide/ItemLookup.cs", 3),
+            ("Volt.Engine/Ide/ItemLookup.cs", 6),   // +3 the path descent's: a folder's children, a child, a child's name unreadable (multi-application-tree)
             ("Volt.Engine/Ide/ProjectDeclarations.cs", 1),
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 1),
+            // -1 PushService: a forced replace's folder came from the walk; it is the op's path now (multi-application-tree)
             ("Volt.Ide.Twincat/Ide/ExplorerSnapshot.cs", 2),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 6))),
         new("the push stopped before this op", "re-send it unchanged", "NOT_ATTEMPTED", At(
@@ -345,12 +346,12 @@ public class WireVocabularyTests
         ("Volt.Engine/Sync/Materializer.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
+        ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 2),   // +1 no Application to extract library signatures for, moved here from CodesysObjectModel.Libraries.cs (per application, multi-application-tree)
         ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 16),   // 2R.5 +1 a named ENO pin on a box built with no ENO output (invariant: the reader refuses that text); +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 18),   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 17),   // -1 no Application: moved to CodesysDriver.cs (multi-application-tree)   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 5),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),

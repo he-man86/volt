@@ -56,10 +56,10 @@ public class BuildDiagnosticNameTests
     /// case, so the name has to be the file an editor can open. (Premise changed by the owner, openspec
     /// <c>push-without-header-check</c> 5.P: this expected the subtype names.)</summary>
     [Theory]
-    [InlineData("TYPE Boiler :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n", "Boiler.dut")]
-    [InlineData("TYPE Boiler :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n", "Boiler.dut")]
-    [InlineData("TYPE Boiler :\nUNION\n\tb : BYTE;\n\tw : WORD;\nEND_UNION\nEND_TYPE\n", "Boiler.dut")]
-    [InlineData("TYPE Boiler : STRING(80);\nEND_TYPE\n", "Boiler.dut")]
+    [InlineData("TYPE Boiler :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n", "DUTs/Boiler.dut")]
+    [InlineData("TYPE Boiler :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n", "DUTs/Boiler.dut")]
+    [InlineData("TYPE Boiler :\nUNION\n\tb : BYTE;\n\tw : WORD;\nEND_UNION\nEND_TYPE\n", "DUTs/Boiler.dut")]
+    [InlineData("TYPE Boiler : STRING(80);\nEND_TYPE\n", "DUTs/Boiler.dut")]
     public void A_dut_diagnostic_carries_the_duts_name_whatever_its_shape(string decl, string expected)
     {
         var ide = new FakeIde(new FakeIde.Item("Boiler", Volt.Engine.Item.ItemKind.PlcDut, "DUTs", true, decl, null, null, null))

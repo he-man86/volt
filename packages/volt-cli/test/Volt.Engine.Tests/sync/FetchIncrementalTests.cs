@@ -76,8 +76,8 @@ public class FetchIncrementalTests
         var full = Fetch(ide, new()).Items;
         ide.RemoveItem("FB_Motor");                              // the engineer deletes it in the IDE
         var resp = Fetch(ide, new Dictionary<string, string>(full));
-        Assert.Contains("FB_Motor.pou", resp.Removed);
-        Assert.DoesNotContain("FB_Motor.pou", resp.Items.Keys);
+        Assert.Contains("POUs/FB_Motor.pou", resp.Removed);
+        Assert.DoesNotContain("POUs/FB_Motor.pou", resp.Items.Keys);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ public class TcSilentFallbackTests
     private const int EFail = unchecked((int)0x80004005);
     private const int RpcServerUnavailable = unchecked((int)0x800706BA);
 
-    public sealed class Plc { public Plc(object nested) => NestedProject = nested; public object NestedProject { get; } }
+    public sealed class Plc { public Plc(object nested) => NestedProject = nested; public object NestedProject { get; } public string Name => "PLC"; }
 
     /// <summary><c>TIPC</c> with two PLC projects, the first of which faults when it is read.</summary>
     public sealed class TwoPlcTipc

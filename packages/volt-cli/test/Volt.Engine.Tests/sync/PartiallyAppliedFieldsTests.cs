@@ -38,10 +38,16 @@ public class PartiallyAppliedFieldsTests
         PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
 
     private static SetItemOp Create(string wireName, string source) =>
-        new() { Name = wireName, IfVersion = null, ToFolder = "", SourceText = source };
+        new() { Name = wireName, IfVersion = null, SourceText = source };
 
     private static SetItemOp Update(FakeIde ide, string wireName, string source, string? toName = null, string? toFolder = null) =>
-        new() { Name = wireName, ToName = toName, ToFolder = toFolder, IfVersion = RefsService.Handle(ide).Items[wireName], SourceText = source };
+        new()
+        {
+            Name = wireName,
+            To = toName is null && toFolder is null ? null
+                : Volt.Engine.Item.ItemPath.Of(toFolder ?? Volt.Engine.Item.ItemPath.FolderOf(wireName), toName ?? Volt.Engine.Item.ItemPath.FileOf(wireName)),
+            IfVersion = RefsService.Handle(ide).Items[wireName], SourceText = source,
+        };
 
     private static void AssertNothingKept(PushConflict c)
     {
@@ -194,7 +200,7 @@ public class PartiallyAppliedFieldsTests
         {
             FailMove = name => name == "FB_M" ? new System.InvalidOperationException("the IDE could not move 'FB_M'") : null,
         };
-        var resp = Push(ide, Update(ide, "FB_M.pou", "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n", toFolder: "B"));
+        var resp = Push(ide, Update(ide, "A/FB_M.pou", "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n", toFolder: "B"));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("the pushed text of 'FB_M' was written before it and stays", c.Reason);
@@ -255,7 +261,7 @@ public class PartiallyAppliedFieldsTests
         {
             RefuseTaskWrite = _ => new System.InvalidOperationException("the IDE could not write the task"),
         };
-        var resp = Push(ide, Update(ide, "MainTask.task",
+        var resp = Push(ide, Update(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task",
             "Type:      Cyclic\nInterval:  20 ms\nPriority:  5\nWatchdog:  16 ms (sensitivity 2)\nCalls:     PLC_PRG\n",
             toName: "SlowTask.task"));
 
@@ -263,7 +269,7 @@ public class PartiallyAppliedFieldsTests
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("stays renamed", c.Reason);
         Assert.True(c.PartiallyApplied);
-        Assert.Equal("SlowTask.task", c.RenamedTo);
+        Assert.Equal("Device/Plc Logic/Application/Task Configuration/SlowTask.task", c.RenamedTo);
     }
 
     [Fact]
@@ -275,7 +281,7 @@ public class PartiallyAppliedFieldsTests
             FailCreate = (name, _) => failCreate && name == "Broken"
                 ? new System.InvalidOperationException("the IDE could not create 'Broken'") : null,
         };
-        Push(ide, new SetItemOp { Name = "Broken.pou", ToFolder = "Data", SourceText =
+        Push(ide, new SetItemOp { Name = "Data/Broken.pou", SourceText =
             "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" });
         ide.UnopenedItems.Add("Broken");
         failCreate = true;
@@ -283,7 +289,7 @@ public class PartiallyAppliedFieldsTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText =
+            Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =
                 "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
         });
 
@@ -355,7 +361,7 @@ public class PartiallyAppliedFieldsTests
             TaskWriteLandsBeforeRefusal = (_, _) =>
                 "Type:      Cyclic\nInterval:  20 ms\nPriority:  1\nWatchdog:  off\nCalls:     \n",
         };
-        var resp = Push(ide, Update(ide, "MainTask.task", PushedTask));
+        var resp = Push(ide, Update(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task", PushedTask));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, c.Code);
@@ -374,7 +380,7 @@ public class PartiallyAppliedFieldsTests
         {
             RefuseTaskWrite = _ => new BridgeException(BridgeErrorCodes.Unsupported, "the IDE could not write the task"),
         };
-        var resp = Push(ide, Update(ide, "MainTask.task", PushedTask));
+        var resp = Push(ide, Update(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task", PushedTask));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Equal("the IDE could not write the task", c.Reason);
@@ -391,7 +397,7 @@ public class PartiallyAppliedFieldsTests
         {
             RefuseContentWrite = item => ide.Name(item) == "F" ? new System.InvalidOperationException("the IDE could not write 'F'") : null,
         };
-        var resp = Push(ide, new SetItemOp { Name = "F.pou", ToFolder = "NewF/Sub", SourceText = FbWithMethod });
+        var resp = Push(ide, new SetItemOp { Name = "NewF/Sub/F.pou", SourceText = FbWithMethod });
 
         Assert.False(ide.Exists("F"), "premise: the create rolled back");
         Assert.Contains("create:NewF", ide.Recorded);   // premise: the folders were created by this op
@@ -426,14 +432,14 @@ public class PartiallyAppliedFieldsTests
     {
         var ide = new FakeIde(MainTask());
         ide.HiddenItems.Add("SlowTask");
-        var resp = Push(ide, Update(ide, "MainTask.task", MainTaskDescriptor, toName: "SlowTask.task"));
+        var resp = Push(ide, Update(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task", MainTaskDescriptor, toName: "SlowTask.task"));
 
         Assert.Contains("rename:MainTask->SlowTask", ide.Recorded);   // premise
         var c = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.IdeLostItem, c.Code);
         Assert.Contains("stays renamed", c.Reason);
         Assert.True(c.PartiallyApplied);
-        Assert.Equal("SlowTask.task", c.RenamedTo);
+        Assert.Equal("Device/Plc Logic/Application/Task Configuration/SlowTask.task", c.RenamedTo);
     }
 
     /// <summary>…while a rename the IDE did NOT apply (case-only, ignored) leaves nothing renamed and claims nothing.</summary>

@@ -30,7 +30,7 @@ public class TcNetworkTextSwitchTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
 
     private static ItemContent Read() =>
-        new BeckhoffDriver(new TcObjectModel()).ReadContent(new ItemRef(
+        new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(
             new TcHiddenBodyWriteTests.Node("PRG_Ladder", ItemKind.PlcPou, "PROGRAM PRG_Ladder\nVAR\nEND_VAR", Ladder())));
 
     [Fact]

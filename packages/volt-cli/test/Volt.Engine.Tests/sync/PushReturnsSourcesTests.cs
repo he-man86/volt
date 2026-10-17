@@ -47,7 +47,7 @@ public class PushReturnsSourcesTests
     private const string Enum = "TYPE E_Mode :\n(\n\tIdle,\n\tRun\n);\nEND_TYPE";
 
     private static SetItemOp Create(string wireName, string source) =>
-        new() { Name = wireName, IfVersion = null, ToFolder = "", SourceText = source };
+        new() { Name = wireName, IfVersion = null, SourceText = source };
 
     private static PushResponse Push(FakeIde ide, bool? returnSources, params PushOp[] ops) =>
         PushService.Handle(ide, new PushRequest
@@ -147,7 +147,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, new SetItemOp
         {
-            Name = "FB_Old.pou", ToName = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"],
+            Name = "FB_Old.pou", To = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"],
             SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
         });
 
@@ -165,7 +165,7 @@ public class PushReturnsSourcesTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_Old", "FUNCTION_BLOCK FB_Old\nVAR\nEND_VAR", "y := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var push = Push(ide, true, new SetItemOp { Name = "FB_Old.pou", ToName = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"] });
+        var push = Push(ide, true, new SetItemOp { Name = "FB_Old.pou", To = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("FUNCTION_BLOCK FB_New", Fetch(ide, "FB_New.pou").SourceText);   // premise: the rename rewrote it
@@ -186,7 +186,7 @@ public class PushReturnsSourcesTests
         };
         var refs = RefsService.Handle(ide);
 
-        var push = Push(ide, true, new SetItemOp { Name = "F_Old.pou", ToName = "F_New.pou", IfVersion = refs.Items["F_Old.pou"] });
+        var push = Push(ide, true, new SetItemOp { Name = "F_Old.pou", To = "F_New.pou", IfVersion = refs.Items["F_Old.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("F_Old := TRUE;", Fetch(ide, "F_New.pou").SourceText);
@@ -208,7 +208,7 @@ public class PushReturnsSourcesTests
         { RewritesReferencesOnRename = true, RewritesOwnReferencesOnRename = true };   // the TwinCAT shape (C2o, C2p)
         var refs = RefsService.Handle(ide);
 
-        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToName = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
+        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("rename:FB_A->FB_B", ide.Recorded);
@@ -239,7 +239,7 @@ public class PushReturnsSourcesTests
             Create("ST_Drive.dut", Struct),
             new SetItemOp
             {
-                Name = "X.pou", ToName = "Y.pou", IfVersion = refs.Items["X.pou"],
+                Name = "X.pou", To = "Y.pou", IfVersion = refs.Items["X.pou"],
                 SourceText = "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
                              "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
             });
@@ -284,10 +284,10 @@ public class PushReturnsSourcesTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "y := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToFolder = "Sub", IfVersion = refs.Items["FB_A.pou"] });
+        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "Sub/FB_A.pou", IfVersion = refs.Items["FB_A.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
-        HoldsWhatAFetchGives(ide, push, "FB_A.pou");
+        HoldsWhatAFetchGives(ide, push, "Sub/FB_A.pou");
     }
 
     /// <summary>An op in <c>conflicts</c> whose item is STILL in the project (and so in <c>newItems</c>) has no entry: a
@@ -413,13 +413,13 @@ public class PushReturnsSourcesTests
         };
 
         var push = Push(ide, true, Create("GVL_Drive.gvl", Gvl),
-            new SetItemOp { Name = "ST_Drive.dut", IfVersion = null, ToFolder = "Types", SourceText = Struct });
+            new SetItemOp { Name = "Types/ST_Drive.dut", IfVersion = null, SourceText = Struct });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("Types", push.UnwalkedFolders);
-        Assert.DoesNotContain("ST_Drive.dut", push.NewItems!.Keys);
+        Assert.DoesNotContain("Types/ST_Drive.dut", push.NewItems!.Keys);
         Assert.NotNull(push.NewSources);
-        Assert.False(push.NewSources!.ContainsKey("ST_Drive.dut"));
+        Assert.False(push.NewSources!.ContainsKey("Types/ST_Drive.dut"));
         HoldsWhatAFetchGives(ide, push, "GVL_Drive.gvl");
     }
 

@@ -48,7 +48,7 @@ internal static class OneToOneSteps
         return PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = wire, SourceText = text, ToFolder = folder, IfVersion = null } },
+            Ops = new() { new SetItemOp { Name = folder.Length == 0 ? wire : $"{folder}/{wire}", SourceText = text, IfVersion = null } },
         });
     }
 

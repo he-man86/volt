@@ -23,7 +23,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { BASE, VENDOR } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
-import { createItem, fetchItem, landedInFull, pushOps, removeItem, PREFIX } from "../lib/workspace"
+import { createItem, fetchItem, landedInFull, pushOps, removeItem, PREFIX, pathIn, pathOf } from "../lib/workspace"
 
 setDefaultTimeout(600_000)
 
@@ -65,7 +65,7 @@ describe(`abstract member migration / ${MIGRATED} (${BASE})`, () => {
 
 		const r = await bridge.push({
 			expectedProjectVersion: (await bridge.refs()).projectVersion,
-			ops: [{ op: "set", name: MIGRATED, sourceText: withCode, ifVersion: before.version }],
+			ops: [{ op: "set", name: await pathOf(MIGRATED), sourceText: withCode, ifVersion: before.version }],
 		})
 
 		expect(r.accepted).toBe(false)
@@ -82,7 +82,7 @@ const OWNER = "VisionSystem_BaseFB.pou"
 const SIGNATURE = "METHOD ABSTRACT TakePicture : enumResultTakePicture"
 const ADDED = "// volt e2e: a declaration line beside an abstract member"
 
-const served = VENDOR === "codesys" && OWNER in items
+const served = VENDOR === "codesys" && pathIn(items, OWNER) !== undefined
 if (!served) console.warn(`[abstract-member] pro2193 part skipped: ${BASE} serves no ${OWNER} on CODESYS — serve the committed pro2193 copy`)
 
 describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
@@ -95,7 +95,7 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 	afterAll(async () => {
 		const now = await fetchItem(OWNER)
 		if (lf(now.sourceText) === lf(original.sourceText)) return
-		const r = await pushOps([{ op: "set", name: OWNER, sourceText: original.sourceText, ifVersion: now.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(OWNER), sourceText: original.sourceText, ifVersion: now.version }])
 		if (!landedInFull(r)) throw new Error(`${OWNER} could not be restored: ${JSON.stringify(r.conflicts ?? r)}`)
 	})
 
@@ -111,7 +111,7 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 		const edited = lf(original.sourceText).replace(SIGNATURE, `${SIGNATURE}\n${ADDED}`)
 		expect(edited).not.toBe(lf(original.sourceText))
 
-		const r = await pushOps([{ op: "set", name: OWNER, sourceText: edited, ifVersion: original.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(OWNER), sourceText: edited, ifVersion: original.version }])
 		expect({ landed: landedInFull(r), conflicts: r.conflicts ?? [] }).toEqual({ landed: true, conflicts: [] })
 
 		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(edited)
@@ -125,7 +125,7 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 		const stale = lf(before.sourceText).replace(`${SIGNATURE}\n${ADDED}\nIMPLEMENTATION NONE`, `${SIGNATURE}\nIMPLEMENTATION ST`)
 		expect(stale).toContain(`${SIGNATURE}\nIMPLEMENTATION ST\n%FOLDER Commands\nEND_METHOD`)
 
-		const r = await pushOps([{ op: "set", name: OWNER, sourceText: stale, ifVersion: before.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(OWNER), sourceText: stale, ifVersion: before.version }])
 		expect({ landed: landedInFull(r), conflicts: r.conflicts ?? [] }).toEqual({ landed: true, conflicts: [] })
 
 		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(lf(original.sourceText))

@@ -59,11 +59,11 @@ public class OneOpPerItemTests
         var ide = Ide();
         var resp = Push(ide, force, refs => new List<PushOp>
         {
-            new DeleteItemOp { Name = "X.gvl", IfVersion = refs.Items["X.gvl"] },
-            new SetItemOp { Name = "X.gvl", IfVersion = refs.Items["X.gvl"], SourceText = Gvl + "\n// edited\n" },
+            new DeleteItemOp { Name = "GVLs/X.gvl", IfVersion = refs.Items["GVLs/X.gvl"] },
+            new SetItemOp { Name = "GVLs/X.gvl", IfVersion = refs.Items["GVLs/X.gvl"], SourceText = Gvl + "\n// edited\n" },
         });
 
-        AssertRefusedNamingIt(ide, resp, "X.gvl", "deleteItem, set");
+        AssertRefusedNamingIt(ide, resp, "GVLs/X.gvl", "deleteItem, set");
         Assert.True(ide.Exists("X"));
     }
 
@@ -75,11 +75,11 @@ public class OneOpPerItemTests
         var ide = Ide();
         var resp = Push(ide, force, refs => new List<PushOp>
         {
-            new SetItemOp { Name = "X.gvl", IfVersion = refs.Items["X.gvl"], SourceText = Gvl + "\n// edited\n" },
-            new DeleteItemOp { Name = "X.gvl", IfVersion = refs.Items["X.gvl"] },
+            new SetItemOp { Name = "GVLs/X.gvl", IfVersion = refs.Items["GVLs/X.gvl"], SourceText = Gvl + "\n// edited\n" },
+            new DeleteItemOp { Name = "GVLs/X.gvl", IfVersion = refs.Items["GVLs/X.gvl"] },
         });
 
-        AssertRefusedNamingIt(ide, resp, "X.gvl", "set, deleteItem");
+        AssertRefusedNamingIt(ide, resp, "GVLs/X.gvl", "set, deleteItem");
         Assert.True(ide.Exists("X"));
     }
 
@@ -91,11 +91,11 @@ public class OneOpPerItemTests
         var ide = Ide();
         var resp = Push(ide, force: false, refs => new List<PushOp>
         {
-            new SetItemOp { Name = "X.gvl", ToName = "B.gvl", IfVersion = refs.Items["X.gvl"] },
-            new SetItemOp { Name = "B.gvl", IfVersion = refs.Items["B.gvl"], SourceText = Gvl + "\n// edited\n" },
+            new SetItemOp { Name = "GVLs/X.gvl", To = "GVLs/B.gvl", IfVersion = refs.Items["GVLs/X.gvl"] },
+            new SetItemOp { Name = "GVLs/B.gvl", IfVersion = refs.Items["GVLs/B.gvl"], SourceText = Gvl + "\n// edited\n" },
         });
 
-        AssertRefusedNamingIt(ide, resp, "B.gvl", "set, set");
+        AssertRefusedNamingIt(ide, resp, "GVLs/B.gvl", "set, set");
     }
 
     /// <summary>Identity is case-insensitive here as everywhere else (the apply resolves an op by its bare name ignoring
@@ -106,11 +106,11 @@ public class OneOpPerItemTests
         var ide = Ide();
         var resp = Push(ide, force: true, refs => new List<PushOp>
         {
-            new DeleteItemOp { Name = "X.gvl", IfVersion = null },
-            new SetItemOp { Name = "x.gvl", IfVersion = null, SourceText = Gvl + "\n" },
+            new DeleteItemOp { Name = "GVLs/X.gvl", IfVersion = null },
+            new SetItemOp { Name = "GVLs/x.gvl", IfVersion = null, SourceText = Gvl + "\n" },
         });
 
-        AssertRefusedNamingIt(ide, resp, "x.gvl", "deleteItem, set");
+        AssertRefusedNamingIt(ide, resp, "GVLs/x.gvl", "deleteItem, set");
     }
 
     /// <summary>Two wire identities that share a BARE name are two items on the wire, but the apply resolves each op
@@ -169,8 +169,8 @@ public class OneOpPerItemTests
         var ide = Ide();
         var resp = Push(ide, force: false, refs => new List<PushOp>
         {
-            new SetItemOp { Name = "X.gvl", ToName = "Y.gvl", ToFolder = "Other", IfVersion = refs.Items["X.gvl"], SourceText = Gvl + "\n// edited\n" },
-            new DeleteItemOp { Name = "B.gvl", IfVersion = refs.Items["B.gvl"] },
+            new SetItemOp { Name = "GVLs/X.gvl", To = "Other/Y.gvl", IfVersion = refs.Items["GVLs/X.gvl"], SourceText = Gvl + "\n// edited\n" },
+            new DeleteItemOp { Name = "GVLs/B.gvl", IfVersion = refs.Items["GVLs/B.gvl"] },
         });
 
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);

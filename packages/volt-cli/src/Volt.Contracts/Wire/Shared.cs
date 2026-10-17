@@ -41,15 +41,22 @@ public abstract class ReadResponse
     [JsonPropertyName("projectVersion")]
     public string ProjectVersion { get; set; } = "";
 
-    /// <summary>Full wire name → content version, for every item the walk could materialize.</summary>
+    /// <summary>Item PATH → content version, for every item the walk could materialize. The path is the item's place
+    /// in the IDE's own tree, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c> (<c>Device/Plc Logic/Application/PLC_PRG.pou</c>):
+    /// it is the item's identity on the wire, so two <c>PLC_PRG.pou</c> in two applications are two items (openspec
+    /// <c>multi-application-tree</c>). The folder is the path's own prefix; there is no separate folder map.</summary>
     [JsonPropertyName("items")]
     public Dictionary<string, string> Items { get; set; } = new();
 
-    /// <summary>Full wire name → folder path, so a client can reconstruct the tree from one response.</summary>
-    [JsonPropertyName("folders")]
-    public Dictionary<string, string> Folders { get; set; } = new();
+    /// <summary>The root path of every application the project holds (CODESYS: each <c>IApplicationObject</c>,
+    /// <c>Device/Plc Logic/Application</c>; TwinCAT: each PLC project, <c>TwinCAT Project1/PLC/Untitled1</c>). An item
+    /// belongs to the application whose root is the longest prefix of its path; an item under none (the CODESYS POU pool)
+    /// belongs to the pool. A client never parses a vendor segment such as <c>Plc Logic</c> to find one.</summary>
+    [JsonPropertyName("applications")]
+    public List<string> Applications { get; set; } = new();
 
-    /// <summary>Items the walk FOUND but could not materialize, by bare name — normally empty.
+    /// <summary>Items the walk FOUND but could not materialize, by <c>&lt;folder&gt;/&lt;bare name&gt;</c> (no kind could be
+    /// read) — normally empty.
     ///
     /// <para><b>An unreadable item is the one failure a client cannot otherwise see.</b> It still exists, and it
     /// still counts toward <see cref="ProjectVersion"/> (tracked with the Unreadable sentinel so a pull does not
@@ -64,11 +71,11 @@ public abstract class ReadResponse
     [JsonPropertyName("unreadable")]
     public List<UnreadableItem> Unreadable { get; set; } = new();
 
-    /// <summary>Names in the client's baseline (<c>knownItems</c>) that are GONE from the IDE — the one removal
+    /// <summary>Paths in the client's baseline (<c>knownItems</c>) that are GONE from the IDE — the one removal
     /// decision, made here in the engine for every read op, so no client derives a deletion from absence with a
     /// rule of its own. Gone means: not walked, and not an item the walk found and could not read (matched by bare
-    /// name AND kind — names repeat across kinds); on a PARTIAL walk also known to have sat in a folder the walk
-    /// read (<c>knownFolders</c>). Empty when the request sent no baseline, on <c>init</c>, and for a directed
+    /// path AND kind — names repeat across kinds); on a PARTIAL walk also sitting in a folder the walk read (the path's
+    /// own folder). Empty when the request sent no baseline, on <c>init</c>, and for a directed
     /// (<c>onlyItems</c>) fetch.</summary>
     [JsonPropertyName("removed")]
     public List<string> Removed { get; set; } = new();
@@ -94,8 +101,9 @@ public abstract class ReadResponse
     public string? ProjectName { get; set; }
 }
 
-/// <summary>An item the walk found and did not materialize: its BARE name (it has no full name — the kind mapping may be
-/// what defeated the read) and why, in the words of the refusal that left it out.</summary>
+/// <summary>An item the walk found and did not materialize: its folder and BARE name, <c>&lt;folder&gt;/&lt;bare&gt;</c> (it
+/// has no kind extension — the kind mapping may be what defeated the read) and why, in the words of the refusal that left
+/// it out.</summary>
 public sealed record UnreadableItem
 {
     public UnreadableItem() { }

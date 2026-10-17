@@ -39,6 +39,7 @@ import { basename, join } from "node:path"
 import { copyRoot, pipePid, scriptPipe, type Vendor } from "../test/e2e/lib/fixture-ide"
 import { callOn } from "../test/e2e/lib/pipe"
 import { landedInFull } from "../test/e2e/lib/workspace"
+import { fileOf, folderOf as pathFolder, inFolder } from "../test/e2e/lib/main-program"
 import { ROWS, type Read, type Row, type Step } from "./vendor-facts.table"
 
 /**
@@ -711,11 +712,11 @@ export function wireSide(
       await sleep(1500)
     }
   }
-  /** The item's FULL wire name: its bare name with a source extension, exactly one. */
+  /** The bare name of a path: its file name without the kind. */
+  const bareOf = (path: string) => fileOf(path).slice(0, fileOf(path).lastIndexOf("."))
+  /** The item's PATH: its bare name with a source extension, exactly one. */
   const wireName = (r: any, name: string) => {
-    const hits = Object.keys(r.items ?? {}).filter(
-      (k) => /\.(pou|itf|gvl|dut)$/.test(k) && k.slice(0, k.lastIndexOf(".")) === name,
-    )
+    const hits = Object.keys(r.items ?? {}).filter((k) => /\.(pou|itf|gvl|dut)$/.test(k) && bareOf(k) === name)
     if (hits.length !== 1) throw new Error(`refs names ${hits.length} source item(s) '${name}.*' (${hits.join(", ")})`)
     return hits[0]!
   }
@@ -725,7 +726,7 @@ export function wireSide(
     if (handle === "root" || h!.kind === "folder")
       return ((await ctx.core({ kind: "path", row: ctx.row.id, on: handle })).value as string[]).join("/")
     if (!h) throw new Error("unreachable")
-    return r.folders[wireName(r, h.name)] ?? ""
+    return pathFolder(wireName(r, h.name))
   }
   const push = async (op: Record<string, unknown>): Promise<any> => {
     await serving()
@@ -745,7 +746,7 @@ export function wireSide(
   /** A native rename that ran before a refusal stays: the handle follows the item to its new name. */
   const follow = (h: HandleInfo, p: any) => {
     for (const c of (p?.conflicts ?? []) as any[])
-      if (typeof c.renamedTo === "string") h.name = c.renamedTo.slice(0, c.renamedTo.lastIndexOf("."))
+      if (typeof c.renamedTo === "string") h.name = bareOf(c.renamedTo)
   }
   const EXT: Record<string, string> = { dut: "dut", gvl: "gvl", interface: "itf" }
   const onHandle = async (s: Step, ctx: RowContext, r: any, h: HandleInfo, wire: string): Promise<any> => {
@@ -771,12 +772,12 @@ export function wireSide(
         return push({ op: "set", name: wire, sourceText: text, ifVersion })
       }
       case "rename":
-        return push({ op: "set", name: wire, toName: `${s.to}${wire.slice(wire.lastIndexOf("."))}`, ifVersion })
+        return push({ op: "set", name: wire, to: inFolder(pathFolder(wire), `${s.to}${wire.slice(wire.lastIndexOf("."))}`), ifVersion })
       case "move":
         return push({
           op: "set",
           name: wire,
-          toFolder: s.to === "home" ? h.home : await folderOf(ctx, s.to, r),
+          to: inFolder(s.to === "home" ? h.home! : await folderOf(ctx, s.to, r), fileOf(wire)),
           ifVersion,
         })
       case "delete":
@@ -801,11 +802,9 @@ export function wireSide(
       await serving()
       const r = await refs()
       if (s.op === "create" && s.via === "push") {
-        const toFolder = await folderOf(ctx, s.parent, r)
         const p = await push({
           op: "set",
-          name: `${s.name}.${EXT[s.kind] ?? "pou"}`,
-          toFolder,
+          name: inFolder(await folderOf(ctx, s.parent, r), `${s.name}.${EXT[s.kind] ?? "pou"}`),
           sourceText: s.source,
           ifVersion: null,
         })
@@ -820,7 +819,7 @@ export function wireSide(
       const h = ctx.handles.get(s.on)
       if (!h) throw new Error(`no handle '${s.on}'`)
       const wire = wireName(r, h.name)
-      if (h.home === undefined) h.home = r.folders[wire] ?? ""
+      if (h.home === undefined) h.home = pathFolder(wire)
       const p = await onHandle(s, ctx, r, h, wire)
       follow(h, p)
       return pushOutcome(p)
@@ -855,7 +854,7 @@ export function wireSide(
       await serving()
       for (const h of todo) {
         const r = await refs()
-        if (!Object.keys(r.items ?? {}).some((k) => k.slice(0, k.lastIndexOf(".")) === h.name)) continue
+        if (!Object.keys(r.items ?? {}).some((k) => bareOf(k) === h.name)) continue
         const w = wireName(r, h.name)
         const p = await push(
           h.created === "push"

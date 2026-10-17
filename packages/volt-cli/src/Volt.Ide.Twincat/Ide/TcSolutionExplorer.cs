@@ -150,8 +150,14 @@ internal static class TcSolutionExplorer
 
     private static readonly Guid SidVsSolution = new("7f7cd0db-91ef-49dc-9fa9-02d128515dd4");
 
+    /// <summary>Between the system project and the PLC project in a scoped request (<c>TcHierarchy.Scoped</c>) — a
+    /// character no project name holds (it is no legal file-name character).</summary>
+    public const char ScopeSeparator = '|';
+
     /// <summary>The hierarchy node of the PLC project named <paramref name="plcProjectName"/> (the PLC tree's nested
     /// project, e.g. <c>Untitled2 Project</c>), with every node beneath it; null when the hierarchy has no such node.
+    /// Scoped (<c>system|plc</c>, <c>TcHierarchy.Scoped</c>): searched only under that system project's own hierarchy,
+    /// whose root names the system project — two system projects may hold a PLC project of one name.
     /// Throws when the hierarchy itself cannot be read. <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy
     /// manifest there is active for the whole read, so every interface the read unmarshals finds it.</summary>
     public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string ideDir)
@@ -164,6 +170,9 @@ internal static class TcSolutionExplorer
 
     private static ExplorerNode? Read(object dte, string plcProjectName)
     {
+        string? system = null;
+        var cut = plcProjectName.IndexOf(ScopeSeparator);
+        if (cut >= 0) { system = plcProjectName.Substring(0, cut); plcProjectName = plcProjectName.Substring(cut + 1); }
         var sp = (IOleServiceProvider)dte;
         var sid = SidVsSolution;
         var iid = typeof(IVsSolution).GUID;
@@ -180,6 +189,8 @@ internal static class TcSolutionExplorer
             var unread = new List<string>();
             var name = Prop(one[0], VsItemIdRoot, VshPropIdName, unread);
             var caption = Prop(one[0], VsItemIdRoot, VshPropIdCaption, unread);
+            if (system is not null && !string.Equals(name, system, StringComparison.Ordinal)
+                && !string.Equals(caption, system, StringComparison.Ordinal)) continue;
             var root = new ExplorerNode(name, "", caption, Children(one[0], VsItemIdRoot, 0, unread), Unread(unread));
             if (Find(root, plcProjectName) is { } hit) return hit;
         }

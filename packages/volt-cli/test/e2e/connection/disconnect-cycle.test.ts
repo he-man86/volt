@@ -14,7 +14,7 @@
  * the engineer's bridge gated. `resume()` is idempotent, so it is safe to call when already serving.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, serving, requireHealthy, healthStatus, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
+import { bridge, serving, requireHealthy, healthStatus, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE, itemIn, inFolder, projectRoot } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 
@@ -99,29 +99,29 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	it("a refused push writes NOTHING — the gate runs before the IDE is touched", async () => {
 		// The dangerous failure mode: a push that is refused *halfway* would leave the IDE half-updated. The gate
 		// is at dispatch, before any project access, so the item must simply not exist.
-		const name = fid("disc_nowrite")
+		const name = inFolder(await projectRoot(), fid("disc_nowrite"))
 		await bridge.disconnect()
 
 		const code = await opErrorCode(() =>
-			bridge.push({ ops: [{ op: "set", name, toFolder: "", sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }),
+			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }),
 		)
 		expect(code).toBe(DISCONNECTED)
 
 		await resume()
-		expect((await bridge.refs()).items[name]).toBeUndefined()
+		expect(itemIn(await bridge.refs(), name)).toBeUndefined()
 	})
 
 	it("work done before disconnecting survives it — no lost edits", async () => {
 		// An engineer disconnects after a session's work. The gate must not roll anything back.
 		const name = fid("disc_survives")
 		const src = "FUNCTION_BLOCK VltE2E_disc_survives\nVAR\n\tkeep : INT := 42;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK"
-		await createItem(name, src, "")
-		const versionBefore = (await bridge.refs()).items[name]
+		await createItem(name, src, await projectRoot())
+		const versionBefore = itemIn(await bridge.refs(), name)
 
 		await bridge.disconnect()
 		await resume()
 
-		expect((await bridge.refs()).items[name]).toBe(versionBefore)
+		expect(itemIn(await bridge.refs(), name)).toBe(versionBefore)
 		expect(await fetchSource(name)).toContain("keep : INT := 42")
 	})
 

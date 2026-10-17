@@ -42,10 +42,11 @@ public class ErrorCodeVocabularyTests
     [MemberData(nameof(LookupFaults))]
     public void A_tree_read_the_IDE_refused_during_a_lookup_is_ITEM_UNVERIFIED(string read, string place, FakeIde ide)
     {
-        var ex = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "FB_Wanted"));
+        // By its path, in `POUs`: the lookup descends to the folder the path names (openspec multi-application-tree).
+        var ex = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "POUs/FB_Wanted"));
 
         Assert.True(ex.ErrorCode == ConflictCodes.ItemUnverified, $"{read}: {ex.ErrorCode} — {ex.Message}");
-        Assert.Contains("'FB_Wanted'", ex.Message);           // the item the lookup was for
+        Assert.Contains("'POUs/FB_Wanted'", ex.Message);      // the item the lookup was for
         Assert.Contains(place, ex.Message);                   // the folder whose read the IDE refused
         Assert.Contains("COM fault", ex.Message);             // and what the IDE said
         Assert.IsType<System.InvalidOperationException>(ex.InnerException);   // the IDE's own exception, kept
@@ -63,8 +64,7 @@ public class ErrorCodeVocabularyTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "FB_New.pou", ToFolder = "",
-                                SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
+                new SetItemOp { Name = "FB_New.pou", SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
 
@@ -112,7 +112,7 @@ public class ErrorCodeVocabularyTests
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "CM_Carrier.pou", ToFolder = "Elsewhere" } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "CM_Carrier.pou", To = "Elsewhere/CM_Carrier.pou" } },
         });
 
         var refused = Assert.Single(resp.Conflicts!, c => c.Code != ConflictCodes.NotAttempted);
@@ -140,10 +140,12 @@ public class ErrorCodeVocabularyTests
 
     // ── an unwalked folder met by a forced replace → ITEM_UNVERIFIED ────────────────────────────────────────────
 
-    /// <summary>A forced replace of an item the driver must not open, in a folder the walk did not read: the push does not
-    /// know where to recreate it. That is the walk's gap (the folder could not be enumerated), not a Volt bug.</summary>
+    /// <summary>A forced replace of an item the driver must not open, in a folder the walk did not read. It was
+    /// ITEM_UNVERIFIED while an op named a bare name: the push did not know where to recreate the item. The op's PATH
+    /// names the folder (openspec multi-application-tree), so the replace lands there — the walk's gap no longer decides
+    /// where an item goes.</summary>
     [Fact]
-    public void A_forced_replace_of_an_unopened_item_whose_folder_the_walk_skipped_is_ITEM_UNVERIFIED()
+    public void A_forced_replace_of_an_unopened_item_whose_folder_the_walk_skipped_lands_in_its_path_s_folder()
     {
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
@@ -158,15 +160,14 @@ public class ErrorCodeVocabularyTests
             Force = true,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "FB_Broken.pou",
+                new SetItemOp { Name = "Hidden/FB_Broken.pou",
                                 SourceText = "FUNCTION_BLOCK FB_Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
 
-        var refused = Assert.Single(resp.Conflicts!, c => c.Code != ConflictCodes.NotAttempted);
-        Assert.Equal(ConflictCodes.ItemUnverified, refused.Code);
-        Assert.Contains("'FB_Broken'", refused.Reason);
-        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete"));
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.Contains("delete:FB_Broken", ide.Recorded);
+        Assert.Equal("Hidden", ide.CreatedParents["FB_Broken"]);
     }
 
     // ── an item the IDE does not return → UNREADABLE, naming the way out that works ─────────────────────────────

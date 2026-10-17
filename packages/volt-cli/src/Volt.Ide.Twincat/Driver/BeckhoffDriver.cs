@@ -7,6 +7,8 @@ using Volt.Engine;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Host;
+using Volt.Engine.Item;
+using System.Linq;
 
 namespace Volt.Ide.Twincat;
 
@@ -217,7 +219,47 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // ── build ───────────────────────────────────────────────────────
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
+    /// <summary>The build's diagnostics, each item named by its folder and bare name where the file the compiler named
+    /// lies in one PLC project's directory and that PLC project holds exactly one item of the name — so the same message
+    /// in two PLC projects is two diagnostics, each on its own item (openspec multi-application-tree, design §6). Anything
+    /// else keeps the bare name, which the engine resolves when it is unique and answers with no name when it is not.
+    /// <para>NAMING IS DECORATION, NOT THE BUILD: it walks the tree and reads each PLC project's directory — COM reads that
+    /// fault on an everyday XAE (<c>RPC_E_CALL_REJECTED</c>). A fault there leaves the compiler's diagnostics with their
+    /// bare names (logged), never replaces them: the build ran, and nameless diagnostics beat no diagnostics
+    /// (BuildService).</para></summary>
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
+    {
+        var diagnostics = _om.GetBuildDiagnostics();
+        try { NameByPath(diagnostics); }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"build: could not name the diagnostics by path ({ex.Message}) — reporting them with the " +
+                         "compiler's bare names");
+        }
+        return diagnostics;
+    }
+
+    private void NameByPath(IReadOnlyList<BridgeDiagnostic> diagnostics)
+    {
+        var named = diagnostics.Where(d => d.Name is not null && _om.LastDiagnosticFiles.ContainsKey(d)).ToList();
+        if (named.Count == 0) return;
+        var directories = _om.Plcs().Select(p => (Plc: p, Directory: _om.PlcProjectDirectory(p))).ToList();
+        var items = WalkItems().Items;
+        // Every path is worked out before any is set, so a fault part-way leaves ALL the bare names, not a mix.
+        var paths = new List<(BridgeDiagnostic Diagnostic, string Path)>();
+        foreach (var d in named)
+        {
+            var file = System.IO.Path.GetFullPath(_om.LastDiagnosticFiles[d]);
+            var home = directories.FirstOrDefault(x => file.StartsWith(x.Directory + System.IO.Path.DirectorySeparatorChar,
+                                                                        StringComparison.OrdinalIgnoreCase)).Plc;
+            if (home is null) continue;
+            var candidates = items.Where(i => ItemPath.IsUnder(i.Folder, home.Path)
+                                              && string.Equals(i.Name, d.Name, StringComparison.OrdinalIgnoreCase)
+                                              && Volt.Engine.Item.ItemKind.IsTopLevelCrud(i.KindCode)).ToList();
+            if (candidates.Count == 1) paths.Add((d, ItemPath.Of(candidates[0].Folder, candidates[0].Name)));
+        }
+        foreach (var (d, path) in paths) d.Name = path;
+    }
     // ── referenced-library signatures ───────────────────────────────
     /// <summary>The public declarations of every referenced library, for the LSP to resolve a <c>TON</c> or a
     /// <c>CONCAT</c> against.

@@ -12,7 +12,7 @@
  * nothing shows up as drift on the next pull.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -33,7 +33,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		(await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)
 
 	it("a network's title and comment survive a round trip", async () => {
-		const name = id("cmt"), item = fid("cmt", "pou")
+		const name = id("cmt"), item = inFolder(await projectRoot(), fid("cmt", "pou"))
 		await clean(item)
 
 		// A title on the header, a two-line comment inside, and a second network with NEITHER - so a body that
@@ -47,7 +47,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 			`END_NETWORK\n` +
 			`NETWORK\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)

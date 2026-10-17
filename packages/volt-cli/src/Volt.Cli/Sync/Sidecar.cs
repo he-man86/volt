@@ -2,14 +2,17 @@ using System.Text.Json;
 
 namespace Volt.Cli.Sync;
 
-/// <summary>The optimistic-concurrency baseline — what the IDE last had (full name → version, and → folder) —
-/// persisted at <c>.git/volt/ide-refs.json</c>. camelCase JSON.
+/// <summary>The optimistic-concurrency baseline — what the IDE last had (item path → version) and the root of every
+/// application it holds — persisted at <c>.git/volt/ide-refs.json</c>. camelCase JSON. The path is the item's identity
+/// (openspec <c>multi-application-tree</c>), so there is no folder map: a path's folder is its own prefix.
 ///</summary>
 public sealed class IdeRefs
 {
     public string ProjectVersion { get; set; } = "";
     public Dictionary<string, string> Items { get; set; } = new();
-    public Dictionary<string, string> Folders { get; set; } = new();
+    /// <summary>The applications the IDE stated (<c>ReadResponse.Applications</c>) — what a move is paired within
+    /// (design §5). Null only in a baseline written before applications existed, which is refused.</summary>
+    public List<string>? Applications { get; set; } = new();
 }
 
 public static class Sidecar
@@ -27,8 +30,8 @@ public static class Sidecar
         if (!File.Exists(p)) return null; // no baseline yet — expected before the first pull
         // A corrupt sidecar throws loudly (JsonException on unparseable, or the guard below on missing fields).
         var raw = JsonSerializer.Deserialize<IdeRefs>(File.ReadAllText(p), Json);
-        if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null)
-            throw new InvalidOperationException(".git/volt/ide-refs.json is malformed — delete it and run `volt pull` to rebuild the baseline");
+        if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Applications is null)
+            throw new InvalidOperationException(".git/volt/ide-refs.json is malformed or predates item paths — delete it and run `volt pull` to rebuild the baseline");
         RefuseUnknownNames(raw, ".git/volt/ide-refs.json");
         return raw;
     }
@@ -42,8 +45,7 @@ public static class Sidecar
     /// wire spelt one kind under several extensions (openspec `push-without-header-check` 5.P) is such a key.</summary>
     private static void RefuseUnknownNames(IdeRefs refs, string file)
     {
-        var stale = refs.Items.Keys.Concat(refs.Folders.Keys)
-            .FirstOrDefault(k => Extensions.DefFromName(k) is null);
+        var stale = refs.Items.Keys.FirstOrDefault(k => Extensions.FullNameFromPath(k) is null);
         if (stale is not null)
             throw new InvalidOperationException(
                 $"{file} holds \"{stale}\", which is not a name the IDE publishes (a baseline from an older Volt) — " +
@@ -75,7 +77,7 @@ public static class Sidecar
         var raw = JsonSerializer.Deserialize<IdeRefs>(File.ReadAllText(p), Json);
         // A corrupt/partial stash is treated as "no stash" — never promoted into the real sidecar (which would
         // then fail LoadIdeRefs's guard). Re-running `volt pull` rebuilds a good baseline.
-        if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null) return null;
+        if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Applications is null) return null;
         // A stash keyed by a name the IDE no longer publishes is REFUSED here too, not only in `LoadIdeRefs`:
         // `volt merge --continue` promotes this file straight into the live sidecar, so a check only on the live
         // load would let the old key back in through the merge.

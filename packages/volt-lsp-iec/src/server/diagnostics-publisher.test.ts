@@ -109,11 +109,11 @@ test("a manifest an older Volt wrote is reported beside the documents, and clear
   // No MATERIALIZATION line: an older bridge wrote it.
   const text = "LIBRARY Old\nNAMESPACE Old\nRESOLUTION Old, 1.0.0.0 (x)\nPLACEHOLDER true\n"
   const manifest = parseLibraryManifest("/ws/Library Manager/Old/Old.library", text)!
-  store.setRefs({ libraryManifests: [manifest], devices: [] }, undefined)
+  store.setRefs({ libraryManifests: [manifest], devices: [], applications: [] }, undefined)
   publisher.republish()
   expect(sent.map((p) => [p.uri.endsWith("Old.library"), codes(p.diagnostics)])).toEqual([[true, ["library-stale"]]])
   sent.length = 0
-  store.setRefs({ libraryManifests: [], devices: [] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [] }, undefined)
   publisher.republish()
   expect(sent.map((p) => [p.uri.endsWith("Old.library"), p.diagnostics])).toEqual([[true, []]])
 })

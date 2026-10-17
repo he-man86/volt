@@ -65,7 +65,7 @@ export async function runCalled(programs: readonly string[], paths: readonly str
 		const at = lines.findIndex((l) => l.trim() === "IMPLEMENTATION ST")
 		if (at === -1) throw new Error(`${main} has no ST body to call ${programs.join(", ")} from`)
 		lines.splice(at + 1, 0, ...programs.map((p) => `${p}();`))
-		const r = await pushOps([{ op: "set", name: main, toFolder: null, sourceText: lines.join("\n"), ifVersion: item.version }])
+		const r = await pushOps([{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version }])
 		if (!r.accepted) throw new Error(`could not call ${programs.join(", ")} from ${main}: ${JSON.stringify(r.conflicts)}`)
 		return runAndRead(paths)
 	})

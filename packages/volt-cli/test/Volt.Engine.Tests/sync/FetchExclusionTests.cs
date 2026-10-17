@@ -36,8 +36,8 @@ public class FetchExclusionTests
 
         var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        var stub = resp.Changed.Single(c => c.Name == "Standard.library");
-        Assert.Equal("Library Manager/Standard", stub.Folder);
+        var stub = resp.Changed.Single(c => c.File() == "Standard.library");
+        Assert.Equal("Library Manager/Standard", stub.Folder());
     }
 
     /// <summary>A referenced element signature folds beside its library's `.library` file — once (flat: each
@@ -56,7 +56,7 @@ public class FetchExclusionTests
 
         var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        var handles = resp.Changed.Where(c => c.Name == "HANDLE.dut").Select(c => c.Folder).ToList();
+        var handles = resp.Changed.Where(c => c.File() == "HANDLE.dut").Select(c => c.Folder()).ToList();
         Assert.Equal(new[] { "Library Manager/CAA Types" }, handles); // once, beside its stub
     }
 
@@ -77,7 +77,7 @@ public class FetchExclusionTests
 
         var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        var placed = resp.Changed.Where(c => c.Name == "SOMEFB.pou").Select(c => c.Folder).ToList();
+        var placed = resp.Changed.Where(c => c.File() == "SOMEFB.pou").Select(c => c.Folder()).ToList();
         Assert.Single(placed);
         Assert.Contains("(unresolved)", placed[0]); // loud, not dropped, not guessed into CAA Types
     }

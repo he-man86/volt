@@ -12,6 +12,7 @@
  */
 import { classifyConversion, type ConversionKind, type Type } from "../src/frontend/types/index.js"
 import { call, landedInFull, VENDOR } from "./bridge.js"
+import { fileOf, inFolder, mainProgram } from "../../volt-cli/test/e2e/lib/main-program.js"
 
 if (process.argv.includes("--explicit")) {
   const { explicitConversionPairs } = await import("../test/frontend/conversion-pairs.js")
@@ -54,18 +55,20 @@ const assigns = TYPES.flatMap((dst) => TYPES.map((src) => `  v_${dst} := v_${src
 const source = `FUNCTION_BLOCK ConvMatrix\nVAR\n${decls}\nEND_VAR\n${assigns}\nEND_FUNCTION_BLOCK\n`
 
 const refs0 = await call("refs")
-const plcName = ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n]) ?? "PLC_PRG.pou"
-const plcItem0 = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed?.[0]
-const plcFolder = plcItem0?.folder ?? ""
-const plcOriginal: string = plcItem0?.sourceText ?? ""
-const prg = plcName.replace(".pou", "")
+// The wire names an item by its PATH (openspec multi-application-tree): the main program where it sits, ConvMatrix beside it.
+const main = mainProgram(refs0)
+const plcName = main.path
+const plcItem0 = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed?.find((i: any) => i.name === plcName)
+if (plcItem0 === undefined) throw new Error(`fetch did not return ${plcName}`)
+const plcOriginal: string = plcItem0.sourceText
+const prg = fileOf(plcName).replace(".pou", "")
+const convMatrix = inFolder(main.folder, "ConvMatrix.pou")
 
-await pushOps([{ op: "set", name: "ConvMatrix.pou", toFolder: plcFolder, sourceText: source, ifVersion: null }])
+await pushOps([{ op: "set", name: convMatrix, sourceText: source, ifVersion: null }])
 await pushOps([
   {
     op: "set",
     name: plcName,
-    toFolder: null,
     sourceText: `PROGRAM ${prg}\nVAR\n  inst : ConvMatrix;\nEND_VAR\ninst();\nEND_PROGRAM\n`,
     ifVersion: await version(plcName),
   },
@@ -111,6 +114,6 @@ if (disagreements.length) {
 } else console.log("classifyConversion is severity-identical to the compiler over the full numeric matrix. ✓")
 
 await pushOps([
-  { op: "set", name: plcName, toFolder: null, sourceText: plcOriginal, ifVersion: await version(plcName) },
+  { op: "set", name: plcName, sourceText: plcOriginal, ifVersion: await version(plcName) },
 ])
-await pushOps([{ op: "deleteItem", name: "ConvMatrix.pou", ifVersion: await version("ConvMatrix.pou") }])
+await pushOps([{ op: "deleteItem", name: convMatrix, ifVersion: await version(convMatrix) }])

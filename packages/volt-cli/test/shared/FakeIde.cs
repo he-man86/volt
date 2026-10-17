@@ -133,12 +133,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <see cref="InvalidatesHandlesOnMove"/> set, a handle older than the last move throws the way COM does.</para></summary>
     private sealed class Handle
     {
-        public Handle(string name, int gen, int? kind = null) { Name = name; Gen = gen; Kind = kind; }
+        public Handle(string name, int gen, int? kind = null, string? folder = null)
+        { Name = name; Gen = gen; Kind = kind; Folder = folder; }
         public string Name { get; }
         public int Gen { get; }
         /// <summary>The kind of the item a TREE child ref stands for, when the tree handed it out: two items may share a
         /// bare name across kinds (an FB and its visualization), and a name alone would resolve the first.</summary>
         public int? Kind { get; }
+        /// <summary>The folder of the TOP-LEVEL item this ref stands for, when the walk or the tree handed it out: two
+        /// applications may each hold an item of one name and kind (openspec <c>multi-application-tree</c>), and a name
+        /// alone would resolve the first. Null for a member, a tree node, and a ref made from a bare name.</summary>
+        public string? Folder { get; }
         public override string ToString() => Name;
     }
 
@@ -166,11 +171,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         return h.Name;
     }
 
-    private ItemRef Ref(string name, int? kind = null) => new ItemRef(new Handle(name, _generation, kind));
+    private ItemRef Ref(string name, int? kind = null, string? folder = null) =>
+        new ItemRef(new Handle(name, _generation, kind, folder));
 
-    /// <summary>Does <paramref name="i"/> answer for <paramref name="r"/>: its name, and its kind when the ref carries one.</summary>
+    /// <summary>A ref to the TOP-LEVEL item <paramref name="i"/> — its name, kind and folder.</summary>
+    private ItemRef RefTo(Item i) => Ref(i.Name, i.KindCode, i.Folder ?? "");
+
+    /// <summary>Does <paramref name="i"/> answer for <paramref name="r"/>: its name, its kind when the ref carries one, and
+    /// — for a top-level item — its folder when the ref carries one.</summary>
     private bool Answers(Item i, ItemRef r) =>
-        i.Name == NameOf(r) && (r.Native is not Handle { Kind: { } kind } || i.KindCode == kind);
+        i.Name == NameOf(r)
+        && (r.Native is not Handle { Kind: { } kind } || i.KindCode == kind)
+        && (r.Native is not Handle { Folder: { } folder } || !i.IsTopLevel || (i.Folder ?? "") == folder);
 
     private Item Find(ItemRef r)
     {
@@ -209,6 +221,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     /// <summary>Remove an item — models the engineer deleting an object in the IDE.</summary>
     public void RemoveItem(string name) => _items.RemoveAll(i => i.Name == name);
+
+    /// <summary>Remove the item <paramref name="name"/> in <paramref name="folder"/> alone — one of two applications'
+    /// items of one name (openspec multi-application-tree).</summary>
+    public void RemoveItem(string name, string folder) => _items.RemoveAll(i => i.Name == name && (i.Folder ?? "") == folder);
+
+    /// <summary>Every item this double holds, as configured and changed since — to build another double of the same
+    /// project with different knobs.</summary>
+    public IReadOnlyList<Item> AllItems => _items;
 
     // ── health knob (drives IsConnected + BuildHealthResponse, as on a real driver) ──
     // Default connected: the common test bridge is up. Binding/disconnect tests flip these knobs.
@@ -301,14 +321,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             .Where(i => !UnwalkableFolders.Any(f => Under(i.Folder, f)) && !unclassifiedSubtrees.Any(s => Under(i.Folder, s)))
             .ToList();
         var items = walked.Where(i => !UnclassifiableItems.Contains(i.Name) && !UnopenedItems.Contains(i.Name))
-            .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))
+            .Select(i => new ProjectItem(i.Name, RefTo(i), i.KindCode, i.Folder))
             .ToList();
         var unreadable = walked.Where(i => UnclassifiableItems.Contains(i.Name))
             .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it"))
             .ToList();
         unreadable.AddRange(walked.Where(i => UnopenedItems.Contains(i.Name))
             .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKinds)));
-        return new WalkResult(items, UnwalkableFolders, unreadable);
+        // An application under a folder the walk could not enter is never stated: a real walk cannot see it.
+        var applications = ContainerKinds.Where(kv => kv.Value == ItemKind.Application).Select(kv => kv.Key)
+            .Where(a => !UnwalkableFolders.Any(f => Under(a, f)) && !unclassifiedSubtrees.Any(s => Under(a, s)))
+            .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        return new WalkResult(items, UnwalkableFolders, unreadable, applications);
     }
     /// <summary>Folder paths that are the vendor's TASK CONTAINER rather than a plain user folder. A real tree
     /// has typed containers; this fake synthesizes its folders from item paths, so every one of them read as
@@ -363,7 +387,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // A tree node's Native is its full folder path (or a root name); an item's is its bare name. They cannot
     // collide, because an item is only ever addressed by the name it was registered under.
     private bool IsTreeNode(ItemRef r) =>
-        NameOf(r) is { } s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s) || _explicitFolders.Contains(s));
+        r.Native is not Handle { Folder: not null }
+        && NameOf(r) is { } s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s) || _explicitFolders.Contains(s));
 
     private readonly HashSet<string> _folderPaths = new(StringComparer.Ordinal);
 
@@ -385,7 +410,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         {
             if (HiddenItems.Contains(it.Name)) continue;
             var folder = it.Folder ?? "";
-            if (folder == basePath) { kids.Add(Ref(it.Name, it.KindCode)); continue; }
+            if (folder == basePath) { kids.Add(it.IsTopLevel ? RefTo(it) : Ref(it.Name, it.KindCode)); continue; }
             if (basePath.Length > 0 && !folder.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
             var rest = basePath.Length == 0 ? folder : folder.Substring(basePath.Length + 1);
             if (rest.Length == 0) continue;
@@ -415,7 +440,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string PlcRootName { get; init; } = "<root>";
     public string TreeRootName { get; init; } = "<root>";
     public ItemRef GetTreeRoot() => Ref(TreeRootName);
-    public ItemRef Parent(ItemRef item) => Ref("<root>");
+    /// <summary>A top-level item's parent is the folder it sits in (the tree root for <c>""</c>); anything else answers
+    /// the root, as before items had folders here.</summary>
+    public ItemRef Parent(ItemRef item)
+    {
+        if (item.Native is Handle { Folder: { Length: > 0 } folder })
+        {
+            _folderPaths.Add(folder);
+            return Ref(folder);
+        }
+        return Ref("<root>");
+    }
     /// <summary>Modelled the way CODESYS answers it — by looking at the accessor children the fake holds.
     /// The fake is a DRIVER stand-in, so it answers the question a driver answers, not the one the engine
     /// wishes it could ask.</summary>
@@ -624,7 +659,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // <InterfaceAsPlainText> and a <body>. The fake used to record the call and nothing more, so a create
         // followed by a read threw "sequence contains no matching element" — which made the single-document
         // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
-        if (ItemKind.IsAddressableItem(kindCode) && !_items.Any(i => i.Name == name))
+        if (ItemKind.IsAddressableItem(kindCode) && !_items.Any(i => i.Name == name && i.IsTopLevel && (i.Folder ?? "") == parentPath))
             // WITH ITS FOLDER. This passed "" for every create, so the fake said every item sat at the root —
             // and `PushService`'s pre-apply cache reads exactly this field to know which folder an item is
             // LEAVING. With "" there, `PruneEmptied` had no candidate to consider and could not be tested.
@@ -661,7 +696,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // find. Harmless while no test looked below two levels.
         return kindCode == ItemKind.PlcFolder
             ? Ref(FolderPath.Append(parentPath, name))
-            : Ref(name);
+            : ItemKind.IsAddressableItem(kindCode) ? Ref(name, null, parentPath) : Ref(name);
     }
 
     /// <summary>Which classes a create refuses, with its reason (null: made). Unset, the NVL — whose factory needs its wizard
@@ -707,7 +742,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (_explicitFolders.Remove(folderPath))
             _explicitFolders.RemoveWhere(f => f.StartsWith(folderPath + "/", StringComparison.Ordinal));
 
-        var victim = FindOrNull(Ref(name));
+        // The TOP-LEVEL item of that name in THIS folder, else a member of that name: two applications may each hold an
+        // item of one name, and only the parent says which one is deleted.
+        var victim = _items.FirstOrDefault(i => i.Name == name && i.IsTopLevel && (i.Folder ?? "") == parentPath)
+                     ?? _items.FirstOrDefault(i => i.Name == name && !i.IsTopLevel);
         if (victim is null) return;
         _items.Remove(victim);
         // …and an ITEM's own children with it (a property's GET/SET), as a real IDE removes them: left behind under
@@ -785,7 +823,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var old = NameOf(item);
         Recorded.Add($"rename:{old}->{newName}");
         if (IgnoreRenames) return;
-        var idx = _items.FindIndex(i => i.Name == old);
+        var idx = FindOrNull(item) is { } renamed ? _items.IndexOf(renamed) : -1;
         var escaped = System.Text.RegularExpressions.Regex.Escape(old);
         var word = new System.Text.RegularExpressions.Regex($@"\b{escaped}\b");
         // So a follow-up Lookup(newName) resolves — and the item's OWN HEADER names it anew, and nothing else of its text
@@ -1467,4 +1505,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ExtractBlock?.Wait();
         return LibSignatures;
     }
+}
+
+/// <summary>A fetched item's PATH split the way the wire defines it (<c>ItemPath</c>): its file name and its folder — for
+/// assertions about where an item lands, now that the path is its name (openspec <c>multi-application-tree</c>).</summary>
+public static class WirePaths
+{
+    public static string File(this FetchedItem item) => ItemPath.FileOf(item.Name);
+    public static string Folder(this FetchedItem item) => ItemPath.FolderOf(item.Name);
 }

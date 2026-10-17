@@ -25,10 +25,11 @@ namespace Volt.Engine.Item;
 public sealed class WalkResult
 {
     public WalkResult(IReadOnlyList<ProjectItem> items, IReadOnlyList<string> unwalkedFolders,
-                      IReadOnlyList<UnreadableObject> unreadableObjects)
+                      IReadOnlyList<UnreadableObject> unreadableObjects, IReadOnlyList<string> applications)
     {
         Items = items;
         UnreadableObjects = unreadableObjects;
+        Applications = applications;
         // DERIVED here, once, for both drivers: a driver that records the object cannot forget its folder — nor its
         // OWN subtree, which the walk never entered (its kind is unknown, so it may be a container: CODESYS's root
         // children are the Device node(s)). The parent alone is not enough at the root: for a root-level object
@@ -52,6 +53,13 @@ public sealed class WalkResult
     /// <summary>Objects the walk SAW and could not classify — their kind is unknown, so they are in no version map
     /// under a full name; the read ops publish them in <c>unreadable</c> by bare name.</summary>
     public IReadOnlyList<UnreadableObject> UnreadableObjects { get; }
+
+    /// <summary>The root folder of every APPLICATION the walk passed (CODESYS: each <c>IApplicationObject</c>; TwinCAT:
+    /// each PLC project), as the walk spells folders — stated by the driver, which knows its vendor's node kinds, so no
+    /// layer above it parses a vendor segment such as <c>Plc Logic</c> (openspec <c>multi-application-tree</c>, design
+    /// §3). An item belongs to the application whose root is the longest prefix of its path (<see cref="ItemPath.ApplicationOf"/>);
+    /// one under none (the CODESYS POU pool) to the pool.</summary>
+    public IReadOnlyList<string> Applications { get; }
 
     /// <summary>True when the walk saw the whole tree, so absence from <see cref="Items"/> is meaningful.</summary>
     public bool Complete => UnwalkedFolders.Count == 0;

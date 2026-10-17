@@ -40,11 +40,9 @@ public class SidecarBaselineTests
     /// <summary>The baseline as a pre-5.P CLI wrote it: the DUT's entry under its subtype name.</summary>
     private static IdeRefs WithSplitDutKey(IdeRefs refs, string stale)
     {
-        var items = refs.Items.Where(kv => kv.Key != "E_Mode.dut").ToDictionary(kv => kv.Key, kv => kv.Value);
-        var folders = refs.Folders.Where(kv => kv.Key != "E_Mode.dut").ToDictionary(kv => kv.Key, kv => kv.Value);
-        items[stale] = refs.Items["E_Mode.dut"];
-        folders[stale] = refs.Folders["E_Mode.dut"];
-        return new IdeRefs { ProjectVersion = refs.ProjectVersion, Items = items, Folders = folders };
+        var items = refs.Items.Where(kv => kv.Key != "DUTs/E_Mode.dut").ToDictionary(kv => kv.Key, kv => kv.Value);
+        items[stale] = refs.Items["DUTs/E_Mode.dut"];
+        return new IdeRefs { ProjectVersion = refs.ProjectVersion, Items = items, Applications = refs.Applications };
     }
 
     private static void AssertRefusedByName(Exception? e, string stale, string file)
@@ -135,7 +133,7 @@ public class SidecarBaselineTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var rebuilt = Sidecar.LoadIdeRefs(root)!;
             Assert.DoesNotContain("E_Mode.enum", rebuilt.Items.Keys);
-            Assert.Contains("E_Mode.dut", rebuilt.Items.Keys);
+            Assert.Contains("DUTs/E_Mode.dut", rebuilt.Items.Keys);
             Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "E_Mode.dut")));
 
             File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;"));
@@ -232,7 +230,7 @@ public class SidecarBaselineTests
             ide.UnwalkableFolders = new[] { "Machine" };
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             Assert.True(File.Exists(file), "the recovery pull deleted a file under a folder it could not read");
-            Assert.Contains("E_Mode.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.Contains("Machine/E_Mode.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
 
             ide.RemoveItem("E_Mode");
             ide.UnwalkableFolders = new string[0];

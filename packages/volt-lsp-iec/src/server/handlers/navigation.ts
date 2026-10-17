@@ -50,48 +50,48 @@ import type { ServerState } from "../state.js"
 export function registerNavigationHandlers(s: ServerState): void {
   s.onRequest(DefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkDefinition(d, s.project(), o) : definition(d, s.project(), o),
+      inNetworkText(d, o) ? networkDefinition(d, s.project(d.uri), o) : definition(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(TypeDefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkTypeDefinition(d, s.project(), o) : typeDefinition(d, s.project(), o),
+      inNetworkText(d, o) ? networkTypeDefinition(d, s.project(d.uri), o) : typeDefinition(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(ImplementationRequest.type, (p) =>
-    s.at(p.textDocument.uri, p.position, (d, o) => implementation(s.workspace(), s.project(), d, o) ?? null),
+    s.at(p.textDocument.uri, p.position, (d, o) => implementation(s.workspace(d.uri), s.project(d.uri), d, o) ?? null),
   )
   s.onRequest(ReferencesRequest.type, (p) =>
     s.at(
       p.textDocument.uri,
       p.position,
-      (d, o) => referencesAnywhere(s.workspace(), s.project(), d, o, p.context.includeDeclaration) ?? null,
+      (d, o) => referencesAnywhere(s.workspace(d.uri), s.project(d.uri), d, o, p.context.includeDeclaration) ?? null,
     ),
   )
   s.onRequest(DocumentHighlightRequest.type, (p) =>
     s.at(
       p.textDocument.uri,
       p.position,
-      (d, o) => documentHighlightsAnywhere(d, s.project(), o)?.map((range) => ({ range })) ?? null,
+      (d, o) => documentHighlightsAnywhere(d, s.project(d.uri), o)?.map((range) => ({ range })) ?? null,
     ),
   )
   // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
   s.onRequest(LinkedEditingRangeRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
-      const ranges = documentHighlightsAnywhere(d, s.project(), o)
+      const ranges = documentHighlightsAnywhere(d, s.project(d.uri), o)
       return ranges !== undefined && ranges.length > 0 ? { ranges } : null
     }),
   )
   // a member whose override chain reaches a library's is refused BY NAME, at prepare and at rename (design.md §6 B6)
   s.onRequest(PrepareRenameRequest.type, (p) => {
-    const chain = s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(), o) ?? null)
+    const chain = s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null)
     if (chain !== null) return new ResponseError(LSPErrorCodes.RequestFailed, chain)
-    return s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(), o))
+    return s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(d.uri), o))
   })
   s.onRequest(RenameRequest.type, (p) => {
-    const refused = renameRefusal(p.newName, s.project()) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(), o) ?? null) ?? undefined
+    const refused = renameRefusal(p.newName, s.project(p.textDocument.uri)) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null) ?? undefined
     if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
-    return s.at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(s.workspace(), s.project(), d, o, p.newName) ?? null)
+    return s.at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(s.workspace(d.uri), s.project(d.uri), d, o, p.newName) ?? null)
   })
   registerHierarchyHandlers(s)
 }
@@ -110,13 +110,13 @@ function registerHierarchyHandlers(s: ServerState): void {
     if (d === undefined) return undefined
     const off = offsetFromPosition(d.source, item.selectionRange.start)
     if (off < 0) return undefined
-    const p = prepare(d, s.project(), off)
+    const p = prepare(d, s.project(d.uri), off)
     return p !== undefined ? { d, sym: p.sym } : undefined
   }
 
   s.onRequest(CallHierarchyPrepareRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
-      const r = prepareCallHierarchy(d, s.project(), o)
+      const r = prepareCallHierarchy(d, s.project(d.uri), o)
       return r !== undefined ? [r.item] : null
     }),
   )
@@ -124,27 +124,27 @@ function registerHierarchyHandlers(s: ServerState): void {
     const r = reResolve(p.item, prepareCallHierarchy)
     return r === undefined
       ? null
-      : callIncoming(s.workspace(), s.project(), r.sym).map((c) => ({ from: c.item, fromRanges: c.ranges }))
+      : callIncoming(s.workspace(r.d.uri), s.project(r.d.uri), r.sym).map((c) => ({ from: c.item, fromRanges: c.ranges }))
   })
   s.onRequest(CallHierarchyOutgoingCallsRequest.type, (p) => {
     const r = reResolve(p.item, prepareCallHierarchy)
     return r === undefined
       ? null
-      : callOutgoing(r.d, s.project(), r.sym).map((c) => ({ to: c.item, fromRanges: c.ranges }))
+      : callOutgoing(r.d, s.project(r.d.uri), r.sym).map((c) => ({ to: c.item, fromRanges: c.ranges }))
   })
 
   s.onRequest(TypeHierarchyPrepareRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
-      const r = prepareTypeHierarchy(d, s.project(), o)
+      const r = prepareTypeHierarchy(d, s.project(d.uri), o)
       return r !== undefined ? [r.item] : null
     }),
   )
   s.onRequest(TypeHierarchySupertypesRequest.type, (p) => {
     const r = reResolve(p.item, prepareTypeHierarchy)
-    return r === undefined ? null : typeSupertypes(s.project(), r.sym)
+    return r === undefined ? null : typeSupertypes(s.project(r.d.uri), r.sym)
   })
   s.onRequest(TypeHierarchySubtypesRequest.type, (p) => {
     const r = reResolve(p.item, prepareTypeHierarchy)
-    return r === undefined ? null : typeSubtypes(s.project(), r.sym)
+    return r === undefined ? null : typeSubtypes(s.project(r.d.uri), r.sym)
   })
 }

@@ -12,8 +12,7 @@
  * one that leaves the merged text as it was (a buffer opened equal to its disk copy, an unedited buffer closed, equal
  * bytes rewritten) does not — the diagnostics publisher's cache key (lsp-server-scheduling). The disk layer changes per
  * FILE (`upsertDisk` / `deleteDisk`), a watched batch's files rebound together (`diskBatch`). A document whose parse or
- * bind THROWS is quarantined: reported by name (`FailureReport`), left out of the merged set until its content
- * changes, the project rebuilt without it.
+ * bind THROWS is quarantined: reported by name (`FailureReport`), left out until its content changes.
  */
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { folderKey, normalizeKey } from "./document-key.js"
@@ -24,6 +23,7 @@ import { DeadCodeCache } from "./dead-code-cache.js"
 import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./workspace-refs.js"
 import { bindFailures, buildProject } from "./project-build.js"
 import { Quarantine, type Layer } from "./quarantine.js"
+import { ApplicationScopes } from "./application-scopes.js"
 import type { Document } from "../services/index.js"
 
 /** Where a document that could not be analysed is told — the server logs it to the client. REQUIRED, never
@@ -44,12 +44,12 @@ export class WorkspaceStore {
   private roots: ReadonlySet<string> | undefined
 
   private cachedDocs: Document[] | undefined
-  // The project symbol table, maintained INCREMENTALLY: built once (lazily), then a single-file edit
-  // re-indexes only that file (`rebindKeys`) instead of rebuilding the whole table per keystroke. Undefined
-  // until first built or after a full disk reseed. `boundDocs` mirrors what is currently bound, keyed like
-  // `docs()` (normalized key → the exact Document object bound), so an edit can unbind the old + bind the new.
+  // The project symbol table, maintained INCREMENTALLY: built once (lazily), then a single-file edit re-indexes only that
+  // file (`rebindKeys`). Undefined until first built or after a full disk reseed. `boundDocs` mirrors what is bound, keyed
+  // like `docs()` (normalized key → the exact Document bound), so an edit can unbind the old + bind the new.
   private projectScope: Scope | undefined
   private boundDocs = new Map<string, Document>()
+  private readonly apps = new ApplicationScopes({ docs: () => this.docs(), refs: () => this.refs, vendor: () => this.cfg.vendor })
   private readonly dead = new DeadCodeCache({
     docs: () => this.docs(),
     roots: () => this.roots,
@@ -163,9 +163,9 @@ export class WorkspaceStore {
     return (this.cachedDocs = [...merged.values()])
   }
 
-  /** The project table, built when there is none. A build that throws quarantines every document whose BIND throws
-   *  (`bindFailures`) and builds again without them; a throw no one document causes is rethrown. */
-  project(): Scope {
+  /** The table names in `uri` resolve against: its application's (`ApplicationScopes`), else the whole project's, built when
+   *  there is none — a build that throws quarantines each document whose BIND throws and builds again, else rethrows. */
+  project(uri?: string): Scope {
     while (this.projectScope === undefined) {
       const docs = this.docs()
       try {
@@ -179,7 +179,7 @@ export class WorkspaceStore {
       this.boundDocs.clear()
       for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
     }
-    return this.projectScope
+    return (uri === undefined ? undefined : this.apps.tableOf(uri)) ?? this.projectScope
   }
 
   /** The currently-merged Document for a key (open buffer wins, else disk, else gone) — the bind unit. */
@@ -202,8 +202,7 @@ export class WorkspaceStore {
   private rebindKeys(keys: readonly string[]): void {
     if (this.projectScope === undefined) return
     // A library file rebinds like any other: `relink` binds the library namespaces afresh when one came or went (rule
-    // LB7). This rebuilt the whole table for a file under `Library Manager/` — the namespaces, bound once, would have
-    // held what the project no longer had.
+    // LB7), so namespaces bound once never hold what the project no longer has.
     const desired = keys.map((key) => [key, this.mergedDoc(key)] as const) // a parse that throws quarantines (drops the scope)
     const scope = this.projectScope
     if (scope === undefined) return
@@ -222,14 +221,22 @@ export class WorkspaceStore {
         this.boundDocs.delete(key)
       }
     }
-    // WITH the manifests: `relink` resolves an ambiguous base by the asker's library and its
-    // dependencies, and re-linking without them would silently demote every library base to the last rank.
+    // WITH the manifests: without them `relink` would demote every library base to the last rank.
     build.relink(scope, this.refs.libraryManifests)
     for (const [key, doc] of desired) this.dead.afterRebind(key, doc)
+    this.apps.rebind(desired) // …and each application's table that holds one of them: a pool document is in every one
   }
 
-  workspace(): Document[] {
-    return this.docs()
+  /** Every table the document at `uri` is ANALYSED against: `project(uri)`, or — a POU-pool document — each application's
+   *  (`ApplicationScopes.poolTables`). The whole project's is built first: it quarantines every document whose bind throws. */
+  projectsFor(uri: string): Scope[] {
+    const own = this.project(uri)
+    return this.apps.poolTables(uri) ?? [own]
+  }
+
+  /** The merged documents in `uri`'s scope (`ApplicationScopes`); every document when it is in none or none is named. */
+  workspace(uri?: string): Document[] {
+    return (uri === undefined ? undefined : this.apps.documentsOf(uri)) ?? this.docs()
   }
 
   /** The client URIs of currently-open documents (for re-publishing diagnostics after a re-index). */
@@ -385,6 +392,7 @@ export class WorkspaceStore {
   private dropProject(): void {
     this.projectScope = undefined
     this.boundDocs.clear()
+    this.apps.clear()
     this.dead.reset()
     this.invalidate()
     this.gen++

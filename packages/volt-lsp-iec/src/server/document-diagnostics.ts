@@ -52,16 +52,37 @@ export function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
   }
 }
 
-/** The LSP diagnostics of one document, from what the store holds. */
+/** The LSP diagnostics of one document, from what the store holds: its findings in every table it is analysed against
+ *  (`WorkspaceStore.projectsFor` — one, or each application's for a document of the POU pool). Across tables a finding
+ *  another table already gave folds, as CODESYS folds what two applications' builds both report on one object; what
+ *  ONE table gives twice stays twice (a later table adds a finding only as often as it repeats it beyond the most an
+ *  earlier one did). */
 export function documentDiagnostics(store: WorkspaceStore, d: Document): VoltDiagnostic[] {
-  return documentFindings({
-    doc: d,
-    project: store.project(),
-    config: store.config,
-    dead: store.deadSet(),
-    deadMembers: store.deadMembers(),
-    manifests: store.workspaceRefs.libraryManifests,
-  }).map(toLspDiagnostic)
+  const perTable = store.projectsFor(d.uri).map((project) =>
+    documentFindings({
+      doc: d,
+      project,
+      config: store.config,
+      dead: store.deadSet(),
+      deadMembers: store.deadMembers(),
+      manifests: store.workspaceRefs.libraryManifests,
+    }).map(toLspDiagnostic),
+  )
+  if (perTable.length === 1) return perTable[0]!
+  const most = new Map<string, number>()
+  const out: VoltDiagnostic[] = []
+  for (const table of perTable) {
+    const here = new Map<string, number>()
+    for (const x of table) {
+      const key = JSON.stringify(x)
+      const n = (here.get(key) ?? 0) + 1
+      here.set(key, n)
+      if (n <= (most.get(key) ?? 0)) continue
+      most.set(key, n)
+      out.push(x)
+    }
+  }
+  return out
 }
 
 /** Each manifest another materialization wrote, by file URI, with its one warning. */

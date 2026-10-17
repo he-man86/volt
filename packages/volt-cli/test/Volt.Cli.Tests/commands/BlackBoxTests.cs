@@ -297,7 +297,7 @@ public class BlackBoxTests
             var st = RunVolt(root, pipe, "status", "--json");
             Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");
             using (var sj = JsonDocument.Parse(st.Out.Trim()))
-                Assert.Equal("DUTs/X.dut", sj.RootElement.GetProperty("pathByName").GetProperty("X.dut").GetString());
+                Assert.Equal("DUTs/X.dut", sj.RootElement.GetProperty("pathByName").GetProperty("DUTs/X.dut").GetString());
 
             var show = RunVolt(root, pipe, "show", "BRIDGE", "DUTs/X.dut");
             Assert.True(show.Code == 0, $"show exit {show.Code}: {show.Err}");
@@ -333,8 +333,7 @@ public class BlackBoxTests
             Assert.DoesNotContain("delete:X", ide.Recorded);
             Assert.DoesNotContain("create:X", ide.Recorded);
             var refs = Volt.Engine.Sync.RefsService.Handle(ide);
-            Assert.Equal(new[] { "X.dut" }, refs.Items.Keys.ToArray());
-            Assert.Equal("DUTs", refs.Folders["X.dut"]);
+            Assert.Equal(new[] { "DUTs/X.dut" }, refs.Items.Keys.ToArray());
 
             var st = RunVolt(root, pipe, "status", "--json");
             using var sj = JsonDocument.Parse(st.Out.Trim());
@@ -366,7 +365,7 @@ public class BlackBoxTests
 
             var st = RunVolt(root, pipe, "status");
             Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");
-            Assert.Contains("  ? X", st.Err);
+            Assert.Contains("  ? DUTs/X", st.Err);
             Assert.DoesNotContain("no file", st.Err, StringComparison.OrdinalIgnoreCase);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -389,19 +388,19 @@ public class BlackBoxTests
         {
             var init = RunVolt(parent, pipe, "init");
             Assert.True(init.Code == 0, $"init exit {init.Code}: {init.Err}");
-            Assert.True(init.Err.Contains("  ? X: 'X': read failed (COM)"), init.Err);
+            Assert.True(init.Err.Contains("  ? DUTs/X: 'X': read failed (COM)"), init.Err);
 
             foreach (var verb in new[] { "pull", "status" })
             {
                 var r = RunVolt(root, pipe, verb);
                 Assert.True(r.Code == 0, $"{verb} exit {r.Code}: {r.Err}");
-                Assert.Contains("  ? X: 'X': read failed (COM)", r.Err);
+                Assert.Contains("  ? DUTs/X: 'X': read failed (COM)", r.Err);
             }
 
             var json = RunVolt(root, pipe, "status", "--json");
             using var sj = JsonDocument.Parse(json.Out.Trim());
             var u = Assert.Single(sj.RootElement.GetProperty("unreadable").EnumerateArray());
-            Assert.Equal("X", u.GetProperty("name").GetString());
+            Assert.Equal("DUTs/X", u.GetProperty("name").GetString());
             Assert.Equal("'X': read failed (COM)", u.GetProperty("reason").GetString());
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); TestUtil.ForceDelete(parent); }

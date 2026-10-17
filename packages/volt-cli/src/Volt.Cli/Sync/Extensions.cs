@@ -47,13 +47,6 @@ public static class Extensions
         return GetByExt(baseName.Substring(dot)) == null ? null : baseName;
     }
 
-    /// <summary>The extension definition for a full filename ("PLC_PRG.pou" → { ext:"pou", rw }).</summary>
-    public static ExtensionDef? DefFromName(string fullName)
-    {
-        var dot = fullName.LastIndexOf('.');
-        return dot < 0 ? null : GetByExt(fullName.Substring(dot));
-    }
-
     public static bool IsTrackedPath(string relPath)
     {
         if (relPath == ".gitattributes") return true;

@@ -21,13 +21,15 @@ public static class IdeTree
     /// unchanged item from HEAD would fold that edit into the IDE baseline and strand it forever); removed items →
     /// dropped. Everything else (non-src scaffold, non-tracked src files) is carried from HEAD (the user's side),
     /// so the merge only ever touches the IDE axis. On init parentIde is null and ideFiles is the whole IDE.
+    /// <paramref name="removedPaths"/> are the wire paths the bridge says are gone — an item's path IS its src-relative
+    /// file path (openspec <c>multi-application-tree</c>), so a removal and a replacement are each one path.
     /// </summary>
     public static string BuildVoltIdeTree(
         string gitDir,
         string? headCommit,
         string? parentIde,
         IReadOnlyList<MaterializedFile> ideFiles,
-        IReadOnlyList<string> removedNames,
+        IReadOnlyList<string> removedPaths,
         bool librariesRefreshed,
         Action<int, int>? onBlobs = null)
     {
@@ -40,48 +42,20 @@ public static class IdeTree
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
 
-        // BARE WIRE NAMES ("Foo.pou"), not paths — the fetch reports what the IDE deleted, and an item's identity
-        // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
-        // one needed the distinction spelt out: comparing names against src-relative paths silently matched
-        // nothing for any item in a folder, so a deletion in the IDE never reached the workspace unless the item
-        // sat in the project root. Each file is resolved through the one path→name seam, `FullNameFromPath`
-        // (a tracked file's own name IS its wire name), as the `replacedNames` side below does.
-        var removedNamesSet = new HashSet<string>(removedNames);
+        // PATHS, as `replaced` above is: the fetch reports what the IDE deleted by the item's path, which IS its
+        // src-relative file path. An item the engineer moved in the IDE is one removed path and one added path, so it
+        // leaves exactly one file; two applications' items of one name are two paths, and neither touches the other's
+        // file. (It was keyed by NAME, where a changed `PLC_PRG.pou` in one application superseded the other
+        // application's `PLC_PRG.pou` — and a library signature of a project item's name — wherever it sat.)
+        var removedSet = new HashSet<string>(removedPaths, StringComparer.Ordinal);
 
-        // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
-        // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions.
-        // So a name-keyed sweep hits them by accident — deleting the project's own `ERROR` item also deleted the
-        // same-named signature under `Library Manager/CAA/`, which nothing regenerates until that library's
-        // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so
-        // they are exempt by LOCATION. A library root is any directory holding a `.library` stub.
-        // FROM BOTH SIDES. Derived from the PARENT tree alone, a library added in THIS pull is not a library
-        // yet — its folder did not exist last time — so `UnderLibrary` answers false for its freshly rendered
-        // signatures, their full names enter `replacedNames`, and the project's own same-named file is evicted
-        // from the tree and deleted by the merge. That is the collision the comment above describes, reached
-        // through the one door the parent tree cannot see: a reference the engineer just added.
+        // A referenced LIBRARY's rendered element signatures are not IDE items: they are content the bridge re-renders
+        // per library version, replaced per library folder (`DroppedLibraryFile` below). A library root is any directory
+        // holding a `.library` stub — FROM BOTH SIDES, so a library added in THIS pull is one already.
         var libraryRoots = LibraryRoots(
             (parentIde is null ? Enumerable.Empty<string>() : Git.ListTree(gitDir, parentIde).Select(e => e.Path))
                 .Concat(ideFiles.Select(f => f.Path)));
         bool UnderLibrary(string rel) => IsUnderLibraryRoot(rel, libraryRoots);
-
-        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. An item the engineer
-        // moved to another folder in the IDE is CHANGED (its folder is part of its version), not removed (it
-        // still exists), so neither `replaced` nor `removedNames` reaches its old file. The item NAME is the
-        // identity, so a changed item supersedes the parent file carrying that name wherever it sits — without
-        // this the workspace held two files for one item, and editing the stale one pushed it back over the
-        // moved item (`IdeTreeTests.An_item_the_ide_moved_to_another_folder_leaves_one_file`).
-        //
-        // LIBRARY SIGNATURES ARE EXCLUDED FROM BOTH SIDES. They carry ordinary source extensions and are
-        // PATH-identified, so a name-keyed sweep hits them by accident in BOTH directions — the `removedNames`
-        // sweep beside this one records what that cost (the project's own `ERROR` took the library's `ERROR`
-        // signature with it). Exempting only the carried file would leave the SOURCE side open: a refreshed
-        // signature under `Library Manager/CAA/` shares its name with the project's own untouched item, so this
-        // rule would drop the engineer's file from the tree and the pull's merge would DELETE it.
-        var replacedNames = new HashSet<string>(
-            ideFiles.Where(f => !UnderLibrary(f.Path))
-                    .Select(f => Extensions.FullNameFromPath(f.Path))
-                    .Where(n => n is not null)!,
-            StringComparer.OrdinalIgnoreCase);
 
         // When the fetch RE-RENDERED the signatures, `ideFiles` carries the COMPLETE set for every library
         // folder, so a signature the client still holds and this response does not carry is an element that no
@@ -104,11 +78,7 @@ public static class IdeTree
             {
                 var rel = SrcRel(e.Path);
                 if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel)
-                    // A library signature is PATH-identified and shares extensions with real items, so a
-                    // name-keyed sweep would hit one by accident — the same exemption `removedNames` takes.
-                    // A parent file whose name a changed item now carries at another path was MOVED.
-                    && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } full && replacedNames.Contains(full))
-                    && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } name && removedNamesSet.Contains(name))
+                    && !removedSet.Contains(rel)
                     && !DroppedLibraryFile(rel))
                     AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }

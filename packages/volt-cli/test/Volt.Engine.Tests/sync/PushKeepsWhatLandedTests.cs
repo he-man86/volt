@@ -49,7 +49,7 @@ public class PushKeepsWhatLandedTests
         PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
 
     private static SetItemOp Create(string wireName, string source) =>
-        new() { Name = wireName, IfVersion = null, ToFolder = "", SourceText = source };
+        new() { Name = wireName, IfVersion = null, SourceText = source };
 
     /// <summary>Task 1.1, offline. Measured on this tree before the change: <c>accepted:false</c>, ONE conflict
     /// <c>F.pou [UNSUPPORTED]</c> ending "— NOTE: 2 of 3 item(s) were already written to the IDE … Run `volt pull` …,
@@ -238,7 +238,7 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide,
             Create("F.pou", FunctionWithMethod),
-            new SetItemOp { Name = "E_A.dut", IfVersion = null, ToFolder = "Sub", SourceText = Enum },
+            new SetItemOp { Name = "Sub/E_A.dut", IfVersion = null, SourceText = Enum },
             Create("ST_B.dut", Struct));
 
         Assert.True(ide.Exists("E_A"));
@@ -249,7 +249,7 @@ public class PushKeepsWhatLandedTests
         Assert.Equal(new[] { ("F.pou", BridgeErrorCodes.Unsupported), ("ST_B.dut", ConflictCodes.NotAttempted) },
                      resp.Conflicts!.Select(c => (c.Name, c.Code)).ToArray());
         Assert.Equal("not applied: the push stopped at 'F.pou'", resp.Conflicts![1].Reason);
-        Assert.Contains("E_A.dut", resp.NewItems!.Keys);
+        Assert.Contains("Sub/E_A.dut", resp.NewItems!.Keys);
         Assert.DoesNotContain("ST_B.dut", resp.NewItems!.Keys);
         Assert.Equal(RefsService.Handle(ide).ProjectVersion, resp.NewProjectVersion);
     }
@@ -415,7 +415,7 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 Create("A.dut", Struct),
-                new SetItemOp { Name = "X.pou", ToName = "Y.pou", IfVersion = refs.Items["X.pou"], SourceText =
+                new SetItemOp { Name = "X.pou", To = "Y.pou", IfVersion = refs.Items["X.pou"], SourceText =
                     "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
                     "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n" },
             },
@@ -476,7 +476,7 @@ public class PushKeepsWhatLandedTests
             FailCreate = (name, _) => failCreate && name == "Broken"
                 ? new System.InvalidOperationException("the IDE could not create 'Broken'") : null,
         };
-        Push(ide, new SetItemOp { Name = "Broken.pou", ToFolder = "Data", SourceText =
+        Push(ide, new SetItemOp { Name = "Data/Broken.pou", SourceText =
             "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" });
         Assert.True(ide.Exists("Broken"));
         ide.UnopenedItems.Add("Broken");
@@ -485,7 +485,7 @@ public class PushKeepsWhatLandedTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText =
+            Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =
                 "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
         });
 
@@ -635,15 +635,15 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 // Deeper than the move's destination, so it applies FIRST (ops run deepest folder first).
-                new SetItemOp { Name = "ST_B.dut", IfVersion = null, ToFolder = "X/Y", SourceText = Struct },
-                new SetItemOp { Name = "FB_M.pou", IfVersion = refs.Items["FB_M.pou"], ToFolder = "B", SourceText = edited },
+                new SetItemOp { Name = "X/Y/ST_B.dut", IfVersion = null, SourceText = Struct },
+                new SetItemOp { Name = "A/FB_M.pou", IfVersion = refs.Items["A/FB_M.pou"], To = "B/FB_M.pou", SourceText = edited },
             },
         });
 
         Assert.Contains("n := 2;", FakeIde.AllText(ide.WrittenContent["FB_M"]));   // premise: the text landed
         Assert.True(resp.Accepted, "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal("FB_M.pou", conflict.Name);
+        Assert.Equal("A/FB_M.pou", conflict.Name);
         Assert.Contains("the IDE could not move 'FB_M'", conflict.Reason);
         Assert.Contains("the pushed text of 'FB_M' was written before it and stays", conflict.Reason);
         Assert.Contains("the folder 'B' was created before it and stays", conflict.Reason);
@@ -668,7 +668,7 @@ public class PushKeepsWhatLandedTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "FB_M.pou", IfVersion = refs.Items["FB_M.pou"], ToFolder = "B", SourceText =
+                new SetItemOp { Name = "A/FB_M.pou", IfVersion = refs.Items["A/FB_M.pou"], To = "B/FB_M.pou", SourceText =
                     "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n" },
             },
         });

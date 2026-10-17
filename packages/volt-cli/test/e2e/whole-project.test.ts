@@ -25,7 +25,7 @@
  * makes it safe to point at a real project, and exactly what fails loudly when it is not correct.
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, BASE, libraryRoots, inLibrary, cleanup, createItem, fid, id } from "./harness"
+import { bridge, requireHealthy, BASE, libraryRoots, inLibrary, cleanup, createItem, fid, id, fileOf, folderOf } from "./harness"
 import { structDut, enumDut, unionDut, aliasDut } from "./fixtures"
 import { isPouFile } from "@volt/control"
 import { lacks, PLATFORM_GAPS, servedPlatform } from "./lib/platform"
@@ -66,7 +66,7 @@ describe(`whole project (${BASE})`, () => {
 		const gaps: [any, string][] = [[PLATFORM_GAPS.projectSettings, "Project Settings"], [PLATFORM_GAPS.libraryParameterDefaults, "Library Manager"]]
 		const held: [any, string][] = []
 		for (const g of gaps) if (await lacks(g[0])) held.push(g)
-		const expectedGap = (u: any) => held.find(([g, item]) => u?.name === item && String(u?.reason).includes(g.refusal))
+		const expectedGap = (u: any) => held.find(([g, item]) => fileOf(String(u?.name ?? "")) === item && String(u?.reason).includes(g.refusal))
 		const lost = (us: any[] | undefined) => (us ?? []).filter((u) => !expectedGap(u))
 		for (const u of refs.unreadable ?? [])
 			if (expectedGap(u)) console.log(`[e2e] expected on CODESYS ${await servedPlatform()}: ${expectedGap(u)![0].id} (${expectedGap(u)![0].record})`)
@@ -87,10 +87,10 @@ describe(`whole project (${BASE})`, () => {
 		// live, derived from the payload — see `libraryRoots`.
 		const roots = libraryRoots(first.changed as any[])
 		const items = (first.changed as any[]).filter(
-			(i) => isPouFile(String(i.name)) && !inLibrary(i.folder, roots),
+			(i) => isPouFile(String(i.name)) && !inLibrary(folderOf(String(i.name)), roots),
 		)
 		expect(items.length, "the project has no editable items — is the right project open?").toBeGreaterThan(0)
-		const swept = new Set(items.map((i) => String(i.name)))
+		const swept = new Set(items.map((i) => fileOf(String(i.name))))
 		expect(SEEDED_DUTS.filter((n) => !swept.has(n)), "DUTs the sweep left out").toEqual([])
 
 		// FOUR CALLS, whatever the project's size. Doing this per item — refs, push, fetch each time — makes the

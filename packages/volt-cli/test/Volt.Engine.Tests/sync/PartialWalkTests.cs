@@ -36,7 +36,7 @@ public class PartialWalkTests
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp>
                 {
-                    new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+                    new SetItemOp { Name = folder.Length == 0 ? $"{name}.pou" : $"{folder}/{name}.pou", SourceText = Prg(name), IfVersion = null },
                 },
             });
         return ide;
@@ -51,7 +51,7 @@ public class PartialWalkTests
         var refs = RefsService.Handle(ide);
 
         Assert.Equal(new[] { "Machine" }, refs.UnwalkedFolders);
-        Assert.DoesNotContain("Deep.pou", refs.Items.Keys);   // it really is missing from the map
+        Assert.DoesNotContain("Machine/Deep.pou", refs.Items.Keys);   // it really is missing from the map
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class PartialWalkTests
         Assert.Empty(res.Removed);
     }
 
-    /// <summary>A PARTIAL WALK STILL KNOWS WHAT IT READ. With the folder each known item last sat in, a name
+    /// <summary>A PARTIAL WALK STILL KNOWS WHAT IT READ. A known path states the folder its item last sat in, so one
     /// absent from a folder the walk DID enumerate is gone, and one under the folder it could not read is merely
     /// unseen. The engine decides that — once, for both read ops — rather than each client re-deriving it with
     /// its own rule.</summary>
@@ -79,26 +79,25 @@ public class PartialWalkTests
         ide.RemoveItem("B");
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
 
         Assert.Equal(new[] { "B.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
     }
 
-    /// <summary>…and a known name whose folder the client does not state is not judged: absence proves nothing
-    /// about an item that may sit under the folder nobody could read.</summary>
+    /// <summary>…and a known path under the folder nobody could read is not judged: absence proves nothing about an
+    /// item that may still sit there.</summary>
     [Fact]
-    public void A_partial_walk_does_not_remove_a_name_whose_folder_it_was_not_told()
+    public void A_partial_walk_does_not_remove_a_path_under_the_folder_it_could_not_read()
     {
         var ide = WithHiddenFolder();
         var baseline = RefsService.Handle(ide);
-        ide.RemoveItem("B");
+        ide.RemoveItem("Deep");
         ide.UnwalkableFolders = new[] { "Machine" };
-        var folders = baseline.Folders.Where(kv => kv.Key != "B.pou").ToDictionary(kv => kv.Key, kv => kv.Value);
 
-        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = folders }).Removed);
-        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = folders }).Removed);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items }).Removed);
     }
 
     /// <summary>…and the unreadable exemption on a partial walk is the SAME kind-aware one a complete walk uses:
@@ -108,15 +107,14 @@ public class PartialWalkTests
     {
         var ide = WithHiddenFolder();
         var baseline = RefsService.Handle(ide);
-        var known = new Dictionary<string, string>(baseline.Items) { ["X.dut"] = "v", ["X.pou"] = "w" };
-        var knownFolders = new Dictionary<string, string>(baseline.Folders) { ["X.dut"] = "DUTs", ["X.pou"] = "POUs" };
+        var known = new Dictionary<string, string>(baseline.Items) { ["DUTs/X.dut"] = "v", ["POUs/X.pou"] = "w" };
         ide.AddItem(FakeIde.Item.MalformedGraphical("X", "POUs"));
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known });
 
-        Assert.Equal(new[] { "X.dut" }, fetch.Removed);
+        Assert.Equal(new[] { "DUTs/X.dut" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
     }
 
@@ -127,11 +125,10 @@ public class PartialWalkTests
         var ide = new FakeIde();
         ide.AddItem(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", "", "POUs"));
         ide.UnwalkableFolders = new[] { "Old" };
-        var known = new Dictionary<string, string> { ["X.dut"] = "v" };
-        var knownFolders = new Dictionary<string, string> { ["X.dut"] = "Old" };
+        var known = new Dictionary<string, string> { ["Old/X.dut"] = "v" };
 
-        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);
-        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = known }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = known }).Removed);
     }
 
     /// <summary>`refs` answers the complete walk's removals too, so `volt status` and `volt pull` read the one
@@ -143,10 +140,10 @@ public class PartialWalkTests
         var baseline = RefsService.Handle(ide);
         ide.RemoveItem("Deep");
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
 
-        Assert.Equal(new[] { "Deep.pou" }, fetch.Removed);
+        Assert.Equal(new[] { "Machine/Deep.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
         Assert.Empty(RefsService.Handle(ide).Removed);
     }

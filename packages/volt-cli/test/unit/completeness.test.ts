@@ -388,10 +388,10 @@ describe("picking subjects", () => {
       o("t1", "Main", "TaskObject.TaskObject", "tc"),
       o("x1", "Lonely", POU, "app"),
     ]
-    const items = { "FB_A.pou": "v", "FB_B.pou": "v", "FB_C.pou": "v", "GVL.gvl": "v", "Main.task": "v" }
-    const { subjects: picked, uncovered } = pickCodesys(objects, items, { "FB_B.pou": "Lib" }, [])
+    const items = { "FB_A.pou": "v", "Lib/FB_B.pou": "v", "FB_C.pou": "v", "GVL.gvl": "v", "Main.task": "v" }
+    const { subjects: picked, uncovered } = pickCodesys(objects, items, [])
     expect(uncovered).toEqual([])
-    expect(picked.map((s) => s.wire)).toEqual(["Main.task", "FB_A.pou", "FB_B.pou", "GVL.gvl"]) // every task first
+    expect(picked.map((s) => s.wire)).toEqual(["Main.task", "FB_A.pou", "Lib/FB_B.pou", "GVL.gvl"]) // every task first
     expect(picked[2]).toMatchObject({ folder: "Lib", why: "exclude:item" })
   })
 
@@ -403,7 +403,7 @@ describe("picking subjects", () => {
       { name: "POUs", itemType: 601, path: "d", file: null },
     ]
     expect(
-      pickTwincat(objects, { "MAIN.pou": "v", "E.dut": "v", "PlcTask.task": "v" }, {}, []).subjects.map((s) => s.wire),
+      pickTwincat(objects, { "MAIN.pou": "v", "E.dut": "v", "PlcTask.task": "v" }, []).subjects.map((s) => s.wire),
     ).toEqual(["E.dut", "MAIN.pou", "PlcTask.task"])
   })
 
@@ -414,18 +414,17 @@ describe("picking subjects", () => {
     const cs = pickCodesys(
       [{ guid: "g", name: "X", class: "POUObject.SomeOtherPou", parent: "", props: ["BuildProperty"], build }],
       { "X.pou": "v", "Dev.device": "v" },
-      {},
       [],
     )
     expect(cs).toEqual({ subjects: [], uncovered: ["X.pou"] })
-    const tc = pickTwincat([{ name: "Y", itemType: 602, path: "a", file: "Y.TcPOUx" }], { "Y.pou": "v", "L.library": "v" }, {}, [])
+    const tc = pickTwincat([{ name: "Y", itemType: 602, path: "a", file: "Y.TcPOUx" }], { "Y.pou": "v", "L.library": "v" }, [])
     expect(tc).toEqual({ subjects: [], uncovered: ["Y.pou"] })
   })
 
   // Gate review of step 4b, finding 4: an item the pull REFUSES is no wire item, so it was no candidate — never judged,
   // and its known entries (VltFixtureSfc's: a trailing newline, a held transition) outlived every run as claims nobody
   // measured. Every refused item is a subject, as every task is: its refusal by name is what the run judges.
-  it("takes every item the pull refuses, by its unreadable name (CODESYS and TwinCAT)", () => {
+  it("takes every item the pull refuses, at the folder its unreadable name states (CODESYS and TwinCAT)", () => {
     const cs = pickCodesys(
       [
         { guid: "p1", name: "FB_A", class: POU, parent: "app", props: ["SVFoldersProperty"], build: null },
@@ -433,26 +432,24 @@ describe("picking subjects", () => {
         { guid: "t1", name: "T", class: "TransitionObject.TransitionObject", parent: "p2", props: [], build: null },
         { guid: "v1", name: "Sfc", class: "VisualObject.VisualObject", parent: "app", props: [], build: null },
       ],
-      { "FB_A.pou": "v" },
-      {},
-      ["Sfc"],
+      { "App/FB_A.pou": "v" },
+      ["App/Sfc"],
     )
-    expect(cs.subjects.map((s) => [s.wire, s.why])).toEqual([
-      ["FB_A.pou", "item:POUObject.POUObject"],
-      ["Sfc.pou", "every item the pull refuses"],
+    expect(cs.subjects.map((s) => [s.wire, s.folder, s.why])).toEqual([
+      ["App/FB_A.pou", "App", "item:POUObject.POUObject"],
+      ["App/Sfc.pou", "App", "every item the pull refuses"],
     ])
     const tc = pickTwincat(
       [
         { name: "MAIN", itemType: 602, path: "a", file: "MAIN.TcPOU" },
         { name: "Broken", itemType: 602, path: "b", file: "Broken.TcPOU" },
       ],
-      { "MAIN.pou": "v" },
-      {},
-      ["Broken"],
+      { "Sys/PLC/P/MAIN.pou": "v" },
+      ["Sys/PLC/P/Broken"],
     )
     expect(tc.subjects.map((s) => [s.wire, s.why])).toEqual([
-      ["Broken.pou", "every item the pull refuses"],
-      ["MAIN.pou", "MAIN.TcPOU"],
+      ["Sys/PLC/P/Broken.pou", "every item the pull refuses"],
+      ["Sys/PLC/P/MAIN.pou", "MAIN.TcPOU"],
     ])
   })
 })

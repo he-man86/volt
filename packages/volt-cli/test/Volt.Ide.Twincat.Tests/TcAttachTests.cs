@@ -40,9 +40,13 @@ public class TcAttachTests
         public object Item(int i) => Items[i - 1];
     }
 
+    /// <summary>The solution — named, as XAE's is, by its <c>.sln</c> file: the first project's name unless a test
+    /// names it (the default layout, where the solution and its system project share a name).</summary>
     public sealed class Solution
     {
         public Projects Projects { get; } = new();
+        public string? Name { get; set; }
+        public string FullName => Name ?? (Projects.Count > 0 ? $@"C:\p\{Projects.Items[0].Name}.sln" : "");
         public int Count => Projects.Count;
         public bool Saved => true;
     }
@@ -53,6 +57,8 @@ public class TcAttachTests
         public Dte(params Project[] projects) { Solution.Projects.Items.AddRange(projects); }
         public Solution Solution { get; } = new();
         public string Version => "15.0";
+        /// <summary>The window list the build-output read reaches the Output window through; none unless a test sets one.</summary>
+        public object? Windows { get; set; }
     }
 
     private static Project Tc(string name) => new(name, new TcComTree.SysManager());
@@ -65,24 +71,31 @@ public class TcAttachTests
         return (driver, model);
     }
 
+    /// <summary>THE SOLUTION IS THE PROJECT (openspec multi-application-tree, design §1): one workspace serves every
+    /// system project of the window, named by the <c>.sln</c> as the engineer sees it — a C# ADS client in it is no
+    /// TwinCAT project, and is passed over.</summary>
     [Fact]
-    public void The_attach_serves_the_windows_first_TwinCAT_project_with_no_select()
+    public void The_attach_serves_the_windows_solution_with_no_select()
     {
-        // a C# ADS client ahead of it in the solution is no TwinCAT project, and is passed over
-        var (driver, _) = Attached(new Dte(new Project("AdsClient", new object()), Tc("TwinCAT Project14"), Tc("Other")));
+        var window = new Dte(new Project("AdsClient", new object()), Tc("TwinCAT Project14"), Tc("Other"));
+        window.Solution.Name = @"C:\p\Line.sln";
+        var (driver, _) = Attached(window);
 
         Assert.True(driver.IsConnected);
-        Assert.Equal("TwinCAT Project14", driver.ServedProjectName);
+        Assert.Equal("Line", driver.ServedProjectName);
     }
 
+    /// <summary>A select names the solution; a system project's name is a part of it, not a project to serve.</summary>
     [Fact]
-    public void A_named_select_still_serves_another_project_of_the_window()
+    public void A_select_of_a_system_projects_name_serves_nothing()
     {
-        var (driver, _) = Attached(new Dte(Tc("TwinCAT Project14"), Tc("Other")));
+        var window = new Dte(Tc("TwinCAT Project14"), Tc("Other"));
+        window.Solution.Name = @"C:\p\Line.sln";
+        var (driver, _) = Attached(window);
 
         driver.SelectProject(new ConnectRequest { Project = "Other" });
 
-        Assert.Equal("Other", driver.ServedProjectName);
+        Assert.Null(driver.ServedProjectName);
     }
 
     [Fact]
@@ -114,14 +127,16 @@ public class TcAttachTests
     }
 
     [Fact]
-    public void An_explicit_pick_is_never_replaced_by_the_attach()
+    public void An_explicit_pick_survives_the_attach_and_a_recovery()
     {
-        var (driver, model) = Attached(new Dte(Tc("TwinCAT Project14"), Tc("Other")));
-        driver.SelectProject(new ConnectRequest { Project = "Other" });
+        var window = new Dte(Tc("TwinCAT Project14"), Tc("Other"));
+        window.Solution.Name = @"C:\p\Line.sln";
+        var (driver, model) = Attached(window);
+        driver.SelectProject(new ConnectRequest { Project = "Line" });
 
         model.EnsureAttached();
         driver.Recover();
 
-        Assert.Equal("Other", driver.ServedProjectName);
+        Assert.Equal("Line", driver.ServedProjectName);
     }
 }

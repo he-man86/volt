@@ -2,7 +2,7 @@
  *  hashed like any other file and carried in knownItems. A fetch whose knownItems already has them ships NO
  *  signature items (proof it didn't extract); a fetch without them ships the full set. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, BASE } from "../harness"
+import { bridge, requireHealthy, BASE, folderOf } from "../harness"
 
 const LIB_EXT = ".library"
 
@@ -11,7 +11,7 @@ const libraryFolders = (f: any) =>
 	new Set(
 		(f.changed as any[])
 			.filter((i) => String(i.name).toLowerCase().endsWith(LIB_EXT))
-			.map((i) => String(i.folder ?? "")),
+			.map((i) => folderOf(String(i.name))),
 	)
 
 /** A signature item is a rendered library ELEMENT: it sits in a `.library` ref's own folder and is not the
@@ -32,7 +32,7 @@ const libSigCount = (f: any, folders: Set<string>) => {
 	const inALibrary = (folder: string) =>
 		[...roots].some((r) => r.length > 0 && (folder === r || folder.startsWith(r + "/")))
 	return (f.changed as any[]).filter(
-		(i) => !String(i.name).toLowerCase().endsWith(LIB_EXT) && inALibrary(String(i.folder ?? "")),
+		(i) => !String(i.name).toLowerCase().endsWith(LIB_EXT) && inALibrary(folderOf(String(i.name))),
 	).length
 }
 

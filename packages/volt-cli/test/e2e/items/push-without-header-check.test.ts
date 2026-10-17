@@ -21,14 +21,14 @@
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge } from "../lib/bridge"
-import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX } from "../lib/workspace"
+import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX, fileOf, inFolder } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
 import { BASE, VENDOR } from "../lib/pipe"
 import { buildErrorKey, expectedBuildErrorKey } from "../lib/build-error-key"
 
 const KEY = "nohdr_"
 
-/** The extension each name that can come back unreadable was pushed under: `unreadable` lists BARE names, and a
+/** The extension each name that can come back unreadable was pushed under: `unreadable` lists `<folder>/<bare name>`, and a
  *  forced delete reaches the object only under its own kind. Only this row records `unreadable` (the GVL holding a
  *  retired comment did until openspec bridge-refusal-review 1.4); any other name listed there is a new fact, and the
  *  sweep says so rather than guess its kind. */
@@ -37,11 +37,11 @@ const pushedAs = new Map<string, string>([["uc_fb", "pou"]].map(([k, e]) => [id(
 /** Delete every item this file made, readable or not. */
 async function sweep(): Promise<void> {
 	const refs = await bridge.refs()
-	const mine = (n: string) => n.startsWith(`${PREFIX}_${KEY}`)
+	const mine = (n: string) => fileOf(n).startsWith(`${PREFIX}_${KEY}`)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
 		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
-			const ext = pushedAs.get(n)
+			const ext = pushedAs.get(fileOf(n))
 			if (!ext) throw new Error(`'${n}' is unreadable and is no shape of this file — no kind to delete it under`)
 			return { op: "deleteItem", name: `${n}.${ext}`, ifVersion: null }
 		}),
@@ -60,8 +60,8 @@ async function sweep(): Promise<void> {
  *  under `unreadable` (a GVL whose text the reader refuses, a POU TwinCAT does not parse) — and has no readable name. */
 async function expectHeld(bare: string, ext: string, text: string, held: "fetched" | "unreadable"): Promise<void> {
 	const refs = await bridge.refs()
-	const names = Object.keys(refs.items).filter((n) => n.slice(0, n.lastIndexOf(".")) === bare)
-	const unreadable = (refs.unreadable ?? []).filter((n: string) => n === bare)
+	const names = Object.keys(refs.items).map(fileOf).filter((n) => n.slice(0, n.lastIndexOf(".")) === bare)
+	const unreadable = (refs.unreadable ?? []).map((u: any) => fileOf(String(u?.name ?? u))).filter((n: string) => n === bare)
 	if (held === "unreadable") {
 		expect({ names, unreadable }).toEqual({ names: [], unreadable: [bare] })
 		return
@@ -86,7 +86,7 @@ async function pushReferenceBuild(
 	const main = await mainProgram()
 	if (!main) throw new Error("the fixture has no main program to reference the item from")
 	return withMainProgramRestored(async () => {
-		const push = await pushOps([{ op: "set", name: wire, toFolder: folder, sourceText: text, ifVersion: null }])
+		const push = await pushOps([{ op: "set", name: inFolder(folder, wire), sourceText: text, ifVersion: null }])
 		const m = await fetchItem(main)
 		let src: string = m.sourceText
 		if (ref.decl) src = src.replace(/\nEND_VAR/, `\n\t${ref.decl}\nEND_VAR`)
@@ -152,7 +152,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		const r = await pushReferenceBuild(`${bare}.dut`, text, { decl: `v : ${bare};` })
 		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
-		const names = Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))
+		const names = Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))
 		expect(names).toEqual([`${bare}.dut`])
 		expect((await fetchItem(`${bare}.dut`)).sourceText.trimEnd()).toBe(text)
 	})
@@ -171,7 +171,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		)
 		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
-		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
+		expect(Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
 		expect((await fetchItem(`${bare}.pou`)).sourceText.trimEnd()).toMatch(/\nEND_PROGRAM$/)
 	})
 
@@ -186,16 +186,16 @@ describe(`items / push without header check (${BASE})`, () => {
 		const bare = id(KEY + "upd")
 		const fbText = (n: number) => `FUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := ${n};\nEND_FUNCTION_BLOCK\n`
 		const folder = await plcFolder("POUs")
-		expect((await pushOps([{ op: "set", name: `${bare}.pou`, toFolder: folder, sourceText: fbText(5), ifVersion: null }])).accepted).toBe(true)
+		const heldName = inFolder(folder, `${bare}.pou`)
+		expect((await pushOps([{ op: "set", name: heldName, sourceText: fbText(5), ifVersion: null }])).accepted).toBe(true)
 
 		let refs = await bridge.refs()
-		const heldBefore = refs.items[`${bare}.pou`]
+		const heldBefore = refs.items[heldName]
 		const prgText = `PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n`
-		const r = await pushOps([{ op: "set", name: `${bare}.pou`, sourceText: prgText, ifVersion: heldBefore }])
+		const r = await pushOps([{ op: "set", name: heldName, sourceText: prgText, ifVersion: heldBefore }])
 		expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		refs = await bridge.refs()
-		const heldName = `${bare}.pou`
-		expect(Object.keys(refs.items).filter((n) => n.startsWith(bare))).toEqual([heldName])
+		expect(Object.keys(refs.items).filter((n) => fileOf(n).startsWith(bare))).toEqual([heldName])
 		const held = await fetchItem(heldName)
 		expect(held.sourceText).toMatch(/^PROGRAM /)
 		expect(held.sourceText.trimEnd()).toMatch(/\nEND_PROGRAM$/)
@@ -203,14 +203,14 @@ describe(`items / push without header check (${BASE})`, () => {
 		expect(held.folder).toBe(folder)
 
 		// Under the original name, at the version held before: refused by the gate, and nothing is written.
-		const stale = await bridge.push({ ops: [{ op: "set", name: `${bare}.pou`, sourceText: fbText(7), ifVersion: heldBefore }] })
+		const stale = await bridge.push({ ops: [{ op: "set", name: heldName, sourceText: fbText(7), ifVersion: heldBefore }] })
 		expect(stale.accepted).toBe(false)
-		expect(stale.conflicts.map((c: any) => [c.name, c.code])).toEqual([[`${bare}.pou`, "STALE_ITEM_VERSION"]])
+		expect(stale.conflicts.map((c: any) => [c.name, c.code])).toEqual([[heldName, "STALE_ITEM_VERSION"]])
 		expect((await bridge.refs()).items[heldName]).toBe(refs.items[heldName])
 
 		const fixed = await pushOps([{ op: "set", name: heldName, sourceText: fbText(7), ifVersion: refs.items[heldName] }])
 		expect(fixed.accepted, `refused: ${JSON.stringify(fixed.conflicts)}`).toBe(true)
-		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
+		expect(Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
 		const back = await fetchItem(`${bare}.pou`)
 		expect(back.sourceText).toMatch(/^FUNCTION_BLOCK /)
 		expect(back.sourceText).toMatch(/n := 7;/)
@@ -232,7 +232,7 @@ describe(`items / push without header check (${BASE})`, () => {
 	for (const s of unread) {
 		it(`${s.key} under .${s.ext} is pushed as written`, async () => {
 			const bare = id(KEY + s.key)
-			const r = await pushOps([{ op: "set", name: `${bare}.${s.ext}`, toFolder: await plcFolder("POUs"), sourceText: s.text(bare), ifVersion: null }])
+			const r = await pushOps([{ op: "set", name: inFolder(await plcFolder("POUs"), `${bare}.${s.ext}`), sourceText: s.text(bare), ifVersion: null }])
 			expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			await expectHeld(bare, s.ext, s.text(bare), s.held)
 		})

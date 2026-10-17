@@ -22,11 +22,7 @@
  * is paid only by the network actually edited. This test pays it on purpose.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import {
-
-	bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy,
-	savePlcPrg, restorePlcPrg, fixPlcPrg, BASE,
-} from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -54,7 +50,7 @@ describe(`graphical / rebuild after an edit (${BASE})`, () => {
 	 */
 	it("an edited network still compiles after being rebuilt", async () => {
 		const name = id("rb_edit")
-		const full = fid("rb_edit", "pou")
+		const full = inFolder(await projectRoot(), fid("rb_edit", "pou"))
 
 		const src =
 			`FUNCTION_BLOCK ${name}
@@ -74,7 +70,7 @@ END_NETWORK
 END_FUNCTION_BLOCK
 `
 
-		await createItem(fid("rb_edit"), src, "")
+		await createItem(fid("rb_edit"), src, await projectRoot())
 		await ensureCompiles(name)
 
 		// Edit the PULLED text — the IDE owns its own network boundaries — and change an OPERAND, so the
@@ -106,7 +102,7 @@ END_FUNCTION_BLOCK
 	 */
 	it("editing one network leaves its neighbour untouched", async () => {
 		const name = id("rb_scope")
-		const full = fid("rb_scope", "pou")
+		const full = inFolder(await projectRoot(), fid("rb_scope", "pou"))
 
 		const src =
 			`FUNCTION_BLOCK ${name}
@@ -137,7 +133,7 @@ END_NETWORK
 END_FUNCTION_BLOCK
 `
 
-		await createItem(fid("rb_scope"), src, "")
+		await createItem(fid("rb_scope"), src, await projectRoot())
 		const before = (await fetchItem(full)).sourceText
 		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
 		// A CREATE keeps both splits on both vendors (TwinCAT's PLCopen import folded each into one assign driving two
@@ -175,7 +171,7 @@ END_FUNCTION_BLOCK
 	 */
 	it("a network's title, label and comment survive an edit to its logic", async () => {
 		const name = id("rb_meta")
-		const full = fid("rb_meta", "pou")
+		const full = inFolder(await projectRoot(), fid("rb_meta", "pou"))
 
 		const src =
 			`FUNCTION_BLOCK ${name}
@@ -200,7 +196,7 @@ END_NETWORK
 END_FUNCTION_BLOCK
 `
 
-		await createItem(fid("rb_meta"), src, "")
+		await createItem(fid("rb_meta"), src, await projectRoot())
 		const before = (await fetchItem(full)).sourceText
 		expect(before, "the title was dropped on create").toContain(`"interlock"`)
 		expect(before, "the label was dropped on create").toContain("LABEL: Guard")

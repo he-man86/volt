@@ -97,9 +97,9 @@ public class IdeTreeTests
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/Machine/Deep/B.pou"),
             }), Array.Empty<string>(), "parent");
 
-            // The IDE deleted B, which lives two folders down. The wire reports the bare name.
+            // The IDE deleted B, which lives two folders down. The wire reports its path.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "B.pou" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "Machine/Deep/B.pou" }, librariesRefreshed: false);
 
             Assert.True(Has(root, tree, "src/Machine/A.pou"));       // untouched, carried from parent
             Assert.False(Has(root, tree, "src/Machine/Deep/B.pou")); // removed → dropped, folder or not
@@ -127,9 +127,9 @@ public class IdeTreeTests
             }), Array.Empty<string>(), "parent");
 
             // What `volt pull` passes: the fetch's `Removed`, i.e. the names `refs` published.
-            var removed = Materialize.PathToItem("DUTs/X.dut")!.Value.Name;
+            var removed = Materialize.PathToItem("DUTs/X.dut")!;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { removed, "B.pou" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { removed, "DUTs/B.pou" }, librariesRefreshed: false);
 
             Assert.False(Has(root, tree, "src/DUTs/B.pou"));
             Assert.False(Has(root, tree, "src/DUTs/X.dut")); // the IDE deleted it — so must the workspace
@@ -163,11 +163,9 @@ public class IdeTreeTests
         finally { TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>AN ITEM THE IDE MOVED ARRIVES UNDER ANOTHER PATH WITH THE SAME NAME. The fetch reports it changed
-    /// (its folder is part of its version) and not removed (it still exists), so neither the path-keyed
-    /// `replaced` set nor the `removedNames` sweep reaches the old file. The name is the identity, so a changed
-    /// item supersedes the parent file carrying its name wherever it sits; without that the workspace held two
-    /// files for one item, and the stale one's next edit pushed back over it.</summary>
+    /// <summary>AN ITEM THE IDE MOVED ARRIVES UNDER ANOTHER PATH. Its path is its identity (openspec
+    /// multi-application-tree), so the fetch reports the old path REMOVED and the new one changed: one file, at the new
+    /// path — never two files for one item, whose stale one's next edit would push back over it.</summary>
     [Fact]
     public void An_item_the_ide_moved_to_another_folder_leaves_one_file()
     {
@@ -181,10 +179,36 @@ public class IdeTreeTests
             }), Array.Empty<string>(), "parent");
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                new List<MaterializedFile> { new("Motion/A.pou", "A") }, Array.Empty<string>(), librariesRefreshed: false);
+                new List<MaterializedFile> { new("Motion/A.pou", "A") }, new[] { "POUs/A.pou" }, librariesRefreshed: false);
 
             Assert.True(Has(root, tree, "src/Motion/A.pou"));
             Assert.False(Has(root, tree, "src/POUs/A.pou"));
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>TWO APPLICATIONS' ITEMS OF ONE NAME ARE TWO FILES. An item changed in one application supersedes nothing
+    /// of the other's: the name was the identity once, and then a changed `PLC_PRG.pou` of `Device_1` dropped the
+    /// `PLC_PRG.pou` of `Device` from the tree — and the pull's merge deleted the engineer's file.</summary>
+    [Fact]
+    public void A_changed_item_leaves_another_applications_item_of_its_name_alone()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/Device/Plc Logic/Application/PLC_PRG.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/Device_1/Plc Logic/Application/PLC_PRG.pou"),
+            }), Array.Empty<string>(), "parent");
+
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                new List<MaterializedFile> { new("Device_1/Plc Logic/Application/PLC_PRG.pou", "B2") }, Array.Empty<string>(),
+                librariesRefreshed: false);
+
+            Assert.True(Has(root, tree, "src/Device/Plc Logic/Application/PLC_PRG.pou"));
+            Assert.True(Has(root, tree, "src/Device_1/Plc Logic/Application/PLC_PRG.pou"));
         }
         finally { TestUtil.ForceDelete(root); }
     }
@@ -260,7 +284,7 @@ public class IdeTreeTests
             // The IDE deleted the PROJECT's ERROR.dut. The library's same-named signature must survive.
             // `Removed` carries the name `refs` published for that file — this passed the FILE name once, which
             // the wire never sends, and so hid that the sweep matched no deleted DUT at all.
-            var removed = Materialize.PathToItem("POUs/ERROR.dut")!.Value.Name;
+            var removed = Materialize.PathToItem("POUs/ERROR.dut")!;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
                 Array.Empty<MaterializedFile>(), new[] { removed }, librariesRefreshed: false);
 

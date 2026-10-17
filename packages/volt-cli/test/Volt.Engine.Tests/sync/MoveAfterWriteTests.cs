@@ -50,7 +50,7 @@ public class MoveAfterWriteTests
                 new SetItemOp
                 {
                     Name = "FB_A.pou",
-                    ToFolder = "POUs",
+                    To = "POUs/FB_A.pou",
                     SourceText = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_A.pou"],
                 },
@@ -78,7 +78,7 @@ public class MoveAfterWriteTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "FB_A.pou", ToFolder = "POUs", IfVersion = refs.Items["FB_A.pou"] },
+                new SetItemOp { Name = "FB_A.pou", To = "POUs/FB_A.pou", IfVersion = refs.Items["FB_A.pou"] },
             },
         });
 

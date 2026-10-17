@@ -32,6 +32,16 @@ export {
 	fetchItem,
 	fetchSource,
 	versionOf,
+	at,
+	pathOf,
+	existingOrAtRoot,
+	itemIn,
+	projectRoot,
+	applicationRoot,
+	pathIn,
+	inFolder,
+	fileOf,
+	folderOf,
 } from "./lib/workspace"
 export { ensureCompiles, instantiate, diagnostics, withMainProgramRestored, clearTestInstances } from "./lib/compile"
 export { expectRoundTrip, expectRoundTripOrRefusal, expectStable, expectNoOperandsLost, bodyOf } from "./lib/roundtrip"
@@ -79,7 +89,7 @@ export async function restorePlcPrg(): Promise<void> {
 	if (!main) return
 	const current = await fetchItem(main)
 	if (current.sourceText === original) return
-	const r = await pushOps([{ op: "set", name: main, toFolder: null, sourceText: original, ifVersion: current.version }])
+	const r = await pushOps([{ op: "set", name: main, sourceText: original, ifVersion: current.version }])
 	// The message is built ONLY on failure. `expect(cond, msg)` evaluates `msg` eagerly, and `r.conflicts` is
 	// undefined on an accepted push — so an inline `JSON.stringify(r.conflicts).slice(…)` threw on the happy path
 	// and failed every test that restores the main program.

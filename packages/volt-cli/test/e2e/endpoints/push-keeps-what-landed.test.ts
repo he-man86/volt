@@ -20,14 +20,20 @@
  * is `Volt.Engine.Tests/sync/PushKeepsWhatLandedTests.cs`.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, FOLDER, BASE } from "../harness"
+import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, FOLDER, BASE, inFolder } from "../harness"
 import { fb, enumDut, structDut, prog, MARK } from "../fixtures"
+
+/** The default folder (`POUs` under the PLC-project root), read once the bridge serves — every item here is made in it. */
+let home = ""
+/** The path of the test item `s` in {@link home}. */
+const pid = (s: string, ext = "pou") => inFolder(home, fid(s, ext))
 
 describe(`endpoints / push keeps what landed (${BASE})`, () => {
 	setDefaultTimeout(180_000)
 	beforeAll(async () => {
 		await requireHealthy()
 		await cleanup()
+		home = await plcFolder(FOLDER)
 	})
 	afterAll(async () => {
 		try {
@@ -42,19 +48,18 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 	const REFUSED_AT_APPLY = "Vlt__Log"
 
 	it("an IDE refusal of a METHOD name at apply after two DUT creates: accepted, the DUTs in the receipt, the FB the only conflict, no shell", async () => {
-		const enumName = fid("pk_E", "dut"), structName = fid("pk_ST", "dut"), fbName = fid("pk_FB")
-		const folder = await plcFolder(FOLDER)
+		const enumName = pid("pk_E", "dut"), structName = pid("pk_ST", "dut"), fbName = pid("pk_FB")
 		const before = (await bridge.refs()).items ?? {}
 		for (const n of [enumName, structName, fbName]) expect(before[n], `the project already holds ${n}`).toBeUndefined()
 
 		const logMethod = `\nMETHOD ${REFUSED_AT_APPLY} : BOOL\nVAR_INPUT\n\tmsg : STRING;\nEND_VAR\n${MARK}\n${REFUSED_AT_APPLY} := TRUE;\nEND_METHOD\n`
 		const r = await pushOps([
-			{ op: "set", name: enumName, toFolder: folder, sourceText: enumDut(id("pk_E")), ifVersion: null },
-			{ op: "set", name: structName, toFolder: folder, sourceText: structDut(id("pk_ST")), ifVersion: null },
-			{ op: "set", name: fbName, toFolder: folder, sourceText: fb(id("pk_FB"), { children: logMethod }), ifVersion: null },
+			{ op: "set", name: enumName, sourceText: enumDut(id("pk_E")), ifVersion: null },
+			{ op: "set", name: structName, sourceText: structDut(id("pk_ST")), ifVersion: null },
+			{ op: "set", name: fbName, sourceText: fb(id("pk_FB"), { children: logMethod }), ifVersion: null },
 		])
 		// THE MEASUREMENT, printed whole so a run records today's answer (task 1.1 re-measures it live).
-		console.log("[push-keeps-what-landed 1.1] response:", JSON.stringify({ ...r, newItems: r.newItems && Object.keys(r.newItems).filter((n) => n.includes("pk_")), newFolders: undefined }))
+		console.log("[push-keeps-what-landed 1.1] response:", JSON.stringify({ ...r, newItems: r.newItems && Object.keys(r.newItems).filter((n) => n.includes("pk_")) }))
 
 		const after = (await bridge.refs()).items ?? {}
 		console.log("[push-keeps-what-landed 1.1] refs after:", JSON.stringify(Object.keys(after).filter((n) => n.includes("pk_"))))
@@ -74,7 +79,7 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 		// member by its name is UNSUPPORTED, as its refusal by kind (DIALECT C2k) is; the CLI picks its advice by code.
 		expect(conflicts[0].code, `the IDE's refusal of METHOD ${REFUSED_AT_APPLY} reached the client unclassified: ${conflicts[0].reason}`).toBe("UNSUPPORTED")
 		expect(conflicts[0].reason, "the reason does not say the refused create was rolled back").toContain(
-			`'${fbName.replace(/\.pou$/, "")}' is not created (the create is rolled back)`,
+			`${id("pk_FB")}' is not created (the create is rolled back)`,
 		)
 		for (const advice of CLIENT_ADVICE) expect(conflicts[0].reason, `the reason carries the client instruction '${advice}'`).not.toContain(advice)
 		// Rolled back: nothing of the op stays, so no field says otherwise (openspec `push-partially-applied-flag` 3.1).
@@ -90,14 +95,13 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 	})
 
 	it("METHOD Log, a name the IDE was measured to refuse, is refused by the pre-flight and nothing is written (task 3.1)", async () => {
-		const enumName = fid("pk_E2", "dut"), fbName = fid("pk_FB2")
-		const folder = await plcFolder(FOLDER)
+		const enumName = pid("pk_E2", "dut"), fbName = pid("pk_FB2")
 		const before = (await bridge.refs()).items ?? {}
 
 		const logMethod = `\nMETHOD Log : BOOL\nVAR_INPUT\n\tmsg : STRING;\nEND_VAR\n${MARK}\nLog := TRUE;\nEND_METHOD\n`
 		const r = await pushOps([
-			{ op: "set", name: enumName, toFolder: folder, sourceText: enumDut(id("pk_E2")), ifVersion: null },
-			{ op: "set", name: fbName, toFolder: folder, sourceText: fb(id("pk_FB2"), { children: logMethod }), ifVersion: null },
+			{ op: "set", name: enumName, sourceText: enumDut(id("pk_E2")), ifVersion: null },
+			{ op: "set", name: fbName, sourceText: fb(id("pk_FB2"), { children: logMethod }), ifVersion: null },
 		])
 		console.log("[push-keeps-what-landed 3.1] response:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts }))
 
@@ -114,15 +118,14 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 	})
 
 	it("a pre-flight batch with two INVALID_ST items names both and writes nothing", async () => {
-		const good1 = fid("pk_good1"), bad1 = fid("pk_bad1"), bad2 = fid("pk_bad2"), good2 = fid("pk_good2")
-		const folder = await plcFolder(FOLDER)
+		const good1 = pid("pk_good1"), bad1 = pid("pk_bad1"), bad2 = pid("pk_bad2"), good2 = pid("pk_good2")
 		const before = (await bridge.refs()).items ?? {}
 
 		const r = await pushOps([
-			{ op: "set", name: good1, toFolder: folder, sourceText: prog(id("pk_good1")), ifVersion: null },
-			{ op: "set", name: bad1, toFolder: folder, sourceText: "not a POU at all", ifVersion: null },
-			{ op: "set", name: bad2, toFolder: folder, sourceText: "not a POU either", ifVersion: null },
-			{ op: "set", name: good2, toFolder: folder, sourceText: prog(id("pk_good2")), ifVersion: null },
+			{ op: "set", name: good1, sourceText: prog(id("pk_good1")), ifVersion: null },
+			{ op: "set", name: bad1, sourceText: "not a POU at all", ifVersion: null },
+			{ op: "set", name: bad2, sourceText: "not a POU either", ifVersion: null },
+			{ op: "set", name: good2, sourceText: prog(id("pk_good2")), ifVersion: null },
 		])
 		console.log("[push-keeps-what-landed 1.2] response:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts }))
 

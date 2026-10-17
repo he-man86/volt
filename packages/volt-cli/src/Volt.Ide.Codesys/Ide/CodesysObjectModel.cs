@@ -305,31 +305,10 @@ namespace Volt.Ide.Codesys
         }
 
         // ── structural ─────────────────────────────────────────────────────────
-        /// <summary>The Application node — default parent for new POUs.</summary>
-        public object? FindApplication() =>
-            FindFirst(PrimaryProject, c => !IsFolder(c) && ObjectInterfaceNames(ReadObject(c)).Contains("IApplicationObject"), 0);
-
         // `FindByName` lived here — a name search over the whole project, case-SENSITIVE and matching any
         // non-transient node. Both of those were wrong (see Engine's Ide/ItemLookup, which replaced it and
         // TwinCAT's differently-wrong twin with one tested walk), and `IsTransient` went with it: nothing else
         // asked whether a node was transient.
-
-        // Depth cap for the tree walk below: a guard against a cyclic / pathologically nested tree, not a limit
-        // any real project reaches.
-        private const int MaxTreeDepth = 14;
-
-        /// <summary>Depth-first search for the first descendant matching <paramref name="match"/>.</summary>
-        private object? FindFirst(object? node, Func<object, bool> match, int depth)
-        {
-            if (node == null || depth > MaxTreeDepth) return null;
-            foreach (var child in GetChildren(node))
-            {
-                if (match(child)) return child;
-                var hit = FindFirst(child, match, depth + 1);
-                if (hit != null) return hit;
-            }
-            return null;
-        }
 
         public object? ParentOf(object node) => GetMember(Unwrap(node), "parent");
 

@@ -22,7 +22,7 @@ import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test"
 import { BASE, VENDOR } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
 import { codesysNativeExport } from "../lib/codesys-native"
-import { fetchItem, landedInFull, plcFolder, pushOps, removeItem, PREFIX } from "../lib/workspace"
+import { fetchItem, landedInFull, plcFolder, pushOps, removeItem, PREFIX, fileOf, inFolder, pathIn, pathOf } from "../lib/workspace"
 
 setDefaultTimeout(600_000)
 
@@ -49,10 +49,10 @@ const after = (text: string, anchor: string, n: number) => {
 const ABSTRACT_METHOD_TYPE = "62ebfd1c-d342-43e5-8efb-f22b6d8e4a04"
 const reasons = (r: any) => ((r?.conflicts ?? []) as any[]).map((c) => String(c.reason ?? "")).join(" | ")
 const create = async (name: string, src: string) =>
-	pushOps([{ op: "set", name, toFolder: await plcFolder(), sourceText: src, ifVersion: null }])
+	pushOps([{ op: "set", name: inFolder(await plcFolder(), name), sourceText: src, ifVersion: null }])
 
 const items = (await bridge.refs()).items ?? {}
-const authored = VENDOR === "codesys" && "VltOto_TextEnum.dut" in items
+const authored = VENDOR === "codesys" && pathIn(items, "VltOto_TextEnum.dut") !== undefined
 if (VENDOR === "codesys" && !authored)
 	console.warn(`[one-to-one] ${BASE} serves no VltOto_* objects — serve test/fixtures/CodesysOneToOne.project (ide.ps1 up -Fixture …; author-one-to-one-fixture.py)`)
 
@@ -151,8 +151,8 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 
 	// finding 5: a standalone transition
 	it("an SFC POU holding a standalone transition is refused by name on pull", async () => {
-		const f = await bridge.fetch({ knownItems: {}, onlyItems: ["VltFixtureSfc.pou"] })
-		expect((f.unreadable ?? []).map((u: { name: string }) => u.name)).toContain("VltFixtureSfc")
+		const f = await bridge.fetch({ knownItems: {}, onlyItems: [await pathOf("VltFixtureSfc.pou")] })
+		expect((f.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).toContain("VltFixtureSfc")
 	})
 
 	// finding 2: a member rename keeps the object. LAST in this block, on purpose: while the finding holds, the rename is a
@@ -163,7 +163,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 		const before = await fetchItem("VltOto_AbsBase.pou")
 		const nativeBefore = await codesysNativeExport("VltOto_AbsBase")
 		const r = await pushOps([
-			{ op: "set", name: "VltOto_AbsBase.pou", sourceText: lf(before.sourceText).replaceAll("Pick", "Choose"), ifVersion: before.version },
+			{ op: "set", name: await pathOf("VltOto_AbsBase.pou"), sourceText: lf(before.sourceText).replaceAll("Pick", "Choose"), ifVersion: before.version },
 		])
 		if (!landedInFull(r)) {
 			expect(reasons(r)).toContain("'Pick'")
@@ -177,7 +177,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 			expect(kept.length).toBe(guids(nativeBefore).size)
 		} finally {
 			const now = await fetchItem("VltOto_AbsBase.pou")
-			await pushOps([{ op: "set", name: "VltOto_AbsBase.pou", sourceText: before.sourceText, ifVersion: now.version }])
+			await pushOps([{ op: "set", name: await pathOf("VltOto_AbsBase.pou"), sourceText: before.sourceText, ifVersion: now.version }])
 		}
 	})
 })

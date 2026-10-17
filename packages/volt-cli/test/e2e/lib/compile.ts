@@ -31,7 +31,7 @@ export async function withMainProgramRestored<T>(body: () => Promise<T>): Promis
 		const current = await fetchItem(main)
 		if (current.sourceText !== original) {
 			const r = await pushOps([
-				{ op: "set", name: main, toFolder: null, sourceText: original, ifVersion: current.version },
+				{ op: "set", name: main, sourceText: original, ifVersion: current.version },
 			])
 			if (!r.accepted)
 				throw new Error(
@@ -55,7 +55,7 @@ export async function clearTestInstances(): Promise<void> {
 	if (!item.sourceText.includes(PREFIX)) return
 	const kept = item.sourceText.split("\n").filter((l: string) => !l.includes(PREFIX))
 	const r = await pushOps([
-		{ op: "set", name: main, toFolder: null, sourceText: kept.join("\n"), ifVersion: item.version },
+		{ op: "set", name: main, sourceText: kept.join("\n"), ifVersion: item.version },
 	])
 	if (!r.accepted)
 		throw new Error(`could not clear stale test instances from '${main}': ${JSON.stringify(r.conflicts).slice(0, 300)}`)
@@ -74,7 +74,7 @@ export async function instantiate(pouName: string): Promise<void> {
 	if (lines.some((l: string) => l.includes(`${varName} :`))) return
 	lines.splice(endVar, 0, `\t${varName} : ${pouName};`)
 	const r = await pushOps([
-		{ op: "set", name: main, toFolder: null, sourceText: lines.join("\n"), ifVersion: item.version },
+		{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version },
 	])
 	expect(r.accepted, `could not instantiate '${pouName}': ${JSON.stringify(r.conflicts)}`).toBe(true)
 }

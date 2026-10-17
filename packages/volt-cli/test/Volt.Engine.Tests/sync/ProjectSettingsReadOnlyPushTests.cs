@@ -52,7 +52,7 @@ public class ProjectSettingsReadOnlyPushTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "PLC_PRG.pou", ToName = "Project Settings.projectsettings", IfVersion = refs.Items["PLC_PRG.pou"] },
+                new SetItemOp { Name = "PLC_PRG.pou", To = "Project Settings.projectsettings", IfVersion = refs.Items["PLC_PRG.pou"] },
             },
         });
 
@@ -66,7 +66,7 @@ public class ProjectSettingsReadOnlyPushTests
     /// unnamed binder error; on CODESYS the live descriptor object, removed.</summary>
     [Theory]
     [InlineData("Project Settings", ItemKind.PlcProjectSettings, "Project Settings.projectsettings", "")]
-    [InlineData("Standard", ItemKind.PlcLibRef, "Standard.library", "Library Manager")]
+    [InlineData("Standard", ItemKind.PlcLibRef, "Library Manager/Standard/Standard.library", "Library Manager")]
     public void A_delete_of_a_read_only_descriptor_is_refused_by_name_and_nothing_lands(
         string bare, int code, string wireName, string folder)
     {

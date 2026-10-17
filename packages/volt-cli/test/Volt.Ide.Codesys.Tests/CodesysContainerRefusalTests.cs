@@ -131,9 +131,8 @@ namespace Volt.Ide.Codesys.Tests
             // A DUT deleted in the IDE beside the excluded folder is reported removed; the excluded one is not.
             var kinds = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
             Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>(), kinds);
-            var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Gone.dut", "SimType.dut" },
-                new Dictionary<string, string> { { "Gone.dut", "" }, { "SimType.dut", "Sim" } },
-                new HashSet<string> { "Kept.dut" }, kinds, walk.UnwalkedFolders);
+            var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Gone.dut", "Sim/SimType.dut" },
+                new HashSet<string> { "Kept.dut" }, kinds, walk.UnwalkedFolders, walk.Applications, walk.Applications);
             Assert.Equal(new[] { "Gone.dut" }, removed);
         }
 

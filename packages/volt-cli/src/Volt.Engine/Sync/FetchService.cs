@@ -16,10 +16,12 @@ namespace Volt.Engine.Sync;
 /// <summary><c>/fetch</c>: like <c>/refs</c>, but ships the materialized source for every item whose
 /// version differs from the client's known version.
 ///
-/// <b>EVERY key here is the FULL wire name</b> (<c>name.kind</c>) - the aggregate versions included. IEC makes
-/// names unique within a kind, not across them (<c>CM_Carrier.pou</c> beside <c>CM_Carrier.visualization</c>), so a
-/// bare key lets one item shadow the other in <c>projectVersion</c> and in the push's <c>ifVersion</c> gate (the V71
-/// data-loss bug). The identity is derived in ONE place, <c>VersionedItem.Identity</c>, and every map below keys on it.
+/// <b>EVERY key here is the item's PATH</b> (<c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>) - the aggregate versions
+/// included. IEC makes names unique within a kind, not across them (<c>CM_Carrier.pou</c> beside
+/// <c>CM_Carrier.visualization</c>), and not across applications either (two devices each holding <c>PLC_PRG</c>), so a
+/// shorter key lets one item shadow the other in <c>projectVersion</c> and in the push's <c>ifVersion</c> gate (the V71
+/// data-loss bug; openspec <c>multi-application-tree</c>). The identity is derived in ONE place,
+/// <c>VersionedItem.Identity</c>, and every map below keys on it.
 ///
 /// Every walked item is returned as ordinary source. Dead (uncalled) code and exclude-from-build objects alike
 /// ship as plain files (the exclusion is a <c>%EXCLUDE_FROM_BUILD</c> property line); the LSP decides reachability
@@ -47,7 +49,6 @@ public static class FetchService
                 "a fetch needs a baseline: send `knownItems` (or `onlyItems` for a directed read), or `init: true` for a first pull");
 
         var fullVersions = new Dictionary<string, string>();
-        var folders = new Dictionary<string, string>();
         var changed = new List<FetchedItem>();
 
         // EVERY walked `.library` ref — named or not — so each element signature is foldered right beside its owning
@@ -68,7 +69,7 @@ public static class FetchService
         // THE walk refs answers with (`ProjectSnapshot.Walk`): its gates, its version map (every walked item, readable
         // or not, regardless of onlyItems — so the aggregate matches /refs and the push receipt) and its unreadable
         // list. Fetch adds, per readable item, the onlyItems subset, the library refs and the changed bodies.
-        // The live .library file versions (fullName → version), captured in the walk — the change signal for the
+        // The live .library file versions (path → version), captured in the walk — the change signal for the
         // referenced-library set. Compared to the client's knownItems to decide whether to extract.
         var liveLibVersions = new Dictionary<string, string>();
         // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
@@ -78,8 +79,8 @@ public static class FetchService
         {
             if (v.Materialized is not { } mat) return;   // unreadable: the snapshot names it and spares it from removal
             var version = v.Version;
-            var fullName = mat.FullName;
-            var named = onlyItems == null || onlyItems.Contains(it.Name) || onlyItems.Contains(fullName);
+            var path = v.Identity;
+            var named = onlyItems == null || onlyItems.Contains(path);
 
             if (kind == ItemKind.Kinds.Library)
             {
@@ -87,29 +88,27 @@ public static class FetchService
                 // is what the matcher joins each signature's LibraryPath to, so the library's signatures land under
                 // `<folder>/<name>/`, beside its `.library` file.
                 var res = LibraryFetch.ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
-                var libRef = new LibraryRef(fullName, it.Name, it.Folder, res, version);
+                var libRef = new LibraryRef(mat.FullName, it.Name, it.Folder, res, version, null);
                 libRefs.Add(libRef);
                 if (onlyItems != null && named) namedLibRefs.Add(libRef);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
                 // resolved name+version); collect it to decide whether the signatures need re-extracting.
-                liveLibVersions[fullName] = version;
+                liveLibVersions[path] = version;
             }
 
             if (!named) return;
 
-            fullVersions[fullName] = version;
-            folders[fullName] = folder;
+            fullVersions[path] = version;
 
             var item = new FetchedItem
             {
-                Name = fullName,
-                Folder = folder,
+                Name = path,
                 Version = version,
                 SourceText = mat.Text,
                 Unsupported = mat.Unsupported.Count == 0 ? null : mat.Unsupported.ToList(),
             };
 
-            if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version)
+            if (!isInit && knownItems.TryGetValue(path, out var known) && known == version)
             {
                 // Unchanged, so normally there is nothing to send. A `.library` STUB is the exception: if the
                 // signatures end up re-rendered, `Changed` is the COMPLETE picture per library folder (the flag
@@ -127,14 +126,16 @@ public static class FetchService
         var unwalkedFolders = snap.UnwalkedFolders;
         var unreadableKinds = snap.UnreadableKinds;
         var done = snap.Walked;
+        // Each library ref's APPLICATION, now that the walk has stated them: a signature extracted for one application
+        // lands beside that application's own `.library` (design §6), never another's.
+        libRefs = libRefs.Select(r => r with { Application = ItemPath.ApplicationOf(r.Path, snap.Applications) }).ToList();
+        namedLibRefs = libRefs.Where(r => namedLibRefs.Any(n => n.Path == r.Path)).ToList();
 
-        // The wire is keyed by NAME: `versions`/`Items` collapse same-name WALK items last-write-wins, so `changed`
-        // must agree — otherwise a legitimately-repeated opaque name (IEC guarantees uniqueness only for SOURCE
-        // items) would materialize as TWO files while the version map tracks one, orphaning a file. Collapse to
-        // the last occurrence per full name (a no-op for unique source names). This runs BEFORE the library
-        // signatures are appended: those are identified by folder + name (many libraries legitimately export an
-        // element with the same short name), so name-collapsing them would silently drop distinct library files.
-        changed = DedupeByFullName(changed);
+        // The wire is keyed by PATH: `versions`/`Items` collapse two walk items of one path last-write-wins, so
+        // `changed` must agree — otherwise they would materialize as TWO entries for one file while the version map
+        // tracks one. Collapse to the last occurrence per path (a no-op on a real tree, where a folder holds one object
+        // of a name and kind).
+        changed = DedupeByPath(changed);
         // Project source items in this diff — captured BEFORE the library signatures are appended, so the two are
         // never conflated: `changed` below would otherwise mix a handful of edited POUs with thousands of read-only
         // library API files and read as nonsense ("880 items, 8104 changed").
@@ -144,7 +145,7 @@ public static class FetchService
         // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
         // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
         // per folder: absent from a manager the walk DID read is removed, whatever other folder it could not read.
-        var goneFromWalk = Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, unwalkedFolders);
+        var goneFromWalk = Removal.Removed(knownItems.Keys, fullVersions.Keys, unreadableKinds, unwalkedFolders, snap.Applications, request.KnownApplications);
         var unseenLibrary = knownItems.Keys.Any(k =>
             k.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(k)
             && !goneFromWalk.Contains(k));
@@ -159,7 +160,7 @@ public static class FetchService
             // Library Manager or overwriting the project's own DUT of the same short name. `volt status` stays
             // clean throughout, because the sidecar still lists it.
             changed.AddRange(skippedLibraryStubs);
-            changed = DedupeByFullName(changed);
+            changed = DedupeByPath(changed);
         }
 
         var projectChanged = changed.Count;
@@ -226,8 +227,9 @@ public static class FetchService
         if (unwalkedFolders.Count > 0)
             VoltLog.Warn(
                 $"fetch: the project walk was INCOMPLETE — {unwalkedFolders.Count} folder(s) could not be " +
-                $"enumerated ({string.Join(", ", unwalkedFolders)}). Nothing under those folders is reported " +
-                "removed by this fetch: items there were not seen, which is not the same as gone.");
+                $"enumerated ({string.Join(", ", unwalkedFolders)}). An item under those folders is reported " +
+                "removed by this fetch only when the walk found it at another path of its own application (moved): " +
+                "items there were not seen, which is not the same as gone.");
 
         var drops = Drops(("unmapped-kind", snap.Unmapped), ("unreadable", snap.Unreadable.Count),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
@@ -240,7 +242,7 @@ public static class FetchService
             Changed = changed,
             Removed = removed,
             Items = fullVersions,
-            Folders = folders,
+            Applications = snap.Applications.ToList(),
             // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
@@ -265,9 +267,9 @@ public static class FetchService
         return hit.Count == 0 ? "" : $" (skipped: {string.Join(", ", hit)})";
     }
 
-    /// <summary>Collapse same-name entries to the last (matching the name-keyed version map), preserving the
-    /// order names first appeared. A no-op when all names are unique (the common case — source names are unique).</summary>
-    private static List<FetchedItem> DedupeByFullName(List<FetchedItem> items)
+    /// <summary>Collapse same-path entries to the last (matching the path-keyed version map), preserving the
+    /// order paths first appeared. A no-op when all paths are unique (the case on a real tree).</summary>
+    private static List<FetchedItem> DedupeByPath(List<FetchedItem> items)
     {
         var byName = new Dictionary<string, FetchedItem>(items.Count);
         var order = new List<string>();

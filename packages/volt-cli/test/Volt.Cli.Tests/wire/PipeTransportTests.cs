@@ -322,6 +322,25 @@ public class PipeTransportTests
         Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""push"",""body"":{""ops"":4}}"));
     }
 
+    /// <summary>A PUSH OP IN A RETIRED SPELLING IS REFUSED BY NAME (openspec <c>multi-application-tree</c>, gate review of
+    /// step 3a, finding 1). The path wire has one destination field, <c>to</c>; a client still sending <c>toFolder</c> or
+    /// <c>toName</c> was answered as if the field were absent — the bare name read as an item at the tree root, so the
+    /// create landed in the CODESYS POU pool (or was refused on TwinCAT) and nothing named the stale field.</summary>
+    [Theory]
+    [InlineData("toFolder")]
+    [InlineData("toName")]
+    public void A_set_op_carrying_a_field_the_wire_does_not_have_is_a_BAD_REQUEST_naming_it(string field)
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        var op = new Dictionary<string, object?> { ["op"] = "set", ["name"] = "X.pou", [field] = "POUs", ["sourceText"] = "x", ["ifVersion"] = null };
+        var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("push", new { ops = new[] { op } }));
+        Assert.Equal("BAD_REQUEST", ex.Code);
+        Assert.Contains(field, ex.Message);
+    }
+
     /// <summary>Send ONE line exactly as given — no serializer between the test and the server, which is the
     /// whole point of a malformed-input test — and read the error code out of the frame that comes back. Reads
     /// the raw JSON rather than <c>PipeFrame</c>, which is internal to the wire and stays that way.</summary>

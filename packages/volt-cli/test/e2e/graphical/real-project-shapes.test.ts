@@ -22,7 +22,7 @@
  * they will not know changed.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, VENDOR, BASE } from "../harness"
+import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, VENDOR, BASE, existingOrAtRoot, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -34,9 +34,10 @@ setDefaultTimeout(30000)
 /** Push a body and pull it back. Fails the test if the push is refused. */
 async function roundTrip(fullName: string, src: string): Promise<string> {
 	const refs = await bridge.refs()
+	const fullNameAt = await existingOrAtRoot(refs.items, fullName)
 	const r = await bridge.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "set", name: fullName, toFolder: refs.items[fullName] ? null : "", sourceText: src, ifVersion: refs.items[fullName] ?? null }],
+		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
 	expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return (await fetchItem(fullName)).sourceText
@@ -48,9 +49,10 @@ async function roundTrip(fullName: string, src: string): Promise<string> {
  */
 async function survivesOrIsRefused(fullName: string, src: string): Promise<"round-tripped" | "refused"> {
 	const refs = await bridge.refs()
+	const fullNameAt = await existingOrAtRoot(refs.items, fullName)
 	const r = await bridge.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "set", name: fullName, toFolder: refs.items[fullName] ? null : "", sourceText: src, ifVersion: refs.items[fullName] ?? null }],
+		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
 
 	if (!r.accepted) {
@@ -211,9 +213,10 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 				`NETWORK\n  out2 := a AND (BRANCH (b, go));\nEND_NETWORK\n`,
 		)
 		const refs = await bridge.refs()
+		const fullAt = await existingOrAtRoot(refs.items, full)
 		const r = await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "set", name: full, toFolder: refs.items[full] ? null : "", sourceText: src, ifVersion: refs.items[full] ?? null }],
+			ops: [{ op: "set", name: fullAt, sourceText: src, ifVersion: refs.items[fullAt] ?? null }],
 		})
 		if (VENDOR === "twincat") {
 			expect(r.accepted, "TwinCAT accepted a Parallel its import cannot build").toBe(false)

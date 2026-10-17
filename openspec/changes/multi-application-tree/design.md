@@ -124,3 +124,41 @@ owner.)
 
 There is one scope per application: its own items, its own libraries, and the pool. A name resolves inside its own
 application. The same GVL name in two applications is not a C0136 ambiguity.
+
+## 9. Built (step 3a) — where reality chose
+
+- **TwinCAT `.device`** (§2): `Name: <system>`, `Type: <the solution's target platform>`, `Version: <the TwinCAT build>`,
+  in the device descriptor's own format (measured: `TwinCAT RT (x64)`, `3.1.4024.74`). The I/O device descriptors the
+  walk already read stay, now under their system project: `<system>/I%2FO Devices/…`.
+- **The pool on TwinCAT** (§3): there is none. Every item is under a PLC project except each system project's `.device`
+  and its I/O descriptors, which belong to no application.
+- **A push op names only its own fields**: a `set` or `deleteItem` carrying any other member (`toFolder`, `toName`) is
+  refused `BAD_REQUEST`, naming it.
+- **A move across applications** (§5) reaching the bridge is refused per op, `BAD_REQUEST`, naming both applications —
+  the CLI never sends one (it pairs within one application). A `.task` never moves: a `to` in another folder is refused
+  by name, as before.
+- **Build names** (§6): CODESYS folds a message a LATER build gives on ONE object (a pool POU both applications compile)
+  into what an earlier build already gave; one build's own repeats are all kept (a CODESYS message has no position, so two
+  empty CASE arms are two identical messages), and a line on no object is each build's own and is kept. TwinCAT names a
+  diagnostic by path when the file the compiler named lies in one PLC project's directory and that PLC project holds
+  exactly one item of the name; otherwise the bare name stays, and the engine resolves it only where it is unique. That
+  naming is decoration: a COM fault while doing it leaves the bare names, never replaces the diagnostics.
+- **Removal under an unread folder** (§4): a known path there is retired only as a move — its file name walked at another
+  path of the same application, or of the pool for a source item. A descriptor outside every application never pairs:
+  device names repeat across devices and system projects. An unread device hides its application from the walk, so
+  `refs` and `fetch` take one more request field, `knownApplications`: the applications the client's baseline was read
+  with. A known path is in an application either read states; with no `knownApplications` a known path in none never
+  pairs, since the pool cannot be told from a hidden application. The CLI sends its sidecar's.
+- **Library signatures** (§6): CODESYS's precompiled set is one for the IDE, so an application's extraction also holds
+  the libraries only another application lists; those are not rendered for it (counted and logged). A pool library's
+  elements land once, not once per application. Accepted loss, niche (0 occurrences in the corpora, all one application
+  each): a library an application uses only transitively is not rendered for it once another application lists it
+  directly — the same signature from the same global set, nothing tells the two apart.
+- **The bound project** (§7): a `select` names the solution; a system project's name selects nothing.
+- **LSP scope** (§8): the applications are read from `<git dir>/volt/ide-refs.json` (`applications`, under `src/`). A
+  workspace stating fewer than two is one scope, as before. A pool document is analysed in EACH application's table, as
+  CODESYS compiles it in each, and reports what any of them reports (a finding two tables both give, once); the
+  dead-code set stays workspace-wide.
+- **Fixture**: `TwinCAT MultiProject/TwinCAT Project14/Untitled1/Untitled1.plcproj` did not list `POUs\PLC_PRG.TcPOU`,
+  so XAE did not load the POU the red e2e expects there (the file was on disk only). The plcproj now lists it. That PLC
+  project's task still calls `MAIN`, which it does not hold: the fixture's build reports `Identifier 'MAIN' not defined`.

@@ -13,11 +13,16 @@
  * suite's (`TcArchiveBuilderTests.BeyondTheImport`), as network text.
  */
 import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, VENDOR, BASE, currentPipe } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, VENDOR, BASE, currentPipe, inFolder, projectRoot } from "../harness"
 import { withMainProgramRestored, instantiate } from "../lib/compile"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
 import { openInTwinCatEditor } from "../lib/tc-editor"
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** The project's own root (`projectRoot()`), read once the bridge serves — every item here is made there. */
+let root = ""
+/** The path of the test item `s` at {@link root}. */
+const rid = (s: string, ext = "pou") => inFolder(root, fid(s, ext))
 
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
@@ -84,16 +89,17 @@ describe(`graphical / native writer (${BASE})`, () => {
 
 	beforeAll(async () => {
 		await requireHealthy()
+		root = await projectRoot()
 		// VOLT_NW_ONLY=<shape,...> narrows the run while a shape is being measured; unset, every shape runs.
 		const only = (process.env.VOLT_NW_ONLY ?? "").split(",").filter((x) => x)
 		for (const [shape, body] of Object.entries(SHAPES).filter(([k]) => only.length === 0 || only.includes(k)))
 			for (const lang of LANGS) {
 				const bare = id(`nw_${shape}_${lang}`)
-				cases.push({ key: `${shape} ${lang}`, bare, item: fid(`nw_${shape}_${lang}`, "pou"), src: fb(bare, lang, body) })
+				cases.push({ key: `${shape} ${lang}`, bare, item: rid(`nw_${shape}_${lang}`, "pou"), src: fb(bare, lang, body) })
 			}
-		await clean([...cases.map((c) => c.item), fid("nw_F", "pou")])
+		await clean([...cases.map((c) => c.item), rid("nw_F", "pou")])
 		const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tA : INT;\n\tB : INT;\nEND_VAR\nIMPLEMENTATION ST\n${FN} := A + B;\n\nEND_FUNCTION\n`
-		const made = await pushOps([{ op: "set", name: fid("nw_F", "pou"), toFolder: "", sourceText: fn, ifVersion: null }])
+		const made = await pushOps([{ op: "set", name: rid("nw_F", "pou"), sourceText: fn, ifVersion: null }])
 		expect(made.accepted, JSON.stringify(made.conflicts)).toBe(true)
 	})
 
@@ -103,13 +109,13 @@ describe(`graphical / native writer (${BASE})`, () => {
 			for (const [k, r] of rows)
 				console.log(`${k.padEnd(30)}${[r.stores, r.reload, r.editor, r.edit, r.reloadEdited].map((x) => (x === undefined ? "  -   " : x ? "  ok  " : " FAIL ")).join("")}${r.note ? "  " + r.note : ""}`)
 		}
-		await clean([...cases.map((c) => c.item), fid("nw_F", "pou")])
+		await clean([...cases.map((c) => c.item), rid("nw_F", "pou")])
 	})
 
 	it("every shape is created natively and pulls back as pushed", async () => {
 		const failures: string[] = []
 		for (const c of cases) {
-			const r = await pushOps([{ op: "set", name: c.item, toFolder: "", sourceText: c.src, ifVersion: null }])
+			const r = await pushOps([{ op: "set", name: c.item, sourceText: c.src, ifVersion: null }])
 			const back = r.accepted ? await pull(c.item) : undefined
 			const ok = r.accepted && back === c.src
 			rows.set(c.key, { stores: ok, note: r.accepted ? undefined : JSON.stringify(r.conflicts).slice(0, 160) })
@@ -164,9 +170,9 @@ describe(`graphical / native writer (${BASE})`, () => {
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)
-			const item = fid(`nw_r_${shape}`, "pou")
+			const item = rid(`nw_r_${shape}`, "pou")
 			await clean([item])
-			const r = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: fb(bare, "LD", body), ifVersion: null }])
+			const r = await pushOps([{ op: "set", name: item, sourceText: fb(bare, "LD", body), ifVersion: null }])
 			expect(r.accepted, `${shape} was accepted`).toBe(false)
 			expect(r.conflicts?.[0]?.code, JSON.stringify(r.conflicts)).toBe("NETWORK_UNSUPPORTED")
 			expect((await bridge.refs()).items?.[item], `${shape}: the refused create left the item`).toBeUndefined()

@@ -29,7 +29,7 @@ public class TcAbstractMemberSlotTests
             new TcHiddenBodyWriteTests.Node("Pick", ItemKind.PlcMethod, "METHOD ABSTRACT Pick : INT", ""),
             new TcHiddenBodyWriteTests.Node("Busy", ItemKind.PlcProp, "PROPERTY ABSTRACT Busy : BOOL", "", getter));
 
-        var content = TcUntouchablePouTests.BoundDriver().ReadContent(new ItemRef(pou));
+        var content = TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(pou));
         Assert.Null(content.Members.Single(m => m.Name == "Pick").Stated);                 // the driver's storage fact: an empty body
         Assert.Null(content.Members.Single(m => m.Name == "Busy").Getter?.Stated);
 
@@ -51,7 +51,7 @@ public class TcAbstractMemberSlotTests
             "FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR", "x := 1;",
             method, new TcHiddenBodyWriteTests.Node("Busy", ItemKind.PlcProp, "PROPERTY ABSTRACT Busy : BOOL", "", getter));
 
-        TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
+        TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou),
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR", null, new List<Member>
             {
                 new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine, ObjectProperties.None,
@@ -75,7 +75,7 @@ public class TcAbstractMemberSlotTests
         var pou = new TcHiddenBodyWriteTests.Node("FB", ItemKind.PlcPou, "FUNCTION_BLOCK FB", "",
             method, new TcHiddenBodyWriteTests.Node("Busy", ItemKind.PlcProp, "PROPERTY Busy : BOOL", "", getter));
 
-        TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
+        TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou),
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB", null, new List<Member>
             {
                 new(ItemKind.Kinds.Method, "Run", "METHOD Run : BOOL\n// edited", null, ObjectProperties.None),

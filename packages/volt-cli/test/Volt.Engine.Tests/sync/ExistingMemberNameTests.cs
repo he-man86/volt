@@ -75,7 +75,7 @@ public class ExistingMemberNameTests
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "E_A.dut", IfVersion = null, ToFolder = "", SourceText = "TYPE E_A :\n(\n\ta,\n\tb\n);\nEND_TYPE" },
+                new SetItemOp { Name = "E_A.dut", IfVersion = null, SourceText = "TYPE E_A :\n(\n\ta,\n\tb\n);\nEND_TYPE" },
                 new SetItemOp { Name = "命令队列管理.pou", IfVersion = version, SourceText =
                     Text(";", "\nMETHOD Log : BOOL\nIMPLEMENTATION ST\nLog := TRUE;\nEND_METHOD\n") },
             },

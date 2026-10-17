@@ -17,7 +17,7 @@
  * before ANY push, read from the vendor's own serialization (`lib/held-body.ts`). Every case puts the fixture back.</p>
  */
 import { describe, expect, beforeAll, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject } from "../lib/tc-files"
 
@@ -60,7 +60,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		await requireHealthy()
 		project = servedProject(await bridge.health())
 		const refs = await bridge.refs()
-		const full = Object.keys(refs.items).find((n) => n.startsWith(`${BARE}.`))
+		const full = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${BARE}.`))
 		if (!full)
 			throw new Error(
 				`fixture POU '${BARE}' is missing from ${project} — it is committed into the CODESYS test project and ` +

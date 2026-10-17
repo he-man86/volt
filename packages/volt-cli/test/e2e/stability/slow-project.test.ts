@@ -16,7 +16,7 @@
  * (The harness drives only an `ide.ps1` fixture instance — see `lib/fixture-ide.ts`.)
  */
 import { test, expect, beforeAll } from "bun:test"
-import { bridge, healthStatus, BASE } from "../harness"
+import { bridge, healthStatus, BASE, folderOf } from "../harness"
 
 // Each heavy op can take ~20s on a large project; give the suite room (override with --timeout too).
 const OP_TIMEOUT = 120_000
@@ -77,7 +77,7 @@ test(`${BASE}: a full fetch's index agrees with refs (and changed carries the li
 	// project items leaking out of the fetch. The invariant was right; only its idea of "a library" was
 	// CODESYS-shaped.
 	const libraryFolders = new Set(
-		changed.filter(i => String(i.name).toLowerCase().endsWith(".library")).map(i => String(i.folder ?? "")),
+		changed.filter(i => String(i.name).toLowerCase().endsWith(".library")).map(i => folderOf(String(i.name))),
 	)
 	// UNDER THE LIBRARY-MANAGER NODE, which is the parent the `.library` refs share. Testing "at or below a
 	// specific library" is too tight: an element whose owning library matched no ref is deliberately foldered
@@ -88,7 +88,7 @@ test(`${BASE}: a full fetch's index agrees with refs (and changed carries the li
 	)
 	const inALibrary = (folder: string) =>
 		[...libRoots].some(r => r.length > 0 && (folder === r || folder.startsWith(r + "/")))
-	const surplusOutsideLibraries = changed.filter(i => !indexNames.has(i.name) && !inALibrary(String(i.folder ?? "")))
+	const surplusOutsideLibraries = changed.filter(i => !indexNames.has(i.name) && !inALibrary(folderOf(String(i.name))))
 	expect(surplusOutsideLibraries).toEqual([]) // every non-indexed changed item is a library signature, nothing leaks
 }, OP_TIMEOUT)
 

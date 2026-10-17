@@ -27,7 +27,7 @@ import { tmpdir } from "node:os"
 import { join, dirname, basename } from "node:path"
 import { bridge } from "../lib/bridge"
 import { VENDOR, BASE, currentPipe } from "../lib/pipe"
-import { id, requireHealthy, mainProgram, fetchItem, PREFIX, landedInFull } from "../lib/workspace"
+import { id, requireHealthy, mainProgram, fetchItem, PREFIX, landedInFull, fileOf } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
 import { newestBuiltCli } from "../lib/cli-exe"
 
@@ -97,11 +97,11 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 	/** Every forced delete of this file's names, readable or not (an unreadable one by the kind it was pushed as). */
 	async function sweep(): Promise<void> {
 		const refs = await bridge.refs()
-		const mine = (n: string) => n.startsWith(`${PREFIX}_${KEY}`)
+		const mine = (n: string) => fileOf(n).startsWith(`${PREFIX}_${KEY}`)
 		const ops = [
 			...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
 			...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
-				const s = shapes.find((x) => S(x.key) === n)
+				const s = shapes.find((x) => S(x.key) === fileOf(n))
 				if (!s) throw new Error(`'${n}' is unreadable and is no shape of this file`)
 				return { op: "deleteItem", name: `${n}.${s.ext}`, ifVersion: null }
 			}),
@@ -133,9 +133,9 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		expect(r.kind, `pull: ${JSON.stringify(r)}`).toBe("ok")
 		expect(files()).toEqual(expectedFiles)
 		const refs = await bridge.refs()
-		const live = Object.keys(refs.items).filter((n) => n.startsWith(`${PREFIX}_${KEY}`)).sort()
+		const live = Object.keys(refs.items).map(fileOf).filter((n) => n.startsWith(`${PREFIX}_${KEY}`)).sort()
 		expect(live).toEqual(expectedFiles.filter((n) => !unreadable.includes(n.slice(0, n.lastIndexOf(".")))))
-		expect((refs.unreadable ?? []).map((u: { name: string }) => u.name).filter((n: string) => n.startsWith(`${PREFIX}_${KEY}`)).sort()).toEqual([...unreadable].sort())
+		expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name)).filter((n: string) => n.startsWith(`${PREFIX}_${KEY}`)).sort()).toEqual([...unreadable].sort())
 		for (const s of shapes) {
 			const onDisk = norm(readFileSync(join(dir, wire(s)), "utf8"))
 			expect(onDisk, `${wire(s)} on disk`).toBe(norm(text(s)))
@@ -152,7 +152,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		root = r.workspace ?? parent
 		const main = await mainProgram()
 		if (!main) throw new Error("the fixture has no main program")
-		const hit = (readdirSync(join(root, "src"), { recursive: true }) as string[]).find((p) => basename(p) === main)
+		const hit = (readdirSync(join(root, "src"), { recursive: true }) as string[]).find((p) => basename(p) === fileOf(main))
 		if (!hit) throw new Error(`no workspace file for '${main}'`)
 		dir = dirname(join(root, "src", hit))
 	})

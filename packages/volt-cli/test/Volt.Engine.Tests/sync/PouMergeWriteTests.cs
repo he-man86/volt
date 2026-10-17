@@ -182,7 +182,7 @@ public class PouMergeWriteTests
     {
         var ide = Fb();
         var refs = RefsService.Handle(ide);
-        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], ToFolder = "Motors" });
+        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], To = "Motors/FB_Test.pou" });
 
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
         // `create:Motors` IS expected — the destination folder is resolved-or-created. What must not appear is a
@@ -202,7 +202,7 @@ public class PouMergeWriteTests
         {
             Name = "FB_Test.pou",
             IfVersion = refs.Items["FB_Test.pou"],
-            ToFolder = "Motors",
+            To = "Motors/FB_Test.pou",
             SourceText = Source("n := n + 9;", "DoIt := FALSE;"),
         });
 
@@ -236,7 +236,7 @@ public class PouMergeWriteTests
     {
         var ide = Fb();
         var refs = RefsService.Handle(ide);
-        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], ToFolder = "Motors" });
+        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], To = "Motors/FB_Test.pou" });
 
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));

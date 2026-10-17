@@ -10,7 +10,7 @@
  * untouched. (Section 8's out-of-scope note keeps the NETWORK_* matrix for the LD/FBD change; this is 4.7's own pair.)
  */
 import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, clearTestInstances, createItem, fetchItem, pushOps, requireHealthy, ensureCompiles, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, cleanup, clearTestInstances, createItem, fetchItem, pushOps, requireHealthy, ensureCompiles, BASE, VENDOR, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -46,7 +46,7 @@ describe(`graphical / body language change (${BASE})`, () => {
 
 	it("a POU's own body: ST to LD and back", async () => {
 		const name = id("lang_pou")
-		const full = fid("lang_pou", "pou")
+		const full = inFolder(await projectRoot(), fid("lang_pou", "pou"))
 		const st = `FUNCTION_BLOCK ${name}
 VAR
 	a : BOOL;
@@ -57,7 +57,7 @@ q := a;
 
 END_FUNCTION_BLOCK
 `
-		await createItem(fid("lang_pou"), st, "")
+		await createItem(fid("lang_pou"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
 		const ld = pulledSt.replace("IMPLEMENTATION ST\nq := a;\n", "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(ld, "the edit did not apply").not.toBe(pulledSt)
@@ -78,7 +78,7 @@ END_FUNCTION_BLOCK
 
 	it("a METHOD's body: ST to FBD and back", async () => {
 		const name = id("lang_meth")
-		const full = fid("lang_meth", "pou")
+		const full = inFolder(await projectRoot(), fid("lang_meth", "pou"))
 		const st = `FUNCTION_BLOCK ${name}
 VAR
 	a : BOOL;
@@ -95,7 +95,7 @@ q := a;
 
 END_METHOD
 `
-		await createItem(fid("lang_meth"), st, "")
+		await createItem(fid("lang_meth"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
 		// The ST body's trailing newlines are its own (held verbatim, openspec bridge-one-to-one §1.1); a network body ends
 		// at its END_NETWORK, so the edit replaces them with the network.
@@ -122,7 +122,7 @@ END_METHOD
 	// ST -> LD -> ST through PushService, WriteMembers / WriteAccessor and the accessor's own site mapping.
 	it("an ACTION's body: ST to LD and back", async () => {
 		const name = id("lang_act")
-		const full = fid("lang_act", "pou")
+		const full = inFolder(await projectRoot(), fid("lang_act", "pou"))
 		const st = `FUNCTION_BLOCK ${name}
 VAR
 	a : BOOL;
@@ -139,7 +139,7 @@ q := a;
 
 END_ACTION
 `
-		await createItem(fid("lang_act"), st, "")
+		await createItem(fid("lang_act"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
 		const ld = pulledSt.replace(/(ACTION Act\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n\n*/,
 		                            "$1IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
@@ -161,7 +161,7 @@ END_ACTION
 
 	it("a PROPERTY's GET and SET bodies: ST to LD and back", async () => {
 		const name = id("lang_prop")
-		const full = fid("lang_prop", "pou")
+		const full = inFolder(await projectRoot(), fid("lang_prop", "pou"))
 		const st = `FUNCTION_BLOCK ${name}
 VAR
 	a : BOOL;
@@ -185,7 +185,7 @@ q := Ready;
 END_SET
 END_PROPERTY
 `
-		await createItem(fid("lang_prop"), st, "")
+		await createItem(fid("lang_prop"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
 		const ld = pulledSt
 			.replace(/(\nGET\n(?:.*\n)*?)IMPLEMENTATION ST\nReady := a;\n\n*/, "$1IMPLEMENTATION LD\nNETWORK\n  Ready := a;\nEND_NETWORK\n")

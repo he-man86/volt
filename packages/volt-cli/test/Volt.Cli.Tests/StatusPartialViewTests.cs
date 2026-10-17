@@ -36,7 +36,7 @@ public class StatusPartialViewTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             ide.RemoveItem("Deep");
 
-            Assert.Equal(new[] { "Deep.pou" }, Commands.Status(root, client).Incoming.Removed);
+            Assert.Equal(new[] { "Machine/Deep.pou" }, Commands.Status(root, client).Incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

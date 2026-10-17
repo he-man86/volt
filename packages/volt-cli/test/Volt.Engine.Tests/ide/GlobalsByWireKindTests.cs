@@ -83,9 +83,9 @@ public class GlobalsByWireKindTests
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
                     SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  n := 2;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
                 },
-                new SetItemOp { Name = "Variable_Configuration.gvl", ToFolder = "", SourceText = VarConfig + "\n" },
-                new SetItemOp { Name = "Line.gvl", ToFolder = "", SourceText = Broken + "\n" },
-                new SetItemOp { Name = "NotAList.pou", ToFolder = "", SourceText = "FUNCTION_BLOCK NotAList\n" + GlobalText + "\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
+                new SetItemOp { Name = "Variable_Configuration.gvl", SourceText = VarConfig + "\n" },
+                new SetItemOp { Name = "Line.gvl", SourceText = Broken + "\n" },
+                new SetItemOp { Name = "NotAList.pou", SourceText = "FUNCTION_BLOCK NotAList\n" + GlobalText + "\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);

@@ -9,7 +9,7 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// One consistent walk of the project's tracked items into the version + folder maps that <c>refs</c>, <c>fetch</c>
+/// One consistent walk of the project's tracked items into the version map that <c>refs</c>, <c>fetch</c>
 /// and the <c>push</c> receipt report. Having a SINGLE walk here is what guarantees those agree
 /// byte-for-byte — the IDE can change items OUTSIDE the pushed op set while the push runs (an engineer's
 /// edit), so a receipt that
@@ -28,24 +28,25 @@ internal sealed class ProjectSnapshot
     /// snapshot can never exist with unhashed maps.</summary>
     private ProjectSnapshot() { }
 
-    /// <summary>Wire identity → version — the aggregate-hash source (project/structure version).
+    /// <summary>Wire identity (the item's PATH) → version — the aggregate-hash source (project version).
     /// <para>Keyed by the SAME identity <see cref="FullVersions"/> publishes, and that is load-bearing. It used to
     /// be keyed by the BARE name, where two items of different kinds sharing one name (a control module and its
     /// own visualization — <c>CM_Carrier.pou</c> + <c>CM_Carrier.visualization</c>, which is how CODESYS projects
     /// are normally organised) collapsed onto one slot and the walk order decided which survived. The shadowed
     /// item was then invisible to the aggregate hash, so editing it did not move <c>projectVersion</c> and
     /// <c>volt pull</c> took its "nothing to pull" fast path over a real code change.</para>
-    /// <para>An UNREADABLE item has no full name (it never materialized), so it is keyed by its bare name here.
+    /// <para>An UNREADABLE item has no full name (it never materialized), so it is keyed by its folder and bare name here.
     /// That keeps it counted in the hash while staying absent from the wire index — DIALECT C7, unchanged.</para></summary>
     public Dictionary<string, string> Versions { get; } = new();
 
-    /// <summary>Full name → version — the wire <c>Items</c> map.</summary>
+    /// <summary>Item path → version — the wire <c>Items</c> map.</summary>
     public Dictionary<string, string> FullVersions { get; } = new();
 
-    /// <summary>Full name → folder path.</summary>
-    public Dictionary<string, string> Folders { get; } = new();
+    /// <summary>The root of every application the walk passed (<see cref="WalkResult.Applications"/>) — the wire
+    /// <c>applications</c> list.</summary>
+    public List<string> Applications { get; } = new();
 
-    /// <summary>Full name → the item's materialized text, for the items the caller asked to keep
+    /// <summary>Item path → the item's materialized text, for the items the caller asked to keep
     /// (<c>keepText</c>) and nothing else — the push answer's <c>newSources</c> (openspec
     /// <c>st-roundtrip-fixed-point</c>). It is the SAME materialization <see cref="FullVersions"/>' version hashes and
     /// the one <c>fetch</c> renders (<c>Versioning.SafeVersion</c> → <c>StWriter</c>), so text and version cannot
@@ -69,8 +70,8 @@ internal sealed class ProjectSnapshot
     public static List<UnreadableItem> WireOrder(IEnumerable<UnreadableItem> items) =>
         items.OrderBy(n => n.Name, StringComparer.Ordinal).ThenBy(n => n.Reason, StringComparer.Ordinal).ToList();
 
-    /// <summary>The same unreadable items, bare name → the kinds each was walked as — what <see cref="Removal"/>
-    /// needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
+    /// <summary>The same unreadable items, <c>&lt;folder&gt;/&lt;bare name&gt;</c> → the kinds each was walked as — what
+    /// <see cref="Removal"/> needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
     public Dictionary<string, HashSet<string>> UnreadableKinds { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Folders the driver could not enumerate. Non-empty means "there may be items under here this
@@ -91,7 +92,7 @@ internal sealed class ProjectSnapshot
 
     /// <summary>Walk every tracked item once, applying the <c>refs</c> gates. <paramref name="operation"/>
     /// labels the streamed progress frames + skip logs (e.g. "refs"). <paramref name="keepText"/> is asked, for each
-    /// materialized item, with its full wire name and the version this walk computed, whether <see cref="Texts"/> keeps
+    /// materialized item, with its path and the version this walk computed, whether <see cref="Texts"/> keeps
     /// its text; null keeps none. <paramref name="phase"/> is the first progress frame's phase.
     /// <para><paramref name="onItem"/> is called for every TRACKED item once the snapshot has recorded it — the item,
     /// its wire kind, the folder it is reported under (<c>Versioning.FolderOf</c>) and its version — so a caller that
@@ -106,6 +107,7 @@ internal sealed class ProjectSnapshot
         var walk = ide.WalkItems();
         var walked = walk.Items;
         snap.UnwalkedFolders.AddRange(walk.UnwalkedFolders);
+        snap.Applications.AddRange(walk.Applications);
         var total = walked.Count;
         snap.Walked = total;
         var done = 0;
@@ -138,14 +140,13 @@ internal sealed class ProjectSnapshot
             snap.Versions[v.Identity] = v.Version;
             if (v.Materialized is { } mat)
             {
-                snap.FullVersions[mat.FullName] = v.Version;
-                snap.Folders[mat.FullName] = folder;
-                if (keepText is not null && keepText(mat.FullName, v.Version)) snap.Texts[mat.FullName] = mat.Text;
+                snap.FullVersions[v.Identity] = v.Version;
+                if (keepText is not null && keepText(v.Identity, v.Version)) snap.Texts[v.Identity] = mat.Text;
             }
             // An item that could not be READ has not gone anywhere — it is in the hash with the Unreadable sentinel. Keyed
-            // by BARE name and the WALKED kind (the full name would come from the content that defeated the read), so
-            // the removal pass does not read "absent" as "deleted" for it, and for it alone (`Removal`).
-            else { snap.Unreadable.Add(v.Unread!); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
+            // by its folder, BARE name and the WALKED kind (the full name would come from the content that defeated the
+            // read), so the removal pass does not read "absent" as "deleted" for it, and for it alone (`Removal`).
+            else { snap.Unreadable.Add(v.Unread!); Removal.AddUnreadable(snap.UnreadableKinds, ItemPath.Of(folder, it.Name), kind); }
             onItem?.Invoke(it, kind, folder, v);
         }
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the

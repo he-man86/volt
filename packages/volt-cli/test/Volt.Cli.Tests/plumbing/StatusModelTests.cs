@@ -31,7 +31,7 @@ public class StatusModelTests
             var gitDir = Git.ResolveGitDir(root);
             // Make it an initialized workspace with a sidecar baseline + a volt/ide ref.
             Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
-            Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = "v1", Items = new() { ["A.pou"] = "h1" }, Folders = new() });
+            Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = "v1", Items = new() { ["A.pou"] = "h1" }, Applications = new() });
             var ide = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[] { new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/A.pou") }), Array.Empty<string>(), "ide");
             Git.UpdateRef(gitDir, IdeTree.Range, ide);
 
@@ -43,16 +43,15 @@ public class StatusModelTests
             {
                 Online = true,
                 Detail = "codesys/P",
-                Items = new() { ["A.pou"] = "h1", ["B.pou"] = "h2" }, // A unchanged vs baseline; B is new
-                Folders = new() { ["B.pou"] = "POUs" },
+                Items = new() { ["A.pou"] = "h1", ["POUs/B.pou"] = "h2" }, // A unchanged vs baseline; B is new
                 ProjectVersion = "v2",
             };
             var s = StatusModel.BuildStatusData(root, snap);
 
             Assert.True(s.Initialized);
-            Assert.Contains("B.pou", s.Incoming.Added);           // new IDE item
+            Assert.Contains("POUs/B.pou", s.Incoming.Added);      // new IDE item, by its path
             Assert.Contains("A.pou", s.Outgoing.Modified);        // local edit vs volt/ide
-            Assert.Equal("POUs/B.pou", s.PathByName["B.pou"]);     // folder placement for an incoming-only item
+            Assert.Equal("POUs/B.pou", s.PathByName["POUs/B.pou"]); // an item's name IS its path
             Assert.Equal("1 incoming, 1 outgoing", s.Summary);
             Assert.Equal("volt pull", s.Recommend);              // incoming wins the recommendation
         }

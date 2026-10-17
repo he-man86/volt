@@ -73,7 +73,7 @@ public class ClassOnCreateTests
     public void The_pull_spells_the_class(string key)
     {
         var c = Cases[key];
-        var text = Pulled(Holding(c), $"{c.Name}.{c.Ext}");
+        var text = Pulled(Holding(c), $"Checks/{c.Name}.{c.Ext}");
         Assert.Equal(c.Lines, After(text, c.Anchor, c.Lines.Length));
     }
 
@@ -101,7 +101,7 @@ public class ClassOnCreateTests
     {
         var c = Cases[key];
         var ide = Holding(c);
-        var resp = Update(ide, $"{c.Name}.{c.Ext}", Spelled(c).Replace(c.Decl, "// edited\n" + c.Decl));
+        var resp = Update(ide, $"Checks/{c.Name}.{c.Ext}", Spelled(c).Replace(c.Decl, "// edited\n" + c.Decl));
         AcceptedOk(resp);
         Assert.Equal(c.Props, ide.PropertiesOf(c.Name));
         HoldsNoPropertyLine(ide.ReadDeclaration(new ItemRef(c.Name)));
@@ -115,7 +115,7 @@ public class ClassOnCreateTests
     {
         var c = Cases["check"];
         var ide = new FakeIde(new FakeIde.Item(c.Name, c.Code, "Checks", true, c.Decl, c.Impl, null, null));
-        var resp = Update(ide, "CheckBounds.pou", Spelled(c));
+        var resp = Update(ide, "Checks/CheckBounds.pou", Spelled(c));
         RefusedNaming(resp, "CheckBounds", "%CLASS");
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
     }

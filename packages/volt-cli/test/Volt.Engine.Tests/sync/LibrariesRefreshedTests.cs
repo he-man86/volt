@@ -142,9 +142,9 @@ public class LibrariesRefreshedTests
         ide.UnwalkableFolders = new[] { "Machine" };
         ide.RemoveItem("Standard");
 
-        var resp = Fetch(ide, new FetchRequest { KnownItems = new(init.Items), KnownFolders = new(init.Folders) });
+        var resp = Fetch(ide, new FetchRequest { KnownItems = new(init.Items) });
 
-        Assert.Contains("Standard.library", resp.Removed);
+        Assert.Contains("Library Manager/Standard/Standard.library", resp.Removed);
         Assert.True(resp.LibrariesRefreshed);
     }
 }

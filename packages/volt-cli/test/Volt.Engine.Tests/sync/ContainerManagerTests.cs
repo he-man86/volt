@@ -55,18 +55,19 @@ public class ContainerManagerTests
     }
 
     [Fact]
-    public void Changed_collapses_a_repeated_opaque_name_to_match_the_name_keyed_items()
+    public void Two_opaque_objects_of_one_name_in_two_folders_are_two_items_in_items_and_changed()
     {
         // Two DISTINCT opaque objects legitimately share the bare name "Dup" at different folders (the real case
-        // was two "Library Manager" objects). The name-keyed Items map collapses them; `changed` must agree, or
-        // one of the two files is orphaned relative to the baseline.
+        // was two "Library Manager" objects). Keyed by name they collapsed onto one entry and one file was orphaned; keyed
+        // by PATH (openspec multi-application-tree) they are two items, and `changed` agrees with `items`.
         var ide = new FakeIde(
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "A", false, "text_list", null, null, null),
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "B", false, "text_list", null, null, null));
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        Assert.Single(fetch.Items);                                    // name-keyed → one entry
-        Assert.Single(fetch.Changed, c => c.Name == "Dup.text_list");  // changed agrees → one file
+        Assert.Equal(new[] { "A/Dup.text_list", "B/Dup.text_list" }, fetch.Items.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
+        Assert.Equal(fetch.Items.Keys.OrderBy(k => k, System.StringComparer.Ordinal),
+                     fetch.Changed.Select(c => c.Name).OrderBy(k => k, System.StringComparer.Ordinal));
     }
 }

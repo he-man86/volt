@@ -15,6 +15,7 @@ import { failLoud } from "../../test/support/fail-loud.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./document-diagnostics.js"
 import { MATERIALIZATION } from "../frontend/library/index.js"
+import { hover } from "../services/index.js"
 
 /** What a client receives for `uri` in a workspace of `files`. */
 function diagnoseIn(files: Record<string, string>, uri: string, vendor: Vendor = "codesys") {
@@ -100,4 +101,115 @@ test("a finding's fixes travel in Diagnostic.data; a finding without one has no 
   const [plain] = diagnoseIn({ [uri]: src.replace("	wide : LREAL;", "	arr : ARRAY[1..2] OF REAL;").replace("narrow := wide;", "arr[5] := narrow;") }, uri)
   expect(plain!.code).toBe("C0049")
   expect("data" in plain!).toBe(false)
+})
+
+// ONE SCOPE PER APPLICATION (openspec multi-application-tree, design §8): each application has its own GVLs, so the same
+// global in two applications is two globals, one per scope — not C0136. A name resolves inside its own application and
+// the POU pool (the items under no application), never in another application.
+test("the same global in two applications is no ambiguity, and another application's FB is not in scope", () => {
+  const ws = "C:/ws/src"
+  const appA = `${ws}/Device/Plc Logic/Application`
+  const appB = `${ws}/Device_1/Plc Logic/Application`
+  const uri = (p: string) => pathToFileURL(p).href
+  const gvl = "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n"
+  const prg = "PROGRAM PLC_PRG\nVAR\n\tj : INT := g_i;\nEND_VAR\nIMPLEMENTATION ST\nEND_PROGRAM\n"
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.seedDisk([
+    { uri: uri(`${appA}/GVL.gvl`), source: gvl },
+    { uri: uri(`${appA}/PLC_PRG.pou`), source: prg },
+    { uri: uri(`${appB}/GVL.gvl`), source: gvl },
+    { uri: uri(`${appB}/PLC_PRG.pou`), source: "PROGRAM PLC_PRG\nVAR\n\tj : INT := g_i;\n\tb : FB_OnlyA;\nEND_VAR\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
+    { uri: uri(`${appA}/FB_OnlyA.pou`), source: "FUNCTION_BLOCK FB_OnlyA\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" },
+    { uri: uri(`${ws}/FB_Pool.pou`), source: "FUNCTION_BLOCK FB_Pool\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" },
+  ])
+  const of = (u: string) => documentDiagnostics(store, store.workspace().find((x) => x.uri === u)!)
+  expect(of(uri(`${appA}/PLC_PRG.pou`))).toEqual([])
+  const b = of(uri(`${appB}/PLC_PRG.pou`))
+  expect(b.some((x) => x.code === "C0136")).toBe(false)
+  expect(b.map((x) => x.message)).toContain("Unknown type: 'FB_OnlyA'")
+  // the pool is every application's
+  expect(store.project(uri(`${appB}/PLC_PRG.pou`)).symbols.has("fb_pool")).toBe(true)
+  expect(store.project(uri(`${appB}/PLC_PRG.pou`)).symbols.has("fb_onlya")).toBe(false)
+})
+
+// A POOL DOCUMENT IS COMPILED IN EACH APPLICATION (design §8; gate review of step 3a): CODESYS builds a POU of the pool
+// in the context of every application that uses it, so it answers what each application's build answers — not what
+// one table holding every application's globals at once answers (there `g_i` is declared twice, a C0136 and a C0046
+// no build gives). A name only one application holds is the other application's error.
+test("a pool document resolves in each application, and reports what any application's build reports", () => {
+  const ws = "C:/ws/src"
+  const appA = `${ws}/Device/Plc Logic/Application`
+  const appB = `${ws}/Device_1/Plc Logic/Application`
+  const uri = (p: string) => pathToFileURL(p).href
+  const gvl = "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n"
+  const prg = "PROGRAM PLC_PRG\nVAR\n\tp : FB_Pool;\n\tq : FB_PoolB;\nEND_VAR\nIMPLEMENTATION ST\np();\nq();\nEND_PROGRAM\n"
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.seedDisk([
+    { uri: uri(`${appA}/GVL.gvl`), source: gvl },
+    { uri: uri(`${appA}/PLC_PRG.pou`), source: prg },
+    { uri: uri(`${appA}/FB_OnlyA.pou`), source: "FUNCTION_BLOCK FB_OnlyA\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" },
+    { uri: uri(`${appB}/GVL.gvl`), source: gvl },
+    { uri: uri(`${appB}/PLC_PRG.pou`), source: prg },
+    {
+      uri: uri(`${ws}/FB_Pool.pou`),
+      source: "FUNCTION_BLOCK FB_Pool\nVAR\n\tj : INT;\nEND_VAR\nIMPLEMENTATION ST\nj := g_i;\nEND_FUNCTION_BLOCK\n",
+    },
+    {
+      uri: uri(`${ws}/FB_PoolB.pou`),
+      source: "FUNCTION_BLOCK FB_PoolB\nVAR\n\ta : FB_OnlyA;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n",
+    },
+  ])
+  const of = (u: string) => documentDiagnostics(store, store.workspace().find((x) => x.uri === u)!)
+  expect(of(uri(`${appA}/PLC_PRG.pou`))).toEqual([])
+  expect(of(uri(`${appB}/PLC_PRG.pou`))).toEqual([])
+  expect(of(uri(`${ws}/FB_Pool.pou`))).toEqual([])
+  expect(of(uri(`${ws}/FB_PoolB.pou`)).map((x) => x.message)).toEqual(["Unknown type: 'FB_OnlyA'"])
+})
+
+// KNOWN DIVERGENCE (gate review of step 3a, finding 4) — niche: accepted loss (0 occurrences in the corpora: each of the six
+// is one application, so no pool document is compiled by two). CODESYS builds a pool POU only into the applications that
+// use it; the LSP analyses a pool document in EVERY application's table, and the dead set is workspace-wide, so a pool FB
+// that only application A uses is reported with B's errors. Fails the suite the day it matches.
+test.failing("a pool POU only one application uses reports nothing from the application that does not build it", () => {
+  const ws = "C:/ws/src"
+  const appA = `${ws}/Device/Plc Logic/Application`
+  const appB = `${ws}/Device_1/Plc Logic/Application`
+  const uri = (p: string) => pathToFileURL(p).href
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.seedDisk([
+    { uri: uri(`${appA}/PLC_PRG.pou`), source: "PROGRAM PLC_PRG\nVAR\n\tq : FB_PoolB;\nEND_VAR\nIMPLEMENTATION ST\nq();\nEND_PROGRAM\n" },
+    { uri: uri(`${appA}/FB_OnlyA.pou`), source: "FUNCTION_BLOCK FB_OnlyA\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" },
+    { uri: uri(`${appB}/PLC_PRG.pou`), source: "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n" },
+    {
+      uri: uri(`${ws}/FB_PoolB.pou`),
+      source: "FUNCTION_BLOCK FB_PoolB\nVAR\n\ta : FB_OnlyA;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n",
+    },
+  ])
+  const pool = store.workspace().find((x) => x.uri === uri(`${ws}/FB_PoolB.pou`))!
+  expect(documentDiagnostics(store, pool).map((x) => x.message)).toEqual([])
+})
+
+// KNOWN DIVERGENCE (gate review of step 3a, finding 3) — niche: accepted loss (0 occurrences in the corpora: each of the six
+// is one application). Only diagnostics analyse a pool document in each application's table (`projectsFor`); every other
+// request (definition, hover, references, rename, semantic tokens) answers from the whole project's table, so a global
+// two applications declare with two types is answered with ONE of them. Fails the suite the day it matches.
+test.failing("hover on a global from a pool document names every application's declaration", () => {
+  const ws = "C:/ws/src"
+  const appA = `${ws}/Device/Plc Logic/Application`
+  const appB = `${ws}/Device_1/Plc Logic/Application`
+  const uri = (p: string) => pathToFileURL(p).href
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  const poolSource = "FUNCTION_BLOCK FB_Pool\nVAR\n\tj : INT;\nEND_VAR\nIMPLEMENTATION ST\nj := g_i;\nEND_FUNCTION_BLOCK\n"
+  store.seedDisk([
+    { uri: uri(`${appA}/GVL.gvl`), source: "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n" },
+    { uri: uri(`${appB}/GVL.gvl`), source: "VAR_GLOBAL\n\tg_i : REAL;\nEND_VAR\n" },
+    { uri: uri(`${ws}/FB_Pool.pou`), source: poolSource },
+  ])
+  const pool = store.workspace().find((x) => x.uri === uri(`${ws}/FB_Pool.pou`))!
+  const shown = JSON.stringify(hover(pool, store.project(pool.uri), poolSource.indexOf("g_i;")) ?? null)
+  expect([shown.includes("INT"), shown.includes("REAL")]).toEqual([true, true])
 })

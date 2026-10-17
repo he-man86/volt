@@ -24,8 +24,9 @@ namespace Volt.Ide.Twincat.Tests;
 public class TcDirectedLibraryReadTests
 {
     private const string References = "References";
-    private const string Standard = "Tc2_Standard.library";
-    private const string System_ = "Tc2_System.library";
+    // Each `.library` by its PATH, the wire identity: its own folder under the References manager.
+    private const string Standard = References + "/Tc2_Standard/Tc2_Standard.library";
+    private const string System_ = References + "/Tc2_System/Tc2_System.library";
 
     private static FakeIde.Item Ref(string title, string version) =>
         FakeIde.Item.Library(title,
@@ -47,7 +48,7 @@ public class TcDirectedLibraryReadTests
     private static FetchResponse Directed(FakeIde ide, params string[] names) =>
         FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
 
-    private static string Describe(FetchedItem c) => $"{c.Folder}|{c.Name}|{c.Version}|{c.SourceText}";
+    private static string Describe(FetchedItem c) => $"{c.Name}|{c.Version}|{c.SourceText}";
 
     /// <summary>The premise, on the full fetch: every parsed signature is foldered beside its own ref (TwinCAT's join is
     /// exact — no wildcard, no `(unresolved)`, live 1.1), and Tc2_Standard's RS carries its pins.</summary>
@@ -56,10 +57,10 @@ public class TcDirectedLibraryReadTests
     {
         var full = Full(Project());
 
-        var std = full.Changed.Single(c => c.Name == Standard).Folder;
+        var std = full.Changed.Single(c => c.Name == Standard).Folder();
         Assert.Equal(LibraryLayout.FolderFor(References, "Tc2_Standard"), std);
-        Assert.Contains(full.Changed, c => c.Name == "RS.pou" && c.Folder == std);
-        Assert.DoesNotContain(full.Changed, c => c.Folder!.Contains(LibraryLayout.UnresolvedFolder, StringComparison.Ordinal));
+        Assert.Contains(full.Changed, c => c.File() == "RS.pou" && c.Folder() == std);
+        Assert.DoesNotContain(full.Changed, c => c.Folder().Contains(LibraryLayout.UnresolvedFolder, StringComparison.Ordinal));
     }
 
     /// <summary>THE GAP on TwinCAT: a directed read of Tc2_Standard answers its manifest AND its signatures — RS with
@@ -69,14 +70,14 @@ public class TcDirectedLibraryReadTests
     {
         var res = Directed(Project(), Standard);
 
-        var folder = res.Changed.Single(c => c.Name == Standard).Folder;
-        var rs = res.Changed.SingleOrDefault(c => c.Name == "RS.pou");
+        var folder = res.Changed.Single(c => c.Name == Standard).Folder();
+        var rs = res.Changed.SingleOrDefault(c => c.File() == "RS.pou");
         Assert.True(rs is not null,
             $"a directed read of {Standard} answered [{string.Join(", ", res.Changed.Select(c => c.Name))}] — the manifest alone");
-        Assert.Equal(folder, rs!.Folder);
+        Assert.Equal(folder, rs!.Folder());
         foreach (var pin in new[] { "SET : BOOL", "RESET1 : BOOL", "Q1 : BOOL" })
             Assert.Contains(pin, rs.SourceText);
-        Assert.All(res.Changed, c => Assert.Equal(folder, c.Folder));   // no Tc2_System element
+        Assert.All(res.Changed, c => Assert.Equal(folder, c.Folder()));   // no Tc2_System element
         Assert.False(res.LibrariesRefreshed);
     }
 
@@ -88,8 +89,8 @@ public class TcDirectedLibraryReadTests
     public void A_directed_library_read_equals_the_full_fetch_for_that_library(string named)
     {
         var full = Full(Project());
-        var folder = full.Changed.Single(c => c.Name == named).Folder;
-        var expected = full.Changed.Where(c => c.Folder == folder).Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray();
+        var folder = full.Changed.Single(c => c.Name == named).Folder();
+        var expected = full.Changed.Where(c => c.Folder() == folder).Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray();
         Assert.True(expected.Length > 1, $"the fixture's {named} has no signature to compare");
 
         var directed = Directed(Project(), named);

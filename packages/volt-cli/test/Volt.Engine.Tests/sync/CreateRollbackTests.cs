@@ -56,7 +56,7 @@ public class CreateRollbackTests
         return PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = name, ToFolder = "", SourceText = source, IfVersion = ifVersion } },
+            Ops = new() { new SetItemOp { Name = name, SourceText = source, IfVersion = ifVersion } },
         });
     }
 

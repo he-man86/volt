@@ -6,7 +6,7 @@
  * scenario) and no-op otherwise, so the SAME file runs on either bridge.
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, serving, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE } from "../harness"
+import { bridge, serving, requireHealthy, snapshot, opErrorCode, cleanup, createItem, fetchSource, fid, BASE, itemIn, inFolder, projectRoot, pathOf } from "../harness"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 type Bound = { project?: string | null }
@@ -69,13 +69,13 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 	})
 
 	it("a refused op during a disconnect storm writes NOTHING — the item never half-exists", async () => {
-		const name = fid("chaos_nowrite")
+		const name = inFolder(await projectRoot(), fid("chaos_nowrite"))
 		await bridge.disconnect()
 		const code = await opErrorCode(() =>
-			bridge.push({ ops: [{ op: "set", name, toFolder: "", sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }))
+			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }))
 		expect(code).toBe(DISCONNECTED)
 		await resume()
-		expect((await bridge.refs()).items[name]).toBeUndefined()
+		expect(itemIn(await bridge.refs(), name)).toBeUndefined()
 	})
 
 	// ── multi-instance (the TwinCAT multi-XAE scenario) — needs >= 2 running projects, else a no-op ──
@@ -96,14 +96,14 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 			await selectStable(a)
 			await createItem(name, "FUNCTION_BLOCK VltE2E_iso_only_in_a\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK")
 			await selectStable(b)
-			expect((await bridge.refs()).items[name]).toBeUndefined()   // B must NOT see A's item — the whole point
+			expect(itemIn(await bridge.refs(), name)).toBeUndefined()   // B must NOT see A's item — the whole point
 			await selectStable(a)
-			expect((await bridge.refs()).items[name]).toBeDefined()      // A still has it after the round-trip
+			expect(itemIn(await bridge.refs(), name)).toBeDefined()      // A still has it after the round-trip
 		} finally {
 			// remove A's probe item regardless of assertion outcome
 			await selectStable(a)
-			const v = (await bridge.refs()).items[name]
-			if (v) await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name, ifVersion: v }] })
+			const v = itemIn(await bridge.refs(), name)
+			if (v) await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: await pathOf(name), ifVersion: v }] })
 		}
 	})
 

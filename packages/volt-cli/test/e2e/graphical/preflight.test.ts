@@ -13,9 +13,14 @@
  * what makes one test the parity gate rather than two vendor tests that happen to agree.</p>
  */
 import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, pushOps, cleanup, BASE } from "../harness"
+import { id, fid, bridge, requireHealthy, pushOps, cleanup, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+
+/** The project's own root (`projectRoot()`), read once the bridge serves — every item here is made there. */
+let root = ""
+/** The path of the test item `s` at {@link root}. */
+const rid = (s: string, ext = "pou") => inFolder(root, fid(s, ext))
 
 /** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -24,6 +29,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	setDefaultTimeout(180_000)
 	beforeAll(async () => {
 		await requireHealthy()
+		root = await projectRoot()
 		await cleanup()
 	})
 	afterAll(async () => {
@@ -50,16 +56,16 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 
 	it("a create refused for a shape the vendor does not build leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
-		const first = fid("pf_ok", "pou")
-		const second = fid("pf_bad", "pou")
+		const first = rid("pf_ok", "pou")
+		const second = rid("pf_bad", "pou")
 
 		const before = (await bridge.refs()).items ?? {}
 		expect(before[first], "the fixture project already holds this item").toBeUndefined()
 
 		// ORDER MATTERS: the good item FIRST, so a mid-write refusal has something to have already written.
 		const r = await pushOps([
-			{ op: "set", name: first, toFolder: "", sourceText: fine(firstName), ifVersion: null },
-			{ op: "set", name: second, toFolder: "", sourceText: broken(id("pf_bad")), ifVersion: null },
+			{ op: "set", name: first, sourceText: fine(firstName), ifVersion: null },
+			{ op: "set", name: second, sourceText: broken(id("pf_bad")), ifVersion: null },
 		])
 
 		expect(r.accepted, "the unbuildable shape was ACCEPTED — update this test").toBe(false)

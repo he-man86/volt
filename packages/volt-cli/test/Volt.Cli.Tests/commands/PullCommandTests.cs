@@ -27,7 +27,7 @@ public class PullCommandTests
             var r = Commands.Pull(root, client);
             Assert.Equal("ok", r.Kind);
             Assert.Contains("PLC_PRG.pou", r.Synced!);
-            Assert.Contains("FB_Motor.pou", r.Synced!);
+            Assert.Contains("POUs/FB_Motor.pou", r.Synced!);
 
             Assert.True(File.Exists(PrgPath(root)));
             Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Motor.pou")));
@@ -582,14 +582,14 @@ public class PullCommandTests
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var before = Sidecar.LoadIdeRefs(root)!.Items;
-            Assert.Contains("Deep.pou", before.Keys);
+            Assert.Contains("Machine/Deep.pou", before.Keys);
 
             ide.UnwalkableFolders = new[] { "Machine" };
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
             var after = Sidecar.LoadIdeRefs(root)!.Items;
-            Assert.Contains("Deep.pou", after.Keys);
-            Assert.Equal(before["Deep.pou"], after["Deep.pou"]);   // at the version the last COMPLETE walk gave it
+            Assert.Contains("Machine/Deep.pou", after.Keys);
+            Assert.Equal(before["Machine/Deep.pou"], after["Machine/Deep.pou"]);   // at the version the last COMPLETE walk gave it
 
             // …and the push that would have broken now refuses for the RIGHT reason. With the baseline entry
             // dropped, the edit went up as a CREATE and collided (ITEM_EXISTS) — or, with the folder readable
@@ -640,9 +640,9 @@ public class PullCommandTests
 
             Assert.Equal("ok", partial.Kind);
             Assert.False(File.Exists(gone), "a partial pull kept the file of an item deleted from a folder it read");
-            Assert.DoesNotContain("FB_Gone.pou", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.DoesNotContain("POUs/FB_Gone.pou", Sidecar.LoadIdeRefs(root)!.Items.Keys);
             Assert.True(File.Exists(deep), "the pull DELETED an item it merely could not see");
-            Assert.Contains("FB_Gone.pou", partial.Synced!);
+            Assert.Contains("POUs/FB_Gone.pou", partial.Synced!);
 
             ide.UnwalkableFolders = new string[0];
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
@@ -709,7 +709,7 @@ public class PullCommandTests
 
             Assert.True(File.Exists(enumFile));
             Assert.False(File.Exists(structFile), "the moved DUT's old file survived beside its new one");
-            Assert.Equal("DUTs", Sidecar.LoadIdeRefs(root)!.Folders["X.dut"]);
+            Assert.Contains("DUTs/X.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -733,9 +733,9 @@ public class PullCommandTests
             var status = Commands.Status(root, client).Incoming;
             var dry = Commands.Pull(root, client, dryRun: true);
 
-            Assert.Equal(new[] { "FB_Gone.pou" }, status.Removed);
+            Assert.Equal(new[] { "POUs/FB_Gone.pou" }, status.Removed);
             Assert.Equal(dry.Synced, status.Added.Concat(status.Modified).Concat(status.Removed).OrderBy(x => x, System.StringComparer.Ordinal));
-            Assert.Equal(new[] { "FB_Gone.pou" }, dry.Status!.Incoming.Removed);
+            Assert.Equal(new[] { "POUs/FB_Gone.pou" }, dry.Status!.Incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

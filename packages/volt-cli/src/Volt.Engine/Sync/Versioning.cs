@@ -32,8 +32,8 @@ public static class Versioning
     public const string Unreadable = "UNREADABLE000000";
 
     /// <summary>Record every object the walk saw and could not CLASSIFY (<see cref="WalkResult.UnreadableObjects"/>)
-    /// in <paramref name="versions"/> with the <see cref="Unreadable"/> sentinel, and return their bare names for the
-    /// op's <c>unreadable</c> list (one entry per OBJECT). It exists, so it counts toward the aggregate version like
+    /// in <paramref name="versions"/> with the <see cref="Unreadable"/> sentinel, and return them as
+    /// <c>&lt;folder&gt;/&lt;bare name&gt;</c> for the op's <c>unreadable</c> list (one entry per OBJECT). It exists, so it counts toward the aggregate version like
     /// an unreadable item does — an object that cannot be read is not one that was deleted. ONE function for the three
     /// version-producing walks (refs, fetch, the push gate), so their maps cannot disagree.
     ///
@@ -57,8 +57,8 @@ public static class Versioning
             // Its kind family is known though it was never read (UnreadableObject.Kinds): the removal pass keeps a known
             // name of those kinds, as it does for an item that failed to materialize, since its folder counts as walked.
             if (unreadableKinds is not null && o.Kinds is { } kinds)
-                foreach (var k in kinds) Removal.AddUnreadable(unreadableKinds, o.Name, k);
-            names.Add(new Volt.Contracts.UnreadableItem(o.Name, o.Reason));
+                foreach (var k in kinds) Removal.AddUnreadable(unreadableKinds, ItemPath.Of(FolderOf(k, o.Folder, o.Name), o.Name), k);
+            names.Add(new Volt.Contracts.UnreadableItem(ItemPath.Of(o.Folder, o.Name), o.Reason));
         }
         return names;
     }
@@ -79,11 +79,12 @@ public static class Versioning
     {
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug): a silent catch hides a real materialize bug.
-        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, name, null); }
+        var at = FolderOf(kind, folder, name);
+        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, at, name, null); }
         catch (System.Exception ex)
         {
-            VoltLog.Warn($"materialize failed name='{name}' kind='{kind}' — body skipped from pull: {ex.Message}");
-            return new VersionedItem(Unreadable, null, name, ex.Message);
+            VoltLog.Warn($"materialize failed name='{ItemPath.Of(at, name)}' kind='{kind}' — body skipped from pull: {ex.Message}");
+            return new VersionedItem(Unreadable, null, at, name, ex.Message);
         }
     }
 }
@@ -98,24 +99,32 @@ public static class Versioning
 /// against its NEIGHBOUR'S version, so it can be pulled and never pushed back (V71_PackML_Hauzer; CLAUDE.md, the
 /// item-name invariant).</para>
 ///
-/// <para>So the identity is the FULL wire name — the name plus its kind extension, which is what <c>refs</c> and
-/// <c>fetch</c> publish and therefore the only identity a client can ever quote back. This is not a
-/// "duplicate name" guard and adds none: bare-name identity below the vendor seam is untouched, because that is
-/// the IDE's own lookup key. It is one rung up, where Volt indexes items for the wire.</para>
+/// <para>So the identity is the item's PATH — the folder it is reported in plus its full name (the name and its kind
+/// extension), <see cref="ItemPath.Of"/> — which is what <c>refs</c> and <c>fetch</c> publish and therefore the only
+/// identity a client can ever quote back. The FOLDER is part of it because names are not unique across applications
+/// either: two devices whose applications both hold <c>PLC_PRG</c> are two programs, and keyed by full name alone one
+/// application's code was silently missing from a pull and a push wrote one of each pair (openspec
+/// <c>multi-application-tree</c>). This is not a "duplicate name" guard and adds none: bare-name lookup below the
+/// vendor seam is untouched, inside the container the path names — that is the IDE's own lookup key.</para>
 ///
-/// <para>An UNREADABLE item never materialized, so it has no full name and keeps its bare one. It is absent from
-/// the wire index either way (DIALECT C7) and no client holds a version for it; the bare key only keeps it
+/// <para>An UNREADABLE item never materialized, so it has no full name and keeps its bare one, in its folder. It is
+/// absent from the wire index either way (DIALECT C7) and no client holds a version for it; the bare key only keeps it
 /// counted in the aggregate hash and blocks a create landing on top of it. Re-deriving a full name for it would
 /// lean on the very kind mapping that may be what defeated the read.</para></summary>
 public sealed class VersionedItem
 {
-    internal VersionedItem(string version, WorkspaceItem? materialized, string bareName, string? reason)
+    internal VersionedItem(string version, WorkspaceItem? materialized, string folder, string bareName, string? reason)
     {
         Version = version;
         Materialized = materialized;
-        Identity = materialized?.FullName ?? bareName;
-        Unread = reason is null ? null : new Volt.Contracts.UnreadableItem(bareName, reason);
+        Folder = folder;
+        Identity = ItemPath.Of(folder, materialized?.FullName ?? bareName);
+        Unread = reason is null ? null : new Volt.Contracts.UnreadableItem(ItemPath.Of(folder, bareName), reason);
     }
+
+    /// <summary>The folder the item is REPORTED in (<see cref="Versioning.FolderOf"/>: a library sits in its own) — the
+    /// prefix of <see cref="Identity"/>.</summary>
+    public string Folder { get; }
 
     /// <summary>The content version — <see cref="Versioning.Unreadable"/> when the body could not be read.</summary>
     public string Version { get; }
@@ -123,10 +132,10 @@ public sealed class VersionedItem
     /// <summary>The materialized text + full name, or null when the item could not be read.</summary>
     public WorkspaceItem? Materialized { get; }
 
-    /// <summary>The key EVERY version/folder map uses for this item. See the type doc — this is the whole point.</summary>
+    /// <summary>The key EVERY version map uses for this item — its path. See the type doc — this is the whole point.</summary>
     public string Identity { get; }
 
-    /// <summary>The item as the read ops list it unreadable — its bare name and the refusal that left it out — or null
-    /// when it materialized.</summary>
+    /// <summary>The item as the read ops list it unreadable — <c>&lt;folder&gt;/&lt;bare name&gt;</c> and the refusal that
+    /// left it out — or null when it materialized.</summary>
     public Volt.Contracts.UnreadableItem? Unread { get; }
 }

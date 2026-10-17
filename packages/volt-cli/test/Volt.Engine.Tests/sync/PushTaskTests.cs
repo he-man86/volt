@@ -57,8 +57,8 @@ public class PushTaskTests
     public void An_edited_task_reaches_the_driver_as_DATA_not_text()
     {
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
-        var resp = Push(ide, pv, new SetItemOp { Name = "MainTask.task", IfVersion = v, SourceText = Body });
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
+        var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body });
 
         Assert.True(resp.Accepted);
         Assert.Contains("writetask:MainTask", ide.Recorded);
@@ -86,15 +86,14 @@ public class PushTaskTests
                 if (t.Type == "Cyclicc") throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{t.Type}' is not a task type");
             },
         };
-        var (v, pv) = Ver(ide, "MainTask.task");
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
 
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "PRG_A.pou", IfVersion = null, ToFolder = "",
-                            SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
-            new SetItemOp { Name = "MainTask.task", IfVersion = v, SourceText = Body.Replace("Cyclic", "Cyclicc") });
+            new SetItemOp { Name = "PRG_A.pou", IfVersion = null, SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body.Replace("Cyclic", "Cyclicc") });
 
         Assert.False(resp.Accepted);
-        var refused = Assert.Single(resp.Conflicts!, c => c.Name == "MainTask.task");
+        var refused = Assert.Single(resp.Conflicts!, c => c.Name == "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
         Assert.Equal("Cyclicc", Assert.Single(ide.TasksValidated).Type);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("writetask:"));
@@ -104,8 +103,8 @@ public class PushTaskTests
     public void A_task_never_goes_through_the_ST_writer()
     {
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
-        Push(ide, pv, new SetItemOp { Name = "MainTask.task", IfVersion = v, SourceText = Body });
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
+        Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body });
         // `writecontent:` is the ST path. A descriptor taking it would mean the body was spliced as a POU.
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
@@ -119,9 +118,8 @@ public class PushTaskTests
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "FastTask.task",
+            Name = "Device/Plc Logic/Application/Task Configuration/FastTask.task",
             IfVersion = null,
-            ToFolder = "Device/Plc Logic/Application/Task Configuration",
             SourceText = Body,
         });
 
@@ -148,9 +146,8 @@ public class PushTaskTests
 
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "FastTask.task",
+            Name = "Device/Plc Logic/Application/Task Configuration/FastTask.task",
             IfVersion = null,
-            ToFolder = "Device/Plc Logic/Application/Task Configuration",
             SourceText = Body,
         });
 
@@ -169,8 +166,8 @@ public class PushTaskTests
         // This needed no task-specific code at all — it falls out of `.task` being pushable, which is the point:
         // a delete op was always generic, it just could never be BUILT for a read-only kind.
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
-        var resp = Push(ide, pv, new DeleteItemOp { Name = "MainTask.task", IfVersion = v });
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
+        var resp = Push(ide, pv, new DeleteItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v });
 
         Assert.True(resp.Accepted);
         Assert.Contains("delete:MainTask", ide.Recorded);
@@ -180,11 +177,11 @@ public class PushTaskTests
     public void A_RENAMED_task_file_renames_the_task_in_the_IDE()
     {
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "MainTask.task",
-            ToName = "SlowTask.task",
+            Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task",
+            To = "Device/Plc Logic/Application/Task Configuration/SlowTask.task",
             IfVersion = v,
             SourceText = Body,
         });
@@ -202,10 +199,10 @@ public class PushTaskTests
     public void A_BODY_THAT_IS_NOT_CANONICAL_IS_WRITTEN()
     {
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "MainTask.task",
+            Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task",
             IfVersion = v,
             SourceText = "Type: Cyclic\nPriority: 5\nWatchdog: off\n",
         });
@@ -218,10 +215,10 @@ public class PushTaskTests
     public void A_FIELD_VOLT_CANNOT_ROUND_TRIP_stops_the_push()
     {
         var ide = WithTask();
-        var (v, pv) = Ver(ide, "MainTask.task");
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "MainTask.task",
+            Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task",
             IfVersion = v,
             SourceText = Body.TrimEnd('\n') + "\nCoreBinding: 2\n",
         });

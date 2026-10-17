@@ -117,7 +117,7 @@ public class TcProjectSettingsTests
 
         var walk = driver.WalkItems();
         var item = Assert.Single(walk.Items, i => i.KindCode == ItemKind.PlcProjectSettings);
-        Assert.Equal(("Project Settings", ""), (item.Name, item.Folder));
+        Assert.Equal(("Project Settings", TcUntouchablePouTests.App), (item.Name, item.Folder));
         Assert.Equal(ItemKind.Kinds.ProjectSettings, ItemKind.Map(driver.KindCode(item.Item)));
         Assert.Equal("Project Settings", driver.Name(item.Item));
 

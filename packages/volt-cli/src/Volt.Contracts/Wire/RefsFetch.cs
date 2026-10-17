@@ -8,15 +8,18 @@ namespace Volt.Contracts;
 /// and reports no removals.</summary>
 public class RefsRequest : BoundRequest
 {
-    /// <summary>The client's baseline {name → version}, so the response can name what of it is gone
+    /// <summary>The client's baseline {path → version}, so the response can name what of it is gone
     /// (<see cref="ReadResponse.Removed"/>) by the same rule a <c>fetch</c> uses. Versions are not compared here —
-    /// <c>refs</c> ships the live map and the client diffs it — only the names are judged.</summary>
+    /// <c>refs</c> ships the live map and the client diffs it — only the paths are judged.</summary>
     [JsonPropertyName("knownItems")]
     public Dictionary<string, string>? KnownItems { get; set; }
 
-    /// <summary>The folder each known item last sat in — see <see cref="FetchRequest.KnownFolders"/>.</summary>
-    [JsonPropertyName("knownFolders")]
-    public Dictionary<string, string>? KnownFolders { get; set; }
+    /// <summary>The applications the read that produced <see cref="KnownItems"/> stated (its
+    /// <see cref="ReadResponse.Applications"/>). It places a known path the walk could not reach: under an unread device the
+    /// walk states no application, and only the baseline says whether the path lay in an application or in the pool.
+    /// Absent: nothing under an unread folder outside every application the walk states is judged removed.</summary>
+    [JsonPropertyName("knownApplications")]
+    public List<string>? KnownApplications { get; set; }
 }
 
 /// <summary>The version map with no content — what a client compares against to decide what to fetch.</summary>
@@ -26,19 +29,21 @@ public class RefsResponse : ReadResponse
 
 public class FetchRequest : BoundRequest
 {
-    /// <summary>Client's currently-known {name → version} map. Omit/empty or unset on the wire = fetch all.
-    /// When <see cref="Init"/> is true this field is ignored — init always returns everything.</summary>
+    /// <summary>Client's currently-known {path → version} map. Omit/empty or unset on the wire = fetch all.
+    /// When <see cref="Init"/> is true this field is ignored — init always returns everything. A known path's folder is
+    /// its own prefix, so a PARTIAL walk still names removals: a known path absent from a folder the walk DID enumerate is
+    /// gone, and one under a folder it could not read is merely unseen.</summary>
     [JsonPropertyName("knownItems")]
     public Dictionary<string, string>? KnownItems { get; set; }
 
-    /// <summary>The folder each known item last sat in {name → folder}. It is what lets a PARTIAL walk still
-    /// name removals: a known name absent from a folder the walk DID enumerate is gone, and one under a folder it
-    /// could not read is merely unseen. A known name with no folder here is never removed by a partial walk (it
-    /// may sit under the unread folder); a complete walk does not need it.</summary>
-    [JsonPropertyName("knownFolders")]
-    public Dictionary<string, string>? KnownFolders { get; set; }
+    /// <summary>The applications the read that produced <see cref="KnownItems"/> stated (its
+    /// <see cref="ReadResponse.Applications"/>). It places a known path the walk could not reach: under an unread device the
+    /// walk states no application, and only the baseline says whether the path lay in an application or in the pool.
+    /// Absent: nothing under an unread folder outside every application the walk states is judged removed.</summary>
+    [JsonPropertyName("knownApplications")]
+    public List<string>? KnownApplications { get; set; }
 
-    /// <summary>A directed read: answer only the items named here (bare or full name), and judge nothing outside them
+    /// <summary>A directed read: answer only the items whose PATHS are listed here, and judge nothing outside them
     /// removed. Naming a <c>.library</c> returns its manifest AND every signature of that library, in the folder and
     /// with the bytes a full fetch writes them (unless <see cref="LibraryManifestOnly"/>); the signatures come from one
     /// extraction, cached for the session against every <c>.library</c>'s version, so the FIRST such read of a
@@ -65,16 +70,14 @@ public class FetchRequest : BoundRequest
 
 public class FetchedItem
 {
-    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.pou", "Foo.pou") — see
-    /// <c>Volt.Engine.Sync.Materializer.FullWireName</c> for a project item, and <c>Volt.Engine.Library.LibraryFetch</c>
-    /// for a library element (its extension from <c>LibSignatureRenderer</c>). A DUT is "E_Mode.dut" whatever its
-    /// shape, so the file a client writes is this name as given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a
+    /// <summary>The item's PATH: its folder and its file name with the KIND extension
+    /// (<c>Device/Plc Logic/Application/PLC_PRG.pou</c>) — see <c>Volt.Engine.Sync.Materializer.FullWireName</c> for a
+    /// project item's file name, and <c>Volt.Engine.Library.LibraryFetch</c> for a library element (its extension from
+    /// <c>LibSignatureRenderer</c>). A DUT is "E_Mode.dut" whatever its shape, so the file a client writes is this path as
+    /// given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a
     /// distinct one.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
-
-    [JsonPropertyName("folder")]
-    public string? Folder { get; set; }
 
     [JsonPropertyName("sourceText")]
     public string SourceText { get; set; } = "";

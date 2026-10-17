@@ -8,7 +8,7 @@
  * is accepted, and the next pull states the new view — the IDE holds it, not just Volt's text.
  */
 import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, BASE, VENDOR, inFolder, projectRoot } from "../harness"
 import { ensureCompiles, withMainProgramRestored } from "../lib/compile"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
@@ -24,7 +24,7 @@ describe(`graphical / view change (${BASE})`, () => {
 
 	it("flipping the IMPLEMENTATION line writes the view, both ways", async () => {
 		const name = id("view_flip")
-		const full = fid("view_flip", "pou")
+		const full = inFolder(await projectRoot(), fid("view_flip", "pou"))
 		const src = `FUNCTION_BLOCK ${name}
 VAR
 	a : BOOL;
@@ -38,7 +38,7 @@ END_NETWORK
 
 END_FUNCTION_BLOCK
 `
-		await createItem(fid("view_flip"), src, "")
+		await createItem(fid("view_flip"), src, await projectRoot())
 		const pulled = (await fetchItem(full)).sourceText
 		expect(pulled).toContain("IMPLEMENTATION LD\n")
 
@@ -64,7 +64,7 @@ END_FUNCTION_BLOCK
 	 */
 	it.skipIf(VENDOR === "twincat")("an LD body holding a PARALLEL flips to FBD and back, unchanged, and builds", async () => {
 		const name = id("view_flip_par")
-		const full = fid("view_flip_par", "pou")
+		const full = inFolder(await projectRoot(), fid("view_flip_par", "pou"))
 		const src = `FUNCTION_BLOCK ${name}
 VAR
 	go : BOOL;
@@ -83,7 +83,7 @@ END_NETWORK
 
 END_FUNCTION_BLOCK
 `
-		await createItem(fid("view_flip_par"), src, "")
+		await createItem(fid("view_flip_par"), src, await projectRoot())
 		const ld = (await fetchItem(full)).sourceText
 		expect(ld).toBe(src)
 

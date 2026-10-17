@@ -36,7 +36,7 @@ public class FolderPruneTests
     private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static SetItemOp Create(string wireName, string folder) =>
-        new() { Name = wireName, ToFolder = folder, SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };
+        new() { Name = $"{folder}/{wireName}", SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };
 
     private static void Push(FakeIde ide, params PushOp[] ops)
     {
@@ -102,7 +102,7 @@ public class FolderPruneTests
         Push(ide, Create("Gone.pou", "Empties"));
         Assert.True(HasFolder(ide, "Empties"));
 
-        Push(ide, new DeleteItemOp { Name = "Gone.pou", IfVersion = VersionOf(ide, "Gone.pou") });
+        Push(ide, new DeleteItemOp { Name = "Empties/Gone.pou", IfVersion = VersionOf(ide, "Empties/Gone.pou") });
 
         Assert.False(HasFolder(ide, "Empties"), "the folder the delete emptied was left behind");
     }
@@ -115,7 +115,7 @@ public class FolderPruneTests
         var ide = new FakeIde();
         Push(ide, Create("Trav.pou", "From"));
 
-        Push(ide, new SetItemOp { Name = "Trav.pou", ToFolder = "To", IfVersion = VersionOf(ide, "Trav.pou") });
+        Push(ide, new SetItemOp { Name = "From/Trav.pou", To = "To/Trav.pou", IfVersion = VersionOf(ide, "From/Trav.pou") });
 
         Assert.False(HasFolder(ide, "From"), "the folder the move emptied was left behind");
         Assert.True(HasFolder(ide, "To"), "the destination was pruned, and it holds the item");
@@ -131,7 +131,7 @@ public class FolderPruneTests
         Push(ide, Create("Deep.pou", "Chain/Mid/Leaf"));
         Assert.True(HasFolder(ide, "Chain/Mid/Leaf"));
 
-        Push(ide, new DeleteItemOp { Name = "Deep.pou", IfVersion = VersionOf(ide, "Deep.pou") });
+        Push(ide, new DeleteItemOp { Name = "Chain/Mid/Leaf/Deep.pou", IfVersion = VersionOf(ide, "Chain/Mid/Leaf/Deep.pou") });
 
         Assert.False(HasFolder(ide, "Chain/Mid/Leaf"));
         Assert.False(HasFolder(ide, "Chain/Mid"), "the chain was pruned one level and stopped");
@@ -147,7 +147,7 @@ public class FolderPruneTests
         var ide = new FakeIde();
         Push(ide, Create("Stays.pou", "Parent"), Create("Leaves.pou", "Parent/Child"));
 
-        Push(ide, new DeleteItemOp { Name = "Leaves.pou", IfVersion = VersionOf(ide, "Leaves.pou") });
+        Push(ide, new DeleteItemOp { Name = "Parent/Child/Leaves.pou", IfVersion = VersionOf(ide, "Parent/Child/Leaves.pou") });
 
         Assert.False(HasFolder(ide, "Parent/Child"), "the emptied child folder survived");
         Assert.True(HasFolder(ide, "Parent"), "the parent was pruned while it still held an item");
@@ -165,7 +165,7 @@ public class FolderPruneTests
         Assert.True(HasFolder(ide, "Untouched"));
 
         // A push that has nothing to do with it — and must therefore leave it exactly as it found it.
-        Push(ide, new DeleteItemOp { Name = "Elsewhere.pou", IfVersion = VersionOf(ide, "Elsewhere.pou") });
+        Push(ide, new DeleteItemOp { Name = "Other/Elsewhere.pou", IfVersion = VersionOf(ide, "Other/Elsewhere.pou") });
 
         Assert.True(HasFolder(ide, "Untouched"), "a folder this push did not empty was removed anyway");
     }

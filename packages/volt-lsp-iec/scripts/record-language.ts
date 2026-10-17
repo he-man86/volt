@@ -35,6 +35,7 @@ import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, landedInFull, requireNetworkText } from "./bridge.js"
 import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
+import { inFolder, mainProgram } from "../../volt-cli/test/e2e/lib/main-program.js"
 import { ORACLE_WIDTH, TARGET_PROBE, THIRTY_TWO_BIT_WIDTH, targetWidth } from "./recording-target.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
@@ -179,17 +180,16 @@ async function fetchItem(name: string): Promise<any> {
 }
 const version = async (name: string): Promise<string | null> => (await refs()).items[name] ?? null
 
-// Resolve PLC_PRG (CODESYS) / MAIN (TwinCAT) + its folder; save the original body for restore.
+// Resolve PLC_PRG (CODESYS) / MAIN (TwinCAT) by its PATH + its folder (`main-program.ts`); save the original body.
 selected = (health.projects ?? []).map((p: any) => p.project).find((n: any) => typeof n === "string")
 if (selected !== undefined) await call("connect", { project: selected })
 const refs0 = await refs()
-const plcName: string =
-  ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n]) ??
-  (() => {
-    throw new Error("no PLC_PRG/MAIN in project")
-  })()
+const main = mainProgram(refs0)
+const plcName: string = main.path
+const plcFolder = main.folder
 const plcItem0 = await fetchItem(plcName)
-const plcFolder = plcItem0.folder ?? ""
+/** A fixture's item pushed beside PLC_PRG — the wire names an item by its path. */
+const beside = (wire: string): string => inFolder(plcFolder, wire)
 
 /**
  * PLC_PRG, AS IT MUST BE BETWEEN FIXTURES — not merely as it happens to be right now.
@@ -220,7 +220,7 @@ if (plcLive.replace(/\s+/g, "") !== plcPristine.replace(/\s+/g, "")) {
       `${plcLive.trim()}` +
       "\nrestoring the empty template before recording.",
   )
-  await pushOps([{ op: "set", name: plcName, toFolder: null, sourceText: plcPristine, ifVersion: await version(plcName) }])
+  await pushOps([{ op: "set", name: plcName, sourceText: plcPristine, ifVersion: await version(plcName) }])
 }
 
 /**
@@ -242,8 +242,8 @@ if (plcLive.replace(/\s+/g, "") !== plcPristine.replace(/\s+/g, "")) {
 */
 const fixtureItems = new Set(
   ALL_TESTS.flatMap((t) => [
-    `${t.pouName}.${extForKind(t.kind)}`,
-    ...(t.gvlNames ?? []).map((g) => `${g}.gvl`),
+    beside(`${t.pouName}.${extForKind(t.kind)}`),
+    ...(t.gvlNames ?? []).map((g) => beside(`${g}.gvl`)),
   ]),
 )
 /**
@@ -269,9 +269,9 @@ if (orphans.length > 0) {
 }
 
 async function setPlcPrg(src: string): Promise<void> {
-  // An UPDATE omits placement: `toFolder: ""` is the TREE ROOT, not "unchanged", so restating it here
-  // asked to move PLC_PRG into the POU pool (which CODESYS refuses outright).
-  await pushOps([{ op: "set", name: plcName, toFolder: null, sourceText: src, ifVersion: await version(plcName) }])
+  // An UPDATE names PLC_PRG's own path and no `to`: a `to` is a destination, and a bare one is the TREE ROOT (the
+  // POU pool, which CODESYS refuses as a move out of the application).
+  await pushOps([{ op: "set", name: plcName, sourceText: src, ifVersion: await version(plcName) }])
 }
 
 const tests: Record<string, { buildSuccess: boolean; durationMs: number; diagnostics: { severity: string; message: string; line: number }[] }> = {}
@@ -338,7 +338,7 @@ for (const t of ALL_TESTS) {
   const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f)).map((it) => [it.wire, it])).values()]
   const before = heldIn(await refs())
   try {
-    await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
+    await pushOps(items.map((it) => ({ op: "set", name: beside(it.wire), sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {
       // MARKED, like every other pushed unit. `plcOriginal` at the restore below is NOT marked here:
       // it came back from a fetch, so it already carries the marker StWriter emitted.
@@ -355,7 +355,7 @@ for (const t of ALL_TESTS) {
     console.warn(`  ${t.name}: ERROR ${(e as Error).message}`)
   } finally {
     // restore: delete every item this fixture created, put PLC_PRG back
-    await removeItems(items.map((it) => it.wire), before)
+    await removeItems(items.map((it) => beside(it.wire)), before)
     if (plcOriginal !== undefined) await setPlcPrg(plcOriginal)
   }
   if (++done % 25 === 0) {

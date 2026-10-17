@@ -19,10 +19,11 @@ public class TcMemberKindTests
     public void A_member_whose_tree_code_names_no_kind_is_refused_by_name()
     {
         var node = new TcHiddenBodyWriteTests.Node("Mystery", 9999, "METHOD Mystery : BOOL", "");
-        var site = new MemberSites.Site(null, new ItemRef(node), "Mystery", 9999);
+        var driver = TcUntouchablePouTests.BoundDriver();
+        var site = new MemberSites.Site(null, TcRefs.Ref(node), "Mystery", 9999);
 
         var ex = Assert.Throws<BridgeException>(() =>
-            TcUntouchablePouTests.BoundDriver().ReadMember(site, ownerIsInterface: false, "FUNCTION_BLOCK K"));
+            driver.ReadMember(site, ownerIsInterface: false, "FUNCTION_BLOCK K"));
 
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         // The phrase is the shared rule's (ItemKind.MemberKind), pinned exactly: one map, one message on both vendors.
@@ -41,9 +42,10 @@ public class TcMemberKindTests
     public void A_members_kind_is_decided_by_its_owner(int code, bool ownerIsInterface, string expected)
     {
         var node = new TcHiddenBodyWriteTests.Node("Run", code, "METHOD Run : BOOL", "");
-        var site = new MemberSites.Site(null, new ItemRef(node), "Run", code);
+        var driver = TcUntouchablePouTests.BoundDriver();
+        var site = new MemberSites.Site(null, TcRefs.Ref(node), "Run", code);
 
-        var member = TcUntouchablePouTests.BoundDriver().ReadMember(site, ownerIsInterface, "FUNCTION_BLOCK K");
+        var member = driver.ReadMember(site, ownerIsInterface, "FUNCTION_BLOCK K");
 
         Assert.Equal(expected, member.Kind);
     }

@@ -14,6 +14,7 @@
  */
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
+import { folderOf, pathIn } from "./main-program"
 
 export type Snapshot = { project: string; items: Record<string, string> }
 
@@ -22,13 +23,14 @@ export async function snapshot(): Promise<Snapshot> {
 	return { project: r.projectVersion, items: r.items }
 }
 
-/** An item's version by FULL wire name, or undefined when absent. */
+/** An item's version — by path, or by its file name (`pathIn`) — or undefined when absent. */
 export function versionIn(s: Snapshot, name: string): string | undefined {
-	return s.items[name]
+	const path = pathIn(s.items, name)
+	return path === undefined ? undefined : s.items[path]
 }
 
 export function has(s: Snapshot, name: string): boolean {
-	return s.items[name] !== undefined
+	return versionIn(s, name) !== undefined
 }
 
 /**
@@ -48,19 +50,19 @@ export function assertDelta(
 ): void {
 	switch (exp.item) {
 		case "new":
-			expect(before.items[name], `${name} should not have existed before`).toBeUndefined()
-			expect(after.items[name], `${name} should exist after`).toBeDefined()
+			expect(versionIn(before, name), `${name} should not have existed before`).toBeUndefined()
+			expect(versionIn(after, name), `${name} should exist after`).toBeDefined()
 			break
 		case "change":
-			expect(after.items[name], `${name} should exist after`).toBeDefined()
-			expect(after.items[name], `${name}'s version should have changed`).not.toBe(before.items[name])
+			expect(versionIn(after, name), `${name} should exist after`).toBeDefined()
+			expect(versionIn(after, name), `${name}'s version should have changed`).not.toBe(versionIn(before, name))
 			break
 		case "same":
-			expect(after.items[name], `${name}'s version should NOT have changed`).toBe(before.items[name])
+			expect(versionIn(after, name), `${name}'s version should NOT have changed`).toBe(versionIn(before, name))
 			break
 		case "gone":
-			expect(before.items[name], `${name} should have existed before`).toBeDefined()
-			expect(after.items[name], `${name} should be gone after`).toBeUndefined()
+			expect(versionIn(before, name), `${name} should have existed before`).toBeDefined()
+			expect(versionIn(after, name), `${name} should be gone after`).toBeUndefined()
 			break
 	}
 	if (exp.project) expect(after.project, "projectVersion should have changed").not.toBe(before.project)
@@ -87,7 +89,7 @@ const LIBRARY_EXT = ".library"
 export function libraryRoots(changed: readonly any[]): string[] {
 	const libFolders = changed
 		.filter((i) => String(i.name ?? "").toLowerCase().endsWith(LIBRARY_EXT))
-		.map((i) => String(i.folder ?? ""))
+		.map((i) => folderOf(String(i.name)))
 	return [...new Set(libFolders.map((f) => (f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : f)))].filter(
 		(r) => r.length > 0,
 	)

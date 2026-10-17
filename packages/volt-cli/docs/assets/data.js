@@ -330,9 +330,9 @@ window.VOLT = {
                 "type": "string"
               }
             },
-            "knownFolders": {
-              "type": "object",
-              "additionalProperties": {
+            "knownApplications": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             },
@@ -356,9 +356,9 @@ window.VOLT = {
                 "type": "string"
               }
             },
-            "folders": {
-              "type": "object",
-              "additionalProperties": {
+            "applications": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             },
@@ -390,7 +390,7 @@ window.VOLT = {
           "required": [
             "projectVersion",
             "items",
-            "folders",
+            "applications",
             "unreadable",
             "removed",
             "unwalkedFolders"
@@ -420,9 +420,9 @@ window.VOLT = {
                 "type": "string"
               }
             },
-            "knownFolders": {
-              "type": "object",
-              "additionalProperties": {
+            "knownApplications": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             },
@@ -467,9 +467,9 @@ window.VOLT = {
                 "type": "string"
               }
             },
-            "folders": {
-              "type": "object",
-              "additionalProperties": {
+            "applications": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             },
@@ -503,7 +503,7 @@ window.VOLT = {
             "librariesRefreshed",
             "projectVersion",
             "items",
-            "folders",
+            "applications",
             "unreadable",
             "removed",
             "unwalkedFolders"
@@ -513,9 +513,6 @@ window.VOLT = {
           "type": "object",
           "properties": {
             "name": {
-              "type": "string"
-            },
-            "folder": {
               "type": "string"
             },
             "sourceText": {
@@ -619,10 +616,7 @@ window.VOLT = {
         "SetItemOp": {
           "type": "object",
           "properties": {
-            "toName": {
-              "type": "string"
-            },
-            "toFolder": {
+            "to": {
               "type": "string"
             },
             "sourceText": {
@@ -663,12 +657,6 @@ window.VOLT = {
               "type": "string"
             },
             "newItems": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "newFolders": {
               "type": "object",
               "additionalProperties": {
                 "type": "string"

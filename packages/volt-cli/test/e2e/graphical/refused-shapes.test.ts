@@ -37,7 +37,7 @@
  * five are the only fixtures in 2561 with no TwinCAT recording, because the recorder cannot push them.</p>
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, removeItem, requireHealthy } from "../harness"
+import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, removeItem, requireHealthy, inFolder, pathIn, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -212,7 +212,10 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 
 	const remove = async (names: readonly string[]): Promise<void> => {
 		const have = await versions()
-		const ops = names.filter((n) => have[n] !== undefined).map((n) => ({ op: "deleteItem", name: n, ifVersion: have[n]! }))
+		const ops = names
+			.map((n) => pathIn(have, n))
+			.filter((p): p is string => p !== undefined)
+			.map((p) => ({ op: "deleteItem", name: p, ifVersion: have[p]! }))
 		if (ops.length > 0) await pushOps(ops)
 	}
 
@@ -224,7 +227,8 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 			await remove(names)
 			const before = await versions()
 
-			const r = await pushOps(shape.items.map((i) => ({ op: "set", name: i.name, toFolder: "", sourceText: i.source, ifVersion: null })))
+			const root = await projectRoot()
+			const r = await pushOps(shape.items.map((i) => ({ op: "set", name: inFolder(root, i.name), sourceText: i.source, ifVersion: null })))
 
 			// `landedInFull`, not `accepted`: a shape refused at APPLY after an earlier item landed answers accepted
 			// with a conflict (push-keeps-what-landed) — it must reach this branch, where "nothing landed" then fails.
@@ -325,14 +329,14 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			await removeItem(item).catch(() => {})
 
 			// The NEAR-MISS must be legal on every vendor — if this fails the case is testing the wrong thing.
-			const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: prg(id(c.key), c.vars, c.nets), ifVersion: null }])
+			const created = await pushOps([{ op: "set", name: inFolder(await projectRoot(), item), sourceText: prg(id(c.key), c.vars, c.nets), ifVersion: null }])
 			expect(created.accepted, `the near-miss body was refused, so the edit proves nothing: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 			const v1 = await fetchItem(item)
 			const edited = v1.sourceText.replace(c.from, c.to)
 			expect(edited, `the edit matched nothing in the pulled body — the near-miss came back reshaped:\n${v1.sourceText}`).not.toBe(v1.sourceText)
 
-			const r = await pushOps([{ op: "set", name: item, sourceText: edited, ifVersion: v1.version }])
+			const r = await pushOps([{ op: "set", name: inFolder(await projectRoot(), item), sourceText: edited, ifVersion: v1.version }])
 
 			if (!r.accepted) {
 				// Same ratchet as above: a refusal is only acceptable from a vendor the table already lists, and
@@ -363,8 +367,8 @@ describe(`graphical / a new graphical member in an existing POU (${BASE})`, () =
 	})
 
 	it("a new METHOD holding an EXECUTE box: refused before any op lands, or written", async () => {
-		const first = fid("nm_first", "pou")
-		const owner = fid("nm_owner", "pou")
+		const first = inFolder(await projectRoot(), fid("nm_first", "pou"))
+		const owner = inFolder(await projectRoot(), fid("nm_owner", "pou"))
 		await removeItem(first).catch(() => {})
 		await removeItem(owner).catch(() => {})
 
@@ -378,7 +382,7 @@ target := 0;
 
 END_FUNCTION_BLOCK
 `
-		const created = await pushOps([{ op: "set", name: owner, toFolder: "", sourceText: ownerSrc, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: owner, sourceText: ownerSrc, ifVersion: null }])
 		expect(created.accepted, `the owner was refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const v1 = await fetchItem(owner)
 
@@ -396,7 +400,7 @@ END_METHOD
 `
 		const before = await bridge.refs()
 		const r = await pushOps([
-			{ op: "set", name: first, toFolder: "", sourceText: `PROGRAM ${id("nm_first")}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_PROGRAM\n`, ifVersion: null },
+			{ op: "set", name: first, sourceText: `PROGRAM ${id("nm_first")}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_PROGRAM\n`, ifVersion: null },
 			{ op: "set", name: owner, sourceText: withMethod, ifVersion: v1.version },
 		])
 

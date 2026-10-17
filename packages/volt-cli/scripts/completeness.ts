@@ -37,6 +37,7 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { pipePid, scriptPipe } from "../test/e2e/lib/fixture-ide"
 import { landedInFull } from "../test/e2e/lib/workspace"
+import { fileOf, folderOf, inFolder, pathIn } from "../test/e2e/lib/main-program"
 import { citedCacheRows, dispositionOf, normalizeMember, type Disposition, type Vendor } from "./disposition.table"
 import { KNOWN } from "./completeness.known"
 import {
@@ -358,12 +359,7 @@ type CsObject = {
  *  below an item, each property class, each non-default build flag on an item and on a member — one wire item at a
  *  time, the item covering the most features first. A feature no item holds is not invented. `uncovered`: a wire item
  *  of a judged kind (`.pou`, `.dut`, …) that no object of a class `CS_ITEM_EXT` knows maps to. */
-export function pickCodesys(
-  objects: CsObject[],
-  items: Record<string, string>,
-  folders: Record<string, string>,
-  refusedNames: readonly string[],
-): Picked {
+export function pickCodesys(objects: CsObject[], items: Record<string, string>, refused: readonly string[]): Picked {
   const byGuid = new Map(objects.map((o) => [o.guid, o]))
   const ownerOf = (o: CsObject): CsObject | undefined => {
     for (let cur: CsObject | undefined = o, n = 0; cur && n < 30; cur = byGuid.get(cur.parent), n++)
@@ -384,10 +380,7 @@ export function pickCodesys(
     if (o.build && o.build.reserve !== 0) f.add("reserve")
     features.set(owner.guid, f)
   }
-  const wireOf = (o: CsObject) => {
-    const w = `${o.name}.${CS_ITEM_EXT[o.class!]}`
-    return w in items ? w : undefined
-  }
+  const wireOf = (o: CsObject) => pathIn(items, `${o.name}.${CS_ITEM_EXT[o.class!]}`)
   const candidates = [...features.entries()]
     .map(([g, f]) => ({ o: byGuid.get(g)!, f }))
     .filter((c) => wireOf(c.o) !== undefined)
@@ -404,7 +397,7 @@ export function pickCodesys(
     .sort((x, y) => x.o.name.localeCompare(y.o.name))) {
     const wire = wireOf(c.o)!
     for (const x of c.f) covered.add(x)
-    out.push({ name: c.o.name, wire, folder: folders[wire] ?? "", guid: c.o.guid, cls: c.o.class!, why: "every task" })
+    out.push({ name: c.o.name, wire, folder: folderOf(wire), guid: c.o.guid, cls: c.o.class!, why: "every task" })
   }
   for (;;) {
     let best: { o: CsObject; f: Set<string> } | undefined
@@ -423,7 +416,7 @@ export function pickCodesys(
     out.push({
       name: best.o.name,
       wire,
-      folder: folders[wire] ?? "",
+      folder: folderOf(wire),
       guid: best.o.guid,
       cls: best.o.class!,
       why: fresh.sort().join(", "),
@@ -432,10 +425,11 @@ export function pickCodesys(
   // Every item the pull REFUSES is a subject too (gate review of step 4b, finding 4): it is no wire item, so the cover
   // above never sees it, and its known entries outlived every run unjudged. Its refusal by name is what the run judges.
   for (const o of objects) {
-    if (!o.class || !(o.class in CS_ITEM_EXT) || !refusedNames.includes(o.name)) continue
-    const wire = `${o.name}.${CS_ITEM_EXT[o.class]}`
+    const at = o.class && o.class in CS_ITEM_EXT ? refusedAt(refused, o.name) : undefined
+    if (at === undefined) continue
+    const wire = inFolder(at, `${o.name}.${CS_ITEM_EXT[o.class!]}`)
     if (wire in items || out.some((s) => s.wire === wire)) continue
-    out.push({ name: o.name, wire, folder: "", guid: o.guid, cls: o.class, why: REFUSED_SUBJECT })
+    out.push({ name: o.name, wire, folder: at, guid: o.guid, cls: o.class!, why: REFUSED_SUBJECT })
   }
   return { subjects: out, uncovered }
 }
@@ -443,22 +437,27 @@ export function pickCodesys(
 /** Why a subject the pull refuses was taken. */
 const REFUSED_SUBJECT = "every item the pull refuses"
 
+/** The folder the pull's `unreadable` list names the object `name` under (`<folder>/<bare name>`), or undefined when
+ *  it names none; two are refused by name — a bare name two folders hold names no one object. */
+function refusedAt(refused: readonly string[], name: string): string | undefined {
+  const hits = refused.filter((u) => fileOf(u) === name)
+  if (hits.length > 1) throw new Error(`the pull refuses '${name}' under ${hits.length} folders (${hits.join(", ")})`)
+  return hits.length === 1 ? folderOf(hits[0]!) : undefined
+}
+
 type TcObject = { name: string; itemType: number; path: string; file: string | null }
 
-export function pickTwincat(
-  objects: TcObject[],
-  items: Record<string, string>,
-  folders: Record<string, string>,
-  refusedNames: readonly string[],
-): Picked {
+export function pickTwincat(objects: TcObject[], items: Record<string, string>, refused: readonly string[]): Picked {
   const out: Omit<Subject, "id">[] = []
   for (const o of objects) {
     const ext = o.file ? o.file.slice(o.file.lastIndexOf(".") + 1) : ""
     if (!(ext in TC_ITEM_EXT)) continue
-    const wire = `${o.name}.${TC_ITEM_EXT[ext]}`
-    const refused = !(wire in items) && refusedNames.includes(o.name)
-    if ((!(wire in items) && !refused) || out.some((s) => s.wire === wire)) continue
-    out.push({ name: o.name, wire, folder: folders[wire] ?? "", cls: ext, why: refused ? REFUSED_SUBJECT : o.file! })
+    const file = `${o.name}.${TC_ITEM_EXT[ext]}`
+    const listed = pathIn(items, file)
+    const at = listed === undefined ? refusedAt(refused, o.name) : undefined
+    const wire = listed ?? (at === undefined ? undefined : inFolder(at, file))
+    if (wire === undefined || out.some((s) => s.wire === wire)) continue
+    out.push({ name: o.name, wire, folder: folderOf(wire), cls: ext, why: at !== undefined ? REFUSED_SUBJECT : o.file! })
   }
   const uncovered = uncoveredOf(items, Object.values(TC_ITEM_EXT), new Set(out.map((s) => s.wire)))
   return { subjects: out.sort((x, y) => x.wire.localeCompare(y.wire)), uncovered }
@@ -509,7 +508,7 @@ async function runSubject(
     return { findings, measurements, classes, log }
   }
   const made = pushOutcome(
-    await wire.push({ op: "set", name: s.wire, toFolder: s.folder, sourceText: text, ifVersion: null }),
+    await wire.push({ op: "set", name: s.wire, sourceText: text, ifVersion: null }),
   )
   log.push(`create: ${made}`)
   const adoptCreated = async () => {
@@ -613,8 +612,8 @@ async function main(): Promise<number> {
       const refused: string[] = (r.unreadable ?? []).map((u: { name: string }) => u.name)
       const picked =
         vendor === "codesys"
-          ? pickCodesys(objects, r.items, r.folders, refused)
-          : pickTwincat(objects, r.items, r.folders, refused)
+          ? pickCodesys(objects, r.items, refused)
+          : pickTwincat(objects, r.items, refused)
       uncovered.push(...picked.uncovered.map((w) => `${project}/${w}`))
       const subjects = picked.subjects
         .map((s) => ({ ...s, id: `${project}/${s.wire}` }))

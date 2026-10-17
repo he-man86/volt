@@ -63,7 +63,7 @@ public class LibrarySignatureFetchTests
         var res = FetchService.Handle(bumped, new FetchRequest { KnownItems = known });
 
         var names = new HashSet<string>();
-        foreach (var c in res.Changed) names.Add(c.Name);
+        foreach (var c in res.Changed) names.Add(c.File());
         Assert.Contains("CmpX.library", names);      // the one that moved, obviously
         Assert.True(names.Contains("CmpY.library"),
             "the signatures were re-rendered, so Changed is the COMPLETE picture per library folder — but " +

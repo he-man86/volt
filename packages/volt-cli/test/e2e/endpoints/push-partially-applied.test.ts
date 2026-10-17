@@ -19,14 +19,20 @@
  * answer on both (openspec bridge-refusal-review 8.4).</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, fetchItem, FOLDER, BASE } from "../harness"
+import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, fetchItem, FOLDER, BASE, inFolder, applicationRoot } from "../harness"
 import { fb, MARK } from "../fixtures"
+
+/** The default folder (`POUs` under the PLC-project root), read once the bridge serves — every item here is made in it. */
+let home = ""
+/** The path of the test item `s` in {@link home}. */
+const pid = (s: string, ext = "pou") => inFolder(home, fid(s, ext))
 
 describe(`endpoints / push partially applied (${BASE})`, () => {
 	setDefaultTimeout(180_000)
 	beforeAll(async () => {
 		await requireHealthy()
 		await cleanup()
+		home = await plcFolder(FOLDER)
 	})
 	afterAll(async () => {
 		try {
@@ -39,9 +45,8 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 	const newDecl = "VAR\n\tx : INT;\n\tpaAdded : BOOL;\nEND_VAR"
 
 	it("an update refused on a new member after its declaration was written: partiallyApplied, and the IDE holds the new declaration", async () => {
-		const bare = id("pa_upd"), name = fid("pa_upd")
-		const folder = await plcFolder(FOLDER)
-		const created = await pushOps([{ op: "set", name, toFolder: folder, sourceText: fb(bare), ifVersion: null }])
+		const bare = id("pa_upd"), name = pid("pa_upd")
+		const created = await pushOps([{ op: "set", name, sourceText: fb(bare), ifVersion: null }])
 		expect(created.accepted, `the FB to update was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = (await bridge.refs()).items ?? {}
 		expect(before[name]).toBeDefined()
@@ -70,16 +75,15 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect(text, `METHOD ${REFUSED_AT_APPLY} is in the IDE although it was refused`).not.toContain(REFUSED_AT_APPLY)
 	})
 
-	it("a rename that ran before the refusal: partiallyApplied and renamedTo the FULL new name, which is where the IDE holds the item", async () => {
-		const from = fid("pa_rnA"), toBare = id("pa_rnB"), to = fid("pa_rnB")
-		const folder = await plcFolder(FOLDER)
-		const created = await pushOps([{ op: "set", name: from, toFolder: folder, sourceText: fb(id("pa_rnA")), ifVersion: null }])
+	it("a rename that ran before the refusal: partiallyApplied and renamedTo the new PATH, which is where the IDE holds the item", async () => {
+		const from = pid("pa_rnA"), toBare = id("pa_rnB"), to = pid("pa_rnB")
+		const created = await pushOps([{ op: "set", name: from, sourceText: fb(id("pa_rnA")), ifVersion: null }])
 		expect(created.accepted, `the FB to rename was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = (await bridge.refs()).items ?? {}
 		expect(before[to], `the project already holds ${to}`).toBeUndefined()
 
 		const r = await pushOps([
-			{ op: "set", name: from, toName: to, sourceText: fb(toBare, { children: refusedMethod }), ifVersion: before[from] },
+			{ op: "set", name: from, to: to, sourceText: fb(toBare, { children: refusedMethod }), ifVersion: before[from] },
 		])
 		console.log("[push-partially-applied 1.2 live] rename response:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts }))
 
@@ -89,7 +93,7 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect(c.code).toBe("UNSUPPORTED")
 		expect(c.reason, "the reason no longer says the rename stays").toContain("stays renamed")
 		expect(c.partiallyApplied, "the rename stays, but the conflict does not say partiallyApplied").toBe(true)
-		expect(c.renamedTo, "renamedTo is not the FULL name the item now has").toBe(to)
+		expect(c.renamedTo, "renamedTo is not the path the item now has").toBe(to)
 		expect(c.remains).toBeUndefined()
 
 		const after = (await bridge.refs()).items ?? {}
@@ -104,14 +108,13 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 	// edited file) was refused after the rename had run. The check now runs before the rename (offline twin:
 	// `RenameBeforeWriteTests.A_rename_and_edit_lands_although_the_rename_rewrote_the_items_own_header`).
 	it("a rename+edit with its version lands: the rename's rewrite of the item's own header is not a concurrent edit", async () => {
-		const from = fid("pa_reA"), to = fid("pa_reB")
-		const folder = await plcFolder(FOLDER)
-		const created = await pushOps([{ op: "set", name: from, toFolder: folder, sourceText: fb(id("pa_reA")), ifVersion: null }])
+		const from = pid("pa_reA"), to = pid("pa_reB")
+		const created = await pushOps([{ op: "set", name: from, sourceText: fb(id("pa_reA")), ifVersion: null }])
 		expect(created.accepted, `the FB to rename was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = (await bridge.refs()).items ?? {}
 
 		const r = await pushOps([
-			{ op: "set", name: from, toName: to, sourceText: fb(id("pa_reB"), { body: "x := x + 2;" }), ifVersion: before[from] },
+			{ op: "set", name: from, to: to, sourceText: fb(id("pa_reB"), { body: "x := x + 2;" }), ifVersion: before[from] },
 		])
 		expect(r.conflicts, `a rename+edit was refused: ${JSON.stringify(r.conflicts)}`).toBeUndefined()
 		expect(r.accepted).toBe(true)
@@ -125,20 +128,19 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 	// THE LAST-MOMENT CHECK OF A MOVE (gate review of step 3) now runs before the rename and the move, against the item's
 	// CURRENT folder — a rename+move+edit with its version must still land (a move+edit alone: push.test.ts).
 	it("a rename+move+edit with its version lands: checked once, before anything of the op", async () => {
-		const from = fid("pa_rmA"), to = fid("pa_rmB")
-		const created = await pushOps([{ op: "set", name: from, toFolder: "", sourceText: fb(id("pa_rmA")), ifVersion: null }])
+		const from = inFolder(await applicationRoot(), fid("pa_rmA")), to = pid("pa_rmB")
+		const created = await pushOps([{ op: "set", name: from, sourceText: fb(id("pa_rmA")), ifVersion: null }])
 		expect(created.accepted, `the FB to rename was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = await bridge.refs()
-		const folder = await plcFolder(FOLDER)
-		expect(before.folders?.[from], "premise: the item starts outside the destination").not.toBe(folder)
+		expect(from, "premise: the item starts outside the destination").not.toBe(pid("pa_rmA"))
 
 		const r = await pushOps([
-			{ op: "set", name: from, toName: to, toFolder: folder, sourceText: fb(id("pa_rmB"), { body: "x := x + 3;" }), ifVersion: before.items[from] },
+			{ op: "set", name: from, to, sourceText: fb(id("pa_rmB"), { body: "x := x + 3;" }), ifVersion: before.items[from] },
 		])
 		expect(r.conflicts, `a rename+move+edit was refused: ${JSON.stringify(r.conflicts)}`).toBeUndefined()
 		const after = await bridge.refs()
 		expect(after.items[from]).toBeUndefined()
-		expect(after.folders[to]).toBe(folder)
+		expect(after.items[to]).toBeDefined()
 		expect((await fetchItem(to)).sourceText, "the edit did not land").toContain("x := x + 3;")
 	})
 
@@ -149,25 +151,24 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 	it("a rename changes only the item's header, on both vendors", async () => {
 		const fnA = id("pa_selfFnA"), fnB = id("pa_selfFnB")
 		const fbA = id("pa_selfFbA"), fbB = id("pa_selfFbB")
-		const folder = await plcFolder(FOLDER)
 		const fnSrc = `// ${fnA} helper\nFUNCTION ${fnA} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${MARK}\n// sets ${fnA}\n${fnA} := a > 0;\nEND_FUNCTION\n`
 		const fbSrc = `// ${fbA} helper\nFUNCTION_BLOCK ${fbA}\nVAR\n\tpSelf : POINTER TO ${fbA};\n\tx : INT;\nEND_VAR\n${MARK}\nx := x + 1;\nEND_FUNCTION_BLOCK\n`
 		const created = await pushOps([
-			{ op: "set", name: fid("pa_selfFnA"), toFolder: folder, sourceText: fnSrc, ifVersion: null },
-			{ op: "set", name: fid("pa_selfFbA"), toFolder: folder, sourceText: fbSrc, ifVersion: null },
+			{ op: "set", name: pid("pa_selfFnA"), sourceText: fnSrc, ifVersion: null },
+			{ op: "set", name: pid("pa_selfFbA"), sourceText: fbSrc, ifVersion: null },
 		])
 		expect(created.accepted, `the items to rename were not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = (await bridge.refs()).items ?? {}
 
-		const fnBefore = (await fetchItem(fid("pa_selfFnA"))).sourceText as string
-		const fbBefore = (await fetchItem(fid("pa_selfFbA"))).sourceText as string
+		const fnBefore = (await fetchItem(pid("pa_selfFnA"))).sourceText as string
+		const fbBefore = (await fetchItem(pid("pa_selfFbA"))).sourceText as string
 		const r = await pushOps([
-			{ op: "set", name: fid("pa_selfFnA"), toName: fid("pa_selfFnB"), ifVersion: before[fid("pa_selfFnA")] },
-			{ op: "set", name: fid("pa_selfFbA"), toName: fid("pa_selfFbB"), ifVersion: before[fid("pa_selfFbA")] },
+			{ op: "set", name: pid("pa_selfFnA"), to: pid("pa_selfFnB"), ifVersion: before[pid("pa_selfFnA")] },
+			{ op: "set", name: pid("pa_selfFbA"), to: pid("pa_selfFbB"), ifVersion: before[pid("pa_selfFbA")] },
 		])
 		expect(r.conflicts, `a rename was refused: ${JSON.stringify(r.conflicts)}`).toBeUndefined()
-		const fn = (await fetchItem(fid("pa_selfFnB"))).sourceText as string
-		const fbText = (await fetchItem(fid("pa_selfFbB"))).sourceText as string
+		const fn = (await fetchItem(pid("pa_selfFnB"))).sourceText as string
+		const fbText = (await fetchItem(pid("pa_selfFbB"))).sourceText as string
 		console.log("[push-partially-applied gate 3] renamed FUNCTION:\n" + fn + "\n[renamed FUNCTION_BLOCK]:\n" + fbText)
 
 		expect(fn).toBe(fnBefore.replace(`FUNCTION ${fnA} : BOOL`, `FUNCTION ${fnB} : BOOL`))

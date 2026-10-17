@@ -42,7 +42,7 @@ public class PushValidatesOnceTests
     {
         var ide = new FakeIde();
         var method = "\nMETHOD M : BOOL\n" + FbdEdited.Replace("q := NOT a;", "M := TRUE;") + "\nEND_METHOD\n";
-        var resp = Push(ide, _ => new SetItemOp { Name = "FB_N.pou", ToFolder = "", SourceText = Source(Fbd, method) });
+        var resp = Push(ide, _ => new SetItemOp { Name = "FB_N.pou", SourceText = Source(Fbd, method) });
 
         Assert.True(resp.Accepted, Reasons(resp));
         Assert.Equal(2, ide.ScopesPushed.Count);   // the POU's body and the method's, once each
@@ -68,7 +68,7 @@ public class PushValidatesOnceTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd, folder: "From"));
         var resp = Push(ide, refs => new SetItemOp
         {
-            Name = "FB_N.pou", ToFolder = "To", IfVersion = refs.Items["FB_N.pou"], SourceText = Source(FbdEdited),
+            Name = "From/FB_N.pou", To = "To/FB_N.pou", IfVersion = refs.Items["From/FB_N.pou"], SourceText = Source(FbdEdited),
         });
 
         Assert.True(resp.Accepted, Reasons(resp));

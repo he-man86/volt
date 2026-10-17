@@ -131,7 +131,7 @@ namespace Volt.Ide.Codesys.Tests
 
             var d = Assert.Single(Diagnose(root, new Message(by["Execute"].guid, 578, "Unexpected statement")));
 
-            Assert.Equal(("FB_Motor", "Execute", "C0578"), (d.Name, d.Member, d.Code));
+            Assert.Equal(("POUs/FB_Motor", "Execute", "C0578"), (d.Name, d.Member, d.Code));
         }
 
         /// <summary>Task 2.2 - a property accessor names the PROPERTY (an accessor is read with its property, it is not
@@ -150,7 +150,7 @@ namespace Volt.Ide.Codesys.Tests
 
             var d = Assert.Single(Diagnose(root, new Message(by[child].guid, 46, "Identifier 'zz' not defined")));
 
-            Assert.Equal(("FB_Motor", member), (d.Name, d.Member));
+            Assert.Equal(("POUs/FB_Motor", member), (d.Name, d.Member));
         }
 
         /// <summary>The item's own guid: named, and no member - "about the item itself".</summary>
@@ -161,8 +161,113 @@ namespace Volt.Ide.Codesys.Tests
 
             var d = Assert.Single(Diagnose(root, new Message(by["FB_Motor"].guid, 46, "Identifier 'zz' not defined")));
 
-            Assert.Equal("FB_Motor", d.Name);
+            Assert.Equal("POUs/FB_Motor", d.Name);   // its bare path: an item is named by where it sits (openspec multi-application-tree)
             Assert.Null(d.Member);
+        }
+
+        /// <summary>A message store that holds ONE build's messages at a time, as the IDE's Build category does (a build
+        /// replaces its content): each build command the driver issues moves it to the next build's batch.</summary>
+        public sealed class PerBuildMessageStore
+        {
+            private readonly Queue<Message[]> _builds;
+            private Message[] _current = Array.Empty<Message>();
+            public PerBuildMessageStore(params Message[][] builds) => _builds = new Queue<Message[]>(builds);
+            public void NextBuild() => _current = _builds.Dequeue();
+            public IEnumerable<object> Categories => new object[] { new BuildCategory() };
+            public IEnumerable<Message> GetMessages(object category) => _current;
+        }
+
+        public sealed class BuildCommands
+        {
+            private readonly PerBuildMessageStore _store;
+            public BuildCommands(PerBuildMessageStore store) => _store = store;
+            public void ExecuteCommand(Guid command, string[] args) => _store.NextBuild();
+        }
+
+        /// <summary>Builds every application of <paramref name="root"/> through the driver (one batch of messages per
+        /// application's build), then reads its diagnostics.</summary>
+        private static List<Volt.Contracts.BridgeDiagnostic> BuildAll(TreeNode root, params Message[][] builds)
+        {
+            var store = new PerBuildMessageStore(builds);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(root);
+            _3S.CoDeSys.ScriptDriverSystem.APEnvironment.MessageStorage = store;
+            _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = new BuildCommands(store);
+            try
+            {
+                var driver = new CodesysDriver(new Projects(root));
+                driver.Build();
+                return driver.GetBuildDiagnostics().ToList();
+            }
+            finally
+            {
+                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
+                _3S.CoDeSys.ScriptDriverSystem.APEnvironment.MessageStorage = null;
+                _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = null;
+            }
+        }
+
+        /// <summary><see cref="Project"/> with two applications beside the pool folder that holds FB_Motor and PLC_PRG.</summary>
+        private static (TreeNode Root, Dictionary<string, TreeNode> By) TwoApplications()
+        {
+            var (project, by) = Project();
+            var root = new TreeNode("<project>", null,
+                new TreeNode("Application", new CodesysContainerRefusalTests.Application()),
+                new TreeNode("Application_1", new CodesysContainerRefusalTests.Application()),
+                project.get_children(false).Single());
+            return (root, by);
+        }
+
+        /// <summary>TWO APPLICATIONS' BUILDS (openspec multi-application-tree, design §6): an object both compile reports one
+        /// message per build, and that is one diagnostic; a line on no object is each build's own ("Build started:
+        /// Application: …") and every one is kept — the second application's status lines went missing when every
+        /// repeated line was folded.</summary>
+        [Fact]
+        public void A_message_two_builds_give_on_one_object_is_one_diagnostic_and_each_builds_own_lines_are_kept()
+        {
+            var (root, by) = TwoApplications();
+            var status = Guid.Empty;
+
+            var d = BuildAll(root,
+                new[]
+                {
+                    new Message(status, 0, "------ Build started: Application: Device.Application -------"),
+                    new Message(by["FB_Motor"].guid, 46, "Identifier 'zz' not defined"),
+                    new Message(status, 0, "Compile complete -- 1 errors, 0 warnings"),
+                },
+                new[]
+                {
+                    new Message(status, 0, "------ Build started: Application: Device_1.Application -------"),
+                    new Message(by["FB_Motor"].guid, 46, "Identifier 'zz' not defined"),
+                    new Message(status, 0, "Compile complete -- 1 errors, 0 warnings"),
+                });
+
+            Assert.Equal(new[]
+            {
+                "------ Build started: Application: Device.Application -------",
+                "Identifier 'zz' not defined",
+                "Compile complete -- 1 errors, 0 warnings",
+                "------ Build started: Application: Device_1.Application -------",
+                "Compile complete -- 1 errors, 0 warnings",
+            }, d.Select(x => x.Message));
+        }
+
+        /// <summary>ONE BUILD'S REPEATS ARE ALL KEPT. A CODESYS message carries no position (line 0 on every recorded one),
+        /// so two empty CASE arms in one POU are two identical messages on one object in ONE build — two diagnostics, as
+        /// the IDE's message view lists them (the recorded oracle holds 479 such repeats). Only another build's copy of
+        /// what an earlier build already gave folds; a build that repeats a message more often adds the difference.</summary>
+        [Fact]
+        public void A_message_one_build_repeats_on_one_object_is_kept_every_time()
+        {
+            var (root, by) = TwoApplications();
+            var empty = new Message(by["PLC_PRG"].guid, 0, "At least one statement is expected");
+
+            var single = BuildAll(root, new[] { empty, empty }, Array.Empty<Message>());
+            var across = BuildAll(root, new[] { empty }, new[] { empty, empty });
+            var both = BuildAll(root, new[] { empty, empty }, new[] { empty, empty });
+
+            Assert.Equal(2, single.Count(x => x.Message == empty.Text));
+            Assert.Equal(2, across.Count(x => x.Message == empty.Text));
+            Assert.Equal(2, both.Count(x => x.Message == empty.Text));
         }
 
         /// <summary>A guid that is nowhere in the project resolves to nothing, rather than to the nearest guess.</summary>

@@ -24,7 +24,7 @@
  * dropping it would hide their drawing.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -50,7 +50,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 */
 	async function roundTrips(slug: string, lang: "FBD" | "LD", body: string, vars: string, tcCannotCreate?: string): Promise<void> {
 		const name = id(slug)
-		const item = fid(slug, "pou")
+		const item = inFolder(await projectRoot(), fid(slug, "pou"))
 		await clean(item)
 		// THE MARKER GOES AFTER `END_VAR`, and it took this suite's two failures to notice it was not.
 		//
@@ -63,7 +63,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		// the right way (`create-shapes`, `fanout`, `comments`, `graphical-kinds`).
 		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\nIMPLEMENTATION ${lang}\n${body}\nEND_PROGRAM\n`
 
-		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
 		// A SHAPE TWINCAT DOES NOT BUILD IS REFUSED, and the refusal is ASSERTED rather than skipped. Until the native
 		// writer (openspec twincat-inproc-host) three shapes here were refused because TwinCAT's PLCopen importer could not

@@ -13,8 +13,7 @@
  * bridge-side dump or an IDE-side export.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, ensureCompiles,
-         savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -57,8 +56,8 @@ describe(`graphical / splice (${BASE})`, () => {
 
 	it("a body where only ONE network changed imports cleanly and keeps the other verbatim", async () => {
 		const name = id("splice_two")
-		const full = fid("splice_two", "pou")
-		await createItem(full, twoNetworks(name), "")
+		const full = inFolder(await projectRoot(), fid("splice_two", "pou"))
+		await createItem(full, twoNetworks(name), await projectRoot())
 
 		const v1 = (await fetchItem(full)).sourceText
 		const nets1 = networks(v1)
@@ -90,7 +89,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		// used because TwinCAT skips unreferenced POUs, and `ensureCompiles` declares an instance in the main
 		// program so the body is actually reached on both vendors.
 		const name = id("splice_build")
-		const full = fid("splice_build", "pou")
+		const full = inFolder(await projectRoot(), fid("splice_build", "pou"))
 		const src = `FUNCTION_BLOCK ${name}
 VAR
 \ta : BOOL;
@@ -107,7 +106,7 @@ NETWORK
 END_NETWORK
 END_FUNCTION_BLOCK
 `
-		await createItem(full, src, "")
+		await createItem(full, src, await projectRoot())
 		const v1 = (await fetchItem(full)).sourceText
 		const nets1 = networks(v1)
 
@@ -123,8 +122,8 @@ END_FUNCTION_BLOCK
 
 	it("re-pushing a spliced body is a fixed point — the splice does not drift on repeat", async () => {
 		const name = id("splice_stable")
-		const full = fid("splice_stable", "pou")
-		await createItem(full, twoNetworks(name), "")
+		const full = inFolder(await projectRoot(), fid("splice_stable", "pou"))
+		await createItem(full, twoNetworks(name), await projectRoot())
 
 		const v1 = (await fetchItem(full)).sourceText
 		const nets = networks(v1)

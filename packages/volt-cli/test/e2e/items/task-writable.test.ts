@@ -23,7 +23,7 @@
  * identically on both.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR } from "../harness"
+import { bridge, id, fid, pushOps, fetchItem, requireHealthy, BASE, VENDOR, folderOf, inFolder, mainProgram, fileOf } from "../harness"
 
 // CODESYS drills tasks out of a task-configuration container; a TwinCAT task sits at the PLC project root. The folder is
 // READ from where the fixture's own task lives, never spelled: the container's name is the project's - `Task
@@ -33,9 +33,7 @@ async function taskFolder(): Promise<string> {
 	const r = await bridge.refs()
 	const task = Object.keys(r.items ?? {}).find((n) => n.endsWith(".task"))
 	expect(task, "the fixture project has no task to place a new one beside").toBeDefined()
-	const folder = (r.folders ?? {})[task!]
-	expect(typeof folder, `refs names no folder for ${task}`).toBe("string")
-	return folder as string
+	return folderOf(task!)
 }
 
 describe(`items / a task is writable (${BASE})`, () => {
@@ -63,7 +61,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		// move changed no bytes: these are hashed into the item version, so a re-flow is a diff in every repo.
 		const name = await anyTask()
 		const before = (await fetchItem(name)).sourceText
-		const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: before, ifVersion: await versionOf(name) }])
+		const r = await pushOps([{ op: "set", name, sourceText: before, ifVersion: await versionOf(name) }])
 		expect(r.accepted, `pushing a task its own bytes was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		expect((await fetchItem(name)).sourceText).toBe(before)
 	})
@@ -79,7 +77,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		const edited = original.replace(/^(Priority:\s*)\S+/m, `$1${changed}`)
 
 		try {
-			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: edited, ifVersion: await versionOf(name) }])
+			const r = await pushOps([{ op: "set", name, sourceText: edited, ifVersion: await versionOf(name) }])
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 			const back = (await fetchItem(name)).sourceText
@@ -88,16 +86,16 @@ describe(`items / a task is writable (${BASE})`, () => {
 			// worse than one that refuses.
 			expect(back).toBe(edited)
 		} finally {
-			await pushOps([{ op: "set", name, toFolder: null, sourceText: original, ifVersion: await versionOf(name) }])
+			await pushOps([{ op: "set", name, sourceText: original, ifVersion: await versionOf(name) }])
 		}
 	})
 
 	it("the CALL LIST is content: a POU added to it runs, and the order is kept", async () => {
 		const name = await anyTask()
 		const original = (await fetchItem(name)).sourceText
-		const main = Object.keys((await refs()).items ?? {}).find((n) => n === "PLC_PRG.pou" || n === "MAIN.pou")
-		expect(main, "no main program to schedule").toBeDefined()
-		const pou = main!.replace(/\.[^.]+$/, "")
+		const main = await mainProgram()
+		expect(main, "no main program to schedule").not.toBeNull()
+		const pou = fileOf(main!).replace(/\.[^.]+$/, "")
 
 		// Rewrite the Calls line to exactly this one POU — the list is a sequence, so replacing it is the honest
 		// way to assert the whole of it rather than that an entry happens to be present.
@@ -106,11 +104,11 @@ describe(`items / a task is writable (${BASE})`, () => {
 			: original.trimEnd() + `\nCalls:     ${pou}\n`
 
 		try {
-			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: withCalls, ifVersion: await versionOf(name) }])
+			const r = await pushOps([{ op: "set", name, sourceText: withCalls, ifVersion: await versionOf(name) }])
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(withCalls)
 		} finally {
-			await pushOps([{ op: "set", name, toFolder: null, sourceText: original, ifVersion: await versionOf(name) }])
+			await pushOps([{ op: "set", name, sourceText: original, ifVersion: await versionOf(name) }])
 		}
 	})
 
@@ -130,14 +128,14 @@ describe(`items / a task is writable (${BASE})`, () => {
 	}
 
 	it("a NEW .task file creates a real task, and DELETING it removes one", async () => {
-		const name = fid("task_new", "task")
+		const name = inFolder(await taskFolder(), fid("task_new", "task"))
 		await clean(name)
 
 		// A watchdog that is off: TwinCAT holds the flag alone; CODESYS keeps its time, unit and sensitivity behind it, so
 		// the line states them and a bare `off` is refused there by name (openspec bridge-one-to-one §3).
 		const watchdog = VENDOR === "codesys" ? "off '' ms (sensitivity 1)" : "off"
 		const body = `Type:      Cyclic\nInterval:  100 ms\nPriority:  ${await freePriority()}\nWatchdog:  ${watchdog}\n`
-		const created = await pushOps([{ op: "set", name, toFolder: await taskFolder(), sourceText: body, ifVersion: null }])
+		const created = await pushOps([{ op: "set", name, sourceText: body, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		// It is a real task the IDE now schedules, not a file on the side: it comes back through `refs` and
@@ -165,7 +163,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		expect(edited, "the task's descriptor has no Watchdog line to move").not.toBe(original)
 
 		try {
-			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: edited, ifVersion: await versionOf(name) }])
+			const r = await pushOps([{ op: "set", name, sourceText: edited, ifVersion: await versionOf(name) }])
 			if (VENDOR === "twincat") {
 				expect(r.accepted, "TwinCAT accepted a watchdog it cannot schedule").toBe(false)
 				expect(r.conflicts?.[0]?.code, JSON.stringify(r.conflicts)).toBe("UNSUPPORTED")
@@ -179,7 +177,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 			}
 		} finally {
 			if ((await fetchItem(name)).sourceText !== original)
-				await pushOps([{ op: "set", name, toFolder: null, sourceText: original, ifVersion: await versionOf(name) }])
+				await pushOps([{ op: "set", name, sourceText: original, ifVersion: await versionOf(name) }])
 		}
 	})
 
@@ -194,12 +192,12 @@ describe(`items / a task is writable (${BASE})`, () => {
 			.join("\n")
 		expect(respaced, "the descriptor has no padded label to re-space").not.toBe(original)
 		try {
-			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: respaced, ifVersion: await versionOf(name) }])
+			const r = await pushOps([{ op: "set", name, sourceText: respaced, ifVersion: await versionOf(name) }])
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(original)
 		} finally {
 			if ((await fetchItem(name)).sourceText !== original)
-				await pushOps([{ op: "set", name, toFolder: null, sourceText: original, ifVersion: await versionOf(name) }])
+				await pushOps([{ op: "set", name, sourceText: original, ifVersion: await versionOf(name) }])
 		}
 	})
 })

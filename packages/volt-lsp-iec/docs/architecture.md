@@ -29,7 +29,7 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 
 ```
 G  server        LSP 3.17 / stdio · dispatch · capabilities · lifecycle · push|pull diagnostics (resultIds) · progress · watched-file batches
-W  workspace     WorkspaceStore (eager index, per-file disk sync, quarantine) · the workspace scan · source extensions · binding
+W  workspace     WorkspaceStore (eager index, per-file disk sync, quarantine) · one scope per application · the workspace scan · source extensions · binding
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -91,7 +91,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     network/  the services over a network-text body, and the references, highlight and rename that span both languages
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
-  workspace/  the WorkspaceStore (documents, the incremental index, per-file disk sync, the quarantine), the workspace scan, the writable-source extension set, the binding's vendor
+  workspace/  the WorkspaceStore (documents, the incremental index, per-file disk sync, the quarantine), one scope per application, the workspace scan, the writable-source extension set, the binding's vendor and applications
   server/  G — LSP 3.17 over stdio, the DiagnosticsPublisher (push or pull, resultIds), watched-file batches and the fs.watch fallback, the process environment (config.ts), the vendor (vendor.ts), and the CLI entry bin.ts
     handlers/  one file per request group, registered over the one ServerState (state.ts): lifecycle, documents, diagnostics, navigation, assist, structure, formatting
   transpile/  the Rust backend — it consumes the front-end only
@@ -317,7 +317,10 @@ name — never a guessed dialect; a flag that contradicts the binding is refused
 below; the documents live in the workspace layer:
 - `workspace/workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
   URI (open buffer wins; `document-key`), a `(uri, version)` parse cache, the memoized project symbol table
-  (`project-build`), the dead-code cache (`dead-code-cache`), the reference state, and a `generation` bumped only when
+  (`project-build`) and, when the binding states two or more applications (`binding` `boundApplications`, from
+  `ide-refs.json`), one table per application — its own documents and libraries plus the POU pool's, so a name resolves
+  inside its own application and the same GVL in two is no C0136 (`application-scopes`); a pool document is analysed in
+  EACH application's table, as CODESYS compiles it in each (`projectsFor`) —, the dead-code cache (`dead-code-cache`), the reference state, and a `generation` bumped only when
   what analysis sees moves (the merged text, the refs, the task roots, the config). The disk layer is crawled ONCE, at
   `initialized` (`seedDisk`); after that it changes ONE FILE AT A TIME (`upsertDisk` / `deleteDisk` / `deleteDiskUnder`,
   a watched batch's files rebound together with one relink in `diskBatch`), and only a reference file (`.library`,

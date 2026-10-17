@@ -21,7 +21,7 @@
  * LSP conformance fixtures' `vendorRefuses.twincat` for this shape went with it (re-recorded 2026-10-17, Project13).</p>
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference } from "../harness"
+import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference, at, fileOf, pathIn, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -33,7 +33,10 @@ setDefaultTimeout(180_000)
 const versions = async (): Promise<Record<string, string>> => (await bridge.refs()).items ?? {}
 async function remove(names: readonly string[]): Promise<void> {
 	const have = await versions()
-	const ops = names.filter((n) => have[n] !== undefined).map((n) => ({ op: "deleteItem", name: n, ifVersion: have[n]! }))
+	const ops = names
+		.map((n) => pathIn(have, n))
+		.filter((p): p is string => p !== undefined)
+		.map((p) => ({ op: "deleteItem", name: p, ifVersion: have[p]! }))
 	if (ops.length > 0) await pushOps(ops)
 }
 
@@ -95,8 +98,8 @@ describe(`graphical / a call box of a POU this session created (${BASE})`, () =>
 			await remove(names)
 			try {
 				const r = await pushOps([
-					{ op: "set", name: c.callee.name, toFolder: "", sourceText: c.callee.source, ifVersion: null },
-					{ op: "set", name: c.caller.name, toFolder: "", sourceText: c.caller.source, ifVersion: null },
+					{ op: "set", name: await at(c.callee.name, await projectRoot()), sourceText: c.callee.source, ifVersion: null },
+					{ op: "set", name: await at(c.caller.name, await projectRoot()), sourceText: c.caller.source, ifVersion: null },
 				])
 				if (!refuses) {
 					expect(landedInFull(r), `${c.what} was refused on ${VENDOR}: ${JSON.stringify(r.conflicts)}`).toBe(true)
@@ -109,7 +112,7 @@ describe(`graphical / a call box of a POU this session created (${BASE})`, () =>
 						// The refusal is the CALLER's, raised at apply (it needs the live 604 seed, so no pre-flight sees it):
 						// the callee before it lands and the push answers `accepted: true` with a conflict for the caller
 						// (openspec push-keeps-what-landed). `accepted` alone would read that as "the lag is gone".
-						const refusal = (r.conflicts ?? []).find((x: any) => x.name === c.caller.name)
+						const refusal = (r.conflicts ?? []).find((x: any) => fileOf(x.name) === c.caller.name)
 						expect(refusal, `${c.what} was ACCEPTED on TwinCAT — the lag is gone, take it off the list (and the fixtures' vendorRefuses.twincat)`).toBeDefined()
 						expect(refusal.reason).toContain("the IDE builds that box with no ENO output")
 					},

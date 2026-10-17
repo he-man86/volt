@@ -11,7 +11,7 @@
  * same project". A test that passed on one bridge and not the other would be the finding.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, existingOrAtRoot, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -23,9 +23,10 @@ setDefaultTimeout(30000)
 /** Push a body, pull it back, and return what the IDE actually holds. */
 async function roundTrip(fullName: string, src: string): Promise<string> {
 	const refs = await bridge.refs()
+	const fullNameAt = await existingOrAtRoot(refs.items, fullName)
 	const r = await bridge.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "set", name: fullName, toFolder: refs.items[fullName] ? null : "", sourceText: src, ifVersion: refs.items[fullName] ?? null }],
+		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
 	expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return (await fetchItem(fullName)).sourceText
@@ -64,9 +65,10 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		// So the invariant worth pinning is not "it works", it is that NEITHER vendor silently reshapes it:
 		// either the body round-trips exactly, or the push is refused and says why.
 		const refs = await bridge.refs()
+		const fullAt = await existingOrAtRoot(refs.items, full)
 		const r = await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "set", name: full, toFolder: refs.items[full] ? null : "", sourceText: src, ifVersion: refs.items[full] ?? null }],
+			ops: [{ op: "set", name: fullAt, sourceText: src, ifVersion: refs.items[fullAt] ?? null }],
 		})
 
 		if (!r.accepted) {
@@ -114,7 +116,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_FUNCTION_BLOCK\n`
 
-		await createItem(fid("pf_fnbuild"), src, "")
+		await createItem(fid("pf_fnbuild"), src, await projectRoot())
 		expect((await fetchItem(fid("pf_fnbuild"))).sourceText).toBe(src)
 		await ensureCompiles(name)
 	})
@@ -315,7 +317,7 @@ END_NETWORK
 			`END_FUNCTION_BLOCK
 `
 
-		await createItem(fid("pf_fbtype"), src, "")
+		await createItem(fid("pf_fbtype"), src, await projectRoot())
 		await ensureCompiles(name)
 	})
 })

@@ -22,10 +22,10 @@
 import { callOn } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
+import { fileOf, inFolder } from "../lib/main-program"
 
-/** The UNREADABLE row's in-session state per vendor (its setup): the POU's version and the normalized answer to a
- *  create over it — compared across vendors by the parity half (8.4: in the load that wrote it, identical). */
-export const IN_SESSION = new Map<string, { version: string; answer: unknown }>()
+/** The UNREADABLE row's in-session state per vendor (its setup): the normalized answer to a create over it — compared across vendors by the parity half (8.4: in the load that wrote it, identical). */
+export const IN_SESSION = new Map<string, { answer: unknown }>()
 
 export const DEFERRED_LD_FBD = "deferred: LD/FBD design"
 
@@ -43,6 +43,13 @@ export type Bridge = {
 	vendor: "codesys" | "twincat"
 	/** The served project's name, as `health` reports it — the one string WRONG_PROJECT and the masks need. */
 	project: string
+	/** Where a row creates its items: the project's own root — CODESYS's tree root (`""`), TwinCAT's one PLC project
+	 *  (its tree root holds system projects). The one path prefix the vendors' answers differ by, masked as `<root>/`. */
+	root: string
+	/** The path of a row item `<bare>.pou` in {@link root}. */
+	at: (bare: string) => string
+	/** The path of the file `<name>.<kind>` in {@link root}. */
+	path: (file: string) => string
 	call: (op: string, body?: unknown) => Promise<any>
 }
 
@@ -69,15 +76,16 @@ export async function pushFresh(b: Bridge, ops: unknown[], extra: Record<string,
 }
 
 export async function createFb(b: Bridge, bare: string, text = fb(bare)): Promise<void> {
-	const r = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: text, ifVersion: null }])
+	const r = await pushFresh(b, [{ op: "set", name: b.at(bare), sourceText: text, ifVersion: null }])
 	if (r.kind !== "push" || r.response.accepted !== true || (r.response.conflicts ?? []).length)
 		throw new Error(`${b.vendor}: setup create of '${bare}.pou' refused: ${JSON.stringify(r)}`)
 }
 
-/** Delete every `VltE2E_ref_*` item, readable or not (an unreadable one is named BARE and needs its kind back). */
+/** Delete every `VltE2E_ref_*` item, readable or not (an unreadable one is named `<folder>/<bare name>` and needs its
+ *  kind back). */
 export async function sweep(b: Bridge): Promise<void> {
 	const refs = await refsOf(b)
-	const mine = (n: string) => n.startsWith(REF_PREFIX)
+	const mine = (n: string) => fileOf(n).startsWith(REF_PREFIX)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
 		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: `${n}.pou`, ifVersion: null })),
@@ -133,7 +141,8 @@ export function conflictOf(a: Answer, name: string): any {
  */
 export function normalize(a: Answer, b: Bridge): unknown {
 	const text = (s: string) => {
-		let t = s.split(b.project).join("<project>").replace(new RegExp(`\\b${b.vendor}\\b`, "gi"), "<vendor>")
+		let t = b.root === "" ? s : s.split(`${b.root}/`).join("<root>/")
+		t = t.split(b.project).join("<project>").replace(new RegExp(`\\b${b.vendor}\\b`, "gi"), "<vendor>")
 		for (const [said, as] of IDE_WORDS) t = t.replace(said, as)
 		return t
 	}
@@ -146,9 +155,9 @@ export function normalize(a: Answer, b: Bridge): unknown {
 			for (const k of Object.keys(v).sort()) {
 				// The receipt maps every item of the project to its version: the item set is the project's, not the
 				// answer's. What the answer says about OUR items is kept, the rest of the project is not compared.
-				if (k === "newItems" || k === "newFolders" || k === "newSources") {
-					const mine = Object.keys(v[k] ?? {}).filter((n) => n.startsWith(REF_PREFIX)).sort()
-					out[k] = Object.fromEntries(mine.map((n) => [n, k === "newFolders" ? v[k][n] : "<v>"]))
+				if (k === "newItems" || k === "newSources") {
+					const mine = Object.keys(v[k] ?? {}).filter((n) => fileOf(n).startsWith(REF_PREFIX)).sort()
+					out[k] = Object.fromEntries(mine.map((n) => [text(n), "<v>"]))
 					continue
 				}
 				out[k] = walk(v[k], k)
@@ -247,9 +256,9 @@ export const ROWS: Row[] = [
 		trigger: "a create of an FB whose METHOD is named `Log` (a name both IDEs refuse — measured, pre-flight)",
 		after: "unchanged",
 		run: async (b, n) => {
-			const name = `${n("unsup")}.pou`
+			const name = b.at(n("unsup"))
 			const a = await pushFresh(b, [
-				{ op: "set", name, toFolder: "", sourceText: fb(n("unsup"), { children: METHOD_NAMED("Log") }), ifVersion: null },
+				{ op: "set", name, sourceText: fb(n("unsup"), { children: METHOD_NAMED("Log") }), ifVersion: null },
 			])
 			return { answer: a, names: [n("unsup"), "Log"], item: name }
 		},
@@ -274,9 +283,9 @@ export const ROWS: Row[] = [
 		trigger: "a create of an FB declaring two METHODs of one name",
 		after: "unchanged",
 		run: async (b, n) => {
-			const name = `${n("dup")}.pou`
+			const name = b.at(n("dup"))
 			const a = await pushFresh(b, [
-				{ op: "set", name, toFolder: "", sourceText: fb(n("dup"), { children: METHOD_NAMED("Twice") + METHOD_NAMED("Twice") }), ifVersion: null },
+				{ op: "set", name, sourceText: fb(n("dup"), { children: METHOD_NAMED("Twice") + METHOD_NAMED("Twice") }), ifVersion: null },
 			])
 			return { answer: a, names: [n("dup"), "Twice"], item: name }
 		},
@@ -287,8 +296,8 @@ export const ROWS: Row[] = [
 		trigger: "a create whose text is not a POU at all",
 		after: "unchanged",
 		run: async (b, n) => {
-			const name = `${n("inv")}.pou`
-			const a = await pushFresh(b, [{ op: "set", name, toFolder: "", sourceText: "not a POU at all", ifVersion: null }])
+			const name = b.at(n("inv"))
+			const a = await pushFresh(b, [{ op: "set", name, sourceText: "not a POU at all", ifVersion: null }])
 			return { answer: a, names: [n("inv")], item: name }
 		},
 	},
@@ -315,11 +324,12 @@ export const ROWS: Row[] = [
 			await createFb(b, bare, text)
 			// In the load that wrote it: read like any POU, and a create over it collides — the same on both vendors.
 			const refs = await refsOf(b)
-			if (!refs.items?.[`${bare}.pou`] || (refs.unreadable ?? []).includes(bare))
-				throw new Error(`${b.vendor}: '${bare}.pou' is not read in the load that wrote it: ${JSON.stringify(refs.unreadable)}`)
-			const over = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: fb(bare), ifVersion: null }])
-			IN_SESSION.set(b.vendor, { version: refs.items[`${bare}.pou`], answer: normalize(over, b) })
-			if (conflictOf(over, `${bare}.pou`)?.code !== "ITEM_EXISTS")
+			if (!refs.items?.[b.at(bare)] || (refs.unreadable ?? []).includes(inFolder(b.root, bare)))
+				throw new Error(`${b.vendor}: '${b.at(bare)}' is not read in the load that wrote it: ${JSON.stringify(refs.unreadable)}`)
+			const over = await pushFresh(b, [{ op: "set", name: b.at(bare), sourceText: fb(bare), ifVersion: null }])
+			// The version is hashed over the item's path, which carries each vendor's spine: only the answer is compared.
+			IN_SESSION.set(b.vendor, { answer: normalize(over, b) })
+			if (conflictOf(over, b.at(bare))?.code !== "ITEM_EXISTS")
 				throw new Error(`${b.vendor}: a create over '${bare}.pou' in the load that wrote it: ${JSON.stringify(over).slice(0, 400)}`)
 			if (b.vendor === "twincat") {
 				reopenTwinCatSolution(b.pipe, process.env.VOLT_E2E_INSTANCE ?? "")
@@ -327,8 +337,8 @@ export const ROWS: Row[] = [
 			}
 		},
 		run: async (b, n) => {
-			const name = `${n("unread")}.pou`
-			const a = await pushFresh(b, [{ op: "set", name, toFolder: "", sourceText: fb(n("unread")), ifVersion: null }])
+			const name = b.at(n("unread"))
+			const a = await pushFresh(b, [{ op: "set", name, sourceText: fb(n("unread")), ifVersion: null }])
 			return { answer: a, names: [], item: name }
 		},
 	},
@@ -340,10 +350,10 @@ export const ROWS: Row[] = [
 		trigger: "a push carrying a project lease that is not the current one",
 		after: "unchanged",
 		run: async (b, n) => {
-			const name = `${n("stalep")}.pou`
+			const name = b.at(n("stalep"))
 			const a = await answer(b, "push", {
 				expectedProjectVersion: "deadbeef",
-				ops: [{ op: "set", name, toFolder: "", sourceText: fb(n("stalep")), ifVersion: null }],
+				ops: [{ op: "set", name, sourceText: fb(n("stalep")), ifVersion: null }],
 			})
 			return { answer: a, names: [], item: "<project>" }
 		},
@@ -355,7 +365,7 @@ export const ROWS: Row[] = [
 		after: "unchanged",
 		setup: async (b, n) => createFb(b, n("stalei")),
 		run: async (b, n) => {
-			const name = `${n("stalei")}.pou`
+			const name = b.at(n("stalei"))
 			const a = await pushFresh(b, [
 				{ op: "set", name, sourceText: fb(n("stalei"), { body: "x := 5;" }), ifVersion: "0123456789abcdef" },
 			])
@@ -369,8 +379,8 @@ export const ROWS: Row[] = [
 		after: "unchanged",
 		setup: async (b, n) => createFb(b, n("exists")),
 		run: async (b, n) => {
-			const name = `${n("exists")}.pou`
-			const a = await pushFresh(b, [{ op: "set", name, toFolder: "", sourceText: fb(n("exists")), ifVersion: null }])
+			const name = b.at(n("exists"))
+			const a = await pushFresh(b, [{ op: "set", name, sourceText: fb(n("exists")), ifVersion: null }])
 			return { answer: a, names: [], item: name }
 		},
 	},
@@ -380,7 +390,7 @@ export const ROWS: Row[] = [
 		trigger: "an update of a name the IDE does not hold (complete walk)",
 		after: "unchanged",
 		run: async (b, n) => {
-			const name = `${n("missing")}.pou`
+			const name = b.at(n("missing"))
 			const a = await pushFresh(b, [{ op: "set", name, sourceText: fb(n("missing")), ifVersion: "0123456789abcdef" }])
 			return { answer: a, names: [], item: name }
 		},
@@ -400,11 +410,11 @@ export const ROWS: Row[] = [
 		trigger: "[create A, create an FB whose METHOD the IDE refuses at apply (`Vlt__Log`), create C] — C is never tried",
 		after: "receipt",
 		run: async (b, n) => {
-			const first = `${n("na_a")}.pou`, refused = `${n("na_b")}.pou`, never = `${n("na_c")}.pou`
+			const first = b.at(n("na_a")), refused = b.at(n("na_b")), never = b.at(n("na_c"))
 			const a = await pushFresh(b, [
-				{ op: "set", name: first, toFolder: "", sourceText: fb(n("na_a")), ifVersion: null },
-				{ op: "set", name: refused, toFolder: "", sourceText: fb(n("na_b"), { children: METHOD_NAMED(REFUSED_AT_APPLY) }), ifVersion: null },
-				{ op: "set", name: never, toFolder: "", sourceText: fb(n("na_c")), ifVersion: null },
+				{ op: "set", name: first, sourceText: fb(n("na_a")), ifVersion: null },
+				{ op: "set", name: refused, sourceText: fb(n("na_b"), { children: METHOD_NAMED(REFUSED_AT_APPLY) }), ifVersion: null },
+				{ op: "set", name: never, sourceText: fb(n("na_c")), ifVersion: null },
 			])
 			return { answer: a, names: [], item: never, landed: [first], absent: [never] }
 		},
@@ -427,7 +437,17 @@ export async function bindBridge(pipe: string, vendor: "codesys" | "twincat"): P
 	while (Date.now() - t0 < 90_000) {
 		const h = await call("health").catch(() => ({ projects: [] }))
 		const served = (h.projects ?? []).find((p: any) => p.status && p.status !== "idle")
-		if (served) return { pipe, vendor, project: served.project, call }
+		if (served) {
+			const apps: string[] = (await call("refs")).applications ?? []
+			if (vendor === "twincat" && apps.length !== 1)
+				throw new Error(`${vendor}: the matrix serves one PLC project, ${pipe} states ${apps.length} (${apps.join(", ")})`)
+			const root = vendor === "codesys" ? "" : apps[0]!
+			return {
+				pipe, vendor, project: served.project, call, root,
+				at: (bare: string) => inFolder(root, `${bare}.pou`),
+				path: (file: string) => inFolder(root, file),
+			}
+		}
 		const first = (h.projects ?? [])[0]
 		if (first) await call("connect", { project: first.project }).catch(() => {})
 		await new Promise((r) => setTimeout(r, 1500))

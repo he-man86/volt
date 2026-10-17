@@ -44,13 +44,15 @@ public class MoveIntoNonFolderTests
         return ide;
     }
 
-    /// <summary>Move <paramref name="name"/> to <paramref name="toFolder"/>, and each of <paramref name="more"/> (name, folder)
-    /// too, in ONE push — each op quoting the version refs gave it.</summary>
+    private const string Gvl = GvlFolder + "/PersistentVars.gvl";
+
+    /// <summary>Move the item at path <paramref name="name"/> into <paramref name="toFolder"/>, and each of
+    /// <paramref name="more"/> (path, folder) too, in ONE push — each op quoting the version refs gave it.</summary>
     private static PushResponse Move(FakeIde ide, string name, string toFolder, params (string Name, string To)[] more)
     {
         var refs = RefsService.Handle(ide);
         var ops = new[] { (name, toFolder) }.Concat(more)
-            .Select(m => (PushOp)new SetItemOp { Name = m.Item1, ToFolder = m.Item2, IfVersion = refs.Items[m.Item1] })
+            .Select(m => (PushOp)new SetItemOp { Name = m.Item1, To = ItemPath.Of(m.Item2, ItemPath.FileOf(m.Item1)), IfVersion = refs.Items[m.Item1] })
             .ToList();
         return PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = ops });
     }
@@ -68,12 +70,12 @@ public class MoveIntoNonFolderTests
         var before = RefsService.Handle(ide).ProjectVersion;
 
         // A second op that is fine on its own: the batch is all-or-nothing, so it does not land either.
-        var res = Move(ide, "PersistentVars.gvl", toFolder,
-                       ("FB_Proc.pou", Application));
+        var res = Move(ide, Gvl, toFolder,
+                       (Application + "/02 Processes/FB_Proc.pou", Application));
 
         Assert.False(res.Accepted);
         var refused = Assert.Single(res.Conflicts!);
-        Assert.Equal("PersistentVars.gvl", refused.Name);
+        Assert.Equal(Gvl, refused.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains($"'PersistentVars' cannot move into '{toFolder}'", refused.Reason);
         Assert.Contains($"'{node}' is a", refused.Reason);
@@ -86,15 +88,16 @@ public class MoveIntoNonFolderTests
     [InlineData(Application)]                     // an Application holds items (measured: Pro2193, Bakon, AWA, the fixture)
     [InlineData(Application + "/02 Processes")]   // a folder
     [InlineData(Application + "/Brand New")]      // a folder created under the Application
-    [InlineData("")]                              // the tree root, the POU pool (measured: Pro2193, AWA, Lenze)
+    // NOT the tree root (the POU pool, a holder — measured: Pro2193, AWA, Lenze): it is no application of this item's, so a
+    // move there is a delete and a create (openspec multi-application-tree, design §5; MultiApplicationTreeTests).
     public void A_move_into_a_holder_lands(string toFolder)
     {
         var ide = CodesysLike();
 
-        var res = Move(ide, "PersistentVars.gvl", toFolder);
+        var res = Move(ide, Gvl, toFolder);
 
         Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => c.Reason)));
-        Assert.Equal(toFolder, RefsService.Handle(ide).Folders["PersistentVars.gvl"]);
+        Assert.Contains(ItemPath.Of(toFolder, "PersistentVars.gvl"), RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>The post-condition: an IDE that accepts the move and leaves the object is refused, naming where it stayed.</summary>
@@ -103,7 +106,7 @@ public class MoveIntoNonFolderTests
     {
         var ide = CodesysLike(ignoreMoves: true);
 
-        var res = Move(ide, "PersistentVars.gvl", Application + "/02 Processes");
+        var res = Move(ide, Gvl, Application + "/02 Processes");
 
         Assert.False(res.Accepted);
         var refused = Assert.Single(res.Conflicts!);
@@ -111,7 +114,7 @@ public class MoveIntoNonFolderTests
         Assert.Contains("did not apply the move", refused.Reason);
         Assert.Contains($"'{GvlFolder}'", refused.Reason);
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:PersistentVars"));
-        Assert.Equal(GvlFolder, RefsService.Handle(ide).Folders["PersistentVars.gvl"]);
+        Assert.Contains(Gvl, RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>TwinCAT's measured non-holder: <c>References</c> (the library manager, 617). Its vendor refusal is the one
@@ -126,7 +129,7 @@ public class MoveIntoNonFolderTests
         ide.ContainerKinds["References"] = ItemKind.PlcLibMan;
         var before = RefsService.Handle(ide).ProjectVersion;
 
-        var res = Move(ide, "GVL_PackML.gvl", "References");
+        var res = Move(ide, "GVLs/GVL_PackML.gvl", "References");
 
         Assert.False(res.Accepted);
         var refused = Assert.Single(res.Conflicts!);
@@ -151,14 +154,14 @@ public class MoveIntoNonFolderTests
                 "visualization: CM_Carrier", null, null, null))
         { IgnoreMoves = true };
 
-        var res = Move(ide, "CM_Carrier.pou", "B");
+        var res = Move(ide, "A/CM_Carrier.pou", "B");
 
         Assert.False(res.Accepted, "the visualization in 'B' answered for the FB that never left 'A'");
         var refused = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains("did not apply the move", refused.Reason);
         Assert.Contains("still in 'A'", refused.Reason);
-        Assert.Equal("A", RefsService.Handle(ide).Folders["CM_Carrier.pou"]);
+        Assert.Contains("A/CM_Carrier.pou", RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>The post-condition's other branch: an IDE that accepted the move and then holds the item NOWHERE is
@@ -169,7 +172,7 @@ public class MoveIntoNonFolderTests
         var ide = CodesysLike();
         ide.DropsOnMove = true;
 
-        var res = Move(ide, "PersistentVars.gvl", Application + "/02 Processes");
+        var res = Move(ide, Gvl, Application + "/02 Processes");
 
         Assert.False(res.Accepted);
         var refused = Assert.Single(res.Conflicts!);

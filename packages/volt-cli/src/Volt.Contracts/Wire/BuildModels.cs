@@ -44,15 +44,16 @@ public static class Severity
 
 public class BridgeDiagnostic
 {
-    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.pou`) — null when the vendor
-    /// did not say which, or when it said something this bridge could not resolve to exactly one item.
+    /// <summary>The PATH of the item this diagnostic is about (`Device/Plc Logic/Application/FB_Motor.pou`) — null when
+    /// the vendor did not say which, or when it said something this bridge could not resolve to exactly one item. A path,
+    /// so the same message in two applications is two diagnostics, each on its own application's item.
     ///
     /// <para>Without it a diagnostic carries a <see cref="Line"/> anchored to nothing: a client has a line
     /// number and no file to put it in, so `volt build` can only print prose and an editor cannot place a
     /// squiggle. BOTH vendors identified the item and both threw it away — CODESYS on `IMessage.ObjectGuid`,
     /// TwinCAT in the `file(line,col)` its own regex already captured.</para>
     ///
-    /// <para>FULL or null, never bare: the wire's names are full names (`Versioning.VersionedItem.Identity`),
+    /// <para>A path or null, never a bare name: the wire's identities are paths (`Versioning.VersionedItem.Identity`),
     /// and a field that is sometimes one spelling and sometimes the other is worse than an absent one. A bare
     /// name that matches two items across kinds — `CM_Carrier.pou` and `CM_Carrier.visualization` both exist in
     /// real projects — resolves to null rather than to a guess.</para></summary>

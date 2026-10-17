@@ -37,7 +37,7 @@ export function registerStructureHandlers(s: ServerState): void {
   })
   s.onRequest(SemanticTokensRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => {
-      const data = semanticTokensData(d, s.project())
+      const data = semanticTokensData(d, s.project(d.uri))
       const resultId = String(++s.semTokSeq)
       s.semTok.set(p.textDocument.uri, { resultId, data })
       return { resultId, data }
@@ -48,14 +48,14 @@ export function registerStructureHandlers(s: ServerState): void {
     if (d === undefined) return null
     return semanticTokensRange(
       d,
-      s.project(),
+      s.project(d.uri),
       clampedOffset(d.source, p.range.start),
       clampedOffset(d.source, p.range.end),
     )
   })
   s.onRequest(SemanticTokensDeltaRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => {
-      const data = semanticTokensData(d, s.project())
+      const data = semanticTokensData(d, s.project(d.uri))
       const resultId = String(++s.semTokSeq)
       const prev = s.semTok.get(p.textDocument.uri)
       s.semTok.set(p.textDocument.uri, { resultId, data })

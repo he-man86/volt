@@ -22,9 +22,10 @@ public sealed partial class CodesysDriver
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();
+        var applications = new List<string>();
         var root = _om.PrimaryProject;
-        if (root != null) Walk(root, "", items, unwalked, unreadable);
-        return new WalkResult(items, unwalked, unreadable);
+        if (root != null) Walk(root, "", items, unwalked, unreadable, applications);
+        return new WalkResult(items, unwalked, unreadable, applications);
     }
 
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
@@ -33,7 +34,7 @@ public sealed partial class CodesysDriver
     // hardware devices as siblings under Device. Nothing is flattened; the only per-kind logic is WHAT each leaf
     // emits (source text vs a device descriptor vs a library reference).
     private void Walk(object node, string folderPath, List<ProjectItem> items, List<string> unwalked,
-                      List<UnreadableObject> unreadable)
+                      List<UnreadableObject> unreadable, List<string> applications)
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
@@ -82,7 +83,7 @@ public sealed partial class CodesysDriver
                 var hasChildren = HasChildren(child);
                 items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice,
                     hasChildren ? deviceFolder : folderPath));
-                if (hasChildren) Walk(child, deviceFolder, items, unwalked, unreadable);
+                if (hasChildren) Walk(child, deviceFolder, items, unwalked, unreadable, applications);
                 continue;
             }
             // Any other container — a user folder or a structural node (PLC Logic, Application, Task Configuration,
@@ -102,6 +103,9 @@ public sealed partial class CodesysDriver
                     continue;
                 }
                 var sub = FolderPath.Append(folderPath, name);
+                // EVERY APPLICATION IS STATED, by its root (openspec multi-application-tree, design §3): an item belongs to
+                // the one whose root is the longest prefix of its path, and no layer above reads `Plc Logic` to find one.
+                if (code == ItemKind.Application) applications.Add(sub);
                 if (held is { } refusal)
                 {
                     BridgeLog.Warn($"pull: {refusal.Reason}");
@@ -116,7 +120,7 @@ public sealed partial class CodesysDriver
                         // one is refused by name, and the walk stays complete, so the push pre-flight still decides
                         // every create (`WillCreate`). Walked as any folder, then reported instead of published.
                         var held2 = new List<ProjectItem>();
-                        Walk(child, sub, held2, unwalked, unreadable);
+                        Walk(child, sub, held2, unwalked, unreadable, applications);
                         foreach (var it in held2)
                             if (ItemKind.Map(it.KindCode) is { } kind)
                                 unreadable.Add(new UnreadableObject(it.Name, it.Folder,
@@ -125,7 +129,7 @@ public sealed partial class CodesysDriver
                         continue;
                     }
                 }
-                Walk(child, sub, items, unwalked, unreadable);
+                Walk(child, sub, items, unwalked, unreadable, applications);
                 continue;
             }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
@@ -175,7 +179,7 @@ public sealed partial class CodesysDriver
                 }
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
-                    Walk(child, managerFolder, items, unwalked, unreadable);
+                    Walk(child, managerFolder, items, unwalked, unreadable, applications);
                 continue;
             }
 

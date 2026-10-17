@@ -33,7 +33,6 @@ public sealed class BridgeSnapshot
     /// removal rule is the engine's, one for status and pull, and absence from <see cref="Items"/> is not
     /// evidence the client weighs itself.</summary>
     public List<string> Removed { get; set; } = new();
-    public Dictionary<string, string> Folders { get; set; } = new();
     public string ProjectVersion { get; set; } = "";
 }
 
@@ -78,11 +77,12 @@ public static class StatusModel
         var outgoing = ChangeSet.Empty();
         if (IdeTree.VoltIdeHead(gitDir) is not null)
         {
+            // An item's name IS its path (openspec multi-application-tree), so each maps to itself: `pathByName` stays for
+            // the clients that look an item's file up through it.
             void Place(string path, List<string> bucket)
             {
-                var name = Extensions.FullNameFromPath(path) ?? path;
-                pathByName[name] = path;
-                bucket.Add(name);
+                pathByName[path] = path;
+                bucket.Add(path);
             }
             foreach (var row in Git.DiffWorktree(root, IdeTree.Range, "src"))
             {
@@ -93,11 +93,7 @@ public static class StatusModel
             }
         }
         foreach (var name in incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed))
-            if (!pathByName.ContainsKey(name))
-            {
-                var folder = snap.Folders.TryGetValue(name, out var fo) ? fo : "";
-                pathByName[name] = folder.Length > 0 ? $"{folder}/{name}" : name;
-            }
+            pathByName.TryAdd(name, name);
 
         Merging? merging = Git.IsMerging(root)
             ? new Merging

@@ -9,7 +9,7 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Sync;
 
 /// <summary><c>refs</c>: the project snapshot — the aggregate <c>projectVersion</c> plus the per-item version
-/// map and the folder map, for every tracked item.
+/// map (keyed by each item's path) and the applications, for every tracked item.
 /// It comes from the ONE walk (<c>ProjectSnapshot</c>) the <c>push</c> receipt also uses, so the two can
 /// never drift. No source bodies — that is <c>fetch</c>.</summary>
 public static class RefsService
@@ -34,7 +34,7 @@ public static class RefsService
             ProjectVersion = snap.ProjectVersion,
             UnwalkedFolders = snap.UnwalkedFolders,
             Items = snap.FullVersions,
-            Folders = snap.Folders,
+            Applications = snap.Applications,
             // The items the walk found and could not materialize. They are tracked in the version hash above but
             // deliberately absent from `Items` — naming them here is the only way a client can tell the
             // difference between "this project has no such POU" and "Volt could not read it".
@@ -42,7 +42,7 @@ public static class RefsService
             // What of the client's baseline is gone — by the rule `fetch` uses (`Removal`), so `volt status` and
             // `volt pull` read one answer. A refs sent no baseline (discovery, an older client) reports none.
             Removed = req?.KnownItems is { } known
-                ? Removal.Removed(known.Keys, req.KnownFolders, snap.FullVersions.Keys, snap.UnreadableKinds, snap.UnwalkedFolders)
+                ? Removal.Removed(known.Keys, snap.FullVersions.Keys, snap.UnreadableKinds, snap.UnwalkedFolders, snap.Applications, req.KnownApplications)
                 : new List<string>(),
             // THE PROJECT THIS WALK IS OF, atomic with the walk, as `fetch` echoes it: a caller that asked WITHOUT a
             // binding (discovery, the e2e harness) learns what the version map is a map OF.

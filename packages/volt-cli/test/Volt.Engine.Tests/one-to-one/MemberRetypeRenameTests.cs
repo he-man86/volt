@@ -41,11 +41,11 @@ public class MemberRetypeRenameTests
     public void A_member_re_type_is_refused_by_name()
     {
         var ide = Owner(new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : BOOL", null, null, null));
-        var text = Pulled(ide, "FB_Owner.pou");
+        var text = Pulled(ide, "FBs/FB_Owner.pou");
         var retyped = text.Substring(0, text.IndexOf("PROPERTY Ready", StringComparison.Ordinal))
                       + "METHOD Ready : BOOL\nIMPLEMENTATION ST\nReady := TRUE;\nEND_METHOD\n";
 
-        var resp = Update(ide, "FB_Owner.pou", retyped);
+        var resp = Update(ide, "FBs/FB_Owner.pou", retyped);
 
         RefusedNaming(resp, "Ready");
         Assert.False(Replaced(ide), string.Join(", ", ide.Recorded));
@@ -61,9 +61,9 @@ public class MemberRetypeRenameTests
         var ide = Owner(new FakeIde.Item("TakePicture", ItemKind.PlcMethod, "", false,
                                          "METHOD ABSTRACT TakePicture : BOOL\nVAR_INPUT\nEND_VAR", "", null, null,
                                          Class: "AbstractPOUMethodObject") { Properties = props });
-        var text = Pulled(ide, "FB_Owner.pou");
+        var text = Pulled(ide, "FBs/FB_Owner.pou");
 
-        var resp = Update(ide, "FB_Owner.pou", text.Replace("TakePicture", "TakePhoto"));
+        var resp = Update(ide, "FBs/FB_Owner.pou", text.Replace("TakePicture", "TakePhoto"));
 
         Assert.False(Replaced(ide), string.Join(", ", ide.Recorded));
         if (!resp.Accepted) { RefusedNaming(resp, "TakePicture"); return; }
@@ -80,9 +80,9 @@ public class MemberRetypeRenameTests
         var props = Props(exclude: true);
         var ide = Owner(new FakeIde.Item("Calc", ItemKind.PlcMethod, "", false,
                                          "METHOD Calc : INT", "Calc := 1;", null, null) { Properties = props });
-        var text = Pulled(ide, "FB_Owner.pou");
+        var text = Pulled(ide, "FBs/FB_Owner.pou");
 
-        var resp = Update(ide, "FB_Owner.pou", text.Replace("Calc", "Compute"));
+        var resp = Update(ide, "FBs/FB_Owner.pou", text.Replace("Calc", "Compute"));
 
         Assert.False(Replaced(ide), string.Join(", ", ide.Recorded));
         if (!resp.Accepted) { RefusedNaming(resp, "Calc"); return; }
@@ -99,12 +99,12 @@ public class MemberRetypeRenameTests
     {
         var ide = Owner(new FakeIde.Item("Pick", ItemKind.PlcMethod, "", false, "METHOD ABSTRACT Pick : BOOL", null, null, null,
                                          Class: "AbstractPOUMethodObject") { NoSlot = true });
-        var text = Pulled(ide, "FB_Owner.pou");
+        var text = Pulled(ide, "FBs/FB_Owner.pou");
         var at = text.IndexOf("METHOD ABSTRACT Pick", StringComparison.Ordinal);
         var end = text.IndexOf("END_METHOD", at, StringComparison.Ordinal) + "END_METHOD".Length;
         var pushed = text.Substring(0, at) + "METHOD Choose : BOOL" + NL + "IMPLEMENTATION ST" + NL + "Choose := TRUE;" + NL + "END_METHOD" + text.Substring(end);
 
-        var resp = Update(ide, "FB_Owner.pou", pushed);
+        var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
 
         AcceptedOk(resp);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", StringComparison.Ordinal));
@@ -120,12 +120,12 @@ public class MemberRetypeRenameTests
     public void A_method_with_code_renamed_into_an_abstract_one_is_created_abstract()
     {
         var ide = Owner(new FakeIde.Item("Calc", ItemKind.PlcMethod, "", false, "METHOD Calc : BOOL", "Calc := TRUE;", null, null));
-        var text = Pulled(ide, "FB_Owner.pou");
+        var text = Pulled(ide, "FBs/FB_Owner.pou");
         var at = text.IndexOf("METHOD Calc", StringComparison.Ordinal);
         var end = text.IndexOf("END_METHOD", at, StringComparison.Ordinal) + "END_METHOD".Length;
         var pushed = text.Substring(0, at) + "METHOD ABSTRACT Compute : BOOL" + NL + "IMPLEMENTATION NONE" + NL + "END_METHOD" + text.Substring(end);
 
-        var resp = Update(ide, "FB_Owner.pou", pushed);
+        var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
 
         AcceptedOk(resp);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", StringComparison.Ordinal));
@@ -145,13 +145,13 @@ public class MemberRetypeRenameTests
                              Children: new[] { "Busy" }),
             new FakeIde.Item("Busy", ItemKind.PlcProp, "", false, "PROPERTY ABSTRACT Busy : BOOL", null, null, null, new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "VAR" + NL + "END_VAR", null, null, null) { NoSlot = true });
-        var text = Pulled(ide, "FB_Owner.pou").Replace("\r\n", NL);
+        var text = Pulled(ide, "FBs/FB_Owner.pou").Replace("\r\n", NL);
         var at = text.IndexOf("PROPERTY ABSTRACT Busy", StringComparison.Ordinal);
         var end = text.IndexOf("END_PROPERTY", at, StringComparison.Ordinal) + "END_PROPERTY".Length;
         var pushed = text.Substring(0, at) + "PROPERTY Ready : BOOL" + NL + "GET" + NL + "VAR" + NL + "END_VAR" + NL
                      + "IMPLEMENTATION ST" + NL + "Ready := TRUE;" + NL + "END_GET" + NL + "END_PROPERTY" + text.Substring(end);
 
-        var resp = Update(ide, "FB_Owner.pou", pushed);
+        var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
 
         AcceptedOk(resp);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", StringComparison.Ordinal));

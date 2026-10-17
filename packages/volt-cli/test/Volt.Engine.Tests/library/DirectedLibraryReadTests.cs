@@ -28,12 +28,13 @@ public class DirectedLibraryReadTests
 {
     private const string LibMan = "Device/Plc Logic/Application/Library Manager";
 
-    private const string Standard = "Standard.library";
-    private const string IoMgrItf = "CmpIoMgr Interfaces, %2A (System).library";
-    private const string VisuElemBase = "System_VisuElemBase.library";
-    private const string EventMgrFacade = "CmpEventMgr.library";
-    private const string Callback = "CAA Callback.library";
-    private const string CallbackExtern = "CAA Callback Extern.library";
+    // Each `.library` by its PATH, the wire identity: its own folder (the library's name) under the manager.
+    private const string Standard = LibMan + "/Standard/Standard.library";
+    private const string IoMgrItf = LibMan + "/CmpIoMgr Interfaces, %2A (System)/CmpIoMgr Interfaces, %2A (System).library";
+    private const string VisuElemBase = LibMan + "/System_VisuElemBase/System_VisuElemBase.library";
+    private const string EventMgrFacade = LibMan + "/CmpEventMgr/CmpEventMgr.library";
+    private const string Callback = LibMan + "/CAA Callback/CAA Callback.library";
+    private const string CallbackExtern = LibMan + "/CAA Callback Extern/CAA Callback Extern.library";
 
     private static FakeIde.Item Ref(string bareName, string title, string resolution) =>
         FakeIde.Item.Library(bareName, LibraryManifest.Build(title, title, resolution, placeholder: true, system: false), LibMan);
@@ -90,13 +91,13 @@ public class DirectedLibraryReadTests
         FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
 
     private static string FolderOf(FetchResponse res, string fullName) =>
-        res.Changed.Single(c => c.Name == fullName).Folder!;
+        res.Changed.Single(c => c.Name == fullName).Folder();
 
     /// <summary>The items a full fetch writes in one library's folder: its `.library` and every signature beside it.</summary>
     private static string[] InFolder(FetchResponse res, string folder) =>
-        res.Changed.Where(c => c.Folder == folder).Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray();
+        res.Changed.Where(c => c.Folder() == folder).Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray();
 
-    private static string Describe(FetchedItem c) => $"{c.Folder}|{c.Name}|{c.Version}|{c.SourceText}";
+    private static string Describe(FetchedItem c) => $"{c.Name}|{c.Version}|{c.SourceText}";
 
     // ── the gap ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -108,15 +109,15 @@ public class DirectedLibraryReadTests
         var res = Directed(Project(), Standard);
 
         var lib = res.Changed.Single(c => c.Name == Standard);
-        var ton = res.Changed.SingleOrDefault(c => c.Name == "TON.pou");
+        var ton = res.Changed.SingleOrDefault(c => c.File() == "TON.pou");
         Assert.True(ton is not null,
             $"a directed read of {Standard} answered [{string.Join(", ", res.Changed.Select(c => c.Name))}] — the manifest " +
             "alone, so a client cannot learn TON's pins without a full fetch");
-        Assert.Equal(lib.Folder, ton!.Folder);
+        Assert.Equal(lib.Folder(), ton!.Folder());
         foreach (var pin in new[] { "IN : BOOL", "PT : TIME", "Q : BOOL", "ET : TIME" })
             Assert.Contains(pin, ton.SourceText);
-        Assert.Contains(res.Changed, c => c.Name == "R_TRIG.pou" && c.Folder == lib.Folder);
-        Assert.All(res.Changed, c => Assert.Equal(lib.Folder, c.Folder));   // no other library's items
+        Assert.Contains(res.Changed, c => c.File() == "R_TRIG.pou" && c.Folder() == lib.Folder());
+        Assert.All(res.Changed, c => Assert.Equal(lib.Folder(), c.Folder()));   // no other library's items
     }
 
     /// <summary>The same bytes a full fetch writes: folder, name, version and text of the `.library` and of every
@@ -155,9 +156,9 @@ public class DirectedLibraryReadTests
     {
         var full = Full(Project());
 
-        var fn = full.Changed.Single(c => c.Name == "IoMgrGetConfigApplication.pou");
-        Assert.Equal(FolderOf(full, IoMgrItf), fn.Folder);
-        Assert.DoesNotContain(LibraryLayout.UnresolvedFolder, fn.Folder!);
+        var fn = full.Changed.Single(c => c.File() == "IoMgrGetConfigApplication.pou");
+        Assert.Equal(FolderOf(full, IoMgrItf), fn.Folder());
+        Assert.DoesNotContain(LibraryLayout.UnresolvedFolder, fn.Folder());
     }
 
     /// <summary>A WILDCARD ref that matches zero signatures — `System_VisuElemBase` (`VisuElemBase, * (System)`), recorded
@@ -191,9 +192,9 @@ public class DirectedLibraryReadTests
 
         var full = Full(ide);
 
-        var fn = full.Changed.Single(c => c.Name == "OtherVendorFn.pou");
-        Assert.NotEqual(FolderOf(full, IoMgrItf), fn.Folder);
-        Assert.Contains(LibraryLayout.UnresolvedFolder, fn.Folder!);
+        var fn = full.Changed.Single(c => c.File() == "OtherVendorFn.pou");
+        Assert.NotEqual(FolderOf(full, IoMgrItf), fn.Folder());
+        Assert.Contains(LibraryLayout.UnresolvedFolder, fn.Folder());
     }
 
     /// <summary>A directed read of a wildcard ref answers the folder and bytes the full fetch writes (directed == full).</summary>
@@ -205,7 +206,7 @@ public class DirectedLibraryReadTests
 
         var directed = Directed(Project(), IoMgrItf);
 
-        Assert.Contains(directed.Changed, c => c.Name == "IoMgrGetConfigApplication.pou");
+        Assert.Contains(directed.Changed, c => c.File() == "IoMgrGetConfigApplication.pou");
         Assert.Equal(InFolder(full, folder), directed.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray());
     }
 
@@ -216,7 +217,7 @@ public class DirectedLibraryReadTests
     {
         var full = Full(Project());
 
-        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.Name == "SysTypesHelper.pou").Folder!);
+        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.File() == "SysTypesHelper.pou").Folder());
     }
 
     // ── a named library that matched nothing is said, not silent ──────────────────────────────────────────
@@ -284,9 +285,9 @@ public class DirectedLibraryReadTests
     {
         var full = Full(Project(externFirst));
 
-        var cb = full.Changed.Where(c => c.Name == "CB_RegisterCallback.pou").ToList();
+        var cb = full.Changed.Where(c => c.File() == "CB_RegisterCallback.pou").ToList();
         Assert.Single(cb);
-        Assert.Equal(FolderOf(full, CallbackExtern), cb[0].Folder);
+        Assert.Equal(FolderOf(full, CallbackExtern), cb[0].Folder());
     }
 
     /// <summary>A directed read naming EITHER ref returns them in the owner's folder, with the full fetch's bytes — and no
@@ -298,7 +299,7 @@ public class DirectedLibraryReadTests
     {
         var full = Full(Project());
         var owner = FolderOf(full, CallbackExtern);
-        var expected = full.Changed.Single(c => c.Name == "CB_RegisterCallback.pou");
+        var expected = full.Changed.Single(c => c.File() == "CB_RegisterCallback.pou");
 
         string log;
         FetchResponse res;
@@ -308,10 +309,10 @@ public class DirectedLibraryReadTests
             log = capture.Read();
         }
 
-        var got = res.Changed.SingleOrDefault(c => c.Name == "CB_RegisterCallback.pou");
+        var got = res.Changed.SingleOrDefault(c => c.File() == "CB_RegisterCallback.pou");
         Assert.True(got is not null, $"a directed read of {named} did not return the CAA Callback Extern signatures");
         Assert.Equal(Describe(expected), Describe(got!));
-        Assert.Equal(owner, got!.Folder);
+        Assert.Equal(owner, got!.Folder());
         Assert.DoesNotContain(WarnLines(log), l => l.Contains(named, StringComparison.Ordinal));
     }
 
@@ -331,7 +332,7 @@ public class DirectedLibraryReadTests
 
     [Theory]
     [InlineData(IoMgrItf)]
-    [InlineData("CmpIoMgr Interfaces.library")]
+    [InlineData(LibMan + "/CmpIoMgr Interfaces/CmpIoMgr Interfaces.library")]
     public void A_directed_read_of_a_path_claimed_by_refs_with_different_resolutions_refuses_by_name(string named)
     {
         var ex = Assert.Throws<BridgeException>(() => Directed(AmbiguousProject(), named));
@@ -352,8 +353,8 @@ public class DirectedLibraryReadTests
             log = capture.Read();
         }
 
-        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.Name == "IoMgrGetConfigApplication.pou").Folder!);
-        Assert.Contains(full.Changed, c => c.Name == "TON.pou" && c.Folder == FolderOf(full, Standard));   // the rest still pulls
+        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.File() == "IoMgrGetConfigApplication.pou").Folder());
+        Assert.Contains(full.Changed, c => c.File() == "TON.pou" && c.Folder() == FolderOf(full, Standard));   // the rest still pulls
         var warns = WarnLines(log);
         Assert.True(warns.Any(l => l.Contains(IoMgrItf, StringComparison.Ordinal)
                                    && l.Contains("CmpIoMgr Interfaces.library", StringComparison.Ordinal)
@@ -394,10 +395,10 @@ public class DirectedLibraryReadTests
             log = capture.Read();
         }
 
-        var fns = full.Changed.Where(c => c.Name == "IoMgrGetConfigApplication.pou").ToList();
+        var fns = full.Changed.Where(c => c.File() == "IoMgrGetConfigApplication.pou").ToList();
         Assert.Equal(2, fns.Count);
-        Assert.All(fns, f => Assert.Contains(LibraryLayout.UnresolvedFolder, f.Folder!));
-        Assert.Contains(full.Changed, c => c.Name == "TON.pou" && c.Folder == FolderOf(full, Standard));
+        Assert.All(fns, f => Assert.Contains(LibraryLayout.UnresolvedFolder, f.Folder()));
+        Assert.Contains(full.Changed, c => c.File() == "TON.pou" && c.Folder() == FolderOf(full, Standard));
         Assert.True(WarnLines(log).Any(l => l.Contains(IoMgrItf, StringComparison.Ordinal)
                                             && l.Contains("cmpiomgr interfaces, 3.5.20.0 (system)", StringComparison.Ordinal)),
             $"no Warn names the wildcard ref and both versions; the log was:\n{log}");
@@ -414,22 +415,21 @@ public class DirectedLibraryReadTests
         FakeIde P() { var p = Project(); p.LibSignatures = p.LibSignatures.Append(Fn("IoMgrNoCompany", "cmpiomgr interfaces, 3.5.19.30", "BOOL")).ToArray(); return p; }
 
         var full = Full(P());
-        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.Name == "IoMgrNoCompany.pou").Folder!);
-        Assert.Equal(FolderOf(full, IoMgrItf), full.Changed.Single(c => c.Name == "IoMgrGetConfigApplication.pou").Folder);
+        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.File() == "IoMgrNoCompany.pou").Folder());
+        Assert.Equal(FolderOf(full, IoMgrItf), full.Changed.Single(c => c.File() == "IoMgrGetConfigApplication.pou").Folder());
 
         var directed = Directed(P(), IoMgrItf);
-        Assert.DoesNotContain(directed.Changed, c => c.Name == "IoMgrNoCompany.pou");
-        Assert.Contains(directed.Changed, c => c.Name == "IoMgrGetConfigApplication.pou");
+        Assert.DoesNotContain(directed.Changed, c => c.File() == "IoMgrNoCompany.pou");
+        Assert.Contains(directed.Changed, c => c.File() == "IoMgrGetConfigApplication.pou");
     }
 
     /// <summary>ONE full name in TWO folders with ONE RESOLUTION (Pro2193's root and Application Library Managers, tasks.md
-    /// 1.1 F5 — there with different RESOLUTIONs, 0 occurrences with one) keeps the signatures beside the stub that
-    /// SURVIVES (gate step 3, finding 1). `DedupeByFullName` keeps the LAST-walked `.library` of a name, and CODESYS walks
-    /// the root Library Manager last; an owner tie-broken by folder instead (`Device/…` &lt; `Library Manager/…`) put the
-    /// signatures in a folder whose stub was deduped away — no `IdeTree.LibraryRoots` root, so they lost the read-only
-    /// guard and the removal exemption. Same on a directed read.</summary>
+    /// 1.1 F5 — there with different RESOLUTIONs, 0 occurrences with one) keeps the signatures beside a stub the client
+    /// holds (gate step 3, finding 1): the owner is the LAST-walked `.library` of the least name — CODESYS walks the root
+    /// Library Manager last — and both stubs reach the client, each under its own path, so the signatures never sit in a
+    /// folder with no `IdeTree.LibraryRoots` root (no read-only guard, no removal exemption). Same on a directed read.</summary>
     [Fact]
-    public void Two_copies_of_one_library_name_keep_the_signatures_beside_the_surviving_stub()
+    public void Two_copies_of_one_library_name_keep_the_signatures_beside_a_stub_the_client_holds()
     {
         FakeIde P() => new(
             FakeIde.Item.Library("X", LibraryManifest.Build("X", "X", "X, 1.0 (S)", placeholder: true, system: false), LibMan),
@@ -438,11 +438,10 @@ public class DirectedLibraryReadTests
             LibSignatures = new[] { Fn("XFn", "x, 1.0 (s)", "BOOL") },
         };
 
-        foreach (var res in new[] { Full(P()), Directed(P(), "X.library") })
+        foreach (var res in new[] { Full(P()), Directed(P(), "Library Manager/X/X.library") })
         {
-            var stub = res.Changed.Single(c => c.Name == "X.library");
-            Assert.Equal("Library Manager/X", stub.Folder);
-            Assert.Equal(stub.Folder, res.Changed.Single(c => c.Name == "XFn.pou").Folder);
+            Assert.Contains("Library Manager/X", res.Changed.Where(c => c.File() == "X.library").Select(c => c.Folder()));
+            Assert.Equal("Library Manager/X", res.Changed.Single(c => c.File() == "XFn.pou").Folder());
         }
     }
 
@@ -467,7 +466,7 @@ public class DirectedLibraryReadTests
 
         Assert.Equal(1, ide.ExtractCalls);
         Assert.Equal(InFolder(full, FolderOf(full, IoMgrItf)), second.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray());
-        Assert.Contains(third.Changed, c => c.Name == "TON.pou" && c.Folder == FolderOf(full, Standard));
+        Assert.Contains(third.Changed, c => c.File() == "TON.pou" && c.Folder() == FolderOf(full, Standard));
     }
 
     /// <summary>The key is the NAMED library's `.library` version — the change signal D1 already trusts for the full
@@ -486,7 +485,7 @@ public class DirectedLibraryReadTests
         var res = Directed(ide, Standard);
 
         Assert.Equal(2, ide.ExtractCalls);
-        Assert.Contains("PT : LTIME", res.Changed.Single(c => c.Name == "TON.pou").SourceText);
+        Assert.Contains("PT : LTIME", res.Changed.Single(c => c.File() == "TON.pou").SourceText);
     }
 
     /// <summary>A version that moved on a library nobody NAMED voids the cache too (gate step 3, finding 2). The answer
@@ -609,10 +608,10 @@ public class DirectedLibraryReadTests
     {
         var full = Full(Project());
         var expected = InFolder(full, FolderOf(full, Standard))
-            .Append(Describe(full.Changed.Single(c => c.Name == "PLC_PRG.pou")))
+            .Append(Describe(full.Changed.Single(c => c.File() == "PLC_PRG.pou")))
             .OrderBy(s => s, StringComparer.Ordinal).ToArray();
 
-        var directed = Directed(Project(), Standard, "PLC_PRG.pou");
+        var directed = Directed(Project(), Standard, "Device/Plc Logic/Application/PLC_PRG.pou");
 
         Assert.Equal(expected, directed.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray());
     }
@@ -624,10 +623,10 @@ public class DirectedLibraryReadTests
     {
         var ide = Project();
 
-        var res = Directed(ide, "PLC_PRG.pou");
+        var res = Directed(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
 
         Assert.Equal(0, ide.ExtractCalls);
-        Assert.Equal(new[] { "PLC_PRG.pou" }, res.Changed.Select(c => c.Name).ToArray());
+        Assert.Equal(new[] { "Device/Plc Logic/Application/PLC_PRG.pou" }, res.Changed.Select(c => c.Name).ToArray());
     }
 
     // ── log capture ──────────────────────────────────────────────────────────────────────────────────────

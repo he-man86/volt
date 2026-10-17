@@ -22,10 +22,10 @@ public class RenameChangesOnlyNamedItemsTests
     private const string CallDecl = "PROGRAM P_Call\nVAR\n\tinst : FB_A; (* an FB_A *)\n\tok : BOOL;\nEND_VAR";
     private const string CallBody = "inst();\nok := F_A(a := 1); // calls F_A";
 
-    private static FakeIde Ide(bool twincat) => new(
-        FakeIde.Item.TextualPou("FB_A", FbDecl, "pSelf := 0; // sets FB_A"),
-        FakeIde.Item.TextualPou("F_A", FDecl, "F_A := a > 0; // sets F_A"),
-        FakeIde.Item.TextualPou("P_Call", CallDecl, CallBody))
+    private static FakeIde Ide(bool twincat, string folder = "") => new(
+        FakeIde.Item.TextualPou("FB_A", FbDecl, "pSelf := 0; // sets FB_A", folder),
+        FakeIde.Item.TextualPou("F_A", FDecl, "F_A := a > 0; // sets F_A", folder),
+        FakeIde.Item.TextualPou("P_Call", CallDecl, CallBody, folder))
     { RewritesReferencesOnRename = twincat, RewritesOwnReferencesOnRename = twincat };
 
     private static PushResponse Push(FakeIde ide, bool force, params PushOp[] ops) =>
@@ -45,7 +45,7 @@ public class RenameChangesOnlyNamedItemsTests
         }).Changed.Single().SourceText;
 
     private static SetItemOp Rename(FakeIde ide, string from, string to) =>
-        new() { Name = from, ToName = to, IfVersion = RefsService.Handle(ide).Items[from] };
+        new() { Name = from, To = to, IfVersion = RefsService.Handle(ide).Items[from] };
 
     /// <summary>A rename alone: the renamed item's header is the only change; the item's own references and the caller
     /// keep the old name, the caller keeps its version, and the answer names only the renamed item.</summary>
@@ -76,7 +76,7 @@ public class RenameChangesOnlyNamedItemsTests
         var ide = Ide(twincat);
         var callBefore = Text(ide, "P_Call.pou");
 
-        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToName = "FB_B.pou" });
+        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "FB_B.pou" });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(callBefore, Text(ide, "P_Call.pou"));
@@ -104,6 +104,27 @@ public class RenameChangesOnlyNamedItemsTests
             Rename(ide, "F_A.pou", "F_G.pou"));
         Assert.True(second.Accepted, second.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(keptOld, Text(ide, "P_Call.pou"));
+    }
+
+    /// <summary>…and in a folder (gate review of step 3a, measured live on TwinCAT): a rename names its new PATH (`to`) and
+    /// leaves its folder as it is, so it places nothing and applies in the order sent. Read as a placement one folder
+    /// deep, it applied BEFORE the caller sent first, the rename rewrote the caller (DIALECT C2p), and the caller's own op
+    /// was refused as changed in the IDE while the push was applied.</summary>
+    [Theory, InlineData(false), InlineData(true)]
+    public void Callers_sent_with_the_rename_hold_the_text_sent_in_a_folder(bool twincat)
+    {
+        var ide = Ide(twincat, "POUs");
+        var call = Text(ide, "POUs/P_Call.pou");
+        var renamedCall = call.Replace("inst : FB_A;", "inst : FB_B;");
+
+        var push = Push(ide, false,
+            new SetItemOp { Name = "POUs/P_Call.pou", IfVersion = RefsService.Handle(ide).Items["POUs/P_Call.pou"], SourceText = renamedCall },
+            Rename(ide, "POUs/FB_A.pou", "POUs/FB_B.pou"));
+
+        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.Null(push.Conflicts);
+        Assert.Equal(renamedCall, Text(ide, "POUs/P_Call.pou"));
+        Assert.Equal(new[] { "POUs/FB_B.pou", "POUs/P_Call.pou" }, push.NewSources!.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
     }
 
     /// <summary>Both shapes leave the same project: refs and every text identical.</summary>

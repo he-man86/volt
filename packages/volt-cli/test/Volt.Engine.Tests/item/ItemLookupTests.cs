@@ -44,15 +44,34 @@ public class ItemLookupTests
         Assert.NotNull(ItemLookup.Find(ide, queried));
     }
 
-    /// <summary>Items nested in folders are found — the walk descends. TwinCAT's version recursed only into
-    /// folders, which was right for its tree; CODESYS's structural spine (Device / Plc Logic / Application) is
-    /// made of plain nodes, so "folders only" would have found nothing there at all.</summary>
+    /// <summary>Items nested in folders are found by their PATH — the lookup descends to the folder the path names
+    /// (openspec <c>multi-application-tree</c>). CODESYS's structural spine (Device / Plc Logic / Application) is made
+    /// of plain nodes, so every container counts as a path segment, as the push's placement descends it. The bare name
+    /// alone finds nothing: the lookup never searches the whole tree, where two applications may each hold the name.</summary>
     [Fact]
-    public void C_finds_an_item_nested_in_folders()
+    public void C_finds_an_item_nested_in_folders_by_its_path_and_only_there()
     {
         var ide = Ide(Pou("FB_Deep", folder: "POUs/Sub/Deeper"));
 
-        Assert.NotNull(ItemLookup.Find(ide, "FB_Deep"));
+        Assert.NotNull(ItemLookup.Find(ide, "POUs/Sub/Deeper/FB_Deep"));
+        Assert.NotNull(ItemLookup.Find(ide, "pous/sub/deeper/fb_deep"));   // case-insensitive, as every identity
+        Assert.Null(ItemLookup.Find(ide, "FB_Deep"));
+        Assert.Null(ItemLookup.Find(ide, "POUs/Sub/FB_Deep"));
+    }
+
+    /// <summary>Two items of one name in two folders — two applications' <c>PLC_PRG</c> — are found each by its own
+    /// path, never one for the other.</summary>
+    [Fact]
+    public void F_two_items_of_one_name_are_found_each_in_its_own_folder()
+    {
+        var ide = Ide(Pou("PLC_PRG", folder: "Device/Plc Logic/Application") with { Implementation = "a := 1;" },
+                      Pou("PLC_PRG", folder: "Device_1/Plc Logic/Application") with { Implementation = "b := 2;" });
+
+        var a = ItemLookup.Find(ide, "Device/Plc Logic/Application/PLC_PRG");
+        var b = ItemLookup.Find(ide, "Device_1/Plc Logic/Application/PLC_PRG");
+
+        Assert.Equal("a := 1;", ide.ReadContent(a!.Value).Body);
+        Assert.Equal("b := 2;", ide.ReadContent(b!.Value).Body);
     }
 
     /// <summary>The other CODESYS bug. A POU's METHOD is not a top-level item, and the only caller asks "does an
@@ -77,6 +96,6 @@ public class ItemLookupTests
         var ide = Ide(Pou("Inner", folder: "Motor"));
 
         Assert.Null(ItemLookup.Find(ide, "Motor"));
-        Assert.NotNull(ItemLookup.Find(ide, "Inner"));
+        Assert.NotNull(ItemLookup.Find(ide, "Motor/Inner"));
     }
 }

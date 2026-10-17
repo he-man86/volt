@@ -15,7 +15,7 @@
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf, inFolder } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
 
@@ -52,7 +52,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 		project = servedProject(await bridge.health())
 		const refs = await bridge.refs()
 		for (const [, bare] of CASES) {
-			const full = Object.keys(refs.items).find((n) => n.startsWith(`${bare}.`))
+			const full = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${bare}.`))
 			if (!full) throw new Error(`fixture POU '${bare}' is missing from this project — it is committed; re-add it in the IDE`)
 			wire.set(bare, full)
 		}
@@ -121,16 +121,20 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			const away = home ? `${home}/VltE2E_HiddenMove` : "VltE2E_HiddenMove"
 			const before = await heldBody(bare)
 
+			/** Where the item is now: a move changes its path. */
+			let at = name
 			/** Push `op` over the item at its current version and hand back where it now is and what it pulls as. */
 			async function move(op: Record<string, unknown>) {
 				const refs = await bridge.refs()
-				const r = await pushOps([{ op: "set", name, ifVersion: refs.items[name], ...op }])
+				const r = await pushOps([{ op: "set", name: at, ifVersion: refs.items[at], ...op }])
 				expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)   // a hidden body blocks no move
-				return fetchItem(name)
+				if (typeof op.to === "string") at = op.to
+				return fetchItem(at)
 			}
+			const into = (folder: string) => inFolder(folder, fileOf(name))
 
 			try {
-				const moved = await move({ toFolder: away })                  // moved, nothing else
+				const moved = await move({ to: into(away) })                  // moved, nothing else
 				expect(moved.folder).toBe(away)
 				expect(moved.sourceText).toBe(pulled)
 				expect(await heldBody(bare)).toEqual(before)
@@ -142,13 +146,13 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				})
 
 				const edited = withProbeInput(pulled, bare)
-				const back = await move({ toFolder: home, sourceText: edited }) // moved back, declaration edited
+				const back = await move({ to: into(home), sourceText: edited }) // moved back, declaration edited
 				expect(back.folder ?? "").toBe(home)
 				expect(back.sourceText).toBe(edited)
 				expect(await heldBody(bare)).toEqual(before)
 			} finally {
-				const now = await fetchItem(name)
-				const restored = await move({ ...(now.folder === home ? {} : { toFolder: home }), sourceText: pulled })
+				const now = await fetchItem(at)
+				const restored = await move({ ...(now.folder === home ? {} : { to: into(home) }), sourceText: pulled })
 				expect(restored.folder ?? "").toBe(home)
 				expect(restored.sourceText).toBe(pulled)
 				expect(await heldBody(bare)).toEqual(before)

@@ -36,9 +36,9 @@ public class EndpointParityTests
     public void The_fixture_contains_two_items_that_share_a_bare_name()
     {
         var refs = RefsService.Handle(Mixed());
-        Assert.Contains("CM_Carrier.pou", refs.Items.Keys);
-        Assert.Contains("CM_Carrier.visualization", refs.Items.Keys);
-        Assert.NotEqual(refs.Items["CM_Carrier.pou"], refs.Items["CM_Carrier.visualization"]);
+        Assert.Contains("CMs/CM_Carrier/CM_Carrier.pou", refs.Items.Keys);
+        Assert.Contains("CMs/CM_Carrier/CM_Carrier.visualization", refs.Items.Keys);
+        Assert.NotEqual(refs.Items["CMs/CM_Carrier/CM_Carrier.pou"], refs.Items["CMs/CM_Carrier/CM_Carrier.visualization"]);
     }
 
     /// <summary>And EDITING the shadowed one moves the aggregate hash. This is the pull-side half of the same
@@ -108,10 +108,10 @@ public class EndpointParityTests
         var receipt = PushService.Handle(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
 
         var lib = fetch.Changed.Single(c => c.Name.EndsWith(".library", System.StringComparison.Ordinal));
-        Assert.Equal("Library Manager/CmpX", lib.Folder);          // where the file is WRITTEN
+        Assert.Equal("Library Manager/CmpX", lib.Folder());        // where the file is WRITTEN
 
-        Assert.Equal(lib.Folder, fetch.Folders[lib.Name]);         // ...and where /fetch SAYS it is
-        Assert.Equal(lib.Folder, refs.Folders[lib.Name]);          // ...and /refs
-        Assert.Equal(lib.Folder, receipt.NewFolders![lib.Name]);      // ...and the push receipt
+        Assert.Contains(lib.Name, fetch.Items.Keys);               // ...and the path /fetch keys it by
+        Assert.Contains(lib.Name, refs.Items.Keys);                // ...and /refs
+        Assert.Contains(lib.Name, receipt.NewItems!.Keys);         // ...and the push receipt
     }
 }

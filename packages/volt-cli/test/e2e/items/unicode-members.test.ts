@@ -20,7 +20,7 @@
 import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test"
 import { bridge } from "../lib/bridge"
 import { BASE, VENDOR } from "../lib/pipe"
-import { fetchItem, landedInFull, pushOps } from "../lib/workspace"
+import { fetchItem, landedInFull, pushOps, pathIn, pathOf, itemIn } from "../lib/workspace"
 
 setDefaultTimeout(600_000)
 
@@ -40,7 +40,7 @@ const member = (text: string, name: string) => {
 }
 
 const items = (await bridge.refs()).items ?? {}
-const served = VENDOR === "codesys" && FB in items
+const served = VENDOR === "codesys" && pathIn(items, FB) !== undefined
 if (VENDOR === "codesys" && !served)
 	console.warn(`[unicode-members] ${BASE} serves no ${FB} — serve test/fixtures/CodesysUnicodeMembers.3.5.21.40.project (ide.ps1 up -Fixture …)`)
 
@@ -48,7 +48,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 	let original = ""
 	afterAll(async () => {
 		if (!original) return
-		await pushOps([{ op: "set", name: FB, sourceText: original, ifVersion: (await bridge.refs()).items[FB] ?? null }])
+		await pushOps([{ op: "set", name: await pathOf(FB), sourceText: original, ifVersion: itemIn(await bridge.refs(), FB) ?? null }])
 	})
 
 	it("patching the FB's body lands, and both methods are kept as they were", async () => {
@@ -56,7 +56,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 		original = before.sourceText
 		expect(lf(original)).toContain("计数 := 计数 + 1;")
 		const patched = lf(original).replace("计数 := 计数 + 1;", "计数 := 计数 + 2;")
-		const r = await pushOps([{ op: "set", name: FB, sourceText: patched, ifVersion: before.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(FB), sourceText: patched, ifVersion: before.version }])
 		expect(landedInFull(r), reasons(r)).toBe(true)
 		const after = lf((await fetchItem(FB)).sourceText)
 		expect(after).toContain("计数 := 计数 + 2;")
@@ -66,7 +66,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 	it("a NEW method named in CJK is created: the IDE takes it (its project has Unicode identifiers on)", async () => {
 		const now = await fetchItem(FB)
 		const added = lf(now.sourceText) + "\nMETHOD 读取命令 : BOOL\n\nIMPLEMENTATION ST\n读取命令 := TRUE;\n\nEND_METHOD\n"
-		const r = await pushOps([{ op: "set", name: FB, sourceText: added, ifVersion: now.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(FB), sourceText: added, ifVersion: now.version }])
 		expect(landedInFull(r), reasons(r)).toBe(true)
 		expect(member((await fetchItem(FB)).sourceText, "读取命令")).toContain("读取命令 := TRUE;")
 	})
@@ -76,7 +76,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 		// a pre-flight guess, so it arrives as the IDE words it.
 		const now = await fetchItem(FB)
 		const bad = lf(now.sourceText) + "\nMETHOD 1点 : BOOL\n\nIMPLEMENTATION ST\n\nEND_METHOD\n"
-		const r = await pushOps([{ op: "set", name: FB, sourceText: bad, ifVersion: now.version }])
+		const r = await pushOps([{ op: "set", name: await pathOf(FB), sourceText: bad, ifVersion: now.version }])
 		expect(landedInFull(r)).toBe(false)
 		expect(reasons(r)).toContain("The name '1点' is not valid for this object.")
 	})

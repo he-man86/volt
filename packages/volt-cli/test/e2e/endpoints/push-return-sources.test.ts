@@ -1,7 +1,7 @@
 /**
  * THE PUSH ANSWER HOLDS WHAT A FETCH GIVES — live (openspec `st-roundtrip-fixed-point`, task 4.1).
  *
- * <p>With `returnSources: true` an accepted push answers `newSources`: full wire name → the item's stored text as a
+ * <p>With `returnSources: true` an accepted push answers `newSources`: item path → the item's stored text as a
  * fetch returns it, for every item the push changed. The offline twin is
  * `Volt.Engine.Tests/sync/PushReturnsSourcesTests.cs`, which compares against a fetch on the FakeIde; this file
  * compares against a LIVE fetch of the same IDE, never against a canned canonical text — the fake's canonical form
@@ -18,7 +18,7 @@
  * no entry, an op named in another case → the IDE's spelling.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, cleanup, plcFolder, fetchSource, FOLDER, BASE } from "../harness"
+import { id, fid, bridge, requireHealthy, cleanup, plcFolder, fetchSource, FOLDER, BASE, inFolder, applicationRoot } from "../harness"
 import { fb, func, gvl, structDut, enumDut, MARK } from "../fixtures"
 
 /** The census's W1: the body runs straight into END_FUNCTION_BLOCK, and the PROPERTY is written before the ACTION. */
@@ -48,11 +48,17 @@ async function holdsWhatAFetchGives(r: any): Promise<Record<string, string>> {
 	return sources
 }
 
+/** The default folder (`POUs` under the PLC-project root), read once the bridge serves — every item here is made in it. */
+let home = ""
+/** The path of the test item `s` in {@link home}. */
+const pid = (s: string, ext = "pou") => inFolder(home, fid(s, ext))
+
 describe(`endpoints / push returns sources (${BASE})`, () => {
 	setDefaultTimeout(180_000)
 	beforeAll(async () => {
 		await requireHealthy()
 		await cleanup()
+		home = await plcFolder(FOLDER)
 	})
 	afterAll(async () => {
 		try {
@@ -61,9 +67,9 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	})
 
 	it("W1 created: the answer is the fetched text (blank line before END, ACTION before PROPERTY), not the pushed one", async () => {
-		const bare = id("rs_w1"), name = fid("rs_w1")
+		const bare = id("rs_w1"), name = pid("rs_w1")
 		const pushed = w1(bare)
-		const r = await push([{ op: "set", name, toFolder: await plcFolder(FOLDER), sourceText: pushed, ifVersion: null }])
+		const r = await push([{ op: "set", name, sourceText: pushed, ifVersion: null }])
 		const s = await holdsWhatAFetchGives(r)
 		const text = s[name]
 		expect(text, "no newSources entry for the created FB").toBeDefined()
@@ -76,20 +82,19 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	})
 
 	it("a GVL, a struct and an enum DUT in one push: each answered as a fetch gives it", async () => {
-		const g = fid("rs_g", "gvl"), st = fid("rs_st", "dut"), en = fid("rs_en", "dut")
-		const folder = await plcFolder(FOLDER)
+		const g = pid("rs_g", "gvl"), st = pid("rs_st", "dut"), en = pid("rs_en", "dut")
 		const r = await push([
-			{ op: "set", name: g, toFolder: folder, sourceText: gvl(id("rs_g")), ifVersion: null },
-			{ op: "set", name: st, toFolder: folder, sourceText: structDut(id("rs_st")), ifVersion: null },
-			{ op: "set", name: en, toFolder: folder, sourceText: enumDut(id("rs_en")), ifVersion: null },
+			{ op: "set", name: g, sourceText: gvl(id("rs_g")), ifVersion: null },
+			{ op: "set", name: st, sourceText: structDut(id("rs_st")), ifVersion: null },
+			{ op: "set", name: en, sourceText: enumDut(id("rs_en")), ifVersion: null },
 		])
 		const s = await holdsWhatAFetchGives(r)
 		expect(Object.keys(s).sort()).toEqual([en, g, st].sort())
 	})
 
 	it("an update: answered; no flag → no newSources; false → no newSources", async () => {
-		const bare = id("rs_up"), name = fid("rs_up")
-		const created = await push([{ op: "set", name, toFolder: await plcFolder(FOLDER), sourceText: fb(bare), ifVersion: null }], "omit")
+		const bare = id("rs_up"), name = pid("rs_up")
+		const created = await push([{ op: "set", name, sourceText: fb(bare), ifVersion: null }], "omit")
 		expect(created.accepted).toBe(true)
 		expect(created.newSources, "newSources without the flag").toBeUndefined()
 
@@ -105,22 +110,22 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	})
 
 	it("rename+edit: answered under the NEW name, the old one absent", async () => {
-		const from = fid("rs_reA"), to = fid("rs_reB")
-		const created = await push([{ op: "set", name: from, toFolder: await plcFolder(FOLDER), sourceText: fb(id("rs_reA")), ifVersion: null }])
+		const from = pid("rs_reA"), to = pid("rs_reB")
+		const created = await push([{ op: "set", name: from, sourceText: fb(id("rs_reA")), ifVersion: null }])
 		expect(created.accepted).toBe(true)
 		const v = (await bridge.refs()).items[from]
-		const r = await push([{ op: "set", name: from, toName: to, sourceText: fb(id("rs_reB"), { body: "x := x + 7;" }), ifVersion: v }])
+		const r = await push([{ op: "set", name: from, to: to, sourceText: fb(id("rs_reB"), { body: "x := x + 7;" }), ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
 		expect(s[to]).toContain("x := x + 7;")
 		expect(s[from]).toBeUndefined()
 	})
 
 	it("rename-only (no text): answered under the new name with the header the IDE rewrote", async () => {
-		const from = fid("rs_roA"), to = fid("rs_roB")
-		const created = await push([{ op: "set", name: from, toFolder: await plcFolder(FOLDER), sourceText: fb(id("rs_roA")), ifVersion: null }])
+		const from = pid("rs_roA"), to = pid("rs_roB")
+		const created = await push([{ op: "set", name: from, sourceText: fb(id("rs_roA")), ifVersion: null }])
 		expect(created.accepted).toBe(true)
 		const v = (await bridge.refs()).items[from]
-		const r = await push([{ op: "set", name: from, toName: to, ifVersion: v }])
+		const r = await push([{ op: "set", name: from, to: to, ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
 		expect(s[to], "a rename-only op has no entry").toBeDefined()
 		expect(s[to]).toContain(`FUNCTION_BLOCK ${id("rs_roB")}`)
@@ -129,11 +134,11 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	// A rename-only push of a FUNCTION whose body assigns its own name: the header is renamed and the return assignment
 	// keeps the old name, on both vendors (DIALECT C2o: TwinCAT's rename rewrites it, and the push puts it back).
 	it("rename-only of a FUNCTION: only the header is renamed (DIALECT C2o, both vendors)", async () => {
-		const from = fid("rs_rfA"), to = fid("rs_rfB"), a = id("rs_rfA"), b = id("rs_rfB")
-		const created = await push([{ op: "set", name: from, toFolder: await plcFolder(FOLDER), sourceText: func(a), ifVersion: null }])
+		const from = pid("rs_rfA"), to = pid("rs_rfB"), a = id("rs_rfA"), b = id("rs_rfB")
+		const created = await push([{ op: "set", name: from, sourceText: func(a), ifVersion: null }])
 		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
 		const v = (await bridge.refs()).items[from]
-		const r = await push([{ op: "set", name: from, toName: to, ifVersion: v }])
+		const r = await push([{ op: "set", name: from, to: to, ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
 		const text = s[to]
 		expect(text, "a rename-only op has no entry").toBeDefined()
@@ -147,11 +152,10 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	// TwinCAT's native rename rewrites the caller, and the push puts it back).
 	async function renameFixture(tag: string) {
 		const names = { fbA: id(`rs_${tag}A`), fbB: id(`rs_${tag}B`), fnA: id(`rs_${tag}F`), fnB: id(`rs_${tag}G`), p: id(`rs_${tag}P`) }
-		const folder = await plcFolder(FOLDER)
 		const created = await push([
-			{ op: "set", name: fid(`rs_${tag}A`), toFolder: folder, sourceText: fb(names.fbA), ifVersion: null },
-			{ op: "set", name: fid(`rs_${tag}F`), toFolder: folder, sourceText: func(names.fnA), ifVersion: null },
-			{ op: "set", name: fid(`rs_${tag}P`), toFolder: folder, sourceText: `PROGRAM ${names.p}\nVAR\n\tinst : ${names.fbA}; (* an ${names.fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${names.fnA}(a := 1); // calls ${names.fnA}\nEND_PROGRAM\n`, ifVersion: null },
+			{ op: "set", name: pid(`rs_${tag}A`), sourceText: fb(names.fbA), ifVersion: null },
+			{ op: "set", name: pid(`rs_${tag}F`), sourceText: func(names.fnA), ifVersion: null },
+			{ op: "set", name: pid(`rs_${tag}P`), sourceText: `PROGRAM ${names.p}\nVAR\n\tinst : ${names.fbA}; (* an ${names.fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${names.fnA}(a := 1); // calls ${names.fnA}\nEND_PROGRAM\n`, ifVersion: null },
 		])
 		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
 		return names
@@ -159,18 +163,18 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 
 	it("a rename alone answers exactly the renamed items; the caller keeps its text and version", async () => {
 		const n = await renameFixture("rc")
-		const caller = fid("rs_rcP")
+		const caller = pid("rs_rcP")
 		const before = (await bridge.refs()).items
 		const callerBefore = await fetchSource(caller)
 		const r = await push([
-			{ op: "set", name: fid("rs_rcA"), toName: fid("rs_rcB"), ifVersion: before[fid("rs_rcA")] },
-			{ op: "set", name: fid("rs_rcF"), toName: fid("rs_rcG"), ifVersion: before[fid("rs_rcF")] },
+			{ op: "set", name: pid("rs_rcA"), to: pid("rs_rcB"), ifVersion: before[pid("rs_rcA")] },
+			{ op: "set", name: pid("rs_rcF"), to: pid("rs_rcG"), ifVersion: before[pid("rs_rcF")] },
 		])
 		const s = await holdsWhatAFetchGives(r)
 		const after = (await bridge.refs()).items
 		const changed = Object.keys(after).filter((k) => after[k] !== before[k]).sort()
 		console.log("[push-return-sources 8.4] rename changed:", JSON.stringify(changed))
-		expect(changed).toEqual([fid("rs_rcB"), fid("rs_rcG")].sort())
+		expect(changed).toEqual([pid("rs_rcB"), pid("rs_rcG")].sort())
 		expect(Object.keys(s).sort(), "newSources is not exactly the renamed items").toEqual(changed)
 		expect(await fetchSource(caller), "the caller changed").toBe(callerBefore)
 		expect(callerBefore).toContain(`inst : ${n.fbA};`)
@@ -178,50 +182,49 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 
 	it("a rename and its caller in one push: the caller holds the text sent, the callee only its header", async () => {
 		const n = await renameFixture("rp")
-		const caller = fid("rs_rpP")
+		const caller = pid("rs_rpP")
 		const before = (await bridge.refs()).items
-		const calleeBefore = await fetchSource(fid("rs_rpF"))
+		const calleeBefore = await fetchSource(pid("rs_rpF"))
 		const sent = (await fetchSource(caller)).replace(`inst : ${n.fbA};`, `inst : ${n.fbB};`).replace(`ok := ${n.fnA}(`, `ok := ${n.fnB}(`)
 		// The caller FIRST: it is written before the renames, which would rewrite its comments on TwinCAT if nothing put
 		// the sent text back.
 		const r = await push([
 			{ op: "set", name: caller, sourceText: sent, ifVersion: before[caller] },
-			{ op: "set", name: fid("rs_rpA"), toName: fid("rs_rpB"), ifVersion: before[fid("rs_rpA")] },
-			{ op: "set", name: fid("rs_rpF"), toName: fid("rs_rpG"), ifVersion: before[fid("rs_rpF")] },
+			{ op: "set", name: pid("rs_rpA"), to: pid("rs_rpB"), ifVersion: before[pid("rs_rpA")] },
+			{ op: "set", name: pid("rs_rpF"), to: pid("rs_rpG"), ifVersion: before[pid("rs_rpF")] },
 		])
 		const s = await holdsWhatAFetchGives(r)
-		expect(Object.keys(s).sort()).toEqual([caller, fid("rs_rpB"), fid("rs_rpG")].sort())
+		expect(Object.keys(s).sort()).toEqual([caller, pid("rs_rpB"), pid("rs_rpG")].sort())
 		expect(await fetchSource(caller), "the caller does not hold the text sent").toBe(sent)
-		expect(await fetchSource(fid("rs_rpG"))).toBe(calleeBefore.replace(`FUNCTION ${n.fnA} : BOOL`, `FUNCTION ${n.fnB} : BOOL`))
+		expect(await fetchSource(pid("rs_rpG"))).toBe(calleeBefore.replace(`FUNCTION ${n.fnA} : BOOL`, `FUNCTION ${n.fnB} : BOOL`))
 	})
 
 	it("move-only: answered", async () => {
-		const name = fid("rs_mv")
-		const created = await push([{ op: "set", name, toFolder: "", sourceText: fb(id("rs_mv")), ifVersion: null }])
+		const name = inFolder(await applicationRoot(), fid("rs_mv")), dest = pid("rs_mv")
+		const created = await push([{ op: "set", name, sourceText: fb(id("rs_mv")), ifVersion: null }])
 		expect(created.accepted).toBe(true)
 		const before = await bridge.refs()
-		const folder = await plcFolder(FOLDER)
-		expect(before.folders?.[name], "premise: the item starts outside the destination").not.toBe(folder)
-		const r = await push([{ op: "set", name, toFolder: folder, ifVersion: before.items[name] }])
+		expect(name, "premise: the item starts outside the destination").not.toBe(dest)
+		const r = await push([{ op: "set", name, to: dest, ifVersion: before.items[name] }])
 		const s = await holdsWhatAFetchGives(r)
 		// The move LANDED — otherwise an entry for the unmoved item would pass the rule check just the same.
-		expect(r.newFolders?.[name], "the receipt does not place the item in the destination").toBe(folder)
-		expect((await bridge.refs()).folders?.[name], "the IDE did not move the item").toBe(folder)
-		expect(s[name], "a move-only op has no entry").toBeDefined()
+		expect(r.newItems?.[dest], "the receipt does not place the item in the destination").toBeDefined()
+		expect(r.newItems?.[name], "the receipt still holds the item at its old path").toBeUndefined()
+		expect((await bridge.refs()).items?.[dest], "the IDE did not move the item").toBeDefined()
+		expect(s[dest], "a move-only op has no entry").toBeDefined()
 	})
 
 	it("a delete has no entry; an op named in another case is answered under the IDE's spelling", async () => {
-		const del = fid("rs_del"), keep = fid("rs_Case")
-		const folder = await plcFolder(FOLDER)
+		const del = pid("rs_del"), keep = pid("rs_Case")
 		const created = await push([
-			{ op: "set", name: del, toFolder: folder, sourceText: fb(id("rs_del")), ifVersion: null },
-			{ op: "set", name: keep, toFolder: folder, sourceText: fb(id("rs_Case")), ifVersion: null },
+			{ op: "set", name: del, sourceText: fb(id("rs_del")), ifVersion: null },
+			{ op: "set", name: keep, sourceText: fb(id("rs_Case")), ifVersion: null },
 		])
 		expect(created.accepted).toBe(true)
 		const refs = (await bridge.refs()).items
 		const r = await push([
 			{ op: "deleteItem", name: del, ifVersion: refs[del] },
-			{ op: "set", name: keep.toLowerCase(), sourceText: fb(id("rs_Case"), { body: "x := x + 8;" }), ifVersion: refs[keep] },
+			{ op: "set", name: inFolder(home, fid("rs_Case").toLowerCase()), sourceText: fb(id("rs_Case"), { body: "x := x + 8;" }), ifVersion: refs[keep] },
 		])
 		const s = await holdsWhatAFetchGives(r)
 		expect(s[del]).toBeUndefined()
@@ -230,14 +233,13 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	})
 
 	it("an op refused at apply has no entry; the ops that landed before it are answered", async () => {
-		const ok = fid("rs_ok"), bad = fid("rs_bad"), bareBad = id("rs_bad")
+		const ok = pid("rs_ok"), bad = pid("rs_bad"), bareBad = id("rs_bad")
 		const refused = `\nMETHOD Vlt__Log : BOOL\n${MARK}\nVlt__Log := TRUE;\nEND_METHOD\n`
-		const folder = await plcFolder(FOLDER)
-		const created = await push([{ op: "set", name: bad, toFolder: folder, sourceText: fb(bareBad), ifVersion: null }])
+		const created = await push([{ op: "set", name: bad, sourceText: fb(bareBad), ifVersion: null }])
 		expect(created.accepted).toBe(true)
 		const v = (await bridge.refs()).items[bad]
 		const r = await push([
-			{ op: "set", name: ok, toFolder: folder, sourceText: fb(id("rs_ok")), ifVersion: null },
+			{ op: "set", name: ok, sourceText: fb(id("rs_ok")), ifVersion: null },
 			{ op: "set", name: bad, sourceText: fb(bareBad, { children: refused }), ifVersion: v },
 		])
 		console.log("[push-return-sources 4.1] partial:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts, keys: Object.keys(r.newSources ?? {}) }))

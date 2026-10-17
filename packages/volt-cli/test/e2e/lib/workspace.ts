@@ -1,15 +1,20 @@
 /**
  * THE PROJECT AS A TEST SUBJECT — naming, readiness, item CRUD and cleanup.
  *
- * <p>Everything here speaks FULL wire names. The wire is keyed by `name.kind` (`CM_Carrier.pou`) everywhere —
- * `refs`, `fetch`, every push op — so the suite does no bare↔full resolution anywhere. `id()` is the bare IEC
- * identifier that goes INSIDE source text; `fid()` is the full name every op and lookup uses.</p>
+ * <p>The wire keys an item by its PATH in the IDE's tree (`Device/Plc Logic/Application/POUs/CM_Carrier.pou`) —
+ * `refs`, `fetch`, every push op (openspec `multi-application-tree`). `id()` is the bare IEC identifier that goes INSIDE
+ * source text; `fid()` is the item's FILE name (`name.kind`). The helpers here take a file name or a path: a file name is
+ * the one item `refs` holds under it (`pathIn` — two are refused by name), and a create places it in a folder. A test
+ * that sends its own ops spells each item by path (`at`, `pathOf`, `pathIn`).</p>
  */
 import { expect } from "bun:test"
 import { bridge, healthStatus } from "./bridge"
 import { appendFileSync } from "node:fs"
 import { currentPipe, VENDOR } from "./pipe"
 import { e2eReport, FixtureRefusal, ideLine, pipeBitness } from "./fixture-ide"
+import { fileOf, folderOf, inFolder, pathIn } from "./main-program"
+
+export { fileOf, folderOf, inFolder, pathIn }
 
 /** Every item this suite creates is named `VltE2E_*`, which is what makes an unattended sweep safe. */
 export const PREFIX = "VltE2E"
@@ -67,7 +72,7 @@ async function sweepOnce(): Promise<void> {
 	swept = true
 	try {
 		const refs = await bridge.refs()
-		const stale = Object.keys(refs.items ?? {}).filter((n) => n.startsWith(PREFIX))
+		const stale = Object.keys(refs.items ?? {}).filter((n) => fileOf(n).startsWith(PREFIX))
 		if (stale.length === 0) return
 		console.warn(
 			`[e2e] ${stale.length} item(s) left by a previous run — sweeping before starting: ` +
@@ -159,7 +164,7 @@ export async function cleanup(): Promise<void> {
 	const refs = await bridge.refs()
 	if (!refs.items) return
 	const ops = Object.keys(refs.items)
-		.filter((n) => n.startsWith(PREFIX))
+		.filter((n) => fileOf(n).startsWith(PREFIX))
 		.map((n) => ({ op: "deleteItem", name: n, ifVersion: refs.items[n] }))
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
@@ -168,19 +173,30 @@ export async function cleanup(): Promise<void> {
 }
 
 /**
- * Delete ONE item by full wire name, whether or not it exists.
+ * Delete ONE item — by path, or by its file name — whether or not it exists.
  *
  * <p>Four files hand-rolled this — `create-shapes`, `unresolved-marker`, `comments` and `fanout` each carried a
  * private `clean()` with the same `items[name] ?? "UNREADABLE000000"` sentinel — because the harness offered only
  * a prefix-wide sweep. The sentinel is load-bearing: an item that was accepted but is NOT enumerable in `refs`
  * (the TwinCAT bug `items/child-roundtrip-parity` exists for) has no readable version, and a delete still has to
- * reach it. A delete of something already gone is an accepted no-op by contract, so this is safe to call blind.</p>
+ * reach it — at the path `refs.unreadable` names it under (`<folder>/<bare name>`; the kind is the file name's). An
+ * item that is neither listed nor unreadable is gone already: nothing is sent.</p>
  */
 export async function removeItem(name: string): Promise<void> {
 	const refs = await bridge.refs()
+	const items = refs.items ?? {}
+	const listed = pathIn(items, name)
+	const bare = fileOf(name).replace(/\.[^.]*$/, "")
+	const unreadable: string[] = (refs.unreadable ?? [])
+		.map((u: any) => String(u.name ?? ""))
+		.filter((u: string) => (name.includes("/") ? u === inFolder(folderOf(name), bare) : fileOf(u) === bare))
+	if (listed === undefined && unreadable.length > 1)
+		throw new Error(`'${name}' is unreadable under ${unreadable.length} folders (${unreadable.join(", ")}) — name one by its path`)
+	const path = listed ?? (unreadable.length === 1 ? inFolder(folderOf(unreadable[0]!), fileOf(name)) : undefined)
+	if (path === undefined) return
 	await bridge.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "deleteItem", name, ifVersion: (refs.items ?? {})[name] ?? "UNREADABLE000000" }],
+		ops: [{ op: "deleteItem", name: path, ifVersion: items[path] ?? "UNREADABLE000000" }],
 	})
 }
 
@@ -188,22 +204,58 @@ export async function removeItem(name: string): Promise<void> {
 
 /**
  * The wire folder is the FULL tree path from the project root, so it carries each vendor's structural spine:
- * CODESYS `Device/Plc Logic/Application`, TwinCAT `""` (its walk starts at the PLC project). Tests never hardcode
- * that spine — they derive it from the main program, which lives at the PLC-project root, so the SAME assertion
- * holds on either bridge.
+ * CODESYS `Device/Plc Logic/Application`, TwinCAT `<system>/PLC/<plc project>`. Tests never hardcode that spine — they
+ * derive it from the main program, which lives at the PLC-project root, so the SAME assertion holds on either bridge.
+ * A project with no main program (a library project) is rooted at its one application.
  */
 let _plcRoot: string | null = null
 async function plcRoot(): Promise<string> {
 	if (_plcRoot !== null) return _plcRoot
 	const main = await mainProgram()
-	if (main) return (_plcRoot = (await fetchItem(main)).folder ?? "")
-	// No standard main program (a library project): probe by creating a throwaway at the root, reading its
-	// resolved folder, then deleting it.
-	const probe = fid("__plcroot_probe__")
-	await pushOps([{ op: "set", name: probe, toFolder: "", sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }])
-	const root = (await fetchItem(probe)).folder ?? ""
-	await removeItem(probe)
-	return (_plcRoot = root)
+	return (_plcRoot = main ? folderOf(main) : await applicationRoot())
+}
+
+/** The root of the one application the served project states (`refs.applications`): CODESYS's
+ *  `Device/Plc Logic/Application`, TwinCAT's PLC project. Where a move starts that must stay in its application. The suite
+ *  serves single-application fixtures; another count is refused by name (the multi-application fixtures have their own
+ *  suite). */
+export async function applicationRoot(): Promise<string> {
+	const apps: string[] = (await bridge.refs()).applications ?? []
+	if (apps.length !== 1)
+		throw new Error(`the served project states ${apps.length} applications (${apps.join(", ")}) — this suite serves one`)
+	return apps[0]!
+}
+
+/**
+ * The project's own ROOT, for a top-level create: CODESYS's tree root (the POU pool, `""`), TwinCAT's PLC project (its
+ * tree root holds system projects, where no POU can be created).
+ */
+export async function projectRoot(): Promise<string> {
+	return VENDOR === "codesys" ? "" : await applicationRoot()
+}
+
+/** An item's version in a `refs` answer — by path, or by its file name (`pathIn`) — or undefined when it holds none. */
+export function itemIn(refs: { items?: Record<string, string> }, name: string): string | undefined {
+	const items = refs.items ?? {}
+	const path = pathIn(items, name)
+	return path === undefined ? undefined : items[path]
+}
+
+/** Where an upsert of `file` lands: the path `items` holds it under, or — not there yet — the project's own root. */
+export async function existingOrAtRoot(items: Record<string, unknown>, file: string): Promise<string> {
+	return pathIn(items, file) ?? inFolder(await projectRoot(), file)
+}
+
+/** The path of `file` in `folder` — the default folder (`POUs` under the PLC-project root) when none is given. */
+export async function at(file: string, folder?: string): Promise<string> {
+	return inFolder(folder === undefined ? await plcFolder(FOLDER) : folder, fileOf(file))
+}
+
+/** The path `refs` holds `name` under (a path, or a file name — `pathIn`). Throws when it holds none. */
+export async function pathOf(name: string): Promise<string> {
+	const path = pathIn((await bridge.refs()).items ?? {}, name)
+	if (path === undefined) throw new Error(`'${name}' is not in refs`)
+	return path
 }
 
 /** A full wire folder path under the PLC-project root: `plcFolder("POUs/Sub")` → e.g. `Device/Plc Logic/Application/POUs/Sub`. */
@@ -237,55 +289,62 @@ export async function plcFolder(sub = ""): Promise<string> {
 }
 
 /**
- * The project's main/entry program — the POU that FB instances are added to so the compiler reaches them.
- * CODESYS default-names it `PLC_PRG`, TwinCAT `MAIN`; resolved from `refs` rather than hardcoded so the same
- * suite runs against either vendor's default project.
+ * The project's main/entry program — its PATH — the POU that FB instances are added to so the compiler reaches them.
+ * CODESYS default-names it `PLC_PRG`, TwinCAT `MAIN`; found in `refs` by file name rather than hardcoded so the same
+ * suite runs against either vendor's default project. Two (a project of two applications) are refused by name.
  */
 let _mainProgram: string | null = null
 export async function mainProgram(): Promise<string | null> {
 	if (_mainProgram !== null) return _mainProgram || null
 	const items = Object.keys((await bridge.refs()).items ?? {})
 	// Every POU is `X.pou` (push-without-header-check 5.Q), so the entry program is found by its vendor default name.
-	const preferred = items.find((n) => /^(PLC_PRG|MAIN)\.pou$/i.test(n) && !n.startsWith(PREFIX)) ?? ""
-	_mainProgram = preferred
-	return preferred || null
+	const found = items.filter((n) => /^(PLC_PRG|MAIN)\.pou$/i.test(fileOf(n)))
+	if (found.length > 1)
+		throw new Error(`the project holds ${found.length} main programs (${found.join(", ")}) — this suite serves one application`)
+	_mainProgram = found[0] ?? ""
+	return _mainProgram || null
 }
 
 // ── item CRUD ─────────────────────────────────────────────────────────────────
 
-/** Create a NEW item. `folder` is a FULL wire path (default: `POUs` under the PLC-project root); `""` places it
- *  at the PLC-project root. */
+/** Create a NEW item: `name` is a path, or a file name placed in `folder` (a FULL wire path; default `POUs` under the
+ *  PLC-project root; `projectRoot()` is the project's own root). Answers the push receipt. */
 export async function createItem(name: string, src: string, folder?: string): Promise<any> {
-	const toFolder = folder === undefined ? await plcFolder(FOLDER) : folder
-	const r = await pushOps([{ op: "set", name, toFolder, sourceText: src, ifVersion: null }])
-	expect(r.accepted, `create '${name}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	const path = folder === undefined && name.includes("/") ? name : await at(name, folder)
+	const r = await pushOps([{ op: "set", name: path, sourceText: src, ifVersion: null }])
+	expect(r.accepted, `create '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return r
 }
 
-/** Update an item's content in place, guarded with its current version. Pass `folder` only to MOVE it. */
+/** Update an item's content in place, guarded with its current version. Pass `folder` only to MOVE it there. */
 export async function updateItem(name: string, src: string, folder?: string): Promise<any> {
-	const v = (await bridge.refs()).items[name] ?? null
-	const op: Record<string, unknown> = { op: "set", name, sourceText: src, ifVersion: v }
-	if (folder !== undefined) op.toFolder = folder
+	const refs = await bridge.refs()
+	const path = pathIn(refs.items ?? {}, name)
+	if (path === undefined) throw new Error(`update '${name}': not in refs`)
+	const op: Record<string, unknown> = { op: "set", name: path, sourceText: src, ifVersion: refs.items[path] }
+	if (folder !== undefined) op.to = inFolder(folder, fileOf(path))
 	const r = await pushOps([op])
-	expect(r.accepted, `update '${name}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(r.accepted, `update '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return r
 }
 
-/** Fetch one item by full wire name. Throws when it is absent — an item the test just created and cannot read
- *  back is a finding, not a `undefined` to branch on. */
+/** Fetch one item — by path, or by its file name. Throws when it is absent: an item the test just created and cannot
+ *  read back is a finding, not an `undefined` to branch on. The answer carries `folder`, its path's folder. */
 export async function fetchItem(name: string): Promise<any> {
-	const f = await bridge.fetch({ knownItems: {}, onlyItems: [name] })
-	const it = f.changed.find((i: any) => i.name === name)
-	if (!it) throw new Error(`item '${name}' not in fetch`)
-	return it
+	const path = await pathOf(name)
+	const f = await bridge.fetch({ knownItems: {}, onlyItems: [path] })
+	const it = f.changed.find((i: any) => i.name === path)
+	if (!it) throw new Error(`item '${path}' not in fetch`)
+	return { ...it, folder: folderOf(path) }
 }
 
 export async function fetchSource(name: string): Promise<string> {
 	return (await fetchItem(name)).sourceText
 }
 
-/** The current version of an item, or null when it is not enumerable. */
+/** The current version of an item — by path, or by its file name — or null when it is not enumerable. */
 export async function versionOf(name: string): Promise<string | null> {
-	return (await bridge.refs()).items?.[name] ?? null
+	const items = (await bridge.refs()).items ?? {}
+	const path = pathIn(items, name)
+	return path === undefined ? null : items[path]
 }

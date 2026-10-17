@@ -24,7 +24,7 @@ public class CaseVariantNameGateTests
         FakeIde.Item.TextualPou("FB_Motor", "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "x := 1;"));
 
     [Theory]
-    [InlineData("e_mode.dut", "E_Mode.dut", "TYPE e_mode :\nSTRUCT\n\tb : INT;\nEND_STRUCT\nEND_TYPE")]
+    [InlineData("DUTs/e_mode.dut", "DUTs/E_Mode.dut", "TYPE e_mode :\nSTRUCT\n\tb : INT;\nEND_STRUCT\nEND_TYPE")]
     [InlineData("fb_motor.pou", "FB_Motor.pou", "FUNCTION_BLOCK fb_motor\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n")]
     public void A_create_under_a_case_variant_of_a_live_item_is_refused_item_exists(string name, string live, string text)
     {
@@ -47,7 +47,7 @@ public class CaseVariantNameGateTests
     }
 
     [Theory]
-    [InlineData("e_mode.dut")]
+    [InlineData("DUTs/e_mode.dut")]
     [InlineData("fb_motor.pou")]
     public void A_guarded_delete_under_a_case_variant_is_gated_against_the_live_items_version(string name)
     {

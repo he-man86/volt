@@ -29,7 +29,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "MOTOR.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // refs preserved, not recreated
@@ -41,28 +41,26 @@ public class PushServiceTests
         // The client persists the push receipt as its IDE baseline with no follow-up /refs, so the receipt
         // MUST equal a fresh /refs (the reuse-of-pre-apply-versions optimization broke this for renames).
         var ide = OneProgram(folder: "POUs");
-        var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
+        var (v, pv) = Ver(ide, "POUs/PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "POUs/PLC_PRG.pou", IfVersion = v, To = "POUs/MOTOR.pou" });
         Assert.True(resp.Accepted);
 
         var refs = RefsService.Handle(ide);
         Assert.Equal(refs.ProjectVersion, resp.NewProjectVersion);
         Assert.Equal(refs.Items.OrderBy(k => k.Key), resp.NewItems!.OrderBy(k => k.Key));
-        Assert.Equal(refs.Folders.OrderBy(k => k.Key), resp.NewFolders!.OrderBy(k => k.Key));
     }
 
     [Fact]
-    public void Accepted_push_returns_newFolders_in_parity_with_newItems()
+    public void Accepted_push_receipt_keys_a_renamed_item_by_its_path_in_its_own_folder()
     {
-        // The accepted receipt carries newFolders so the client refreshes its sidecar folder map without a
-        // follow-up /refs. It must cover exactly the same full-name space as newItems (the version map).
+        // The receipt is the client's next baseline, and the path carries the folder: a rename keeps the folder, so
+        // the renamed item is keyed under it (there is no separate folder map to refresh).
         var ide = OneProgram(folder: "POUs");
-        var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
+        var (v, pv) = Ver(ide, "POUs/PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "POUs/PLC_PRG.pou", IfVersion = v, To = "POUs/MOTOR.pou" });
         Assert.True(resp.Accepted);
-        Assert.NotNull(resp.NewFolders);
-        Assert.Equal(resp.NewItems!.Keys.OrderBy(k => k), resp.NewFolders!.Keys.OrderBy(k => k));
-        Assert.Equal("POUs", resp.NewFolders!["MOTOR.pou"]); // a rename keeps the folder
+        Assert.Contains("POUs/MOTOR.pou", resp.NewItems!.Keys);
+        Assert.DoesNotContain("POUs/PLC_PRG.pou", resp.NewItems!.Keys);
     }
 
     /// <summary>A move RELOCATES — it does not delete and rebuild. Both drivers have `IProjectTree.Move`, so the
@@ -72,7 +70,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = "Sub" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "Sub/PLC_PRG.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("move:PLC_PRG->Sub", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
@@ -84,7 +82,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         // The wire folder is the ENCODED form volt-git sends for a folder literally named "Interfaces / Data".
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = FolderPath.Encode("Interfaces / Data") });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = FolderPath.Encode("Interfaces / Data") + "/PLC_PRG.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("create:Interfaces / Data", ide.Recorded);   // ONE folder, decoded to its real name
         Assert.DoesNotContain(ide.Recorded, r => r is "create:Interfaces " or "create: Data"); // NOT split on the name's '/'
@@ -103,14 +101,14 @@ public class PushServiceTests
             new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "New.pou", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "App/New.pou", IfVersion = null, SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("create:New", ide.Recorded);
         Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
     }
 
     [Fact]
-    public void Create_with_an_empty_toFolder_lands_at_the_TREE_root_not_the_plc_project_root()
+    public void Create_at_a_root_path_lands_at_the_TREE_root_not_the_plc_project_root()
     {
         // An item the walk emits with an EMPTY folder sits at the TREE root - on CODESYS the project's own POU
         // pool, where `Lenze_MID-S100` keeps `GVL_Errorlists` and `POE_SystemStart`. Empty used to resolve to the
@@ -122,38 +120,35 @@ public class PushServiceTests
             new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "Pool.gvl", IfVersion = null, ToFolder = "", SourceText = "VAR_GLOBAL\nEND_VAR\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Pool.gvl", IfVersion = null, SourceText = "VAR_GLOBAL\nEND_VAR\n" });
         Assert.True(resp.Accepted);
         Assert.Equal("<root>", ide.CreatedParents["Pool"]);
     }
 
     [Fact]
-    public void Set_update_with_an_ABSENT_toFolder_does_not_move()
+    public void Set_update_with_an_ABSENT_to_does_not_move()
     {
-        // An in-place content edit that doesn't restate the tree path must NOT be read as a move — no
-        // delete/recreate, just a write. ABSENT is how that is said: the wire contract is "ToFolder ?? (current
-        // folder)", so null means unchanged and the EMPTY STRING is a real destination (the tree root, below).
-        // This case passed `ToFolder = ""` and asserted no move, which read the two as the same thing and is
-        // what made a move INTO the POU pool inexpressible.
+        // An in-place content edit must NOT be read as a move — no delete/recreate, just a write. ABSENT is how that
+        // is said: the wire contract is "to ?? name", so null means unchanged and a `to` at the tree root (no `/`) is
+        // a real destination (below).
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
-        var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
     }
 
     [Fact]
-    public void Set_update_with_an_EMPTY_toFolder_moves_the_item_to_the_tree_root()
+    public void Set_update_with_a_root_to_moves_the_item_to_the_tree_root()
     {
-        // The other half of the pair above, and the one an engineer actually performs: dragging an item out of
-        // the Application and into the project's POU pool. `volt push` builds that as a rename op whose
-        // ToFolder is "" — the destination's full path from the tree root, which for a root item is empty. Read
-        // as "unchanged" it was a silent no-op: the push reported ACCEPTED, the IDE never moved the item, and
-        // the next pull put the file back where it started.
+        // The other half of the pair above: dragging an item out of a folder to the tree root, which on CODESYS is
+        // the project's own POU pool. The destination path has no folder; read as "unchanged" it was a silent no-op
+        // once: the push reported ACCEPTED, the IDE never moved the item, and the next pull put the file back. (Here
+        // the folder is a plain one — into the pool from an APPLICATION is another application, refused by name.)
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
-        var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = "" });
+        var (v, pv) = Ver(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = "PLC_PRG.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("move:PLC_PRG-><root>", ide.Recorded);   // the TREE root, not the Application
     }
@@ -168,8 +163,8 @@ public class PushServiceTests
         var ide = OneProgram();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "Good.pou", IfVersion = null, ToFolder = "", SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
-            new SetItemOp { Name = "Bad.pou", IfVersion = null, ToFolder = "", SourceText = "not a POU at all" });
+            new SetItemOp { Name = "Good.pou", IfVersion = null, SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "Bad.pou", IfVersion = null, SourceText = "not a POU at all" });
 
         Assert.False(resp.Accepted);
         Assert.DoesNotContain("create:Good", ide.Recorded);   // the VALID op ahead of the bad one never ran
@@ -182,7 +177,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_PROGRAM\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou", SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "MOTOR.pou", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("writecontent:MOTOR", ide.Recorded); // content written onto the renamed identity
@@ -193,7 +188,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou", ToFolder = "Sub" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "Sub/MOTOR.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("move:MOTOR->Sub", ide.Recorded);   // moved by its NEW name
@@ -205,7 +200,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", ToName = "X.pou" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", To = "X.pou" });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);
     }
@@ -365,7 +360,7 @@ public class PushServiceTests
         var resp = Push(ide, refs.ProjectVersion!,
             new SetItemOp { Name = "ST_New.dut", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
             new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = prgSrc },
-            new DeleteItemOp { Name = "FB_Old.pou", IfVersion = refs.Items["FB_Old.pou"] });
+            new DeleteItemOp { Name = "POUs/FB_Old.pou", IfVersion = refs.Items["POUs/FB_Old.pou"] });
 
         Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
@@ -502,7 +497,7 @@ public class PushServiceTests
         {
             Name = "PLC_PRG.pou",
             IfVersion = v,
-            ToFolder = "Machine",
+            To = "Machine/PLC_PRG.pou",
             SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
         });
 
@@ -527,7 +522,7 @@ public class PushServiceTests
         var ide = OneProgram("Calc");
         var (v, pv) = Ver(ide, "Calc.pou");
 
-        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, ToName = "calc.pou" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, To = "calc.pou" });
 
         Assert.True(resp.Accepted);
         Assert.Contains("rename:Calc->calc", ide.Recorded);
@@ -551,7 +546,7 @@ public class PushServiceTests
         { IgnoreRenames = true };
         var (v, pv) = Ver(ide, "Calc.pou");
 
-        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, ToName = "calc.pou" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, To = "calc.pou" });
 
         // A per-op refusal comes back as a REJECTION carrying the reason, not as a throw — `PushService`
         // catches per op so one bad op names itself instead of failing the whole batch anonymously.
