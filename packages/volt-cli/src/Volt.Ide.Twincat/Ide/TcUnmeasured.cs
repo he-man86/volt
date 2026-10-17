@@ -29,12 +29,6 @@ internal static class TcUnmeasured
             "measured (CODESYS negates first, DIALECT N17; no TwinCAT runtime was available to run it). Volt refuses to " +
             "materialize the body rather than spell it in an order nobody measured on this vendor.");
 
-    /// <summary>An archive about to be written back whose values carry a raw CR is refused (<see cref="TcRawLineEndRefusal"/>).</summary>
-    public static void RefuseRawLineEnd(string handed)
-    {
-        if (TcArchive.HoldsRawLineEnd(handed)) throw new TcRawLineEndRefusal();
-    }
-
     /// <summary>The push side of the same fact: a body spelling <c>R_EDGE(NOT x)</c> (or <c>F_EDGE</c>) is refused before
     /// anything is written, naming the node.</summary>
     public static void RefuseEdgeOrder(NetworkBody body)
@@ -141,24 +135,5 @@ internal sealed class TcEnoRefusal : NotSupportedException
             : $"TwinCAT: the text reads the '{box}' box as a value, and the IDE builds that box with ENO as its main " +
               "output — the text states a data output the box does not have. Written as an open line and read through " +
               "ENO (B4), the text matches the box the IDE builds.")
-    { }
-}
-
-/// <summary>
-/// AN ARCHIVE WHOSE VALUES CARRY A RAW CARRIAGE RETURN IS NOT WRITTEN (gate 2R.3, review finding 2). Whether the XAE hands
-/// a CR in a value (a network comment's CR LF) as <c>&amp;#xD;</c> or raw is not measured. Entitized, the parse keeps it and
-/// <see cref="TcArchive.Text"/> writes it back as it came. Raw, the parse folds the CR LF into LF and the write would hand
-/// every untouched value back as a bare LF — a change in the IDE the next pull hides (it reads LF as the IDE's CR LF,
-/// <see cref="TcNetworkReader.Comment"/>). So it is refused by name, never written by a guess; the measurement that
-/// lifts it is the archive string the bridge receives for a two-line comment (<c>comments.test.ts</c> on TwinCAT pushes
-/// over one). Its own type so the create's stamp does not take it for a regrouping it may shrug at.
-/// </summary>
-internal sealed class TcRawLineEndRefusal : NotSupportedException
-{
-    public TcRawLineEndRefusal()
-        : base("TwinCAT: the IDE handed this body's archive with a raw carriage return in a value (a multi-line comment " +
-               "or title), and whether that line end is the IDE's CR LF or its LF is not measured — rewriting the body " +
-               "would change every untouched one of them. Volt refuses the write rather than guess; edit the body in " +
-               "the IDE.")
     { }
 }

@@ -55,7 +55,7 @@ internal static class TcNetworkWriter
                 "have yet is built whole (ResolveBody routes it there first); this is a Volt bug.");
 
         XElement doc;
-        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
+        try { doc = TcArchive.Parse(bodyXml); }   // its values' CR LF as the XAE hands them (DIALECT N42 f)
         catch (System.Xml.XmlException) { throw Refuse("replaces a textual body with a graphical one"); }
 
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")

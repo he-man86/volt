@@ -24,8 +24,8 @@ namespace Volt.Ide.Twincat;
 /// <item><b>Scalars.</b> <c>&lt;v&gt;</c> is always open + text + close on one line, empty or not; the text is the
 /// vendor's lexical form, kept verbatim (<c>"a"</c> quoted strings, <c>true</c>, <c>15L</c> for an Int64, <c>15</c> for
 /// an Int32, an enum member bare under <c>t="Operator"</c>). Only <c>&amp; &lt; &gt;</c> are escaped, and a CR as
-/// <c>&amp;#xD;</c> (raw, the IDE's parse folds a value's CR LF into LF: a multi-line comment, P10 — <see cref="TcArchive.Text"/>
-/// writes a value the same way; no TwinCAT archive measured holds a CR in a value).</item>
+/// <c>&amp;#xD;</c>: this gate's own parse folds a raw one into the LF beside it, and the XAE reads either spelling as the
+/// same CR, handing it back raw (DIALECT N42 f).</item>
 /// <item><b>Nulls.</b> <c>&lt;n n="Name" /&gt;</c> for a null member, <c>&lt;n /&gt;</c> for a null list element.</item>
 /// <item><b>Containers</b> (<c>o l l2 a d d2</c>): no children is self-closing with a space, <c>&lt;l2 n="X" /&gt;</c>;
 /// otherwise open, one child per line, close on its own line at the owner's indent.</item>

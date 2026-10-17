@@ -76,54 +76,38 @@ internal static class TcArchive
         };
     }
 
-    /// <summary>The archive's VALUES (a text holding more than white space, or an attribute) carry a RAW carriage
-    /// return — one XML's end-of-line normalization folds, where an entitized <c>&amp;#xD;</c> survives. Told apart by
-    /// parsing twice: without normalization a raw CR stays, with it only the entitized one does. White space between
-    /// elements is the archive's formatting, not a value, and is not asked about.</summary>
-    internal static bool HoldsRawLineEnd(string xml)
+    /// <summary>An archive as the IDE handed it, parsed WITHOUT XML's end-of-line normalization: the XAE hands a value's
+    /// CR LF raw (measured 2026-10-17, DIALECT N42 f), and the normalizing parse folded it into a bare LF — which the next
+    /// write handed back, changing every untouched multi-line value of the body (a network comment, an EXECUTE box's ST
+    /// lines). The in-place writer edits this tree and writes it back with <see cref="Text"/>.</summary>
+    internal static XElement Parse(string archive)
     {
-        if (xml.IndexOf('\r') < 0) return false;
-        XElement raw;
-        using (var r = new System.Xml.XmlTextReader(new System.IO.StringReader(xml))
-               {
-                   Normalization = false,
-                   WhitespaceHandling = System.Xml.WhitespaceHandling.All,
-                   DtdProcessing = System.Xml.DtdProcessing.Prohibit,
-               })
-            raw = XElement.Load(r, LoadOptions.PreserveWhitespace);
-        return ValueCarriageReturns(raw) != ValueCarriageReturns(XElement.Parse(xml, LoadOptions.PreserveWhitespace));
+        using var r = new System.Xml.XmlTextReader(new System.IO.StringReader(archive))
+        {
+            Normalization = false,
+            WhitespaceHandling = System.Xml.WhitespaceHandling.All,
+            DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+        };
+        return XElement.Load(r, LoadOptions.PreserveWhitespace);
     }
 
-    private static int ValueCarriageReturns(XElement root) =>
-        root.DescendantNodesAndSelf().OfType<XText>().Where(t => !string.IsNullOrWhiteSpace(t.Value)).Sum(t => t.Value.Count(c => c == '\r'))
-        + root.DescendantsAndSelf().SelectMany(e => e.Attributes()).Sum(a => a.Value.Count(c => c == '\r'));
-
-    /// <summary>An archive as the IDE is handed it. A carriage return in a value (a network comment's CR LF, P10) is
-    /// written as <c>&amp;#xD;</c>: raw, XML's end-of-line normalization folds it into the LF beside it on the IDE's parse,
-    /// and a two-line comment came back holding a bare LF, which hid its body (measured 2026-10-16, ld-fbd-coverage
-    /// 2R.3). Written by an XmlWriter that ENTITIZES new lines (text: a CR as <c>&amp;#xD;</c>, an LF as is; attributes:
-    /// both entitized) and never replaces them: <c>XNode.ToString</c> writes every LF as the platform's new line (CR LF
-    /// on Windows), so entitizing the CR after it turned each bare LF of the whole body — an untouched network's title,
-    /// an EXECUTE box's ST lines — into CR LF in the IDE (2R.3 review).
-    /// <para><paramref name="handed"/> is the archive string the IDE handed: one whose VALUES carry a raw CR is refused
-    /// (<see cref="TcUnmeasured.RefuseRawLineEnd"/>) — its parse folds that CR LF into LF, and this write would hand every
-    /// untouched value back as LF.</para>
+    /// <summary>An archive as the IDE is handed it: every VALUE written exactly as it holds it — a CR LF raw, a bare LF
+    /// bare, as the XAE hands them (DIALECT N42 f: it keeps a value's characters, an entitized <c>&amp;#xD;</c> and a raw CR
+    /// alike, and hands the CR back raw). <c>XNode.ToString</c> wrote every LF as the platform's new line (CR LF on
+    /// Windows), turning each bare LF of the whole body into CR LF in the IDE (2R.3 review).
     /// <para><b>The white space BETWEEN elements is no value: it is the archive's layout</b>, which TwinCAT stores as
     /// handed (DIALECT N42 a). It is written raw, every line break as the handed archive's own (CR LF in every archive
-    /// TwinCAT wrote), so an untouched element stays byte for byte and a network spliced in sits in the same layout.
-    /// Entitized with the values, each break of a spliced network became <c>&amp;#xD;</c> + LF and every untouched one —
-    /// folded to LF by the parse — a bare LF (twincat-inproc-host, <c>A_body_edited_with_built_networks_keeps_the_vendor_layout</c>).</para></summary>
+    /// TwinCAT wrote), so an untouched element stays byte for byte and a network spliced in — laid out in memory — sits
+    /// in the same layout (<c>A_body_edited_with_built_networks_keeps_the_vendor_layout</c>).</para></summary>
     internal static string Text(XNode doc, string handed)
     {
-        TcUnmeasured.RefuseRawLineEnd(handed);
-        // No value of the handed archive holds a raw CR (refused above), so a raw CR LF in it is its formatting.
-        var newline = handed.Contains("\r\n") ? "\r\n" : "\n";
+        var newline = System.Text.RegularExpressions.Regex.Match(handed, ">(\r?\n) *<").Groups[1] is { Success: true } g ? g.Value : "\r\n";
         var sb = new System.Text.StringBuilder();
         var settings = new System.Xml.XmlWriterSettings
         {
             OmitXmlDeclaration = true,
             Indent = false,
-            NewLineHandling = System.Xml.NewLineHandling.Entitize,
+            NewLineHandling = System.Xml.NewLineHandling.None,
             ConformanceLevel = System.Xml.ConformanceLevel.Auto,
         };
         using (var w = System.Xml.XmlWriter.Create(sb, settings)) WriteNode(w, doc, newline);
@@ -148,7 +132,7 @@ internal static class TcArchive
                 w.WriteRaw(t.Value.Replace("\r\n", "\n").Replace("\n", newline));   // the layout between elements
                 break;
             default:
-                node.WriteTo(w);   // a value: its CR entitized, an LF as is
+                node.WriteTo(w);   // a value: as it holds it
                 break;
         }
     }

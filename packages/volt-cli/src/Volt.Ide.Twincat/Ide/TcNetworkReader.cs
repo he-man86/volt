@@ -49,11 +49,11 @@ internal static class TcNetworkReader
     private static string? Trimmed(string? s) =>
         string.IsNullOrEmpty(s) ? null : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
 
-    /// <summary>A network comment as the archive's XML hands it over. XML's end-of-line normalization turns every CR LF
-    /// of a value into LF on the parse, so a line break arrives as LF whatever the IDE holds, and the text's comment lines
-    /// are CR LF (P10): each LF is the IDE's line break, read back as CR LF. Without it a two-line comment read as a bare
-    /// LF, which the text cannot spell, and its whole body was hidden (measured 2026-10-16, ld-fbd-coverage 2R.3). The
-    /// writer compares through the same reading and writes CR as <c>&amp;#xD;</c> (<see cref="TcArchive.Text"/>).</summary>
+    /// <summary>A network comment as the archive's XML hands it over. The XAE hands a comment's CR LF raw (DIALECT N42 f),
+    /// and a normalizing parse turns it into LF, so a line break arrives as LF or CR LF depending on the parse, and the
+    /// text's comment lines are CR LF (P10): each LF is the IDE's line break, read back as CR LF. Without it a two-line
+    /// comment read as a bare LF, which the text cannot spell, and its whole body was hidden (measured 2026-10-16,
+    /// ld-fbd-coverage 2R.3). The writer compares through the same reading.</summary>
     internal static string? Comment(string? archived) =>
         NetworkText.Stored(archived?.Replace("\r\n", "\n").Replace("\n", "\r\n"));
 
