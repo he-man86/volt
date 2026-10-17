@@ -998,6 +998,12 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       separate word for the incoming wire (e.g. `above`) was offered and is NOT decided — owner: "not sure about adding
       a new keyword yet". Measure first: a box with ENO and no EN (a call that hands its ENO on), and EN with no ENO,
       both get the same rule (write the pin that exists).
+      **FINAL (owner 2026-10-17, supersedes the "always write both pins" paragraph above and the `EN ENO ENO` form):**
+      no bare own-`ENO` on a box's line. The word `ENO` means ONE thing, the ENO of the open line above (today's P3,
+      unchanged); a line without `;` hands its ENO on; `=> x` AFTER the EN part is the box's own ENO driving the coil x
+      (data outputs are always written before `EN`, so no ambiguity, no new word). A chain:
+      `MOVE 1 => a EN start` / `MOVE 2 => b EN ENO` / `MOVE 3 => c EN ENO => lamp;`. Owner: "that looks pretty nice".
+      What it gives up: an unused ENO pin is not shown. The details below that this keeps:
       **Decided (owner 2026-10-17): `ENO => lamp` is the COIL on the box's ENO** — "write eno on every block and
       directly set the var to it": `MOVE 2 => b EN ENO ENO => lamp;` replaces `… EN ENO ENO` / `lamp := ENO;`. The other
       stored tree, the ENO PIN wired to a variable (awkward-sweep #23), is REFUSED by name: measured SP21 it stores and
