@@ -187,7 +187,7 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
 - **CONTENT travels as `ItemContent` over the vendor's own object model; STRUCTURE travels on the tree API.**
   This bullet used to say "content travels as ONE PLCopen document", and that has been false since the PLCopen
   transport was deleted: `ICodeStore.ReadContent`/`WriteContent` reach declarations and textual bodies through
-  their aspects and graphical bodies as typed node trees, so **nothing is serialized in either direction** —
+  their aspects and graphical bodies as typed node trees (CODESYS) or TwinCAT's own NWL archive text (N42) —
   there is no document to splice, no import to re-place items after, and no regeneration carrying unmodelled
   elements through. What survives from that era is the AXIS, which the deletion did not change: folder
   membership, rename and move are still not properties of an item's content, so they stay on `IProjectTree`
@@ -290,7 +290,7 @@ the bridge's `Driver/` is the bridge between them.**
 | Entrypoint | `PipeHost.cs` | `Program.cs` | CODESYS: `PipeHost.Start()` called in-proc by the IDE's IronPython script command. Beckhoff: standalone exe; spawns its STA thread, starts degraded, attaches when TwinCAT appears. |
 | Driver — session | `Driver/CodesysDriver.cs` | `Driver/BeckhoffDriver.cs` | facade: connect / health / build. |
 | Driver — tree | `Driver/CodesysDriver.Tree.cs` | `Driver/BeckhoffDriver.Tree.cs` | walk/lookup/CRUD algorithm. CODESYS classifies by object-model interface names; Beckhoff by native `ItemType`. |
-| Driver — content | `Driver/CodesysDriver.Content.cs` | `Driver/BeckhoffDriver.Content.cs` | `ICodeStore`: declaration, body, members, accessors. CODESYS writes through aspects and builds graphical bodies as typed `NWLObject` trees; Beckhoff writes text and edits the NWL archive in place. Neither serializes a document. |
+| Driver — content | `Driver/CodesysDriver.Content.cs` | `Driver/BeckhoffDriver.Content.cs` | `ICodeStore`: declaration, body, members, accessors. CODESYS writes through aspects and builds graphical bodies as typed `NWLObject` trees; Beckhoff writes text, edits the NWL archive in place and BUILDS a changed network (or a new body) as TwinCAT's own archive (`TcArchiveBuilder` + `TcArchiveWriter`, DIALECT N42). Neither writes PLCopen. |
 | Access gateway | `Ide/CodesysObjectModel.*.cs` (+ `CodesysTypeMap.cs`, `Reflection.cs`, `NwlInterop.cs`) | `Ide/TcObjectModel.*.cs` (+ `RotInstances.cs`, `TcArchive.cs`, `TcItemArchive.cs`) | holds ALL vendor state + the only `reflection`/`dynamic` in the bridge. |
 | Graphical body | `Ide/CodesysNetworkReader.cs` / `Writer.cs` | `Ide/TcNetworkReader.cs` / `Writer.cs` | `NetworkModel` ⇄ the vendor's own form. CODESYS: live typed objects through `NwlInterop`. TwinCAT: the `<NWL><XmlArchive>` through `TcArchive`, edited in place and never constructed (DIALECT N4). |
 | Thread dispatcher | `Ide/CodesysDispatcher.cs` | `Ide/StaDispatcher.cs` (+ `ComMessageFilter.cs`) | CODESYS delegates to the IDE's `InvokeInPrimaryThread`; Beckhoff owns + pumps an STA thread via a `BlockingCollection`. |
@@ -307,9 +307,12 @@ These are irreducible differences between how the two IDEs are reached, **not** 
   (DIALECT V6). The TwinCAT worker is its own process with ordinary probing, so it ships its folder as built.
 - **How a graphical body is reached — and this one is ACCESS, not model.** The two vendors ship the SAME
   `NWLObject` model, member for member (DIALECT N1). CODESYS hands over the live objects, so its writer builds a
-  typed tree and a wrong member name throws. TwinCAT hands over the serialization, so its writer edits the
-  archive in place and a wrong member SET corrupts silently — which is why it constructs nothing. The asymmetry
-  is irreducible only for as long as Volt cannot run in-process on TwinCAT (DIALECT N6).
+  typed tree and a wrong member name throws. TwinCAT hands over the serialization (its Automation Interface
+  exposes no NWL object, N39), so its writer edits the archive in place, and builds what changed as TwinCAT's own
+  archive text — a wrong member SET would corrupt silently, which is why the builder takes every member list from
+  archives TwinCAT wrote and the writer must first reproduce every one of them byte for byte (the identity gate,
+  `TcArchiveIdentityTests`; DIALECT N42). The model each builds from is the same `NetworkModel`; the box's output
+  names and types come from the engine's one derivation (`NetworkMembers.Buildable`) on both.
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
