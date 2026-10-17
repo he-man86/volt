@@ -138,14 +138,15 @@ describe(`graphical / native writer (${BASE})`, () => {
 			const r = await bridge.build()
 			const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
 				.map((d: any) => `${d.name}: ${d.message}`).sort()
-			// CODESYS DOES NOT BUILD TWO OF THESE AS ITS WRITER BUILDS THEM — measured 2026-10-17 (cs-native, SP21), the
-			// first run of these shapes on CODESYS: an operator read through its ENO with its result wired nowhere keeps an
-			// empty operand in the result slot ("The assignment target is not specified", the N21 finding TwinCAT's builder
-			// answers with the vendor's null), and a function called by pin name ("The assignment source is incorrect").
-			// A ratchet, not a skip: the day CodesysNetworkWriter builds them, this fails — take them off.
+			// CODESYS DOES NOT BUILD ONE OF THESE AS ITS WRITER BUILDS IT — measured 2026-10-17 (cs-native, SP21), the first
+			// run of these shapes on CODESYS: an operator read through its ENO with its result wired nowhere keeps an empty
+			// operand in the result slot ("The assignment target is not specified", the N21 finding TwinCAT's builder answers
+			// with the vendor's null). A ratchet, not a skip: the day CodesysNetworkWriter builds it, this fails — take it off.
+			// (A function called by pin name was the second, "The assignment source is incorrect", until the box carried its
+			// CallType — ld-fbd-coverage 2R.4; taken off 2026-10-17.)
 			const known = VENDOR === "codesys"
-				? cases.filter((c) => c.key.startsWith("enable_move ") || c.key.startsWith("function_named "))
-					.map((c) => `${c.item}: ${c.key.startsWith("enable_move ") ? "The assignment target is not specified." : "The assignment source is incorrect."}`)
+				? cases.filter((c) => c.key.startsWith("enable_move "))
+					.map((c) => `${c.item}: The assignment target is not specified.`)
 					.sort()
 				: []
 			expect(errors, JSON.stringify(errors).slice(0, 2000)).toEqual(known)
