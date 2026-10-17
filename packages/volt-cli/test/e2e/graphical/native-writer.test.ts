@@ -47,6 +47,7 @@ const SHAPES: Record<string, string> = {
 	header: "NETWORK LABEL: Here DISABLED TITLE: \"a rung\"\n  // a comment\n  out := a AND b;\nEND_NETWORK\n",
 	enable_move: "NETWORK\n  MOVE b EN go\n  out := ENO;\nEND_NETWORK\n",
 	function_named: `NETWORK\n  n := ${FN}(A := i1, B := i2);\nEND_NETWORK\n`,
+	named_eno: "NETWORK\n  MOVE(7, ENO => out, => n) EN go;\nEND_NETWORK\n",
 }
 
 const LANGS = ["LD", "FBD"] as const

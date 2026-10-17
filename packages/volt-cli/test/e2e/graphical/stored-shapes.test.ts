@@ -8,9 +8,9 @@
  * edge on a pin and on the EN pin through `SetInputFlag`, the named ENO's variable on the ENO slot — and whether it
  * compiles. The build answers are the conformance fixtures `ng_r5_*` (volt-lsp-iec, `network-graphical-e.ts`).
  *
- * On TwinCAT the same invariant, not the same outcome: a shape no import has been measured for is REFUSED by name before
- * the PLCopen import (`TcUnmeasured`), never accepted and reshaped — its TwinCAT measurement is the native writer's
- * (openspec twincat-inproc-host).
+ * On TwinCAT the same invariant, not the same outcome: a shape no TwinCAT build has been measured for is REFUSED by name
+ * before anything is built (`TcUnmeasured`, the native builder), never accepted and reshaped; one the native writer
+ * builds (openspec twincat-inproc-host) round-trips and builds here as on CODESYS.
  */
 import { describe, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, requireHealthy, VENDOR, BASE } from "../harness"
@@ -101,23 +101,24 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 })
 
-/** TwinCAT's refusals, by the words `TcUnmeasured` (and the PLCopen lowering) name them — undefined where the shape is
- *  expected to round-trip. */
+/** TwinCAT's refusals, by the words `TcUnmeasured` and the native builder name them — undefined where the shape is
+ *  expected to round-trip. (The four the PLCopen lowering refused — a result pin, a nested jump, an output pin of an
+ *  array element's call, a named ENO — the native writer builds, measured here.) */
 const TC: Record<string, string | undefined> = {
-	twoEno: "the result pin `=> i` of the 'MOVE' box",
+	twoEno: undefined,
 	flowBeside: "a jump or a return beside another coil on one rung",
 	flowSet: "a jump or a return with S= or R=",
-	nestedJump: "an assignment to 'Done' below the top level",
+	nestedJump: undefined,
 	negatedCoil: "a negated coil on 'x'",
 	edgeCoil: "an edge coil on 'x'",
-	edgePin: "an edge on an input pin",
+	edgePin: "a modifier on its input pin",
 	negatedEn: "a modifier on the EN pin",
 	negatedEmpty: "a negated empty slot",
-	arrayInstance: "writes a box's output pin straight to a variable",
+	arrayInstance: undefined,
 	splitBefore: "referenced above its definition",
 	splitNested: "defined below the top level",
-	comparisonEno: "the result pin `=> x` of the 'GT' box",
-	namedEno: "the result pin `=> i` of the 'MOVE' box",
+	comparisonEno: undefined,
+	namedEno: undefined,
 	comparisonValue: undefined,
 	emptyBranch: "a parallel branch",
 }

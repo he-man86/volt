@@ -289,7 +289,11 @@ internal sealed class TcArchiveBuilder
             Member("OutputParam", "ParamList", Params(outNames, outTypes)),
             new XElement("v", new XAttribute("n", "CallType"), new XAttribute("t", "Operator"), callType),
             shown ? Raw("EN", "true") : Null("EN"),
-            shown ? Raw("ENO", "true") : Null("ENO"),
+            // ENO SHOWN ONLY WHERE THE BOX HAS ONE: an enabled comparison read as a value is built EN, no ENO, as
+            // CODESYS builds it (2R.5 #26), and with ENO shown beside an output list holding none TwinCAT does not compile
+            // it — measured live 2026-10-17, `x := a AND (v GT 40 EN c);` built "Identifier '__<POU>__ImpVar8' not
+            // defined" (stored-shapes.test.ts).
+            shown && (eno || b.StCode is not null) ? Raw("ENO", "true") : Null("ENO"),
             b.StCode is { } st ? Member("STSnippet", "STSnippet", Snippet(st)) : Null("STSnippet"),
             Raw("ContainsExtensibleInputs", "false"),
             Raw("ProvidesSTSnippet", b.StCode is not null ? "true" : "false"),
@@ -333,6 +337,16 @@ internal sealed class TcArchiveBuilder
         foreach (var o in b.Outputs)
         {
             int at;
+            // The named ENO pin (P5, 2R.5 #23): the variable stored on the ENO slot, in place of its null — as
+            // CodesysNetworkWriter.OutputSlots builds it.
+            if (string.Equals(o.Formal, Volt.Engine.Format.Network.Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!eno)
+                    throw new InvalidOperationException(
+                        $"network model invariant: the '{b.Type}' box wires its ENO to '{o.Value.Text}' and is built with no ENO output; the reader refuses that text (P5).");
+                slots[0] = (true, o.Value);
+                continue;
+            }
             if (o.Formal is { } formal)
             {
                 var named = Enumerable.Range(0, names.Count)

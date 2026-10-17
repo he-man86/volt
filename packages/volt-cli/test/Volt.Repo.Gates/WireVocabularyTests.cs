@@ -363,7 +363,8 @@ public class WireVocabularyTests
         // The native writer (twincat-inproc-host): the builder's invariants (an FB call with no instance, a positional
         // output with no slot, a RESET at the generic flag write) and its shape refusals (a slot two pins claim, a named
         // pin the names do not hold, a node with no archive form); the writer's refusals of what TwinCAT never writes.
-        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 7),
+        // +1 (merge onto 2R): a named ENO pin on a box built with no ENO output, which the reader refuses (P5).
+        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 8),
         ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),

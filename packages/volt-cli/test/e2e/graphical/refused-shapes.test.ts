@@ -6,8 +6,7 @@
  * (`F(… doubled => twice)`). Each refusal stated a reason and each reason blamed TwinCAT's PLCopen importer — and
  * the refusals were the DRIVER's rules, written from what it could express at the time: "TwinCAT cannot" and "Volt
  * does not" read identically from the outside, which is exactly why they need a test rather than a note. With the
- * native writer (openspec twincat-inproc-host) TwinCAT builds four of the five; the fifth stays refused for a reason
- * of its own (the table says which).</p>
+ * native writer (openspec twincat-inproc-host) TwinCAT builds all five; the list is empty on both vendors.</p>
  *
  * <p>So this suite asserts the two things that are true whichever way each one turns out:</p>
  *
@@ -149,11 +148,10 @@ END_FUNCTION_BLOCK
 	},
 	{
 		what: "a box output pin wired straight to a variable",
-		// Still refused on TwinCAT, for a narrower reason than the import's (which lowered the pin to a separate
-		// assignment, C20): the box is CONSUMED (`next := …`) and wires a pin by name, and the archive keeps the slot a
-		// consumer reads as the one null output item, which the text's layout leaves none of. A top-level box with a
-		// pin is built (native-writer.test.ts: `t1(… ET => el)`).
-		refusedBy: ["twincat"],
+		// TOOK IT, TAKEN OFF THE LIST — 2026-10-17. TwinCAT's PLCopen importer lowered the pin to a separate assignment
+		// (C20), so it was refused; the native writer builds the FUNCTION's box with its drawn output list (its result
+		// slot, which the consumer reads, and every VAR_OUTPUT — 2R.4, as CODESYS builds it), so the pin has its slot.
+		refusedBy: [],
 		items: [
 			{
 				name: "VltRefSplit.pou",
