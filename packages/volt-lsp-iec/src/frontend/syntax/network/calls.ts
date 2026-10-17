@@ -9,7 +9,7 @@ import type { NetworkPin } from "./ast.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
 import type { Syn } from "./boxes.js"
 import { ValueReader } from "./values.js"
-import { CONSTRUCT_WORDS, defaultFormal, IDENTIFIER, isName, isReserved } from "./words.js"
+import { CONSTRUCT_WORDS, defaultFormal, IDENTIFIER, isName, isReserved, UNMEASURED_EDGE_PIN } from "./words.js"
 
 export abstract class CallReader extends ValueReader {
   protected parseCall(head: Tok, unnamedType: Tok | undefined, operatorCall: boolean, type: string | undefined): Syn {
@@ -103,8 +103,15 @@ export abstract class CallReader extends ValueReader {
       return false
     }
 
+    // A pin's modifiers before its name — `NOT IN2 := b` (S6), `R_EDGE IN1 := c` (2R.5, #15).
     let not: Tok | undefined
-    if (isWord(this.peek(), "NOT") && this.isPinNameAt(this.p + 1) && isSym(this.raw(this.p + 2), ":=")) not = this.next()
+    const mods = this.modifiersAt(this.p)
+    if (mods.count > 0 && this.isPinNameAt(this.p + mods.count) && isSym(this.raw(this.p + mods.count + 1), ":=")) {
+      not = this.peek()
+      if (mods.flags.edge !== undefined && mods.flags.negated !== undefined) throw this.err(not, "NETWORK_UNSUPPORTED", UNMEASURED_EDGE_PIN)
+      for (let k = 0; k < mods.count; k++) this.next()
+    }
+    const pinFlags = not !== undefined ? mods.flags : {}
 
     if (this.isPinNameAt(this.p) && (isSym(this.raw(this.p + 1), ":=") || isSym(this.raw(this.p + 1), "=>"))) {
       const name = this.next()
@@ -120,14 +127,20 @@ export abstract class CallReader extends ValueReader {
             "NETWORK_BAD_EXPRESSION",
             not === undefined
               ? "`EN :=` on a box is not network text: the enable follows the box, `f(…) EN c` (B3, P12)."
-              : "a flag on the EN pin: the enable is the rung itself, and the IDE holds no modifier on it — negate what feeds it.",
+              : "`EN :=` on a box is not network text: the enable follows the box, its modifier before the word — `f(…) NOT EN c` (B3, P12).",
           )
         if (isEno) throw this.err(name, "NETWORK_BAD_EXPRESSION", "`ENO :=`: ENO is an output — the named ENO pin is `ENO => x` (P5).")
         const at = this.peek()
         const v = this.parseLevel()
         const value = v.empty ? { kind: "empty_slot" as const, span: this.emptySpan(at) } : this.slot(v, at)
-        box.inputs.push({ formal: name.text, value, negated: not !== undefined })
-        pins.push({ kind: "input", name: this.name(name), value, ...(not !== undefined ? { negated: true as const } : {}), span: this.spanFrom(not ?? name) })
+        box.inputs.push({
+          formal: name.text,
+          value,
+          negated: pinFlags.negated === true,
+          ...(pinFlags.edge !== undefined ? { edge: pinFlags.edge } : {}),
+        })
+        pins.push({ kind: "input", name: this.name(name), value, ...pinFlags, span: this.spanFrom(not ?? name) })
+
         return false
       }
       if (isEn) throw this.err(name, "NETWORK_BAD_EXPRESSION", "`EN =>`: EN is the enable input, never an output pin (B3).")

@@ -238,10 +238,11 @@ namespace Volt.Ide.Codesys
             if (n is Box b && consumed && b.StCode is null)
             {
                 var readsEno = NetworkText.HasEnoOutput(b, consumed: true);
-                if (b.Enable is not null && NetworkText.IsComparison(b.Type))
-                    throw Unbuildable(b, "a consumed enabled comparison: CODESYS does not compile one Volt builds " +
-                                         "(its result variable hangs off an output index Volt cannot set, DIALECT N21)");
-                if (b.Enable is not null && !readsEno)
+                // An enabled COMPARISON read as a value is built as the PLCopen importer builds it — EN, no ENO, its result
+                // slot null (2R.5 #26: that box stores, builds and runs; the refusal that stood here said no box Volt builds
+                // compiles, which held for the box built with ENO). Read through its ENO it is any enabled box (#22).
+                if (b.Enable is not null && !readsEno && !NetworkText.IsComparison(b.Type))
+
                     throw Unbuildable(b, "the model reads its main output, and CODESYS reads a box Volt builds with EN " +
                                          "through its ENO (DIALECT N21) — the push would feed the consumer the enable, " +
                                          "not the data. Write the box as an open line and read it as ENO (B4)");
@@ -414,10 +415,20 @@ namespace Volt.Ide.Codesys
                             // the reader's decode — `CoilBitsRoundTrip` gates that the pair agrees). Handing
                             // the raw target to `Operand(o, extra)` would send `Reset` through `ApplyFlags`,
                             // which knows only the vendor's own bit names and has no Reset to write.
-                            var (negation, set) = (t.Flags ?? Flags.None).VendorCoilBits();
+                            // PER TARGET (2R.5): a rung drives a coil beside a jump (#9), two jumps (#11), an edge coil
+                            // (#14) — each target's own bits, the item's Jump/Return only where it has one target (the
+                            // bit's cache on the item, DIALECT C13). Applied to every target, a coil beside a jump became
+                            // a second jump, and an edge coil was written plain.
+                            var f = t.Flags ?? Flags.None;
+                            var (negation, set) = f.VendorCoilBits();
+                            var lone = a.Targets.Count == 1;
                             var coil = t with
                             {
-                                Flags = Flags.None with { Negated = negation, Set = set, Jump = a.Flags.Jump, Return = a.Flags.Return },
+                                Flags = Flags.None with
+                                {
+                                    Negated = negation, Set = set, Rising = f.Rising, Falling = f.Falling,
+                                    Jump = f.Jump || (lone && a.Flags.Jump), Return = f.Return || (lone && a.Flags.Return),
+                                },
                             };
                             NwlInterop.Call(outputs, "AppendOutputItem", Operand(coil));
                         }
@@ -520,16 +531,21 @@ namespace Volt.Ide.Codesys
                         // shown on this box" flag, and the enable's EXPRESSION is an ordinary input item — 220
                         // of 220 boxes with one, in a real project. So there was somewhere to put it after all,
                         // and every push carrying an enable was refused for want of looking one slot over.
+                        var eno = NetworkText.HasEnoOutput(b, consumed);
                         if (b.Enable is { } en)
                         {
                             NwlInterop.Call(box, "AppendInputItem", Node(en));
                             NwlInterop.Set(box, "En", true);
-                            NwlInterop.Set(box, "Eno", true);   // shown as a pair, and the vendor sets both
+                            // Shown as a pair where the box has an ENO — but an enabled comparison read as a VALUE has
+                            // none (2R.5 #26): the editor draws it EN true, ENO false (40 of 40 lenze-mid boxes), the
+                            // PLCopen importer's builds and runs (awkward-sweep, CODESYS SP21); with the pair shown it is
+                            // read through its ENO (N21).
+                            NwlInterop.Set(box, "Eno", eno);
                         }
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
-                        if (b.Inputs.Any(p => !p.Flags.IsNone)) WritePinFlags(box, b);
+                        if (b.Inputs.Any(p => !p.Flags.IsNone) || !b.EnableFlags.IsNone) WritePinFlags(box, b);
 
                         // FORMAL PIN NAMES, where the model has them. `AppendInputItem` supplies only the value
                         // WIRED to a pin, never the pin's name, and `InputParams` is where the reader looks for
@@ -579,7 +595,6 @@ namespace Volt.Ide.Codesys
                         // is built as the text reads it — by the text's own rule, never a copy of it here. A null
                         // where the text DOES state the fact never gets this far: the change gate renders the model
                         // first, and the text writer refuses it by name.
-                        var eno = NetworkText.HasEnoOutput(b, consumed);
                         // THE NAMES AND TYPES ARE THE BOX'S MEMBERS (ld-fbd-coverage 2.3): the stored ones the text spells by
                         // pragma — S1's `['']` on a bit operator, a call's whole output list — else what the text's own
                         // pins give (NetworkMembers.DerivedOutputNames / DerivedOutputTypes). The output items are laid
@@ -715,6 +730,15 @@ namespace Volt.Ide.Codesys
                 foreach (var o in b.Outputs)
                 {
                     int at;
+                    // The named ENO pin (P5, 2R.5 #23): the variable the vendor stores on the ENO slot, in place of its null.
+                    if (string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!eno)
+                            throw new InvalidOperationException(
+                                $"network model invariant: the '{b.Type}' box wires its ENO to '{o.Value.Text}' and is built with no ENO output; the reader refuses that text (P5).");
+                        slots[0] = OutputSlot.Of(o.Value);
+                        continue;
+                    }
                     if (o.Formal is { } formal)
                     {
                         var named = Enumerable.Range(0, names.Count)
@@ -759,12 +783,16 @@ namespace Volt.Ide.Codesys
             private static void WritePinFlags(object box, Box b)
             {
                 var first = b.Enable is null ? 0 : 1;
+                // The EN slot's own set (2R.5 #16), then each pin's (S6; an edge, 2R.5 #15).
+                var pins = new List<(int Slot, Flags Flags, string Name)>();
+                if (b.Enable is not null && !b.EnableFlags.IsNone) pins.Add((0, b.EnableFlags, Box.EnablePin));
                 for (var i = 0; i < b.Inputs.Count; i++)
+                    if (!b.Inputs[i].Flags.IsNone) pins.Add((first + i, b.Inputs[i].Flags, b.Inputs[i].Formal ?? $"input {i}"));
+                foreach (var (slot, flags, _) in pins)
                 {
-                    if (b.Inputs[i].Flags.IsNone) continue;
                     var set = NwlInterop.New(box, "Flags");
-                    SetBits(set, b.Inputs[i].Flags);
-                    NwlInterop.Call(box, "SetInputFlag", first + i, set);
+                    SetBits(set, flags);
+                    NwlInterop.Call(box, "SetInputFlag", slot, set);
                 }
                 var kept = (NwlInterop.Get(box, "InputFlags") as System.Collections.IEnumerable)?.Cast<object?>().ToList()
                            ?? throw new NotSupportedException(
@@ -773,11 +801,16 @@ namespace Volt.Ide.Codesys
                     throw new NotSupportedException(
                         $"CODESYS: the '{b.Type}' box answers {kept.Count} pin flag set(s) for {first + b.Inputs.Count} input(s), " +
                         "so which pin a flag belongs to is unknown. Refusing rather than flag another pin.");
-                for (var i = 0; i < b.Inputs.Count; i++)
-                    if (b.Inputs[i].Flags.Negated && !(kept[first + i] is { } k && NwlInterop.Flag(k, "Negation")))
+                // READ BACK, every bit: a pin whose modifier the box does not keep is refused by name rather than built
+                // plain — inverted logic, or an edge gone, with the text saying otherwise.
+                foreach (var (slot, flags, name) in pins)
+                    if (kept[slot] is not { } k ||
+                        (flags.Negated && !NwlInterop.Flag(k, "Negation")) ||
+                        (flags.Rising && !NwlInterop.Flag(k, "Rtrig")) ||
+                        (flags.Falling && !NwlInterop.Flag(k, "Ftrig")))
                         throw new NotSupportedException(
-                            $"CODESYS: the '{b.Type}' box did not keep the negation written on its pin {b.Inputs[i].Formal ?? $"input {i}"} — " +
-                            "refusing rather than build the pin plain, the inverse of the text.");
+                            $"CODESYS: the '{b.Type}' box did not keep the modifier written on its pin {name} — " +
+                            "refusing rather than build the pin plain, another program than the text.");
             }
 
             /// <summary>Name the function-block instance a box calls — by MUTATING the operand the box already

@@ -857,7 +857,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       declaration of a library's function to derive the CallType (and positional names) from: owed is the driver's read
       of it (the IDE's library signature) — measure first. TwinCAT builds the named box (its import resolves it). Until
       then the LSP cannot say it (the drawn box builds) and the census carries the three as ceiling exceptions.
-- [ ] 2R.5 **Owner 2026-10-16: "if it is possible then we should be able to encode and decode it."** Zero in the corpora
+- [x] 2R.5 **Owner 2026-10-16: "if it is possible then we should be able to encode and decode it."** Zero in the corpora
       is NOT a reason to refuse. Every shape the IDE can STORE (draw, or hold after an import) gets a spelling, a
       fixture on both vendors and a round trip — whether it compiles or not. Applies to every X / refused-by-name row
       in design.md's member disposition: a box consuming two ENOs, a one-branch parallel (C0023), a 3-input
@@ -884,6 +884,107 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       Not NWL: SP21's new Ladder editor (`LadderDataModel`, #32) — every PLCopen LD import lands there and Volt pulls
       `IMPLEMENTATION LADDER UNSUPPORTED`. **Owner 2026-10-16: it is LD2 (the export says `<!--ObjectVersion: LD2-->`);
       not in this change, not implemented yet; its body line should end up `IMPLEMENTATION LD2`.
+      **Done 2026-10-17 (uncommitted, for the gate)** — design "2R.5", as built. Every row the sweep measured S B R, and
+      the empty branch (readability Open c, measured here by a native-archive edit: it stores, builds and runs as a
+      shorted branch), is spelled by an existing rule with its refusal clause removed — in the bridge's writer, reader
+      and gate and the LSP parser alike (the shared case set: `accept/r5-stored-shapes.cases`, 23 cases; refuse cases
+      moved or narrowed): a jump or a return is a coil beside other coils, with S=/R=, modified, nested (#9–#12); a
+      coil's `NOT`/`R_EDGE`/`F_EDGE` before it (#13, #14 — the pull that hid #14's body went with the refusal); an edge
+      on a pin before its formal (#15); `NOT EN c` (#16, a new model field `Box.EnableFlags`); `x := NOT ;` (#6a); an
+      element of an array of FBs as a call head, `` `fbs[1]`(…) `` (#17 — backticked like every operand that is no token;
+      `StDeclaration.TypeOfArrayElement`, the LSP's `instanceFb` on an index head); a split referenced above its
+      definition and one nested, `(split1 := …)` (#19, #20); a comparison read through its ENO (#22); the named ENO pin
+      read by both drivers (#23, the reader refusal `RefuseWiredEno` deleted); an enabled comparison read as a value
+      built as the editor draws it, EN true / ENO false (#26, the N21 push refusal deleted); `(a, , b)`. Drivers: CODESYS
+      writes each target's own bits (a coil beside a jump was a second jump), the EN slot's and every pin's flags read
+      back bit by bit, the ENO pin's variable on the ENO slot; TwinCAT's in-place writer writes each target's bits
+      (`WriteTargetBits`, red first: `TcDrawnJumpTests`), its reader reads the named ENO, and `TcUnmeasured` refuses every
+      new shape before the PLCopen import by name. **Refused, with measurement:** an operator box with fewer than two
+      inputs (`ng_r5_one_input_*`, recorded through the push first: "'+' needs at least '2' operands" on both vendors) —
+      `ADD(a)` left P5. **Measured per row, CODESYS SP21:** the 19 `ng_r5_*` fixtures pushed and built in one batch (all
+      clean; `ng_r5_array_instance` warns the WORD → INT sign change of `CV => i`), round-tripped exactly
+      (`test/e2e/graphical/stored-shapes.test.ts`, 8 tests), and run in simulation as Volt pushed them (a headless
+      CODESYS serving the bridge, a fresh login per case, 24 cases): every row runs as its stored tree says — DIALECT N41,
+      with the IDE's own semantics the drawing hides (an edge coil runs as a plain coil, `S=` on a jump latches nothing,
+      `NOT ;` writes TRUE, the named ENO's variable is never written, a taken nested jump skips its coil, an empty branch is
+      shorted). **TwinCAT (Project13, LCID 1033):** 18 of 19 refused by Volt's driver before the import (`TWINCAT_REFUSES`,
+      the refusal's words), `ng_r5_enabled_comparison_value` clean and round-tripped; no TwinCAT measurement of the
+      stored shapes exists on the PLCopen route — that is the native archive writer's (twincat-inproc-host, on branch
+      `twincat-native-writer`, not on dev).
+      **Not done, for the owner:** (1) **SymbolComment stays E** — the design's D (the callee pin's declaration comment)
+      needs a measured door to write `SymbolComment` on a built operand, and its refusal is pinned by the live recording
+      `nwl-corpus/live.codesys.xml` (re-recorded by `scripts/record-nwl-corpus.py`); 10 occurrences (pro2193 `SetAlarm`),
+      measured a cache (2R.4). (2) **S4 (#25) stays refused on rebuild**: building `fb(…).name` needs the named output's
+      slot index, which is the callee's signature — a project FB's declaration would give it, a library FB's (the
+      sweep's CTU) is 2R.4b's open read; 3 corpus boxes. (3) **The LSP warnings design 2R.5 names** (#19 a split read
+      above its definition, #23 a named ENO pin never written) are not built: each is an LSP-only message the build does
+      not give — a census FP by the parity rule. (4) **Unmeasured, still refused by name:** `BoxTreeMux` and
+      `ILStatement`/`ILLines` (not makeable by an archive edit; the editor's IL option is owed), `Connectors` (the PLCopen
+      import drops them). (5) **A wire divergence** in the design's sense (one vendor stores, the other refuses) exists
+      for every row — but the refusal is Volt's PLCopen route, not the XAE; it closes with the native writer, so not
+      stopped on. (6) **Found, not 2R.5's:** on TwinCAT (Project13 and 14) the XAE hands a two-line network comment's
+      archive with a raw CR on an edit, so `TcRawLineEndRefusal` refuses `rebuild.test.ts`'s metadata edit — the
+      measurement 2R.3's gate named as owed. **Edge cases the doc needed** (owner rule: grammar defects, listed not
+      documented): the lone `JMP l;` keeps its own rail form while a jump beside a coil writes `x := JMP l := ;` (P7's one
+      spelling for the lone one); `NOT x S=` is no text (the reset coil's own two bits); a comparison is the one enabled
+      value (P4 (2), a vendor fact: #21 vs #26).
+      **Numbers:** C# Engine 3001 + 1 skipped, CODESYS 454, TwinCAT 548, Cli 297, Repo.Gates 243, Contracts 42, Connector
+      146; volt-cli unit 154; case set 258 per side (C# and LSP); LSP src 3019, test/frontend 25/25 (baselines: counts),
+      test/analysis 13/13 (CODESYS GAP 518 → 519, excepted: `OUTPUT_PIN_SIGN_CHANGE`; measured 5619 → 5638), test/conformance
+      6964 pass / 385 todo / 0 fail; graphical e2e CODESYS 144/144, TwinCAT Project14 142 pass / 1 skip / 1 fail (item 6);
+      typecheck, lint (warnings only), `bun run check` 16/16; `rate:fixtures` unaskable 131 → 152 (the 21 `ng_r5_*`);
+      recorder testCount CODESYS 5638 → 5659, TwinCAT 5594 → 5597.
+      **Gate 2R.5 (2026-10-17) — the nine review findings, test first.** (1) TwinCAT's in-place write dropped the S= of a
+      lone `RETURN S= ;` and reported success: `WriteTargetBits` now writes a lone return's bits too, and (3) writes no bit
+      change whose result is a coil shape no TwinCAT edit measured (`TcUnmeasured.InPlace`, the import's
+      `UnmeasuredCoil` list: S=, NOT or an edge beside a jump, a set return) nor a negated empty slot — refused, the
+      network goes to the import, which refuses it by name (`TcDrawnJumpTests`, 5 rows). (2) The named ENO pin: the
+      in-place write now writes and refuses deleting the ENO slot (`Dropping_the_named_ENO_pin_…`, `Retargeting_…`); the
+      text writer reads `ENO => v` as a fact that decides the box's ENO (`NetworkSpelling.EnoCarried`), so a box with an
+      ENO and neither EN nor an ENO reader goes to the marker ("an ENO output the text reads otherwise") instead of
+      pulling text its own gate refuses. (4) The unmeasured composites are refused by name, `NETWORK_UNSUPPORTED`, in the
+      reader, the writer and the LSP alike (`refuse/r5-unmeasured.cases`, 13 cases; `r5-edge-set-coil` moved there): NOT,
+      R_EDGE, F_EDGE or R= on a jump or return; an edge beside a coil's NOT/S=/R=; an edge with NOT on one pin; an edge on
+      EN; a negated empty slot outside a coil's value. 0 of each in the six corpora (counted: the LD/FBD bodies hold 4
+      plain RETURNs and 1 edge, `EN R_EDGE(output)`). (5) A split read inside its own definition: refused the same way.
+      (6) A split defined inside its own definition is NETWORK_DUPLICATE_NAME on both sides (defined before its value is
+      read). (7) `StDeclaration.TypeOfArrayElement` takes one index per dimension (`m[0]` of a 2-D array is a row, not
+      an FB). (8) The doc lost the special cases (`NOT x S=`, the enabled comparison value, the lone-JMP rail); the
+      grammar's `coil` rule now states S=/R= take no modifier. (9) `ng_r5_array_instance` wires `CV => w : WORD` and
+      measures #17 alone — re-recorded on both (CODESYS SP21 en: clean; TwinCAT Project13 LCID 1033: the same import
+      refusal); the ceiling exception `OUTPUT_PIN_SIGN_CHANGE` is deleted, GAP 519 → 518.
+      **For the owner:** each new refusal in (4)/(5) is a measurement owed, not a design — a store/build/run per row lifts
+      it; a box that holds an ENO with no EN (only `EnoSlot.derived.TcPOU`, no vendor-drawn one is known) has no spelling.
+      **Gate 2R.5, second review (2026-10-17) — six findings, test first.** (1) The LSP's `instanceFb` counts indices: an
+      element head needs one per dimension, as `StDeclaration.TypeOfArrayElement` reads it — `m[0]` of a 2-D array and
+      `fbs[1, 2]` of a 1-D one are "an FB instance the declarations do not name" (`network-analyze.test.ts`, red first;
+      the shared case scope `instance fbs[] T` stays dimension-blind on both sides, each side's unit test pins it). (2)
+      The unmeasured compositions in the same class are refused by name in the reader, the writer and the LSP alike
+      (`NetworkSpelling.UnmeasuredModifiedFanOut`, `UNMEASURED_MODIFIED_FAN_OUT`): a negated or edge coil beside another
+      coil (`y := NOT xn := c;`, `NOT x := y R= c;`, `R_EDGE x := y S= c;`, `R_EDGE x := JMP Done := c;`) — the accept
+      case `r5-modified-coil-in-a-fan-out` moved to `refuse/r5-unmeasured.cases` — and a negated empty slot outside ONE
+      plain coil's value (`x S= NOT ;`, `x := y := NOT ;`); 6 refuse cases, writer rows in `NetworkTextWriterTests`. 0 of
+      each in the six corpora (counted over the 46 LD/FBD files: no modified coil head, no `NOT ;`). TwinCAT's two
+      `TcDrawnJumpTests` rows that edited into `NOT`/`R_EDGE` beside the drawn jump now meet the shared reader's refusal
+      first — their premise (the text spells it) is gone, so they are one theory asserting that refusal; the S= rows stay.
+      Wire census: NETWORK_UNSUPPORTED in NetworkTextReader 25 → 26. (3) `docs/network-text.html` carries no
+      customer-corpus name (0 of Mach1/Lenze/Trayfiller/MainDrive/MIDS): the lead network, the splits example, the coil
+      chain and both ladder-oracle rungs are generic networks of the same shapes (each checked through the LSP reader:
+      no diagnostic); the stray blank lines are gone. (4) The grammar now produces `coil := ;` and `x := NOT ;`
+      (`value = [ level ]`; `assign = coil , { coil } , ( value | "NOT" )`). (5) The UnmeasuredFlow text names `RETURN S=`
+      beside `JMP l S=` (C# and words.ts). (6) `isFbCallHead`'s JSDoc line is whole again. Also: `values.ts` was 411
+      lines (size gate) — the split bookkeeping (`splitRef`, `definingValue`, `parseNestedSplit`) moved beside `splitId`
+      in `targets.ts`; the dead export `CoilHead` unexported.
+      **For the owner (grammar edge cases, not documented):** `NOT ;` is a value only for ONE plain coil (the grammar's
+      `"NOT"` alternative is wider than what is measured); a `NOT`/`R_EDGE`/`F_EDGE` coil stands alone on its item. Each
+      lifts with a store/build/run of the row.
+      **Numbers:** C# Engine 3019 + 1 skipped, CODESYS 454, TwinCAT 556, Cli 297, Repo.Gates 243, Contracts 42, Connector
+      146; volt-cli unit 154; case set 276 LSP tests; LSP full suite (`VOLT_REQUIRE_FULL=1`, no VOLT_FIXTURES) 10409 pass /
+      34 skip / 428 todo / 1 fail, re-run green: the one failure was `test/package/structure.test.ts` reading a CRLF checkout
+      of `docs/architecture.md` — green on LF, no content change; graphical e2e CODESYS 144/144, TwinCAT Project14
+      142 pass / 1 skip / 1 fail (item 6, the raw CR, unchanged); typecheck clean, lint warnings only (LSP lint green),
+      `bun run check` 16/16. No fixture or transpiler change this round: `rate:fixtures` re-run, map unchanged; no recording.
+
 
 ## 3. Verify and close
 

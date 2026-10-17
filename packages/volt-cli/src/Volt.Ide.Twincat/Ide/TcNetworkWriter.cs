@@ -552,6 +552,11 @@ internal static class TcNetworkWriter
         // found no holder and REFUSED, which became a live failure the moment the reader started surfacing
         // those flags: every negated contact, SET coil and edge contact made its POU unpushable, on a body
         // nobody had edited. The surveyed real project carries 846 negations and 246 sets.
+        // A NEGATED EMPTY SLOT (`x := NOT ;`, 2R.5 #6a) is measured on CODESYS only: written here it was a flagged
+        // terminator no TwinCAT edit has stored (gate 2R.5). One the IDE holds is kept; one the push makes is refused.
+        if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || Bits(n.Flags) != TcArchive.FlagBits(e)))
+            throw TcUnmeasured.InPlace("a negated empty slot");
+
         var changed = type == "BoxTreeOperand" ? false : WriteFlags(e, n.Flags);
 
         switch (n)
@@ -586,11 +591,14 @@ internal static class TcNetworkWriter
                 // outputs and found no storage change, so `changed` stayed false, `Apply` returned null and
                 // the driver wrote nothing at all. The push reported success, the PLC still jumped to `Done`,
                 // and the next pull reverted the engineer's file.
+                // A LONE return keeps D31c's skip of the OPERANDS; a return beside a coil (2R.5, awkward-sweep #10) has
+                // its targets written like any coil's — the return's own target is the vendor's `???`. Its BITS are
+                // written either way (gate 2R.5): skipped, `RETURN S= ;` reported a push and wrote a plain return.
+                var loneReturn = a.Flags.Return && a.Targets.Count <= 1;
                 return changed
                      | WriteChild(e, "RValue", a.Value)
-                     | (a.Flags.Return ? false : WriteOutputs(e, a.Targets))
-                     | WriteJump(e, a.Flags.Jump)
-                     | (a.Flags.Return ? false : WriteCoilBits(e, a.Targets));
+                     | (loneReturn ? false : WriteOutputs(e, a.Targets))
+                     | WriteTargetBits(e, a, loneReturn);
             }
 
             case Box b when type == "BoxTreeBox":
@@ -725,6 +733,10 @@ internal static class TcNetworkWriter
                 // refuses one): a pushed pin flag is a shape this write cannot make in place.
                 if (b.Inputs.Any(p => !p.Flags.IsNone))
                     throw Refuse($"box '{b.Type}' carries a flag on an input pin, which this in-place write cannot add");
+                // …and the EN slot's (2R.5 #16, `NOT EN c`): the same InputFlags list.
+                if (!b.EnableFlags.IsNone)
+                    throw Refuse($"box '{b.Type}' carries a flag on its EN pin, which this in-place write cannot add");
+
                 if (enSlot == 1) changed |= WriteNode(inputs[0], b.Enable!);
                 for (int i = 0; i < b.Inputs.Count; i++)
                     changed |= WriteNode(inputs[i + enSlot], b.Inputs[i].Value);
@@ -778,8 +790,8 @@ internal static class TcNetworkWriter
             //       RValue t="BoxTreeOperand"              RValue t="BoxTreeTerminator"
             //         Operand "cond"                         <n n="Input" />
             //
-            // Everything else a jump needs is already written in place — `WriteJump` sets the control-flow bit
-            // on the item AND on the destination operand. Until this arm existed the swap fell to `default`
+            // Everything else a jump needs is already written in place — `WriteFlags` and `WriteTargetBits` set the control-flow
+            // bit on the item AND on the destination operand. Until this arm existed the swap fell to `default`
             // below, the network went to the IDE to be REBUILT, and the rebuild runs `PlcOpenImport`, whose
             // importer rejects an unconditional jump ("it requires a jump to be wired to a condition"). So the
             // shape TwinCAT was said to refuse was a shape VOLT's only create door could not state — the IDE
@@ -866,6 +878,16 @@ internal static class TcNetworkWriter
 
         var changed = false;
         var placed = 0;
+        // THE ENO SLOT IS THE NAMED ENO PIN (2R.5 #23, `ENO => v`), as the reader reads it: written, and a deletion refused,
+        // like any named pin (gate 2R.5 — skipped, removing `ENO => v` reported a push and the IDE kept the variable). The
+        // archive's null echo is the ENO nobody wired: a pin there is a slot the IDE never built, refused below by count.
+        var enoPin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase));
+        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot)
+        {
+            if (enoPin is not null) { changed |= WriteOutputOperand(enoSlot, enoPin.Value); placed++; }
+            else if (!string.IsNullOrEmpty(TcArchive.Str(enoSlot, "Operand")))
+                throw Refuse($"box '{b.Type}' drops the output pin '{Box.EnoPin}', and this in-place write cannot disconnect one");
+        }
         for (int i = eno; i < slots.Count; i++)
         {
             if (slots[i] is not { } slot) continue;
@@ -1078,70 +1100,56 @@ internal static class TcNetworkWriter
         return changed;
     }
 
-    /// <summary>Set or clear the JUMP bit on an assignment's targets, leaving every other bit alone.
-    ///
-    /// <para>A jump's destination operand carries the bit as well as the item does — measured on a jump
-    /// TwinCAT's own PLCopen importer built, which holds `Flags = 4` in both places (DIALECT C13). Nothing
-    /// wrote it on the EDIT path, so turning an existing coil into a jump moved the item's flags 0 -> 4 and
-    /// left the label operand at 0 — exactly the archive shape C13 measured as `'Done' is no valid
-    /// assignment target` on the other vendor.</para>
-    ///
-    /// <para>BIT-PRECISE, like <see cref="WriteStorage"/> beside it and for the same reason (D26): a target
-    /// may carry modifiers the text has no form for, and a whole-flags write would erase them.</para></summary>
-    private static bool WriteJump(XElement e, bool jump)
-    {
-        var holder = TcArchive.Obj(e, "OutputItems");
-        var changed = false;
-        foreach (var target in TcArchive.List(holder, "OutputItems"))
-        {
-            var flags = TcArchive.Obj(target, "Flags");
-            if (flags == null)
-            {
-                if (jump) throw Refuse("a jump's destination carries no flags");
-                continue;
-            }
-            var now = TcArchive.Int(flags, "Flags");
-            var next = jump ? now | TcArchive.FlagJump : now & ~TcArchive.FlagJump;
-            changed |= SetInt(flags, "Flags", next);
-        }
-        return changed;
-    }
-
-    /// <summary>The two bits each target's COIL KIND is spelled with — <c>Negation</c> and <c>Set</c>
-    /// together, per target, index-aligned with the archive's own output slots.
-    ///
-    /// <para><b>Per target, and both bits.</b> This was <c>WriteStorage(e, storage)</c>: ONE storage record,
-    /// lifted off the assignment's VALUE, written to every output slot, and touching the <c>Set</c> bit alone.
-    /// Two things followed. A fan-out whose coils disagree got the first coil's storage on all of them. And a
-    /// RESET coil — which this vendor, like CODESYS, spells <c>Negation + Set</c> (<see cref="Flags.CoilFromVendor"/>)
-    /// — was refused outright as having "no representation in the IDE's flag set", because <c>Negation</c> was
-    /// read as a modifier rather than as half of the coil kind.</para>
-    ///
-    /// <para>Still BIT-PRECISE (D26): only the two coil bits are cleared and rewritten, so an edge or a jump
-    /// bit the text has no form for survives an edit.</para></summary>
-    private static bool WriteCoilBits(XElement e, IReadOnlyList<Operand> targets)
+    /// <summary>EVERY BIT A TARGET CARRIES, per target, index-aligned with the archive's own output slots (2R.5): its coil
+    /// kind (<c>Negation</c> + <c>Set</c>, <see cref="Flags.VendorCoilBits"/>), its edge (<c>Rtrig</c>/<c>Ftrig</c>: an
+    /// edge coil, awkward-sweep #14) and its control flow (<c>Jump</c>/<c>Return</c>: a jump beside a coil, #9, two jumps,
+    /// #11 — each on its own target, the item's bit taken by a lone target, DIALECT C13). These are the bits the text
+    /// spells on a coil now; written one record for every target, a coil beside a jump became a second jump, and an edge
+    /// the text added was never written. BIT-PRECISE still (D26): every other bit of the slot survives.
+    /// <para>A LONE RETURN the text spells plain (<c>RETURN;</c>, no target, D31c) keeps the archive's own slot and its
+    /// Return bit; every other managed bit is cleared, as a plain return has none.</para>
+    /// <para>ONLY MEASURED SHAPES ARE WRITTEN (gate 2R.5): a change of bits whose result is a coil shape no TwinCAT edit has
+    /// measured (<see cref="TcUnmeasured.UnmeasuredCoil"/> — the shapes its import refuses) is refused by name before any
+    /// bit is set, so the network goes to the import, which refuses it the same way. One the IDE holds is kept.</para></summary>
+    private static bool WriteTargetBits(XElement e, Assign a, bool loneReturn)
     {
         var holder = TcArchive.Obj(e, "OutputItems");
         var items = TcArchive.List(holder, "OutputItems");
-        if (items.Count != targets.Count)
-            throw Refuse($"an item changes from {items.Count} to {targets.Count} output(s)");
+        var plainReturn = loneReturn && a.Targets.Count == 0;
+        if (!plainReturn && items.Count != a.Targets.Count)
+            throw Refuse($"an item changes from {items.Count} to {a.Targets.Count} output(s)");
 
-        const int coilBits = TcArchive.FlagNegation | TcArchive.FlagSet;
-        var changed = false;
+        const int managed = TcArchive.FlagNegation | TcArchive.FlagSet | TcArchive.FlagJump | TcArchive.FlagReturn |
+                            TcArchive.FlagRtrig | TcArchive.FlagFtrig;
+        var lone = a.Targets.Count == 1;
+        var writes = new List<(XElement Flags, int Next)>();
         for (int i = 0; i < items.Count; i++)
         {
-            var (negation, set) = (targets[i].Flags ?? Flags.None).VendorCoilBits();
             var flags = TcArchive.Obj(items[i], "Flags");
+            var now = flags is null ? 0 : TcArchive.Int(flags, "Flags");
+            int desired;
+            if (plainReturn) desired = now & TcArchive.FlagReturn;
+            else
+            {
+                var f = a.Targets[i].Flags ?? Flags.None;
+                var (negation, set) = f.VendorCoilBits();
+                desired = (negation ? TcArchive.FlagNegation : 0) | (set ? TcArchive.FlagSet : 0)
+                        | (f.Jump || (lone && a.Flags.Jump) ? TcArchive.FlagJump : 0)
+                        | (f.Return || (lone && a.Flags.Return) ? TcArchive.FlagReturn : 0)
+                        | (f.Rising ? TcArchive.FlagRtrig : 0) | (f.Falling ? TcArchive.FlagFtrig : 0);
+            }
             if (flags == null)
             {
-                if (negation || set) throw Refuse("a SET or RESET coil carries no flags");
+                if (desired != 0) throw Refuse("a coil's target carries no flags");
                 continue;
             }
-            var next = (TcArchive.Int(flags, "Flags") & ~coilBits)
-                     | (negation ? TcArchive.FlagNegation : 0)
-                     | (set ? TcArchive.FlagSet : 0);
-            changed |= SetInt(flags, "Flags", next);
+            var next = (now & ~managed) | desired;
+            if (next != now) writes.Add((flags, next));
         }
+        if (writes.Count > 0 && TcUnmeasured.UnmeasuredCoil(a) is { } shape) throw TcUnmeasured.InPlace(shape);
+
+        var changed = false;
+        foreach (var (flags, next) in writes) changed |= SetInt(flags, "Flags", next);
         return changed;
     }
 
@@ -1212,10 +1220,10 @@ internal static class TcNetworkWriter
 
     /// <summary>The vendor bit-field for a node's or an operand's MODIFIERS. <c>Reset</c> is not one: it is a COIL
     /// KIND, spelled <c>Negation + Set</c> on an assignment TARGET (<see cref="Flags.CoilFromVendor"/>), which
-    /// <see cref="WriteCoilBits"/> writes — and the reader builds it nowhere else. A Reset here is a model the reader
+    /// <see cref="WriteTargetBits"/> writes — and the reader builds it nowhere else. A Reset here is a model the reader
     /// never produced: an invariant, worded as CODESYS words the same fact (<c>CodesysNetworkWriter.ApplyFlags</c>;
     /// openspec bridge-refusal-review 2.32, D23). It was a refusal claiming RESET "has no representation in the IDE's
-    /// flag set" — the belief <see cref="WriteCoilBits"/>' own doc records as what made reset coils pull as SET.</summary>
+    /// flag set" — the belief that once made every reset coil pull as a SET coil (Flags.CoilFromVendor).</summary>
     private static int Bits(Flags? flags)
     {
         if (flags is not { } f || f.IsNone) return 0;

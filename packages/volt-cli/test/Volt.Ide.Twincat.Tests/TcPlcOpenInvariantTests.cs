@@ -29,13 +29,16 @@ public class TcPlcOpenInvariantTests
 
     private static Assign Coil(Node value, string target) => new(value, new[] { new Operand(target) }, Flags.None);
 
+    /// <summary>A wire referenced above its definition is network text since 2R.5 (awkward-sweep #19: it stores and builds
+    /// on CODESYS, reading the previous scan) — so it is no invariant of the lowering any more, but a shape TwinCAT's import
+    /// is not measured for: refused by name, UNSUPPORTED, before the lowering (which emits a definition first).</summary>
     [Fact]
-    public void A_wire_referenced_before_its_definition_is_an_invariant()
+    public void A_wire_referenced_before_its_definition_is_refused_by_name()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            TcPlcOpenWriter.WriteProject("P", One(Coil(And(new Demux(7, null), Var("a")), "out"))));
-        Assert.Contains("wire 7 before its definition", ex.Message);
-        Assert.Contains("Volt bug", ex.Message);
+        var ex = Assert.Throws<NetworkTextException>(() =>
+            TcPlcOpenWriter.WriteProject("P", One(Coil(And(new Demux(7, null), Var("a")), "out"), new Demux(7, And(Var("b"), Var("c"))))));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, ex.Code);
+        Assert.Contains("split7 referenced above its definition", ex.Message);
     }
 
     /// <summary>AN ASSIGNMENT BELOW THE TOP LEVEL IS NO LONGER A MODEL THE READER NEVER BUILDS: network text spells it
@@ -85,8 +88,9 @@ public class TcPlcOpenInvariantTests
 
     [Fact]
     public void A_wire_defined_from_a_statement_is_refused_by_name() =>
-        UnmeasuredNested(Coil(new Demux(1, Coil(Var("a"), "b")), "x"), Coil(And(new Demux(1, null), Var("c")), "y"),
+        UnmeasuredNested(new Demux(1, Coil(Var("a"), "b")), Coil(And(new Demux(1, null), Var("c")), "y"),
                          Coil(And(new Demux(1, null), Var("d")), "z"));
+
 
     [Fact]
     public void A_call_kind_with_no_PLCopen_call_type_is_an_invariant()

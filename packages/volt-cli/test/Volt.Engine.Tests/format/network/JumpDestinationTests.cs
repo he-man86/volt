@@ -6,8 +6,9 @@ using Xunit;
 namespace Volt.Engine.Tests.Format.Network;
 
 /// <summary>
-/// A JUMP'S DESTINATION IS THE TARGET CARRYING THE JUMP BIT — and a rung that drives a jump beside a coil has no
-/// spelling at all, so it goes to the marker by name rather than lose either.
+/// A JUMP'S DESTINATION IS THE TARGET CARRYING THE JUMP BIT — and a rung that drives a jump beside a coil is spelled
+/// with each coil where it stands, the jump a coil like any other (openspec ld-fbd-coverage 2R.5, awkward-sweep #9: the
+/// shape stores, builds and runs on CODESYS SP21).
 ///
 /// <para>A rung may drive more than one target, and a coil beside a jump off the same wire is an ordinary ladder
 /// shape. The flag lives on the TARGET OPERAND as well as on the item (DIALECT C13, and on CODESYS the operand is
@@ -17,9 +18,9 @@ namespace Volt.Engine.Tests.Format.Network;
 ///
 /// <para><b>Found by a body drawn by hand in a live XAE</b>
 /// (<c>Volt.Ide.Twincat.Tests/fixtures/tc-pou/drawn-refused-shapes.TcPOU</c>), whose rung drives the jump
-/// destination <c>owrods</c> and the coil <c>out</c> from one terminator. Network text v2 keeps it on the marker
-/// (spec, "marker-only shapes stay on the existing marker": <c>JMP</c> as an assign target is not ST, and no corpus
-/// holds the shape), in either order — the writer's own refusal, which is the pull's marker route (task 3.1).</para>
+/// destination <c>owrods</c> and the coil <c>out</c> from one terminator. It was kept on the marker until 2R.5 (no corpus
+/// holds the shape); "zero in the corpora is no reason to refuse" (owner, 2026-10-16), so it is written in either order,
+/// the label on the target that carries the bit.</para>
 /// </summary>
 public class JumpDestinationTests
 {
@@ -40,14 +41,18 @@ public class JumpDestinationTests
     [Theory]
     [InlineData(true)]    // the label first — the drawn body's order
     [InlineData(false)]   // …and the other way round, which is where v1 went wrong
-    public void A_rung_driving_a_jump_and_a_coil_goes_to_the_marker_by_name(bool jumpFirst)
+    public void A_rung_driving_a_jump_and_a_coil_names_the_label_on_the_flagged_target(bool jumpFirst)
     {
         var body = jumpFirst ? Rung(("Onwards", true), ("out", false)) : Rung(("out", false), ("Onwards", true));
 
-        var ex = Assert.Throws<NetworkUnrepresentableException>(() => NetworkTextWriter.Write(body, NetworkScope.Empty));
+        var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Equal("a rung driving a coil and a jump together", ex.Reason);
-        Assert.IsAssignableFrom<UnrepresentableBodyException>(ex);   // the one exception a pull turns into the marker
+        Assert.Contains(jumpFirst ? "  JMP Onwards := out := ;\n" : "  out := JMP Onwards := ;\n", text);
+        var read = NetworkTextReader.Read(text, NetworkScope.Empty);
+        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
+        var assign = Assert.IsType<Assign>(Assert.Single(read.Body!.Networks[0].Trees));
+        Assert.Equal(new[] { "Onwards" }, assign.Targets.Where(t => t.Flags?.Jump == true).Select(t => t.Text));
+        Assert.Equal(new[] { "out" }, assign.Targets.Where(t => t.Flags?.Jump != true).Select(t => t.Text));
     }
 
     [Fact]

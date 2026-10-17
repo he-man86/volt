@@ -648,10 +648,11 @@ public class CodesysNetworkReaderTests
         Assert.True(pins[1].Flags.IsNone);
     }
 
-    /// <summary>A flag on the EN pin has no place in the model — the enable is a tree, not an <see cref="Input"/> — so
-    /// it stays refused by the reader, under the same name, and the slot after it keeps its own flags aligned.</summary>
+    /// <summary>A flag on the EN pin is the box's <see cref="Box.EnableFlags"/> (2R.5, awkward-sweep #16: a negated EN pin
+    /// stores, builds and runs) — read off the EN slot's flag set, never onto the enable's tree, and the slot after it
+    /// keeps its own flags aligned.</summary>
     [Fact]
-    public void A_flag_on_the_enable_pin_is_refused_by_name()
+    public void A_flag_on_the_enable_pin_is_the_boxs_enable_flags()
     {
         var box = new Nwl.BoxTreeBox
         {
@@ -661,9 +662,10 @@ public class CodesysNetworkReaderTests
             InputFlags = new object[] { new Nwl.Flags { Negation = true }, new Nwl.Flags() },
         };
 
-        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
-        Assert.Equal("a flag on a box input pin", ex.Reason);
-        Assert.Contains("EN pin", ex.Message);
+        var read = Assert.IsType<Box>(CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+        Assert.True(read.EnableFlags.Negated);
+        Assert.True(Assert.IsType<Leaf>(read.Enable).Flags.IsNone);
+        Assert.True(read.Inputs.Single().Flags.IsNone);
     }
 
     /// <summary>…and with the enable's flag clear, a flag on the data pin after it lands on THAT pin — the EN slot is
@@ -745,13 +747,12 @@ public class CodesysNetworkReaderTests
         Assert.Contains("InputFlags", ex.Message);
     }
 
-    /// <summary>A VARIABLE WIRED ON THE ENO OUTPUT SLOT IS REFUSED BY NAME, never dropped. The text has no spelling for
-    /// it (ENO is never an <c>=&gt;</c> slot — the rung's continuation is the enclosing Assign's <c>.ENO</c>), and the
-    /// census measured the slot null on every box; a slot that holds a variable anyway is a fact the pull would lose.
-    /// Dropped, the body pulled without <c>enoFlag</c>, and a push rebuilding the network wrote an EMPTY operand into
-    /// that slot — deleting the variable from the IDE with nothing in the diff.</summary>
+    /// <summary>A VARIABLE WIRED ON THE ENO OUTPUT SLOT IS THE NAMED ENO PIN, never dropped (P5, 2R.5 awkward-sweep #23: it
+    /// stores and builds). The census measured the slot null on every box; dropped, the body pulled without
+    /// <c>enoFlag</c>, and a push rebuilding the network wrote an EMPTY operand into that slot — deleting the variable from
+    /// the IDE with nothing in the diff.</summary>
     [Fact]
-    public void A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped()
+    public void A_variable_wired_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped()
     {
         var box = new Nwl.BoxTreeBox
         {
@@ -765,11 +766,11 @@ public class CodesysNetworkReaderTests
         var assign = new Nwl.BoxTreeAssign { RValue = box };
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "lamp", IsLValue = true });
 
-        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
-        Assert.Equal("an ENO output wired to a variable", ex.Reason);
-        Assert.Contains("enoFlag", ex.Message);
-        Assert.Contains("'MOVE'", ex.Message);
+        var read = Assert.IsType<Box>(Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0).Trees.Single()).Value);
+        Assert.Equal(new[] { ("ENO", "enoFlag", (int?)0), ((string?)null, "Status", (int?)1) },
+            read.Outputs.Select(o => (o.Formal, o.Value.Text, o.Slot)).ToArray());
     }
+
 
     /// <summary>An edge-triggered contact travels the same way — the fix is about WHERE flags are read, not
     /// about one bit.</summary>

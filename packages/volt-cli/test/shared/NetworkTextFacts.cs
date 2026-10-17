@@ -50,8 +50,9 @@ namespace Volt.Tests.Shared;
 /// and a push never builds such a box (N21) — it keeps the IDE's network. <c>MainOutputName</c> anywhere else → null:
 /// the readers state it only where the text spells it.</item>
 /// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
-/// <item>Control flow: the Jump/Return bit on the item AND its target (DIALECT C13 — the reader writes both); a
-/// target-less return's target is the vendor's constant <c>???</c>.</item>
+/// <item>Control flow: the Jump/Return bit rides on the target, and on the item as a cache (DIALECT C13, 2R.4) — the
+/// item's carried as the OR of its targets', a lone target taking the item's; a target-less return's target is the
+/// vendor's constant <c>???</c>.</item>
 /// <item>A CR LF line ending in an EXECUTE snippet is the FILE's layout, so it is the LF alone. A network's title and
 /// comment are carried EXACTLY (P12, 2R.2 S), their CR LF included.</item>
 /// </list>
@@ -80,17 +81,15 @@ public static class NetworkTextFacts
 
     private static Assign AssignOf(Assign a)
     {
-        var jump = a.Flags.Jump || a.Targets.Any(t => t.Flags?.Jump == true);
-        var ret = a.Flags.Return || a.Targets.Any(t => t.Flags?.Return == true);
-        if (!jump && !ret)
-            return new Assign(Node(a.Value, consumed: true), a.Targets.Select(Target).ToList(), a.Flags);
-
-        var flags = a.Flags with { Jump = jump, Return = ret };
-        var targets = a.Targets.Count == 0 && ret
+        var targets = a.Targets.Count == 0 && a.Flags.Return
             ? new[] { new Operand(Box.UnnamedInstance, IsLValue: true, Flags: Flags.None with { Return = true }) }
-            : a.Targets.Select(t => new Operand(t.Text, IsLValue: true,
-                Flags: (t.Flags ?? Flags.None) with { Jump = jump, Return = ret })).ToArray();
-        return new Assign(Node(a.Value, consumed: true), targets, flags);
+            : a.Targets.Count == 1 && (a.Flags.Jump || a.Flags.Return)
+                ? new[] { a.Targets[0] with { Flags = (a.Targets[0].Flags ?? Flags.None) with
+                    { Jump = a.Flags.Jump || a.Targets[0].Flags?.Jump == true, Return = a.Flags.Return || a.Targets[0].Flags?.Return == true } } }
+                : a.Targets.ToArray();
+        var carried = targets.Select(Target).ToList();
+        var item = a.Flags with { Jump = false, Return = false };
+        return new Assign(Node(a.Value, consumed: true), carried, item.WithControlFlowFrom(carried));
     }
 
     private static Operand Target(Operand t) => new(t.Text, IsLValue: true, Flags: t.Flags is { IsNone: false } f ? f : null);
@@ -127,7 +126,7 @@ public static class NetworkTextFacts
             OutputTypes: null,
             HasEnoOutput: NetworkSpelling.EnoCarried(b with { MainOutputName = byName }, consumed) ? b.HasEnoOutput : null,
             MainOutputName: byName,
-            Members: null);
+            Members: null) { EnableFlags = b.EnableFlags };
     }
 
     private static string TypeSpelling(string type) => type.Substring(type.LastIndexOf('.') + 1).ToUpperInvariant();

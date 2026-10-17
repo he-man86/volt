@@ -23,17 +23,17 @@
   <code>NetworkTextGate</code>, all in <code>Volt.Engine/Format/Network/</code>; the LSP ports the reader. The
   accepted and refused texts are one committed case set (<a href="#cases">below</a>) both read.
 </p>
-<pre>NETWORK TITLE: "DONE NETWORK 2: Activating main drive"
-  split174 := TRUE;
-  MOVE 0 =&gt; tInt EN split174;
-  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= split174 AND NOT HMI_Var.Test_Prod;
-  split176 := split175 AND Mach1.GenFlags.RunAuto;
-  tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := split176;
-  MOVE Mach1_Data.AUTOSPEED =&gt; tInt EN (split176 BRANCH (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper,
-                                                         (Mach1_Data.AUTOSPEED LE 40 EN Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper))) AND NOT HMI_Var.Btn_Cleaning;
-  RPM_To_DriveSpeed(iEN := split174, iRPM := tInt, oDriveSpeed =&gt; Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
+<pre>NETWORK TITLE: "Start the motor"
+  split1 := TRUE;
+  MOVE 0 =&gt; speed EN split1;
+  fault R= split1 AND NOT test;
+  split2 := split1 AND auto;
+  run := lamp := motor := split2;
+  MOVE setpoint =&gt; speed EN (split2 BRANCH (NOT slow,
+                                            (setpoint LE 40 EN slow))) AND NOT cleaning;
+  Scale(iEN := split1, iRPM := speed, oSpeed =&gt; drive);
 END_NETWORK</pre>
-<p>Lenze <code>MainDrive</code> network 2 as the pull writes it (abridged).</p>
+<p>A network as the pull writes it.</p>
 <ul>
   <li><b>Boxes are words</b>, infix: <code>AND OR XOR ADD SUB MUL DIV MOD GT GE EQ NE LE LT</code> and
     <code>MOVE</code>. ST's symbols <code>+ - * / &gt; &lt; &gt;= &lt;= = &lt;&gt;</code> are no network text.</li>
@@ -63,20 +63,20 @@ END_NETWORK</pre>
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>-1</code>, <code>'Recipes'</code>, <code>???</code>), else <code>`text`</code>; a variable spelled like a word of the text is backticked (<code>`ENO`</code>, <code>`split5`</code>)</td></tr>
   <tr><td class="name">IFlags on an operand or box</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>. Rising and falling together: no spelling</td></tr>
   <tr><td class="name">IFlags on a Parallel or split reference</td><td>none (DIALECT N20); <code>NOT (s BRANCH (a, b))</code> is refused, <code>NOT s BRANCH (a, b)</code> negates the feed</td></tr>
-  <tr><td class="name">flags on an input <i>pin</i></td><td>a negation on the pin's formal, <code>f(NOT xEnable := v)</code>; an operator's unnamed pin by its default formal in the call form, <code>AND(a, NOT IN2 := b)</code> (S6). An edge on a pin, a flag on EN: refused by name</td></tr>
+  <tr><td class="name">flags on an input <i>pin</i></td><td>before the pin's formal: <code>f(NOT xEnable := v)</code>, <code>AND(R_EDGE IN1 := c, one)</code> (an operator's unnamed pin by its default formal, in the call form); before EN: <code>MOVE 5 =&gt; y NOT EN c</code></td></tr>
   <tr><td class="name">operator box (BoxType a word)</td><td>the word, infix: <code>a ADD b</code>, <code>a AND b AND c</code> (one box, three inputs); <a href="#word-or-call">the call form</a> where the word cannot carry the tree</td></tr>
   <tr><td class="name">MOVE box</td><td><code>MOVE b =&gt; a</code> (its target an output pin), <code>a := MOVE b;</code> (then a coil)</td></tr>
-  <tr><td class="name">function / FB box</td><td><code>F(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code> · <code>`SUPER^`(pins)</code> (S5); output pins inside the brackets</td></tr>
+  <tr><td class="name">function / FB box</td><td><code>F(pins)</code> · <code>inst(pins)</code> · <code>`fbs[1]`(pins)</code> · <code>??? : Type(pins)</code> · <code>`SUPER^`(pins)</code> (S5); output pins inside the brackets</td></tr>
   <tr><td class="name">EN (input slot 0)</td><td><code>box EN c</code> after the box; <code>box EN</code> — EN shown, nothing wired</td></tr>
   <tr><td class="name">ENO consumed</td><td>the box's line ends without <code>;</code>, and a later line reads <code>ENO</code> (<a href="#eno">open lines</a>); or the named pin <code>ENO =&gt; x</code> in the call form</td></tr>
   <tr><td class="name">main output not slot 0</td><td><code>fb(…).name</code></td></tr>
   <tr><td class="name">BoxTreeBox with STSnippet</td><td><code>EXECUTE [EN [c]]</code> … verbatim ST … <code>END_EXECUTE</code></td></tr>
-  <tr><td class="name">BoxTreeAssign, targets t1…tn</td><td><code>t1 := t2 S= … tn R= value;</code>; below the top level <code>(t1 := value)</code> (S2)</td></tr>
-  <tr><td class="name">Assign with Jump / Return</td><td>a coil: <code>JMP l := c;</code> / <code>RETURN := c;</code>; on the rail <code>JMP l;</code> / <code>RETURN;</code></td></tr>
-  <tr><td class="name">BoxTreeDemux with Input</td><td><code>split3 := tree;</code>, top level only, before its references; the digits are the VarId</td></tr>
+  <tr><td class="name">BoxTreeAssign, targets t1…tn</td><td><code>t1 := t2 S= … tn R= value;</code>, each target's modifier before it (<code>NOT x :=</code>, <code>R_EDGE x :=</code>); below the top level <code>(t1 := value)</code> (S2)</td></tr>
+  <tr><td class="name">a target with Jump / Return</td><td>a coil like any other: <code>JMP l := c;</code>, <code>x := JMP l := c;</code>, <code>JMP l S= c;</code>, <code>RETURN := c;</code>; alone on the rail <code>JMP l;</code> / <code>RETURN;</code></td></tr>
+  <tr><td class="name">BoxTreeDemux with Input</td><td><code>split3 := tree;</code>, or nested <code>(split3 := tree)</code>, where NWL holds it; the digits are the VarId</td></tr>
   <tr><td class="name">BoxTreeDemux without Input</td><td>the bare name <code>split3</code></td></tr>
   <tr><td class="name">BoxTreeParallel</td><td><code>[feed] BRANCH (b1, b2, …) [SHORTCIRCUIT]</code>; the editor's <code>Sequential</code> mode is written as nothing</td></tr>
-  <tr><td class="name">BoxTreeTerminator(null)</td><td>an empty position: <code>MUL(, m, 6)</code>, <code>RESET := ,</code>, <code>coil := ;</code>, <code>;</code></td></tr>
+  <tr><td class="name">BoxTreeTerminator(null)</td><td>an empty position: <code>MUL(, m, 6)</code>, <code>RESET := ,</code>, <code>coil := ;</code>, <code>s BRANCH (a, , b)</code>, <code>;</code>; negated <code>x := NOT ;</code></td></tr>
   <tr><td class="name">BoxTreeTerminator(Input), BoxTreeMux, split points of CODESYS</td><td>no form (0 occurrences); refused by name</td></tr>
 </table>
 <p>Every "no spelling" and "refused by name" above is, on pull, the network's <a href="#network-line"><code>UNSUPPORTED</code> line</a>.</p>
@@ -90,8 +90,8 @@ END_NETWORK</pre>
   <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13).</td></tr>
   <tr><td>Network position; Int64 Ids</td><td>Not in the text: CODESYS re-mints Ids on a changed network, and a push pairs networks <a href="#pairing">by text</a>.</td></tr>
   <tr><td>Members the text does not spell</td><td>Derived on push; a differing stored value with no natural spelling is <a href="#lost">lost on rebuild</a>, never refused.</td></tr>
-  <tr><td>Shown as the <a href="#network-line"><code>UNSUPPORTED</code> line</a></td><td>An edge on a box input pin (census 1.13), an item flag on a Demux or Assign (1.1), a Demux defined below the top level or referenced before its definition (1.8), a jump or return below the top level, a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>, a rung driving a coil and a jump or several jumps, a negated or edge coil (census 1.7). Each is refused by name on push.</td></tr>
-  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place. A changed network shape (and every create) is rebuilt through the IDE's PLCopen import, one network per connected rung (D25). A parallel, a split fed by a leaf (N22), a result pin <code>=&gt; v</code>, a negated pin (S6), an assignment below the top level (S2) and a <code>SUPER^</code> call (S5) are refused there with <code>NETWORK_UNSUPPORTED</code>, naming the network and the shape; a box read through ENO that the import builds with no ENO output is refused naming the box (<code>TcEnoRefusal</code>).</td></tr>
+  <tr><td>Shown as the <a href="#network-line"><code>UNSUPPORTED</code> line</a></td><td>An item flag on a Demux or Assign (1.1), an edge on an empty slot, rising+falling on one operand or coil, a negated set coil, a modified jump or return, a negated or edge coil beside another coil, an edge beside a coil's or pin's other modifier or on EN, a negated empty slot outside a lone plain coil's value, a split read inside its own definition, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. Each is refused by name on push.</td></tr>
+  <tr><td>TwinCAT structural edits</td><td>A value edit is written in place. A changed network shape (and every create) is rebuilt through the IDE's PLCopen import, one network per connected rung (D25). A parallel, a split fed by a leaf (N22), a split nested or referenced above its definition, a result pin <code>=&gt; v</code>, a modified pin or EN, a negated or edge coil, a jump beside another coil or with S=, a negated empty slot, an assignment below the top level (S2) and a <code>SUPER^</code> call (S5) are refused there with <code>NETWORK_UNSUPPORTED</code>, naming the network and the shape; a box read through ENO that the import builds with no ENO output is refused naming the box (<code>TcEnoRefusal</code>).</td></tr>
 </table>
 
 <h2 id="path">The path a body travels</h2>
@@ -124,25 +124,28 @@ comment     = "//" , [ " " ] , { char - NL } , NL ;
 item        = { open } , statement , ";" ;                          (* ONE per NWL item *)
 open        = root , NL ;                                           (* a line without ";": its root's ENO is read below *)
 statement   = assign | split | jump | root | (* empty *) ;
-assign      = target , op , { target , op } , value ;              (* chained coils, one value *)
+assign      = coil , { coil } , ( value | "NOT" ) ;                (* chained coils, one value; NOT alone negates the empty one *)
+coil        = target , op | modifier , target , ":="
+            | ( "JMP" , name | "RETURN" ) , ( ":=" | "S=" ) ;      (* a jump and a return are coils *)
+modifier    = "NOT" | "R_EDGE" | "F_EDGE" ;
 op          = ":=" | "S=" | "R=" ;
 split       = "split" , digits , ":=" , value ;                    (* the digits are the VarId; no leading zero *)
-jump        = ( "JMP" , name | "RETURN" ) , [ ":=" , value ] ;     (* no ":=": the rail *)
-root        = level , [ "EN" , [ value ] ] | execute ;             (* an enabled box is its line's root *)
+jump        = "JMP" , name | "RETURN" ;                            (* alone on the rail *)
+root        = level , [ [ "NOT" ] , "EN" , [ value ] ] | execute ; (* an enabled box is its line's root *)
 
-value       = level ;                                               (* a slot: one box, unbracketed *)
+value       = [ level ] ;                                           (* a slot: one box, unbracketed, or empty *)
 level       = word-box | parallel | operand-or-call ;
 word-box    = operand , word , operand , { word , operand } , { "=&gt;" , target } ;   (* one word kind per level *)
             | "MOVE" , operand , { "=&gt;" , target } ;
-parallel    = [ feed ] , "BRANCH" , "(" , value , "," , value , { "," , value } , ")" , [ "SHORTCIRCUIT" ] ;
+parallel    = [ feed ] , "BRANCH" , "(" , [ value ] , "," , [ value ] , { "," , [ value ] } , ")" , [ "SHORTCIRCUIT" ] ;
 operand     = [ "NOT" ] , ( atom | "(" , bracketed , ")" ) | edge ;
 bracketed   = word-box | parallel                                   (* 1. an operand of another word *)
             | level , "EN" , [ value ]                              (* 2. an enabled comparison as a value *)
-            | target , op , { target , op } , value ;              (* 3. a nested assignment *)
+            | assign | split ;                                     (* 3. a nested assignment, or definition *)
 edge        = ( "R_EDGE" | "F_EDGE" ) , "(" , [ "NOT" ] , value , ")" ;
 atom        = token | backtick | "ENO" | "split" , digits | call ;
 call        = ( "???" , ":" , name | head ) , "(" , [ pin , { "," , pin } ] , ")" , [ "." , name ] ;
-pin         = [ [ "NOT" ] , name , ":=" ] , value | name , "=&gt;" , target | "=&gt;" , [ target ] ;
+pin         = [ [ modifier ] , name , ":=" ] , value | name , "=&gt;" , target | "=&gt;" , [ target ] ;
 execute     = "EXECUTE" , [ "EN" , [ value ] ] , NL , st-lines , "END_EXECUTE" ;
 target      = token | backtick ;
 backtick    = "`" , { char - "`" } , "`" ;
@@ -253,30 +256,36 @@ END_NETWORK</pre>
 </p>
 
 <h3 id="split">Splits — the one named thing</h3>
-<pre>NETWORK TITLE: "DONE Network 1: Activating/deactivating MID-S/Trayfiller"
+<pre>NETWORK TITLE: "Tray ready"
   split0 := TRUE;
-  split1 := split0 AND NOT Mach1_Safety.Status.Custom_ATF_Disabled;
-  Mach1_AuxData.TrayfillerActive := split1;
-  HMI_Var.TrayfillerActive := split1;
-  Mach1_AuxData.MIDS_Active := split0 AND TRUE;
+  split1 := split0 AND NOT disabled;
+  ready := split1;
+  lamp := split1;
+  active := split0 AND TRUE;
 END_NETWORK</pre>
 <p>
   A split point is NWL's <code>BoxTreeDemux</code>: one definition node holding the feeder, reference nodes elsewhere,
   linked by <code>VarId</code>. Its name IS the VarId, <code>split&lt;n&gt;</code> with no leading zeros (B6). It is
-  defined once per network with <code>:=</code>, before its references, and never a coil target, a <code>=&gt;</code>
-  target or a call head (P9). Nothing declares it and no type is written: the Demux holds none, and its uses are typed
+  defined once per network with <code>:=</code>, where NWL holds the definition — its own item, or nested,
+  <code>x := (split1 := a AND b);</code> — and referenced anywhere in the network, above the definition too (that
+  reference reads the previous scan). It is never a coil target, a <code>=&gt;</code> target or a call head (P9).
+  Nothing declares it and no type is written: the Demux holds none, and its uses are typed
   by the feeder. In LD <code>split3 := ;</code> is the left rail (S3b). A bare <code>split5</code> is always the split; a
   variable of that shape is backticked, <code>`split5`</code>, so a split beside a declaration of its name is no collision.
 </p>
 
 <h3 id="assign">Assignment — coils</h3>
 <pre>lamp := x;
-tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := split176;
-FirstCycle R= ;</pre>
+run := lamp := motor := start;
+first R= ;
+NOT lamp := start;
+R_EDGE lamp := start;</pre>
 <p>
-  A plain coil; ONE assign with three coils in OutputItemList order; a coil on the rail (an empty source).
+  A plain coil; ONE assign with three coils in OutputItemList order; a coil on the rail (an empty source); a negated
+  coil; an edge coil — a coil's modifier stands before it.
   <code>S=</code>/<code>R=</code> are ExST's level-triggered set and reset, and every target takes the value at the end
-  of the chain. <span id="sink"><code>a := b;</code> is a coil fed by a leaf — no box.</span>
+  of the chain.
+  <span id="sink"><code>a := b;</code> is a coil fed by a leaf — no box.</span>
 </p>
 
 <h3 id="group">Operator boxes — words (B1)</h3>
@@ -289,7 +298,8 @@ x := (a AND b) OR c;</pre>
   One word is one box with as many inputs as it has operands; brackets separate boxes. A level holds one word kind,
   so a second word is a bracketed box (<code>x := a ADD b MUL c;</code> is refused). SUB, DIV, MOD and every
   comparison take exactly two inputs: a third is refused (<code>SUB takes 2 inputs</code>) — CODESYS stores the box and
-  its build refuses it, "'-' needs exactly '2' operands" (C3). AND and OR take as many as drawn.
+  its build refuses it, "'-' needs exactly '2' operands" (C3). AND and OR take as many as drawn. Every operator takes at
+  least two: one is refused (<code>ADD takes at least 2 inputs</code>) — both IDEs store it and refuse its build.
 </p>
 
 <h3 id="move">MOVE (B2)</h3>
@@ -308,6 +318,7 @@ x ADD 5 =&gt; x EN c;
 LIMIT(0, v, 100, =&gt; y) EN c;
 t1(IN := go, PT := T#1S) EN c;
 iRPM MUL 6 =&gt; oDrive EN;
+MOVE 5 =&gt; y NOT EN c;
 EXECUTE EN c
 x := 1;
   END_EXECUTE;</pre>
@@ -315,12 +326,10 @@ x := 1;
   <code>EN</code> follows the box and enables the box of its level (<code>x ADD f(b) EN c</code> enables the ADD); its
   tail runs to <code>;</code>, <code>)</code>, <code>,</code> or the line's end, and is a slot — one box, unbracketed,
   a parallel included. <code>=&gt;</code> comes before <code>EN</code>. A call keeps its output pins inside its brackets.
-  <code>EN</code> with nothing after it is the enable shown and wired to nothing (37 in lenze-mid). An enabled box is
-  the <b>root of its line</b>: its value leaves only through <code>=&gt;</code> or <code>ENO</code>, so
-  <code>a := MOVE b EN c;</code> and <code>x := a ADD b EN c;</code> are no text (CODESYS hands a coil after an enabled
-  box its ENO, N21). The one enabled value is a comparison — it has no ENO — and it is bracketed in every slot:
-  <code>x := (a GT 40 EN c);</code>. CODESYS does not compile one Volt builds (N21), so such a network is shown and
-  kept, and an edit of it is refused.
+  <code>EN</code> with nothing after it is the enable shown and wired to nothing (37 in the corpora). <code>NOT EN c</code>
+  negates the EN pin, <code>EN NOT c</code> the contact feeding it. An enabled box is the <b>root of its line</b>: its value leaves only through <code>=&gt;</code> or
+  <code>ENO</code>, so <code>a := MOVE b EN c;</code> and <code>x := a ADD b EN c;</code> are no text (CODESYS hands a
+  coil after an enabled box its ENO, N21).
 </p>
 
 <h3 id="eno">ENO — open lines (B4, P3)</h3>
@@ -348,8 +357,8 @@ JMP Done := ENO;</pre>
 </p>
 <p>
   Refused: an open line nothing takes; <code>ENO</code> with no open line above it; an open line whose root has no ENO
-  — a coil, a split definition, a jump, a leaf, a parallel, a comparison, an operator box without EN
-  (<code>MOVE 1 =&gt; A</code> has no EN, so no ENO, N21). A call with an ENO and no EN (Lenze <code>Dryer</code>) hands
+  — a coil, a split definition, a jump, a leaf, a parallel, an operator box without EN
+  (<code>MOVE 1 =&gt; A</code> has no EN, so no ENO, N21). A call with an ENO and no EN hands
   its ENO on. An ENO read twice is a split CODESYS stores there: <code>split21 := ENO;</code>. Moving a whole item only
   reorders items, like moving a rung; moving one line out of a chain is refused, never silent.
 </p>
@@ -382,7 +391,7 @@ x := NOT(IN := a);</pre>
 <p>
   A box is its word when every input is a plain positional value, it has at least the word's minimum (2; MOVE 1), its
   formals are the defaults, its stored type is upper case and its outputs are the default <code>=&gt;</code>. Otherwise
-  it is a call, <code>WORD(…)</code>, written like a function — one input, a negated pin, an empty slot, a lowercase
+  it is a call, <code>WORD(…)</code>, written like a function — a modified pin, an empty slot, a lowercase
   type, two MOVE inputs, a named <code>ENO =&gt;</code> pin. The call form where the word fits is refused. The NOT box
   names its pin: <code>NOT(IN := a)</code> is the box; <code>NOT (</code> + anything else negates that bracket.
   The named ENO pin and a coil on ENO (<code>MOVE 0 =&gt; x EN c</code> / <code>lamp := ENO;</code>) are two stored
@@ -391,12 +400,14 @@ x := NOT(IN := a);</pre>
 
 <h3 id="fb">Calls — FB instances and functions</h3>
 <pre>t1(IN := a, PT := pt, ET =&gt; el);
+`fbs[1]`(CU := go, PV := 10, CV =&gt; n);
 dst := f(src, oErr =&gt; err);
 y := SEL(g, a, b);
 GetTime();
 x := fbCap(xEnable := go).xErrorActive;</pre>
 <p>
-  An FB call with named input and output pins; a function with a named output pin, assigned; a function every word
+  An FB call with named input and output pins; an element of an array of FBs heading its call (any variable reference
+  that is no single token is backticked, like an operand); a function with a named output pin, assigned; a function every word
   does not cover (SEL, LIMIT, MAX, every POU) is a call; a top-level box with no input slot; a box consumed by a main
   output that is not slot 0, by its stored name (<code>fb(…).name</code>, S4). The FB's type comes from the instance's
   declaration, so the writer and the reader resolve an instance through the same declarations; <code>`SUPER^`</code> is
@@ -419,10 +430,11 @@ out := ??? AND a;</pre>
 ctu(CU := a, RESET := , PV := );
 output := t2(IN := , PT := e1);
 coil := ;
+x := NOT ;
 ;</pre>
 <p>
-  An unconnected pin is an empty position, never a token. An empty positional slot keeps the call form. A flag on an
-  empty slot has no spelling: <code>NETWORK_UNSUPPORTED</code> on push.
+  An unconnected pin is an empty position, never a token. An empty positional slot keeps the call form. An empty coil
+  value takes a negation, <code>x := NOT ;</code>.
 </p>
 
 <h3 id="edge">NOT and edges</h3>
@@ -431,13 +443,14 @@ out := NOT (a AND b);
 up := R_EDGE(clk);
 out := F_EDGE(NOT x);
 s := R_EDGE(a AND b);
-t1(NOT IN := go, PT := pt);</pre>
+t1(NOT IN := go, PT := pt);
+x := AND(R_EDGE IN1 := c, one);</pre>
 <p>
   <code>NOT a</code> is the negated contact (a flag); <code>NOT (a AND b)</code> the flag on an AND box's output. Edges
   are flags, never an <code>R_TRIG</code> box; with a negation the one order is <code>R_EDGE(NOT x)</code> — the vendor
   negates first (census 1.14, N17), so <code>NOT R_EDGE(x)</code> is refused. TwinCAT's order is unmeasured: its driver
   refuses <code>R_EDGE(NOT x)</code> on push and shows it as its network's <code>UNSUPPORTED</code> line on pull. A
-  negated input pin is spelled on its formal.
+  pin's modifier is spelled before its formal.
 </p>
 
 <h3 id="branch">BRANCH — the drawn parallel (B8, P6)</h3>
@@ -447,7 +460,8 @@ t1(NOT IN := go, PT := pt);</pre>
 lamp := start BRANCH (a, b, c) SHORTCIRCUIT;
 lamp7 := start BRANCH (a, c BRANCH (b, go));
 lamp := BRANCH (a, b);
-x := a AND (s BRANCH (b, c));</pre>
+x := a AND (s BRANCH (b, c));
+lamp := start BRANCH (a, , c);</pre>
 <p>
   NWL's <code>BoxTreeParallel</code> — what the LD editor draws for a parallel branch, and no OR box. The feed, the word
   <code>BRANCH</code>, then the branches as a bracketed comma list in stored order. The writer lays the outermost list
@@ -455,8 +469,8 @@ x := a AND (s BRANCH (b, c));</pre>
   same tree. A branch is a slot: a nested parallel needs no brackets, a parallel as a word's operand does. An unfed
   parallel (5 of 17 in the corpora) has nothing before <code>BRANCH</code>. <b>Mode</b> is derived: the editor creates
   <code>Sequential</code>, written as nothing; the old short-circuit mode says <code>SHORTCIRCUIT</code> after the list
-  (Lenze: 16 of 17). Refused: one branch (C0023 — it stores, and does not compile), no branch, an empty branch, the
-  empty-terminator feed, and a flag on the parallel.
+  (16 of 17 in the corpora). An empty branch is nothing between its commas (a shorted branch). Refused: one branch (C0023 — it
+  stores, and does not compile), no branch, the empty-terminator feed, and a flag on the parallel.
 </p>
 
 <h3 id="control">LABEL, JMP and RETURN (B4b, P7)</h3>
@@ -471,13 +485,17 @@ NETWORK
 END_NETWORK
 NETWORK
   RETURN := NOT xReady;
+END_NETWORK
+NETWORK
+  lamp := JMP Done := JMP Other := a;
 END_NETWORK</pre>
 <p>
   A jump sits where a coil sits — the rung drives it — so it is written as one. <code>JMP l;</code> /
-  <code>RETURN;</code> is the rail (an Assign whose value is the empty terminator, C11); <code>JMP l := ;</code> is
-  refused (one spelling), and <code>RETURN := TRUE</code> (a leaf) is not <code>RETURN;</code>. Refused by name:
-  <code>JMP l S= c</code>, two jumps on one rung, a jump plus a coil, a nested jump. Labels match case-insensitively;
-  label resolution is the compiler's, so the LSP reports what the build reports:
+  <code>RETURN;</code> is the rail (an Assign whose value is the empty terminator, C11), and <code>RETURN := TRUE</code>
+  (a leaf) is not <code>RETURN;</code>. Being a coil, a jump or a return stands beside other coils (the first jump taken
+  wins), takes <code>S=</code>, and nests, <code>y := (JMP l := c);</code>. Labels match case-insensitively; label resolution is the compiler's, so the
+  LSP reports what the build reports:
+
 </p>
 <table>
   <tr><th>shape</th><th>Volt</th></tr>
@@ -530,44 +548,44 @@ x := fb.m(k := a);    // a method's box gets CallType Method</pre>
   spelling. An unchanged network is never rebuilt and keeps every member byte for byte.
 </p>
 
-<h2 id="ladder">The ladder oracle — two real rungs</h2>
+<h2 id="ladder">The ladder oracle — two rungs</h2>
 <p>
-  Two rungs of <code>test-corpus/lenze-mid</code>, as the pull writes them from the vendor's own objects: which item is
+  Two rungs as the pull writes them from the vendor's own objects: which item is
   a Parallel, which box has an ENO output and which slot a pin is on are read off NWL, not inferred.
-  <code>LadderOracleTests</code> pins them, with the corpus's other oracle rungs, as text and model.
+  <code>LadderOracleTests</code> pins rungs of these shapes as text and model.
 </p>
 
-<h3 id="ex-lamps">Mach1_MIDS network 82 — MOVE boxes lighting lamps</h3>
-<pre>NETWORK TITLE: "DONE NETWORK 49: State of the machine"
+<h3 id="ex-lamps">MOVE boxes lighting lamps</h3>
+<pre>NETWORK TITLE: "Machine state"
   split22 := TRUE;
-  MOVE 0 =&gt; HMI_Var.Mach1.Status EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm)
-  tAlarmSL := ENO;
-  split23 := split22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
-  MOVE 1 =&gt; HMI_Var.Mach1.Status EN split23 AND Mach1.GenFlags.Warning
-  tWarningSL := ENO;
-  split24 := split23 AND NOT Mach1.GenFlags.Warning;
-  MOVE 2 =&gt; HMI_Var.Mach1.Status EN split24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto
-  tStandbySL := ENO;
-  MOVE 3 =&gt; HMI_Var.Mach1.Status EN split24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)
-  tRunningSL := ENO;
+  MOVE 0 =&gt; state EN split22 AND (alarm OR warning)
+  lampAlarm := ENO;
+  split23 := split22 AND NOT alarm AND NOT warning;
+  MOVE 1 =&gt; state EN split23 AND ready
+  lampReady := ENO;
+  split24 := split23 AND NOT ready;
+  MOVE 2 =&gt; state EN split24 AND NOT man AND NOT auto
+  lampStandby := ENO;
+  MOVE 3 =&gt; state EN split24 AND (man OR auto)
+  lampRun := ENO;
 END_NETWORK</pre>
 <p>
   7 items. Each MOVE shows EN/ENO (<code>OutputParams.Names = ['ENO', '']</code>): it writes its result pin, and its
   lamp reads its ENO on the next line. Both <code>X AND (a OR b)</code> shapes are AND/OR boxes — no Parallel.
 </p>
 
-<h3 id="ex-hard">TrayFiller network 8 — an EN/ENO chain into a Parallel</h3>
-<pre>NETWORK TITLE: "TODO NETWORK 9: Condition: Tray decend"
+<h3 id="ex-hard">An EN/ENO chain into a Parallel</h3>
+<pre>NETWORK TITLE: "Lower the tray"
   split2 := True;
   split3 := split2 AND True;
-  split4 := split3 AND iPulseCounterElevator;
-  tBool := stRePulseCounter(CLK := split4);
-  tBool S= stFePulseCounter(CLK := split4);
-  stActHeightElevator ADD 5 =&gt; stActHeightElevator EN split3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher);
-  ioActNumberOfRows MUL iRowHeight =&gt; tInt EN split2 AND stDecendTray
-  tInt ADD iInitialDescentValue =&gt; tInt EN ENO
-  stTrayDecended S= stDecendTray R= ENO BRANCH ((stActHeightElevator GE tInt EN),
-                                                iPsElevatorDown) SHORTCIRCUIT;
+  split4 := split3 AND pulse;
+  edge := rise(CLK := split4);
+  edge S= fall(CLK := split4);
+  height ADD 5 =&gt; height EN split3 AND edge AND (lower OR lowered OR tilt);
+  rows MUL rowHeight =&gt; t EN split2 AND lower
+  t ADD offset =&gt; t EN ENO
+  lowered S= lower R= ENO BRANCH ((height GE t EN),
+                                  down) SHORTCIRCUIT;
 END_NETWORK</pre>
 <div class="note">
   The last item is the network's one Parallel, fed by the MUL→ADD chain's ENO: the MUL's line is taken by the ADD, the
@@ -610,9 +628,9 @@ END_NETWORK</pre>
   <tr><td class="name">NETWORK_PARSE</td><td>Structural error; a missing <code>;</code>; a first line that states no LD or FBD; header fields out of order or given twice, <code>TITLE: ""</code>; a <code>//</code> after a statement; an unclosed backtick or TITLE; a TITLE escape other than <code>$N</code> <code>$R</code> <code>$"</code> <code>$$</code>; a lone CR; an EXECUTE body with no <code>END_EXECUTE</code>; an <code>UNSUPPORTED</code> line whose shape is no quoted phrase; the old <code>VAR_TEMP</code>, <code>.ENO</code>, <code>IF … THEN</code> and pragma spellings (P12), each naming the new spelling.</td></tr>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
   <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A split defined twice in one network.</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A redundant bracket; two word kinds on one level; an enabled box used as a value (other than a bracketed comparison); <code>=&gt;</code> after <code>EN</code>; an open line nothing takes, an <code>ENO</code> with no open line, an open line whose root has no ENO; the call form where the word fits; a split referenced before its definition, used as a coil, <code>=&gt;</code> target or call head, or with a leading zero; <code>JMP l := ;</code>; a one-branch, empty-branch or branch-less parallel; <code>NOT R_EDGE(x)</code>; a word of the text unbackticked at operand or target position; <code>EN :=</code> on a box (P12).</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A redundant bracket; two word kinds on one level; an enabled box used as a value (other than a bracketed comparison); <code>=&gt;</code> after <code>EN</code>; an open line nothing takes, an <code>ENO</code> with no open line, an open line whose root has no ENO; the call form where the word fits; a split never defined, used as a coil, <code>=&gt;</code> target or call head, or with a leading zero; <code>JMP l := ;</code>; <code>NOT x S=</code>; a one-branch or branch-less parallel; <code>NOT R_EDGE(x)</code>; a word of the text unbackticked at operand or target position; <code>EN :=</code> on a box (P12).</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>A symbol that is no box word (<code>^</code>, <code>&amp;</code>); ST's <code>+ - * / &gt; &lt; …</code> are refused naming their word.</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>A third input on SUB, DIV, MOD or a comparison (C3); operand or target text containing a backtick; a flag on an empty slot, a split reference or a parallel; a parallel fed by the empty terminator; an FB instance whose text is an expression; any model the writer cannot spell (by the writer's reason); an <code>UNSUPPORTED</code> line beside another statement or pushed where no live network pairs with it; a changed network holding a symbol comment, a <code>.name</code> output or an enabled comparison value; on TwinCAT, the import shapes above — the message names the network and the reason.</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>A third input on SUB, DIV, MOD or a comparison (C3); operand or target text containing a backtick; an edge on an empty slot, a flag on a split reference or a parallel; a parallel fed by the empty terminator; a call head no declaration makes an FB instance (an element of an array of FBs is one, one index per dimension); a modified jump or return (NOT, R_EDGE, F_EDGE, R=); an edge on a negated, set or reset coil, on a negated pin or on EN; a negated or edge coil beside another coil; a negated empty slot outside a lone plain coil's value; a split read inside its own definition; any model the writer cannot spell (by the writer's reason); an <code>UNSUPPORTED</code> line beside another statement or pushed where no live network pairs with it; a changed network holding a symbol comment or a <code>.name</code> output; on TwinCAT, the import shapes above — the message names the network and the reason.</td></tr>
 </table>
 <p>
   <b>Pull raises no code and never throws:</b> every shape without a spelling makes its network the

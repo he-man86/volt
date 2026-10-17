@@ -77,6 +77,8 @@ public static class NetworkTextReader
         public List<(string? Formal, Tok? Target, bool Positional)> Outputs = new();
         public Node? Enable;
         public bool HadEn;
+        /// <summary>The EN pin's own modifiers, written before the word: <c>NOT EN c</c> (2R.5, #16).</summary>
+        public Flags EnableFlags = Flags.None;
         public Tok? Named;
         public string? StCode;
         public Flags Flags = Flags.None;
@@ -129,6 +131,13 @@ public static class NetworkTextReader
         public NetworkLexer? Lexer => _lx;
 
         private HashSet<int> _splits = new();
+        /// <summary>The splits whose definition's value is being read — a reference to one is a split feeding itself (2R.5,
+        /// unmeasured).</summary>
+        private readonly HashSet<int> _defining = new();
+        /// <summary>The token index where a negated empty slot is a coil's value, <c>x := NOT ;</c> — the one place it is
+        /// measured (2R.5 #6a); -1 none.</summary>
+        private int _negatedEmptyAt = -1;
+        private List<(int Id, Tok At)> _splitRefs = new();
 
         public Parser(string text, NetworkScope scope)
         {
@@ -229,6 +238,7 @@ public static class NetworkTextReader
         private Network? ParseNetwork(int index)
         {
             _splits = new HashSet<int>();
+            _splitRefs = new List<(int, Tok)>();
             _end = _toks.Count;
 
             var hdr = Next();
@@ -358,6 +368,11 @@ public static class NetworkTextReader
                 _p = lineEnd;
             }
 
+            foreach (var (id, at) in _splitRefs)
+                if (!_splits.Contains(id))
+                    throw Err(at, ConflictCodes.NetworkBadExpression,
+                        $"the split {at.Text} is never defined: a split is defined once in its network, `{at.Text} := value;` (P9).");
+
             return new Network(index, title, label, comment.Count > 0 ? string.Join("\r\n", comment) : null, disabled, trees, unsupported);
         }
 
@@ -399,23 +414,12 @@ public static class NetworkTextReader
             // The empty statement IS the empty item — a `;` that closes no statement.
             if (t.IsSym(";")) { Next(); AtLineEnd("the empty item is `;` alone"); return Mark(new Terminator(Flags.None), t.Offset); }
 
-            if (t.Is("JMP") || t.Is("RETURN"))
+            // B4b, P7: a jump or return on the rail, `JMP l;` / `RETURN;` — its head and nothing driving it.
+            if ((t.Is("JMP") || t.Is("RETURN")) && CoilHeadEnd(_p) is var railEnd && railEnd > 0 && !StorageAt(railEnd))
             {
                 var (target, flags) = ParseJump();
-                Node cond = new Terminator(Flags.None);
-                if (Peek().IsSym(":="))
-                {
-                    var op = Next();
-                    if (AtEnd() || Peek().IsSym(";"))
-                        throw Err(op, ConflictCodes.NetworkBadExpression,
-                            $"`{t.Text.ToUpperInvariant()} … := ;`: a jump on the rail is `{(t.Is("JMP") ? "JMP l;" : "RETURN;")}` (P7, one spelling).");
-                    cond = SlotHere();
-                }
-                else if (AtStorage())
-                    throw Err(Peek(), ConflictCodes.NetworkBadExpression,
-                        $"{t.Text.ToUpperInvariant()} with S= or R=: a jump or return is driven by `:=` (P7).");
                 EndStatement(semi, "a jump");
-                return Mark(new Assign(cond, new[] { target }, flags), t.Offset);
+                return Mark(new Assign(new Terminator(Flags.None), new[] { target }, flags), t.Offset);
             }
 
             if (t.Is("EXECUTE")) return ParseExecute(role, semi);
@@ -428,20 +432,23 @@ public static class NetworkTextReader
             if (t.Kind == TokKind.Word && NetworkSpelling.SplitShape.IsMatch(t.Text) && (PeekAt(1).IsSym(":=") || PeekAt(1).IsSym(":")))
                 return ParseSplitDefinition(semi);
 
-            if (t.Kind == TokKind.Word && NetworkSpelling.TextWords.Contains(t.Text) && StorageAt(_p + 1))
+            if (t.Kind == TokKind.Word && NetworkSpelling.TextWords.Contains(t.Text) && !t.Is("RETURN") && StorageAt(_p + 1))
                 throw Err(t, ConflictCodes.NetworkBadExpression,
                     $"'{t.Text}' as a target: a target spelled like a word of the text is written between backticks, `{t.Text}` (P1).");
 
-            if (IsTargetToken(t) && StorageAt(_p + 1))
+            if (CoilHeadEnd(_p) is var headEnd && headEnd > 0 && StorageAt(headEnd))
             {
-                var targets = new List<(Tok Target, Tok Op)>();
-                while (IsTargetToken(Peek()) && StorageAt(_p + 1))
-                {
-                    var tt = Next();
-                    targets.Add((tt, TakeStorage()));
-                }
-                var value = SlotValue(targets[targets.Count - 1].Op);
-                EndStatement(semi, "a coil");
+                var targets = ParseCoilHeads();
+                // `x := NOT ;`: a negated empty slot is the value of one plain coil (2R.5 #6a), measured nowhere else.
+                _negatedEmptyAt = targets.Count == 1 && !targets[0].Flow && targets[0].Target.Flags is null ? _p : -1;
+                Node value;
+                try { value = SlotValue(targets[targets.Count - 1].Op); }
+                finally { _negatedEmptyAt = -1; }
+                // P7, one spelling: a lone jump or return on the rail is `JMP l;`, never `JMP l := ;`.
+                if (targets.Count == 1 && targets[0].Lone && value is Terminator { Flags.IsNone: true } && targets[0].Op.IsSym(":="))
+                    throw Err(targets[0].Op, ConflictCodes.NetworkBadExpression,
+                        $"`{t.Text.ToUpperInvariant()} … := ;`: a jump on the rail is `{(t.Is("JMP") ? "JMP l;" : "RETURN;")}` (P7, one spelling).");
+                EndStatement(semi, targets.Any(x => x.Flow) ? "a jump" : "a coil");
                 return Mark(BuildAssign(targets, value), t.Offset);
             }
 
@@ -542,10 +549,36 @@ public static class NetworkTextReader
                 throw Err(op, ConflictCodes.NetworkBadExpression, $"a split is defined with `:=`, and S=/R= are coils ({name.Text}, P9).");
             if (_splits.Contains(id))
                 throw Err(name, ConflictCodes.NetworkDuplicateName, $"the split {name.Text} is defined twice (P9).");
-            var value = SlotValue(op);
-            EndStatement(semi, "a split's definition");
+            // Defined before its value is read: a definition of the same split inside it is the second one (P9).
             _splits.Add(id);
+            var value = DefiningValue(id, op);
+            EndStatement(semi, "a split's definition");
             return Mark(new Demux(id, value), name.Offset);
+        }
+
+        /// <summary>2R.5 (#20): <c>(split&lt;n&gt; := value)</c> after its <c>(</c> — a split's one definition below the top
+        /// level, its value passing through to the consumer.</summary>
+        private Node ParseNestedSplit()
+        {
+            var name = Next();
+            var id = SplitId(name);
+            var op = Next();
+            if (_splits.Contains(id))
+                throw Err(name, ConflictCodes.NetworkDuplicateName, $"the split {name.Text} is defined twice (P9).");
+            _splits.Add(id);
+            var value = DefiningValue(id, op);
+            if (!Peek().IsSym(")"))
+                throw Unexpected(Peek(), "a split's nested definition `(split<n> := value)` closes after its value");
+            Next();
+            return Mark(new Demux(id, value), name.Offset);
+        }
+
+        /// <summary>A split definition's value, the split marked as being defined while it is read.</summary>
+        private Node DefiningValue(int id, Tok op)
+        {
+            _defining.Add(id);
+            try { return SlotValue(op); }
+            finally { _defining.Remove(id); }
         }
 
         /// <summary>The VarId a split's name carries (B6, P9: no leading zeros).</summary>
@@ -559,20 +592,83 @@ public static class NetworkTextReader
             return id;
         }
 
-        private Node BuildAssign(List<(Tok Target, Tok Op)> targets, Node value)
+        /// <summary>One coil head as read: its target (flags included), its storage operator, and whether it is control flow
+        /// — alone and plain (<see cref="Lone"/>) it is P7's <c>JMP l := c</c>.</summary>
+        private sealed record CoilHead(Operand Target, Tok Op, bool Flow, bool Lone);
+
+        /// <summary>
+        /// Where a COIL HEAD starting at <paramref name="i"/> ends (the index of its storage operator's first token), or -1
+        /// where none starts there: <c>[R_EDGE|F_EDGE] [NOT] (JMP label | RETURN | target)</c> (2R.5 — a jump and a return
+        /// are coils, a coil's modifier stands before it as on a pin). An edge word followed by <c>(</c> is an edge value,
+        /// never a modifier.
+        /// </summary>
+        private int CoilHeadEnd(int i)
         {
-            var operands = new List<Operand>();
-            foreach (var (tok, op) in targets)
+            if (i < _end && (Raw(i).Is("R_EDGE") || Raw(i).Is("F_EDGE")) && !Raw(i + 1).IsSym("(")) i++;
+            if (i < _end && Raw(i).Is("NOT")) i++;
+            if (i >= _end) return -1;
+            var t = Raw(i);
+            if (t.Is("JMP")) return i + 2 <= _end ? i + 2 : -1;
+            if (t.Is("RETURN")) return i + 1;
+            return IsTargetToken(t) ? i + 1 : -1;
+        }
+
+        /// <summary>The coil heads of an item, each with its storage: <c>x1 := JMP Done := R_EDGE xe := …</c>.</summary>
+        private List<CoilHead> ParseCoilHeads()
+        {
+            var heads = new List<CoilHead>();
+            Tok? modified = null;
+            while (CoilHeadEnd(_p) is var e && e > 0 && StorageAt(e))
             {
+                var start = Peek();
+                var mods = Flags.None;
+                if (Peek().Is("R_EDGE") || Peek().Is("F_EDGE"))
+                    mods = Next().Is("R_EDGE") ? mods with { Rising = true } : mods with { Falling = true };
+                if (Peek().Is("NOT")) { Next(); mods = mods with { Negated = true }; }
+                Operand target;
+                var flow = Peek().Is("JMP") || Peek().Is("RETURN");
+                if (flow) target = ParseJump().Target;
+                else target = new Operand(LValueText(Next()), IsLValue: true);
+                var op = TakeStorage();
                 var storage = op.Text.ToUpperInvariant() switch
                 {
                     "S=" => Flags.None with { Set = true },
                     "R=" => Flags.None with { Reset = true },
-                    _ => null,
+                    _ => Flags.None,
                 };
-                operands.Add(new Operand(LValueText(tok), IsLValue: true, Flags: storage));
+                // The vendor spells a coil kind with two bits, Negation and Set (Flags.CoilFromVendor): a negated SET coil
+                // IS the reset coil, and a negated reset coil none it holds apart from it.
+                if (mods.Negated && storage.Set)
+                    throw Err(start, ConflictCodes.NetworkBadExpression,
+                        $"NOT on a set coil: the IDE stores a negated set coil as the reset coil — write `{target.Text} R= …`.");
+                if (mods.Negated && storage.Reset)
+                    throw Err(start, ConflictCodes.NetworkBadExpression,
+                        "NOT on a reset coil: a negated reset coil is no coil the IDE stores apart from the reset coil (R= is Negation + Set).");
+                // Measured per row before its spelling ships (2R.5): a jump or a return takes `S=` alone, a coil one edge alone.
+                if (flow && (!mods.IsNone || storage.Reset))
+                    throw Err(start, ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredFlow);
+                if (!flow && (mods.Rising || mods.Falling) && (mods.Negated || !storage.IsNone))
+                    throw Err(start, ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredEdgeCoil);
+                if (!mods.IsNone) modified ??= start;
+                var f = (target.Flags ?? Flags.None) with
+                {
+                    Negated = mods.Negated, Rising = mods.Rising, Falling = mods.Falling, Set = storage.Set, Reset = storage.Reset,
+                };
+                heads.Add(new CoilHead(target with { Flags = f.IsNone ? null : f }, op, flow,
+                    Lone: flow && mods.IsNone && storage.IsNone));
             }
-            return new Assign(value, operands, Flags.None);
+            // …and a negated or edge coil alone on its item (2R.5).
+            if (heads.Count > 1 && modified is not null)
+                throw Err(modified.Value, ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredModifiedFanOut);
+            return heads;
+        }
+
+        /// <summary>The Assign of an item's coil heads. The Jump/Return bit rides on the target operand AND on the item, as
+        /// the vendor holds a drawn jump (DIALECT C13; the item's is a cache, 2R.4).</summary>
+        private Node BuildAssign(List<CoilHead> heads, Node value)
+        {
+            var operands = heads.Select(h => h.Target).ToList();
+            return new Assign(value, operands, Flags.None.WithControlFlowFrom(operands));
         }
 
         /// <summary><c>JMP label</c> / <c>RETURN</c>. The bit rides on the target operand and on the item, as the vendor
@@ -637,7 +733,7 @@ public static class NetworkTextReader
             {
                 Next();
                 var operand = ParseOperand();
-                if (operand.Empty) throw Err(start, ConflictCodes.NetworkBadExpression, "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).");
+                if (operand.Empty || operand.Node is Terminator) throw Err(start, ConflictCodes.NetworkBadExpression, "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).");
                 var syn = new BoxSyn { Type = NetworkSpelling.Move, Head = start };
                 syn.Inputs.Add(new Input(null, Operand(operand), Flags.None));
                 if (Peek().Kind == TokKind.Word && NetworkSpelling.OperatorWords.Contains(Peek().Text))
@@ -654,7 +750,7 @@ public static class NetworkTextReader
 
             if (t.Kind == TokKind.Word && NetworkSpelling.OperatorWords.Contains(t.Text))
             {
-                if (first.Empty) throw Err(t, ConflictCodes.NetworkBadExpression, $"'{t.Text}' with no operand before it.");
+                if (first.Empty || first.Node is Terminator) throw Err(t, ConflictCodes.NetworkBadExpression, $"'{t.Text}' with no operand before it.");
                 var word = t.Text.ToUpperInvariant();
                 var syn = new BoxSyn { Type = word, Head = t };
                 syn.Inputs.Add(new Input(null, Operand(first), Flags.None));
@@ -665,7 +761,7 @@ public static class NetworkTextReader
                             $"'{word}' and '{w.Text.ToUpperInvariant()}' at one bracket level: one word = one box, so brackets separate boxes — `a {word} (b {w.Text.ToUpperInvariant()} c)` (B1, P4).");
                     Next();
                     var op = ParseOperand();
-                    if (op.Empty) throw Err(w, ConflictCodes.NetworkBadExpression, $"'{word}' with no operand after it.");
+                    if (op.Empty || op.Node is Terminator) throw Err(w, ConflictCodes.NetworkBadExpression, $"'{word}' with no operand after it.");
                     syn.Inputs.Add(new Input(null, Operand(op), Flags.None));
                 }
                 if (Peek().Is(NetworkSpelling.Move))
@@ -736,21 +832,20 @@ public static class NetworkTextReader
             var open = Next();
             if (!open.IsSym("(")) throw Err(open, ConflictCodes.NetworkParse, "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).");
             var branches = new List<Node>();
+            if (Peek().IsSym(")"))
+                throw Err(Peek(), ConflictCodes.NetworkUnsupported, "a parallel with no branch: `BRANCH ()` holds none (B8, P6).");
             while (true)
             {
+                // 2R.5 (readability Open c): an EMPTY branch stores, builds and runs (a shorted branch, CODESYS SP21) —
+                // nothing between its commas, the empty terminator.
                 var at = Peek();
-                if (at.IsSym(",") || at.IsSym(")"))
-                {
-                    if (at.IsSym(")") && branches.Count == 0)
-                        throw Err(at, ConflictCodes.NetworkUnsupported, "a parallel with no branch: `BRANCH ()` holds none (B8, P6).");
-                    throw Err(at, ConflictCodes.NetworkUnsupported, "an empty branch: each branch of a parallel holds a box, `(a, , b)` is refused (B8, P6).");
-                }
-                branches.Add(Slot(ParseLevel(), at));
+                branches.Add(at.IsSym(",") || at.IsSym(")") ? Mark(new Terminator(Flags.None), at.Offset) : Slot(ParseLevel(), at));
                 var sep = Peek();
                 if (sep.IsSym(",")) { Next(); continue; }
                 if (sep.IsSym(")")) { Next(); break; }
                 throw Unexpected(sep, "a parallel's branches are separated by `,` and closed by `)`");
             }
+
             if (branches.Count == 1)
                 throw Err(open, ConflictCodes.NetworkUnsupported,
                     "a parallel with one branch: it pushes, and does not compile (C0023) — write the branch as the value itself (B8, P6).");
@@ -780,7 +875,12 @@ public static class NetworkTextReader
         /// (P4); <c>EN</c> alone is the empty enable.</summary>
         private void ParseEn(BoxSyn syn)
         {
-            if (!Peek().Is("EN")) return;
+            // 2R.5 (#16): the EN pin's own modifier before the word — `NOT EN c` negates the pin, `EN NOT c` the contact.
+            var (pinFlags, count) = ModifiersAt(_p);
+            if (!PeekAt(count).Is("EN")) return;
+            if (pinFlags.Rising || pinFlags.Falling) throw Err(Peek(), ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredEdgeEn);
+            for (var k = 0; k < count; k++) Next();
+            syn.EnableFlags = pinFlags;
             var en = Next();
             syn.HadEn = true;
             if (AtEnd() || Peek().IsSym(",") || Peek().IsSym(")") || Peek().IsSym(";") || Peek().Kind == TokKind.Snippet)
@@ -793,6 +893,21 @@ public static class NetworkTextReader
                 throw Err(Peek(), ConflictCodes.NetworkBadExpression, "EN twice on one box.");
         }
 
+        /// <summary>A pin's or a coil's modifiers at <paramref name="i"/> — <c>[R_EDGE|F_EDGE] [NOT]</c>, the edge around the
+        /// negation (N17's one order) — and how many tokens they take. An edge word followed by <c>(</c> is an edge VALUE.</summary>
+        private (Flags Flags, int Count) ModifiersAt(int i)
+        {
+            var f = Flags.None;
+            var k = i;
+            if (k < _end && (Raw(k).Is("R_EDGE") || Raw(k).Is("F_EDGE")) && !(k + 1 < _end && Raw(k + 1).IsSym("(")))
+            {
+                f = Raw(k).Is("R_EDGE") ? f with { Rising = true } : f with { Falling = true };
+                k++;
+            }
+            if (k < _end && Raw(k).Is("NOT")) { f = f with { Negated = true }; k++; }
+            return (f, k - i);
+        }
+
         /// <summary>One operand of a level: a leaf, a split, <c>ENO</c>, a call, <c>NOT x</c>, an edge, or a bracket holding a
         /// box word, a parallel or an enabled comparison — never a bare box word (that is a level of its own, bracketed).</summary>
         private Syn ParseOperand()
@@ -803,6 +918,7 @@ public static class NetworkTextReader
 
             if (t.Is("NOT"))
             {
+                var at = _p;
                 Next();
                 var n = Peek();
                 if (n.IsSym("(") && (PeekAt(1).Is("IN") && PeekAt(2).IsSym(":=") || PeekAt(1).Is("NOT") && PeekAt(2).Is("IN") && PeekAt(3).IsSym(":=")))
@@ -814,8 +930,12 @@ public static class NetworkTextReader
                 if (n.Is("R_EDGE") || n.Is("F_EDGE"))
                     throw Err(t, ConflictCodes.NetworkBadExpression,
                         $"NOT outside {n.Text.ToUpperInvariant()}(…): the IDE negates before it detects the edge, so the one spelling is {n.Text.ToUpperInvariant()}(NOT x).");
+                // 2R.5 (#6a): a negated empty slot, `x := NOT ;` — it stores and builds.
                 if (AtEnd() || n.IsSym(",") || n.IsSym(")") || n.IsSym(";"))
-                    throw Err(t, ConflictCodes.NetworkUnsupported, "a flag on an empty slot: an unconnected position has no text to modify.");
+                {
+                    if (at != _negatedEmptyAt) throw Err(t, ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredNegatedEmpty);
+                    return new Syn { Node = Mark(new Terminator(Flags.None with { Negated = true }), t.Offset), Start = t };
+                }
                 var inner = ParseOperand();
                 return Flagged(inner, t, f =>
                 {
@@ -853,8 +973,11 @@ public static class NetworkTextReader
                 case TokKind.Sym when t.Text == "(":
                 {
                     Next();
-                    // S2: a target and a storage operator at the pair's own depth — an assignment below the top level.
-                    if (IsTargetToken(Peek()) && StorageAt(_p + 1)) return new Syn { Node = Mark(ParseNestedAssign(t), t.Offset), Start = t };
+                    // 2R.5 (#20): a split defined below the top level, `(split1 := value)`, in a nested assignment's brackets.
+                    if (Peek().Kind == TokKind.Word && NetworkSpelling.SplitShape.IsMatch(Peek().Text) && PeekAt(1).IsSym(":="))
+                        return new Syn { Node = ParseNestedSplit(), Start = t };
+                    // S2: a coil head and a storage operator at the pair's own depth — an assignment below the top level.
+                    if (CoilHeadEnd(_p) is var e && e > 0 && StorageAt(e)) return new Syn { Node = Mark(ParseNestedAssign(t), t.Offset), Start = t };
                     var inner = ParseLevel();
                     if (!Peek().IsSym(")")) throw Unexpected(Peek(), "a bracket closes after the box it holds");
                     Next();
@@ -929,9 +1052,11 @@ public static class NetworkTextReader
                 Next();
                 if (Peek().IsSym("(")) throw Err(t, ConflictCodes.NetworkBadExpression, $"{t.Text} is a split, never a call head (P9).");
                 var id = SplitId(t);
-                if (!_splits.Contains(id))
-                    throw Err(t, ConflictCodes.NetworkBadExpression,
-                        $"the split {t.Text} is referenced before its definition: a split is defined by `{t.Text} := value;` before its first use (P9).");
+                if (_defining.Contains(id))
+                    throw Err(t, ConflictCodes.NetworkUnsupported, $"the split {t.Text} read inside its own definition: a split that feeds itself is not measured (2R.5).");
+                // 2R.5 (#19): a reference may stand above its definition (the stored order; it reads the previous scan) —
+                // the network holds the definition somewhere, checked at its end.
+                _splitRefs.Add((id, t));
                 return new Syn { Node = Mark(new Demux(id, null), t.Offset), Start = t };
             }
             if ((t.Is(NetworkSpelling.Move) || NetworkSpelling.OperatorWords.Contains(t.Text)) && PeekAt(1).IsSym("("))
@@ -990,12 +1115,7 @@ public static class NetworkTextReader
         /// passing through to the consumer. A split is never a coil target (P9).</summary>
         private Assign ParseNestedAssign(Tok open)
         {
-            var targets = new List<(Tok Target, Tok Op)>();
-            while (IsTargetToken(Peek()) && StorageAt(_p + 1))
-            {
-                var tt = Next();
-                targets.Add((tt, TakeStorage()));
-            }
+            var targets = ParseCoilHeads();
             var value = SlotValue(targets[targets.Count - 1].Op);
             if (!Peek().IsSym(")"))
                 throw Unexpected(Peek(), "an assignment's pair `(t := value)` closes after its value");
@@ -1087,12 +1207,16 @@ public static class NetworkTextReader
                 return false;
             }
 
+            // A pin's modifiers before its name — `NOT IN2 := b` (S6), `R_EDGE IN1 := c` (2R.5, #15).
             var pinFlags = Flags.None;
             Tok? not = null;
-            if (Peek().Is("NOT") && IsPinNameAt(_p + 1) && Raw(_p + 2).IsSym(":="))
+            var (mods, count) = ModifiersAt(_p);
+            if (count > 0 && IsPinNameAt(_p + count) && Raw(_p + count + 1).IsSym(":="))
             {
-                not = Next();
-                pinFlags = Flags.None with { Negated = true };
+                not = Peek();
+                if ((mods.Rising || mods.Falling) && mods.Negated) throw Err(Peek(), ConflictCodes.NetworkUnsupported, NetworkSpelling.UnmeasuredEdgePin);
+                for (var k = 0; k < count; k++) Next();
+                pinFlags = mods;
             }
 
             if (IsPinNameAt(_p) && (Raw(_p + 1).IsSym(":=") || Raw(_p + 1).IsSym("=>")))
@@ -1109,7 +1233,7 @@ public static class NetworkTextReader
                     if (isEn)
                         throw Err(name, ConflictCodes.NetworkBadExpression,
                             not is null ? "`EN :=` on a box is not network text: the enable follows the box, `f(…) EN c` (B3, P12)."
-                                        : "a flag on the EN pin: the enable is the rung itself, and the IDE holds no modifier on it — negate what feeds it.");
+                                        : "`EN :=` on a box is not network text: the enable follows the box, its modifier before the word — `f(…) NOT EN c` (B3, P12).");
                     if (isEno)
                         throw Err(name, ConflictCodes.NetworkBadExpression, "`ENO :=`: ENO is an output — the named ENO pin is `ENO => x` (P5).");
                     var at = Peek();
@@ -1193,9 +1317,6 @@ public static class NetworkTextReader
                     $"an enabled '{s.Type}' read as a value: an enabled box is the root of its line, its value leaving only through `=>` or ENO (B4, N21) — write `… => t EN c`, or the box on its own line and `coil := ENO;`.");
             if (byEno)
             {
-                if (NetworkSpelling.Comparisons.Contains(s.Type))
-                    throw Err(s.Head, ConflictCodes.NetworkBadExpression,
-                        "a comparison on an open line: a comparison has no ENO — an enabled comparison is a bracketed value, `(a GT 40 EN c)` (B4, P3, N21).");
                 if (!s.HadEn && !isExecute && (NetworkSpelling.OperatorWords.Contains(s.Type) || s.OperatorCall ||
                                                string.Equals(s.Type, NetworkSpelling.Move, StringComparison.OrdinalIgnoreCase)))
                     throw Err(s.Head, ConflictCodes.NetworkBadExpression,
@@ -1209,7 +1330,7 @@ public static class NetworkTextReader
             if (isExecute)
             {
                 box = new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false),
-                    new List<Input>(), new List<Output>(), s.Enable, s.StCode, s.Flags);
+                    new List<Input>(), new List<Output>(), s.Enable, s.StCode, s.Flags) { EnableFlags = s.EnableFlags };
                 if (byEno) box = box with { ConnectedSlot = NetworkSpelling.EnoSlot(box) };
                 return Mark(box, s.Head.Offset);
             }
@@ -1245,12 +1366,18 @@ public static class NetworkTextReader
 
             box = new Box(s.Type, s.Instance, NetworkSpelling.KindOf(s.Type, s.Instance is not null), s.Inputs, built, s.Enable, null,
                 s.Flags, MainOutputIndex: consumed && !byEno ? connected : null, ConnectedSlot: connected,
-                MainOutputName: s.Named?.Text);
+                MainOutputName: s.Named?.Text) { EnableFlags = s.EnableFlags };
             box = box with { HasEnoOutput = NetworkSpelling.EnoCarried(box, consumed) ? hasEno : null };
 
             if (s.OperatorCall && NetworkSpelling.TwoInputOperators.Contains(s.Type) && s.Inputs.Count > 2)
                 throw Err(s.Head, ConflictCodes.NetworkUnsupported,
                     $"{s.Type.ToUpperInvariant()} takes 2 inputs, and this one holds {s.Inputs.Count}: the build refuses it (C3, B1).");
+            // 2R.5 (awkward-sweep #4): an operator box with fewer than two inputs stores, and the build refuses it on both
+            // vendors ("'+' needs at least '2' operands", ng_r5_one_input_*).
+            if (s.OperatorCall && NetworkSpelling.OperatorWords.Contains(s.Type) && s.Inputs.Count < 2)
+                throw Err(s.Head, ConflictCodes.NetworkUnsupported,
+                    $"{s.Type.ToUpperInvariant()} takes at least 2 inputs, and this one holds {s.Inputs.Count}: the build refuses it (\"needs at least '2' operands\").");
+
             // P5: an operator's call form only where its word form cannot carry the tree — one tree, one text.
             if (s.OperatorCall && NetworkSpelling.IsWordForm(box))
                 throw Err(s.Head, ConflictCodes.NetworkBadExpression,

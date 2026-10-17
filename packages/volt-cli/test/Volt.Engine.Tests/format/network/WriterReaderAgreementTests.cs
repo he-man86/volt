@@ -66,7 +66,7 @@ public class WriterReaderAgreementTests
     {
         var gt = (Box)((Assign)ReadOk(Src("o := a GT b;"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
         Assert.Equal((0, 0), (gt.ConnectedSlot, gt.MainOutputIndex));
-        var add = (Box)((Assign)ReadOk(Src("o := ADD(a);"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
+        var add = (Box)((Assign)ReadOk(Src("o := ADD(, a);"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
         Assert.Equal((0, 0), (add.ConnectedSlot, add.MainOutputIndex));
         var and = (Box)((Assign)ReadOk(Src("o := a AND b;"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
         Assert.Null(and.ConnectedSlot);
@@ -300,10 +300,11 @@ public class WriterReaderAgreementTests
             RefusedBy(Body(new Parallel(null, new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld), NetworkScope.Empty));
         Assert.Equal("a Parallel with one branch",
             RefusedBy(Body(new Parallel(L("f"), new Node[] { L("a") }, ParallelMode.Sequential), BodyLanguage.Ld), NetworkScope.Empty));
-        // P6: an empty branch is refused (readability "Open" (c); whether the IDE stores one is a 2R.5 row).
-        Assert.Equal("a Parallel with an empty branch",
-            RefusedBy(Body(new Parallel(L("f"), new Node[] { L("a"), Empty }, ParallelMode.Sequential), BodyLanguage.Ld), NetworkScope.Empty));
+        // An empty branch is no refusal since 2R.5 (readability "Open" (c): it stores, builds and runs as a shorted branch).
+        Assert.Null(NetworkModelOracle.Check("empty-branch",
+            Body(new Parallel(L("f"), new Node[] { L("a"), Empty }, ParallelMode.Sequential), BodyLanguage.Ld)).Reason);
     }
+
 
     [Fact]
     public void The_empty_item_before_a_split_is_its_own_item()

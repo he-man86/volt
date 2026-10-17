@@ -1,11 +1,11 @@
-#### split-before-definition — P9: a split is defined before its references
+#### split-never-defined — P9: a split referenced is defined in its network (above or below the reference)
 === text
 IMPLEMENTATION LD
 NETWORK
   x := split3;
 END_NETWORK
 === refused
-NETWORK_BAD_EXPRESSION referenced before its definition
+NETWORK_BAD_EXPRESSION is never defined
 
 #### split-leading-zero — P9: no leading zeros
 === text
@@ -89,24 +89,6 @@ NETWORK
 END_NETWORK
 === refused
 NETWORK_BAD_EXPRESSION a jump on the rail is
-
-#### jump-set — P7: `JMP l S= c` is refused
-=== text
-IMPLEMENTATION LD
-NETWORK
-  JMP Done S= c;
-END_NETWORK
-=== refused
-NETWORK_BAD_EXPRESSION with S= or R=
-
-#### return-set — P7
-=== text
-IMPLEMENTATION LD
-NETWORK
-  RETURN S= c;
-END_NETWORK
-=== refused
-NETWORK_BAD_EXPRESSION with S= or R=
 
 #### jump-in-a-value — P7: a nested jump
 === text
@@ -245,3 +227,40 @@ NETWORK
 END_NETWORK
 === refused
 NETWORK_BAD_EXPRESSION never a target
+
+#### negated-set-coil — the vendor spells a reset coil as a negated set coil: `NOT x S= c` is `x R= c`
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT x S= c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION write `x R=
+
+#### negated-reset-coil — a negated reset coil is no coil the IDE stores apart from the reset coil
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT x R= c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a negated reset coil
+
+#### modifier-twice-on-a-coil — one negation, one edge
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT NOT x := c;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION twice
+
+#### split-nested-twice — P9: defined once, nested or not
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (split1 := a AND b);
+  split1 := c;
+END_NETWORK
+=== refused
+NETWORK_DUPLICATE_NAME defined twice

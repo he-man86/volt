@@ -437,8 +437,8 @@ public sealed partial class BeckhoffDriver
             // catch still keeps any refusal no network can stand for from costing the whole POU (an escaping throw is
             // stamped Unreadable and the fetch drops the file).
             //
-            // Byte-identical with CODESYS: a fact the text has no spelling for — a negated coil, a rung driving two
-            // jumps, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
+            // Byte-identical with CODESYS: a fact the text has no spelling for — a flag on a split, an edge on an empty
+            // slot, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
             // is the same model (DIALECT N1) and the format is the same format. The writer raises the one exception
             // for every such fact (network text v2: pull never throws anything else). `VendorCapabilityParityTests`
             // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the

@@ -111,3 +111,30 @@ test("network labels: a label nothing jumps to is the build's warning; a jump in
   expect(labelMessages("NETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK")).toEqual(["[warning] The label 'DONE' has not been referenced"])
   expect(labelMessages("NETWORK\n  JMP DONE;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK")).toEqual([])
 })
+
+// 2R.5 (awkward-sweep #9, #11): a jump is a coil — beside another coil, or two on one rung, or nested. Each one names a
+// label the check resolves exactly as a lone JMP's: undefined is flagged, a referenced label is not "unreferenced".
+test("network text: a jump coil beside other coils resolves its label like a lone JMP", () => {
+  const src = `FUNCTION_BLOCK F
+VAR c : BOOL; x1 : BOOL; y : BOOL; out : BOOL; END_VAR
+IMPLEMENTATION LD
+NETWORK
+  x1 := JMP Done := c;
+END_NETWORK
+NETWORK
+  JMP Done := JMP Nowhere := c;
+END_NETWORK
+NETWORK
+  y := (JMP Elsewhere := c);
+END_NETWORK
+NETWORK LABEL: Done
+  out := TRUE;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const diags = vgDiags(src)
+  expect(diags.filter((d) => d.code === "jump-label-undefined").map((d) => d.message)).toEqual([
+    "No such label 'NOWHERE' within the scope of the JMP statement",
+    "No such label 'ELSEWHERE' within the scope of the JMP statement",
+  ])
+  expect(diags.filter((d) => d.code === "jump-label-unreferenced")).toEqual([])
+})

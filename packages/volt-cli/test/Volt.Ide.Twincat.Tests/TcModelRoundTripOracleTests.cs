@@ -73,11 +73,9 @@ public class TcModelRoundTripOracleTests
             // consumer is connected to (task 3.10) — the one null output item, where CODESYS states MainOutputIndex.
             // importer-max and importer-unwired (task 4.4, real XAE output of bodies the PLCopen import built) are the
             // 14th and 15th: a box's one declared output is its connection slot, and an empty operand on a pin is the
-            // empty slot.
-            bodies: 15, networks: 24, refused: new Dictionary<string, int>
-            {
-                // The rung drawn by hand to hold a coil and a jump on one assign: marker-only (JumpDestinationTests).
-                ["a rung driving a coil and a jump together"] = 1,
-            });
+            // empty slot. The 16th is the rung drawn by hand to hold a coil and a jump on one assign — a jump is a coil
+            // since 2R.5 (JumpDestinationTests).
+            bodies: 16, networks: 28, refused: new Dictionary<string, int>());
+
     }
 }

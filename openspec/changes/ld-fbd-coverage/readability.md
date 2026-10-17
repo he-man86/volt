@@ -265,8 +265,8 @@ o_xCamControl := PARALLEL(IN := i_xEnable, LE(EN := GE(EN := LT(EN := , …), �
 o_xCamControl := i_xEnable BRANCH ((Pos LE Stop EN (Pos GE Start EN (Start LT Stop EN))),
                                    (Start GT Stop EN) BRANCH ((Pos GE Start EN), (Pos LE Stop EN)) SHORTCIRCUIT) SHORTCIRCUIT;
 ```
-Refused (P6): one branch `start BRANCH (a)` (C0023 — it stores, does not compile), no branch, an empty branch, the
-empty-terminator feed, a flag on the parallel (N20).
+Refused (P6): one branch `start BRANCH (a)` (C0023 — it stores, does not compile), no branch, the empty-terminator
+feed, a flag on the parallel (N20). An empty branch is nothing between its commas, `start BRANCH (a, , c)` (2R.5).
 
 ### Small ones
 
@@ -310,7 +310,7 @@ P3  OPEN LINES. A line without `;` is OPEN. Each `ENO` takes the oldest open lin
         x := ENO AND ENO;  // A, B    MOVE 100  => T EN ENO;       // takes D's line: the chain, as before
     An enabled box is the ROOT of its line (B4): its value leaves only through `=>` or `ENO`; `x := a ADD b EN c;`
     is no text. Refused: an open line nothing takes; `ENO` with no open line; an open line whose root has no ENO
-    (a coil, a split definition, a jump, a leaf, a parallel, a comparison, a box without EN):
+    (a coil, a split definition, a jump, a leaf, a parallel, a box without EN):
         x := a ADD b               // refused: the root is a coil
         MOVE 1 => A                // refused: no EN, so no ENO (N21)
     The order is forced, so one tree has one text: the `;` line's ENOs are the last open lines, in its order; the
@@ -329,15 +329,15 @@ P4  LEVELS AND BRACKETS (B5). A bracket level and each slot — coil value, EN t
     parallel that is an operand of another word (MOVE and BRANCH included, so a word-box feed is bracketed);
     (2) an enabled comparison used as a value; (3) a nested assignment. A call and `NOT (…)` (P5) carry their own
     brackets; a redundant bracket is refused.
-    (2) is the one enabled VALUE (a comparison has no ENO). It does not compile when Volt builds it (N21): it pulls
-    and round-trips, and the LSP marks its network "can't be rebuilt from text — any edit is refused" (also for
-    `fb(…).name` and symbol-comment networks). MainDrive N2 is such a network.
+    (2) is the one enabled VALUE: a comparison read by its result, built as the editor draws it (EN, no ENO; 2R.5).
+    Read through its ENO a comparison is any enabled box, on an open line (`a GT 5 => x EN c` / `lamp := ENO;`).
 
 P5  WORD OR CALL. A box is its WORD (B1, B2) when every input is a plain positional value, there are at least the
     word's minimum (2; MOVE 1), its formals are the defaults, its stored type is upper-case and its outputs are the
     default `=>`. Otherwise it is a CALL, `WORD(…)`, written like a function — and the call form where the word fits
-    is refused. A call keeps its output pins inside its brackets:
-        ADD(a)   AND(a, NOT IN2 := b)   MUL(, m, 6)   and(a, b)   MOVE()   MOVE(a, b) EN c   MOVE(IN := , => x)
+    is refused. A pin's modifier stands before its formal, `R_EDGE IN1 := c`; an operator with fewer than two inputs
+    is refused (both IDEs store it and refuse the build, 2R.5). A call keeps its output pins inside its brackets:
+        AND(a, NOT IN2 := b)   AND(R_EDGE IN1 := c, one)   MUL(, m, 6)   and(a, b)   MOVE()   MOVE(a, b) EN c   MOVE(IN := , => x)
         Mach1_MIDS() EN split16;   SideCorrection(=> ???) EN;   MOVE(0, ENO => lamp) EN c;
     NOT's call names its pin: `NOT (` + `IN :=` is the NOT box, `NOT (` + anything else negates that bracket (a
     variable named IN there is backticked). The named ENO pin and a coil on ENO (`MOVE 0 => x EN c⏎ lamp := ENO;`)
@@ -346,18 +346,21 @@ P5  WORD OR CALL. A box is its WORD (B1, B2) when every input is a plain positio
 P6  THE PARALLEL (B8). `[feed] BRANCH (b1, b2, …) [SHORTCIRCUIT]`. `BRANCH (` is the only head of a bracketed comma
     list: every other comma is inside a call, which has a name before its bracket (a callee named BRANCH is
     backticked, P1). A branch is a slot (P4): a nested parallel needs no brackets, a parallel as a word's operand
-    does. Refused: one branch (C0023 — stores, does not compile; 2R.5), no branch, an empty branch `(a, , b)`, the
-    empty-terminator feed, a flag on the parallel (N20 — `NOT (s BRANCH (a, b))`; `NOT s BRANCH (a, b)` negates the feed).
+    does. An empty branch is nothing between its commas, `(a, , b)` (2R.5: it stores, builds and runs as a shorted
+    branch). Refused: one branch (C0023 — stores, does not compile), no branch, the empty-terminator feed, a flag on the
+    parallel (N20 — `NOT (s BRANCH (a, b))`; `NOT s BRANCH (a, b)` negates the feed).
 
-P7  JMP / RETURN: `JMP l;` / `RETURN;` is the rail (C11); `JMP l := ;` and `RETURN := ;` refused (one spelling);
-    `RETURN := TRUE` (a leaf) is not `RETURN;`. Refused by name: `JMP l S= c`, `RETURN S= c`, two jumps on one
-    rung, a jump plus a coil, a nested jump.
+P7  JMP / RETURN are coils: alone on the rail `JMP l;` / `RETURN;` (C11); `JMP l := ;` and `RETURN := ;` refused (one
+    spelling); `RETURN := TRUE` (a leaf) is not `RETURN;`. As coils they stand beside other coils, take S=/R= and a
+    modifier, and nest (2R.5): `x1 := JMP l := c;`, `JMP l1 := JMP l2 := c;`, `JMP l S= c;`, `y := (JMP l := c);`.
+    A coil's modifier stands before it: `NOT x := c;`, `R_EDGE x := c;` (`NOT x S=` is `x R=`, refused).
 
 P8  EXECUTE is a box whose operand is its raw body lines: `EXECUTE [EN [c]]`, the raw lines, `END_EXECUTE` — then `;`,
     or none when it is an open line (P3). Never a value; the body is never read for words.
 
-P9  SPLITS: `split<n>`, n = the VarId, no leading zeros; defined once per network, before its references; never a
-    coil target, `=>` target or call head; defined with `:=` only; no type (B6). LSP: warn when two networks of one
+P9  SPLITS: `split<n>`, n = the VarId, no leading zeros; defined once per network where NWL holds it — its own item or
+    nested, `x := (split1 := a AND b);` — and referenced anywhere in the network (above its definition: the previous
+    scan; 2R.5); never a coil target, `=>` target or call head; defined with `:=` only; no type (B6). LSP: warn when two networks of one
     body define the same split<n> (pasted or agent-written networks), with a renumber quick fix.
 
 P10 Header: `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]` in that order; `TITLE: ""` refused (no TITLE = empty).
@@ -389,7 +392,9 @@ P13 LSP: hover ENO → the line it takes (line N); hover BRANCH → its branches
 - **From the 2026-10-16 simplification, for the owner:** (a) P3's mixes read by level, not by chain (example in P3; 0
   in the corpora — the alternative, "an ENO takes the nearest open line", reverses the two-ENO box); (b) the MOVE call
   now keeps its output inside its brackets, `MOVE(IN := , => x)` (was `MOVE(IN := ) => x`, the one exception to P5;
-  0 in the corpora); (c) an empty branch `(a, , b)` is refused — whether the IDE stores one is a 2R.5 row.
+  0 in the corpora); (c) an empty branch `(a, , b)` — decided by 2R.5's measurement: CODESYS stores, builds and runs it
+  (a shorted branch), so it is spelled.
+
 
 ## Checks before building (live CODESYS + corpus)
 

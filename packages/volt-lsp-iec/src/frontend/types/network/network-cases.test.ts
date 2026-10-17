@@ -104,7 +104,12 @@ function scopeOf(c: Case): NetworkScopeView {
     else throw new Error(`${c.file}/${c.name}: a scope line is \`instance <name> <type>\`, \`pou <name>\` or \`name <n>…\`, not '${line}'`)
   }
   const declares = (n: string): boolean => names.has(n.toUpperCase()) || pous.has(n.toUpperCase()) || instances.has(n.toUpperCase())
-  return { isPou: (n) => pous.has(n.toUpperCase()), instanceType: (h) => instances.get(h.toUpperCase()), declares }
+  // `instance fbs[] CTU` — an ARRAY of FBs, whose elements `fbs[1]` are the instances (2R.5, the bridge's `NetworkScope.ArrayKey`).
+  const element = (h: string): string | undefined => {
+    const m = /^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\[[^[\]]+\]$/.exec(h)
+    return m === null ? undefined : instances.get(m[1]!.toUpperCase() + "[]")
+  }
+  return { isPou: (n) => pous.has(n.toUpperCase()), instanceType: (h) => instances.get(h.toUpperCase()) ?? element(h), declares }
 }
 
 /** The case's body, inside a POU as a workspace file holds it. */
@@ -135,7 +140,25 @@ const OPERAND = /^[A-Za-z0-9_.#%'"?:\-$]+$/
 const operand = (text: string): string => (text.length > 0 && OPERAND.test(text) ? text : "`" + text + "`")
 const quote = (s: string): string =>
   '"' + s.replace(/[\\"\n\r\t]/g, (c) => ({ "\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t" })[c]!) + '"'
-const target = (t: NetworkTarget): string => (t.op === "S=" ? "S=" : t.op === "R=" ? "R=" : "") + operand(t.text)
+/** A coil's target as the bridge dumps it: `[S=|R=][rise:|fall:][not:](name | jmp:L | ret)`. */
+const target = (t: NetworkTarget): string => {
+  let name = t.jump === true ? "jmp:" + t.text : t.ret === true ? "ret" : operand(t.text)
+  if (t.negated === true) name = "not:" + name
+  if (t.edge !== undefined) name = (t.edge === "rising" ? "rise:" : "fall:") + name
+  return (t.op === "S=" ? "S=" : t.op === "R=" ? "R=" : "") + name
+}
+/** A pin's own modifiers as the bridge dumps them: `/` rising, `\` falling, `!` negated. */
+const pinFlags = (f: { negated?: true; edge?: "rising" | "falling" } | undefined): string =>
+  (f?.edge === "rising" ? "/" : f?.edge === "falling" ? "\\" : "") + (f?.negated === true ? "!" : "")
+/** A coil list as the bridge dumps it: a lone plain jump or return keeps its own form. */
+const assignShape = (targets: readonly NetworkTarget[], value: NetworkValue): string => {
+  const only = targets.length === 1 ? targets[0]! : undefined
+  if (only !== undefined && (only.op ?? ":=") === ":=" && only.negated === undefined && only.edge === undefined) {
+    if (only.jump === true) return "(jmp " + only.text + " " + shapeOf(value) + ")"
+    if (only.ret === true) return "(ret " + shapeOf(value) + ")"
+  }
+  return "(:= " + targets.map(target).join(" ") + " " + shapeOf(value) + ")"
+}
 
 function shapeOf(v: NetworkValue): string {
   switch (v.kind) {
@@ -150,13 +173,15 @@ function shapeOf(v: NetworkValue): string {
     case "edge":
       return (v.rising ? "rise:" : "fall:") + shapeOf(v.operand)
     case "nested_assign":
-      return "(:= " + v.targets.map(target).join(" ") + " " + shapeOf(v.value) + ")"
+      return assignShape(v.targets, v.value)
+    case "nested_split":
+      return "(split " + v.split.text.replace(/^split/i, "") + " " + shapeOf(v.value) + ")"
     case "eno":
       return shapeOf(v.box)
     case "word":
       return (
         "(" + [v.word, ...v.operands.map(shapeOf), ...v.outputs.map((o) => "=>:" + operand(o.text)),
-          ...(v.en !== undefined ? ["en:" + shapeOf(v.en)] : [])].join(" ") + ")"
+          ...(v.en !== undefined ? [pinFlags(v.enFlags) + "en:" + shapeOf(v.en)] : [])].join(" ") + ")"
       )
     case "call": {
       // An instance's type compared case-free: IEC names are, and the two scopes keep the declaration's spelling differently.
@@ -164,10 +189,10 @@ function shapeOf(v: NetworkValue): string {
       const pins = v.pins.map((p) =>
         p.kind === "input"
           ? // An operator's call form (P5) is the operator's box, its pins positional: the formal is the spelling, not the model.
-            (p.negated ? "!" : "") + (p.name !== undefined && !v.operatorCall ? p.name.text + "=" : "") + shapeOf(p.value)
+            pinFlags(p) + (p.name !== undefined && !v.operatorCall ? p.name.text + "=" : "") + shapeOf(p.value)
           : "=>" + (p.name?.text ?? "") + ":" + (p.target !== undefined ? operand(p.target.text) : "?"),
       )
-      return "(" + [head, ...pins, ...(v.en !== undefined ? ["en:" + shapeOf(v.en)] : [])].join(" ") + ")"
+      return "(" + [head, ...pins, ...(v.en !== undefined ? [pinFlags(v.enFlags) + "en:" + shapeOf(v.en)] : [])].join(" ") + ")"
     }
     case "parallel":
       return (
@@ -175,7 +200,7 @@ function shapeOf(v: NetworkValue): string {
         v.branches.map((b) => " " + shapeOf(b)).join("") + ")"
       )
     case "execute":
-      return "(EXECUTE" + (v.en !== undefined ? " en:" + shapeOf(v.en) : "") + ")"
+      return "(EXECUTE" + (v.en !== undefined ? " " + pinFlags(v.enFlags) + "en:" + shapeOf(v.en) : "") + ")"
     default:
       throw new Error(`no shape for a '${(v as { kind: string }).kind}' value`)
   }
@@ -184,7 +209,8 @@ function shapeOf(v: NetworkValue): string {
 function statementShape(s: NetworkTextStatement, splits: readonly NetworkSplit[]): string {
   switch (s.kind) {
     case "assign":
-      return "(:= " + s.targets.map(target).join(" ") + " " + shapeOf(s.value) + ")"
+      return assignShape(s.targets, s.value)
+
     case "split_def":
       return "(split " + (splits.find((x) => x.definition === s)?.varId ?? "?") + " " + shapeOf(s.value) + ")"
     case "value":

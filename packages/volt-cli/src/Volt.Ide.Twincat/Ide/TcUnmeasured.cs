@@ -86,12 +86,57 @@ internal static class TcUnmeasured
                 ConflictCodes.NetworkUnsupported);
     }
 
-    private static string? FirstUnmeasured(IEnumerable<Node> trees) =>
-        trees.Select(t => Unmeasured(t, top: true)).FirstOrDefault(x => x != null);
+    private static string? FirstUnmeasured(IReadOnlyList<Node> trees) =>
+        trees.Select(t => Unmeasured(t, top: true)).FirstOrDefault(x => x != null) ?? SplitBeforeDefinition(trees);
+
+    /// <summary>2R.5 (awkward-sweep #19): a split referenced above its definition — the stored order a pull keeps, which the
+    /// PLCopen lowering cannot state (it emits a wire's definition before its references).</summary>
+    private static string? SplitBeforeDefinition(IReadOnlyList<Node> trees)
+    {
+        var defined = new HashSet<int>();
+        string? Walk(Node n)
+        {
+            if (n is Demux { Input: null } r && !defined.Contains(r.VarId)) return $"the split split{r.VarId} referenced above its definition";
+            foreach (var c in n.Children()) if (Walk(c) is { } hit) return hit;
+            if (n is Demux { Input: not null } d) defined.Add(d.VarId);
+            return null;
+        }
+        return trees.Select(Walk).FirstOrDefault(x => x != null);
+    }
+
+    /// <summary>The coil shapes 2R.5 spells that nobody has put through TwinCAT's PLCopen import: an edge or a negation on a
+    /// coil (#13, #14), and a jump or a return beside another coil, set, or modified (#9–#12) — the lowering emits one
+    /// `jump`/`return` per item and an `outVariable` per coil, with no modifier. The in-place writer refuses the same
+    /// shapes where an edit would make one (<see cref="InPlace"/>): no TwinCAT edit of any is measured either.</summary>
+    internal static string? UnmeasuredCoil(Assign a)
+    {
+        if (a.Targets.Count > 1 && (a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { Jump: true } or { Return: true })))
+            return "a jump or a return beside another coil on one rung";
+        foreach (var t in a.Targets)
+        {
+            var f = t.Flags ?? Flags.None;
+            var on = f.Jump ? $"the jump to '{t.Text}'" : f.Return || a.Flags.Return && a.Targets.Count == 1 ? "RETURN" : $"'{t.Text}'";
+            if (f.Rising || f.Falling) return $"an edge coil on {on}";
+            if (f.Negated && !f.Reset) return $"a negated coil on {on}";
+            if ((f.Jump || f.Return || a.Flags.Jump || a.Flags.Return) && (f.Set || f.Reset)) return "a jump or a return with S= or R=";
+        }
+        return null;
+    }
+
+    /// <summary>The in-place half of <see cref="RefuseImport"/>: an edit that would WRITE one of its shapes into the archive
+    /// the IDE holds. A <see cref="NotSupportedException"/>, so the push routes the network to the import, which refuses
+    /// the shape by name before the IDE is asked; a shape the IDE already holds, unchanged, is never refused.</summary>
+    internal static NotSupportedException InPlace(string shape) =>
+        new($"TwinCAT: this push writes {shape} into the body the IDE holds, and no TwinCAT edit of that shape is measured " +
+            "(stored, built, reopened), so Volt writes none by a guess. The IDE can make this change.");
 
     private static string? Unmeasured(Node n, bool top = false) => n switch
     {
         Assign a when !top => $"an assignment to '{a.Targets.FirstOrDefault()?.Text}' below the top level",
+        Assign a when UnmeasuredCoil(a) is { } coil => coil,
+        Demux { Input: not null } d when !top => $"the split split{d.VarId} defined below the top level",
+        Terminator { Flags.IsNone: false } => "a negated empty slot",
+        Box b when !b.EnableFlags.IsNone => $"a modifier on the EN pin of the '{b.Type}' box",
         Parallel => "a parallel branch (`feed BRANCH (a, b)`)",
         Demux { Input: Leaf leaf } d => $"the split split{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
         Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin =>
@@ -99,7 +144,8 @@ internal static class TcUnmeasured
         Box b when string.Equals(b.Instance?.Text, Volt.Engine.Format.St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase) =>
             $"a call of the base FB through SUPER^ (the '{b.Type}' box)",
         Box b when b.Inputs.Select((p, i) => (p, i)).FirstOrDefault(x => !x.p.Flags.IsNone) is { p: not null } flagged =>
-            $"a negated input pin ({flagged.p.Formal ?? $"input {flagged.i}"}) of the '{b.Type}' box",
+            $"{(flagged.p.Flags.Rising || flagged.p.Flags.Falling ? "an edge on an input pin" : "a negated input pin")} ({flagged.p.Formal ?? $"input {flagged.i}"}) of the '{b.Type}' box",
+
         _ => n.Children().Select(c => Unmeasured(c)).FirstOrDefault(x => x != null),
     };
 }

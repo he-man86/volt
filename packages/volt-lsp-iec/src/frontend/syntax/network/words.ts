@@ -102,3 +102,17 @@ export const UNSUPPORTED_SHAPE = /^[A-Za-z0-9_]+( [A-Za-z0-9_]+)*$/
 export function v1Refusal(what: string): string {
   return `this is network text v1 (${what}), which Volt no longer reads and does not translate: re-pull the POU to get the current form, and redo the edit on it.`
 }
+
+/** The modifiers 2R.5's composition would spell and no store, build and run measures (design "2R.5": measured per row
+ *  before its spelling ships) — the bridge's reader and writer refuse the same shapes (`NetworkSpelling.Unmeasured*`). */
+export const UNMEASURED_FLOW =
+  "a modified jump or return: NOT, R_EDGE, F_EDGE and R= on JMP or RETURN are not measured — `JMP l S=` and `RETURN S=` are the ones stored and built (2R.5)."
+export const UNMEASURED_EDGE_COIL =
+  "an edge on a negated, set or reset coil: not measured — `R_EDGE x :=` is the one stored and built (2R.5)."
+export const UNMEASURED_MODIFIED_FAN_OUT =
+  "a negated or edge coil beside another coil: not measured — `NOT x :=`, `R_EDGE x :=` and `F_EDGE x :=` are each stored and built alone on their item (2R.5)."
+export const UNMEASURED_EDGE_EN = "an edge on the EN pin: not measured — `NOT EN c` is the one stored and built (2R.5)."
+export const UNMEASURED_EDGE_PIN =
+  "an edge on a negated pin: not measured — `R_EDGE IN1 :=` and `NOT IN1 :=` are each stored and built, together they are not (2R.5)."
+export const UNMEASURED_NEGATED_EMPTY =
+  "a negated empty slot outside a lone plain coil's value: not measured — `x := NOT ;` is the one stored and built (2R.5)."

@@ -46,11 +46,13 @@ export interface NetworkTextNetwork {
   headerSpan: Span
 }
 
-/** A split point — a vendor Demux (B6): its name IS its VarId, it has no declaration and no type. */
+/** A split point — a vendor Demux (B6): its name IS its VarId, it has no declaration and no type. Its definition is a
+ *  statement of its own, or nested where a value stands (`x := (split1 := a AND b);`, 2R.5); a reference may stand above
+ *  it (the stored order, which reads the previous scan). */
 export interface NetworkSplit {
   name: NetworkName
   varId: number
-  definition: NetworkSplitDef
+  definition: NetworkSplitDef | NetworkNestedSplit
   references: NetworkName[]
 }
 
@@ -100,21 +102,36 @@ export interface NetworkEmpty {
   span: Span
 }
 
-/** An assignment or `=>` target: a token (a name or path, `???`, an address) or backticked text. */
+/** An assignment or `=>` target: a token (a name or path, `???`, an address) or backticked text — or, on a coil, a jump
+ *  (`JMP l`, its label the text) or a return (2R.5: a jump and a return are coils, beside other coils, set or modified). */
 export interface NetworkTarget {
-  /** The target as written, backticks stripped. */
+  /** The target as written, backticks stripped; a jump's label; `RETURN` for a return. */
   text: string
-  /** The target as an ST expression; undefined for `???` and backticked text that is no expression. */
+  /** The target as an ST expression; undefined for `???`, a jump, a return and backticked text that is no expression. */
   expr?: Expr
   /** The storage operator an assignment writes it with; absent on a `=>` pin's target, which has none. */
   op?: ":=" | "S=" | "R="
+  /** `JMP l :=` — the coil is a jump to the label `text`. */
+  jump?: true
+  /** `RETURN :=` — the coil is a return. */
+  ret?: true
+  /** The coil's own modifiers, written before it: `NOT x :=`, `R_EDGE x :=` (2R.5). */
+  negated?: true
+  edge?: "rising" | "falling"
   backticked: boolean
   unnamed: boolean
   span: Span
 }
 
+/** A pin's own modifiers, written before its name — `NOT IN := v`, `R_EDGE IN1 := c`, `NOT EN c` (S6, 2R.5). */
+export interface NetworkPinFlags {
+  negated?: true
+  edge?: "rising" | "falling"
+}
+
 export type NetworkValue =
   | NetworkNestedAssign
+  | NetworkNestedSplit
   | NetworkEmptySlot
   | NetworkOperand
   | NetworkSplitRef
@@ -130,6 +147,14 @@ export type NetworkValue =
 export interface NetworkNestedAssign {
   kind: "nested_assign"
   targets: NetworkTarget[]
+  value: NetworkValue
+  span: Span
+}
+
+/** `(split1 := value)` — a split's definition below the top level (2R.5), its value passing through. */
+export interface NetworkNestedSplit {
+  kind: "nested_split"
+  split: NetworkName
   value: NetworkValue
   span: Span
 }
@@ -158,7 +183,8 @@ export interface NetworkSplitRef {
   span: Span
 }
 
-/** The negation modifier: `NOT a`, `NOT (a AND b)`. (`NOT(IN := a)` is the NOT box — a call.) */
+/** The negation modifier: `NOT a`, `NOT (a AND b)`, a negated empty slot `x := NOT ;` (2R.5). (`NOT(IN := a)` is the NOT
+ *  box — a call.) */
 export interface NetworkNot {
   kind: "not"
   operand: NetworkValue
@@ -185,6 +211,8 @@ export interface NetworkWordBox {
   /** The enable after the box (B3); an empty slot for `EN` with nothing after it. */
   en?: NetworkValue
   enSpan?: Span
+  /** The EN pin's own modifiers, `NOT EN c` (2R.5). */
+  enFlags?: NetworkPinFlags
   span: Span
 }
 
@@ -210,17 +238,20 @@ export interface NetworkCall {
   operatorCall?: true
   en?: NetworkValue
   enSpan?: Span
+  enFlags?: NetworkPinFlags
   span: Span
 }
 
 export type NetworkPin = NetworkInputPin | NetworkOutputPin
 
-/** `F := v` or a positional `v`. `NOT F := v` negates the PIN (S6), where `F := NOT v` negates the value. */
+/** `F := v` or a positional `v`. `NOT F := v` negates the PIN (S6), where `F := NOT v` negates the value; `R_EDGE F := v`
+ *  detects an edge on it (2R.5). */
 export interface NetworkInputPin {
   kind: "input"
   name?: NetworkName
   value: NetworkValue
   negated?: true
+  edge?: "rising" | "falling"
   span: Span
 }
 
@@ -249,6 +280,7 @@ export interface NetworkExecute {
   kind: "execute"
   en?: NetworkValue
   enSpan?: Span
+  enFlags?: NetworkPinFlags
   statements: StatementList
   ok: boolean
   span: Span
@@ -308,7 +340,9 @@ export function valueChildren(v: NetworkValue): NetworkValue[] {
     case "edge":
       return [v.operand]
     case "nested_assign":
+    case "nested_split":
       return [v.value]
+
     case "word":
       return [...v.operands, ...(v.en !== undefined ? [v.en] : [])]
     case "call":
@@ -342,4 +376,13 @@ export function* statementTargets(s: NetworkTextStatement): Generator<NetworkTar
     if (v.kind === "word") yield* v.outputs
     if (v.kind === "call") for (const p of v.pins) if (p.kind === "output" && p.target !== undefined) yield p.target
   }
+}
+
+/** Every jump a statement makes — a lone `JMP l;` / `JMP l := c;`, and a jump coil beside others or nested
+ *  (`x := JMP l := c;`, `y := (JMP l := c);`, 2R.5): each label, at its span. */
+export function* statementJumps(s: NetworkTextStatement): Generator<NetworkName> {
+  if (s.kind === "jump") yield s.target
+  if (s.kind === "assign") for (const t of s.targets) if (t.jump === true) yield { text: t.text, span: t.span }
+  for (const v of walkValues(s))
+    if (v.kind === "nested_assign") for (const t of v.targets) if (t.jump === true) yield { text: t.text, span: t.span }
 }

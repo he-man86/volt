@@ -1,7 +1,7 @@
 /**
  * The network-text LABEL check (`network-analysis.ts` runs it once per body): labels and jumps, at the build's words.
  */
-import type { NetworkTextNetwork, NetworkName } from "../../../frontend/syntax/index.js"
+import { type NetworkTextNetwork, type NetworkName, statementJumps } from "../../../frontend/syntax/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import type { Messages } from "../../messages/index.js"
 
@@ -40,13 +40,13 @@ export function checkLabels(networks: readonly NetworkTextNetwork[], messages: M
   }
   const referenced = new Set<string>()
   for (const n of enabled)
-    for (const s of n.statements) {
-      if (s.kind !== "jump") continue
-      const key = s.target.text.toUpperCase()
-      referenced.add(key)
-      if (!labels.has(key))
-        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "jump-label-undefined", message: messages.jumpLabelUndefined(s.target.text) })
-    }
+    for (const s of n.statements)
+      for (const target of statementJumps(s)) {
+        const key = target.text.toUpperCase()
+        referenced.add(key)
+        if (!labels.has(key))
+          out.push({ severity: "error", span: target.span, source: SOURCE, code: "jump-label-undefined", message: messages.jumpLabelUndefined(target.text) })
+      }
   for (const [key, label] of labels)
     if (!referenced.has(key))
       out.push({ severity: "warning", span: label.span, source: SOURCE, code: "jump-label-unreferenced", message: messages.jumpLabelUnreferenced(label.text) })

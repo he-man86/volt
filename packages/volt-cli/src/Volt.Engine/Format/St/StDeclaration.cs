@@ -48,6 +48,61 @@ public static class StDeclaration
         }
     }
 
+    // An ARRAY's element type, after its bounds: `fbs : ARRAY [1..2] OF CTU`, `m : ARRAY[0..1, 0..3] OF Standard.TON`.
+    private static readonly Regex ArrayStatement = new(
+        @"^\s*(?<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?:\bAT\s+%\S+?\s*)?:\s*ARRAY\s*\[(?<bounds>[^\]]*)\]\s*OF\s+(?<type>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?::=|$)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// THE ELEMENT TYPE OF AN ARRAY ELEMENT a call heads (ld-fbd-coverage 2R.5, awkward-sweep #17): <c>fbs[1]</c> with
+    /// <c>fbs : ARRAY [1..2] OF CTU</c> is a <c>CTU</c> instance — the box the IDE stores with <c>Instance 'fbs[1]'</c>,
+    /// <c>BoxType 'CTU'</c>, which builds and runs. One subscript group with one index per dimension of the array, on a
+    /// variable a path resolves like a call target (<see cref="TypeOfCallTarget"/>: a local first, then a container's member);
+    /// null for anything else — never a guess at a row, an array of arrays or a subscript of a member of an element.
+    /// </summary>
+    public static string? TypeOfArrayElement(string? scope, string target, Func<string, string?> declarationOf)
+    {
+        var m = Regex.Match(target ?? "", @"^(?<path>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\[(?<index>[^\[\]]+)\]$", RegexOptions.CultureInvariant);
+        if (!m.Success) return null;
+        var indices = TopLevelCommas(m.Groups["index"].Value) + 1;
+        var segments = m.Groups["path"].Value.Split('.');
+        var declaration = scope;
+        for (var i = 0; i < segments.Length - 1; i++)
+        {
+            var type = TypeOfVariable(declaration, segments[i]);
+            declaration = type is null ? (i == 0 ? declarationOf(segments[i]) : null) : declarationOf(type);
+            if (declaration is null) return null;
+        }
+        return ArrayElementOf(declaration, segments[segments.Length - 1], indices);
+    }
+
+    /// <summary>The commas of <paramref name="s"/> outside brackets — <c>i, f(a, b)</c> has one.</summary>
+    private static int TopLevelCommas(string s)
+    {
+        int depth = 0, commas = 0;
+        foreach (var c in s)
+        {
+            if (c is '(' or '[') depth++;
+            else if (c is ')' or ']') depth--;
+            else if (c == ',' && depth == 0) commas++;
+        }
+        return commas;
+    }
+
+    private static string? ArrayElementOf(string? declaration, string name, int indices)
+    {
+        if (string.IsNullOrEmpty(declaration)) return null;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        foreach (var statement in StatementEnd.Split(code))
+        {
+            var m = ArrayStatement.Match(statement.Trim());
+            if (!m.Success) continue;
+            if (m.Groups["names"].Value.Split(',').Any(n => string.Equals(n.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+                return TopLevelCommas(m.Groups["bounds"].Value) + 1 == indices ? m.Groups["type"].Value : null;
+        }
+        return null;
+    }
+
     /// <summary>Whether a DECLARED type and a box's stored type name one type. IEC names are case-insensitive, and a
     /// declaration may name a library type through its namespace (<c>Standard.TON</c>) where the vendor's box holds
     /// it bare (<c>TON</c>), or the other way round: a qualified name and its own last segment are one type. Two

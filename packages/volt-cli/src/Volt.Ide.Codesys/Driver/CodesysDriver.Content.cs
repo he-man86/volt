@@ -236,8 +236,8 @@ public sealed partial class CodesysDriver
                 // ld-fbd-coverage 1b.4 both readers show a refusal met in one network as that network's UNSUPPORTED line
                 // (`CodesysNetworkReader.ReadShown`, `TcNetworkReader.ReadShown`); the pre-scan is gone.
                 //
-                // A fact the text has no spelling for makes the body UNSUPPORTED, never a body without it — a negated
-                // coil, a rung driving two jumps, a connection by an output slot the text cannot name. The writer
+                // A fact the text has no spelling for makes the body UNSUPPORTED, never a body without it — a flag on a
+                // split, an edge on an empty slot, a connection by an output slot the text cannot name. The writer
                 // raises the one exception for every such fact (network text v2: pull never throws anything
                 // else), so it is the same refusal as the reader's, and as IL.
                 return NetworkText.Pulled(view, () =>

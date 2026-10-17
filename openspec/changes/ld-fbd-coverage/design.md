@@ -770,3 +770,75 @@ No member's loss changes behaviour, so no network is refused on rebuild for one.
   boxes, tasks 2R.4b). The LSP's `checkCallBoxes` (in place of `checkBoxArity`) says what the build says of a box the
   push writes wherever the drawn box says the same: a function's pins against its inputs, a method's positional pin,
   a library function's ENO without EN — never the library box's own error, which the drawn box does not give.
+
+## 2R.5 Every stored shape that runs — a spelling, both vendors (2026-10-17)
+
+**Target.** Owner: "possible" = the IDE stores it AND it runs; the drawing does not decide, the corpora do not decide.
+Every such row of `awkward-sweep.md` and the X/E rows gets a spelling, a fixture on both vendors and a round trip.
+**Choice: delete exceptions, add no rules.** Each row below is spelled by a rule that already exists once its
+refusal clause goes (P3, P6, P7, P9 shrink); no new word, no new member syntax.
+- Jumps are coils, fully (P7's five refusals go): `x1 := JMP Done := c;` · `x1 := RETURN := c;` · `JMP L1 := JMP L2 := c;`
+  (first wins, as stored) · `JMP Done S= c;` (#9–#12).
+- Operand modifiers wherever an operand stands: coil `NOT xn := c;`, `R_EDGE xe := c;` (#13, #14 — and the pull bug
+  that hides #14's whole body is fixed), pin `AND(R_EDGE IN1 := c, one)` (#15, P5), `MOVE 5 => y NOT EN c` (#16),
+  the empty source `x := NOT ;` (#6a, the negated Terminator).
+- A call head is any variable reference: `fbs[1](CU := go, PV := 10, CV => n);` (#17).
+- Splits (P9 drops "before its references" and "top level"): a reference above its definition reads the previous
+  scan (#19, LSP warning, stored order kept); `x := (split1 := a AND b);` (#20, P4's nested assignment).
+- A comparison is a box like any other (P3's "a comparison has no ENO" was false, #22): `a GT 5 => x EN c`⏎`lamp := ENO;`.
+- Named ENO pin `MOVE(7, => x, ENO => lamp) EN c;` (#23, P5; never written at runtime → LSP warning).
+- Two ENOs into one box (#1): P3 as written; fixtures owed.
+- Writer limits, now built as the PLCopen importer builds them (E → S): S4 `y := t(CU := go, PV := 10).CV ADD 10;` (#25,
+  OutputItems `['', null]`); an enabled comparison value `x := a AND (v GT 40 EN c);` (#26, ENO unset, OutputParam `['']`).
+- `SymbolComment` (E → D), measured offline 2026-10-17: all 10 corpus values (pro2193) are the CALLEE PIN's declaration
+  comment, text after `//` (`active : BOOL; // Alarm is active.` → `" Alarm is active."`). Derived on push; a differing
+  value is L (P13 lens). Its `RefuseSymbolCommentLoss` goes.
+- #18/#27 (FUNCTION/METHOD CallType + input names) are D — 2R.4's derivation, fixtures here.
+
+**Measured per row, both vendors, before its spelling ships.** CODESYS: store by Volt push, else native-archive edit
+(`export_native` → edit → `import_native`), build, run (one fresh simulation per case, `record:exec`'s runner).
+TwinCAT: store by the native archive writer (N40 — the model is identical, N1), reload, build, open in the editor.
+First probe (decides TwinCAT's run column): can this machine run a TwinCAT runtime without admin/VS (dev-machine rule)?
+No → TwinCAT is store+build+reload+editor and the run verdict is CODESYS's, stated per fixture. A shape one vendor
+stores and the other refuses is a wire divergence: STOP for the owner, never a vendor-only spelling.
+Unmeasured rows, by archive edit (and IL by the editor's IL option): `BoxTreeMux` (#5), `Connectors` (#7),
+`ILStatement`/`ILLines` (#8), the empty branch `(a, , b)` (readability Open c). Stores + runs → spelled with an
+existing form (an IL network as raw lines like `EXECUTE`, P8) or STOP for the owner if none fits; else refused.
+
+Rejected: refuse the zero-corpus rows (owner) · "stores" alone, compiling or not (owner: it must run) · a member
+pragma or new keyword per shape (B7; every spelling here is an existing rule minus a refusal) · TwinCAT by PLCopen
+import (D22/D25 superseded; it lowers parallels and drops connectors) · a vendor-only spelling (wire divergence).
+
+**Stays refused by name, with its measurement:** one-branch parallel (C0023, #2); 3-input SUB/DIV/MOD/comparison
+(C0022, #3 — the nine `ng_r1_*` stay); 1-input AND/ADD (C0023, #4 — P5's `ADD(a)` example goes); a Terminator with an
+Input (crashes CODESYS, #6b); an enabled ADD read by its data output (not storable, #21); P12 old spellings.
+**For the owner (edge cases the doc would need):** P4(2) — only an enabled COMPARISON is a value (#21 vs #26, a vendor
+fact); #19/#23 compile to behaviour the drawing hides (previous scan, an ENO pin never written) — LSP warnings, not grammar.
+
+**Migration.** readability.md P3/P5/P6/P7/P9 lose the clauses above; their `refuse/` cases move to `accept/` in 2R.3's
+case set; fixtures `ng_r5_<row>` on both vendors, recorded in one batch per vendor; `docs/network-text.html` loses
+those refusals. Runs after 2R.3 (grammar) and 2R.4 (derivations).
+
+**As built (2026-10-17) — where reality forced another choice, and why.**
+- **The call head of #17 is backticked**, `` `fbs[1]`(…) ``, not bare: every operand that is no single token is, and the
+  lexer has no subscript token; the instance resolves through the declarations (`StDeclaration.TypeOfArrayElement`: one
+  subscript group on a name or a path, an array of blocks — never a guess at anything else).
+- **A negated EN pin needed a model field** (`Box.EnableFlags`, the EN slot's `InputFlags`): the enable is a tree, and a
+  flag on its pin is no flag on that tree (`NOT EN c` and `EN NOT c` are two stored trees).
+- **A comparison value is built EN true / ENO false**, as the editor draws it (40 of 40 lenze-mid boxes), not "ENO unset":
+  with the pair stated it is read through its ENO (N21).
+- **The empty branch (Open c) is spelled**: measured by an archive edit and then as pushed — it stores, builds and runs
+  as a shorted branch (N41). **An operator with one input is refused**: recorded through the push first, both vendors
+  refuse the build ("needs at least '2' operands").
+- **Not built, for the owner** (tasks 2R.5): SymbolComment's D (no measured write door; its refusal is a live
+  recording), S4's build (the named output's slot is the callee's signature — 2R.4b's library read), the two LSP
+  warnings (LSP-only messages), and the TwinCAT measurement (Volt's PLCopen route refuses each new shape; the native
+  writer is on `twincat-native-writer`). BoxTreeMux, IL and connectors stay unmeasured and refused.
+- **Gate 2R.5: composition spells nothing unmeasured.** The rules above composed shapes no row measured — a NOT, an edge
+  or `R=` on a jump or a return, an edge beside a coil's NOT/`S=`/`R=`, an edge with a NOT on one pin, an edge on EN, a
+  negated empty slot anywhere but a coil's value, a split read inside its own definition. Each is refused by name
+  (`NETWORK_UNSUPPORTED`, `NetworkSpelling.Unmeasured*`) by the reader, the writer (pull: the network's UNSUPPORTED
+  line) and the LSP alike, until a row measures it; a split defined inside its own definition is defined twice. On
+  TwinCAT the in-place door writes no bit change into an unmeasured coil shape (`TcUnmeasured.InPlace`, the import's
+  list) and writes the named ENO pin's slot; `ENO => v` needs the box's EN or a later ENO reader (`EnoCarried`).
+

@@ -125,29 +125,14 @@ public class TcRoundTripTests
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
     [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - never folded into a multi-output assign
-    // drawn-refused-shapes (an UNCONDITIONAL JMP beside a coil, drawn by hand) pulls as the MARKER: see
-    // A_body_the_text_has_no_spelling_for_pulls_as_the_marker.
+    // an UNCONDITIONAL JMP beside a coil, drawn by hand in XAE — a jump is a coil since 2R.5 (`JMP owrods := out := ;`)
+    [InlineData("drawn-refused-shapes.TcPOU")]
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);
         Assert.Null(TcText.Apply(before, TextDerivedModel(before)));
     }
 
-    /// <summary>A BODY THE TEXT HAS NO SPELLING FOR PULLS AS THE MARKER, by name — so a no-op push of it is the marker's
-    /// no-op, never a text-derived model. The hand-drawn rung driving a coil beside an unconditional jump is such a body
-    /// (spec, "marker-only shapes stay on the existing marker"); it carried this suite's no-op-push rows under v1, which
-    /// spelled it <c>JMP owrods;</c> and dropped the coil.</summary>
-    [Theory]
-    [InlineData("drawn-refused-shapes.TcPOU", "a rung driving a coil and a jump together")]
-    public void A_body_the_text_has_no_spelling_for_pulls_as_the_marker(string fixture, string marker)
-    {
-        var before = Body(fixture);
-        var pulled = TcNetworkReader.Read(Impl(before), LanguageOf(before));
-
-        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
-
-        Assert.Equal(marker, ex.Reason);
-    }
 
     /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
     ///
@@ -568,24 +553,90 @@ public class TcRoundTripTests
         Assert.Equal("wiredPin", pin.Value.Text);
     }
 
-    /// <summary>A VARIABLE STORED ON THE ENO SLOT IS REFUSED BY NAME, never dropped — the parity twin of CODESYS's
-    /// <c>A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped</c>. The text has no spelling for it (ENO is
-    /// never an <c>=&gt;</c> slot); skipping slot 0 pulled the body without the variable, so the file in git hid it.
-    /// The fixture is <c>EnoSlot.derived.TcPOU</c> with its null echo replaced by a copy of the wired pin's operand.</summary>
+    /// <summary>A VARIABLE STORED ON THE ENO SLOT OF A BOX WITHOUT EN HAS NO SPELLING, and is refused by name, never dropped
+    /// (gate 2R.5). The text gives a box ENO only with EN or where a later line reads it (P5), so `ENO => v` on a box with
+    /// neither is text the push's own gate refuses: the pull wrote it, and the unchanged text could not be pushed back.
+    /// The fixture is <c>EnoSlot.derived.TcPOU</c> (a TON with an ENO output and no EN) with its null echo replaced by a
+    /// copy of the wired pin's operand.</summary>
     [Fact]
-    public void A_variable_on_the_ENO_slot_is_refused_by_name_not_dropped()
+    public void A_variable_on_the_ENO_slot_of_a_box_without_EN_is_refused_by_name_not_dropped()
     {
-        var impl = Impl(Body("EnoSlot.derived.TcPOU"));
-        var slots = impl.Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems");
+        var impl = Impl(EnoWired(withEn: false));
+
+        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(
+            () => TcText.Write(TcNetworkReader.Read(impl, BodyLanguage.Fbd)));
+        Assert.Equal("an ENO output the text reads otherwise", ex.Reason);
+    }
+
+    /// <summary>…and ON A BOX WITH EN IT IS THE NAMED ENO PIN (P5, 2R.5 awkward-sweep #23), the parity twin of CODESYS's
+    /// <c>A_variable_wired_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped</c>: pulled, the unchanged text pushes back as
+    /// no change at all.</summary>
+    [Fact]
+    public void A_variable_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped()
+    {
+        var before = EnoWired(withEn: true);
+        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
+        var text = TcText.Write(pulled);
+
+        Assert.Contains("ENO => enoFlag", text);
+        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled))));
+    }
+
+    /// <summary>…its deletion is refused, never a silent no-op: the in-place write never visited the ENO slot, so removing
+    /// `ENO => enoFlag` wrote nothing, the push reported success and the IDE kept the variable.</summary>
+    [Fact]
+    public void Dropping_the_named_ENO_pin_is_refused_rather_than_ignored()
+    {
+        var before = EnoWired(withEn: true);
+        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
+        var text = TcText.Write(pulled);
+        Assert.Contains("ENO => enoFlag, ", text);
+
+        var without = TcText.Validate(text.Replace("ENO => enoFlag, ", ""), TcText.ScopeOf(pulled));
+
+        var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without));
+        Assert.Contains("output pin 'ENO'", ex.Message);
+    }
+
+    /// <summary>…and its retarget is written onto the ENO slot, where the IDE stores it.</summary>
+    [Fact]
+    public void Retargeting_the_named_ENO_pin_writes_the_ENO_slot()
+    {
+        var before = EnoWired(withEn: true);
+        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
+        var text = TcText.Write(pulled);
+
+        var written = TcText.Apply(before, TcText.Validate(text.Replace("ENO => enoFlag", "ENO => wiredPin"), TcText.ScopeOf(pulled)));
+
+        Assert.NotNull(written);
+        var slots = Impl(written!).Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems").Elements().ToList();
+        Assert.Equal("\"wiredPin\"", slots[0].Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value);
+    }
+
+    /// <summary><c>EnoSlot.derived.TcPOU</c>'s NWL body with a variable on the ENO slot (its null echo replaced by a copy of
+    /// the wired pin's operand, named <c>enoFlag</c>) and, <paramref name="withEn"/>, the enable a box showing EN/ENO holds:
+    /// <c>EN</c> first in the input names and an input slot 0 wired to <c>go</c>.</summary>
+    private static string EnoWired(bool withEn)
+    {
+        var nwl = XElement.Parse(Body("EnoSlot.derived.TcPOU"), LoadOptions.PreserveWhitespace);
+        var box = nwl.Descendants("o").First(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "BoxType" && v.Value == "\"TON\""));
+        var slots = box.Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems");
         var echo = slots.Elements().First();
         Assert.Equal("n", echo.Name.LocalName);                    // the fixture's null ENO echo
         var wired = new XElement(slots.Elements().Skip(1).First());
         wired.Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value = "\"enoFlag\"";
         echo.ReplaceWith(wired);
-
-        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
-        Assert.Equal("an ENO output wired to a variable", ex.Reason);
-        Assert.Contains("enoFlag", ex.Message);
+        if (withEn)
+        {
+            var param = box.Elements("o").Single(o => (string?)o.Attribute("n") == "InputParam");
+            param.Elements("l2").Single(l => (string?)l.Attribute("n") == "Names").AddFirst(new XElement("v", "EN"));
+            param.Elements("l2").Single(l => (string?)l.Attribute("n") == "Types").AddFirst(new XElement("v", "BOOL"));
+            var inputs = box.Elements("l2").Single(l => (string?)l.Attribute("n") == "InputItems");
+            var en = new XElement(inputs.Elements("o").First());
+            en.Descendants("v").First(v => (string?)v.Attribute("n") == "Operand").Value = "\"go\"";
+            inputs.AddFirst(en);
+        }
+        return nwl.ToString(SaveOptions.DisableFormatting);
     }
 
     /// <summary>…and it survives the round trip to text and back, so the `=>` form carries the right name.</summary>

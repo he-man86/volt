@@ -125,20 +125,28 @@ public class SplitShapeGoldensTests
                 Set(Op("AND", Ref(2), Ref(0)), T("outpur"))),
             Src("split0 := FALSE;", "split1 := TRUE AND FALSE;", "split2 := split1 OR split0;",
                 "np := split2;", "outpur := split2 AND split0;")),
+
+        // The shapes v1's deleted Unspellable detector named — negated and edge coils, rungs with several control-flow
+        // targets — were kept on the marker until 2R.5: each stores, builds and runs on CODESYS SP21 (awkward-sweep #9,
+        // #11, #13, #14), and a coil's modifier stands before it, a jump is a coil (openspec ld-fbd-coverage 2R.5).
+        ["Coil.negated"] = (Ld1(Set(L("a"), T("out", Neg))), LdSrc("NOT out := a;")),
+        ["Coil.rising"] = (Ld1(Set(L("a"), T("out", Rise))), LdSrc("R_EDGE out := a;")),
+        ["Coil.falling"] = (Ld1(Set(L("a"), T("out", Fall))), LdSrc("F_EDGE out := a;")),
+        ["Coil.coil-and-jump"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("out") }, JumpBit)),
+            LdSrc("JMP Onwards := out := ;")),
+        ["Coil.jump-and-coil"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit) }, JumpBit)),
+            LdSrc("out := JMP Onwards := ;")),
+        ["Coil.two-jumps"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("Elsewhere", JumpBit) }, JumpBit)),
+            LdSrc("JMP Onwards := JMP Elsewhere := ;")),
     };
 
     static readonly IReadOnlyDictionary<string, (NetworkBody Model, string Marker)> Markers = new Dictionary<string, (NetworkBody, string)>
     {
-        // The shapes v1's deleted Unspellable detector named — negated and edge coils (census 1.7: 0 of 576 targets)
-        // and rungs with several control-flow targets — stay on the marker, by the writer's own refusal.
-        ["MarkerCoil.negated"] = (Ld1(Set(L("a"), T("out", Neg))), "negated coil"),
-        ["MarkerCoil.rising"] = (Ld1(Set(L("a"), T("out", Rise))), "rising-edge coil"),
-        ["MarkerCoil.falling"] = (Ld1(Set(L("a"), T("out", Fall))), "falling-edge coil"),
-        ["MarkerCoil.coil-and-jump"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("out") }, JumpBit)),
-            "a rung driving a coil and a jump together"),
-        ["MarkerCoil.jump-and-coil"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit) }, JumpBit)),
-            "a rung driving a coil and a jump together"),
-        ["MarkerCoil.two-jumps"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("Elsewhere", JumpBit) }, JumpBit)),
-            "a rung driving several jumps"),
+        // What a coil's two vendor bits cannot hold apart (a negated set coil IS the reset coil, Flags.CoilFromVendor), and
+        // what no one coil carries (both edges; both control-flow bits) — refused by the writer by name.
+        ["MarkerCoil.negated-set"] = (Ld1(Set(L("a"), T("out", Neg with { Set = true }))), "a negated set or reset coil"),
+        ["MarkerCoil.rising-and-falling"] = (Ld1(Set(L("a"), T("out", Rise with { Falling = true }))), "rising and falling on one coil"),
+        ["MarkerCoil.jump-and-return"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit with { Return = true }) }, JumpBit)),
+            "an item that both jumps and returns"),
     };
 }

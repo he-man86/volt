@@ -296,16 +296,6 @@ END_NETWORK
 === refused
 NETWORK_BAD_EXPRESSION without EN on an open line
 
-#### eno-comparison — P3/N21: a comparison has no ENO
-=== text
-IMPLEMENTATION LD
-NETWORK
-  a GT b EN c
-  x := ENO;
-END_NETWORK
-=== refused
-NETWORK_BAD_EXPRESSION a comparison on an open line
-
 #### eno-modifier-on-root — P3: the modifier goes at the ENO token
 === text
 IMPLEMENTATION LD
@@ -343,24 +333,6 @@ NETWORK
 END_NETWORK
 === refused
 NETWORK_UNSUPPORTED a parallel with no branch
-
-#### empty-branch — P6: `(a, , b)` is refused
-=== text
-IMPLEMENTATION LD
-NETWORK
-  x := s BRANCH (a, , b);
-END_NETWORK
-=== refused
-NETWORK_UNSUPPORTED an empty branch
-
-#### trailing-empty-branch — P6
-=== text
-IMPLEMENTATION LD
-NETWORK
-  x := s BRANCH (a, b, );
-END_NETWORK
-=== refused
-NETWORK_UNSUPPORTED an empty branch
 
 #### branch-without-list — B8: BRANCH takes a bracketed list
 === text
@@ -606,3 +578,21 @@ NETWORK
 END_NETWORK
 === refused
 NETWORK_BAD_EXPRESSION ENO is an output
+
+#### one-input-add — 2R.5 #4: an operator takes at least two inputs — `ADD(a)` stores, and the build refuses it (both vendors)
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := ADD(a);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED ADD takes at least 2 inputs
+
+#### one-input-and — 2R.5 #4: a bit operator too
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := AND(a);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED AND takes at least 2 inputs

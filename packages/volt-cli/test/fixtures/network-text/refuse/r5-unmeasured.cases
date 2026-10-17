@@ -1,0 +1,188 @@
+#### r5u-negated-jump — 2R.5 (gate): a modified jump is unmeasured — `JMP l S=` is the one stored, built and run
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT JMP Done := c;
+END_NETWORK
+NETWORK LABEL: Done
+  x := TRUE;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### r5u-rising-jump — 2R.5 (gate): an edge on a jump is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE JMP Done := c;
+END_NETWORK
+NETWORK LABEL: Done
+  x := TRUE;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### r5u-reset-jump — 2R.5 (gate): R= on a jump is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done R= c;
+END_NETWORK
+NETWORK LABEL: Done
+  x := TRUE;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### r5u-negated-return — 2R.5 (gate): a negated return is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT RETURN := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### r5u-falling-return-beside-a-coil — 2R.5 (gate): an edge on a return beside a coil is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := F_EDGE RETURN := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### r5u-edge-set-coil — 2R.5 (gate): an edge on a set coil is unmeasured — `R_EDGE x :=` is the one measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE xe S= c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge on a negated, set or reset coil
+
+#### r5u-edge-negated-coil — 2R.5 (gate): an edge on a negated coil is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  F_EDGE NOT xe := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge on a negated, set or reset coil
+
+#### r5u-edge-en — 2R.5 (gate): an edge on the EN pin is unmeasured — `NOT EN c` is the one measured
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  MOVE 5 => y R_EDGE EN c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge on the EN pin
+
+#### r5u-edge-negated-pin — 2R.5 (gate): an edge with a negation on one pin is unmeasured — each alone is measured
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := AND(F_EDGE NOT IN1 := c, one);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge on a negated pin
+
+#### r5u-negated-empty-branch — 2R.5 (gate): a negated empty slot is measured as a coil's value only
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (NOT ,
+                 b);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone plain coil's value
+
+#### r5u-negated-empty-jump-value — 2R.5 (gate): a jump's negated empty value is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done := NOT ;
+END_NETWORK
+NETWORK LABEL: Done
+  x := TRUE;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone plain coil's value
+
+#### r5u-split-reads-itself — 2R.5 (gate): a split read inside its own definition is unmeasured (#19 is a reference in another item)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := split1 AND a;
+  x := split1;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED read inside its own definition
+
+#### r5u-split-defined-inside-itself — 2R.5 (gate): a split defined inside its own definition is defined twice
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := (split1 := a) AND b;
+  x := split1;
+END_NETWORK
+=== refused
+NETWORK_DUPLICATE_NAME defined twice
+
+#### r5u-negated-coil-in-a-fan-out — 2R.5 (gate 2): a negated coil beside another coil is unmeasured — `NOT x :=` alone is measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  y := NOT xn := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated or edge coil beside another coil
+
+#### r5u-negated-coil-beside-a-reset-coil — 2R.5 (gate 2): a negated coil first, a reset coil beside it
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT x := y R= c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated or edge coil beside another coil
+
+#### r5u-edge-coil-beside-a-set-coil — 2R.5 (gate 2): an edge coil beside a set coil is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE x := y S= c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated or edge coil beside another coil
+
+#### r5u-edge-coil-beside-a-jump — 2R.5 (gate 2): an edge coil beside a jump is unmeasured — `x1 := JMP Done := c;` is the one measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE x := JMP Done := c;
+END_NETWORK
+NETWORK LABEL: Done
+  x := TRUE;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated or edge coil beside another coil
+
+#### r5u-negated-empty-set-value — 2R.5 (gate 2): a set coil's negated empty value is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x S= NOT ;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone plain coil's value
+
+#### r5u-negated-empty-fan-out-value — 2R.5 (gate 2): a fan-out's negated empty value is unmeasured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := y := NOT ;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone plain coil's value

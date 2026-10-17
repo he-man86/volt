@@ -452,4 +452,25 @@ public class NetworkScopeTests
         Assert.True(r.Ok, Diagnostics(r));
         Assert.Equal(Src("out := R_EDGE(x);"), NetworkTextWriter.Write(r.Body!, scope));
     }
+
+    /// <summary>2R.5 (awkward-sweep #17): a call head is any variable reference — an ELEMENT of an array of FBs is an instance
+    /// of the element type (the IDE stores the box with <c>Instance 'fbs[1]'</c>, <c>BoxType 'CTU'</c>, and it builds and
+    /// runs). A local array, a global one, one through a GVL path, and a subscript of anything that is no array of blocks.</summary>
+    [Fact]
+    public void An_element_of_an_array_of_FBs_is_an_instance_of_its_element_type()
+    {
+        var scope = ScopeOf("FUNCTION_BLOCK F\nVAR\n    fbs : ARRAY [1..2] OF CTU;\n    m : ARRAY[0..1, 0..3] OF Standard.TON;\n" +
+                            "    ints : ARRAY [1..2] OF INT;\n    t1 : TON;\nEND_VAR");
+        Assert.Equal("CTU", scope.InstanceType("fbs[1]"));
+        Assert.Equal("CTU", scope.InstanceType("fbs[i + 1]"));
+        Assert.Equal("Standard.TON", scope.InstanceType("m[0, 2]"));
+        Assert.Null(scope.InstanceType("ints[1]"));
+        Assert.Null(scope.InstanceType("t1[1]"));
+        Assert.Null(scope.InstanceType("fbs[1][2]"));
+        Assert.Null(scope.InstanceType("fbs[1].Q"));
+        // One subscript per dimension (gate 2R.5): `m[0]` is a row of `m`, `fbs[1, 2]` no element of a one-dimensional array.
+        Assert.Null(scope.InstanceType("m[0]"));
+        Assert.Null(scope.InstanceType("fbs[1, 2]"));
+        Assert.Equal("CTU", scope.InstanceType("fbs[f(a, b)]"));
+    }
 }

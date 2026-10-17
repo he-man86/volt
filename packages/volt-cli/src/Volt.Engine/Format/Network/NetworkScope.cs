@@ -40,8 +40,10 @@ public sealed class NetworkScope
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in instanceTypes)
         {
-            // `SUPER^` (S5) is the one instance no declaration names, as `FromDeclarations` answers it.
-            if (!NetworkSpelling.IsName(kv.Key) && !string.Equals(kv.Key, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase))
+            // `SUPER^` (S5) is the one instance no declaration names, as `FromDeclarations` answers it; `fbs[]` is an
+            // ARRAY of FBs of that type (2R.5, #17), whose ELEMENTS `fbs[1]` are the instances.
+            if (!NetworkSpelling.IsName(kv.Key) && !string.Equals(kv.Key, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase) &&
+                !(kv.Key.EndsWith(ArrayKey, StringComparison.Ordinal) && NetworkSpelling.IsName(kv.Key.Substring(0, kv.Key.Length - ArrayKey.Length))))
                 throw new ArgumentException($"the FB instance '{kv.Key}' is no name a declaration makes.", nameof(instanceTypes));
             instances[kv.Key] = kv.Value;
         }
@@ -51,7 +53,10 @@ public sealed class NetworkScope
         nameSet.UnionWith(instances.Keys);
         _contains = nameSet.Contains;
         _isPou = pouSet.Contains;
-        _instanceType = n => instances.TryGetValue(n, out var t) ? t : null;
+        _instanceType = n =>
+            instances.TryGetValue(n, out var t) ? t
+            : ArrayElementBase(n) is { } array && instances.TryGetValue(array + ArrayKey, out var e) ? e
+            : null;
         // A scope stated as name lists holds no declaration to derive a callee from (Callee).
         _callee = _ => null;
     }
@@ -63,6 +68,21 @@ public sealed class NetworkScope
         _isPou = isPou;
         _instanceType = instanceType;
         _callee = callee;
+    }
+
+    /// <summary>The key suffix the name-list constructor reads as "an ARRAY of FBs of that type": <c>fbs[]</c>.</summary>
+    public const string ArrayKey = "[]";
+
+    /// <summary>The array a call head subscripts — <c>fbs</c> of <c>fbs[1]</c>, <c>GVL.fbs</c> of <c>GVL.fbs[i, 2]</c> — or
+    /// null where the head is no single subscript of a name (2R.5, #17).</summary>
+    private static string? ArrayElementBase(string head)
+    {
+        var open = head.IndexOf('[');
+        if (open <= 0 || !head.EndsWith("]", StringComparison.Ordinal) || head.IndexOf('[', open + 1) >= 0 ||
+            head.IndexOf(']') != head.Length - 1 || head.Length - open < 3)
+            return null;
+        var path = head.Substring(0, open);
+        return NetworkSpelling.IsName(path) ? path : null;
     }
 
     /// <summary>A scope that knows nothing — explicit, never a default.</summary>
@@ -130,6 +150,16 @@ public sealed class NetworkScope
             // it between backticks, `` `SUPER^`(…) ``.
             if (string.Equals(head, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase))
                 return St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf);
+            // 2R.5 (#17): an ELEMENT of an array of FBs is an instance of the element type — the IDE stores the box with
+            // the subscripted operand as its instance, and it builds and runs (awkward-sweep, CODESYS SP21).
+            if (ArrayElementBase(head) is not null)
+            {
+                var element = St.StDeclaration.TypeOfArrayElement(declaration, head, declarationOf)
+                              ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(ArrayElementBase(head)!)
+                                  ? St.StDeclaration.TypeOfArrayElement(global.Value.Text, head, declarationOf)
+                                  : null);
+                return element is not null && CanBeBlock(element) ? element : null;
+            }
             if (!NetworkSpelling.IsName(head)) return null;
             var type = DeclaredType(head);
             return type is not null && CanBeBlock(type) ? type : null;

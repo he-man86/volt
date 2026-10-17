@@ -153,7 +153,7 @@ public class WireVocabularyTests
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),   // 2R.3: a split defined twice (B6, P9) — no VAR_TEMP block, no pragma left to repeat
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 2))),   // 2R.3: a split defined twice (B6, P9) — no VAR_TEMP block, no pragma left to repeat; 2R.5: the same, where one definition is nested
         new("a malformed operator group", "fix the expression", "NETWORK_BAD_EXPRESSION", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 73))),   // 2R.3 (readability.md): the open-line rules (P3), the bracket rules (P4: a redundant bracket, an unbracketed enabled comparison, a feed or operand word unbracketed), word or call (P5), the ENO pin, the split's type (B6), the old symbols (P12)
         new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
@@ -163,7 +163,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
             ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 20),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4); 2R.3: the parallel's refusals (P6: no branch, one branch C0023, an empty branch), the pragma's gone
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4); 2R.3: the parallel's refusals (P6: no branch, one branch C0023), the pragma's gone; 2R.5: an empty branch is spelled (-2), an operator with one input refused (+1); gate 2R.5: the composites no store/build/run measures (+6: a modified jump or return, an edge beside another coil bit, an edge on EN, an edge on a negated pin, a negated empty slot outside a coil's value, a split read inside its own definition; gate 2R.5 (2): +1 a negated or edge coil beside another coil)
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1))),
     };
 
@@ -341,7 +341,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
-        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 15),   // +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
+        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 16),   // 2R.5 +1 a named ENO pin on a box built with no ENO output (invariant: the reader refuses that text); +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)

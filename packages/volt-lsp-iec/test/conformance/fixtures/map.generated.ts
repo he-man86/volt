@@ -19,7 +19,7 @@
  *     not-lowered    385
  *     lsp-gap         88
  *     diverges         5
- *     unaskable      131
+ *     unaskable      152
  *
  *   tier                     lowered    clean
  *     decl                    842      842
@@ -3454,6 +3454,27 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r1_mod_three_inputs: { evidence: "unaskable" },
   ng_r1_ne_three_inputs: { evidence: "unaskable" },
   ng_r1_sub_three_inputs: { evidence: "unaskable" },
+  ng_r5_array_instance: { evidence: "unaskable" },
+  ng_r5_coil_and_jump: { evidence: "unaskable" },
+  ng_r5_coil_and_return: { evidence: "unaskable" },
+  ng_r5_comparison_eno: { evidence: "unaskable" },
+  ng_r5_edge_coils: { evidence: "unaskable" },
+  ng_r5_edge_pin: { evidence: "unaskable" },
+  ng_r5_empty_branch: { evidence: "unaskable" },
+  ng_r5_enabled_comparison_value: { evidence: "unaskable" },
+  ng_r5_jump_set: { evidence: "unaskable" },
+  ng_r5_named_eno: { evidence: "unaskable" },
+  ng_r5_negated_coil: { evidence: "unaskable" },
+  ng_r5_negated_empty: { evidence: "unaskable" },
+  ng_r5_negated_en: { evidence: "unaskable" },
+  ng_r5_nested_jump: { evidence: "unaskable" },
+  ng_r5_one_input_add: { evidence: "unaskable" },
+  ng_r5_one_input_and: { evidence: "unaskable" },
+  ng_r5_return_set: { evidence: "unaskable" },
+  ng_r5_split_before_definition: { evidence: "unaskable" },
+  ng_r5_split_nested: { evidence: "unaskable" },
+  ng_r5_two_eno: { evidence: "unaskable" },
+  ng_r5_two_jumps: { evidence: "unaskable" },
   ng_s2_nested_assign: { evidence: "unaskable" },
   ng_s2_nested_set_reset: { evidence: "unaskable" },
   ng_s3a_leaf_split_into_int: { evidence: "unaskable" },

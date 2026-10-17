@@ -361,7 +361,9 @@ function operandStatements(statements: readonly NetworkTextStatement[]): Stateme
   }
   for (const s of statements) {
     if (s.kind === "split_def") push({ kind: "ident_expr", name: s.split.text, span: s.split.span })
+    for (const v of walkValues(s)) if (v.kind === "nested_split") push({ kind: "ident_expr", name: v.split.text, span: v.split.span })
     for (const e of statementExprs(s)) push(e)
+
     for (const x of executeBoxes(s)) out.push(...x.statements)
   }
   return out

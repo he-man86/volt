@@ -462,10 +462,10 @@ internal static class TcNetworkReader
             throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, type, "OutputItems");
         var slots = TcArchive.Slots(holder, "OutputItems");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
-        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot)
-            BoxRefusals.RefuseWiredEno(Volt.Contracts.Vendors.TwincatDisplay, type, ReadOperand(enoSlot).Text);
-
         var outputs = new List<Output>();
+        // 2R.5 (#23): a variable stored on the ENO slot is the named ENO pin, `ENO => lamp` (P5), as on CODESYS.
+        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot) is { Text.Length: > 0 } wired)
+            outputs.Add(new Output(Box.EnoPin, wired, 0));
         for (var i = eno; i < slots.Count; i++)
         {
             if (slots[i] is not { } slot) continue;

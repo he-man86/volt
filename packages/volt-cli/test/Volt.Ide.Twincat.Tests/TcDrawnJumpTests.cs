@@ -116,8 +116,8 @@ public class TcDrawnJumpTests
     /// <summary>The <c>&lt;NWL&gt;</c> body holding a <c>BoxTreeParallel</c> in <paramref name="mode"/> where the fixture's
     /// empty terminator was — the archive shape <see cref="A_Parallel_reads_its_mode_and_refuses_a_flag"/> reads — and
     /// the drawn rung's COIL dropped, so the rung is a conditional jump: <c>IF PARALLEL(…) THEN JMP owrods; END_IF;</c>.
-    /// A coil beside a jump has no spelling (<see cref="The_drawn_rung_goes_to_the_marker_by_name"/>), so with it the
-    /// writer's change gate could not say "unchanged" about a network the text cannot hold.</summary>
+    /// The coil is dropped so the rung is the one shape the in-place writer's Parallel row measures (the drawn rung itself
+    /// is <see cref="The_drawn_rung_is_a_jump_beside_a_coil"/>).</summary>
     internal static XElement NwlWithParallel(string mode)
     {
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
@@ -208,22 +208,87 @@ public class TcDrawnJumpTests
         Assert.Equal("an assignment with no value", ex.Reason);
     }
 
-    /// <summary>THE DRAWN RUNG GOES TO THE MARKER, BY NAME — and the coil it drives is no longer lost on the way.
+    /// <summary>THE DRAWN RUNG IS A JUMP BESIDE A COIL — and the coil it drives is no longer lost on the way.
     ///
     /// <para>The rung drives TWO outputs from one terminator: the jump destination <c>owrods</c> (<c>Flags = 4</c>) and an
     /// ordinary coil <c>out</c> (<c>Flags = 0</c>). v1 rendered <c>"JMP " + a.Targets[0].Text</c> and dropped every other
     /// target, so the pulled text was <c>JMP owrods;</c> and the coil was absent from the engineer's file — hidden by
-    /// the fixed point, since the text round-tripped to itself. Network text v2 has no spelling for the shape (<c>JMP</c>
-    /// as an assign target is not ST, and no corpus holds it — spec, "marker-only shapes stay on the existing marker"),
-    /// so the writer refuses it by name and the pull materializes the marker: the POU appears, says what it holds, and
-    /// nothing the engineer drew is missing from git.</para></summary>
+    /// the fixed point, since the text round-tripped to itself. It then went to the marker until 2R.5: a jump is a coil
+    /// (awkward-sweep #9 — the shape stores, builds and runs on CODESYS), so the rung is its two coils in stored order, on
+    /// the rail.</para></summary>
     [Fact]
-    public void The_drawn_rung_goes_to_the_marker_by_name()
+    public void The_drawn_rung_is_a_jump_beside_a_coil()
     {
         var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
 
-        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
-
-        Assert.Equal("a rung driving a coil and a jump together", ex.Reason);
+        Assert.Contains("  JMP owrods := out := ;\n", TcText.Write(pulled));
     }
+
+    /// <summary>…and an operand edit of it keeps EACH TARGET'S OWN BITS in place: the label stays a jump and the renamed coil
+    /// no jump. One record for every target made a coil beside a jump a second jump.</summary>
+    [Fact]
+    public void An_operand_edit_of_the_drawn_rung_keeps_each_targets_own_bits()
+    {
+        var written = Apply("JMP owrods := out := ;", "JMP owrods := done := ;");
+
+        Assert.NotNull(written);
+        var bits = TargetBits(written!);
+        Assert.Equal("4", bits["\"owrods\""]);
+        Assert.Equal("0", bits["\"done\""]);
+    }
+
+    /// <summary>A BIT EDIT INTO A SHAPE NO TWINCAT EDIT HAS MEASURED IS REFUSED IN PLACE, BY NAME (gate 2R.5): a set
+    /// coil beside a jump, a set lone RETURN, a negated empty slot. The in-place door wrote each (or, for the lone
+    /// RETURN, dropped the S= and reported success); none has a TwinCAT store/build/reopen measurement (the text spells
+    /// them from CODESYS's). Refused, the network goes to the import, which refuses the same shape by name before the IDE
+    /// is asked.</summary>
+    [Theory]
+    [InlineData("JMP owrods := out := ;", "JMP owrods := out S= ;", Beside, Beside)]
+    [InlineData("  RETURN;", "  RETURN S= ;", "a jump or a return with S= or R=", "a jump or a return with S= or R=")]
+    [InlineData("  done := ???;", "  done := NOT ;", "a negated empty slot", "a negated empty slot")]
+    public void An_unmeasured_bit_edit_is_refused_in_place_by_name(string from, string to, string inPlaceShape, string importShape)
+    {
+        var inPlace = Assert.ThrowsAny<System.NotSupportedException>(() => Apply(from, to));
+        Assert.Contains(inPlaceShape, inPlace.Message);
+
+        var viaImport = Assert.Throws<NetworkTextException>(() => Apply(from, to,
+            resolve: _ => throw new Xunit.Sdk.XunitException("the import was asked for a shape it is not measured for")));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, viaImport.Code);
+        Assert.Contains(importShape, viaImport.Message);
+    }
+
+    private const string Beside = "a jump or a return beside another coil on one rung";
+
+    /// <summary>…and a negated or edge coil beside a jump is no text at all (gate 2R.5, second round): the shared reader
+    /// refuses it by name on both vendors before any driver sees a model.</summary>
+    [Theory]
+    [InlineData("JMP owrods := NOT out := ;")]
+    [InlineData("JMP owrods := R_EDGE out := ;")]
+    public void A_modified_coil_beside_the_drawn_jump_is_refused_by_the_shared_reader(string to)
+    {
+        var refused = Assert.Throws<NetworkTextException>(() => Apply("JMP owrods := out := ;", to));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, refused.Code);
+        Assert.Contains("a negated or edge coil beside another coil", refused.Message);
+    }
+
+    private static string? Apply(string from, string to, System.Func<Network, XElement>? resolve = null)
+    {
+        var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
+        var text = TcText.Write(pulled);
+        var edited = text.Replace(from, to);
+        Assert.NotEqual(text, edited);
+        var model = TcText.Validate(edited, TcText.ScopeOf(pulled));
+        return TcNetworkWriter.Apply(nwl, model, TcText.ScopeOf(model), resolve);
+    }
+
+    private static System.Collections.Generic.Dictionary<string, string> TargetBits(string written) =>
+        XElement.Parse(written).Descendants("o")
+            .Where(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "Operand" && (v.Value is "\"owrods\"" or "\"out\"" or "\"done\"")) &&
+                        o.Elements("o").Any(f => (string?)f.Attribute("n") == "Flags"))
+            .GroupBy(o => o.Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value)   // network 1 first
+            .ToDictionary(g => g.Key,
+                          g => g.First().Elements("o").Single(f => (string?)f.Attribute("n") == "Flags").Elements("v").Single(v => (string?)v.Attribute("n") == "Flags").Value);
+
 }

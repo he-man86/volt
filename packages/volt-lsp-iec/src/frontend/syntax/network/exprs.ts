@@ -53,8 +53,11 @@ export function networkValueExpr(v: NetworkValue): Expr | undefined {
     case "call":
       return v.output !== undefined ? namedOutputReading(v) : callReading(v)
     case "nested_assign":
-      // What the consumer reads is the value, passed through the assignment (S2); the targets are read on their own.
+    case "nested_split":
+      // What the consumer reads is the value, passed through the assignment (S2) or the split's definition (2R.5); the
+      // targets are read on their own.
       return networkValueExpr(v.value)
+
     default:
       return undefined
   }

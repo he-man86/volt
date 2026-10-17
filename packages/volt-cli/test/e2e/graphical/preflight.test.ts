@@ -40,18 +40,18 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 		 "IMPLEMENTATION FBD", "NETWORK", "  out := a AND b;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	/**
-	 * …and one calling an FB INSTANCE whose text is an expression, `` `fbs[1]`(IN := a) ``. A call head is read
-	 * against the declarations, which name a NAME, so no declaration can say which instance that is or what type it
-	 * has; the spec refuses it with `NETWORK_UNSUPPORTED` rather than read it as a function of that name
-	 * ("an opaque operand is backticked in place") — on both vendors, from the text alone.
+	 * …and one calling an element of an array of INTs as an FB INSTANCE, `` `ints[1]`(IN := a) ``. A call head is read
+	 * against the declarations: an element of an array of FBs is an instance of the element type (ld-fbd-coverage 2R.5,
+	 * `fbs[1]`), and an element of anything else is no instance and no POU name, so the spec refuses it with
+	 * `NETWORK_UNSUPPORTED` rather than read it as a function of that name — on both vendors, from the text alone.
 	 *
 	 * (Network text v1 used `t1(IN := a, PT := pt)` with `t1` undeclared. In v2 a bare name that no declaration makes
 	 * an instance IS a function call, as in ST — the text cannot tell it from a library function the project does not
 	 * declare — so that shape is no longer a refusal the text decides; the build reports the missing POU.)
 	 */
 	const broken = (name: string) =>
-		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tfbs : ARRAY[1..2] OF TON;", "END_VAR",
-		 "IMPLEMENTATION FBD", "NETWORK", "  `fbs[1]`(IN := a);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tints : ARRAY[1..2] OF INT;", "END_VAR",
+		 "IMPLEMENTATION FBD", "NETWORK", "  `ints[1]`(IN := a);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	it("a create refused for an unresolvable FB instance leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")

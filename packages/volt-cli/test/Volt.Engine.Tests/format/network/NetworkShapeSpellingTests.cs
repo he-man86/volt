@@ -63,7 +63,7 @@ public class NetworkShapeSpellingTests
     }
 
     [Theory]
-    [InlineData("t1(IN := (split1 := go), PT := pt);", "never a coil")]
+    [InlineData("t1(IN := (split1 S= go), PT := pt);", "never a coil")]
     [InlineData("t1(IN := (x := go PT := pt);", "closes after its value")]
     public void S2_a_pair_the_text_cannot_read_is_refused_by_name(string statements, string why)
     {
@@ -121,12 +121,14 @@ public class NetworkShapeSpellingTests
             Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(Fbd1(call), Scope)).Reason);
     }
 
+    /// <summary>A jump is a coil, and a coil nests (2R.5): a jump below the top level is written where it stands.</summary>
     [Fact]
-    public void A_jump_below_the_top_level_stays_refused_by_name()
+    public void A_jump_below_the_top_level_is_a_nested_coil()
     {
         var jump = new Assign(L("a"), new[] { T("Done", JumpBit) }, JumpBit);
         var model = Fbd1(Fb("t1", new[] { In(jump, "IN") }, type: "TON"));
-        Assert.Equal("a jump or return below the top level",
-            Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(model, Scope)).Reason);
+        var text = NetworkTextWriter.Write(model, Scope);
+        Assert.Contains("t1(IN := (JMP Done := a));", text);
+        Assert.True(NetworkTextReader.Read(text, Scope).Ok);
     }
 }

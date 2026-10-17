@@ -579,42 +579,31 @@ public class CodesysCoilFlagTests
     /// <list type="bullet">
     /// <item>a consumed enabled MOVE without <c>.ENO</c>: the IDE reads it through ENO (<c>lamp = TRUE</c> over a data
     /// output of 0), whatever list Volt writes;</item>
-    /// <item>a consumed enabled comparison, with or without <c>.ENO</c>: it does not compile (<c>ImpVar … not
-    /// defined</c>);</item>
     /// </list>
+    /// A consumed enabled comparison read as a VALUE was the second row: built with an ENO, it does not compile
+    /// (<c>ImpVar … not defined</c>). Since 2R.5 (awkward-sweep #26) it is built as the PLCopen importer builds it — EN,
+    /// no ENO, its result slot null — which stores, builds and runs (the theory below the next one).
     /// <c>.ENO</c> on an operator with no EN used to be the third row ("Missing EN pin"). That is the BUILD's error, and
     /// Volt can build the box the text describes, so it is written and CODESYS reports it (openspec
     /// <c>bridge-refusal-review</c> 1.5; see the theory below).</summary>
-    [Theory]
-    [InlineData("x := (a GT b EN c);", "GT", "comparison")]
-    public void A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed(
-        string statement, string box, string why)
-    {
-        var (model, scope) = Pushed(statement);
-        var live = Different();
-
-        var ex = Assert.Throws<NotSupportedException>(() =>
-            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope));
-
-        Assert.Contains($"'{box}'", ex.Message);
-        Assert.Contains(why, ex.Message);
-        var kept = Assert.IsType<Nwl.BoxTreeAssign>(Assert.Single(Enumerable.Range(0, live.NetworkItemCount).Select(live.GetTree)));
-        Assert.Equal("elsewhere", Assert.IsType<Nwl.Operand>(Assert.Single(kept.Outputs.List)).OperandExpr);
-    }
-
-    /// <summary>…for EVERY comparison the engine knows, not for a copy of the list: N21's refusal once read its own
-    /// hand-kept set, so an operator the engine gained or lost would have built the unbuildable shape unnoticed.</summary>
+    /// <summary>2R.5 (awkward-sweep #26): an enabled COMPARISON read as a value — for EVERY comparison the engine knows, not
+    /// a copy of the list — is built as the PLCopen importer builds it: EN shown, NO ENO, its one output slot null and
+    /// named <c>''</c>. That box stores, builds and runs (drawn through the import, CODESYS SP21); built with the pair
+    /// shown it is read through its ENO (N21), which is why N21 found no list Volt could write it in.</summary>
     [Fact]
-    public void Every_comparison_the_engine_knows_is_refused_consumed_and_enabled()
+    public void Every_consumed_enabled_comparison_is_built_as_the_importer_builds_it()
     {
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
             var (model, scope) = Pushed($"x := (a {op} b EN c);");
-            var ex = Assert.Throws<NotSupportedException>(() =>
-                CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), Different(), model, BodyLanguage.Fbd, scope));
-            Assert.Contains($"'{op}'", ex.Message);
-            Assert.Contains("comparison", ex.Message);
+            var live = Different();
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
+            var cmp = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
+            Assert.Equal(true, cmp.En);
+            Assert.Equal(false, cmp.Eno);   // as the editor draws it (40 of 40 lenze-mid enabled comparisons)
+            Assert.Equal(new[] { "" }, Assert.IsType<Nwl.ParamList>(cmp.OutputParams).Names);
+            Assert.Equal(new object?[] { null }, cmp.Outputs.List.ToArray());
         }
     }
 
@@ -682,8 +671,9 @@ public class CodesysCoilFlagTests
     }
 
     /// <summary>A MODIFIER ON A BOX INPUT PIN (task 4.1: the reader fills <see cref="Input.Flags"/>) is never written
-    /// without its bit and never dropped: the change gate renders the model through the text writer first, which has no
-    /// spelling for a pin flag (phase-1 decision) and refuses it by name — so such a model reaches no rebuild.</summary>
+    /// without its bit and never dropped: a negation (S6) and an edge (2R.5) are written on the pin through the box's own
+    /// door and read back; a coil bit on a pin has no spelling, and the change gate's text render refuses it by name — so
+    /// such a model reaches no rebuild.</summary>
     [Fact]
     public void A_pin_flag_in_the_model_is_refused_by_name_not_dropped()
     {
@@ -704,14 +694,22 @@ public class CodesysCoilFlagTests
         var box = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(written.GetTree(written.NetworkItemCount - 1)).RValue);
         Assert.Equal(new[] { false, true }, box.InputFlags!.Cast<Nwl.Flags>().Select(f => f.Negation));
 
-        // An EDGE on a pin has no spelling (design 1.1, X): refused by name, the live network untouched.
+        // An EDGE on a pin (2R.5, awkward-sweep #15: it stores, builds and runs) — written the same way.
         var edge = Model(Flags.None with { Rising = true });
+        var edged = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), edged, edge, BodyLanguage.Fbd, ScopeOf(edge, BodyLanguage.Fbd));
+        var edgeBox = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(edged.GetTree(edged.NetworkItemCount - 1)).RValue);
+        Assert.Equal(new[] { false, true }, edgeBox.InputFlags!.Cast<Nwl.Flags>().Select(f => f.Rtrig));
+
+        // A coil bit on a pin has no spelling: refused by name, the live network untouched.
+        var set = Model(Flags.None with { Set = true });
         var live = Different();
         var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
-            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, edge, BodyLanguage.Fbd, ScopeOf(edge, BodyLanguage.Fbd)));
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, set, BodyLanguage.Fbd, ScopeOf(set, BodyLanguage.Fbd)));
         Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Equal(1, live.NetworkItemCount);
     }
+
 
     /// <summary>A BOX WITH NO INSTANCE CLEARS THE VENDOR'S MARKER, and this is the test that was missing.
     ///

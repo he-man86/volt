@@ -4,13 +4,31 @@
  * (B2), an assignment below the top level (S2), a target or coil (P1, P9), a split's VarId, and the old spellings refused
  * by name with the word that replaces them (P12).
  */
-import type { NetworkNestedAssign, NetworkTarget } from "./ast.js"
+import type { NetworkName, NetworkNestedAssign, NetworkPinFlags, NetworkTarget, NetworkValue } from "./ast.js"
 import { BoxReader, type BoxSyn } from "./boxes.js"
 import type { NetworkCursor } from "./cursor.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
-import { OPERATOR_WORDS, SPLIT_PREFIX, SPLIT_SHAPE, isReserved } from "./words.js"
+import { IDENTIFIER, OPERATOR_WORDS, SPLIT_PREFIX, SPLIT_SHAPE, isReserved, UNMEASURED_FLOW, UNMEASURED_EDGE_COIL, UNMEASURED_EDGE_EN, UNMEASURED_MODIFIED_FAN_OUT } from "./words.js"
+
+/** One coil head as read (`ParseCoilHeads`): its target and its storage operator, and whether it is control flow alone and
+ *  plain — P7's `JMP l := c`. */
+interface CoilHead {
+  target: NetworkTarget
+  op: Tok
+  lone: boolean
+}
 
 export abstract class TargetReader extends BoxReader {
+  /** The network's split points defined so far: VarId → the definition's name. */
+  protected splits = new Map<number, { name: NetworkName }>()
+  /** Every reference to a split, by VarId, in text order — a reference may stand above its definition (2R.5, #19), so the
+   *  network's end checks that each is defined somewhere (`never defined`). */
+  protected splitRefs = new Map<number, NetworkName[]>()
+  /** The first reference's token, by VarId — where a split never defined is reported. */
+  protected splitRefAt = new Map<number, Tok>()
+  /** The splits whose definition's value is being read — a reference to one is a split feeding itself (2R.5, unmeasured). */
+  protected defining = new Set<number>()
+
   /**
    * B2, B5: whether the bracket after `MOVE` is its OPERAND's (`MOVE (a ADD b) => x`) and not its call's pins (`MOVE(a,
    * b)`). Tokens decide, never spacing: a call whose brackets hold exactly one positional input, no output pin and no
@@ -50,7 +68,12 @@ export abstract class TargetReader extends BoxReader {
   /** B3: `EN c` after the box, its tail a slot running to `;`, `)`, `,` or the line's end (P4); `EN` alone is the empty
    *  enable. */
   protected parseEn(box: BoxSyn): void {
-    if (!isWord(this.peek(), "EN")) return
+    // 2R.5 (#16): the EN pin's own modifier before the word — `NOT EN c` negates the pin, `EN NOT c` the contact.
+    const mods = this.modifiersAt(this.p)
+    if (!isWord(this.peekAt(mods.count), "EN")) return
+    if (mods.flags.edge !== undefined) throw this.err(this.peek(), "NETWORK_UNSUPPORTED", UNMEASURED_EDGE_EN)
+    for (let k = 0; k < mods.count; k++) this.next()
+    if (mods.flags.negated !== undefined || mods.flags.edge !== undefined) box.enFlags = mods.flags
     const en = this.next()
     box.hadEn = true
     box.enTok = en
@@ -63,20 +86,92 @@ export abstract class TargetReader extends BoxReader {
     if (isWord(this.peek(), "EN")) throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "EN twice on one box.")
   }
 
-  /** `(t1 := t2 S= … value)` after its `(` (S2): one Assign item below the top level. A split is never a coil target. */
+  /** `(t1 := t2 S= … value)` after its `(` (S2): one Assign item below the top level — a jump or a return among its coils
+   *  (2R.5). A split is never a coil target. */
   protected parseNestedAssign(open: Tok): NetworkNestedAssign {
-    const targets: NetworkTarget[] = []
-    let op: Tok = open
-    while (this.isTargetToken(this.peek()) && this.storageAt(this.p + 1)) {
-      const tt = this.next()
-      op = this.takeStorage()
-      targets.push(this.lvalue(tt, op))
-    }
-    const value = this.slotValue(op)
+    const heads = this.parseCoilHeads()
+    const value = this.slotValue(heads[heads.length - 1]!.op)
     if (!isSym(this.peek(), ")")) throw this.unexpected(this.peek(), "an assignment's pair `(t := value)` closes after its value")
     this.next()
-    return { kind: "nested_assign", targets, value, span: this.spanFrom(open) }
+    return { kind: "nested_assign", targets: heads.map((h) => h.target), value, span: this.spanFrom(open) }
   }
+
+  /** A pin's or a coil's modifiers at `i` — `[R_EDGE|F_EDGE] [NOT]`, the edge around the negation (N17's one order) — and
+   *  how many tokens they take. An edge word followed by `(` is an edge VALUE (`ModifiersAt`). */
+  protected modifiersAt(i: number): { flags: NetworkPinFlags; count: number } {
+    let k = i
+    let flags: NetworkPinFlags = {}
+    if (k < this.end && (isWord(this.raw(k), "R_EDGE") || isWord(this.raw(k), "F_EDGE")) && !(k + 1 < this.end && isSym(this.raw(k + 1), "("))) {
+      flags = { edge: isWord(this.raw(k), "R_EDGE") ? "rising" : "falling" }
+      k++
+    }
+    if (k < this.end && isWord(this.raw(k), "NOT")) {
+      flags = { ...flags, negated: true }
+      k++
+    }
+    return { flags, count: k - i }
+  }
+
+  /** Where a COIL HEAD starting at `i` ends (its storage operator's index), or -1 where none starts there:
+   *  `[R_EDGE|F_EDGE] [NOT] (JMP label | RETURN | target)` (2R.5, `CoilHeadEnd`). */
+  protected coilHeadEnd(i: number): number {
+    const k = i + this.modifiersAt(i).count
+    if (k >= this.end) return -1
+    const t = this.raw(k)
+    if (isWord(t, "JMP")) return k + 2 <= this.end ? k + 2 : -1
+    if (isWord(t, "RETURN")) return k + 1
+    return this.isTargetToken(t) ? k + 1 : -1
+  }
+
+  /** The coil heads of an item, each with its storage: `x1 := JMP Done := R_EDGE xe := …` (`ParseCoilHeads`). */
+  protected parseCoilHeads(): CoilHead[] {
+    const heads: CoilHead[] = []
+    let modified: Tok | undefined
+    for (let e = this.coilHeadEnd(this.p); e > 0 && this.storageAt(e); e = this.coilHeadEnd(this.p)) {
+      const start = this.peek()
+      const mods = this.modifiersAt(this.p)
+      if (mods.count > 0) modified ??= start
+      for (let k = 0; k < mods.count; k++) this.next()
+      const t = this.peek()
+      let target: NetworkTarget
+      const flow = isWord(t, "JMP") || isWord(t, "RETURN")
+      if (isWord(t, "JMP")) {
+        this.next()
+        const l = this.next()
+        if (l.kind !== "word" || !IDENTIFIER.test(l.text)) throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
+        target = { text: l.text, jump: true, backticked: false, unnamed: false, span: this.tokSpan(l) }
+      } else if (isWord(t, "RETURN")) {
+        this.next()
+        target = { text: "RETURN", ret: true, backticked: false, unnamed: false, span: this.tokSpan(t) }
+      } else target = this.lvalue(this.next())
+      const op = this.takeStorage()
+      const storage = op.text.toUpperCase()
+      // The vendor spells a coil kind with two bits, Negation and Set (`Flags.CoilFromVendor`): a negated SET coil IS the
+      // reset coil, and a negated reset coil none it holds apart from it.
+      if (mods.flags.negated !== undefined && storage === "S=")
+        throw this.err(start, "NETWORK_BAD_EXPRESSION", `NOT on a set coil: the IDE stores a negated set coil as the reset coil — write \`${target.text} R= …\`.`)
+      if (mods.flags.negated !== undefined && storage === "R=")
+        throw this.err(
+          start,
+          "NETWORK_BAD_EXPRESSION",
+          "NOT on a reset coil: a negated reset coil is no coil the IDE stores apart from the reset coil (R= is Negation + Set).",
+        )
+      // Measured per row before its spelling ships (2R.5): a jump or a return takes `S=` alone, a coil one edge alone.
+      if (flow && (mods.count > 0 || storage === "R="))
+        throw this.err(start, "NETWORK_UNSUPPORTED", UNMEASURED_FLOW)
+      if (!flow && mods.flags.edge !== undefined && (mods.flags.negated !== undefined || storage !== ":="))
+        throw this.err(start, "NETWORK_UNSUPPORTED", UNMEASURED_EDGE_COIL)
+      heads.push({
+        target: { ...target, op: storage as ":=" | "S=" | "R=", ...mods.flags },
+        op,
+        lone: flow && mods.count === 0 && storage === ":=",
+      })
+    }
+    // …and a negated or edge coil alone on its item (2R.5).
+    if (heads.length > 1 && modified !== undefined) throw this.err(modified, "NETWORK_UNSUPPORTED", UNMEASURED_MODIFIED_FAN_OUT)
+    return heads
+  }
+
 
   // ── targets ─────────────────────────────────────────────────────────────────────────────────
 
@@ -134,6 +229,42 @@ export abstract class TargetReader extends BoxReader {
     const id = Number(digits)
     if (!Number.isSafeInteger(id) || id > 2147483647) throw this.err(name, "NETWORK_BAD_EXPRESSION", `the split ${name.text} carries a VarId out of range.`)
     return id
+  }
+
+  /** A reference to a split: refused inside its own definition (2R.5, unmeasured); it may stand above its definition
+   *  (#19, the stored order — it reads the previous scan), so the network's end checks it is defined somewhere. */
+  protected splitRef(t: Tok): NetworkName {
+    const id = this.splitId(t)
+    if (this.defining.has(id))
+      throw this.err(t, "NETWORK_UNSUPPORTED", `the split ${t.text} read inside its own definition: a split that feeds itself is not measured (2R.5).`)
+    const name = this.name(t)
+    this.splitRefs.set(id, [...(this.splitRefs.get(id) ?? []), name])
+    if (!this.splitRefAt.has(id)) this.splitRefAt.set(id, t)
+    return name
+  }
+
+  /** A split definition's value, the split marked as being defined while it is read. */
+  protected definingValue(id: number, op: Tok): NetworkValue {
+    this.defining.add(id)
+    try {
+      return this.slotValue(op)
+    } finally {
+      this.defining.delete(id)
+    }
+  }
+
+  /** 2R.5 (#20): `(split<n> := value)` after its `(` — a split's one definition below the top level. */
+  protected parseNestedSplit(open: Tok): NetworkValue {
+    const name = this.next()
+    const id = this.splitId(name)
+    const op = this.next()
+    if (this.splits.has(id)) throw this.err(name, "NETWORK_DUPLICATE_NAME", `the split ${name.text} is defined twice (P9).`)
+    // Defined before its value is read: a definition of the same split inside it is the second one (P9).
+    this.splits.set(id, { name: this.name(name) })
+    const value = this.definingValue(id, op)
+    if (!isSym(this.peek(), ")")) throw this.unexpected(this.peek(), "a split's nested definition `(split<n> := value)` closes after its value")
+    this.next()
+    return { kind: "nested_split", split: this.name(name), value, span: this.spanFrom(open) }
   }
 
   protected isCallable(name: string): boolean {

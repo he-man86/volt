@@ -45,15 +45,15 @@ public class CodesysNetworkPairingTests
         return a;
     }
 
-    /// <summary>A rung whose AND box carries an EDGE on an input pin, which the text has no spelling for (design 1.1, X —
-    /// a NEGATED pin is S6's spelling since ld-fbd-coverage 2.3).</summary>
+    /// <summary>A rung whose AND box carries a SET bit on an input pin, which the text has no spelling for (a coil bit
+    /// on a pin — a negated pin is S6's spelling since ld-fbd-coverage 2.3, an edge on one 2R.5's).</summary>
     static Nwl.BoxTreeAssign PinFlagRung()
     {
         var and = new Nwl.BoxTreeBox
         {
             BoxType = "AND",
             InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
-            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Rtrig = true } },
+            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Set = true } },
         };
         var a = new Nwl.BoxTreeAssign { RValue = and };
         a.Outputs.List.Add(new Nwl.Operand { OperandExpr = "y", IsLValue = true });

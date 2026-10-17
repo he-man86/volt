@@ -78,6 +78,27 @@ public class CodesysModelRoundTripOracleTests
         void Net(string name, Nwl.Network net) => d.Add(name, (Body(net), BodyLanguage.Fbd));
 
         // CodesysNetworkReaderTests
+        // 2R.5: the EN pin's own flag (awkward-sweep #16) and the named ENO pin (#23) — each refused by the reader before.
+        Fbd("Reader.A_flag_on_the_enable_pin_is_the_boxs_enable_flags", new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
+            InputFlags = new object[] { new Nwl.Flags { Negation = true }, new Nwl.Flags() },
+        });
+        {
+            var box = new Nwl.BoxTreeBox
+            {
+                BoxType = "MOVE",
+                InputItemList = new object[] { Nwl.Leaf("c"), Nwl.Leaf("0") },
+                InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
+                OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "INT" } },
+            };
+            box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "enoFlag" });
+            box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "Status" });
+            Net("Reader.A_variable_wired_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped",
+                new Nwl.Network().With(Coil(box, new Nwl.Operand { OperandExpr = "lamp", IsLValue = true })));
+        }
         Fbd("Reader.An_unwired_EN_pin_reads_as_no_enable",
             new Nwl.BoxTreeBox { BoxType = "AND", InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") }, En = false });
         Fbd("Reader.A_wired_EN_pin_is_read_from_input_slot_zero", new Nwl.BoxTreeBox
@@ -293,10 +314,10 @@ public class CodesysModelRoundTripOracleTests
         ["A_flag_on_a_Parallel_is_refused_by_name"] = "refused by the reader",
         ["A_flag_on_a_wire_is_refused_by_name"] = "refused by the reader",
         ["A_Parallel_with_an_unmeasured_mode_is_refused_by_name"] = "refused by the reader",
-        ["A_flag_on_the_enable_pin_is_refused_by_name"] = "refused by the reader: the model has no place for a flag on the enable",
+
         ["Pin_flags_that_do_not_align_with_the_pins_are_refused_by_name"] = "refused by the reader: a pin flag list that does not align with the pins",
         ["A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged"] = "refused by the reader: a box with no pin flag list",
-        ["A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped"] = "refused by the reader: an ENO output wired to a variable",
+
         ["A_negation_or_edge_on_an_Assign_item_is_refused_by_name"] = "refused by the reader",
         ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
@@ -340,14 +361,15 @@ public class CodesysModelRoundTripOracleTests
             // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name. The 39th
             // is the symbol comment read from the archive (ld-fbd-coverage 1b.3): the model's operand equality does not
             // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss). The 40th is a
-            // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); of the pin-flag doubles left, an
-            // EDGE on a pin has no spelling (design 1.1, X) and is refused by name, while MOVE's negated pin beside EN is the
-            // call form naming its default formal since 2R.3 (P5, `MOVE(NOT IN := value) EN rung`). The enabled MOVE whose
-            // list names no ENO is refused as what it is to the text first — an enabled box read as a value (B4) — before
-            // its unstated slot.
-            bodies: 41, networks: 41, refused: new Dictionary<string, int>
+            // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); the 42nd an EDGE on a pin, spelled
+            // since 2R.5 (`AND(R_EDGE IN1 := c, one)`, awkward-sweep #15: it stores, builds and runs), while MOVE's negated
+            // pin beside EN is the call form naming its default formal since 2R.3 (P5, `MOVE(NOT IN := value) EN rung`). The
+            // enabled MOVE whose list names no ENO is refused as what it is to the text first — an enabled box read as a
+            // value (B4) — before its unstated slot. The 43rd and 44th are the EN pin's flag and the named ENO pin (2R.5).
+            bodies: 44, networks: 44, refused: new Dictionary<string, int>
+
             {
-                ["a flag on a box input pin"] = 1,
                 ["an enabled box read as a value"] = 1,
             });
+
 }

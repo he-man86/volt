@@ -5,7 +5,7 @@
  * depend on the role are raised (`Finalize`). The level parsing itself is `values.ts`, the targets `targets.ts`.
  */
 import type { Expr } from "../ast/nodes/index.js"
-import type { NetworkCall, NetworkExecute, NetworkName, NetworkPin, NetworkTarget, NetworkValue } from "./ast.js"
+import type { NetworkCall, NetworkExecute, NetworkName, NetworkPin, NetworkPinFlags, NetworkTarget, NetworkValue } from "./ast.js"
 import { NetworkCursor } from "./cursor.js"
 import { type Tok, isSym } from "./lexer.js"
 import { BIT_OPERATORS, COMPARISONS, OPERATOR_WORDS, TWO_INPUT_OPERATORS } from "./words.js"
@@ -25,12 +25,14 @@ export interface BoxSyn {
   to: number
   operands: NetworkValue[]
   /** The inputs as the vendor holds them: a default formal read back as none (P5). */
-  inputs: { formal?: string; value: NetworkValue; negated: boolean }[]
+  inputs: { formal?: string; value: NetworkValue; negated: boolean; edge?: "rising" | "falling" }[]
   outputs: { formal?: string; target?: Tok; positional: boolean }[]
   wordOutputs: NetworkTarget[]
   pins: NetworkPin[]
   en?: NetworkValue
   enTok?: Tok
+  /** The EN pin's own modifiers, `NOT EN c` (2R.5). */
+  enFlags?: NetworkPinFlags
   hadEn: boolean
   named?: Tok
   modifiers: { kind: "not" | "rise" | "fall"; tok: Tok }[]
@@ -57,7 +59,11 @@ export interface Syn {
 
 export const syn = (start: Tok, rest: Partial<Syn>): Syn => ({ start, bracketed: false, word: false, empty: false, covered: false, ...rest })
 
+/** An empty slot, or a negated one (`NOT ;`, 2R.5) — a position, never a box word's operand. */
+export const isEmptyValue = (v: NetworkValue): boolean => v.kind === "empty_slot" || (v.kind === "not" && v.operand.kind === "empty_slot")
+
 export const enabledComparison = (s: Syn): boolean =>
+
   !s.covered && s.box !== undefined && s.box.hadEn && COMPARISONS.has(s.box.type.toUpperCase())
 
 export abstract class BoxReader extends NetworkCursor {
@@ -88,6 +94,8 @@ export abstract class BoxReader extends NetworkCursor {
     const node = inner.node!
     switch (node.kind) {
       case "split_ref":
+      case "nested_split":
+
         throw this.err(
           modifier,
           "NETWORK_UNSUPPORTED",
@@ -211,12 +219,7 @@ export abstract class BoxReader extends NetworkCursor {
         `an enabled '${s.type}' read as a value: an enabled box is the root of its line, its value leaving only through \`=>\` or ENO (B4, N21) — write \`… => t EN c\`, or the box on its own line and \`coil := ENO;\`.`,
       )
     if (role === "eno") {
-      if (COMPARISONS.has(upper))
-        throw this.err(
-          s.head,
-          "NETWORK_BAD_EXPRESSION",
-          "a comparison on an open line: a comparison has no ENO — an enabled comparison is a bracketed value, `(a GT 40 EN c)` (B4, P3, N21).",
-        )
+      // A comparison is a box like any other (2R.5, awkward-sweep #22): enabled on an open line, its ENO read below.
       if (!s.hadEn && !isExecute && (OPERATOR_WORDS.has(upper) || s.operatorCall || upper === "MOVE"))
         throw this.err(
           s.head,
@@ -245,7 +248,11 @@ export abstract class BoxReader extends NetworkCursor {
     this.refuseForRole(s, role, upper, isExecute)
 
     const span = this.span(s.from.offset, Math.max(s.from.offset + s.from.length, s.to))
-    const enPart = { ...(s.en !== undefined ? { en: s.en } : {}), ...(s.enTok !== undefined ? { enSpan: this.tokSpan(s.enTok) } : {}) }
+    const enPart = {
+      ...(s.en !== undefined ? { en: s.en } : {}),
+      ...(s.enTok !== undefined ? { enSpan: this.tokSpan(s.enTok) } : {}),
+      ...(s.enFlags !== undefined ? { enFlags: s.enFlags } : {}),
+    }
     if (isExecute) return this.wrap({ kind: "execute", ...s.execute!, ...enPart, span }, s.modifiers)
 
     if (s.named !== undefined) {
@@ -269,6 +276,14 @@ export abstract class BoxReader extends NetworkCursor {
 
     if (s.operatorCall && TWO_INPUT_OPERATORS.has(upper) && s.inputs.length > 2)
       throw this.err(s.head, "NETWORK_UNSUPPORTED", `${upper} takes 2 inputs, and this one holds ${s.inputs.length}: the build refuses it (C3, B1).`)
+    // 2R.5 (awkward-sweep #4): fewer than two inputs stores, and the build refuses it on both vendors (ng_r5_one_input_*).
+    if (s.operatorCall && OPERATOR_WORDS.has(upper) && s.inputs.length < 2)
+      throw this.err(
+        s.head,
+        "NETWORK_UNSUPPORTED",
+        `${upper} takes at least 2 inputs, and this one holds ${s.inputs.length}: the build refuses it ("needs at least '2' operands").`,
+      )
+
     // P5: an operator's call form only where its word form cannot carry the tree — one tree, one text.
     if (s.operatorCall && this.isWordForm(s))
       throw this.err(s.head, "NETWORK_BAD_EXPRESSION", `${s.type}(…) in its call form where its word fits: write \`a ${upper} b\` (B1, P5).`)
@@ -307,7 +322,7 @@ export abstract class BoxReader extends NetworkCursor {
 
   private wordFormPins(s: BoxSyn): boolean {
     return (
-      s.inputs.every((p) => p.value.kind !== "empty_slot" && !p.negated && p.formal === undefined) &&
+      s.inputs.every((p) => !isEmptyValue(p.value) && !p.negated && p.edge === undefined && p.formal === undefined) &&
       s.outputs.every((o) => o.formal === undefined && o.target !== undefined)
     )
   }

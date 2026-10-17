@@ -4,7 +4,7 @@
  * (P8), a split's definition (B6), a coil (a chain of targets, each with its storage operator), or a box — and the line's
  * end: `;` where the item ends, or none where it is an OPEN line a later `ENO` takes (B4, P3).
  */
-import type { NetworkName, NetworkTarget, NetworkTextStatement, NetworkValue, NetworkWordBox, NetworkCall, NetworkExecute } from "./ast.js"
+import type { NetworkName, NetworkTextStatement, NetworkValue, NetworkWordBox, NetworkCall, NetworkExecute } from "./ast.js"
 import { CallReader } from "./calls.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
 import type { Role } from "./boxes.js"
@@ -26,7 +26,9 @@ export abstract class StatementReader extends CallReader {
       return { statement: { kind: "empty", span: this.tokSpan(t) } }
     }
 
-    if (isWord(t, "JMP") || isWord(t, "RETURN")) return { statement: this.parseJump(t, semi) }
+    // B4b, P7: a jump or return on the rail, `JMP l;` / `RETURN;` — its head and nothing driving it.
+    if ((isWord(t, "JMP") || isWord(t, "RETURN")) && this.coilHeadEnd(this.p) > 0 && !this.storageAt(this.coilHeadEnd(this.p)))
+      return { statement: this.parseJump(t, semi) }
 
     if (isWord(t, "EXECUTE")) return this.parseExecute(role, semi)
 
@@ -42,24 +44,42 @@ export abstract class StatementReader extends CallReader {
     if (t.kind === "word" && SPLIT_SHAPE.test(t.text) && (isSym(this.peekAt(1), ":=") || isSym(this.peekAt(1), ":")))
       return { statement: this.parseSplitDefinition(semi) }
 
-    if (t.kind === "word" && NETWORK_TEXT_WORDS.has(t.text.toUpperCase()) && this.storageAt(this.p + 1))
+    if (t.kind === "word" && NETWORK_TEXT_WORDS.has(t.text.toUpperCase()) && !isWord(t, "RETURN") && this.storageAt(this.p + 1))
       throw this.err(
         t,
         "NETWORK_BAD_EXPRESSION",
         `'${t.text}' as a target: a target spelled like a word of the text is written between backticks, \`${t.text}\` (P1).`,
       )
 
-    if (this.isTargetToken(t) && this.storageAt(this.p + 1)) {
-      const targets: NetworkTarget[] = []
-      let op: Tok = t
-      while (this.isTargetToken(this.peek()) && this.storageAt(this.p + 1)) {
-        const tt = this.next()
-        op = this.takeStorage()
-        targets.push(this.lvalue(tt, op))
+    // A coil: its heads in order, a jump and a return among them (B4b, 2R.5), each with its storage and modifiers.
+    const headEnd = this.coilHeadEnd(this.p)
+    if (headEnd > 0 && this.storageAt(headEnd)) {
+      const heads = this.parseCoilHeads()
+      const last = heads[heads.length - 1]!
+      // `x := NOT ;`: a negated empty slot is the value of one plain coil (2R.5 #6a), measured nowhere else.
+      const h0 = heads[0]!.target
+      const plain = heads.length === 1 && h0.jump !== true && h0.ret !== true && h0.op === ":=" && h0.negated === undefined && h0.edge === undefined
+      this.negatedEmptyAt = plain ? this.p : -1
+      let value: NetworkValue
+      try {
+        value = this.slotValue(last.op)
+      } finally {
+        this.negatedEmptyAt = -1
       }
-      const value = this.slotValue(op)
-      this.endStatement(semi, "a coil")
-      return { statement: { kind: "assign", targets, value, span: this.spanFrom(t) } }
+      const lone = heads.length === 1 && last.lone
+      // P7, one spelling: a lone jump or return on the rail is `JMP l;`, never `JMP l := ;`.
+      if (lone && value.kind === "empty_slot")
+        throw this.err(
+          last.op,
+          "NETWORK_BAD_EXPRESSION",
+          `\`${t.text.toUpperCase()} … := ;\`: a jump on the rail is \`${isWord(t, "JMP") ? "JMP l;" : "RETURN;"}\` (P7, one spelling).`,
+        )
+      this.endStatement(semi, heads.some((h) => h.target.jump === true || h.target.ret === true) ? "a jump" : "a coil")
+      const span = this.spanFrom(t)
+      if (lone && last.target.jump === true)
+        return { statement: { kind: "jump", target: { text: last.target.text, span: last.target.span }, condition: value, span } }
+      if (lone) return { statement: { kind: "return", condition: value, span } }
+      return { statement: { kind: "assign", targets: heads.map((h) => h.target), value, span } }
     }
 
     const root = this.parseLevel()
@@ -72,7 +92,7 @@ export abstract class StatementReader extends CallReader {
     return node.kind === "word" || node.kind === "call" || node.kind === "execute" ? { open: node } : { notABox: true }
   }
 
-  /** `JMP label` / `RETURN`, on the rail or driven by `:=` (P7). */
+  /** `JMP label;` / `RETURN;` on the rail (P7); driven, it is a coil (`parseCoilHeads`). */
   private parseJump(t: Tok, semi: boolean): NetworkTextStatement {
     this.next()
     let target: NetworkName | undefined
@@ -81,23 +101,9 @@ export abstract class StatementReader extends CallReader {
       if (l.kind !== "word" || !IDENTIFIER.test(l.text)) throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
       target = this.name(l)
     }
-    let condition: NetworkValue | undefined
-    if (isSym(this.peek(), ":=")) {
-      const op = this.next()
-      if (this.atEnd() || isSym(this.peek(), ";"))
-        throw this.err(
-          op,
-          "NETWORK_BAD_EXPRESSION",
-          `\`${t.text.toUpperCase()} … := ;\`: a jump on the rail is \`${isWord(t, "JMP") ? "JMP l;" : "RETURN;"}\` (P7, one spelling).`,
-        )
-      condition = this.slotHere()
-    } else if (this.storageAt(this.p))
-      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", `${t.text.toUpperCase()} with S= or R=: a jump or return is driven by \`:=\` (P7).`)
     this.endStatement(semi, "a jump")
     const span = this.spanFrom(t)
-    return target !== undefined
-      ? { kind: "jump", target, ...(condition !== undefined ? { condition } : {}), span }
-      : { kind: "return", ...(condition !== undefined ? { condition } : {}), span }
+    return target !== undefined ? { kind: "jump", target, span } : { kind: "return", span }
   }
 
   /** P8: `EXECUTE [EN [c]]` on its line, the verbatim ST below it, `END_EXECUTE`, and `;` — or no `;`, where it is an
@@ -139,9 +145,11 @@ export abstract class StatementReader extends CallReader {
     const op = this.next()
     if (!isSym(op, ":=")) throw this.err(op, "NETWORK_BAD_EXPRESSION", `a split is defined with \`:=\`, and S=/R= are coils (${name.text}, P9).`)
     if (this.splits.has(id)) throw this.err(name, "NETWORK_DUPLICATE_NAME", `the split ${name.text} is defined twice (P9).`)
-    const value = this.slotValue(op)
+    // Defined before its value is read: a definition of the same split inside it is the second one (P9).
+    this.splits.set(id, { name: this.name(name) })
+    const value = this.definingValue(id, op)
     this.endStatement(semi, "a split's definition")
-    this.splits.set(id, { name: this.name(name), references: [] })
+
     return { kind: "split_def", split: this.name(name), value, span: this.spanFrom(name) }
   }
 

@@ -71,6 +71,20 @@ internal static class NetworkSpelling
     public static readonly HashSet<string> TwoInputOperators = new(StringComparer.OrdinalIgnoreCase)
         { "SUB", "DIV", "MOD", "GT", "GE", "EQ", "NE", "LE", "LT" };
 
+    /// <summary>The modifiers 2R.5's composition would spell and no store, build and run measures (design "2R.5": measured
+    /// per row before its spelling ships) — refused by name by the reader, the writer and the LSP's parser alike.</summary>
+    public const string UnmeasuredFlow =
+        "a modified jump or return: NOT, R_EDGE, F_EDGE and R= on JMP or RETURN are not measured — `JMP l S=` and `RETURN S=` are the ones stored and built (2R.5).";
+    public const string UnmeasuredEdgeCoil =
+        "an edge on a negated, set or reset coil: not measured — `R_EDGE x :=` is the one stored and built (2R.5).";
+    public const string UnmeasuredModifiedFanOut =
+        "a negated or edge coil beside another coil: not measured — `NOT x :=`, `R_EDGE x :=` and `F_EDGE x :=` are each stored and built alone on their item (2R.5).";
+    public const string UnmeasuredEdgeEn = "an edge on the EN pin: not measured — `NOT EN c` is the one stored and built (2R.5).";
+    public const string UnmeasuredEdgePin =
+        "an edge on a negated pin: not measured — `R_EDGE IN1 :=` and `NOT IN1 :=` are each stored and built, together they are not (2R.5).";
+    public const string UnmeasuredNegatedEmpty =
+        "a negated empty slot outside a lone plain coil's value: not measured — `x := NOT ;` is the one stored and built (2R.5).";
+
     public const string Move = "MOVE";
     public const string NotBox = "NOT";
 
@@ -236,10 +250,11 @@ internal static class NetworkSpelling
         isExecute || enoSuffix || (!consumed && hasEnable);
 
     /// <summary>Whether <see cref="Box.HasEnoOutput"/> is a fact the text carries for <paramref name="b"/>: where it
-    /// decides the text — how a consumed box is read, and the slots its positional <c>=&gt;</c> pins fill.</summary>
+    /// decides the text — how a consumed box is read, the slots its positional <c>=&gt;</c> pins fill, and whether it has
+    /// the ENO a named <c>ENO =&gt; v</c> pin is wired to (P5: a box shows ENO with EN or where a later line reads it).</summary>
     public static bool EnoCarried(Box b, bool consumed) =>
         b.StCode is null &&
-        (b.Outputs.Any(o => o.Formal is null) ||
+        (b.Outputs.Any(o => o.Formal is null || string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase)) ||
          (consumed && (b.ConnectedSlot is not null || b.Enable is not null || NamedMainOutput(b) is not null)));
 
     /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:

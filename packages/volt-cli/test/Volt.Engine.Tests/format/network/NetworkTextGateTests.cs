@@ -166,20 +166,25 @@ public class NetworkTextGateTests
     public void A_split_defined_twice() =>
         Refused("NETWORK_DUPLICATE_NAME", 4, Src("split1 := a;", "split1 := b;", "out := split1;"));
 
+    /// <summary>2R.5 (#19): a reference stored above its definition stores and builds (it reads the previous scan) — the
+    /// stored order is kept; a reference the network never defines is refused at it.</summary>
     [Fact]
-    public void A_split_referenced_before_its_definition() =>
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := split1;", "split1 := a;"));
+    public void A_split_referenced_before_its_definition_is_accepted_and_one_never_defined_is_not()
+    {
+        Accepted(Src("out := split1;", "split1 := a;"));
+        Assert.Contains("never defined", Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := split1;")).Message);
+    }
 
     [Fact]
     public void A_split_defined_with_S_equals_is_a_coil_on_a_split() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("split1 S= a;"));
 
-    /// <summary>A split's definition is its own item: never a target in a chain.</summary>
+    /// <summary>A split is never a target in a chain; its definition stands nested in brackets (2R.5, #20).</summary>
     [Fact]
-    public void A_split_inside_a_chain()
+    public void A_split_inside_a_chain_is_refused_and_a_nested_definition_accepted()
     {
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := split1 := a;"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("y := (split1 := a);"));
+        Accepted(Src("y := (split1 := a);", "z := split1;"));
     }
 
     /// <summary>B6, P9: a split's type is never written — refused at the `:`, naming the split.</summary>
@@ -291,9 +296,15 @@ public class NetworkTextGateTests
     public void Nested_edges() =>
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(F_EDGE(x));"));
 
+    /// <summary>A negated empty slot stores and builds as a plain coil's value (2R.5, #6a); anywhere else, and an edge on one,
+    /// it is unmeasured, refused by name.</summary>
     [Fact]
-    public void A_flag_on_an_empty_slot() =>
-        Refused("NETWORK_UNSUPPORTED", 3, Src("f(NOT , a);"));
+    public void A_flag_on_an_empty_slot()
+    {
+        Accepted(Src("x := NOT ;"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("x := f(NOT , a);"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("x := f(R_EDGE(), a);"));
+    }
 
     /// <summary>B8: one branch pushes and does not compile (C0023) — refused at the branch.</summary>
     [Fact]

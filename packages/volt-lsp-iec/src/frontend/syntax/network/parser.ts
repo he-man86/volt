@@ -25,7 +25,9 @@ import type { BodySpan } from "../ast/nodes/index.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { graphicalMarkerLanguage } from "../format/bodies.js"
 import { implementationLine } from "../format/implementation-line.js"
-import type { NetworkLanguage, NetworkName, NetworkSplit, NetworkTextBody, NetworkTextNetwork, NetworkTextStatement } from "./ast.js"
+import type { NetworkLanguage, NetworkName, NetworkNestedSplit, NetworkSplit, NetworkSplitDef, NetworkTextBody, NetworkTextNetwork, NetworkTextStatement } from "./ast.js"
+import { walkValues } from "./ast.js"
+
 import { EMPTY_SCOPE, ParseError, type NetworkScopeView } from "./cursor.js"
 import { decodeTitle, NetworkLexer, type Tok, isSym, isWord } from "./lexer.js"
 import { StatementReader } from "./statements.js"
@@ -142,6 +144,8 @@ class Parser extends StatementReader {
 
   private parseNetwork(index: number): NetworkTextNetwork {
     this.splits = new Map()
+    this.splitRefs = new Map()
+    this.splitRefAt = new Map()
     this.open = []
     this.end = this.toks.length
     const hdr = this.next()
@@ -244,6 +248,13 @@ class Parser extends StatementReader {
           )
         if (!isWord(t, "END_NETWORK")) throw this.err(hdr, "NETWORK_NOT_CLOSED", "this NETWORK has no END_NETWORK.")
         this.p++
+        for (const [id, at] of this.splitRefAt)
+          if (!this.splits.has(id))
+            throw this.err(
+              at,
+              "NETWORK_BAD_EXPRESSION",
+              `the split ${at.text} is never defined: a split is defined once in its network, \`${at.text} := value;\` (P9).`,
+            )
         return unsupported
       }
       if (t.kind === "comment")
@@ -336,12 +347,17 @@ class Parser extends StatementReader {
 
   // ── splits ──────────────────────────────────────────────────────────────────────────────────
 
+  /** The network's split points in text order — each statement's definition, then the definitions nested in it (2R.5). */
   private collectSplits(statements: readonly NetworkTextStatement[]): NetworkSplit[] {
     const out: NetworkSplit[] = []
-    for (const s of statements) {
-      if (s.kind !== "split_def") continue
+    const add = (s: NetworkSplitDef | NetworkNestedSplit): void => {
       const varId = Number(s.split.text.slice(SPLIT_PREFIX.length))
-      out.push({ name: s.split, varId, definition: s, references: this.splits.get(varId)?.references ?? [] })
+      out.push({ name: s.split, varId, definition: s, references: this.splitRefs.get(varId) ?? [] })
+    }
+    for (const s of statements) {
+      if (s.kind === "split_def") add(s)
+      for (const v of walkValues(s)) if (v.kind === "nested_split") add(v)
+
     }
     return out
   }

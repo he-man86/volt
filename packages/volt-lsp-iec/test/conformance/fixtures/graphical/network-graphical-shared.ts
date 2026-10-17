@@ -95,4 +95,36 @@ export const TWINCAT_REFUSES: Record<string, string | undefined> = {
     "the split split1 fed by the leaf 'a': TwinCAT's PLCopen import is not measured for a leaf-fed split (N22), so the push is refused before the import (2026-10-16).",
   ng_s6_negated_int_pin:
     "a negated input pin: TwinCAT's PLCopen import is not measured for it, so the push is refused before the import (2026-10-16).",
+  // ld-fbd-coverage 2R.5 (recorded 2026-10-17, Project13 LCID 1033): every shape the step spells but one is refused by
+  // Volt's TwinCAT driver before its PLCopen import (`TcUnmeasured`, the lowering's C20 output-pin refusal) — not by the
+  // IDE. Its TwinCAT store/build/reload/editor measurement is the native archive writer's (openspec twincat-inproc-host,
+  // DIALECT N40 there), which replaces the import; until then CODESYS holds the ground truth.
+  ...Object.fromEntries(
+    (
+      [
+        ["ng_r5_two_eno", "the result pin `=> i` of the 'MOVE' box"],
+        ["ng_r5_coil_and_jump", "a jump or a return beside another coil on one rung"],
+        ["ng_r5_coil_and_return", "a jump or a return beside another coil on one rung"],
+        ["ng_r5_two_jumps", "a jump or a return beside another coil on one rung"],
+        ["ng_r5_jump_set", "a jump or a return with S= or R="],
+        ["ng_r5_return_set", "a jump or a return with S= or R="],
+        ["ng_r5_nested_jump", "an assignment to 'Done' below the top level"],
+        ["ng_r5_negated_coil", "a negated coil on 'x'"],
+        ["ng_r5_edge_coils", "an edge coil on 'x'"],
+        ["ng_r5_edge_pin", "an edge on an input pin (input 0) of the 'AND' box"],
+        ["ng_r5_negated_en", "a modifier on the EN pin of the 'MOVE' box"],
+        ["ng_r5_negated_empty", "a negated empty slot"],
+        ["ng_r5_split_before_definition", "the split split1 referenced above its definition"],
+        ["ng_r5_split_nested", "the split split1 defined below the top level"],
+        ["ng_r5_comparison_eno", "the result pin `=> x` of the 'GT' box"],
+        ["ng_r5_named_eno", "the result pin `=> i` of the 'MOVE' box"],
+        ["ng_r5_empty_branch", "a parallel branch (`feed BRANCH (a, b)`)"],
+      ] as const
+    ).map(([name, shape]) => [
+      name,
+      `TwinCAT: network 1 changes shape and holds ${shape}. Volt rebuilds a changed network through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused before the import (2R.5, 2026-10-17).`,
+    ]),
+  ),
+  ng_r5_array_instance:
+    "TwinCAT: this graphical body writes a box's output pin straight to a variable (`CTU(… CV => …)`). Volt has no way to CREATE that through PLCopen — the importer lowers the wire to a SEPARATE assignment however the pin is declared (2R.5, 2026-10-17).",
 }

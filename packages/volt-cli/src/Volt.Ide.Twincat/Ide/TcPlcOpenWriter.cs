@@ -496,7 +496,7 @@ internal static class TcPlcOpenWriter
             }
             return _wires.TryGetValue(demux.VarId, out var known)
                 ? known
-                : throw Invariant($"a reference to wire {demux.VarId} before its definition, which the network-text reader refuses");
+                : throw Invariant($"a reference to wire {demux.VarId} before its definition, which TcUnmeasured.RefuseImport refuses before any lowering");
         }
 
     }

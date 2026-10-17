@@ -6,11 +6,11 @@
  * a value — the one place the refusals that depend on the role are raised. The same messages at the same tokens, so what
  * the editor underlines is what the push refuses.
  */
-import type { NetworkCall, NetworkExecute, NetworkName, NetworkValue, NetworkWordBox } from "./ast.js"
-import { type Syn, enabledComparison, syn } from "./boxes.js"
+import type { NetworkCall, NetworkExecute, NetworkValue, NetworkWordBox } from "./ast.js"
+import { type Syn, enabledComparison, isEmptyValue, syn } from "./boxes.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
 import { TargetReader } from "./targets.js"
-import { CONSTRUCT_WORDS, OPERATOR_WORDS, SPLIT_SHAPE, TWO_INPUT_OPERATORS, isLiteral, isReserved } from "./words.js"
+import { CONSTRUCT_WORDS, OPERATOR_WORDS, SPLIT_SHAPE, TWO_INPUT_OPERATORS, isLiteral, isReserved, UNMEASURED_NEGATED_EMPTY } from "./words.js"
 
 /** One item's OPEN LINES (P3): each line without `;` hands its root box to the queue, and each `ENO` takes the oldest one
  *  not yet taken. */
@@ -21,8 +21,8 @@ interface OpenLine {
 
 export abstract class ValueReader extends TargetReader {
   protected open: OpenLine[] = []
-  /** The network's split points defined so far: VarId → the definition's name and every reference. */
-  protected splits = new Map<number, { name: NetworkName; references: NetworkName[] }>()
+  /** The token index where a negated empty slot is a coil's value, `x := NOT ;` — the one place it is measured; -1 none. */
+  protected negatedEmptyAt = -1
 
   protected abstract parseCall(head: Tok, unnamedType: Tok | undefined, operatorCall: boolean, type: string | undefined): Syn
 
@@ -73,7 +73,8 @@ export abstract class ValueReader extends TargetReader {
   private parseMove(start: Tok): Syn {
     this.next()
     const operand = this.parseOperand()
-    if (operand.empty) throw this.err(start, "NETWORK_BAD_EXPRESSION", "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).")
+    if (operand.empty || (operand.node !== undefined && isEmptyValue(operand.node)))
+      throw this.err(start, "NETWORK_BAD_EXPRESSION", "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).")
     const box = this.newBox("word", "MOVE", start, start)
     const value = this.operand(operand)
     box.operands.push(value)
@@ -90,7 +91,8 @@ export abstract class ValueReader extends TargetReader {
 
   /** B1: `a ADD b ADD c` — one word, one box, n inputs. */
   private parseWordLevel(first: Syn, t: Tok): Syn {
-    if (first.empty) throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' with no operand before it.`)
+    if (first.empty || (first.node !== undefined && isEmptyValue(first.node)))
+      throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' with no operand before it.`)
     const word = t.text.toUpperCase()
     const box = this.newBox("word", word, t, first.start)
     const add = (v: NetworkValue): void => {
@@ -107,7 +109,7 @@ export abstract class ValueReader extends TargetReader {
         )
       this.next()
       const op = this.parseOperand()
-      if (op.empty) throw this.err(w, "NETWORK_BAD_EXPRESSION", `'${word}' with no operand after it.`)
+      if (op.empty || (op.node !== undefined && isEmptyValue(op.node))) throw this.err(w, "NETWORK_BAD_EXPRESSION", `'${word}' with no operand after it.`)
       add(this.operand(op))
     }
     if (isWord(this.peek(), "MOVE"))
@@ -136,14 +138,13 @@ export abstract class ValueReader extends TargetReader {
     const open = this.next()
     if (!isSym(open, "(")) throw this.err(open, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).")
     const branches: NetworkValue[] = []
+    if (isSym(this.peek(), ")")) throw this.err(this.peek(), "NETWORK_UNSUPPORTED", "a parallel with no branch: `BRANCH ()` holds none (B8, P6).")
     for (;;) {
+      // 2R.5 (readability Open c): an EMPTY branch stores, builds and runs (a shorted branch, CODESYS SP21) — nothing
+      // between its commas.
       const at = this.peek()
-      if (isSym(at, ",") || isSym(at, ")")) {
-        if (isSym(at, ")") && branches.length === 0)
-          throw this.err(at, "NETWORK_UNSUPPORTED", "a parallel with no branch: `BRANCH ()` holds none (B8, P6).")
-        throw this.err(at, "NETWORK_UNSUPPORTED", "an empty branch: each branch of a parallel holds a box, `(a, , b)` is refused (B8, P6).")
-      }
-      branches.push(this.slot(this.parseLevel(), at))
+      branches.push(isSym(at, ",") || isSym(at, ")") ? { kind: "empty_slot", span: this.emptySpan(at) } : this.slot(this.parseLevel(), at))
+
       const sep = this.peek()
       if (isSym(sep, ",")) {
         this.next()
@@ -242,6 +243,7 @@ export abstract class ValueReader extends TargetReader {
   }
 
   private parseNot(t: Tok): Syn {
+    const at = this.p
     this.next()
     const n = this.peek()
     if (
@@ -258,8 +260,12 @@ export abstract class ValueReader extends TargetReader {
         "NETWORK_BAD_EXPRESSION",
         `NOT outside ${n.text.toUpperCase()}(…): the IDE negates before it detects the edge, so the one spelling is ${n.text.toUpperCase()}(NOT x).`,
       )
-    if (this.atEnd() || isSym(n, ",") || isSym(n, ")") || isSym(n, ";"))
-      throw this.err(t, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
+    // 2R.5 (#6a): a negated empty slot, `x := NOT ;` — it stores and builds.
+    if (this.atEnd() || isSym(n, ",") || isSym(n, ")") || isSym(n, ";")) {
+      if (at !== this.negatedEmptyAt) throw this.err(t, "NETWORK_UNSUPPORTED", UNMEASURED_NEGATED_EMPTY)
+      const empty = this.emptySpan(n)
+      return syn(t, { node: { kind: "not", operand: { kind: "empty_slot", span: empty }, span: this.span(t.offset, t.offset + t.length) } })
+    }
     const inner = this.parseOperand()
     return this.flagged(inner, t, "not")
   }
@@ -290,8 +296,11 @@ export abstract class ValueReader extends TargetReader {
 
   private parseBracket(t: Tok): Syn {
     this.next()
-    // S2: a target and a storage operator at the pair's own depth — an assignment below the top level.
-    if (this.isTargetToken(this.peek()) && this.storageAt(this.p + 1)) return syn(t, { node: this.parseNestedAssign(t) })
+    // 2R.5 (#20): a split defined below the top level, `(split1 := value)`, in a nested assignment's brackets.
+    if (this.peek().kind === "word" && SPLIT_SHAPE.test(this.peek().text) && isSym(this.peekAt(1), ":=")) return syn(t, { node: this.parseNestedSplit(t) })
+    // S2: a coil head and a storage operator at the pair's own depth — an assignment below the top level.
+    const headEnd = this.coilHeadEnd(this.p)
+    if (headEnd > 0 && this.storageAt(headEnd)) return syn(t, { node: this.parseNestedAssign(t) })
     const inner = this.parseLevel()
     if (!isSym(this.peek(), ")")) throw this.unexpected(this.peek(), "a bracket closes after the box it holds")
     this.next()
@@ -323,16 +332,7 @@ export abstract class ValueReader extends TargetReader {
     if (SPLIT_SHAPE.test(t.text)) {
       this.next()
       if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", `${t.text} is a split, never a call head (P9).`)
-      const id = this.splitId(t)
-      const split = this.splits.get(id)
-      if (split === undefined)
-        throw this.err(
-          t,
-          "NETWORK_BAD_EXPRESSION",
-          `the split ${t.text} is referenced before its definition: a split is defined by \`${t.text} := value;\` before its first use (P9).`,
-        )
-      const name = this.name(t)
-      split.references.push(name)
+      const name = this.splitRef(t)
       return syn(t, { node: { kind: "split_ref", name, span: name.span } })
     }
     if ((isWord(t, "MOVE") || OPERATOR_WORDS.has(t.text.toUpperCase())) && isSym(this.peekAt(1), "(")) {

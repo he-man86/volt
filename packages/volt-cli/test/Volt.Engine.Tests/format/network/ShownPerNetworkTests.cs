@@ -117,7 +117,7 @@ public class ShownPerNetworkTests
     public void A_network_the_text_cannot_spell_is_shown_as_its_UNSUPPORTED_line()
     {
         var nested = new Network(0, "Calc", "L1", "why\r\nit is", false,
-            new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
+            new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out")) });
         var plain = new Network(1, null, null, null, false, new Node[] { Set(L("a"), T("done")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { nested, plain });
 
@@ -244,7 +244,7 @@ public class ShownPerNetworkTests
     {
         var plan = NetworkPairing.Plan(new[] { new NetworkKey("A", "A") }, new[] { new NetworkKey(null, null) });
         Assert.Equal("R00", Show(plan));
-        var nested = new Network(0, null, null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
+        var nested = new Network(0, null, null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out")) });
         // The live one is shown as its UNSUPPORTED line; the same model PUSHED has no spelling, so the two never pair — and
         // a live UNSUPPORTED network is never rebuilt from other trees (gate 1b-4): it is removed, the pushed one inserted.
         Assert.Equal("X0 I0", Show(NetworkPairing.Plan(new[] { nested }, new[] { nested }, BodyLanguage.Fbd, Scope)));
@@ -293,7 +293,7 @@ public class ShownPerNetworkTests
     public void An_UNSUPPORTED_network_replaced_by_other_trees_is_refused()
     {
         var readerRefused = new Network(0, "T", null, null, false, Array.Empty<Node>(), "a vendor split point");
-        var writerRefused = new Network(0, "T", null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out")) });
+        var writerRefused = new Network(0, "T", null, null, false, new Node[] { Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out")) });
         foreach (var live in new[] { readerRefused, writerRefused })
         {
             var e = Loss(new[] { live }, new[] { live with { Trees = new Node[] { Set(L("a"), T("done")) }, Unsupported = null } });
@@ -338,7 +338,7 @@ public class ShownPerNetworkTests
     [Fact]
     public void The_pairing_render_is_the_pull_render_without_a_position()
     {
-        var nested = Set(Call("f", new[] { new Input("IN1", L("a"), Rise) }, connected: 0, eno: false), T("out"));
+        var nested = Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out"));
         var at0 = new Network(0, null, null, null, false, new Node[] { nested });
         Assert.Equal(NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope), NetworkPairing.Render(at0 with { Order = 7 }, BodyLanguage.Fbd, Scope));
         Assert.Contains("UNSUPPORTED \"a flag on a box input pin\";", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));

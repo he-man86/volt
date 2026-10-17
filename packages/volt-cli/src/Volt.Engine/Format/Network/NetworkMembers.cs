@@ -204,7 +204,10 @@ public static class NetworkMembers
                 slots.Add("");
                 continue;
             }
+            // The named ENO pin (P5, 2R.5 #23) is the ENO slot itself, listed first above.
+            if (string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase) && slots.Count > 0 && slots[0] == Box.EnoPin) continue;
             slots.Add(o.Formal);
+
         }
         return slots;
     }

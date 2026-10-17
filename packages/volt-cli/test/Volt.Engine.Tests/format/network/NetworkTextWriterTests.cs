@@ -245,23 +245,54 @@ public class NetworkTextWriterTests
 
     /// <summary>S6 / P10: a negated pin is spelled on its formal, an operator's in its call form.</summary>
     [Fact]
-    public void A_negated_pin_is_spelled_on_its_formal_and_an_edge_on_a_pin_goes_to_the_marker()
+    public void A_pins_modifier_is_spelled_on_its_formal()
     {
         Assert.Equal(Body("f(NOT IN1 := x);"), Write(Call("f", new[] { new Input("IN1", L("x"), Neg) })));
         Assert.Equal(Body("o := AND(a, NOT IN2 := b);"),
             Write(Set(Call("AND", new[] { In(L("a")), new Input(null, L("b"), Neg) }, main: null), T("o"))));
-        Assert.Equal("a flag on a box input pin", Refused(() => Write(Call("f", new[] { new Input("IN1", L("x"), Rise) }))).Reason);
-        Assert.Equal("a negated unnamed pin of a call", Refused(() => Write(Call("f", new[] { new Input(null, L("x"), Neg) }))).Reason);
+        // 2R.5 (#15): an edge on a pin stores, builds and runs — before its formal. With a negation it is not measured.
+        Assert.Equal(Body("f(R_EDGE IN1 := x);"), Write(Call("f", new[] { new Input("IN1", L("x"), Rise) })));
+        Assert.Equal("a flag on a box input pin",
+            Refused(() => Write(Set(Call("AND", new[] { new Input(null, L("a"), Flags.None with { Falling = true, Negated = true }), In(L("b")) }, main: null), T("o")))).Reason);
+        Assert.Equal("a flag on a box input pin", Refused(() => Write(Call("f", new[] { new Input("IN1", L("x"), Flags.None with { Set = true }) }))).Reason);
+        Assert.Equal("a modified unnamed pin of a call", Refused(() => Write(Call("f", new[] { new Input(null, L("x"), Neg) }))).Reason);
     }
 
     [Fact]
     public void A_flag_on_an_Assign_item_goes_to_the_marker() =>
         Assert.Equal("a flag on an Assign item", Refused(() => Write(new Assign(L("a"), new[] { T("out") }, Neg))).Reason);
 
+    /// <summary>2R.5 (#6a): a negated empty slot is written `NOT` before a plain coil's `;`, the one place it is measured;
+    /// elsewhere, and an edge on one, it goes to the marker.</summary>
     [Fact]
-    public void A_flag_on_an_empty_slot_goes_to_the_marker() =>
-        Assert.Equal("a flag on an empty slot",
+    public void A_negated_empty_slot_is_written_and_an_edge_on_one_goes_to_the_marker()
+    {
+        Assert.Equal(Body("x := NOT ;"), Write(Set(new Terminator(Neg), T("x"))));
+        Assert.Equal("a negated empty slot outside a coil value",
             Refused(() => Write(Call("f", new[] { In(new Terminator(Neg)), In(L("a")) }))).Reason);
+        Assert.Equal("a negated empty slot outside a coil value",
+            Refused(() => Write(new Assign(new Terminator(Neg), new[] { T("Done", Flags.None with { Jump = true }) }, Flags.None with { Jump = true }))).Reason);
+        Assert.Equal("a flag on an empty slot",
+            Refused(() => Write(Call("f", new[] { In(new Terminator(Rise)), In(L("a")) }))).Reason);
+        // …and only one PLAIN coil's (gate 2R.5): a set coil's, and a fan-out's, are unmeasured.
+        Assert.Equal("a negated empty slot outside a coil value",
+            Refused(() => Write(Set(new Terminator(Neg), T("x", Flags.None with { Set = true })))).Reason);
+        Assert.Equal("a negated empty slot outside a coil value",
+            Refused(() => Write(new Assign(new Terminator(Neg), new[] { T("x"), T("y") }, Flags.None))).Reason);
+    }
+
+    /// <summary>Gate 2R.5: a negated or edge coil is measured alone on its item; beside another coil (a coil, a set or
+    /// reset coil, a jump) it goes to the marker.</summary>
+    [Fact]
+    public void A_modified_coil_beside_another_coil_goes_to_the_marker()
+    {
+        var jump = Flags.None with { Jump = true };
+        Assert.Equal("a modified coil beside another coil", Refused(() => Write(new Assign(L("c"), new[] { T("y"), T("xn", Neg) }, Flags.None))).Reason);
+        Assert.Equal("a modified coil beside another coil",
+            Refused(() => Write(new Assign(L("c"), new[] { T("x", Rise), T("y", Flags.None with { Set = true }) }, Flags.None))).Reason);
+        Assert.Equal("a modified coil beside another coil",
+            Refused(() => Write(new Assign(L("c"), new[] { T("x", Rise), T("Done", jump) }, Flags.None))).Reason);
+    }
 
     // ── BoxTreeBox: calls, instances, ??? ───────────────────────────────────────────────────────
 
@@ -497,13 +528,18 @@ public class NetworkTextWriterTests
                 Set(Ref(0), T("stRestposition", set), T("stLowerInpusher", reset), T("stInfeedTray", reset)))));
     }
 
+    /// <summary>2R.5 (#13, #14): a negated and an edge coil store and build; the modifier stands before the coil.</summary>
     [Fact]
-    public void Negated_and_edge_coils_go_to_the_marker()
+    public void Negated_and_edge_coils_are_written_before_their_target()
     {
-        Assert.Equal("negated coil", Refused(() => Write(Set(L("a"), T("out", Neg)))).Reason);
-        Assert.Equal("rising-edge coil", Refused(() => Write(Set(L("a"), T("out", Rise)))).Reason);
-        Assert.Equal("falling-edge coil", Refused(() => Write(Set(L("a"), T("out", Fall)))).Reason);
+        Assert.Equal(Body("NOT out := a;"), Write(Set(L("a"), T("out", Neg))));
+        Assert.Equal(Body("R_EDGE out := a;"), Write(Set(L("a"), T("out", Rise))));
+        Assert.Equal(Body("F_EDGE out := a;"), Write(Set(L("a"), T("out", Fall))));
+        Assert.Equal("an edge on a negated set or reset coil", Refused(() => Write(Set(L("a"), T("out", Rise with { Set = true })))).Reason);
+        Assert.Equal("an edge on a negated set or reset coil", Refused(() => Write(Set(L("a"), T("out", Rise with { Negated = true })))).Reason);
+        Assert.Equal("a negated set or reset coil", Refused(() => Write(Set(L("a"), T("out", Neg with { Set = true })))).Reason);
     }
+
 
     // ── Jump and Return (B4b) ───────────────────────────────────────────────────────────────────
 
@@ -530,14 +566,17 @@ public class NetworkTextWriterTests
             NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
+    /// <summary>2R.5 (#9, #11): a jump is a coil — several on one rung, or beside a coil, each where it stands.</summary>
     [Fact]
-    public void A_rung_with_several_control_flow_targets_goes_to_the_marker()
+    public void A_rung_with_several_control_flow_targets_writes_each_as_a_coil()
     {
         var jumpBit = Flags.None with { Jump = true };
-        Assert.Equal("a rung driving several jumps",
-            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("B", jumpBit) }, jumpBit))).Reason);
-        Assert.Equal("a rung driving a coil and a jump together",
-            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None))).Reason);
+        Assert.Equal(Body("JMP A := JMP B := a;"),
+            Write(new Assign(L("a"), new[] { T("A", jumpBit), T("B", jumpBit) }, jumpBit)));
+        Assert.Equal(Body("JMP A := out := a;"),
+            Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None)));
+        Assert.Equal("a jump bit on an item no target carries",
+            Refused(() => Write(new Assign(L("a"), new[] { T("A"), T("out") }, jumpBit))).Reason);
     }
 
     [Fact]
@@ -622,13 +661,14 @@ public class NetworkTextWriterTests
         Assert.Equal(Body("split3 := TRUE;", "out := split3;", "`split3` := split3;"),
             Write(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")), Set(Ref(3), T("split3"))), BodyLanguage.Fbd, "SPLIT3"));
 
+    /// <summary>2R.5 (#19, #20): the writer never reorders — a reference stored above its definition, and a definition
+    /// below the top level, are written where they stand; a reference no item defines has no spelling.</summary>
     [Fact]
-    public void The_writer_never_reorders_and_never_nests_a_definition()
+    public void The_writer_never_reorders_a_definition()
     {
-        Assert.Equal("a split referenced before its definition",
-            Refused(() => Write(Net(Set(Ref(1), T("out")), Def(1, L("TRUE"))))).Reason);
-        Assert.Equal("a Demux definition below the top level",
-            Refused(() => Write(Set(Op("AND", Def(1, L("TRUE")), L("a")), T("out")))).Reason);
+        Assert.Equal(Body("out := split1;", "split1 := TRUE;"), Write(Net(Set(Ref(1), T("out")), Def(1, L("TRUE")))));
+        Assert.Equal(Body("out := (split1 := TRUE) AND a;"), Write(Set(Op("AND", Def(1, L("TRUE")), L("a")), T("out"))));
+        Assert.Equal("a split referenced and never defined", Refused(() => Write(Set(Ref(1), T("out")))).Reason);
     }
 
     // ── BoxTreeParallel (B8) ────────────────────────────────────────────────────────────────────
@@ -665,9 +705,11 @@ public class NetworkTextWriterTests
                 new Parallel(null, new Node[] { L("c"), L("d") }, ParallelMode.Sequential)), T("out"))));
         Assert.Equal("a Parallel with one branch",
             Refused(() => Write(Set(new Parallel(L("f"), new Node[] { L("a") }, ParallelMode.Sequential), T("out")))).Reason);
-        Assert.Equal("a Parallel with an empty branch",
-            Refused(() => Write(Set(new Parallel(L("f"), new Node[] { L("a"), Empty }, ParallelMode.Sequential), T("out")))).Reason);
+        // 2R.5 (readability Open c): an empty branch stores, builds and runs (a shorted branch) — nothing between its commas.
+        Assert.Equal(Body("out := f BRANCH (a,", "                 );"),
+            Write(Set(new Parallel(L("f"), new Node[] { L("a"), Empty }, ParallelMode.Sequential), T("out"))));
     }
+
 
     // ── reserved words (P1) ─────────────────────────────────────────────────────────────────────
 
@@ -678,17 +720,19 @@ public class NetworkTextWriterTests
         Assert.Equal(Body("parallel(IN := x);"), Write(Fb("parallel", new[] { In(L("x"), "IN") })));
     }
 
+    /// <summary>2R.5 (#12): a jump and a return are coils, so they take a coil's `S=` — the one storage measured on them; a
+    /// jump's or return's NOT, edge or R= is not measured and goes to the marker.</summary>
     [Fact]
-    public void A_flag_on_a_jump_or_return_target_goes_to_the_marker()
+    public void A_jump_or_return_target_takes_a_coils_set_storage_and_no_unmeasured_modifier()
     {
         var jump = Flags.None with { Jump = true };
         var ret = Flags.None with { Return = true };
-        Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Negated = true }) }, jump))).Reason);
-        Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("???", ret with { Set = true }) }, ret))).Reason);
-        Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Rising = true }) }, jump))).Reason);
+        Assert.Equal(Body("RETURN S= c;"), Write(new Assign(L("c"), new[] { T("???", ret with { Set = true }) }, ret)));
+        Assert.Equal(Body("JMP Done S= c;"), Write(new Assign(L("c"), new[] { T("Done", jump with { Set = true }) }, jump)));
+        Assert.Equal("a modified jump or return", Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Negated = true }) }, jump))).Reason);
+        Assert.Equal("a modified jump or return", Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Rising = true }) }, jump))).Reason);
+        Assert.Equal("a modified jump or return", Refused(() => Write(new Assign(L("c"), new[] { T("???", ret with { Falling = true }) }, ret))).Reason);
+        Assert.Equal("a modified jump or return", Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Reset = true }) }, jump))).Reason);
     }
 
     [Fact]

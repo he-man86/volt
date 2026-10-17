@@ -127,16 +127,6 @@ END_NETWORK
 NETWORK
   (:= x (AND a b !c))
 
-#### one-input-call-form — P5: an operator with one input keeps its call form
-=== text
-IMPLEMENTATION FBD
-NETWORK
-  x := ADD(a);
-END_NETWORK
-=== model
-NETWORK
-  (:= x (ADD a conn:0 main:0 eno:0))
-
 #### empty-slot-call-form — P5: the empty positional slot keeps the call fallback, `MUL(, m, 6)`
 === text
 IMPLEMENTATION FBD
@@ -343,7 +333,7 @@ NETWORK
 END_NETWORK
 === model
 NETWORK
-  (MOVE 0 =>ENO:lamp en:c)
+  (MOVE 0 =>ENO:lamp en:c eno:1)
 
 #### call-sole-argument-word — P4: a call's argument is a slot — a box word there takes no brackets, alone or beside others
 === text

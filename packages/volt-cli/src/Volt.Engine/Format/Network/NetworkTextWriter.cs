@@ -118,6 +118,11 @@ public static class NetworkTextWriter
         // Splits whose definition has been written. A reference to one not in here is a reference stored before its
         // definition — the vendor's order, which is never changed.
         private readonly HashSet<int> _defined = new();
+        /// <summary>The splits whose definition's value is being written — a reference to one is a split feeding itself
+        /// (2R.5, unmeasured: refused as the reader refuses it).</summary>
+        private readonly HashSet<int> _defining = new();
+        // Every VarId a Demux of the network defines, at any depth: a reference needs one somewhere (P9).
+        private readonly HashSet<int> _definitions = new();
 
         public Emitter(Network net, BodyLanguage lang, NetworkScope scope)
         {
@@ -126,6 +131,7 @@ public static class NetworkTextWriter
             _scope = scope;
             var ids = new List<int>();
             foreach (var t in net.Trees) Collect(t, ids);
+            foreach (var t in net.Trees) CollectDefinitions(t, _definitions);
             foreach (var id in ids.Distinct())
                 if (id < 0)
                     throw Unrepresentable("a split with a negative VarId",
@@ -266,35 +272,24 @@ public static class NetworkTextWriter
         {
             switch (n)
             {
-                case Assign a when IsControlFlow(a):
+                case Assign a when LoneControlFlow(a):
                     return ControlFlow(a, st);
 
                 case Assign a:
                 {
-                    RefuseItemFlags(a.Flags, "an Assign item");
-                    if (a.Targets.Count == 0)
-                        throw Unrepresentable("an assign with no target",
-                            "an Assign item drives no target, and `value;` spells the value item itself.");
-                    // `t1 := t2 S= value` — ONE item, its targets in order and the value on the right.
-                    var heads = string.Join(" ", a.Targets.Select(t => LValue(t, "an assignment target") + " " + StorageOp(t)));
-                    return a.Value is Terminator { Flags.IsNone: true } ? heads + " " : heads + " " + Value(a.Value, st, At.Slot).Text;
+                    // `t1 := JMP l := t2 S= value` — ONE item, its targets in order and the value on the right. A jump and a
+                    // return are coils (B4b, 2R.5): a target like any other, beside other coils, set or modified.
+                    var heads = Heads(a);
+                    if (a.Value is Terminator { Flags.IsNone: true }) return heads + " ";
+                    // `x := NOT ;`: a negated empty slot is the value of one plain coil (2R.5 #6a), measured nowhere else.
+                    if (a.Value is Terminator { Flags: { Negated: true } nf } && (nf with { Negated = false }).IsNone &&
+                        FlowTargets(a) is { Count: 1 } one && (one[0].Flags ?? Flags.None).IsNone)
+                        return heads + " NOT ";
+                    return heads + " " + Value(a.Value, st, At.Slot).Text;
                 }
 
                 case Demux d when d.Input is not null:
-                {
-                    if (_defined.Contains(d.VarId))
-                        throw Unrepresentable("a split defined twice",
-                            $"two Demux items define VarId {d.VarId} in network {_net.Order}.");
-                    // B6: the name IS the VarId. A declaration of that name is no second meaning: P1 reserves the pattern,
-                    // so the bare word is the split and the variable is written backticked (both IDEs build the shape
-                    // clean, rcc_network_wire_named_like_variable — the Demux's VarId is no name the compiler sees).
-                    var splitName = NetworkSpelling.SplitName(d.VarId);
-                    var value = Value(d.Input, st, At.Slot).Text;
-                    // Defined AFTER its own value is rendered: a split fed by a reference to itself is a reference before
-                    // its definition, not a definition. No type is ever written (B6): the Demux holds none.
-                    _defined.Add(d.VarId);
-                    return splitName + " := " + value;
-                }
+                    return SplitDefinition(d, st);
 
                 // The empty item: a `;` that closes no statement.
                 case Terminator t:
@@ -313,26 +308,90 @@ public static class NetworkTextWriter
             }
         }
 
-        private static bool IsControlFlow(Assign a) =>
-            a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { } f && (f.Jump || f.Return));
+        /// <summary>The item's targets with the control-flow bits they carry (DIALECT C13: the bit rides on the target and
+        /// on the item — the item's is a cache, 2R.4). One target takes the item's bit; with several, an item bit no target
+        /// carries names none of them, and is refused by name.</summary>
+        private List<Operand> FlowTargets(Assign a)
+        {
+            RefuseItemFlags(a.Flags with { Jump = false, Return = false }, "an Assign item");
+            if (a.Targets.Count == 1 && (a.Flags.Jump || a.Flags.Return))
+            {
+                var t = a.Targets[0];
+                var f = t.Flags ?? Flags.None;
+                return new List<Operand> { t with { Flags = f with { Jump = f.Jump || a.Flags.Jump, Return = f.Return || a.Flags.Return } } };
+            }
+            if ((a.Flags.Jump && !a.Targets.Any(t => t.Flags?.Jump == true)) ||
+                (a.Flags.Return && !a.Targets.Any(t => t.Flags?.Return == true)))
+                throw Unrepresentable("a jump bit on an item no target carries",
+                    $"an Assign in network {_net.Order} carries the {(a.Flags.Jump ? "Jump" : "Return")} bit on the item and on none of its {a.Targets.Count} targets.");
+            return a.Targets.ToList();
+        }
+
+        private static bool IsFlow(Operand t) => t.Flags is { } f && (f.Jump || f.Return);
+
+        /// <summary>The ONE jump or return of its rung, a plain coil (P7): <c>JMP l</c> / <c>RETURN</c> on the rail, else
+        /// <c>JMP l := c</c>. A jump beside another coil, set or modified is written by <see cref="Heads"/>.</summary>
+        private bool LoneControlFlow(Assign a)
+        {
+            if (a.Targets.Count == 0) return a.Flags.Return;
+            if (a.Targets.Count != 1) return false;
+            var t = FlowTargets(a)[0];
+            return IsFlow(t) && (t.Flags! with { Jump = false, Return = false }).IsNone;
+        }
+
+        /// <summary>The coils of an item, in order: <c>[R_EDGE|F_EDGE] [NOT] (target | JMP l | RETURN) (:= | S= | R=)</c>
+        /// each (2R.5) — a modifier stands before the coil it modifies, as on a pin.</summary>
+        private string Heads(Assign a)
+        {
+            if (a.Targets.Count == 0)
+                throw Unrepresentable("an assign with no target",
+                    "an Assign item drives no target, and `value;` spells the value item itself.");
+            var targets = FlowTargets(a);
+            // Measured per row before its spelling ships (2R.5): a negated or edge coil alone on its item.
+            if (targets.Count > 1 && targets.FirstOrDefault(t => t.Flags is { } f && (f.Negated || f.Rising || f.Falling)) is { } m)
+                throw Unrepresentable("a modified coil beside another coil",
+                    $"the coil '{m.Text}' in network {_net.Order} carries {Describe(m.Flags!)}. {NetworkSpelling.UnmeasuredModifiedFanOut}");
+            return string.Join(" ", targets.Select(t => CoilHead(t) + " " + StorageOp(t)));
+        }
+
+        private string CoilHead(Operand t)
+        {
+            var f = t.Flags ?? Flags.None;
+            if (f.Rising && f.Falling)
+                throw Unrepresentable("rising and falling on one coil", $"the coil '{t.Text}' carries both a rising and a falling edge.");
+            if (f.Jump && f.Return)
+                throw Unrepresentable("an item that both jumps and returns",
+                    $"the target '{t.Text}' in network {_net.Order} carries both the Jump and the Return bit.");
+            // Measured per row before its spelling ships (2R.5): a jump or a return takes `S=` alone, a coil one edge alone.
+            if ((f.Jump || f.Return) && (f.Negated || f.Rising || f.Falling || f.Reset))
+                throw Unrepresentable("a modified jump or return", $"the target '{t.Text}' in network {_net.Order} carries {Describe(f)}. {NetworkSpelling.UnmeasuredFlow}");
+            if ((f.Rising || f.Falling) && (f.Negated || f.Set || f.Reset))
+                throw Unrepresentable("an edge on a negated set or reset coil", $"the coil '{t.Text}' carries {Describe(f)}. {NetworkSpelling.UnmeasuredEdgeCoil}");
+            var mods = PinModifiers(f with { Set = false, Reset = false, Jump = false, Return = false });
+            if (f.Jump)
+            {
+                if (!NetworkSpelling.Identifier.IsMatch(t.Text))
+                    throw Unrepresentable("a jump with no label",
+                        $"a jump in network {_net.Order} names '{t.Text}', and JMP takes one label.");
+                return mods + "JMP " + t.Text;
+            }
+            if (f.Return)
+            {
+                if (t.Text != Box.UnnamedInstance)
+                    throw Unrepresentable("a return with a named target",
+                        $"a return in network {_net.Order} names the target '{t.Text}', and RETURN takes none.");
+                return mods + "RETURN";
+            }
+            return mods + LValue(t, "an assignment target");
+        }
 
         /// <summary>B4b: <c>JMP l</c> / <c>RETURN</c> on the rail when nothing drives it, else a coil:
         /// <c>JMP l := c</c>, <c>RETURN := c</c> (P7).</summary>
         private string ControlFlow(Assign a, LineState st)
         {
-            if (a.Targets.Count > 1)
-                throw Unrepresentable(
-                    a.Targets.All(t => t.Flags is { } f && (f.Jump || f.Return))
-                        ? "a rung driving several jumps"
-                        : "a rung driving a coil and a jump together",
-                    $"one Assign in network {_net.Order} drives {a.Targets.Count} targets, one of them control flow.");
-
             RefuseItemFlags(a.Flags with { Jump = false, Return = false }, "a jump or return item");
-            var target = a.Targets.Count == 1 ? a.Targets[0] : null;
-            if (target?.Flags is { } tf && !(tf with { Jump = false, Return = false }).IsNone)
-                throw Unrepresentable("a flag on a jump or return target",
-                    $"the jump or return target '{target.Text}' in network {_net.Order} carries {Describe(tf with { Jump = false, Return = false })}.");
-            var jump = a.Flags.Jump || target?.Flags?.Jump == true;
+            var target = a.Targets.Count == 1 ? FlowTargets(a)[0] : null;
+            var jump = target?.Flags?.Jump == true;
             var ret = a.Flags.Return || target?.Flags?.Return == true;
             if (jump && ret)
                 throw Unrepresentable("an item that both jumps and returns",
@@ -359,6 +418,20 @@ public static class NetworkTextWriter
             return action + " := " + Value(a.Value, st, At.Slot).Text;
         }
 
+        /// <summary>B6, P9: <c>split&lt;VarId&gt; := value</c> — its one definition, top level or nested (2R.5). A declaration of
+        /// that name is no second meaning: P1 reserves the pattern, so the bare word is the split and the variable is written
+        /// backticked (both IDEs build the shape clean, rcc_network_wire_named_like_variable). No type is ever written (B6):
+        /// the Demux holds none.</summary>
+        private string SplitDefinition(Demux d, LineState st)
+        {
+            if (!_defined.Add(d.VarId))
+                throw Unrepresentable("a split defined twice",
+                    $"two Demux items define VarId {d.VarId} in network {_net.Order}.");
+            _defining.Add(d.VarId);
+            try { return NetworkSpelling.SplitName(d.VarId) + " := " + Value(d.Input!, st, At.Slot).Text; }
+            finally { _defining.Remove(d.VarId); }
+        }
+
         // ── values: one arm per node class ──────────────────────────────────────────────────────────
 
         private Spelled Value(Node n, LineState st, At at)
@@ -382,16 +455,20 @@ public static class NetworkTextWriter
                             $"the operand '{l.Operand.Text}' carries {Describe(of)} and its item {Describe(l.Flags)}.");
                     return Modified(new Spelled(Operand(l.Operand.Text, "an operand")), l.Flags, $"the operand '{l.Operand.Text}'");
 
+                // 2R.5 (#20): a split defined below the top level stores, builds and runs — written where it stands, in
+                // brackets like a nested assignment (P4 (3)): `x := (split1 := a AND b);`.
                 case Demux { Input: not null } d:
-                    // Census 1.8: 139 definitions, all top level. A nested one has no position the text can give it
-                    // without moving it, and moving it would change the vendor's item order.
-                    throw Unrepresentable("a Demux definition below the top level",
-                        $"a Demux defining VarId {d.VarId} in network {_net.Order} is nested inside another item.");
+                    return new Spelled("(" + SplitDefinition(d, st) + ")");
 
+                // 2R.5 (#19): a reference stored above its definition is written where it stands (it reads the previous
+                // scan); the vendor's item order is never changed.
                 case Demux d:
-                    if (!_defined.Contains(d.VarId))
-                        throw Unrepresentable("a split referenced before its definition",
-                            $"network {_net.Order} references VarId {d.VarId} before (or without) the item defining it.");
+                    if (!_definitions.Contains(d.VarId))
+                        throw Unrepresentable("a split referenced and never defined",
+                            $"network {_net.Order} references VarId {d.VarId}, and no item of it defines that split.");
+                    if (_defining.Contains(d.VarId))
+                        throw Unrepresentable("a split read inside its own definition",
+                            $"network {_net.Order} reads VarId {d.VarId} inside the value that defines it. {NetworkSpelling.SplitName(d.VarId)} read inside its own definition: a split that feeds itself is not measured (2R.5).");
                     return new Spelled(NetworkSpelling.SplitName(d.VarId));
 
                 // Whether a consumer reads the box through its ENO is the box's ENO output: unread, it decides nothing
@@ -410,22 +487,21 @@ public static class NetworkTextWriter
                     return ParallelValue(p, st);
 
                 case Terminator t:
-                    if (!t.Flags.IsNone)
+                    // 2R.5 (#6a): a negated empty slot is measured as a plain coil's value only (`ItemLine`); an edge on one
+                    // nowhere.
+                    if (!(t.Flags with { Negated = false }).IsNone)
                         throw Unrepresentable("a flag on an empty slot",
-                            $"an unconnected slot in network {_net.Order} carries {Describe(t.Flags)}, and an empty slot has no text to modify.");
+                            $"an unconnected slot in network {_net.Order} carries {Describe(t.Flags)}, and an empty slot has no text to modify but its negation.");
+                    if (t.Flags.Negated)
+                        throw Unrepresentable("a negated empty slot outside a coil value",
+                            $"an unconnected slot in network {_net.Order} is negated. {NetworkSpelling.UnmeasuredNegatedEmpty}");
                     return new Spelled("");   // the empty slot: a position, never a token
 
-                // S2: an assignment below the top level, `(t1 := t2 S= value)` — its brackets never dropped (P4 (3)).
+                // S2: an assignment below the top level, `(t1 := t2 S= value)` — its brackets never dropped (P4 (3)). A
+                // jump is a coil, and a coil nests (2R.5).
                 case Assign a:
                 {
-                    if (IsControlFlow(a))
-                        throw Unrepresentable("a jump or return below the top level",
-                            $"an Assign item in network {_net.Order} that jumps or returns is nested inside another item, and `JMP`/`RETURN` are a rung's coil.");
-                    RefuseItemFlags(a.Flags, "an Assign item");
-                    if (a.Targets.Count == 0)
-                        throw Unrepresentable("an assign with no target",
-                            "an Assign item drives no target, and `(value)` is no pair the text reads.");
-                    var heads = string.Join(" ", a.Targets.Select(t => LValue(t, "an assignment target") + " " + StorageOp(t)));
+                    var heads = Heads(a);
                     var value = Value(a.Value, st, At.Slot).Text;
                     return new Spelled("(" + heads + (value.Length == 0 ? "" : " " + value) + ")");
                 }
@@ -458,11 +534,8 @@ public static class NetworkTextWriter
             if (b.StCode is not null) return new Spelled(Execute(b, st));
             if (consumed)
             {
-                // P3: an open line's root has an ENO — an operator box (MOVE included) shows ENO only with EN, a
-                // comparison never (N16, N21).
-                if (NetworkSpelling.Comparisons.Contains(b.Type))
-                    throw Unrepresentable("a comparison read through its ENO",
-                        $"a consumer reads the '{b.Type}' comparison through its ENO, and a comparison has no ENO (N21).");
+                // P3: an open line's root has an ENO — an operator box (MOVE and the comparisons included: 2R.5, #22)
+                // shows ENO only with EN (N16, N21).
                 if (b.Enable is null && IsOperatorBox(b))
                     throw Unrepresentable("an operator box without EN read through its ENO",
                         $"a consumer reads the '{b.Type}' box through its ENO, and an operator box shows ENO only with EN (N21).");
@@ -492,16 +565,26 @@ public static class NetworkTextWriter
         private Spelled BoxCore(Box b, LineState st, bool consumed, bool root)
         {
             for (var i = 0; i < b.Inputs.Count; i++)
-                if (b.Inputs[i] is { Flags.IsNone: false } p && !(p.Flags with { Negated = false }).IsNone)
-                    // S6 spells a NEGATED pin (census 1.13: 6 of 6); an edge or any other bit on a pin stays refused.
+                if (b.Inputs[i] is { Flags.IsNone: false } p && !PinModifiable(p.Flags))
+                    // S6 spells a NEGATED pin (census 1.13: 6 of 6), 2R.5 an edge on one (#15); a coil bit stays refused.
                     throw Unrepresentable(BoxRefusals.PinFlagMarker,
                         $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? $"input {i}"}" +
                         (p.Value is Leaf feed ? $" fed by '{feed.Operand.Text}'." : "."));
+            // 2R.5 (#16): the EN pin's own modifier, `NOT EN c`.
+            if (!PinModifiable(b.EnableFlags) || b.EnableFlags.Rising || b.EnableFlags.Falling)
+                throw Unrepresentable(BoxRefusals.PinFlagMarker, $"the '{b.Type}' box has {Describe(b.EnableFlags)} on its EN pin.");
+            if (b.Enable is null && !b.EnableFlags.IsNone)
+                throw Unrepresentable(BoxRefusals.PinFlagMarker, $"the '{b.Type}' box has {Describe(b.EnableFlags)} on an EN pin it does not have.");
 
             // C3, B1's guard: the compiler refuses a third input on these ("'-' needs exactly '2' operands").
             if (NetworkSpelling.TwoInputOperators.Contains(b.Type) && b.Inputs.Count > 2)
                 throw Unrepresentable("a two input operator box with more inputs",
                     $"the '{b.Type}' box holds {b.Inputs.Count} inputs, and {b.Type.ToUpperInvariant()} takes two (C3: the build refuses it).");
+            // 2R.5 (awkward-sweep #4): fewer than two stores and does not build, on both vendors.
+            if (NetworkSpelling.OperatorWords.Contains(b.Type) && b.Instance is null && b.StCode is null && b.Inputs.Count < 2)
+                throw Unrepresentable("an operator box with fewer than two inputs",
+                    $"the '{b.Type}' box holds {b.Inputs.Count} input(s), and {b.Type.ToUpperInvariant()} takes at least two (the build refuses it: \"needs at least '2' operands\").");
+
 
             // The text's reading of ENO (NetworkSpelling.TextHasEno): a line root with EN, or an open line read by ENO,
             // has one; a value has none. Where it decides the text, an unread fact is refused first, by its own name.
@@ -532,7 +615,7 @@ public static class NetworkTextWriter
                     ? NetworkSpelling.Move + " " + operands.Single()
                     : string.Join(" " + b.Type + " ", operands);
                 var outputs = OutputsAfter(b);
-                var en = b.Enable is null ? "" : EnTail(b.Enable, st);
+                var en = b.Enable is null ? "" : EnTail(b.Enable, b.EnableFlags, st);
                 return new Spelled(core + outputs + en, Word: true, EnabledComparison: enabledComparison);
             }
 
@@ -548,18 +631,18 @@ public static class NetworkTextWriter
                 // A formal is written where the tree needs one: the stored non-default one, a negated pin's (S6), the NOT
                 // box's always (P5: `NOT(IN := a)`), and a lone empty slot's (`MOVE(IN := )`: `MOVE()` has no slot).
                 var formal = p.Formal is { } stored && !NetworkSpelling.IsDefaultFormal(b.Type, i, stored) ? stored
-                    : p.Flags.Negated || isNot || (p.Value is Terminator && b.Inputs.Count == 1) ? dflt ?? p.Formal
+                    : !p.Flags.IsNone || isNot || (p.Value is Terminator && b.Inputs.Count == 1) ? dflt ?? p.Formal
                     : null;
-                if (p.Flags.Negated && formal is null)
-                    throw Unrepresentable("a negated unnamed pin of a call",
-                        $"the '{b.Type}' box has a negation on its unnamed input {i}, and the text spells a negated pin on its formal.");
+                if (!p.Flags.IsNone && formal is null)
+                    throw Unrepresentable("a modified unnamed pin of a call",
+                        $"the '{b.Type}' box has {Describe(p.Flags)} on its unnamed input {i}, and the text spells a pin's modifier on its formal.");
                 var value = Value(p.Value, st, At.Slot).Text;
                 if (formal is { } f)
                 {
                     if (string.Equals(f, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                         throw Unrepresentable("a data pin named EN",
                             $"the '{b.Type}' box has a data pin named EN, which the text reads as its enable.");
-                    pins.Add((p.Flags.Negated ? "NOT " : "") + Formal(f, b) + " := " + value);
+                    pins.Add(PinModifiers(p.Flags) + Formal(f, b) + " := " + value);
                 }
                 else pins.Add(value);
             }
@@ -568,17 +651,29 @@ public static class NetworkTextWriter
                 throw Unrepresentable("a lone unconnected input slot with no formal",
                     $"the '{b.Type}' box has one input slot, wired to nothing and unnamed, and `{b.Type}()` is a box with none.");
             var call = head + "(" + string.Join(", ", pins) + ")" + suffix;
-            return new Spelled(call + (b.Enable is null ? "" : EnTail(b.Enable, st)), EnabledComparison: enabledComparison);
+            return new Spelled(call + (b.Enable is null ? "" : EnTail(b.Enable, b.EnableFlags, st)), EnabledComparison: enabledComparison);
         }
 
         /// <summary>B3: <c> EN c</c> after the box — <c> EN</c> alone where the enable is wired to nothing (the empty
         /// enable, 2R.1 Open item 1). The tail is a slot (P4): one box, up to <c>;</c>, <c>)</c>, <c>,</c> or the line's
         /// end.</summary>
-        private string EnTail(Node enable, LineState st)
+        private string EnTail(Node enable, Flags pin, LineState st)
         {
-            if (enable is Terminator { Flags.IsNone: true }) return " EN";
-            return " EN " + Value(enable, st, At.Slot).Text;
+            var en = " " + PinModifiers(pin) + "EN";
+            if (enable is Terminator { Flags.IsNone: true }) return en;
+            return en + " " + Value(enable, st, At.Slot).Text;
         }
+
+        /// <summary>Whether a pin's flag set has a spelling — a negation or an edge (2R.5: an edge on a pin stores, builds and
+        /// runs, #15; a negated EN pin, #16). A coil bit on a pin has none, and the two together are not measured.</summary>
+        private static bool PinModifiable(Flags f) =>
+            !f.Set && !f.Reset && !f.Jump && !f.Return && !(f.Rising && f.Falling) &&
+            !((f.Rising || f.Falling) && f.Negated);   // each alone is measured, the two together not (2R.5)
+
+        /// <summary>The modifier before a pin's or a coil's name — <c>R_EDGE IN := v</c>, <c>NOT EN c</c>,
+        /// <c>R_EDGE xe := c</c>.</summary>
+        private static string PinModifiers(Flags f) =>
+            (f.Rising ? "R_EDGE " : f.Falling ? "F_EDGE " : "") + (f.Negated ? "NOT " : "");
 
         /// <summary>A word form's output pins: <c> =&gt; v</c> each, filling the free slots in order — the one place for an
         /// output a box word has, so a named pin or a slot passed over is the call form's (P5).</summary>
@@ -772,7 +867,7 @@ public static class NetworkTextWriter
                     throw Unrepresentable("a snippet line holding a control character",
                         $"an Execute box in network {_net.Order} holds a line with the control character U+0001, U+0002 or U+0003.");
             }
-            var head = "EXECUTE" + (b.Enable is null ? "" : EnTail(b.Enable, st));
+            var head = "EXECUTE" + (b.Enable is null ? "" : EnTail(b.Enable, b.EnableFlags, st));
             return head + "\n" + stCode + "\n  END_EXECUTE";
         }
 
@@ -792,9 +887,8 @@ public static class NetworkTextWriter
             if (p.Input is Terminator)
                 throw Unrepresentable("a Parallel fed by the empty terminator",
                     $"a Parallel in network {_net.Order} is fed by an unconnected terminator; an unfed Parallel has no feed.");
-            if (p.Branches.Any(br => br is Terminator { Flags.IsNone: true }))
-                throw Unrepresentable("a Parallel with an empty branch",
-                    $"a Parallel in network {_net.Order} has a branch wired to nothing, and `(a, , b)` is refused (P6).");
+            // 2R.5 (readability Open c): an empty branch stores, builds and runs (a shorted branch) — written as nothing between
+            // its commas, `(a, , b)`.
             if (!NetworkSpelling.IsMeasuredMode(p.Mode))
                 throw Unrepresentable("an unmeasured Parallel mode",
                     $"a Parallel in network {_net.Order} has the mode '{p.Mode}'; the measured modes are BoxShortCircuit and Sequential.");
@@ -832,14 +926,14 @@ public static class NetworkTextWriter
             return new Spelled(text);
         }
 
-        /// <summary>A coil's storage — ExST's <c>:=</c>, <c>S=</c>, <c>R=</c>. Negated and edge coils are marker-only:
-        /// 0 of 576 measured targets carry one.</summary>
+        /// <summary>A coil's storage — ExST's <c>:=</c>, <c>S=</c>, <c>R=</c>; its negation and edge stand before the coil
+        /// (<see cref="CoilHead"/>, 2R.5: a negated coil and an edge coil store and build, #13, #14).</summary>
         private static string StorageOp(Operand target)
         {
             var f = target.Flags ?? Flags.None;
-            if (f.Negated) throw Unrepresentable("negated coil", $"the coil '{target.Text}' is negated.");
-            if (f.Rising) throw Unrepresentable("rising-edge coil", $"the coil '{target.Text}' is a rising-edge coil.");
-            if (f.Falling) throw Unrepresentable("falling-edge coil", $"the coil '{target.Text}' is a falling-edge coil.");
+            if (f.Negated && (f.Set || f.Reset))
+                throw Unrepresentable("a negated set or reset coil",
+                    $"the coil '{target.Text}' carries a negation beside its storage, which the vendor's two coil bits cannot hold apart.");
             if (f.Set && f.Reset)
                 throw Unrepresentable("a coil both set and reset", $"the coil '{target.Text}' carries both the Set and the Reset bit.");
             return f.Reset ? "R=" : f.Set ? "S=" : ":=";
@@ -906,6 +1000,12 @@ public static class NetworkTextWriter
         {
             if (n is Demux d) ids.Add(d.VarId);
             foreach (var child in n.Children()) Collect(child, ids);
+        }
+
+        private static void CollectDefinitions(Node n, HashSet<int> ids)
+        {
+            if (n is Demux { Input: not null } d) ids.Add(d.VarId);
+            foreach (var child in n.Children()) CollectDefinitions(child, ids);
         }
 
         private static string Describe(Flags f) =>

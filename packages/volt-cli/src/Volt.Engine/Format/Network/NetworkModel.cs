@@ -140,6 +140,12 @@ public sealed record Box(
     string? MainOutputName = null,
     NwlMembers? Members = null) : Node(Flags)
 {
+    /// <summary>The modifiers on the EN PIN itself — the vendor's <c>InputFlags[0]</c> on a box whose slot 0 is the enable
+    /// (ld-fbd-coverage 2R.5, awkward-sweep #16: a negated EN pin stores, builds and runs). A pin's modifier, not the
+    /// enable tree's: <c>NOT EN c</c> negates the pin, <c>EN NOT c</c> the contact feeding it — two stored trees.
+    /// <see cref="Flags.None"/> on a box with no enable.</summary>
+    public Flags EnableFlags { get; init; } = Flags.None;
+
     /// <summary>The enable first (it is input slot 0 on the vendor), then the pins' values.</summary>
     public override IEnumerable<Node> Children()
     {
@@ -356,25 +362,11 @@ public static class UnheldFlags
 public static class BoxRefusals
 {
     public const string PinFlagMarker = "a flag on a box input pin";
-    public const string WiredEnoMarker = "an ENO output wired to a variable";
     public const string NullInputSlotMarker = "a box input slot holding nothing";
     public const string MissingListMarker = "a box list the reader cannot find";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
-
-    /// <summary>A variable stored on the ENO slot: the text has no spelling for it (ENO is never an <c>=&gt;</c> slot), and
-    /// skipping it pulled a body that hid the variable — a push rebuilding the network then wrote an empty operand there,
-    /// deleting it from the IDE with nothing in the diff. Measured null on every box, not assumed so.</summary>
-    /// <param name="enoSlotText">The operand text the ENO slot holds; null or empty for the null echo.</param>
-    public static void RefuseWiredEno(string vendor, string boxType, string? enoSlotText)
-    {
-        if (enoSlotText is { Length: > 0 } wired)
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(WiredEnoMarker,
-                $"{vendor}: the '{boxType}' box stores '{wired}' on its ENO output, which network text has no spelling " +
-                "for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses to materialize the body " +
-                "rather than pull it without that variable.");
-    }
 
     /// <summary>A box with no <c>InputFlags</c> member: the census found it on every box (DIALECT N4 on TwinCAT, ~1,300
     /// CODESYS boxes), and a box without it keeps its pins' modifiers where the reader cannot see them — reading the gap

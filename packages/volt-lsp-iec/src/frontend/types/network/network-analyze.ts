@@ -186,9 +186,22 @@ export function instanceFb(head: Expr, scope: Scope, project: Scope): FunctionBl
   if (head.kind === "ident_expr") {
     const kind = lookup(scope, head.name)?.symbol.kind
     if (kind === undefined || !VARIABLE_KINDS.has(kind)) return undefined
+  } else if (head.kind === "index") {
+    // 2R.5 (awkward-sweep #17): an ELEMENT of an array of FBs is an instance of the element type — one subscript group on
+    // a name or a path, one index per dimension, as the bridge's `StDeclaration.TypeOfArrayElement` reads it (`m[0]` of
+    // a 2-D array is a row, no instance).
+    if (!isNamePath(head.base) || (head.base.kind === "ident_expr" && !VARIABLE_KINDS.has(lookup(scope, head.base.name)?.symbol.kind ?? "")))
+      return undefined
+    const array = inferExprType(head.base, scope, project)
+    if (array.kind !== "array" || array.dims.length !== head.indices.length) return undefined
   } else if (head.kind !== "member") return undefined
   const t = inferExprType(head, scope, project)
   return t.kind === "function_block" ? t : undefined
+}
+
+/** A name or a dotted path of names (`fbs`, `GVL.fbs`) — no subscript, no call, no dereference. */
+function isNamePath(e: Expr): boolean {
+  return e.kind === "ident_expr" || (e.kind === "member" && isNamePath(e.base))
 }
 
 /**
