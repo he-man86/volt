@@ -149,10 +149,16 @@ public class BridgePackagingTests
         }
     }
 
+    /// <summary>A pid Windows reused for a process this run cannot inspect (pid 4 is System) is not one this run started:
+    /// the sweep must not throw on it, or every later run fails until the folder is deleted by hand (2026-10-15, audiodg).</summary>
+    [Fact]
+    public void A_pid_reused_by_a_protected_process_is_not_alive_to_the_sweep() => Assert.False(Alive(4));
+
     private static bool Alive(int pid)
     {
         try { using var p = Process.GetProcessById(pid); return !p.HasExited; }
         catch (ArgumentException) { return false; }   // no such process
+        catch (System.ComponentModel.Win32Exception) { return false; }   // a pid reused by a process this run cannot inspect
     }
 
     /// <summary>What a bundle ships, out of its build's output folder, and the file in it that carries the shared host:
