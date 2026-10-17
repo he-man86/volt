@@ -1,0 +1,7 @@
+IMPLEMENTATION FBD
+NETWORK
+  split1 := a AND b;
+  split2 := c OR d;
+  out1 := split1 AND split2;
+  out2 := split1 OR split2;
+END_NETWORK

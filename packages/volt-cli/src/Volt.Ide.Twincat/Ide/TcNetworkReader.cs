@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -12,9 +12,11 @@ namespace Volt.Ide.Twincat;
 /// A TwinCAT <c>&lt;NWL&gt;</c> archive as a <see cref="NetworkBody"/>.
 ///
 /// <para>The shapes below are the SAME object model CODESYS exposes live — same assembly family, same
-/// <c>IBoxTreeVisitor</c> closed set — so this reader and <c>CodesysNetworkReader</c> produce the same model
+/// <c>IBoxTreeVisitor</c> closed set — so this reader and <c>CodesysNetworkReader</c> must produce the same model
 /// for the same logic, which is what keeps the two vendors byte-identical on the wire. Only the ACCESS differs:
-/// CODESYS hands over objects, TwinCAT hands over their serialization.</para>
+/// CODESYS hands over objects, TwinCAT hands over their serialization. Where the two still differ it is a defect
+/// to close, not a parity (this one refuses a populated <c>InputFlags</c>, which CODESYS's reads; openspec
+/// twincat-inproc-host 1.1).</para>
 ///
 /// <para><b>The member names differ from the live model, and the differences are the whole risk here</b>, so
 /// they are stated once: an operand's text is <c>Operand</c> (live: <c>OperandExpr</c>), its l-value marker is
@@ -47,11 +49,11 @@ internal static class TcNetworkReader
     private static string? Trimmed(string? s) =>
         string.IsNullOrEmpty(s) ? null : (s!.TrimEnd() is { Length: > 0 } t ? t : null);
 
-    /// <summary>A network comment as the archive's XML hands it over. XML's end-of-line normalization turns every CR LF
-    /// of a value into LF on the parse, so a line break arrives as LF whatever the IDE holds, and the text's comment lines
-    /// are CR LF (P10): each LF is the IDE's line break, read back as CR LF. Without it a two-line comment read as a bare
-    /// LF, which the text cannot spell, and its whole body was hidden (measured 2026-10-16, ld-fbd-coverage 2R.3). The
-    /// writer compares through the same reading and writes CR as <c>&amp;#xD;</c> (<see cref="TcArchive.Text"/>).</summary>
+    /// <summary>A network comment as the archive's XML hands it over. The XAE hands a comment's CR LF raw (DIALECT N42 f),
+    /// and a normalizing parse turns it into LF, so a line break arrives as LF or CR LF depending on the parse, and the
+    /// text's comment lines are CR LF (P10): each LF is the IDE's line break, read back as CR LF. Without it a two-line
+    /// comment read as a bare LF, which the text cannot spell, and its whole body was hidden (measured 2026-10-16,
+    /// ld-fbd-coverage 2R.3). The writer compares through the same reading.</summary>
     internal static string? Comment(string? archived) =>
         NetworkText.Stored(archived?.Replace("\r\n", "\n").Replace("\n", "\r\n"));
 
@@ -286,11 +288,9 @@ internal static class TcNetworkReader
         var holder = TcArchive.Obj(box, "OutputItems");
         if (holder is null) return null;
         var slots = TcArchive.Slots(holder, "OutputItems");
-        // A box the PLCopen IMPORT built declares one output (`OutputParam/Names = [Out1]`) and stores no slot null: the
-        // importer hangs an EMPTY operand there, which `TcNetworkWriter.DropImporterBoxOutputs` removes after the stamp
-        // (`importer-max.TcPOU`, real XAE output, is the state after it). Before or after that repair, one declared
-        // output is one slot a consumer can read — and the stamp compares the connection BEFORE the repair, so both
-        // states must read the same.
+        // A box TwinCAT's PLCopen IMPORT built declares one output (`OutputParam/Names = [Out1]`) and stores no slot
+        // null: the importer hangs an EMPTY operand there, or none (`importer-max.TcPOU`, real XAE output). Either way
+        // one declared output is one slot a consumer can read.
         if (slots.Count <= 1 && slots.All(s => s is not null && string.IsNullOrEmpty(TcArchive.Str(s, "Operand")))
             && Names(box, "OutputParam").Count == 1)
             return 0;

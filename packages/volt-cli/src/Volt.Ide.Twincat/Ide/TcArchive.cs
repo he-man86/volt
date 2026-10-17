@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -76,83 +76,65 @@ internal static class TcArchive
         };
     }
 
-    /// <summary>The same body with its view set to <paramref name="mode"/> ("Fbd" / "Ld"), or NULL when it
-    /// already says that — so an unchanged push writes nothing at all.
-    ///
-    /// <para><b>This is how a ladder becomes a ladder.</b> `CreateChild` cannot make an "LD" (DIALECT C6): it
-    /// makes an FBD, and the graph goes in through PLCopen as FBD too, because that is the only shape the
-    /// importer accepts — an &lt;LD&gt; body of FBD-shaped elements makes it throw. The vendor does not treat a
-    /// ladder as a different program in the first place; FBD, LD and IL are three VIEWS of one network. So the
-    /// difference between the two languages, for everything Volt can express, is exactly this one string.</para>
-    ///
-    /// <para>The parse preserves whitespace and the serialization adds none, so every byte the IDE wrote other
-    /// than this value survives.</para></summary>
-    public static string? WithViewMode(string? bodyXml, string mode)
+    /// <summary>An archive as the IDE handed it, parsed WITHOUT XML's end-of-line normalization: the XAE hands a value's
+    /// CR LF raw (measured 2026-10-17, DIALECT N42 f), and the normalizing parse folded it into a bare LF — which the next
+    /// write handed back, changing every untouched multi-line value of the body (a network comment, an EXECUTE box's ST
+    /// lines). The in-place writer edits this tree and writes it back with <see cref="Text"/>.</summary>
+    internal static XElement Parse(string archive)
     {
-        if (string.IsNullOrWhiteSpace(bodyXml)) return null;
-
-        XElement doc;
-        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
-        catch (System.Xml.XmlException) { return null; }
-
-        var impl = doc.DescendantsAndSelf("o")
-                      .FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
-        if (impl == null) return null;
-
-        var slot = impl.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == "DefaultViewMode");
-        if (slot == null) return null;                 // creates nothing - the same rule the writer follows
-
-        var want = "\"" + mode + "\"";
-        if (slot.Value == want) return null;
-        slot.Value = want;
-        return Text(doc, bodyXml);
+        using var r = new System.Xml.XmlTextReader(new System.IO.StringReader(archive))
+        {
+            Normalization = false,
+            WhitespaceHandling = System.Xml.WhitespaceHandling.All,
+            DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+        };
+        return XElement.Load(r, LoadOptions.PreserveWhitespace);
     }
 
-    /// <summary>The archive's VALUES (a text holding more than white space, or an attribute) carry a RAW carriage
-    /// return — one XML's end-of-line normalization folds, where an entitized <c>&amp;#xD;</c> survives. Told apart by
-    /// parsing twice: without normalization a raw CR stays, with it only the entitized one does. White space between
-    /// elements is the archive's formatting, not a value, and is not asked about.</summary>
-    internal static bool HoldsRawLineEnd(string xml)
-    {
-        if (xml.IndexOf('\r') < 0) return false;
-        XElement raw;
-        using (var r = new System.Xml.XmlTextReader(new System.IO.StringReader(xml))
-               {
-                   Normalization = false,
-                   WhitespaceHandling = System.Xml.WhitespaceHandling.All,
-                   DtdProcessing = System.Xml.DtdProcessing.Prohibit,
-               })
-            raw = XElement.Load(r, LoadOptions.PreserveWhitespace);
-        return ValueCarriageReturns(raw) != ValueCarriageReturns(XElement.Parse(xml, LoadOptions.PreserveWhitespace));
-    }
-
-    private static int ValueCarriageReturns(XElement root) =>
-        root.DescendantNodesAndSelf().OfType<XText>().Where(t => !string.IsNullOrWhiteSpace(t.Value)).Sum(t => t.Value.Count(c => c == '\r'))
-        + root.DescendantsAndSelf().SelectMany(e => e.Attributes()).Sum(a => a.Value.Count(c => c == '\r'));
-
-    /// <summary>An archive as the IDE is handed it. A carriage return in a value (a network comment's CR LF, P10) is
-    /// written as <c>&amp;#xD;</c>: raw, XML's end-of-line normalization folds it into the LF beside it on the IDE's parse,
-    /// and a two-line comment came back holding a bare LF, which hid its body (measured 2026-10-16, ld-fbd-coverage
-    /// 2R.3). Written by an XmlWriter that ENTITIZES new lines (text: a CR as <c>&amp;#xD;</c>, an LF as is; attributes:
-    /// both entitized) and never replaces them: <c>XNode.ToString</c> writes every LF as the platform's new line (CR LF
-    /// on Windows), so entitizing the CR after it turned each bare LF of the whole body — an untouched network's title,
-    /// an EXECUTE box's ST lines — into CR LF in the IDE (2R.3 review).
-    /// <para><paramref name="handed"/> is the archive string the IDE handed: one whose VALUES carry a raw CR is refused
-    /// (<see cref="TcUnmeasured.RefuseRawLineEnd"/>) — its parse folds that CR LF into LF, and this write would hand every
-    /// untouched value back as LF.</para></summary>
+    /// <summary>An archive as the IDE is handed it: every VALUE written exactly as it holds it — a CR LF raw, a bare LF
+    /// bare, as the XAE hands them (DIALECT N42 f: it keeps a value's characters, an entitized <c>&amp;#xD;</c> and a raw CR
+    /// alike, and hands the CR back raw). <c>XNode.ToString</c> wrote every LF as the platform's new line (CR LF on
+    /// Windows), turning each bare LF of the whole body into CR LF in the IDE (2R.3 review).
+    /// <para><b>The white space BETWEEN elements is no value: it is the archive's layout</b>, which TwinCAT stores as
+    /// handed (DIALECT N42 a). It is written raw, every line break as the handed archive's own (CR LF in every archive
+    /// TwinCAT wrote), so an untouched element stays byte for byte and a network spliced in — laid out in memory — sits
+    /// in the same layout (<c>A_body_edited_with_built_networks_keeps_the_vendor_layout</c>).</para></summary>
     internal static string Text(XNode doc, string handed)
     {
-        TcUnmeasured.RefuseRawLineEnd(handed);
+        var newline = System.Text.RegularExpressions.Regex.Match(handed, ">(\r?\n) *<").Groups[1] is { Success: true } g ? g.Value : "\r\n";
         var sb = new System.Text.StringBuilder();
         var settings = new System.Xml.XmlWriterSettings
         {
             OmitXmlDeclaration = true,
             Indent = false,
-            NewLineHandling = System.Xml.NewLineHandling.Entitize,
+            NewLineHandling = System.Xml.NewLineHandling.None,
             ConformanceLevel = System.Xml.ConformanceLevel.Auto,
         };
-        using (var w = System.Xml.XmlWriter.Create(sb, settings)) doc.WriteTo(w);
+        using (var w = System.Xml.XmlWriter.Create(sb, settings)) WriteNode(w, doc, newline);
         return sb.ToString();
+    }
+
+    private static void WriteNode(System.Xml.XmlWriter w, XNode node, string newline)
+    {
+        switch (node)
+        {
+            case XDocument d:
+                foreach (var n in d.Nodes()) WriteNode(w, n, newline);
+                break;
+            case XElement e:
+                w.WriteStartElement(e.Name.LocalName, e.Name.NamespaceName);
+                foreach (var a in e.Attributes())
+                    if (!a.IsNamespaceDeclaration) w.WriteAttributeString(a.Name.LocalName, a.Name.NamespaceName, a.Value);
+                foreach (var n in e.Nodes()) WriteNode(w, n, newline);
+                if (e.IsEmpty) w.WriteEndElement(); else w.WriteFullEndElement();
+                break;
+            case XText t when t is not XCData && string.IsNullOrWhiteSpace(t.Value) && t.Parent is { } owner && owner.Elements().Any():
+                w.WriteRaw(t.Value.Replace("\r\n", "\n").Replace("\n", newline));   // the layout between elements
+                break;
+            default:
+                node.WriteTo(w);   // a value: as it holds it
+                break;
+        }
     }
 
     /// <summary>A named object member: <c>&lt;o n="Name"&gt;</c>. An explicit <c>&lt;n n="Name"/&gt;</c> is a
@@ -239,7 +221,7 @@ internal static class TcArchive
     /// <c>TypeList</c>, one <c>Network</c> — whose <c>NetworkItems</c> is empty. A freshly created POU therefore
     /// arrives with a body that is fully present and entirely blank, and a blankness check misses it.</para>
     ///
-    /// <para>True here means the import door: nothing is lost by letting TwinCAT build the body from PLCopen.
+    /// <para>True here means the create door: nothing is lost by building the whole body natively.
     /// False means the in-place writer, where every id, every <c>Fixed</c> and every unmodelled member the IDE
     /// wrote survives exactly as it wrote it.</para></summary>
     public static bool HasNoItems(XElement? impl)

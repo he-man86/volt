@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -124,7 +124,7 @@ public static class PushService
         // (measured on `Lenze_MID-S100`: 157 of 174 items landed before the refusal). Everything decidable from the
         // SOURCE TEXT alone — a malformed ST document, network text that does not parse or is incomplete, a duplicate
         // child — is decided here, and so is what the driver can decide without touching the IDE
-        // (`ICodeStore.ValidateSource`: TwinCAT's PLCopen writer is a pure function of the parsed model). A refusal
+        // (`ICodeStore.ValidateSource`: TwinCAT's archive builder is a pure function of the parsed model). A refusal
         // that needs the LIVE project (a type the driver cannot resolve, a body the IDE rejects on import) stays
         // possible; the apply loop reports it in structure: what landed, the refused op, every op it did not reach.
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
@@ -198,7 +198,7 @@ public static class PushService
                     validated[set.Name] = source;
                     var bodies = source.Bodies;
                     // …and what only the DRIVER can decide without writing: a body one vendor's format cannot
-                    // express (TwinCAT's PLCopen writer, one throwaway serialization; e2e
+                    // express (TwinCAT's archive builder, one throwaway build; e2e
                     // `test/e2e/graphical/refused-shapes.test.ts`). Asked of EVERY BODY THE WRITE WOULD CREATE, which
                     // the driver decides: an update rewrites only the changed networks of a body the IDE holds, while
                     // a NEW member of an existing item is created whole (openspec bridge-refusal-review 2.28, D21). The
@@ -1381,9 +1381,8 @@ public static class PushService
         live ??= ReadLive(ide, pou, name);
 
         // A REFUSED CREATE LEAVES NOTHING BEHIND. The text was validated before creating, but some refusals come from
-        // inside the write: TwinCAT's graphical CREATE resolves the body through a PLCopen import, which can come back
-        // with FEWER networks than were pushed (DIALECT D25), and an empty shell under the engineer's name would be
-        // pulled as if they had written it. Best-effort, deliberately: the rollback never replaces the REAL refusal with
+        // inside the write — a refusal only the live IDE can give (a member it will not create, a write it rejects) —
+        // and an empty shell under the engineer's name would be pulled as if they had written it. Best-effort, deliberately: the rollback never replaces the REAL refusal with
         // its own failure. It spans the whole sequence below (design 5.Qa, O2): a refused member is as much a refusal
         // of the create as a refused content write.
         try

@@ -59,8 +59,8 @@ END_FUNCTION_BLOCK
 	 * 3a). The vendor's own View command writes the view and nothing stored, a Parallel included, and draws it in FBD
 	 * (`probe-view-switch.py (deleted; git show 5312b799fe:packages/volt-cli/scripts/probe-view-switch.py)`). This is the same through the shipped push: both Parallels (fed `BoxShortCircuit`,
 	 * unfed `Sequential` under an AND) pull back unchanged under the flipped line, the project builds, and the flip back
-	 * restores the LD text. CODESYS only: TwinCAT's import cannot build a Parallel (D30), refused by name before the
-	 * import (`real-project-shapes.test.ts`).
+	 * restores the LD text. CODESYS only: TwinCAT has never been seen to write a Parallel, so its native builder has no
+	 * member list to build one from and refuses it by name (DIALECT N42, `real-project-shapes.test.ts`).
 	 */
 	it.skipIf(VENDOR === "twincat")("an LD body holding a PARALLEL flips to FBD and back, unchanged, and builds", async () => {
 		const name = id("view_flip_par")

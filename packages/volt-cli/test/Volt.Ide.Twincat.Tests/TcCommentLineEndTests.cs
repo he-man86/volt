@@ -7,25 +7,26 @@ using Xunit;
 namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
-/// A NETWORK COMMENT'S CR LF THROUGH THE ARCHIVE'S XML (ld-fbd-coverage 2R.3, measured live 2026-10-16). XML's
-/// end-of-line normalization folds a raw CR LF into LF on every parse, so a two-line comment Volt wrote came back
-/// holding a bare LF — which network text cannot spell (P10) — and the whole body pulled as
-/// <c>IMPLEMENTATION FBD UNSUPPORTED</c>. The write keeps a CR as <c>&amp;#xD;</c>, and the read takes the parsed LF as
-/// the IDE's line break.
+/// A NETWORK COMMENT'S CR LF THROUGH THE ARCHIVE'S XML (ld-fbd-coverage 2R.3; measured live 2026-10-17, TcXaeShell 15.0 /
+/// Project14, DIALECT N42 f). TwinCAT keeps a value's characters and hands its CR LF back RAW: a comment written as
+/// <c>&amp;#xD;</c> + LF and one written as a raw CR LF both read back as a raw CR LF, and a bare LF reads back as a bare
+/// LF. XML's end-of-line normalization would fold a raw CR LF into LF on the way through Volt, so the in-place writer
+/// parses the handed archive WITHOUT it (<see cref="TcArchive.Parse"/>) and writes every value as it holds it
+/// (<see cref="TcArchive.Text"/>): an untouched value comes back byte for byte, and the read takes the parsed LF as the
+/// IDE's line break.
 /// </summary>
 public class TcCommentLineEndTests
 {
     [Fact]
     public void A_carriage_return_survives_the_archive_text()
     {
-        var doc = new XDocument(new XElement("v", "\"a\r\nb\""));
-        Assert.Equal("\"a\r\nb\"", XDocument.Parse(TcArchive.Text(doc, "")).Root!.Value);
+        const string handed = "<v>\"a\r\nb\"</v>";
+        Assert.Equal(handed, TcArchive.Text(TcArchive.Parse(handed), handed));
     }
 
     /// <summary>A BARE LF STAYS A BARE LF (2R.3 review): <c>XNode.ToString</c> writes every LF in a text node as the
-    /// platform's new line (CR LF on Windows), and entitizing the CR afterwards turned each one into <c>&amp;#xD;</c> +
-    /// LF — so a push rewrote every multi-line value of the WHOLE body (an untouched network's title, an EXECUTE box's
-    /// ST lines) from LF to CR LF in the IDE. Only a CR the value really holds is kept as one.</summary>
+    /// platform's new line (CR LF on Windows), so a push rewrote every multi-line value of the WHOLE body (an untouched
+    /// network's title, an EXECUTE box's ST lines) from LF to CR LF in the IDE. Each value keeps exactly what it holds.</summary>
     [Fact]
     public void A_bare_line_feed_is_written_as_a_line_feed()
     {
@@ -34,11 +35,26 @@ public class TcCommentLineEndTests
             new XElement("w", "\"c1\r\nc2\""),
             new XAttribute("x", "p\nq")));
         var text = TcArchive.Text(doc, "");
-        var back = XDocument.Parse(text).Root!;
+        var back = TcArchive.Parse(text);
         Assert.Equal("\"l1\nl2\"", back.Element("v")!.Value);
         Assert.Equal("\"c1\r\nc2\"", back.Element("w")!.Value);
         Assert.Equal("p\nq", (string?)back.Attribute("x"));
         Assert.Contains("l1\nl2", text);
+    }
+
+    /// <summary>THE FORMATTING IS THE ARCHIVE'S LAYOUT, NOT A VALUE (twincat-inproc-host, the native writer): TwinCAT stores
+    /// the archive as handed (DIALECT N42 a), so the white space between elements keeps the handed archive's own line end,
+    /// and a network spliced in sits in the same layout. Written with the values' rule, each line break of a spliced
+    /// network (laid out in memory as LF) left TwinCAT's CR LF layout.</summary>
+    [Fact]
+    public void The_formatting_between_elements_keeps_the_handed_line_end()
+    {
+        const string handed = "<a>\r\n  <v>\"x\r\ny\"</v>\r\n  <w />\r\n</a>";
+        var doc = TcArchive.Parse(handed);
+        Assert.Equal(handed, TcArchive.Text(doc, handed));
+
+        doc.Element("w")!.AddAfterSelf(new XText("\n  "), new XElement("u"));   // a spliced element, laid out in memory
+        Assert.Equal("<a>\r\n  <v>\"x\r\ny\"</v>\r\n  <w />\r\n  <u />\r\n</a>", TcArchive.Text(doc, handed));
     }
 
     [Fact]
@@ -49,37 +65,33 @@ public class TcCommentLineEndTests
         Assert.Null(TcNetworkReader.Comment(""));
     }
 
-    /// <summary>AN UNTOUCHED NETWORK'S LINE ENDS ARE NEVER CHANGED BY A GUESS (gate 2R.3, finding 2). Whether the XAE hands a
-    /// CR as <c>&amp;#xD;</c> or raw is not measured. Entitized, the parse keeps it and the write hands it back as it came;
-    /// raw, the parse folds network 1's CR LF into LF and the write would hand it back as a bare LF on a push that changed
-    /// only network 2 — hidden from the pull, which reads LF as CR LF. That write is refused by name.</summary>
+    /// <summary>AN UNTOUCHED NETWORK'S LINE ENDS ARE NEVER CHANGED (gate 2R.3, finding 2). The archive the XAE hands holds a
+    /// comment's CR LF raw (measured, DIALECT N42 f); a push that changes only network 2 hands network 1's comment back
+    /// exactly as it came — not folded to a bare LF by the parse, which the pull would hide (it reads LF as CR LF).</summary>
     [Fact]
-    public void An_untouched_entitized_comment_is_written_back_as_the_archive_held_it()
+    public void An_untouched_comment_is_written_back_as_the_archive_held_it()
     {
-        var (xml, pushed, scope) = TwoNetworks("\"a&#xD;\nb\"");
+        var (xml, pushed, scope) = TwoNetworks("\"a\r\nb\"");
 
         var written = TcNetworkWriter.Apply(xml, pushed, scope);
 
         Assert.NotNull(written);
-        Assert.Contains("<v n=\"Comment\">\"a&#xD;\nb\"</v>", written);
+        Assert.Contains("<v n=\"Comment\">\"a\r\nb\"</v>", written);
         Assert.Equal("c", TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Ld).Networks[1].Comment);
     }
 
+    /// <summary>…and a comment Volt writes is written as the IDE holds one: its CR LF raw.</summary>
     [Fact]
-    public void An_archive_holding_a_raw_carriage_return_in_a_value_is_refused_not_rewritten()
+    public void A_comment_the_push_writes_keeps_its_line_break()
     {
         var (xml, pushed, scope) = TwoNetworks("\"a\r\nb\"");
+        var edited = pushed with { Networks = new[] { pushed.Networks[0], pushed.Networks[1] with { Comment = "c\r\nd" } } };
 
-        Assert.Throws<TcRawLineEndRefusal>(() => TcNetworkWriter.Apply(xml, pushed, scope));
-    }
+        var written = TcNetworkWriter.Apply(xml, edited, scope);
 
-    [Fact]
-    public void Raw_line_ends_in_the_formatting_between_elements_are_not_a_value()
-    {
-        Assert.False(TcArchive.HoldsRawLineEnd("<a>\r\n  <v>\"x\"</v>\r\n</a>"));
-        Assert.False(TcArchive.HoldsRawLineEnd("<a>\r\n  <v>\"x&#xD;\ny\"</v>\r\n</a>"));
-        Assert.True(TcArchive.HoldsRawLineEnd("<a>\r\n  <v>\"x\r\ny\"</v>\r\n</a>"));
-        Assert.True(TcArchive.HoldsRawLineEnd("<a x=\"p\r\nq\" />"));
+        Assert.NotNull(written);
+        Assert.Contains("<v n=\"Comment\">\"c\r\nd\"</v>", written);
+        Assert.Equal("c\r\nd", TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Ld).Networks[1].Comment);
     }
 
     private static (string Xml, NetworkBody Pushed, NetworkScope Scope) TwoNetworks(string firstComment)

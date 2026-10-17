@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -10,29 +10,21 @@ using Parallel = Volt.Engine.Format.Network.Parallel;
 namespace Volt.Ide.Twincat;
 
 /// <summary>
-/// Writes a <see cref="NetworkBody"/> back into a TwinCAT <c>&lt;NWL&gt;</c> archive.
+/// Writes a <see cref="NetworkBody"/> back into a TwinCAT <c>&lt;NWL&gt;</c> archive — IN PLACE.
 ///
-/// <para><b>This writer creates nothing.</b> Not an element, not a member, not a list entry. It walks the
-/// vendor's own document alongside the pushed model and assigns to members that are ALREADY THERE; anything
-/// else is refused. That one rule is the whole design, and it is here because the version that built elements
-/// from a template wrote twenty <c>.TcPOU</c> files TwinCAT could not open
-/// (<c>Value cannot be null. Parameter name: iILStatement</c>).</para>
+/// <para><b>This writer creates nothing.</b> It walks the vendor's own document alongside the pushed model and assigns to
+/// members that are ALREADY THERE: rename an operand, retype it, change a comment or a title, negate a contact, disable a
+/// network. Every id, every <c>Fixed</c> and every member Volt does not model survives exactly as the IDE wrote it.</para>
 ///
-/// <para><b>Why building cannot work here.</b> The archive is a strict typed object-graph serialization: the
-/// reader consumes members in order for the type it was told to expect, so a member set that is close but not
-/// exact makes it mis-assign everything after the discrepancy. And the contract is deep — a real
-/// <c>BoxTreeBox</c> carries <c>InputParam</c>, <c>OutputParam</c>, <c>CallType</c>, <c>EN</c>, <c>ENO</c>,
-/// <c>STSnippet</c>, <c>ContainsExtensibleInputs</c>, <c>ProvidesSTSnippet</c> and an <c>Id</c>, most of which
-/// are results of the IDE RESOLVING the call. Volt does not resolve calls; the IDE does. Synthesizing those
-/// members means guessing at a compiler's output, which is the class of guess that produced unopenable files.
-/// </para>
-///
-/// <para>So the capability is deliberately narrow and provable: <b>edit the VALUES of an existing graphical
-/// body</b> — rename an operand, retype it, change a comment or a title, negate a contact, disable a network.
-/// A changed SHAPE is the IDE's to build: the push hands that one network to its import (<c>resolve</c>), and an
-/// INSERTED network the same way. Networks are paired with the pushed ones by text (<see cref="NetworkPairing"/>,
+/// <para>A changed SHAPE is BUILT: the push hands that one network to the native builder (<c>resolve</c>,
+/// <see cref="TcArchiveBuilder.NetworkGraph"/>), which builds it from member lists TwinCAT itself serialized, and it is
+/// spliced in where the live one stood, laid out as TwinCAT lays it out, with ids no other network holds; an INSERTED
+/// network the same way. (Building was refused here once with reason — a version that built elements from a GUESSED
+/// template wrote twenty <c>.TcPOU</c> files TwinCAT could not open, DIALECT N4 — and the shape went through TwinCAT's
+/// PLCopen import instead, until the identity gate and the native corpus made the member contract a measured one,
+/// openspec twincat-inproc-host.) Networks are paired with the pushed ones by text (<see cref="NetworkPairing"/>,
 /// ld-fbd-coverage 1b.4), so removing one drops exactly the network no pushed text pairs with, and every unchanged
-/// network stays byte for byte (DIALECT N28). Each refusal below names the exact shape change it saw.</para>
+/// network stays byte for byte (DIALECT N28).</para>
 /// </summary>
 internal static class TcNetworkWriter
 {
@@ -47,106 +39,11 @@ internal static class TcNetworkWriter
     public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope) =>
         Apply(bodyXml, body, scope, resolve: null);
 
-    /// <summary>Put back together what the importer split — the CREATE path only, by MOVING nodes.
-    ///
-    /// <para><b>The importer emits one network per connected component (D25)</b>, so a model network holding two
-    /// independent rungs arrives as two. The engineer pushes one network and the next pull hands back two,
-    /// renumbering everything after it, while CODESYS keeps the one.</para>
-    ///
-    /// <para><b>THE FORM IS THE WHOLE PROBLEM, and it took a hand-drawn body to learn it.</b> A `NetworkItems`
-    /// list types its children ONE of two ways and never a mixture: `cet` on the list and NO child carrying `t`,
-    /// or NO `cet` and EVERY child carrying its own `t`. Verified across all 22 populated lists in the fixtures.
-    /// The first attempt at this kept the destination`s `cet` AND stamped `t` on only the moved items — neither
-    /// form — so the vendor typed the moved assign from the list, read an assign as a box, and returned
-    /// `done := ();`. It round-tripped perfectly through Volt`s own reader, which is why only a live XAE caught
-    /// it.</para>
-    ///
-    /// <para>So the merged list is converted WHOLESALE to the child-typed form: every child that was relying on
-    /// a `cet` gets that `cet` stamped on it, the moved children keep or gain theirs, and the list`s `cet` is
-    /// removed. That is the shape `ladder-demux.TcPOU` shows the vendor writing for a mixed network.</para>
-    ///
-    /// <para>How many built networks belong to one model network comes from the MODEL: <see cref="Rungs"/>
-    /// counts its connected components — the same prediction `Apply`
-    /// already refuses on. If the arithmetic does not land exactly this returns null and changes nothing.</para>
-    ///
-    /// <para>Construction-free (N11): every element is one the importer built, moved between existing lists, and
-    /// the emptied networks are removed. Only ATTRIBUTES are written, in the vendor`s own spelling.</para></summary>
-    public static string? MergeImporterSplits(string? bodyXml, NetworkBody body)
-    {
-        if (string.IsNullOrWhiteSpace(bodyXml)) return null;
-        XElement doc;
-        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
-        catch (System.Xml.XmlException) { return null; }
-
-        var impl = doc.DescendantsAndSelf("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
-        if (impl == null) return null;
-
-        var networks = TcArchive.List(impl, "NetworkList");
-        if (networks.Count == body.Networks.Count) return null;          // nothing was split
-
-        var parts = body.Networks.Select(n => Rungs(n.Trees)).ToList();
-        if (parts.Sum() != networks.Count) return null;                  // cannot map built -> model; say nothing
-
-        var merged = false;
-        var at = 0;
-        foreach (var k in parts)
-        {
-            if (k > 1)
-            {
-                var keep = ItemList(networks[at]);
-                if (keep == null) return null;
-                MakeChildTyped(keep);
-
-                for (var j = at + 1; j < at + k; j++)
-                {
-                    var from = ItemList(networks[j]);
-                    if (from == null) return null;
-                    MakeChildTyped(from);
-                    // REMOVE BEFORE ADD: `Add` on a parented node copies it in XLinq.
-                    foreach (var item in from.Elements().ToList()) { item.Remove(); keep.Add(item); }
-                    networks[j].Remove();
-                    merged = true;
-                }
-            }
-            at += k;
-        }
-
-        return merged ? TcArchive.Text(doc, bodyXml) : null;
-    }
-
-    private static XElement? ItemList(XElement network) =>
-        network.Elements("l2").FirstOrDefault(l => (string?)l.Attribute("n") == "NetworkItems");
-
-    /// <summary>Convert a list to the CHILD-TYPED form: stamp the list`s `cet` onto every child that lacks a
-    /// `t`, then drop the `cet`. A list already in that form is left alone. This is the only shape a mixed
-    /// network is written in, so it is what a merged list must end up as.</summary>
-    private static void MakeChildTyped(XElement list)
-    {
-        var cet = (string?)list.Attribute("cet");
-        if (cet != null)
-        {
-            foreach (var child in list.Elements("o"))
-                if (child.Attribute("t") == null) child.SetAttributeValue("t", cet);
-            list.Attribute("cet")!.Remove();
-        }
-    }
-
-    /// <summary>The same, with a way OUT of a refusal: <paramref name="resolve"/> is handed a network whose
-    /// shape the archive cannot be edited into, and returns that network rebuilt by the IDE.
-    ///
-    /// <para><b>This is what makes a structural edit possible without a second write path.</b> Retyping a box —
-    /// `OR` to `AND` — changes members only the IDE can resolve (`CallType`, `InputParam`, `Id`), so editing in
-    /// place is refused and always will be. Re-resolving the WHOLE body would work but discards the ids of
-    /// every network the engineer did not touch. Re-resolving just the network that changed does neither: the
-    /// rest of the archive is untouched, byte for byte.</para>
-    ///
-    /// <para><b>It is sound only because of a measured rule</b> (DIALECT D25, gated by
-    /// `test/e2e/graphical/grouping.test.ts`): the importer emits ONE NETWORK PER CONNECTED COMPONENT. A
-    /// network that is one component comes back as one network and can be swapped in; a network holding
-    /// several independent rungs would come back as several, renumbering everything after it, so it is refused
-    /// instead. That check happens HERE, from the model, before the IDE is touched.</para></summary>
-    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, XElement>? resolve,
-                                bool byPosition = false)
+    /// <summary>The same, with a way OUT of a refusal: <paramref name="resolve"/> is handed a network whose shape the
+    /// archive cannot be edited into, and returns that network BUILT (the push passes
+    /// <see cref="TcArchiveBuilder.NetworkGraph"/>). Only the network that changed is built; the rest of the archive is
+    /// untouched, byte for byte.</summary>
+    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, NetworkScope, XElement>? resolve)
     {
         // No archive to edit means there is nothing to edit IN — and nothing routes one here: the driver's
         // `ResolveBody` sends a blank implementation (a newly created POU or member) and an archive with nothing
@@ -155,10 +52,10 @@ internal static class TcNetworkWriter
         if (string.IsNullOrWhiteSpace(bodyXml))
             throw new InvalidOperationException(
                 "TwinCAT: a graphical body reached the in-place writer with no archive to edit. A body the IDE does not " +
-                "have yet is created through the import (ResolveBody routes it there first); this is a Volt bug.");
+                "have yet is built whole (ResolveBody routes it there first); this is a Volt bug.");
 
         XElement doc;
-        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
+        try { doc = TcArchive.Parse(bodyXml); }   // its values' CR LF as the XAE hands them (DIALECT N42 f)
         catch (System.Xml.XmlException) { throw Refuse("replaces a textual body with a graphical one"); }
 
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
@@ -166,7 +63,7 @@ internal static class TcNetworkWriter
 
         // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.31, D7), as CODESYS writes its aspect's member.
         // Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is the archive's
-        // `DefaultViewMode` slot — the one the CREATE route already sets after the import (`TcArchive.WithViewMode`).
+        // `DefaultViewMode` slot.
         // It was refused here as "nothing writes it on an update".
         var viewChanged = WriteView(impl, body.Language);
         TcUnmeasured.RefuseEdgeOrder(body);
@@ -174,26 +71,10 @@ internal static class TcNetworkWriter
         var networks = TcArchive.List(impl, "NetworkList");
         bool changed = viewChanged;
 
-        if (byPosition)
-        {
-            // THE CREATE'S STAMP (`Stamp`): the archive is the import's answer to this very body, network for network, so
-            // it is paired by position — the values the import could not carry are stamped on, nothing is rebuilt,
-            // removed or inserted. A count that differs is the importer's regrouping (D25), which the stamp's caller
-            // judges; it is refused here, never "repaired" by removing an imported network.
-            if (networks.Count != body.Networks.Count)
-                throw new NotSupportedException(
-                    $"TwinCAT: the import built {networks.Count} network(s) for the {body.Networks.Count} pushed, so its " +
-                    "networks cannot be stamped one for one: the import drops an empty network and builds one network per " +
-                    "connected rung (DIALECT D25).");
-            // Stamping: the import's fresh boxes take the derived members (WriteOutputParam), as on a rebuild/insert.
-            Stamping(() => { for (int i = 0; i < networks.Count; i++) changed |= WriteNetwork(networks[i], body.Networks[i], scope); });
-            return changed ? TcArchive.Text(doc, bodyXml) : null;
-        }
-
         // AN EDIT PAIRS THE LIVE NETWORKS WITH THE PUSHED ONES BY TEXT, NOT POSITION (ld-fbd-coverage 1b.4,
         // NetworkPairing) — the content match the count refusal here used to name as "the shape any fix takes": "Volt
         // cannot tell WHICH network was removed" was true of positions, not of texts. A kept network is not touched; a
-        // removed one is the unpaired live network dropped; an inserted one is the one-network import spliced in.
+        // removed one is the unpaired live network dropped; an inserted one is built and spliced in.
         var shown = networks.Select((n, i) => TcNetworkReader.ReadNetworkShown(n, i)).ToList();
         var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
         // A removal that would erase what the text does not show — a moved network's symbol comment, a replaced
@@ -201,6 +82,7 @@ internal static class TcNetworkWriter
         NetworkPairing.RefuseUnseenLoss(Volt.Contracts.Vendors.TwincatDisplay, shown, plan, body.Language, scope);
 
         XElement? last = null;   // the network the next insertion goes after, in the final order
+        var structural = false;  // a network removed, rebuilt or inserted: the TypeList may have to follow
         foreach (var move in plan)
         {
             switch (move.Step)
@@ -210,8 +92,8 @@ internal static class TcNetworkWriter
                     break;
 
                 case NetworkStep.Remove:
-                    networks[move.Live!.Value].Remove();
-                    changed = true;
+                    RemoveLine(networks[move.Live!.Value]);
+                    changed = structural = true;
                     break;
 
                 case NetworkStep.Rebuild:
@@ -230,21 +112,20 @@ internal static class TcNetworkWriter
                     }
                     catch (NotSupportedException) when (resolve is not null)
                     {
-                        // Fall through: this network's SHAPE changed, so the IDE has to rebuild it.
+                        // Fall through: this network's SHAPE changed, so it is built.
                     }
-                    // What the import would ERASE: a symbol comment, which the text does not carry (the shared rule).
+                    // What a rebuild would ERASE: a symbol comment, which the text does not carry (the shared rule).
                     NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkShown(net, model.Order));
-                    var rebuilt = Imported(model, resolve!);
                     var held = Held(net).ToList();
-                    Splice(impl, net, rebuilt);
-                    Stamping(() => WriteNetwork(rebuilt, model, scope));      // stamp the values the rebuild could not carry
+                    var rebuilt = Splice(impl, net, Built(model, scope, resolve!));
+                    WriteNetwork(rebuilt, model, scope);      // the change gate: the built network already says it
                     // What it resets without a refusal: the element is replaced whole, so a stored value of a member the
-                    // text does not carry yet that the import does not answer goes with it — named in one warning
-                    // (ld-fbd-coverage 2.2, the loss window), measured against what the import and the stamp made.
+                    // text does not carry yet that the build does not write goes with it — named in one warning
+                    // (ld-fbd-coverage 2.2, the loss window), measured against what the builder made.
                     if (RebuildLoss.Warning(Volt.Contracts.Vendors.TwincatDisplay, model.Order, held, Held(rebuilt)) is { } loss)
                         Volt.Engine.Ide.BridgeLog.Warn(loss);
                     last = rebuilt;
-                    changed = true;
+                    changed = structural = true;
                     break;
                 }
 
@@ -252,53 +133,103 @@ internal static class TcNetworkWriter
                 {
                     var model = body.Networks[move.Pushed!.Value];
                     RefuseUnbuildable(model);
-                    var inserted = Imported(model, resolve ?? throw new NotSupportedException(
-                        $"TwinCAT: this push adds network {move.Pushed.Value + 1}, and a new network needs archive elements whose " +
-                        "member contract only the IDE produces — the push builds it through the IDE's import, which this " +
-                        "in-place write was not handed. Add it in the IDE and pull it."));
-                    if (last is not null) last.AddAfterSelf(inserted);
-                    else impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList").AddFirst(inserted);
+                    var built = Built(model, scope, resolve ?? throw new NotSupportedException(
+                        $"TwinCAT: this push adds network {move.Pushed.Value + 1}, and a new network is built by the native " +
+                        "builder, which this in-place write was not handed. This is a Volt bug."));
+                    var inserted = Place(impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList"), last, built);
                     MintFreshIds(impl, inserted);
-                    Stamping(() => WriteNetwork(inserted, model, scope));     // stamp the values the import could not carry
+                    WriteNetwork(inserted, model, scope);     // the change gate: the built network already says it
                     last = inserted;
-                    changed = true;
+                    changed = structural = true;
                     break;
                 }
             }
         }
 
+        if (structural) SyncTypeList(doc, impl);
         return changed ? TcArchive.Text(doc, bodyXml) : null;
     }
 
-    /// <summary>One network built by the IDE's import, ready to splice in — refused before the IDE is asked where the
-    /// import is unmeasured (task 4.2) or would build more than one network.</summary>
-    private static XElement Imported(Network model, Func<Network, XElement> resolve)
+    /// <summary>One network built natively, ready to splice in — refused by name first where no TwinCAT build of its
+    /// shape is measured (<see cref="TcUnmeasured.RefuseUnbuilt"/>), so a stand-in builder is never asked for one.</summary>
+    private static XElement Built(Network model, NetworkScope scope, Func<Network, NetworkScope, XElement> resolve)
     {
-        // The shapes no one has measured through the import are refused by name before it (task 4.2).
-        TcUnmeasured.RefuseImport(model);
-        // Only a single-component network can be swapped in without renumbering the ones after it.
-        var parts = Rungs(model.Trees);
-        if (parts != 1)
-            throw Refuse($"changes the shape of network {model.Order + 1}, which holds {parts} independent " +
-                         "rungs - the IDE rebuilds one network per connected rung, so re-creating it would " +
-                         $"split it into {parts} networks and renumber every network after it");
-        return resolve(model);
+        TcUnmeasured.RefuseUnbuilt(model);
+        return resolve(model, scope);
     }
 
     /// <summary>
-    /// SPLICE A NETWORK THE IMPORT BUILT IN PLACE OF <paramref name="live"/> — with Ids no other network of the body holds
-    /// (gate 2-2). The import builds the one network in a scratch POU with its own id space (2..N), so the element spliced
-    /// in as it came repeated Ids the kept networks hold (the TwinCAT completeness oracle over twincat-project14's recorded
-    /// imports: <c>POUexecute</c>'s rebuilt networks 1 and 3 each left Ids 10 and 11 twice in the body, a
-    /// <c>ladderLabel</c> one Id 5), and TwinCAT keeps a stored Id across save and reopen (DIALECT
-    /// N28), so the duplicates would persist. Every body the corpora hold has each Id once (0 duplicates in 46 bodies,
-    /// census 1b.1); the Id itself is the IDE's allocator (vendor-facts <c>nwl-item-id</c>), so which fresh values it
-    /// takes is no fact the text carries — only that each is unique in the body.
+    /// SPLICE A BUILT NETWORK IN PLACE OF <paramref name="live"/> — with Ids no other network of the body holds (gate
+    /// 2-2). The builder numbers a network from 2, so the element spliced in as it came would repeat Ids the kept networks
+    /// hold (as the PLCopen import's did: <c>POUexecute</c>'s rebuilt networks 1 and 3 each left Ids 10 and 11 twice in
+    /// the body), and TwinCAT keeps a stored Id across save and reopen (DIALECT N28), so the duplicates would persist.
+    /// Every body the corpora hold has each Id once (0 duplicates in 46 bodies, census 1b.1); the Id itself is the IDE's
+    /// allocator (vendor-facts <c>nwl-item-id</c>), so which fresh values it takes is no fact the text carries — only
+    /// that each is unique in the body.
     /// </summary>
-    internal static void Splice(XElement impl, XElement live, XElement rebuilt)
+    internal static XElement Splice(XElement impl, XElement live, XElement rebuilt)
     {
-        live.ReplaceWith(rebuilt);
-        MintFreshIds(impl, rebuilt);
+        // Laid out as TwinCAT lays the network out where it stands (the live one's indentation): the archive is stored as
+        // handed over, so a network spliced in unformatted would be the one part of the body in no vendor layout.
+        var formatted = TcArchiveBuilder.Formatted(rebuilt, IndentOf(live));
+        live.ReplaceWith(formatted);
+        MintFreshIds(impl, formatted);
+        return formatted;
+    }
+
+    /// <summary>The column <paramref name="e"/> starts at: the spaces after the last line break before it.</summary>
+    private static int IndentOf(XElement e) =>
+        e.PreviousNode is XText t && t.Value.LastIndexOf('\n') is var nl and >= 0 ? t.Value.Length - nl - 1
+            : throw new InvalidOperationException("TwinCAT: an archive element that does not start its own line.");
+
+    /// <summary>Insert the built network <paramref name="graph"/> into <paramref name="list"/> after <paramref name="after"/>
+    /// (first when null), on its own line at the list's member indentation — the vendor's layout.</summary>
+    private static XElement Place(XElement list, XElement? after, XElement graph)
+    {
+        var newline = TcArchiveWriter.Newline;
+        var pad = IndentOf(list) + 2;
+        var formatted = TcArchiveBuilder.Formatted(graph, pad);
+        var line = new XText(newline + new string(' ', pad));
+        if (after is not null) after.AddAfterSelf(line, formatted);
+        else if (list.Elements().FirstOrDefault() is { } first) first.AddBeforeSelf(formatted, line);
+        else
+        {
+            list.RemoveNodes();
+            list.Add(line, formatted, new XText(newline + new string(' ', pad - 2)));
+        }
+        return formatted;
+    }
+
+    /// <summary>Remove a list member WITH its line — the line break before it — so no blank line is left where it stood
+    /// (TwinCAT never writes one; TcArchiveWriter rule 6). A list left with no member is the vendor's empty list.</summary>
+    private static void RemoveLine(XElement e)
+    {
+        var list = e.Parent;
+        if (e.PreviousNode is XText t && string.IsNullOrWhiteSpace(t.Value)) t.Remove();
+        e.Remove();
+        if (list is not null && !list.Elements().Any())
+        {
+            list.RemoveNodes();
+            list.Attribute("cet")?.Remove();
+        }
+    }
+
+    /// <summary>The <c>TypeList</c> as the vendor writes it for the archive object as it now stands: every type it uses,
+    /// once, in the vendor's order (TcArchiveWriter rule 8). A built network can use a type the live body did not (a wire,
+    /// a terminator, an Execute box's document), and a removed one can leave a type unused.</summary>
+    private static void SyncTypeList(XElement doc, XElement impl)
+    {
+        var list = doc.Descendants("TypeList").FirstOrDefault();
+        if (list is null) throw Refuse("the archive names no TypeList, so a new item's type cannot be declared");
+        var known = list.Elements("Type").ToDictionary(t => (string?)t.Attribute("n") ?? "", t => t.Value, StringComparer.Ordinal);
+        var entries = TcArchiveWriter.TypeNames(impl).Select(name =>
+            new XElement("Type", new XAttribute("n", name),
+                known.TryGetValue(name, out var guid) ? guid
+                : TcArchiveWriter.NwlTypes.TryGetValue(name, out var table) ? table
+                : throw Refuse($"the body uses the type '{name}', whose GUID TwinCAT was never seen to register")));
+        var text = string.Concat(list.Elements("Type").Select(t => t.ToString(SaveOptions.DisableFormatting)));
+        var next = string.Concat(entries.Select(t => t.ToString(SaveOptions.DisableFormatting)));
+        if (text != next) list.ReplaceNodes(XElement.Parse("<TypeList>" + next + "</TypeList>").Nodes());
     }
 
     /// <summary>Renumber every <c>Id</c> of the network <paramref name="spliced"/> (already in the body
@@ -329,7 +260,7 @@ internal static class TcNetworkWriter
     private static IEnumerable<RebuildLoss.Held> Held(XElement net) =>
         net.Descendants("v").Select(v => ((string?)v.Attribute("n")) switch
         {
-            // A flag set's owner is the object holding it: an operand's, an item's, a box's (the import answers each its
+            // A flag set's owner is the object holding it: an operand's, an item's, a box's (the builder writes each its
             // own value, vendor-facts nwl-flags-fixed).
             "Fixed" => new RebuildLoss.Held("Flags.Fixed", Owner(v.Parent?.Parent), v.Value.Trim()),
             "Boolean" => new RebuildLoss.Held("Operand.Boolean", Owner(v.Parent), v.Value.Trim()),
@@ -342,7 +273,7 @@ internal static class TcNetworkWriter
         // B7 (2R.3): the box members the text does not carry, each as the archive stores it, in the notation the CODESYS
         // driver holds them in — the whole output and input lists (a call's unwired pins, a bit operator's [''], a
         // function's '   '), the type spelling, Instance.Type, EN/ENO, CallType and the pin flag list
-        // (RebuildLoss.Candidates). Whether the import gives each back is measured against what it built, never assumed.
+        // (RebuildLoss.Candidates). Whether the builder gives each back is measured against what it built, never assumed.
         .Concat(net.DescendantsAndSelf("o").Where(o => Owner(o) == "BoxTreeBox").SelectMany(o => new[]
         {
             new RebuildLoss.Held("OutputParam.Names", "BoxTreeBox", StringList(TcArchive.Obj(o, "OutputParam"), "Names")),
@@ -384,8 +315,8 @@ internal static class TcNetworkWriter
 
     /// <summary>A network the push would BUILD from its text, refused by name where it cannot: a pushed <c>UNSUPPORTED</c>
     /// line (<see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a box read through a named main output (S4) —
-    /// unmeasured on TwinCAT: no TwinCAT project holds one (S4 is one Lenze CODESYS network), in place or through the
-    /// import (<c>TcUnmeasured</c>).</summary>
+    /// unmeasured on TwinCAT: no TwinCAT project holds one (S4 is one Lenze CODESYS network), in place or built
+    /// (<see cref="TcArchiveBuilder"/> refuses it too).</summary>
     internal static void RefuseUnbuildable(Network model)
     {
         NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.TwincatDisplay, model);
@@ -474,11 +405,7 @@ internal static class TcNetworkWriter
         // Compared as TEXT, through the same reader and writer a pull uses, because two bodies are equal exactly
         // when they materialize to the same file. This is the rule CODESYS's writer already follows, so it is
         // also the two vendors agreeing on when a push is a no-op.
-        //
-        // NOT WHILE STAMPING: a stamp writes the derivation over an IMPORT's fresh network, whose members (the import's
-        // `[Out1]`) the text does not show (B7) — so the import renders exactly as pushed, and the gate skipped every plain
-        // call: the created calls program kept `[Out1]` everywhere and did not build (gate 2R.3, vendor-facts NWL_R_CALLS).
-        if (!_stamping && Unchanged(net, model, scope)) return false;
+        if (Unchanged(net, model, scope)) return false;
 
         // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
         // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
@@ -510,32 +437,6 @@ internal static class TcNetworkWriter
         | SetText(net, "Label", model.Label)
         | SetComment(net, model.Comment)
         | SetBool(net, "OutCommented", model.Disabled);
-
-    /// <summary>HOW MANY INDEPENDENT RUNGS a network holds: its top-level items grouped by the wires that connect them.
-    ///
-    /// <para>TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so this count is what says whether a
-    /// rebuild would split the network. A wire's definition and every item that reads it are one component WHEREVER
-    /// the reference sits. This used to be a legacy fold (<c>Unhoist</c>) that rebuilt v1's <c>LET</c> wires as
-    /// multi-target assigns and counted what was left — and it joined only a wire read DIRECTLY by an assignment
-    /// (<c>out := g1;</c>). Census 1.8 found all 434 real references NESTED (<c>out := (g1 OR c);</c>), so such a
-    /// network counted each consumer as its own rung and its rebuild was refused as "would split it". It only ever
-    /// counts: nothing a write compares is reshaped, so the in-place item-count check holds by construction.</para></summary>
-    private static int Rungs(IReadOnlyList<Node> trees)
-    {
-        var root = Enumerable.Range(0, trees.Count).ToArray();
-        int Find(int i) => root[i] == i ? i : root[i] = Find(root[i]);
-
-        var holder = new Dictionary<int, int>();       // VarId -> the first item that defines or reads it
-        for (var i = 0; i < trees.Count; i++)
-            foreach (var wire in Wires(trees[i]))
-                if (holder.TryGetValue(wire, out var other)) root[Find(i)] = Find(other);
-                else holder[wire] = i;
-
-        return Enumerable.Range(0, trees.Count).Select(Find).Distinct().Count();
-
-        static IEnumerable<int> Wires(Node n) =>
-            (n is Demux d ? new[] { d.VarId } : Enumerable.Empty<int>()).Concat(n.Children().SelectMany(Wires));
-    }
 
     // -- the tree ----------------------------------------------------------------------------------
 
@@ -629,9 +530,9 @@ internal static class TcNetworkWriter
                 // top-level box, a fact the text has no position for there), there is nothing to compare.
                 //
                 // Its own exception type (the push half of "EN is a pin, ENO is spelled", task 4.2): in the in-place
-                // pass it is a shape change like any other and routes the network to the IDE to rebuild; after the
-                // rebuild it compares the text with the box the IMPORT built, and then it is the answer — the text
-                // reads an output that box does not have — so the create path must not swallow it as a regrouping.
+                // pass it is a shape change like any other and routes the network to the builder; after the rebuild it
+                // compares the text with the box the builder built, and then it is the answer — the text reads an
+                // output that box does not have.
                 if (b.HasEnoOutput is { } hasEno && hasEno != TcNetworkReader.HasEno(e))
                     throw new TcEnoRefusal(b.Type, textReadsEno: hasEno);
                 if (b.ConnectedSlot is { } slot && TcNetworkReader.ConnectedSlot(e) != slot)
@@ -711,20 +612,8 @@ internal static class TcNetworkWriter
                 var enSlot = Box.HasEnableSlot(pinNames) && inputs.Count > 0 ? 1 : 0;
                 if (enSlot == 1 && b.Enable is null)
                     throw Refuse($"box '{b.Type}' drops its EN input, which network text cannot express");
-                // THE WIRED ENABLE IS BUILT BY THE IMPORTER, NOT REPAIRED HERE.
-                //
-                // There WAS a repair block here, and it was dead on arrival — four independent reasons, each
-                // checkable against the committed fixtures: it read `InputParam` via `Element("l")` where the
-                // archive writes `<l2 n="Names">` (32 occurrences, zero `<l n=>`), so its slot list was always
-                // null; it set a member spelled `En` where the archive spells `EN` (16, none `En`); six of those
-                // are `<n n="EN" />` explicit nulls, which `Set` will not write; and every importer-produced
-                // operator box carries an EMPTY `<l2 n="Names" />`, so there was no slot to rename anyway.
-                //
-                // It never ran, and the round trip works regardless — RE-MEASURED 2026-09-06 against a live XAE
-                // with the block deleted: `IF en1 THEN out := (a AND b); END_IF` comes back BYTE-IDENTICAL. So
-                // the fix that made a wired enable creatable was the EMISSION change in `TcPlcOpenWriter` (the
-                // enable emitted as input slot 0 named EN), and this block was belt-and-braces credited with it.
-                // Deleted rather than corrected: there is no fold left to undo.
+                // A WIRED ENABLE IS BUILT, NOT REPAIRED HERE: a box gaining EN is a shape change, and the builder builds
+                // the box with the enable as input slot 0 named EN (TcArchiveBuilder).
                 if (enSlot == 0 && b.Enable is not null)
                     throw Refuse($"box '{b.Type}' gains an EN input, which this in-place write cannot add");
                 if (inputs.Count - enSlot != b.Inputs.Count)
@@ -792,8 +681,8 @@ internal static class TcNetworkWriter
             //
             // Everything else a jump needs is already written in place — `WriteFlags` and `WriteTargetBits` set the control-flow
             // bit on the item AND on the destination operand. Until this arm existed the swap fell to `default`
-            // below, the network went to the IDE to be REBUILT, and the rebuild runs `PlcOpenImport`, whose
-            // importer rejects an unconditional jump ("it requires a jump to be wired to a condition"). So the
+            // below and the network was REBUILT — through TwinCAT's PLCopen import, before the native builder, whose
+            // importer rejected an unconditional jump ("it requires a jump to be wired to a condition"). So the
             // shape TwinCAT was said to refuse was a shape VOLT's only create door could not state — the IDE
             // holds it perfectly well, which is what the drawn fixture is.
             //
@@ -807,7 +696,7 @@ internal static class TcNetworkWriter
             // (an engineer deleting whatever drove a rung, leaving `?;`) would be wiped and rewritten in
             // place — discarding every id and unmodelled member under it — instead of falling to `default`
             // and letting the IDE rebuild that network. Found by review.
-            // An UNWIRED BOX INPUT the import built as an empty operand is the reader's Terminator
+            // An UNWIRED BOX INPUT held as an empty operand (TwinCAT's import's spelling, which the builder writes) is the reader's Terminator
             // (`TcNetworkReader.IsUnwiredPin`), so the same Terminator pushed back over it is no change.
             case Terminator when n.Flags.IsNone && (string?)e.Parent?.Attribute("n") == "InputItems" && TcNetworkReader.IsUnwiredPin(e):
                 return changed;
@@ -912,7 +801,7 @@ internal static class TcNetworkWriter
                 // is always rendered to text (a named `F => v` or a positional `=> v`, and the writer throws rather than
                 // drop one), so a wired slot the push does not mention can only be an
                 // edit that removed it. Refusing routes it to the rebuild path rather than writing "" - the
-                // vendor rejects an empty operand there (see `DropImporterBoxOutputs`).
+                // compiler reads an empty operand on a box result as "Assignment target not specified".
                 if (!string.IsNullOrEmpty(TcArchive.Str(slot, "Operand")))
                     throw Refuse(
                         $"box '{b.Type}' drops the output pin '{name ?? "(result)"}', and this in-place write " +
@@ -928,33 +817,20 @@ internal static class TcNetworkWriter
     }
 
     /// <summary>THE BOX'S OUTPUT NAMES AND TYPES ARE ITS MEMBERS (ld-fbd-coverage 2.3), written as the model states them —
-    /// the stored ones the text spells by pragma, else what the text's own pins give (<see cref="NetworkMembers.Effective"/>),
-    /// the one rule CODESYS builds a box by. Without it the import's own names stayed (<c>[Out1]</c> on a function, the
-    /// callee's whole list on a call) where the text says otherwise, and the next pull spelled them: a push was no fixed
-    /// point. Written into the lists the archive holds, never a list added.
+    /// what the text's own pins give (<see cref="NetworkMembers.Effective"/>), the one rule CODESYS builds a box by — and
+    /// only where the box states them: a box read from text states none (B7), so an in-place write keeps the names the
+    /// IDE's box holds. Written into the lists the archive holds, never a list added.
     /// <para>NOT <see cref="NetworkMembers.Buildable"/>: that is the limit of a box Volt CONSTRUCTS (CODESYS, DIALECT N37 —
     /// the function result pin <c>'   '</c>), and an in-place write keeps the box the IDE drew, which holds its own
     /// names. Applied here, it replaced a spelled <c>'   '</c> and every other name and type of the box with the
     /// derivation, and no rebuild-loss warning named it (gate 2-3 review).</para></summary>
-    [ThreadStatic] private static bool _stamping;
-
-    /// <summary>Run a write that stamps the values an import's fresh network could not carry (<see cref="WriteOutputParam"/>).</summary>
-    private static void Stamping(Action write)
-    {
-        var was = _stamping;
-        _stamping = true;
-        try { write(); }
-        finally { _stamping = was; }
-    }
-
     private static bool WriteOutputParam(XElement e, Box b, bool consumed)
     {
         var param = TcArchive.Obj(e, "OutputParam")
                     ?? throw Refuse($"box '{b.Type}' has no OutputParam for the output names the text states");
         // B7: a box read from text states no member. Written in place, the archive's own (the box the IDE drew) are kept,
-        // as an unchanged network keeps every one; stamped over the import's fresh box, the derivation is — what a push
-        // builds from the text, the rule CODESYS builds a box by.
-        if (!NetworkMembers.Stated(b) && !_stamping) return false;
+        // as an unchanged network keeps every one; a box the push BUILDS takes the derivation from the builder.
+        if (!NetworkMembers.Stated(b)) return false;
         var site = new BoxSite(consumed);
         return SetStrings(param, "Names", NetworkMembers.Effective(b, site, NetworkMembers.OutputNames).AsTexts)
              | SetStrings(param, "Types", NetworkMembers.Effective(b, site, NetworkMembers.OutputTypes).AsTexts);
@@ -992,14 +868,18 @@ internal static class TcNetworkWriter
     /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
     /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
     /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
+    /// <summary>The name the deleted PLCopen lowering gave a POSITIONAL box input (0-based <paramref name="i"/>), which
+    /// TwinCAT's import kept: bodies Volt created that way are in engineers' projects, and their names are Volt's own.</summary>
+    private static string ImportedPinName(int i) => "In" + (i + 1);
+
     private static bool WriteFormalNames(XElement e, Box b)
     {
         var list = TcArchive.Obj(e, "InputParam")?.Elements("l2")
             .FirstOrDefault(l => (string?)l.Attribute("n") == "Names");
 
         // POSITIONAL PINS. An operator drawn in the editor names none, and nothing needs writing. But a box the PLCopen
-        // IMPORT built names every pin, because Volt's lowering must give each wired input a `formalParameter` and gives
-        // a positional one `TcPlcOpenWriter.PositionalPinName` — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
+        // IMPORT built (before the native writer, openspec twincat-inproc-host) names every pin, because that lowering gave
+        // each wired input a `formalParameter` and a positional one `In1`, `In2` (ImportedPinName) — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
         // (`importer-max.TcPOU`). Those names are Volt's own, echoed; the text's positional pins are written over them
         // (an empty name is the vendor's own spelling of an unnamed slot — the `''` after `EN` on every enabled MOVE).
         // Any OTHER name is the IDE's, and a push that leaves that pin positional says to drop it — which this write
@@ -1013,7 +893,7 @@ internal static class TcNetworkWriter
             for (var i = first; i < named.Count; i++)
             {
                 if (named[i].Value.Length == 0) continue;
-                if (!string.Equals(named[i].Value, TcPlcOpenWriter.PositionalPinName(i - first), StringComparison.Ordinal))
+                if (!string.Equals(named[i].Value, ImportedPinName(i - first), StringComparison.Ordinal))
                     throw Refuse($"box '{b.Type}' names its pin '{named[i].Value}', which the text leaves positional");
                 named[i].Value = "";
                 blanked = true;
@@ -1044,62 +924,6 @@ internal static class TcNetworkWriter
         return changed;
     }
 
-    /// <summary>Remove the EMPTY output operand the PLCopen importer hangs off a box — the one thing that
-    /// stopped every graphical body Volt created on TwinCAT from compiling.
-    ///
-    /// <para>Measured by drawing nothing and diffing two archives of the SAME ladder
-    /// (<c>xoutput := (xtest OR xtest2);</c>): the one TwinCAT's own editor produced
-    /// (<c>fixtures/tc-pou/ladder.TcPOU</c>) carries <c>&lt;l2 n="OutputItems" /&gt;</c> on the box —
-    /// self-closed, EMPTY — while the one its PLCopen importer produced carries a list holding one operand
-    /// whose name is <c>""</c>. The compiler reads that as the box's result going somewhere nameless
-    /// instead of to the coil, and answers <c>Assignment target not specified</c> — pointing at a rung whose
-    /// text is exactly right, which is why this survived: the body round-trips byte-identical, so no test
-    /// that compares text could see it, and the build assertion that would have was filtering diagnostics
-    /// by a POU name no vendor puts in one.</para>
-    ///
-    /// <para>Isolated to the BOX, not the coil: <c>out := a;</c> — a contact wired straight to a coil, no box
-    /// between them — compiles clean, while <c>(a AND b)</c>, <c>(a OR b)</c> and the FBD spelling all fail.
-    /// Two earlier suspects were refuted on the way: <c>LValue</c> and <c>Type</c> differ between the two
-    /// archives as well, but they are RESOLUTION results the compiler fills in for itself — forcing
-    /// <c>LValue</c> true left the error exactly where it was.</para>
-    ///
-    /// <para><b>Only an EMPTY operand is dropped.</b> A box output with a name is an embedded output — a TON
-    /// writing its <c>ET</c> pin straight to a variable — and is the engineer's, not the importer's.</para>
-    ///
-    /// <para><b>And only on the IMPORT path.</b> The general edit path leaves an existing body alone, because
-    /// this is a repair of what the import just produced rather than a rule about archives in general —
-    /// running it everywhere would rewrite bodies created by older versions of Volt on a push that changed
-    /// nothing, which is the one thing the writer must never do.</para></summary>
-    public static string DropImporterBoxOutputs(string bodyXml)
-    {
-        var doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace);
-        return DropImporterBoxOutputs(doc) ? TcArchive.Text(doc, bodyXml) : bodyXml;
-    }
-
-    /// <summary>The same repair on a live element, for the SPLICE path — where the IDE rebuilds one network
-    /// through the same importer and hands back an element rather than a document.</summary>
-    public static bool DropImporterBoxOutputs(XElement root)
-    {
-        var changed = false;
-
-        foreach (var box in root.DescendantsAndSelf("o")
-                                .Where(o => (string?)o.Attribute("t") == "BoxTreeBox")
-                                .ToList())
-        {
-            var holder = TcArchive.Obj(box, "OutputItems");
-            if (holder == null) continue;
-
-            foreach (var op in TcArchive.List(holder, "OutputItems").ToList())
-                if (string.IsNullOrEmpty(TcArchive.Str(op, "Operand")))
-                {
-                    op.Remove();
-                    changed = true;
-                }
-        }
-
-        return changed;
-    }
-
     /// <summary>EVERY BIT A TARGET CARRIES, per target, index-aligned with the archive's own output slots (2R.5): its coil
     /// kind (<c>Negation</c> + <c>Set</c>, <see cref="Flags.VendorCoilBits"/>), its edge (<c>Rtrig</c>/<c>Ftrig</c>: an
     /// edge coil, awkward-sweep #14) and its control flow (<c>Jump</c>/<c>Return</c>: a jump beside a coil, #9, two jumps,
@@ -1109,8 +933,9 @@ internal static class TcNetworkWriter
     /// <para>A LONE RETURN the text spells plain (<c>RETURN;</c>, no target, D31c) keeps the archive's own slot and its
     /// Return bit; every other managed bit is cleared, as a plain return has none.</para>
     /// <para>ONLY MEASURED SHAPES ARE WRITTEN (gate 2R.5): a change of bits whose result is a coil shape no TwinCAT edit has
-    /// measured (<see cref="TcUnmeasured.UnmeasuredCoil"/> — the shapes its import refuses) is refused by name before any
-    /// bit is set, so the network goes to the import, which refuses it the same way. One the IDE holds is kept.</para></summary>
+    /// measured (<see cref="TcUnmeasured.UnmeasuredCoil"/> — the shapes no TwinCAT build has measured either) is refused by
+    /// name before any bit is set, so the network goes to the builder, which refuses it the same way. One the IDE holds is
+    /// kept.</para></summary>
     private static bool WriteTargetBits(XElement e, Assign a, bool loneReturn)
     {
         var holder = TcArchive.Obj(e, "OutputItems");
@@ -1295,7 +1120,7 @@ internal static class TcNetworkWriter
     ///
     /// <para>Only for an element that carries its own <c>t</c>. An element typed by its list's <c>cet</c> is
     /// one of a HOMOGENEOUS list (N11) and retyping it alone would make the list a mixture — the exact shape
-    /// `TcImporterSplitTests` pins as the one TwinCAT mis-reads.</para></summary>
+    /// TwinCAT stores and then cannot load (openspec twincat-inproc-host, attempt 1: a <c>cet</c> on a mixed list).</para></summary>
     private static bool SwapToTerminator(XElement e, Flags? flags)
     {
         var id = TcArchive.Int(e, "Id");

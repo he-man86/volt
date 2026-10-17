@@ -270,7 +270,7 @@ describe("the table is total", () => {
     expect(stale).toEqual([])
     // the section renders the construct lines of EVERY fixture — a project-wide total a partial run cannot answer
     if (SELECTION.partial) return
-    const map = readFileSync(join(import.meta.dir, "fixtures", "map.generated.ts"), "utf8")
+    const map = readFileSync(join(import.meta.dir, "fixtures", "map.generated.ts"), "utf8").replace(/\r\n/g, "\n")
     const section = renderNotes(NOTES, lines)
     if (!map.endsWith(section)) console.log("  [fixtures] the map's NOTES section is stale — run `bun run rate:fixtures`")
     expect(map.endsWith(section)).toBe(true)

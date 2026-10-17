@@ -11,13 +11,12 @@ namespace Volt.Ide.Twincat.Tests;
 /// <summary>
 /// A STRUCTURALLY CHANGED TWINCAT NETWORK, offline (openspec network-text-literal-nwl, tasks 4.2 and 4.3).
 ///
-/// <para>A value edit is written in place; a network whose SHAPE changed is handed to the IDE to rebuild through
-/// PLCopen import (<see cref="TcNetworkWriter.Apply(string?, NetworkBody, NetworkScope, Func{Network, XElement}?)"/>'s
-/// <c>resolve</c>). Three shapes are not measured through that import (review 7.16) — a <c>PARALLEL</c>, a wire whose
-/// producer is a leaf (the importer crashed on one, <c>LiteralFanoutBugTests</c>), and a box's result pin <c>=&gt; v</c>
-/// (the importer lowers an output pin to a separate assignment, DIALECT C20) — so a changed network holding one is
-/// refused with <c>NETWORK_UNSUPPORTED</c>, naming the network and the shape, before the importer is called. The
-/// <c>resolve</c> these tests hand in throws if it is ever reached, which is what "before" means here.</para>
+/// <para>A value edit is written in place; a network whose SHAPE changed is rebuilt — built natively by
+/// <see cref="TcArchiveBuilder"/> and spliced in (<see cref="TcNetworkWriter.Apply(string?, NetworkBody, NetworkScope, Func{Network, NetworkScope, XElement}?)"/>'s
+/// <c>resolve</c>). It went through TwinCAT's PLCopen import until openspec twincat-inproc-host, which refused three shapes
+/// the import was not measured for — a parallel branch, a split whose producer is a leaf, a box's result pin — and every
+/// network holding independent rungs (the importer split them, D25). Only the parallel branch stays refused: TwinCAT never
+/// wrote one, so the builder has no member list to build it from.</para>
 /// </summary>
 public class TcStructuralEditTests
 {
@@ -36,54 +35,50 @@ public class TcStructuralEditTests
         NetworkText.Validate("IMPLEMENTATION LD\nNETWORK\n" +
                              string.Concat(statements.Select(s => "  " + s + "\n")) + "END_NETWORK\n", Scope);
 
-    private static XElement NeverImported(Network n) =>
+    private static XElement NeverImported(Network n, NetworkScope scope) =>
         throw new Xunit.Sdk.XunitException($"the importer was reached for network {n.Order + 1}");
 
-    private static NetworkTextException RefusedBeforeImport(NetworkBody pushed) =>
-        Assert.Throws<NetworkTextException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, NeverImported));
+    private static NetworkTextException RefusedByTheBuilder(NetworkBody pushed) =>
+        Assert.Throws<NetworkTextException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, TcArchiveBuilder.NetworkGraph));
+
+    /// <summary>The ladder rebuilt natively with <paramref name="pushed"/>: what the next pull reads, as text.</summary>
+    private static string RebuiltAndPulled(NetworkBody pushed)
+    {
+        var written = TcNetworkWriter.Apply(Ladder(), pushed, Scope, TcArchiveBuilder.NetworkGraph);
+        Assert.NotNull(written);
+        return NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Ld), Scope);
+    }
 
     [Fact]
-    public void A_Parallel_in_a_structurally_changed_network_is_refused_before_the_importer()
+    public void A_Parallel_in_a_structurally_changed_network_is_refused_by_the_builder()
     {
-        var ex = RefusedBeforeImport(Pushed("xoutput := BRANCH (xtest, xtest2);"));
+        var ex = RefusedByTheBuilder(Pushed("xoutput := BRANCH (xtest, xtest2);"));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
-        Assert.Contains("network 1", ex.Message);
         Assert.Contains("parallel branch", ex.Message);
     }
 
-    [Fact]
-    public void A_wire_of_a_leaf_in_a_structurally_changed_network_is_refused_before_the_importer()
-    {
-        var ex = RefusedBeforeImport(Pushed("split1 := TRUE;", "xoutput := split1;", "xoutput2 := split1;"));
-
-        Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
-        Assert.Contains("network 1", ex.Message);
-        Assert.Contains("split1", ex.Message);
-        Assert.Contains("leaf", ex.Message);
-    }
-
-    [Fact]
-    public void A_result_pin_in_a_structurally_changed_network_is_refused_before_the_importer()
-    {
-        var ex = RefusedBeforeImport(Pushed("MOVE xtest => xoutput;"));
-
-        Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
-        Assert.Contains("network 1", ex.Message);
-        Assert.Contains("=> xoutput", ex.Message);
-    }
-
-    /// <summary>A CREATE is an import too, and the push's pre-flight (<c>BeckhoffDriver.ValidateSource</c>, creates only)
-    /// runs this same lowering — so the refusal is the same, by the same code, before any op is written.</summary>
+    /// <summary>The two shapes the PLCopen import was refused for before it (a leaf-fed split, which crashed the v1
+    /// importer and was reshaped by v2, N22; a box's result pin, which the importer lowered to a separate assignment, C20)
+    /// are built natively and pull back as pushed.</summary>
     [Theory]
-    [InlineData("xoutput := BRANCH (xtest, xtest2);", "parallel branch")]
-    [InlineData("MOVE xtest => xoutput;", "=> xoutput")]
-    public void A_create_holding_an_unmeasured_shape_is_refused_by_the_lowering(string statement, string named)
+    [InlineData("split1 := TRUE;", "xoutput := split1;", "xoutput2 := split1;")]
+    [InlineData("MOVE xtest => n;")]
+    public void A_shape_the_import_refused_is_rebuilt_natively(params string[] statements)
     {
-        var ex = Assert.Throws<NetworkTextException>(() => TcPlcOpenWriter.WriteProject("P", Pushed(statement)));
+        var pushed = Pushed(statements);
+        Assert.Equal(NetworkTextWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
+    }
+
+    /// <summary>A CREATE builds the same way, and the push's pre-flight (<c>BeckhoffDriver.ValidateSource</c>, creates
+    /// only) runs this same build — so the refusal is the same, by the same code, before any op is written.</summary>
+    [Fact]
+    public void A_create_holding_a_Parallel_is_refused_by_the_builder()
+    {
+        var ex = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(Pushed("xoutput := BRANCH (xtest, xtest2);"), Scope));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
-        Assert.Contains(named, ex.Message);
+        Assert.Contains("parallel branch", ex.Message);
     }
 
     /// <summary><c>ladder.TcPOU</c> with <c>xtest</c> carrying a symbol comment — what pro2193's <c>SetAlarm</c> holds
@@ -184,10 +179,9 @@ public class TcStructuralEditTests
         Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks.Single().Trees.Single()).Value).ConnectedSlot);
     }
 
-    /// <summary>…and the same BEFORE the importer's empty operand is dropped, which is the state the stamp compares
-    /// against (values first, then the repair — <c>BeckhoffDriver.Stamp</c>). Read as "no slot" there, the stamp refused
-    /// ("the consumer of box 'MAX' moves to output slot 0"), the create path swallowed the refusal as a regrouping, and
-    /// the body was left unstamped (found live, <c>parity-fixes.test.ts</c>).</summary>
+    /// <summary>…and the same with the importer's empty operand still hung off the box — the state TwinCAT's PLCopen
+    /// import left before Volt dropped it. Read as "no slot", a push over it refused ("the consumer of box 'MAX' moves to
+    /// output slot 0") a body that says what is pushed (found live, <c>parity-fixes.test.ts</c>).</summary>
     [Fact]
     public void A_consumed_box_the_import_built_is_connected_by_its_one_output_before_the_repair_too()
     {
@@ -223,21 +217,16 @@ public class TcStructuralEditTests
         Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(back, scope));
     }
 
-    /// <summary>THE NAMES THE STAMP BLANKS ARE THE NAMES THE LOWERING GAVE. <c>importer-max.TcPOU</c> is what the import
-    /// made of an older lowering; this puts TODAY's lowering's pin names into that capture, so a rename on one side
-    /// (a prefix, a case, a numbering) can no longer leave the stamp refusing every positional box it just created as
-    /// "names its pin 'X'".</summary>
+    /// <summary>THE NAMES THE WRITER BLANKS ARE THE NAMES THE DELETED LOWERING GAVE (<c>In1</c>, <c>In2</c>): bodies the
+    /// PLCopen import built for Volt are in engineers' projects, so an edit of one still writes the text's positional
+    /// pins over the names that lowering took from Volt — and only those.</summary>
     [Fact]
-    public void Positional_pins_are_blanked_under_the_names_the_lowering_gives_them()
+    public void Positional_pins_are_blanked_under_the_names_the_lowering_gave_them()
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
-        var lowered = TcPlcOpenWriter.WriteProject("VltProbe_Max", pushed).Descendants()
-            .Where(x => x.Name.LocalName == "block").Single().Descendants()
-            .Where(x => x.Name.LocalName == "variable" && x.Parent!.Name.LocalName == "inputVariables")
-            .Select(x => (string)x.Attribute("formalParameter")!).ToList();
-        Assert.Equal(2, lowered.Count);
+        var lowered = new[] { "In1", "In2" };
 
         var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting)
@@ -249,45 +238,41 @@ public class TcStructuralEditTests
         Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd), scope));
     }
 
-    /// <summary>THE CREATE'S STAMP WRITES THE DERIVED OUTPUT NAMES (gate 2R.3, finding 1). A box read from text states no
-    /// member (B7), so the in-place writer keeps the IDE's own output names — but over the IMPORT's fresh box the stamp
-    /// writes the derivation, on the create's by-position route as on the rebuild/insert ones. Without it the import's
-    /// <c>[Out1]</c> stayed on every function box of a created POU (TwinCAT vendor-facts NWL_R_CALLS: an enabled program
-    /// call stored <c>['Out1']</c> where it stored <c>['ENO']</c>, and the build said "Identifier not defined").</summary>
+    /// <summary>A CREATED BOX CARRIES THE DERIVED OUTPUT NAMES (gate 2R.3, finding 1). A box read from text states no member
+    /// (B7), so the in-place writer keeps the IDE's own output names — but a box the push BUILDS takes the derivation. The
+    /// PLCopen import left its own <c>[Out1]</c> on every function box of a created POU (TwinCAT vendor-facts NWL_R_CALLS:
+    /// an enabled program call stored <c>['Out1']</c> where it stored <c>['ENO']</c>, and the build said "Identifier not
+    /// defined"); the native builder states the derivation itself.</summary>
     [Fact]
-    public void The_create_stamp_writes_the_derived_output_names_over_the_imports()
+    public void A_created_box_carries_the_derived_output_names()
     {
-        var built = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
-            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
-        Assert.Contains("<v>Out1</v>", built);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
-        var stamped = BeckhoffDriver.Stamp(built, pushed, scope);
+        var built = TcArchiveBuilder.Body(pushed, scope);
 
-        Assert.DoesNotContain("<v>Out1</v>", stamped);
-        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(stamped)!, BodyLanguage.Fbd), scope));
+        Assert.DoesNotContain("<v>Out1</v>", built);
+        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Fbd), scope));
     }
 
-    /// <summary>…EVEN WHERE THE TEXT CANNOT TELL THE IMPORT FROM THE PUSH (gate 2R.3, found live on the calls program): the
-    /// import's <c>[Out1]</c> on <c>t1(IN := , PT := )</c> is no text (B7), so the import's network renders exactly as
-    /// pushed, and the change gate skipped it — the stamp wrote nothing on any network it could not tell apart, which
-    /// is every plain call. The stamp is not an edit of an IDE-drawn network: it always writes the derivation.</summary>
+    /// <summary>…EVEN WHERE THE TEXT CANNOT TELL ONE BOX FROM ANOTHER (gate 2R.3, found live on the calls program): the
+    /// import's <c>[Out1]</c> on <c>t1(IN := , PT := )</c> is no text (B7), so it rendered exactly as pushed. A created
+    /// body holds the derivation on every call, whatever the text shows.</summary>
     [Fact]
-    public void The_create_stamp_writes_the_derivation_on_a_network_the_text_cannot_tell_apart()
+    public void A_created_body_holds_the_derivation_on_a_network_the_text_cannot_tell_apart()
     {
-        var built = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
+        var imported = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
-        Assert.Contains("<v>Out1</v>", built);
+        Assert.Contains("<v>Out1</v>", imported);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope);
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(imported)!, BodyLanguage.Ld), scope);
 
-        var stamped = BeckhoffDriver.Stamp(built, NetworkText.Validate(text, scope), scope);
+        var built = TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope);
 
-        Assert.DoesNotContain("<v>Out1</v>", stamped);
-        Assert.Equal(text, NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(stamped)!, BodyLanguage.Ld), scope));
+        Assert.DoesNotContain("<v>Out1</v>", built);
+        Assert.Equal(text, NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope));
     }
 
     [Fact]
@@ -325,7 +310,7 @@ public class TcStructuralEditTests
     }
 
     /// <summary>…and an unwired ENABLE is the same empty slot. The import builds an unconnected <c>EN</c> exactly as it
-    /// builds an unconnected data pin (<c>TcPlcOpenWriter.EmitBox</c> emits the enable first, a terminator as an empty
+    /// builds an unconnected data pin (the deleted PLCopen lowering emitted the enable first, a terminator as an empty
     /// <c>&lt;inVariable&gt;</c>), so the capture's first pin renamed <c>EN</c> is that slot. The fix for the empty
     /// backticked name covered the data pins only, and this came back as <c>EN := ``</c>.</summary>
     [Fact]
@@ -361,13 +346,13 @@ public class TcStructuralEditTests
         Assert.Contains("importer was reached", reached.Message);
     }
 
-    /// <summary>…and two rungs that share nothing are still two, refused before the importer would split them.</summary>
+    /// <summary>…and two rungs that share nothing stay ONE network: the builder builds the network the text states. (The
+    /// PLCopen importer built one network per connected rung, D25, so this was refused as a split.)</summary>
     [Fact]
-    public void Two_rungs_sharing_no_wire_are_still_refused_as_a_split()
+    public void Two_rungs_sharing_no_wire_are_rebuilt_as_one_network()
     {
-        var ex = Assert.Throws<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := xtest AND xtest2;", "xoutput2 := xtest OR c;"), Scope, NeverImported));
-        Assert.Contains("2 independent rungs", ex.Message);
+        var pushed = Pushed("xoutput := xtest AND xtest2;", "xoutput2 := xtest OR c;");
+        Assert.Equal(NetworkTextWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
     }
 
     // -- the push half of "EN is a pin, ENO is spelled" -------------------------------------------------------------
@@ -375,7 +360,7 @@ public class TcStructuralEditTests
     /// <summary>The ladder network as the importer would hand it back, with the box's output list set to
     /// <paramref name="names"/> and its type to <paramref name="type"/> — the imported box's own output list, read as
     /// CODESYS reads it (<see cref="Box.HasEnoSlot"/>).</summary>
-    private static Func<Network, XElement> ImportedAs(string type, params string[] names) => _ =>
+    private static Func<Network, NetworkScope, XElement> ImportedAs(string type, params string[] names) => (_, _) =>
     {
         var impl = TcArchive.Root(Ladder())!;
         var net = new XElement(TcArchive.List(impl, "NetworkList")[0]);

@@ -600,95 +600,16 @@ internal sealed partial class TcObjectModel
     public string ProduceXml(object node, bool recursive = false) =>
         (string)((dynamic)node).ProduceXml(recursive) ?? "";
 
-    // ── PLCopen XML transport ───────────────────────────────────────
-    // The PLCopen TRANSPORT is deleted and stays deleted: content does not travel as a document, and every
-    // pull and every edit of an existing body goes through the archive. What survives here is narrower and is
-    // the only thing PLCopen is still good for — CREATING a graphical body TwinCAT does not yet have.
-    //
-    // Nothing else can do it. `TcNetworkWriter` refuses to build archive elements because a `BoxTreeBox`
-    // carries `InputParam`, `OutputParam`, `CallType`, `EN`, `ENO` and `Id` — results of the IDE RESOLVING the
-    // call — and guessing them once wrote twenty unopenable `.TcPOU` files. DIALECT N10 then ruled out reaching
-    // the live NWL objects at all (TwinCAT ships the scripting contract without its implementation), and N11
-    // ruled out deriving the archive from the shipped assemblies (`BoxTreeBox` has no concrete class to
-    // reflect over). An IMPORT inverts the problem: Volt states the topology and the IDE resolves the rest.
-
-    /// <summary>Have TwinCAT BUILD a graphical body and hand back the resolved NWL archive, without touching
-    /// the item it is destined for.
-    ///
-    /// <para><b>The body is imported as a THROWAWAY POU and the archive is copied off it.</b> The obvious route
-    /// — delete the real item and import over it — was implemented first and is worse in three ways, each
-    /// measured. The import always deposits at the PLC-project ROOT (all eight REPLACE cells relocated a
-    /// foldered POU), so a foldered item had to be moved back. A PLCopen import INVALIDATES every handle into
-    /// what it replaced (DIALECT D4d), so the caller had to be handed a re-resolved node. And it cannot serve a
-    /// MEMBER at all: a method or an action has no document of its own (D4j), so there is nothing to import
-    /// over. Worst of all it deletes the engineer's object BEFORE knowing whether the import will produce
-    /// anything, and an importer that does not understand a document produces an empty POU rather than
-    /// throwing.</para>
-    ///
-    /// <para>A scratch POU has none of those problems. Nothing the engineer owns is touched until a RESOLVED
-    /// archive is already in hand; there is no collision to resolve, nothing to move back, no handle to
-    /// re-acquire, and a member is served exactly like a POU because the body is just text by then.</para>
-    ///
-    /// <para><b>It works because the importer does not need declarations.</b> Measured: a POU imported with an
-    /// empty interface still came back with <c>a</c>, <c>b</c>, <c>out1</c> and <c>out2</c> resolved as
-    /// operands, its boxes carrying the <c>InputParam</c>/<c>CallType</c>/<c>Id</c> members Volt must never
-    /// invent. Names resolve against the owning scope when the project is compiled, not when the XML is read —
-    /// which is why the same archive is valid inside whichever item it is written to.</para></summary>
-    public string ResolveGraphicalBody(Volt.Engine.Format.Network.NetworkBody model, string viewMode)
-    {
-        var name = "VoltScratch_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture).Substring(0, 12);
-        var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), name + ".xml");
-
-        try
-        {
-            TcPlcOpenWriter.WriteProject(name, model).Save(file);
-            ((dynamic)PlcRoot()).PlcOpenImport(file, 0);
-
-            // Both refusals below are UNSUPPORTED: the IDE did not take the document Volt sent (it was an uncoded
-            // InvalidOperationException, INTERNAL_ERROR on the wire — a Volt bug; openspec bridge-refusal-review V.1).
-            var scratch = LookupPath(PathOf(PlcRoot()) + "^" + name)
-                ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
-                       "TwinCAT: the PLCopen import produced no POU. The document was accepted and nothing was " +
-                       "built from it, so the push is failed rather than reported as applied.");
-
-            return Adopted(ReadImplementation(scratch), viewMode);
-        }
-        finally
-        {
-            // Always, including on the throw paths - a scratch POU left in an engineer's project is litter that
-            // would also collide with the next push's generated name only by chance.
-            try { DeleteChild(PlcRoot(), name); } catch { /* never created, or already gone */ }
-            try { System.IO.File.Delete(file); } catch { /* a temp file we could not remove is not a failure */ }
-        }
-    }
-
-    /// <summary>The body an import answered, adopted — the half of <see cref="ResolveGraphicalBody"/> after the IDE built
-    /// it (internal: the NWL completeness oracle runs it over the recorded imports, openspec ld-fbd-coverage gate 1b-3).
-    ///
-    /// <para>VERIFY BEFORE ADOPTING. The failure mode here is silence, not an exception: a document the importer does
-    /// not understand yields an EMPTY body, which would then be written over the item and read back as "the engineer
-    /// drew nothing".</para></summary>
-    internal static string Adopted(string archive, string viewMode)
-    {
-        if (TcArchive.HasNoItems(TcArchive.Root(archive)))
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                "TwinCAT: the PLCopen import produced an empty body. The document was accepted but nothing " +
-                "was built from it, so the push is failed rather than reported as applied.");
-
-        return TcArchive.WithViewMode(archive, viewMode) ?? archive;
-    }
-
     /// <summary>The HRESULT TwinCAT returns for a tree path that does not exist — <c>Item 'x' not found</c>.
     /// Measured on live TcXaeShell 15.0 (2026-08-30) against two bogus paths, one under an existing root and one
     /// at the root: both answered <c>0x98510001</c>.</summary>
     private const int TcItemNotFound = unchecked((int)0x98510001);
 
-    /// <summary>Resolve a tree item by its full path, or null when IT IS NOT THERE. Used after an import, where
-    /// every previously held handle is invalid.
+    /// <summary>Resolve a tree item by its full path, or null when IT IS NOT THERE. Used where
+    /// a held handle cannot be trusted (a task's system item, a reload).
     ///
     /// <para><b>Only a genuine not-found becomes null.</b> This caught EVERY <see cref="COMException"/>, so an
-    /// RPC drop mid-push came back as "absent" and <c>ResolveGraphicalBody</c> reported it as "the PLCopen import
-    /// produced no POU" — a wrong diagnosis for a channel fault. Worse, the HRESULT is the only thing
+    /// RPC drop mid-push came back as "absent" — a wrong diagnosis for a channel fault. Worse, the HRESULT is the only thing
     /// <c>BeckhoffDriver.ShouldMarkDegraded</c> can classify, so the session never degraded and <c>Recover()</c>
     /// never ran while health stayed green. That is verbatim the fallback removed from <c>PlcRoot()</c> with a
     /// DO-NOT record 250 lines above; this was the same shape one call lower.</para></summary>

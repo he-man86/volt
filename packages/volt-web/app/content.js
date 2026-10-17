@@ -53,7 +53,7 @@ export const FEATURES = [
     blurb:
       "Structured Text and editable graphical logic (FBD/LD) become first-class text the agent can read, explain, and edit — not opaque blobs it has to guess at.",
     points: [
-      "Graphical bodies round-trip PlcOpen XML to a textual VG form the AI edits",
+      "Graphical bodies round-trip the IDE's own network model to a readable network text the AI edits",
       "Ask questions, refactor, and generate ST with full project context",
       "Type-checking and codegen stay the IDE's job — Volt keeps you honest",
     ],

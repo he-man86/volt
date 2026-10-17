@@ -17,7 +17,7 @@
  * XML — they assert what came back through the vendor's own resolution, which is the only thing that matters.
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE, VENDOR } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -92,28 +92,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
-		// TwinCAT CANNOT — a measured vendor limit, not a tracked gap, so this branch is permanent.
-		// It read "refuses **for now** … delete this branch when it lands" while the outcome was still hoped for.
-		// Measured 2026-09-06 (`openspec/changes/twincat-graphical-create-parity`, task 0): the importer ACCEPTS
-		// the TC6 spelling and IGNORES `formalParameter`, so `t1(IN := a, PT := pt, ET => el)` comes back as
-		// `el := t1(IN := a, PT := pt)` — the variable wired to the box's UNNAMED RESULT. That is worse than a
-		// reshape: a TON's result pin is `Q` (BOOL), so accepting it would assign a BOOL to a TIME variable. And
-		// there is nothing to fix up afterwards — the archive holds a `BoxTreeAssign`, not an `ET` slot, and
-		// creating that slot means building archive members (N11). Both routes are closed.
-		//
-		// The refusal is the whole finding. Its importer honours an `outVariable` wired to a named
-		// pin by lowering it to a SEPARATE assignment rather than an output on the box, so the body would not be
-		// the one pushed (DIALECT C20). Until this test existed the pin was DROPPED instead and the push said it
-		// worked — for a fully resolvable `ET => el`, not only for the `???` cases that first exposed it.
-		if (VENDOR === "twincat") {
-			expect(created.accepted, "TwinCAT accepted an embedded output pin its importer cannot place").toBe(false)
-			// THE CODE is the contract; the message says which shape and may be reworded. This used to grep the
-			// sentence, because until refusals carried their code there was nothing else to match.
-			expect(created.conflicts[0]?.code, `expected an UNSUPPORTED refusal, got ${JSON.stringify(created.conflicts)}`)
-				.toBe("UNSUPPORTED")
-			return
-		}
-
+		// TwinCAT took this through its PLCopen importer, which lowered the pin to a separate assignment (DIALECT C20),
+		// so it was refused there. The native writer builds the pin on the box, as the IDE draws it (twincat-inproc-host).
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)

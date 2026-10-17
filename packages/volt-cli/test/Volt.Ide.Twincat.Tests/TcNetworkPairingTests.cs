@@ -60,7 +60,7 @@ public class TcNetworkPairingTests
         NetworkTextWriter.WritePulled(Shown(body), ScopeOf(Shown(body))).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.None)[0]
             .Substring("IMPLEMENTATION FBD\n".Length) + "END_NETWORK\n";
 
-    private static Func<Network, XElement> Never => n => throw new Xunit.Sdk.XunitException($"the import was reached for network {n.Order + 1}");
+    private static Func<Network, NetworkScope, XElement> Never => (n, _) => throw new Xunit.Sdk.XunitException($"the import was reached for network {n.Order + 1}");
 
     /// <summary>A network inserted before the two the IDE holds is the import's one network, spliced in at the top; both
     /// live networks stay byte for byte (positional pairing called both "changed" and the count refused the push).</summary>
@@ -75,7 +75,7 @@ public class TcNetworkPairingTests
         var pushed = Pushed(body, t => t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + first.Replace(operand, "inserted_op")));
 
         var imported = new List<Network>();
-        var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, n =>
+        var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, (n, _) =>
         {
             imported.Add(n);
             return new XElement(Networks(XElement.Parse(body))[0]);   // the import's answer: the same rung, before the stamp

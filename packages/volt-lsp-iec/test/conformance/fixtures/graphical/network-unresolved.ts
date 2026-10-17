@@ -58,21 +58,6 @@
  */
 import type { LanguageTest } from "../../types.js"
 
-/**
- * TWINCAT REFUSES THESE TWO PUSHES SINCE `push-without-header-check` 5.Q — a known divergence (tasks 5.Q.9). Every POU
- * is now created as a FUNCTION_BLOCK (tree code 604) whatever its text, and TwinCAT keeps that code until a solution
- * reload (DIALECT C2f/C2h); its graphical layer builds the call box of the just-created PROGRAM / FUNCTION from it, as
- * a function-block box with no ENO, so the driver refuses the `.ENO` the caller reads. Re-recorded 2026-10-02: both
- * refused, so nothing new was recorded; the committed TwinCAT rows were taken under the per-kind seeds (`.prg` → 602,
- * `.fun` → 603), when the box had its ENO, and stay as the vendor's answer for this source. Pinned live by `volt-cli`'s
- * `test/e2e/graphical/callee-seed-lag.test.ts`. Niche: accepted loss (0 such calls in the TwinCAT corpus; 2 `.ENO`
- * calls of a project PROGRAM / FUNCTION in the six corpora, all lenze-mid, a CODESYS project).
- */
-const twincatSeedLag = (callee: string): string =>
-  `TwinCAT: the text reads \`.ENO\` on the '${callee}' box, and the IDE builds that box with no ENO output — the ` +
-  "callee is created in the same push under the one POU seed (604) and TwinCAT builds its box from that tree code " +
-  "until a reload (push-without-header-check 5.Q.9). Niche: accepted loss (0 in the TwinCAT corpus, 2 in the six corpora)."
-
 export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
   {
     name: "network_unnamed_instance",
@@ -128,11 +113,11 @@ END_FUNCTION_BLOCK
     note: "The exact shape the two LIVE Lenze POUs carry, and the reason it is here: an unconnected EN does NOT excuse the marker — the compiler still errors. That rules out 'the rung is not generated' as the explanation for those POUs building clean, leaving exclude-from-build.",
     plcPrgVar: "fb_nute : FB_LANG_network_unnamed_target_en;",
     plcPrgBody: "fb_nute();",
-    // TwinCAT's import builds this NOT box with no ENO output, so `TcEnoRefusal` refuses a text that reads one (the
-    // driver's rule since 2026-10-04; the older TwinCAT row predates it — re-recorded 2026-10-16, ld-fbd-coverage 2R.3).
+    // TwinCAT's native builder refuses an enabled bit operator read through its ENO: built so, it does not compile there
+    // ("__ImpVar not defined", DIALECT N42 e) — re-recorded 2026-10-17 (openspec twincat-inproc-host).
     vendorRefuses: {
       twincat:
-        "TwinCAT: the text reads the 'NOT' box through ENO (an open line a later ENO takes, B4), and the IDE builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text matches the box the IDE builds. (Volt's driver, `TcEnoRefusal`, measured 2026-10-16.)",
+        "TwinCAT: the 'NOT' box has an EN pin, and TwinCAT does not compile an enabled NOT built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
     },
     source: `FUNCTION_BLOCK FB_LANG_network_unnamed_target_en
 VAR
@@ -216,7 +201,6 @@ END_FUNCTION_BLOCK
       "\"The assignment target is not specified.\" — before 2R.3 it was the lazy-type pair plus \"The assignment " +
       "source is incorrect.\" The LSP gives the target message for a `???` coil read off a box's ENO.",
     plcPrgBody: "PRG_LANG_network_unnamed_void_caller();",
-    vendorRefuses: { twincat: twincatSeedLag("PRG_LANG_network_unnamed_void_callee") },
     source: `PROGRAM PRG_LANG_network_unnamed_void_callee
 VAR
 	x : BOOL;
@@ -255,7 +239,6 @@ END_PROGRAM
       "assignment source is incorrect.\" This is the BRIDGE's box for a `???`, not one a real project carries.",
     plcPrgVar: "fb_nvc : FB_LANG_network_unnamed_valued_call;",
     plcPrgBody: "fb_nvc();",
-    vendorRefuses: { twincat: twincatSeedLag("FUN_LANG_network_unnamed_valued") },
     source: `FUNCTION FUN_LANG_network_unnamed_valued : BOOL
 VAR_INPUT
 	a : BOOL;

@@ -15,13 +15,13 @@ namespace Volt.Ide.Twincat.Tests;
 /// TIME (2.28, D21).
 ///
 /// <para><see cref="BeckhoffDriver.ValidateSource"/> is handed each network-text body the engine's pre-flight
-/// validated, as its model, and runs the PLCopen lowering a create would — the refusals are a pure function of the
+/// validated, as its model, and runs the native build a create would — the refusals are a pure function of the
 /// model. It used to take the source TEXT and read it all again: <c>StReader</c>, the kind from the wire name, and
 /// <c>NetworkText.Validate</c> per body against scopes it rebuilt.</para>
 ///
 /// <para><b>Per body.</b> The write decides create-or-edit per BODY (<c>ResolveBody</c>: a blank implementation, or an
-/// archive with nothing drawn in it, goes through the import; anything else is edited in place), and the pre-flight ran
-/// only per ITEM — on a new item. So a new graphical METHOD in an existing POU, holding a shape the import refuses, was
+/// archive with nothing drawn in it, is built; anything else is edited in place), and the pre-flight ran
+/// only per ITEM — on a new item. So a new graphical METHOD in an existing POU, holding a shape the builder refuses, was
 /// refused mid-batch, after the batch's earlier ops had landed. Now every body the write would CREATE is lowered here,
 /// on an existing item too; a body it would EDIT is not (an Execute box the engineer drew in an untouched network is
 /// legitimate there).</para>
@@ -37,8 +37,9 @@ public class TcPreflightTests
                    NetworkText.Validate($"IMPLEMENTATION LD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope), scope);
     }
 
-    /// <summary>A shape the import cannot take (a box output pin wired straight to a variable).</summary>
-    private const string Unimportable = "t1(IN := a, PT := pt, ET => el);";
+    /// <summary>A shape the native builder refuses (a parallel branch: TwinCAT never wrote one to build it from). It was a
+    /// box output pin wired to a variable, which only the PLCopen import could not take.</summary>
+    private const string Unimportable = "out := go BRANCH (a, b);";
 
     private static BodySite Method(string name) => new(name, ItemKind.Kinds.Method, null);
 
@@ -61,9 +62,9 @@ public class TcPreflightTests
     [Fact]
     public void A_model_the_lowering_cannot_express_is_refused_on_a_new_item()
     {
-        var ex = Assert.ThrowsAny<NotSupportedException>(() =>
+        var ex = Assert.Throws<NetworkTextException>(() =>
             new BeckhoffDriver(new TcObjectModel()).ValidateSource(null, new[] { Body(Unimportable) }));
-        Assert.Contains("output pin", ex.Message);
+        Assert.Contains("parallel branch", ex.Message);
     }
 
     [Fact]
@@ -79,17 +80,17 @@ public class TcPreflightTests
     [Fact]
     public void A_new_member_in_an_existing_item_is_lowered_as_the_create_it_is()
     {
-        var ex = Assert.ThrowsAny<NotSupportedException>(() =>
+        var ex = Assert.Throws<NetworkTextException>(() =>
             TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()), new[] { Body(Unimportable, Method("Fresh")) }));
         Assert.Contains("'Fresh'", ex.Message);
-        Assert.Contains("output pin", ex.Message);
+        Assert.Contains("parallel branch", ex.Message);
     }
 
     /// <summary>An existing member whose archive has nothing drawn in it is created too (<c>ResolveBody</c>'s rule).</summary>
     [Fact]
     public void An_existing_member_with_nothing_drawn_is_lowered_as_a_create()
     {
-        Assert.ThrowsAny<NotSupportedException>(() =>
+        Assert.Throws<NetworkTextException>(() =>
             TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()), new[] { Body(Unimportable, Method("Empty")) }));
     }
 
@@ -97,7 +98,7 @@ public class TcPreflightTests
     [Fact]
     public void A_retyped_member_is_lowered_as_a_create()
     {
-        Assert.ThrowsAny<NotSupportedException>(() =>
+        Assert.Throws<NetworkTextException>(() =>
             TcUntouchablePouTests.BoundDriver().ValidateSource(new ItemRef(Pou()),
                 new[] { Body(Unimportable, new BodySite("Run", ItemKind.Kinds.Action, null)) }));
     }

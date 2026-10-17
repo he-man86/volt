@@ -320,24 +320,24 @@ and `VltOto_CommentTask` (a commented call of `VltOto_Called`), and the standalo
 on a copy of CodesysTestProject, saved as CodesysOneToOne and committed — Volt's push makes the plain class, the defect the tests pin). Its tests are expected
 failures (`it.failing`) until step 3 closes each; without the objects the CODESYS part skips, loudly.
 
-**`graphical/refused-shapes.test.ts` runs on both, and expects a DIFFERENT verdict from each.** Four bodies -
-an unconditional `JMP`, an unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a
-variable - push clean to CODESYS and are refused by the TwinCAT driver. Every refusal blames TwinCAT's PLCopen
-importer and **none of them has been put to the IDE**: they are the driver's rules, and "TwinCAT cannot" reads
-exactly like "Volt does not" from outside. So the suite carries a table of which shapes are refused where, and
+**`graphical/refused-shapes.test.ts` runs on both.** Four bodies - an unconditional `JMP`, an unconditional
+`RETURN`, an `EXECUTE` box, and a box output pin wired straight to a variable - were refused by the TwinCAT driver
+while it created bodies through TwinCAT's PLCopen importer; with the native writer (openspec twincat-inproc-host,
+`graphical/native-writer.test.ts`) TwinCAT builds all four. "TwinCAT cannot" reads exactly like "Volt does not" from
+outside. So the suite carries a table of which shapes are refused where, and
 **fails when a driver learns one** - "took it, take it off the list" - which is the only thing that keeps a
 list of known gaps honest. It asserts two properties that hold whichever way each one goes: an accepted push
 round-trips BYTE-IDENTICAL, and a refused push writes NOTHING.
 
 That second one was false when the suite was written - the output-pin case pushed two items, wrote the first
-and refused the second - and it is what made the fix findable. The refusals come from TwinCAT's PLCopen
-writer, which is a pure function of the parsed body, so `ICodeStore.ValidateSource` now runs it in
+and refused the second - and it is what made the fix findable. TwinCAT's refusals come from its native builder,
+which is a pure function of the parsed body, so `ICodeStore.ValidateSource` runs it in
 `PushService`'s pre-flight and the whole family is refused before the first write. On a CREATE only: an update
 rewrites just the networks that CHANGED, so a body may legitimately carry a shape the whole-body writer refuses
 in a network the edit does not touch.
 
-These four are also the only LSP conformance fixtures with no TwinCAT recording, which is how the asymmetry
-surfaced: the recorder cannot push them either.
+These four were also the only LSP conformance fixtures with no TwinCAT recording, which is how the asymmetry
+surfaced: the recorder could not push them either.
 
 ## Not a suite: the corpus-migration GAP FINDER
 

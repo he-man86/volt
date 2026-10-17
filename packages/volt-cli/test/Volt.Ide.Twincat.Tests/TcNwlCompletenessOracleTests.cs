@@ -22,17 +22,13 @@ namespace Volt.Ide.Twincat.Tests;
 /// network text → NWL through the SHIPPED code, and every archived member that is not a measured cache must come back
 /// (<see cref="NwlDisposition"/>; a member the table does not name fails by name).
 ///
-/// <para><b>What "back" is on this vendor: the IMPORT, the path where members can be lost.</b> An unchanged push writes
-/// nothing (<see cref="An_unchanged_push_writes_nothing"/>: <c>TcNetworkWriter.Apply</c> answers null, so comparing its
-/// output with the archive compares the archive with itself — the first version of this oracle did, gate 1b-3). What a
-/// push BUILDS goes through TwinCAT's PLCopen import: a CREATE imports the whole body, a shape change REBUILDS one
-/// network. Both run here over the IDE's own answers: the PLCopen document the shipped <c>TcPlcOpenWriter</c> lowers each
-/// body (and each network alone, renumbered to 0, as <c>RebuildNetwork</c> sends it) to is committed in
-/// <c>nwl-corpus/twincat-project14/import</c>, the IDE's import of it is RECORDED beside it
-/// (<c>scripts/record-tc-import.ps1</c>, a live XAE), and the oracle runs the shipped post-import code over the
-/// recording — <c>TcObjectModel.Adopted</c>, then <c>BeckhoffDriver.Stamp</c> (create) or
-/// <c>BeckhoffDriver.Spliceable</c>, the splice and <c>TcNetworkWriter.Apply</c> (rebuild) — and compares with the
-/// stored archive. A committed document that is no longer today's lowering fails by name: re-record.</para>
+/// <para><b>What "back" is on this vendor: what a push BUILDS, the path where members can be lost.</b> An unchanged push
+/// writes nothing (<see cref="An_unchanged_push_writes_nothing"/>: <c>TcNetworkWriter.Apply</c> answers null, so comparing
+/// its output with the archive compares the archive with itself — the first version of this oracle did, gate 1b-3). A
+/// CREATE builds the whole body natively (<see cref="TcArchiveBuilder"/>), a shape change REBUILDS one network the same way
+/// and splices it in (<c>TcNetworkWriter.Splice</c>, then the change gate of <c>Apply</c>); both run here over the corpus
+/// and are compared with the stored archive. (It ran over TwinCAT's recorded PLCopen imports until the native writer
+/// replaced the import, openspec twincat-inproc-host.)</para>
 /// </summary>
 public class TcNwlCompletenessOracleTests
 {
@@ -82,7 +78,6 @@ public class TcNwlCompletenessOracleTests
     }
 
     static string Dir => Path.Combine(CorpusDir(CorpusProjects.CliRoot().FullName), Corpus);
-    static string ImportDir => Path.Combine(Dir, "import");
 
     static List<Body> ReadBodies()
     {
@@ -131,60 +126,14 @@ public class TcNwlCompletenessOracleTests
     static XElement Impl(XElement nwl) =>
         nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
 
-    // ── the PLCopen documents and their recorded imports ──────────────────────────────────────────────────────────
-
-    /// <summary>The scratch POU a body's (<paramref name="network"/> null) or one network's import is recorded under.</summary>
-    static string ScratchName(Body b, int? network) =>
-        "VoltNwl_" + b.Bare + (network is { } i ? "_n" + i.ToString(CultureInfo.InvariantCulture) : "");
-
-    /// <summary>Every document the oracle imports: the whole body (create), and each network alone, renumbered to 0
-    /// (rebuild — exactly the body <c>RebuildNetwork</c> lowers). A lowering that refuses is that path's refusal.</summary>
-    static IEnumerable<(string Name, Body Body, int? Network, Func<XDocument> Lower)> Documents(IEnumerable<Body> bodies)
-    {
-        foreach (var b in bodies)
-        {
-            yield return (ScratchName(b, null), b, null, () => TcPlcOpenWriter.WriteProject(ScratchName(b, null), b.Back));
-            for (var i = 0; i < b.Back.Networks.Count; i++)
-            {
-                var n = i;
-                yield return (ScratchName(b, n), b, n, () => TcPlcOpenWriter.WriteProject(ScratchName(b, n),
-                    new NetworkBody(b.Back.Language, new[] { b.Back.Networks[n] with { Order = 0 } })));
-            }
-        }
-    }
-
-    /// <summary>A document as the driver hands it to the import (<c>XDocument.Save</c>), in text.</summary>
-    static string DocText(XDocument d)
-    {
-        var file = Path.GetTempFileName();
-        try { d.Save(file); return File.ReadAllText(file); }
-        finally { File.Delete(file); }
-    }
-
-    /// <summary>The IDE's answer to the document <paramref name="name"/>, as <c>scripts/record-tc-import.ps1</c> recorded
-    /// it: the scratch POU's <c>ImplementationText</c>.</summary>
-    static string Recorded(string name)
-    {
-        var file = Path.Combine(ImportDir, name + ".nwl.xml");
-        if (!File.Exists(file))
-            throw new InvalidDataException($"no recorded import '{file}' — record it: scripts/record-tc-import.ps1 (scripts/README.md)");
-        return File.ReadAllText(file);
-    }
-
     static PathRun RunCreate(List<Body> bodies)
     {
         var run = new PathRun();
-        foreach (var d in Documents(bodies).Where(d => d.Network is null))
+        foreach (var b in bodies)
         {
-            var b = d.Body;
-            try { d.Lower(); }
-            catch (Exception e) when (e is NotSupportedException or NetworkTextException) { run.Refused[b.Id] = "lower: " + e.Message; continue; }
-            string built;
-            try { built = TcObjectModel.Adopted(Recorded(d.Name), b.View); }
-            catch (Volt.Engine.BridgeException e) { run.Refused[b.Id] = "import: " + e.Message; continue; }
             string final;
-            try { final = BeckhoffDriver.Stamp(built, b.Back, b.Scope); }
-            catch (NotSupportedException e) { run.Refused[b.Id] = "stamp: " + e.Message; continue; }
+            try { final = TcArchiveBuilder.Body(b.Back, b.Scope); }
+            catch (Exception e) when (e is NotSupportedException or NetworkTextException) { run.Refused[b.Id] = "build: " + e.Message; continue; }
             if (DuplicateIds(Impl(XElement.Parse(final))) is { } dupCreate) run.DuplicateIds[b.Id] = dupCreate;
             var written = Archive(Impl(XElement.Parse(final, LoadOptions.PreserveWhitespace)), null);
             var s = (ArchiveList)b.Stored["NetworkList"]!;
@@ -200,29 +149,25 @@ public class TcNwlCompletenessOracleTests
     static PathRun RunRebuild(List<Body> bodies)
     {
         var run = new PathRun();
-        foreach (var d in Documents(bodies).Where(d => d.Network is not null))
-        {
-            var b = d.Body;
-            var i = d.Network!.Value;
-            var unit = $"{b.Id}#{i}";
-            try { d.Lower(); }
-            catch (Exception e) when (e is NotSupportedException or NetworkTextException) { run.Refused[unit] = "lower: " + e.Message; continue; }
-            XElement rebuilt;
-            try { rebuilt = BeckhoffDriver.Spliceable(TcObjectModel.Adopted(Recorded(d.Name), b.View), b.Back.Networks[i]); }
-            catch (Exception e) when (e is InvalidOperationException or Volt.Engine.BridgeException) { run.Refused[unit] = "import: " + e.Message; continue; }
-            // The splice Apply makes (`TcNetworkWriter.Splice`: in place, with fresh Ids), then the stamp it makes on the
-            // spliced network.
-            var doc = XElement.Parse(b.StoredXml, LoadOptions.PreserveWhitespace);
-            TcNetworkWriter.Splice(Impl(doc), TcArchive.List(Impl(doc), "NetworkList")[i], rebuilt);
-            var spliced = doc.ToString(SaveOptions.DisableFormatting);
-            string final;
-            try { final = TcNetworkWriter.Apply(spliced, b.Back, b.Scope) ?? spliced; }
-            catch (NotSupportedException e) { run.Refused[unit] = "stamp: " + e.Message; continue; }
-            if (DuplicateIds(Impl(XElement.Parse(final))) is { } dup) run.DuplicateIds[unit] = dup;
-            var written = (ArchiveList)Archive(Impl(XElement.Parse(final, LoadOptions.PreserveWhitespace)), null)["NetworkList"]!;
-            var stored = (ArchiveList)b.Stored["NetworkList"]!;
-            run.Findings.Add((unit, NwlCompare.Node((ArchiveNode)stored.Items[i]!, (ArchiveNode)written.Items[i]!, unit)));
-        }
+        foreach (var b in bodies)
+            for (var i = 0; i < b.Back.Networks.Count; i++)
+            {
+                var unit = $"{b.Id}#{i}";
+                XElement rebuilt;
+                try { rebuilt = TcArchiveBuilder.NetworkGraph(b.Back.Networks[i], b.Scope); }
+                catch (Exception e) when (e is NotSupportedException or NetworkTextException) { run.Refused[unit] = "build: " + e.Message; continue; }
+                // The splice Apply makes (`TcNetworkWriter.Splice`: in place, laid out, with fresh Ids), then its change gate.
+                var doc = XElement.Parse(b.StoredXml, LoadOptions.PreserveWhitespace);
+                TcNetworkWriter.Splice(Impl(doc), TcArchive.List(Impl(doc), "NetworkList")[i], rebuilt);
+                var spliced = doc.ToString(SaveOptions.DisableFormatting);
+                string final;
+                try { final = TcNetworkWriter.Apply(spliced, b.Back, b.Scope) ?? spliced; }
+                catch (NotSupportedException e) { run.Refused[unit] = "apply: " + e.Message; continue; }
+                if (DuplicateIds(Impl(XElement.Parse(final))) is { } dup) run.DuplicateIds[unit] = dup;
+                var written = (ArchiveList)Archive(Impl(XElement.Parse(final, LoadOptions.PreserveWhitespace)), null)["NetworkList"]!;
+                var stored = (ArchiveList)b.Stored["NetworkList"]!;
+                run.Findings.Add((unit, NwlCompare.Node((ArchiveNode)stored.Items[i]!, (ArchiveNode)written.Items[i]!, unit)));
+            }
         return run;
     }
 
@@ -290,7 +235,7 @@ public class TcNwlCompletenessOracleTests
             var sources = Directory.EnumerateFiles(fixture, Path.GetFileName(copy), SearchOption.AllDirectories).ToList();
             Assert.True(sources.Count == 1, $"{Path.GetFileName(copy)}: {sources.Count} fixture files of that name");
             Assert.True(File.ReadAllBytes(sources[0]).SequenceEqual(File.ReadAllBytes(copy)),
-                $"{copy} is not the bytes of {sources[0]} — copy the fixture again, and re-record (scripts/record-tc-import.ps1)");
+                $"{copy} is not the bytes of {sources[0]} — copy the fixture again");
         }
         var project = CorpusProject.At(Path.Combine(CorpusProjects.CorpusRoot(), Corpus));
         foreach (var b in Bodies.Value)
@@ -316,37 +261,10 @@ public class TcNwlCompletenessOracleTests
     public void An_unchanged_push_writes_nothing() =>
         Assert.All(Bodies.Value, b => Assert.Null(TcNetworkWriter.Apply(b.StoredXml, b.Back, b.Scope)));
 
-    /// <summary>The committed PLCopen documents are what the shipped lowering writes today, each with its recorded import —
-    /// a lowering change makes the recording stale, which is re-recorded, never compared blind.
-    /// <c>VOLT_WRITE_NWL_IMPORT=1</c> rewrites the documents (then record: <c>scripts/record-tc-import.ps1</c>).</summary>
-    [Fact]
-    public void The_recorded_imports_are_of_todays_lowering()
-    {
-        var expected = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var d in Documents(Bodies.Value))
-        {
-            try { expected[d.Name] = DocText(d.Lower()); }
-            catch (Exception e) when (e is NotSupportedException or NetworkTextException) { }   // the path's refusal (Refusal_tally): nothing to import
-        }
-        if (Environment.GetEnvironmentVariable("VOLT_WRITE_NWL_IMPORT") == "1")
-        {
-            Directory.CreateDirectory(ImportDir);
-            foreach (var f in Directory.EnumerateFiles(ImportDir, "*.plcopen.xml")) File.Delete(f);
-            foreach (var kv in expected) File.WriteAllText(Path.Combine(ImportDir, kv.Key + ".plcopen.xml"), kv.Value);
-        }
-        var committed = Directory.EnumerateFiles(ImportDir, "*.plcopen.xml")
-            .ToDictionary(f => Path.GetFileName(f).Replace(".plcopen.xml", ""), File.ReadAllText, StringComparer.Ordinal);
-        Assert.Equal(expected.Keys.OrderBy(k => k, StringComparer.Ordinal), committed.Keys.OrderBy(k => k, StringComparer.Ordinal));
-        foreach (var kv in expected)
-            Assert.True(kv.Value == committed[kv.Key], $"{kv.Key}.plcopen.xml is not today's lowering — VOLT_WRITE_NWL_IMPORT=1, then re-record");
-        var recorded = Directory.EnumerateFiles(ImportDir, "*.nwl.xml").Select(f => Path.GetFileName(f).Replace(".nwl.xml", ""));
-        Assert.Equal(expected.Keys.OrderBy(k => k, StringComparer.Ordinal), recorded.OrderBy(k => k, StringComparer.Ordinal));
-    }
-
     /// <summary>THE ID IS THE IDE'S ALLOCATOR (C, vendor-facts `nwl-item-id`), SO ITS VALUE IS NOT COMPARED — BUT EVERY
-    /// BODY A PUSH WRITES HOLDS EACH ID ONCE, as every body the corpora hold does (gate 2-2). A rebuild imports the one
-    /// network into a scratch POU with its own id space and splices it into the live body: spliced as it came, POUexecute's
-    /// rebuilt network 1 repeated Ids network 0 holds, and TwinCAT keeps a stored Id across save and reopen (N28).</summary>
+    /// BODY A PUSH WRITES HOLDS EACH ID ONCE, as every body the corpora hold does (gate 2-2). A rebuilt network is built
+    /// with its own ids from 2 and spliced into the live body, which renumbers them above the body's: spliced as it came,
+    /// it would repeat Ids the kept networks hold, and TwinCAT keeps a stored Id across save and reopen (N28).</summary>
     [Fact]
     public void Every_body_a_push_writes_holds_each_id_once()
     {
@@ -365,66 +283,60 @@ public class TcNwlCompletenessOracleTests
                      Rebuild.Value.Refused.OrderBy(k => k.Key, StringComparer.Ordinal).ToList());
     }
 
-    /// <summary>THE ORACLE, CREATE: every non-cache member of every network comes back through the whole-body import and
-    /// the stamp, or its loss is a known one.</summary>
+    /// <summary>THE ORACLE, CREATE: every non-cache member of every network comes back through the native build of the
+    /// whole body, or its loss is a known one.</summary>
     [Fact]
     public void Every_member_comes_back_through_a_create_or_is_a_known_loss() =>
         NwlLedger.AssertExactly("twincat create", Create.Value.Findings, KnownCreate);
 
-    /// <summary>THE ORACLE, REBUILD: every non-cache member of the rebuilt network comes back through the one-network
-    /// import, the splice and the stamp, or its loss is a known one.</summary>
+    /// <summary>THE ORACLE, REBUILD: every non-cache member of the rebuilt network comes back through the native build of
+    /// the one network, the splice and the change gate, or its loss is a known one.</summary>
     [Fact]
     public void Every_member_comes_back_through_a_rebuild_or_is_a_known_loss() =>
         NwlLedger.AssertExactly("twincat rebuild", Rebuild.Value.Findings, KnownRebuild);
 
-    // The create path compares NO network of this corpus (gate 1b-3): POUexecute's whole-body lowering is refused (its
-    // wire network, TcUnmeasured), and ladderLabel's import drops its EMPTY network (PLCopen has no network element,
-    // D25), so the stamp refuses the count — a create of either is refused by name, never applied thinner.
-    const string WireUnmeasured = "TwinCAT: network {0} changes shape and holds the split split1 fed by the leaf 'b'. Volt rebuilds a " +
-        "changed network through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused " +
-        "before the import rather than risk a network that comes back different. The IDE can make this change.";
+    // Neither path refuses a network of this corpus: the PLCopen import refused POUexecute's leaf-fed wire network and its
+    // Execute box, and dropped ladderLabel's empty network (D25) — none of which the native builder has a reason to.
+    static readonly Dictionary<string, string> CreateRefused = new(StringComparer.Ordinal);
 
-    static readonly Dictionary<string, string> CreateRefused = new(StringComparer.Ordinal)
-    {
-        ["twincat-project14/POUexecute.TcPOU#POU:POUexecute"] = "lower: " + string.Format(CultureInfo.InvariantCulture, WireUnmeasured, 3),
-        // The import drops the empty network (D25), so the stamp cannot pair its networks one for one (ld-fbd-coverage 1b.4:
-        // the stamp stays positional; this said "cannot ADD one through the archive", which was never what happened).
-        ["twincat-project14/ladderLabel.TcPOU#POU:ladderLabel"] = "stamp: TwinCAT: the import built 1 network(s) for the 2 " +
-            "pushed, so its networks cannot be stamped one for one: the import drops an empty network and builds one network " +
-            "per connected rung (DIALECT D25).",
-    };
+    static readonly Dictionary<string, string> RebuildRefused = new(StringComparer.Ordinal);
 
-    static readonly Dictionary<string, string> RebuildRefused = new(StringComparer.Ordinal)
-    {
-        ["twincat-project14/POUexecute.TcPOU#POU:POUexecute#0"] = "lower: TwinCAT: this graphical body contains an Execute box, and " +
-            "Volt's TwinCAT lowering has no spelling for it, so the push cannot write it. The IDE can create it.",
-        ["twincat-project14/POUexecute.TcPOU#POU:POUexecute#2"] = "lower: " + string.Format(CultureInfo.InvariantCulture, WireUnmeasured, 1),
-        ["twincat-project14/ladderLabel.TcPOU#POU:ladderLabel#1"] = "import: TwinCAT: the PLCopen import produced an empty body. The " +
-            "document was accepted but nothing was built from it, so the push is failed rather than reported as applied.",
-    };
-
+    /// <summary>Every loss a native CREATE shows today (all 6 networks compared), with the row that names it: members the
+    /// IDE re-derives on compile (R) and the text does not carry, which a built body holds at the importer's values.</summary>
     static readonly NwlKnown[] KnownCreate =
     {
+        new("BoxTreeBox.EN — changed", 3, 4, "2.2 nwl-box-en-eno (R): a built box shows no EN/ENO (null, as the importer wrote it) where the IDE stored false"),
+        new("BoxTreeBox.ENO — changed", 3, 4, "2.2 nwl-box-en-eno (R): a built box shows no EN/ENO (null, as the importer wrote it) where the IDE stored false"),
+        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 3, 4, "2.2 nwl-flags-fixed (R): the importer's convention, the editor's is the inverse"),
+        new("Flags.Fixed in BoxTreeBox.Flags — changed", 4, 5, "2.2 nwl-flags-fixed (R)"),
+        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 4, 8, "2.2 nwl-flags-fixed (R)"),
+        new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.2 nwl-operand-boolean (R)"),
+        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 4, 5, "2.2 nwl-operand-type (R)"),
+        new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
+        new("Operand.Type in BoxTreeOperand.Operand — changed", 4, 8, "2.2 nwl-operand-type (R); 2R.3 (B6): a leaf feeding a split no longer takes its stored type (no split type in the text), as on CODESYS"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 3, 4, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
+        new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: the types of the output names above, which go with them"),
+        new("NWLImplementationObject.BranchCounter — changed", 1, 1, "the VarId allocator: a create starts it at the highest VarId it holds (1 for none)"),
     };
 
-    /// <summary>Every loss the rebuild shows today (3 networks compared: POUexecute #1 and #3, ladderLabel #0), with the
-    /// task that closes it. The import answers before any build, so a member the IDE re-derives on compile reads as lost
-    /// here — which is exactly what the 2.2 rows measure.</summary>
+    /// <summary>Every loss a native REBUILD shows today (all 6 networks compared, each spliced into its stored body): the
+    /// same members as a create's, network by network.</summary>
     static readonly NwlKnown[] KnownRebuild =
     {
-        new("BoxTreeBox.EN — changed", 2, 2, "2.2 nwl-box-en-eno (R): the import answers null where the IDE stored false"),
-        new("BoxTreeBox.ENO — changed", 2, 2, "2.2 nwl-box-en-eno (R): the import answers null where the IDE stored false"),
-        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R)"),
-        new("Flags.Fixed in BoxTreeBox.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R)"),
-        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 2, 4, "2.2 nwl-flags-fixed (R)"),
+        new("BoxTreeBox.EN — changed", 3, 4, "2.2 nwl-box-en-eno (R): a built box shows no EN/ENO (null, as the importer wrote it) where the IDE stored false"),
+        new("BoxTreeBox.ENO — changed", 3, 4, "2.2 nwl-box-en-eno (R): a built box shows no EN/ENO (null, as the importer wrote it) where the IDE stored false"),
+        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 3, 4, "2.2 nwl-flags-fixed (R): the importer's convention, the editor's is the inverse"),
+        new("Flags.Fixed in BoxTreeBox.Flags — changed", 4, 5, "2.2 nwl-flags-fixed (R)"),
+        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 4, 8, "2.2 nwl-flags-fixed (R)"),
         new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.2 nwl-operand-boolean (R)"),
-        new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 3, 3, "2.3 D: true exactly for an assign target or a box output slot (the import answers false, the stamp writes none)"),
-        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 3, 3, "2.2 nwl-operand-type (R)"),
+        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 4, 5, "2.2 nwl-operand-type (R)"),
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
-        new("Operand.Type in BoxTreeOperand.Operand — changed", 2, 4, "2.2 nwl-operand-type (R)"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 2, 2, "2.3 D (the null slots) + design gap (1b.3): a call's unconnected output pins"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 2, 2, "2R.3 B7 L: the pragma is gone, so the TON's stored output names ['Q', 'ET'] are the import's ['Out1'] after a rebuild — until a call's output list is derived from the callee's declaration (owed to 2R.4, as CODESYS's ledger says)"),
+        new("Operand.Type in BoxTreeOperand.Operand — changed", 4, 8, "2.2 nwl-operand-type (R); 2R.3 (B6): a leaf feeding a split no longer takes its stored type (no split type in the text), as on CODESYS"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 3, 4, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
         new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 2, 2, "2R.3 B7 L: the types of the TON's stored output names, which go with the names"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: the types of the output names above, which go with them"),
     };
 }

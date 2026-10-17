@@ -1,0 +1,6 @@
+IMPLEMENTATION FBD
+NETWORK
+  split1 := MAX(i1, i2);
+  n := split1 ADD 1;
+  sv := split1 MUL 2;
+END_NETWORK

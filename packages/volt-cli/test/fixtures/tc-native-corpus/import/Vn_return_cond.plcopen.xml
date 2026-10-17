@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.13.21" creationDateTime="1970-01-01T00:00:00" />
+  <contentHeader name="Vn_return_cond">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="Vn_return_cond" pouType="program">
+        <interface />
+        <body>
+          <FBD>
+            <vendorElement localId="10000000000">
+              <position x="0" y="0" />
+              <alternativeText>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">FBD Implementation Attributes</xhtml>
+              </alternativeText>
+              <addData>
+                <data name="http://www.3s-software.com/plcopenxml/fbd/implementationattributes" handleUnknown="implementation">
+                  <fbdattributes xmlns="">
+                    <attribute name="BoxInputFlagsSupported" value="true" />
+                  </fbdattributes>
+                </data>
+              </addData>
+            </vendorElement>
+            <inVariable localId="10000000002">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>a</expression>
+            </inVariable>
+            <return localId="10000000001">
+              <position x="0" y="0" />
+              <connectionPointIn>
+                <connection refLocalId="10000000002" />
+              </connectionPointIn>
+            </return>
+            <inVariable localId="20000000000">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>a</expression>
+            </inVariable>
+            <inVariable localId="20000000001">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>b</expression>
+            </inVariable>
+            <block localId="20000000002" typeName="AND">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="In1">
+                  <connectionPointIn>
+                    <connection refLocalId="20000000000" />
+                  </connectionPointIn>
+                </variable>
+                <variable formalParameter="In2">
+                  <connectionPointIn>
+                    <connection refLocalId="20000000001" />
+                  </connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1">
+                  <connectionPointOut />
+                </variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.3s-software.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <outVariable localId="20000000003">
+              <position x="0" y="0" />
+              <connectionPointIn>
+                <connection refLocalId="20000000002" />
+              </connectionPointIn>
+              <expression>out</expression>
+            </outVariable>
+          </FBD>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+</project>

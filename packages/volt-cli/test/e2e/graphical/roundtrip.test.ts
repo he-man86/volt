@@ -244,23 +244,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: executeProgram(name), ifVersion: null }] })
 
-		// A TRACKED gap, not a vendor difference: `openspec/changes/twincat-graphical-create-parity`.
-		// Delete this branch when it lands.
-		//
-		// An Execute box is ST INSIDE an FBD box, and PLCopen FBD has no element for one. MEASURED 2026-09-06:
-		// emitted as a `<block typeName="EXECUTE">` the importer ACCEPTS the push and returns `EXECUTE();` — a
-		// plain box whose TYPE NAME is the string EXECUTE, with the ST gone. So the refusal is what stands
-		// between an engineer and silently losing their code, which is why it is asserted rather than skipped.
-		if (VENDOR === "twincat") {
-			expect(r.accepted, "TwinCAT accepted an Execute box its importer cannot build").toBe(false)
-			// ONLY the Execute message now. This also accepted "wires a box's EN input", because the fixture is
-			// EN-guarded and the enable was refused FIRST — so the test passed without the Execute box ever
-			// being reached. TwinCAT creates a wired EN since 2026-09-06, so that alternative is dead, and
-			// leaving it in would let a future EN regression masquerade as this known limit.
-			expect(JSON.stringify(r.conflicts)).toContain("Execute box")
-			return
-		}
-
+		// TwinCAT refused this while its PLCopen import was the create door (the importer returned a plain box named
+		// EXECUTE with the ST gone); the native writer builds the box from the drawn one's members (twincat-inproc-host).
 		expect(r.accepted).toBe(true)
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
@@ -293,14 +278,6 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: emptyExecuteProgram(name), ifVersion: null }] })
 
-		// Same tracked gap as the test above — TwinCAT's importer cannot build an Execute box at all, so the
-		// refusal is what stands between the engineer and a silently emptied box.
-		if (VENDOR === "twincat") {
-			expect(r.accepted).toBe(false)
-			expect(JSON.stringify(r.conflicts)).toContain("Execute box")
-			return
-		}
-
 		expect(r.accepted).toBe(true)
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
@@ -316,23 +293,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(after2.sourceText).toBe(after.sourceText)
 	})
 
-	// `exact` = the pushed text must come back byte for byte. It is TRUE for every shape but one.
-	//
-	// `multicoil` writes two INDEPENDENT rungs inside one network (`q := a; r := b;`), and TwinCAT's PLCopen
-	// importer emits one network per CONNECTED COMPONENT — measured, asserted and depended upon in
-	// `grouping.test.ts` ("two disconnected sinks -> 2"). PLCopen has no network delimiter, so the importer has
-	// to infer the boundaries and there is nothing in the document that can tell it otherwise. The network
-	// therefore comes back SPLIT IN TWO, while CODESYS returns the grouping it was given.
-	//
-	// That is a REAL fidelity gap, not a convention: the same push produces different text on the two vendors,
-	// and a TwinCAT user sees a phantom diff on the next pull. It is recorded here rather than asserted away
-	// because closing it means MERGING the importer's networks, and the only route to that is building archive
-	// elements by hand — which `TcNetworkWriter` refuses by design ("the IDE's own reader depends on a member
-	// contract only the IDE produces"), and which was tried here and produced bodies the IDE could not read.
+	// `exact` = the pushed text must come back byte for byte — on every shape now. `multicoil` (two INDEPENDENT rungs in
+	// one network) was the exception while TwinCAT created bodies through its PLCopen import, which builds one network per
+	// connected component (D25); the native writer builds the network the text states (openspec twincat-inproc-host).
 	for (const [label, buildSrc, exact] of [
 		["negated", ldNegated, true],
 		["series3", ldSeries3, true],
-		["multicoil", ldMultiCoil, false],
+		["multicoil", ldMultiCoil, true],
 		["setcoil", ldSetCoil, true],
 	] as [string, (n: string) => string, boolean][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {

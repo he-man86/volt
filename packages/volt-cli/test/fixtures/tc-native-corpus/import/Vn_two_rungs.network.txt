@@ -1,0 +1,5 @@
+IMPLEMENTATION FBD
+NETWORK
+  out1 := a AND b;
+  out2 := c OR d;
+END_NETWORK

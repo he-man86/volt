@@ -240,21 +240,21 @@ public class TcDrawnJumpTests
     /// <summary>A BIT EDIT INTO A SHAPE NO TWINCAT EDIT HAS MEASURED IS REFUSED IN PLACE, BY NAME (gate 2R.5): a set
     /// coil beside a jump, a set lone RETURN, a negated empty slot. The in-place door wrote each (or, for the lone
     /// RETURN, dropped the S= and reported success); none has a TwinCAT store/build/reopen measurement (the text spells
-    /// them from CODESYS's). Refused, the network goes to the import, which refuses the same shape by name before the IDE
-    /// is asked.</summary>
+    /// them from CODESYS's). Refused, the network goes to the builder, which refuses the same shape by name before anything
+    /// is written.</summary>
     [Theory]
     [InlineData("JMP owrods := out := ;", "JMP owrods := out S= ;", Beside, Beside)]
     [InlineData("  RETURN;", "  RETURN S= ;", "a jump or a return with S= or R=", "a jump or a return with S= or R=")]
     [InlineData("  done := ???;", "  done := NOT ;", "a negated empty slot", "a negated empty slot")]
-    public void An_unmeasured_bit_edit_is_refused_in_place_by_name(string from, string to, string inPlaceShape, string importShape)
+    public void An_unmeasured_bit_edit_is_refused_in_place_by_name(string from, string to, string inPlaceShape, string buildShape)
     {
         var inPlace = Assert.ThrowsAny<System.NotSupportedException>(() => Apply(from, to));
         Assert.Contains(inPlaceShape, inPlace.Message);
 
-        var viaImport = Assert.Throws<NetworkTextException>(() => Apply(from, to,
-            resolve: _ => throw new Xunit.Sdk.XunitException("the import was asked for a shape it is not measured for")));
-        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, viaImport.Code);
-        Assert.Contains(importShape, viaImport.Message);
+        var viaBuild = Assert.Throws<NetworkTextException>(() => Apply(from, to,
+            resolve: (_, _) => throw new Xunit.Sdk.XunitException("the builder was asked for a shape it is not measured for")));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, viaBuild.Code);
+        Assert.Contains(buildShape, viaBuild.Message);
     }
 
     private const string Beside = "a jump or a return beside another coil on one rung";
@@ -271,7 +271,7 @@ public class TcDrawnJumpTests
         Assert.Contains("a negated or edge coil beside another coil", refused.Message);
     }
 
-    private static string? Apply(string from, string to, System.Func<Network, XElement>? resolve = null)
+    private static string? Apply(string from, string to, System.Func<Network, NetworkScope, XElement>? resolve = null)
     {
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);

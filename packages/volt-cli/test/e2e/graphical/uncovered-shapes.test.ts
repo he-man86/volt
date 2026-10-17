@@ -19,7 +19,7 @@ import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:te
 import {
 
 	id, fid, bridge, requireHealthy, BASE, expectRoundTrip, expectRoundTripOrRefusal, diagnostics,
-	removeItem, createItem, fetchItem, pushOps, versionOf, plcFolder, FOLDER, VENDOR,
+	removeItem, createItem, fetchItem, pushOps, versionOf,
 } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
@@ -161,14 +161,8 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		)
 
 		await removeItem(item)
-		if (VENDOR === "twincat") {
-			const before = await versionOf(item)
-			const r = await pushOps([{ op: "set", name: item, toFolder: await plcFolder(FOLDER), sourceText: src, ifVersion: null }])
-			expect(r.accepted, "TwinCAT created a fan-out with storing coils it has no item to stamp").toBe(false)
-			expect(JSON.stringify(r.conflicts), "the refusal does not name the shape change").toContain("item(s)")
-			expect(await versionOf(item), "a refused create wrote the item anyway").toBe(before)
-			return
-		}
+		// TwinCAT refused this create while its PLCopen import folded the wire and left no item to stamp each coil on;
+		// the native writer builds the wire and both coils (openspec twincat-inproc-host).
 		await createItem(item, src)
 		const back = (await fetchItem(item)).sourceText
 

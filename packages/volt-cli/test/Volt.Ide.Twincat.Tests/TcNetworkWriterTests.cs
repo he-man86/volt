@@ -150,40 +150,35 @@ public class TcNetworkWriterTests
         Assert.DoesNotContain("\"FALSE\"", written);
     }
 
-    /// <summary>Disabling a network is a boolean the IDE already wrote. The fixture's second network is
-    /// already out-commented, so this also proves the flag is read and written as one value and not
-    /// inverted.</summary>
+    /// <summary>ADDING a network builds it natively and splices it in after the ones the text keeps (the in-place writer
+    /// alone cannot: it is handed the builder, as the push's writer is). It was refused — "a new network needs elements
+    /// whose member contract only the IDE produces" — while the only builder was TwinCAT's PLCopen import.</summary>
     [Fact]
-    public void A_network_can_be_disabled_and_re_enabled()
+    public void Adding_a_network_builds_it_natively()
     {
         var body = VendorBody();
         var model = Read(body);
-        Assert.False(model.Networks[0].Disabled);
-        Assert.True(model.Networks[1].Disabled);
+        var grown = model with { Networks = model.Networks.Append(model.Networks[0] with { Order = model.Networks.Count }).ToList() };
 
-        var flipped = model with { Networks = model.Networks.Select(n => n with { Disabled = !n.Disabled }).ToList() };
-        var written = TcText.Apply(body, flipped);
+        var written = TcNetworkWriter.Apply(body, grown, TcText.ScopeOf(grown), TcArchiveBuilder.NetworkGraph);
 
         Assert.NotNull(written);
-        var back = Read(written!);
-        Assert.True(back.Networks[0].Disabled);
-        Assert.False(back.Networks[1].Disabled);
+        Assert.Equal(TcText.Write(grown), TcText.Write(Read(written!)));
+        // The networks the text kept are the IDE's, byte for byte.
+        for (var i = 0; i < model.Networks.Count; i++) Assert.Equal(NetworkXml(body, i), NetworkXml(written!, i));
     }
 
-    // -- shape changes are refused -----------------------------------------------------------------
-
+    /// <summary>…and without the builder (the in-place writer alone) an added network is a Volt bug, said so.</summary>
     [Fact]
-    public void Adding_a_network_is_refused()
+    public void Adding_a_network_without_the_builder_is_a_bug_named()
     {
         var body = VendorBody();
         var model = Read(body);
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
-        // Without the IDE's import (the in-place writer alone) a new network has no way in: it needs elements whose
-        // member contract only the IDE produces. The push's own writer passes the import (TcStructuralEditTests).
         var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
         Assert.Contains("adds network 3", ex.Message);
-        Assert.Contains("member contract only the IDE produces", ex.Message);
+        Assert.Contains("Volt bug", ex.Message);
     }
 
     /// <summary>DELETING a network builds nothing, and since ld-fbd-coverage 1b.4 the push knows WHICH network went:
@@ -281,18 +276,6 @@ public class TcNetworkWriterTests
 
     /// <summary>The refusal is the same one an engineer sees, so it has to say what to do instead. A message
     /// that only says "unsupported" leaves them with a file they cannot get their edit into.</summary>
-    [Fact]
-    public void A_refusal_says_where_the_change_belongs()
-    {
-        var body = VendorBody();
-        var model = Read(body);
-        var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
-
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
-        // The network-count refusal carries its own advice now, per case, rather than the generic sentence.
-        Assert.Contains("Add it in the IDE and pull it.", ex.Message);
-    }
-
     // -- helpers -----------------------------------------------------------------------------------
 
     /// <summary>The archive element of network <paramref name="index"/>, as serialized in <paramref name="body"/>.</summary>

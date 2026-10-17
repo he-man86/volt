@@ -68,9 +68,11 @@ public interface ICodeStore
     /// <para><b>Why the engine cannot do this itself.</b> Its own pre-flight covers everything decidable from
     /// the source text alone — a malformed document, network text that does not parse or is incomplete — and
     /// that is vendor-neutral by construction. What it cannot cover is a shape one VENDOR cannot express:
-    /// TwinCAT's graphical CREATE goes through a PLCopen import (DIALECT D22), and its writer refuses an Execute box
-    /// and a box output pin wired straight to a variable (C20) from a pure function of the parsed body. Being pure is
-    /// the whole point: asked before any op lands, a refusal of the batch's second item leaves nothing of the first.</para>
+    /// TwinCAT's graphical CREATE builds the vendor's own archive from the model (<c>TcArchiveBuilder</c>, DIALECT N42),
+    /// and that builder refuses the shapes it has no TwinCAT form for — a parallel branch, a modifier on a box input pin,
+    /// an enabled bit operator read through its ENO, the 2R.5 shapes no TwinCAT build has measured — as a pure function
+    /// of the parsed body. Being pure is the whole point: asked before any op lands, a refusal of the batch's second item
+    /// leaves nothing of the first.</para>
     ///
     /// <para><see cref="DriverBase"/> refuses nothing, which is the honest answer for a driver whose refusals
     /// genuinely need the live objects: a pre-flight that guesses is worse than one that declines to. (It lives

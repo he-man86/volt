@@ -90,7 +90,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 9),   // +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Item/ItemKind.cs", 1),
@@ -164,6 +164,10 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
             ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4); 2R.3: the parallel's refusals (P6: no branch, one branch C0023), the pragma's gone; 2R.5: an empty branch is spelled (-2), an operator with one input refused (+1); gate 2R.5: the composites no store/build/run measures (+6: a modified jump or return, an edge beside another coil bit, an edge on EN, an edge on a negated pin, a negated empty slot outside a coil's value, a split read inside its own definition; gate 2R.5 (2): +1 a negated or edge coil beside another coil)
+            // A shape the native builder has no TwinCAT form for (PARALLEL, a pin flag, an enabled bit operator,
+            // a consumed call with no slot for its consumer) — it replaced the PLCopen import's refusals (twincat-inproc-host).
+            ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 1),
+            // The 2R.5 shapes no TwinCAT build has measured (TcUnmeasured.RefuseUnbuilt).
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1))),
     };
 
@@ -353,16 +357,21 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 13),   // +2 ReadObject refuses no object manager / a checkout with no object (cli-bridges review B1)
         ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
         ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
-        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7)
+        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7); -2 the import's stamp and splice (twincat-inproc-host)
         ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),
+        // The native writer (twincat-inproc-host): the builder's invariants (an FB call with no instance, a positional
+        // output with no slot, a RESET at the generic flag write) and its shape refusals (a slot two pins claim, a named
+        // pin the names do not hold, a node with no archive form); the writer's refusals of what TwinCAT never writes.
+        // +1 (merge onto 2R): a named ENO pin on a box built with no ENO output, which the reader refuses (P5).
+        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 8),
+        ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 6),   // +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // +1 a library manager answering no signatures (cli-bridges review B7)
-        ("Volt.Ide.Twincat/Ide/TcPlcOpenWriter.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),
         ("Volt.Ide.Twincat.Explorer/Program.cs", 1),   // the x86 reader's own process: its answer line carries a code, never a frame
         ("Volt.Ide.Twincat/Ide/TcHierarchy.cs", 7),   // every one caught by TcObjectModel.Explorer: IDE_UNSUPPORTED or ITEM_UNVERIFIED

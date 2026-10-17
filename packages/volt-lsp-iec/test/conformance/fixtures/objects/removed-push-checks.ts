@@ -196,10 +196,6 @@ END_FUNCTION_BLOCK
     plcPrgVar: "inst : FB_LANG_rcc_nw_eno_fun;",
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
-    vendorRefuses: {
-      twincat:
-        "TwinCAT: the text reads ENO on the 'FUN_LANG_rcc_twice' box, and the IDE builds that box with no ENO output — the text names an output the box does not have. (Volt's driver, `TcEnoRefusal`, before the first write — measured 2026-10-04.)",
-    },
   },
 
   // ─── 2.7–2.10 — the network layout rules the push dropped (task 5.2d). 2R.3 deleted VAR_TEMP (B6): a split is
