@@ -81,6 +81,8 @@ Instead of running against whatever you happen to have open, the suite targets c
 | `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild` (ST FB + **CFC method child**), `FB_FolderChild` (**action inside a folder**) |
 | `TwinCAT Project14/` | TwinCAT | THE TwinCAT e2e fixture — what `ide.ps1 up -Vendor twincat` serves by default and the release matrix runs; holds every IDE-authored object the suite needs (`VltFixtureCfc`/`VltFixtureSfc` as function blocks, `VltFixtureMembers`) |
 | `TwinCAT Project13/` | TwinCAT | the 64-bit (`TwinCAT RT (x64)`) target the LSP recorders need (`-Fixture 13`); a smaller project, its diagram fixtures are PROGRAMs and it has no `VltFixtureMembers` |
+| `CodesysTwoDevices.3.5.21.40.project` | CODESYS | two devices whose applications hold the same names (`multi-application/`, openspec `multi-application-tree`) |
+| `TwinCAT MultiProject/` | TwinCAT | two system projects, four PLC projects (`-Fixture "test/fixtures/TwinCAT MultiProject/TwinCAT MultiProject.sln"`; `multi-application/`) |
 
 `Untitled1.project` holds the two shapes the write path is hardest on, both hand-authored because a test cannot
 provision the first at all (CFC is unsupported, so Volt never creates one):
