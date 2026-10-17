@@ -998,6 +998,9 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       separate word for the incoming wire (e.g. `above`) was offered and is NOT decided — owner: "not sure about adding
       a new keyword yet". Measure first: a box with ENO and no EN (a call that hands its ENO on), and EN with no ENO,
       both get the same rule (write the pin that exists).
+      **SUPERSEDED the same day by readability.md "2R.6 proposal v2" (the text in CODESYS's order, root first; owner:
+      "staying closer to CS would make our logic a better fit"). v2 goes to the owner for review before any code; what
+      follows is kept as the record.**
       **FINAL (owner 2026-10-17, supersedes the "always write both pins" paragraph above and the `EN ENO ENO` form):**
       no bare own-`ENO` on a box's line. The word `ENO` means ONE thing, the ENO of the open line above (today's P3,
       unchanged); a line without `;` hands its ENO on; `=> x` AFTER the EN part is the box's own ENO driving the coil x
