@@ -148,6 +148,14 @@ request file into `%LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\` and the IDE
 never writes, and it is harness-only: the shipped script has no such watcher, and the product's wire has no such op.
 An IDE started any other way does not answer, and the test fails after a bounded wait naming `ide.ps1`.
 
+Beside it runs the **run probe** — the one way a test asks whether pushed code RUNS (`graphical/execute-runs`,
+`lib/codesys-run.ts`). A body can store, round-trip and build and still not run, and only the runtime says so: the test
+drops a request naming variable paths into `%LOCALAPPDATA%\volt-bridge\codesys-run\<pid>\`, and the IDE builds the
+application, logs in to the simulation (a fresh download), runs it for two seconds and answers the values. Like the
+export probe it is harness-only and writes no object; the device's simulation mode is put back after each run. The scripting `online` object answers only inside a running
+script, and the launcher's has returned; the probe keeps the launcher's own entry of `ScriptOnline._executionStack`
+(measured SP21) and stands it back for each request's online application.
+
 > SP21's scripting engine is **Python 3**. Several comments in the shipped scripts still say "IronPython
 > 2.7" — true of SP18, not of SP21. It matters: `execfile()` does not exist there, and the
 > `DeprecationWarning` it raises lands in CODESYS's message store, which `build` reads — so a script-level

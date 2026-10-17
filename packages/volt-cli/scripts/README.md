@@ -54,7 +54,7 @@ vendor core SERVES the pipe the runner then resolves (`run_pipe_production.py`, 
 | `console.ts` | build the CLI and serve the interface console with the right `dotnet` | `bun run console` |
 | `start_volt_codesys.py` | **shipped** — the in-IDE host; CODESYS's own message loop answers the pipe, so the IDE stays clickable | the connector, `ide.ps1`, the installer payload |
 | `stop_volt_codesys.py` | its counterpart | the connector, the installer payload |
-| `run_pipe_production.py` | the launcher `ide.ps1` hands to `--runscript` (dialog suppression + a file log) | `ide.ps1`, `test/e2e/lib/codesys-native.ts` |
+| `run_pipe_production.py` | the launcher `ide.ps1` hands to `--runscript` (dialog suppression + a file log, the native-export and run probes) | `ide.ps1`, `test/e2e/lib/codesys-native.ts`, `test/e2e/lib/codesys-run.ts` |
 | `corpus-migration.ts` | the migration finder: pull a corpus, push it into an empty project, pull again, compare. Runs its blanks on its OWN `ide.ps1` instance, `corpus-migration`, and takes the pipe from that instance's record (`fixture-ide.ts`) | by hand, after a push/pull change (cited by engine tests and DIALECT rows as the finder of their cases) |
 | `e2e-graphical-coverage.ts` | which network-text constructs the live suite actually PUSHES — a report, not a gate (20 of 25) | by hand, when the graphical e2e tier changes (`test/e2e/graphical/uncovered-shapes.test.ts`) |
 | `author-hidden-member-fixture.py` / `-tc.ps1` | AUTHOR `VltFixtureMembers` (an ST FB with a CFC method and an SFC action) into the CODESYS / TwinCAT fixture, by the IDE itself — Volt creates no diagram | whenever a fixture project is regenerated (`test/e2e/README.md`) |

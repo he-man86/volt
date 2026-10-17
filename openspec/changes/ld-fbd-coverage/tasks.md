@@ -1082,13 +1082,47 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
 
 
-- [ ] 2R.6a **BLOCKING, first (owner 2026-10-17): an Execute box written by the CODESYS writer runs.** Measured
+- [x] 2R.6a **BLOCKING, first (owner 2026-10-17): an Execute box written by the CODESYS writer runs.** Measured
       (v2-measurements.md #9): a box built through the NWL model in ONE `SetObject` commit stores its ST but the code does
       not run until the object is committed again or the project reloaded. Today's `CodesysNetworkWriter` builds it in
       one commit. Red first: a live e2e that pushes an Execute box (top level and read through ENO), builds, runs it in
       simulation and asserts the ST ran; then fix (the smallest change that makes the IDE compile the ST, measured, not
       guessed) and check TwinCAT's path the same way (store + build; run is CODESYS's verdict, no TwinCAT runtime
       licence). Both vendors' graphical e2e green.
+      **Done (2026-10-17) — it did not go red: the push's Execute box RUNS; no writer change.** The e2e
+      `test/e2e/graphical/execute-runs.test.ts` pushes a PROGRAM through the bridge with a top-level Execute box
+      (`k := 7; i := i + 1;`) and one read through its ENO (`j := j + 1;` → `done := ENO;`), calls it from PLC_PRG, builds,
+      logs in to the simulation (full download), runs 2 s and reads the variables: i, j > 0, k = 7, done TRUE (measured
+      i = 97, j = 107 on the first run); then pushes an edit of ONLY the box's ST (`k := 9;`, the declaration and the view
+      unchanged, so one model commit) and reads k = 9 — the new code runs, not the old. Green on four runs, two in one IDE
+      session. So #9's lab finding does not hold for Volt's writer (the lab built its box with its own model script; the
+      lab's own note "only the one with a view commit ran" names a difference the writer does not share — it writes the
+      view only when it changes, and the edit wrote none). Kept as the regression guard the step asked for.
+      **The harness's run probe** (`scripts/run_pipe_production.py` `_run_probe`, client `test/e2e/lib/codesys-run.ts`,
+      harness-only like the native-export probe, writes no object): build, simulation, login `OnlineChangeOption.Never`,
+      start, read, stop, logout; answers through files. Measured on the way: the scripting `online` answers only INSIDE a
+      running script — from the launcher's timer `create_online_application` throws "Stack empty." (it peeks
+      `ScriptOnline._executionStack`, a `Stack<ScriptExecutionEventArgs>`); `system.execute_on_primary_thread` is "no longer
+      supported" on SP21; ONE online application kept from the launcher reads "Invalid variable reference" for every
+      variable once the downloaded application changed. The probe keeps the launcher's own stack entry and stands it
+      back for each request's fresh online application (green across runs in one session).
+      **TwinCAT, store + build:** a NEW Execute box stays refused by name before the import ("contains an Execute box",
+      `TcPlcOpenWriter`; `refused-shapes.test.ts`, `roundtrip.test.ts`), an existing box's ST edit is the in-place
+      archive write; Project13: `roundtrip`, `refused-shapes`, `uncovered-shapes`, `execute-runs` (skipped on TwinCAT)
+      29 pass / 2 skip. Graphical e2e: CODESYS 145/145; TwinCAT Project13 136 pass / 3 skip / 2 fail (pre-existing, see
+      2R.4b's numbers). No TwinCAT run (no runtime licence).
+      **Gate (2R.4b+2R.6a, 2026-10-17) — review findings.** (5) *The guard never went red*: **open, deferred (owner
+      2026-10-17: improve later)**. The edit case (k = 9) tells new code from old; whether the probe's own build + full
+      download hides #9's create-path failure is unproven until the lab's one-commit model script is run once through
+      the probe. (6) *The probe left the device in simulation*: fixed — `_run_probe` reads `get_simulation_mode()` before
+      it sets simulation and puts it back after logout (`finally`); docs (`run_pipe_production.py`, `test/e2e/README.md`)
+      say so. The run client gained `runCalled` (call the programs from the main program, run, read, restore), shared by
+      `execute-runs` and 2R.4b's `library-function-runs`.
+      **Gate numbers:** C# Engine 3040 + 1 skipped, CODESYS 456, TwinCAT 556, Cli 297, Repo.Gates 243, Contracts 42,
+      Connector 146; volt-cli unit 154; graphical e2e CODESYS 146/146 (own instance `ld-fbd-coverage`; +1, the library
+      run test); TwinCAT unchanged since 2R.4b's run (no TwinCAT path changed in the gate; both new files skip there);
+      LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10405 pass / 34 skip / 428 todo / 0 fail; typecheck, lint (warnings only), `bun run check` 16/16; `rate:fixtures` not run (no fixture or
+      transpiler change).
 
 - [ ] 2R.6b **Build network text v2.1 exactly as `v2-spec.md` states** (owner: "think we should refactor like this";
       defaults D1–D8 applied; pin flags before the pin name, no `[NOT]` mark; EXECUTE bodies verbatim ST). One change,

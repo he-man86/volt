@@ -17,8 +17,9 @@ over the harness pump is not cosmetic:
     script owns the loop.
 
 The only thing scripted here that a user does by hand is OPENING the project — everything after that is the
-production script, unmodified. Beside it run two harness-only helpers a user never has: assertion dialogs turned into
-log lines, and a read-only native-export probe the e2e tests read CODESYS bodies through (see `_native_probe`). Stop it the way a user does too: run `stop_volt_codesys.py` from the IDE.
+production script, unmodified. Beside it run three harness-only helpers a user never has: assertion dialogs turned into
+log lines, a read-only native-export probe the e2e tests read CODESYS bodies through (see `_native_probe`), and a run
+probe that builds and runs the application in simulation and reads variables (see `_run_probe`). Stop it the way a user does too: run `stop_volt_codesys.py` from the IDE.
 
 Driven by `ide.ps1 up -Vendor codesys -Production` (which implies -Ui).
 """
@@ -189,6 +190,141 @@ def _native_probe():
 
 
 _native_probe()
+
+
+# ── the run probe: how an e2e test asks whether pushed code RUNS ─────────────────────────────────────────────────
+#
+# HARNESS-ONLY, like the native-export probe, and read-only on the project: it builds, logs in to the SIMULATION and
+# reads variables; it writes no object, and puts the device's simulation mode back as it found it. WHY: a body that
+# stores, round-trips and builds can still not run - in a lab, an Execute box built through the model in one commit
+# stored its ST and did not run until a second commit (openspec ld-fbd-coverage 2R.6a, v2-measurements.md #9) - and
+# only the runtime says so. The scripting `online` object is not a
+# bridge op on purpose: the product's wire has no reason to run a PLC.
+#
+# THE PROTOCOL is the native probe's: a test writes `request` into %LOCALAPPDATA%\volt-bridge\codesys-run\<pid>\ holding
+# a request id on the first line and one variable path per line after it (`GVL.i`, as the online read names it);
+# this probe builds the active application (an error answers `<id>.error`, naming it), puts its device in simulation
+# (restored after the run), logs in without an online change (a fresh download), starts it, lets it run SETTLE_S
+# seconds, reads every path (one it cannot read answers `UNREADABLE: <why>`), stops and logs out - then writes
+# `<id>.json` ({path: value}), or `<id>.error` with the reason.
+_ENTRY = []
+
+
+def _run_probe():
+    SETTLE_S = 2.0
+    try:
+        import clr
+        import json
+        import time
+        clr.AddReference("System.Windows.Forms")
+        from System.Windows.Forms import Timer
+        from System.Diagnostics import Process
+        base = os.environ.get("LOCALAPPDATA", _HERE)
+        folder = os.path.join(base, "volt-bridge", "codesys-run", str(Process.GetCurrentProcess().Id))
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+        request = os.path.join(folder, "request")
+        if os.path.exists(request):
+            os.remove(request)
+
+        def errors():
+            out = []
+            for cat in system.get_message_categories(True):
+                for sev in (Severity.FatalError, Severity.Error):
+                    for m in system.get_message_objects(cat, sev):
+                        out.append(str(getattr(m, "text", m)))
+            return out
+
+        def run(paths):
+            proj = projects.primary
+            if proj is None:
+                raise Exception("no project is open")
+            app = proj.active_application
+            app.build()
+            found = errors()
+            if found:
+                raise Exception("does not compile: " + " | ".join(found))
+            dev = app
+            while dev is not None and not hasattr(dev, "set_simulation_mode"):
+                dev = dev.parent
+            if dev is None:
+                raise Exception("the application has no device to put in simulation")
+            # the device as the test found it: simulation is set for this run and put back after it
+            was = dev.get_simulation_mode()
+            dev.set_simulation_mode(True)
+            try:
+                stack, entry = _ENTRY[0]
+                stack.Push(entry)
+                try:
+                    oa = online.create_online_application(app)
+                finally:
+                    stack.Pop()
+                oa.login(OnlineChangeOption.Never, True)
+                try:
+                    oa.start()
+                    time.sleep(SETTLE_S)
+                    values = {}
+                    for p in paths:
+                        try:
+                            values[p] = str(oa.read_value(p))
+                        except Exception as e:
+                            values[p] = "UNREADABLE: %s" % str(e)
+                    return values
+                finally:
+                    try:
+                        oa.stop()
+                    finally:
+                        oa.logout()
+            finally:
+                dev.set_simulation_mode(was)
+
+        def tick(sender, args):
+            if not os.path.exists(request):
+                return
+            rid = None
+            try:
+                with open(request) as f:
+                    lines = [l.strip() for l in f.read().splitlines() if l.strip()]
+                os.remove(request)
+                rid, paths = lines[0], lines[1:]
+                answer(rid + ".json", json.dumps(run(paths)))
+            except Exception as e:
+                import traceback
+                if rid is not None:
+                    answer(rid + ".error", str(e) + "\n" + traceback.format_exc())
+                _log("run probe: %s" % str(e))
+
+        # whole, or not at all: the test reads an answer the moment it exists
+        def answer(name, text):
+            tmp = os.path.join(folder, name + ".tmp")
+            with open(tmp, "w") as f:
+                f.write(text)
+            os.rename(tmp, os.path.join(folder, name))
+
+        # `online` answers only INSIDE a running script: `create_online_application` peeks at the script's entry on
+        # `ScriptOnline._executionStack` (a Stack<ScriptExecutionEventArgs>, measured SP21) and throws "Stack empty."
+        # once this script has returned - which it must, for the IDE's own loop to serve the pipe. This script's entry
+        # is taken here, while it runs, and stood back on the stack for each request's creation. One online
+        # application per request, not one kept: a kept one reads "Invalid variable reference" for every variable
+        # once the application it downloaded has changed (measured: a GVL the test never edited, after a POU's edit).
+        from System.Reflection import BindingFlags
+        field = online.GetType().GetField("_executionStack", BindingFlags.Instance | BindingFlags.NonPublic)
+        if field is None:
+            raise Exception("ScriptOnline has no _executionStack field on this CODESYS version")
+        stack = field.GetValue(online)
+        if stack is None or stack.Count != 1:
+            raise Exception("ScriptOnline._executionStack holds %s entries, not this script's one" % (None if stack is None else stack.Count))
+        _ENTRY.append((stack, stack.Peek()))
+        timer = Timer()
+        timer.Interval = 200
+        timer.Tick += tick
+        timer.Start()
+        _log("run probe watching %s" % folder)
+    except Exception as e:
+        _log("run probe NOT started: %s" % str(e))
+
+
+_run_probe()
 
 # The SHIPPED script, run as-is. Not imported and not copied: any drift between what is tested and what users run
 # is the whole thing this file exists to prevent.
