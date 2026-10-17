@@ -20,7 +20,7 @@ A multi-agent workflow (owner opted in) over every volt-cli project — `Volt.En
 - **Refactor or reimplement.** A project is refactored in place; one found to be a tangle is reimplemented — only with
   the owner's OK, behind the same tests.
 
-Not implemented now: this change is a spec only until `ld-fbd-coverage` AND `multi-application-tree` close (owner 2026-10-17:
+Not implemented now: this change is a spec only until `ld-fbd-coverage` AND `multi-application-tree` close (2026-10-17:
 the path-identity change reshapes the same wire, Sync and drivers — rework after it, not across it).
 
 ## Impact
