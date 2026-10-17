@@ -471,8 +471,13 @@ each node where NWL holds it, in that order. Reading and writing are a copy — 
 **Three rules, all there is to ENO:**
 1. A box is written `name/word, its outputs, then EN [source]`: `MOVE 3 => c ENO EN start`. Outputs are `=> x` (a pin
    wired to a variable) and `ENO` (the box HAS the ENO pin); data outputs were already written before EN.
-2. **`ENO` written means the box has the pin.** A consumer of a box gets its ENO if the box shows `ENO`, its value if
-   not. Decided by the stored pins alone, never by box kind (the owner: the corpora are one programmer's work).
+2. **The text names the connection the IDE stores** (owner: "whatever is used as the connection we should also use. if
+   its the enable then we should use this. if its a value we should use that"). A consumer connected to the box's ENO:
+   the box shows `ENO`; connected to its value: it does not (and to another named output, `.name`, as today). Decided
+   by the stored connection alone, never by box kind (the owner: the corpora are one programmer's work). On a box
+   nothing consumes, `ENO` shows the pin is there. Measure first: whether a box WITH an ENO pin read by its VALUE
+   stores and runs — if it does, it needs its own spelling; if not, "shows `ENO`" and "connected through ENO" are one
+   fact.
 3. A line ending in `EN` continues on the next line (P2's list of words that cannot end a line), as `AND` does. An
    enable shown with nothing wired is `EN` before `;`, `)` or `,`.
 
