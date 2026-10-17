@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.Network;
-using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Ide.Twincat;
 
@@ -30,14 +29,14 @@ internal static class TcUnmeasured
             "measured (CODESYS negates first, DIALECT N17; no TwinCAT runtime was available to run it). Volt refuses to " +
             "materialize the body rather than spell it in an order nobody measured on this vendor.");
 
-    /// <summary>The push side of the same fact: a body spelling <c>R_EDGE(NOT x)</c> (or <c>F_EDGE</c>) is refused before
-    /// anything is written, naming the node.</summary>
     /// <summary>An archive about to be written back whose values carry a raw CR is refused (<see cref="TcRawLineEndRefusal"/>).</summary>
     public static void RefuseRawLineEnd(string handed)
     {
         if (TcArchive.HoldsRawLineEnd(handed)) throw new TcRawLineEndRefusal();
     }
 
+    /// <summary>The push side of the same fact: a body spelling <c>R_EDGE(NOT x)</c> (or <c>F_EDGE</c>) is refused before
+    /// anything is written, naming the node.</summary>
     public static void RefuseEdgeOrder(NetworkBody body)
     {
         foreach (var network in body.Networks)
@@ -57,40 +56,27 @@ internal static class TcUnmeasured
     };
 
     /// <summary>
-    /// THE SHAPES NOBODY HAS PUT THROUGH TWINCAT'S PLCOPEN IMPORT (spec, "TwinCAT structural edits are refused where the
-    /// import is unmeasured"; review 7.16). A network whose shape changed is rebuilt by that import, and a CREATE is
-    /// one; a value edit is written in place and never meets it. Refused with <c>NETWORK_UNSUPPORTED</c>, naming the
-    /// network and the shape, before the import is called:
-    /// <list type="bullet">
-    /// <item><c>PARALLEL</c> — PLCopen FBD has no element for a parallel branch (D30);</item>
-    /// <item>a wire whose producer is a leaf — the v1 lowering CRASHED the importer on one (<c>LiteralFanoutBugTests</c>).
-    /// Measured through the v2 lowering (2026-09-27, the refusal lifted for one live push, DIALECT N22): no crash, but
-    /// no round trip either — a leaf wire read by two coils comes back as ONE chained assign (C25's fold), and one read
-    /// inside a box comes back a wire under an importer-minted VarId (<c>g1883419948</c>). A refusal costs a detour; a
-    /// reshape costs a drawing, so it stays refused. 1.16 would say how many rung edits this blocks;</item>
-    /// <item>a box's result pin <c>=&gt; v</c> — the importer lowers an output pin to a separate assignment (C20);</item>
-    /// <item>a negated box input pin (S6), an assignment below the top level (S2) and a <c>SUPER^</c> call (S5) —
-    /// ld-fbd-coverage 2.3 spells all three, and no import of any is measured (the vendor-facts rows
-    /// <c>nwl-input-pin-flag</c>, <c>nwl-nested-assign</c>, <c>nwl-super-call</c>).</item>
-    /// </list>
-    /// A shape leaves this list only when a live import measures it round-tripping; task 4.4 measured the leaf wire
-    /// (N22) and it stays, the other two are not yet measured.
+    /// THE SHAPES NO TWINCAT BUILD HAS MEASURED (ld-fbd-coverage 2R.5 spells them; CODESYS stores, builds and runs each,
+    /// DIALECT N41). The native builder would write each from the model, but none has been stored, reloaded, built and
+    /// pulled back on TwinCAT, so a network that would be BUILT holding one is refused with <c>NETWORK_UNSUPPORTED</c>,
+    /// naming the network and the shape, before anything is written. A value edit that leaves the shape alone is written in
+    /// place and never meets this; one that would write such a shape into the archive is <see cref="InPlace"/>. A shape
+    /// leaves this list only when a live TwinCAT push measures it (<c>test/e2e/graphical/stored-shapes.test.ts</c>).
     /// </summary>
-    public static void RefuseImport(Network network)
+    public static void RefuseUnbuilt(Network network)
     {
         if (FirstUnmeasured(network.Trees) is { } shape)
             throw new NetworkTextException(
-                $"TwinCAT: network {network.Order + 1} changes shape and holds {shape}. Volt rebuilds a changed network " +
-                "through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused before " +
-                "the import rather than risk a network that comes back different. The IDE can make this change.",
+                $"TwinCAT: network {network.Order + 1} is built and holds {shape}, which no TwinCAT build has been " +
+                "measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE " +
+                "can make this change.",
                 ConflictCodes.NetworkUnsupported);
     }
 
     private static string? FirstUnmeasured(IReadOnlyList<Node> trees) =>
         trees.Select(t => Unmeasured(t, top: true)).FirstOrDefault(x => x != null) ?? SplitBeforeDefinition(trees);
 
-    /// <summary>2R.5 (awkward-sweep #19): a split referenced above its definition — the stored order a pull keeps, which the
-    /// PLCopen lowering cannot state (it emits a wire's definition before its references).</summary>
+    /// <summary>2R.5 (awkward-sweep #19): a split referenced above its definition.</summary>
     private static string? SplitBeforeDefinition(IReadOnlyList<Node> trees)
     {
         var defined = new HashSet<int>();
@@ -104,10 +90,9 @@ internal static class TcUnmeasured
         return trees.Select(Walk).FirstOrDefault(x => x != null);
     }
 
-    /// <summary>The coil shapes 2R.5 spells that nobody has put through TwinCAT's PLCopen import: an edge or a negation on a
-    /// coil (#13, #14), and a jump or a return beside another coil, set, or modified (#9–#12) — the lowering emits one
-    /// `jump`/`return` per item and an `outVariable` per coil, with no modifier. The in-place writer refuses the same
-    /// shapes where an edit would make one (<see cref="InPlace"/>): no TwinCAT edit of any is measured either.</summary>
+    /// <summary>The coil shapes 2R.5 spells that no TwinCAT build has measured: an edge or a negation on a coil (#13, #14),
+    /// and a jump or a return beside another coil, set, or modified (#9–#12). The in-place writer refuses the same shapes
+    /// where an edit would make one (<see cref="InPlace"/>).</summary>
     internal static string? UnmeasuredCoil(Assign a)
     {
         if (a.Targets.Count > 1 && (a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { Jump: true } or { Return: true })))
@@ -123,29 +108,19 @@ internal static class TcUnmeasured
         return null;
     }
 
-    /// <summary>The in-place half of <see cref="RefuseImport"/>: an edit that would WRITE one of its shapes into the archive
-    /// the IDE holds. A <see cref="NotSupportedException"/>, so the push routes the network to the import, which refuses
-    /// the shape by name before the IDE is asked; a shape the IDE already holds, unchanged, is never refused.</summary>
+    /// <summary>The in-place half of <see cref="RefuseUnbuilt"/>: an edit that would WRITE one of its shapes into the
+    /// archive the IDE holds. A <see cref="NotSupportedException"/>, so the push routes the network to the builder, which
+    /// refuses the shape by name before anything is written; a shape the IDE already holds, unchanged, is never refused.</summary>
     internal static NotSupportedException InPlace(string shape) =>
         new($"TwinCAT: this push writes {shape} into the body the IDE holds, and no TwinCAT edit of that shape is measured " +
             "(stored, built, reopened), so Volt writes none by a guess. The IDE can make this change.");
 
     private static string? Unmeasured(Node n, bool top = false) => n switch
     {
-        Assign a when !top => $"an assignment to '{a.Targets.FirstOrDefault()?.Text}' below the top level",
         Assign a when UnmeasuredCoil(a) is { } coil => coil,
         Demux { Input: not null } d when !top => $"the split split{d.VarId} defined below the top level",
         Terminator { Flags.IsNone: false } => "a negated empty slot",
         Box b when !b.EnableFlags.IsNone => $"a modifier on the EN pin of the '{b.Type}' box",
-        Parallel => "a parallel branch (`feed BRANCH (a, b)`)",
-        Demux { Input: Leaf leaf } d => $"the split split{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
-        Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin =>
-            $"the result pin `=> {pin.Value.Text}` of the '{b.Type}' box",
-        Box b when string.Equals(b.Instance?.Text, Volt.Engine.Format.St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase) =>
-            $"a call of the base FB through SUPER^ (the '{b.Type}' box)",
-        Box b when b.Inputs.Select((p, i) => (p, i)).FirstOrDefault(x => !x.p.Flags.IsNone) is { p: not null } flagged =>
-            $"{(flagged.p.Flags.Rising || flagged.p.Flags.Falling ? "an edge on an input pin" : "a negated input pin")} ({flagged.p.Formal ?? $"input {flagged.i}"}) of the '{b.Type}' box",
-
         _ => n.Children().Select(c => Unmeasured(c)).FirstOrDefault(x => x != null),
     };
 }
@@ -154,8 +129,7 @@ internal static class TcUnmeasured
 /// The push half of "EN is a pin, ENO is spelled" on TwinCAT: the text reads a box through an output the box the IDE
 /// holds does not give — <c>ENO</c> on a box with no ENO output, or its data on a box whose main output is ENO. The
 /// box's output list is read as CODESYS reads it (<see cref="Box.HasEnoSlot"/>). A <see cref="NotSupportedException"/>
-/// so the in-place pass routes the network to the IDE to rebuild; its own type so the create path does not mistake
-/// it, after the import, for a regrouping it may shrug at.
+/// so the in-place pass routes the network to a rebuild, which builds the box the text states.
 /// </summary>
 internal sealed class TcEnoRefusal : NotSupportedException
 {

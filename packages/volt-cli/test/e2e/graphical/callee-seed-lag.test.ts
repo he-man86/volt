@@ -15,6 +15,10 @@
  *
  * <p>The day TwinCAT takes it (a remedy for the lag, or a different seed), the TwinCAT arm FAILS — "take it off" — and
  * the fixtures' `vendorRefuses` goes with it.</p>
+ *
+ * <p><b>Taken off, 2026-10-16 (openspec twincat-inproc-host).</b> The box was built from the tree code by TwinCAT's PLCopen
+ * IMPORT; the native writer builds the box the TEXT states, so both shapes are accepted and round-trip on TwinCAT too. The
+ * LSP conformance fixtures' `vendorRefuses.twincat` for this shape is the recorder's to lift (a re-record).</p>
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference } from "../harness"
@@ -54,7 +58,7 @@ const CASES: readonly Case[] = [
 		what: "ENO read off a box calling a PROGRAM created by the same push",
 		callee: { name: fid("lagP"), source: program(id("lagP")) },
 		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `${id("lagP")}() EN go\n  done := ENO;`) },
-		twincatRefuses: true,
+		twincatRefuses: false,
 	},
 	{
 		what: "ENO read off a box calling a FUNCTION created by the same push",
@@ -64,7 +68,7 @@ const CASES: readonly Case[] = [
 			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(n) EN go\n  ok := ENO;`),
 			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(a := n) EN go\n  ok := ENO;`),
 		},
-		twincatRefuses: true,
+		twincatRefuses: false,
 	},
 	{
 		what: "a box whose ENO nothing reads calling a FUNCTION created by the same push",

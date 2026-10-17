@@ -11,7 +11,7 @@
  * same project". A test that passed on one bridge and not the other would be the finding.
  */
 import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, expectVendorDifference, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 
@@ -266,13 +266,9 @@ END_NETWORK
 		// re-stated body can differ in shape for reasons that have nothing to do with wire names.
 		const before = await roundTrip(full, src)
 		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
-		// A CREATE keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into
-		// one assign driving two coils (D22 / C25, `fanout.test.ts`) — so there the property is that the edit keeps
-		// the body as it was, which the last assertion states for both.
-		expect(wires(before).length).toBe(expectVendorDifference("DIALECT D22 / C25 — the importer folds a fan-out wire", {
-			codesys: () => 2,
-			twincat: () => 0,
-		}))
+		// A CREATE keeps both splits on both vendors (TwinCAT's PLCopen import folded each into one assign driving two
+		// coils, D22 / C25 — superseded by the native writer, openspec twincat-inproc-host).
+		expect(wires(before).length).toBe(2)
 
 		const edited = before.replace("a AND b;", "a AND p;")
 		expect(edited).not.toBe(before)              // the edit really applied

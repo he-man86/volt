@@ -41,6 +41,22 @@ public class TcCommentLineEndTests
         Assert.Contains("l1\nl2", text);
     }
 
+    /// <summary>THE FORMATTING IS THE ARCHIVE'S LAYOUT, NOT A VALUE (twincat-inproc-host, the native writer): TwinCAT stores
+    /// the archive as handed (DIALECT N42 a), so the white space between elements keeps the handed archive's own line end
+    /// — raw, never entitized — while a value's CR is still <c>&amp;#xD;</c>. Entitizing every CR of the document turned
+    /// each line break of a spliced network into <c>&amp;#xD;</c> + LF, and the parse's folding turned every untouched one
+    /// into a bare LF: an edited body left TwinCAT's layout.</summary>
+    [Fact]
+    public void The_formatting_between_elements_keeps_the_handed_line_end()
+    {
+        const string handed = "<a>\r\n  <v>\"x&#xD;\ny\"</v>\r\n  <w />\r\n</a>";
+        var doc = XElement.Parse(handed, LoadOptions.PreserveWhitespace);
+        Assert.Equal(handed, TcArchive.Text(doc, handed));
+
+        doc.Element("w")!.AddAfterSelf(new XText("\r\n  "), new XElement("u"));   // a spliced element, laid out in memory
+        Assert.Equal("<a>\r\n  <v>\"x&#xD;\ny\"</v>\r\n  <w />\r\n  <u />\r\n</a>", TcArchive.Text(doc, handed));
+    }
+
     [Fact]
     public void A_parsed_line_feed_is_the_comments_line_break()
     {

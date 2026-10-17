@@ -3,10 +3,11 @@
  *
  * <p>Five bodies push clean to CODESYS and come back refused from TwinCAT: an unconditional `JMP`, an
  * unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a variable
- * (`F(… doubled => twice)`). Each refusal states a reason and each reason blames TwinCAT's PLCopen importer.
- * <b>None of that has been proved against the IDE.</b> The refusals are the DRIVER's rules, written from what it
- * could express at the time, and "TwinCAT cannot" and "Volt does not" read identically from the outside — which
- * is exactly why they need a test rather than a note.</p>
+ * (`F(… doubled => twice)`). Each refusal stated a reason and each reason blamed TwinCAT's PLCopen importer — and
+ * the refusals were the DRIVER's rules, written from what it could express at the time: "TwinCAT cannot" and "Volt
+ * does not" read identically from the outside, which is exactly why they need a test rather than a note. With the
+ * native writer (openspec twincat-inproc-host) TwinCAT builds four of the five; the fifth stays refused for a reason
+ * of its own (the table says which).</p>
  *
  * <p>So this suite asserts the two things that are true whichever way each one turns out:</p>
  *
@@ -120,7 +121,9 @@ END_FUNCTION_BLOCK
 	},
 	{
 		what: "an EXECUTE box",
-		refusedBy: ["twincat"],
+		// TOOK IT, TAKEN OFF THE LIST — 2026-10-16. TwinCAT's PLCopen importer returned a plain box named EXECUTE with
+		// the ST gone, so it was refused; the native writer builds the box from the drawn one (openspec twincat-inproc-host).
+		refusedBy: [],
 		items: [
 			{
 				name: "VltRefExecute.pou",
@@ -146,6 +149,10 @@ END_FUNCTION_BLOCK
 	},
 	{
 		what: "a box output pin wired straight to a variable",
+		// Still refused on TwinCAT, for a narrower reason than the import's (which lowered the pin to a separate
+		// assignment, C20): the box is CONSUMED (`next := …`) and wires a pin by name, and the archive keeps the slot a
+		// consumer reads as the one null output item, which the text's layout leaves none of. A top-level box with a
+		// pin is built (native-writer.test.ts: `t1(… ET => el)`).
 		refusedBy: ["twincat"],
 		items: [
 			{
@@ -227,7 +234,7 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 				expect(refused, `${shape.what} was REFUSED on ${VENDOR}, which the table does not expect:\n${JSON.stringify(r.conflicts)}`).toBe(true)
 				// The reason is the whole value of a refusal: a bare rejection tells an engineer to try again.
 				expect(JSON.stringify(r.conflicts ?? []).length, `${shape.what} was refused with no reason`).toBeGreaterThan(40)
-				// …AND NOTHING LANDED. The refusals here are decided by the driver's PLCopen writer, which is a pure
+				// …AND NOTHING LANDED. The refusals here are decided by the driver's native builder, which is a pure
 				// function of the parsed body — so `ICodeStore.ValidateSource` runs it in the push PRE-FLIGHT and the
 				// whole family is refused before the first write. Until that existed, this shape wrote
 				// `VltRefSplit.pou` and then refused `VltRefArrow.pou`: a push the caller was told had failed, with
@@ -256,14 +263,10 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
  * off. If that worked it would be a create route, and these five conformance fixtures would have a TwinCAT
  * recording after all (`twincat-conformance-parity`, "what the recorder could not push").</p>
  *
- * <p><b>It does not, and this is the measurement.</b> An in-place edit carries VALUES — flags, comments, titles,
- * operand text — while a SHAPE change makes `ResolveBody` hand that one network back to the IDE to rebuild, and
- * the IDE rebuilds it through the same PLCopen import a create uses. So the importer's limits are not a
- * property of CREATE; they are a property of every route Volt has. Measured live 2026-09-22 against TcXaeShell
- * 15.0, all four shapes, each refused with the identical message its create gets.</p>
- *
- * <p>Which leaves the GUI, or an in-proc NWL host (DIALECT N12), as the only ways these bodies come into
- * existence — and that is why the fixtures are marked `vendorRefuses` rather than left looking unrecorded.</p>
+ * <p>It did not while a SHAPE change made `ResolveBody` hand that one network to TwinCAT's PLCopen import, the same
+ * door a create used (measured live 2026-09-22, all four shapes refused with the create's message). With the native
+ * writer (openspec twincat-inproc-host) a changed network is built as TwinCAT's own archive, so an edit into any of
+ * these shapes is accepted and must round-trip.</p>
  */
 describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 	beforeAll(async () => {
@@ -351,10 +354,10 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 /**
  * AND A NEW GRAPHICAL MEMBER OF AN EXISTING POU — a CREATE inside an UPDATE (openspec `bridge-refusal-review` 2.28, D21).
  *
- * <p>The write decides create-or-edit per BODY: a method the POU does not hold yet is created whole, through the same
- * import a new item is. The pre-flight asked the driver only for a new ITEM, so a push adding such a method — holding
- * a shape the import refuses — passed it, wrote every earlier op of the batch, and was refused mid-batch. It is
- * refused in the pre-flight now, naming the member, and nothing lands.</p>
+ * <p>The write decides create-or-edit per BODY: a method the POU does not hold yet is created whole, as a new item is.
+ * The pre-flight asked the driver only for a new ITEM, so a push adding such a method — holding a shape the create
+ * refused — passed it, wrote every earlier op of the batch, and was refused mid-batch. A refusal is raised in the
+ * pre-flight now, naming the member, and nothing lands; the Execute box this used is built on both vendors today.</p>
  */
 describe(`graphical / a new graphical member in an existing POU (${BASE})`, () => {
 	beforeAll(async () => {
@@ -408,7 +411,9 @@ END_METHOD
 				expect(after.items[owner], "a REFUSED push changed the owner anyway").toBe(before.items[owner])
 				return
 			}
-			expect(VENDOR, `the new member was ACCEPTED on ${VENDOR}, which refuses an Execute box`).toBe("codesys")
+			// Accepted on both vendors (TwinCAT refused it while its PLCopen import was the create door): the member
+			// is written with its box and its ST.
+			expect((await fetchItem(owner)).sourceText, "the new member was accepted but its Execute box is not there").toContain("END_EXECUTE")
 		} finally {
 			await removeItem(first).catch(() => {})
 			await removeItem(owner).catch(() => {})

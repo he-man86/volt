@@ -22,7 +22,7 @@ src/
                                             ever: that is what makes it visible to every assembly, connector
                                             included.
   Volt.Wire/                netstandard2.0  the named-pipe RPC itself (PipeServer/PipeClient/frames/names).
-  Volt.Engine/              netstandard2.0  the engine (ST/PLCopen/VG, push/fetch/build/refs, versioning, the
+  Volt.Engine/              netstandard2.0  the engine (ST/network text, push/fetch/build/refs, versioning, the
                                             Ide-driver contract) — and NO transport.
   Volt.Engine.Host/         netstandard2.0  BridgePipeHost: op → service, marshalled onto the IDE thread.
   Volt.Cli/                 net10 exe        the `volt` CLI (init/pull/push/status/build/show/merge/rebind) +
@@ -38,7 +38,7 @@ src/
 test/
   shared/FakeIde.cs         the ONE in-memory IDE double, linked into both C# test projects
   Volt.Cli.Tests/           net10 xUnit      the CLI layer — commands/ (every verb × situation), wire/, plumbing/
-  Volt.Engine.Tests/        net10 xUnit      the engine — sync/ + the parsing / PLCopen / VG round-trip suites
+  Volt.Engine.Tests/        net10 xUnit      the engine — sync/ + the parsing / network-text round-trip suites
   Volt.Connector.Tests/ net10 xUnit      connector core: session model, reconciler, TwinCAT supervisor
   e2e/                      bun/TS          the behavioral + vendor-parity suite, driving a live bridge over the pipe
 ```

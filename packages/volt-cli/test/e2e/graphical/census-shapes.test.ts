@@ -8,8 +8,8 @@
  * only the IDE can say whether the vendor KEEPS what the push builds — a box's stored output names (`{OutputParam.Names
  * := ['']}`), a pin's negation through `SetInputFlag`, a leaf's stored type — and whether it compiles.
  *
- * On TwinCAT the same invariant, not the same outcome: a shape no import has been measured for (S2, S3a, S5, S6 —
- * `TcUnmeasured`) is REFUSED by name, never accepted and reshaped.
+ * On TwinCAT the same invariant, not the same outcome: a shape the native builder has no TwinCAT form for (S6: this
+ * vendor's reader cannot read a pin's InputFlags back) is REFUSED by name, never accepted and reshaped.
  */
 import { describe, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, requireHealthy, VENDOR, BASE } from "../harness"
@@ -68,8 +68,8 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S6: a negated pin is spelled on its formal, on an operator's and on a call's", async () => {
-		await shape("s6", (n) => fb(n, "FBD", "  out := AND(a, NOT IN2 := b);"), "a negated input pin")
-		await shape("s6fb", (n) => fb(n, "FBD", "  t1(NOT IN := go, PT := pt);"), "a negated input pin")
+		await shape("s6", (n) => fb(n, "FBD", "  out := AND(a, NOT IN2 := b);"), "a modifier on its input pin")
+		await shape("s6fb", (n) => fb(n, "FBD", "  t1(NOT IN := go, PT := pt);"), "a modifier on its input pin")
 	})
 
 	describe("S5", () => {

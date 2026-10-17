@@ -19,7 +19,8 @@ namespace Volt.Ide.Twincat;
 /// <summary>
 /// Beckhoff driver — the <see cref="ICodeStore"/> facet. Declarations and bodies travel the COM object model
 /// (<c>DeclarationText</c> / <c>ImplementationText</c>); a graphical body is the IDE's OWN
-/// <c>&lt;NWL&gt;</c> archive, edited in place.
+/// <c>&lt;NWL&gt;</c> archive — built natively where the item has none (<see cref="TcArchiveBuilder"/>), edited in place
+/// where it has one. No PLCopen is written or read on this vendor (openspec twincat-inproc-host).
 ///
 /// <para>This replaces <c>BeckhoffDriver.Code.cs</c> and the PLCopen round trip it drove — an export to a temp
 /// file, an import back, and the item MOVE that only existed because the import relocated everything to the
@@ -136,40 +137,32 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
     ///
-    /// <para><b>Every refusal it raises is already pure.</b> `TcPlcOpenWriter` turns a parsed body into a
-    /// document and throws on the shapes TwinCAT's importer will not take — an unconditional jump or return,
-    /// an Execute box, a box output pin wired straight to a variable — and it does that before the IDE is
-    /// touched at all. It was simply being reached from inside the write, so a two-item push carrying one of
-    /// them wrote the first item, refused the second, and told the caller the push had failed. Running the same
-    /// serialization here costs one throwaway document per graphical body and moves the whole family in front
-    /// of the first write.</para>
-    ///
-    /// <para>It deliberately stops there. The IMPORT that follows in a real write can still fail on something
-    /// only the live project knows, and pretending otherwise here would be a pre-flight that lies.</para>
+    /// <para>The native builder (<see cref="TcArchiveBuilder"/>) is pure: it builds the archive a CREATE writes, and
+    /// throws on every shape it refuses (a <c>PARALLEL</c>, a pin flag, ...) before the IDE is touched - so running it
+    /// here moves the whole family in front of the first write, and a two-item push carrying one of them writes nothing.</para>
     ///
     /// <para><b>The models are the engine's</b> (openspec bridge-refusal-review 2.27, D8/D12): it validated each body
-    /// against its own scope a moment ago. This used to re-read the whole source with <c>StReader</c>, re-derive the
-    /// kind from the wire name and validate every body again — a second reading the first could disagree with.</para>
+    /// against its own scope a moment ago.</para>
     ///
-    /// <para><b>Per BODY</b> (openspec bridge-refusal-review 2.28, D21): the lowering runs for exactly the bodies the
-    /// write would CREATE — every body of a new item (<paramref name="existing"/> null), and in an existing item each
-    /// body whose live implementation <see cref="CreatesBody"/> sends through the import, the one rule
-    /// <see cref="ResolveBody"/> writes by: a member the item does not hold under that name and kind (the reconciler
-    /// creates it), an accessor the property does not carry, a blank implementation or an archive with nothing drawn
-    /// in it. A body the write EDITS in place is not lowered: the in-place writer takes shapes the import does not.
-    /// This ran per ITEM, so a new graphical member in an existing POU was refused mid-batch.</para></summary>
+    /// <para><b>Per BODY</b> (openspec bridge-refusal-review 2.28, D21): the build runs for exactly the bodies the write
+    /// would CREATE - every body of a new item (<paramref name="existing"/> null), and in an existing item each body whose
+    /// live implementation <see cref="CreatesBody"/> sends to the builder, the one rule <see cref="ResolveBody"/> writes
+    /// by. A body the write EDITS in place is judged network by network there.</para></summary>
     public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
     {
         Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members = null;
         foreach (var body in bodies)
         {
             if (existing is { } item && !Creates(item, body.Site, ref members)) continue;
-            // The name is the scratch POU's, and nothing reads it back — only whether the writer throws. A member's
-            // refusal names the member: the op names only the item.
-            try { TcPlcOpenWriter.WriteProject("VoltPreflight", body.Model); }
+            // Only whether the build throws: a member's refusal names the member, as the op names only the item.
+            try { Created(body.Model, body.Scope); }
             catch (NotSupportedException ex) when (ex.GetType() == typeof(NotSupportedException) && body.Site.Member is not null)
             {
                 throw new NotSupportedException($"{body.Site}: {ex.Message}", ex);
+            }
+            catch (NetworkTextException ex) when (body.Site.Member is not null)
+            {
+                throw new NetworkTextException($"{body.Site}: {ex.Message}", ex.Code) { Line = ex.Line };
             }
         }
     }
@@ -196,9 +189,9 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>Does the write take the CREATE door for a body whose live implementation is <paramref name="existing"/>?
     /// Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is null": that is
-    /// also true of a TEXTUAL body, and routing those to the import would silently turn live ST into a diagram instead
+    /// also true of a TEXTUAL body, and routing those to the builder would silently turn live ST into a diagram instead
     /// of refusing — which is what <see cref="TcNetworkWriter"/> is for. The ONE rule: <see cref="ResolveBody"/> writes
-    /// by it and the pre-flight lowers by it.</summary>
+    /// by it and the pre-flight builds by it.</summary>
     private static bool CreatesBody(string? existing) =>
         string.IsNullOrWhiteSpace(existing) || (TcArchive.Root(existing) is { } live && TcArchive.HasNoItems(live));
 
@@ -305,14 +298,10 @@ public sealed partial class BeckhoffDriver
     /// <summary>Resolve one graphical member body and note it for the archive write — or note NOTHING, when
     /// the member's live archive already says exactly this.
     ///
-    /// <para>THE DROP IS THE POINT. Every graphical member body used to take the CREATE route unconditionally:
-    /// `ResolveGraphicalBody` builds a body from PLCopen topology, and a create is allowed to RESHAPE — TwinCAT's
-    /// importer splits a network per connected component (D25), so a rung the engineer drew as ONE network came
-    /// back as several, and `Stamp` then wrote the pushed titles and flags onto the new shape without ever
-    /// reporting it. It also cost the in-place editor its whole reason for existing: ids, `Fixed` flags,
-    /// `ILLines` and every unmodelled member of the networks nobody touched were rebuilt from scratch on each
-    /// push. And a push that changed only a DECLARATION still paid for the round trip — which deletes the POU
-    /// and imports it back, a window in which the item is not in the project at all.</para>
+    /// <para>THE DROP IS THE POINT. Every graphical member body used to take the CREATE route unconditionally, which
+    /// rebuilt the ids, <c>Fixed</c> flags, <c>ILLines</c> and every unmodelled member of networks nobody touched on
+    /// each push — and a push that changed only a DECLARATION still paid for the archive round trip, which deletes the
+    /// POU and imports it back, a window in which the item is not in the project at all.</para>
     ///
     /// <para>So the selection is <see cref="ResolveBody"/>, the SAME one <see cref="WriteOne"/> makes for a POU,
     /// against the member's own live implementation. A null verdict means no change, and a body with no change
@@ -362,9 +351,8 @@ public sealed partial class BeckhoffDriver
     /// <para>One trip for all of them: each DELETES the POU before importing it back, so a property with two
     /// graphical accessors would otherwise open that window three times.</para>
     ///
-    /// <para>The bodies arrive RESOLVED, from <see cref="Collect"/>. Resolving imports a scratch POU each time,
-    /// and every import between reading a handle and using it is a chance to invalidate it — so all of that is
-    /// behind us before the parent below is read.</para></summary>
+    /// <para>The bodies arrive RESOLVED, from <see cref="Collect"/> — built or edited archives, before the parent below
+    /// is read.</para></summary>
     internal ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
     {
         var parent = _om.Parent(item.Native)
@@ -426,8 +414,7 @@ public sealed partial class BeckhoffDriver
             // and against the coarse test it could never run in production: the return above it fired first, so
             // TwinCAT kept serving an UNSUPPORTED body where CODESYS serves network text — the same POU, two different
             // `sourceText`s, which is exactly what the byte-identical-response rule forbids. Ask the precise
-            // question instead. Creating one is still refused (`TcPlcOpenWriter`), and so is editing its ST
-            // (`TcNetworkWriter`); this is the READ path, and it can now answer.
+            // question instead. The native builder creates one (TcArchiveBuilder), from the drawn box's members.
             //
             // THE PRE-SCAN IS GONE (ld-fbd-coverage 1b.4). `TcArchive.HasUnreadableExecuteBox` hid the WHOLE body for an
             // Execute box whose document is missing, before the reader ran — while CODESYS refuses the same box inside
@@ -438,8 +425,9 @@ public sealed partial class BeckhoffDriver
             // stamped Unreadable and the fetch drops the file).
             //
             // Byte-identical with CODESYS: a fact the text has no spelling for — a flag on a split, an edge on an empty
-            // slot, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
-            // is the same model (DIALECT N1) and the format is the same format. The writer raises the one exception
+            // slot, a connection slot the archive does not record — is UNSUPPORTED on both vendors: the model is the same
+            // model (DIALECT N1) and the text the same text, and where the two READERS still differ (this one refuses a
+            // populated InputFlags CODESYS reads) it is a divergence to close, not a parity. The writer raises the one exception
             // for every such fact (network text v2: pull never throws anything else). `VendorCapabilityParityTests`
             // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the
             // vendor differential map found on 2026-09-22.
@@ -468,18 +456,9 @@ public sealed partial class BeckhoffDriver
             var existing = _om.ReadImplementation(item.Native);
             RefuseLanguageChange(kind, existing, LanguageOf(model));
 
-            // CREATE takes the other door. The archive writer cannot BUILD a body - a BoxTreeBox carries
-            // members the IDE RESOLVES (InputParam, CallType, EN, ENO, Id) and guessing them wrote twenty
-            // unopenable .TcPOU files - so a body the IDE does not have yet is stated as PLCopen TOPOLOGY, and
-            // TwinCAT resolves it into an archive Volt then simply stores. That is Beckhoff's documented route:
-            // PlcOpenImport is the one API they document that carries a graphical body.
-            //
-            // A MEMBER comes through here too, and needs nothing special: the resolution happens in a scratch
-            // POU, so by the time this writes, the body is a resolved archive like any other. An EXISTING body
-            // never comes this way - it is edited in place, where every id and every unmodelled member survives.
-            // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
-            // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
-            // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
+            // CREATE builds the archive natively (TcArchiveBuilder); an EXISTING body is edited in place, where every id
+            // and every unmodelled member survives (ResolveBody). A MEMBER comes through here too: by the time this
+            // writes, its body is an archive like any other.
             _om.WriteText(item.Native, declaration, ResolveBody(existing, model, graph.Scope));
             return;
         }
@@ -520,189 +499,28 @@ public sealed partial class BeckhoffDriver
     /// has none yet, an in-place EDIT when it does, and NULL when the archive already says exactly this.
     ///
     /// <para>Shared by <see cref="WriteOne"/> and <see cref="Collect"/>, because a POU and a MEMBER face the
-    /// identical question — and answering it in two places let them drift: the member path took the create arm
+    /// identical question - and answering it in two places let them drift: the member path took the create arm
     /// every time, without reading the live body at all.</para></summary>
     /// <param name="scope">The scope the body was read against (it travels with the model): the in-place writer's
     /// change gate renders the live network with it.</param>
     private string? ResolveBody(string? existing, NetworkBody model, NetworkScope scope)
     {
-        // Blank, or an archive the engineer has drawn nothing into: CreatesBody, the rule the pre-flight lowers by.
-        if (CreatesBody(existing))
-        {
-                // TWO STEPS, and each does only what it can do honestly.
-                //
-                // The import settles STRUCTURE — which boxes, wired how — because that needs the IDE's own
-                // resolution. It cannot carry MODIFIERS: a negated contact or a SET coil has no PLCopen form
-                // this lowering knows, and inventing one would be the guess that keeps costing.
-                //
-                // But by the time the import returns, the body is an ordinary archive whose shape matches the
-                // pushed model exactly — which is precisely the situation the in-place writer exists for. So it
-                // stamps the values on: flags, comments, titles, everything network text does carry. Neither
-                // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
-                // to survive a create.
-            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd");
-            return Stamp(built, model, scope);
-        }
+        // Blank, or an archive the engineer has drawn nothing into: the whole body is BUILT, natively - TwinCAT's own
+        // archive, written through ImplementationText, which TwinCAT stores as handed over (openspec twincat-inproc-host).
+        if (CreatesBody(existing)) return Created(model, scope);
 
-            // AN EXISTING BODY IS EDITED IN PLACE, and where its SHAPE changed - a box retyped, a rung
-            // rewired - the IDE rebuilds just that network. Same two mechanisms as a create, scoped to the one
-            // network that changed instead of the whole body, so every network the engineer did not touch stays
-            // byte for byte as the IDE wrote it: ids, Fixed flags, ILLines and all.
-        // A null means the archive already says exactly this: writing it back would rewrite ids and
-        // vendor members for no change at all.
-        return TcNetworkWriter.Apply(existing!, model, scope,
-                                     network => RebuildNetwork(network, model.Language));
+        // AN EXISTING BODY IS EDITED IN PLACE, and where a network's SHAPE changed the builder builds just that network,
+        // spliced in with ids no other network holds - so every network the engineer did not touch stays byte for byte
+        // as the IDE wrote it: ids, Fixed flags, ILLines and all. A null means the archive already says exactly this.
+        return TcNetworkWriter.Apply(existing!, model, scope, TcArchiveBuilder.NetworkGraph);
     }
 
-    /// <summary>Have the IDE rebuild ONE network, and hand back its archive element ready to be spliced in.
-    ///
-    /// <para>The same scratch-POU resolution a create uses — the IDE resolves the call, Volt copies the result —
-    /// only narrowed to a single network. The guard that this network is ONE connected component lives in
-    /// <see cref="TcNetworkWriter"/>, which checks it from the model before this is ever called.</para></summary>
-    private XElement RebuildNetwork(Network network, BodyLanguage language)
+    /// <summary>A body the item does not have yet, built natively - the archive TwinCAT stores. The edge order is the one
+    /// refusal that is no shape but a measurement this vendor lacks (DIALECT N17).</summary>
+    private static string Created(NetworkBody model, NetworkScope scope)
     {
-        // RENUMBERED TO 0 for the rebuild. `localId` encodes the network index (10^10 * (order + 1)), so a
-        // network carrying its real Order of 1 told the importer to build networks 0 AND 1 - it answered with
-        // an empty one in front of ours, and the splice refused it as "produced 2 networks, not one". The
-        // scratch POU has its own id space, and the network's real position is the slot it is spliced back
-        // into, not anything the rebuild needs to know.
-        var one = new NetworkBody(language, new[] { network with { Order = 0 } });
-        return Spliceable(_om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd"), network);
-    }
-
-    /// <summary>The one network an import of <paramref name="network"/> alone built, ready to splice in — the half of
-    /// <see cref="RebuildNetwork"/> after the IDE answered (internal: the NWL completeness oracle runs it over the
-    /// recorded imports, openspec ld-fbd-coverage gate 1b-3).</summary>
-    internal static XElement Spliceable(string body, Network network)
-    {
-        var impl = TcArchive.Root(body)
-            ?? throw new InvalidOperationException(
-                   $"TwinCAT: rebuilding network {network.Order + 1} produced no archive.");
-
-        // Same importer, same artifact: strip the empty output operand it hangs off every box, or the
-        // spliced network stops compiling exactly as a whole created body did.
-        TcNetworkWriter.DropImporterBoxOutputs(impl);
-
-        var rebuilt = TcArchive.List(impl, "NetworkList");
-        if (rebuilt.Count != 1)
-            throw new InvalidOperationException(
-                $"TwinCAT: rebuilding network {network.Order + 1} produced {rebuilt.Count} networks, not one. " +
-                "The importer groups by connected rung (DIALECT D25); splicing this back would renumber the " +
-                "networks after it, so the push is failed rather than applied.");
-
-        return new XElement(rebuilt[0]);
-    }
-
-    /// <summary>Stamp onto a freshly imported body everything the import could not carry — flags, titles,
-    /// comments, a disabled network — and say so plainly when that is impossible.
-    ///
-    /// <para><b>The import decides its own network boundaries.</b> Measured: a network holding two disconnected
-    /// statements (<c>t1(IN := a, PT := pt); done := t1.Q;</c>) comes back as TWO networks, because PLCopen FBD
-    /// has no network element and the importer groups by what is actually wired together. So the archive's shape
-    /// is the IDE's answer, not a copy of the pushed model, and the in-place writer — which requires the two to
-    /// agree — legitimately refuses on it.</para>
-    ///
-    /// <para>That refusal must not become a blanket failure, and must not become a silent shrug either. When the
-    /// model carries nothing beyond structure, the IDE's own grouping IS the right answer and is kept. When it
-    /// carries DETAIL the import cannot express — a negated contact, a SET coil, a network title, a disabled
-    /// network — that detail would be lost, so the push fails instead of reporting success over a body missing
-    /// the very thing the engineer wrote.</para></summary>
-    internal static string Stamp(string built, NetworkBody model, NetworkScope scope)
-    {
-        try
-        {
-            // VALUES FIRST, THEN THE REPAIR — and the order is the whole of a data-loss bug.
-            //
-            // The importer hangs an EMPTY output operand off every box, which the compiler reads as the box's
-            // result going nowhere (TcNetworkWriter.DropImporterBoxOutputs). This used to drop those operands
-            // BEFORE stamping, and an empty operand is exactly what the importer also leaves for an output pin
-            // it could not resolve — `t1(… ET => ???)`, where `???` is not a variable it can bind. The two are
-            // indistinguishable in the archive, so the repair took the engineer's pin with the artifact,
-            // `WriteBoxOutputs` then refused ("names an output pin the IDE has no slot for"), and the catch
-            // below swallowed the refusal on the premise that there was nothing to lose. The push reported
-            // success over a body missing a pin the engineer wrote.
-            //
-            // Stamping first removes the ambiguity instead of guessing at it: every slot the MODEL names gets
-            // its operand written, so an operand still empty afterwards can only be the importer's.
-            // UNDO THE IMPORTER'S SPLIT FIRST, so everything below sees the body the engineer pushed.
-            //
-            // D25: one network per connected component, so a pushed network holding two independent rungs
-            // arrives as two. That was accepted as a measured reshape and it cost more than cosmetics — `Apply`
-            // refuses on a network-count mismatch, the catch below swallowed the refusal, and the values that
-            // refusal was carrying never reached the split networks. Merging restores the count so the stamp
-            // below reaches them.
-            var merged = TcNetworkWriter.MergeImporterSplits(built, model) ?? built;
-            var applied = TcNetworkWriter.Apply(merged, model, scope, resolve: null, byPosition: true) ?? merged;
-            return TcNetworkWriter.DropImporterBoxOutputs(applied);
-        }
-        // Never an ENO refusal: after the import it is the answer (the text reads an output the imported box does not
-        // give), not the regrouping this shrugs at.
-        catch (NotSupportedException ex) when (ex is not TcEnoRefusal and not TcRawLineEndRefusal && !CarriesDetail(model) && !LostNetworks(built, model))
-        {
-            // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
-            // LOGGED, because the catch takes a NotSupportedException it never names (D24, task 3.7): which ones reach
-            // it on real creates is what decides whether it may narrow to one exception type.
-            VoltLog.Warn($"twincat: a created body keeps the importer's grouping; the in-place stamp refused " +
-                         $"({ex.GetType().Name}): {ex.Message}");
-            return TcNetworkWriter.DropImporterBoxOutputs(built);
-        }
-    }
-
-    /// <summary>Did the import come back with FEWER networks than were pushed?
-    ///
-    /// <para><b>The direction is the whole point.</b> D25's regrouping — the importer emitting one network per
-    /// connected component — can only ever produce the SAME number or MORE, because it splits and never merges.
-    /// So "more" is the measured, licensed outcome and the swallow above is right to accept it. FEWER is not
-    /// regrouping at all; it is LOSS, and the known case is an EMPTY network, which PLCopen cannot state because
-    /// it has no network element (D25) and the archive cannot be constructed to reinsert one (N11/N12).</para>
-    ///
-    /// <para>That loss is forced. Reporting the push as APPLIED over it was not: the engineer's empty network
-    /// vanished and the wire said success. Now the refusal propagates, so a body that cannot be created says so
-    /// instead of arriving incomplete.</para></summary>
-    private static bool LostNetworks(string built, NetworkBody model) =>
-        TcArchive.Root(built) is { } impl && TcArchive.List(impl, "NetworkList").Count < model.Networks.Count;
-
-    /// <summary>Anything network text carries that a PLCopen import does not: item modifiers and the
-    /// per-network metadata (<c>Title</c>, <c>Label</c>, <c>Comment</c>, <c>OutCommented</c>).</summary>
-    private static bool CarriesDetail(NetworkBody model) =>
-        model.Networks.Any(n =>
-            !string.IsNullOrEmpty(n.Title) || !string.IsNullOrEmpty(n.Label) ||
-            !string.IsNullOrEmpty(n.Comment) || n.Disabled ||
-            n.Trees.Any(HasFlags));
-
-    private static bool HasFlags(Node node)
-    {
-        if (!node.Flags.IsNone) return true;
-        return node switch
-        {
-            Leaf l => l.Operand.Flags is { IsNone: false },
-            Assign a => a.Targets.Any(t => t.Flags is { IsNone: false }) || a.Children().Any(HasFlags),
-            // AN OUTPUT PIN IS CONTENT, NOT DECORATION. This asked only whether a pin carried FLAGS, so a box
-            // whose `ET => x` the import failed to place counted as "nothing to lose" and the refusal that said
-            // so was swallowed. Whatever else the catch above is willing to shrug at, it must not be a pin the
-            // engineer wired: the body would come back missing it, and the push would say it worked.
-            // AN ENABLE IS CONTENT BY EXISTING, not by carrying flags. This asked `HasFlags(b.Enable)`, which
-            // recurses into the enable's OPERAND — so a plain wired `IF en1 THEN ...` answered false and the
-            // whole body counted as "nothing to lose". Every EN refusal in the writer was therefore
-            // swallow-eligible, and an enable is precisely the thing whose loss changes what the program does.
-            Box b => b.Outputs.Count > 0
-                     || b.Enable is not null
-                     || b.StCode is not null
-                     || b.Instance?.Flags is { IsNone: false }
-                     || b.Outputs.Any(o => o.Value.Flags is { IsNone: false })
-                     || b.Inputs.Any(i => !i.Flags.IsNone)
-                     || b.Children().Any(HasFlags),
-            // SUB-TREES THROUGH `Children()`, the model's one list of them: a hand-copied list here is how a subtree
-            // goes unasked, and on the filter of a catch that swallows a refusal that means a loss nobody reports.
-            Volt.Engine.Format.Network.Parallel p => p.Children().Any(HasFlags),
-            // Listed, not left to the default below: an empty terminator holds nothing but the item flags checked above.
-            Terminator => false,
-            Demux d => d.Children().Any(HasFlags),
-            // AN UNRECOGNISED NODE IS CONTENT. This is the filter on a CATCH that discards a refusal, so the
-            // safe default is "there is something to lose" — a node kind added later must not become silently
-            // droppable by not being listed here.
-            _ => true,
-        };
+        TcUnmeasured.RefuseEdgeOrder(model);
+        return TcArchiveBuilder.Body(model, scope);
     }
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────

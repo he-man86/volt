@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,8 +22,8 @@ public abstract class DriverBase : IIdeSession
 {
     /// <summary>The push pre-flight, defaulting to REFUSE NOTHING — see <c>ICodeStore.ValidateSource</c>. A
     /// driver whose refusals need the live project leaves it alone rather than guessing at them here; TwinCAT
-    /// overrides it, because its graphical-create writer (a PLCopen import, DIALECT D22) decides several of them from
-    /// the parsed body alone.</summary>
+    /// overrides it, because its graphical-create writer (the native archive builder, DIALECT N42) decides several of
+    /// them from the parsed body alone.</summary>
     public virtual void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies) { }
 
     /// <summary>No measured name refusal — see <c>ICodeStore.RefusedName</c>. A driver without measurements refuses

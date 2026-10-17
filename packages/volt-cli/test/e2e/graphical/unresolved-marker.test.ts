@@ -65,21 +65,12 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
-		// A SHAPE TWINCAT'S IMPORTER CANNOT BUILD **YET** IS REFUSED, and the refusal is ASSERTED rather than
-		// skipped. These are TRACKED GAPS, not vendor differences to respect — `openspec/changes/
-		// twincat-graphical-create-parity`, whose definition of done is that no branch like this one is left in
-		// `test/e2e/graphical/`. This suite is one suite run against either vendor, and its own README says a
-		// pass on one and a fail on the other is a real parity bug.
-		//
-		// They are limits of the CREATE path alone — PLCopen is the one form TwinCAT accepts a body it does not
-		// already have — and never limits of the marker: `???` round-trips on both vendors in every position that
-		// can be created at all, and a body that already carries one of these shapes edits fine on both.
-		//
-		// Asserting the refusal is what stops a silent DROP passing here again. An embedded output pin did
-		// exactly that until 2026-09-05: the importer left the slot empty, the repair for its own empty-operand
-		// artifact took the pin with it, and the refusal that followed was swallowed as "nothing to lose".
+		// A SHAPE TWINCAT DOES NOT BUILD IS REFUSED, and the refusal is ASSERTED rather than skipped. Until the native
+		// writer (openspec twincat-inproc-host) three shapes here were refused because TwinCAT's PLCopen importer could not
+		// build them (an output pin, a result pin); one remains, for a measured reason of TwinCAT's own compiler (below).
+		// Asserting the refusal is what stops a silent DROP passing here again.
 		if (tcCannotCreate !== undefined && VENDOR === "twincat") {
-			expect(created.accepted, "TwinCAT accepted a shape its importer cannot build").toBe(false)
+			expect(created.accepted, "TwinCAT accepted a shape it does not build").toBe(false)
 			expect(JSON.stringify(created.conflicts)).toContain(tcCannotCreate)
 			return
 		}
@@ -131,10 +122,6 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			"FBD",
 			"NETWORK\n  t1(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
-			// TwinCAT: the importer honours the wire and lowers it to a SEPARATE assignment rather than a pin on
-			// the box, so what came back would not be what was pushed (DIALECT C20). Editing one that already
-			// exists works on both vendors — it is the CREATE that has no route.
-			"output pin straight to a variable",
 		)
 	})
 
@@ -147,16 +134,15 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			"FBD",
 			"NETWORK\n  t1(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
-			"output pin straight to a variable", // TwinCAT: the same C20 limit, reached through the output arm
 		)
 	})
 
 	/** THE BOX'S RESULT PIN — the unnamed output the box writes itself, spelled `=> ???` in its own call. v1 spelled
 	 *  it `??? := MOVE(src);`, which is also an Assign whose value is the box — a different NWL item — so nothing
 	 *  could tell them apart (`network-unresolved.ts` in the LSP conformance set records the difference).
-	 *  TwinCAT's import has no unmeasured result pin in a structurally changed network, so it refuses one by name. */
+	 *  (TwinCAT refused one while its PLCopen import was the create door; the native writer builds it.) */
 	it("`???` on a box's RESULT pin", async () => {
-		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE src => ???;\nEND_NETWORK\n", BOOLS, "result pin")
+		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE src => ???;\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** …and the Assign the v1 spelling also meant: a coil nobody named, driven by a box. */
@@ -181,11 +167,10 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			// suffix-less spelling is refused there.
 			"NETWORK\n  NOT(IN := a) EN\n  ??? := ENO;\nEND_NETWORK\n",
 			BOOLS,
-			// TwinCAT: its import builds the NOT box with no ENO output, so ENO names an output the box would not
-			// have and the push is refused by name before anything is written — the same measured refusal the EN-pin
-			// case in `parity-fixes.test.ts` accepts (task 4.4). v1's `IF en1 THEN … END_IF` spelled the enable
-			// without saying which output the rung reads, which is how it passed there.
-			"no ENO output",
+			// TwinCAT: an enabled bit operator built with only its ENO output (the text's derivation) does not compile
+			// there — measured live, "__ImpVar not defined" (DIALECT N42) — so the push is refused by name before
+			// anything is written.
+			"does not compile an enabled NOT",
 		)
 	})
 

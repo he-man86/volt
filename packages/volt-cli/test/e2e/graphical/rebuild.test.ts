@@ -25,7 +25,7 @@ import { describe, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout }
 import {
 
 	bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy,
-	savePlcPrg, restorePlcPrg, fixPlcPrg, expectVendorDifference, BASE,
+	savePlcPrg, restorePlcPrg, fixPlcPrg, BASE,
 } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
@@ -140,12 +140,9 @@ END_FUNCTION_BLOCK
 		await createItem(fid("rb_scope"), src, "")
 		const before = (await fetchItem(full)).sourceText
 		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
-		// A create keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into one
-		// assign driving two coils (D22 / C25, `fanout.test.ts`), so there the evidence is the byte-identical body.
-		expect(wires(before).length).toBe(expectVendorDifference("DIALECT D22 / C25 — the importer folds a fan-out wire", {
-			codesys: () => 2,
-			twincat: () => 0,
-		}))
+		// A CREATE keeps both splits on both vendors (TwinCAT's PLCopen import folded each into one assign driving two
+		// coils, D22 / C25 — superseded by the native writer, openspec twincat-inproc-host).
+		expect(wires(before).length).toBe(2)
 
 		const edited = before.replace("a AND b;", "a AND c;")
 		expect(edited).not.toBe(before)

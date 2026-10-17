@@ -289,7 +289,7 @@ public class TcRoundTripTests
 
     /// <summary>A VIEW CHANGE IS WRITTEN (openspec bridge-refusal-review 2.31, D7): the pushed marker says FBD and the
     /// IDE's body is a ladder, so the archive's <c>DefaultViewMode</c> slot — the member the CREATE route already sets
-    /// (<c>TcArchive.WithViewMode</c>) — takes the pushed view, and NOTHING else in the archive changes. It was refused as
+    /// (the archive's <c>DefaultViewMode</c> slot) — takes the pushed view, and NOTHING else in the archive changes. It was refused as
     /// "nothing here writes it" while the create route wrote exactly this slot.</summary>
     [Fact]
     public void A_marker_naming_the_other_view_writes_the_view_and_nothing_else()

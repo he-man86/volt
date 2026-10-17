@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -614,8 +614,8 @@ namespace Volt.Ide.Codesys
                             // AN EMPTY OPERAND, not a null, for the echo and for a slot passed over. The vendor
                             // STORES the echo slot as null but will not ACCEPT one: <c>AppendOutputItem(null)</c>
                             // answers "Object reference not set to an instance of an object". An empty operand is
-                            // the shape its own PLCopen importer hangs off a box (see <c>DropImporterBoxOutputs</c>
-                            // on the TwinCAT side) and the shape of every unwired pin on a resolved FB box, and the
+                            // the shape its own PLCopen importer hangs off a box (TwinCAT's <c>importer-max.TcPOU</c>,
+                            // the same model) and the shape of every unwired pin on a resolved FB box, and the
                             // reader skips an empty output slot, so it round-trips as the nothing it is.
                             foreach (var slot in slots)
                                 NwlInterop.Call(outs, "AppendOutputItem", Operand(slot.Value ?? new Operand("")));

@@ -1,0 +1,4 @@
+IMPLEMENTATION FBD
+NETWORK
+  out := (((i1 ADD i2) GT i3) AND a) OR (b AND NOT(IN := c));
+END_NETWORK

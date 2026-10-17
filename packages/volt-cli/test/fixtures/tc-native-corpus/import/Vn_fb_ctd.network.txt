@@ -1,0 +1,4 @@
+IMPLEMENTATION FBD
+NETWORK
+  ctd1(CD := a, LOAD := b, PV := i1);
+END_NETWORK

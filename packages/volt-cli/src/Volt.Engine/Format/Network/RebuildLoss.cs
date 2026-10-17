@@ -7,7 +7,7 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// THE INTERIM LOSS WINDOW, MADE VISIBLE (openspec <c>ld-fbd-coverage</c> design "1b.2", gate 1b-2). A network a push
-/// REBUILDS from its text — CODESYS: every changed network; TwinCAT: a changed SHAPE, through the import — is built
+/// REBUILDS from its text — CODESYS: every changed network; TwinCAT: a changed SHAPE, by the archive builder — is built
 /// fresh, and the members the IDE stores that the text does not carry come back as whatever the vendor's rebuild gives
 /// them. Until each such member's <c>vendor-facts</c> row decides it (a measured editor cache, or a member 2.3 spells), a
 /// rebuild that does not give back a stored value of one says so: one <see cref="Volt.Engine.Ide.BridgeLog"/> warning

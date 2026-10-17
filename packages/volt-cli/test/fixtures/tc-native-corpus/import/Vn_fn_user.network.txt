@@ -1,0 +1,4 @@
+IMPLEMENTATION FBD
+NETWORK
+  n := F_Custom(i1, i2);
+END_NETWORK

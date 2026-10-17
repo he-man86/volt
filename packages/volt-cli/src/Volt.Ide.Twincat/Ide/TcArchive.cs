@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -76,38 +76,6 @@ internal static class TcArchive
         };
     }
 
-    /// <summary>The same body with its view set to <paramref name="mode"/> ("Fbd" / "Ld"), or NULL when it
-    /// already says that — so an unchanged push writes nothing at all.
-    ///
-    /// <para><b>This is how a ladder becomes a ladder.</b> `CreateChild` cannot make an "LD" (DIALECT C6): it
-    /// makes an FBD, and the graph goes in through PLCopen as FBD too, because that is the only shape the
-    /// importer accepts — an &lt;LD&gt; body of FBD-shaped elements makes it throw. The vendor does not treat a
-    /// ladder as a different program in the first place; FBD, LD and IL are three VIEWS of one network. So the
-    /// difference between the two languages, for everything Volt can express, is exactly this one string.</para>
-    ///
-    /// <para>The parse preserves whitespace and the serialization adds none, so every byte the IDE wrote other
-    /// than this value survives.</para></summary>
-    public static string? WithViewMode(string? bodyXml, string mode)
-    {
-        if (string.IsNullOrWhiteSpace(bodyXml)) return null;
-
-        XElement doc;
-        try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
-        catch (System.Xml.XmlException) { return null; }
-
-        var impl = doc.DescendantsAndSelf("o")
-                      .FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject");
-        if (impl == null) return null;
-
-        var slot = impl.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == "DefaultViewMode");
-        if (slot == null) return null;                 // creates nothing - the same rule the writer follows
-
-        var want = "\"" + mode + "\"";
-        if (slot.Value == want) return null;
-        slot.Value = want;
-        return Text(doc, bodyXml);
-    }
-
     /// <summary>The archive's VALUES (a text holding more than white space, or an attribute) carry a RAW carriage
     /// return — one XML's end-of-line normalization folds, where an entitized <c>&amp;#xD;</c> survives. Told apart by
     /// parsing twice: without normalization a raw CR stays, with it only the entitized one does. White space between
@@ -139,10 +107,17 @@ internal static class TcArchive
     /// an EXECUTE box's ST lines — into CR LF in the IDE (2R.3 review).
     /// <para><paramref name="handed"/> is the archive string the IDE handed: one whose VALUES carry a raw CR is refused
     /// (<see cref="TcUnmeasured.RefuseRawLineEnd"/>) — its parse folds that CR LF into LF, and this write would hand every
-    /// untouched value back as LF.</para></summary>
+    /// untouched value back as LF.</para>
+    /// <para><b>The white space BETWEEN elements is no value: it is the archive's layout</b>, which TwinCAT stores as
+    /// handed (DIALECT N42 a). It is written raw, every line break as the handed archive's own (CR LF in every archive
+    /// TwinCAT wrote), so an untouched element stays byte for byte and a network spliced in sits in the same layout.
+    /// Entitized with the values, each break of a spliced network became <c>&amp;#xD;</c> + LF and every untouched one —
+    /// folded to LF by the parse — a bare LF (twincat-inproc-host, <c>A_body_edited_with_built_networks_keeps_the_vendor_layout</c>).</para></summary>
     internal static string Text(XNode doc, string handed)
     {
         TcUnmeasured.RefuseRawLineEnd(handed);
+        // No value of the handed archive holds a raw CR (refused above), so a raw CR LF in it is its formatting.
+        var newline = handed.Contains("\r\n") ? "\r\n" : "\n";
         var sb = new System.Text.StringBuilder();
         var settings = new System.Xml.XmlWriterSettings
         {
@@ -151,8 +126,31 @@ internal static class TcArchive
             NewLineHandling = System.Xml.NewLineHandling.Entitize,
             ConformanceLevel = System.Xml.ConformanceLevel.Auto,
         };
-        using (var w = System.Xml.XmlWriter.Create(sb, settings)) doc.WriteTo(w);
+        using (var w = System.Xml.XmlWriter.Create(sb, settings)) WriteNode(w, doc, newline);
         return sb.ToString();
+    }
+
+    private static void WriteNode(System.Xml.XmlWriter w, XNode node, string newline)
+    {
+        switch (node)
+        {
+            case XDocument d:
+                foreach (var n in d.Nodes()) WriteNode(w, n, newline);
+                break;
+            case XElement e:
+                w.WriteStartElement(e.Name.LocalName, e.Name.NamespaceName);
+                foreach (var a in e.Attributes())
+                    if (!a.IsNamespaceDeclaration) w.WriteAttributeString(a.Name.LocalName, a.Name.NamespaceName, a.Value);
+                foreach (var n in e.Nodes()) WriteNode(w, n, newline);
+                if (e.IsEmpty) w.WriteEndElement(); else w.WriteFullEndElement();
+                break;
+            case XText t when t is not XCData && string.IsNullOrWhiteSpace(t.Value) && t.Parent is { } owner && owner.Elements().Any():
+                w.WriteRaw(t.Value.Replace("\r\n", "\n").Replace("\n", newline));   // the layout between elements
+                break;
+            default:
+                node.WriteTo(w);   // a value: its CR entitized, an LF as is
+                break;
+        }
     }
 
     /// <summary>A named object member: <c>&lt;o n="Name"&gt;</c>. An explicit <c>&lt;n n="Name"/&gt;</c> is a
@@ -239,7 +237,7 @@ internal static class TcArchive
     /// <c>TypeList</c>, one <c>Network</c> — whose <c>NetworkItems</c> is empty. A freshly created POU therefore
     /// arrives with a body that is fully present and entirely blank, and a blankness check misses it.</para>
     ///
-    /// <para>True here means the import door: nothing is lost by letting TwinCAT build the body from PLCopen.
+    /// <para>True here means the create door: nothing is lost by building the whole body natively.
     /// False means the in-place writer, where every id, every <c>Fixed</c> and every unmodelled member the IDE
     /// wrote survives exactly as it wrote it.</para></summary>
     public static bool HasNoItems(XElement? impl)

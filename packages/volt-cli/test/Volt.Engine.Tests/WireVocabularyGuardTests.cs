@@ -40,15 +40,6 @@ public class WireVocabularyGuardTests
             // format that shares its spelling with the error code, not the error code.
             new HashSet<string> { "BridgeErrorCodes.cs", "ImplementationMarker.cs" }),
 
-        // A body written into the wrong XML namespace is not a compile error — it is a document the vendor's
-        // importer quietly declines to understand. These were spelled at NINE sites across five files before
-        // `Namespaces` existed; nine independent spellings of one fact drift, and nothing catches the drift.
-        // The TC6 namespace is deliberately absent: it is never written from a literal at all, because a write
-        // takes it from the element it writes into (a document declares its own version).
-        ("xml namespaces (Namespaces)",
-            new[] { "http://www.w3.org/1999/xhtml", "http://www.3s-software.com/plcopenxml/" },
-            new HashSet<string> { "Namespaces.cs" }),
-
         ("op codes (Ops)",
             new[] { "health", "connect", "disconnect", "refs", "fetch", "push", "build" },
             // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
@@ -97,27 +88,25 @@ public class WireVocabularyGuardTests
             // are DELETED with the PLCopen transport - four exemptions guarding nothing. Removed rather than left,
             // because a stale allowlist entry silently pre-authorizes any future file that takes the same name.
             //
-            // Two TwinCAT files replace them, for a narrower reason: PLCopen's own enumerations COINCIDE with
-            // Volt's item kinds on some spellings while differing on others. `BeckhoffDriver` maps a Volt kind to
-            // a TC6 `pouType`, where `program`/`function` are shared but TC6 says `functionBlock` where Volt says
-            // `function_block`; `TcPlcOpenWriter` spells `interface` as a TC6 ELEMENT name and `function` as a
-            // `CallType` value. Two vocabularies that happen to overlap, so the literals cannot be replaced by
-            // the constants - that would assert an identity which does not hold.
+            // `BeckhoffDriver` replaces them, for a narrower reason: PLCopen's own enumerations COINCIDE with Volt's
+            // item kinds on some spellings while differing on others — it maps a Volt kind to a TC6 `pouType`, where
+            // `program`/`function` are shared but TC6 says `functionBlock` where Volt says `function_block`. Two
+            // vocabularies that happen to overlap, so the literals cannot be replaced by the constants - that would
+            // assert an identity which does not hold. (`TcPlcOpenWriter` was the second file, deleted with the
+            // PLCopen create route, openspec twincat-inproc-host.)
             //
             // Listed by the PARTIAL-CLASS key (`BeckhoffDriver.cs`, not `BeckhoffDriver.Content.cs`) because
             // `AllowKey` strips the suffix - see its own summary for why.
-            new HashSet<string> { "ItemKind.cs", "NetworkTextReader.cs", "BeckhoffDriver.cs",
-                                  "TcPlcOpenWriter.cs" }),
+            new HashSet<string> { "ItemKind.cs", "NetworkTextReader.cs", "BeckhoffDriver.cs" }),
 
         // THE RETIRED POU KINDS AND EXTENSIONS (openspec push-without-header-check 5.Q). A program, a function block
         // and a function are ONE kind, `pou`, under one extension, `.pou`: whether a POU is which is its TEXT's on both
         // vendors, and an extension carries only what the IDE stores per object. A literal `"program"` /
         // `"function_block"` / `"function"` kind, or `"fb"` / `"prg"` / `"fun"` extension, in src is that split coming
-        // back. TcPlcOpenWriter spells TC6's own `pouType="program"` and `CallType` `function` — a PLCopen vocabulary
-        // that shares the words, not an item kind.
+        // back.
         ("retired POU kinds and extensions (5.Q)",
             new[] { "program", "function_block", "function", "fb", "prg", "fun", ".fb", ".prg", ".fun" },
-            new HashSet<string> { "TcPlcOpenWriter.cs" }),
+            new HashSet<string>()),
     };
 
     [Fact]
