@@ -985,6 +985,16 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       142 pass / 1 skip / 1 fail (item 6, the raw CR, unchanged); typecheck clean, lint warnings only (LSP lint green),
       `bun run check` 16/16. No fixture or transpiler change this round: `rate:fixtures` re-run, map unchanged; no recording.
 
+- [ ] 2R.6 **Owner 2026-10-17: the call form is unreadable ("i cant read this"); ENO first.** A box's ENO output wired
+      to a variable is an output pin written after the enable, in drawing order, never inside call brackets:
+      `MOVE 0 EN c ENO => lamp;` (MOVE's own output unwired), `MOVE 0 => x EN c ENO => lamp;` (both wired) — owner:
+      "this reads much cleaner". It replaces `MOVE(0, ENO => lamp) EN c;`, which becomes a refusal naming the new
+      spelling. Reader, writer, LSP parser and the case set together; the coil-on-ENO form (`… EN c` / `lamp := ENO;`)
+      stays a separate stored tree. Starts after the native-writer merge (it is translating tests to today's grammar).
+      Next, same principle, owner to confirm per row: the other call-form shapes (an unconnected word-box input
+      `MUL(, a, 6)`, a negated box pin `AND(a, NOT IN2 := b)`, an empty MOVE `MOVE(IN := , => x)`, the NOT box
+      `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
+
 
 ## 3. Verify and close
 
