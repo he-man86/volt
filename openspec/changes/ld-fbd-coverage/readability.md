@@ -458,3 +458,50 @@ Measure before building: every row above pushed, built and run on CODESYS and Tw
 (P3) stay. What 2R.6 keeps: every enabled box writes the EN and ENO pins it has; a plain coil on the box's own ENO is
 `… ENO => lamp;` on its line (tasks 2R.6); a split on it `… ENO => split21;`; the ENO pin wired to a variable is refused
 (#23). Every other ENO read (a chain, an expression, a set/reset coil, a pin) is the open line and the word `ENO`.
+
+## 2R.6 proposal v2 — the text in CODESYS's order (2026-10-17)
+
+Owner: "what if you would write this down in the same order as CS" — "this reads very clean" — "staying closer to CS
+would make our logic a better fit, fewer edge cases". It replaces the open lines (P3) and everything above in 2R.6.
+
+**The principle: the text is the stored tree, root first.** NWL stores a rung from its end: the coil (or the item's
+top node) holds the box that feeds it, that box's slots hold what feeds them, down to the contacts. The text writes
+each node where NWL holds it, in that order. Reading and writing are a copy — no ordering rule, no reconstruction.
+
+**Three rules, all there is to ENO:**
+1. A box is written `name/word, its outputs, then EN [source]`: `MOVE 3 => c ENO EN start`. Outputs are `=> x` (a pin
+   wired to a variable) and `ENO` (the box HAS the ENO pin); data outputs were already written before EN.
+2. **`ENO` written means the box has the pin.** A consumer of a box gets its ENO if the box shows `ENO`, its value if
+   not. Decided by the stored pins alone, never by box kind (the owner: the corpora are one programmer's work).
+3. A line ending in `EN` continues on the next line (P2's list of words that cannot end a line), as `AND` does. An
+   enable shown with nothing wired is `EN` before `;`, `)` or `,`.
+
+    lamp := MOVE 3 => c ENO EN                // a chain: lamp gets MOVE 3's ENO, MOVE 3's EN gets MOVE 2's ENO, …
+            MOVE 2 => b ENO EN
+            MOVE 1 => a ENO EN start;
+    lamp := a GT 5 EN c;                      // no ENO pin: lamp gets the comparison's value
+    lamp := a GT 5 ENO EN c;                  // an ENO pin: lamp gets its ENO
+    x R= MOVE 1 => a ENO EN c;                // any coil, any modifier, JMP/RETURN alike
+    x := (MOVE 1 => a ENO EN c) AND t;        // an operand of a word: bracketed (P4 (1), unchanged)
+    x := (MOVE 1 => a ENO EN c) AND (MOVE 2 => b ENO EN d);
+    f(iEN := MOVE 1 => a ENO EN c, x := 5);   // a pin: a slot, no bracket
+    split1 := MOVE 1 => a ENO EN c;           // the split CODESYS stores on an ENO read twice
+    lamp := s BRANCH (MOVE 1 => a ENO EN c, b);
+    MOVE 0 => x ENO EN c;                     // a top-level box: its ENO pin there, connected to nothing
+    done := EXECUTE ENO EN go
+    i := i + 1;
+      END_EXECUTE;
+    y := f(a, ENO) EN c;                      // NO — a call keeps its outputs inside its brackets: f(a, => r) ENO EN c
+
+**Deleted:** open lines and their order (P3, the level order of mixed trees), `;` as a signal (it ends an item, only),
+the word `ENO` as a reference, "an enabled box is the root of its line", "an enabled comparison is the only enabled
+value" and its bracket (P4 (2)), `split21 := ENO;`, `lamp := ENO;`, `ENO => lamp`. Rules P1, P2 (+`EN`), P4 (one item
+fewer), P5–P13 otherwise unchanged.
+
+**Measure before building (live, both vendors, own fixture IDEs):** each example above pushed, built, run, pulled to
+the same text; plus the two pin states nobody has measured: a box with ENO and no EN (`f(a) ENO`, a call that hands its
+ENO on) and EN with no ENO on a non-comparison. A pin state CODESYS stores and runs gets this spelling with no
+exception; one it does not store is refused by name.
+
+**Writer layout:** a nested enabled box in an EN slot goes on the next line, aligned under the outer box, so a chain is
+one box per line; inside brackets, as now, layout is free.
