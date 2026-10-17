@@ -33,3 +33,7 @@ About 60 sites: Engine 22, Contracts 4, CODESYS driver 3, TwinCAT driver 7, Volt
   one PLC project, with its task beside the POUs): `<system project>/SYSTEM/Tasks/PlcTask.task`,
   `<system project>/PLC/<plc project>/POUs/MAIN.pou`. MOTION / I/O / SAFETY / C++ stay out (Volt edits none; CODESYS
   carries no hardware either) unless the owner wants read-only descriptors like `.device`.
+- IDENTICAL RULE ON BOTH VENDORS (owner, 2026-10-17): the path is the IDE's own tree; a container Volt does not edit appears as
+  a read-only descriptor, as `Device/Device.device` does on CODESYS — so each TwinCAT system project gets one at its own path.
+  Each item sits where its IDE keeps it (a TwinCAT task under `SYSTEM/Tasks`, a CODESYS one under the application); no
+  vendor's tree is reshaped to look like the other's. The descriptor's extension follows the item-kind table (design 1.1).
