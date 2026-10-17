@@ -8,7 +8,8 @@ the connector, volt-control, volt-vscode) follows afterwards, against the same w
 **The wire itself is reviewed critically first** (owner, 2026-10-17: "agents tend to add logic to solve edge cases that are
 not needed"). Step 1.1 includes a wire audit: every field, op, error code and rule in `Volt.Contracts/Wire` — who reads it,
 which measured case needs it, what breaks without it. Anything added for an edge case that is not measured or not needed
-is listed for deletion. The owner decides the list in 1.2; the deletions land as one small wire change BEFORE the
+is listed for deletion. And the shape: one way to say each fact, consistent names, no field that only
+mirrors how the code happened to be built — the interface as it should be, not as it grew. The owner decides the list in 1.2; the deletions land as one small wire change BEFORE the
 behind-the-wire refactor, so the fixed reference is the simplified wire.
 
 ## 1. Map
