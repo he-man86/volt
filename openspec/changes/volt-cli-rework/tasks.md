@@ -9,6 +9,9 @@ Requires: `ld-fbd-coverage` archived. Spec only until then — do not start.
       identical on both vendors (DIALECT N1). NWL is the CODESYS family's format, not vendor-neutral — a future vendor
       (Siemens, Rockwell) has no NWL — so the Engine core stays at `NetworkModel`. Proposal: one shared CODESYS-family NWL
       layer (model → NWL description) used by both drivers, each driver only placing it (live objects / XmlArchive).
+      Placement guard (owner, 2026-10-17: "codesys and tc are same by 'luck'"; the rule is a proposal): what CODESYS and
+      TwinCAT share by descent (NWL, the object tree, the language model) is a CODESYS-family fact — it may be shared
+      between the two drivers, never assumed by the Engine core, the wire or the CLI.
 - [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented.
 
 ## 2. Find (parallel per project, each finding adversarially verified)
