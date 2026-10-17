@@ -1,4 +1,9 @@
-Requires: `ld-fbd-coverage` archived. Spec only until then — do not start.
+Requires: `ld-fbd-coverage` (archived 2026-10-17) and `multi-application-tree` archived. Spec only until then — do not start.
+
+Order (owner, 2026-10-17): **behind the wire first** — `Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat` (and their
+tests), with the wire as it stands after `multi-application-tree` as the fixed reference (3.3: byte-identical before/after).
+The rework never changes the wire; a wire defect it finds becomes its own small change. The front of the wire (`Volt.Cli`,
+the connector, volt-control, volt-vscode) follows afterwards, against the same wire.
 
 ## 1. Map
 
