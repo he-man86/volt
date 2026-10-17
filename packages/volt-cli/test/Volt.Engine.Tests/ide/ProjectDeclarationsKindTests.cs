@@ -47,7 +47,7 @@ public class ProjectDeclarationsKindTests
     {
         var tree = new FlatTree(("Motor", ItemKind.PlcTask), ("Motor", ItemKind.PlcPou));
         var declarations = new ProjectDeclarations(tree, r => tree.KindCode(r) == ItemKind.PlcPou ? Motor : null,
-                                                   Scopes.RefusedPouName);
+                                                   Scopes.RefusedPouName, Scopes.LibrariesNotRead);
 
         Assert.Equal(ItemKind.Kinds.Pou, declarations.KindOf(PushedDeclarations.None, "Motor"));
         Assert.Equal("Motor", declarations.ScopeForPull("VAR\n\tm : Motor;\nEND_VAR").InstanceType("m"));
@@ -57,7 +57,7 @@ public class ProjectDeclarationsKindTests
     public void A_task_alone_is_no_kind_a_body_names()
     {
         var declarations = new ProjectDeclarations(new FlatTree(("MainTask", ItemKind.PlcTask)), _ => null,
-                                                   Scopes.RefusedPouName);
+                                                   Scopes.RefusedPouName, Scopes.LibrariesNotRead);
 
         Assert.Null(declarations.KindOf(PushedDeclarations.None, "MainTask"));
     }

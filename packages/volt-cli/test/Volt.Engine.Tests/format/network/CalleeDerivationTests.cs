@@ -4,6 +4,7 @@ using System.Linq;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
+using Volt.Engine.Library;
 using Volt.Tests.Shared;
 using Xunit;
 
@@ -33,7 +34,7 @@ public class CalleeDerivationTests
 
     static NetworkScope Scope(string? own = "VAR\n\tm : FB_Motor;\n\ty : INT;\nEND_VAR") =>
         NetworkScope.FromDeclarations(own, n => Items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>(),
-            n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName);
+            n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, Scopes.NoLibrary);
 
     [Theory]
     [InlineData(AwF, true)]
@@ -112,6 +113,105 @@ public class CalleeDerivationTests
     [InlineData("m")]
     public void Nothing_else_is_a_derived_callee(string type) => Assert.Null(Scope().Callee(type));
 
+    // ── ld-fbd-coverage 2R.4b: a referenced LIBRARY's function, from the IDE's library signatures ─────────────────────
+
+    /// <summary>The signatures as the CODESYS driver reads them (<c>AllPrecompiledSignatures</c>): the result is a
+    /// self-named output, the POU type the enum member's full name; `DELETE` is both Standard's function and CAA File's
+    /// FB (bakon-nano holds both), `F_ambig` two libraries' functions with different pins.</summary>
+    static readonly LibSignature[] Libraries =
+    {
+        Lib("LEN", "Function", new[] { "STR" }, new[] { "LEN" }),
+        Lib("REPLACE", "Function", new[] { "STR1", "STR2", "L", "P" }, new[] { "REPLACE" }),
+        Lib("DELETE", "_3S.CoDeSys.Core.Objects.POUType.Function", new[] { "STR", "LEN", "POS" }, new[] { "DELETE" }),
+        Lib("DELETE", "FunctionBlock", new[] { "SFILENAME" }, new[] { "EERROR" }),
+        Lib("F_out", "Function", new[] { "a" }, new[] { "F_out", "done" }),
+        Lib("F_ambig", "Function", new[] { "a" }, new[] { "F_ambig" }),
+        Lib("F_ambig", "Function", new[] { "b" }, new[] { "F_ambig" }),
+        Lib("TON", "FunctionBlock", new[] { "IN", "PT" }, new[] { "Q", "ET" }),
+        Lib("F_ref", "Function", new[] { "a" }, new[] { "F_ref" }, inOuts: new[] { "acc" }),
+    };
+
+    static LibSignature Lib(string name, string pouType, string[] inputs, string[] outputs, string[]? inOuts = null) =>
+        new(name, "standard, 3.5.18.0 (system)", pouType, inputs.Select(n => new LibVar(n, "INT")).ToList(),
+            outputs.Select(n => new LibVar(n, "INT")).ToList(), (inOuts ?? Array.Empty<string>()).Select(n => new LibVar(n, "INT")).ToList(),
+            Array.Empty<LibVar>(), null, null);
+
+    /// <summary>A scope whose project holds <see cref="Items"/> and whose IDE references <see cref="Libraries"/> —
+    /// counting how often the libraries are asked.</summary>
+    static NetworkScope WithLibraries(out Func<int> asked, string? own = "VAR\n\tm : FB_Motor;\n\ty : INT;\n\tLENGTH : INT;\nEND_VAR")
+    {
+        var calls = 0;
+        asked = () => calls;
+        return NetworkScope.FromDeclarations(own, n => Items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>(),
+            n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName,
+            n => { calls++; return LibraryFunctions.Of(Libraries, n); });
+    }
+
+    /// <summary>A library FUNCTION's box carries <c>CallType Function</c>, its inputs as the signature lists them and its
+    /// VAR_OUTPUTs without the self-named result — what the editor draws (bakon-nano's REPLACE/DELETE).</summary>
+    [Theory]
+    [InlineData("LEN", new[] { "STR" }, new string[0])]
+    [InlineData("len", new[] { "STR" }, new string[0])]
+    [InlineData("REPLACE", new[] { "STR1", "STR2", "L", "P" }, new string[0])]
+    [InlineData("DELETE", new[] { "STR", "LEN", "POS" }, new string[0])]
+    [InlineData("F_out", new[] { "a" }, new[] { "done" })]
+    public void A_library_function_is_a_callee_from_its_signature(string type, string[] inputs, string[] outputs)
+    {
+        var callee = WithLibraries(out _).Callee(type);
+        Assert.NotNull(callee);
+        Assert.Equal("Function", callee!.CallType);
+        Assert.Equal(inputs, callee.Inputs);
+        Assert.Equal(outputs, callee.Outputs);
+    }
+
+    /// <summary>A library FB (no box of it without an instance is a function), two libraries' functions with different
+    /// pins (which one the build picks is not Volt's to guess) and a name no library declares: nothing derived.</summary>
+    [Theory]
+    [InlineData("TON")]
+    [InlineData("F_ambig")]
+    [InlineData("F_none")]
+    public void A_name_no_library_declares_one_function_of_is_no_callee(string type) =>
+        Assert.Null(WithLibraries(out _).Callee(type));
+
+    /// <summary>A library function with a VAR_IN_OUT: the signature lists inputs and in-outs apart, so the declaration
+    /// order a positional call fills is not known — its CallType is derived, its input order is not.</summary>
+    [Fact]
+    public void A_library_function_with_an_in_out_derives_no_input_order()
+    {
+        var callee = WithLibraries(out _).Callee("F_ref")!;
+        Assert.Equal("Function", callee.CallType);
+        Assert.Empty(callee.Inputs);
+    }
+
+    /// <summary>The libraries are asked only for a head nothing else names: an operator or a conversion (a word the vendor
+    /// reserves), a project POU, an instance, a variable, a method — never; a read is a build on CODESYS.</summary>
+    [Theory]
+    [InlineData("ADD")]
+    [InlineData("MOVE")]
+    [InlineData("INT_TO_REAL")]
+    [InlineData("AwF")]
+    [InlineData("FB_Motor")]
+    [InlineData("m")]
+    [InlineData("LENGTH")]
+    [InlineData("m.Start")]
+    [InlineData("Standard.LEN")]
+    public void The_libraries_are_not_asked_for_a_head_something_else_names(string type)
+    {
+        var scope = WithLibraries(out var asked);
+        scope.Callee(type);
+        Assert.Equal(0, asked());
+    }
+
+    /// <summary>The push's gate names a positional library call's pin as the drawn box holds it: `LEN(txt)` is pushed as
+    /// `LEN(STR := txt)` — the form the next pull shows.</summary>
+    [Fact]
+    public void The_gate_names_a_library_functions_positional_pin()
+    {
+        var gate = NetworkTextGate.Validate(Body("y := LEN(txt);"), WithLibraries(out _, "VAR\n\ty : INT;\n\ttxt : STRING;\nEND_VAR"));
+        Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("y := LEN(STR := txt);", gate.Canonical);
+    }
+
     /// <summary>A METHOD call box, `inst.M(…)` with `inst` an FB instance in scope: measured live, Volt's box compiles only
     /// with <c>CallType Method</c> ("The assignment source is incorrect." without it) and then runs as the drawn one. Its
     /// inputs are the method's, which no top-level declaration holds: none derived.</summary>
@@ -134,7 +234,7 @@ public class CalleeDerivationTests
         var scope = NetworkScope.FromDeclarations("VAR\n\titf : I_X;\nEND_VAR",
             n => n.Equals("I_X", StringComparison.OrdinalIgnoreCase) ? "INTERFACE I_X" : null,
             () => new[] { "VAR_GLOBAL\n\tgItf : I_X;\nEND_VAR" },
-            n => n.Equals("I_X", StringComparison.OrdinalIgnoreCase) ? ItemKind.Kinds.Interface : null, Scopes.RefusedPouName);
+            n => n.Equals("I_X", StringComparison.OrdinalIgnoreCase) ? ItemKind.Kinds.Interface : null, Scopes.RefusedPouName, Scopes.NoLibrary);
         Assert.Equal("Method", scope.Callee(type)?.CallType);
         Assert.Null(scope.Callee("I_X.M"));
     }

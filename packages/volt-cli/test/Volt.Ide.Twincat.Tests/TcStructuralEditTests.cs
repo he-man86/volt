@@ -25,7 +25,7 @@ public class TcStructuralEditTests
         "PROGRAM P\nVAR\n  xoutput : BOOL;\n  xoutput2 : BOOL;\n  xtest : BOOL;\n  xtest2 : BOOL;\n  c : BOOL;\n  n : INT;\nEND_VAR";
 
     private static readonly NetworkScope Scope =
-        NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+        NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
 
     /// <summary>The hand-drawn <c>ladder.TcPOU</c>: ONE network, <c>xoutput := (xtest OR xtest2);</c>, LD view.</summary>
     private static string Ladder() =>
@@ -213,7 +213,7 @@ public class TcStructuralEditTests
         var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var written = TcNetworkWriter.Apply(xml, pushed, scope);
@@ -231,7 +231,7 @@ public class TcStructuralEditTests
     public void Positional_pins_are_blanked_under_the_names_the_lowering_gives_them()
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
         var lowered = TcPlcOpenWriter.WriteProject("VltProbe_Max", pushed).Descendants()
             .Where(x => x.Name.LocalName == "block").Single().Descendants()
@@ -261,7 +261,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         Assert.Contains("<v>Out1</v>", built);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var stamped = BeckhoffDriver.Stamp(built, pushed, scope);
@@ -281,7 +281,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         Assert.Contains("<v>Out1</v>", built);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var text = NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope);
 
         var stamped = BeckhoffDriver.Stamp(built, NetworkText.Validate(text, scope), scope);
@@ -296,7 +296,7 @@ public class TcStructuralEditTests
         var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>In2</v>", "<v>Limit</v>");
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
@@ -313,7 +313,7 @@ public class TcStructuralEditTests
         var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
 
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var text = NetworkTextWriter.Write(pulled, scope);
@@ -334,7 +334,7 @@ public class TcStructuralEditTests
         var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>IN</v>", "<v>EN</v>");
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
 
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");

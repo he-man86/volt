@@ -26,7 +26,7 @@ VAR
 END_VAR";
 
     static readonly NetworkScope Scope =
-        NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
+        NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
     static void Canonical(string text)
     {

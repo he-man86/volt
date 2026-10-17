@@ -762,7 +762,7 @@ public sealed partial class BeckhoffDriver
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more
     /// item's declaration, and only the driver can ask its IDE for one.</para></summary>
     private ProjectDeclarations Declarations =>
-        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native), RefusedPouName);
+        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native), RefusedPouName, ExtractLibrarySignatures);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>

@@ -86,5 +86,5 @@ public sealed class CorpusProject
 
     /// <summary>The scope a push reads a body against whose own declarations are <paramref name="declaration"/>.</summary>
     public NetworkScope Scope(string? declaration) =>
-        NetworkScope.FromDeclarations(declaration, DeclarationOf, Globals, KindOfName, Scopes.RefusedPouName);
+        NetworkScope.FromDeclarations(declaration, DeclarationOf, Globals, KindOfName, Scopes.RefusedPouName, Scopes.NoLibrary);
 }

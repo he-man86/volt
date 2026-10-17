@@ -35,7 +35,7 @@ public class TcScopeFactsTests
     public void A_type_TwinCAT_refuses_as_a_POU_name_is_no_instance(string type, string? expected)
     {
         var scope = NetworkScope.FromDeclarations($"PROGRAM P\nVAR\n    x : {type};\nEND_VAR", _ => null,
-            () => Array.Empty<string>(), Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+            () => Array.Empty<string>(), Scopes.NoItem, BeckhoffDriver.RefusedPouName, Scopes.NoLibrary);
 
         Assert.Equal(expected, scope.InstanceType("x"));
     }

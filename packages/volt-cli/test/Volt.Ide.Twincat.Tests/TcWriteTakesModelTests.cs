@@ -26,7 +26,7 @@ public class TcWriteTakesModelTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem,
-                                                  BeckhoffDriver.RefusedPouName);
+                                                  BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var model = NetworkText.Validate(
             NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld), scope), scope);
 

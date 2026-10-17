@@ -52,7 +52,7 @@ public class NetworkScopeTests
             name => InProject(name) && Items.TryGetValue(name, out var d) ? d : null,
             () => Items.Where(kv => Kinds[kv.Key] == ItemKind.Kinds.Gvl).Select(kv => kv.Value),
             name => InProject(name) && Kinds.TryGetValue(name, out var k) ? k : null,
-            Scopes.RefusedPouName);
+            Scopes.RefusedPouName, Scopes.NoLibrary);
     }
 
     /// <summary>A method's body sees its own declarations, then its FB's.</summary>
@@ -264,7 +264,7 @@ public class NetworkScopeTests
             n => string.Equals(n, "FB_Base", StringComparison.OrdinalIgnoreCase) ? Base : null,
             () => Array.Empty<string>(),
             n => string.Equals(n, "FB_Base", StringComparison.OrdinalIgnoreCase) ? ItemKind.Kinds.Pou : null,
-            Scopes.RefusedPouName);
+            Scopes.RefusedPouName, Scopes.NoLibrary);
 
     public static TheoryData<string> InheritingBodies() => new() { "body", "method" };
 
@@ -317,7 +317,7 @@ public class NetworkScopeTests
             ["FB_Root"] = "FUNCTION_BLOCK FB_Root EXTENDS FB_Mid\nVAR\n    tRoot : TOF;\nEND_VAR",
         };
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB_Leaf EXTENDS FB_Mid\nVAR\nEND_VAR",
-            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
+            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
         Assert.True(scope.Contains("mid"));
         Assert.Equal("TOF", scope.InstanceType("tRoot"));
@@ -375,7 +375,7 @@ public class NetworkScopeTests
         };
         return NetworkScope.FromDeclarations("PROGRAM P\nVAR\n    " + line + "\n    a : BOOL;\n    o : INT;\nEND_VAR",
             n => items.TryGetValue(n, out var d) ? d.Declaration : null, () => Array.Empty<string>(),
-            n => items.TryGetValue(n, out var d) ? d.Kind : null, Scopes.RefusedPouName);
+            n => items.TryGetValue(n, out var d) ? d.Kind : null, Scopes.RefusedPouName, Scopes.NoLibrary);
     }
 
     // ── D3 (openspec bridge-refusal-review 4.3): FB or FUNCTION by KIND, never by the callee's header ──────
@@ -413,7 +413,7 @@ public class NetworkScopeTests
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
             n => n == "R_EDGE" ? "(* unreadable" : null, () => Array.Empty<string>(),
-            n => n == "R_EDGE" ? kind : null, Scopes.RefusedPouName);
+            n => n == "R_EDGE" ? kind : null, Scopes.RefusedPouName, Scopes.NoLibrary);
 
         Assert.Equal(callable, scope.IsCallable("R_EDGE"));
     }
@@ -424,7 +424,7 @@ public class NetworkScopeTests
     public void A_call_headed_by_a_variable_of_an_elementary_type_is_no_instance_box()
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    k : INT;\n    x : INT;\n    out : INT;\nEND_VAR",
-            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
+            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
         var r = NetworkTextGate.Validate(Src("out := k(x);"), scope);
 
@@ -445,7 +445,7 @@ public class NetworkScopeTests
     {
         var scope = NetworkScope.FromDeclarations(
             $"FUNCTION_BLOCK FB\nVAR\n    {word} : BOOL;\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
-            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
+            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
         Assert.False(scope.IsCallable(word));
         var r = NetworkTextGate.Validate(Src("out := R_EDGE(x);"), scope);

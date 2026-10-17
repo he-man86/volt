@@ -79,14 +79,13 @@ test("network text: an operator box read through ENO with no EN has no text; on 
   expect(vgDiags(fb("t : FB_T;", "t(IN := go)\n  x := ENO;"))).toEqual([])
 })
 
-test("network text: ENO with no EN on a LIBRARY function's box is no component of its result; a project one's builds", () => {
+test("network text: ENO with no EN on a QUALIFIED library function's box is no component of its result; a bare one's builds", () => {
   // Measured (SP21): since 2R.4 the push gives a PROJECT function's box its CallType and output list from the declaration,
-  // and `rcc_network_eno_function_without_en` builds clean (re-recorded 2026-10-17). A LIBRARY function's box has no
-  // declaration to derive from, and the build still reads its ENO as a member of the result — "'ENO' is no component of
-  // 'LEN'", the function's own name even through its namespace, then the coil's conversion of the head's ENO
-  // (`ng_m_library_function_eno`, `ng_m_library_function_qualified_eno`, 2R.4 gate). With EN nothing is said; its value
-  // consumed, CODESYS answers the pushed box "The assignment source is incorrect." (`ng_m_library_function`), which the
-  // LSP does not say: the box the editor draws builds, and a pulled text cannot tell the two apart (`checkCallBoxes`).
+  // and `rcc_network_eno_function_without_en` builds clean; since 2R.4b a LIBRARY function's box named bare gets them from
+  // the IDE's library signature, and `ng_m_library_function_eno` builds clean (re-recorded 2026-10-17). A box named
+  // through its NAMESPACE gets none (niche: accepted loss, 0 in the corpora), and the build still reads its ENO as a
+  // member of the result — "'ENO' is no component of 'LEN'", the function's own name, then the coil's conversion of the
+  // head's ENO (`ng_m_library_function_qualified_eno`). With EN nothing is said.
   const lib = "file:///w/Library Manager/Util"
   const manifest = { uri: `${lib}/Util.library`, folder: "Util", dir: `${lib}/`, namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
   const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
@@ -104,7 +103,7 @@ test("network text: ENO with no EN on a LIBRARY function's box is no component o
     "'ENO' is no component of 'Twice'",
     "Cannot convert type 'Unknown type: 'Util.Twice.ENO'' to type 'BOOL'",
   ])
-  expect(run("Twice(a, b)\n  x := ENO;")).toEqual(["'ENO' is no component of 'Twice'", "Cannot convert type 'Unknown type: 'Twice.ENO'' to type 'BOOL'"])
+  expect(run("Twice(a, b)\n  x := ENO;")).toEqual([])
   expect(run("FUN(a, b) EN go\n  x := ENO;")).toEqual([])
   expect(run("Util.Twice(a, b) EN go\n  x := ENO;")).toEqual([])
   expect(run("a := FUN(a, b);")).toEqual([])

@@ -113,14 +113,21 @@ public sealed class NetworkScope
     /// (<c>ICodeStore.RefusedName</c>), below the seam (D4). A word no POU can be named is no function block's type —
     /// <c>INT</c>, <c>STRING</c>, the heads <c>ARRAY</c>, <c>POINTER</c>, <c>REFERENCE</c>; on CODESYS also <c>LDT</c>,
     /// which TwinCAT takes as a name.</param>
+    /// <param name="libraryFunction">A referenced LIBRARY's FUNCTION by the bare name a call box names, as the IDE's
+    /// library signatures state it (<c>ProjectDeclarations</c>: the driver's read, ld-fbd-coverage 2R.4b), or null when no
+    /// library declares one function of that name. Asked only for a call head nothing else names — no project item, no
+    /// variable, no word the vendor refuses as a POU name (an operator, a conversion) — so a body with no such box never
+    /// reads the libraries. A caller with no IDE passes <c>_ =&gt; null</c> and says so.</param>
     public static NetworkScope FromDeclarations(string? declaration, Func<string, string?> declarationOf,
                                                 Func<IEnumerable<string>> globals, Func<string, string?> kindOf,
-                                                Func<string, bool> isRefusedPouName)
+                                                Func<string, bool> isRefusedPouName,
+                                                Func<string, Format.Network.Callee?> libraryFunction)
     {
         if (declarationOf is null) throw new ArgumentNullException(nameof(declarationOf));
         if (globals is null) throw new ArgumentNullException(nameof(globals));
         if (kindOf is null) throw new ArgumentNullException(nameof(kindOf));
         if (isRefusedPouName is null) throw new ArgumentNullException(nameof(isRefusedPouName));
+        if (libraryFunction is null) throw new ArgumentNullException(nameof(libraryFunction));
         // An FB's inherited members are its own names too (EXTENDS, followed to the root), after its own so a nearer
         // declaration still wins.
         declaration = St.StDeclaration.WithInherited(declaration, declarationOf);
@@ -203,7 +210,14 @@ public sealed class NetworkScope
                     ? new Format.Network.Callee(Format.Network.Callee.MethodCallType, Array.Empty<string>(), null)
                     : null;
             }
-            if (!IsPou(type) || InstanceType(type) is not null || local.Contains(type)) return null;
+            if (InstanceType(type) is not null || local.Contains(type)) return null;
+            // 2R.4b: a name the project holds no item of, no variable takes and the vendor does not reserve (an operator,
+            // a conversion) is a referenced library's — its box builds only with CallType Function and its input names,
+            // as a project function's (measured live, SP21: `ng_m_library_function*`, bakon-nano's REPLACE/DELETE).
+            if (!IsPou(type))
+                return NetworkSpelling.IsName(type) && kindOf(type) is null && !isRefusedPouName(type) && !Contains(type)
+                    ? libraryFunction(type)
+                    : null;
             var declaration = declarationOf(type);
             return St.StDeclaration.IsFunction(declaration)
                 ? new Format.Network.Callee(Format.Network.Callee.FunctionCallType, St.StDeclaration.InputNames(declaration),
@@ -220,8 +234,8 @@ public sealed class NetworkScope
     /// the vendor <c>CallType</c> and the callee's input names, from its declaration — or null where nothing is derived.
     /// Answers a project FUNCTION only: measured live (CODESYS SP21, design "2R.4"), its box compiles only with
     /// <c>CallType Function</c> and its input names, while every other call kind Volt builds without them compiles
-    /// and runs as drawn. A callee the project does not hold (a library's) has no declaration here: null, never a
-    /// guess.</summary>
+    /// and runs as drawn. A referenced library's FUNCTION answers from the IDE's library signature (2R.4b); a name no
+    /// library declares one function of answers null, never a guess.</summary>
     public Format.Network.Callee? Callee(string type) => _callee(type);
 
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>

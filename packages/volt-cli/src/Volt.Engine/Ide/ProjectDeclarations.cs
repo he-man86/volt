@@ -31,6 +31,8 @@ public sealed class ProjectDeclarations
     private readonly IProjectTree _tree;
     private readonly Func<ItemRef, string?> _read;
     private readonly Func<string, bool> _isRefusedPouName;
+    private readonly Func<IReadOnlyList<Library.LibSignature>> _librarySignatures;
+    private IReadOnlyList<Library.LibSignature>? _libraries;
     private readonly Dictionary<string, string?> _declarationOf = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, (ItemRef Item, int Kind)>? _index;
     private List<(string Name, string Declaration)>? _globals;
@@ -69,12 +71,23 @@ public sealed class ProjectDeclarations
     /// <param name="isRefusedPouName">Whether the vendor refuses a word as a POU's name — its measured list
     /// (<c>ICodeStore.RefusedName</c>): a word no POU can be named is no FB type a body calls (openspec
     /// <c>bridge-refusal-review</c> D4).</param>
-    public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName)
+    /// <param name="librarySignatures">The vendor's read of every referenced library's signatures
+    /// (<c>IIdeSession.ExtractLibrarySignatures</c>) — a library FUNCTION's box is built with what it states (ld-fbd-coverage
+    /// 2R.4b). Read at most once per instance, and only when a pushed box names a callee nothing in the project names: on
+    /// CODESYS the read precompiles (a build), so a push with no such box never pays for it.</param>
+    public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
+                               Func<IReadOnlyList<Library.LibSignature>> librarySignatures)
     {
         _tree = tree ?? throw new ArgumentNullException(nameof(tree));
         _read = readDeclaration ?? throw new ArgumentNullException(nameof(readDeclaration));
         _isRefusedPouName = isRefusedPouName ?? throw new ArgumentNullException(nameof(isRefusedPouName));
+        _librarySignatures = librarySignatures ?? throw new ArgumentNullException(nameof(librarySignatures));
     }
+
+    /// <summary>The referenced library's FUNCTION named <paramref name="name"/> as a call box is built with it
+    /// (<see cref="Library.LibraryFunctions.Of"/>), off the libraries read once for this instance.</summary>
+    public Format.Network.Callee? LibraryFunction(string name) =>
+        Library.LibraryFunctions.Of(_libraries ??= _librarySignatures(), name);
 
     /// <summary>The WIRE KIND of the top-level item named <paramref name="name"/> — the pushed one's, else the IDE's
     /// class (<see cref="ItemKind.Map"/>) — or null when neither holds such an item. By kind, never by the item's text
@@ -112,7 +125,7 @@ public sealed class ProjectDeclarations
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
     public NetworkScope ScopeFor(string? declaration, PushedDeclarations pushed) =>
         NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed), n => KindOf(pushed, n),
-                                      _isRefusedPouName);
+                                      _isRefusedPouName, LibraryFunction);
 
     /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing.</summary>
     public NetworkScope ScopeForPull(string? declaration) => ScopeFor(declaration, PushedDeclarations.None);

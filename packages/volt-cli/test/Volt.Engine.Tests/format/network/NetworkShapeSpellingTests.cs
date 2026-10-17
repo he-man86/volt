@@ -109,7 +109,7 @@ public class NetworkShapeSpellingTests
     public void S5_a_SUPER_call_is_the_backticked_instance_of_the_base()
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK ATD_TorqueControl EXTENDS ATD_FQI\nVAR\n  ioAxis : INT;\nEND_VAR",
-            _ => null, () => Array.Empty<string>(), _ => null, _ => false);
+            _ => null, () => Array.Empty<string>(), _ => null, _ => false, _ => null);
         var call = Fb("SUPER^", new[] { In(L("ioAxis"), "ioAxis") }, type: "ATD_FQI");
         Assert.Equal(Src("`SUPER^`(ioAxis := ioAxis);"), NetworkTextWriter.Write(Fbd1(call), scope));
         var read = NetworkTextReader.Read(Src("`SUPER^`(ioAxis := ioAxis);"), scope);

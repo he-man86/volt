@@ -369,7 +369,7 @@ public sealed partial class CodesysDriver
     /// call's type from the declarations before the write, for v1's text-derived <c>Box(Type: instance)</c>. The v2
     /// reader resolves the type from this same scope, so the engine's pre-flight (which reads every body against
     /// <see cref="NetworkScopeFor"/>) covers it, and the override went with the resolver.</para></summary>
-    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName);
+    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName, ExtractLibrarySignatures);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>

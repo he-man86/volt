@@ -64,25 +64,28 @@ export function checkPins(
 /**
  * The CALL BOX checks (ld-fbd-coverage 2R.4 and its gate): what CODESYS's build answers for a box Volt's push builds from
  * the text. The push names a PROJECT FUNCTION's positional pins from its declaration and gives it its CallType
- * (`NetworkDerivation`); it has no declaration of a LIBRARY function or of a METHOD, so their positional pins stay
+ * (`NetworkDerivation`), and a LIBRARY function's named bare from the IDE's library signature (2R.4b); it has no
+ * declaration of a METHOD, or of a library function named through its namespace, so their positional pins stay
  * unnamed, and a box of the FB's own METHOD (no instance) gets no CallType. Each answer is recorded (`ng_m_*`, SP21):
  *
  *   project FUNCTION, pins ≠ its inputs   `y := F(v, w);` `y := F2(v);` `y := F(v, i := w);`
  *                                         "Function 'F' requires exactly 'n' inputs" — the ST check's message
  *   METHOD of an instance, a positional   `y := fbm.M(v);`  the same, of the method (CODESYS); TwinCAT "'' is no input
  *                                         of 'M'"
- *   LIBRARY function read through ENO     `LEN(t)` ⏎ `x := ENO;` "'ENO' is no component of 'LEN'" and the coil's
- *                                         "Cannot convert type 'Unknown type: 'LEN.ENO'' to type 'BOOL'" (CODESYS)
+ *   QUALIFIED library function, read      `Standard.LEN(t)` ⏎ `x := ENO;` "'ENO' is no component of 'LEN'" and the
+ *   through ENO                           coil's "Cannot convert type 'Unknown type: 'Standard.LEN.ENO'' to type 'BOOL'"
+ *                                         (CODESYS)
  *
  * A function's count is the ST check's (`complete`, `positionalArity`); too few counts only an input with no default
  * (one with a default is unmeasured). Any other call kind and shape is unmeasured here, and nothing is said.
  *
  * NOT SAID: the FB's own METHOD called without an instance (`y := M(k := v);`) — CODESYS answers the pushed box "The
  * assignment source is incorrect." (no CallType: the push holds no declaration of the POU's members) and TwinCAT builds it
- * (`ng_m_own_method`); niche, accepted loss (0 own-method boxes in the corpora). And a LIBRARY function's box whose value is consumed (`y := LEN(t);`) — CODESYS answers the pushed box "The
- * assignment source is incorrect." (`ng_m_library_function`), but the box the editor DRAWS builds (bakon-nano's
- * `REPLACE`/`DELETE` boxes, clean in its recorded build), and a pulled text cannot tell the two apart. The defect is
- * the push's (it builds the box without the CallType the editor gives it), not the text's — ld-fbd-coverage 2R.4 gate.
+ * (`ng_m_own_method`); niche, accepted loss (0 own-method boxes in the corpora). And a library function's box named
+ * through its NAMESPACE whose value is consumed (`y := Standard.LEN(t);`) — CODESYS answers the pushed box "The
+ * assignment source is incorrect." (`ng_m_library_function_qualified`), but the box the editor DRAWS builds, and a
+ * pulled text cannot tell the two apart. The defect is the push's (it builds the box without the CallType the editor
+ * gives it), not the text's; niche, accepted loss (0 namespace-qualified library calls in the corpora's LD/FBD bodies).
  */
 export function checkCallBoxes(
   statements: readonly NetworkTextStatement[],
@@ -121,7 +124,8 @@ export function checkCallBoxes(
     }
 }
 
-/** `LEN(t)` ⏎ `x := ENO;` — see `checkCallBoxes`: a LIBRARY function's box with no EN, read through its ENO. */
+/** `Standard.LEN(t)` ⏎ `x := ENO;` — see `checkCallBoxes`: a library function's box named through its NAMESPACE, with no
+ *  EN, read through its ENO. Named bare (`LEN(t)`), the push builds it from the IDE's library signature and it builds. */
 function enoOfALibraryFunction(
   s: NetworkTextStatement,
   v: NetworkEno,
@@ -132,6 +136,7 @@ function enoOfALibraryFunction(
 ): void {
   const box = v.box
   if (box.kind !== "call" || box.en !== undefined || box.unnamedType !== undefined) return
+  if (!box.head.text.includes(".")) return
   if (box.headExpr === undefined || headIsVariable(box.headExpr, scope, project)) return
   const call = callReading(box)
   const callee = call?.kind === "call" ? resolveCallee(call, scope, project) : undefined

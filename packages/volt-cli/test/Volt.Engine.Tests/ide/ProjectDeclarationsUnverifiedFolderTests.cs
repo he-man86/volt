@@ -47,7 +47,7 @@ public class ProjectDeclarationsUnverifiedFolderTests
     [Fact]
     public void A_folder_the_driver_will_not_read_refuses_with_the_reason_the_op_needed_it()
     {
-        var declarations = new ProjectDeclarations(new Tree(), _ => null, Scopes.RefusedPouName);
+        var declarations = new ProjectDeclarations(new Tree(), _ => null, Scopes.RefusedPouName, Scopes.LibrariesNotRead);
 
         var ex = Assert.Throws<BridgeException>(() => declarations.KindOf(PushedDeclarations.None, "Motor"));
 

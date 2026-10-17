@@ -90,7 +90,7 @@ public class TcCommentLineEndTests
         var first = xml.IndexOf(empty, System.StringComparison.Ordinal);
         xml = xml.Substring(0, first) + "<v n=\"Comment\">" + firstComment + "</v>" + xml.Substring(first + empty.Length);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
-                                                  _ => null, () => System.Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName);
+                                                  _ => null, () => System.Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pulled = TcNetworkReader.Read(XElement.Parse(xml).DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Ld);
         Assert.Equal("a\r\nb", pulled.Networks[0].Comment);
         return (xml, pulled with { Networks = new[] { pulled.Networks[0], pulled.Networks[1] with { Comment = "c" } } }, scope);

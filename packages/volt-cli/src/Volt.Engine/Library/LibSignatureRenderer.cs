@@ -34,7 +34,7 @@ public static class LibSignatureRenderer
     /// after the routine (with <c>ReturnType</c> left empty — verified live). Lift it into the declared return type
     /// and strip it from VAR_OUTPUT so no bogus self-named output is emitted. Owned here so functions and methods
     /// stay identical. Returns (return type or null when there is none, the remaining outputs).</summary>
-    private static (string? Ret, List<LibVar> Outputs) LiftReturn(string name, IReadOnlyList<LibVar> outputs, string? explicitReturn)
+    internal static (string? Ret, List<LibVar> Outputs) LiftReturn(string name, IReadOnlyList<LibVar> outputs, string? explicitReturn)
     {
         if (!string.IsNullOrEmpty(explicitReturn)) return (explicitReturn, outputs.ToList());
         var self = outputs.FirstOrDefault(v => string.Equals(v.Name, name, System.StringComparison.OrdinalIgnoreCase));

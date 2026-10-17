@@ -143,28 +143,26 @@ const EXTRA_POSITIONAL_PIN_TC: readonly CeilingException[] = [
 /**
  * \u2026and the call boxes the 2R.4 gate recorded (`ng_m_*`, 2026-10-17) whose answer the LSP does not give:
  *
- * - a LIBRARY function's box on CODESYS, whatever its pins (`LEN(txt)`, `LEN(STR := txt)`, `Standard.LEN(txt)`): the push
- *   builds it without the CallType the editor gives it \u2014 it holds no declaration of a library's function \u2014 and the build
- *   answers "The assignment source is incorrect.". The LSP cannot say it: the box the editor DRAWS builds (bakon-nano's
- *   REPLACE/DELETE, clean in its recorded build), and a pulled text does not tell the two apart. NOT niche (3 boxes in
- *   the corpora): the push's defect, owed in tasks.md 2R.4b.
+ * - a LIBRARY function's box on CODESYS named through its namespace (`Standard.LEN(txt)`): the push builds it without the
+ *   CallType the editor gives it \u2014 it reads a library function's signature by its bare name only (2R.4b, which builds
+ *   `LEN(txt)` and `LEN(STR := txt)` clean) \u2014 and the build answers "The assignment source is incorrect.". The LSP cannot
+ *   say it: the box the editor DRAWS builds, and a pulled text does not tell the two apart. Niche: 0 namespace-qualified
+ *   library calls in the corpora's LD/FBD bodies.
  * - the FB's own METHOD called without an instance on CODESYS (no CallType: the push holds no declaration of the POU's
  *   members) \u2014 niche: TwinCAT builds it, and the corpora hold no such box.
- * - TwinCAT's empty-name answers for a positional pin nothing names (a METHOD's \u2014 its "'' is no input" the LSP gives \u2014 or a
- *   library function's), as on `ng_m_function_too_many`, and its namespace errors for `Standard.LEN` \u2014 a CODESYS
+ * - TwinCAT's empty-name answers for a positional pin nothing names (a METHOD's \u2014 its "'' is no input" the LSP gives),
+ *   as on `ng_m_function_too_many`, and its namespace errors for `Standard.LEN` \u2014 a CODESYS
  *   namespace (TwinCAT's is `Tc2_Standard`), which the LSP's TwinCAT library model does not refuse.
  */
 const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
-  ...(["ng_m_library_function", "ng_m_library_function_named", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
-    (["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
-      baseline: "fixtures.codesys",
-      measure,
-      by: 1,
-      fixture,
-      task: "ld-fbd-coverage 2R.4b: the push builds a library function's box with its CallType (3 boxes in the corpora)",
-      why: "a library function's box the push builds without a CallType: \"The assignment source is incorrect.\", which the drawn box does not give",
-    })),
-  ),
+  ...(["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
+    baseline: "fixtures.codesys",
+    measure,
+    by: 1,
+    fixture: "ng_m_library_function_qualified",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "a library function's box named through its namespace, which the push builds without a CallType: \"The assignment source is incorrect.\", which the drawn box does not give",
+  })),
   ...(["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
     baseline: "fixtures.codesys",
     measure,
@@ -176,7 +174,6 @@ const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
   ...(
     [
       ["ng_m_method_positional", 1],
-      ["ng_m_library_function", 2],
       ["ng_m_library_function_qualified", 3],
     ] as const
   ).map(([fixture, by]) => ({
@@ -188,7 +185,7 @@ const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
     why: "a positional pin no declaration names (TwinCAT's \"'' is no input\" / \"Identifier '' not defined\"), or CODESYS's namespace `Standard` on TwinCAT",
   })),
   // the same "not defined" messages, as the front-end's resolution census counts them (recorded, not given by the LSP)
-  ...(["ng_m_method_positional", "ng_m_library_function", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
+  ...(["ng_m_method_positional", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
     (["findings", "messages twincat: recorded only"] as const).map((measure) => ({
       baseline: "resolution-dump",
       measure,

@@ -81,7 +81,8 @@ public static class PushedText
         if (x is null || y is null || !NetworkText.Is(x) || !NetworkText.Is(y)) return false;
         if (NetworkTextGate.SameTokens(x, y)) return true;
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => System.Array.Empty<string>(),
-                                                  kindOf: _ => null, isRefusedPouName: BothVendorsRefusedNames.Contains);
+                                                  kindOf: _ => null, isRefusedPouName: BothVendorsRefusedNames.Contains,
+                                                  libraryFunction: _ => null);
         var cx = NetworkTextGate.Validate(x, scope);
         var cy = NetworkTextGate.Validate(y, scope);
         if (cx.Canonical is not { } canonicalX || cy.Canonical is not { } canonicalY) return false;

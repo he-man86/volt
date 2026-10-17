@@ -1024,7 +1024,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         ScopesPushed.Add(pushedDeclarations);
         return new Volt.Engine.Ide.ProjectDeclarations(this, r => DeclarationsRead?.Invoke(r) ?? Find(r).Declaration,
-                n => RefusedName(ItemKind.Kinds.Pou, n) is not null).ScopeFor(declaration, pushedDeclarations);
+                n => RefusedName(ItemKind.Kinds.Pou, n) is not null, ExtractLibrarySignatures).ScopeFor(declaration, pushedDeclarations);
     }
 
     /// <summary>Stands in for the vendor's read of another item's declaration while a scope is built — set it to throw,

@@ -850,13 +850,64 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       counts only), test/analysis census 13/13 (CODESYS TP 5845 → 5852, GAP 514 → 518, all four excepted; TwinCAT TP
       7032 → 7035, GAP 880 → 886, all six excepted); typecheck, lint (warnings only), `bun run check` 16/16;
       `rate:fixtures` — unaskable 118 → 131; recorder testCount CODESYS 5625 → 5638, TwinCAT 5594.
-- [ ] 2R.4b **A LIBRARY function's box is built without its CallType** (2R.4 gate, finding 3). Measured (SP21,
+- [x] 2R.4b **A LIBRARY function's box is built without its CallType** (2R.4 gate, finding 3). Measured (SP21,
       `ng_m_library_function{,_named,_qualified}`): CODESYS answers the box a push builds "The assignment source is
       incorrect." — positional or named — where the editor's drawn box (CallType Function) builds; so an EDITED network
       holding one does not build. 3 boxes in the corpora (bakon-nano `Recipes`: REPLACE ×2, DELETE). The push holds no
       declaration of a library's function to derive the CallType (and positional names) from: owed is the driver's read
       of it (the IDE's library signature) — measure first. TwinCAT builds the named box (its import resolves it). Until
       then the LSP cannot say it (the drawn box builds) and the census carries the three as ceiling exceptions.
+      **Done (2026-10-17).** The driver's read is the one a pull materializes a library from (`ExtractLibrarySignatures`;
+      the corpus's `Standard/REPLACE.pou`, `DELETE.pou` came from it: `FUNCTION REPLACE : STRING(255)`, inputs
+      STR1/STR2/L/P — the drawn box's pins). `ProjectDeclarations` takes it as a fourth source, read at most once per
+      operation and only when a pushed box names a callee nothing else names (no project item, no variable, no word the
+      vendor refuses as a POU name — operators and conversions never trigger it; on CODESYS the read is a precompile);
+      `NetworkScope.CalleeOf` answers such a bare head with `LibraryFunctions.Of` (CallType Function, the signature's
+      inputs, its VAR_OUTPUTs without the self-named result; none for a library FB, for two libraries' functions with
+      different pins, and no input ORDER for a function with a VAR_IN_OUT — the read lists inputs and in-outs apart).
+      The CLI's `PushedText` has no IDE (`_ => null`, NamedAs covers it). Test first: `CalleeDerivationTests` (library
+      rows, 15), `LibraryFunctionReadTests` (2: read once per operation, never for a body without such a box),
+      `CodesysCalleeDerivationTests` (`LEN(txt)` / `LEN(STR := txt)` built CallType Function, input STR, result pin).
+      **Re-recorded, own instances** (CODESYS SP21 `en`; TwinCAT Project13 LCID 1033; one batch per vendor):
+      `ng_m_library_function`, `…_named`, `…_eno` now build clean on CODESYS (were "The assignment source is incorrect."
+      / the ENO pair); `ng_m_library_function` clean on TwinCAT (was "'' is no input of 'LEN'" + "Identifier ''");
+      the `_eno` pair stays TwinCAT-refused (`TcEnoRefusal`). LSP: `enoOfALibraryFunction` fires only for a head named
+      through its NAMESPACE (the bare one builds now; `_boxes.test.ts` test first). **Niche, accepted loss (0
+      namespace-qualified library calls in the six corpora's LD/FBD bodies):** `Standard.LEN(…)` — the read is by bare
+      name; `ng_m_library_function_qualified{,_eno}` keep their answers, the ceiling exception re-reasoned
+      (`baseline-c.ts`). DIALECT N40 updated. **For the owner:** the read's cost — on CODESYS a `Build(app)` (it replaces
+      the message view; 22 s on Pro2193, `directed-library-signatures`), on TwinCAT `ProduceAllLibrarySignatures` (the
+      recorder's `ng_m_library_function` 372 → 2626 ms on Project13; CODESYS fixture 446 → 492 ms) — once per push that
+      holds such a box; the session cache
+      (`LibrarySignatureCache`) is keyed by walked library refs a push does not walk, so it is not used — the obvious
+      improvement if pushes of library boxes get frequent.
+      **Numbers:** C# Engine 3040 + 1 skipped, CODESYS 456, TwinCAT 556, Cli 297, Repo.Gates 243; volt-cli unit 154;
+      graphical e2e CODESYS 145/145; TwinCAT Project13 136 pass / 3 skip / 2 fail (both pre-existing: `hidden-members`
+      needs Project14's VltFixtureMembers, `rebuild.test.ts` the raw-CR refusal of 2R.5 item 6); LSP test/conformance
+      6964 pass / 385 todo / 0 fail, test/frontend 25/25 (baselines rewritten: counts only — CODESYS builds-no-parse-error
+      3443 → 3446, TwinCAT 3172 → 3173), test/analysis + test/baseline 21/21 (CODESYS GAP 518 → 516, unowned 86 → 84;
+      TwinCAT GAP 886 → 884), typecheck, lint (warnings only), `bun run check` 16/16; `rate:fixtures` unchanged
+      (map.generated.ts untouched).
+      **Gate (2R.4b+2R.6a, 2026-10-17) — review findings.** (1) *Positional order of a multi-input library function*:
+      checked by RUNNING it, not by a build (LEN/POS and L/P share a type, so a swap builds clean and a build recording
+      is no oracle for it). `test/e2e/graphical/library-function-runs.test.ts` (it needs 2R.6a's run probe, so it lands
+      in 2R.6a's commit) pushes `MID(txt, 2, 3)`, `REPLACE(txt, 'ab', 2, 1)`, `DELETE(txt, 2, 3)` positionally in FBD:
+      they come back named `STR, LEN, POS` / `STR1, STR2, L, P` / `STR, LEN, POS`, and in the simulation each box
+      computes what the same call computes in ST, while the swapped ST call differs (live CODESYS SP21, green). TwinCAT
+      has no runtime here; its signature list renders in the same order (`twincat-project14`
+      `References/Tc2_Standard/MID.pou`, `REPLACE.pou`). Side observations, not measured further: a variable named `r`
+      does not build either (like `s`); a variable named like the function (`mid := MID(…)`) is found first, so that
+      box keeps its positional pins. (2) *A library function with a VAR_IN_OUT*: **niche: accepted loss (0 occurrences
+      in the corpora)** — 271 of the corpora's 2143 library FUNCTIONs carry a VAR_IN_OUT, and no LD/FBD box calls one
+      (the same counter finds bakon-nano's 3 library boxes). (3) *No LibraryPath filter*: **niche: accepted loss (0
+      occurrences in the corpora)** — the only names two libraries declare with different pins are GETSUPPLIERVERSION,
+      GETPROPERTY (and MEMSET on pro2193), and no LD/FBD box calls them; a function only an unreferenced library declares
+      is named by the build. The fix for later is to filter by the walked `.library` refs (a push walks none today).
+      (4) *The read for any unknown bare head; a read that throws fails the push*: **deferred (owner 2026-10-17: "if you
+      dont see a good solution … we improve on these situations later")** — catching the throw would hide a failed read
+      (a fallback), and narrowing the trigger needs a list of words that are not library functions, which Volt does not
+      have. Its cost is the one named above for the owner; later: a push-keyed signature cache, and a read failure
+      scoped to the box that needed it.
 - [x] 2R.5 **Owner 2026-10-16: "if it is possible then we should be able to encode and decode it."** Zero in the corpora
       is NOT a reason to refuse. Every shape the IDE can STORE (draw, or hold after an import) gets a spelling, a
       fixture on both vendors and a round trip — whether it compiles or not. Applies to every X / refused-by-name row

@@ -44,10 +44,11 @@ export interface NetworkMessages {
    */
   unresolvedAssignTarget(): string
   /**
-   * ENO read on a LIBRARY function's box that has no EN (`LEN(t)` ⏎ `x := ENO;`): CODESYS reads the ENO as a member of
-   * the result — "'ENO' is no component of 'LEN'", the function's own name even when the head is qualified
-   * (`ng_m_library_function_eno`, `…_qualified_eno`, SP21). Undefined on TwinCAT: its driver refuses the box before a
-   * build (`TcEnoRefusal`). A PROJECT function's box is built with its output list since 2R.4 and builds clean.
+   * ENO read on a library function's box named through its NAMESPACE that has no EN (`Standard.LEN(t)` ⏎ `x := ENO;`):
+   * CODESYS reads the ENO as a member of the result — "'ENO' is no component of 'LEN'", the function's own name
+   * (`ng_m_library_function_qualified_eno`, SP21). Undefined on TwinCAT: its driver refuses the box before a build
+   * (`TcEnoRefusal`). A PROJECT function's box (2R.4) and a library one's named bare (2R.4b) are built with their
+   * output list and build clean.
    */
   enoOfALibraryFunction(name: string): string | undefined
   /**

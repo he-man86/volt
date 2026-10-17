@@ -28,8 +28,16 @@ public static class Scopes
     /// <summary>No project around the body: no item of any name has a kind.</summary>
     public static string? NoItem(string name) => null;
 
+    /// <summary>No IDE around the body: no referenced library declares a function (ld-fbd-coverage 2R.4b).</summary>
+    public static Callee? NoLibrary(string name) => null;
+
+    /// <summary>The libraries' read for a <see cref="ProjectDeclarations"/> whose test pushes no library function: asked,
+    /// it fails the test — on CODESYS the read is a build (ld-fbd-coverage 2R.4b).</summary>
+    public static IReadOnlyList<Volt.Engine.Library.LibSignature> LibrariesNotRead() =>
+        throw new InvalidOperationException("this test reads no library signature: no box names a library's function");
+
     /// <summary>The scope of a body whose declarations are <paramref name="declaration"/> and nothing else: no other
-    /// item, no global, the stand-in name list.</summary>
+    /// item, no global, no library, the stand-in name list.</summary>
     public static NetworkScope Of(string? declaration) =>
-        NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), NoItem, RefusedPouName);
+        NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), NoItem, RefusedPouName, NoLibrary);
 }

@@ -32,12 +32,21 @@ public class CodesysCalleeDerivationTests
         ["P_Sub"] = "PROGRAM P_Sub\nVAR_INPUT\n\tgo : BOOL;\nEND_VAR",
     };
 
-    const string Own = "PROGRAM P\nVAR\n\tv : INT;\n\ty : INT;\n\ttwice : INT;\n\tgo : BOOL;\n\tx : BOOL;\n\tfbm : FB_M;\nEND_VAR";
+    const string Own = "PROGRAM P\nVAR\n\tv : INT;\n\ty : INT;\n\ttwice : INT;\n\tgo : BOOL;\n\tx : BOOL;\n\tfbm : FB_M;\n\ttxt : STRING;\nEND_VAR";
+
+    /// <summary>Standard's LEN as the driver reads its signature (the result a self-named output).</summary>
+    static readonly Volt.Engine.Library.LibSignature[] Libraries =
+    {
+        new("LEN", "standard, 3.5.18.0 (system)", "Function", new[] { new Volt.Engine.Library.LibVar("STR", "STRING(255)") },
+            new[] { new Volt.Engine.Library.LibVar("LEN", "INT") }, Array.Empty<Volt.Engine.Library.LibVar>(),
+            Array.Empty<Volt.Engine.Library.LibVar>(), null, null),
+    };
 
     static Nwl.BoxTreeBox Built(string statement)
     {
         var scope = NetworkScope.FromDeclarations(Own, n => Items.TryGetValue(n, out var d) ? d : null,
-            () => Array.Empty<string>(), n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName);
+            () => Array.Empty<string>(), n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName,
+            n => Volt.Engine.Library.LibraryFunctions.Of(Libraries, n));
         // As the push validates it (NetworkTextGate: the input names are derived there, for either driver).
         var read = NetworkTextGate.Validate($"IMPLEMENTATION FBD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
@@ -82,6 +91,20 @@ public class CodesysCalleeDerivationTests
     [Fact]
     public void An_unwired_output_is_listed_too() =>
         Assert.Equal(new[] { "   ", "doubled" }, OutputNames(Built("twice := F_split(v);")));
+
+    /// <summary>ld-fbd-coverage 2R.4b: a LIBRARY function's box, positional or named, is built as the editor draws it —
+    /// CallType Function, its input named, the result pin — from the IDE's library signature. Without it CODESYS answers
+    /// "The assignment source is incorrect." (`ng_m_library_function`, `…_named`; bakon-nano's REPLACE/DELETE).</summary>
+    [Theory]
+    [InlineData("y := LEN(txt);")]
+    [InlineData("y := LEN(STR := txt);")]
+    public void A_library_function_call_is_built_with_the_function_call_type_and_its_input_names(string statement)
+    {
+        var box = Built(statement);
+        Assert.Equal(Nwl.Operator.Function, box.CallType);
+        Assert.Equal(new[] { "STR" }, InputNames(box));
+        Assert.Equal(new[] { "   " }, OutputNames(box));
+    }
 
     [Fact]
     public void A_method_call_is_built_with_the_method_call_type()
