@@ -991,6 +991,13 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       "this reads much cleaner". It replaces `MOVE(0, ENO => lamp) EN c;`, which becomes a refusal naming the new
       spelling. Reader, writer, LSP parser and the case set together; the coil-on-ENO form (`… EN c` / `lamp := ENO;`)
       stays a separate stored tree. Starts after the native-writer merge (it is translating tests to today's grammar).
+      **Owner 2026-10-17, same step: an enabled box always writes BOTH pins it has, wired or not** — `EN [source]` then
+      `ENO [=> target]`: `MOVE 0 => x EN c ENO;` (ENO unwired), `MOVE 0 => x EN c ENO => lamp;`. No `ENO` written = the
+      box has no ENO pin (so the enabled comparison used as a value needs no rule of its own). Reading an ENO below
+      stays the open line and the word `ENO`, so a chain reads `MOVE 2 => b EN ENO ENO` (in from above, own pin). A
+      separate word for the incoming wire (e.g. `above`) was offered and is NOT decided — owner: "not sure about adding
+      a new keyword yet". Measure first: a box with ENO and no EN (a call that hands its ENO on), and EN with no ENO,
+      both get the same rule (write the pin that exists).
       Next, same principle, owner to confirm per row: the other call-form shapes (an unconnected word-box input
       `MUL(, a, 6)`, a negated box pin `AND(a, NOT IN2 := b)`, an empty MOVE `MOVE(IN := , => x)`, the NOT box
       `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
