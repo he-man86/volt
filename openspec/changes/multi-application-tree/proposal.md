@@ -18,7 +18,8 @@ just return 1 tree that has all info from both."
 
 - `refs` returns ONE tree holding every device/application (CODESYS) and every system project/PLC project (TwinCAT) the IDE
   holds; nothing is skipped.
-- An item's identity includes where it lives, so two `PLC_PRG.pou` in two applications are two items on the wire, in the
+- **An item is identified by its PATH in that tree** (owner: "it should do this based on path"): fetch and push know which
+  device/application/PLC project to read or edit from the path alone. So two `PLC_PRG.pou` in two applications are two items on the wire, in the
   version maps, in the workspace and in a push. The identity is derived in ONE place (`Versioning.VersionedItem.Identity`).
 - fetch, push (set/delete/move), status, build and the LSP's scope follow that identity; the LSP resolves a name inside its
   own application.
@@ -27,5 +28,5 @@ just return 1 tree that has all info from both."
 ## Impact
 
 `packages/volt-cli` (both drivers' tree reads, the wire's item key, Versioning, Sync, CLI workspace layout), `volt-lsp-iec`
-(per-application scope), `volt-control` / `volt-vscode` if they key by name. Design-first: the identity's spelling and how a
-move across applications is told apart from delete+add are measured and decided before code.
+(per-application scope), `volt-control` / `volt-vscode` if they key by name. The path is the identity (owner decision);
+design-first only for the census and how a move is told apart from delete+add.

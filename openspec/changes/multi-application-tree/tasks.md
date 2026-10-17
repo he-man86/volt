@@ -1,8 +1,8 @@
 ## 1. Design
 
 - [ ] 1.1 (design-first) Census every place keyed by the bare/full name (wire, Versioning, Sync, CLI, LSP, control,
-      vscode). Decide the identity's spelling (the tree path of the item?) and write it in design.md with one example per
-      vendor; owner check before code.
+      vscode). The identity is the item's path in the tree (owner, 2026-10-17): fetch and push pick the
+      device/application/PLC project from it. Write design.md with one example per vendor and how a move is told apart.
 
 ## 2. Fixtures and red tests
 
