@@ -985,7 +985,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       142 pass / 1 skip / 1 fail (item 6, the raw CR, unchanged); typecheck clean, lint warnings only (LSP lint green),
       `bun run check` 16/16. No fixture or transpiler change this round: `rate:fixtures` re-run, map unchanged; no recording.
 
-- [ ] 2R.6 **Owner 2026-10-17: the call form is unreadable ("i cant read this"); ENO first.** A box's ENO output wired
+- [x] 2R.6 **Design (done 2026-10-17; the build is 2R.6a + 2R.6b).** **Owner 2026-10-17: the call form is unreadable ("i cant read this"); ENO first.** A box's ENO output wired
       to a variable is an output pin written after the enable, in drawing order, never inside call brackets:
       `MOVE 0 EN c ENO => lamp;` (MOVE's own output unwired), `MOVE 0 => x EN c ENO => lamp;` (both wired) — owner:
       "this reads much cleaner". It replaces `MOVE(0, ENO => lamp) EN c;`, which becomes a refusal naming the new
@@ -1030,6 +1030,26 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       `MUL(, a, 6)`, a negated box pin `AND(a, NOT IN2 := b)`, an empty MOVE `MOVE(IN := , => x)`, the NOT box
       `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
 
+
+- [ ] 2R.6a **BLOCKING, first (owner 2026-10-17): an Execute box written by the CODESYS writer runs.** Measured
+      (v2-measurements.md #9): a box built through the NWL model in ONE `SetObject` commit stores its ST but the code does
+      not run until the object is committed again or the project reloaded. Today's `CodesysNetworkWriter` builds it in
+      one commit. Red first: a live e2e that pushes an Execute box (top level and read through ENO), builds, runs it in
+      simulation and asserts the ST ran; then fix (the smallest change that makes the IDE compile the ST, measured, not
+      guessed) and check TwinCAT's path the same way (store + build; run is CODESYS's verdict, no TwinCAT runtime
+      licence). Both vendors' graphical e2e green.
+
+- [ ] 2R.6b **Build network text v2.1 exactly as `v2-spec.md` states** (owner: "think we should refactor like this";
+      defaults D1–D8 applied; pin flags before the pin name, no `[NOT]` mark; EXECUTE bodies verbatim ST). One change,
+      not beside the old: writer as one walk of the tree (one buffer, column passed down, staircase layout), reader as
+      recursive descent with `consumed` passed down, the shared validator over the model, the model changes of section 7
+      (drop `MainOutputIndex`, total facts), the LSP port the same way, the case set rewritten (section 7 lists deletions
+      and additions), `docs/network-text.html` rewritten to v2.1 (current implementation only, small, made-up examples).
+      The open-line machinery is DELETED. Shapes on the MEASURE list are refused by name until measured; a MEASURE row
+      measured in this step is spelled or refused by its result. Gates: every C# suite, `bun test` everywhere,
+      typecheck, lint, `bun run check`, the LSP full suite, the case set on both sides, graphical e2e on CODESYS and
+      TwinCAT (own fixture instances), and the corpora re-pulled with zero unspellable networks beyond the MEASURE list.
+      The native-writer branch (`twincat-native-writer`) is NOT merged here; it is rebased on top afterwards.
 
 ## 3. Verify and close
 
