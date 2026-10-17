@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  t1(IN := , PT := );
+  t1 : TON(IN := , PT := );
 END_NETWORK

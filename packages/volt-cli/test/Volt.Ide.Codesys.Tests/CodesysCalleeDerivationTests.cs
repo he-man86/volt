@@ -117,7 +117,7 @@ public class CodesysCalleeDerivationTests
     /// <summary>An FB call, a PROGRAM call and a conversion run as drawn with the fresh value (measured): the writer
     /// leaves them to the vendor.</summary>
     [Theory]
-    [InlineData("fbm(run := go);")]
+    [InlineData("fbm : FB_M(run := go);")]
     [InlineData("P_Sub(go := go);")]
     [InlineData("y := TO_INT(v);")]
     public void Every_other_call_keeps_the_fresh_call_type(string statement) =>

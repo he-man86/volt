@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  out := NOT(IN := a OR b);
+  out := `NOT`((a OR b));
 END_NETWORK

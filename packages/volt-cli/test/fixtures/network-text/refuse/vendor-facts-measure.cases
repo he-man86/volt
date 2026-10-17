@@ -1,0 +1,322 @@
+#### x3-operator-read-through-eno-unwired — an operator box with EN read through its ENO writes its value somewhere (3c: it does not build)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := MOVE 1 ENO EN c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an operator box read through its ENO with no output wired
+
+#### x10-fb-with-eno-read-by-name — a box with EN and ENO read by an output stores and does not build (3b)
+=== scope
+instance c1 CTU
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := c1 : CTU(CU := a, PV := 10).CV ENO EN c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a box with EN and ENO read by its value
+
+#### x12-eno-wired-beside-a-consumer — the ENO pin wired to a variable while a consumer reads the box (7b)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := MOVE 7 => y ENO => lamp EN c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an ENO pin wired beside a consumer
+
+#### x9-fb-read-through-named-eno — an FB's declared ENO is read with nothing after its call, never by `.ENO`
+=== scope
+instance d1 Dryer
+=== text
+IMPLEMENTATION LD
+NETWORK
+  ready := d1 : Dryer(iOn := on).`ENO`;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an FB read through .ENO
+
+#### x13-three-input-sub — SUB takes two inputs
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a SUB b SUB c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a two input operator box with more inputs
+
+#### x13-three-input-gt — every comparison takes two
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := a GT b GT c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a two input operator box with more inputs
+
+#### x13-three-input-div-call-form — in the call form too
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := `DIV`(a, b, NOT IN3 := c);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a two input operator box with more inputs
+
+#### x13-one-input-add — an operator takes at least two inputs
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := `ADD`(a);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an operator box with fewer than two inputs
+
+#### x13-one-branch — a parallel with one branch does not compile (C0023)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (a);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a Parallel with one branch
+
+#### x17-split-defined-twice — a split is defined once
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a;
+  split1 := b;
+END_NETWORK
+=== refused
+NETWORK_DUPLICATE_NAME a split defined twice
+
+#### x17-split-nested-twice — nested or not
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a;
+  x := (split1 := b);
+END_NETWORK
+=== refused
+NETWORK_DUPLICATE_NAME a split defined twice
+
+#### split-never-defined — a split read is defined in its network
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := split7;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a split referenced and never defined
+
+#### split-reads-itself — a split read inside its own definition is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split1 := a AND split1;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a split read inside its own definition
+
+#### split-leading-zero — a split's number is its VarId, no leading zeros
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split01 := a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION no leading zeros
+
+#### split-coil-target — a split is never a coil target
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := split1 S= a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION split1 as a coil target
+
+#### split-output-target — never a `=>` target
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE a => split1;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION with no target
+
+#### split-call-head — never a call head
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := split1(IN := a);
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION is a split, never a call head
+
+#### measure-negated-jump — a modified jump is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT JMP Done := c;
+END_NETWORK
+NETWORK LABEL: Done
+  ;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### measure-reset-jump — R= on a jump is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  JMP Done R= c;
+END_NETWORK
+NETWORK LABEL: Done
+  ;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### measure-rising-return — an edge on a return is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE RETURN := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified jump or return
+
+#### measure-edge-set-coil — an edge beside S= is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  R_EDGE x S= c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge beside a set or reset coil
+
+#### measure-modified-coil-beside-another — a negated or edge coil beside another coil is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  NOT x := y := c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a modified coil beside another coil
+
+#### measure-negated-empty-beside-a-coil — `NOT;` beside another coil is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := y := NOT;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone coil value
+
+#### measure-negated-empty-on-a-set-coil — `x S= NOT;` is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x S= NOT;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone coil value
+
+#### measure-negated-empty-branch — a negated empty slot elsewhere is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := s BRANCH (NOT, b);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a negated empty slot outside a lone coil value
+
+#### measure-edge-en — an edge on the EN pin is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  MOVE 1 => x ENO R_EDGE EN c;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED an edge on the EN pin
+
+#### measure-terminator-fed-parallel — `NOT BRANCH (…)` is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := NOT BRANCH (a, b);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a Parallel fed by the empty terminator
+
+#### measure-move-two-inputs — MOVE with 0 or 2 inputs is not measured
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  `MOVE`(a, b, => x);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a MOVE with no input or two
+
+#### measure-move-no-input — `` `MOVE`() ``
+=== text
+IMPLEMENTATION FBD
+NETWORK
+  x := `MOVE`();
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a MOVE with no input or two
+
+#### measure-negated-output-pin — a modified output pin is not measured
+=== scope
+instance c1 CTU
+=== text
+IMPLEMENTATION LD
+NETWORK
+  c1 : CTU(CU := a, NOT CV => n);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a flag on an output pin
+
+#### measure-flag-on-execute — a modifier on an Execute box is not measured
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := NOT (EXECUTE
+i := 1;
+            END_EXECUTE ENO EN go);
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED a flag on an Execute box
+
+#### measure-rising-and-falling — one edge per node
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := R_EDGE F_EDGE a;
+END_NETWORK
+=== refused
+NETWORK_BAD_EXPRESSION a modifier after a modifier
+
+#### unsupported-beside-items — the UNSUPPORTED line is its network's only line
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := a;
+  UNSUPPORTED "a flag on a box input pin" #3f9a01c2;
+END_NETWORK
+=== refused
+NETWORK_UNSUPPORTED is its network's only line
+
+#### unsupported-without-hash — the UNSUPPORTED line carries the network's hash
+=== text
+IMPLEMENTATION LD
+NETWORK
+  UNSUPPORTED "a flag on a box input pin";
+END_NETWORK
+=== refused
+NETWORK_PARSE ends with the network's hash

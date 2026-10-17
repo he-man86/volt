@@ -842,3 +842,50 @@ those refusals. Runs after 2R.3 (grammar) and 2R.4 (derivations).
   TwinCAT the in-place door writes no bit change into an unmeasured coil shape (`TcUnmeasured.InPlace`, the import's
   list) and writes the named ENO pin's slot; `ENO => v` needs the box's EN or a later ENO reader (`EnoCarried`).
 
+
+## 2R.6b Network text v2.1 — as built (2026-10-17)
+
+Built as `v2-spec.md` states: the writer is one walk with one buffer and the column passed down (staircase for an EN
+source holding a box); the reader is recursive descent with `consumed` passed down; one shared validator
+(`NetworkValidator`) over the model, called by the text reader (a finding is a diagnostic at the node), the writer (a
+pulled network it refuses is its `UNSUPPORTED "<shape>" #<hash>;` line) and ported to the LSP (`validator.ts`); the
+open-line machinery, `MainOutputIndex`, the operator call form and the `JMP l;` rail form are deleted; the case set and
+`docs/network-text.html` are rewritten. **Where reality forced another choice, and why:**
+
+- **A function's box shows ENO without EN** (`x := f(a) ENO;`), against X9's function arm. The recordings are the oracle:
+  `rcc_network_eno_function_without_en` (a project FUNCTION) builds clean on CODESYS and TwinCAT, `ng_m_library_function_eno`
+  on CODESYS — the box carries its derived output list (2R.4/2R.4b). TwinCAT does NOT build the library
+  function's (`ng_m_library_function_eno`: "Function 'LEN' requires exactly '1' inputs") and the LSP does not say so
+  there: niche, accepted loss (0 function boxes in the six corpora show ENO without EN), recorded on the fixture. Measurement 4b's "'ENO' is no component" is the
+  box with none, which the push builds only for a library function named through its namespace
+  (`ng_m_library_function_qualified_eno`, its two recorded messages kept in the LSP). X9 stays for operators (4c,
+  "Missing EN pin"); an FB's declared ENO and an EXECUTE box's are read with nothing after the box, so `ENO` without EN
+  on them is a second spelling and refused (`NetworkSpelling.EnoShown`).
+- **`ConnectedSlot` and `Output.Slot` stay nullable** (section 7 asked total): a named output and an FB read by `.name`
+  have no slot in the text — the push derives it from the declaration or the IDE's library signature
+  (`NetworkDerivation.WithOutputSlot`, `NetworkScope.BlockOutputs`); `HasEnoOutput` is total.
+- **Positional pins stay accepted in a call** (the grammar gives the positional `pin` to the operator call alone): the
+  corpora hold positional LIMIT/MAX/… calls, and 2R.4 names a function's positional pins on push.
+- **X3 is refused on operators only**: a function or a PROGRAM call read through its ENO with no data output is a stored
+  shape the corpora hold (a PROGRAM box has no data output at all).
+- **A word keeps its case** (`a and b` is a box of type `and`), as `BoxType` stores it.
+- **The reader-refused network's hash is the shape's** (`NetworkTextWriter.Hash` over the structural serialization): a
+  network with no trees hashes its shape name.
+- **`ENO => v` is an LSP hint, not a warning** (D7): the conformance replay holds every LSP error and warning to a
+  recorded build message (`ng_r5_named_eno` builds clean), so an LSP-only warning is a false positive by that gate.
+- **The TwinCAT in-place writer keeps a top-level FB's stored ENO** when the box has no EN: the text has no position for
+  it there (it shows `ENO` only with EN, an FB's declared ENO only through a consumer).
+- **Fixtures whose old spelling has no v2.1 text** are refused by name now (`vendorRefuses`): `ng_en_eno_sink`,
+  `ng_en_eno_named_wire`, `network_unnamed_target_behind_enable` (X3 — their recordings fail the build on CODESYS:
+  `__ImpVar` not defined), `rcc_network_eno_without_en` (X9 on an operator). Every other conformance fixture is
+  re-spelled to the same tree; its recording stands.
+- **The corpora were re-pulled offline** (the committed NWL corpus through `CodesysNetworkReader` and the v2.1 writer,
+  TwinCAT's `project14` likewise): 0 UNSUPPORTED, 0 hidden networks.
+
+**For the owner (edge cases the doc would need, not documented):** an FB box stored with ENO and no EN has no text
+position for its ENO at the top level or read by `.name` (the archive keeps a top-level one on TwinCAT; a rebuild loses
+it; a positional output after it would read back onto the ENO's slot, so that one is refused by the validator); a
+library function's ENO without EN builds on CODESYS and not on TwinCAT (above); an FB read through a declared output
+named `ENO` (`` .`ENO` ``) is refused; an FB's ENO wired with no EN is the pin `` `ENO` => v ``, an ordinary output; a
+bit operator read by its value has no stored connection slot (census 1.6); case-preserved words (`and`) are a second
+spelling the writer never produces from an upper-case `BoxType`.

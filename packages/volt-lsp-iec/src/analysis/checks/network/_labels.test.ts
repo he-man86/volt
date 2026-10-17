@@ -19,7 +19,7 @@ test("network text: a JMP may target a label on ANOTHER network", () => {
 VAR a : BOOL; out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
-IF a THEN JMP Done; END_IF;
+IF a THEN JMP Done := ; END_IF;
 END_NETWORK
 NETWORK LABEL: Done
 out := TRUE;
@@ -34,7 +34,7 @@ VAR out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
 out := TRUE;
-JMP Nowhere;
+JMP Nowhere := ;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(bad).filter((d) => d.code === "jump-label-undefined").map((d) => d.message)).toEqual([
@@ -45,7 +45,7 @@ VAR out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK LABEL: Loop
 out := TRUE;
-JMP Loop;
+JMP Loop := ;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(good)).toEqual([])
@@ -60,7 +60,7 @@ VAR out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
 out := TRUE;
-JMP Nowhere;
+JMP Nowhere := ;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const d = doc(src)
@@ -85,7 +85,7 @@ const labelMessages = (networks: string, vendor: "codesys" | "twincat" = "codesy
 }
 
 test("network labels: one label on two networks, in any case, is the build's duplicate — and nothing else", () => {
-  const networks = "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := FALSE;\nEND_NETWORK"
+  const networks = "NETWORK\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := FALSE;\nEND_NETWORK"
   expect(labelMessages(networks)).toEqual(["[error] The label 'DONE' is a duplicate"])
   expect(labelMessages(networks, "twincat")).toEqual(["[error] The label 'DONE' is a duplicate"])
   // No jump at all: the duplicate, and ONE unreferenced warning for the name (nwl-labels.log (deleted; git show b2496efb4b:packages/volt-cli/scripts/nwl-labels.log), "duplicate label, no jump").
@@ -96,20 +96,20 @@ test("network labels: one label on two networks, in any case, is the build's dup
 })
 
 test("network labels: a DISABLED network's label is no jump target", () => {
-  const networks = "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := TRUE;\nEND_NETWORK"
+  const networks = "NETWORK\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := TRUE;\nEND_NETWORK"
   expect(labelMessages(networks)).toEqual(["[error] No such label 'DONE' within the scope of the JMP statement"])
   expect(labelMessages(networks, "twincat")).toEqual(["[error] No such label 'DONE' within the scope of the JMP statement."])
 })
 
 test("network labels: a JMP inside a DISABLED network references nothing", () => {
-  const networks = "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK"
+  const networks = "NETWORK DISABLED\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK"
   expect(labelMessages(networks)).toEqual(["[warning] The label 'DONE' has not been referenced"])
   expect(labelMessages(networks, "twincat")).toEqual(["[warning] The label 'DONE' has not been referenced"])
 })
 
 test("network labels: a label nothing jumps to is the build's warning; a jump in another case references it", () => {
   expect(labelMessages("NETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK")).toEqual(["[warning] The label 'DONE' has not been referenced"])
-  expect(labelMessages("NETWORK\n  JMP DONE;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK")).toEqual([])
+  expect(labelMessages("NETWORK\n  JMP DONE := ;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK")).toEqual([])
 })
 
 // 2R.5 (awkward-sweep #9, #11): a jump is a coil — beside another coil, or two on one rung, or nested. Each one names a

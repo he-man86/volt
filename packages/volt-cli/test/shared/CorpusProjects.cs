@@ -48,18 +48,36 @@ public static class CorpusProjects
 public sealed class CorpusProject
 {
     readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, string> _libraryPous = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, string?> _declarations = new(StringComparer.OrdinalIgnoreCase);
     List<string>? _globals;
 
     public CorpusProject(IEnumerable<string> files)
     {
         foreach (var f in files.OrderBy(f => f, StringComparer.Ordinal))
-            if (!CorpusProjects.InLibrary(f) && CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou
-                or ItemKind.Kinds.Interface or ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
+        {
+            var stem = Path.GetFileNameWithoutExtension(f);
+            if (CorpusProjects.InLibrary(f))
             {
-                var stem = Path.GetFileNameWithoutExtension(f);
-                if (!_files.ContainsKey(stem)) _files[stem] = f;   // the first of a name wins (net48 has no TryAdd)
+                if (CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou && !_libraryPous.ContainsKey(stem)) _libraryPous[stem] = f;
+                continue;
             }
+            if (CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou or ItemKind.Kinds.Interface or ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
+                if (!_files.ContainsKey(stem)) _files[stem] = f;   // the first of a name wins (net48 has no TryAdd)
+        }
+    }
+
+    /// <summary>A referenced library's FUNCTION BLOCK as the IDE's signature states it — the corpus holds each library's
+    /// signatures as the pull rendered them (<c>Library Manager/</c>, <c>References/</c>): its outputs give a <c>.name</c>
+    /// read's slot (ld-fbd-coverage 2R.6b). A library FUNCTION answers nothing here: the corpus oracles were measured
+    /// without the libraries' functions (2R.4b derives them live).</summary>
+    public Callee? LibraryBlock(string name)
+    {
+        if (!_libraryPous.TryGetValue(name, out var f)) return null;
+        var source = File.ReadAllText(f).Replace("\r\n", "\n");
+        var header = source.TrimStart().Split('\n')[0];
+        if (!header.StartsWith("FUNCTION_BLOCK", StringComparison.OrdinalIgnoreCase)) return null;
+        return new Callee(Callee.FunctionBlockCallType, StDeclaration.InputNames(source), StDeclaration.OutputNames(source));
     }
 
     /// <summary>Every file of the project directory <paramref name="root"/>.</summary>
@@ -86,5 +104,5 @@ public sealed class CorpusProject
 
     /// <summary>The scope a push reads a body against whose own declarations are <paramref name="declaration"/>.</summary>
     public NetworkScope Scope(string? declaration) =>
-        NetworkScope.FromDeclarations(declaration, DeclarationOf, Globals, KindOfName, Scopes.RefusedPouName, Scopes.NoLibrary);
+        NetworkScope.FromDeclarations(declaration, DeclarationOf, Globals, KindOfName, Scopes.RefusedPouName, LibraryBlock);
 }

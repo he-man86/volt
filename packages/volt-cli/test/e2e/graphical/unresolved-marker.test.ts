@@ -112,7 +112,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	/** AN INPUT PIN. The position no real project has shown us yet — which is the reason to pin it, not a
 	 *  reason to skip it. */
 	it("`???` on a named INPUT pin", async () => {
-		await roundTrips("qmark_in", "FBD", "NETWORK\n  t1(IN := ???, PT := pt);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_in", "FBD", "NETWORK\n  t1 : TON(IN := ???, PT := pt);\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** AN OUTPUT PIN, spelled with ST's own output-parameter operator. */
@@ -120,7 +120,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		await roundTrips(
 			"qmark_out",
 			"FBD",
-			"NETWORK\n  t1(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"NETWORK\n  t1 : TON(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
 		)
 	})
@@ -132,7 +132,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		await roundTrips(
 			"qmark_both",
 			"FBD",
-			"NETWORK\n  t1(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"NETWORK\n  t1 : TON(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
 		)
 	})
@@ -162,15 +162,10 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		await roundTrips(
 			"qmark_coilen",
 			"LD",
-			// The NOT box shows EN (wired to nothing) and its consumer reads ENO, as the recorded LSP fixture has it —
-			// the ENO form because a box CODESYS builds with EN is read through its ENO (DIALECT N21), so the
-			// suffix-less spelling is refused there.
-			"NETWORK\n  NOT(IN := a) EN\n  ??? := ENO;\nEND_NETWORK\n",
+			// The box shows EN (wired to nothing) and the coil reads it through its ENO. (An operator box read so needs its
+			// value wired, `=> out` — without it the vendor stores and does not build it, X3.)
+			"NETWORK\n  ??? := MOVE a => out ENO EN;\nEND_NETWORK\n",
 			BOOLS,
-			// TwinCAT: an enabled bit operator built with only its ENO output (the text's derivation) does not compile
-			// there — measured live, "__ImpVar not defined" (DIALECT N42) — so the push is refused by name before
-			// anything is written.
-			"does not compile an enabled NOT",
 		)
 	})
 

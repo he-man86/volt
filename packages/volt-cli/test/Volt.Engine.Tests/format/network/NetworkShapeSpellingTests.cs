@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// openspec <c>ld-fbd-coverage</c> 2.3, the census shapes the text could not spell (tasks 0.1, design "1.1"): each is
 /// written, read back to the model it came from (the model oracle), and its refusals stay by name — in the grammar of
-/// <c>readability.md</c> (2R.3: S1's stored slot is lost on rebuild, B7; S3's types are the split's feeder's, B6). S4 is
+/// <c>v2-spec.md</c> (2R.6b: S1's stored slot is lost on rebuild, B7; S3's types are the split's feeder's, B6). S4 is
 /// <see cref="ShownPerNetworkTests"/>.
 /// </summary>
 public class NetworkShapeSpellingTests
@@ -30,7 +30,7 @@ public class NetworkShapeSpellingTests
     {
         var ton = Fb("t1", new[] { In(Set(L("go"), T("x")), "IN"), In(L("pt"), "PT") }, type: "TON");
         var model = Fbd1(ton);
-        Assert.Equal(Src("t1(IN := (x := go), PT := pt);"), NetworkTextWriter.Write(model, Scope));
+        Assert.Equal(Src("t1 : TON(IN := (x := go), PT := pt);"), NetworkTextWriter.Write(model, Scope));
         Assert.Null(NetworkModelOracle.Check("S2 pin", model).Reason);
     }
 
@@ -38,15 +38,15 @@ public class NetworkShapeSpellingTests
     public void S2_several_targets_and_the_coil_kinds_ride_in_the_pair()
     {
         var nested = new Assign(Op("AND", L("a"), L("b")), new[] { T("x"), T("y", SetBit), T("out", ResetBit) }, Flags.None);
-        var model = Fbd1(Set(Call("MOVE", new[] { In(L("1")) }, en: nested, connected: 0, eno: true), T("c")));
-        Assert.Equal(Src("MOVE 1 EN (x := y S= out R= a AND b)", "c := ENO;"), NetworkTextWriter.Write(model, Scope));
+        var model = Fbd1(Set(Call("MOVE", new[] { In(L("1")) }, new[] { Out("t", 1) }, en: nested, connected: 0, eno: true), T("c")));
+        Assert.Equal(Src("c := MOVE 1 => t ENO EN (x := y S= out R= a AND b);"), NetworkTextWriter.Write(model, Scope));
         Assert.Null(NetworkModelOracle.Check("S2 chain", model).Reason);
     }
 
     [Fact]
     public void S2_reads_back_as_one_assign_item_in_the_pin()
     {
-        var read = NetworkTextReader.Read(Src("t1(IN := (x S= NOT a), PT := pt);"), Scope);
+        var read = NetworkTextReader.Read(Src("t1 : TON(IN := (x S= NOT a), PT := pt);"), Scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var pin = Assert.IsType<Box>(read.Body!.Networks[0].Trees[0]).Inputs[0];
         var assign = Assert.IsType<Assign>(pin.Value);
@@ -63,8 +63,8 @@ public class NetworkShapeSpellingTests
     }
 
     [Theory]
-    [InlineData("t1(IN := (split1 S= go), PT := pt);", "never a coil")]
-    [InlineData("t1(IN := (x := go PT := pt);", "closes after its value")]
+    [InlineData("t1 : TON(IN := (split1 S= go), PT := pt);", "never a coil")]
+    [InlineData("t1 : TON(IN := (x := go PT := pt);", "closes after its value")]
     public void S2_a_pair_the_text_cannot_read_is_refused_by_name(string statements, string why)
     {
         var read = NetworkTextReader.Read(Src(statements), Scope);
@@ -80,7 +80,7 @@ public class NetworkShapeSpellingTests
     public void S3a_a_leaf_fed_split_writes_no_type()
     {
         var model = Fbd1(Def(46, LT("stFeedForward", "BOOL")), Fb("t1", new[] { In(Ref(46), "IN"), In(L("pt"), "PT") }, type: "TON"));
-        Assert.Equal(Src("split46 := stFeedForward;", "t1(IN := split46, PT := pt);"), NetworkTextWriter.Write(model, Scope));
+        Assert.Equal(Src("split46 := stFeedForward;", "t1 : TON(IN := split46, PT := pt);"), NetworkTextWriter.Write(model, Scope));
         Assert.Null(NetworkModelOracle.Check("S3a", model).Reason);
         var read = NetworkTextReader.Read(Src("split1 := x;", "out := split1;"), Scope);
         Assert.Null(Assert.IsType<Leaf>(Assert.IsType<Demux>(read.Body!.Networks[0].Trees[0]).Input).Operand.Type);
@@ -92,10 +92,10 @@ public class NetworkShapeSpellingTests
     public void S3b_a_rail_fed_split_is_its_empty_feed_in_LD_and_FBD_alike()
     {
         var ton = Fb("t1", new[] { In(Op("AND", Ref(2), L("a")), "IN"), In(L("pt"), "PT") }, type: "TON")
-            with { ConnectedSlot = 0, MainOutputIndex = 0, HasEnoOutput = false };
+            with { ConnectedSlot = 0, MainOutputName = "Q", HasEnoOutput = false };
         Node[] trees = { Def(2, Empty), Set(ton, T("out")) };
         var ld = Ld1(trees);
-        Assert.Equal(LdSrc("split2 := ;", "out := t1(IN := split2 AND a, PT := pt);"),
+        Assert.Equal(LdSrc("split2 := ;", "out := t1 : TON(IN := split2 AND a, PT := pt).Q;"),
             NetworkTextWriter.Write(ld, Scope));
         Assert.Null(NetworkModelOracle.Check("S3b", ld).Reason);
         Assert.Null(NetworkModelOracle.Check("S3b FBD", Fbd1(trees)).Reason);
@@ -104,21 +104,26 @@ public class NetworkShapeSpellingTests
     // ── S5: a SUPER^ call ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>S5 — ATD_TorqueControl #0: a derived FB calling its base through <c>SUPER^</c> — an instance no declaration
-    /// names, whose type is the POU's EXTENDS (the scope's <c>StDeclaration.TypeOfCallTarget</c>).</summary>
+    /// names, whose type is the POU's EXTENDS (the scope's <c>StDeclaration.TypeOfCallTarget</c>); the call names it, as every
+    /// FB call does.</summary>
     [Fact]
     public void S5_a_SUPER_call_is_the_backticked_instance_of_the_base()
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK ATD_TorqueControl EXTENDS ATD_FQI\nVAR\n  ioAxis : INT;\nEND_VAR",
             _ => null, () => Array.Empty<string>(), _ => null, _ => false, _ => null);
         var call = Fb("SUPER^", new[] { In(L("ioAxis"), "ioAxis") }, type: "ATD_FQI");
-        Assert.Equal(Src("`SUPER^`(ioAxis := ioAxis);"), NetworkTextWriter.Write(Fbd1(call), scope));
-        var read = NetworkTextReader.Read(Src("`SUPER^`(ioAxis := ioAxis);"), scope);
+        Assert.Equal(Src("`SUPER^` : ATD_FQI(ioAxis := ioAxis);"), NetworkTextWriter.Write(Fbd1(call), scope));
+        var read = NetworkTextReader.Read(Src("`SUPER^` : ATD_FQI(ioAxis := ioAxis);"), scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var box = Assert.IsType<Box>(read.Body!.Networks[0].Trees[0]);
         Assert.Equal(("ATD_FQI", "SUPER^", CallKind.FunctionBlock), (box.Type, box.Instance!.Text, box.Kind));
-        // Without an EXTENDS there is no base to call: refused by name, as before.
-        Assert.Equal("an FB instance the declarations do not name",
-            Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(Fbd1(call), Scope)).Reason);
+        // The call names its type, so a scope with no EXTENDS writes it all the same — the build judges the base.
+        Assert.Equal(Src("`SUPER^` : ATD_FQI(ioAxis := ioAxis);"), NetworkTextWriter.Write(Fbd1(call), Scope));
+        // A type the declarations name otherwise is refused by name.
+        var other = NetworkScope.FromDeclarations("FUNCTION_BLOCK ATD_TorqueControl EXTENDS ATD_Base\nVAR\nEND_VAR",
+            _ => null, () => Array.Empty<string>(), _ => null, _ => false, _ => null);
+        Assert.Equal("an FB instance declared with another type",
+            Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(Fbd1(call), other)).Reason);
     }
 
     /// <summary>A jump is a coil, and a coil nests (2R.5): a jump below the top level is written where it stands.</summary>
@@ -128,7 +133,7 @@ public class NetworkShapeSpellingTests
         var jump = new Assign(L("a"), new[] { T("Done", JumpBit) }, JumpBit);
         var model = Fbd1(Fb("t1", new[] { In(jump, "IN") }, type: "TON"));
         var text = NetworkTextWriter.Write(model, Scope);
-        Assert.Contains("t1(IN := (JMP Done := a));", text);
+        Assert.Contains("t1 : TON(IN := (JMP Done := a));", text);
         Assert.True(NetworkTextReader.Read(text, Scope).Ok);
     }
 }

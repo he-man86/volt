@@ -143,36 +143,35 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         ("single_consumer_branch", "NETWORK\n  split1 := a AND b;\n  out := split1;\nEND_NETWORK\n"),
         ("fanout_two_coils", "NETWORK\n  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n"),
         ("leaf_fed_split", "NETWORK\n  split1 := a;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n"),
-        ("unconnected_pin", "NETWORK\n  t1(IN := , PT := pt);\nEND_NETWORK\n"),
-        ("pin_to_variable", "NETWORK\n  t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n"),
-        ("pin_to_variable_consumed", "NETWORK\n  out := t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n"),
+        ("unconnected_pin", "NETWORK\n  t1 : TON(IN := , PT := pt);\nEND_NETWORK\n"),
+        ("pin_to_variable", "NETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n"),
+        ("pin_to_variable_consumed", "NETWORK\n  out := t1 : TON(IN := a, PT := pt, ET => el).Q;\nEND_NETWORK\n"),
         ("negated_input", "NETWORK\n  out := NOT a AND b;\nEND_NETWORK\n"),
         ("set_coil", "NETWORK\n  out S= a;\nEND_NETWORK\n"),
         ("reset_coil", "NETWORK\n  out R= a AND b;\nEND_NETWORK\n"),
-        ("rising_edge", "NETWORK\n  out := R_EDGE(a) AND b;\nEND_NETWORK\n"),
-        ("execute", "NETWORK\n  EXECUTE EN go\nn := n + 1;\n  END_EXECUTE;\nEND_NETWORK\n"),
-        ("execute_consumed", "NETWORK\n  EXECUTE EN go\nn := 1;\n  END_EXECUTE\n  out := ENO;\nEND_NETWORK\n"),
-        ("multi_rung", "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1(IN := e, PT := pt);\nEND_NETWORK\n"),
-        ("assign_below_top", "NETWORK\n  t1(IN := (out := go), PT := pt);\nEND_NETWORK\n"),
+        ("rising_edge", "NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n"),
+        ("execute", "NETWORK\n  EXECUTE\nn := n + 1;\n  END_EXECUTE ENO EN go;\nEND_NETWORK\n"),
+        ("execute_consumed", "NETWORK\n  out := EXECUTE\nn := 1;\n         END_EXECUTE ENO EN go;\nEND_NETWORK\n"),
+        ("multi_rung", "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1 : TON(IN := e, PT := pt);\nEND_NETWORK\n"),
+        ("assign_below_top", "NETWORK\n  t1 : TON(IN := (out := go), PT := pt);\nEND_NETWORK\n"),
         ("jump_and_label", "NETWORK\n  JMP L1 := a;\nEND_NETWORK\nNETWORK LABEL: L1\n  out := a OR b;\nEND_NETWORK\n"),
-        ("return_uncond", "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN;\nEND_NETWORK\n"),
+        ("return_uncond", "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN := ;\nEND_NETWORK\n"),
         ("unconnected_coil", "NETWORK\n  out := ;\nEND_NETWORK\n"),
         ("empty_network", "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n"),
         ("header", "NETWORK LABEL: Here DISABLED TITLE: \"a rung\"\n  // two lines\n  // of comment\n  out := a AND b;\nEND_NETWORK\n"),
-        ("enable_and", "NETWORK\n  a AND b EN go\n  out := ENO;\nEND_NETWORK\n"),
-        ("enable_move", "NETWORK\n  MOVE b EN go\n  out := ENO;\nEND_NETWORK\n"),
+        ("enable_and", "NETWORK\n  a AND b => out ENO EN go;\nEND_NETWORK\n"),
+        ("enable_move", "NETWORK\n  out := MOVE b => n ENO EN go;\nEND_NETWORK\n"),
         ("function_named", "NETWORK\n  n := F_Custom(A := i1, B := i2);\nEND_NETWORK\n"),
         // 2R.5 #23: the named ENO pin — the variable stored on the ENO slot, in place of its null, as CODESYS's writer builds it.
-        ("named_eno", "NETWORK\n  MOVE(7, ENO => out, => n) EN go;\nEND_NETWORK\n"),
+        ("named_eno", "NETWORK\n  MOVE 7 => n ENO => out EN go;\nEND_NETWORK\n"),
     };
 
     /// <summary>The shapes the builder refuses, by the phrase of the reason.</summary>
     private static readonly Dictionary<string, string> Refused = new(StringComparer.Ordinal)
     {
-        // The text names the TON's ET pin but not the output `out` reads; the archive has no other place to say it.
-        ["pin_to_variable_consumed"] = "does not say which of the box's outputs the consumer reads",
-        // Measured live: stored and pulled back as pushed, and the build failed ("__ImpVar not defined").
-        ["enable_and"] = "TwinCAT does not compile an enabled AND built with only its ENO",
+        // `.Q` names the output `out` reads, and its slot is the TON's declaration's: this suite's scope holds no library
+        // signature, so the slot is unknown and the builder refuses rather than guess it (a push derives it from the IDE's).
+        ["pin_to_variable_consumed"] = "name an output of",
     };
 
     public static TheoryData<string, string> BeyondTheImportCases()
@@ -190,7 +189,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         var model = TcNativeCorpusTests.Model(body, language);
         if (Refused.TryGetValue(name, out var why))
         {
-            Assert.Contains(why, Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope)).Message);
+            Assert.Contains(why, Assert.ThrowsAny<Exception>(() => TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope)).Message);
             return;
         }
         var built = TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope);

@@ -3,7 +3,7 @@ NETWORK
   out1 := a AND b;
 END_NETWORK
 NETWORK
-  t1(IN := out1, PT := pt);
+  t1 : TON(IN := out1, PT := pt);
 END_NETWORK
 NETWORK
   n := MAX(i1, i2);

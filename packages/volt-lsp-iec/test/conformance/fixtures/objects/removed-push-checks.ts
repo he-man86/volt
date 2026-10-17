@@ -22,10 +22,10 @@ import { NOT_ST } from "../graphical/network-graphical-shared.js"
 const doc = "openspec bridge-refusal-review — What the LSP must pick up (task 5.1)"
 const asSent = "bridge-refusal-review: the item's text as a workspace file holds it — the push writes it as sent"
 
-/** The push's refusal of `rcc_network_eno_without_en` since 2R.3 (P3, DIALECT N21): an operator box shows ENO only with
- *  an EN, so an open line holding one has no text — Volt's reader, before either IDE sees it. */
+/** The push's refusal of `rcc_network_eno_without_en` (X9, v2-measurements 4c: it does not build, "Missing EN pin"): an
+ *  operator box shows ENO only with EN — Volt's reader, before either IDE sees it. */
 const OPERATOR_ENO_WITHOUT_EN =
-  "NETWORK_BAD_EXPRESSION: ADD without EN on an open line: an operator box shows ENO only with EN (N21) — end the line with `;` (P3). — Volt's push, before the IDE is asked (2R.3)"
+  "NETWORK_BAD_EXPRESSION: ENO without EN: the text shows ENO on an enabled box, `MOVE b => a ENO EN c`, or on a function's, `x := f(a) ENO` — an operator's does not build without EN, and an FB's declared ENO and an EXECUTE box's are read with nothing after the box (X9). — Volt's push, before the IDE is asked (2R.6b)"
 
 /** A graphical FB, instantiated in PLC_PRG — the shape of `network-graphical.ts`'s fixtures. */
 function network(
@@ -156,9 +156,9 @@ END_TYPE
   network(
     "rcc_network_eno_without_en",
     "FB_LANG_rcc_nw_eno",
-    "ENO read on an ADD box that has no EN — CODESYS built it and refused it (\"Missing EN pin\"); since 2R.3 the text has no spelling for it (P3, N21)",
+    "ENO read on an ADD box that has no EN — CODESYS built it and refused it (\"Missing EN pin\"); the push refuses it by name (X9)",
     "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "  a ADD b\n  x := ENO;",
+    "  x := a ADD b ENO;",
     { vendorRefuses: { codesys: OPERATOR_ENO_WITHOUT_EN, twincat: OPERATOR_ENO_WITHOUT_EN } },
   ),
 
@@ -187,8 +187,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  FUN_LANG_rcc_twice(a, b)
-  x := ENO;
+  x := FUN_LANG_rcc_twice(a, b) ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK

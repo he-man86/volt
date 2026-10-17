@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-// The network-text injection grammar against network text (readability.md, openspec ld-fbd-coverage 2R.3). The rules are
+// The network-text injection grammar against network text (openspec ld-fbd-coverage 2R.6b, v2-spec.md). The rules are
 // Oniguruma regexes, and every one used here is also a valid JavaScript regex, so they are exercised as written: a
 // rule that stops matching the text the writer writes is a colouring the editor silently loses.
 
@@ -46,27 +46,28 @@ test("the header is NETWORK with its named fields and no order number or languag
 })
 
 test("backticked text is one operand, whatever it holds", () => {
-	expect(matches(rule("variable.other.quoted.vg"), "P := `fc_dinttotime(T.Start,2)` AND `a .b`;")).toEqual([
+	expect(matches(rule("variable.other.quoted.vg"), "P := `fc_dinttotime(T.Start,2)` AND `a .b` AND `a``b`;")).toEqual([
 		"`fc_dinttotime(T.Start,2)`",
 		"`a .b`",
+		"`a``b`",
 	])
 })
 
 test("the edge words are the text's own constructs", () => {
 	const r = rule("keyword.other.construct.vg")
-	expect(matches(r, "MOVE 1 => m EN R_EDGE(b); x := F_EDGE(NOT y);")).toEqual(["R_EDGE", "F_EDGE"])
+	expect(matches(r, "MOVE 1 => m ENO EN R_EDGE b; x := F_EDGE NOT y; z := `R_EDGE`;")).toEqual(["R_EDGE", "F_EDGE"])
 	// …only as the construct: a variable merely containing the word is not one.
 	expect(matches(r, "xR_EDGE := F_EDGE_count;")).toEqual([])
 })
 
-test("a split is its VarId, split<n>, and the pattern alone tells one (B6, P1)", () => {
+test("a split is its VarId, split<n>, and the pattern alone tells one", () => {
 	expect(matches(rule("variable.other.wire.vg"), "split22 := a AND b; x := split22 OR `split5`; mysplit3 := s.split4;")).toEqual(["split22", "split22"])
 })
 
-test("EN, ENO, BRANCH and SHORTCIRCUIT are words of the text; a box is its word (B1-B4, B8)", () => {
-	expect(matches(rule("keyword.other.eno.vg"), "MOVE 0 => x EN c\nlamp := ENO BRANCH (a, b) SHORTCIRCUIT; x := s.ENOUGH OR `EN`;")).toEqual([
-		"EN",
+test("EN, ENO, BRANCH and SHORTCIRCUIT are words of the text; a box is its word", () => {
+	expect(matches(rule("keyword.other.eno.vg"), "y := MOVE 0 => x ENO EN c;\nlamp := a BRANCH (b, c) SHORTCIRCUIT; x := s.ENOUGH OR `EN`;")).toEqual([
 		"ENO",
+		"EN",
 		"BRANCH",
 		"SHORTCIRCUIT",
 	])

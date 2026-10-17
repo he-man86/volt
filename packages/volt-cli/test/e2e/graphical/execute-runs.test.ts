@@ -42,10 +42,9 @@ i := i + 1;
   END_EXECUTE;
 END_NETWORK
 NETWORK
-  EXECUTE EN go
+  done := EXECUTE
 j := j + 1;
-  END_EXECUTE
-  done := ENO;
+          END_EXECUTE ENO EN go;
 END_NETWORK
 
 END_PROGRAM

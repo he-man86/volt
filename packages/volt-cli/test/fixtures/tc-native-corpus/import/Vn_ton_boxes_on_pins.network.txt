@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  t1(IN := (a AND b) OR c, PT := SEL(a, pt, T#2S));
+  t1 : TON(IN := (a AND b) OR c, PT := SEL(a, pt, T#2S));
 END_NETWORK

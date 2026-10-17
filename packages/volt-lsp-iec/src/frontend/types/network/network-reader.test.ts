@@ -192,19 +192,19 @@ END_FUNCTION_BLOCK`
   if (s.kind === "value") expect(networkValueExpr(s.value)?.kind).toBe("call")
 })
 
-test("network text: label, JMP and RETURN are recognised, one item each", () => {
+test("network text: label, JMP and RETURN are recognised, one item each — a jump and a return are coils", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK LABEL: Loop
 out := TRUE;
-JMP Loop;
-RETURN;
+JMP Loop := ;
+RETURN := ;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.label?.text).toBe("Loop") // a network property, not a statement
-  expect(net.statements.map((s) => s.kind)).toEqual(["assign", "jump", "return"])
+  expect(net.statements.map((s) => s.kind)).toEqual(["assign", "assign", "assign"])
 })
 
 test("network text: a colon in a title is not a label, and a single-quoted title is no title", () => {

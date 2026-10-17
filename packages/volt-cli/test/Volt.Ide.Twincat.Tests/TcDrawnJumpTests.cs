@@ -244,7 +244,7 @@ public class TcDrawnJumpTests
     /// is written.</summary>
     [Theory]
     [InlineData("JMP owrods := out := ;", "JMP owrods := out S= ;", Beside, Beside)]
-    [InlineData("  RETURN;", "  RETURN S= ;", "a jump or a return with S= or R=", "a jump or a return with S= or R=")]
+    [InlineData("  RETURN := ;", "  RETURN S= ;", "a jump or a return with S= or R=", "a jump or a return with S= or R=")]
     [InlineData("  done := ???;", "  done := NOT ;", "a negated empty slot", "a negated empty slot")]
     public void An_unmeasured_bit_edit_is_refused_in_place_by_name(string from, string to, string inPlaceShape, string buildShape)
     {
@@ -259,7 +259,7 @@ public class TcDrawnJumpTests
 
     private const string Beside = "a jump or a return beside another coil on one rung";
 
-    /// <summary>…and a negated or edge coil beside a jump is no text at all (gate 2R.5, second round): the shared reader
+    /// <summary>…and a modified coil beside a jump is no text at all (gate 2R.5, second round): the shared reader
     /// refuses it by name on both vendors before any driver sees a model.</summary>
     [Theory]
     [InlineData("JMP owrods := NOT out := ;")]
@@ -268,7 +268,7 @@ public class TcDrawnJumpTests
     {
         var refused = Assert.Throws<NetworkTextException>(() => Apply("JMP owrods := out := ;", to));
         Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, refused.Code);
-        Assert.Contains("a negated or edge coil beside another coil", refused.Message);
+        Assert.Contains("a modified coil beside another coil", refused.Message);
     }
 
     private static string? Apply(string from, string to, System.Func<Network, NetworkScope, XElement>? resolve = null)

@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  ft(CLK := a);
+  ft : F_TRIG(CLK := a);
 END_NETWORK

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Xunit;
 using Volt.Engine.Format.Network;
 using Parallel = Volt.Engine.Format.Network.Parallel;
@@ -14,7 +14,7 @@ public class NetworkModelEqualityTests
 {
     // Built fresh on every call: equal content, distinct list instances.
     static NetworkBody Body(
-        Flags? pinFlags = null, ParallelMode mode = ParallelMode.BoxShortCircuit, int? mainOutput = 0,
+        Flags? pinFlags = null, ParallelMode mode = ParallelMode.BoxShortCircuit, int? connected = 0,
         int? outSlot = 1, string? outType = "INT") =>
         new(BodyLanguage.Ld, new List<Network>
         {
@@ -25,7 +25,7 @@ public class NetworkModelEqualityTests
                         new List<Input> { new(null, new Leaf(new Operand("src"), Flags.None), pinFlags ?? Flags.None) },
                         new List<Output> { new(null, new Operand("dst"), outSlot) },
                         new Leaf(new Operand("c"), Flags.None), null, Flags.None,
-                        MainOutputIndex: mainOutput, ConnectedSlot: 0,
+                        ConnectedSlot: connected, HasEnoOutput: true,
                         OutputTypes: new List<string?> { "BOOL", outType }),
                     new List<Operand> { new("lamp", IsLValue: true) }, Flags.None),
                 // A coil fed by a Parallel — the rung shape. (This was a Terminator holding the Parallel, a shape
@@ -58,8 +58,8 @@ public class NetworkModelEqualityTests
     {
         Assert.StartsWith("Networks[0].Trees[1].Value.Mode:",
             NetworkModelEquality.FirstDifference(Body(mode: ParallelMode.Sequential), Body()));
-        Assert.StartsWith("Networks[0].Trees[0].Value.MainOutputIndex:",
-            NetworkModelEquality.FirstDifference(Body(mainOutput: null), Body()));
+        Assert.StartsWith("Networks[0].Trees[0].Value.ConnectedSlot:",
+            NetworkModelEquality.FirstDifference(Body(connected: null), Body()));
         Assert.StartsWith("Networks[0].Trees[0].Value.Outputs[0]:",
             NetworkModelEquality.FirstDifference(Body(outSlot: null), Body()));
         Assert.StartsWith("Networks[0].Trees[0].Value.OutputTypes[1]:",

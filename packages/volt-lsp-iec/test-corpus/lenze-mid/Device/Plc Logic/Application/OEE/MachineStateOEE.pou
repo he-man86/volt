@@ -5,10 +5,10 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK TITLE: "DONE NETWORK 49: State of the machine"
   split22 := TRUE;
-  MOVE eStates.Aborted => GVL_OEE_Var.eStatus_States EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm);
+  MOVE eStates.Aborted => GVL_OEE_Var.eStatus_States ENO EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm);
   split23 := split22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
-  MOVE eStates.Stopped => GVL_OEE_Var.eStatus_States EN split23 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto;
-  MOVE eStates.Execute => GVL_OEE_Var.eStatus_States EN split23 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto);
+  MOVE eStates.Stopped => GVL_OEE_Var.eStatus_States ENO EN split23 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto;
+  MOVE eStates.Execute => GVL_OEE_Var.eStatus_States ENO EN split23 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto);
 END_NETWORK
 
 END_PROGRAM

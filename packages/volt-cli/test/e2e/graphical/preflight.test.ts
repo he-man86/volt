@@ -40,20 +40,15 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 		 "IMPLEMENTATION FBD", "NETWORK", "  out := a AND b;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	/**
-	 * …and one calling an element of an array of INTs as an FB INSTANCE, `` `ints[1]`(IN := a) ``. A call head is read
-	 * against the declarations: an element of an array of FBs is an instance of the element type (ld-fbd-coverage 2R.5,
-	 * `fbs[1]`), and an element of anything else is no instance and no POU name, so the spec refuses it with
-	 * `NETWORK_UNSUPPORTED` rather than read it as a function of that name — on both vendors, from the text alone.
-	 *
-	 * (Network text v1 used `t1(IN := a, PT := pt)` with `t1` undeclared. In v2 a bare name that no declaration makes
-	 * an instance IS a function call, as in ST — the text cannot tell it from a library function the project does not
-	 * declare — so that shape is no longer a refusal the text decides; the build reports the missing POU.)
+	 * …and one holding a tree the vendor stores and does not build: an operator box with EN read through its ENO, its
+	 * value wired nowhere (`x := MOVE 1 ENO EN a;`, X3) — refused by name with `NETWORK_UNSUPPORTED` on both vendors, from
+	 * the text alone.
 	 */
 	const broken = (name: string) =>
-		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tints : ARRAY[1..2] OF INT;", "END_VAR",
-		 "IMPLEMENTATION FBD", "NETWORK", "  `ints[1]`(IN := a);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tx : BOOL;", "END_VAR",
+		 "IMPLEMENTATION FBD", "NETWORK", "  x := MOVE 1 ENO EN a;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
-	it("a create refused for an unresolvable FB instance leaves the item before it unwritten", async () => {
+	it("a create refused for a shape the vendor does not build leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
 		const first = fid("pf_ok", "pou")
 		const second = fid("pf_bad", "pou")
@@ -67,8 +62,8 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 			{ op: "set", name: second, toFolder: "", sourceText: broken(id("pf_bad")), ifVersion: null },
 		])
 
-		expect(r.accepted, "the unresolvable FB instance was ACCEPTED — the driver learned it, update this test").toBe(false)
-		expect(JSON.stringify(r.conflicts ?? []), "the refusal names neither the call nor its type").toMatch(/FB instance/i)
+		expect(r.accepted, "the unbuildable shape was ACCEPTED — update this test").toBe(false)
+		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the shape").toMatch(/an operator box read through its ENO with no output wired/)
 
 		// THE ASSERTION. Not "the push failed" — that was already true while half of it landed.
 		const after = (await bridge.refs()).items ?? {}

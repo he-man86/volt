@@ -296,6 +296,9 @@ public static class StDeclaration
         return string.Join("\n", parts);
     }
 
+    /// <summary>The base the declaration's <c>EXTENDS</c> names, or null — <see cref="BasesOf"/>'s first.</summary>
+    public static string? BaseOf(string? declaration) => BasesOf(declaration).FirstOrDefault();
+
     /// <summary>Every base an <c>EXTENDS</c> clause outside a VAR block names, in order, comments stripped — the header
     /// may wrap the clause onto its own line, as CODESYS stores it, and nothing inside a VAR block may answer for a
     /// header (a variable's type is no base). The ONE scanner of the clause: <c>SUPER^</c> and the inherited scope ask

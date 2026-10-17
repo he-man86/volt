@@ -41,18 +41,17 @@ END_FUNCTION_BLOCK`
 })
 
 test("network text: R_EDGE / F_EDGE are flags on their operand, not calls of something undeclared", () => {
-  // v1 left an edge as a trailing RISING/FALLING word in the operand, which this check had to skip by name. v2 spells
-  // it `R_EDGE(x)`, a flag with no ST reading, so no word of the text ever reaches the undeclared check.
+  // An edge is a prefix, `R_EDGE x`: a flag with no ST reading, so no word of the text ever reaches the undeclared check.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; a : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
-out := R_EDGE(a);
-out := F_EDGE(NOT a);
+out := R_EDGE a;
+out := F_EDGE NOT a;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(src)).toEqual([])
-  expect(vgUndeclared(src.replace("R_EDGE(a)", "R_EDGE(nope)"))).toEqual(["Identifier 'nope' not defined"]) // the operand still is checked
+  expect(vgUndeclared(src.replace("R_EDGE a;", "R_EDGE nope;"))).toEqual(["Identifier 'nope' not defined"]) // the operand still is checked
 })
 
 test("network text: a referenced library's namespace resolves when its manifest is bound", () => {

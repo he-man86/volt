@@ -117,7 +117,8 @@ public class TcNwlCompletenessOracleTests
 
         // The corpus pulls no TwinCAT body UNSUPPORTED (census 0.1): a refusal here is a red test, not an outcome.
         var text = NetworkTextWriter.Write(TcNetworkReader.Read(impl, language), body.Scope);
-        var back = NetworkTextReader.Read(text, body.Scope);
+        // Read back as the push reads it: the gate, the declarations' derivations included (a `.name` read's slot).
+        var back = NetworkTextGate.Validate(text, body.Scope);
         Assert.True(back.Ok, $"{id}: the text the writer wrote does not read back:\n{text}");
         body.Back = back.Body!;
         return body;
@@ -312,12 +313,15 @@ public class TcNwlCompletenessOracleTests
         new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 4, 8, "2.2 nwl-flags-fixed (R)"),
         new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.2 nwl-operand-boolean (R)"),
         new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 4, 5, "2.2 nwl-operand-type (R)"),
+        new("Flags.Fixed in BoxTreeBox.OutputItems.OutputItems.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R) — 2R.6b: on the unwired ET slot a TON read by `.Q` is built with"),
+        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 2, 2, "2.2 nwl-operand-type (R) — 2R.6b: on the unwired ET slot a TON read by `.Q` is built with"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 2, 4, "2R.6b: the outputs a TON read by `.Q` is built with have Volt's '' types, as CODESYS's ledger holds"),
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
         new("Operand.Type in BoxTreeOperand.Operand — changed", 4, 8, "2.2 nwl-operand-type (R); 2R.3 (B6): a leaf feeding a split no longer takes its stored type (no split type in the text), as on CODESYS"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 3, 4, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 1, 2, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 1, 2, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
         new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: the types of the output names above, which go with them"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 1, 2, "2R.3 B7 L: the types of the output names above, which go with them — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
         new("NWLImplementationObject.BranchCounter — changed", 1, 1, "the VarId allocator: a create starts it at the highest VarId it holds (1 for none)"),
     };
 
@@ -332,11 +336,14 @@ public class TcNwlCompletenessOracleTests
         new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 4, 8, "2.2 nwl-flags-fixed (R)"),
         new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.2 nwl-operand-boolean (R)"),
         new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 4, 5, "2.2 nwl-operand-type (R)"),
+        new("Flags.Fixed in BoxTreeBox.OutputItems.OutputItems.Flags — changed", 2, 2, "2.2 nwl-flags-fixed (R) — 2R.6b: on the unwired ET slot a TON read by `.Q` is built with"),
+        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 2, 2, "2.2 nwl-operand-type (R) — 2R.6b: on the unwired ET slot a TON read by `.Q` is built with"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 2, 4, "2R.6b: the outputs a TON read by `.Q` is built with have Volt's '' types, as CODESYS's ledger holds"),
         new("Operand.Type in BoxTreeBox.Instance — changed", 2, 2, "2.2 nwl-instance-type (R)"),
         new("Operand.Type in BoxTreeOperand.Operand — changed", 4, 8, "2.2 nwl-operand-type (R); 2R.3 (B6): a leaf feeding a split no longer takes its stored type (no split type in the text), as on CODESYS"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 3, 4, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 1, 2, "2R.3 B7 L: a call's stored slots beyond its text pins where its callee is an FB (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 1, 2, "2R.3 B7 L: an FB's stored output names beyond its text pins (TON ['Q', 'ET']) — lost on rebuild and named (RebuildLoss), as CODESYS's ledger holds — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
         new("ParamList.Types in BoxTreeBox.InputParam — changed", 2, 4, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 3, 4, "2R.3 B7 L: the types of the output names above, which go with them"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 1, 2, "2R.3 B7 L: the types of the output names above, which go with them — 2R.6b: a TON read by `.Q` is built with every output its declaration names, so 2 closed"),
     };
 }

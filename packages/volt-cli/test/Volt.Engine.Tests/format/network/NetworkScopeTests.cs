@@ -129,9 +129,9 @@ public class NetworkScopeTests
     /// <summary>The call head's FB type comes from the declaration that makes the instance: the owner's member in a
     /// method, a GVL's bare global, and a qualified path through a GVL and a struct.</summary>
     [Theory]
-    [InlineData("t1(IN := a);", "t1", "TON")]
-    [InlineData("fbGlobal(IN := a);", "fbGlobal", "TOF")]
-    [InlineData("Machine.timers.offDelay(IN := a);", "Machine.timers.offDelay", "TOF")]
+    [InlineData("t1 : TON(IN := a);", "t1", "TON")]
+    [InlineData("fbGlobal : TOF(IN := a);", "fbGlobal", "TOF")]
+    [InlineData("Machine.timers.offDelay : TOF(IN := a);", "Machine.timers.offDelay", "TOF")]
     public void An_FB_instance_takes_its_type_from_its_declaration(string statement, string instance, string type)
     {
         var r = Gate(Src(statement), InMethod);
@@ -171,24 +171,25 @@ public class NetworkScopeTests
 
     // ── a POU named like a construct (task 3.6) ─────────────────────────────────────────────────
 
-    /// <summary>Spec, "a POU named like an edge word": with a FUNCTION named <c>R_EDGE</c> in the project, both the
-    /// bare call and the backticked head are refused at the call — the text reads <c>R_EDGE(x)</c> as the edge.</summary>
-    [Theory]
-    [InlineData("out := R_EDGE(x);")]
-    [InlineData("out := `R_EDGE`(x);")]
-    public void A_project_function_named_R_EDGE_makes_its_call_unspellable(string statement)
+    /// <summary>An edge is a prefix and a call names its callee: with a FUNCTION named <c>R_EDGE</c> in the project, its
+    /// call is the backticked head, and <c>R_EDGE x</c> stays the edge.</summary>
+    [Fact]
+    public void A_project_function_named_R_EDGE_is_called_by_its_backticked_name()
     {
-        var r = Gate(Src(statement), ScopeOf(SourceScopes.Scope(Method, Owner), withEdgeFunction: true));
-
-        Assert.False(r.Ok);
-        Assert.Equal("NETWORK_UNSUPPORTED", Assert.Single(r.Diagnostics).Code);
+        var scope = ScopeOf(SourceScopes.Scope(Method, Owner), withEdgeFunction: true);
+        var call = Gate(Src("out := `R_EDGE`(x := x);"), scope);
+        Assert.True(call.Ok, string.Join("\n", call.Diagnostics.Select(d => d.Message)));
+        Assert.Equal("R_EDGE", Assert.IsType<Box>(Assert.IsType<Assign>(call.Body!.Networks[0].Trees[0]).Value).Type);
+        var edge = Gate(Src("out := R_EDGE x;"), scope);
+        Assert.True(edge.Ok);
+        Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(edge.Body!.Networks[0].Trees[0]).Value).Flags.Rising);
     }
 
     /// <summary>…and the same text is the edge flag when no POU takes the name.</summary>
     [Fact]
     public void Without_such_a_POU_R_EDGE_is_the_edge()
     {
-        var r = Gate(Src("out := R_EDGE(x);"), InMethod);
+        var r = Gate(Src("out := R_EDGE x;"), InMethod);
 
         Assert.True(r.Ok);
         Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Value).Flags.Rising);
@@ -209,25 +210,23 @@ public class NetworkScopeTests
         var scope = ScopeOf(Derived);
         Assert.Equal("Standard.TON", scope.InstanceType("t2"));
 
-        var r = NetworkTextGate.Validate(LdSrc("t2(IN := a);"), scope);
+        var r = NetworkTextGate.Validate(LdSrc("t2 : Standard.TON(IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
         Assert.Equal(("t2", "Standard.TON"), (box.Instance!.Text, box.Type));
     }
 
-    /// <summary>…and a pulled box of that instance is written, whether the vendor stores the type bare (<c>TON</c>)
-    /// or as declared: a declaration naming a type through its namespace names the type the box calls. It went to
-    /// the marker as "an FB instance declared with another type". The written text reads back as the same model
-    /// (spec, <c>Read(Write(m)) ≅ m</c>): the reader takes the type in the declaration's spelling, and that spelling
-    /// is a fact the text does not carry (<see cref="NetworkTextFacts"/>).</summary>
+    /// <summary>…and a pulled box of that instance is written with the type the vendor stores, bare (<c>TON</c>) or as
+    /// declared: a declaration naming a type through its namespace names the type the box calls, so the two are one type
+    /// and no refusal (<c>StDeclaration.SameType</c>).</summary>
     [Theory]
     [InlineData("TON", Derived)]
     [InlineData("Standard.TON", Derived)]
     [InlineData("Standard.TON", "FUNCTION_BLOCK FB\nVAR\n    a : BOOL;\n    t2 : TON;\nEND_VAR")]
     public void A_pulled_box_of_a_namespace_qualified_instance_is_written(string storedType, string declaration) =>
         RoundTrips(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: storedType)), ScopeOf(declaration),
-                   LdSrc("t2(IN := a);"));
+                   LdSrc($"t2 : {storedType}(IN := a);"));
 
     /// <summary>Write, compare the text, read it back against the same scope, and compare the model as the oracle
     /// does — so a test of what the writer accepts also proves what the reader rebuilds from it.</summary>
@@ -254,7 +253,7 @@ public class NetworkScopeTests
     [Fact]
     public void An_instance_type_differing_only_in_case_is_the_same_type() =>
         RoundTrips(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
-            ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("T1(IN := a);"));
+            ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("T1 : TON(IN := a);"));
 
     const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\n    split3 : BOOL;\nEND_VAR";
     const string Child = "FUNCTION_BLOCK FB_Child EXTENDS FB_Base\nVAR\n    a : BOOL;\nEND_VAR";
@@ -280,7 +279,7 @@ public class NetworkScopeTests
         var scope = InChild(where);
         Assert.Equal("TON", scope.InstanceType("tBase"));
 
-        var r = NetworkTextGate.Validate(LdSrc("tBase(IN := a);"), scope);
+        var r = NetworkTextGate.Validate(LdSrc("tBase : TON(IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
@@ -292,7 +291,7 @@ public class NetworkScopeTests
     [Theory]
     [MemberData(nameof(InheritingBodies))]
     public void A_pulled_call_of_an_inherited_instance_is_written(string where) =>
-        Assert.Equal(LdSrc("tBase(IN := a);"),
+        Assert.Equal(LdSrc("tBase : TON(IN := a);"),
             NetworkTextWriter.Write(Ld1(Fb("tBase", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")), InChild(where)));
 
     /// <summary>One case-insensitive set of names for the WRITER: every name in scope, an inherited member too — a split
@@ -390,7 +389,7 @@ public class NetworkScopeTests
         var scope = InProgram("t1 : FB_Broken;");
         Assert.Equal("FB_Broken", scope.InstanceType("t1"));
 
-        var r = NetworkTextGate.Validate(LdSrc("t1(IN := a);"), scope);
+        var r = NetworkTextGate.Validate(LdSrc("t1 : FB_Broken(IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
@@ -448,9 +447,9 @@ public class NetworkScopeTests
             _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
         Assert.False(scope.IsCallable(word));
-        var r = NetworkTextGate.Validate(Src("out := R_EDGE(x);"), scope);
+        var r = NetworkTextGate.Validate(Src("out := R_EDGE x;"), scope);
         Assert.True(r.Ok, Diagnostics(r));
-        Assert.Equal(Src("out := R_EDGE(x);"), NetworkTextWriter.Write(r.Body!, scope));
+        Assert.Equal(Src("out := R_EDGE x;"), NetworkTextWriter.Write(r.Body!, scope));
     }
 
     /// <summary>2R.5 (awkward-sweep #17): a call head is any variable reference — an ELEMENT of an array of FBs is an instance

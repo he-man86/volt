@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  ctd1(CD := a, LOAD := b, PV := i1);
+  ctd1 : CTD(CD := a, LOAD := b, PV := i1);
 END_NETWORK

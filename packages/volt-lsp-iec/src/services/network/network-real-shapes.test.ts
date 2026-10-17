@@ -48,10 +48,10 @@ END_FUNCTION_BLOCK
 // one project; half the ladders there have one. Every form below is real content.
 
 const EMPTY_SLOT_FORMS: ReadonlyArray<[string, string]> = [
-  ["a missing left operand", "IMPLEMENTATION FBD\nNETWORK\n  iDec := MUL(, iRPM, 6);\nEND_NETWORK"],
-  ["missing named-argument values", "IMPLEMENTATION FBD\nNETWORK\n  ctu(CU := a, RESET := , PV := );\nEND_NETWORK"],
-  ["a missing leading positional", "IMPLEMENTATION FBD\nNETWORK\n  MOVE(, iDec);\nEND_NETWORK"],
-  ["a missing trailing positional", "IMPLEMENTATION FBD\nNETWORK\n  MOVE(iRPM, );\nEND_NETWORK"],
+  ["a missing left operand", "IMPLEMENTATION FBD\nNETWORK\n  iDec := MUL iRPM MUL 6;\nEND_NETWORK"],
+  ["missing named-argument values", "IMPLEMENTATION FBD\nNETWORK\n  ctu : CTU(CU := a, RESET := , PV := );\nEND_NETWORK"],
+  ["MOVE's operand missing", "IMPLEMENTATION FBD\nNETWORK\n  MOVE => iDec;\nEND_NETWORK"],
+  ["a missing trailing positional", "IMPLEMENTATION FBD\nNETWORK\n  iDec := LIMIT(0, iRPM, );\nEND_NETWORK"],
   ["an unwired coil", "IMPLEMENTATION LD\nNETWORK\n  coil := ;\nEND_NETWORK"],
   ["a bare statement terminator", "IMPLEMENTATION LD\nNETWORK\n  ;\nEND_NETWORK"],
 ]
@@ -64,26 +64,26 @@ for (const [what, network] of EMPTY_SLOT_FORMS) {
 }
 
 // ── §2.4 a positional call may stand alone as a statement ─────────────────────────────────────
-// A box whose output goes nowhere IS a statement — `MOVE(g0, iDec);`, 34 networks in one project. Any rule that
-// assumed a bare call is an FB-instance invocation, and that a missing `PIN :=` is a mistake, is wrong.
+// A box whose output goes nowhere IS a statement — 34 networks in one project. Any rule that assumed a bare call is an
+// FB-instance invocation, and that a missing `PIN :=` is a mistake, is wrong.
 
 test("a standalone positional call is a statement, not a malformed FB call", () => {
-  const errors = diags(wrap("IMPLEMENTATION FBD\nNETWORK\n  MOVE(iRPM, iDec);\nEND_NETWORK")).filter((d) => d.severity === "error")
+  const errors = diags(wrap("IMPLEMENTATION FBD\nNETWORK\n  LIMIT(0, iRPM, iDec);\nEND_NETWORK")).filter((d) => d.severity === "error")
   expect(errors.map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
 test("a standalone call mixing a split and a variable is accepted", () => {
-  const src = wrap("IMPLEMENTATION FBD\nNETWORK\n  split1 := a AND b;\n  MOVE(split1, iDec);\nEND_NETWORK")
+  const src = wrap("IMPLEMENTATION FBD\nNETWORK\n  split1 := iRPM ADD 1;\n  LIMIT(split1, iRPM, iDec);\nEND_NETWORK")
   const errors = diags(src).filter((d) => d.severity === "error")
   expect(errors.map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
 // ── the modifier / box distinction, which turns on a single space ─────────────────────────────
-// `NOT x` is the negation MODIFIER (a dot on the pin); `NOT(IN := x)` is a BOX named NOT (P5: it names its input, so
-// it is no redundant bracket). Both are real, so the LSP must accept both without complaint.
+// `NOT x` is the negation MODIFIER (a dot on the pin); `` `NOT`(x) `` is a BOX named NOT, its backticked call. Both are
+// real, so the LSP must accept both without complaint.
 
 test("both spellings of NOT are accepted", () => {
-  for (const form of ["out := NOT a;", "out := NOT(IN := a);"]) {
+  for (const form of ["out := NOT a;", "out := `NOT`(a);"]) {
     const errors = diags(wrap(`IMPLEMENTATION FBD
 NETWORK\n  ${form}\nEND_NETWORK`)).filter((d) => d.severity === "error")
     expect(errors.map((d) => `${form} -> ${d.code}: ${d.message}`)).toEqual([])
@@ -97,7 +97,7 @@ NETWORK\n  ${form}\nEND_NETWORK`)).filter((d) => d.severity === "error")
 test("a backticked operand is ONE operand, checked as the ST its text is", () => {
   // An operand whose text is not one token (`DINT_TO_REAL(iRPM)`) is ONE vendor operand; v1 hoisted it into a
   // `LET i<n>`, v2 backticks it in place. Its text is still ST, so an undeclared name inside it is still reported.
-  const src = wrap("IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := `DINT_TO_TIME(iRPM)`);\nEND_NETWORK")
+  const src = wrap("IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := `DINT_TO_TIME(iRPM)`);\nEND_NETWORK")
   const errors = diags(src).filter((d) => d.severity === "error")
   expect(errors.map((d) => `${d.code}: ${d.message}`)).toEqual([])
   expect(diags(src.replace("DINT_TO_TIME(iRPM)", "DINT_TO_TIME(nope)")).map((d) => d.message)).toContain("Identifier 'nope' not defined")
@@ -128,7 +128,7 @@ test("an unresolved box operand gets BOTH of the compiler's messages", () => {
 })
 
 test("an unresolved box on an INPUT PIN reads as an operand too", () => {
-  expect(messagesOf(wrap("IMPLEMENTATION FBD\nNETWORK\n  ctu(CU := ???, RESET := , PV := );\nEND_NETWORK"))).toEqual(
+  expect(messagesOf(wrap("IMPLEMENTATION FBD\nNETWORK\n  ctu : CTU(CU := ???, RESET := , PV := );\nEND_NETWORK"))).toEqual(
     [OPERAND_MSG, OPERAND_TOKEN_MSG].sort(),
   )
 })
@@ -232,7 +232,7 @@ test("a comment after a statement is refused, never moved", () => {
 
 test("the canonical shape — header, then comment — says only what the build says", () => {
   const src = wrap(
-    'IMPLEMENTATION LD\nNETWORK LABEL: Guard TITLE: "interlock"\n  // holds the drive off\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  JMP Guard;\nEND_NETWORK',
+    'IMPLEMENTATION LD\nNETWORK LABEL: Guard TITLE: "interlock"\n  // holds the drive off\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  JMP Guard := ;\nEND_NETWORK',
   )
   expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
@@ -247,7 +247,7 @@ test("several comment LINES before the first statement are NOT reported", () => 
 test("the label/comment ordering question no longer exists; the header's fields have one order", () => {
   // The label is a header field and the comment the lines after the header, so neither can precede the other. The
   // FIELDS are `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]` in that order (P10), so a title before the label is refused.
-  const jumps = "\nNETWORK\n  JMP Guard;\nEND_NETWORK"
+  const jumps = "\nNETWORK\n  JMP Guard := ;\nEND_NETWORK"
   const labelFirst = wrap('IMPLEMENTATION LD\nNETWORK LABEL: Guard TITLE: "t"\n  // why\n  out := a;\nEND_NETWORK' + jumps)
   const titleFirst = wrap('IMPLEMENTATION LD\nNETWORK TITLE: "t" LABEL: Guard\n  // why\n  out := a;\nEND_NETWORK' + jumps)
   expect(diags(labelFirst).map((d) => d.code)).toEqual([])
@@ -282,7 +282,7 @@ test("an output pin wired to ??? is the vendor's unconnected result pin, and no 
   for (const pin of ["=> ???", "Q => ???"]) {
     const src = wrap(`IMPLEMENTATION FBD
 NETWORK
-  t1(IN := a, PT := T#1s, ${pin});
+  t1 : TON(IN := a, PT := T#1s, ${pin});
 END_NETWORK`)
     expect(diags(src).map((d) => `${d.code}: ${d.message}`), pin).toEqual([])
   }
@@ -297,16 +297,16 @@ END_NETWORK`)).map((d) => d.message)
   // Recorded (`network_unnamed_target_of_void_call` / `_of_valued_call`, SP21, re-recorded 2026-10-16 on the box
   // 2R.3's push builds): a call read through its ENO answers "The assignment target is not specified." — the target,
   // not the source the pre-2R.3 box drew.
-  expect(lsp("PRG_callee() EN a\n  ??? := ENO;")).toEqual([TARGET_MSG])
+  expect(lsp("??? := PRG_callee() ENO EN a;")).toEqual([TARGET_MSG])
   // The coil over the call's own value has no recording: nothing is emitted (a coverage gap, never a guess).
   expect(lsp("??? := PRG_callee();")).toEqual([])
   // …and over anything that is not a real call it still is.
-  expect(unresolved(wrap("IMPLEMENTATION LD\nNETWORK\n  ??? := NOT(IN := a);\nEND_NETWORK")).map((d) => d.message)).toEqual([TARGET_MSG])
+  expect(unresolved(wrap("IMPLEMENTATION LD\nNETWORK\n  ??? := `NOT`(a);\nEND_NETWORK")).map((d) => d.message)).toEqual([TARGET_MSG])
 })
 
 test("a box's output, by its data pin or its ENO, is not an ST assignment the LSP types", () => {
-  // `x := MOVE src` / `x := ENO` / `MOVE src => x` are wires from a box pin, whose type the IDE owns.
-  for (const statement of ["MOVE coil => iDec EN a\n  iRPM := ENO;", "MOVE coil => iRPM;", "iRPM := MOVE coil;"]) {
+  // `x := MOVE src` / `x := MOVE src ENO EN c` / `MOVE src => x` are wires from a box pin, whose type the IDE owns.
+  for (const statement of ["iRPM := MOVE coil => iDec ENO EN a;", "MOVE coil => iRPM;", "iRPM := MOVE coil;"]) {
     const src = wrap(`IMPLEMENTATION FBD
 NETWORK
   ${statement}
@@ -318,10 +318,10 @@ END_NETWORK`)
 // ── found by re-measuring the v2 corpus (task 5.5): shapes v2 spells that v1 never reached the checks with ──────────
 
 test("an FB instance reached through a path heads a call, and is no undeclared identifier", () => {
-  // lenze-mid calls its timers as `Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := …)` — an instance inside a
-  // struct inside a GVL. The head was read as ONE identifier named by the whole path, which nothing declares.
+  // A real project calls its timers through a path — an instance inside a struct inside a GVL. The head was read as ONE
+  // identifier named by the whole path, which nothing declares.
   const src = `TYPE Timers : STRUCT t1 : TON; END_STRUCT END_TYPE
-` + wrap("IMPLEMENTATION FBD\nNETWORK\n  timers.t1(IN := a, PT := T#1s);\n  timers.t1(IN := a, PT := T#1s)\n  coil := ENO;\nEND_NETWORK").replace("\tt1 : TON;", "\tt1 : TON;\n\ttimers : Timers;")
+` + wrap("IMPLEMENTATION FBD\nNETWORK\n  timers.t1 : TON(IN := a, PT := T#1s);\n  coil := timers.t1 : TON(IN := a, PT := T#1s);\nEND_NETWORK").replace("\tt1 : TON;", "\tt1 : TON;\n\ttimers : Timers;")
   expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
@@ -339,7 +339,7 @@ END_FUNCTION_BLOCK
 test("a chained assignment reports a hole in its value once", () => {
   // One value, several targets: a message per target lands on the SAME range with the same code, which the corpus
   // gate forbids and no build was measured to give.
-  const got = diags(wrap("IMPLEMENTATION LD\nNETWORK\n  coil :=\n  out := nope;\nEND_NETWORK")).filter(
+  const got = diags(wrap("IMPLEMENTATION LD\nNETWORK\n  coil :=\n    out := nope;\nEND_NETWORK")).filter(
     (d) => d.code === "network-unknown-source",
   )
   expect(got).toHaveLength(1)
@@ -348,6 +348,6 @@ test("a chained assignment reports a hole in its value once", () => {
 test("a chained assignment type-checks its value against EVERY target", () => {
   // One value written to several targets is several assignments: pairing it with the last target only hid a
   // mismatch against any earlier one. Only the hole — a fact about the VALUE — is reported once.
-  const got = diags(wrap("IMPLEMENTATION LD\nNETWORK\n  iRPM :=\n  coil := a;\nEND_NETWORK"))
+  const got = diags(wrap("IMPLEMENTATION LD\nNETWORK\n  iRPM :=\n    coil := a;\nEND_NETWORK"))
   expect(got.map((d) => d.message)).toContain("Cannot convert type 'BOOL' to type 'INT'")
 })

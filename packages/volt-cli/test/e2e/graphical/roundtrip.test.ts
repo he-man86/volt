@@ -122,7 +122,7 @@ END_PROGRAM
 }
 
 // An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (the EN pin,
-// `EXECUTE EN bRun`), holding real multi-statement, commented ST. Exercises the full round-trip: NetworkTextReader
+// `END_EXECUTE ENO EN bRun`), holding real multi-statement, commented ST. Exercises the full round-trip: NetworkTextReader
 // detects `EXECUTE … END_EXECUTE`, GraphWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
 // re-push is byte-identical (the ST is carried verbatim).
 function executeProgram(name: string) {
@@ -133,11 +133,11 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE EN bRun
+  EXECUTE
   IF bRun THEN
 \tiResult := 40 + 2;   (* the answer *)
   END_IF
-  END_EXECUTE;
+  END_EXECUTE ENO EN bRun;
 END_NETWORK
 
 END_PROGRAM
@@ -159,9 +159,9 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE EN bRun
+  EXECUTE
 
-  END_EXECUTE;
+  END_EXECUTE ENO EN bRun;
 END_NETWORK
 
 END_PROGRAM

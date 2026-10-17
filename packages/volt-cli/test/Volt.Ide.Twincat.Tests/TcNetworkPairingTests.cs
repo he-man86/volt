@@ -99,7 +99,7 @@ public class TcNetworkPairingTests
         var before = NetworkXml(body);
         var pushed = Pushed(body, t =>
         {
-            Assert.Contains("UNSUPPORTED \"a flag on a box input pin\";", t);
+            Assert.Matches("UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};", t);
             return t.Replace("NETWORK DISABLED", "NETWORK DISABLED TITLE: \"edited\"");
         });
 
@@ -135,8 +135,8 @@ public class TcNetworkPairingTests
         var body = VendorBody(pinFlagOnFirst: true);
         var pushed = Pushed(body, t =>
         {
-            const string line = "  UNSUPPORTED \"a flag on a box input pin\";\n";
-            Assert.Contains(line, t);
+            var line = System.Text.RegularExpressions.Regex.Match(t, "  UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};\n").Value;
+            Assert.NotEqual("", line);
             if (edit == "emptied") return t.Replace(line, "");
             var parts = t.Substring("IMPLEMENTATION FBD\n".Length).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.RemoveEmptyEntries);
             return "IMPLEMENTATION FBD\n" + parts[1] + "END_NETWORK\n" + parts[0] + "END_NETWORK\n";

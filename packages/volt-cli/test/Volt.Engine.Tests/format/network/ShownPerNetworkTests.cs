@@ -11,10 +11,10 @@ using static Volt.Engine.Tests.NetworkModels;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// openspec <c>ld-fbd-coverage</c> 1b.4 (design "Shown always, refused per network"): no LD/FBD body is UNSUPPORTED for
-/// one network. (a) S4 — a call box consumed by a main output that is not slot 0 — is spelled <c>fb(…).name</c>, the name
-/// the box itself stores; (b) a network whose trees the text cannot spell is shown as its header, its comment and the one
-/// line <c>UNSUPPORTED "&lt;shape&gt;";</c>; (c) a push pairs the live and pushed networks by TEXT
+/// openspec <c>ld-fbd-coverage</c> 1b.4 (design "Shown always, refused per network"), in network text v2.1: (a) every FB
+/// consumer reading a data output names it, <c>t : TYPE(…).name</c>, the name the box itself stores; (b) a network whose
+/// trees the text cannot spell is shown as its header, its comment and the one line
+/// <c>UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;;</c>; (c) a push pairs the live and pushed networks by TEXT
 /// (<see cref="NetworkPairing"/>), so only a changed network is rebuilt and only a changed unbuildable one refused.
 /// </summary>
 public class ShownPerNetworkTests
@@ -22,87 +22,82 @@ public class ShownPerNetworkTests
     static readonly NetworkScope Scope = new(new[] { "src", "out", "x", "a", "b", "c", "done", "UNSUPPORTED" },
         Array.Empty<string>(), new Dictionary<string, string> { ["fbCap"] = "L_FECA.L_FirstFASTErrCapture", ["t1"] = "TON" });
 
-    /// <summary>census 1.6's Lenze box: main output 1 (<c>xErrorActive</c>), slot 0 (<c>xBusy</c>) unwired.</summary>
+    const string CaptureCall = "fbCap : L_FECA.L_FirstFASTErrCapture";
+
+    /// <summary>census 1.6's Lenze box: read through output slot 1 (<c>xErrorActive</c>), slot 0 (<c>xBusy</c>) unwired.</summary>
     static Box Capture(Node feed) =>
         new("L_FECA.L_FirstFASTErrCapture", new Operand("fbCap", IsInstance: true), CallKind.FunctionBlock,
             new[] { In(feed, "xEnable") }, new List<Output>(), null, null, Flags.None,
-            MainOutputIndex: 1, ConnectedSlot: 1, HasEnoOutput: false, MainOutputName: "xErrorActive");
+            ConnectedSlot: 1, HasEnoOutput: false, MainOutputName: "xErrorActive");
 
     static NetworkBody One(params Node[] trees) => Fbd1(trees);
 
-    // ── (a) S4: the named main output ────────────────────────────────────────────────────────────
+    // ── (a) an FB read by a named output ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void A_main_output_other_than_slot_0_is_spelled_by_the_name_the_box_stores()
+    public void An_FB_read_by_a_data_output_is_spelled_by_the_name_the_box_stores()
     {
         var model = One(Set(Capture(L("src")), T("out")));
-        Assert.Equal(FbdMarker + "NETWORK\n  out := fbCap(xEnable := src).xErrorActive;\nEND_NETWORK\n",
+        Assert.Equal(FbdMarker + $"NETWORK\n  out := {CaptureCall}(xEnable := src).xErrorActive;\nEND_NETWORK\n",
             NetworkTextWriter.Write(model, Scope));
+        var slot0 = Capture(L("src")) with { ConnectedSlot = 0, MainOutputName = "xBusy" };
+        Assert.Equal(FbdMarker + $"NETWORK\n  out := {CaptureCall}(xEnable := src).xBusy;\nEND_NETWORK\n",
+            NetworkTextWriter.Write(One(Set(slot0, T("out"))), Scope));
     }
 
     [Fact]
-    public void A_named_main_output_reads_back_as_the_name_and_no_slot()
+    public void A_named_output_reads_back_as_the_name_and_no_slot()
     {
-        var read = NetworkTextReader.Read(Src("out := fbCap(xEnable := src).xErrorActive;"), Scope);
+        var read = NetworkTextReader.Read(Src($"out := {CaptureCall}(xEnable := src).xErrorActive;"), Scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var box = Assert.IsType<Box>(Assert.IsType<Assign>(read.Body!.Networks[0].Trees[0]).Value);
-        Assert.Equal(("xErrorActive", (int?)null, (int?)null), (box.MainOutputName, box.MainOutputIndex, box.ConnectedSlot));
-        Assert.Equal("xErrorActive", NetworkSpelling.NamedMainOutput(box));
+        Assert.Equal(("xErrorActive", (int?)null), (box.MainOutputName, box.ConnectedSlot));
         // The model oracle: what the text carries of the vendor's box comes back.
-        Assert.Null(NetworkModelOracle.Check("S4", One(Set(Capture(L("src")), T("out")))).Reason);
+        Assert.Null(NetworkModelOracle.Check("named output", One(Set(Capture(L("src")), T("out")))).Reason);
     }
 
     [Fact]
-    public void A_named_main_output_keeps_the_rule_for_every_other_box()
+    public void A_reader_names_the_output_of_an_FB_and_of_nothing_else()
     {
-        // Slot 0 is the rule's reading: no name is written even where a reader stated one.
-        var slot0 = Capture(L("src")) with { MainOutputIndex = 0, ConnectedSlot = 0, MainOutputName = null };
-        Assert.Equal(FbdMarker + "NETWORK\n  out := fbCap(xEnable := src);\nEND_NETWORK\n",
-            NetworkTextWriter.Write(One(Set(slot0, T("out"))), Scope));
-        Assert.Null(Box.NameOfMainOutput("TON", 0, new[] { "Q", "ET" }));
-        Assert.Equal("ET", Box.NameOfMainOutput("TON", 1, new[] { "Q", "ET" }));
-        Assert.Null(Box.NameOfMainOutput("AND", 1, new[] { "", "" }));   // a bit operator stores no main output
-        Assert.Equal("", Box.NameOfMainOutput("FC", 2, new[] { "a" }));    // read, and empty: the writer refuses it
+        Assert.Equal("Q", Box.NameOfConnectedOutput(true, 0, false, new[] { "Q", "ET" }));
+        Assert.Equal("ET", Box.NameOfConnectedOutput(true, 1, false, new[] { "Q", "ET" }));
+        Assert.Null(Box.NameOfConnectedOutput(true, 0, true, new[] { "ENO", "Q" }));   // read through its ENO
+        Assert.Null(Box.NameOfConnectedOutput(false, 1, false, new[] { "", "" }));     // a function is read by its value
+        Assert.Equal("", Box.NameOfConnectedOutput(true, 2, false, new[] { "a" }));    // read, and empty: refused by name
     }
 
     [Fact]
-    public void A_named_main_output_the_text_cannot_carry_is_refused_by_name()
+    public void A_named_output_the_text_cannot_carry_is_refused_by_name()
     {
-        Assert.Equal("a main output other than slot 0 with no output name",
+        Assert.Equal("a consumed FB whose output has no name",
             Refused(() => NetworkTextWriter.Write(One(Set(Capture(L("src")) with { MainOutputName = "" }, T("out"))), Scope)).Reason);
-        Assert.Equal("a main output other than slot 0 with no output name",
+        Assert.Equal("a consumed FB with no output named",
             Refused(() => NetworkTextWriter.Write(One(Set(Capture(L("src")) with { MainOutputName = null }, T("out"))), Scope)).Reason);
-        // `=> v` fills the slots after the connected one, and `.name` states none.
-        var positional = Capture(L("src")) with { Outputs = new[] { Out("x", 0) } };
-        Assert.Equal("a positional output pin beside a named main output",
-            Refused(() => NetworkTextWriter.Write(One(Set(positional, T("out"))), Scope)).Reason);
-        // A named pin is the pin's own name: written.
+        // A named pin is the pin's own name.
         var named = Capture(L("src")) with { Outputs = new[] { Out("x", null, "xBusy") } };
-        Assert.Equal(FbdMarker + "NETWORK\n  out := fbCap(xEnable := src, xBusy => x).xErrorActive;\nEND_NETWORK\n",
+        Assert.Equal(FbdMarker + $"NETWORK\n  out := {CaptureCall}(xEnable := src, xBusy => x).xErrorActive;\nEND_NETWORK\n",
             NetworkTextWriter.Write(One(Set(named, T("out"))), Scope));
     }
 
-    /// <summary>Review finding 4 (gate 1b-4): a stored output name that is a word of the text's own grammar —
-    /// <c>Execute</c> opens an EXECUTE body in the token walk — has no spelling after the call: refused by name, so the
-    /// pull shows the network as its UNSUPPORTED line.</summary>
+    /// <summary>A stored output name that is a word of the text's own grammar is backticked after the call, and reads back.</summary>
     [Theory]
     [InlineData("Execute")]
     [InlineData("END_EXECUTE")]
     [InlineData("Unsupported")]
     [InlineData("NOT")]
-    public void A_named_main_output_spelled_like_a_text_word_is_refused_by_name(string name)
+    public void A_named_output_spelled_like_a_text_word_is_backticked(string name)
     {
         var model = One(Set(Capture(L("src")) with { MainOutputName = name }, T("out")));
-        Assert.Equal("a named main output spelled like a text word", Refused(() => NetworkTextWriter.Write(model, Scope)).Reason);
-        Assert.Contains("UNSUPPORTED \"a named main output spelled like a text word\";", NetworkTextWriter.WritePulled(model, Scope));
+        Assert.Contains($").`{name}`;", NetworkTextWriter.Write(model, Scope));
+        Assert.Null(NetworkModelOracle.Check("named " + name, model).Reason);
     }
 
     [Theory]
-    [InlineData("out := fbCap(xEnable := src).EN;", ConflictCodes.NetworkParse)]
-    [InlineData("fbCap(xEnable := src).xErrorActive;", ConflictCodes.NetworkBadExpression)]
-    [InlineData("out := AND(a, b).x;", ConflictCodes.NetworkBadExpression)]
-    [InlineData("out := fbCap(xEnable := src, => x).xErrorActive;", ConflictCodes.NetworkUnsupported)]
-    public void A_name_after_a_call_is_refused_where_it_cannot_mean_a_main_output(string line, string code)
+    [InlineData("out := " + CaptureCall + "(xEnable := src).EN;", ConflictCodes.NetworkParse)]
+    [InlineData(CaptureCall + "(xEnable := src).xErrorActive;", ConflictCodes.NetworkBadExpression)]
+    [InlineData("out := `AND`(a, b).x;", ConflictCodes.NetworkUnsupported)]
+    [InlineData("out := f(IN := a).x;", ConflictCodes.NetworkUnsupported)]
+    public void A_name_after_a_call_is_refused_where_it_cannot_name_an_FB_output(string line, string code)
     {
         var read = NetworkTextReader.Read(Src(line), Scope);
         Assert.False(read.Ok);
@@ -123,7 +118,7 @@ public class ShownPerNetworkTests
 
         Assert.Equal(
             LdMarker +
-            "NETWORK LABEL: L1 TITLE: \"Calc\"\n  // why\n  // it is\n  UNSUPPORTED \"a flag on a box input pin\";\nEND_NETWORK\n" +
+            $"NETWORK LABEL: L1 TITLE: \"Calc\"\n  // why\n  // it is\n  UNSUPPORTED \"a flag on a box input pin\" #{NetworkTextWriter.Hash(nested)};\nEND_NETWORK\n" +
             "NETWORK\n  done := a;\nEND_NETWORK\n",
             NetworkTextWriter.WritePulled(body, Scope));
         Assert.Equal("a flag on a box input pin", Refused(() => NetworkTextWriter.Write(body, Scope)).Reason);
@@ -134,19 +129,19 @@ public class ShownPerNetworkTests
     [Fact]
     public void The_UNSUPPORTED_line_reads_back_and_writes_the_same_text()
     {
-        var text = LdMarker + "NETWORK TITLE: \"Calc\"\n  // why\n  UNSUPPORTED \"a flag on a box input pin\";\nEND_NETWORK\n";
+        var text = LdMarker + "NETWORK TITLE: \"Calc\"\n  // why\n  UNSUPPORTED \"a flag on a box input pin\" #0badc0de;\nEND_NETWORK\n";
         var read = NetworkTextReader.Read(text, Scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var net = Assert.Single(read.Body!.Networks);
-        Assert.Equal(("a flag on a box input pin", "Calc", "why", 0), (net.Unsupported, net.Title, net.Comment, net.Trees.Count));
+        Assert.Equal(("a flag on a box input pin", "0badc0de", "Calc", "why", 0), (net.Unsupported, net.UnsupportedHash, net.Title, net.Comment, net.Trees.Count));
         Assert.Equal(text, NetworkTextWriter.Write(read.Body, Scope));
         Assert.True(NetworkTextGate.Validate(text, Scope).Ok);
     }
 
     [Theory]
-    [InlineData("done := a;", "UNSUPPORTED \"a flag on a box input pin\";")]
-    [InlineData("UNSUPPORTED \"a flag on a box input pin\";", "done := a;")]
-    [InlineData("MOVE 1 => A EN c", "UNSUPPORTED \"a flag on a box input pin\";")]
+    [InlineData("done := a;", "UNSUPPORTED \"a flag on a box input pin\" #0badc0de;")]
+    [InlineData("UNSUPPORTED \"a flag on a box input pin\" #0badc0de;", "done := a;")]
+    [InlineData("MOVE 1 => A EN c;", "UNSUPPORTED \"a flag on a box input pin\" #0badc0de;")]
     public void The_UNSUPPORTED_line_is_its_networks_only_line(string first, string second)
     {
         var read = NetworkTextReader.Read(Src(first, second), Scope);
@@ -155,9 +150,11 @@ public class ShownPerNetworkTests
     }
 
     [Theory]
-    [InlineData("UNSUPPORTED a flag on a box input pin;")]
-    [InlineData("UNSUPPORTED \"\";")]
-    [InlineData("UNSUPPORTED \"a; b\";")]
+    [InlineData("UNSUPPORTED a flag on a box input pin #0badc0de;")]
+    [InlineData("UNSUPPORTED \"\" #0badc0de;")]
+    [InlineData("UNSUPPORTED \"a; b\" #0badc0de;")]
+    [InlineData("UNSUPPORTED \"a flag on a box input pin\";")]
+    [InlineData("UNSUPPORTED \"a flag on a box input pin\" #0BADC0DE;")]
     public void The_UNSUPPORTED_line_names_its_shape_as_a_quoted_phrase(string line)
     {
         var read = NetworkTextReader.Read(Src(line), Scope);
@@ -179,8 +176,8 @@ public class ShownPerNetworkTests
     [Fact]
     public void A_header_the_text_cannot_carry_still_hides_the_body()
     {
-        var body = new NetworkBody(BodyLanguage.Fbd, new[] { new Network(0, null, null, "why\nit is", false, new Node[] { Set(L("a"), T("done")) }) });
-        Assert.Equal("a comment line ending in a bare line feed", Refused(() => NetworkTextWriter.WritePulled(body, Scope)).Reason);
+        var body = new NetworkBody(BodyLanguage.Fbd, new[] { new Network(0, null, "a b", null, false, new Node[] { Set(L("a"), T("done")) }) });
+        Assert.Equal("a label that is not an identifier", Refused(() => NetworkTextWriter.WritePulled(body, Scope)).Reason);
     }
 
     // ── (c) the pairing ──────────────────────────────────────────────────────────────────────────
@@ -302,7 +299,8 @@ public class ShownPerNetworkTests
             Assert.Contains("UNSUPPORTED", e.Message);
             Assert.NotNull(Loss(new[] { live }, new[] { live with { Trees = Array.Empty<Node>(), Unsupported = null } }));
             // The line pushed back as the pull showed it, under an edited title.
-            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "a flag on a box input pin" };
+            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "a flag on a box input pin",
+                                   UnsupportedHash = NetworkTextWriter.Hash(live) };
             Assert.Null(Loss(new[] { live }, new[] { line with { Title = "edited" } }));
         }
         Assert.Null(Loss(new[] { readerRefused, Numbered(1, Set(L("a"), T("done"))) }, new[] { Numbered(0, Set(L("a"), T("done"))) }));
@@ -341,7 +339,7 @@ public class ShownPerNetworkTests
         var nested = Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out"));
         var at0 = new Network(0, null, null, null, false, new Node[] { nested });
         Assert.Equal(NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope), NetworkPairing.Render(at0 with { Order = 7 }, BodyLanguage.Fbd, Scope));
-        Assert.Contains("UNSUPPORTED \"a flag on a box input pin\";", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
+        Assert.Contains($"UNSUPPORTED \"a flag on a box input pin\" #{NetworkTextWriter.Hash(at0)};", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
     }
 
     static UnrepresentableBodyException Refused(Func<string> write) => Assert.Throws<NetworkUnrepresentableException>(write);

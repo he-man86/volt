@@ -14,34 +14,34 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  GeneralProgramFlags() EN TRUE;
+  GeneralProgramFlags() ENO EN TRUE;
 END_NETWORK
 NETWORK
-  fc_Information() EN TRUE;
+  fc_Information() ENO EN TRUE;
 END_NETWORK
 NETWORK
-  WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
+  WordConvertor_v2 : SafetyPLC_WordsToUDT_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 END_NETWORK
 NETWORK
   split16 := NOT HMI_Var.ForceOutputs;
-  Mach1_MIDS() EN split16;
-  fc_Visualisation_HMI() EN split16;
-  SMC_BitsToBytes() EN split16;
+  Mach1_MIDS() ENO EN split16;
+  fc_Visualisation_HMI() ENO EN split16;
+  SMC_BitsToBytes() ENO EN split16;
 END_NETWORK
 NETWORK
-  Status_ForceOutputs() EN TRUE;
+  Status_ForceOutputs() ENO EN TRUE;
 END_NETWORK
 NETWORK
   LST_General.FirstCycle R= ;
 END_NETWORK
 NETWORK
-  Bugs.checkconnection := BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S);
+  Bugs.checkconnection := BLINK_0 : BLINK(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S).OUT;
 END_NETWORK
 NETWORK
-  TON_0(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
+  TON_0 : TON(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
 END_NETWORK
 NETWORK
-  TON_1(IN := Bugs.reportConnectionAlive, PT := T#2S);
+  TON_1 : TON(IN := Bugs.reportConnectionAlive, PT := T#2S);
 END_NETWORK
 NETWORK
   Bugs.restart := TON_0.Q OR TON_1.Q;

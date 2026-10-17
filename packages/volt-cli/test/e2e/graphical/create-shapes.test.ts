@@ -88,7 +88,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tel : TIME;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
@@ -114,7 +114,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -122,9 +122,9 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
 
-		// THE INSTANCE IS THE POINT. `t1(...)` must come back named t1 - if `instanceName` were ignored the call
+		// THE INSTANCE IS THE POINT. `t1 : TON(...)` must come back named t1 - if `instanceName` were ignored the call
 		// would return as a bare TON and the timer would lose its state between scans.
-		expect(v1.sourceText).toMatch(/t1\(/)
+		expect(v1.sourceText).toMatch(/t1 : TON\(/)
 		expect(v1.sourceText).toMatch(/done := t1\.Q;/)
 
 		const refs = await bridge.refs()

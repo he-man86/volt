@@ -158,7 +158,7 @@ public class TcStructuralEditTests
         var body = TcNetworkReader.Read(impl, BodyLanguage.Fbd);
         var max = Assert.IsType<Box>(Assert.IsType<Assign>(body.Networks.Single().Trees.Single()).Value);
 
-        Assert.Equal((0, 0), (max.ConnectedSlot, max.MainOutputIndex));
+        Assert.Equal(0, max.ConnectedSlot);
         Assert.Contains("  n := MAX(", TcText.Write(body));
     }
 
@@ -303,9 +303,9 @@ public class TcStructuralEditTests
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var text = NetworkTextWriter.Write(pulled, scope);
 
-        Assert.Contains("  n := MUL(, m, 6);\n", text);
+        Assert.Contains("  n := MUL m MUL 6;\n", text);
         // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
-        Assert.Contains("  t1(IN := , PT := );\n", text);
+        Assert.Contains("  t1 : TON(IN := , PT := );\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -326,7 +326,7 @@ public class TcStructuralEditTests
         Assert.IsType<Terminator>(box.Enable);
 
         var text = NetworkTextWriter.Write(pulled, scope);
-        Assert.Contains("  t1(PT := ) EN;\n", text);
+        Assert.Contains("  t1 : TON(PT := ) EN;\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -390,7 +390,7 @@ public class TcStructuralEditTests
     public void ENO_on_a_box_the_import_gives_no_ENO_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xtest AND xtest2 EN c", "xoutput := ENO;"), Scope, ImportedAs("AND")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := xtest AND xtest2 => xstore ENO EN c;"), Scope, ImportedAs("AND")));
 
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains("through ENO", ex.Message);
@@ -439,7 +439,7 @@ public class TcStructuralEditTests
     public void A_negation_with_an_edge_on_a_box_is_refused_on_push()
     {
         var ex = Assert.Throws<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT (xtest OR xtest2));"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT (xtest OR xtest2);"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("the 'OR' box", ex.Message);
     }
@@ -449,7 +449,7 @@ public class TcStructuralEditTests
     public void A_negation_with_an_edge_is_refused_on_push()
     {
         var ex = Assert.Throws<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT xtest) OR xtest2;"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT xtest OR xtest2;"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("xtest", ex.Message);
     }

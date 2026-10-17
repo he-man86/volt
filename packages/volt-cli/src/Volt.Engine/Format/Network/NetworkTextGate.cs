@@ -1,8 +1,7 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using Volt.Contracts;
-using Volt.Engine.Format.Body;
 
 namespace Volt.Engine.Format.Network;
 
@@ -15,20 +14,11 @@ public sealed record NetworkGateResult(NetworkBody? Body, IReadOnlyList<NetworkT
 }
 
 /// <summary>
-/// The network text v2 pre-push gate: READ the body, then WRITE the model back. A body is pushed when it reads into a
-/// complete model the writer can spell; the written text is its canonical form, which the next pull shows.
-///
-/// <para><b>Canonical form is not a refusal</b> (openspec <c>bridge-refusal-review</c> 2.12). This gate used to compare
-/// the body's TOKENS with the canonical text's and refuse any difference as <c>NETWORK_NOT_CANONICAL</c> — header fields
-/// in another order, <c>AND(a, b)</c> where infix is canonical, a second wire block — a complete, writable model refused
-/// for its spelling, and a family of reader layout rules that existed only to make that comparison pass. The model is
-/// written; the IDE holds the model, and the canonical text comes back. Layout is still compared layout-free after a push
-/// (<see cref="SameTokens"/>).</para>
-///
-/// <para><b>What the reader refuses is not re-checked here.</b> Every wire rule, the <c>.ENO</c> rule, edges and the
-/// producer-type check are the reader's diagnostics, at their spans. The gate adds the one check that needs the writer: a
-/// model the text can hold but the writer cannot spell (refused by name, NETWORK_UNSUPPORTED) — the next pull would hide
-/// it.</para>
+/// The network text pre-push gate: READ the body (the reader runs the shared validator), derive what the push builds from
+/// the declarations (<see cref="NetworkDerivation"/>), and WRITE the model: its text is the canonical form the next pull
+/// shows. A non-canonical spelling of a valid model is no refusal (openspec <c>bridge-refusal-review</c> 2.12); a model the
+/// writer cannot spell is (NETWORK_UNSUPPORTED), reported where the engineer wrote it. That the canonical text reads back to
+/// the same model is the offline oracle's to prove (<c>Read(Write(m)) ≅ m</c>), not a runtime step.
 /// </summary>
 public static class NetworkTextGate
 {
@@ -38,62 +28,42 @@ public static class NetworkTextGate
         if (!read.Ok) return new NetworkGateResult(null, read.Diagnostics, null);
         var lexer = trace.Lexer;
 
-        // The members the push derives from the declarations (B7 D, ld-fbd-coverage 2R.4): a FUNCTION call's positional
-        // pins take their formal names — what either driver builds, and so the text the next pull shows.
         var body = NetworkDerivation.Derive(read.Body!, scope, out var origin);
-        string canonical;
         try
         {
-            canonical = NetworkTextWriter.Write(body, scope);
+            return new NetworkGateResult(body, Array.Empty<NetworkTextDiagnostic>(), NetworkTextWriter.Write(body, scope));
         }
         catch (NetworkUnrepresentableException e)
         {
-            // The text reads, and the model it reads to has a fact the writer has no spelling for — the refusal
-            // a pull turns into the marker, raised here by name so the push never reaches the IDE. Reported where
-            // the engineer wrote it: the construct the writer was on, else the network's header.
-            // Both are always there: the writer records the network of every refusal, the reader marks every node
-            // the writer can name, and a body that read has one header per network. A miss is a Volt defect, and
-            // reporting it at 1:1 would blame the engineer's first line for it.
+            // The text reads, and the model it reads to holds a fact the writer has no spelling for. Reported at the construct
+            // the writer was on, else the network's header — both always there: the writer records the network of every
+            // refusal, the reader marks every node, and a body that read has one header per network.
             var at = e.At is not null && origin.TryGetValue(e.At, out var written) ? written : e.At;
             var (offset, length) =
                 at is not null
                     ? trace.Spans.TryGetValue(at, out var span) ? span
                       : throw new InvalidOperationException(
-                          $"network text v2: the writer refused a node the reader did not mark ({at.GetType().Name}): {e.Message}")
+                          $"network text: the writer refused a node the reader did not mark ({at.GetType().Name}): {e.Message}")
                     : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
                     : throw new InvalidOperationException(
-                        $"network text v2: the writer refused network {e.Network?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, which the reader did not read: {e.Message}");
+                        $"network text: the writer refused network {e.Network?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, which the reader did not read: {e.Message}");
             var (line, col) = lexer!.LineCol(offset);
             return new NetworkGateResult(null, new[]
             {
-                new NetworkTextDiagnostic(ConflictCodes.NetworkUnsupported,
+                new NetworkTextDiagnostic(e.Code,
                     $"network text has no spelling for {e.Reason}: {e.Detail} The push is refused rather than build the " +
                     "IDE a different body than this one.", line, col, length),
             }, null);
         }
-
-        var (again, _) = NetworkTextReader.ReadTokens(canonical, scope);
-        if (!again.Ok)
-            // Not bad input: the writer produced text its own reader refuses. Loud, because a diagnostic here would
-            // blame the engineer for a Volt defect.
-            throw new InvalidOperationException(
-                "network text v2: the canonical form of a valid body does not read back — " +
-                again.Diagnostics[0].Code + ": " + again.Diagnostics[0].Message + "\n\n" + canonical);
-
-        return new NetworkGateResult(body, Array.Empty<NetworkTextDiagnostic>(), canonical);
     }
 
     /// <summary>
-    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, as the gate
-    /// compares them — whitespace significant only inside backticks, a TITLE, a comment line and an EXECUTE body, and a
-    /// line's end at bracket depth 0 a token of its own (P2: an open line is no layout). A push in another
-    /// layout is adopted as that layout when the IDE gives it back canonically; one in another SPELLING (tokens) is
-    /// written all the same (<see cref="Validate"/>) and its canonical text comes back on the next pull.
+    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens — whitespace
+    /// significant only inside delimited text (a backticked operand, a TITLE, a comment line) and an EXECUTE body. A push in
+    /// another layout is adopted as that layout when the IDE gives it back canonically.
     ///
-    /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a
-    /// re-layout of the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need
-    /// none: EXECUTE bodies are entered by the lexer's one scope-free copy of the reader's rule
-    /// (<see cref="NetworkLexer.Walk"/>), so an ST line inside a snippet is compared whole, as the gate compares it.</para>
+    /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a re-layout of
+    /// the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need none.</para>
     /// </summary>
     public static bool SameTokens(string a, string b)
     {
@@ -101,8 +71,7 @@ public static class NetworkTextGate
         if (b is null) throw new ArgumentNullException(nameof(b));
         var x = LayoutFree(a);
         var y = LayoutFree(b);
-        // A text that does not lex has no tokens to compare past its error, which swallows what follows it: two such
-        // texts carrying one message would otherwise be "the same" whatever programs stand behind them.
+        // A text that does not lex has no tokens to compare past its error, which swallows what follows it.
         if (x is null || y is null || x.Count != y.Count) return false;
         for (var i = 0; i < x.Count; i++)
             if (x[i] != y[i]) return false;
@@ -112,8 +81,6 @@ public static class NetworkTextGate
     /// <summary>The text's tokens as the gate compares them, or null where it does not lex.</summary>
     private static List<(TokKind, string)>? LayoutFree(string text)
     {
-        // The IMPLEMENTATION line is the first non-blank line, and its token is the language it states, as the reader
-        // takes it (a line that states none is compared whole).
         var start = 0;
         while (start < text.Length && char.IsWhiteSpace(text[start])) start++;
         var eol = text.IndexOf('\n', start);
@@ -121,26 +88,11 @@ public static class NetworkTextGate
         var first = text.Substring(start, eol - start).TrimEnd('\r');
         var keys = new List<(TokKind, string)> { (TokKind.Marker, St.ImplementationMarker.LanguageOf(first) ?? first) };
 
-        // A LINE is no layout (P2): a line without `;` is open for a later line's ENO (P3), so where a line ends is a token
-        // of its own here — marked where a token starts a new line at bracket depth 0 after a token that can end one.
-        var lx = new NetworkLexer(text, eol);
-        var walk = new NetworkLexer.Walk(lx);
-        Tok prev = default, before = default;
-        var depth = 0;
+        var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
         for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())
         {
             if (t.Kind == TokKind.Error) return null;
-            if (prev.Text is not null)
-            {
-                var continues = NetworkSpelling.ContinuesLine(prev, before);
-                if (depth == 0 && t.Kind != TokKind.Snippet && prev.Kind != TokKind.Snippet && prev.Kind != TokKind.Marker &&
-                    lx.LineOf(t.Offset) > lx.LineOf(prev.Offset) && !continues)
-                    keys.Add((TokKind.Sym, "\n"));
-            }
-            if (t.IsSym("(")) depth++;
-            else if (t.IsSym(")")) depth = Math.Max(0, depth - 1);
             keys.Add(t.Key);
-            (before, prev) = (prev, t);
         }
         return keys;
     }

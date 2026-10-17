@@ -50,10 +50,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_en", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\n` +
-			// The enable is the box's own EN pin and the rung continues from its ENO on the next line (B3, B4): an
-			// enabled box is its line's root, since CODESYS reads a box built with EN through its ENO (DIALECT N21) —
-			// and this test is about the EN pin.
-			`NETWORK\n  a AND b EN go\n  out := ENO;\nEND_NETWORK\n\n` +
+			// The enable is the box's own EN pin, and its value goes to its output pin — this test is about the EN pin.
+			`NETWORK\n  a AND b => out ENO EN go;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -134,7 +132,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_pins", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := go, PT := pt);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -145,7 +143,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const created = await roundTrip(full, src)
 		expect(created).toContain("IN := go")
 
-		const swapped = created.replace("t1(IN := go, PT := pt)", "t1(PT := pt, IN := go)")
+		const swapped = created.replace("t1 : TON(IN := go, PT := pt)", "t1 : TON(PT := pt, IN := go)")
 		expect(swapped).not.toBe(created)          // the edit really applied
 
 		const back = await roundTrip(full, swapped)
@@ -283,7 +281,7 @@ END_NETWORK
 	/**
 	 * A FUNCTION-BLOCK CALL CALLS ITS TYPE, NOT ITS INSTANCE — and only a BUILD can see the difference.
 	 *
-	 * Network text names an FB call by its instance (`t1(IN := a)`), so a text-derived model arrives with
+	 * Network text v1 named an FB call by its instance alone (`t1(IN := a)`), so a text-derived model arrived with
 	 * `Type == Instance == "t1"`. TwinCAT emitted that straight into PLCopen's `typeName`, telling the importer
 	 * to call a block named `t1` — the instance, not the type. The POU imported happily and would not compile,
 	 * and NOTHING at the wire showed it: both vendors render the call by its instance name, so the pulled text
@@ -306,7 +304,7 @@ END_VAR
 			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
 			`IMPLEMENTATION FBD
 NETWORK
-  t1(IN := go, PT := pt);
+  t1 : TON(IN := go, PT := pt);
 END_NETWORK
 ` +
 			`NETWORK

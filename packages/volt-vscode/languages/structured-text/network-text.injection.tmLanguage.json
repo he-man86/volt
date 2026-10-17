@@ -19,7 +19,7 @@
       "end": "(?i)^(?=\\s*END_(?:FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET)\\b)",
       "patterns": [
         {
-          "comment": "A network-text network — the textual form of an FBD/LD body (volt-cli docs/network-text.html; readability.md, ld-fbd-coverage 2R.3). Read only inside a body stated LD or FBD (meta.body.network.vg). The header carries no order number and no language; its optional fields are NAMED and come in one order — LABEL: the jump target, DISABLED the vendor's bit, TITLE: free text with ST's $-escapes (P10) — and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
+          "comment": "A network-text network — the textual form of an FBD/LD body (volt-cli docs/network-text.html). Read only inside a body stated LD or FBD (meta.body.network.vg). The header carries no order number and no language; its optional fields are NAMED and come in one order — LABEL: the jump target, DISABLED the vendor's bit, TITLE: free text with IEC's $-escapes — and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
           "name": "meta.network.vg",
           "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(DISABLED))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?",
           "beginCaptures": {
@@ -50,8 +50,8 @@
           },
           "patterns": [
             {
-              "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) — verbatim between the backticks, never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
-              "match": "`[^`\\n]*`",
+              "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) — verbatim between the backticks (a backtick doubled, IEC's $ escapes), never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
+              "match": "`(?:[^`\\n]|``)*`",
               "name": "variable.other.quoted.vg"
             },
             {
@@ -60,7 +60,7 @@
               "name": "variable.other.wire.vg"
             },
             {
-              "comment": "ENO reads the box of an open line above (B4, P3); EN follows a box as its enable (B3); BRANCH opens a parallel's branch list and SHORTCIRCUIT states its old mode (B8). Words of the text (P1): a variable spelled like one is backticked.",
+              "comment": "ENO and EN follow a box's outputs, ENO where the box shows it and EN last (`MOVE 1 => x ENO EN c`); BRANCH opens a parallel's branch list and SHORTCIRCUIT states its mode. Words of the text: a variable spelled like one is backticked.",
               "match": "(?i)(?<![\\w.`])(ENO|EN|BRANCH|SHORTCIRCUIT)\\b",
               "name": "keyword.other.eno.vg"
             },
@@ -70,8 +70,8 @@
               "name": "keyword.operator.word.vg"
             },
             {
-              "comment": "The edge flags R_EDGE(x) / F_EDGE(x) on their operand (not an R_TRIG box). Only followed by `(`, and never as part of a longer name.",
-              "match": "(?i)(?<![\\w.])(R_EDGE|F_EDGE)\\b(?=\\s*\\()",
+              "comment": "The edge flags R_EDGE x / F_EDGE x, prefixes on their operand (not an R_TRIG box), never part of a longer name or between backticks.",
+              "match": "(?i)(?<![\\w.`])(R_EDGE|F_EDGE)\\b",
               "name": "keyword.other.construct.vg"
             },
             {

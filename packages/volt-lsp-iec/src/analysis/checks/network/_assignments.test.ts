@@ -128,23 +128,23 @@ END_FUNCTION_BLOCK`
 const enoDiags = (statement: string): string[] => vgDiags(ENO_TYPES.replace("%s", statement)).map((d) => d.message)
 
 test("network text: ENO is BOOL wherever it stands, not the box's result", () => {
-  expect(enoDiags("F_Int(iRPM) EN a\n  out := ENO AND b;")).toEqual([])
-  expect(enoDiags("F_Int(iRPM) EN a\n  out := NOT ENO;")).toEqual([])
-  expect(enoDiags("F_Int(iRPM) EN a\n  iRPM := ENO OR b;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
+  expect(enoDiags("out := (F_Int(iRPM) ENO EN a) AND b;")).toEqual([])
+  expect(enoDiags("out := NOT (F_Int(iRPM) ENO EN a);")).toEqual([])
+  expect(enoDiags("iRPM := (F_Int(iRPM) ENO EN a) OR b;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
 })
 
 test("network text: an edge used directly is typed as the same value through a wire is", () => {
-  // An edge is no box: `x := R_EDGE(a)` reads as an opaque BOOL, as the BOOL split it could have gone through does. (A
-  // box's own output — `x := ENO` under its open line — stays the IDE's, network-real-shapes.)
-  const viaWire = enoDiags("split1 := R_EDGE(a);\n  iRPM := split1;")
+  // An edge is no box: `x := R_EDGE a` reads as an opaque BOOL, as the BOOL split it could have gone through does. (A
+  // box's own output — read through its ENO, `x := MOVE 1 => t ENO EN c` — stays the IDE's, network-real-shapes.)
+  const viaWire = enoDiags("split1 := R_EDGE a;\n  iRPM := split1;")
   expect(viaWire).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
-  expect(enoDiags("iRPM := R_EDGE(a);")).toEqual(viaWire)
-  expect(enoDiags("out := R_EDGE(a);")).toEqual([])
+  expect(enoDiags("iRPM := R_EDGE a;")).toEqual(viaWire)
+  expect(enoDiags("out := R_EDGE a;")).toEqual([])
 })
 
-test("network text: the operands inside an open line's box and an edge are still resolved", () => {
-  expect(enoDiags("F_Int(nope) EN a\n  out := ENO AND b;")).toContain("Identifier 'nope' not defined")
-  expect(enoDiags("out := R_EDGE(nope);")).toContain("Identifier 'nope' not defined")
+test("network text: the operands inside a box read through its ENO and an edge are still resolved", () => {
+  expect(enoDiags("out := (F_Int(nope) ENO EN a) AND b;")).toContain("Identifier 'nope' not defined")
+  expect(enoDiags("out := R_EDGE nope;")).toContain("Identifier 'nope' not defined")
 })
 
 test("network text: an EXECUTE box's assignments are ST, type-checked as ST — a call on the right included", () => {

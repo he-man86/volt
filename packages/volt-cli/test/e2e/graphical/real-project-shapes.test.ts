@@ -93,14 +93,14 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a box with an unconnected input survives, or is refused", async () => {
 		const name = id("rp_pin")
-		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := MUL(, m, 6);\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := MUL m MUL 6;\nEND_NETWORK\n`))
 	})
 
 	/** The same fact in the other syntax — an FB call whose pins are declared but unwired, which is how a
 	 *  half-finished block sits in a live project. */
 	it("an FB call with unwired named pins survives, or is refused", async () => {
 		const name = id("rp_pins")
-		await survivesOrIsRefused(fid("rp_pins", "pou"), program(name, "FBD", `NETWORK\n  t1(IN := , PT := );\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pins", "pou"), program(name, "FBD", `NETWORK\n  t1 : TON(IN := , PT := );\nEND_NETWORK\n`))
 	})
 
 	/**
@@ -131,18 +131,18 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	it("a call whose output goes nowhere round-trips", async () => {
 		const name = id("rp_stmt")
 		const full = fid("rp_stmt", "pou")
-		const src = program(name, "LD", `NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`)
+		const src = program(name, "LD", `NETWORK\n  MOVE a;\nEND_NETWORK\n`)
 
 		expect(await roundTrip(full, src)).toBe(src)
 	})
 
 	/**
-	 * A NOT BOX IS NOT A NEGATION FLAG. Reading `NOT(a)` as the modifier deleted a box item from the drawing and
+	 * A NOT BOX IS NOT A NEGATION FLAG. Reading the box `` `NOT`(a) `` as the modifier deleted a box item from the drawing and
 	 * put a dot on a pin instead — logically equal, visually not, and a push would have committed it. Both
 	 * spellings go through the IDE here, because only the IDE can say they stayed different.
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
-		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := NOT(IN := a);\nEND_NETWORK\n`)
+		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := \`NOT\`(a);\nEND_NETWORK\n`)
 		expect(await roundTrip(fid("rp_notbox", "pou"), boxSrc)).toBe(boxSrc)
 
 		const flagSrc = program(id("rp_notflag"), "FBD", `NETWORK\n  out := NOT a;\nEND_NETWORK\n`)
@@ -185,7 +185,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 			id("rp_fix"),
 			"LD",
 			`NETWORK TITLE: "a rung"\n  out := out2 := a AND b;\nEND_NETWORK\n` +
-				`NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`,
+				`NETWORK\n  MOVE a;\nEND_NETWORK\n`,
 		)
 
 		const once = await roundTrip(full, src)
@@ -207,8 +207,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_par"),
 			"LD",
-			`NETWORK\n  out := go BRANCH (a,\n                    b) SHORTCIRCUIT;\nEND_NETWORK\n` +
-				`NETWORK\n  out2 := a AND (BRANCH (b,\n                         go));\nEND_NETWORK\n`,
+			`NETWORK\n  out := go BRANCH (a, b) SHORTCIRCUIT;\nEND_NETWORK\n` +
+				`NETWORK\n  out2 := a AND (BRANCH (b, go));\nEND_NETWORK\n`,
 		)
 		const refs = await bridge.refs()
 		const r = await bridge.push({

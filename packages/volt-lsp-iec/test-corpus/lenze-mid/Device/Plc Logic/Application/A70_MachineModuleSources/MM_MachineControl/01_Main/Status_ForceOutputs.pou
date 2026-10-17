@@ -5,21 +5,21 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK
   split9 := TRUE;
-  MOVE %IB26 => LST_InputsOutputs.Serv_IB100 EN split9;
-  MOVE %IB27 => LST_InputsOutputs.Serv_IB101 EN split9;
+  MOVE %IB26 => LST_InputsOutputs.Serv_IB100 ENO EN split9;
+  MOVE %IB27 => LST_InputsOutputs.Serv_IB101 ENO EN split9;
 END_NETWORK
 NETWORK
   split13 := TRUE;
-  MOVE %IB370 => LST_InputsOutputs.Serv_IB132 EN split13;
-  MOVE %IB371 => LST_InputsOutputs.Serv_IB133 EN split13;
-  MOVE %IB372 => LST_InputsOutputs.Serv_IB136 EN split13;
-  MOVE %IB373 => LST_InputsOutputs.Serv_IB137 EN split13;
+  MOVE %IB370 => LST_InputsOutputs.Serv_IB132 ENO EN split13;
+  MOVE %IB371 => LST_InputsOutputs.Serv_IB133 ENO EN split13;
+  MOVE %IB372 => LST_InputsOutputs.Serv_IB136 ENO EN split13;
+  MOVE %IB373 => LST_InputsOutputs.Serv_IB137 ENO EN split13;
 END_NETWORK
 NETWORK
-  ForceOutput() EN HMI_Var.ForceOutputs;
+  ForceOutput() ENO EN HMI_Var.ForceOutputs;
 END_NETWORK
 NETWORK
-  ForceOutput_1() EN NOT HMI_Var.ForceOutputs;
+  ForceOutput_1() ENO EN NOT HMI_Var.ForceOutputs;
 END_NETWORK
 NETWORK
 END_NETWORK

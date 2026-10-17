@@ -129,12 +129,11 @@ test("the case set is there: both sides of every rule group it names", () => {
 
 // ── the model, as far as the editor's tree states it ─────────────────────────────────────────────────────────────────
 //
-// The bridge's side compares the whole model (`NetworkModelDump`). The editor's tree is the same TREE — which box an
-// `ENO` takes (P3), what a branch is fed, which item a split binds — but not the members the bridge derives from it
-// (an output's slot number, `conn:`/`main:`/`eno:`/`name:`, an EXECUTE box's ST as one string). So each accept case is
-// compared as its SHAPE: the case's `=== model` with those derivations dropped, against the same notation rendered from
-// the LSP's parse. A reading the two parsers disagree on (an ENO paired with another line) fails here, not only in
-// `network-parse.test.ts`.
+// The bridge's side compares the whole model (`NetworkModelDump`). The editor's tree is the same TREE — what a branch is
+// fed, which slot holds a box, which item a split binds — but not the members the bridge derives from it (an output's
+// slot number, `conn:`/`eno:`/`name:`, an EXECUTE box's ST as one string). So each accept case is compared as its SHAPE:
+// the case's `=== model` with those derivations dropped, against the same notation rendered from the LSP's parse. A
+// reading the two parsers disagree on fails here, not only in `network-parse.test.ts`.
 
 const OPERAND = /^[A-Za-z0-9_.#%'"?:\-$]+$/
 const operand = (text: string): string => (text.length > 0 && OPERAND.test(text) ? text : "`" + text + "`")
@@ -160,6 +159,16 @@ const assignShape = (targets: readonly NetworkTarget[], value: NetworkValue): st
   return "(:= " + targets.map(target).join(" ") + " " + shapeOf(value) + ")"
 }
 
+/** The wired ENO pin, `ENO => v`, as the bridge dumps it: the box's first output. */
+const enoPin = (v: { eno?: { target?: NetworkTarget } }): string[] =>
+  v.eno?.target !== undefined ? ["=>ENO:" + operand(v.eno.target.text)] : []
+
+/** An operator pin's default formal (`IN<n>`, MOVE's and NOT's `IN`) — the model holds none. */
+const isDefault = (type: string, pin: number, formal: string): boolean => {
+  const t = type.toUpperCase()
+  return formal.toUpperCase() === (t === "MOVE" || t === "NOT" ? "IN" : `IN${pin + 1}`)
+}
+
 function shapeOf(v: NetworkValue): string {
   switch (v.kind) {
     case "operand":
@@ -176,23 +185,25 @@ function shapeOf(v: NetworkValue): string {
       return assignShape(v.targets, v.value)
     case "nested_split":
       return "(split " + v.split.text.replace(/^split/i, "") + " " + shapeOf(v.value) + ")"
-    case "eno":
-      return shapeOf(v.box)
     case "word":
       return (
-        "(" + [v.word, ...v.operands.map(shapeOf), ...v.outputs.map((o) => "=>:" + operand(o.text)),
+        "(" + [v.head.text, ...v.operands.map(shapeOf), ...enoPin(v), ...v.outputs.map((o) => "=>:" + operand(o.text)),
           ...(v.en !== undefined ? [pinFlags(v.enFlags) + "en:" + shapeOf(v.en)] : [])].join(" ") + ")"
       )
     case "call": {
       // An instance's type compared case-free: IEC names are, and the two scopes keep the declaration's spelling differently.
-      const head = (v.instance || v.unnamedType !== undefined ? operand(v.boxType).toUpperCase() + "@" + operand(v.head.text) : operand(v.boxType))
-      const pins = v.pins.map((p) =>
+      const head = v.instance === true ? operand(v.boxType).toUpperCase() + "@" + operand(v.head.text) : operand(v.boxType)
+      // The model lists a box's inputs, then its outputs (the ENO pin first).
+      const inputs = v.pins.flatMap((p) =>
         p.kind === "input"
-          ? // An operator's call form (P5) is the operator's box, its pins positional: the formal is the spelling, not the model.
-            pinFlags(p) + (p.name !== undefined && !v.operatorCall ? p.name.text + "=" : "") + shapeOf(p.value)
-          : "=>" + (p.name?.text ?? "") + ":" + (p.target !== undefined ? operand(p.target.text) : "?"),
+          ? // An operator's call form is the operator's box, its default formals no fact of the model.
+            [pinFlags(p) + (p.name !== undefined && !(v.operatorCall === true && isDefault(v.boxType, v.pins.filter((q) => q.kind === "input").indexOf(p), p.name.text)) ? p.name.text + "=" : "") + shapeOf(p.value)]
+          : [],
       )
-      return "(" + [head, ...pins, ...(v.en !== undefined ? [pinFlags(v.enFlags) + "en:" + shapeOf(v.en)] : [])].join(" ") + ")"
+      const outputs = v.pins.flatMap((p) =>
+        p.kind === "output" && p.target !== undefined ? ["=>" + (p.name?.text ?? "") + ":" + operand(p.target.text)] : [],
+      )
+      return "(" + [head, ...inputs, ...enoPin(v), ...outputs, ...(v.en !== undefined ? [pinFlags(v.enFlags) + "en:" + shapeOf(v.en)] : [])].join(" ") + ")"
     }
     case "parallel":
       return (
@@ -215,10 +226,6 @@ function statementShape(s: NetworkTextStatement, splits: readonly NetworkSplit[]
       return "(split " + (splits.find((x) => x.definition === s)?.varId ?? "?") + " " + shapeOf(s.value) + ")"
     case "value":
       return shapeOf(s.value)
-    case "jump":
-      return "(jmp " + s.target.text + " " + (s.condition !== undefined ? shapeOf(s.condition) : "_") + ")"
-    case "return":
-      return "(ret " + (s.condition !== undefined ? shapeOf(s.condition) : "_") + ")"
     case "empty":
       return "_"
     default:
@@ -235,6 +242,7 @@ function shapeOfBody(body: NetworkTextBody): string {
     if (n.title !== undefined) head += " title:" + quote(n.title)
     if (n.comment !== undefined) head += " comment:" + quote(n.comment)
     if (n.unsupported !== undefined) head += " unsupported:" + quote(n.unsupported.text)
+    if (n.unsupportedHash !== undefined) head += " hash:" + n.unsupportedHash
     out.push(head)
     for (const s of n.statements) out.push(statementShape(s, n.splits))
   }

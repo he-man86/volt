@@ -1,5 +1,5 @@
 /**
- * The network-text box checks (`_boxes.ts`): an FB instance's pins, and ENO read off a box with no EN (an open line).
+ * The network-text box checks (`_boxes.ts`): an FB instance's pins, and what the build answers for a call box.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
@@ -19,11 +19,11 @@ test("network text: an unknown FB pin is flagged; a declared pin is not", () => 
 VAR m : FB_M; x : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-m(b := x);
+m : FB_M(b := x);
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgByCode(bad, "network-unknown-pin")).toBe(1)
-  const good = bad.replace("m(b := x)", "m(a := x)")
+  const good = bad.replace("m : FB_M(b := x)", "m : FB_M(a := x)")
   expect(vgByCode(good, "network-unknown-pin")).toBe(0)
 })
 
@@ -32,7 +32,7 @@ test("network text: a box on an unresolvable (library/standard) FB is not pin-ch
 VAR tmr : TON; on : BOOL; t : TIME; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-tmr(IN := on, PT := t, MADE_UP := on);
+tmr : TON(IN := on, PT := t, MADE_UP := on);
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgByCode(src, "network-unknown-pin")).toBe(0) // TON is not a project FB → skipped, no guess
@@ -45,8 +45,7 @@ test("network text: EN and ENO are every box's own, not unknown pins", () => {
 VAR inner : Inner; go : BOOL; done : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  inner() EN go
-  done := ENO;
+  done := inner : Inner() ENO EN go;
 END_NETWORK
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK Inner
@@ -60,7 +59,7 @@ test("network text: a pin the FB really lacks is still reported", () => {
 VAR inner : Inner; go : BOOL; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  inner(nosuchpin := go);
+  inner : Inner(nosuchpin := go);
 END_NETWORK
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK Inner
@@ -70,22 +69,22 @@ END_FUNCTION_BLOCK`
 })
 
 test("network text: an operator box read through ENO with no EN has no text; on an FB its ENO is the FB's own", () => {
-  // N21: an operator box shows ENO only with EN, so the reader refuses an open line holding one (P3) — the push never
-  // builds it. An FB may declare ENO without EN (Lenze `Dryer`, N16): nothing is said.
+  // X9: a box shows ENO only with EN, so the reader refuses `ENO` without it — the push never builds it. An FB may declare
+  // ENO without EN (Lenze `Dryer`, N16), read with nothing after its call: nothing is said.
   const fb = (vars: string, statement: string) =>
     `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; sv : INT; ${vars} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
-  expect(vgDiags(fb("", "a ADD b => sv\n  x := ENO;")).map((d) => d.code)).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(vgDiags(fb("", "a ADD b => sv EN go\n  x := ENO;"))).toEqual([])
-  expect(vgDiags(fb("t : FB_T;", "t(IN := go)\n  x := ENO;"))).toEqual([])
+  expect(vgDiags(fb("", "x := a ADD b => sv ENO;")).map((d) => d.code)).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(vgDiags(fb("", "x := a ADD b => sv ENO EN go;"))).toEqual([])
+  expect(vgDiags(fb("t : FB_T;", "x := t : FB_T(IN := go);"))).toEqual([])
 })
 
 test("network text: ENO with no EN on a QUALIFIED library function's box is no component of its result; a bare one's builds", () => {
-  // Measured (SP21): since 2R.4 the push gives a PROJECT function's box its CallType and output list from the declaration,
-  // and `rcc_network_eno_function_without_en` builds clean; since 2R.4b a LIBRARY function's box named bare gets them from
-  // the IDE's library signature, and `ng_m_library_function_eno` builds clean (re-recorded 2026-10-17). A box named
-  // through its NAMESPACE gets none (niche: accepted loss, 0 in the corpora), and the build still reads its ENO as a
-  // member of the result — "'ENO' is no component of 'LEN'", the function's own name, then the coil's conversion of the
-  // head's ENO (`ng_m_library_function_qualified_eno`). With EN nothing is said.
+  // Measured (SP21): the push gives a PROJECT function's box its CallType and output list from the declaration (2R.4),
+  // and `rcc_network_eno_function_without_en` builds clean; a LIBRARY function's box named bare gets them from the IDE's
+  // library signature (2R.4b), and `ng_m_library_function_eno` builds clean. A box named through its NAMESPACE gets none
+  // (niche: accepted loss, 0 in the corpora), and the build reads its ENO as a member of the result — "'ENO' is no
+  // component of 'LEN'", the function's own name, then the coil's conversion of the head's ENO
+  // (`ng_m_library_function_qualified_eno`). With EN nothing is said.
   const lib = "file:///w/Library Manager/Util"
   const manifest = { uri: `${lib}/Util.library`, folder: "Util", dir: `${lib}/`, namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
   const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
@@ -98,14 +97,14 @@ test("network text: ENO with no EN on a QUALIFIED library function's box is no c
     )
     return computeNetworkTextDiagnostics(d, p, messagesFor("codesys")).map((m) => m.message)
   }
-  expect(run("FUN(a, b)\n  x := ENO;")).toEqual([])
-  expect(run("Util.Twice(a, b)\n  x := ENO;")).toEqual([
+  expect(run("x := FUN(a, b) ENO;")).toEqual([])
+  expect(run("x := Util.Twice(a, b) ENO;")).toEqual([
     "'ENO' is no component of 'Twice'",
     "Cannot convert type 'Unknown type: 'Util.Twice.ENO'' to type 'BOOL'",
   ])
-  expect(run("Twice(a, b)\n  x := ENO;")).toEqual([])
-  expect(run("FUN(a, b) EN go\n  x := ENO;")).toEqual([])
-  expect(run("Util.Twice(a, b) EN go\n  x := ENO;")).toEqual([])
+  expect(run("x := Twice(a, b) ENO;")).toEqual([])
+  expect(run("x := FUN(a, b) ENO EN go;")).toEqual([])
+  expect(run("x := Util.Twice(a, b) ENO EN go;")).toEqual([])
   expect(run("a := FUN(a, b);")).toEqual([])
 })
 
@@ -136,8 +135,7 @@ test("network text: `??? := ENO` off an FB instance's box is unrecorded and says
 VAR t1 : TON; go : BOOL; a : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
-  t1(IN := a, PT := T#1S) EN go
-  ??? := ENO;
+  ??? := t1 : TON(IN := a, PT := T#1S) ENO EN go;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const said = (src: string) => vgDiags(src).filter((d) => d.message === "The assignment target is not specified.").length
@@ -150,8 +148,7 @@ FUNCTION_BLOCK F
 VAR go : BOOL; a : BOOL; END_VAR
 IMPLEMENTATION LD
 NETWORK
-  FN(a) EN go
-  ??? := ENO;
+  ??? := FN(a) ENO EN go;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(said(fn)).toBe(1)

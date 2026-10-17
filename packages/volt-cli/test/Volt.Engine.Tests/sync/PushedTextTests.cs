@@ -24,9 +24,10 @@ public class PushedTextTests
     [InlineData("  out := a AND\n    b;", true)]
     [InlineData("  out := a OR b;", false)]
     // Another SPELLING of the same program is written since 2.12 and comes back canonical: the same item, not "another
-    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed).
-    [InlineData("  out := a and b;", true)]
-    [InlineData("  out := a or b;", false)]
+    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed). A box word's case
+    // is the box type's, so `a and b` is another box type.
+    [InlineData("  out := `a` AND b;", true)]
+    [InlineData("  out := a and b;", false)]
     public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
     {
         static string Prg(string s) =>
@@ -39,9 +40,9 @@ public class PushedTextTests
     /// (<c>BothVendorsRefusedNames</c>). Read with no refused name at all, a BOOL named <c>R_EDGE</c> was an "instance"
     /// that took the edge construct, neither text read, and two spellings of one program were called different.</summary>
     [Theory]
-    [InlineData("  out := R_EDGE(a) AND b;", "  out := R_EDGE(a) and b;", true)]
-    [InlineData("  out := a AND b;", "  out := a and b;", true)]
-    [InlineData("  out := R_EDGE(a) AND b;", "  out := R_EDGE(a) OR b;", false)]
+    [InlineData("  out := R_EDGE a AND b;", "  out := R_EDGE `a` AND b;", true)]
+    [InlineData("  out := a AND b;", "  out := `a` AND b;", true)]
+    [InlineData("  out := R_EDGE a AND b;", "  out := R_EDGE a OR b;", false)]
     public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
     {
         static string Prg(string s) =>

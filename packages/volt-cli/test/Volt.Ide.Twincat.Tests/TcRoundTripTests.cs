@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -553,19 +553,19 @@ public class TcRoundTripTests
         Assert.Equal("wiredPin", pin.Value.Text);
     }
 
-    /// <summary>A VARIABLE STORED ON THE ENO SLOT OF A BOX WITHOUT EN HAS NO SPELLING, and is refused by name, never dropped
-    /// (gate 2R.5). The text gives a box ENO only with EN or where a later line reads it (P5), so `ENO => v` on a box with
-    /// neither is text the push's own gate refuses: the pull wrote it, and the unchanged text could not be pushed back.
-    /// The fixture is <c>EnoSlot.derived.TcPOU</c> (a TON with an ENO output and no EN) with its null echo replaced by a
-    /// copy of the wired pin's operand.</summary>
+    /// <summary>A VARIABLE STORED ON THE ENO SLOT OF AN FB WITHOUT EN IS THE FB'S OWN `ENO` PIN, never dropped: an ENO output
+    /// with no EN is an FB's declared output (v2.1, X9), so the pull spells it as a pin, `` `ENO` => v ``, and the unchanged
+    /// text pushes back as no change at all. The fixture is <c>EnoSlot.derived.TcPOU</c> (a TON with an ENO output and no
+    /// EN) with its null echo replaced by a copy of the wired pin's operand.</summary>
     [Fact]
-    public void A_variable_on_the_ENO_slot_of_a_box_without_EN_is_refused_by_name_not_dropped()
+    public void A_variable_on_the_ENO_slot_of_an_FB_without_EN_is_its_ENO_pin_not_dropped()
     {
-        var impl = Impl(EnoWired(withEn: false));
+        var before = EnoWired(withEn: false);
+        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
+        var text = TcText.Write(pulled);
 
-        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(
-            () => TcText.Write(TcNetworkReader.Read(impl, BodyLanguage.Fbd)));
-        Assert.Equal("an ENO output the text reads otherwise", ex.Reason);
+        Assert.Contains("`ENO` => enoFlag", text);
+        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled))));
     }
 
     /// <summary>…and ON A BOX WITH EN IT IS THE NAMED ENO PIN (P5, 2R.5 awkward-sweep #23), the parity twin of CODESYS's
@@ -590,9 +590,9 @@ public class TcRoundTripTests
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
         var text = TcText.Write(pulled);
-        Assert.Contains("ENO => enoFlag, ", text);
+        Assert.Contains(") ENO => enoFlag EN go;", text);
 
-        var without = TcText.Validate(text.Replace("ENO => enoFlag, ", ""), TcText.ScopeOf(pulled));
+        var without = TcText.Validate(text.Replace(") ENO => enoFlag EN go;", ") ENO EN go;"), TcText.ScopeOf(pulled));
 
         var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without));
         Assert.Contains("output pin 'ENO'", ex.Message);

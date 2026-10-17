@@ -56,7 +56,7 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S2: an assignment below the top level is its own pair", async () => {
-		await shape("s2", (n) => fb(n, "LD", "  t1(IN := (out := go), PT := pt);"), "an assignment to 'out' below the top level")
+		await shape("s2", (n) => fb(n, "LD", "  t1 : TON(IN := (out := go), PT := pt);"), "an assignment to 'out' below the top level")
 	})
 
 	it("S3a: a leaf-fed wire is declared with the leaf's stored type", async () => {
@@ -68,8 +68,8 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S6: a negated pin is spelled on its formal, on an operator's and on a call's", async () => {
-		await shape("s6", (n) => fb(n, "FBD", "  out := AND(a, NOT IN2 := b);"), "a modifier on its input pin")
-		await shape("s6fb", (n) => fb(n, "FBD", "  t1(NOT IN := go, PT := pt);"), "a modifier on its input pin")
+		await shape("s6", (n) => fb(n, "FBD", "  out := `AND`(IN1 := a, NOT IN2 := b);"), "a modifier on its input pin")
+		await shape("s6fb", (n) => fb(n, "FBD", "  t1 : TON(NOT IN := go, PT := pt);"), "a modifier on its input pin")
 	})
 
 	describe("S5", () => {
@@ -82,8 +82,8 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 			await removeItem(fid("s5base", "pou"))
 		})
 
-		it("a call through SUPER^ is the backticked instance of the base", async () => {
-			await shape("s5", (n) => fb(n, "FBD", "  `SUPER^`(x := go);", `FUNCTION_BLOCK ${n} EXTENDS ${base}`), "SUPER^")
+		it("a call through SUPER^ is the backticked instance of the base, its type the base", async () => {
+			await shape("s5", (n) => fb(n, "FBD", `  \`SUPER^\` : ${base}(x := go);`, `FUNCTION_BLOCK ${n} EXTENDS ${base}`), "SUPER^")
 		})
 	})
 })

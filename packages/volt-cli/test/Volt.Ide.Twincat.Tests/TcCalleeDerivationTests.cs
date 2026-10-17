@@ -80,7 +80,7 @@ public class TcCalleeDerivationTests
     /// <summary>A call the scope names no callee for keeps the CallType TwinCAT's own import stored for it (the native
     /// corpus, <see cref="TcArchiveBuilder.Operators"/>).</summary>
     [Theory]
-    [InlineData("fbm(run := go);", "FunctionBlock")]
+    [InlineData("fbm : FB_M(run := go);", "FunctionBlock")]
     [InlineData("y := TO_INT(v);", "Conversion")]
     [InlineData("y := v ADD 1;", "Add")]
     public void Every_other_call_keeps_the_call_type_TwinCAT_stores(string statement, string callType) =>

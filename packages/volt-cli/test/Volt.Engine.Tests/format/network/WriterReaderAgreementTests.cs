@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// The writer and the reader agreeing on ONE rule. Every case here was once a model the writer spelled into text its own
 /// reader refused, text the reader read as a different model than the one written, or a push the gate accepted as
-/// another box. Each is pinned as the grammar asks (openspec <c>ld-fbd-coverage</c> 2R.3): the writer refuses by name
+/// another box. Each is pinned as the grammar asks (openspec <c>ld-fbd-coverage</c> 2R.6b, <c>v2-spec.md</c>): the writer refuses by name
 /// and the gate refuses by name, or the model survives <c>Read(Write(m))</c> through <see cref="NetworkModelOracle"/>.
 /// </summary>
 public class WriterReaderAgreementTests
@@ -65,9 +65,11 @@ public class WriterReaderAgreementTests
     public void A_word_reads_its_connection_by_the_same_rule_as_the_call()
     {
         var gt = (Box)((Assign)ReadOk(Src("o := a GT b;"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
-        Assert.Equal((0, 0), (gt.ConnectedSlot, gt.MainOutputIndex));
-        var add = (Box)((Assign)ReadOk(Src("o := ADD(, a);"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
-        Assert.Equal((0, 0), (add.ConnectedSlot, add.MainOutputIndex));
+        Assert.Equal(0, gt.ConnectedSlot);
+        var add = (Box)((Assign)ReadOk(Src("o := ADD a;"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
+        Assert.Equal(0, add.ConnectedSlot);
+        var call = (Box)((Assign)ReadOk(Src("o := `NOT`(IN := );"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
+        Assert.Null(call.ConnectedSlot);
         var and = (Box)((Assign)ReadOk(Src("o := a AND b;"), NetworkScope.Empty).Networks[0].Trees[0]).Value!;
         Assert.Null(and.ConnectedSlot);
     }
@@ -80,7 +82,7 @@ public class WriterReaderAgreementTests
         Assert.Equal("a consumed box with no stored connection slot",
             RefusedBy(Body(Set(Op("GT", L("a"), L("b")), T("o"))), NetworkScope.Empty));
         Assert.Equal("a consumed box with no stored connection slot",
-            RefusedBy(Body(Set(Call("SEL", new[] { In(L("g")), In(L("a")), In(L("b")) }, main: null), T("o"))), NetworkScope.Empty));
+            RefusedBy(Body(Set(Call("SEL", new[] { In(L("g")), In(L("a")), In(L("b")) }), T("o"))), NetworkScope.Empty));
     }
 
     // ── a split's type (B6) ─────────────────────────────────────────────────────────────────────
@@ -131,34 +133,29 @@ public class WriterReaderAgreementTests
     [Fact]
     public void A_flag_on_an_FB_instance_goes_to_the_marker()
     {
-        var m = Body(Call("TON", new[] { In(L("a"), "IN") }, main: null, kind: CallKind.FunctionBlock,
+        var m = Body(Call("TON", new[] { In(L("a"), "IN") }, kind: CallKind.FunctionBlock,
             instance: new Operand("t1", IsInstance: true, Flags: Neg)));
         Assert.Equal("a flag on an FB instance", RefusedBy(m, ScopeOf(m)));
         Assert.Equal("a flag on an FB instance", NetworkModelOracle.Check("t1-neg", m).Reason);
-        var plain = Body(Call("TON", new[] { In(L("a"), "IN") }, main: null, kind: CallKind.FunctionBlock,
+        var plain = Body(Call("TON", new[] { In(L("a"), "IN") }, kind: CallKind.FunctionBlock,
             instance: new Operand("t1", IsInstance: true)));
         Assert.NotNull(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(plain)));
     }
 
+    /// <summary>An FB call names its instance and its type: an element of an array of FBs, or an instance the declarations do
+    /// not name, is written with both and reads back; the build judges what the declarations do not.</summary>
     [Fact]
-    public void An_FB_instance_whose_text_is_an_expression_is_refused_on_pull_and_push()
+    public void An_FB_instance_whose_text_is_an_expression_names_its_type()
     {
         var scope = Scope(new[] { "fbs", "a" });
-        var m = Body(Call("TON", new[] { In(L("a"), "IN") }, main: null, kind: CallKind.FunctionBlock,
+        var m = Body(Call("TON", new[] { In(L("a"), "IN") }, kind: CallKind.FunctionBlock,
             instance: new Operand("fbs[1]", IsInstance: true)));
-        Assert.Equal("an FB instance the declarations do not name", RefusedBy(m, scope));
-
-        var d = GateRefuses("NETWORK_UNSUPPORTED", Src("`fbs[1]`(IN := a);"), scope);
-        Assert.Contains("fbs[1]", d.Message);
-        GateRefuses("NETWORK_UNSUPPORTED", Src("`SUPER^`(ioAxis := a);"), scope);
+        Assert.Equal(Src("`fbs[1]` : TON(IN := a);"), Written(m, scope));
+        Assert.Null(NetworkModelOracle.Check("fbs[1]", m).Reason);
 
         Assert.Throws<ArgumentException>(() => new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
             new Dictionary<string, string> { ["fbs[1]"] = "TON" }));
     }
-
-    [Fact]
-    public void A_function_box_type_that_is_no_name_goes_to_the_marker() =>
-        Assert.Equal("a box type that is no POU name", RefusedBy(Body(Call("fbs[1]", new[] { In(L("a")) })), NetworkScope.Empty));
 
     [Theory]
     [InlineData("execute")]
@@ -169,10 +166,14 @@ public class WriterReaderAgreementTests
         Assert.Equal("an Execute box of another type", RefusedBy(m, NetworkScope.Empty));
     }
 
+    /// <summary>A pin named like a word of the text is backticked, an output named EN included.</summary>
     [Fact]
-    public void An_output_pin_named_EN_goes_to_the_marker() =>
-        Assert.Equal("an output pin named EN",
-            RefusedBy(Body(Call("F", new[] { In(L("a")) }, new[] { Out("x", null, "EN") })), NetworkScope.Empty));
+    public void An_output_pin_named_EN_is_backticked()
+    {
+        var m = Body(Call("F", new[] { In(L("a")) }, new[] { Out("x", null, "EN") }));
+        Assert.Equal(Src("F(a, `EN` => x);"), Written(m, NetworkScope.Empty));
+        Assert.Null(NetworkModelOracle.Check("EN output", m).Reason);
+    }
 
     [Fact]
     public void An_unmeasured_Parallel_mode_goes_to_the_marker() =>
@@ -183,84 +184,80 @@ public class WriterReaderAgreementTests
     [Fact]
     public void A_lone_unwired_slot_beside_an_output_pin_is_written()
     {
-        var m = Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false));
+        var m = Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }));
         Assert.Equal(Src("f(, => x);"), Written(m, NetworkScope.Empty));
         Assert.Null(NetworkModelOracle.Check("f(, => x)", m).Reason);
         Assert.True(NetworkTextGate.Validate(Src("f(, => x);"), NetworkScope.Empty).Ok);
     }
 
-    // ── construct words ─────────────────────────────────────────────────────────────────────────
+    // ── edge words ──────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A VARIABLE named like an edge word blocks nothing: it never heads a call.</summary>
+    /// <summary>An edge is a prefix, so nothing named R_EDGE blocks it: a variable or a POU of that name is backticked
+    /// where it stands.</summary>
     [Fact]
-    public void A_variable_named_like_a_construct_does_not_block_the_construct()
+    public void A_name_spelled_like_an_edge_word_blocks_no_edge()
     {
         var edge = Body(Set(L("x", Rise), T("out")));
-        var edgeNames = Scope(new[] { "r_edge", "x", "out" });
-        Assert.True(NetworkTextReader.Read(Written(edge, edgeNames), edgeNames).Ok);
-    }
-
-    [Fact]
-    public void A_POU_or_instance_named_like_a_construct_blocks_it_on_both_sides()
-    {
-        var edge = Body(Set(L("x", Rise), T("out")));
-        Assert.Equal("R_EDGE beside a POU or instance of that name", RefusedBy(edge, Scope(new[] { "x" }, pous: new[] { "r_edge" })));
-        Assert.Equal("F_EDGE beside a POU or instance of that name",
-            RefusedBy(Body(Set(L("x", Fall), T("out"))), Scope(new[] { "x" }, instances: new() { ["F_Edge"] = "F_TRIG" })));
+        var names = Scope(new[] { "x", "out" }, pous: new[] { "r_edge" }, instances: new() { ["F_Edge"] = "F_TRIG" });
+        Assert.Equal(Src("out := R_EDGE x;"), Written(edge, names));
+        Assert.True(NetworkTextReader.Read(Written(edge, names), names).Ok);
+        Assert.Equal(Src("`R_EDGE`(a);"), Written(Body(Call("R_EDGE", new[] { In(L("a")) })), NetworkScope.Empty));
     }
 
     static NetworkGateResult Gate(string text, NetworkScope scope) =>
         NetworkTextGate.Validate(text, scope);
 
-    /// <summary>An edge on a NOT box: <c>R_EDGE(NOT(IN := a))</c> (P10); a negation inside the edge is the vendor's order
-    /// (DIALECT N17), outside it the one refusal.</summary>
+    /// <summary>An edge on a NOT box is a prefix on its call; a negation with an edge is the vendor's order, the edge first
+    /// (DIALECT N17), the other order the one refusal.</summary>
     [Fact]
     public void An_edge_on_a_NOT_box_round_trips()
     {
-        var m = Body(Set(Call("NOT", new[] { In(L("a")) }, main: null, f: Rise), T("out")));
-        Assert.Equal(Src("out := R_EDGE(NOT(IN := a));"), Written(m, NetworkScope.Empty));
+        var m = Body(Set(Call("NOT", new[] { In(L("a")) }, f: Rise), T("out")));
+        Assert.Equal(Src("out := R_EDGE `NOT`(a);"), Written(m, NetworkScope.Empty));
         Assert.Null(NetworkModelOracle.Check("rising-not-box", m).Reason);
         Assert.Null(NetworkModelOracle.Check("negated-falling-not-box",
-            Body(Set(Call("NOT", new[] { In(L("a")) }, main: null, f: Neg with { Falling = true }), T("out")))).Reason);
+            Body(Set(Call("NOT", new[] { In(L("a")) }, f: Neg with { Falling = true }), T("out")))).Reason);
         Assert.Null(NetworkModelOracle.Check("rising-not-box-around-group",
-            Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null, f: Rise), T("out")))).Reason);
+            Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, f: Rise), T("out")))).Reason);
 
-        Assert.Equal(Src("out := R_EDGE(NOT a);"),
+        Assert.Equal(Src("out := R_EDGE NOT a;"),
             Written(Body(Set(L("a", Neg with { Rising = true }), T("out"))), NetworkScope.Empty));
-        Assert.Equal(Src("out := R_EDGE(NOT (a AND b));"),
+        Assert.Equal(Src("out := R_EDGE NOT (a AND b);"),
             Written(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Neg with { Rising = true } }, T("out"))), NetworkScope.Empty));
-        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := NOT R_EDGE(a);"), NetworkScope.Empty);
+        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := NOT R_EDGE a;"), NetworkScope.Empty);
     }
 
-    /// <summary>An operator word's call inside another's, and ENO lines through operator words (B1, B4, P10).</summary>
+    /// <summary>Operator words nest by brackets, a lower-case type keeps its spelling, and a chain read through ENO writes
+    /// each operator's value somewhere (X3).</summary>
     [Fact]
-    public void Operator_words_and_their_call_forms_nest_and_chain()
+    public void Operator_words_nest_and_chain()
     {
-        var and = Body(Call("and", new[] { In(Call("or", new[] { In(L("a")), In(L("b")) }, main: null)), In(L("c")) }, main: null));
-        Assert.Equal(Src("and(or(a, b), c);"), Written(and, NetworkScope.Empty));
+        var and = Body(Call("and", new[] { In(Call("or", new[] { In(L("a")), In(L("b")) }, kind: CallKind.Operator)), In(L("c")) }, kind: CallKind.Operator));
+        Assert.Equal(Src("(a or b) and c;"), Written(and, NetworkScope.Empty));
         Assert.Null(NetworkModelOracle.Check("and(or)", and).Reason);
 
-        var enabled = Body(Call("AND", new[] { In(Call("xor", new[] { In(L("a")), In(L("b")) }, main: null)), In(L("c")) },
-            new[] { Out("out", 1) }, en: L("go"), main: null, eno: true));
-        Assert.Equal(Src("xor(a, b) AND c => out EN go;"), Written(enabled, NetworkScope.Empty));
+        var enabled = Body(Call("AND", new[] { In(Call("xor", new[] { In(L("a")), In(L("b")) }, kind: CallKind.Operator)), In(L("c")) },
+            new[] { Out("out", 1) }, en: L("go"), eno: true, kind: CallKind.Operator));
+        Assert.Equal(Src("(a xor b) AND c => out ENO EN go;"), Written(enabled, NetworkScope.Empty));
         Assert.Null(NetworkModelOracle.Check("AND EN over xor", enabled).Reason);
 
         var enoChain = Body(Set(Call("AND", new[]
         {
-            In(Call("XOR", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: null, connected: 0, eno: true)), In(L("d")),
-        }, en: L("go"), main: null, connected: 0, eno: true), T("out")));
-        Assert.Equal(Src("a XOR b EN c", "ENO AND d EN go", "out := ENO;"), Written(enoChain, NetworkScope.Empty));
-        Assert.Null(NetworkModelOracle.Check("XOR / ENO AND / out", enoChain).Reason);
+            In(Call("XOR", new[] { In(L("a")), In(L("b")) }, new[] { Out("t", 1) }, en: L("c"), connected: 0, eno: true, kind: CallKind.Operator)), In(L("d")),
+        }, new[] { Out("u", 1) }, en: L("go"), connected: 0, eno: true, kind: CallKind.Operator), T("out")));
+        Assert.Equal(Src("out := (a XOR b => t ENO EN c) AND d => u ENO EN go;"), Written(enoChain, NetworkScope.Empty));
+        Assert.Null(NetworkModelOracle.Check("XOR / AND / out", enoChain).Reason);
 
-        Assert.Null(NetworkModelOracle.Check("R_EDGE(ENO) over an AND over MOD's ENO", Body(Set(Call("AND", new[] { In(L("a")), In(L("b")) },
-            en: Call("MOD", new[] { In(L("a")), In(L("b")) }, en: L("c"), connected: 0, eno: true), main: null, connected: 0, f: Rise, eno: true), T("out")))).Reason);
+        Assert.Null(NetworkModelOracle.Check("R_EDGE over an AND over MOD's ENO", Body(Set(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("u", 1) },
+            en: Call("MOD", new[] { In(L("a")), In(L("b")) }, new[] { Out("t", 1) }, en: L("c"), connected: 0, eno: true, kind: CallKind.Operator),
+            connected: 0, f: Rise, eno: true, kind: CallKind.Operator), T("out")))).Reason);
         Assert.Null(NetworkModelOracle.Check("OR over XOR's ENO over AND's ENO", Body(Set(Op("OR", L("a"),
-            Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, en: L("d"), main: null, connected: 0, eno: true)), In(L("b")) },
-                en: L("c"), main: null, connected: 0, eno: true)), T("out")))).Reason);
+            Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("t", 1) }, en: L("d"), connected: 0, eno: true, kind: CallKind.Operator)), In(L("b")) },
+                new[] { Out("u", 1) }, en: L("c"), connected: 0, eno: true, kind: CallKind.Operator)), T("out")))).Reason);
 
-        var r = Gate(Src("and(`or`(a, b), c);"), NetworkScope.Empty);
+        var r = Gate(Src("x := (a or b) and c;"), NetworkScope.Empty);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        Assert.Equal(Src("and(or(a, b), c);"), r.Canonical);
+        Assert.Equal(Src("x := (a or b) and c;"), r.Canonical);
     }
 
     [Theory]
@@ -323,24 +320,16 @@ public class WriterReaderAgreementTests
         Assert.Equal(("NETWORK_BAD_EXPRESSION", 5), (d.Code, d.Line));
     }
 
-    /// <summary>The reader and the writer agree on the Parallel modes: whatever member the enum gains, the one rule
-    /// (<see cref="NetworkSpelling.IsMeasuredMode"/>) decides the writer, and the text spells the two measured ones.</summary>
+    /// <summary>The reader and the writer agree on the Parallel modes: the two measured ones are spelled, any other member
+    /// the enum gains is refused by name.</summary>
     [Fact]
     public void Every_Parallel_mode_is_measured_or_refused()
     {
         foreach (ParallelMode mode in Enum.GetValues(typeof(ParallelMode)))
         {
             var m = Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, mode), T("out")), BodyLanguage.Ld);
-            if (NetworkSpelling.IsMeasuredMode(mode)) Assert.Null(NetworkModelOracle.Check(mode.ToString(), m).Reason);
+            if (mode is ParallelMode.BoxShortCircuit or ParallelMode.Sequential) Assert.Null(NetworkModelOracle.Check(mode.ToString(), m).Reason);
             else Assert.Equal("an unmeasured Parallel mode", RefusedBy(m, NetworkScope.Empty));
         }
-    }
-
-    [Fact]
-    public void A_box_named_like_a_construct_and_a_construct_beside_a_POU_are_named_apart()
-    {
-        var box = RefusedBy(Body(Call("R_EDGE", new[] { In(L("a")) })), NetworkScope.Empty);
-        var beside = RefusedBy(Body(Set(L("x", Rise), T("o"))), Scope(new[] { "x" }, pous: new[] { "R_EDGE" }));
-        Assert.NotEqual(box, beside);
     }
 }

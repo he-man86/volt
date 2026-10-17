@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Body;
@@ -77,9 +77,9 @@ public class TcDemuxTests
         var boxes = Read().Networks.SelectMany(n => n.Trees).SelectMany(Flatten).OfType<Box>().ToList();
 
         var ton = boxes.First(b => b.Type == "TON");
-        Assert.Equal((0, 0, false), (ton.ConnectedSlot, ton.MainOutputIndex, ton.HasEnoOutput));
+        Assert.Equal((0, false), (ton.ConnectedSlot, ton.HasEnoOutput));
         var and = boxes.First(b => b.Type == "AND");
-        Assert.Equal((0, 0), (and.ConnectedSlot, and.MainOutputIndex));
+        Assert.Equal(0, and.ConnectedSlot);
     }
 
     /// <summary>...and it renders as the format's own spelling for a fan-out: the split named by its VarId, no

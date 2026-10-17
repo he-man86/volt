@@ -32,7 +32,7 @@ const SHAPES: [string, string, string][] = [
 	["two disconnected sinks", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
 		"  out1 := a;\n  out2 := b;"],
 	["fb call + output read", "\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;",
-		"  t1(IN := a, PT := pt);\n  done := t1.Q;"],
+		"  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;"],
 ]
 
 describe(`graphical / importer grouping (${BASE})`, () => {

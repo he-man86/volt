@@ -60,6 +60,6 @@ public class JumpDestinationTests
     {
         var text = NetworkTextWriter.Write(Rung(("Onwards", true)), NetworkScope.Empty);
 
-        Assert.Contains("  JMP Onwards;\n", text);
+        Assert.Contains("  JMP Onwards := ;\n", text);
     }
 }

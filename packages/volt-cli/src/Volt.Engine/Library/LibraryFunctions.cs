@@ -18,17 +18,18 @@ public static class LibraryFunctions
     /// that name, or when two libraries declare one with different pins (the build judges which, not Volt). A function
     /// with a <c>VAR_IN_OUT</c> keeps no input order: a signature lists its inputs and in-outs apart, and a positional call
     /// fills them in declaration order, which it does not carry — so none is derived and a positional pin stays as the
-    /// text wrote it; its <c>CallType</c> is derived all the same.</summary>
+    /// text wrote it; its <c>CallType</c> is derived all the same. With no FUNCTION of that name, a FUNCTION BLOCK of it
+    /// answers its pins (<see cref="Callee.FunctionBlockCallType"/>): the outputs a <c>.name</c> read's slot is derived from.</summary>
     public static Callee? Of(IReadOnlyList<LibSignature> signatures, string name)
     {
         if (signatures is null) throw new ArgumentNullException(nameof(signatures));
-        var callees = signatures
-            .Where(s => IsFunction(s) && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))
+        var named = signatures.Where(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+        var callees = (named.Any(IsFunction) ? named.Where(IsFunction) : named.Where(IsBlock))
             .Select(CalleeOf)
             .ToList();
         if (callees.Count == 0) return null;
         var first = callees[0];
-        return callees.All(c => c.Inputs.SequenceEqual(first.Inputs, StringComparer.OrdinalIgnoreCase) &&
+        return callees.All(c => c.CallType == first.CallType && c.Inputs.SequenceEqual(first.Inputs, StringComparer.OrdinalIgnoreCase) &&
                                 c.Outputs!.SequenceEqual(first.Outputs!, StringComparer.OrdinalIgnoreCase))
             ? first
             : null;
@@ -39,8 +40,14 @@ public static class LibraryFunctions
     private static bool IsFunction(LibSignature s) =>
         (s.PouType.Contains(".") ? s.PouType.Substring(s.PouType.LastIndexOf('.') + 1) : s.PouType) == "Function";
 
+    private static bool IsBlock(LibSignature s) =>
+        (s.PouType.Contains(".") ? s.PouType.Substring(s.PouType.LastIndexOf('.') + 1) : s.PouType) == "FunctionBlock";
+
     private static Callee CalleeOf(LibSignature s)
     {
+        // A FUNCTION BLOCK answers its pins as declared — its outputs are what a `.name` read's slot is derived from.
+        if (IsBlock(s))
+            return new Callee(Callee.FunctionBlockCallType, s.Inputs.Select(v => v.Name).ToList(), s.Outputs.Select(v => v.Name).ToList());
         // The result is a self-named output on CODESYS (verified live, LibSignatureRenderer.LiftReturn): no VAR_OUTPUT.
         var (_, outputs) = LibSignatureRenderer.LiftReturn(s.Name, s.Outputs, s.ReturnType);
         var inputs = s.InOuts.Count == 0 ? s.Inputs.Select(v => v.Name).ToList() : new List<string>();

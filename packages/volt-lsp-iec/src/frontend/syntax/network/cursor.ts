@@ -1,10 +1,8 @@
 /**
- * The reader's cursor — what every part of the network-text reader stands on (`parser.ts` composes them): the body's text
- * and its tokens, cut into LINES (P2) the way the bridge's reader cuts them, positions in the document, the findings, the
- * declarations the reader asks (`NetworkScopeView`), and the ST fragments inside the text, read by the ST parser. The
- * reader's concerns build on it in one line — `values.ts` (a bracket level, an operand, the parallel, a box's role),
- * `calls.ts` (a call and its pins), `statements.ts` (one statement per line) and `parser.ts` (the body, a network, its
- * header and its open lines).
+ * The reader's cursor — what the network-text reader (`parser.ts`) stands on: the body's text and its tokens, the one
+ * indentation check that ends an item (a continuation line of an item is indented deeper than the item's first line),
+ * positions in the document, the findings, the declarations the reader asks (`NetworkScopeView`), and the ST fragments
+ * inside the text, read by the ST parser.
  */
 import type { Span } from "../span.js"
 import type { BodySpan, Expr, StatementList } from "../ast/nodes/index.js"
@@ -14,8 +12,7 @@ import { lex } from "../lex/lexer.js"
 import { parseExprFromTokens } from "../parse/expression.js"
 import { bodyStatements } from "../parse/body-parse.js"
 import type { NetworkDiagnosticCode, NetworkName, NetworkTextDiagnostic } from "./ast.js"
-import { NetworkLexer, type Tok, isSym, isWord } from "./lexer.js"
-import { OPERATOR_WORDS } from "./words.js"
+import { NetworkLexer, type Tok, isWord } from "./lexer.js"
 
 /** A finding raised where the reader stands: it unwinds to the network, which reports it and recovers. */
 export class ParseError {
@@ -27,19 +24,22 @@ export class ParseError {
   ) {}
 }
 
-/** The questions the bridge reader asks of the declarations mid-statement (`NetworkScope`), case-insensitively. */
+/** The questions the bridge reader asks of the declarations mid-item (`NetworkScope`), case-insensitively. */
 export interface NetworkScopeView {
   /** A POU a call can name (the bridge's `IsPou`). */
   isPou(name: string): boolean
   /** The FB type of `head` when it is an FB instance a declaration names — a variable, or a path to one — else
    *  undefined (`NetworkScope.InstanceType`). */
   instanceType(head: string): string | undefined
-  /** Whether a declaration in scope makes the name (`NetworkScope.Contains`) — what a split may not be named like. */
+  /** Whether a declaration in scope makes the name (`NetworkScope.Contains`). */
   declares(name: string): boolean
 }
 
 /** A scope that knows nothing: what the structure-only readers ask (`STRUCTURE_ONLY`). */
 export const EMPTY_SCOPE: NetworkScopeView = { isPou: () => false, instanceType: () => undefined, declares: () => false }
+
+/** The text the synthetic end token carries where a line no deeper than its item's first ends the item. */
+const MISSING_SEMICOLON = "\u0000missing-semicolon"
 
 export abstract class NetworkCursor {
   protected readonly text: string
@@ -48,8 +48,10 @@ export abstract class NetworkCursor {
   protected lx!: NetworkLexer
   protected toks: Tok[] = []
   protected p = 0
-  /** The current line's end (exclusive), or the token count outside a line. */
-  protected end = 0
+  /** The item being read: its first token's index and column — a later token starting a line at or left of that column
+   *  ends the item. -1 outside an item. */
+  protected itemStart = -1
+  protected itemColumn = 0
   protected readonly diagnostics: NetworkTextDiagnostic[] = []
 
   constructor(
@@ -81,10 +83,15 @@ export abstract class NetworkCursor {
     return parseExprFromTokens(toks)
   }
 
-  /** A token's text as an ST expression: a backticked one's inner text, any other token whole. */
+  /** A token's text as an ST expression: a backticked one's inner text, any other token whole. A backticked text that
+   *  holds an escape or a doubled backtick is no slice of the document, and has none. */
   protected tokExpr(t: Tok): Expr | undefined {
     if (t.kind === "unnamed") return undefined
-    return t.kind === "backtick" ? this.stExpr(t.offset + 1, t.offset + t.length - 1) : this.stExpr(t.offset, t.offset + t.length)
+    if (t.kind === "backtick") {
+      if (this.text.slice(t.offset + 1, t.offset + t.length - 1) !== t.text) return undefined
+      return this.stExpr(t.offset + 1, t.offset + t.length - 1)
+    }
+    return this.stExpr(t.offset, t.offset + t.length)
   }
 
   /** An EXECUTE body's lines, parsed as the ST they are. */
@@ -95,36 +102,50 @@ export abstract class NetworkCursor {
     return { statements: parsed.statements, ok: parsed.ok }
   }
 
-  // ── tokens: the current line ────────────────────────────────────────────────────────────────
+  // ── tokens ──────────────────────────────────────────────────────────────────────────────────
 
   /** The token at `i`, whatever line it is on. */
   protected raw(i: number): Tok {
     return i < this.toks.length ? this.toks[i]! : this.toks[this.toks.length - 1]!
   }
 
-  protected atEnd(): boolean {
-    return this.p >= this.end
-  }
-
-  /** The next token of the CURRENT LINE: past its end, a synthetic end token at the line's end. */
   protected peek(): Tok {
     return this.peekAt(0)
   }
 
+  /** The token `k` ahead, inside the item: a token starting a line no deeper than the item's first line ends the item
+   *  (the one indentation check) and reads as its end. An EXECUTE body and its `END_EXECUTE` are verbatim and exempt. */
   protected peekAt(k: number): Tok {
-    const i = this.p + k
-    if (i >= this.end) {
-      const prev = this.end > 0 ? this.raw(this.end - 1) : this.raw(0)
-      return { kind: "eof", text: "", offset: prev.offset + prev.length, length: 0, atLineStart: false }
+    for (let j = 0; j <= k; j++) {
+      const i = this.p + j
+      const t = this.raw(i)
+      if (this.itemStart >= 0 && i > this.itemStart && t.atLineStart && t.kind !== "snippet" && t.kind !== "eof" &&
+          !(isWord(t, "END_EXECUTE") && this.raw(i - 1).kind === "snippet") && this.column(t) <= this.itemColumn)
+        return { kind: "eof", text: MISSING_SEMICOLON, offset: t.offset, length: t.length, atLineStart: true }
+      if (j === k || t.kind === "eof") return t
     }
-    return this.raw(i)
+    return this.raw(this.p + k)
+  }
+
+  /** Whether `t` is the end an item meets at a line no deeper than its first. */
+  protected isMissingSemicolon(t: Tok): boolean {
+    return t.kind === "eof" && t.text === MISSING_SEMICOLON
   }
 
   protected next(): Tok {
     const t = this.peek()
     if (t.kind === "error") throw this.err(t, (t.code ?? "NETWORK_PARSE") as NetworkDiagnosticCode, t.text)
-    if (this.p < this.end) this.p++
+    if (this.isMissingSemicolon(t)) throw this.missingSemicolon(t)
+    if (t.kind !== "eof") this.p++
     return t
+  }
+
+  protected missingSemicolon(t: Tok): ParseError {
+    return this.err(
+      t,
+      "NETWORK_PARSE",
+      "missing `;`? A line indented no deeper than its item's first line starts a new item, so the item before it ends with `;`.",
+    )
   }
 
   /** The end of the last token consumed. */
@@ -133,50 +154,12 @@ export abstract class NetworkCursor {
     return last.offset + last.length
   }
 
-  protected expectSym(sym: string, form: string): void {
-    const t = this.peek()
-    if (!isSym(t, sym))
-      throw this.err(
-        t,
-        "NETWORK_PARSE",
-        t.kind === "eof" ? `the line ends where \`${sym}\` is expected (${form}).` : `expected \`${sym}\` and found '${t.text}' (${form}).`,
-      )
-    this.next()
+  protected line(t: Tok): number {
+    return this.lineIndex(t.offset)
   }
 
-  protected expectOnLine(sym: string, line: number, form: string): void {
-    const t = this.raw(this.p)
-    if (this.line(t) !== line) throw this.err(t, "NETWORK_PARSE", `the NETWORK header ends at its newline; \`${form}\` is on one line.`)
-    this.expectSym(sym, form)
-  }
-
-  /** Whether a storage operator stands at `i`: `:=`, or ExST's `S=` / `R=` — a word `S` or `R` and `=`. Only after a
-   *  target, so the position decides, never the spacing. */
-  protected storageAt(i: number): boolean {
-    if (i >= this.end) return false
-    const t = this.raw(i)
-    return isSym(t, ":=") || ((isWord(t, "S") || isWord(t, "R")) && i + 1 < this.end && isSym(this.raw(i + 1), "="))
-  }
-
-  /** The storage operator at the cursor, as one token (`S=`, `R=`, `:=`). */
-  protected takeStorage(): Tok {
-    const t = this.next()
-    if (isSym(t, ":=")) return t
-    const eq = this.next()
-    return { kind: "sym", text: t.text.toUpperCase() + "=", offset: t.offset, length: eq.offset + eq.length - t.offset, atLineStart: t.atLineStart }
-  }
-
-  /** P2: whether a line ending in `prev` (after `before`) goes on to the next line — it ends with a word that cannot end
-   *  it: an infix box word, BRANCH, `=>`, `:=`, `S=`, `R=` (`NetworkSpelling.ContinuesLine`). */
-  protected continuesLine(prev: Tok, before: Tok | undefined): boolean {
-    return (
-      (prev.kind === "word" && (OPERATOR_WORDS.has(prev.text.toUpperCase()) || isWord(prev, "BRANCH"))) ||
-      isSym(prev, "=>") ||
-      isSym(prev, ":=") ||
-      isSym(prev, ",") ||
-      isSym(prev, "(") ||
-      (isSym(prev, "=") && before !== undefined && (isWord(before, "S") || isWord(before, "R")))
-    )
+  protected column(t: Tok): number {
+    return t.offset - this.lineStarts[this.lineIndex(t.offset)]!
   }
 
   // ── positions ───────────────────────────────────────────────────────────────────────────────
@@ -190,10 +173,6 @@ export abstract class NetworkCursor {
       else hi = mid - 1
     }
     return lo
-  }
-
-  protected line(t: Tok): number {
-    return this.lineIndex(t.offset)
   }
 
   private position(offset: number): { offset: number; line: number; col: number } {

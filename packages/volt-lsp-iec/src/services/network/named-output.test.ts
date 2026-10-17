@@ -1,6 +1,6 @@
 /**
- * openspec ld-fbd-coverage 1b.4: `fb(…).name` reads as the instance's output (`fb.name`) AND as its call, so the instance
- * spelled once in the text is two expressions — a rename and the references must still edit / find it once.
+ * `inst : TYPE(…).name` reads as the instance's output (`inst.name`) AND as its call, so the instance spelled once in the
+ * text is two expressions — a rename and the references must still edit / find it once.
  */
 import { expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
@@ -18,7 +18,7 @@ const PRG = `PROGRAM P
 VAR cap : Capture; go : BOOL; elapsed : TIME; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  elapsed := cap(xEnable := go).tElapsed;
+  elapsed := cap : Capture(xEnable := go).tElapsed;
 END_NETWORK
 END_PROGRAM
 `
@@ -33,7 +33,7 @@ function project() {
 
 test("the instance of a named-output call is renamed once", () => {
   const { docs, scope, prg } = project()
-  const at = prg.source.indexOf("cap(")
+  const at = prg.source.indexOf("cap :")
   const edits = renameAnywhere(docs, scope, prg, at, "fbCap")?.changes?.["file:///P.pou"] ?? []
   // the declaration and the one use in the network — each once
   expect(edits.map((e) => e.newText)).toEqual(["fbCap", "fbCap"])

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -112,7 +112,8 @@ public class CodesysNwlCompletenessOracleTests
             string text;
             try { text = NetworkTextWriter.Write(new NetworkBody(language, new[] { model }), scope); }
             catch (UnrepresentableBodyException e) { outcome.Refused[net] = "text: " + e.Reason; continue; }
-            var back = NetworkTextReader.Read(text, scope);
+            // Read back as the push reads it: the gate, the declarations' derivations included (a `.name` read's slot).
+            var back = NetworkTextGate.Validate(text, scope);
             Assert.True(back.Ok, $"{net}: the text the writer wrote does not read back:\n{text}\n" +
                                  string.Join("\n", back.Diagnostics.Select(d => $"{d.Code} {d.Message}")));
             var reread = back.Body!.Networks.Single();
@@ -653,11 +654,9 @@ public class CodesysNwlCompletenessOracleTests
         // (The 26 lenze-mid networks holding a consumed enabled comparison were refused here until 2R.5: it is built as the
         // PLCopen importer builds it — EN, no ENO — awkward-sweep #26; their rebuilt members are counted in Known below.)
 
-        // S4 (1b.4): a call read through a named main output other than its first — its MainOutputIndex is read-only on a
-        // box Volt builds (N21). Lenze FirstErrorCapture.call_FirstErrorCapture_FB #2 and #8, which the S1 and S6 lines hid.
-        ["push: NotSupportedException: CODESYS: network 1 changed, and its '…' box is read through its output '…', which is " +
-         "not the box's first output: a box Volt builds cannot be read through any other (its main output index is read-only, " +
-         "DIALECT N21), so the consumer would read another value than the text says"] = 2,
+        // (S4, an FB read through an output other than its first — Lenze FirstErrorCapture.call_FirstErrorCapture_FB #2 and #8
+        // — was refused here until 2R.6b: the connection is the null's position, which a push sets (v2-measurements #12), at
+        // the slot the FB's declaration gives the `.name` (NetworkDerivation.WithOutputSlot).)
     };
 
     /// <summary>THE ORACLE: every non-cache member of every compared network comes back, or its loss is a known one.</summary>
@@ -677,14 +676,13 @@ public class CodesysNwlCompletenessOracleTests
         // ld-fbd-coverage 2.3 brought the S1/S2/S3/S5/S6 networks (25, but the 2 S4 and 3 more N21 ones a push refuses)
         // into the comparison: the counts below grew by what those networks hold, and OutputParam's four entries closed
         // (its Names and Types are the box's pragma members, NetworkMembers.OfBox).
-                        new("BoxTreeBox.BoxType — changed", 22, 22, "2.3 design gap (1b.3): an FB/program call's BoxType is the instance's declared type — D with {BoxType := '…'}"),
-        new("BoxTreeBox.CallType — changed", 321, 1169, "2R.4: a FUNCTION's and a METHOD's CallType are DERIVED (the writer sets them from the callee, NetworkScope.Callee — 100 boxes closed); the rest are the operators the vendor resolves from BoxType on reload (the doubles do not) and the FB, PROGRAM and conversion boxes, whose fresh None runs as the drawn value (cache, measured: design '2R.4')"),
-        new("BoxTreeBox.EN — changed", 179, 248, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived from the text's EN"),
-        new("BoxTreeBox.ENO — changed", 179, 248, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived with EN"),
+        new("BoxTreeBox.CallType — changed", 323, 1182, "2R.4: a FUNCTION's and a METHOD's CallType are DERIVED (the writer sets them from the callee, NetworkScope.Callee — 100 boxes closed); the rest are the operators the vendor resolves from BoxType on reload (the doubles do not) and the FB, PROGRAM and conversion boxes, whose fresh None runs as the drawn value (cache, measured: design '2R.4'); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("BoxTreeBox.EN — changed", 181, 261, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived from the text's EN; 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("BoxTreeBox.ENO — changed", 181, 261, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived with EN; 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
         new("BoxTreeBox.InputFlags — changed", 2, 2, "2R.4 cache: a zero-only InputFlags list (lenze FirstErrorCapture #3, #4) runs as Volt's null (measured)"),
         new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 119, 249, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
-        new("Flags.Fixed in BoxTreeBox.Flags — changed", 160, 199, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
-        new("Flags.Fixed in BoxTreeBox.InputFlags — changed", 1, 4, "2R.4 cache: a pin's flag set (S6's pro2193 SetAlarm); Fixed runs as Volt's false (measured)"),
+        new("Flags.Fixed in BoxTreeBox.Flags — changed", 162, 210, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("Flags.Fixed in BoxTreeBox.InputFlags — changed", 3, 11, "2R.4 cache: a pin's flag set (S6's pro2193 SetAlarm); Fixed runs as Volt's false (measured); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
         new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 276, 1436, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
         new("Flags.Flags in BoxTreeAssign.Flags — changed", 1, 1, "2R.4 cache: the item's Jump/Return bit runs as the target's alone (measured, JMP and RETURN); the writer keeps both, as TwinCAT's importer writes them (C13)"),
         new("NWLImplementationObject.BranchCounter — not written", 44, 44, "2R.4 cache: BranchCounter 328 runs as 0 (measured, six parallels); a network rebuild never writes the body"),
@@ -692,26 +690,28 @@ public class CodesysNwlCompletenessOracleTests
         new("NWLImplementationObject.ValidIds — not written", 44, 44, "2.3 D: the writer sets the constant"),
         new("Operand.Address in BoxTreeAssign.OutputItems.OutputItems — changed", 16, 30, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
         new("Operand.Address in BoxTreeBox.Instance — changed", 8, 8, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
+        new("Operand.Address in BoxTreeBox.OutputItems.OutputItems — changed", 3, 16, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured) — 2R.6b: the unwired output slots an FB read by `.name` is built with"),
         new("Operand.Address in BoxTreeOperand.Operand — changed", 26, 204, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
         new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 252, 559, "2R.4 cache: Boolean runs as Volt's false (measured)"),
         new("Operand.Boolean in BoxTreeOperand.Operand — changed", 290, 1787, "2R.4 cache: Boolean runs as Volt's false (measured)"),
-        new("Operand.IsInstance in BoxTreeBox.Instance — changed", 339, 1287, "2.3 D: true exactly for the box's Instance"),
-        new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 264, 573, "2.3 D: true exactly for an assign target or a box output slot"),
-        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 68, 190, "2.3 D: true exactly for an assign target or a box output slot — the IDE resolves it on load and the writer sets none; the doubles do not resolve, so every unwired slot a push lays out reads false here; 2R.4: more slots, since a FUNCTION's box lists every VAR_OUTPUT as drawn"),
-        new("Operand.Operand in BoxTreeBox.Instance — changed", 297, 1135, "2.3 D: null on a function/operator instance (the writer writes '')"),
+        new("Operand.IsInstance in BoxTreeBox.Instance — changed", 341, 1300, "2.3 D: true exactly for the box's Instance; 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 266, 575, "2.3 D: true exactly for an assign target or a box output slot; 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 95, 253, "2.3 D: true exactly for an assign target or a box output slot — the IDE resolves it on load and the writer sets none; the doubles do not resolve, so every unwired slot a push lays out reads false here; 2R.4: more slots, since a FUNCTION's box lists every VAR_OUTPUT as drawn; 2R.6b: an FB read by `.name` is built with every output its declaration names (NetworkDerivation.WithOutputSlot), its unwired slots too"),
+        new("Operand.Operand in BoxTreeBox.Instance — changed", 299, 1145, "2.3 D: null on a function/operator instance (the writer writes ''); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
         new("Operand.SymbolComment in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
         new("Operand.SymbolComment in BoxTreeOperand.Operand — changed", 1, 9, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
-        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 264, 573, "2R.4 cache: a stale Operand.Type runs as Volt's (measured)"),
-        new("Operand.Type in BoxTreeBox.Instance — changed", 132, 174, "2R.4 cache: Instance.Type TON / ton / TOF runs as Volt's \"\" (measured)"),
-        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 64, 186, "2R.4 cache (measured: a stale Operand.Type runs as Volt's): an output slot's stored type, the unwired ones included since the slots are laid out as the vendor's — a FUNCTION's every VAR_OUTPUT since 2R.4"),
-        new("Operand.Type in BoxTreeOperand.Operand — changed", 352, 2840, "2R.4 cache (measured: a stale Operand.Type runs as Volt's); 2R.3 (B6): a leaf feeding a split no longer writes its stored type (no split type in the text), so the 15 S3a leaves joined"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 109, 145, "2R.4 D: a FUNCTION's box is built with its result slot and every VAR_OUTPUT (NetworkDerivation.OutputNames — 94 closed); left: a PROGRAM call with EN's second null slot (2.3 R nwl-output-param-names), a call's stored slots beyond its text pins where its callee is a library's or an FB (lost on rebuild, see ParamList.Names)"),
+        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 266, 575, "2R.4 cache: a stale Operand.Type runs as Volt's (measured); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("Operand.Type in BoxTreeBox.Instance — changed", 134, 177, "2R.4 cache: Instance.Type TON / ton / TOF runs as Volt's \"\" (measured); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 89, 240, "2R.4 cache (measured: a stale Operand.Type runs as Volt's): an output slot's stored type, the unwired ones included since the slots are laid out as the vendor's — a FUNCTION's every VAR_OUTPUT since 2R.4; 2R.6b: an FB read by `.name` is built with every output its declaration names, its unwired slots too"),
+        new("Operand.Type in BoxTreeOperand.Operand — changed", 354, 2874, "2R.4 cache (measured: a stale Operand.Type runs as Volt's); 2R.3 (B6): a leaf feeding a split no longer writes its stored type (no split type in the text), so the 15 S3a leaves joined; 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 67, 90, "2R.4 D: a FUNCTION's box is built with its result slot and every VAR_OUTPUT (NetworkDerivation.OutputNames — 94 closed); left: a PROGRAM call with EN's second null slot (2.3 R nwl-output-param-names), a call's stored slots beyond its text pins where its callee is a library's or an FB (lost on rebuild, see ParamList.Names); 2R.6b: an FB read by `.name` is built with every output its declaration names — 42 closed"),
         new("ParamList.Names in BoxTreeBox.InputParam — list length changed", 61, 170, "2.3 D: a partial list names only the named pins — the writer pads every input"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 104, 139, "2R.4 D: a FUNCTION's result pin '   ' and every VAR_OUTPUT are derived from its declaration and build with its derived CallType (measured; DIALECT N37 was a box without it — 94 closed); left, lost on rebuild: a function box with a positional `=>` pin (2, its slots stay the text's),: an FB's or a library function's stored output names beyond its text pins (TON ['Q', 'ET'], —) — every rebuild names the loss (RebuildLoss)"),
-        new("ParamList.Types in BoxTreeBox.InputParam — changed", 214, 1340, "2R.4 cache: stale input/output Types run as Volt's (measured)"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — changed", 5, 24, "2R.6b: an FB read by `.name` is built with the output names its library's signature states, in the signature's case (a library rendered in upper case, the drawn box in mixed case) — IEC names are case-insensitive; lost on rebuild"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 63, 84, "2R.4 D: a FUNCTION's result pin '   ' and every VAR_OUTPUT are derived from its declaration and build with its derived CallType (measured; DIALECT N37 was a box without it — 94 closed); left, lost on rebuild: a function box with a positional `=>` pin (2, its slots stay the text's),: an FB's or a library function's stored output names beyond its text pins (TON ['Q', 'ET'], —) — every rebuild names the loss (RebuildLoss); 2R.6b: an FB read by `.name` is built with every output its declaration names — 41 closed"),
+        new("ParamList.Types in BoxTreeBox.InputParam — changed", 216, 1361, "2R.4 cache: stale input/output Types run as Volt's (measured); 2R.6b: the 2 S4 networks (FirstErrorCapture #2, #8) are built since a `.name` read's slot is derived, and their members joined"),
         new("ParamList.Types in BoxTreeBox.InputParam — list length changed", 61, 170, "2R.4 cache: stale input/output Types run as Volt's (measured)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 108, 187, "2R.4 cache (measured: stale output Types run as Volt's ''): a call's stored output types — more since a FUNCTION's whole output list is built (its types '', ENO BOOL)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 104, 139, "the types of the output names above (ParamList.Names), which go with them"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 148, 314, "2R.4 cache (measured: stale output Types run as Volt's ''): a call's stored output types — more since a FUNCTION's whole output list is built (its types '', ENO BOOL); 2R.6b: the outputs an FB read by `.name` is built with have Volt's '' types"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 63, 84, "the types of the output names above (ParamList.Names), which go with them"),
         new("TextDocument.TextBlobForSerialisation in STSnippet.STSnippet.TextDocument — a cache citing no vendor-facts row ('text-blob-serialisation')", 11, 11, "2.3: the vendor-facts row text-blob-serialisation, carried from 2.2 (not in 2.2's row list; bridge-one-to-one left it open: completeness.known.ts)"),
     };
 }

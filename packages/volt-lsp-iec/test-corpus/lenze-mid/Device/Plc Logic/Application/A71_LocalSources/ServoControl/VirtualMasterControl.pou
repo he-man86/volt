@@ -23,13 +23,13 @@ END_NETWORK
 NETWORK
   split0 := ioVirtualMaster.Control.StartMovement;
   ioVirtualMasterCom.Control.StartMovement := split0;
-  MOVE Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed => ioVirtualMasterCom.Control.VelUnit EN split0;
-  MOVE iDec => ioVirtualMasterCom.Control.DecUnit EN split0;
-  MOVE iAcc => ioVirtualMasterCom.Control.AccUnit EN split0;
+  MOVE Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed => ioVirtualMasterCom.Control.VelUnit ENO EN split0;
+  MOVE iDec => ioVirtualMasterCom.Control.DecUnit ENO EN split0;
+  MOVE iAcc => ioVirtualMasterCom.Control.AccUnit ENO EN split0;
 END_NETWORK
 NETWORK
-  `LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed)` DIV 6 => ioVirtualMaster.Status.ActSpeed EN TRUE
-  `LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos)` DIV 1 => ioVirtualMaster.Status.ActXPos EN ENO;
+  `LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos)` DIV 1 => ioVirtualMaster.Status.ActXPos ENO EN
+    `LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed)` DIV 6 => ioVirtualMaster.Status.ActSpeed ENO EN TRUE;
 END_NETWORK
 NETWORK
   ioVirtualMaster.Status.DriveIsReady := ioVirtualMasterCom.Status.ReadyForMotion;

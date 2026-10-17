@@ -6,7 +6,7 @@ END_VAR
 IMPLEMENTATION FBD
 %EXCLUDE_FROM_BUILD
 NETWORK
-  L_TS2P_FlexCamState_0(xEnable := ``, xEnableOperation := ``, xResetError := ``, xQSPApplication := ``, xAbort := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, lrOverride := ``, scCtrlBasicMotion := ``, scPar := ``, Axis := ``, scAccessPoints := ``, MasterValues := ``, xSyncIn := ``, xCamChangeInstant := ``, lrSetOffsetPosX := ``, lrSetOffsetPosY := ``, lrSetScalingX := ``, lrSetScalingY := ``, CamTable1 := ``, CamTable2 := ``, CamTable3 := ``, CamTable4 := ``, wSetCamTable := ``, xCamSequencer := ``);
+  L_TS2P_FlexCamState_0 : L_TS2P_FlexCamState(xEnable := ``, xEnableOperation := ``, xResetError := ``, xQSPApplication := ``, xAbort := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, lrOverride := ``, scCtrlBasicMotion := ``, scPar := ``, Axis := ``, scAccessPoints := ``, MasterValues := ``, xSyncIn := ``, xCamChangeInstant := ``, lrSetOffsetPosX := ``, lrSetOffsetPosY := ``, lrSetScalingX := ``, lrSetScalingY := ``, CamTable1 := ``, CamTable2 := ``, CamTable3 := ``, CamTable4 := ``, wSetCamTable := ``, xCamSequencer := ``);
 END_NETWORK
 NETWORK
   ??? : L_MC1P_AxisBasicControlV2(Axis := ``, xEnableInternalControl := ``, xEnableOperation := ``, xResetError := ``, xEnablePositive := ``, xEnableNegative := ``, xDisableSWLimit := ``, lrOverride := ``, lrOverrideAcc := ``, lrOverrideJerk := ``, xQspApplication := ``, xHalt := ``, xAbort := ``, xJogPos := ``, xJogNeg := ``, xContinuousUpdate := ``, xFinishPositioning := ``, xMoveVelExecute := ``, xMoveAbsExecute := ``, xMoveRelExecute := ``, lrPos_Dist := ``, lrVel := ``, lrAcc := ``, lrDec := ``, lrJerk := ``, eDirection := ``, xHomeExecute := ``, scHomeExtTP := ``, xHomeAbsSwitch := ``, xResetHomePosition := ``);

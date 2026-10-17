@@ -97,14 +97,10 @@ public static class NetworkText
         _ => null,
     };
 
-    /// <summary>Whether a box a driver BUILDS has an ENO output: the model's fact where it has one, and where the text
-    /// states none (<see cref="Box.HasEnoOutput"/> null), the text's own reading of the box
-    /// (<see cref="NetworkSpelling.TextHasEno"/>) — the rule the reader built the model by, so the built box is the
-    /// one the text describes. The one door a driver has to that rule; a copy of it in a driver is free to drift.</summary>
+    /// <summary>Whether a box a driver BUILDS has an ENO output — the model's fact (<see cref="Box.HasEnoOutput"/>, stated by
+    /// every reader). The one door a driver has to it.</summary>
     /// <param name="consumed">Whether something consumes the box — everything but a top-level item.</param>
-    public static bool HasEnoOutput(Box b, bool consumed) =>
-        b.HasEnoOutput ?? NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
-                                                     enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
+    public static bool HasEnoOutput(Box b, bool consumed) => b.HasEnoOutput || b.StCode is not null;
 
 
     /// <summary>Whether a refusal met in a network's trees can stand as that network's <c>UNSUPPORTED</c> line
@@ -112,9 +108,9 @@ public static class NetworkText
     /// the rule the text writer shows a network by (<see cref="NetworkTextWriter.WritePulled"/>).</summary>
     public static bool ShownAsUnsupported(string reason) => NetworkSpelling.UnsupportedShape.IsMatch(reason);
 
-    /// <summary>Whether a box type is a comparison operator (GT, GE, LT, LE, EQ, NE) — the engine's one list, the door a
-    /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
-    public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);
+    /// <summary>Whether a box type is a bit operator (AND, OR, XOR, NOT) — the boxes the vendor stores no main output for
+    /// (census 1.6), so a consumer reading their value is connected by no stored slot.</summary>
+    public static bool IsBitOperator(string type) => NetworkSpelling.BitOperators.Contains(type);
 
     /// <summary>REFUSE TO REBUILD A NETWORK THAT HOLDS A SYMBOL COMMENT — the one rule both drivers apply before a network
     /// is torn down and built again from the text (CODESYS: every changed network; TwinCAT: a changed SHAPE, through the

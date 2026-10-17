@@ -25,55 +25,55 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  VirtualMaster_0(ioDataExchange := Data_Exchange_Motion.Servo_VirtualMaster, i_xPositionIsRetain := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 5, i_VelMax := 600, ioSlaveAxis := LM_VirtualMaster);
+  VirtualMaster_0 : VirtualMaster(ioDataExchange := Data_Exchange_Motion.Servo_VirtualMaster, i_xPositionIsRetain := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 5, i_VelMax := 600, ioSlaveAxis := LM_VirtualMaster);
 END_NETWORK
 NETWORK
-  xMainDriveDoneOnce S= L_MC1P_ChangeMachineData_MainDrive(Axis := Axis_MainDrive, xExecute := Axis_MainDrive.xCommunicationOK AND NOT Axis_MainDrive.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``);
+  xMainDriveDoneOnce S= L_MC1P_ChangeMachineData_MainDrive : L_MC1P_ChangeMachineData(Axis := Axis_MainDrive, xExecute := Axis_MainDrive.xCommunicationOK AND NOT Axis_MainDrive.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``).xDone;
 END_NETWORK
 NETWORK
   Data_Exchange_Motion.Servo_MainDrive.Control.Enable := Data_Exchange_Motion.Servo_MainDrive.Control.Enable AND xMainDriveDoneOnce;
 END_NETWORK
 NETWORK TITLE: "Main drive motion"
-  Maindrive(ioDataExchange := Data_Exchange_Motion.Servo_MainDrive, i_xOnlyPositiveDirectionSync := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 2, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := TRUE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_MainDrive) EN;
+  Maindrive : Camming(ioDataExchange := Data_Exchange_Motion.Servo_MainDrive, i_xOnlyPositiveDirectionSync := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 2, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := TRUE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_MainDrive) ENO EN;
 END_NETWORK
 NETWORK
-  xWrappingDeviceDoneOnce S= L_MC1P_ChangeMachineData_WrappingDevice(Axis := Axis_OverrollingDevice, xExecute := Axis_OverrollingDevice.xCommunicationOK AND NOT Axis_OverrollingDevice.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := NOT LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``);
+  xWrappingDeviceDoneOnce S= L_MC1P_ChangeMachineData_WrappingDevice : L_MC1P_ChangeMachineData(Axis := Axis_OverrollingDevice, xExecute := Axis_OverrollingDevice.xCommunicationOK AND NOT Axis_OverrollingDevice.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := NOT LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``).xDone;
 END_NETWORK
 NETWORK
   Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable := Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable AND xWrappingDeviceDoneOnce;
 END_NETWORK
 NETWORK TITLE: "Wrapping device"
-  WrappingDevice(ioDataExchange := Data_Exchange_Motion.Servo_WrappingDevice, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 10, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_OverrollingDevice) EN;
+  WrappingDevice : Camming(ioDataExchange := Data_Exchange_Motion.Servo_WrappingDevice, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 10, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_OverrollingDevice) ENO EN;
 END_NETWORK
 NETWORK TITLE: "Side correction"
-  Sidecorrection(ioDataExchange := Data_Exchange_Motion.Servo_SideCorrection, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 100, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_SideCorrection, i_NormalCamRefTableNeg := ``) EN;
+  Sidecorrection : Camming_SideCorrection(ioDataExchange := Data_Exchange_Motion.Servo_SideCorrection, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 100, i_lrSyncVel := 10, i_NormalCamRefTable := ``, i_ByPassCamRefTable := ``, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_SideCorrection, i_NormalCamRefTableNeg := ``) ENO EN;
 END_NETWORK
 NETWORK
-  xFeedforwardDoneOnce S= L_MC1P_ChangeMachineData_FeedforwardWrapper(Axis := Axis_FeedFowardWrapper, xExecute := Axis_FeedFowardWrapper.xCommunicationOK AND NOT Axis_FeedFowardWrapper.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``);
+  xFeedforwardDoneOnce S= L_MC1P_ChangeMachineData_FeedforwardWrapper : L_MC1P_ChangeMachineData(Axis := Axis_FeedFowardWrapper, xExecute := Axis_FeedFowardWrapper.xCommunicationOK AND NOT Axis_FeedFowardWrapper.xDriveEnabled, xSetFeedconstant := ``, lrFeedconstant := ``, xSetGearFactor := ``, dwGearDenominator := ``, dwGearNumerator := ``, xSetAddGearFactor := ``, dwAddGearDenominator := ``, dwAddGearNumerator := ``, xSetPosResolution := ``, dwPosResolution := ``, xSetOrientation := TRUE, xOrientation := LST_InputsOutputs.I100_5_ConfigSelectionRightMachine, xSetTraversingRange := ``, eTraversingRange := ``, xSetCycleLength := ``, lrCycleLength := ``).xDone;
 END_NETWORK
 NETWORK
-  identPolePosition_FeedforwardWrapper(`execute` := xFeedforwardDoneOnce AND Axis_FeedFowardWrapper.xCommunicationOK AND NOT Axis_FeedFowardWrapper.xSTOActive, ioAxis := Axis_FeedFowardWrapper);
+  identPolePosition_FeedforwardWrapper : identPolePosition(`execute` := xFeedforwardDoneOnce AND Axis_FeedFowardWrapper.xCommunicationOK AND NOT Axis_FeedFowardWrapper.xSTOActive, ioAxis := Axis_FeedFowardWrapper);
 END_NETWORK
 NETWORK
   Data_Exchange_Motion.FeedForwardWrapper.Control.Enable := Data_Exchange_Motion.FeedForwardWrapper.Control.Enable AND identPolePosition_FeedforwardWrapper.doneOnce;
 END_NETWORK
 NETWORK TITLE: "Feed forward wrapper DTA"
-  FeedForwardWrapper(ioDataExchange := Data_Exchange_Motion.FeedForwardWrapper, TouchProbeSensor := NOT LST_InputsOutputs.I101_0_Wrapper_present, i_lrWindowStandstill := 5, i_lrJogVel := 10, ioSlaveAxis := Axis_FeedFowardWrapper);
+  FeedForwardWrapper : BasicMovement(ioDataExchange := Data_Exchange_Motion.FeedForwardWrapper, TouchProbeSensor := NOT LST_InputsOutputs.I101_0_Wrapper_present, i_lrWindowStandstill := 5, i_lrJogVel := 10, ioSlaveAxis := Axis_FeedFowardWrapper);
 END_NETWORK
 NETWORK TITLE: "FQI Bobbin"
-  Bobbin(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_Bobbin, DataIO := Data_Exchange_Motion.FQI_Bobbin, lrTorque := Data_Exchange_Motion.BobbinTorque);
+  Bobbin : ATD_TorqueControl(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_Bobbin, DataIO := Data_Exchange_Motion.FQI_Bobbin, lrTorque := Data_Exchange_Motion.BobbinTorque);
 END_NETWORK
 NETWORK TITLE: "FQI Fan"
-  Fan(lrAcc := 500, lrDec := 75, ioAxis := Axis_Fan, DataIO := Data_Exchange_Motion.FQI_Fan);
+  Fan : ATD_FQI(lrAcc := 500, lrDec := 75, ioAxis := Axis_Fan, DataIO := Data_Exchange_Motion.FQI_Fan);
 END_NETWORK
 NETWORK TITLE: "FQI FeedForward ADS"
-  FeedForwardADS(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_FeedForwardADS, DataIO := Data_Exchange_Motion.FQI_FeedforwardADS);
+  FeedForwardADS : ATD_FQI(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_FeedForwardADS, DataIO := Data_Exchange_Motion.FQI_FeedforwardADS);
 END_NETWORK
 NETWORK TITLE: "FQI FeedForward  ATF"
-  FeedForwardATF(lrAcc := 6000, lrDec := 1500, ioAxis := Axis_FeedForwardATF, DataIO := Data_Exchange_Motion.FQI_FeedforwardATF);
+  FeedForwardATF : ATD_FQI(lrAcc := 6000, lrDec := 1500, ioAxis := Axis_FeedForwardATF, DataIO := Data_Exchange_Motion.FQI_FeedforwardATF);
 END_NETWORK
 NETWORK TITLE: "FQI Elevator"
-  Elevator(lrAcc := 50, lrDec := 200, ioAxis := Axis_Elevator, DataIO := Data_Exchange_Motion.FQI_ElevatorATF);
+  Elevator : ATD_FQI(lrAcc := 50, lrDec := 200, ioAxis := Axis_Elevator, DataIO := Data_Exchange_Motion.FQI_ElevatorATF);
 END_NETWORK
 
 END_PROGRAM

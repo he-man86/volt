@@ -45,6 +45,7 @@ public static class NetworkModelEquality
         if (a.Comment != b.Comment) return Diff(at + ".Comment", a.Comment, b.Comment);
         if (a.Disabled != b.Disabled) return Diff(at + ".Disabled", a.Disabled, b.Disabled);
         if (a.Unsupported != b.Unsupported) return Diff(at + ".Unsupported", a.Unsupported, b.Unsupported);
+        if (a.UnsupportedHash != b.UnsupportedHash) return Diff(at + ".UnsupportedHash", a.UnsupportedHash, b.UnsupportedHash);
         return Lists(at + ".Trees", a.Trees, b.Trees, NodeDiff);
     }
 
@@ -69,8 +70,6 @@ public static class NetworkModelEquality
                 if (x.Instance != y.Instance) return Diff(at + ".Instance", x.Instance, y.Instance);
                 if (x.Kind != y.Kind) return Diff(at + ".Kind", x.Kind, y.Kind);
                 if (x.StCode != y.StCode) return Diff(at + ".StCode", x.StCode, y.StCode);
-                if (x.MainOutputIndex != y.MainOutputIndex)
-                    return Diff(at + ".MainOutputIndex", x.MainOutputIndex, y.MainOutputIndex);
                 if (x.ConnectedSlot != y.ConnectedSlot)
                     return Diff(at + ".ConnectedSlot", x.ConnectedSlot, y.ConnectedSlot);
                 if (x.MainOutputName != y.MainOutputName)

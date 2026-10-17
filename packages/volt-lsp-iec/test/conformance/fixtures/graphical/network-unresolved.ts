@@ -57,6 +57,7 @@
  * `.ENO`), so the recordings stand.
  */
 import type { LanguageTest } from "../../types.js"
+import { x3 } from "./network-graphical-shared.js"
 
 export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
   {
@@ -108,17 +109,21 @@ END_FUNCTION_BLOCK
     name: "network_unnamed_target_behind_enable",
     pouName: "FB_LANG_network_unnamed_target_en",
     kind: "function_block",
-    feature: "`???` as an assignment target inside an UNCONNECTED enable",
+    feature: "`???` as the assignment target of an OPERATOR read through its ENO behind an UNCONNECTED enable",
     fromDoc: "network-text.html#eneno",
-    note: "The exact shape the two LIVE Lenze POUs carry, and the reason it is here: an unconnected EN does NOT excuse the marker — the compiler still errors. That rules out 'the rung is not generated' as the explanation for those POUs building clean, leaving exclude-from-build.",
+    note:
+      "The shape the two LIVE Lenze POUs carry. Its operator box writes its value nowhere, which is X3, so the push refuses " +
+      "it by name on both vendors and no IDE is asked: its recordings (CODESYS \"The assignment target is not specified.\" " +
+      "beside the implicit temp's errors) are kept but no longer measure the LSP. What it proved — an unconnected EN does " +
+      "NOT excuse the marker, the compiler still errors, so 'the rung is not generated' does not explain those POUs " +
+      "building clean, leaving exclude-from-build — stays measured on both vendors by `network_unnamed_target_of_valued_call` " +
+      "(the same unconnected enable on a FUNCTION's box, the same answer).",
     plcPrgVar: "fb_nute : FB_LANG_network_unnamed_target_en;",
     plcPrgBody: "fb_nute();",
-    // TwinCAT's native builder refuses an enabled bit operator read through its ENO: built so, it does not compile there
-    // ("__ImpVar not defined", DIALECT N42 e) — re-recorded 2026-10-17 (openspec twincat-inproc-host).
-    vendorRefuses: {
-      twincat:
-        "TwinCAT: the 'NOT' box has an EN pin, and TwinCAT does not compile an enabled NOT built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
-    },
+    // An operator box with EN read through its ENO, its value wired nowhere, stores and does not build on either vendor
+    // (X3, v2-measurements 3c; CODESYS's recording adds the implicit temp's errors, TwinCAT's "__ImpVar not defined",
+    // DIALECT N42 e): the push refuses it by name before the IDE is asked.
+    vendorRefuses: { codesys: x3("NOT"), twincat: x3("NOT") },
     source: `FUNCTION_BLOCK FB_LANG_network_unnamed_target_en
 VAR
 \ta : BOOL;
@@ -126,8 +131,7 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  NOT(IN := a) EN
-  ??? := ENO;
+  ??? := \`NOT\`(a) ENO EN;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -150,7 +154,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  t1(IN := ???, PT := pt);
+  t1 : TON(IN := ???, PT := pt);
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -217,8 +221,7 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  PRG_LANG_network_unnamed_void_callee() EN go
-  ??? := ENO;
+  ??? := PRG_LANG_network_unnamed_void_callee() ENO EN go;
 END_NETWORK
 
 END_PROGRAM
@@ -255,8 +258,7 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  FUN_LANG_network_unnamed_valued(a) EN
-  ??? := ENO;
+  ??? := FUN_LANG_network_unnamed_valued(a) ENO EN;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -285,7 +287,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  t1(IN := a);
+  t1 : FB_LANG_NoSuchType(IN := a);
 END_NETWORK
 
 END_FUNCTION_BLOCK

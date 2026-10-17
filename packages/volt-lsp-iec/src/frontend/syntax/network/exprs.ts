@@ -5,9 +5,10 @@
  * parallel, an operator box in call form — gets none, and its sub-values are read instead (`statementExprs`), so no
  * operand the engineer wrote is left out of a check or a rename.
  *
- * Two values read as BOOL and nothing more: an edge `R_EDGE(x)` / `F_EDGE(x)` and `ENO` — the enable OUTPUT of the open
- * line it takes, not its data. Their reading is a BOOL literal with no value — typed, never folded as a constant — and the
- * operands inside them are read on their own (`sealed`).
+ * Two values read as BOOL and nothing more: an edge `R_EDGE x` / `F_EDGE x`, and a box read through its ENO (`x := MOVE 1
+ * => t ENO EN c`, an EXECUTE box, an FB read with nothing after its call) — its enable OUTPUT, not its data. Their reading
+ * is a BOOL literal with no value — typed, never folded as a constant — and the operands inside them are read on their own
+ * (`sealed`).
  */
 import type { Span } from "../span.js"
 import type { CallArg, Expr, IdentExpr, Literal } from "../ast/nodes/index.js"
@@ -45,13 +46,13 @@ export function networkValueExpr(v: NetworkValue): Expr | undefined {
       return operand !== undefined ? { kind: "unary", op: "NOT", operand, span: v.span } : undefined
     }
     case "word":
-      return wordReading(v)
+      return v.readBy === "eno" ? bool("ENO", v.span) : wordReading(v)
     case "edge":
       return bool(v.rising ? "R_EDGE" : "F_EDGE", v.span)
-    case "eno":
-      return bool("ENO", v.span)
+    case "execute":
+      return v.readBy === "eno" ? bool("ENO", v.span) : undefined
     case "call":
-      return v.output !== undefined ? namedOutputReading(v) : callReading(v)
+      return v.readBy === "eno" ? bool("ENO", v.span) : v.output !== undefined ? namedOutputReading(v) : callReading(v)
     case "nested_assign":
     case "nested_split":
       // What the consumer reads is the value, passed through the assignment (S2) or the split's definition (2R.5); the
@@ -76,25 +77,26 @@ function wordReading(v: NetworkWordBox): Expr | undefined {
   return { kind: "paren", inner: left, span: v.span }
 }
 
-/** A call read through a NAMED output (`fb(…).name`, S4): ST's `fb.name`. A function or an unnamed instance has no such
- *  path in ST, so no reading; its operands are read on their own. */
+/** An FB call read through a NAMED output (`t1 : TON(…).Q`): ST's `t1.Q`. An unnamed instance has no such path in ST, so
+ *  no reading; its operands are read on their own. */
 function namedOutputReading(v: NetworkCall): Expr | undefined {
-  if (v.output === undefined || v.instance === undefined || v.headExpr === undefined) return undefined
+  if (v.output === undefined || v.instance === undefined || v.unnamed || v.headExpr === undefined) return undefined
   const member = ident(v.output.text, v.output.span)
   return { kind: "member", base: v.headExpr, member, span: v.span }
 }
 
-/** A call box as an ST call — the head as its callee, each pin ST can spell as an argument — whatever consumes it. The
- *  NOT box is ST's `NOT`, and an operator box in call form (`ADD(a)`) has no ST reading: its head is a keyword there. */
+/** A call box as an ST call — the head as its callee (an unnamed instance's, its type), each pin ST can spell as an
+ *  argument — whatever consumes it. The NOT box is ST's `NOT`, and an operator box in its backticked call form has no ST
+ *  reading: its head is a keyword there. */
 export function callReading(v: NetworkCall): Expr | undefined {
-  const upper = (v.unnamedType ?? v.head).text.toUpperCase()
-  if (!v.backticked && v.unnamedType === undefined && upper === "NOT") {
+  const upper = v.boxType.toUpperCase()
+  if (v.operatorCall === true && upper === "NOT") {
     const only = v.pins.length === 1 && v.pins[0]!.kind === "input" ? v.pins[0]!.value : undefined
     const operand = only !== undefined ? networkValueExpr(only) : undefined
     return operand !== undefined ? { kind: "unary", op: "NOT", operand: { kind: "paren", inner: operand, span: operand.span }, span: v.span } : undefined
   }
-  if (!v.backticked && v.operatorCall === true && BOX_WORDS.has(upper) && upper !== "MOVE") return undefined
-  const callee = v.unnamedType !== undefined ? ident(v.unnamedType.text, v.unnamedType.span) : v.headExpr
+  if (v.operatorCall === true && BOX_WORDS.has(upper) && upper !== "MOVE") return undefined
+  const callee = v.unnamed && v.type !== undefined ? ident(v.type.text, v.type.span) : v.headExpr
   if (callee === undefined) return undefined
   const args: CallArg[] = []
   for (const p of v.pins) {
@@ -103,8 +105,7 @@ export function callReading(v: NetworkCall): Expr | undefined {
       if (p.name !== undefined)
         args.push({ kind: "call_arg", param: ident(p.name.text, p.name.span), output: false, ...(value !== undefined ? { value } : {}), span: p.span })
       else if (value !== undefined) args.push({ kind: "call_arg", output: false, value, span: p.span })
-    } else if (p.name?.text.toUpperCase() === "ENO") continue // the ENO pin is no parameter of the callee
-    else if (p.target?.expr !== undefined)
+    } else if (p.target?.expr !== undefined)
       args.push({ kind: "call_arg", ...(p.name !== undefined ? { param: ident(p.name.text, p.name.span) } : {}), output: true, value: p.target.expr, span: p.span })
     else if (p.name !== undefined) args.push({ kind: "call_arg", param: ident(p.name.text, p.name.span), output: true, span: p.span })
   }
@@ -119,7 +120,7 @@ export function statementExprs(s: NetworkTextStatement): Expr[] {
   for (const v of walkValues(s)) {
     if (v.kind === "nested_assign") for (const t of v.targets) if (t.expr !== undefined) out.push(t.expr)
     if (v.kind === "word") for (const t of v.outputs) if (t.expr !== undefined) out.push(t.expr)
-    if (v.kind === "call") for (const p of v.pins) if (p.kind === "output" && p.name?.text.toUpperCase() === "ENO" && p.target?.expr !== undefined) out.push(p.target.expr)
+    if ((v.kind === "word" || v.kind === "call" || v.kind === "execute") && v.eno?.target?.expr !== undefined) out.push(v.eno.target.expr)
   }
   for (const v of statementValues(s)) collect(v, out)
   return out
@@ -134,8 +135,12 @@ function collect(v: NetworkValue, out: Expr[]): void {
 /** The operands under `v` that `v`'s reading leaves out — all of them when it has none (`read` false). */
 function unread(v: NetworkValue, read: boolean, out: Expr[]): void {
   if (!(read && sealed(v))) return childrenUnread(v, read, out)
-  // A BOOL reading carries none of the operands inside it; the box an ENO takes is still the box it is.
-  if (v.kind === "eno") return collect(v.box, out)
+  // A BOOL reading carries none of the operands inside it; a box read through its ENO is still the box it is.
+  if ((v.kind === "word" || v.kind === "call") && v.readBy === "eno") {
+    const box = v.kind === "word" ? wordReading(v) : v.output === undefined ? callReading(v) : undefined
+    if (box !== undefined) out.push(box)
+    return childrenUnread(v, box !== undefined, out)
+  }
   const call = v.kind === "call" ? callReading(v) : undefined
   if (call !== undefined) out.push(call)
   childrenUnread(v, call !== undefined, out)
@@ -143,7 +148,7 @@ function unread(v: NetworkValue, read: boolean, out: Expr[]): void {
 
 function childrenUnread(v: NetworkValue, read: boolean, out: Expr[]): void {
   if (!read && v.kind === "call")
-    for (const p of v.pins) if (p.kind === "output" && p.name?.text.toUpperCase() !== "ENO" && p.target?.expr !== undefined) out.push(p.target.expr)
+    for (const p of v.pins) if (p.kind === "output" && p.target?.expr !== undefined) out.push(p.target.expr)
   for (const c of valueChildren(v)) {
     // A read value's reading holds each child's reading, where the child has one; the rest is read on its own.
     if (read && networkValueExpr(c) !== undefined && !(v.kind === "word" && c === v.en) && !(v.kind === "call" && c === v.en)) unread(c, true, out)
@@ -151,9 +156,11 @@ function childrenUnread(v: NetworkValue, read: boolean, out: Expr[]): void {
   }
 }
 
-/** Whether a value's reading holds none of its operands: the opaque BOOL of an edge or `ENO`, or `fb.name`. */
+/** Whether a value's reading holds none of its operands: the opaque BOOL of an edge or of a box read through its ENO, or
+ *  `fb.name`. */
 function sealed(v: NetworkValue): boolean {
-  return v.kind === "edge" || v.kind === "eno" || (v.kind === "call" && v.output !== undefined)
+  return v.kind === "edge" || ((v.kind === "word" || v.kind === "call" || v.kind === "execute") && v.readBy === "eno") ||
+    (v.kind === "call" && v.output !== undefined)
 }
 
 /** Every EXECUTE box in a statement — its lines are ST, checked and walked as such. */

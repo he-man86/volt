@@ -9,8 +9,8 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK TITLE: "NETWORK 1: Write setpoint speed in DB"
   // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller. 
-  Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed ADD 30 => tInt EN
-  MOVE tInt => Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed EN ENO;
+  MOVE tInt => Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed ENO EN
+    Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed ADD 30 => tInt ENO EN;
 END_NETWORK
 NETWORK TITLE: "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfiller"
   // Runtime calculation:
@@ -22,7 +22,7 @@ NETWORK TITLE: "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfil
   // First multiply by 1000 (s -> ms)
   // 1cycle = (600*1000)/speed1
   // To give a little margin: add 500ms
-  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(AlarmDB := Mach1_Alarms, iForward := Mach1_AuxData.TrayfillerActive AND Mach1_MIDS.IDB_TrayFiller.oFeedForwardMotor AND Mach1.Genflags.DelayAfterSTO AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.TrayfillerActive), iReverse := LST_General.AlwaysOff, iActivateGuard := (Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed GE 10 EN Mach1.Genflags.DelayAfterSTO AND Mach1_Data.Drives.FeedForwardATF.Control.StartAuto AND NOT LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF), iMaxRuntime := T#10S, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm051, ioAction := Mach1.GenFlags.MinorAlarm, ioAccRuntime := Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardTrayfiller, oForwardGuarded => Mach1_Data.Drives.FeedForwardATF.Control.StartAuto);
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(AlarmDB := Mach1_Alarms, iForward := Mach1_AuxData.TrayfillerActive AND Mach1_MIDS.IDB_TrayFiller.oFeedForwardMotor AND Mach1.Genflags.DelayAfterSTO AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.TrayfillerActive), iReverse := LST_General.AlwaysOff, iActivateGuard := Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed GE 10 EN Mach1.Genflags.DelayAfterSTO AND Mach1_Data.Drives.FeedForwardATF.Control.StartAuto AND NOT LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF, iMaxRuntime := T#10S, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm051, ioAction := Mach1.GenFlags.MinorAlarm, ioAccRuntime := Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardTrayfiller, oForwardGuarded => Mach1_Data.Drives.FeedForwardATF.Control.StartAuto);
 END_NETWORK
 
 END_FUNCTION

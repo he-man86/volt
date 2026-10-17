@@ -20,7 +20,7 @@ VAR_IN_OUT
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  MOVE `UINT_TO_WORD(ioUDT.Control.AutoSpeed)` => oRefSpeed EN;
+  MOVE `UINT_TO_WORD(ioUDT.Control.AutoSpeed)` => oRefSpeed ENO EN;
 END_NETWORK
 NETWORK
   split6 := TRUE;

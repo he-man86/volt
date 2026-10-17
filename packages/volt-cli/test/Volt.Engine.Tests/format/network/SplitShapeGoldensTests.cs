@@ -11,9 +11,9 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// The goldens for the NWL shapes the v1 split-only tests pinned — an item v1 spelled as several statements (a hoisted
 /// <c>LET i</c>, an <c>en</c> echo and its <c>IF</c>, a <c>LET m</c> fold, a <c>LET g</c> of a single consumer) or sent
-/// to the marker. Each holds the NWL model and pins its text in the grammar of <c>readability.md</c> (openspec
-/// <c>ld-fbd-coverage</c> 2R.3): one <c>;</c> per item, an ENO read on the line below its box (B4), a split its VarId
-/// (B6) — or the marker by name.
+/// to the marker. Each holds the NWL model and pins its text in the grammar of <c>v2-spec.md</c> (openspec
+/// <c>ld-fbd-coverage</c> 2R.6b): one <c>;</c> per item, a box read through its ENO written where its consumer holds it, a
+/// split its VarId — or the marker by name.
 ///
 /// <para><b>ENO facts follow the measurement, not the v1 text.</b> v1's <c>IF en THEN … END_IF</c> said "the rung
 /// continues from ENO" for every enabled box. Where these shapes come from a real network the model carries what the
@@ -25,7 +25,7 @@ public class SplitShapeGoldensTests
     /// <summary>A comparison with EN shown and unwired and no ENO output, consumed by its result (TrayFiller N8's
     /// GE, measured: <c>OutputParams.Names = ['']</c>).</summary>
     static Box Cmp(string type, Node a, Node b) =>
-        Call(type, new[] { In(a), In(b) }, en: Empty, main: 0, connected: 0, eno: false, kind: CallKind.Operator);
+        Call(type, new[] { In(a), In(b) }, en: Empty, connected: 0, eno: false, kind: CallKind.Operator);
 
     public static TheoryData<string> Spelled()
     {
@@ -66,7 +66,7 @@ public class SplitShapeGoldensTests
         ["RoundTrip.modifier/NOT a AND b"] = (Fbd1(Set(Op("AND", L("a", Neg), L("b")), T("out"))),
             Src("out := NOT a AND b;")),
         ["RoundTrip.modifier/a AND b RISING"] = (Fbd1(Set(Op("AND", L("a"), L("b", Rise)), T("out"))),
-            Src("out := a AND R_EDGE(b);")),
+            Src("out := a AND R_EDGE b;")),
         ["RoundTrip.modifier/NOT a AND NOT b"] = (Fbd1(Set(Op("AND", L("a", Neg), L("b", Neg)), T("out"))),
             Src("out := NOT a AND NOT b;")),
 
@@ -78,20 +78,16 @@ public class SplitShapeGoldensTests
         // NetworkTextRoundTripTests L56-67, the en-chain InlineData.
         // L56: an EN shown and wired to nothing, the box writing its own result pin.
         ["RoundTrip.en/unwired-EN"] = (Fbd1(EnEno("MUL", Empty, new[] { In(L("iRPM")), In(L("6")) }, new[] { Out("oDriveSpeed", 1) })),
-            Src("iRPM MUL 6 => oDriveSpeed EN;")),
+            Src("iRPM MUL 6 => oDriveSpeed ENO EN;")),
         // L61: SideCorrection — a SUB in a GT's EN slot, read through its ENO, each writing its own pin.
         ["RoundTrip.en/SideCorrection"] = (Ld1(EnEno("GT", EnEno("SUB", L("rung"), new[] { In(L("light")), In(L("deviation")) },
                 new[] { Out("diff", 1) }, consumed: true), new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) })),
-            LdSrc("light SUB deviation => diff EN rung", "sensor GT diff => out EN ENO;")),
-        // L63: the inner box with no pin of its own — its enable still survives.
-        ["RoundTrip.en/inner-without-pin"] = (Ld1(EnEno("GT", EnEno("SUB", L("rung"), new[] { In(L("light")), In(L("deviation")) },
-                consumed: true), new[] { In(L("sensor")), In(L("5")) }, new[] { Out("out", 1) })),
-            LdSrc("light SUB deviation EN rung", "sensor GT 5 => out EN ENO;")),
+            LdSrc("sensor GT diff => out ENO EN", "  light SUB deviation => diff ENO EN rung;")),
         // L67: a fed Parallel whose rung and branches are comparisons with EN unwired (fc_CamC_CC_Base, TrayFiller):
         // no hoist and no `en` numbering left to get wrong — and no ENO the rung does not read.
         ["RoundTrip.en/fed-Parallel"] = (Ld1(Set(new Parallel(Cmp("GT", L("a"), L("b")),
                 new Node[] { Cmp("GE", L("c"), L("d")), Cmp("LE", L("e"), L("f")) }, ParallelMode.BoxShortCircuit), T("out"))),
-            LdSrc("out := (a GT b EN) BRANCH ((c GE d EN),", "                           (e LE f EN)) SHORTCIRCUIT;")),
+            LdSrc("out := (a GT b EN) BRANCH (c GE d EN, e LE f EN) SHORTCIRCUIT;")),
 
         // NetworkTextRoundTripTests L139: `LET g28` with ONE consumer is still a wire — a Demux the vendor drew.
         ["RoundTrip.single-consumer-wire"] = (Ld1(Def(28, Op("AND", L("a"), L("b"))),
@@ -99,7 +95,7 @@ public class SplitShapeGoldensTests
             LdSrc("split28 := a AND b;", "out := f(IN := split28);")),
         // L144: `LET i1 := DINT_TO_REAL(x);` is one inVariable whose text is not a token — one operand, in place.
         ["RoundTrip.opaque-leaf"] = (Fbd1(Fb("t1", new[] { In(L("DINT_TO_REAL(x)"), "IN") }, type: "TON")),
-            Src("t1(IN := `DINT_TO_REAL(x)`);")),
+            Src("t1 : TON(IN := `DINT_TO_REAL(x)`);")),
 
         // FanOutShapeTests — the chain (one Assign, several coils) and the wire (a Demux) are two texts.
         ["FanOutShape.MultiOutputAssign"] = (Ld1(Set(L("a"), T("out1"), T("out2"))),
@@ -109,8 +105,8 @@ public class SplitShapeGoldensTests
         ["FanOutShape.A_fold_keeps_each_targets_own_operator"] = (Ld1(Set(L("a"), T("out1"), T("out2", SetBit))),
             LdSrc("out1 := out2 S= a;")),
         ["FanOutShape.An_enabled_box_driving_several_coils"] = (Ld1(Set(
-                EnEno("AND", L("en"), new[] { In(L("a")), In(L("b")) }, consumed: true) with { MainOutputIndex = null }, T("out1"), T("out2"))),
-            LdSrc("a AND b EN `en`", "out1 := out2 := ENO;")),
+                EnEno("AND", L("en"), new[] { In(L("a")), In(L("b")) }, new[] { Out("t", 1) }, consumed: true), T("out1"), T("out2"))),
+            LdSrc("out1 := out2 := a AND b => t ENO EN `en`;")),
         ["FanOutShape.A_folded_assign_fed_by_a_WIRE"] = (Ld1(Def(3, LT("a", "BOOL")), Set(Ref(3), T("single")), Set(Ref(3), T("out1"), T("out2"))),
             LdSrc("split3 := a;", "single := split3;", "out1 := out2 := split3;")),
 
@@ -145,8 +141,12 @@ public class SplitShapeGoldensTests
         // What a coil's two vendor bits cannot hold apart (a negated set coil IS the reset coil, Flags.CoilFromVendor), and
         // what no one coil carries (both edges; both control-flow bits) — refused by the writer by name.
         ["MarkerCoil.negated-set"] = (Ld1(Set(L("a"), T("out", Neg with { Set = true }))), "a negated set or reset coil"),
-        ["MarkerCoil.rising-and-falling"] = (Ld1(Set(L("a"), T("out", Rise with { Falling = true }))), "rising and falling on one coil"),
+        ["MarkerCoil.rising-and-falling"] = (Ld1(Set(L("a"), T("out", Rise with { Falling = true }))), "rising and falling on one node"),
         ["MarkerCoil.jump-and-return"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit with { Return = true }) }, JumpBit)),
             "an item that both jumps and returns"),
+        // X3 (3c): an operator read through its ENO with its value wired nowhere stores and does not build.
+        ["X3.inner-without-pin"] = (Ld1(EnEno("GT", EnEno("SUB", L("rung"), new[] { In(L("light")), In(L("deviation")) },
+                consumed: true), new[] { In(L("sensor")), In(L("5")) }, new[] { Out("out", 1) })),
+            "an operator box read through its ENO with no output wired"),
     };
 }

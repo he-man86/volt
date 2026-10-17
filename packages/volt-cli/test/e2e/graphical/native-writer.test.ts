@@ -31,23 +31,23 @@ const SHAPES: Record<string, string> = {
 	single_consumer_branch: "NETWORK\n  split1 := a AND b;\n  out := split1;\nEND_NETWORK\n",
 	fanout_two_coils: "NETWORK\n  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n",
 	leaf_fed_split: "NETWORK\n  split1 := a;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n",
-	unconnected_pin: "NETWORK\n  t1(IN := , PT := pt);\nEND_NETWORK\n",
-	pin_to_variable: "NETWORK\n  t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n",
+	unconnected_pin: "NETWORK\n  t1 : TON(IN := , PT := pt);\nEND_NETWORK\n",
+	pin_to_variable: "NETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n",
 	negated_input: "NETWORK\n  out := NOT a AND b;\nEND_NETWORK\n",
 	set_coil: "NETWORK\n  out S= a;\nEND_NETWORK\n",
 	reset_coil: "NETWORK\n  out R= a AND b;\nEND_NETWORK\n",
-	rising_edge: "NETWORK\n  out := R_EDGE(a) AND b;\nEND_NETWORK\n",
-	execute: "NETWORK\n  EXECUTE EN go\nn := n + 1;\n  END_EXECUTE;\nEND_NETWORK\n",
-	multi_rung: "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1(IN := e, PT := pt);\nEND_NETWORK\n",
-	assign_below_top: "NETWORK\n  t1(IN := (out := go), PT := pt);\nEND_NETWORK\n",
+	rising_edge: "NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n",
+	execute: "NETWORK\n  EXECUTE\nn := n + 1;\n  END_EXECUTE ENO EN go;\nEND_NETWORK\n",
+	multi_rung: "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1 : TON(IN := e, PT := pt);\nEND_NETWORK\n",
+	assign_below_top: "NETWORK\n  t1 : TON(IN := (out := go), PT := pt);\nEND_NETWORK\n",
 	jump_and_label: "NETWORK\n  JMP L1 := a;\nEND_NETWORK\nNETWORK LABEL: L1\n  out := a OR b;\nEND_NETWORK\n",
-	return_uncond: "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN;\nEND_NETWORK\n",
+	return_uncond: "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN := ;\nEND_NETWORK\n",
 	unconnected_coil: "NETWORK\n  out := ;\nEND_NETWORK\n",
 	empty_network: "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n",
 	header: "NETWORK LABEL: Here DISABLED TITLE: \"a rung\"\n  // a comment\n  out := a AND b;\nEND_NETWORK\n",
-	enable_move: "NETWORK\n  MOVE b EN go\n  out := ENO;\nEND_NETWORK\n",
+	enable_move: "NETWORK\n  out := MOVE b => out1 ENO EN go;\nEND_NETWORK\n",
 	function_named: `NETWORK\n  n := ${FN}(A := i1, B := i2);\nEND_NETWORK\n`,
-	named_eno: "NETWORK\n  MOVE(7, ENO => out, => n) EN go;\nEND_NETWORK\n",
+	named_eno: "NETWORK\n  MOVE 7 => n ENO => out EN go;\nEND_NETWORK\n",
 }
 
 const LANGS = ["LD", "FBD"] as const
@@ -138,18 +138,9 @@ describe(`graphical / native writer (${BASE})`, () => {
 			const r = await bridge.build()
 			const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
 				.map((d: any) => `${d.name}: ${d.message}`).sort()
-			// CODESYS DOES NOT BUILD ONE OF THESE AS ITS WRITER BUILDS IT — measured 2026-10-17 (cs-native, SP21), the first
-			// run of these shapes on CODESYS: an operator read through its ENO with its result wired nowhere keeps an empty
-			// operand in the result slot ("The assignment target is not specified", the N21 finding TwinCAT's builder answers
-			// with the vendor's null). A ratchet, not a skip: the day CodesysNetworkWriter builds it, this fails — take it off.
-			// (A function called by pin name was the second, "The assignment source is incorrect", until the box carried its
-			// CallType — ld-fbd-coverage 2R.4; taken off 2026-10-17.)
-			const known = VENDOR === "codesys"
-				? cases.filter((c) => c.key.startsWith("enable_move "))
-					.map((c) => `${c.item}: The assignment target is not specified.`)
-					.sort()
-				: []
-			expect(errors, JSON.stringify(errors).slice(0, 2000)).toEqual(known)
+			// (An operator read through its ENO with its result wired nowhere did not build — "The assignment target is not
+			// specified" — and is refused by name since 2R.6b, X3; the shape here wires its result.)
+			expect(errors, JSON.stringify(errors).slice(0, 2000)).toEqual([])
 		})
 	})
 
@@ -169,7 +160,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		if (!twincat) return // CODESYS builds both from its live object model
 		const refused: Record<string, string> = {
 			parallel: "NETWORK\n  out := go BRANCH (a, b);\nEND_NETWORK\n",
-			enable_and: "NETWORK\n  a AND b EN go\n  out := ENO;\nEND_NETWORK\n",
+			enable_and: "NETWORK\n  out := a AND b ENO EN go;\nEND_NETWORK\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)

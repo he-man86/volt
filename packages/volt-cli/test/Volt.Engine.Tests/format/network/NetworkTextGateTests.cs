@@ -8,7 +8,7 @@ using static Volt.Engine.Tests.NetworkModels;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// The network text gate (openspec <c>ld-fbd-coverage</c> 2R.3): each finding fires on its case, with its code and AT ITS
+/// The network text gate (openspec <c>ld-fbd-coverage</c> 2R.6b): each finding fires on its case, with its code and AT ITS
 /// LINE, and what the grammar accepts, is — a finding is always a diagnostic, never an exception. The breadth of the
 /// grammar's refusals is the shared case set (<see cref="NetworkTextCaseTests"/>); this file pins positions, the
 /// canonical form, recovery across networks and the post-push token comparison.
@@ -47,17 +47,20 @@ public class NetworkTextGateTests
 
     // ── NETWORK_PARSE ───────────────────────────────────────────────────────────────────────────
 
-    /// <summary>P2/B4: a coil without its <c>;</c> is a line that hands no ENO — refused on its own line.</summary>
+    /// <summary>An item ends with <c>;</c>: a line no deeper than its item's first line ends it — "missing `;`?", at that
+    /// line.</summary>
     [Fact]
-    public void A_coil_without_its_semicolon() =>
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := a"));
-
-    /// <summary>P9: an EXECUTE box without <c>;</c> hands its ENO to the next line; with none below it, it is a line
-    /// nothing reads. With its <c>;</c> it is one item, the box.</summary>
-    [Fact]
-    public void END_EXECUTE_without_its_semicolon_hands_its_ENO_on()
+    public void A_coil_without_its_semicolon()
     {
-        Refused("NETWORK_BAD_EXPRESSION", 3, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 4, Src("out := a"));
+        Assert.Contains("missing `;`?", Refused("NETWORK_PARSE", 4, Src("out := a", "y := b;")).Message);
+    }
+
+    /// <summary>An EXECUTE box is an item like any other: it ends with its <c>;</c>.</summary>
+    [Fact]
+    public void An_EXECUTE_box_ends_its_item_with_a_semicolon()
+    {
+        Refused("NETWORK_PARSE", 6, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\nEND_NETWORK\n");
         var ok = Gate(FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
         Assert.True(ok.Ok);
         Assert.IsType<Box>(Assert.Single(ok.Body!.Networks[0].Trees));
@@ -133,24 +136,23 @@ public class NetworkTextGateTests
 
     // ── canonical form ──────────────────────────────────────────────────────────────────────────
 
-    /// <summary>P2: inside brackets line breaks are layout, and a line breaks after a word that cannot end it — the reader
-    /// joins both, and the canonical text is one line.</summary>
+    /// <summary>Line breaks are layout: an item runs to its <c>;</c>, its continuation lines deeper than its first, and the
+    /// canonical text is the writer's layout.</summary>
     [Fact]
     public void Layout_is_not_a_difference()
     {
         var pins = Enumerable.Range(1, 30).Select(i => $"P{i} := v{i}").ToArray();
         var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
-        Accepted(FbdMarker + "NETWORK\n  fb(\n      " + string.Join(",\n      ", pins) + "\n  );\nEND_NETWORK\n", scope);
+        Accepted(FbdMarker + "NETWORK\n  fb : FB_Big(\n      " + string.Join(",\n      ", pins) + "\n    );\nEND_NETWORK\n", scope);
         AcceptedAs(FbdMarker + "NETWORK\nout:=(a AND b)OR c;\nEND_NETWORK\n", "  out := (a AND b) OR c;");
         AcceptedAs(Src("x := a AND", "     b AND c;"), "  x := a AND b AND c;");
     }
 
-    /// <summary>B1/P1: a box word is case-insensitive, and comes back in its canonical capitals; a plain name between
-    /// backticks comes back bare.</summary>
+    /// <summary>A plain name between backticks comes back bare; a box word keeps the case the box type is spelled in.</summary>
     [Fact]
     public void Another_spelling_of_one_tree_is_accepted_and_comes_back_canonical()
     {
-        AcceptedAs(Src("out := a and b;"), "out := a AND b;");
+        AcceptedAs(Src("out := a and b;"), "out := a and b;");
         AcceptedAs(Src("out := `a` AND b;"), "out := a AND b;");
         AcceptedAs(Src("JMP Done:=c;"), "JMP Done := c;");
     }
@@ -158,7 +160,7 @@ public class NetworkTextGateTests
     /// <summary>B4b: a jump's condition is a line's whole value; the editor's parallel mode is written as nothing.</summary>
     [Fact]
     public void A_parallel_in_the_editors_mode_writes_no_mode() =>
-        AcceptedAs(Src("out := f BRANCH (a, b);"), "out := f BRANCH (a,");
+        AcceptedAs(Src("out := f BRANCH (a, b);"), "out := f BRANCH (a, b);");
 
     // ── NETWORK_DUPLICATE_NAME and the split rules (B6, P11) ────────────────────────────────────
 
@@ -223,15 +225,15 @@ public class NetworkTextGateTests
     public void Two_box_words_at_one_level() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := a AND b OR c;"));
 
-    /// <summary>B4, P3: each ENO takes the oldest open line not yet taken, exactly once; every open line is taken.</summary>
+    /// <summary>A box read through its ENO is written where its consumer holds it, showing <c>ENO</c>; the word ENO alone
+    /// is no value.</summary>
     [Fact]
-    public void ENO_reads_the_line_above_exactly_once()
+    public void A_box_read_through_its_ENO_stands_in_its_consumer()
     {
-        Accepted(Src("MOVE 1 => A EN c", "lamp := ENO;"));
-        Refused("NETWORK_BAD_EXPRESSION", 4, Src("MOVE 1 => A EN c;", "lamp := ENO;"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("MOVE 1 => A EN c", "lamp := a;"));
-        Refused("NETWORK_BAD_EXPRESSION", 4, Src("MOVE 1 => A EN c", "lamp := ENO AND ENO;"));
-        Accepted(Src("MOVE 1 => A EN c", "MOVE 2 => B EN d", "lamp := ENO AND ENO;"));
+        Accepted(Src("lamp := MOVE 1 => A ENO EN c;"));
+        Accepted(Src("lamp := (MOVE 1 => A ENO EN c) AND (MOVE 2 => B ENO EN d);"));
+        Refused("NETWORK_PARSE", 4, Src("MOVE 1 => A ENO EN c", "lamp := ENO;"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("lamp := ENO;"));
     }
 
     /// <summary>N20: no flag on a split reference or a parallel.</summary>
@@ -239,22 +241,22 @@ public class NetworkTextGateTests
     public void A_flag_on_a_split_reference_or_a_parallel()
     {
         Refused("NETWORK_UNSUPPORTED", 4, Src("split3 := a;", "out := NOT split3;"));
-        Refused("NETWORK_UNSUPPORTED", 4, Src("split3 := a;", "out := R_EDGE(split3);"));
+        Refused("NETWORK_UNSUPPORTED", 4, Src("split3 := a;", "out := R_EDGE split3;"));
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := NOT (f BRANCH (a, b));"));
         // The flag on the split's FEEDER, and on a parallel's branch, are the vendor's own and stay.
         Accepted(Src("split3 := NOT a;", "out := split3;"));
         Accepted(Src("out := BRANCH (NOT a, b);"));
     }
 
-    /// <summary>N17: <c>R_EDGE(NOT x)</c> is the one spelling of a negation with an edge.</summary>
+    /// <summary>N17: <c>R_EDGE NOT x</c> is the one spelling of a negation with an edge — the edge first.</summary>
     [Fact]
-    public void A_negation_goes_inside_an_edge_and_nowhere_else()
+    public void A_negation_follows_its_edge_and_nothing_else_does()
     {
-        Accepted(Src("out := R_EDGE(NOT x);"));
-        Accepted(Src("out := F_EDGE(NOT (a AND b));"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := NOT R_EDGE(x);"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE(NOT NOT x);"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE(NOT F_EDGE(x));"));
+        Accepted(Src("out := R_EDGE NOT x;"));
+        Accepted(Src("out := F_EDGE NOT (a AND b);"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := NOT R_EDGE x;"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE NOT NOT x;"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE NOT F_EDGE x;"));
     }
 
     [Fact]
@@ -276,34 +278,36 @@ public class NetworkTextGateTests
 
     // ── NETWORK_UNSUPPORTED ─────────────────────────────────────────────────────────────────────
 
+    /// <summary>Inside backticks a backtick is doubled; a lone one closes the text.</summary>
     [Fact]
-    public void A_backtick_inside_backticked_text() =>
-        Assert.Contains("backtick", Refused("NETWORK_UNSUPPORTED", 3, Src("out := `a`b`;")).Message);
+    public void A_backtick_inside_backticked_text()
+    {
+        Accepted(Src("out := `a``b`;"));
+        Refused("NETWORK_PARSE", 3, Src("out := `a`b`;"));
+    }
 
-    /// <summary>A POU or an FB instance named like an edge word has no call (a variable of it blocks nothing); PARALLEL left
-    /// the constructs (B8): a POU of that name is called like any other.</summary>
+    /// <summary>An edge is a prefix, so a POU or an instance named like one blocks nothing: its call is backticked.</summary>
     [Fact]
     public void A_POU_or_instance_named_like_an_edge_word()
     {
-        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(x);"), Pous("R_EDGE"));
-        Refused("NETWORK_UNSUPPORTED", 3, Src("out := F_EDGE(x);"),
-            new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["f_edge"] = "F_TRIG" }));
-        Accepted(Src("out := R_EDGE(x);"), Names("R_EDGE"));
+        Accepted(Src("out := R_EDGE x;"), Pous("R_EDGE"));
+        Accepted(Src("out := `R_EDGE`(IN := x);"), Pous("R_EDGE"));
+        Accepted(Src("out := R_EDGE x;"), Names("R_EDGE"));
         Accepted(Src("out := Parallel(a, b);"), Pous("Parallel"));
     }
 
     [Fact]
     public void Nested_edges() =>
-        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(F_EDGE(x));"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE F_EDGE x;"));
 
     /// <summary>A negated empty slot stores and builds as a plain coil's value (2R.5, #6a); anywhere else, and an edge on one,
     /// it is unmeasured, refused by name.</summary>
     [Fact]
     public void A_flag_on_an_empty_slot()
     {
-        Accepted(Src("x := NOT ;"));
+        Accepted(Src("x := NOT;"));
         Refused("NETWORK_UNSUPPORTED", 3, Src("x := f(NOT , a);"));
-        Refused("NETWORK_UNSUPPORTED", 3, Src("x := f(R_EDGE(), a);"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("x := f(R_EDGE , a);"));
     }
 
     /// <summary>B8: one branch pushes and does not compile (C0023) — refused at the branch.</summary>
@@ -314,21 +318,21 @@ public class NetworkTextGateTests
     /// <summary>C3: a two-input operator with three inputs, refused at its word.</summary>
     [Fact]
     public void A_third_input_on_a_two_input_operator() =>
-        Assert.Contains("SUB takes 2 inputs", Refused("NETWORK_UNSUPPORTED", 3, Src("i := j SUB k SUB m;")).Message);
+        Assert.Contains("SUB takes two", Refused("NETWORK_UNSUPPORTED", 3, Src("i := j SUB k SUB m;")).Message);
 
     // ── accepted as the grammar says ────────────────────────────────────────────────────────────
 
     [Fact]
     public void Labels_are_the_compilers_business()
     {
-        Accepted(Src("JMP Nowhere;"));
-        Accepted(FbdMarker + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n");
+        Accepted(Src("JMP Nowhere := ;"));
+        Accepted(FbdMarker + "NETWORK\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n");
     }
 
     [Fact]
     public void A_jump_inside_a_disabled_network_round_trips()
     {
-        var text = FbdMarker + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
+        var text = FbdMarker + "NETWORK DISABLED\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
         Accepted(text);
         var body = NetworkTextReader.Read(text, NetworkScope.Empty).Body!;
         Assert.True(body.Networks[0].Disabled);
@@ -352,26 +356,22 @@ public class NetworkTextGateTests
     public void A_fully_headed_network_in_canonical_order() =>
         Accepted(FbdMarker + "NETWORK LABEL: Done DISABLED TITLE: \"Tray $\"A$\" ready\"\n  // note\n  split0 := TRUE;\n  out := split0;\nEND_NETWORK\n");
 
-    /// <summary>A backticked head named like an edge word is refused AT the call, by the reader.</summary>
+    /// <summary>A backticked head named like an edge word is a function's.</summary>
     [Fact]
-    public void A_backticked_head_named_like_a_construct_is_refused_at_the_call()
-    {
-        var d = Refused("NETWORK_UNSUPPORTED", 4, Src("y := x;", "y := `R_EDGE`(x);"));
-        Assert.Equal(8, d.Column);
-        Assert.DoesNotContain("marker", d.Message);
-    }
+    public void A_backticked_head_named_like_a_construct_is_a_call() =>
+        Accepted(Src("y := x;", "y := `R_EDGE`(x);"));
 
     [Fact]
     public void A_backticked_keyword_head_is_a_box_type() =>
         Accepted(Src("y := `EXECUTE`(x);", "`Network`(x, => z);"));
 
-    /// <summary>Whitespace plays no part in a storage operator: <c>S=</c> / <c>R=</c> after a target, however spaced.</summary>
+    /// <summary><c>S=</c> and <c>R=</c> are single tokens.</summary>
     [Fact]
-    public void Spacing_does_not_decide_a_storage_operator()
+    public void S_and_R_storage_are_single_tokens()
     {
-        Accepted(Src("x S = a;"));
-        Accepted(Src("x := y R =a;"));
-        Accepted(Src("x := y R= a;"));
+        Accepted(Src("x S= a;"));
+        Accepted(Src("x := y R=a;"));
+        Refused("NETWORK_PARSE", 3, Src("x S = a;"));
     }
 
     /// <summary>A literal says its own type: an inline type it contradicts stands (it differs), one it states is redundant.</summary>
@@ -398,10 +398,11 @@ public class NetworkTextGateTests
     [InlineData("  t1(IN := a, PT := pt);", "  t1(\n    IN := a,\n    PT := pt\n  );", true)]
     [InlineData("  t1(IN := a, PT := pt);", "  t1(IN := a);", false)]
     [InlineData("  EXECUTE\nx := 1;\n  END_EXECUTE;", "  EXECUTE\n    x := 1;\n  END_EXECUTE;", false)]
-    [InlineData("  EXECUTE EN a AND b\nx := 1;\n  END_EXECUTE;", "  EXECUTE EN a   AND b\nx := 1;\n  END_EXECUTE;", true)]
+    [InlineData("  EXECUTE\nx := 1;\n  END_EXECUTE ENO EN a AND b;", "  EXECUTE\nx := 1;\n    END_EXECUTE ENO EN a   AND b;", true)]
     [InlineData("  x := `a  b`;", "  x := `a b`;", false)]
     [InlineData("  x := a AND\n    b;", "  x := a AND b;", true)]
-    [InlineData("  MOVE 1 => A EN c\n  y := ENO;", "  MOVE 1 => A EN c y := ENO;", false)]
+    [InlineData("  y := MOVE 1 => A ENO EN\n    MOVE 2 => B ENO EN c;", "  y := MOVE 1 => A ENO EN MOVE 2 => B ENO EN c;", true)]
+    [InlineData("  y := MOVE 1 => A ENO EN c;", "  y := MOVE 1 => A EN c;", false)]
     public void Two_bodies_are_the_same_tokens_only_but_for_layout(string a, string b, bool same) =>
         Assert.Equal(same, NetworkTextGate.SameTokens(Src(a.TrimStart()), Src(b.TrimStart())));
 
@@ -412,7 +413,7 @@ public class NetworkTextGateTests
     /// <summary>What the gate accepts as the canonical form's equal is the same tokens as that canonical form.</summary>
     [Theory]
     [InlineData("x := a AND\n     b;")]
-    [InlineData("x := f(a,\n  b);")]
+    [InlineData("x := f(a,\n     b);")]
     public void A_layout_the_gate_accepts_is_the_same_tokens_as_its_canonical_form(string statement)
     {
         var text = Src(statement);

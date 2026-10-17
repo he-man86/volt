@@ -87,8 +87,7 @@ export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefi
 }
 
 /**
- * Hover for a network-text word or operand (openspec ld-fbd-coverage 2R.3, P13): `ENO` names the open line it takes, `BRANCH`
- * its parallel's branches and mode, a split its feeder, type and references — what each stands for on the drawing and
+ * Hover for a network-text word or operand: `BRANCH` its parallel's branches and mode, a split its feeder, type and references — what each stands for on the drawing and
  * its name does not say; any other operand its symbol's declaration or a built-in reference entry.
  */
 export function networkHover(doc: Document, project: Scope, offset: number): Hover | undefined {
@@ -112,7 +111,7 @@ export function networkHover(doc: Document, project: Scope, offset: number): Hov
   return builtinHover(doc, project, offset)
 }
 
-/** P13: the hover of `ENO` (the line it takes) and of `BRANCH` (its branches, in stored order, and its mode). */
+/** The hover of `BRANCH`: its branches, in stored order, and its mode. */
 function networkWordHover(doc: Document, project: Scope, offset: number): Hover | undefined {
   const found = vgBodyAt(doc, offset)
   if (found === undefined) return undefined
@@ -120,11 +119,6 @@ function networkWordHover(doc: Document, project: Scope, offset: number): Hover 
   for (const network of analysis.vg.networks)
     for (const s of network.statements)
       for (const v of walkValues(s)) {
-        if (v.kind === "eno" && spanContains(v.span, offset)) {
-          const line = v.box.span.startLine
-          const text = doc.source.slice(v.box.span.start, v.box.span.end)
-          return { contents: { kind: "markdown", value: `_ENO of line ${line}_ — the enable output of the open line this ENO takes:\n\n\`\`\`iecst\n${text}\n\`\`\`` } }
-        }
         if (v.kind === "parallel" && spanContains(v.branchWord, offset)) {
           const mode = v.shortCircuit ? "SHORTCIRCUIT (the old short-circuit mode)" : "Sequential (the editor's)"
           return { contents: { kind: "markdown", value: `_parallel branch_ — ${v.branches.length} branches, in stored order; mode ${mode}` } }
@@ -305,7 +299,7 @@ function bareTokenRanges(docs: readonly Document[], project: Scope): Set<string>
           for (const t of statementTargets(s)) if (!t.backticked && !t.unnamed) add(t.span)
           for (const v of walkValues(s)) {
             if (v.kind === "operand" && !v.backticked && !v.unnamed) add(v.span)
-            if (v.kind === "call" && !v.backticked && v.unnamedType === undefined) add(v.head.span)
+            if (v.kind === "call" && !v.backticked && !v.unnamed) add(v.head.span)
           }
         }
   return out

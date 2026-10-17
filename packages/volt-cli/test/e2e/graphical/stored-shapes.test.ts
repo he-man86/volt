@@ -57,7 +57,7 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#1: one box consuming two ENOs", async () => {
-		await shape("r5eno2", (n) => fb(n, "LD", ["  MOVE 1 => i EN c\n  MOVE 2 => j EN d\n  x := ENO AND ENO;"]), TC.twoEno)
+		await shape("r5eno2", (n) => fb(n, "LD", ["  x := (MOVE 1 => i ENO EN c) AND (MOVE 2 => j ENO EN d);"]), TC.twoEno)
 	})
 
 	it("#9–#12: a jump and a return are coils — beside a coil, two on a rung, with S=, nested", async () => {
@@ -75,13 +75,13 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#15, #16, #6a: an edge on a pin, a negated EN pin, a negated empty slot", async () => {
-		await shape("r5ep", (n) => fb(n, "FBD", ["  x := AND(R_EDGE IN1 := c, one);"]), TC.edgePin)
+		await shape("r5ep", (n) => fb(n, "FBD", ["  x := `AND`(R_EDGE IN1 := c, IN2 := one);"]), TC.edgePin)
 		await shape("r5ne", (n) => fb(n, "FBD", ["  MOVE 5 => i NOT EN c;"]), TC.negatedEn)
-		await shape("r5nt", (n) => fb(n, "LD", ["  x := NOT ;"]), TC.negatedEmpty)
+		await shape("r5nt", (n) => fb(n, "LD", ["  x := NOT;"]), TC.negatedEmpty)
 	})
 
 	it("#17: an element of an array of FBs heads its call", async () => {
-		await shape("r5af", (n) => fb(n, "FBD", ["  `fbs[1]`(CU := c, PV := 10, CV => i);"], "\tfbs : ARRAY [1..2] OF CTU;\n"), TC.arrayInstance)
+		await shape("r5af", (n) => fb(n, "FBD", ["  `fbs[1]` : CTU(CU := c, PV := 10, CV => i);"], "\tfbs : ARRAY [1..2] OF CTU;\n"), TC.arrayInstance)
 	})
 
 	it("#19, #20: a split referenced above its definition, and one defined below the top level", async () => {
@@ -90,13 +90,12 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("Open c: an empty branch of a parallel", async () => {
-		const col = " ".repeat(17)   // the branches one per line, under the first (P2)
-		await shape("r5eb", (n) => fb(n, "LD", [`  x := c BRANCH (a,\n${col});`, `  y := c BRANCH (a,\n${col},\n${col}b);`]), TC.emptyBranch)
+		await shape("r5eb", (n) => fb(n, "LD", ["  x := c BRANCH (a, );", "  y := c BRANCH (a, , b);"]), TC.emptyBranch)
 	})
 
 	it("#22, #23, #26: a comparison's ENO, the named ENO pin, an enabled comparison as a value", async () => {
-		await shape("r5ce", (n) => fb(n, "LD", ["  v GT 5 => x EN c\n  lamp := ENO;"]), TC.comparisonEno)
-		await shape("r5ne2", (n) => fb(n, "FBD", ["  MOVE(7, ENO => lamp, => i) EN c;"]), TC.namedEno)
+		await shape("r5ce", (n) => fb(n, "LD", ["  lamp := v GT 5 => x ENO EN c;"]), TC.comparisonEno)
+		await shape("r5ne2", (n) => fb(n, "FBD", ["  MOVE 7 => i ENO => lamp EN c;"]), TC.namedEno)
 		await shape("r5cv", (n) => fb(n, "FBD", ["  x := a AND (v GT 40 EN c);"]), TC.comparisonValue)
 	})
 })

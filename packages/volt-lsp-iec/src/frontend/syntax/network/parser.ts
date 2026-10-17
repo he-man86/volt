@@ -1,37 +1,33 @@
 /**
  * The network-text reader — the bridge reader (`volt-cli/src/Volt.Engine/Format/Network/NetworkTextReader.cs`, openspec
- * ld-fbd-coverage 2R.3, the grammar of `readability.md`) ported for the editor: the same tokens (`lexer.ts`), the same
- * LINES (P2), the same descent, raising the same `NETWORK_*` finding at the same token, so what the LSP underlines is what
- * the push refuses — held to it by the one case set both suites read (`volt-cli/test/fixtures/network-text`,
- * `network-cases.test.ts`).
+ * ld-fbd-coverage 2R.6b, `v2-spec.md`) ported for the editor: RECURSIVE DESCENT over the same tokens (`lexer.ts`), each
+ * node built once where it is read, whether something consumes it passed down from its parent, raising the same
+ * `NETWORK_*` finding at the same token — so what the LSP underlines is what the push refuses, held to it by the one case
+ * set both suites read (`volt-cli/test/fixtures/network-text`, `network-cases.test.ts`). The checks over the tree no
+ * spelling decides are the shared validator's (`validator.ts`).
  *
- * LINES, THEN ITEMS. A network's body is cut into lines by P2 (at bracket depth 0 a line break ends the line unless the
- * line ends with a word that cannot end it), and one `;` ends one NWL item. A line without `;` is OPEN: its root box's
- * ENO goes to a later line of the item, and each `ENO` takes the oldest open line not yet taken (B4, P3).
+ * THE SPLIT. One reader, one concern per file, each building on the one before it: `cursor.ts` (tokens, the indentation
+ * check, positions, findings, the ST inside the text) → `tokens.ts` (modifiers, targets, the old spellings) → `boxes.ts`
+ * (a box, its pin state, its connection; the parallel) → `values.ts` (an item's coils, a slot, an operand, a bracket) →
+ * this file (the body, a network, its header and its items).
  *
- * THE SCOPE. The reader asks the declarations what the bridge reader asks them, mid-statement (`NetworkScopeView`): whether
- * a call head is an FB instance and of which FB, and whether a construct's word is taken by a POU. A caller that reads only
- * the networks' extent and headers passes `STRUCTURE_ONLY`.
+ * THE SCOPE. The reader asks the declarations what the bridge reader asks them: whether a call head is an FB instance and
+ * of which FB. A caller that reads only the networks' extent and headers passes `STRUCTURE_ONLY`.
  *
- * Unlike the bridge, a finding does not discard the network it is in: the statements read before it are kept, so hover,
- * rename and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.
- *
- * THE SPLIT. One reader, one concern per file, each building on the one before it: `cursor.ts` (tokens, lines,
- * positions, findings, the ST inside the text) → `values.ts` (a bracket level, an operand, the parallel, a box's role) →
- * `calls.ts` (a call and its pins) → `statements.ts` (one statement per line) → this file (the body, a network, its
- * header and its open lines).
+ * Unlike the bridge, a finding does not discard the network it is in: the items read before it are kept, so hover, rename
+ * and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.
  */
 import type { BodySpan } from "../ast/nodes/index.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { graphicalMarkerLanguage } from "../format/bodies.js"
 import { implementationLine } from "../format/implementation-line.js"
-import type { NetworkLanguage, NetworkName, NetworkNestedSplit, NetworkSplit, NetworkSplitDef, NetworkTextBody, NetworkTextNetwork, NetworkTextStatement } from "./ast.js"
+import type { NetworkLanguage, NetworkName, NetworkSplit, NetworkTextBody, NetworkTextNetwork, NetworkTextStatement } from "./ast.js"
 import { walkValues } from "./ast.js"
-
 import { EMPTY_SCOPE, ParseError, type NetworkScopeView } from "./cursor.js"
 import { decodeTitle, NetworkLexer, type Tok, isSym, isWord } from "./lexer.js"
-import { StatementReader } from "./statements.js"
-import { IDENTIFIER, SPLIT_PREFIX, UNSUPPORTED_SHAPE, v1Refusal } from "./words.js"
+import { type NetworkFinding, validateNetwork } from "./validator.js"
+import { ValueReader } from "./values.js"
+import { IDENTIFIER, SPLIT_PREFIX, UNSUPPORTED_HASH, UNSUPPORTED_SHAPE, v1Refusal } from "./words.js"
 
 /**
  * What a caller passes that reads only the networks' extent and headers (folding, the outline, the corpus's structural
@@ -40,12 +36,12 @@ import { IDENTIFIER, SPLIT_PREFIX, UNSUPPORTED_SHAPE, v1Refusal } from "./words.
  */
 export const STRUCTURE_ONLY = "structure-only" as const
 
-/** Read a graphical body into networks, statements and the bridge reader's findings. */
+/** Read a graphical body into networks, items and the bridge reader's findings. */
 export function readNetworkText(body: BodySpan, scope: NetworkScopeView | typeof STRUCTURE_ONLY, dialect: Dialect): NetworkTextBody {
   return new Parser(body, scope === STRUCTURE_ONLY ? EMPTY_SCOPE : scope, dialect).parseBody()
 }
 
-class Parser extends StatementReader {
+class Parser extends ValueReader {
   private language: NetworkLanguage | undefined
 
   parseBody(): NetworkTextBody {
@@ -58,8 +54,8 @@ class Parser extends StatementReader {
       span: this.body.span,
     })
 
-    // The body's language is the one its IMPLEMENTATION line STATES (`syntax/format/implementation-line`): the line is
-    // not in the body's tokens, and the text below it is all network text.
+    // The body's language is the one its IMPLEMENTATION line STATES: the line is not in the body's tokens, and the text
+    // below it is all network text.
     this.language = graphicalMarkerLanguage(this.body)
     if (this.language === undefined) {
       this.refuseUnstated()
@@ -72,7 +68,6 @@ class Parser extends StatementReader {
       return result()
     }
     this.toks = this.lx.tokenize()
-    this.end = this.toks.length
     for (;;) {
       try {
         const t = this.raw(this.p)
@@ -131,7 +126,7 @@ class Parser extends StatementReader {
 
   /** After an error: skip to the end of the network it is in, so the next one is still read. */
   private recover(): void {
-    this.end = this.toks.length
+    this.itemStart = -1
     for (;;) {
       const t = this.raw(this.p)
       if (t.kind === "eof" || (isWord(t, "NETWORK") && t.atLineStart)) return
@@ -143,48 +138,52 @@ class Parser extends StatementReader {
   // ── one network ─────────────────────────────────────────────────────────────────────────────
 
   private parseNetwork(index: number): NetworkTextNetwork {
-    this.splits = new Map()
-    this.splitRefs = new Map()
-    this.splitRefAt = new Map()
-    this.open = []
-    this.end = this.toks.length
+    this.itemStart = -1
     const hdr = this.next()
     const statements: NetworkTextStatement[] = []
     const comment: string[] = []
     let header: { title?: string; label?: NetworkName; disabled: boolean } = { disabled: false }
     let headerEnd = hdr.offset + hdr.length
-    let unsupported: NetworkName | undefined
+    let unsupported: { shape: NetworkName; hash: string } | undefined
+    let closed = false
 
     try {
       header = this.parseHeader(hdr)
       headerEnd = this.lastEnd()
-      // P10: the network's comment — the `//` lines between the header and the body.
+      // The network's comment: the `//` lines between the header and the first item.
       while (this.raw(this.p).kind === "comment") comment.push(this.next().text)
+      if (this.raw(this.p).kind === "error") throw this.err(this.raw(this.p), (this.raw(this.p).code ?? "NETWORK_PARSE") as never, this.raw(this.p).text)
       unsupported = this.parseItems(hdr, statements)
+      closed = true
     } catch (e) {
       if (!(e instanceof ParseError)) throw e
       this.report(e)
-      this.end = this.toks.length
+      this.itemStart = -1
       // An unclosed network already stands at the next NETWORK or the end; any other finding skips to END_NETWORK.
       if (e.code !== "NETWORK_NOT_CLOSED") this.recover()
     }
-    this.end = this.toks.length
 
-    return {
+    const network: NetworkTextNetwork = {
       index,
       ...(header.title !== undefined ? { title: header.title } : {}),
       ...(header.label !== undefined ? { label: header.label } : {}),
       disabled: header.disabled,
       ...(comment.length > 0 ? { comment: comment.join("\n") } : {}),
-      splits: this.collectSplits(statements),
-      ...(unsupported !== undefined ? { unsupported } : {}),
+      splits: collectSplits(statements),
+      ...(unsupported !== undefined ? { unsupported: unsupported.shape, unsupportedHash: unsupported.hash } : {}),
       statements,
       span: this.span(hdr.offset, Math.max(this.lastEnd(), hdr.offset + hdr.length)),
       headerSpan: this.span(hdr.offset, headerEnd),
     }
+    // The checks over the tree no spelling decides — reported at the node they name, once the network reads whole.
+    if (closed) {
+      const finding: NetworkFinding | undefined = validateNetwork(network)
+      if (finding !== undefined) this.diag(finding.code, `${finding.reason}: ${finding.detail}`, finding.span ?? network.headerSpan)
+    }
+    return network
   }
 
-  /** P10: `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]`, in that order, on the header's line. */
+  /** `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]`, in that order, on the header's line. */
   private parseHeader(hdr: Tok): { title?: string; label?: NetworkName; disabled: boolean } {
     const hdrLine = this.line(hdr)
     let title: string | undefined
@@ -196,7 +195,7 @@ class Parser extends StatementReader {
         throw this.err(
           t,
           "NETWORK_PARSE",
-          stage === at ? `a NETWORK header carries ${what} twice.` : 'the NETWORK header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], in that order (P10).',
+          stage === at ? `a NETWORK header carries ${what} twice.` : 'the NETWORK header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], in that order.',
         )
       stage = at
     }
@@ -222,7 +221,7 @@ class Parser extends StatementReader {
         if (this.line(s) !== hdrLine || s.kind !== "dstring") throw this.err(s, "NETWORK_PARSE", "a TITLE is a double-quoted string, on the header's line.")
         const decoded = decodeTitle(s.text)
         if ("error" in decoded) throw this.err(s, "NETWORK_PARSE", decoded.error)
-        if (decoded.value.length === 0) throw this.err(s, "NETWORK_PARSE", '`TITLE: ""`: a network with no title has no TITLE (P10).')
+        if (decoded.value.length === 0) throw this.err(s, "NETWORK_PARSE", '`TITLE: ""`: a network with no title has no TITLE.')
         title = decoded.value
       } else
         throw this.err(
@@ -234,132 +233,80 @@ class Parser extends StatementReader {
     return { ...(title !== undefined ? { title } : {}), ...(label !== undefined ? { label } : {}), disabled }
   }
 
-  /** The network's lines up to END_NETWORK: one statement per item, the open lines taken by the ENOs below them (P3). */
-  private parseItems(hdr: Tok, statements: NetworkTextStatement[]): NetworkName | undefined {
-    let unsupported: NetworkName | undefined
+  /** The network's items up to END_NETWORK — or its one UNSUPPORTED line. */
+  private parseItems(hdr: Tok, statements: NetworkTextStatement[]): { shape: NetworkName; hash: string } | undefined {
+    let unsupported: { shape: NetworkName; hash: string } | undefined
     for (;;) {
+      this.itemStart = -1
       const t = this.raw(this.p)
       if (isWord(t, "END_NETWORK") || t.kind === "eof" || (isWord(t, "NETWORK") && t.atLineStart)) {
-        if (this.open.length > 0)
-          throw this.err(
-            this.open[0]!.at,
-            "NETWORK_BAD_EXPRESSION",
-            "an open line nothing takes: a line without `;` hands its box's ENO to a later line of its item, which reads it as ENO (B4, P3) — end it with `;`.",
-          )
         if (!isWord(t, "END_NETWORK")) throw this.err(hdr, "NETWORK_NOT_CLOSED", "this NETWORK has no END_NETWORK.")
         this.p++
-        for (const [id, at] of this.splitRefAt)
-          if (!this.splits.has(id))
-            throw this.err(
-              at,
-              "NETWORK_BAD_EXPRESSION",
-              `the split ${at.text} is never defined: a split is defined once in its network, \`${at.text} := value;\` (P9).`,
-            )
         return unsupported
       }
       if (t.kind === "comment")
         throw this.err(
           t,
           "NETWORK_PARSE",
-          "a // comment after a statement: the network's one comment is the // lines between its header and its first statement, and NWL has no per-item comment to move this one to.",
+          "a // comment after an item: the network's one comment is the // lines between its header and its first item, and NWL has no per-item comment to move this one to.",
         )
       if (isWord(t, "UNSUPPORTED")) {
-        unsupported = this.unsupportedLine(t, statements.length > 0 || this.open.length > 0)
+        unsupported = this.unsupportedLine(t, statements.length > 0)
         continue
       }
-
-      const { end, semi } = this.lineEnd(this.p)
-      const lineStart = this.raw(this.p)
-      this.end = end
-      try {
-        const read = this.parseLine(semi)
-        if (semi) {
-          // One `;` = one NWL item: every open line above it is taken by now (P3).
-          if (this.open.length > 0)
-            throw this.err(
-              this.open[0]!.at,
-              "NETWORK_BAD_EXPRESSION",
-              "an open line nothing takes: its item ended with `;` before an ENO read it — every line without `;` is read by exactly one ENO of its item (B4, P3).",
-            )
-          if ("statement" in read) statements.push(read.statement)
-        } else {
-          // P3: an open line's root is a box with an ENO — refused for any other root.
-          if (!("open" in read))
-            throw this.err(
-              lineStart,
-              "NETWORK_BAD_EXPRESSION",
-              "a line without `;` whose root is no box with an ENO (a coil, a split, a jump, a leaf, a parallel): end it with `;` (B4, P3).",
-            )
-          this.open.push({ box: read.open, at: lineStart })
-        }
-      } finally {
-        this.end = this.toks.length
-      }
-      this.p = end
+      statements.push(this.parseItem())
     }
   }
 
-  /** `UNSUPPORTED "<shape>";` (1b.4): the network's trees the text has no spelling for, shown — its only line. */
-  private unsupportedLine(kw: Tok, content: boolean): NetworkName {
+  /** `UNSUPPORTED "<shape>" #<hash>;`: the network's trees the text has no spelling for, shown — its only line. */
+  private unsupportedLine(kw: Tok, content: boolean): { shape: NetworkName; hash: string } {
     this.p++
     if (content)
       throw this.err(
         kw,
         "NETWORK_UNSUPPORTED",
-        "an UNSUPPORTED line beside other statements: it stands for the whole network's content, which Volt cannot show, and is its network's only line.",
+        "an UNSUPPORTED line beside other items: it stands for the whole network's content, and is its network's only line.",
       )
     const shape = this.next()
     const inner = shape.kind === "dstring" ? shape.text.slice(1, -1) : ""
     if (shape.kind !== "dstring" || !UNSUPPORTED_SHAPE.test(inner))
-      throw this.err(shape, "NETWORK_PARSE", 'an UNSUPPORTED line names the shape Volt cannot show, as a quoted phrase: UNSUPPORTED "a flag on a box input pin";')
-    this.expectSym(";", 'UNSUPPORTED "<shape>";')
+      throw this.err(
+        shape,
+        "NETWORK_PARSE",
+        'an UNSUPPORTED line names the shape Volt cannot show, as a quoted phrase, and its hash: UNSUPPORTED "a flag on a box input pin" #3f9a01c2;',
+      )
+    const h = this.next()
+    if (h.kind !== "hash" || !UNSUPPORTED_HASH.test(h.text))
+      throw this.err(
+        h,
+        "NETWORK_PARSE",
+        'an UNSUPPORTED line ends with the network\'s hash, `#` and 8 lower-case hex digits: UNSUPPORTED "<shape>" #3f9a01c2;',
+      )
+    this.expectSym(";", 'UNSUPPORTED "<shape>" #<hash>;')
     const end = this.raw(this.p)
     if (!isWord(end, "END_NETWORK"))
       throw this.err(
         end,
         "NETWORK_UNSUPPORTED",
-        "a statement after an UNSUPPORTED line: the line stands for the whole network's content, and is its network's only line.",
+        "an item after an UNSUPPORTED line: the line stands for the whole network's content, and is its network's only line.",
       )
-    return { text: inner, span: this.span(shape.offset + 1, shape.offset + shape.length - 1) }
-  }
-
-  /** P2: where the line starting at `from` ends, and whether it ends with `;`. At bracket depth 0 a line break ends a
-   *  line unless the line ends with a word that cannot end it; inside brackets line breaks are layout. An EXECUTE body and
-   *  its END_EXECUTE belong to the EXECUTE's line. */
-  private lineEnd(from: number): { end: number; semi: boolean } {
-    let depth = 0
-    for (let j = from; ; ) {
-      const t = this.raw(j)
-      if (t.kind === "eof") return { end: j, semi: false }
-      if (j > from && depth === 0) {
-        const prev = this.raw(j - 1)
-        if (isWord(t, "END_NETWORK") || (isWord(t, "NETWORK") && t.atLineStart) || t.kind === "comment") return { end: j, semi: false }
-        if (t.kind !== "snippet" && prev.kind !== "snippet" && this.line(t) > this.line(prev) &&
-            !this.continuesLine(prev, j > 1 ? this.raw(j - 2) : undefined))
-          return { end: j, semi: false }
-      }
-      if (isSym(t, "(")) depth++
-      else if (isSym(t, ")")) depth = Math.max(0, depth - 1)
-      j++
-      if (isSym(t, ";") && depth === 0) return { end: j, semi: true }
-    }
-  }
-
-  // ── splits ──────────────────────────────────────────────────────────────────────────────────
-
-  /** The network's split points in text order — each statement's definition, then the definitions nested in it (2R.5). */
-  private collectSplits(statements: readonly NetworkTextStatement[]): NetworkSplit[] {
-    const out: NetworkSplit[] = []
-    const add = (s: NetworkSplitDef | NetworkNestedSplit): void => {
-      const varId = Number(s.split.text.slice(SPLIT_PREFIX.length))
-      out.push({ name: s.split, varId, definition: s, references: this.splitRefs.get(varId) ?? [] })
-    }
-    for (const s of statements) {
-      if (s.kind === "split_def") add(s)
-      for (const v of walkValues(s)) if (v.kind === "nested_split") add(v)
-
-    }
-    return out
+    return { shape: { text: inner, span: this.span(shape.offset + 1, shape.offset + shape.length - 1) }, hash: h.text }
   }
 }
 
+/** The network's split points in text order — each item's definition, then the definitions nested in it — and every
+ *  reference to each. */
+function collectSplits(statements: readonly NetworkTextStatement[]): NetworkSplit[] {
+  const out: NetworkSplit[] = []
+  const refs = new Map<number, NetworkName[]>()
+  const id = (name: NetworkName): number => Number(name.text.slice(SPLIT_PREFIX.length))
+  for (const s of statements) {
+    if (s.kind === "split_def") out.push({ name: s.split, varId: id(s.split), definition: s, references: [] })
+    for (const v of walkValues(s)) {
+      if (v.kind === "nested_split") out.push({ name: v.split, varId: id(v.split), definition: v, references: [] })
+      if (v.kind === "split_ref") refs.set(id(v.name), [...(refs.get(id(v.name)) ?? []), v.name])
+    }
+  }
+  for (const s of out) s.references = refs.get(s.varId) ?? []
+  return out
+}

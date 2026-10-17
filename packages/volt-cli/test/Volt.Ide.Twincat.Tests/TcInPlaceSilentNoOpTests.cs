@@ -60,8 +60,8 @@ public class TcInPlaceSilentNoOpTests
     /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
     /// nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1(IN := TRUE, PT := T#5s);", "t1(IN := TRUE, PT := T#5s)\n  output := ENO;")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1(IN := in1, PT := e1);", "t1(IN := in1, PT := e1)\n  output := ENO;")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1 : TON(IN := TRUE, PT := T#5s).Q;", "output := t1 : TON(IN := TRUE, PT := T#5s);")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1 : TON(IN := in1, PT := e1).Q;", "output := t1 : TON(IN := in1, PT := e1);")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         var (before, model) = Edited(fixture, language, from, to);

@@ -21,19 +21,20 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK TITLE: "NETWORK 1 : Speed control transport system dryer"
   split185 := True;
-  MOVE 0 => TempI EN split185;
-  Mach1_Data.AUTOSPEED MUL 10 => MainDrive_AutoSpeed01rpm EN split185;
-  MOVE MainDrive_AutoSpeed01rpm => Droger_Data.Cor_denumerator EN split185;
+  MOVE 0 => TempI ENO EN split185;
+  Mach1_Data.AUTOSPEED MUL 10 => MainDrive_AutoSpeed01rpm ENO EN split185;
+  MOVE MainDrive_AutoSpeed01rpm => Droger_Data.Cor_denumerator ENO EN split185;
   split186 := split185 AND True;
-  MOVE MainDrive_AutoSpeed01rpm => Mach_ActSpeed_Rpm01 EN Mach1_AuxData.IEC_TIMERS.TON_DelayIdling(IN := split186 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS) AND NOT Mach1_Alarms.Alm049
-  MOVE MainDrive_AutoSpeed01rpm => Droger_Data.Cor_numerator EN ENO;
-  MOVE `HMI_Var.Mach1.ActualSpeed*10` => Mach_ActSpeed_Rpm01 EN split186 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q);
+  MOVE MainDrive_AutoSpeed01rpm => Droger_Data.Cor_numerator ENO EN
+    MOVE MainDrive_AutoSpeed01rpm => Mach_ActSpeed_Rpm01 ENO EN Mach1_AuxData.IEC_TIMERS.TON_DelayIdling : TON(IN := split186 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS).Q AND NOT Mach1_Alarms.Alm049;
+  MOVE `HMI_Var.Mach1.ActualSpeed*10` => Mach_ActSpeed_Rpm01 ENO EN split186 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q);
   split187 := split186 AND True;
   split188 := split187 AND Trayfiller_Data.commInterface.HoldFeedFwd;
-  MOVE 750 => Droger_Data.Cor_numerator EN (Mach1_AuxData.ADS_StopOnZeroPulse := split188 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse));
-  MOVE 5 => Mach1_AuxData.CounterHighSpeedATF_ADS EN Mach1_AuxData.Edge.Osr_SetCounter(CLK := split188 AND Trayfiller_Data.commInterface.Permission);
-  Mach1_Data.AUTOSPEED MUL 13 => Droger_Data.Cor_numerator EN (Mach1_AuxData.CounterHighSpeedATF_ADS NE 0 EN split187 AND Trayfiller_Data.commInterface.Permission);
-  EXECUTE EN split186
+  MOVE 750 => Droger_Data.Cor_numerator ENO EN (Mach1_AuxData.ADS_StopOnZeroPulse := split188 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse));
+  MOVE 5 => Mach1_AuxData.CounterHighSpeedATF_ADS ENO EN Mach1_AuxData.Edge.Osr_SetCounter : F_TRIG(CLK := split188 AND Trayfiller_Data.commInterface.Permission).Q;
+  Mach1_Data.AUTOSPEED MUL 13 => Droger_Data.Cor_numerator ENO EN
+    Mach1_AuxData.CounterHighSpeedATF_ADS NE 0 EN split187 AND Trayfiller_Data.commInterface.Permission;
+  EXECUTE
 cor_NumDI:=Droger_Data.Cor_numerator;
 cor_DenumDI:=Droger_Data.Cor_denumerator;
 //cor_NumDI:=1;
@@ -42,7 +43,7 @@ HMI_Var.Mach1.ActualSpeedDryer:=(Mach_ActSpeed_Rpm01*cor_numDI)/cor_denumdi;
 Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real(HMI_Var.Mach1.ActualSpeedDryer)*6/10);
 
 
-  END_EXECUTE;
+  END_EXECUTE ENO EN split186;
 END_NETWORK
 NETWORK TITLE: "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
   // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 
@@ -65,18 +66,20 @@ NETWORK TITLE: "NETWORK 2: Deviation calculation of sync point, transport system
   // van -60..300 wordt de correctiefactor gecorrigeerd:
   //  - indien correctie < -60 dan 360 erbij optellen
   //  - indien correctie > 300 dan 360 eraf tellen
-  Droger_Data.Act_sync_pos SUB Droger_Data.set_sync_pos => devAngle EN Mach1.GenFlags.DriveIsRunning
-  MainDrive_AutoSpeed01rpm SUB 2 => cor_Const EN ENO
-  devAngle ADD cor_Const => Droger_Data.Cor_numerator EN ENO
-  split4 := ENO;
-  Droger_Data.Cor_numerator ADD 360 => Droger_Data.Cor_numerator EN (devAngle LT -60 EN split4);
-  Droger_Data.Cor_numerator SUB 360 => Droger_Data.Cor_numerator EN (devAngle GT 300 EN split4);
+  split4 := devAngle ADD cor_Const => Droger_Data.Cor_numerator ENO EN
+              MainDrive_AutoSpeed01rpm SUB 2 => cor_Const ENO EN
+                Droger_Data.Act_sync_pos SUB Droger_Data.set_sync_pos => devAngle ENO EN Mach1.GenFlags.DriveIsRunning;
+  Droger_Data.Cor_numerator ADD 360 => Droger_Data.Cor_numerator ENO EN
+    devAngle LT -60 EN split4;
+  Droger_Data.Cor_numerator SUB 360 => Droger_Data.Cor_numerator ENO EN
+    devAngle GT 300 EN split4;
 END_NETWORK
 NETWORK
-  split0 := R_TRIG_0(CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
-  MOVE HMI_Var.Mach1.Position => Droger_Data.Act_sync_pos EN split0;
-  MOVE Mach1_Data.CamControls.FeedforwardDryer_CP.Start => Droger_Data.set_sync_pos EN split0;
-  Mach1_AuxData.CounterHighSpeedATF_ADS SUB 1 => Mach1_AuxData.CounterHighSpeedATF_ADS EN (Mach1_AuxData.CounterHighSpeedATF_ADS GT 0 EN split0);
+  split0 := R_TRIG_0 : R_TRIG(CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS).Q;
+  MOVE HMI_Var.Mach1.Position => Droger_Data.Act_sync_pos ENO EN split0;
+  MOVE Mach1_Data.CamControls.FeedforwardDryer_CP.Start => Droger_Data.set_sync_pos ENO EN split0;
+  Mach1_AuxData.CounterHighSpeedATF_ADS SUB 1 => Mach1_AuxData.CounterHighSpeedATF_ADS ENO EN
+    Mach1_AuxData.CounterHighSpeedATF_ADS GT 0 EN split0;
 END_NETWORK
 
 END_PROGRAM

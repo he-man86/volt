@@ -1124,7 +1124,7 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10405 pass / 34 skip / 428 todo / 0 fail; typecheck, lint (warnings only), `bun run check` 16/16; `rate:fixtures` not run (no fixture or
       transpiler change).
 
-- [ ] 2R.6b **Build network text v2.1 exactly as `v2-spec.md` states** (owner: "think we should refactor like this";
+- [x] 2R.6b **Build network text v2.1 exactly as `v2-spec.md` states** (owner: "think we should refactor like this";
       defaults D1–D8 applied; pin flags before the pin name, no `[NOT]` mark; EXECUTE bodies verbatim ST). One change,
       not beside the old: writer as one walk of the tree (one buffer, column passed down, staircase layout), reader as
       recursive descent with `consumed` passed down, the shared validator over the model, the model changes of section 7
@@ -1135,6 +1135,30 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       typecheck, lint, `bun run check`, the LSP full suite, the case set on both sides, graphical e2e on CODESYS and
       TwinCAT (own fixture instances), and the corpora re-pulled with zero unspellable networks beyond the MEASURE list.
       The native-writer branch (`twincat-native-writer`) is NOT merged here; it is rebased on top afterwards.
+      **Gate review (2026-10-17), five findings:** (1) X9's function arm vs TwinCAT — FIXED as a recorded niche: TwinCAT's
+      recording of `ng_m_library_function_eno` fails the build ("Function 'LEN' requires exactly '1' inputs") and the LSP
+      says nothing there; 0 function boxes in the six corpora show ENO without EN, so it is "niche: accepted loss (0
+      occurrences in the corpora)", written on the fixture and in design.md 2R.6b beside the owner note (no recording
+      changed). (2) An FB's stored ENO with no EN — FIXED where it corrupts: a positional output after an ENO the text
+      cannot show (top level, or read by `.name`) read back one slot lower; `NetworkValidator` now refuses it ("a positional
+      output after an FB's unshown ENO", red first in `NetworkValidatorTests`). The ENO list alone stays the accepted
+      rebuild loss of the owner note, which now names the `.name` case too. (3) `network_unnamed_target_behind_enable` —
+      note FIXED, not re-spelled: X3 refuses its operator shape on both vendors, so it measures nothing now; what it proved
+      (an unconnected EN does not excuse `???`) stays measured on both vendors by `network_unnamed_target_of_valued_call`
+      (same unconnected enable, same answer). Re-spelling it would need both recordings redone for no new coverage;
+      improve later if wanted. (4) The seven model-only validator refusals — FIXED: one test each in
+      `NetworkValidatorTests` (all pass; no text reaches them, so the LSP port has no parity case). (5) Identical
+      UNSUPPORTED hashes — SKIPPED, wrong in its consequence: a deletion or move of one of two networks that show the same
+      line is already refused by `NetworkPairing.RefuseUnseenLoss` (test
+      `Deleting_one_of_two_identically_shown_networks_with_unseen_content_is_refused`, exactly that model); the `Hash`
+      doc comment now says so.
+      **Gate numbers:** C# Engine 2965 + 1 skipped, CODESYS 455, TwinCAT 588, Cli 297, Repo.Gates 243, Contracts 42,
+      Connector 146; volt-cli unit 154; volt-vscode 39; volt-control 145; LSP full suite (`VOLT_REQUIRE_FULL=1`, no
+      `VOLT_FIXTURES`) 10345 pass / 34 skip / 428 todo / 0 fail; graphical e2e CODESYS 152/152 (own instance
+      `ld-fbd-coverage`); TwinCAT Project14 149 pass / 5 skip / 0 fail (own instance, worker built to a scratch folder and
+      served with `-BridgeDir`: another session's worker held the Release folder; a first run had 1 fail that did not
+      repeat and whose output was not kept); typecheck clean, lint warnings only (LSP lint green), `bun run check` 16/16;
+      `rate:fixtures` re-run, map unchanged; no recording.
 
 ## 3. Verify and close
 

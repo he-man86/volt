@@ -212,11 +212,6 @@ public static class NetworkMembers
         return slots;
     }
 
-    /// <summary>Whether the box has an ENO output AS THE TEXT CARRIES IT.</summary>
-    private static bool CarriedHasEno(Box b, bool consumed)
-    {
-        if (NetworkSpelling.EnoCarried(b, consumed) && b.HasEnoOutput is { } stated) return stated;
-        return NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
-            enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
-    }
+    /// <summary>Whether the box has an ENO output — the model's fact (an Execute box has one by type).</summary>
+    private static bool CarriedHasEno(Box b, bool consumed) => b.HasEnoOutput || b.StCode is not null;
 }

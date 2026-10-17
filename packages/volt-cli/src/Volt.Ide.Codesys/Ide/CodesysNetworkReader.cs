@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -354,11 +354,10 @@ namespace Volt.Ide.Codesys
                 enable,
                 ReadStCode(n),
                 flags,
-                MainOutputIndex: mainOutput,
                 ConnectedSlot: consumed ? mainOutput : null,
                 OutputTypes: OutputTypes(n),
                 HasEnoOutput: Box.HasEnoSlot(outputNames),
-                MainOutputName: consumed ? Box.NameOfMainOutput(type, mainOutput, outputNames) : null,
+                MainOutputName: consumed ? Box.NameOfConnectedOutput(instance is not null, mainOutput, Box.HasEnoSlot(outputNames), outputNames) : null,
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
                 Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames.Select(x => x ?? "")))))
@@ -377,7 +376,7 @@ namespace Volt.Ide.Codesys
         private static int? UnstoredMainOutput(string type, bool enabled, IReadOnlyList<string?> outputNames)
         {
             if (enabled) return Box.HasEnoSlot(outputNames) ? 0 : null;
-            return Box.StoresNoMainOutput(type) ? Box.BitOperatorSlot(outputNames.Count) : 0;
+            return NetworkText.IsBitOperator(type) ? (outputNames.Count > 0 ? 0 : null) : 0;
         }
 
         /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.

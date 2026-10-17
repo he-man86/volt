@@ -37,7 +37,7 @@ const THREE: readonly [string, string, string][] = [
 
 /** Volt's push refusing a three-input `box` — the reader's NETWORK_UNSUPPORTED, before the IDE is asked (B1). */
 const twoInputs = (box: string): string =>
-  `NETWORK_UNSUPPORTED: ${box} takes 2 inputs, and this one holds 3: the build refuses it ("needs exactly '2' operands", C3) — Volt's push, before the IDE is asked (2R.3)`
+  `NETWORK_UNSUPPORTED: a two input operator box with more inputs: the '${box}' box holds 3 inputs, and ${box} takes two (the build refuses it: "needs exactly '2' operands", X13) — Volt's push, before the IDE is asked (2R.6b)`
 
 export const NETWORK_GRAPHICAL_TESTS_C: readonly LanguageTest[] = THREE.map(([suffix, box, statement]) => {
   const pou = `FB_NG_r1_${suffix}3`

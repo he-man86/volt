@@ -99,8 +99,8 @@ function usesTypeOf(
   project: Scope,
   seen: Set<NetworkSplit>,
 ): { typeExpr?: TypeExpr } {
+  if ((v.kind === "word" || v.kind === "call" || v.kind === "execute") && v.readBy === "eno") return named("BOOL", project)
   switch (v.kind) {
-    case "eno":
     case "edge":
     case "parallel":
       return named("BOOL", project)

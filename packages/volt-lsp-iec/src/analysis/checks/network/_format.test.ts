@@ -17,9 +17,17 @@ test("network text: a split defined in two networks of one body is a warning on 
   expect(of(src.replace("split1 := b;\n  y := split1;", "split2 := b;\n  y := split2;"), "network-split-reused")).toEqual([])
 })
 
-test("network text: EN with nothing after it is a hint, and so is a coil on the rail (P12, P13)", () => {
+test("network text: EN with nothing after it is a hint, and so is a coil on the rail — not a jump's", () => {
   expect(of(fb("NETWORK\n  MOVE 1 => i EN;\nEND_NETWORK\n"), "network-en-unwired").map((d) => d.severity)).toEqual(["hint"])
   expect(of(fb("NETWORK\n  MOVE 1 => i EN a;\nEND_NETWORK\n"), "network-en-unwired")).toEqual([])
   expect(of(fb("NETWORK\n  x R= ;\nEND_NETWORK\n"), "network-coil-on-rail").map((d) => d.severity)).toEqual(["hint"])
   expect(of(fb("NETWORK\n  x R= a;\nEND_NETWORK\n"), "network-coil-on-rail")).toEqual([])
+  expect(of(fb("NETWORK\n  JMP Done := ;\nEND_NETWORK\nNETWORK LABEL: Done\n  ;\nEND_NETWORK\n"), "network-coil-on-rail")).toEqual([])
+})
+
+test("network text: `ENO => v` is a hint — the IDE never writes v (v2-measurements 7a)", () => {
+  const got = of(fb("NETWORK\n  MOVE 7 => i ENO => x EN a;\nEND_NETWORK\n"), "network-eno-pin-unwritten")
+  expect(got.map((d) => d.severity)).toEqual(["hint"])
+  expect(got[0]!.message).toContain("never writes 'x'")
+  expect(of(fb("NETWORK\n  x := MOVE 7 => i ENO EN a;\nEND_NETWORK\n"), "network-eno-pin-unwritten")).toEqual([])
 })

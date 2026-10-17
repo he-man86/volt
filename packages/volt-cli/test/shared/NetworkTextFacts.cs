@@ -7,67 +7,43 @@ using Parallel = Volt.Engine.Format.Network.Parallel;
 namespace Volt.Tests.Shared;
 
 /// <summary>
-/// The model as network text v2 CARRIES it — the model oracle's "≅" is <c>Equal(Carried(a), Carried(b))</c>, so
-/// <c>Read(Write(m)) ≅ m</c> fails exactly when the text lost a fact it is meant to carry. Test code: it is the
-/// ORACLE's normalisation, and ships in no product (compiled into each suite that runs the oracle).
+/// The model as network text v2.1 CARRIES it — the model oracle's "≅" is <c>Equal(Carried(a), Carried(b))</c>, so
+/// <c>Read(Write(m)) ≅ m</c> fails exactly when the text lost a fact it is meant to carry. Test code: the ORACLE's
+/// normalisation, shipped in no product.
 ///
-/// <para><b>This is the list of what the text does NOT carry, written down once.</b> Each line below is the spec's
-/// one equivalence or a fact the text has no position for, which the push takes from the IDE's own box or the
-/// declarations; none is a leniency. Adding a line here is a claim that the text is not supposed to carry that
-/// fact — it must never be how a failing oracle is made green. Where the text CANNOT carry a fact that is not on
-/// this list, the writer refuses the body by name instead.</para>
+/// <para><b>This is the list of what the text does NOT carry</b> (<c>v2-spec.md</c> section 2, "Members not carried"),
+/// written down once. Adding a line is a claim that the text is not meant to carry that fact — never how a failing oracle
+/// is made green.</para>
 /// <list type="bullet">
-/// <item>The spec's one equivalence: an operator's absent ≡ default <c>InputParams</c> names (review 7.9; P10:
-/// <c>IN&lt;n&gt;</c> on the table's operators, <c>IN</c> on MOVE and the NOT box).</item>
-/// <item>B7 (ld-fbd-coverage 2R.3): the members the text derives and never spells — a box's stored <c>OutputParam</c>
-/// names (<see cref="Box.Members"/>) and types, and a bit operator's stored output slot (the editor's <c>['']</c>, S1),
-/// which the text reads as none — are LOST ON REBUILD (owner, 2R.2 Open item 5) and kept by every push that does not
-/// rebuild the network. Not compared here; <see cref="RebuildLoss"/> names them on a rebuild.</item>
-/// <item>Network <c>Order</c> → the network's position. The header has no order number.</item>
-/// <item>An operand's <c>Type</c> and <c>Comment</c> (vendor metadata no statement spells), an operand's copy of its
-/// item's flags; <c>IsInstance</c> / <c>IsLValue</c> are what the position says.</item>
-/// <item><c>Box.Kind</c> → <see cref="NetworkSpelling.KindOf"/>: the vendor's <c>CallType</c> is the IDE's resolution
-/// of the box type (a MOVE the IDE resolved reads <c>Operator</c>, the same box freshly built <c>None</c>).</item>
-/// <item><c>Box.MainOutputIndex</c> where no connection names it — at the top level, and on a box consumed by ENO
-/// or by no stored slot. It is the box TYPE's result slot, set by the IDE when it builds the box; where a consumer
-/// IS connected by the main output the connection slot names it, and it is compared (the writer refuses every
-/// main output the text would read back as another — <see cref="NetworkSpelling.MainSlotOfCall"/>).</item>
-/// <item><c>OutputTypes</c> and <c>Demux.Type</c>: a wire's type is compared through the declaration the writer
-/// derives from them, not as model fields (the vendor's Demux has no type; the text's has no stored types).</item>
-/// <item><c>Box.HasEnoOutput</c> where the text does not decide by it (<see cref="NetworkSpelling.EnoCarried"/>): a
-/// top-level box with no positional <c>=&gt;</c> pin, a consumed box with no EN and no stored slot (an operator
-/// group), an Execute box. The ENO output is the box type's; the text spells it only as <c>.ENO</c> and as the
-/// slot positional pins skip.</item>
-/// <item>An FB instance box's <c>Type</c> SPELLING → its last name segment, case folded. The text spells the call by
-/// its instance, and the reader takes the type from the instance's declaration, in the declaration's spelling
-/// (<c>t : Standard.TON;</c>, <c>t : Ton;</c>) where the vendor may store <c>TON</c>. Those are one type, and the writer
-/// refuses any pair that is not (<c>StDeclaration.SameType</c>: two namespaces are two types), so what reaches this
-/// comparison differs in spelling alone. The push keeps the IDE's own spelling where it edits in place (TwinCAT) and
-/// writes the declaration's where it builds the box (CODESYS), which the IDE resolves to the same type. A <c>???</c>
-/// instance's type is spelled in the text and compared whole.</item>
-/// <item>A main output read by its NAME (S4, <c>fb(…).name</c>, <see cref="NetworkSpelling.NamedMainOutput"/>) → the name,
-/// with no <c>MainOutputIndex</c> and no <c>ConnectedSlot</c>: the text has no position for the index (the box type's),
-/// and a push never builds such a box (N21) — it keeps the IDE's network. <c>MainOutputName</c> anywhere else → null:
-/// the readers state it only where the text spells it.</item>
-/// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
-/// <item>Control flow: the Jump/Return bit rides on the target, and on the item as a cache (DIALECT C13, 2R.4) — the
-/// item's carried as the OR of its targets', a lone target taking the item's; a target-less return's target is the
-/// vendor's constant <c>???</c>.</item>
-/// <item>A CR LF line ending in an EXECUTE snippet is the FILE's layout, so it is the LF alone. A network's title and
-/// comment are carried EXACTLY (P12, 2R.2 S), their CR LF included.</item>
+/// <item>An operator pin's default formal (<c>IN&lt;n&gt;</c>, <c>IN</c> on MOVE and the NOT box) vs none — one text.</item>
+/// <item>B7: a box's stored output names and types (<see cref="Box.Members"/>, <see cref="Box.OutputTypes"/>) — lost on
+/// rebuild, named by <see cref="RebuildLoss"/>.</item>
+/// <item>Network <c>Order</c> → its position; a <c>Title</c>/<c>Comment</c> stored <c>""</c> → none (one text).</item>
+/// <item>An operand's <c>Type</c>, <c>Comment</c>, its copy of its item's flags; <c>IsInstance</c> / <c>IsLValue</c> are what
+/// the position says.</item>
+/// <item><c>Box.Kind</c> → <see cref="NetworkSpelling.KindOf"/> (derived on push from the declarations).</item>
+/// <item><c>ConnectedSlot</c> where the text states no slot: a top-level box (none), a bit operator read by its value (the
+/// vendor stores none), an FB read by <c>.name</c> (the name is carried, its slot is the declaration's).</item>
+/// <item><c>HasEnoOutput</c> where the text shows nothing of it: an FB with no EN that nothing reads through ENO (its
+/// declared ENO, unread); an Execute box has one by type.</item>
+/// <item><c>MainOutputName</c> anywhere but on a consumed FB read by a data output.</item>
+/// <item>A NAMED output's slot (the box type's), the ENO pin's included.</item>
+/// <item>Control flow: the Jump/Return bit rides on the target and on the item as a cache (C13) — carried as the OR of the
+/// targets', a lone target taking the item's; a target-less return's target is the vendor's <c>???</c>.</item>
+/// <item>A CR LF line ending in an EXECUTE snippet is the FILE's layout: the LF alone.</item>
 /// </list>
 /// </summary>
 public static class NetworkTextFacts
 {
     public static NetworkBody Carried(NetworkBody body) =>
         new(body.Language, body.Networks.Select((n, i) => new Network(
-            i, n.Title, n.Label, n.Comment, n.Disabled, n.Trees.Select(t => Node(t, consumed: false)).ToList(),
-            n.Unsupported)).ToList());
+            i, Text(n.Title), n.Label, Text(n.Comment), n.Disabled, n.Trees.Select(t => Node(t, consumed: false)).ToList(),
+            n.Unsupported, n.UnsupportedHash)).ToList());
+
+    private static string? Text(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     private static Node? NodeOrNull(Node? n) => n is null ? null : Node(n, consumed: true);
 
-    /// <param name="consumed">Whether something consumes the node — everything but a top-level item. A box's
-    /// ENO is carried differently at the top level (<see cref="NetworkSpelling.EnoCarried"/>).</param>
     private static Node Node(Node n, bool consumed) => n switch
     {
         Leaf l => new Leaf(new Operand(l.Operand.Text), l.Flags),
@@ -96,38 +72,31 @@ public static class NetworkTextFacts
 
     private static Box BoxOf(Box b, bool consumed)
     {
-        // S4: a main output read by NAME carries the name and no slot — the text has no position for the index.
-        var byName = consumed ? NetworkSpelling.NamedMainOutput(b) : null;
-        if (byName is not null) b = b with { MainOutputIndex = null, ConnectedSlot = null };
-        // B7: a bit operator read by its data is connected by none in the text (its stored slot is lost on rebuild),
-        // unless a named output pin states its outputs.
-        if (consumed && !NetworkSpelling.ConnectedByEno(b) && NetworkSpelling.MainSlotOfCall(b.Type) is null && byName is null)
-        {
-            var slot = Box.BitOperatorSlot(b.Outputs.Any(o => o.Formal is not null) ? 1 : 0);
-            b = b with { ConnectedSlot = slot, MainOutputIndex = slot };
-        }
-        // The one definition of a read through ENO, shared with the writer: a copy here could drift from it silently.
-        var byMainOutput = b.ConnectedSlot is not null && !NetworkSpelling.ConnectedByEno(b);
+        var isFb = b.Instance is not null;
+        var isExecute = b.StCode is not null;
+        var byEno = consumed && NetworkSpelling.ConnectedByEno(b);
+        var byName = consumed && isFb && !byEno ? b.MainOutputName : null;
+        int? connected = !consumed || byName is not null ? null
+            : !byEno && NetworkSpelling.MainSlotOfCall(b.Type) is null ? null
+            : b.ConnectedSlot;
+        var hasEno = isExecute || (NetworkSpelling.EnoShown(b) || byEno);
         return new Box(
-            b.Instance is { } named && named.Text != Box.UnnamedInstance ? TypeSpelling(b.Type) : b.Type,
-            // The instance's text and its flags: the text has no position for a flag on the instance operand, so the
-            // writer refuses one — which only holds if the oracle compares it.
+            b.Type,
+            // The instance's text and its flags: the text has no position for a flag on the instance operand, so the writer
+            // refuses one — which only holds if the oracle compares it.
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
                 Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
-            NetworkSpelling.KindOf(b.Type, b.Instance is not null),
+            NetworkSpelling.KindOf(b.Type, isFb),
             b.Inputs.Select((p, i) => new Input(NetworkSpelling.DefaultFormal(b.Type, i) is not null && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal) ? null : p.Formal,
                 Node(p.Value, consumed: true), p.Flags)).ToList(),
             b.Outputs.Select(o => new Output(o.Formal, Target(o.Value), o.Formal is not null ? null : o.Slot)).ToList(),
             NodeOrNull(b.Enable),
             b.StCode?.Replace("\r\n", "\n"),
             b.Flags,
-            MainOutputIndex: byMainOutput ? b.MainOutputIndex : null,
-            ConnectedSlot: b.ConnectedSlot,
+            ConnectedSlot: connected,
             OutputTypes: null,
-            HasEnoOutput: NetworkSpelling.EnoCarried(b with { MainOutputName = byName }, consumed) ? b.HasEnoOutput : null,
+            HasEnoOutput: hasEno,
             MainOutputName: byName,
             Members: null) { EnableFlags = b.EnableFlags };
     }
-
-    private static string TypeSpelling(string type) => type.Substring(type.LastIndexOf('.') + 1).ToUpperInvariant();
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
@@ -44,6 +44,10 @@ public class CodesysNetworkPairingTests
         a.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
         return a;
     }
+
+    /// <summary>The <c>UNSUPPORTED "…" #hash;</c> line a pulled text shows (its hash is the network's).</summary>
+    static string LineOf(string text) =>
+        System.Text.RegularExpressions.Regex.Match(text, "  UNSUPPORTED \"[^\"]*\" #[0-9a-f]{8};").Value;
 
     /// <summary>A rung whose AND box carries a SET bit on an input pin, which the text has no spelling for (a coil bit
     /// on a pin — a negated pin is S6's spelling since ld-fbd-coverage 2.3, an edge on one 2R.5's).</summary>
@@ -122,7 +126,7 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
-            Assert.Contains("out := fbCap(xEnable := src).xErrorActive;", t);
+            Assert.Contains("out := fbCap : L_FirstFASTErrCapture(xEnable := src).xErrorActive;", t);
             return t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);
@@ -157,7 +161,7 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
         var shown = Pushed(impl, t =>
         {
-            Assert.Contains("NETWORK\n  UNSUPPORTED \"a flag on a box input pin\";\nEND_NETWORK\n", t);
+            Assert.Matches("NETWORK\n  UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};\nEND_NETWORK\n", t);
             return t.Replace("o1 := a;", "o1 := b;");
         });
         Write(impl, shown);
@@ -205,7 +209,7 @@ public class CodesysNetworkPairingTests
     public void An_UNSUPPORTED_line_replaced_under_its_header_is_refused(string replacement)
     {
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
-        var pushed = Pushed(impl, t => t.Replace("NETWORK\n  UNSUPPORTED \"a flag on a box input pin\";\n",
+        var pushed = Pushed(impl, t => t.Replace("NETWORK\n" + LineOf(t) + "\n",
                                                  "NETWORK TITLE: \"kept\"\n" + (replacement.Length > 0 ? "  " + replacement + "\n" : "")));
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
@@ -220,9 +224,9 @@ public class CodesysNetworkPairingTests
     public void Deleting_one_of_two_identical_UNSUPPORTED_lines_is_refused()
     {
         var (impl, nets) = Live(PinFlagRung(), PinFlagRung());
-        var block = Net("UNSUPPORTED \"a flag on a box input pin\";");
         var pushed = Pushed(impl, t =>
         {
+            var block = Net(LineOf(t).TrimStart());
             Assert.Equal("IMPLEMENTATION FBD\n" + block + block, t);
             return "IMPLEMENTATION FBD\n" + block;
         });
@@ -241,7 +245,7 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
         var pushed = Pushed(impl, t => edited is not null
             ? t.Replace("a flag on a box input pin", edited)
-            : t + Net("UNSUPPORTED \"a flag on a box input pin\";"));
+            : t + Net(LineOf(t).TrimStart()));
 
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);

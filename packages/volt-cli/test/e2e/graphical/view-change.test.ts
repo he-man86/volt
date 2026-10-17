@@ -75,12 +75,10 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  out := go BRANCH (a,
-                    b) SHORTCIRCUIT;
+  out := go BRANCH (a, b) SHORTCIRCUIT;
 END_NETWORK
 NETWORK
-  out2 := a AND (BRANCH (b,
-                         go));
+  out2 := a AND (BRANCH (b, go));
 END_NETWORK
 
 END_FUNCTION_BLOCK

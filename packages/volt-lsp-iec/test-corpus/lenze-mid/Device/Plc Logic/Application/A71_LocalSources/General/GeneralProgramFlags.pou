@@ -36,30 +36,30 @@ NETWORK
   FirstCycle R= AlwaysOn AND OSfirstflagcycle;
 END_NETWORK
 NETWORK
-  MOVE 0 => dummyWord EN AlwaysOn;
+  MOVE 0 => dummyWord ENO EN AlwaysOn;
 END_NETWORK
 NETWORK
   split2 := ;
-  FF50ms := tmr_FF50ms(IN := split2 AND NOT tmr_FF50ms_not.Q, PT := T#100MS);
-  LST_General.Imp100ms := tmr_FF50ms_not(IN := split2 AND FF50ms, PT := T#100MS);
+  FF50ms := tmr_FF50ms : TON(IN := split2 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
+  LST_General.Imp100ms := tmr_FF50ms_not : TON(IN := split2 AND FF50ms, PT := T#100MS).Q;
 END_NETWORK
 NETWORK
   split1 := ;
-  FF100ms := tmr_FF100ms(IN := split1 AND NOT tmr_FF100ms_not.Q, PT := T#500MS);
-  LST_General.Imp200ms := tmr_FF100ms_not(IN := split1 AND FF100ms, PT := T#500MS);
+  FF100ms := tmr_FF100ms : TON(IN := split1 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
+  LST_General.Imp200ms := tmr_FF100ms_not : TON(IN := split1 AND FF100ms, PT := T#500MS).Q;
 END_NETWORK
 NETWORK
   split3 := ;
-  FF500ms := tmr_FF500ms(IN := split3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS);
-  LST_General.Imp1s := tmr_FF500ms_not(IN := split3 AND FF500ms, PT := T#500MS);
+  FF500ms := tmr_FF500ms : TON(IN := split3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
+  LST_General.Imp1s := tmr_FF500ms_not : TON(IN := split3 AND FF500ms, PT := T#500MS).Q;
 END_NETWORK
 NETWORK
   split4 := ;
-  FF1s := tmr_FF1s(IN := split4 AND NOT tmr_FF1s_not.Q, PT := T#1S);
-  tmr_FF1s_not(IN := split4 AND FF1s, PT := T#1S);
+  FF1s := tmr_FF1s : TON(IN := split4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
+  tmr_FF1s_not : TON(IN := split4 AND FF1s, PT := T#1S);
 END_NETWORK
 NETWORK
-  LST_General.StartUpDelayPLC := PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S);
+  LST_General.StartUpDelayPLC := PLC_StartUp_Delay : TON(IN := AlwaysOn, PT := T#60S).Q;
 END_NETWORK
 
 END_PROGRAM

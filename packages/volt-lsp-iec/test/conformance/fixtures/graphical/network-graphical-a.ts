@@ -5,7 +5,7 @@
  * held to 400 lines; the map is keyed by fixture name, so a split is map-neutral, and the walk order is kept).
  */
 import type { LanguageTest } from "../../types.js"
-import { doc, ng } from "./network-graphical-shared.js"
+import { doc, ng, x3 } from "./network-graphical-shared.js"
 
 export const NETWORK_GRAPHICAL_TESTS_A: readonly LanguageTest[] = [
 // ─── operator groups (§7) ──────────────────────────────────────────────────
@@ -152,7 +152,7 @@ END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#modifiers--ride-on-the-consumer`),
-  ng("ng_edge_modifiers", "FB_NG_edges", "the edge flags `R_EDGE(x)` and `F_EDGE(x)` on an operand",
+  ng("ng_edge_modifiers", "FB_NG_edges", "the edge flags `R_EDGE x` and `F_EDGE x` on an operand",
     `FUNCTION_BLOCK FB_NG_edges
 VAR
 \tclk : BOOL;
@@ -162,10 +162,10 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  up := R_EDGE(clk);
+  up := R_EDGE clk;
 END_NETWORK
 NETWORK
-  down := F_EDGE(clk);
+  down := F_EDGE clk;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -183,7 +183,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  t1(IN := go, PT := pt);
+  t1 : TON(IN := go, PT := pt);
   done := t1.Q;
 END_NETWORK
 
@@ -217,7 +217,7 @@ END_FUNCTION_BLOCK
 `, `${doc}#box-output-pins--the-calls-assignment-and-`,
     "208 wired output pins on 171 boxes were DROPPED before this form existed — a pin the engineer wired was simply absent from the file. IEC's own split: a function's result is assigned, its VAR_OUTPUTs use `=>`."),
   // ─── EN/ENO and EXECUTE (§6) ───────────────────────────────────────────────
-  ng("ng_en_eno_sink", "FB_NG_en", "an enabled box whose result feeds one sink",
+  { ...ng("ng_en_eno_sink", "FB_NG_en", "an enabled operator box read through its ENO, its value wired nowhere (X3)",
     `FUNCTION_BLOCK FB_NG_en
 VAR
 \tgo : BOOL;
@@ -228,13 +228,12 @@ END_VAR
 
 IMPLEMENTATION LD
 NETWORK
-  a AND b EN go
-  out := ENO;
+  out := a AND b ENO EN go;
 END_NETWORK
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno--let-en--src-if-en-then-result-end_if`),
-  ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled box whose ENO is a split, so it can fan out to two coils",
+`, `${doc}#eneno`), vendorRefuses: { codesys: x3("AND"), twincat: x3("AND") } },
+  { ...ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled operator box whose ENO is a split, its value wired nowhere (X3)",
     `FUNCTION_BLOCK FB_NG_enwire
 VAR
 \tgo : BOOL;
@@ -246,14 +245,13 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  b OR c EN go
-  split1 := ENO;
+  split1 := b OR c ENO EN go;
   out := split1;
   out3 := split1;
 END_NETWORK
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno--let-en--src-if-en-then-result-end_if`),
+`, `${doc}#eneno`), vendorRefuses: { codesys: x3("OR"), twincat: x3("OR") } },
   ng("ng_execute_box", "FB_NG_execute", "an EXECUTE box — raw ST inside a graphical body, with its own nested END_IF",
     `FUNCTION_BLOCK FB_NG_execute
 VAR
@@ -264,11 +262,11 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE EN bRun
+  EXECUTE
 IF bStart THEN
 	target := 40 + 2;
 END_IF
-  END_EXECUTE;
+  END_EXECUTE ENO EN bRun;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -285,7 +283,7 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK
   out := TRUE;
-  JMP Onwards;
+  JMP Onwards := ;
 END_NETWORK
 NETWORK LABEL: Onwards
   after := TRUE;
@@ -311,7 +309,7 @@ NETWORK
 END_NETWORK
 NETWORK LABEL: Tail
   done := TRUE;
-  RETURN;
+  RETURN := ;
 END_NETWORK
 NETWORK
   later := TRUE;

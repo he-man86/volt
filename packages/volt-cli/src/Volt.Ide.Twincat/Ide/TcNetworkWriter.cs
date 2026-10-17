@@ -522,19 +522,21 @@ internal static class TcNetworkWriter
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
-                // THE CONNECTION AND THE ENO OUTPUT ARE FACTS THE TEXT CARRIES (`.ENO`, task 3.10), and neither is a
+                // THE CONNECTION AND THE ENO OUTPUT ARE FACTS THE TEXT CARRIES (`… ENO EN c`, `.name`), and neither is a
                 // value this write can change: the connected slot is the one the archive stores null, and the ENO
                 // output is the box's `OutputParam` signature. Compared against the archive by the reader's own
                 // derivation, so a consumer moved from Q to ENO is refused here — sent to the IDE to rebuild — and
-                // never found "unchanged" by a walk that looks at neither. Where the model states neither (a
-                // top-level box, a fact the text has no position for there), there is nothing to compare.
+                // never found "unchanged" by a walk that looks at neither.
                 //
                 // Its own exception type (the push half of "EN is a pin, ENO is spelled", task 4.2): in the in-place
                 // pass it is a shape change like any other and routes the network to the builder; after the rebuild it
                 // compares the text with the box the builder built, and then it is the answer — the text reads an
                 // output that box does not have.
-                if (b.HasEnoOutput is { } hasEno && hasEno != TcNetworkReader.HasEno(e))
-                    throw new TcEnoRefusal(b.Type, textReadsEno: hasEno);
+                // A top-level FB without EN is the one box whose ENO the text has no position for (it shows ENO only with EN,
+                // and reads an FB's declared ENO only through a consumer): the archive keeps its own.
+                var enoUnstated = b.Instance is not null && b.Enable is null && b.ConnectedSlot is null && b.MainOutputName is null;
+                if (!enoUnstated && b.HasEnoOutput != TcNetworkReader.HasEno(e))
+                    throw new TcEnoRefusal(b.Type, textReadsEno: b.HasEnoOutput);
                 if (b.ConnectedSlot is { } slot && TcNetworkReader.ConnectedSlot(e) != slot)
                     throw Refuse($"the consumer of box '{b.Type}' moves to output slot {slot}");
 

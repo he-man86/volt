@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Volt.Engine.Item;
 
@@ -25,6 +25,7 @@ public sealed class NetworkScope
     private readonly Func<string, bool> _isPou;
     private readonly Func<string, string?> _instanceType;
     private readonly Func<string, Format.Network.Callee?> _callee;
+    private readonly Func<string, IReadOnlyList<string>?> _blockOutputs;
 
     /// <param name="names">Every name in scope.</param>
     /// <param name="pous">The POUs the body can call (functions, FB types, programs). Each is also a name in scope.</param>
@@ -57,17 +58,19 @@ public sealed class NetworkScope
             instances.TryGetValue(n, out var t) ? t
             : ArrayElementBase(n) is { } array && instances.TryGetValue(array + ArrayKey, out var e) ? e
             : null;
-        // A scope stated as name lists holds no declaration to derive a callee from (Callee).
+        // A scope stated as name lists holds no declaration to derive a callee or a block's outputs from.
         _callee = _ => null;
+        _blockOutputs = _ => null;
     }
 
     private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType,
-                         Func<string, Format.Network.Callee?> callee)
+                         Func<string, Format.Network.Callee?> callee, Func<string, IReadOnlyList<string>?> blockOutputs)
     {
         _contains = contains;
         _isPou = isPou;
         _instanceType = instanceType;
         _callee = callee;
+        _blockOutputs = blockOutputs;
     }
 
     /// <summary>The key suffix the name-list constructor reads as "an ARRAY of FBs of that type": <c>fbs[]</c>.</summary>
@@ -215,8 +218,9 @@ public sealed class NetworkScope
             // a conversion) is a referenced library's — its box builds only with CallType Function and its input names,
             // as a project function's (measured live, SP21: `ng_m_library_function*`, bakon-nano's REPLACE/DELETE).
             if (!IsPou(type))
-                return NetworkSpelling.IsName(type) && kindOf(type) is null && !isRefusedPouName(type) && !Contains(type)
-                    ? libraryFunction(type)
+                return NetworkSpelling.IsName(type) && kindOf(type) is null && !isRefusedPouName(type) && !Contains(type) &&
+                       libraryFunction(type) is { CallType: Format.Network.Callee.FunctionCallType } library
+                    ? library
                     : null;
             var declaration = declarationOf(type);
             return St.StDeclaration.IsFunction(declaration)
@@ -225,7 +229,33 @@ public sealed class NetworkScope
                 : null;
         }
 
-        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf);
+        // An FB's VAR_OUTPUTs in declaration order, its inherited ones first (a derived FB's box lists its base's outputs
+        // before its own): a project FB by its declaration, a library's by the IDE's signature. What a `.name` read's slot
+        // is derived from (NetworkDerivation, v2-spec section 7).
+        IReadOnlyList<string>? BlockOutputs(string type)
+        {
+            if (IsPou(type))
+            {
+                var own = declarationOf(type);
+                return own is null || St.StDeclaration.IsFunction(own) ? null : InheritedOutputs(type, own, 0);
+            }
+            var bare = type.Substring(type.LastIndexOf('.') + 1);
+            return NetworkSpelling.IsName(type) && kindOf(bare) is null && libraryFunction(bare) is { CallType: Format.Network.Callee.FunctionBlockCallType } block
+                ? block.Outputs
+                : null;
+        }
+
+        IReadOnlyList<string>? InheritedOutputs(string type, string declaration, int depth)
+        {
+            var own = St.StDeclaration.OutputNames(declaration);
+            if (St.StDeclaration.BaseOf(declaration) is not { } baseName || depth > 32) return own;
+            var baseOutputs = IsPou(baseName) && declarationOf(baseName) is { } b
+                ? InheritedOutputs(baseName, b, depth + 1)
+                : libraryFunction(baseName) is { CallType: Format.Network.Callee.FunctionBlockCallType } lib ? lib.Outputs : null;
+            return baseOutputs is null ? null : baseOutputs.Concat(own).ToList();
+        }
+
+        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs);
     }
 
     public bool Contains(string name) => _contains(name);
@@ -237,6 +267,10 @@ public sealed class NetworkScope
     /// and runs as drawn. A referenced library's FUNCTION answers from the IDE's library signature (2R.4b); a name no
     /// library declares one function of answers null, never a guess.</summary>
     public Format.Network.Callee? Callee(string type) => _callee(type);
+
+    /// <summary>An FB type's outputs in the order its box lists them (inherited first), or null where no declaration or
+    /// library signature in reach states them — what the push derives a <c>.name</c> read's slot from.</summary>
+    public IReadOnlyList<string>? BlockOutputs(string fbType) => _blockOutputs(fbType);
 
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>
     public bool IsCallable(string name) => _isPou(name) || _instanceType(name) is not null;
@@ -252,6 +286,10 @@ public sealed record Callee(string CallType, IReadOnlyList<string> Inputs, IRead
 {
     /// <summary>The vendor enum member a FUNCTION's box holds (CODESYS <c>Operator.Function</c>; 113 corpus boxes).</summary>
     public const string FunctionCallType = "Function";
+
+    /// <summary>A library FUNCTION BLOCK's signature, as <see cref="Volt.Engine.Library.LibraryFunctions"/> answers it: its
+    /// outputs give a <c>.name</c> read's slot. No box is built with it as a CallType.</summary>
+    public const string FunctionBlockCallType = "FunctionBlock";
 
     /// <summary>The vendor enum member a METHOD's box holds (CODESYS <c>Operator.Method</c>, the drawn box measured
     /// 2026-10-16; 0 in the corpora).</summary>

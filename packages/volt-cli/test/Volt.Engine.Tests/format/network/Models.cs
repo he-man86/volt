@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -34,26 +34,27 @@ internal static class NetworkModels
         new(type, null, CallKind.Operator, inputs.Select(i => In(i)).ToList(), new List<Output>(), null, null, Flags.None);
 
     public static Box Call(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null,
-                           int? main = 0, int? connected = null, Flags? f = null, Operand? instance = null,
-                           CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null, bool? eno = null) =>
+                           int? connected = null, Flags? f = null, Operand? instance = null,
+                           CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null, bool eno = false,
+                           string? name = null) =>
         new(type, instance, kind, inputs.ToList(), (outputs ?? Array.Empty<Output>()).ToList(), en, null, f ?? Flags.None,
-            MainOutputIndex: main, ConnectedSlot: connected, OutputTypes: types, HasEnoOutput: eno);
+            ConnectedSlot: connected, OutputTypes: types, HasEnoOutput: eno, MainOutputName: name);
 
     public static Box Fb(string instance, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, string type = "FB") =>
-        Call(type, inputs, outputs, main: null, instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
+        Call(type, inputs, outputs, instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
 
     public static Box Exec(string st, Node? en = null, int? connected = null) =>
         new("EXECUTE", null, CallKind.Function, new List<Input>(), new List<Output>(), en, st, Flags.None,
-            ConnectedSlot: connected);
+            ConnectedSlot: connected, HasEnoOutput: true);
 
     public static Output Out(string target, int? slot, string? formal = null) => new(formal, new Operand(target, IsLValue: true), slot);
 
-    /// <summary>A box showing EN/ENO (<c>OutputParams.Names = ['ENO', …]</c>, <c>MainOutputIndex</c> 0): consumed,
-    /// it is read through its ENO; at the top level it is connected by nothing. <paramref name="types"/> are its
-    /// stored output types, none given = not read.</summary>
+    /// <summary>A box showing EN/ENO (<c>OutputParams.Names = ['ENO', …]</c>): consumed, it is read through its ENO; at
+    /// the top level it is connected by nothing. <paramref name="types"/> are its stored output types, none given = not
+    /// read.</summary>
     public static Box EnEno(string type, Node en, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null,
                             bool consumed = false, params string?[] types) =>
-        Call(type, inputs, outputs, en: en, main: 0, connected: consumed ? 0 : null, eno: true,
+        Call(type, inputs, outputs, en: en, connected: consumed ? 0 : null, eno: true,
             types: types.Length == 0 ? null : types, kind: NetworkSpelling.KindOf(type, hasInstance: false));
 
     // ── source text ─────────────────────────────────────────────────────────────────────────────

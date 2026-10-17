@@ -1,13 +1,15 @@
 /**
  * The network-text lexer — a port of the bridge's `NetworkLexer` (`volt-cli/src/Volt.Engine/Format/Network/NetworkLexer.cs`,
- * openspec ld-fbd-coverage 2R.3, `readability.md`), so the editor reads a body token for token as the push does. It runs
- * over the body's RAW text, not over the ST lexer's tokens, because the two languages cut text differently where it
- * matters: a dotted path is one token here (`Mach1.GenFlags.Warning`), `???` is one token, a `//` line is a comment whose
- * text is what follows `//` and one space, a negative literal is the minus TOUCHING its digit (`-1`), and an EXECUTE body
- * is verbatim ST from the line after `EXECUTE [EN [c]]` to the first line whose first word is `END_EXECUTE` (P8).
+ * openspec ld-fbd-coverage 2R.6b, `v2-spec.md`), so the editor reads a body token for token as the push does. It runs over
+ * the body's RAW text, not over the ST lexer's tokens, because the two languages cut text differently where it matters: a
+ * dotted path is one token here (`Mach1.GenFlags.Warning`), `???` is one token, `S=` and `R=` are one token each, a `//`
+ * line is a comment whose text is what follows `//` and one space (IEC's `$` escapes decoded), a negative literal is the
+ * minus TOUCHING its digit (`-1`), and an EXECUTE body is verbatim ST from the line after `EXECUTE` to the first line whose
+ * first word is `END_EXECUTE`. Newlines are otherwise layout.
  *
  * A lexical error is a token that has consumed its text, never an exception, as in the bridge.
  */
+import { unescapeText } from "./words.js"
 
 export interface Tok {
   kind:
@@ -16,10 +18,11 @@ export interface Tok {
     | "typed" // T#1S, 16#FF
     | "address" // %IX0.0
     | "unnamed" // ???
-    | "backtick" // text = the verbatim content between the backticks
+    | "backtick" // text = the content between the backticks, a doubled backtick and the `$` escapes decoded
     | "dstring" // a double-quoted string as written (quotes included): a TITLE, or a WSTRING literal
     | "sstring" // a single-quoted ST string as written (quotes included)
-    | "comment" // a // line; text = what follows `//` and one space
+    | "comment" // a // line; text = what follows `//` and one space, its escapes decoded
+    | "hash" // `#3f9a01c2` after an UNSUPPORTED line's shape; text = the hex digits
     | "snippet" // an EXECUTE body; text = its lines joined by \n
     | "sym" // punctuation and operators
     | "error" // text = message, code = its NETWORK_* code
@@ -42,19 +45,20 @@ const ADDRESS_AT = /%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*/y
 const END_EXECUTE = /^\s*(END_EXECUTE)\b/i
 
 // Longest first: `:=` before `:`, `<=` / `<>` before `<`. The ST operator symbols are lexed so the parser can refuse them
-// BY NAME (P12: "write ADD / GT / …"), never as a stray character.
+// BY NAME ("write ADD / GT / …"), never as a stray character.
 const SYMS = [":=", "=>", "<=", ">=", "<>", "(", ")", ",", ";", ":", ".", "=", "<", ">", "+", "-", "*", "/", "{", "}"]
 
 // ASCII only, as the bridge's patterns are: a letter or digit outside ASCII is no character of a bare token.
 const isWordChar = (c: string | undefined): boolean => c !== undefined && /[A-Za-z0-9_]/.test(c)
 const isSpace = (c: string | undefined): boolean => c !== undefined && /\s/.test(c)
+const isHex = (c: string | undefined): boolean => c !== undefined && /[0-9A-Fa-f]/.test(c)
 
 export class NetworkLexer {
-  private i: number
+  i: number
   private readonly lineStarts: number[] = [0]
 
   constructor(
-    private readonly s: string,
+    readonly s: string,
     start: number,
   ) {
     this.i = start
@@ -73,7 +77,12 @@ export class NetworkLexer {
     return lo
   }
 
-  /** Every token from the lexer's position to the end, EXECUTE bodies taken by the walk's rule (`walk`). */
+  /** The 0-based column `offset` stands at. */
+  columnOf(offset: number): number {
+    return offset - this.lineStarts[this.lineOf(offset)]!
+  }
+
+  /** Every token from the lexer's position to the end, EXECUTE bodies taken by the walk's rule (`Walk`). */
   tokenize(): Tok[] {
     const all: Tok[] = []
     const w = new Walk(this)
@@ -94,6 +103,12 @@ export class NetworkLexer {
     const c = s[this.i]!
     if (c === "/" && s[this.i + 1] === "/") return this.comment(start, atLineStart)
     if (c === "`") return this.backticked(start, atLineStart)
+    if (c === "#") {
+      let j = this.i + 1
+      while (j < s.length && isHex(s[j])) j++
+      this.i = j
+      return { kind: "hash", text: s.slice(start + 1, j), offset: start, length: j - start, atLineStart }
+    }
     if (c === '"' || c === "'") return this.quoted(start, atLineStart, c)
     if (c === "?" && s[this.i + 1] === "?" && s[this.i + 2] === "?") {
       this.i += 3
@@ -107,7 +122,7 @@ export class NetworkLexer {
         return { kind: "address", text: m[0], offset: start, length: m[0].length, atLineStart }
       }
     }
-    // P12: a negative literal is the minus TOUCHING the digit, `-1`; `- 1`, `-x` and `+1` stay symbols the parser refuses.
+    // A negative literal is the minus TOUCHING the digit, `-1`; `- 1`, `-x` and `+1` stay symbols the parser refuses.
     if (c === "-" && s[this.i + 1] !== undefined && /[0-9]/.test(s[this.i + 1]!)) {
       NUMBER_AT.lastIndex = this.i + 1
       const m = NUMBER_AT.exec(s)!
@@ -125,7 +140,7 @@ export class NetworkLexer {
     return { kind: "sym", text: c, offset: start, length: 1, atLineStart }
   }
 
-  /** A `//` line: `//` and ONE space are syntax; the rest — indentation, trailing spaces — is the comment's text (P10). */
+  /** A `//` line: `//` and ONE space are syntax; the rest is the comment's text, its escapes decoded. */
   private comment(start: number, atLineStart: boolean): Tok {
     this.i += 2
     const end = this.lineEnd(this.i)
@@ -133,28 +148,39 @@ export class NetworkLexer {
     this.i = end
     if (text.includes("\r")) return this.loneCr(start)
     if (text.startsWith(" ")) text = text.slice(1)
-    return { kind: "comment", text, offset: start, length: end - start, atLineStart }
+    const decoded = unescapeText(text)
+    if ("error" in decoded)
+      return { kind: "error", text: decoded.error, offset: start, length: end - start, atLineStart, code: "NETWORK_PARSE" }
+    return { kind: "comment", text: decoded.value, offset: start, length: end - start, atLineStart }
   }
 
-  /** Backticked text, verbatim up to the next backtick on its line. */
+  /** Backticked text runs to the next lone backtick on its line; a doubled one is a backtick of the text, and `$` escapes
+   *  as in every delimited text. */
   private backticked(start: number, atLineStart: boolean): Tok {
     const s = this.s
-    const close = s.indexOf("`", this.i + 1)
     const eol = this.lineEnd(this.i)
-    if (close < 0 || close > eol) {
-      this.i = eol
-      return this.error(start, "an unclosed backtick: backticked text runs to the next backtick, on its line.", "NETWORK_PARSE")
+    let j = this.i + 1
+    let raw = ""
+    for (;;) {
+      if (j >= eol) {
+        this.i = eol
+        return this.error(start, "an unclosed backtick: backticked text runs to the next backtick, on its line.", "NETWORK_PARSE")
+      }
+      if (s[j] === "`") {
+        if (j + 1 < eol && s[j + 1] === "`") {
+          raw += "`"
+          j += 2
+          continue
+        }
+        break
+      }
+      raw += s[j]
+      j++
     }
-    const inner = s.slice(this.i + 1, close)
-    this.i = close + 1
-    // A backtick cannot be spelled INSIDE backticked text, so `a`b`c` is text that holds a backtick.
-    if (this.i < s.length && (s[this.i] === "`" || isWordChar(s[this.i]))) {
-      let stop = this.i
-      while (stop < s.length && !isSpace(s[stop]) && s[stop] !== ";" && s[stop] !== "," && s[stop] !== ")") stop++
-      this.i = stop
-      return this.error(start, "backticked text containing a backtick: a backtick cannot be spelled inside backticks.", "NETWORK_UNSUPPORTED")
-    }
-    return { kind: "backtick", text: inner, offset: start, length: this.i - start, atLineStart }
+    this.i = j + 1
+    const inner = unescapeText(raw)
+    if ("error" in inner) return this.error(start, inner.error, "NETWORK_PARSE")
+    return { kind: "backtick", text: inner.value, offset: start, length: this.i - start, atLineStart }
   }
 
   /** A quoted string, kept AS WRITTEN (quotes and `$` escapes included); it ends at its closing quote on its line. */
@@ -196,7 +222,7 @@ export class NetworkLexer {
     return { kind: "typed", text: s.slice(start, this.i), offset: start, length: this.i - start, atLineStart }
   }
 
-  /** A run of word characters: a typed literal, a number, or a word — a dotted path is one word. */
+  /** A run of word characters: a typed literal, a number, `S=` / `R=`, or a word — a dotted path is one word. */
   private wordLike(start: number, atLineStart: boolean): Tok {
     const s = this.s
     const c = s[start]!
@@ -213,14 +239,18 @@ export class NetworkLexer {
       while (this.i < s.length && isWordChar(s[this.i])) this.i++
     }
     const word = s.slice(start, this.i)
+    // `S=` and `R=` are single tokens: the set and reset coils.
+    if ((word === "S" || word === "R" || word === "s" || word === "r") && s[this.i] === "=" && s[this.i + 1] !== ">") {
+      this.i++
+      return { kind: "sym", text: word.toUpperCase() + "=", offset: start, length: 2, atLineStart }
+    }
     return { kind: "word", text: word, offset: start, length: word.length, atLineStart }
   }
 
   /** An EXECUTE body, from the lexer standing at the end of the `EXECUTE` line: its lines verbatim up to the first line
    *  whose first word is `END_EXECUTE`, and that word as a token of its own. A lone CR is refused, as in a comment. */
-  executeBody(at: number): { snippet: Tok; end: Tok } {
+  executeBody(): { snippet: Tok; end: Tok } {
     const s = this.s
-    this.i = at
     const eol = this.lineEnd(this.i)
     const bodyStart = Math.min(eol + 1, s.length)
     const lines: string[] = []
@@ -250,17 +280,6 @@ export class NetworkLexer {
     const err = this.error(eol, "an EXECUTE body with no END_EXECUTE: the body ends at the first line whose first word is END_EXECUTE.", "NETWORK_PARSE")
     this.i = s.length
     return { snippet: err, end: err }
-  }
-
-  /** The position of the next non-blank character, across lines. */
-  nextNonSpace(): number {
-    let j = this.i
-    while (j < this.s.length && isSpace(this.s[j])) j++
-    return j
-  }
-
-  get length(): number {
-    return this.s.length
   }
 
   lineEnd(from: number): number {
@@ -293,13 +312,12 @@ export class NetworkLexer {
 }
 
 /**
- * THE ONE WALK OVER THE TEXT'S TOKENS, raw mode included (the bridge's `NetworkLexer.Walk`): `EXECUTE` in value position
- * opens a body at the END OF ITS LINE (P8: `EXECUTE [EN [c]]` ends at its line) — the header's `LABEL: Execute` and
- * `JMP Execute` open none.
+ * THE ONE WALK OVER THE TEXT'S TOKENS, raw mode included (the bridge's `NetworkLexer.Walk`): `EXECUTE` ends its line, and
+ * its body starts on the next one, up to the first line whose first word is `END_EXECUTE`. The header's `LABEL: Execute`
+ * and `JMP Execute` open none. A token after `EXECUTE` on its line is an error token.
  */
 class Walk {
   private readonly queued: Tok[] = []
-  private bodyAt: number | undefined
   private before: Tok | undefined
   private last: Tok | undefined
 
@@ -313,20 +331,29 @@ class Walk {
   }
 
   private lexed(): Tok {
-    if (this.bodyAt !== undefined) {
-      const j = this.lx.nextNonSpace()
-      if (j > this.bodyAt || j >= this.lx.length) {
-        const at = this.bodyAt
-        this.bodyAt = undefined
-        const { snippet, end } = this.lx.executeBody(at)
-        if (snippet.kind !== "error") this.queued.push(end)
-        return snippet
-      }
-    }
     const t = this.lx.next()
     if (isWord(t, "EXECUTE") && !(this.last !== undefined && isWord(this.last, "JMP")) &&
-        !(this.last !== undefined && isSym(this.last, ":") && this.before !== undefined && isWord(this.before, "LABEL")))
-      this.bodyAt = this.lx.lineEnd(t.offset)
+        !(this.last !== undefined && isSym(this.last, ":") && this.before !== undefined && isWord(this.before, "LABEL"))) {
+      const eol = this.lx.lineEnd(t.offset)
+      let j = this.lx.i
+      while (j < eol && isSpace(this.lx.s[j])) j++
+      if (j < eol) {
+        this.lx.i = eol
+        this.queued.push({
+          kind: "error",
+          text: "EXECUTE ends its line: its ST starts on the next line, and END_EXECUTE ends it.",
+          offset: j,
+          length: eol - j,
+          atLineStart: false,
+          code: "NETWORK_PARSE",
+        })
+        return t
+      }
+      this.lx.i = eol
+      const { snippet, end } = this.lx.executeBody()
+      this.queued.push(snippet)
+      if (snippet.kind !== "error") this.queued.push(end)
+    }
     return t
   }
 }
@@ -336,21 +363,7 @@ function withoutLayoutCr(line: string): string {
   return line.endsWith("\r") ? line.slice(0, -1) : line
 }
 
-/** A TITLE's value: the double-quoted token decoded with the escapes the writer writes — `$N`, `$R`, `$"`, `$$`
- *  (`NetworkLexer.DecodeTitle`); an error message for any other escape. */
+/** A TITLE's value: the double-quoted token, IEC's escapes decoded (`NetworkLexer.DecodeTitle`). */
 export function decodeTitle(quoted: string): { value: string } | { error: string } {
-  let out = ""
-  for (let i = 1; i < quoted.length - 1; i++) {
-    const c = quoted[i]!
-    if (c !== "$") {
-      out += c
-      continue
-    }
-    const e = i + 1 < quoted.length - 1 ? quoted[i + 1]! : ""
-    const v = e === "N" || e === "n" ? "\n" : e === "R" || e === "r" ? "\r" : e === '"' ? '"' : e === "$" ? "$" : undefined
-    if (v === undefined) return { error: `the escape '$${e}' in a TITLE: a title spells $N, $R, $" and $$ only.` }
-    out += v
-    i++
-  }
-  return { value: out }
+  return unescapeText(quoted.slice(1, -1))
 }

@@ -24,7 +24,7 @@ import type { Messages } from "../../messages/index.js"
  * The `target := value` pairs an assignment rule applies to: an assign's value against the target it is written to,
  * and the plain assignments inside EXECUTE boxes.
  *
- * NOT a pair: a value that is a box's OUTPUT — `x := f(…)`, `x := MOVE v`, `x := ENO` (the open line's box), an EXECUTE box — nor a box's `=> v` pin.
+ * NOT a pair: a value that is a box's OUTPUT — `x := f(…)`, `x := MOVE v`, `x := … ENO EN c` (a box read through its ENO), an EXECUTE box — nor a box's `=> v` pin.
  * In FBD/LD such a target is a wire from a box pin, whose type is the IDE's remit (the box's declared pin type, through
  * EN/ENO), not an ST assignment; the LSP applying its assignment rule there invented errors on box wiring the editor
  * owns. Whether a value IS a box is a fact of the tree (`call`, `execute`, `eno`), never a guess from its ST reading: an edge
@@ -55,7 +55,7 @@ function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignmen
 }
 
 function pairOf(targets: readonly NetworkTarget[], v: NetworkValue, pairs: Assignment[]): void {
-  const box = v.kind === "call" || v.kind === "execute" || v.kind === "eno" || (v.kind === "word" && v.word === "MOVE")
+  const box = v.kind === "call" || v.kind === "execute" || (v.kind === "word" && (v.word === "MOVE" || v.readBy === "eno"))
   const value = networkValueExpr(v)
   if (value !== undefined && !box) pairs.push({ targets: targets.flatMap((t) => (t.expr === undefined ? [] : [t.expr])), value })
 }

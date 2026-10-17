@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Body;
@@ -364,12 +364,15 @@ public class CodesysModelRoundTripOracleTests
             // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); the 42nd an EDGE on a pin, spelled
             // since 2R.5 (`AND(R_EDGE IN1 := c, one)`, awkward-sweep #15: it stores, builds and runs), while MOVE's negated
             // pin beside EN is the call form naming its default formal since 2R.3 (P5, `MOVE(NOT IN := value) EN rung`). The
-            // enabled MOVE whose list names no ENO is refused as what it is to the text first — an enabled box read as a
-            // value (B4) — before its unstated slot. The 43rd and 44th are the EN pin's flag and the named ENO pin (2R.5).
-            bodies: 44, networks: 44, refused: new Dictionary<string, int>
-
+            // 43rd and 44th are the EN pin's flag and the named ENO pin (2R.5). Network text v2.1 (2R.6b) refuses four of the
+            // doubles by the shared validator: the two Volt-built enabled MOVEs hold two inputs (a MOVE with 0 or 2 inputs is
+            // not measured), the Volt-built enabled AND is read through its ENO with its value wired nowhere (X3, 3c: it does
+            // not build), and the named ENO pin beside a consumer (X12, 7b: it does not build).
+            bodies: 41, networks: 41, refused: new Dictionary<string, int>
             {
-                ["an enabled box read as a value"] = 1,
+                ["a MOVE with no input or two"] = 2,
+                ["an operator box read through its ENO with no output wired"] = 1,
+                ["an ENO pin wired beside a consumer"] = 1,
             });
 
 }

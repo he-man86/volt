@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
@@ -479,7 +479,7 @@ public class CodesysCoilFlagTests
                     new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None) },
                     new[] { new Output(null, new Operand("x", IsLValue: true), slots.Length - 1) },
                     enabled ? new Leaf(new Operand("rung"), Flags.None) : null,
-                    null, Flags.None, MainOutputIndex: 0, HasEnoOutput: enabled),
+                    null, Flags.None, HasEnoOutput: enabled),
         });
 
         var live = Different();
@@ -487,30 +487,6 @@ public class CodesysCoilFlagTests
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
         Assert.Equal(slots, written.Outputs.List.Select(o => o is null ? "∅" : Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
-    }
-
-    /// <summary>A box that does not record whether it has an ENO output, where the text DOES state it (a positional
-    /// <c>=&gt;</c> pin's slot depends on it), is refused by that name before anything is built: the change gate renders
-    /// the model through the text writer, which refuses the missing fact. The build below it derives the fact only
-    /// where the text does not state it, so it never has to guess one the text states.</summary>
-    [Fact]
-    public void A_box_whose_ENO_output_was_not_read_is_refused_by_that_name()
-    {
-        var model = new Network(0, null, null, null, false, new Node[]
-        {
-            new Box("ADD", null, CallKind.Operator,
-                    new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
-                            new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                    new[] { new Output(null, new Operand("x", IsLValue: true), 0) },
-                    new Leaf(new Operand("c"), Flags.None),
-                    null, Flags.None, HasEnoOutput: null),
-        });
-
-        var ex = Record.Exception(() => CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), Different(),
-                                            model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
-
-        Assert.NotNull(ex);
-        Assert.Contains("does not record whether it has an ENO output", ex!.Message);
     }
 
     /// <summary>…and where the text does NOT state it, the box is built as the text reads it (<c>TextHasEno</c>): a
@@ -523,7 +499,7 @@ public class CodesysCoilFlagTests
             new Assign(new Box("AND", null, CallKind.Operator,
                            new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
                                    new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                           System.Array.Empty<Output>(), null, null, Flags.None, HasEnoOutput: null),
+                           System.Array.Empty<Output>(), null, null, Flags.None, HasEnoOutput: false),
                        new[] { new Operand("out", IsLValue: true) }, Flags.None),
         });
 
@@ -543,7 +519,7 @@ public class CodesysCoilFlagTests
     /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
     /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("MOVE a EN c\n  x := ENO;", true)]
+    [InlineData("x := MOVE a => sv ENO EN c;", true)]
     [InlineData("n := LIMIT(a, b, n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
@@ -558,7 +534,7 @@ public class CodesysCoilFlagTests
         // where it has one, then its data result, unnamed — an operator's (MOVE, LIMIT) is ''.
         Assert.Equal(eno ? new[] { "ENO", "" } : new[] { "" }, Assert.IsType<Nwl.ParamList>(written.OutputParams).Names);
         // One output item per name, the main output's slot null as the vendor stores it (the ENO echo, else the result).
-        Assert.Equal(eno ? new object?[] { null, "" } : new object?[] { null },
+        Assert.Equal(eno ? new object?[] { null, "sv" } : new object?[] { null },
             written.Outputs.List.Select(o => o is null ? null : (object?)((Nwl.Operand)o).OperandExpr).ToArray());
     }
 
@@ -596,7 +572,7 @@ public class CodesysCoilFlagTests
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
-            var (model, scope) = Pushed($"x := (a {op} b EN c);");
+            var (model, scope) = Pushed($"x := a {op} b EN c;");
             var live = Different();
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
             var cmp = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
@@ -614,7 +590,7 @@ public class CodesysCoilFlagTests
     [Theory]
     [InlineData("MOVE a => sv EN c;")]
     [InlineData("a GT b => x EN c;")]
-    [InlineData("MOVE a => sv EN c\n  lamp := ENO;")]
+    [InlineData("lamp := MOVE a => sv ENO EN c;")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);

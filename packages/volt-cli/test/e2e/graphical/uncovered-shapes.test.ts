@@ -179,7 +179,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	})
 
 	/**
-	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE(a)` — IEC's edge word for the vendor's IFlags bit,
+	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE a` — IEC's edge word for the vendor's IFlags bit,
 	 * never an `R_TRIG` box (which would add an instance the IDE never had).
 	 *
 	 * The VALUE side is the one the text spells; an edge-triggered COIL has no spelling (a census of five real
@@ -189,10 +189,10 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := R_EDGE(a) AND b;\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n`),
 		)
 
-		expect(back, "the rising edge was dropped").toContain("R_EDGE(a)")
+		expect(back, "the rising edge was dropped").toContain("R_EDGE a")
 	})
 
 	/** The same for F_EDGE, which shares the model field and every code path. */
@@ -200,9 +200,9 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := F_EDGE(a) AND b;\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := F_EDGE a AND b;\nEND_NETWORK\n`),
 		)
 
-		expect(back, "the falling edge was dropped").toContain("F_EDGE(a)")
+		expect(back, "the falling edge was dropped").toContain("F_EDGE a")
 	})
 })

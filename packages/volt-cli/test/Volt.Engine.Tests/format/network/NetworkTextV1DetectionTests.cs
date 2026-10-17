@@ -78,7 +78,7 @@ public class NetworkTextV1DetectionTests
     public void A_pin_named_Let_on_its_own_line_is_not_v1()
     {
         const string decl = "PROGRAM P\nVAR\n  f : FB;\n  x : BOOL;\nEND_VAR\n";
-        const string body = "IMPLEMENTATION FBD\nNETWORK\nf(\n  Let := x);\nEND_NETWORK";
+        const string body = "IMPLEMENTATION FBD\nNETWORK\nf : FB(\n  Let := x);\nEND_NETWORK";
         var scope = NetworkScope.FromDeclarations(decl,
             n => n == "FB" ? "FUNCTION_BLOCK FB\nVAR_INPUT\n  Let : BOOL;\nEND_VAR\n" : null,
             () => System.Array.Empty<string>(), n => n == "FB" ? Volt.Engine.Item.ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, Scopes.NoLibrary);

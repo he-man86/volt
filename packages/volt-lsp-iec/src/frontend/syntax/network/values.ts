@@ -1,224 +1,210 @@
 /**
- * The reader's VALUES — a port of the bridge reader's `ParseLevel` … `Finalize` (`NetworkTextReader.cs`, openspec
- * ld-fbd-coverage 2R.3): one BRACKET LEVEL (P4) — a box word with its operands, MOVE and its operand, a parallel, or one
- * operand — each with its `=>` pins and its `EN` tail; an operand (a leaf, a split, `ENO`, a call, `NOT x`, an edge, a
- * bracket); the bracket rules (B5, P4); and a box given its ROLE — a top-level item, an open line a later `ENO` takes, or
- * a value — the one place the refusals that depend on the role are raised. The same messages at the same tokens, so what
- * the editor underlines is what the push refuses.
+ * The reader's ITEMS and VALUES (`parser.ts` composes the reader): an item's coils, a split's definition, a slot and its
+ * bracket rule, an operand and its modifiers, the bracket. Recursive descent: whether something consumes a value is passed
+ * down from its parent.
  */
-import type { NetworkCall, NetworkExecute, NetworkValue, NetworkWordBox } from "./ast.js"
-import { type Syn, enabledComparison, isEmptyValue, syn } from "./boxes.js"
+import type { NetworkName, NetworkNestedAssign, NetworkNestedSplit, NetworkSplitDef, NetworkTarget, NetworkTextStatement, NetworkValue } from "./ast.js"
+import { BoxReader, type BoxSyn, type Syn, isWordOrMoveCall } from "./boxes.js"
 import { type Tok, isSym, isWord } from "./lexer.js"
-import { TargetReader } from "./targets.js"
-import { CONSTRUCT_WORDS, OPERATOR_WORDS, SPLIT_SHAPE, TWO_INPUT_OPERATORS, isLiteral, isReserved, UNMEASURED_NEGATED_EMPTY } from "./words.js"
+import { type Mods, endsOperand, isBoxNode, isBoxWord, isSplitWord, isStorage, isTargetToken } from "./tokens.js"
+import { IDENTIFIER, SPLIT_PREFIX, SPLIT_SHAPE, isLiteral, isReserved } from "./words.js"
 
-/** One item's OPEN LINES (P3): each line without `;` hands its root box to the queue, and each `ENO` takes the oldest one
- *  not yet taken. */
-interface OpenLine {
-  box: NetworkWordBox | NetworkCall | NetworkExecute
-  at: Tok
-}
+export abstract class ValueReader extends BoxReader {
+  // ── items ───────────────────────────────────────────────────────────────────────────────────
 
-export abstract class ValueReader extends TargetReader {
-  protected open: OpenLine[] = []
-  /** The token index where a negated empty slot is a coil's value, `x := NOT ;` — the one place it is measured; -1 none. */
-  protected negatedEmptyAt = -1
-
-  protected abstract parseCall(head: Tok, unnamedType: Tok | undefined, operatorCall: boolean, type: string | undefined): Syn
-
-  // ── one bracket level ───────────────────────────────────────────────────────────────────────
-
-  protected parseLevel(): Syn {
-    const start = this.peek()
-    if (isWord(start, "BRANCH")) {
-      if (!isSym(this.peekAt(1), "("))
-        throw this.err(start, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` — a BRANCH line is gone (B8, P12).")
+  /** One item: `[top] ;` — a coil list and its value, a split's definition, or a value. */
+  protected parseItem(): NetworkTextStatement {
+    const first = this.raw(this.p)
+    this.itemStart = this.p
+    this.itemColumn = this.column(first)
+    try {
+      if (isSym(first, ";")) {
+        this.next()
+        return { kind: "empty", span: this.tokSpan(first) }
+      }
+      if (isSym(first, "(") && (this.coilAt(1) || this.splitDefinitionAt(1)))
+        throw this.err(
+          first,
+          "NETWORK_BAD_EXPRESSION",
+          "a redundant bracket: an item's own assignment or split is not bracketed, `x := a;` — a nested one is, `y := (x := a);`.",
+        )
+      let s: NetworkTextStatement
+      if (this.coilAt(0)) {
+        const a = this.parseAssign(first)
+        s = { kind: "assign", targets: a.targets, value: a.value, span: a.span }
+      } else if (this.splitDefinitionAt(0)) {
+        const d = this.parseSplitDefinition(first)
+        s = { kind: "split_def", split: d.split, value: d.value, span: d.span }
+      } else {
+        const value = this.slot(false, first)
+        s = { kind: "value", value, span: this.spanFrom(first) }
+      }
+      const end = this.peek()
+      if (!isSym(end, ";")) throw this.unexpected(end, "an item ends with `;`")
       this.next()
-      return this.parseParallel(undefined, start, start)
+      return s
+    } finally {
+      this.itemStart = -1
     }
-    if (isWord(start, "MOVE") && (!isSym(this.peekAt(1), "(") || this.moveOperandBracket())) return this.parseMove(start)
+  }
 
-    const first = this.parseOperand()
+  /** A COIL starts `k` ahead: `[R_EDGE|F_EDGE] [NOT] head` and its storage, `:=`, `S=` or `R=`; the head a target,
+   *  `JMP label` or `RETURN`. */
+  protected coilAt(k: number): boolean {
+    if (isWord(this.peekAt(k), "R_EDGE") || isWord(this.peekAt(k), "F_EDGE")) k++
+    if (isWord(this.peekAt(k), "NOT")) k++
+    const t = this.peekAt(k)
+    if (isWord(t, "JMP")) k += 2
+    else if (isWord(t, "RETURN")) k += 1
+    else if (isTargetToken(t) || (isSplitWord(t) && !isSym(this.peekAt(k + 1), ":="))) k += 1 // a split as a coil: refused by name
+    else return false
+    return isStorage(this.peekAt(k))
+  }
+
+  protected splitDefinitionAt(k: number): boolean {
+    const t = this.peekAt(k)
+    return isSplitWord(t) && isSym(this.peekAt(k + 1), ":=")
+  }
+
+  /** `coil coil … value` — ONE vendor Assign, its coils in order, the value after the last. */
+  protected parseAssign(first: Tok): { targets: NetworkTarget[]; value: NetworkValue; span: NetworkNestedAssign["span"] } {
+    const targets: NetworkTarget[] = []
+    while (this.coilAt(0)) targets.push(this.parseCoil())
+    const value = this.coilValue()
+    return { targets, value, span: this.spanFrom(first) }
+  }
+
+  /** A coil's or a split's value: nothing (the empty slot) where the item or bracket ends. */
+  protected coilValue(): NetworkValue {
     const t = this.peek()
+    if (isSym(t, ";") || isSym(t, ")") || t.kind === "eof") return { kind: "empty_slot", span: this.emptySpan(t) }
+    return this.slot(true, t)
+  }
 
-    if (t.kind === "word" && OPERATOR_WORDS.has(t.text.toUpperCase())) return this.parseWordLevel(first, t)
-
-    if (isWord(t, "MOVE"))
-      throw this.err(t, "NETWORK_BAD_EXPRESSION", "`a MOVE b` is not network text: MOVE writes its target as an output pin, `MOVE b => a` (B2, P12).")
-
-    if (isWord(t, "BRANCH")) {
-      if (first.empty) throw this.err(t, "NETWORK_PARSE", "BRANCH with an empty feed before it: an unfed parallel is `BRANCH (a, b)` alone (B8).")
-      if (first.node?.kind === "empty_slot") throw this.err(t, "NETWORK_UNSUPPORTED", "a parallel fed by the empty terminator (B8, P6).")
-      if (!isSym(this.peekAt(1), "(")) throw this.err(t, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).")
-      const feed = this.operand(first)
+  protected parseCoil(): NetworkTarget {
+    const start = this.peek()
+    const mods: Mods = {}
+    if (isWord(this.peek(), "R_EDGE") || isWord(this.peek(), "F_EDGE")) mods.edge = isWord(this.next(), "R_EDGE") ? "rising" : "falling"
+    if (isWord(this.peek(), "NOT")) {
       this.next()
-      return this.parseParallel(feed, first.start, t)
+      mods.negated = true
     }
+    let target: NetworkTarget
+    const h = this.next()
+    if (isWord(h, "JMP")) {
+      const l = this.next()
+      if (l.kind !== "word" || !IDENTIFIER.test(l.text)) throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
+      target = { text: l.text, jump: true, backticked: false, unnamed: false, span: this.tokSpan(l) }
+    } else if (isWord(h, "RETURN")) target = { text: "RETURN", ret: true, backticked: false, unnamed: false, span: this.tokSpan(h) }
+    else target = this.targetNode(this.checkedTarget(h))
 
-    if (first.box !== undefined && !first.bracketed) {
-      this.parseEn(first.box)
-      first.box.to = this.lastEnd()
-    } else if (isWord(t, "EN") && !first.empty)
+    const op = this.next()
+    const storage = op.text as ":=" | "S=" | "R="
+    // The vendor spells a coil kind with two bits, Negation and Set: a negated set coil IS the reset coil, and a negated
+    // reset coil none it holds apart from it.
+    if (mods.negated !== undefined && storage === "S=")
+      throw this.err(start, "NETWORK_BAD_EXPRESSION", `\`NOT ${target.text} S=\`: the IDE stores a negated set coil as the reset coil — write \`${target.text} R= …\`.`)
+    if (mods.negated !== undefined && storage === "R=")
+      throw this.err(start, "NETWORK_BAD_EXPRESSION", `\`NOT ${target.text} R=\`: a negated reset coil is no coil the IDE stores apart from the reset coil.`)
+    return { ...target, op: storage, ...mods }
+  }
+
+  /** `split<n> := value` — the split's one definition. */
+  protected parseSplitDefinition(first: Tok): { split: NetworkName; value: NetworkValue; span: NetworkSplitDef["span"] } {
+    const name = this.next()
+    this.splitId(name)
+    this.next() // :=
+    const value = this.coilValue()
+    return { split: this.name(name), value, span: this.spanFrom(first) }
+  }
+
+  protected splitId(name: Tok): number {
+    const digits = name.text.slice(SPLIT_PREFIX.length)
+    if (digits.length > 1 && digits[0] === "0")
+      throw this.err(name, "NETWORK_BAD_EXPRESSION", `the split ${name.text}: its number is the VarId, with no leading zeros.`)
+    const id = Number(digits)
+    if (!Number.isSafeInteger(id) || id > 2147483647) throw this.err(name, "NETWORK_BAD_EXPRESSION", `the split ${name.text} carries a VarId out of range.`)
+    return id
+  }
+
+  // ── values ──────────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * A SLOT — a coil's or a split's value, a pin, an EN source, a branch: a box (its word, MOVE, a call or an EXECUTE, each
+   * with its outputs and pin state), a parallel, a term, or a bracketed assignment or split. A bracket around anything
+   * else is redundant: no tree prints it.
+   */
+  protected slot(consumed: boolean, at: Tok): NetworkValue {
+    const s = this.compound(consumed)
+    if (s.empty)
+      throw isWord(at, "ENO") || isWord(at, "EN") || isSym(at, "=>") || isWord(at, "SHORTCIRCUIT")
+        ? this.unexpected(at, "a value is expected here")
+        : this.err(at, "NETWORK_PARSE", "a value is expected here.")
+    if (s.bracketed && s.node?.kind !== "nested_assign" && s.node?.kind !== "nested_split")
       throw this.err(
-        t,
+        s.start,
         "NETWORK_BAD_EXPRESSION",
-        first.bracketed
-          ? "EN after a bracket: EN belongs to the box of its own bracket level — write it inside the brackets (P4)."
-          : "EN after a value that is no box: EN follows the box it enables (B3).",
+        "a redundant bracket: brackets mark a compound as another word's operand, after a modifier, or a nested assignment — a slot holds one box bare.",
       )
+    return this.built(s, consumed)
+  }
+
+  /** What a slot or a bracket holds — `slot` without its bracket rule. */
+  protected compound(consumed: boolean): Syn {
+    const start = this.peek()
+    if (isWord(start, "BRANCH")) return { node: this.parseParallel(undefined, start), start, empty: false, bracketed: false }
+    if (isWord(start, "MOVE")) return { node: this.parseMove(consumed), start, empty: false, bracketed: false }
+    if (isWord(start, "EXECUTE")) return { node: this.parseExecute(consumed), start, empty: false, bracketed: false }
+
+    const first = this.operand()
+    const t = this.peek()
+    if (isBoxWord(t)) return { node: this.parseWordBox(first, consumed), start: first.empty ? t : first.start, empty: false, bracketed: false }
+    if (isWord(t, "BRANCH")) {
+      if (first.empty) throw this.err(t, "NETWORK_PARSE", "BRANCH with an empty feed before it: an unfed parallel is `BRANCH (a, b)` alone.")
+      const feed = this.built(first, true)
+      return { node: this.parseParallel(feed, first.start), start: first.start, empty: false, bracketed: false }
+    }
+    if (first.call !== undefined && !first.bracketed && first.mods === undefined) {
+      const call: BoxSyn = first.call
+      this.pinState(call)
+      return { node: this.finalize(call, consumed), start: first.start, empty: false, bracketed: false }
+    }
     return first
   }
 
-  /** B2: `MOVE b => a EN c`. */
-  private parseMove(start: Tok): Syn {
-    this.next()
-    const operand = this.parseOperand()
-    if (operand.empty || (operand.node !== undefined && isEmptyValue(operand.node)))
-      throw this.err(start, "NETWORK_BAD_EXPRESSION", "MOVE takes one operand (B2); an empty input is `MOVE(IN := , => x)` (P5).")
-    const box = this.newBox("word", "MOVE", start, start)
-    const value = this.operand(operand)
-    box.operands.push(value)
-    box.inputs.push({ value, negated: false })
-    if (this.peek().kind === "word" && OPERATOR_WORDS.has(this.peek().text.toUpperCase()))
-      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "a box word after MOVE's operand: MOVE takes ONE operand — bracket a box (B2, P4).")
-    if (isWord(this.peek(), "BRANCH"))
-      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "BRANCH after MOVE's operand: a parallel as MOVE's operand stands in brackets (B8, P4).")
-    this.parseArrows(box)
-    this.parseEn(box)
-    box.to = this.lastEnd()
-    return syn(start, { box, word: true })
+  protected built(s: Syn, consumed: boolean): NetworkValue {
+    if (s.call === undefined) return s.node!
+    const box = this.finalize(s.call, consumed)
+    return s.mods !== undefined ? this.wrap(box, s.mods.flags, s.mods.at) : box
   }
 
-  /** B1: `a ADD b ADD c` — one word, one box, n inputs. */
-  private parseWordLevel(first: Syn, t: Tok): Syn {
-    if (first.empty || (first.node !== undefined && isEmptyValue(first.node)))
-      throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' with no operand before it.`)
-    const word = t.text.toUpperCase()
-    const box = this.newBox("word", word, t, first.start)
-    const add = (v: NetworkValue): void => {
-      box.operands.push(v)
-      box.inputs.push({ value: v, negated: false })
-    }
-    add(this.operand(first))
-    for (let w = this.peek(); w.kind === "word" && OPERATOR_WORDS.has(w.text.toUpperCase()); w = this.peek()) {
-      if (w.text.toUpperCase() !== word)
-        throw this.err(
-          w,
-          "NETWORK_BAD_EXPRESSION",
-          `'${word}' and '${w.text.toUpperCase()}' at one bracket level: one word = one box, so brackets separate boxes — \`a ${word} (b ${w.text.toUpperCase()} c)\` (B1, P4).`,
-        )
-      this.next()
-      const op = this.parseOperand()
-      if (op.empty || (op.node !== undefined && isEmptyValue(op.node))) throw this.err(w, "NETWORK_BAD_EXPRESSION", `'${word}' with no operand after it.`)
-      add(this.operand(op))
-    }
-    if (isWord(this.peek(), "MOVE"))
-      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "MOVE inside another word's level: MOVE is a box of its own, bracketed (B2, P4).")
-    if (isWord(this.peek(), "BRANCH"))
-      throw this.err(
-        this.peek(),
-        "NETWORK_BAD_EXPRESSION",
-        "BRANCH after a box word at its level: a feed that is a box word is bracketed, `(a AND b) BRANCH (x, y)` (B8, P4).",
-      )
-    if (TWO_INPUT_OPERATORS.has(word) && box.inputs.length > 2)
-      throw this.err(
-        t,
-        "NETWORK_UNSUPPORTED",
-        `${word} takes 2 inputs, and this one holds ${box.inputs.length}: the build refuses it ("needs exactly '2' operands", C3) — bracket one box per two operands (B1).`,
-      )
-    this.parseArrows(box)
-    this.parseEn(box)
-    box.to = this.lastEnd()
-    return syn(first.start, { box, word: true })
+  /** `v` under its modifiers: the edge around the negation (N17). */
+  protected wrap(v: NetworkValue, mods: Mods, at: Tok): NetworkValue {
+    const span = this.spanFrom(at)
+    const negated: NetworkValue = mods.negated === true ? { kind: "not", operand: v, span } : v
+    return mods.edge !== undefined ? { kind: "edge", rising: mods.edge === "rising", operand: negated, span } : negated
   }
-
-  /** B8, P6: the parallel's branch list after `BRANCH` — a bracketed comma list of slots, at least two, none empty — and
-   *  its mode: `SHORTCIRCUIT` where it is not the editor's. */
-  private parseParallel(feed: NetworkValue | undefined, start: Tok, branch: Tok): Syn {
-    const open = this.next()
-    if (!isSym(open, "(")) throw this.err(open, "NETWORK_PARSE", "BRANCH takes its branches as a bracketed list, `feed BRANCH (a, b)` (B8).")
-    const branches: NetworkValue[] = []
-    if (isSym(this.peek(), ")")) throw this.err(this.peek(), "NETWORK_UNSUPPORTED", "a parallel with no branch: `BRANCH ()` holds none (B8, P6).")
-    for (;;) {
-      // 2R.5 (readability Open c): an EMPTY branch stores, builds and runs (a shorted branch, CODESYS SP21) — nothing
-      // between its commas.
-      const at = this.peek()
-      branches.push(isSym(at, ",") || isSym(at, ")") ? { kind: "empty_slot", span: this.emptySpan(at) } : this.slot(this.parseLevel(), at))
-
-      const sep = this.peek()
-      if (isSym(sep, ",")) {
-        this.next()
-        continue
-      }
-      if (isSym(sep, ")")) {
-        this.next()
-        break
-      }
-      throw this.unexpected(sep, "a parallel's branches are separated by `,` and closed by `)`")
-    }
-    if (branches.length === 1)
-      throw this.err(
-        open,
-        "NETWORK_UNSUPPORTED",
-        "a parallel with one branch: it pushes, and does not compile (C0023) — write the branch as the value itself (B8, P6).",
-      )
-    let shortCircuit = false
-    if (isWord(this.peek(), "SHORTCIRCUIT")) {
-      this.next()
-      shortCircuit = true
-    }
-    if (isWord(this.peek(), "EN")) throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "EN after a parallel: a parallel is no box, and has no enable (B8).")
-    if (isSym(this.peek(), "=>"))
-      throw this.err(this.peek(), "NETWORK_BAD_EXPRESSION", "`=>` after a parallel: a parallel is no box, and has no output pin (B8).")
-    const node: NetworkValue = {
-      kind: "parallel",
-      ...(feed !== undefined ? { input: feed } : {}),
-      branches,
-      shortCircuit,
-      branchWord: this.tokSpan(branch),
-      span: this.spanFrom(start),
-    }
-    return syn(start, { node, word: true })
-  }
-
-  // ── one operand ─────────────────────────────────────────────────────────────────────────────
-
-  /** One operand of a level: a leaf, a split, `ENO`, a call, `NOT x`, an edge, or a bracket holding a box word, a
-   *  parallel or an enabled comparison — never a bare box word. */
-  protected parseOperand(): Syn {
+  /**
+   * An OPERAND — a word's input, MOVE's, a parallel's feed, a positional pin: a term (a leaf, a call with no pin state, a
+   * split, `[mods] x`, `mods (box)`, the negated empty slot `NOT`), a bracketed compound, or nothing.
+   */
+  protected operand(): Syn {
     const t = this.peek()
-    if (this.atEnd() || isSym(t, ",") || isSym(t, ")") || isSym(t, ";") || t.kind === "snippet") return syn(t, { empty: true })
-
-    if (isWord(t, "NOT")) return this.parseNot(t)
-    if (isWord(t, "R_EDGE") || isWord(t, "F_EDGE")) return this.parseEdge(t)
-
+    if (endsOperand(t)) return { start: t, empty: true, bracketed: false }
+    if (isWord(t, "NOT") || isWord(t, "R_EDGE") || isWord(t, "F_EDGE")) return this.modified(t)
+    if (isSym(t, "(")) return this.bracket()
     switch (t.kind) {
-      case "sym":
-        if (t.text === "(") return this.parseBracket(t)
-        break
-      case "unnamed": {
-        this.next()
-        if (isSym(this.peek(), ":")) {
-          // `??? : TYPE(…)` — the vendor's unnamed instance, which carries its type because no declaration can.
-          this.next()
-          const ty = this.next()
-          if (ty.kind !== "word" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(ty.text))
-            throw this.err(ty, "NETWORK_BAD_EXPRESSION", "`??? : TYPE(…)` names the FB type, an identifier.")
-          this.expectSym("(", "??? : TYPE(pins)")
-          return this.parseCall(t, ty, false, undefined)
-        }
-        if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", "??? is no call head; an unnamed instance is written `??? : TYPE(…)`.")
-        return this.leaf(t)
-      }
       case "word":
-        return this.parseWord(t)
+        return this.wordOperand(t)
       case "backtick":
         this.next()
-        if (isSym(this.peek(), "(")) {
-          this.next()
-          return this.parseCall(t, undefined, false, undefined)
-        }
-        if (isLiteral(t.text)) throw this.err(t, "NETWORK_BAD_EXPRESSION", `a literal between backticks: write it bare, ${t.text} (P12).`)
+        if (isSym(this.peek(), "(") || isSym(this.peek(), ":")) return this.call(t)
+        if (isLiteral(t.text)) throw this.err(t, "NETWORK_BAD_EXPRESSION", `a literal between backticks: write it bare, ${t.text}.`)
+        return this.leaf(t)
+      case "unnamed":
+        this.next()
+        if (isSym(this.peek(), ":")) return this.call(t)
+        if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", "??? is no call head; an unnamed instance is written `??? : TYPE(…)`.")
         return this.leaf(t)
       case "number":
       case "typed":
@@ -230,138 +216,145 @@ export abstract class ValueReader extends TargetReader {
         return this.leaf(t)
       case "error":
         throw this.err(t, (t.code ?? "NETWORK_PARSE") as never, t.text)
-    }
-    const old = this.oldSymbol(t)
-    if (old !== undefined) throw old
-    throw this.err(
-      t,
-      "NETWORK_PARSE",
-      t.kind === "eof"
-        ? "the body ends inside a statement."
-        : `'${t.text}' where a value is expected: an operand that is not one token is written between backticks.`,
-    )
-  }
-
-  private parseNot(t: Tok): Syn {
-    const at = this.p
-    this.next()
-    const n = this.peek()
-    if (
-      isSym(n, "(") &&
-      ((isWord(this.peekAt(1), "IN") && isSym(this.peekAt(2), ":=")) || (isWord(this.peekAt(1), "NOT") && isWord(this.peekAt(2), "IN") && isSym(this.peekAt(3), ":=")))
-    ) {
-      // P5: `NOT(IN := a)` is the NOT box; `NOT (` + anything else negates that bracket.
-      this.next()
-      return this.parseCall(t, undefined, true, "NOT")
-    }
-    if (isWord(n, "R_EDGE") || isWord(n, "F_EDGE"))
-      throw this.err(
-        t,
-        "NETWORK_BAD_EXPRESSION",
-        `NOT outside ${n.text.toUpperCase()}(…): the IDE negates before it detects the edge, so the one spelling is ${n.text.toUpperCase()}(NOT x).`,
-      )
-    // 2R.5 (#6a): a negated empty slot, `x := NOT ;` — it stores and builds.
-    if (this.atEnd() || isSym(n, ",") || isSym(n, ")") || isSym(n, ";")) {
-      if (at !== this.negatedEmptyAt) throw this.err(t, "NETWORK_UNSUPPORTED", UNMEASURED_NEGATED_EMPTY)
-      const empty = this.emptySpan(n)
-      return syn(t, { node: { kind: "not", operand: { kind: "empty_slot", span: empty }, span: this.span(t.offset, t.offset + t.length) } })
-    }
-    const inner = this.parseOperand()
-    return this.flagged(inner, t, "not")
-  }
-
-  private parseEdge(t: Tok): Syn {
-    this.next()
-    if (CONSTRUCT_WORDS.has(t.text.toUpperCase()) && this.isCallable(t.text))
-      throw this.err(
-        t,
-        "NETWORK_UNSUPPORTED",
-        `a POU or instance named ${t.text.toUpperCase()}: the text reads ${t.text.toUpperCase()}(…) as the edge flag, so the call has no spelling.`,
-      )
-    this.expectSym("(", `${t.text.toUpperCase()}(x)`)
-    const inner = this.parseLevel()
-    if (inner.empty) throw this.err(t, "NETWORK_UNSUPPORTED", "a flag on an empty slot: an unconnected position has no text to modify.")
-    if (inner.bracketed)
-      throw this.err(
-        inner.start,
-        "NETWORK_BAD_EXPRESSION",
-        `${t.text.toUpperCase()}((…)): an edge's brackets carry its argument whole — a redundant bracket is refused (P4).`,
-      )
-    this.expectSym(")", `${t.text.toUpperCase()}(x)`)
-    const flagged = this.flagged(inner, t, isWord(t, "R_EDGE") ? "rise" : "fall")
-    flagged.word = false
-    flagged.bracketed = false
-    return flagged
-  }
-
-  private parseBracket(t: Tok): Syn {
-    this.next()
-    // 2R.5 (#20): a split defined below the top level, `(split1 := value)`, in a nested assignment's brackets.
-    if (this.peek().kind === "word" && SPLIT_SHAPE.test(this.peek().text) && isSym(this.peekAt(1), ":=")) return syn(t, { node: this.parseNestedSplit(t) })
-    // S2: a coil head and a storage operator at the pair's own depth — an assignment below the top level.
-    const headEnd = this.coilHeadEnd(this.p)
-    if (headEnd > 0 && this.storageAt(headEnd)) return syn(t, { node: this.parseNestedAssign(t) })
-    const inner = this.parseLevel()
-    if (!isSym(this.peek(), ")")) throw this.unexpected(this.peek(), "a bracket closes after the box it holds")
-    this.next()
-    if (inner.empty || inner.bracketed || !(inner.word || enabledComparison(inner)))
-      throw this.err(
-        t,
-        "NETWORK_BAD_EXPRESSION",
-        "a redundant bracket: brackets mark a box word or a parallel as another word's operand, an enabled comparison, and a nested assignment — nothing else (B5, P4).",
-      )
-    inner.bracketed = true
-    inner.start = t
-    if (inner.box !== undefined) inner.box.from = t
-    return inner
-  }
-
-  private parseWord(t: Tok): Syn {
-    if (isWord(t, "ENO")) {
-      this.next()
-      // P3: the oldest open line of the item not yet taken.
-      const line = this.open.shift()
-      if (line === undefined)
+      default: {
+        const old = this.oldSymbol(t)
+        if (old !== undefined) throw old
+        if (this.isMissingSemicolon(t)) throw this.missingSemicolon(t)
         throw this.err(
           t,
-          "NETWORK_BAD_EXPRESSION",
-          "ENO with no open line above it to take: ENO reads the box of the oldest line above it without `;` that no ENO has taken yet (B4, P3).",
+          "NETWORK_PARSE",
+          t.kind === "eof"
+            ? "the item ends here: a value is expected."
+            : `'${t.text}' where a value is expected: an operand that is not one token is written between backticks.`,
         )
-      return syn(t, { node: { kind: "eno", box: line.box, span: this.tokSpan(t) } })
+      }
     }
+  }
+
+  /** `[R_EDGE|F_EDGE] [NOT]` and what it modifies: a leaf, a call with no pin state, a bracketed box, or nothing (the
+   *  negated empty slot). Before `EN` it is the EN pin's own modifier, and the operand is empty. */
+  private modified(t: Tok): Syn {
+    const { flags: mods, count } = this.modifiersAt(0)
+    const after = this.peekAt(count)
+    if (isWord(after, "EN")) return { start: t, empty: true, bracketed: false }
+    for (let k = 0; k < count; k++) this.next()
+    if (endsOperand(after)) return { node: this.wrap({ kind: "empty_slot", span: this.emptySpan(after) }, mods, t), start: t, empty: false, bracketed: false }
+    if (isWord(after, "NOT") || isWord(after, "R_EDGE") || isWord(after, "F_EDGE"))
+      throw this.err(after, "NETWORK_BAD_EXPRESSION", "a modifier after a modifier: a node carries one edge and one negation, `R_EDGE NOT x` — the edge first.")
+    if (isSym(after, "(")) {
+      const inner = this.bracket()
+      const n = inner.node!
+      if (n.kind === "parallel") throw this.err(t, "NETWORK_UNSUPPORTED", "a modifier on a parallel: the IDE holds no flag on a parallel (N20).")
+      if (n.kind === "nested_assign" || n.kind === "nested_split")
+        throw this.err(t, "NETWORK_UNSUPPORTED", "a modifier on an assignment or a split: the IDE holds no flag on either (N20, census 1.1).")
+      if (n.kind === "not" || n.kind === "edge")
+        throw this.err(inner.start, "NETWORK_BAD_EXPRESSION", "a modifier after a modifier: a node carries one edge and one negation, `R_EDGE NOT x` — the edge first.")
+      if (!isBoxNode(n))
+        throw this.err(
+          inner.start,
+          "NETWORK_BAD_EXPRESSION",
+          "a redundant bracket: after a modifier a box is bracketed, and a single operand or a call is not — `NOT x`, `NOT f(a)`.",
+        )
+      return { node: this.wrap(n, mods, t), start: t, empty: false, bracketed: false }
+    }
+    const core = this.operand()
+    if (core.node?.kind === "split_ref")
+      throw this.err(t, "NETWORK_UNSUPPORTED", "a modifier on a split: the IDE holds no flag on a split (N20) — put it on its feeder or a consumer.")
+    if (core.call !== undefined) {
+      const m = this.modifiersAt(0)
+      if (isWord(this.peek(), "ENO") || isWord(this.peekAt(m.count), "EN"))
+        throw this.err(
+          this.peek(),
+          "NETWORK_BAD_EXPRESSION",
+          "a pin state after a modified call: a box with EN or ENO after a modifier is bracketed, `NOT (f(a) EN c)`.",
+        )
+      return { call: core.call, mods: { flags: mods, at: t }, start: t, empty: false, bracketed: false }
+    }
+    if (core.node?.kind === "operand") return { node: this.wrap(core.node, mods, t), start: t, empty: false, bracketed: false }
+    throw this.err(t, "NETWORK_BAD_EXPRESSION", "a modifier stands before an operand, a call or a bracketed box.")
+  }
+
+  /** A word at operand position: a split's reference, a call's head, or a leaf — never a word of the text. */
+  private wordOperand(t: Tok): Syn {
     if (SPLIT_SHAPE.test(t.text)) {
       this.next()
-      if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", `${t.text} is a split, never a call head (P9).`)
-      const name = this.splitRef(t)
-      return syn(t, { node: { kind: "split_ref", name, span: name.span } })
+      if (isSym(this.peek(), "(")) throw this.err(t, "NETWORK_BAD_EXPRESSION", `${t.text} is a split, never a call head.`)
+      if (isSym(this.peek(), ":="))
+        throw this.err(t, "NETWORK_BAD_EXPRESSION", `a split defined where a value stands is bracketed, \`(${t.text} := value)\`.`)
+      if (isSym(this.peek(), ":"))
+        throw this.err(
+          this.peek(),
+          "NETWORK_BAD_EXPRESSION",
+          `a type on the split ${t.text}: a split's type is its feeder's and is never written — \`${t.text} := value;\`.`,
+        )
+      this.splitId(t)
+      return { node: { kind: "split_ref", name: this.name(t), span: this.tokSpan(t) }, start: t, empty: false, bracketed: false }
     }
-    if ((isWord(t, "MOVE") || OPERATOR_WORDS.has(t.text.toUpperCase())) && isSym(this.peekAt(1), "(")) {
-      this.next()
-      this.next()
-      return this.parseCall(t, undefined, true, t.text)
-    }
-    if (isWord(t, "PARALLEL") && isSym(this.peekAt(1), "(") && !this.isCallable(t.text))
+    if (isWord(t, "JMP") || isWord(t, "RETURN"))
+      throw this.err(t, "NETWORK_BAD_EXPRESSION", "a jump or a return is a coil, its value after it: `JMP l := c;`, `RETURN := ;` (C11).")
+    if (isWord(t, "MOVE") || isWord(t, "EXECUTE"))
       throw this.err(
         t,
-        "NETWORK_PARSE",
-        "PARALLEL(…) is not network text: a parallel is its feed, the word BRANCH and its branches, `feed BRANCH (a, b)` (B8, P12).",
+        "NETWORK_BAD_EXPRESSION",
+        `${t.text.toUpperCase()} as an operand: a box that is another word's operand stands in brackets, \`x AND (${t.text.toUpperCase()} …)\`.`,
       )
-    if (isWord(t, "EXECUTE"))
-      throw this.err(t, "NETWORK_BAD_EXPRESSION", "EXECUTE where a value stands: an EXECUTE box is a line of its own, never a value (P8).")
-    if (isWord(t, "BRANCH"))
-      throw this.err(t, "NETWORK_BAD_EXPRESSION", "an unfed parallel as an operand stands in brackets, `x AND (BRANCH (a, b))` (B8, P4).")
     if (isReserved(t.text))
       throw this.err(
         t,
         "NETWORK_BAD_EXPRESSION",
-        `'${t.text}' at operand position: a variable spelled like a word of the text is written between backticks (P1).`,
+        `'${t.text}' at operand position: a name spelled like a word of the text is written between backticks, \`${t.text}\`.`,
       )
     this.next()
-    if (isSym(this.peek(), "(")) {
-      this.next()
-      return this.parseCall(t, undefined, false, undefined)
-    }
+    if (isSym(this.peek(), "(") || isSym(this.peek(), ":")) return this.call(t)
     if (isSym(this.peek(), ".") && isWord(this.peekAt(1), "ENO")) throw this.oldEno(this.peek())
     return this.leaf(t)
+  }
+
+  /** `( compound )` as an operand: a box with its outputs and pin state, a parallel, an assignment or a split. A term in
+   *  brackets — a leaf, a call with no pin state — is redundant. */
+  protected bracket(): Syn {
+    const open = this.next()
+    if (this.coilAt(0) || this.splitDefinitionAt(0)) {
+      const first = this.peek()
+      let nested: NetworkNestedAssign | NetworkNestedSplit
+      if (this.coilAt(0)) {
+        const a = this.parseAssign(first)
+        this.expectClose("an assignment's bracket `(t := value)` closes after its value")
+        nested = { kind: "nested_assign", targets: a.targets, value: a.value, span: this.spanFrom(open) }
+      } else {
+        const d = this.parseSplitDefinition(first)
+        this.expectClose("an assignment's bracket `(t := value)` closes after its value")
+        nested = { kind: "nested_split", split: d.split, value: d.value, span: this.spanFrom(open) }
+      }
+      return { node: nested, start: open, empty: false, bracketed: true }
+    }
+    const inner = this.compound(true)
+    if (inner.empty) throw this.err(open, "NETWORK_PARSE", "an empty bracket: a value is expected in it.")
+    this.expectClose("a bracket closes after the compound it holds")
+    const n = inner.node
+    if (inner.call !== undefined || n === undefined || n.kind === "operand" || n.kind === "empty_slot" || n.kind === "split_ref" ||
+        n.kind === "not" || n.kind === "edge" || inner.bracketed)
+      throw this.err(
+        open,
+        "NETWORK_BAD_EXPRESSION",
+        "a redundant bracket: brackets hold a box (a word, MOVE, an EXECUTE, a call with EN or ENO), a parallel, an assignment or a split — nothing else.",
+      )
+    if (n.kind === "call" && n.en === undefined && !isWordOrMoveCall(n))
+      throw this.err(
+        open,
+        "NETWORK_BAD_EXPRESSION",
+        "a redundant bracket: a call carries its own brackets, `x AND f(a)` — only a call with EN or ENO is bracketed as an operand.",
+      )
+    return { node: n, start: open, empty: false, bracketed: true }
+  }
+
+  protected leaf(t: Tok): Syn {
+    const expr = this.tokExpr(t)
+    return {
+      node: { kind: "operand", text: t.text, backticked: t.kind === "backtick", unnamed: t.kind === "unnamed", ...(expr !== undefined ? { expr } : {}), span: this.tokSpan(t) },
+      start: t,
+      empty: false,
+      bracketed: false,
+    }
   }
 }

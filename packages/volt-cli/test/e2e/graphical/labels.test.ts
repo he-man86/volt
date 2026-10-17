@@ -119,7 +119,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * labels, zero jumps, zero returns), so the corpus could not find what was broken here. Pushing one could,
 	 * and did — twice.
 	 *
-	 * CODESYS refused to SAVE a `RETURN;` with "Object reference not set to an instance of an object", and
+	 * CODESYS refused to SAVE an unconditional return with "Object reference not set to an instance of an object", and
 	 * TwinCAT refused a conditional one with "an item changes from 1 to 0 output(s)". Two unrelated-looking
 	 * errors, both from Volt: the unconditional form built an item holding nothing at all (no value, no output),
 	 * and the conditional one was compared against the archive as though a return had outputs.
@@ -156,7 +156,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	})
 
 	/**
-	 * AN UNCONDITIONAL `RETURN;` — round-trips, or is refused for a reason that names the vendor limit.
+	 * AN UNCONDITIONAL `RETURN := ;` — round-trips, or is refused for a reason that names the vendor limit.
 	 *
 	 * CODESYS builds it: the item needs a VALUE, and "nothing drives this" is spelled as an unconnected
 	 * terminator — the same shape `coil := ;` reads back as — rather than as a null, which is what it used to be
@@ -174,7 +174,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
-			`NETWORK\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`NETWORK\n  RETURN := ;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
@@ -184,7 +184,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the return was dropped").toMatch(/^\s*RETURN;/m)
+		expect(v1.sourceText, "the return was dropped").toMatch(/^\s*RETURN := ;/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
@@ -197,7 +197,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done;\nEND_NETWORK\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := ;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -208,7 +208,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the jump was dropped").toMatch(/^\s*JMP\s+Done;/m)
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^\s*JMP\s+Done := ;/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)

@@ -217,7 +217,7 @@ END_VAR
 
 IMPLEMENTATION FBD
 NETWORK
-  SetAlarm := (AND(xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR AND(xOutInv, NOT IN2 := xOutput, xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q;
+  SetAlarm := (`AND`(IN1 := xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR `AND`(IN1 := xOutInv, NOT IN2 := xOutput, IN3 := xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q;
 END_NETWORK
 END_METHOD
 

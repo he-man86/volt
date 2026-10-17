@@ -20,11 +20,11 @@ METHOD PRIVATE Counters
 IMPLEMENTATION FBD
 NETWORK
   // Calculate the on-time and the number of switches of the output
-  MeasureOnTime(In := output);
+  MeasureOnTime : ONTIME(In := output);
 END_NETWORK
 NETWORK
   // On a rising edge of the output, save the current date/time
-  MOVE TimeSettings.dtNow => TimeOfLastSwitch EN R_EDGE(output);
+  MOVE TimeSettings.dtNow => TimeOfLastSwitch ENO EN R_EDGE output;
 END_NETWORK
 END_METHOD
 

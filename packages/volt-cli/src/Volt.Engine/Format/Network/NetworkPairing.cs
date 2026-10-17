@@ -221,13 +221,14 @@ public static class NetworkPairing
             ConflictCodes.NetworkUnsupported);
     }
 
-    /// <summary>The boxes of <paramref name="network"/> that are read through a NAMED main output (S4,
-    /// <see cref="NetworkSpelling.NamedMainOutput"/>) — a box no push can build: its main output index is read-only on a
-    /// box the push constructs (DIALECT N21), so the consumer would read another output than the text names.</summary>
+    /// <summary>The boxes of <paramref name="network"/> read through a named FB output whose SLOT no one has stated
+    /// (<see cref="Box.MainOutputName"/> with no <see cref="Box.ConnectedSlot"/>): a text read names the output, and the slot
+    /// is the FB's declaration's — derived on push where the declarations state it (<see cref="NetworkDerivation"/>). A box
+    /// left without one cannot be built: the consumer would read another output than the text names.</summary>
     public static IEnumerable<(Box Box, string Output)> NamedMainOutputs(Network network) =>
         network.Trees.SelectMany(Walk).OfType<Box>()
-            .Where(b => NetworkSpelling.NamedMainOutput(b) is not null)
-            .Select(b => (b, NetworkSpelling.NamedMainOutput(b)!));
+            .Where(b => b.MainOutputName is not null && b.ConnectedSlot is null)
+            .Select(b => (b, b.MainOutputName!));
 
     private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));
 }

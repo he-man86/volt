@@ -162,7 +162,6 @@ internal static class TcNetworkReader
                     // A consumer reads the box's MAIN output (DIALECT N16), so on a consumed box the connected slot is
                     // the main output; a top-level box has no consumer, and the text no position for its main
                     // output, so neither is stated there.
-                    MainOutputIndex: connected,
                     ConnectedSlot: connected,
                     // The vendor's stored output types, beside the names this reads (`OutputParam/Types`) — a wire
                     // fed by the box is declared with the type of its connected slot (spec, "a stored output type").
@@ -170,7 +169,7 @@ internal static class TcNetworkReader
                     // Whether the box HAS an ENO output: its output list's first name, as CODESYS reads it (task 3.10).
                     HasEnoOutput: HasEno(e),
                     // S4 (ld-fbd-coverage 1b.4): the stored name of a main output the text spells by name, as CODESYS.
-                    MainOutputName: Box.NameOfMainOutput(TcArchive.Str(e, "BoxType") ?? "", connected, Names(e, "OutputParam")),
+                    MainOutputName: Box.NameOfConnectedOutput(InstanceOf(e) is not null, connected, HasEno(e), Names(e, "OutputParam")),
                     // The stored output names whole (ld-fbd-coverage 2.3), as CODESYS reads them: S1's slot on a bit
                     // operator, a call's unconnected pins — the text spells them where they differ from what its pins give.
                     Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(Names(e, "OutputParam")))));
@@ -283,7 +282,7 @@ internal static class TcNetworkReader
         // as `MainOutputIndex` None; one model, one answer.
         // S1 (ld-fbd-coverage 2.3): one that stores an output (the editor's `Names = ['']`, drawn here as on CODESYS) is
         // connected by it, slot 0 — Box.BitOperatorSlot, the one rule both readers and the text share.
-        if (Box.StoresNoMainOutput(TcArchive.Str(box, "BoxType") ?? "")) return Box.BitOperatorSlot(Names(box, "OutputParam").Count);
+        if (NetworkText.IsBitOperator(TcArchive.Str(box, "BoxType") ?? "")) return Names(box, "OutputParam").Count > 0 ? 0 : null;
         if (HasEno(box)) return 0;
         var holder = TcArchive.Obj(box, "OutputItems");
         if (holder is null) return null;

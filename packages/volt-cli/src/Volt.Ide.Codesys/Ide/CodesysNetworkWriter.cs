@@ -108,18 +108,18 @@ namespace Volt.Ide.Codesys
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "")[index];
 
         /// <summary>A network the push would BUILD from its text, refused by name where it cannot be built: a pushed
-        /// <c>UNSUPPORTED</c> line (nothing to build from, <see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a
-        /// box read through a named main output (S4: <c>MainOutputIndex</c> is read-only on a box Volt builds, N21).</summary>
+        /// <c>UNSUPPORTED</c> line (nothing to build from, <see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and an FB
+        /// read through a named output whose slot no declaration in reach states (<see cref="NetworkPairing.NamedMainOutputs"/>).</summary>
         private static void RefuseUnbuildable(Network model)
         {
             NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.CodesysDisplay, model);
             foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
                 throw new NotSupportedException(
                     $"CODESYS: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
-                    $"'{output}', which is not the box's first output: a box Volt builds cannot be read through any other " +
-                    "(its main output index is read-only, DIALECT N21), so the consumer would read another value than the " +
-                    "text says. Refusing to rebuild this network; a network whose text is unchanged is kept as the IDE " +
-                    "holds it. The IDE can edit this network.");
+                    $"'{output}', which neither the project's declarations nor the libraries' signatures name an output of " +
+                    $"'{box.Type}' — the slot the consumer reads is the null at that output's position (v2-measurements #12), " +
+                    "and Volt does not guess it. Refusing to rebuild this network; a network whose text is unchanged is kept " +
+                    "as the IDE holds it. The IDE can edit this network.");
         }
 
         /// <summary>Set the aspect's view to the pushed language, when it differs — in the spelling the vendor's own
@@ -166,7 +166,6 @@ namespace Volt.Ide.Codesys
             // the networks the change gate above lets through (an unchanged pulled network holding the shape is never
             // refused), and so a caller with no transaction — the offline tests — sees the live network untouched.
             RefuseUnbuildable(model);
-            foreach (var tree in model.Trees) RefuseUnbuildableEno(tree, consumed: false);
             // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
             NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.CodesysDisplay, live);
             // What it resets without a refusal: the stored values of the members the text does not carry yet that the
@@ -211,50 +210,6 @@ namespace Volt.Ide.Codesys
             return NetworkPairing.Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
                 == NetworkPairing.RenderPushed(model, language, scope);
         }
-
-        /// <summary>
-        /// THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (spec; task 4.1): refuse, naming the box, a consumer the box
-        /// CODESYS builds would read through another output than the text states — or a box it would not build at all.
-        ///
-        /// <para><b>What decides is EN, not the output list.</b> The spec asks for "the IDE's box", and on CODESYS that is
-        /// not something Volt can read back: the vendor derives no <c>OutputParams</c> from the box type (on construction,
-        /// commit or build), and the <c>MainOutputIndex</c> a consumer is read through (N16) is read-only and stays unset
-        /// on a box Volt constructs. Measured by running each shape (DIALECT N21): a consumed enabled MOVE is read through
-        /// its ENO whatever list Volt writes, a consumed enabled comparison does not compile in any list, and an operator
-        /// with no EN carrying an ENO slot is "Missing EN pin". So the text's reading (<see cref="NetworkText.HasEnoOutput"/>)
-        /// is compared with what the built box will do. Only the shapes that would feed a consumer ANOTHER value than the
-        /// text says, or that Volt cannot build, are refused: "Missing EN pin" is a compile error the build names, so
-        /// <c>.ENO</c> on a box with no EN is written (openspec <c>bridge-refusal-review</c> 1.5).</para>
-        ///
-        /// <para>Only a CONSUMED box has a consumer to misread; every top-level shape built clean. An Execute box's ENO is
-        /// its type's, and an FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so neither is refused
-        /// on the missing EN. A pulled body holding the 40 drawn enabled comparisons still round-trips: the change gate
-        /// above never rebuilds a network whose text is unchanged.</para>
-        /// </summary>
-        private static void RefuseUnbuildableEno(Node n, bool consumed)
-        {
-            // The comparison family is the engine's (`NetworkText.IsComparison`): DIALECT N21 measured it on GT as not
-            // compiling when Volt builds one consumed with EN, in any output list Volt can write.
-            if (n is Box b && consumed && b.StCode is null)
-            {
-                var readsEno = NetworkText.HasEnoOutput(b, consumed: true);
-                // An enabled COMPARISON read as a value is built as the PLCopen importer builds it — EN, no ENO, its result
-                // slot null (2R.5 #26: that box stores, builds and runs; the refusal that stood here said no box Volt builds
-                // compiles, which held for the box built with ENO). Read through its ENO it is any enabled box (#22).
-                if (b.Enable is not null && !readsEno && !NetworkText.IsComparison(b.Type))
-
-                    throw Unbuildable(b, "the model reads its main output, and CODESYS reads a box Volt builds with EN " +
-                                         "through its ENO (DIALECT N21) — the push would feed the consumer the enable, " +
-                                         "not the data. Write the box as an open line and read it as ENO (B4)");
-                // An operator read through ENO with no EN never reaches here from the text (the reader refuses it, P3, N21).
-            }
-            // Everything below the top level is consumed by its parent.
-            foreach (var child in n.Children()) RefuseUnbuildableEno(child, consumed: true);
-        }
-
-        private static NotSupportedException Unbuildable(Box b, string why) =>
-            new($"CODESYS: the '{b.Type}' box is {why}. Refusing rather than build a network whose consumer reads " +
-                "another output than the text says, or that does not compile. The IDE can edit this network.");
 
         /// <summary>The stored values of the rebuild-loss candidates (<see cref="RebuildLoss"/>) every item of
         /// <paramref name="net"/> holds, in its notation: each flag set's <c>Fixed</c>, each operand's <c>Boolean</c> and its
@@ -755,9 +710,12 @@ namespace Volt.Ide.Codesys
                             $"network model invariant: the '{b.Type}' box's positional output to '{o.Value.Text}' has no slot; the reader places every one.");
                     At(at, OutputSlot.Of(o.Value), "'" + o.Value.Text + "'");
                 }
+                // THE CONNECTION IS THE NULL'S POSITION (v2-measurements #12): the slot a consumer reads holds the vendor's
+                // null — the ENO echo (set above), an FB's named output (`.name`, its slot derived from the declaration),
+                // else the box's value, slot 0.
+                if (b.ConnectedSlot is { } connected && connected > 0 && !(eno && connected == 0)) At(connected, OutputSlot.Null, "its consumer");
                 while (slots.Count < names.Count) slots.Add(null);
-                // The main output: slot 0 (the ENO echo, set above, where the box has one) — null where no pin holds it.
-                if (slots.Count > 0 && slots[0] is null) slots[0] = OutputSlot.Null;
+                if (slots.Count > 0 && slots[0] is null && !(b.ConnectedSlot is > 0)) slots[0] = OutputSlot.Null;
                 return slots.Select(s => s ?? OutputSlot.Empty).ToList();
             }
 

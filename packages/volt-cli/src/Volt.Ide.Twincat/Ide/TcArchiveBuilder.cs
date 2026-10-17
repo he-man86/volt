@@ -79,15 +79,16 @@ internal sealed class TcArchiveBuilder
 
     private XElement Network(Network n)
     {
-        // A pushed UNSUPPORTED line has nothing to build from, and a box read through a named main output (S4) is no box
-        // Volt can build on either vendor: the slot a consumer reads is not stated by the text's model (DIALECT N21).
+        // A pushed UNSUPPORTED line has nothing to build from, and an FB read through a named output whose slot no
+        // declaration in reach states is no box Volt builds: the slot is the null's position (v2-measurements #12), never
+        // a guess.
         NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.TwincatDisplay, n);
         TcUnmeasured.RefuseUnbuilt(n);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(n))
             throw new NotSupportedException(
-                $"TwinCAT: network {n.Order + 1}'s '{box.Type}' box is read through its output '{output}', which is not the " +
-                "box's first output: a box Volt builds is read through its first output, as on CODESYS (DIALECT N21), so the " +
-                "consumer would read another value than the text says. The IDE can draw it.");
+                $"TwinCAT: network {n.Order + 1}'s '{box.Type}' box is read through its output '{output}', which neither the " +
+                $"project's declarations nor the libraries' signatures name an output of '{box.Type}', so the slot the " +
+                "consumer reads is unknown. The IDE can draw it.");
         var id = Next();
         var items = n.Trees.Select(t => Node(t, consumed: false)).ToList();
         return new XElement("o",
@@ -227,7 +228,7 @@ internal sealed class TcArchiveBuilder
             names = drawn;
             types = drawn.Select(n => n == Volt.Engine.Format.Network.Box.EnoPin ? "BOOL" : "").ToList();
         }
-        if (b.Enable is not null && Volt.Engine.Format.Network.Box.StoresNoMainOutput(b.Type) && !names.Contains(""))
+        if (b.Enable is not null && NetworkText.IsBitOperator(b.Type) && !names.Contains(""))
             throw Unbuildable(
                 $"the '{b.Type}' box has an EN pin, and TwinCAT does not compile an enabled {b.Type} built with only its ENO " +
                 "output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no " +
@@ -243,7 +244,7 @@ internal sealed class TcArchiveBuilder
         // THE CONSUMER'S SLOT IS THE ONE NULL OUTPUT ITEM — the archive stores no MainOutputIndex (TcNetworkReader.
         // ConnectedSlot). A consumed call whose text names its pins but not its result (`out := t1(…, ET => el)`) lays its
         // slots out from those names alone, so no item is null and the next pull could not say what `out` reads.
-        if (consumed && !eno && !Volt.Engine.Format.Network.Box.StoresNoMainOutput(b.Type) && slots.Count > 0 && slots.Count(s => s is null) != 1)
+        if (consumed && !eno && !NetworkText.IsBitOperator(b.Type) && slots.Count > 0 && slots.Count(s => s is null) != 1)
             throw Unbuildable(
                 $"the '{b.Type}' box is read by its consumer and wires output pins by name, and the text does not say " +
                 "which of the box's outputs the consumer reads (its output list holds only the named pins) — the archive " +
@@ -363,8 +364,11 @@ internal sealed class TcArchiveBuilder
                     $"network model invariant: the '{b.Type}' box's positional output to '{o.Value.Text}' has no slot.");
             At(at, o.Value, "'" + o.Value.Text + "'");
         }
+        // THE CONNECTION IS THE NULL'S POSITION (v2-measurements #12): an FB's named output (`.name`, its slot derived from
+        // the declaration) holds it, else slot 0.
+        if (b.ConnectedSlot is { } connected && connected > 0) At(connected, null, "its consumer");
         while (slots.Count < names.Count) slots.Add((false, null));
-        if (slots.Count > 0 && !slots[0].Set) slots[0] = (true, null);
+        if (slots.Count > 0 && !slots[0].Set && !(b.ConnectedSlot is > 0)) slots[0] = (true, null);
         return slots.Select(s => s.Set ? s.Value : new Operand("")).ToList();
     }
 

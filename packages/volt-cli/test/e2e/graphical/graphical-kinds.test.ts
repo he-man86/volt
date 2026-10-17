@@ -47,7 +47,7 @@ const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
-const callNet = (lang: string) => `IMPLEMENTATION ${lang}\nNETWORK\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
+const callNet = (lang: string) => `IMPLEMENTATION ${lang}\nNETWORK\n  t1 : TON(IN := a, PT := T#1s);\nEND_NETWORK`
 
 /** Every source shape for one language. Built from the same `net` so the two languages differ in exactly one
  *  token — if FBD passes where LD fails, the difference is real and not a fixture artefact. */
@@ -201,7 +201,7 @@ for (const lang of ["FBD", "LD"]) {
 				await createItem(full, (src as any)[key](name), "")
 
 				const v1 = await fetchItem(full)
-				expect(v1.sourceText, "the call lost its instance").toContain("t1(IN := a")
+				expect(v1.sourceText, "the call lost its instance").toContain("t1 : TON(IN := a")
 				await isFixedPoint(full, v1)
 				await ensureCompiles(name)
 			})

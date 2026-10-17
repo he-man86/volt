@@ -1,5 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  a AND b EN go
-  out := ENO;
+  out := a AND b ENO EN go;
 END_NETWORK

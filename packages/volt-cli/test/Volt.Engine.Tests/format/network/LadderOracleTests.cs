@@ -19,27 +19,26 @@ namespace Volt.Engine.Tests;
 /// ENO output, which output slot a pin is on, a coil's reset bit pair. Each model below is transcribed from a live
 /// SP21 dump of those very networks (<c>probe-nwl-oracle-rungs.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-oracle-rungs.py</c>) -&gt; <c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>),
 /// run on a copy of <c>Lenze_MID-S100_V5_00_602_T51</c>), item by item: <c>OutputParams.Names</c> starting
-/// <c>ENO</c> is <see cref="Box.HasEnoOutput"/>, <c>MainOutputIndex</c> as stored (None on AND/OR), a consumer
-/// connected by it (DIALECT N16), <c>Outputs.List[i]</c> wired is slot i, <c>Negation+Set</c> on a target is a reset.
+/// <c>ENO</c> is <see cref="Box.HasEnoOutput"/>, a consumer connected by the slot stored null (none on AND/OR, DIALECT
+/// N16), an FB read by its output named, <c>Outputs.List[i]</c> wired is slot i, <c>Negation+Set</c> on a target is a reset.
 /// Facts the text has no position for (an operand's type, <c>CallType</c>) are left out, as
 /// <see cref="NetworkTextFacts"/> lists.</para>
 ///
 /// <para><b>What the dump settled that the design page had guessed.</b> Of the page's two-way positions ‹E1›–‹E4›,
 /// only ‹E4› (TrayFiller 8) is a Parallel; ‹E1›–‹E3› are AND/OR boxes. And the GE on that Parallel's branch has EN
 /// shown and unwired and NO ENO output (<c>OutputParams.Names = ['']</c>, <c>Eno = False</c>): it is connected by its
-/// comparison result, so it is written without <c>.ENO</c> — the v1 text's <c>IF en4 THEN (… &gt;= tInt)</c> and
-/// the page's <c>GE(EN := , …).ENO</c> both claimed the ENO, which the rung does not read.</para>
+/// comparison result, so it is written without <c>ENO</c>.</para>
 /// </summary>
 public class LadderOracleTests
 {
-    // Operator boxes as the vendor holds them: no main output index, an empty output type list (the dump's
+    // Operator boxes as the vendor holds them: no connection slot, an empty output type list (the dump's
     // `MainOutputIndex=None`, `OutputParams Names=[] Types=[]`).
     static Box And(params Node[] inputs) => Op("AND", inputs) with { OutputTypes = Array.Empty<string?>() };
     static Box Or(params Node[] inputs) => Op("OR", inputs) with { OutputTypes = Array.Empty<string?>() };
 
-    /// <summary>A call box consumed by its main output, which is not an ENO (TON, R_TRIG: <c>Names=['Q', …]</c>).</summary>
+    /// <summary>An FB consumed by its Q, which is not an ENO (TON, R_TRIG: <c>Names=['Q', …]</c>).</summary>
     static Box FbByQ(string type, string instance, IEnumerable<Input> inputs, params string?[] types) =>
-        Call(type, inputs, main: 0, connected: 0, eno: false, types: types,
+        Call(type, inputs, connected: 0, eno: false, types: types, name: "Q",
             instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
 
     static NetworkBody Ld(string? title, params Node[] trees) =>
@@ -91,7 +90,7 @@ public class LadderOracleTests
                 T("EtherCAT_Master.xRestart"), T("REQ_RestartComm", SetBit))),
             LdMarker +
             "NETWORK\n" +
-            "  EtherCAT_Master.xRestart := REQ_RestartComm S= TON_DelayAfterNetworkError(IN := Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011, PT := T#10000S);\n" +
+            "  EtherCAT_Master.xRestart := REQ_RestartComm S= TON_DelayAfterNetworkError : TON(IN := Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011, PT := T#10000S).Q;\n" +
             "END_NETWORK\n"),
 
         // A call whose only output is ENO (`Names=['ENO']`), its EN wired to TRUE, read through the ENO as a
@@ -103,8 +102,7 @@ public class LadderOracleTests
                 T("HMI_Var.Mach1.HourCounterRunning", SetBit))),
             LdMarker +
             "NETWORK TITLE: \"TODO NETWORK 6\"\n" +
-            "  MainDrive() EN TRUE\n" +
-            "  HMI_Var.Mach1.HourCounterRunning S= ENO AND Mach1.GenFlags.DriveIsRunning;\n" +
+            "  HMI_Var.Mach1.HourCounterRunning S= (MainDrive() ENO EN TRUE) AND Mach1.GenFlags.DriveIsRunning;\n" +
             "END_NETWORK\n"),
 
         // MOVE boxes lighting lamps: EN wired, the result on slot 1 (`=> HMI_Var.Mach1.Status`), the lamp on ENO.
@@ -125,16 +123,12 @@ public class LadderOracleTests
             LdMarker +
             "NETWORK TITLE: \"DONE NETWORK 49: State of the machine\"\n" +
             "  split22 := TRUE;\n" +
-            "  MOVE 0 => HMI_Var.Mach1.Status EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm)\n" +
-            "  tAlarmSL := ENO;\n" +
+            "  tAlarmSL := MOVE 0 => HMI_Var.Mach1.Status ENO EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm);\n" +
             "  split23 := split22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;\n" +
-            "  MOVE 1 => HMI_Var.Mach1.Status EN split23 AND Mach1.GenFlags.Warning\n" +
-            "  tWarningSL := ENO;\n" +
+            "  tWarningSL := MOVE 1 => HMI_Var.Mach1.Status ENO EN split23 AND Mach1.GenFlags.Warning;\n" +
             "  split24 := split23 AND NOT Mach1.GenFlags.Warning;\n" +
-            "  MOVE 2 => HMI_Var.Mach1.Status EN split24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto\n" +
-            "  tStandbySL := ENO;\n" +
-            "  MOVE 3 => HMI_Var.Mach1.Status EN split24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)\n" +
-            "  tRunningSL := ENO;\n" +
+            "  tStandbySL := MOVE 2 => HMI_Var.Mach1.Status ENO EN split24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto;\n" +
+            "  tRunningSL := MOVE 3 => HMI_Var.Mach1.Status ENO EN split24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto);\n" +
             "END_NETWORK\n"),
 
         // A wire fed by an OR of a TON's Q and two series rungs, driving one Assign with four coils (set, then
@@ -150,7 +144,7 @@ public class LadderOracleTests
                 Set(And(Ref(0), L("iFcGuardTrayOnElev", Neg), L("iTestProd")), T("Trayfiller_Data.Alarms.AlmTrayInfeeding", SetBit))),
             LdMarker +
             "NETWORK TITLE: \"DONE NETWORK 2: Condition: Rest position\"\n" +
-            "  split0 := TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS) OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag);\n" +
+            "  split0 := TMR_InpusherDown : TON(IN := stLowerInpusher, PT := T#500MS).Q OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag);\n" +
             "  stRestposition S= stLowerInpusher R= stInfeedTray R= stLightCurtainInterruptedBeforeStart R= split0;\n" +
             "  Trayfiller_Data.Alarms.AlmTrayInfeeding S= split0 AND NOT iFcGuardTrayOnElev AND iTestProd;\n" +
             "END_NETWORK\n"),
@@ -172,8 +166,7 @@ public class LadderOracleTests
                 T("stSrCigarAtEndBeforeLast", ResetBit), T("stSrCigarAtEnd", ResetBit))),
             LdMarker +
             "NETWORK TITLE: \"TODO NETWORK 7: Condition: Decend tray\"\n" +
-            "  ioActNumberOfRows ADD 1 => ioActNumberOfRows EN (TMR_DelayDescend(IN := stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher, PT := T#500MS) OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1\n" +
-            "  stDecendTray S= stInpushingRow R= stLightCurtainInterruptedDuringInpushing R= stSrCigarAtEndBeforeLast R= stSrCigarAtEnd R= ENO;\n" +
+            "  stDecendTray S= stInpushingRow R= stLightCurtainInterruptedDuringInpushing R= stSrCigarAtEndBeforeLast R= stSrCigarAtEnd R= ioActNumberOfRows ADD 1 => ioActNumberOfRows ENO EN (TMR_DelayDescend : TON(IN := stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher, PT := T#500MS).Q OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1;\n" +
             "END_NETWORK\n"),
 
         // The page's "honest regression": three wires, two edge FBs, a top-level enabled ADD writing its own pin,
@@ -195,7 +188,7 @@ public class LadderOracleTests
                             new[] { In(L("tInt")), In(L("iInitialDescentValue")) }, new[] { Out("tInt", 1) }, consumed: true, "BOOL", "INT"),
                         new Node[]
                         {
-                            Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, main: 0, connected: 0, eno: false,
+                            Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: false,
                                 types: new string?[] { "BOOL" }, kind: CallKind.Operator),
                             L("iPsElevatorDown"),
                         },
@@ -206,13 +199,11 @@ public class LadderOracleTests
             "  split2 := True;\n" +
             "  split3 := split2 AND True;\n" +
             "  split4 := split3 AND iPulseCounterElevator;\n" +
-            "  tBool := stRePulseCounter(CLK := split4);\n" +
-            "  tBool S= stFePulseCounter(CLK := split4);\n" +
-            "  stActHeightElevator ADD 5 => stActHeightElevator EN split3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher);\n" +
-            "  ioActNumberOfRows MUL iRowHeight => tInt EN split2 AND stDecendTray\n" +
-            "  tInt ADD iInitialDescentValue => tInt EN ENO\n" +
-            "  stTrayDecended S= stDecendTray R= ENO BRANCH ((stActHeightElevator GE tInt EN),\n" +
-            "                                                iPsElevatorDown) SHORTCIRCUIT;\n" +
+            "  tBool := stRePulseCounter : R_TRIG(CLK := split4).Q;\n" +
+            "  tBool S= stFePulseCounter : F_TRIG(CLK := split4).Q;\n" +
+            "  stActHeightElevator ADD 5 => stActHeightElevator ENO EN split3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher);\n" +
+            "  stTrayDecended S= stDecendTray R= (tInt ADD iInitialDescentValue => tInt ENO EN\n" +
+            "                                       ioActNumberOfRows MUL iRowHeight => tInt ENO EN split2 AND stDecendTray) BRANCH (stActHeightElevator GE tInt EN, iPsElevatorDown) SHORTCIRCUIT;\n" +
             "END_NETWORK\n"),
     };
 }

@@ -22,6 +22,11 @@ export const doc = "network-text.html"
 export const NOT_ST = "the exec oracle checks the ST transpiler, which has no graphical lowering — nothing would read it"
 
 /** A graphical FB, instantiated in PLC_PRG — an uninstantiated POU is dead code CODESYS never compiles. */
+/** Volt's push refusing an operator box with EN read through its ENO, its value wired nowhere (X3, v2-measurements 3c: it
+ *  stores and does not build — the recordings of the shape fail on both vendors) — the shared validator's words. */
+export const x3 = (box: string): string =>
+  `NETWORK_UNSUPPORTED: an operator box read through its ENO with no output wired: the '${box}' box is read through its ENO and writes its value nowhere: it stores and does not build (X3) — wire it, \`=> t\`. — Volt's push, before the IDE is asked (2R.6b)`
+
 export function ng(name: string, pouName: string, feature: string, source: string, fromDoc = doc, note?: string): LanguageTest {
   return {
     name,
@@ -49,10 +54,6 @@ export function ng(name: string, pouName: string, feature: string, source: strin
  * `test/e2e/graphical/stored-shapes.test.ts` holds the same shapes against a LIVE IDE.
  */
 export const TWINCAT_REFUSES: Record<string, string | undefined> = {
-  ng_en_eno_sink:
-    "TwinCAT: the 'AND' box has an EN pin, and TwinCAT does not compile an enabled AND built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
-  ng_en_eno_named_wire:
-    "TwinCAT: the 'OR' box has an EN pin, and TwinCAT does not compile an enabled OR built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
   ng_s6_negated_pin:
     "TwinCAT: the 'AND' box carries a modifier on its input pin (positional), which TwinCAT keeps in the box's InputFlags — a member this vendor's reader cannot read back (TcNetworkReader refuses a populated InputFlags), so the next pull could not show it. Put the modifier on what feeds the pin.",
   ng_s6_negated_int_pin:

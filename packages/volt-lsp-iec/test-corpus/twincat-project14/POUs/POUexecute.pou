@@ -15,13 +15,13 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK
-  EXECUTE EN TRUE
+  EXECUTE
 iCount:=icount+1;
 
-  END_EXECUTE;
+  END_EXECUTE ENO EN TRUE;
 END_NETWORK
 NETWORK
-  output := t1(IN := in1, PT := e1);
+  output := t1 : TON(IN := in1, PT := e1).Q;
 END_NETWORK
 NETWORK
   split1 := b;
@@ -29,7 +29,7 @@ NETWORK
   out2 := split1;
 END_NETWORK
 NETWORK
-  output := t2(IN := , PT := e1);
+  output := t2 : TON(IN := , PT := e1).Q;
 END_NETWORK
 
 END_PROGRAM

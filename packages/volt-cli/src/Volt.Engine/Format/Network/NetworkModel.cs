@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -41,17 +41,13 @@ public sealed record NetworkBody(BodyLanguage Language, IReadOnlyList<Network> N
 public enum BodyLanguage { Fbd, Ld }
 
 /// <summary>One network. <see cref="Order"/> is the network's index as the author sees it in network text.
-/// <para><see cref="Title"/>, <see cref="Label"/>, <see cref="Comment"/> and <see cref="Disabled"/> are carried
-/// by BOTH vendors' <c>INetwork</c> (`Title` / `Label` / `Comment` / `OutCommented`), measured on each. They
-/// were absent from the previous model because PLCopen carries none of the four — and worse, its export OMITS
-/// a disabled network entirely, which is how a disabled network could be dropped from a running program. The
-/// four are now carried, and a fan-out wire is a <see cref="Demux"/> - the vendor's own item.</para>
-/// <para><see cref="Unsupported"/> (openspec <c>ld-fbd-coverage</c> 1b.4): a network the text has no spelling for — a
-/// reader or writer refusal met in its trees — is SHOWN, its header and comment kept and its trees the one line
-/// <c>UNSUPPORTED &lt;shape&gt;;</c>, instead of the whole body's <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>. The field is that
-/// shape (the refusal's reason); such a network holds no trees, because what it holds is exactly what the text cannot
-/// say. A push keeps it untouched when its line pairs with the live network, and refuses it otherwise
-/// (<see cref="NetworkPairing"/>).</para></summary>
+/// <para><see cref="Title"/>, <see cref="Label"/>, <see cref="Comment"/> and <see cref="Disabled"/> are the vendor's
+/// <c>INetwork</c> <c>Title</c> / <c>Label</c> / <c>Comment</c> / <c>OutCommented</c>, carried exactly as stored.</para>
+/// <para><see cref="Unsupported"/> (ld-fbd-coverage 1b.4): a network the text has no spelling for is SHOWN as one line,
+/// <c>UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;;</c>, its header and comment kept. The field is the shape (the refusal's
+/// reason) and <see cref="UnsupportedHash"/> the 8 hex digits that tell two such networks apart
+/// (<see cref="NetworkTextWriter.Hash"/>); such a network holds no trees. A push keeps it untouched when its line pairs with
+/// the live network, and refuses it otherwise (<see cref="NetworkPairing"/>).</para></summary>
 public sealed record Network(
     int Order,
     string? Title,
@@ -59,7 +55,8 @@ public sealed record Network(
     string? Comment,
     bool Disabled,
     IReadOnlyList<Node> Trees,
-    string? Unsupported = null);
+    string? Unsupported = null,
+    string? UnsupportedHash = null);
 
 /// <summary>A node in a network's tree. The three the vendor's visitor dispatches over are
 /// <see cref="Leaf"/>, <see cref="Box"/> and <see cref="Assign"/>; the remaining three are LD structures.
@@ -109,20 +106,29 @@ public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Fl
     public override IEnumerable<Node> Children() => new[] { Value };
 }
 
-/// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm. Covers every shape the previous
-/// model spread across `Block`, its EN pin, and a separate ST-code field:
+/// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm.
 /// <list type="bullet">
 /// <item><see cref="Instance"/> non-null: a function-block instance call.</item>
-/// <item><see cref="Enable"/> non-null: an enable is actually WIRED, and this is its expression. It is the
-/// box's input slot 0 where the vendor names that slot <c>EN</c> (<see cref="HasEnableSlot"/>) — NOT its
-/// <c>EnEno</c> flag, which is <c>true</c> on all 1,256 boxes of a real project including every plain
-/// <c>AND</c>/<c>OR</c> because it marks that the box SUPPORTS EN/ENO, and not its <c>En</c> member, which says
-/// EN/ENO is SHOWN. It is a <see cref="Node"/> rather than a flag because the enable is a wired expression, and
-/// network text writes it as the call's first pin, <c>EN := …</c>. Whether the box has an ENO output is a
-/// separate fact (<see cref="HasEnoOutput"/>).</item>
-/// <item><see cref="StCode"/>: a CODESYS Execute box — a box whose call is raw ST
-/// (<c>BoxTreeBox.STSnippet</c> / <c>ProvidesSTSnippet</c>). Emitted verbatim between network text's
-/// <c>EXECUTE</c> markers so it round-trips byte-for-byte.</item>
+/// <item><see cref="Enable"/> non-null: the box's EN pin (input slot 0, named <c>EN</c> — <see cref="HasEnableSlot"/>),
+/// and what is wired to it; the empty <see cref="Terminator"/> where nothing is.</item>
+/// <item><see cref="StCode"/>: a CODESYS Execute box — a box whose call is raw ST (<c>BoxTreeBox.STSnippet</c>).</item>
+/// </list>
+/// <para><b>The output facts</b> (network text v2.1, ld-fbd-coverage 2R.6b):</para>
+/// <list type="bullet">
+/// <item><see cref="HasEnoOutput"/>: the box has an ENO output — its <c>OutputParam.Names</c> start <c>ENO</c>
+/// (<see cref="HasEnoSlot"/>), which makes output slot 0 the ENO. Independent of EN (census 1.6: 40 enabled comparisons
+/// have none; an FB may declare ENO without EN). Always stated: a reader reads it, the text states it (<c>ENO</c> on an
+/// enabled box; an Execute box has one by type; a consumed FB read with no <c>.name</c> is read by its declared ENO).</item>
+/// <item><see cref="ConnectedSlot"/>: on a CONSUMED box, the output slot its consumer is connected to — the position of
+/// the one null in the vendor's output items (v2-measurements #12: the null's position IS the connection, on both
+/// vendors). Null on a top-level box, on a bit operator read by its value (the vendor stores no slot, census 1.6), and on
+/// an FB read from text by <c>.name</c> until the push derives the name's slot from the callee
+/// (<see cref="NetworkDerivation"/>).</item>
+/// <item><see cref="MainOutputName"/>: the output a consumer of an FB reads, by name (<c>t1 : TON(…).Q</c>) — on every FB
+/// consumed by a data output.</item>
+/// <item><see cref="OutputTypes"/>: the vendor's <c>OutputParams.Types</c>, index-aligned with the output slots; null where
+/// not read (a text read).</item>
+/// <item><see cref="Members"/>: the stored values of members the text does not carry (B7), for the rebuild-loss warning.</item>
 /// </list></summary>
 public sealed record Box(
     string Type,
@@ -133,17 +139,14 @@ public sealed record Box(
     Node? Enable,
     string? StCode,
     Flags Flags,
-    int? MainOutputIndex = null,
     int? ConnectedSlot = null,
     IReadOnlyList<string?>? OutputTypes = null,
-    bool? HasEnoOutput = null,
+    bool HasEnoOutput = false,
     string? MainOutputName = null,
     NwlMembers? Members = null) : Node(Flags)
 {
     /// <summary>The modifiers on the EN PIN itself — the vendor's <c>InputFlags[0]</c> on a box whose slot 0 is the enable
-    /// (ld-fbd-coverage 2R.5, awkward-sweep #16: a negated EN pin stores, builds and runs). A pin's modifier, not the
-    /// enable tree's: <c>NOT EN c</c> negates the pin, <c>EN NOT c</c> the contact feeding it — two stored trees.
-    /// <see cref="Flags.None"/> on a box with no enable.</summary>
+    /// (2R.5, awkward-sweep #16). <c>NOT EN c</c> negates the pin, <c>EN NOT c</c> the contact feeding it.</summary>
     public Flags EnableFlags { get; init; } = Flags.None;
 
     /// <summary>The enable first (it is input slot 0 on the vendor), then the pins' values.</summary>
@@ -152,46 +155,6 @@ public sealed record Box(
         if (Enable is not null) yield return Enable;
         foreach (var p in Inputs) yield return p.Value;
     }
-
-    // MainOutputIndex / ConnectedSlot / OutputTypes / HasEnoOutput are network text v2 facts
-    // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17), which both drivers read. Null means "not
-    // read" (a model built by hand, or a fact the vendor did not store); it is NOT a default the writer may assume
-    // a value for — it refuses by name instead, except where the text has no position for the fact at all (named
-    // per field below, and beside the oracle).
-    //
-    //  MainOutputIndex  the vendor's BoxTreeBox.MainOutputIndex: which output slot is the box's result. It is
-    //                   STORED, not "slot 0 by convention": measured 0 on 456 boxes, 1 on 3 call boxes (Lenze
-    //                   call_FirstErrorCapture_FB), None on 823 — so null is a real vendor value as well as "unread".
-    //  ConnectedSlot    on a CONSUMED box (an Assign's value, a box input, a Demux/Parallel input), the output
-    //                   slot its consumer is wired to. The spec's slot rule reads it: the main output writes no
-    //                   suffix, ENO writes `.ENO`, any other slot is the marker. Null on a top-level box.
-    //  OutputTypes      the vendor's OutputParams.Types, index-aligned with the output SLOTS (not with
-    //                   Outputs, which holds only the wired ones). v2 declares a wire fed by this box with the
-    //                   type of the connected slot; a null list or entry is an unknown type, refused by name.
-    //  HasEnoOutput     whether the box has an ENO output — its OutputParams.Names start "ENO" (HasEnoSlot), which
-    //                   makes output slot 0 the ENO and, on such a box, its main output (DIALECT N16). It is NOT
-    //                   "the box has EN": the two are independent (census 1.6 — 40 enabled comparisons have EN and
-    //                   one data output; Lenze `Dryer` declares ENO without EN), so it cannot be derived from Enable.
-    //                   v2 spells a consumer of the ENO output `.ENO` and never gives ENO an `=>` pin; null is "not
-    //                   read", which the writer refuses wherever the answer decides the text
-    //                   (NetworkSpelling.EnoCarried). THE ONE PLACE null is not refused is where the text has no
-    //                   position for the fact and the push takes it from the IDE's box — listed beside the oracle
-    //                   (NetworkTextFacts): a top-level box with no positional `=>` pin, an Execute box (its ENO is
-    //                   its type's), and a consumed AND/OR/XOR/NOT with no EN and no stored slot. That last one is not
-    //                   a guess of "false": census 1.6 (N16) found no ENO on those boxes, and the vendor keeps no
-    //                   slot on them to connect one by. A `true` there IS refused — a box with an ENO is connected by
-    //                   a stored slot, which this one lacks — so null and false write the same text by that census.
-    //  MainOutputName   the vendor's OutputParam.Names at the slot a consumer reads by the box's main output (ld-fbd-coverage
-    //                   1b.4, S4): the readers state it on every box consumed by a data main output. The text spells it
-    //                   only where that output is not the slot the text reads by rule (NetworkSpelling.MainSlotOfCall),
-    //                   as `fb(…).name` — so no library signature is needed for a box whose main output is slot 1. Read
-    //                   from text, a `.name` box carries the name and NO slot: the text has no position for the index,
-    //                   and a push never builds such a box (MainOutputIndex is read-only on a built box, DIALECT N21) —
-    //                   it keeps the IDE's network whose text is unchanged (NetworkPairing).
-    //  Members          the stored values of the box's members the text spells by pragma (ld-fbd-coverage 2.3,
-    //                   NetworkMembers.OfBox): every one a vendor reader read, only the spelled ones on a text read —
-    //                   an absent member is its derivation (NetworkMembers.Effective), never "unknown".
-
 
     /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,
     /// and the vendor says so by naming that slot — see <see cref="HasEnableSlot"/>.</summary>
@@ -239,28 +202,13 @@ public sealed record Box(
     public static bool HasEnoSlot(IReadOnlyList<string?> formals) =>
         formals.Count > 0 && string.Equals(formals[0], EnoPin, StringComparison.Ordinal);
 
-    /// <summary>Whether the vendor stores NO main output for a box of this type — the bit operators (census 1.6:
-    /// <c>MainOutputIndex</c> None on 823 AND/OR boxes), whose consumer is therefore connected by no stored slot. One
-    /// definition for the readers and the text's own slot rule (<c>NetworkSpelling.MainSlotOfCall</c>).</summary>
-    public static bool StoresNoMainOutput(string type) => NetworkSpelling.BitOperators.Contains(type);
-
-    /// <summary>
-    /// S1 (ld-fbd-coverage 2.3): the slot a consumer of a BIT OPERATOR is connected by — the box's first output where it
-    /// stores one (the editor's form: <c>OutputParam.Names = ['']</c>, an output slot, main output 0), and none where it
-    /// stores none (the plain AND/OR, census 1.6). One output slot per stored name: the pragma
-    /// <c>{OutputParam.Names := ['']}</c> states the outputs, and this reads the connection off them — the vendor readers,
-    /// the text reader and the writer alike.
-    /// </summary>
-    public static int? BitOperatorSlot(int storedOutputs) => storedOutputs > 0 ? 0 : null;
-
-    /// <summary>THE NAME A READER STATES FOR A CONSUMED BOX'S MAIN OUTPUT (<see cref="MainOutputName"/>, ld-fbd-coverage
-    /// 1b.4, S4): the box's own stored output name at <paramref name="mainOutput"/>, where that slot is NOT the one the text
-    /// reads by rule (<see cref="NetworkSpelling.MainSlotOfCall"/>) — the only place the text spells it. Elsewhere null:
-    /// slot 0, ENO (slot 0 too, N16), a bit operator, or no slot read. A slot past the stored names, or a name stored
-    /// empty, is "" — a fact read, which the writer refuses by name, never a guess at the library's output.</summary>
-    public static string? NameOfMainOutput(string type, int? mainOutput, IReadOnlyList<string?> outputNames)
+    /// <summary>THE NAME A READER STATES FOR A CONSUMED FB'S OUTPUT (<see cref="MainOutputName"/>): the box's stored output
+    /// name at the connected slot, for an FB read by a data output (not by its ENO). Null for any other box, or where no
+    /// slot is connected. A slot past the stored names, or a name stored empty, is "" — a fact read, which the validator
+    /// refuses by name, never a guess at the declaration's output.</summary>
+    public static string? NameOfConnectedOutput(bool isFb, int? connected, bool hasEno, IReadOnlyList<string?> outputNames)
     {
-        if (mainOutput is not { } slot || NetworkSpelling.MainSlotOfCall(type) is not { } rule || slot == rule) return null;
+        if (!isFb || connected is not { } slot || (hasEno && slot == 0)) return null;
         return slot < outputNames.Count ? outputNames[slot] ?? "" : "";
     }
 

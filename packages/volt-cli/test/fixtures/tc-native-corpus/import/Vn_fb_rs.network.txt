@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  rs1(SET := a, RESET1 := b);
+  rs1 : RS(SET := a, RESET1 := b);
 END_NETWORK

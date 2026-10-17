@@ -147,23 +147,24 @@ public class WireVocabularyTests
 
         // ── the graphical body format ──────────────────────────────────────────────────────────────────────────
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
-            ("Volt.Engine/Format/Network/NetworkLexer.cs", 5),   // −2 the pragma's lexing (ld-fbd-coverage 2R.3: the pragma is deleted)
+            ("Volt.Engine/Format/Network/NetworkLexer.cs", 8),   // 2R.6b: a bad escape in a comment, title or backtick, and text after EXECUTE on its line
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 31))),   // 2R.3 (readability.md): the old spellings that fail as no parse, each naming the new one (P12: BRANCH lines, INTO/BRANCHES, PARALLEL(…), VAR_TEMP, IF … THEN, EXECUTE(…), `.ENO`, the pragma), BRANCH without its bracketed list (B8)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 27))),   // 2R.6b (v2-spec): the old spellings that fail as no parse, each naming the new one
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 2))),   // 2R.3: a split defined twice (B6, P9) — no VAR_TEMP block, no pragma left to repeat; 2R.5: the same, where one definition is nested
+            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1))),   // 2R.6b: a split defined twice (X17), checked once over the model
         new("a malformed operator group", "fix the expression", "NETWORK_BAD_EXPRESSION", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 73))),   // 2R.3 (readability.md): the open-line rules (P3), the bracket rules (P4: a redundant bracket, an unbracketed enabled comparison, a feed or operand word unbracketed), word or call (P5), the ENO pin, the split's type (B6), the old symbols (P12)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 59),   // 2R.6b (v2-spec): the indentation check ("missing `;`?"), the bracket rules, one tree one text (a redundant bracket, the call form where a word holds it), ENO without EN, `.name` misuse, the split's type, the old symbols
+            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1))),   // 2R.6b: a split read and defined nowhere (X17)
         new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
-            ("Volt.Engine/Format/Network/NetworkLexer.cs", 1),
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextGate.cs", 1),
+            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1),   // 2R.6b: the shape refusals (X3–X17, the MEASURE shapes), checked once over the model
+            ("Volt.Engine/Format/Network/NetworkTextWriter.cs", 1),   // 2R.6b: the validator's refusals (X3–X17, the MEASURE shapes) raised as one exception, by the code each names
             ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26),   // +3 an UNSUPPORTED line beside or before other statements, a positional pin beside `.name` (1b.4); 2R.3: the parallel's refusals (P6: no branch, one branch C0023), the pragma's gone; 2R.5: an empty branch is spelled (-2), an operator with one input refused (+1); gate 2R.5: the composites no store/build/run measures (+6: a modified jump or return, an edge beside another coil bit, an edge on EN, an edge on a negated pin, a negated empty slot outside a coil's value, a split read inside its own definition; gate 2R.5 (2): +1 a negated or edge coil beside another coil)
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 8),   // 2R.6b: the reader keeps only what the grammar itself refuses (an UNSUPPORTED line beside other statements, a function read by `.name`, …); the shape refusals moved to the shared validator (NetworkValidator), raised through NetworkTextWriter
             // A shape the native builder has no TwinCAT form for (PARALLEL, a pin flag, an enabled bit operator,
             // a consumed call with no slot for its consumer) — it replaced the PLCopen import's refusals (twincat-inproc-host).
             ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 1),
@@ -333,9 +334,9 @@ public class WireVocabularyTests
     /// </summary>
     private static readonly Dictionary<string, int> Uncoded = At(
         ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 1),
-        ("Volt.Engine/Format/Network/NetworkTextGate.cs", 3),
+        ("Volt.Engine/Format/Network/NetworkTextGate.cs", 2),
         ("Volt.Engine/Format/Network/NetworkMembers.cs", 1),   // a stored member value read as a list of strings it is not (MemberValue.AsTexts): Volt's own invariant (ld-fbd-coverage 2R.3, the pragma's value kept as the model's)
-        ("Volt.Engine/Format/Network/NetworkTextReader.cs", 2),
+        ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1),
         ("Volt.Engine/Format/St/ImplementationMarker.cs", 2),
         ("Volt.Engine/Format/St/PropertyLines.cs", 2),
         ("Volt.Engine/Format/St/StReader.cs", 1),

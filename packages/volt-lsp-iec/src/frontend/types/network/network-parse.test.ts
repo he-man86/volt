@@ -1,7 +1,7 @@
 /**
- * The network-text reader's TREE (openspec ld-fbd-coverage 2R.3, `readability.md`): what the parse hands the checks and
- * the services — one statement per NWL item, the open lines reached through the ENO that takes each (P3), the splits and
- * their references (B6), the parallel (B8), a box's type as the reader decided it, the ST readings the type engine runs
+ * The network-text reader's TREE (openspec ld-fbd-coverage 2R.6b, `v2-spec.md`): what the parse hands the checks and the
+ * services — one statement per NWL item, a box in the EN slot of the box it enables, the splits and their references, the
+ * parallel, a box's type as the reader decided it and how its consumer reads it, the ST readings the type engine runs
  * over, and the recovery that keeps what was read. Which texts are accepted and which refused, by name, is the shared case
  * set's (`network-cases.test.ts`, the bridge's `NetworkTextCaseTests`) — not repeated here.
  */
@@ -78,10 +78,10 @@ test("v1 text is refused naming a re-pull, never read", () => {
   expect(parse(net("LET g0 := TRUE;")).diagnostics[0]!.message).toContain("re-pull")
 })
 
-test("the header carries LABEL, DISABLED and TITLE, exact, ST's escapes decoded", () => {
+test("the header carries LABEL, DISABLED and TITLE, exact, IEC's escapes decoded", () => {
   const n = parse(net("out := a;", 'NETWORK LABEL: Done DISABLED TITLE: "Tray $"A$" ready$Nnext $$5 "')).networks[0]!
   expect(n.label?.text).toBe("Done")
-  expect(n.title).toBe('Tray "A" ready\nnext $5 ')
+  expect(n.title).toBe('Tray "A" ready\r\nnext $5 ')
   expect(n.disabled).toBe(true)
 })
 
@@ -105,7 +105,7 @@ test("a finding stands at the token the bridge names", () => {
   const b = parse(net("x := a ADD b MUL c;"))
   const d = b.diagnostics[0]!
   expect(d.code).toBe("NETWORK_BAD_EXPRESSION")
-  expect(d.message).toContain("one word = one box")
+  expect(d.message).toContain("one word is one box")
   expect(d.span.startCol).toBe(13) // `MUL`, 0-based: two spaces of indentation, then `x := a ADD b `
 })
 
@@ -131,27 +131,30 @@ test("a split beside a declaration of its name is the split; the variable is the
   expect(scoped.networks[0]!.statements.map((s) => s.kind)).toEqual(["split_def", "assign", "assign"])
 })
 
-// ── open lines (B4, P3) ─────────────────────────────────────────────────────────────────────
+// ── ENO and EN ──────────────────────────────────────────────────────────────────────────────
 
-test("an open line is the box the ENO below it takes: one item, one tree", () => {
-  const s = only("MOVE 860 => AutoSpeed EN go\nStartAuto := ENO;")
-  const v = valueOf(s)
-  expect(v.kind).toBe("eno")
-  if (v.kind !== "eno") return
-  expect(v.box.kind).toBe("word")
-  expect(v.box.kind === "word" && v.box.word).toBe("MOVE")
-  expect(v.box.span.startLine).toBe(v.span.startLine - 1)
+test("a box that shows ENO is read through it: one item, one tree", () => {
+  const v = valueOf(only("StartAuto := MOVE 860 => AutoSpeed ENO EN go;"))
+  expect(v.kind === "word" && [v.word, v.hasEno, v.readBy, v.en?.kind]).toEqual(["MOVE", true, "eno", "operand"])
+  const top = valueOf(only("MOVE 860 => AutoSpeed ENO EN go;"))
+  expect(top.kind === "word" && [top.hasEno, top.readBy]).toEqual([true, undefined])
+  const value = valueOf(only("x := a ADD b EN go;"))
+  expect(value.kind === "word" && [value.hasEno, value.readBy]).toEqual([false, "value"])
 })
 
-test("each ENO takes the oldest open line not yet taken: a mix reads by level", () => {
-  const s = only("MOVE 1 => R EN c\nMOVE 2 => P EN d\nMOVE 3 => Q EN ENO\nx := ENO AND ENO;")
-  const and = valueOf(s)
-  expect(and.kind).toBe("word")
-  if (and.kind !== "word") return
-  const targets = and.operands.map((o) => (o.kind === "eno" && o.box.kind === "word" ? o.box.outputs[0]!.text : "?"))
-  expect(targets).toEqual(["P", "Q"])
-  const q = and.operands[1]!
-  expect(q.kind === "eno" && q.box.kind === "word" && q.box.en?.kind).toBe("eno") // Q takes R
+test("a chain: the box in the EN slot of another, laid out as a staircase or on one line, is one tree", () => {
+  const stair = only("x := MOVE 3 => Q ENO EN\n       MOVE 2 => P ENO EN\n         MOVE 1 => R ENO EN c;")
+  const line = only("x := MOVE 3 => Q ENO EN MOVE 2 => P ENO EN MOVE 1 => R ENO EN c;")
+  const outs = (v: NetworkValue): string[] => (v.kind === "word" ? [v.outputs[0]!.text, ...(v.en !== undefined ? outs(v.en) : [])] : [])
+  expect(outs(valueOf(stair))).toEqual(["Q", "P", "R"])
+  expect(outs(valueOf(line))).toEqual(["Q", "P", "R"])
+})
+
+test("a continuation line no deeper than its item's first line is the missing `;`", () => {
+  const b = parse(net("x := MOVE 3 => Q ENO EN\nMOVE 1 => R ENO EN c;"))
+  expect(b.diagnostics.map((d) => d.message)).toEqual([
+    "missing `;`? A line indented no deeper than its item's first line starts a new item, so the item before it ends with `;`.",
+  ])
 })
 
 test("the empty enable is an empty slot, and the box's EN token is kept", () => {
@@ -184,22 +187,24 @@ test("a call box carries its type as the reader decided it: an instance's FB, an
     if (v.kind !== "call") throw new Error(v.kind)
     return v
   }
-  const fb = call(only("q := t1(IN := go, PT := T#1S);", sc))
-  expect([fb.boxType, fb.instance]).toEqual(["TON", true])
+  const fb = call(only("q := t1 : TON(IN := go, PT := T#1S).Q;", sc))
+  expect([fb.boxType, fb.instance, fb.output?.text, fb.readBy]).toEqual(["TON", true, "Q", "name"])
   const unnamed = call(only("??? : L_MC1P_Axis(xEnable := go);", sc))
-  expect([unnamed.boxType, unnamed.unnamedType?.text]).toEqual(["L_MC1P_Axis", "L_MC1P_Axis"])
+  expect([unnamed.boxType, unnamed.unnamed, unnamed.type?.text]).toEqual(["L_MC1P_Axis", true, "L_MC1P_Axis"])
   const fn = call(only("x := LIMIT(0, v, 100);", sc))
-  expect([fn.boxType, fn.instance]).toEqual(["LIMIT", undefined])
+  expect([fn.boxType, fn.instance, fn.readBy]).toEqual(["LIMIT", undefined, "value"])
+  const declaredEno = call(only("ready := d1 : Dryer(iOn := on);", scope({ d1: "Dryer" })))
+  expect([declaredEno.hasEno, declaredEno.readBy]).toEqual([true, "eno"])
 })
 
-test("the named ENO pin is an output pin of the call, and no parameter of the callee", () => {
-  const v = valueOf(only("MOVE(0, ENO => lamp) EN c;"))
-  expect(v.kind === "call" && v.pins.map((p) => p.kind)).toEqual(["input", "output"])
-  expect([...statementTargets(only("MOVE(0, ENO => lamp) EN c;"))].map((t) => t.text)).toEqual(["lamp"])
+test("the wired ENO pin is a target of the box, after its outputs, and no parameter of a callee", () => {
+  const v = valueOf(only("MOVE 0 => x ENO => lamp EN c;"))
+  expect(v.kind === "word" && v.eno?.target?.text).toBe("lamp")
+  expect([...statementTargets(only("MOVE 0 => x ENO => lamp EN c;"))].map((t) => t.text)).toEqual(["x", "lamp"])
 })
 
 test("EXECUTE: its lines are ST, parsed as such", () => {
-  const s = only("EXECUTE EN go\ni := i + 1;\n  END_EXECUTE;")
+  const s = only("EXECUTE\ni := i + 1;\n  END_EXECUTE ENO EN go;")
   const v = valueOf(s)
   expect(v.kind === "execute" && v.ok && v.statements.length).toBe(1)
 })
@@ -216,33 +221,33 @@ test("a box word reads as ST's operator over its operands; MOVE as ST's MOVE cal
   expect(move?.kind === "call" && move.callee.kind === "ident_expr" && move.callee.name).toBe("MOVE")
 })
 
-test("ENO and an edge read as an opaque BOOL; a parallel has no reading", () => {
-  const eno = networkValueExpr(valueOf(only("MOVE 1 => A EN c\nx := ENO;")))
+test("a box read through its ENO and an edge read as an opaque BOOL; a parallel has no reading", () => {
+  const eno = networkValueExpr(valueOf(only("x := MOVE 1 => A ENO EN c;")))
   expect(eno?.kind === "literal" && eno.literalKind).toBe("bool")
-  const edge = networkValueExpr(valueOf(only("x := R_EDGE(a);")))
+  const edge = networkValueExpr(valueOf(only("x := R_EDGE a;")))
   expect(edge?.kind === "literal" && edge.literalKind).toBe("bool")
   expect(networkValueExpr(valueOf(only("x := s BRANCH (a, b);")))).toBeUndefined()
 })
 
-test("every operand is read once — inside an open line, an EN tail, a parallel and a box's => pins", () => {
-  const s = only("tMul MUL height => tInt EN go AND descend\nlamp R= ENO BRANCH ((elev GE tInt EN), down) SHORTCIRCUIT;")
+test("every operand is read once — inside a box read through its ENO, an EN source, a parallel and a box's => pins", () => {
+  const s = only("lamp R= (tMul MUL height => tInt ENO EN go AND descend) BRANCH (elev GE tInt EN, down) SHORTCIRCUIT;")
   const names = statementExprs(s).flatMap(idents).sort()
   expect(names).toEqual(["descend", "down", "elev", "go", "height", "lamp", "tInt", "tInt", "tMul"].sort())
 })
 
 test("a backticked operand is ONE operand whose text is parsed as an ST expression", () => {
-  const v = valueOf(only("MOVE `DINT_TO_LREAL(pos)/10` => target EN go;"))
+  const v = valueOf(only("MOVE `DINT_TO_LREAL(pos)/10` => target ENO EN go;"))
   expect(v.kind).toBe("word")
   if (v.kind !== "word") return
   const operand = v.operands[0]!
   expect(operand.kind === "operand" && operand.backticked && operand.expr?.kind).toBe("binary")
 })
 
-test("every value of a statement is walked, the open lines' boxes included", () => {
-  const s = only("MOVE 1 => A EN c\nMOVE 2 => B EN ENO\nx := ENO;")
+test("every value of a statement is walked, the boxes in EN slots included", () => {
+  const s = only("x := MOVE 2 => B ENO EN\n       MOVE 1 => A ENO EN c;")
   expect([...walkValues(s)].filter((v) => v.kind === "word").length).toBe(2)
 })
 
 test("the structure-only reader asks the declarations nothing", () => {
-  expect(codes(net("q := t1(IN := go);"))).toEqual([])
+  expect(codes(net("q := t1 : TON(IN := go).Q;"))).toEqual([])
 })

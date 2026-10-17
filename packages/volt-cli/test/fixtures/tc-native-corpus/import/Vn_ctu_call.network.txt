@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  c1(CU := a, RESET := b, PV := i1);
+  c1 : CTU(CU := a, RESET := b, PV := i1);
 END_NETWORK

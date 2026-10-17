@@ -1,0 +1,151 @@
+#### execute-top-level — EXECUTE ends its line, the ST below it verbatim, END_EXECUTE
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+x := 1;
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "x := 1;")
+
+#### execute-enabled — an Execute box's ENO and EN follow END_EXECUTE
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+iCount:=icount+1;
+
+  END_EXECUTE ENO EN TRUE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "iCount:=icount+1;\n" en:TRUE)
+
+#### execute-read-through-eno — an Execute box read through its ENO, its one output
+=== text
+IMPLEMENTATION LD
+NETWORK
+  done := EXECUTE
+i := i + 1;
+          END_EXECUTE ENO EN go;
+END_NETWORK
+=== model
+NETWORK
+  (:= done (EXECUTE "i := i + 1;" en:go conn:0))
+
+#### execute-in-a-chain — an Execute box in an EN slot: the staircase (9)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  lamp := MOVE 1 => t ENO EN
+            EXECUTE
+i := i + 1;
+            END_EXECUTE ENO EN go;
+END_NETWORK
+=== model
+NETWORK
+  (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
+
+#### execute-as-operand — an Execute box as a word's operand and as a parallel's feed is bracketed (9)
+=== text
+IMPLEMENTATION LD
+NETWORK
+  x := (EXECUTE
+i := 1;
+        END_EXECUTE ENO EN go) AND d;
+  y := (EXECUTE
+j := 1;
+        END_EXECUTE ENO EN go) BRANCH (d, e);
+END_NETWORK
+=== model
+NETWORK
+  (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
+  (:= y (par seq (EXECUTE "j := 1;" en:go conn:0) d e))
+
+#### execute-verbatim — an Execute body is ST exactly as written: a `$`, a `//` and a backtick are its own
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+s := 'a$Nb'; // `x`
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "s := 'a$Nb'; // `x`")
+
+#### execute-empty — an Execute box with no ST is one empty line
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+
+  END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "")
+
+#### execute-end-indent — the indent of END_EXECUTE is layout
+=== text
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+x := 1;
+END_EXECUTE;
+END_NETWORK
+=== model
+NETWORK
+  (EXECUTE "x := 1;")
+=== canonical
+IMPLEMENTATION LD
+NETWORK
+  EXECUTE
+x := 1;
+  END_EXECUTE;
+END_NETWORK
+
+#### layout-free — newlines and indentation are layout: an item runs to its `;`, its lines deeper than its first
+=== text
+IMPLEMENTATION LD
+NETWORK
+  split174 := TRUE;
+  split175 := split174 AND enable
+     AND ready
+       AND NOT stop;
+  x := f(IN1 := a,
+         IN2 := b);
+END_NETWORK
+=== model
+NETWORK
+  (split 174 TRUE)
+  (split 175 (AND #174 enable ready not:stop))
+  (:= x (f IN1=a IN2=b conn:0))
+=== canonical
+IMPLEMENTATION LD
+NETWORK
+  split174 := TRUE;
+  split175 := split174 AND enable AND ready AND NOT stop;
+  x := f(IN1 := a, IN2 := b);
+END_NETWORK
+
+#### layout-any-item-indent — an item's first line may stand at any column
+=== text
+IMPLEMENTATION LD
+NETWORK
+x := a;
+        y := b
+          AND c;
+END_NETWORK
+=== model
+NETWORK
+  (:= x a)
+  (:= y (AND b c))
+=== canonical
+IMPLEMENTATION LD
+NETWORK
+  x := a;
+  y := b AND c;
+END_NETWORK

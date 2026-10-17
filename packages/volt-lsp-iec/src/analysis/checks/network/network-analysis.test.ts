@@ -45,9 +45,9 @@ test("a split's uses are typed by its feeder, as the build types the consumer by
   expect(messages(fbd("sx : STRING; j : INT;", "split1 := sx;\nj := split1;"))).toContain("Cannot convert type 'STRING' to type 'INT'")
 })
 
-// ─── openspec ld-fbd-coverage 1b.4: `fb(…).name` (S4) and the network shown as its `UNSUPPORTED "<shape>";` line ─────
+// ─── `inst : TYPE(…).name` and the network shown as its `UNSUPPORTED "<shape>" #<hash>;` line ─────────────────────────
 // The bridge's `NetworkTextReader` reads both; the LSP parses them the same way (`frontend/syntax/network/parser.ts`),
-// types `fb(…).name` as the instance's output (`fb.name`), and reports nothing inside an UNSUPPORTED network.
+// types `inst : TYPE(…).name` as the instance's output (`inst.name`), and reports nothing inside an UNSUPPORTED network.
 
 const parseNt = (source: string) => parseSource(source, { networkText: true }, "codesys")
 
@@ -67,7 +67,7 @@ const codes = (source: string): string[] => {
     .filter((c) => c.startsWith("NETWORK_"))
 }
 
-/** A user FB whose second output is the one read — the S4 shape (a main output that is not the first slot). */
+/** A user FB whose second output is the one read (a main output that is not the first slot). */
 const CAPTURE = `FUNCTION_BLOCK Capture
 VAR_INPUT xEnable : BOOL; END_VAR
 VAR_OUTPUT xBusy : BOOL; tElapsed : TIME; END_VAR
@@ -87,54 +87,55 @@ const projectMessages = (source: string): string[] => {
   return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 
-/** The value of `cap(…).name` is the instance's output `cap.name`: what consumes it is read as that member — an output the
+/** The value of `cap : Capture(…).name` is the instance's output `cap.name`: what consumes it is read as that member — an output the
  *  FB does not declare is reported as `cap.nope` is — while the box's own wire to a coil stays the IDE's, as a call's
  *  value is (`assignmentPairs`). */
 test("a box read through a named output is read as the instance's output where it is consumed", () => {
   const vars = "cap : Capture; go : BOOL; elapsed : TIME; i : INT;"
-  const named = projectMessages(nets(vars, "i := cap(xEnable := go).nope ADD i;"))
+  const named = projectMessages(nets(vars, "i := cap : Capture(xEnable := go).nope ADD i;"))
   expect(named).toContain("'nope' is no component of 'Capture'")
   expect(named).toEqual(projectMessages(nets(vars, "i := cap.nope ADD i;")))
-  expect(projectMessages(nets(vars, "i := cap(xEnable := go).tElapsed ADD i;"))).toEqual(projectMessages(nets(vars, "i := cap.tElapsed ADD i;")))
-  expect(projectMessages(nets(vars, "elapsed := cap(xEnable := go).tElapsed;"))).toEqual([])
+  expect(projectMessages(nets(vars, "i := cap : Capture(xEnable := go).tElapsed ADD i;"))).toEqual(projectMessages(nets(vars, "i := cap.tElapsed ADD i;")))
+  expect(projectMessages(nets(vars, "elapsed := cap : Capture(xEnable := go).tElapsed;"))).toEqual([])
 })
 
 test("an UNSUPPORTED network is opaque: nothing reported inside it, its neighbours still checked", () => {
   const vars = "i : INT; flag : BOOL;"
-  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin";'))).toEqual([])
-  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin";', "  flag := i;"))).toContain(
+  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin" #3f9a01c2;'))).toEqual([])
+  expect(messages(nets(vars, '  UNSUPPORTED "a flag on a box input pin" #3f9a01c2;', "  flag := i;"))).toContain(
     "Cannot convert type 'INT' to type 'BOOL'",
   )
 })
 
 test("the text's own refusals around the two spellings are the bridge reader's", () => {
   const vars = "t1 : TON; go : BOOL; elapsed : TIME; a : BOOL; b : BOOL; x : BOOL;"
-  expect(codes(nets(vars, "elapsed := t1(IN := go).EN;"))).toEqual(["NETWORK_PARSE"])
-  expect(codes(nets(vars, "t1(IN := go).ET;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(nets(vars, "x := AND(a, b).Q;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
-  expect(codes(nets(vars, "elapsed := t1(IN := go, => x).ET;"))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(nets(vars, 'x := a;\nUNSUPPORTED "a flag on a box input pin";'))).toEqual(["NETWORK_UNSUPPORTED"])
-  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin";\nx := a;'))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, "elapsed := t1 : TON(IN := go).EN;"))).toEqual(["NETWORK_PARSE"])
+  expect(codes(nets(vars, "t1 : TON(IN := go).ET;"))).toEqual(["NETWORK_BAD_EXPRESSION"])
+  expect(codes(nets(vars, "x := f(a, b).Q;"))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, 'x := a;\nUNSUPPORTED "a flag on a box input pin" #3f9a01c2;'))).toEqual(["NETWORK_UNSUPPORTED"])
+  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin" #3f9a01c2;\nx := a;'))).toEqual(["NETWORK_UNSUPPORTED"])
   expect(codes(nets(vars, "UNSUPPORTED a flag;"))).toEqual(["NETWORK_PARSE"])
-  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin";'))).toEqual([])
-  expect(codes(nets(vars, "elapsed := t1(IN := go, PT := T#1S).ET;"))).toEqual([])
+  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin";'))).toEqual(["NETWORK_PARSE"])
+  expect(codes(nets(vars, 'UNSUPPORTED "a flag on a box input pin" #3f9a01c2;'))).toEqual([])
+  expect(codes(nets(vars, "elapsed := t1 : TON(IN := go, PT := T#1S).ET;"))).toEqual([])
 })
 
-test("network text: EN follows the box, and the coil below reads the box's ENO (B3, B4)", () => {
+test("network text: ENO and EN follow the box, and a coil reads the box that shows ENO through it", () => {
   const src = `FUNCTION_BLOCK F
 VAR c : BOOL; lamp : BOOL; status : INT; END_VAR
 IMPLEMENTATION LD
 NETWORK
-MOVE 0 => status EN c
-lamp := ENO;
+lamp := MOVE 0 => status ENO EN c;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const s = vg.networks[0]!.statements[0]!
   expect(s.kind).toBe("assign")
-  if (s.kind === "assign" && s.value.kind === "eno") expect(s.value.box.kind === "word" && s.value.box.en?.kind).toBe("operand")
-  else throw new Error("the coil reads no ENO")
+  if (s.kind === "assign" && s.value.kind === "word") {
+    expect(s.value.readBy).toBe("eno")
+    expect(s.value.en?.kind).toBe("operand")
+  } else throw new Error("the coil reads no box")
   expect(vgDiags(src)).toEqual([]) // a box output is the IDE's to type, not an ST assignment
 })
 
@@ -215,7 +216,7 @@ END_PROGRAM`
   expect(vgDiags(src).map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
-test("network text: a POU or instance named like a construct is refused at the call, whatever its pins", () => {
+test("network text: a POU or instance named like a word of the text is called backticked", () => {
   const src = `FUNCTION F_EDGE : BOOL
 VAR_INPUT x : BOOL; y : BOOL; END_VAR
 F_EDGE := x;
@@ -227,41 +228,35 @@ FUNCTION_BLOCK FB
 VAR a : BOOL; o : BOOL; R_EDGE : FB_T; END_VAR
 IMPLEMENTATION LD
 NETWORK
-  R_EDGE(IN := a, PT := T#1S);
+  \`R_EDGE\` : FB_T(IN := a, PT := T#1S);
 END_NETWORK
 NETWORK
-  o := F_EDGE(a, a);
+  o := \`F_EDGE\`(a, a);
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const got = vgDiags(src).map((d) => `${d.code} ${src.slice(d.span.start, d.span.end)}`)
-  expect(got).toEqual(["NETWORK_UNSUPPORTED R_EDGE", "NETWORK_UNSUPPORTED F_EDGE"])
+  expect(vgDiags(src).map((d) => `${d.code} ${src.slice(d.span.start, d.span.end)}`).filter((d) => d.startsWith("NETWORK_"))).toEqual([])
+  // Bare, the word is the text's own — an edge — and the call is no text.
+  expect(vgDiags(src.replace("\`R_EDGE\` : FB_T(", "R_EDGE(")).some((d) => d.code.startsWith("NETWORK_"))).toBe(true)
 })
 
-test("network text: a call of an instance whose FB TYPE is a construct word is refused, as the bridge refuses it", () => {
-  // The bridge asks the instance's type (`NetworkScope.InstanceType`) — the writer could spell none of these back.
+test("network text: an FB whose TYPE is named like a word of the text is called with its type backticked", () => {
+  // The bridge asks the instance's type (`NetworkScope.InstanceType`); the call names it, backticked where reserved.
   const edgeFb = `FUNCTION_BLOCK R_EDGE\nVAR_INPUT CLK : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (decl: string, statement: string) =>
     `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
-  const refusal = "a POU named R_EDGE: the text reads R_EDGE(…) as its own construct, so a call of it has no spelling."
-  expect(projectDiags({ "file:///R.pou": edgeFb, "file:///P.pou": call("e1 : R_EDGE;", "e1(CLK := a);") }, "file:///P.pou")).toEqual([
-    `NETWORK_UNSUPPORTED [e1] ${refusal}`,
-  ])
+  const structural = (files: Record<string, string>): string[] => projectDiags(files, "file:///P.pou").filter((d) => d.startsWith("NETWORK_"))
+  expect(structural({ "file:///R.pou": edgeFb, "file:///P.pou": call("e1 : R_EDGE;", "e1 : `R_EDGE`(CLK := a);") })).toEqual([])
   // …through a path too: the instance a GVL declares (`GVL.e1`), which the bridge resolves by the same question.
   expect(
-    projectDiags(
-      {
-        "file:///R.pou": edgeFb,
-        "file:///GVL.gvl": `VAR_GLOBAL\n\te1 : R_EDGE;\nEND_VAR`,
-        "file:///P.pou": call("", "GVL.e1(CLK := a);"),
-      },
-      "file:///P.pou",
-    ),
-  ).toEqual([`NETWORK_UNSUPPORTED [GVL.e1] ${refusal}`])
-  // An INSTANCE named like a construct, backticked, is named as the instance it is.
+    structural({
+      "file:///R.pou": edgeFb,
+      "file:///GVL.gvl": `VAR_GLOBAL\n\te1 : R_EDGE;\nEND_VAR`,
+      "file:///P.pou": call("", "GVL.e1 : `R_EDGE`(CLK := a);"),
+    }),
+  ).toEqual([])
+  // An INSTANCE named like a word, backticked, is the instance it is.
   const tmr = `FUNCTION_BLOCK TMR\nVAR_INPUT IN : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
-  expect(projectDiags({ "file:///T.pou": tmr, "file:///P.pou": call("R_EDGE : TMR;", "`R_EDGE`(IN := a);") }, "file:///P.pou")).toEqual([
-    "NETWORK_UNSUPPORTED [`R_EDGE`] an instance named R_EDGE: the text reads it as its own construct.",
-  ])
+  expect(structural({ "file:///T.pou": tmr, "file:///P.pou": call("R_EDGE : TMR;", "`R_EDGE` : TMR(IN := a);") })).toEqual([])
 })
 
 test("network text: an ST body whose first statement starts with a variable named `network` is ST", () => {
@@ -293,7 +288,7 @@ FUNCTION_BLOCK D EXTENDS B
 VAR a : INT; END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  \`SUPER^\`(${pin} := a);
+  \`SUPER^\` : B(${pin} := a);
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(messages(src("x"))).toEqual([])

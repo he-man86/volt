@@ -16,7 +16,29 @@ public static class NetworkDerivation
     /// next pull shows. <paramref name="origin"/> maps each rebuilt node to the node it replaces, so a refusal raised on a
     /// derived node is reported where the engineer wrote it. A body with nothing to derive comes back as it is.</summary>
     public static NetworkBody Derive(NetworkBody body, NetworkScope scope, out IReadOnlyDictionary<Node, Node> origin) =>
-        Derive(body, b => scope.Callee(b.Type), out origin);
+        Derive(body, b => WithOutputSlot(b.Instance is null && b.StCode is null && scope.Callee(b.Type) is { } callee ? WithCallee(b, callee) : b, scope),
+            out origin);
+
+    /// <summary>
+    /// <paramref name="box"/> with the SLOT of the FB output a consumer reads by <c>.name</c> (v2-spec section 7): the text
+    /// names the output, the box's slots are its type's — the ENO echo first where the box shows one, then the FB's
+    /// outputs in declaration order (<see cref="NetworkScope.BlockOutputs"/>), which the push builds the box with. Where
+    /// no declaration or library signature in reach states the outputs, the box is returned as it is: its write refuses
+    /// it by name (<see cref="NetworkPairing.NamedMainOutputs"/>), never a guess at the slot.
+    /// </summary>
+    private static Box WithOutputSlot(Box box, NetworkScope scope)
+    {
+        if (box.Instance is null || box.MainOutputName is not { } name || box.ConnectedSlot is not null) return box;
+        if (scope.BlockOutputs(box.Type) is not { } outputs) return box;
+        var at = outputs.Select((o, i) => (o, i)).Where(x => string.Equals(x.o, name, StringComparison.OrdinalIgnoreCase)).Select(x => (int?)x.i).FirstOrDefault();
+        if (at is null) return box;
+        var names = (box.HasEnoOutput ? new[] { Box.EnoPin } : Array.Empty<string>()).Concat(outputs).ToList();
+        return box with
+        {
+            ConnectedSlot = at.Value + (box.HasEnoOutput ? 1 : 0),
+            Members = (box.Members ?? NwlMembers.Empty).With(NetworkMembers.OutputNames, box.Members?[NetworkMembers.OutputNames] ?? MemberValue.Texts(names)),
+        };
+    }
 
     /// <summary><paramref name="pushed"/> given, box for box, the input names the IDE's box holds where the pushed box
     /// leaves them positional: the push's derivation, read back off <paramref name="held"/> instead of off the callee's
@@ -27,21 +49,22 @@ public static class NetworkDerivation
     public static NetworkBody NamedAs(NetworkBody pushed, NetworkBody held)
     {
         var boxes = new List<Box>();
-        Derive(held, b => { boxes.Add(b); return null; }, out _);
+        Derive(held, b => { boxes.Add(b); return b; }, out _);
         var at = 0;
         return Derive(pushed, b =>
         {
             var h = at < boxes.Count ? boxes[at] : null;
             at++;
-            return h is not null && h.Type == b.Type && h.Inputs.Count == b.Inputs.Count && h.Inputs.All(i => i.Formal is not null)
-                ? new Callee(Callee.FunctionCallType, h.Inputs.Select(i => i.Formal!).ToList(), null)
-                : null;
+            return b.Instance is null && b.StCode is null &&
+                   h is not null && h.Type == b.Type && h.Inputs.Count == b.Inputs.Count && h.Inputs.All(i => i.Formal is not null)
+                ? WithCallee(b, new Callee(Callee.FunctionCallType, h.Inputs.Select(i => i.Formal!).ToList(), null))
+                : b;
         }, out _);
     }
 
     // The one walk both derivations share: every call box with no instance and no ST asked once, in one fixed order — a
     // box's enable and inputs before the box itself, networks and trees in order.
-    private static NetworkBody Derive(NetworkBody body, Func<Box, Callee?> calleeOf, out IReadOnlyDictionary<Node, Node> origin)
+    private static NetworkBody Derive(NetworkBody body, Func<Box, Box> calleeOf, out IReadOnlyDictionary<Node, Node> origin)
     {
         var map = new Dictionary<Node, Node>(NetworkTextReader.ByIdentity.Instance);
         origin = map;
@@ -60,7 +83,7 @@ public static class NetworkDerivation
         return changed ? body with { Networks = networks } : body;
     }
 
-    private static Node Node(Node n, Func<Box, Callee?> calleeOf, Dictionary<Node, Node> map)
+    private static Node Node(Node n, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
     {
         Node Kid(Node k) => Node(k, calleeOf, map);
         Node result = n switch
@@ -75,19 +98,17 @@ public static class NetworkDerivation
         return result;
     }
 
-    private static Box BoxOf(Box b, Func<Box, Callee?> calleeOf, Dictionary<Node, Node> map)
+    private static Box BoxOf(Box b, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
     {
         var enable = b.Enable is null ? null : Node(b.Enable, calleeOf, map);
         var inputs = b.Inputs.Select(i => Node(i.Value, calleeOf, map) is var v && !ReferenceEquals(v, i.Value) ? i with { Value = v } : i).ToList();
         var inner = ReferenceEquals(enable, b.Enable) && inputs.Where((x, i) => !ReferenceEquals(x, b.Inputs[i])).Any() == false
             ? b
             : b with { Enable = enable, Inputs = inputs };
-        return inner.Instance is null && inner.StCode is null && calleeOf(inner) is { } callee
-            ? WithCallee(inner, callee)
-            : inner;
+        return calleeOf(inner);
     }
 
-    private static Node ParallelOf(Parallel p, Func<Box, Callee?> calleeOf, Dictionary<Node, Node> map)
+    private static Node ParallelOf(Parallel p, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
     {
         var input = p.Input is null ? null : Node(p.Input, calleeOf, map);
         var branches = p.Branches.Select(x => Node(x, calleeOf, map)).ToList();

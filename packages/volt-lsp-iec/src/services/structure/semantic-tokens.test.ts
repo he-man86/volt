@@ -32,10 +32,9 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 NETWORK DISABLED TITLE: "A title"
-  split1 := R_EDGE(a);
+  split1 := R_EDGE a;
   out S= split1 BRANCH (g2, a);
-  MOVE 0 => st EN split1
-  out := ENO;
+  out := MOVE 0 => st ENO EN split1;
 END_NETWORK
 
 END_FUNCTION_BLOCK

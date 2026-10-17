@@ -25,9 +25,8 @@ IMPLEMENTATION LD
 NETWORK
 split1 := a AND b;
 out := split1;
-MOVE 1 => s EN a
-out := ENO BRANCH (split1,
-                   b) SHORTCIRCUIT;
+out := (MOVE 1 => s ENO EN a) BRANCH (split1,
+                                     b) SHORTCIRCUIT;
 END_NETWORK
 END_FUNCTION_BLOCK`
 
@@ -39,11 +38,8 @@ test("network text hover: a split shows its feeder, its VarId and its references
   expect(value).toContain("VarId 1, 2 references")
 })
 
-test("network text hover: ENO names the open line it takes, BRANCH its branches and mode (P13)", () => {
+test("network text hover: BRANCH names its branches and mode", () => {
   const d = doc(WIRED)
-  const eno = (networkHover(d, project(d), WIRED.indexOf("ENO BRANCH")) as { contents: { value: string } })?.contents.value
-  expect(eno).toContain("ENO of line")
-  expect(eno).toContain("MOVE 1 => s EN a")
   const branch = (networkHover(d, project(d), WIRED.indexOf("BRANCH (")) as { contents: { value: string } })?.contents.value
   expect(branch).toContain("2 branches")
   expect(branch).toContain("SHORTCIRCUIT")

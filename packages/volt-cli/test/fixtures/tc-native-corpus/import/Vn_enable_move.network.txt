@@ -1,5 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  MOVE i1 EN a
-  out := ENO;
+  out := MOVE i1 ENO EN a;
 END_NETWORK

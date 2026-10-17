@@ -1,4 +1,4 @@
 IMPLEMENTATION FBD
 NETWORK
-  tp1(IN := a, PT := T#500MS);
+  tp1 : TP(IN := a, PT := T#500MS);
 END_NETWORK

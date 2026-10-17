@@ -16,7 +16,7 @@ internal static class TcUnmeasured
     public const string EdgeOrderMarker = "a negation with an edge";
 
     /// <summary>A node's flags state a negation AND an edge: the one combination whose evaluation ORDER is a vendor fact.
-    /// CODESYS negates first (<c>R_EDGE(NOT x)</c>, DIALECT N17, run in simulation); TwinCAT's order is not measured —
+    /// CODESYS negates first (<c>R_EDGE NOT x</c>, DIALECT N17, run in simulation); TwinCAT's order is not measured —
     /// running a TwinCAT PLC needs a runtime licence the measuring machine does not have (task 1.14; re-checked for
     /// bridge-refusal-review 3.8: the user-mode runtime is installed, unlicensed, and the trial licence takes a CAPTCHA a probe
     /// may not type — DIALECT N17) — so the one
@@ -29,7 +29,7 @@ internal static class TcUnmeasured
             "measured (CODESYS negates first, DIALECT N17; no TwinCAT runtime was available to run it). Volt refuses to " +
             "materialize the body rather than spell it in an order nobody measured on this vendor.");
 
-    /// <summary>The push side of the same fact: a body spelling <c>R_EDGE(NOT x)</c> (or <c>F_EDGE</c>) is refused before
+    /// <summary>The push side of the same fact: a body spelling <c>R_EDGE NOT x</c> (or <c>F_EDGE</c>) is refused before
     /// anything is written, naming the node.</summary>
     public static void RefuseEdgeOrder(NetworkBody body)
     {
@@ -37,8 +37,8 @@ internal static class TcUnmeasured
             foreach (var tree in network.Trees)
                 if (FirstNegatedEdge(tree) is { } node)
                     throw new NotSupportedException(
-                        $"TwinCAT: network {network.Order + 1} holds {EdgeOrderMarker} on {node} (`R_EDGE(NOT x)` / " +
-                        "`F_EDGE(NOT x)`). That is the order CODESYS evaluates them in (DIALECT N17); TwinCAT's is not " +
+                        $"TwinCAT: network {network.Order + 1} holds {EdgeOrderMarker} on {node} (`R_EDGE NOT x` / " +
+                        "`F_EDGE NOT x`). That is the order CODESYS evaluates them in (DIALECT N17); TwinCAT's is not " +
                         "measured, so Volt will not write one to it. Draw it in the IDE if it is meant.");
     }
 
@@ -129,11 +129,11 @@ internal sealed class TcEnoRefusal : NotSupportedException
 {
     public TcEnoRefusal(string box, bool textReadsEno)
         : base(textReadsEno
-            ? $"TwinCAT: the text reads the '{box}' box through ENO (an open line a later ENO takes, B4), and the IDE " +
-              "builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text " +
-              "matches the box the IDE builds."
+            ? $"TwinCAT: the text reads the '{box}' box through ENO (`… ENO EN c`), and the IDE builds that box with " +
+              "no ENO output — ENO names an output the box does not have. Without `ENO` shown, the text matches the box " +
+              "the IDE builds."
             : $"TwinCAT: the text reads the '{box}' box as a value, and the IDE builds that box with ENO as its main " +
-              "output — the text states a data output the box does not have. Written as an open line and read through " +
-              "ENO (B4), the text matches the box the IDE builds.")
+              "output — the text states a data output the box does not have. With `ENO` shown (`… ENO EN c`), the text " +
+              "matches the box the IDE builds.")
     { }
 }

@@ -22,7 +22,7 @@ namespace Volt.Tests.Shared;
 ///   assign    (:= x S=y R=z VALUE)                  jump (jmp L VALUE) · return (ret VALUE) — a lone plain one
 ///             a coil's target: [S=|R=][not:|rise:|fall:](name | jmp:L | ret)   (:= x1 jmp:Done c) · (:= S=rise:xe c)
 ///   split     (split 3 VALUE) · a reference #3
-///   box       (TYPE[@inst] input… [=>slot:target | =>Formal:target]… [en:VALUE] [conn:N] [main:N] [eno:0|1] [name:N])
+///   box       (TYPE[@inst] input… [=>slot:target | =>Formal:target]… [en:VALUE] [conn:N] [eno:1] [name:N])
 ///             input: VALUE · Formal=VALUE · !Formal=VALUE (a negated pin) · /… \… (a rising / falling pin)
 ///             enable: en:VALUE · !en:VALUE /en: \en: (the EN pin's own modifier)
 ///   execute   (EXECUTE "st" [en:VALUE] [conn:N])
@@ -43,6 +43,7 @@ public static class NetworkModelDump
             if (n.Title is { } t) sb.Append(" title:").Append(Quote(t));
             if (n.Comment is { } c) sb.Append(" comment:").Append(Quote(c));
             if (n.Unsupported is { } u) sb.Append(" unsupported:").Append(Quote(u));
+            if (n.UnsupportedHash is { } h) sb.Append(" hash:").Append(h);
             sb.Append('\n');
             foreach (var tree in n.Trees) sb.Append("  ").Append(Node(tree)).Append('\n');
         }
@@ -110,8 +111,7 @@ public static class NetworkModelDump
             sb.Append(" =>").Append(o.Formal ?? o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "?").Append(':').Append(Operand(o.Value.Text));
         if (b.Enable is { } enable) sb.Append(' ').Append(Pin(b.EnableFlags)).Append("en:").Append(Node(enable));
         if (b.ConnectedSlot is { } conn) sb.Append(" conn:").Append(conn.ToString(CultureInfo.InvariantCulture));
-        if (b.MainOutputIndex is { } main) sb.Append(" main:").Append(main.ToString(CultureInfo.InvariantCulture));
-        if (b.HasEnoOutput is { } eno) sb.Append(" eno:").Append(eno ? '1' : '0');
+        if (b.HasEnoOutput) sb.Append(" eno:1");
         if (b.MainOutputName is { } name) sb.Append(" name:").Append(name);
         return sb.Append(')').ToString();
     }

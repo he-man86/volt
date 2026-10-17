@@ -13,10 +13,11 @@ internal enum TokKind
     Typed,      // T#1S, 16#FF
     Address,    // %IX0.0
     Unnamed,    // ???
-    Backtick,   // Text = the verbatim content between the backticks
+    Backtick,   // Text = the content between the backticks, a doubled backtick and the `$` escapes decoded
     DString,    // a double-quoted string, as written (quotes included): a TITLE, or a WSTRING literal
     SString,    // a single-quoted ST string literal, as written (quotes included)
-    Comment,    // a // line; Text = what follows `//` and one space
+    Comment,    // a // line; Text = what follows `//` and one space, its escapes decoded
+    Hash,       // `#3f9a01c2` after an UNSUPPORTED line's shape; Text = the hex digits
     Snippet,    // an EXECUTE body; Text = its lines joined by \n
     Sym,        // punctuation and operators
     Error,      // Text = message, Code = its NETWORK_* code
@@ -36,11 +37,10 @@ internal readonly record struct Tok(TokKind Kind, string Text, int Offset, int L
 }
 
 /// <summary>
-/// The network text lexer (openspec <c>ld-fbd-coverage</c> 2R.3, <c>readability.md</c>): on demand, one token at a time,
-/// with one raw mode — an EXECUTE body, whose lines are verbatim ST from the line after <c>EXECUTE [EN [c]]</c> to the
-/// first line whose first word is <c>END_EXECUTE</c> (P9). That mode is entered by the token walk
-/// (<see cref="Walk"/>), which every reader of the text goes through, so no reader can lex an ST body as network text.
-/// Newlines are otherwise layout to the lexer: where a LINE ends (P2) is the parser's to decide from token positions.
+/// The network text lexer (openspec <c>ld-fbd-coverage</c> 2R.6b, <c>v2-spec.md</c>): on demand, one token at a time, with
+/// one raw mode — an EXECUTE body, whose lines are verbatim ST from the line after <c>EXECUTE</c> to the first line whose
+/// first word is <c>END_EXECUTE</c>. That mode is entered by the token walk (<see cref="Walk"/>), which every reader of the
+/// text goes through, so no reader can lex an ST body as network text. Newlines are otherwise layout.
 ///
 /// <para>A lexical error is a token (<see cref="TokKind.Error"/>) that has consumed its text, never an exception:
 /// the parser turns it into a diagnostic at its span, and recovery can always make progress past it.</para>
@@ -108,31 +108,45 @@ internal sealed class NetworkLexer
             // `//` and ONE space are syntax; the rest — indentation, trailing spaces, a leading `//` — is the comment's
             // text (P12: stored verbatim).
             if (text.StartsWith(" ", StringComparison.Ordinal)) text = text.Substring(1);
-            return new Tok(TokKind.Comment, text, start, end - start, atLineStart);
+            var decoded = NetworkSpelling.Unescape(text, out var bad);
+            if (decoded is null) return new Tok(TokKind.Error, bad!, start, end - start, atLineStart, ConflictCodes.NetworkParse);
+            return new Tok(TokKind.Comment, decoded, start, end - start, atLineStart);
         }
 
         if (c == '`')
         {
-            var close = _s.IndexOf('`', _i + 1);
+            // Backticked text runs to the next lone backtick on its line; a doubled one is a backtick of the text, and `$`
+            // escapes as in every delimited text.
             var eol = LineEnd(_i);
-            if (close < 0 || close > eol)
+            var j = _i + 1;
+            var raw = new System.Text.StringBuilder();
+            while (true)
             {
-                _i = eol;
-                return Error(start, "an unclosed backtick: backticked text runs to the next backtick, on its line.", ConflictCodes.NetworkParse);
+                if (j >= eol)
+                {
+                    _i = eol;
+                    return Error(start, "an unclosed backtick: backticked text runs to the next backtick, on its line.", ConflictCodes.NetworkParse);
+                }
+                if (_s[j] == '`')
+                {
+                    if (j + 1 < eol && _s[j + 1] == '`') { raw.Append('`'); j += 2; continue; }
+                    break;
+                }
+                raw.Append(_s[j]);
+                j++;
             }
-            var inner = _s.Substring(_i + 1, close - _i - 1);
-            _i = close + 1;
-            // A backtick cannot be spelled INSIDE backticked text, so `a`b`c` is not two operands side by side —
-            // it is text that holds a backtick, which the vendor's operand could hold and the text cannot.
-            if (_i < _s.Length && (_s[_i] == '`' || IsWordChar(_s[_i])))
-            {
-                var stop = _i;
-                while (stop < _s.Length && !char.IsWhiteSpace(_s[stop]) && _s[stop] != ';' && _s[stop] != ',' && _s[stop] != ')') stop++;
-                _i = stop;
-                return Error(start, "backticked text containing a backtick: a backtick cannot be spelled inside backticks.",
-                    ConflictCodes.NetworkUnsupported);
-            }
+            _i = j + 1;
+            var inner = NetworkSpelling.Unescape(raw.ToString(), out var bad);
+            if (inner is null) return Error(start, bad!, ConflictCodes.NetworkParse);
             return new Tok(TokKind.Backtick, inner, start, _i - start, atLineStart);
+        }
+
+        if (c == '#')
+        {
+            var j = _i + 1;
+            while (j < _s.Length && Uri.IsHexDigit(_s[j])) j++;
+            _i = j;
+            return new Tok(TokKind.Hash, _s.Substring(start + 1, j - start - 1), start, j - start, atLineStart);
         }
 
         if (c == '"' || c == '\'') return Quoted(start, atLineStart, c);
@@ -184,6 +198,12 @@ internal sealed class NetworkLexer
                 while (_i < _s.Length && IsWordChar(_s[_i])) _i++;
             }
             var word = _s.Substring(start, _i - start);
+            // `S=` and `R=` are single tokens: the set and reset coils.
+            if ((word == "S" || word == "R" || word == "s" || word == "r") && Peek(0) == '=' && Peek(1) != '>')
+            {
+                _i++;
+                return new Tok(TokKind.Sym, word.ToUpperInvariant() + "=", start, 2, atLineStart);
+            }
             return new Tok(TokKind.Word, word, start, word.Length, atLineStart);
         }
 
@@ -232,28 +252,10 @@ internal sealed class NetworkLexer
         return new Tok(quote == '"' ? TokKind.DString : TokKind.SString, _s.Substring(start, _i - start), start, _i - start, atLineStart);
     }
 
-    /// <summary>A TITLE's value: the double-quoted token decoded with the escapes the writer writes (owner decision
-    /// 2026-09-26) — <c>$N</c>, <c>$R</c>, <c>$"</c>, <c>$$</c>. Null and <paramref name="error"/> for any other escape.</summary>
-    public static string? DecodeTitle(string quoted, out string? error)
-    {
-        error = null;
-        var sb = new System.Text.StringBuilder();
-        for (var i = 1; i < quoted.Length - 1; i++)
-        {
-            var c = quoted[i];
-            if (c != '$') { sb.Append(c); continue; }
-            var e = i + 1 < quoted.Length - 1 ? quoted[i + 1] : '\0';
-            string? v = e switch { 'N' or 'n' => "\n", 'R' or 'r' => "\r", '"' => "\"", '$' => "$", _ => null };
-            if (v is null)
-            {
-                error = $"the escape '${e}' in a TITLE: a title spells $N, $R, $\" and $$ only.";
-                return null;
-            }
-            sb.Append(v);
-            i++;
-        }
-        return sb.ToString();
-    }
+    /// <summary>A TITLE's value: the double-quoted token, IEC's escapes decoded (<see cref="NetworkSpelling.Unescape"/>).
+    /// Null and <paramref name="error"/> for a bad escape.</summary>
+    public static string? DecodeTitle(string quoted, out string? error) =>
+        NetworkSpelling.Unescape(quoted.Substring(1, quoted.Length - 2), out error);
 
     /// <summary>The next character after whitespace, without moving.</summary>
     public char? PeekChar()
@@ -264,16 +266,15 @@ internal sealed class NetworkLexer
     }
 
     /// <summary>
-    /// THE ONE WALK OVER THE TEXT'S TOKENS, raw mode included: the reader, the gate's token compare and the v1 scan all
-    /// read through it. <c>EXECUTE</c> in value position opens a body at the END OF ITS LINE (P9: <c>EXECUTE [EN [c]]</c>
-    /// ends at its line) — the header's <c>LABEL: Execute</c> and <c>JMP Execute</c> (labels, which the reader takes as
-    /// names) open none. A variable or pin named EXECUTE is backticked (P1), so no other place can mean it.
+    /// THE ONE WALK OVER THE TEXT'S TOKENS, raw mode included: the reader and the gate's token compare read through it.
+    /// <c>EXECUTE</c> ends its line, and its body starts on the next one, up to the first line whose first word is
+    /// <c>END_EXECUTE</c>. The header's <c>LABEL: Execute</c> and <c>JMP Execute</c> open none. A token after
+    /// <c>EXECUTE</c> on its line is an error token.
     /// </summary>
     public sealed class Walk
     {
         private readonly NetworkLexer _lx;
         private readonly Queue<Tok> _queued = new();
-        private int? _bodyAt;   // the end of an EXECUTE's line: its body starts after it
 
         public Walk(NetworkLexer lx) => _lx = lx;
 
@@ -289,24 +290,24 @@ internal sealed class NetworkLexer
 
         private Tok Lexed()
         {
-            if (_bodyAt is { } at)
-            {
-                // The next token on a later line than EXECUTE's (or the end) is where the body starts: what stands
-                // between EXECUTE and its line's end is its `EN [c]`, lexed as tokens.
-                var j = _lx._i;
-                while (j < _lx._s.Length && char.IsWhiteSpace(_lx._s[j])) j++;
-                if (j > at || j >= _lx._s.Length)
-                {
-                    _bodyAt = null;
-                    _lx._i = at;
-                    var (snippet, end) = _lx.ExecuteBody();
-                    if (snippet.Kind != TokKind.Error) _queued.Enqueue(end);
-                    return snippet;
-                }
-            }
             var t = _lx.Next();
             if (t.Is("EXECUTE") && !_last.Is("JMP") && !(_last.IsSym(":") && _before.Is("LABEL")))
-                _bodyAt = _lx.LineEnd(t.Offset);
+            {
+                var eol = _lx.LineEnd(t.Offset);
+                var j = _lx._i;
+                while (j < eol && char.IsWhiteSpace(_lx._s[j])) j++;
+                if (j < eol)
+                {
+                    _lx._i = eol;
+                    _queued.Enqueue(new Tok(TokKind.Error, "EXECUTE ends its line: its ST starts on the next line, and END_EXECUTE ends it.",
+                        j, eol - j, false, ConflictCodes.NetworkParse));
+                    return t;
+                }
+                _lx._i = eol;
+                var (snippet, end) = _lx.ExecuteBody();
+                _queued.Enqueue(snippet);
+                if (snippet.Kind != TokKind.Error) _queued.Enqueue(end);
+            }
             return t;
         }
     }

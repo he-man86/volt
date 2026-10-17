@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
 using Xunit;
@@ -627,7 +627,7 @@ public class CodesysNetworkReaderTests
 
         // S6 (ld-fbd-coverage 2.3): the pull spells it on the pin's formal — an operator's default one, `IN2`.
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        Assert.Contains("  out := AND(a, NOT IN2 := xIsWarningInfo);\n",
+        Assert.Contains("  out := `AND`(IN1 := a, NOT IN2 := xIsWarningInfo);\n",
             NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
     }
 
@@ -960,10 +960,8 @@ public class CodesysNetworkReaderTests
         var read = Assert.IsType<Assign>(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks.Single().Trees.Single());
 
         var readAnd = Assert.IsType<Box>(read.Value);
-        Assert.Null(readAnd.MainOutputIndex);
         Assert.Null(readAnd.ConnectedSlot);
         var readGe = Assert.IsType<Box>(readAnd.Inputs[0].Value);
-        Assert.Equal(0, readGe.MainOutputIndex);
         Assert.Equal(0, readGe.ConnectedSlot);
         Assert.False(readGe.HasEnoOutput);
     }
@@ -981,8 +979,10 @@ public class CodesysNetworkReaderTests
     // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
     [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
     [InlineData("ADD", false, new[] { "" }, 0, "n := a ADD b;")]
-    [InlineData("AND", true, new[] { "ENO" }, 0, "a AND b EN c\n  n := ENO;")]
-    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "MOVE(a, b) EN c\n  n := ENO;")]
+    // Read through its ENO with its value wired nowhere, an operator stores and does not build (X3, 3c), and a MOVE with
+    // two inputs is not measured: each refused by name.
+    [InlineData("AND", true, new[] { "ENO" }, 0, null)]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, null)]
     [InlineData("MOVE", true, new string[0], null, null)]
     public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(
         string type, bool enabled, string[] outputNames, int? slot, string? text)

@@ -2,7 +2,7 @@
  * The network-text BOX checks (`network-analysis.ts` runs them per network): the vendor's unconnected-slot marker
  * `???`, an FB instance's pins, and what the build answers for a call box the push builds (`checkCallBoxes`).
  */
-import { type NetworkEno, type NetworkTextStatement, type NetworkValue, type Span, callReading, walkValues } from "../../../frontend/syntax/index.js"
+import { type NetworkCall, type NetworkExecute, type NetworkTextStatement, type NetworkValue, type NetworkWordBox, type Span, callReading, walkValues } from "../../../frontend/syntax/index.js"
 import { headIsVariable, inferExprType, instanceFb, renderType, resolveCallee } from "../../../frontend/types/index.js"
 import { extendsChain, hasUnresolvedBase, isLibrarySymbol, type Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -72,9 +72,8 @@ export function checkPins(
  *                                         "Function 'F' requires exactly 'n' inputs" — the ST check's message
  *   METHOD of an instance, a positional   `y := fbm.M(v);`  the same, of the method (CODESYS); TwinCAT "'' is no input
  *                                         of 'M'"
- *   QUALIFIED library function, read      `Standard.LEN(t)` ⏎ `x := ENO;` "'ENO' is no component of 'LEN'" and the
- *   through ENO                           coil's "Cannot convert type 'Unknown type: 'Standard.LEN.ENO'' to type 'BOOL'"
- *                                         (CODESYS)
+ *   QUALIFIED library function, read      `x := Standard.LEN(t) ENO;` "'ENO' is no component of 'LEN'" and the coil's
+ *   through ENO without EN                "Cannot convert type 'Unknown type: 'Standard.LEN.ENO'' to type 'BOOL'" (CODESYS)
  *
  * A function's count is the ST check's (`complete`, `positionalArity`); too few counts only an input with no default
  * (one with a default is unmeasured). Any other call kind and shape is unmeasured here, and nothing is said.
@@ -96,11 +95,8 @@ export function checkCallBoxes(
 ): void {
   for (const s of statements)
     for (const v of walkValues(s)) {
-      if (v.kind === "eno") {
-        enoOfALibraryFunction(s, v, scope, project, messages, out)
-        continue
-      }
       if (v.kind !== "call") continue
+      if (v.readBy === "eno" || v.eno !== undefined) enoOfALibraryFunction(s, v, scope, project, messages, out)
       const call = callReading(v)
       if (call?.kind !== "call") continue
       const callee = resolveCallee(call, scope, project)
@@ -124,19 +120,17 @@ export function checkCallBoxes(
     }
 }
 
-/** `Standard.LEN(t)` ⏎ `x := ENO;` — see `checkCallBoxes`: a library function's box named through its NAMESPACE, with no
- *  EN, read through its ENO. Named bare (`LEN(t)`), the push builds it from the IDE's library signature and it builds. */
+/** `x := Standard.LEN(t) ENO;` — see `checkCallBoxes`: a library function's box named through its NAMESPACE, with no EN,
+ *  read through its ENO. Named bare (`LEN(t)`), the push builds it from the IDE's library signature and it builds. */
 function enoOfALibraryFunction(
   s: NetworkTextStatement,
-  v: NetworkEno,
+  box: NetworkCall,
   scope: Scope,
   project: Scope,
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  const box = v.box
-  if (box.kind !== "call" || box.en !== undefined || box.unnamedType !== undefined) return
-  if (!box.head.text.includes(".")) return
+  if (box.en !== undefined || box.instance === true || !box.head.text.includes(".")) return
   if (box.headExpr === undefined || headIsVariable(box.headExpr, scope, project)) return
   const call = callReading(box)
   const callee = call?.kind === "call" ? resolveCallee(call, scope, project) : undefined
@@ -145,10 +139,10 @@ function enoOfALibraryFunction(
   if (member === undefined) return
   out.push({ severity: "error", span: box.span, source: SOURCE, code: "network-missing-en", message: member })
   // the coil the ENO drives is typed against the member the build could not find (measured on a coil only)
-  const target = s.kind === "assign" && s.value === v ? s.targets[s.targets.length - 1]?.expr : undefined
+  const target = s.kind === "assign" && s.value === box ? s.targets[s.targets.length - 1]?.expr : undefined
   if (target === undefined) return
   const to = renderType(inferExprType(target, scope, project), { form: "compiler" })
-  out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message: messages.cannotConvert(messages.unknownType(`${box.head.text}.ENO`), to) })
+  out.push({ severity: "error", span: box.span, source: SOURCE, code: "network-missing-en", message: messages.cannotConvert(messages.unknownType(`${box.head.text}.ENO`), to) })
 }
 
 /**
@@ -241,12 +235,12 @@ export function checkUnresolvedBoxes(
     // CALL'S OWN VALUE (`??? := P();`) has no recording, so nothing is emitted for it: a missing diagnostic is a
     // reported coverage gap; a wrong one is a hard failure. The corpora hold neither — lenze-mid's four vendor
     // drawings are unconnected output pins, `P(=> ???) EN`, which is no coil (below).
-    if (s.kind === "assign" && (s.value.kind === "eno" ? enoHeadRecorded(s.value.box, scope, project) : !isRealCall(s.value, scope, project)))
+    if (s.kind === "assign" && (readThroughEno(s.value) ? enoHeadRecorded(s.value, scope, project) : !isRealCall(s.value, scope, project)))
       for (const t of s.targets) if (t.unnamed) error(t.span, messages.unresolvedAssignTarget())
     for (const v of walkValues(s)) {
       if (v.kind === "operand" && v.unnamed) operand(v.span)
       // `??? : TYPE(…)` — the marker is the instance's name, which the compiler parses as an operand.
-      if (v.kind === "call" && v.unnamedType !== undefined) operand(v.head.span)
+      if (v.kind === "call" && v.unnamed) operand(v.head.span)
       // AN OUTPUT PIN WIRED TO THE MARKER (`f(x, => ???)`, `f(Q => ???)`) IS NO COMPLAINT AT ALL: a box whose result
       // pin the author left unnamed. The vendor stores the operand `'???'` on the box's output slot, and CODESYS
       // compiles that without a word — lenze-mid holds four (`AHWF` network 6, `Mach1_MIDS`) and its recorded build
@@ -261,11 +255,16 @@ export function checkUnresolvedBoxes(
  * callable, or a word), a PROGRAM or a FUNCTION. Not an FB instance (a variable head, or the vendor's unnamed
  * `??? : TYPE(…)`) and not an EXECUTE box — neither is recorded, so neither is reported.
  */
-function enoHeadRecorded(box: NetworkEno["box"], scope: Scope, project: Scope): boolean {
+function enoHeadRecorded(box: NetworkWordBox | NetworkCall | NetworkExecute, scope: Scope, project: Scope): boolean {
   if (box.kind === "execute") return false
   if (box.kind !== "call") return true
-  if (box.unnamedType !== undefined) return false
+  if (box.instance === true) return false
   return box.headExpr === undefined || !headIsVariable(box.headExpr, scope, project)
+}
+
+/** Whether a coil's value is a box read through its ENO. */
+function readThroughEno(v: NetworkValue): v is NetworkWordBox | NetworkCall | NetworkExecute {
+  return (v.kind === "word" || v.kind === "call" || v.kind === "execute") && v.readBy === "eno"
 }
 
 /**

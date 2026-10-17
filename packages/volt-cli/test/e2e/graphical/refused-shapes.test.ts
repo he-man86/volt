@@ -75,7 +75,7 @@ END_VAR
 IMPLEMENTATION LD
 NETWORK
   out := TRUE;
-  JMP Onwards;
+  JMP Onwards := ;
 END_NETWORK
 NETWORK LABEL: Onwards
   after := TRUE;
@@ -107,7 +107,7 @@ NETWORK
 END_NETWORK
 NETWORK LABEL: Tail
   done := TRUE;
-  RETURN;
+  RETURN := ;
 END_NETWORK
 NETWORK
   later := TRUE;
@@ -134,11 +134,11 @@ VAR
 END_VAR
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE EN bRun
+  EXECUTE
 IF bStart THEN
 \ttarget := 40 + 2;
 END_IF
-  END_EXECUTE;
+  END_EXECUTE ENO EN bRun;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -290,7 +290,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			vars: BOOLS,
 			nets: ["NETWORK", "  JMP Done := a;", "END_NETWORK", "NETWORK LABEL: Done", "  out := a;", "END_NETWORK"],
 			from: "JMP Done := a;",
-			to: "JMP Done;",
+			to: "JMP Done := ;",
 		},
 		{
 			key: "eret",
@@ -298,15 +298,15 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			vars: BOOLS,
 			nets: ["NETWORK", "  RETURN := a;", "END_NETWORK", "NETWORK", "  out := a;", "END_NETWORK"],
 			from: "RETURN := a;",
-			to: "RETURN;",
+			to: "RETURN := ;",
 		},
 		{
 			key: "earrow",
 			what: "a box output pin wired straight to a variable",
 			vars: ["\tt1 : TON;", "\ta : BOOL;", "\tpt : TIME;", "\tel : TIME;"],
-			nets: ["NETWORK", "  t1(IN := a, PT := pt);", "END_NETWORK"],
-			from: "t1(IN := a, PT := pt)",
-			to: "t1(IN := a, PT := pt, ET => el)",
+			nets: ["NETWORK", "  t1 : TON(IN := a, PT := pt);", "END_NETWORK"],
+			from: "t1 : TON(IN := a, PT := pt)",
+			to: "t1 : TON(IN := a, PT := pt, ET => el)",
 		},
 		{
 			key: "eexec",
@@ -387,9 +387,9 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 IMPLEMENTATION FBD
 NETWORK
-  EXECUTE EN bRun
+  EXECUTE
 target := 40 + 2;
-  END_EXECUTE;
+  END_EXECUTE ENO EN bRun;
 END_NETWORK
 
 END_METHOD

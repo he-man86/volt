@@ -31,27 +31,23 @@ NETWORK
   tbool := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.Genflags.DelayAfterEmergStop AND LST_InputsOutputs.I100_3_Selector_switch_auto_manual_OP0a, iReset := True, iAlm := Mach1_Alarms.Alm018, ioAction := Mach1.GenFlags.warning) OR Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.Genflags.DelayAfterEmergStop AND LST_InputsOutputs.I132_3_SW_Auto_Man, iReset := True, iAlm := Mach1_Alarms.Alm019, ioAction := Mach1.GenFlags.warning);
 END_NETWORK
 NETWORK TITLE: "Reset of alarmlogging"
-  Alarms_ResetAlarmLogging(AlarmDB := Mach1_Alarms) EN HMI_Var.ResetAlarmLogging
-  HMI_Var.ResetAlarmLogging R= ENO;
+  HMI_Var.ResetAlarmLogging R= Alarms_ResetAlarmLogging(AlarmDB := Mach1_Alarms) ENO EN HMI_Var.ResetAlarmLogging;
 END_NETWORK
-NETWORK TITLE: "Adding product counters$R$N"
-  HMI_Var.Mach1.PRDTotalCounter ADD 1 => HMI_Var.Mach1.PRDTotalCounter EN HMI_Var.Mach1.PRDCounterIncr
-  HMI_Var.Mach1.PRDCigDayCounter ADD 1 => HMI_Var.Mach1.PRDCigDayCounter EN ENO
-  HMI_Var.Mach1.PRDCigCurrentCntr ADD 1 => HMI_Var.Mach1.PRDCigCurrentCntr EN ENO
-  HMI_Var.Mach1.PRDCounterIncr R= ENO;
+NETWORK TITLE: "Adding product counters$R$L"
+  HMI_Var.Mach1.PRDCounterIncr R= HMI_Var.Mach1.PRDCigCurrentCntr ADD 1 => HMI_Var.Mach1.PRDCigCurrentCntr ENO EN
+                                    HMI_Var.Mach1.PRDCigDayCounter ADD 1 => HMI_Var.Mach1.PRDCigDayCounter ENO EN
+                                      HMI_Var.Mach1.PRDTotalCounter ADD 1 => HMI_Var.Mach1.PRDTotalCounter ENO EN HMI_Var.Mach1.PRDCounterIncr;
 END_NETWORK
-NETWORK TITLE: "Reset Day Counter$R$N"
-  MOVE 0 => HMI_Var.Mach1.PRDWrapDayCounter EN HMI_Var.Mach1.PRDDayCounterReset_01
-  MOVE 0 => HMI_Var.Mach1.PRDCigDayCounter EN ENO
-  HMI_Var.Mach1.PRDDayCounterReset_01 R= ENO;
+NETWORK TITLE: "Reset Day Counter$R$L"
+  HMI_Var.Mach1.PRDDayCounterReset_01 R= MOVE 0 => HMI_Var.Mach1.PRDCigDayCounter ENO EN
+                                           MOVE 0 => HMI_Var.Mach1.PRDWrapDayCounter ENO EN HMI_Var.Mach1.PRDDayCounterReset_01;
 END_NETWORK
-NETWORK TITLE: "Reset Current Counter$R$N"
-  MOVE 0 => HMI_Var.Mach1.PRDWrapCurrentCntr EN HMI_Var.Mach1.PRDDayCounterReset
-  MOVE 0 => HMI_Var.Mach1.PRDCigCurrentCntr EN ENO
-  HMI_Var.Mach1.PRDDayCounterReset R= ENO;
+NETWORK TITLE: "Reset Current Counter$R$L"
+  HMI_Var.Mach1.PRDDayCounterReset R= MOVE 0 => HMI_Var.Mach1.PRDCigCurrentCntr ENO EN
+                                        MOVE 0 => HMI_Var.Mach1.PRDWrapCurrentCntr ENO EN HMI_Var.Mach1.PRDDayCounterReset;
 END_NETWORK
 NETWORK
-  PRG_AlarmsToDWord() EN TRUE;
+  PRG_AlarmsToDWord() ENO EN TRUE;
 END_NETWORK
 
 END_PROGRAM

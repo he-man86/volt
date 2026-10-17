@@ -475,11 +475,13 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 
 ## network text (FBD/LD as text)
 
-**As-built (network text after the readability pass, openspec `ld-fbd-coverage` 2R.3; `src/frontend/syntax/network/`).** The
-body is read by a port of the bridge reader (`parser.ts` and the files it builds on — `cursor.ts`, `boxes.ts`, `targets.ts`, `values.ts`, `calls.ts`,
-`statements.ts` — over its own `lexer.ts`, with the words in `words.ts`): one item per `;`, the values a tree of their own
-(`NetworkValue`) because the text spells things ST has no node for — a box word (`a ADD b`, `MOVE b => a`), an empty slot,
-an edge FLAG, a `BRANCH` parallel, an EXECUTE box, `ENO` taking an open line, `=> v`, `EN` after a box. Every operand, target and backticked text is still an ST `Expr`, and `exprs.ts` gives
+**As-built (network text v2.1, openspec `ld-fbd-coverage` 2R.6b; `src/frontend/syntax/network/`).** The body is read by
+a port of the bridge reader, recursive descent (`parser.ts` and the files it builds on — `cursor.ts`, `tokens.ts`,
+`boxes.ts`, `values.ts` — over its own `lexer.ts`, with the words in `words.ts`), and checked by a port of the shared
+validator (`validator.ts`): one item per `;`, the values a tree of their own (`NetworkValue`) because the text spells
+things ST has no node for — a box word (`a ADD b`, `MOVE b => a`), an empty slot, an edge FLAG, a `BRANCH` parallel, an
+EXECUTE box, `=> v`, a box's pin state (`ENO [=> v]`, `EN src`) and how its consumer reads it (`readBy`). Every operand,
+target and backticked text is still an ST `Expr`, and `exprs.ts` gives
 each value its ST reading where it has one (`networkValueExpr`) and the operands of the ones it has not
 (`statementExprs`), so the ONE type engine / `resolveMemberChain` / nav / hover / rename run unchanged. An EXECUTE box's
 lines are ordinary ST, parsed with the ST statement parser into a `StatementList`.
@@ -487,7 +489,7 @@ lines are ordinary ST, parsed with the ST statement parser into a `StatementList
 ```ts
 // The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them, the same
 // cases both sides read from packages/volt-cli/test/fixtures/network-text). The format's own findings are no NETWORK_ code:
-// network-split-reused (warning, P9), network-en-unwired and network-coil-on-rail (hints, P12/P13), `_format.ts`.
+// network-split-reused and network-eno-pin-unwritten (warnings), network-en-unwired and network-coil-on-rail (hints), `_format.ts`.
 type NetworkDiagnosticCode =
   | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NAME"
   | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNSUPPORTED" | "NETWORK_UNKNOWN_OPERATOR"
@@ -497,12 +499,14 @@ interface NetworkTextBody { kind: "network_body"; language?: "FBD" | "LD"; netwo
 interface NetworkTextNetwork {
   index: number; title?: string; label?: NetworkName; disabled: boolean; comment?: string
   splits: NetworkSplit[]                    // split<VarId> := value; — its definition and references, no type (B6)
+  unsupported?: NetworkName; unsupportedHash?: string // UNSUPPORTED "<shape>" #<hash>;
   statements: NetworkTextStatement[]; span: Span; headerSpan: Span
 }
-type NetworkTextStatement = NetworkAssign | NetworkSplitDef | NetworkValueStatement | NetworkJump | NetworkReturn | NetworkEmpty
-//   assign: t1 := t2 S= … value;   split_def: split1 := value;   value: value;   jump/return: JMP l [:= c]; / RETURN [:= c];   empty: ;
-type NetworkValue = NetworkNestedAssign | NetworkEmptySlot | NetworkOperand | NetworkSplitRef | NetworkNot | NetworkEdge
-                  | NetworkWordBox | NetworkCall | NetworkParallel | NetworkExecute | NetworkEno
+type NetworkTextStatement = NetworkAssign | NetworkSplitDef | NetworkValueStatement | NetworkEmpty
+//   assign: t1 := t2 S= … value; (a jump or a return is a coil: JMP l := c; RETURN := ;)   split_def: split1 := value;   value: value;   empty: ;
+type NetworkValue = NetworkNestedAssign | NetworkNestedSplit | NetworkEmptySlot | NetworkOperand | NetworkSplitRef | NetworkNot
+                  | NetworkEdge | NetworkWordBox | NetworkCall | NetworkParallel | NetworkExecute
+// A box (word, call, execute) carries its pin state: eno?: { span; target? }, en?, enFlags?, hasEno, readBy?: "eno" | "value" | "name"
 
 // Analysis (F.2b) — a per-network resolution scope layering the network's splits, each typed by its FEEDER (B6), over the
 // POU scope; the shared infer engine resolves a split like a real variable.

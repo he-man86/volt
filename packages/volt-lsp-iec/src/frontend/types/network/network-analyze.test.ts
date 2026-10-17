@@ -42,7 +42,7 @@ test("network text: a split's uses are typed by its feeder — a bit box, an ENO
   expect(splitTypes("split2 := i GT j;\nx := split2;")).toEqual({ split2: "BOOL" })
   expect(splitTypes("split3 := i;\nsplit4 := split3;\nx := split4;")).toEqual({ split3: "INT", split4: "INT" })
   expect(splitTypes("split5 := i ADD j;\nx := split5;")).toEqual({ split5: "INT" })
-  expect(splitTypes("MOVE 1 => i EN a\nsplit6 := ENO;\nx := split6;")).toEqual({ split6: "BOOL" })
+  expect(splitTypes("split6 := MOVE 1 => i ENO EN a;\nx := split6;")).toEqual({ split6: "BOOL" })
 })
 
 test("network text: the left rail feeds a BOOL split in LD", () => {
@@ -50,16 +50,17 @@ test("network text: the left rail feeds a BOOL split in LD", () => {
 })
 
 // 2R.5 (awkward-sweep #17): a call head is any variable reference — an ELEMENT of an array of FBs is an instance of the
-// element type (the box the IDE stores with `Instance 'fbs[1]'`, `BoxType 'CTU'`), as the bridge's scope reads it. A
-// subscript of something that is no array of FBs stays an instance the declarations do not name, and so does a subscript
-// with fewer or more indices than the array has dimensions (`m[0]` of a 2-D array is a row; `NetworkScopeTests`).
+// element type (the box the IDE stores with `Instance 'fbs[1]'`, `BoxType 'CTU'`), as the bridge's scope reads it, so the
+// type its call names is held to the element's. A subscript of something that is no array of FBs, or one with fewer or
+// more indices than the array has dimensions (`m[0]` of a 2-D array is a row; `NetworkScopeTests`), is an instance the
+// declarations do not name: the call's type is the build's to judge.
 test("network text: an element of an array of FBs heads its FB's call", () => {
-  const read = (decl: string, head = "fbs[1]"): string[] => {
+  const read = (decl: string, head = "fbs[1]", type = "FB_C"): string[] => {
     const src = `FUNCTION_BLOCK F
 VAR ${decl} go : BOOL; n : WORD; END_VAR
 IMPLEMENTATION LD
 NETWORK
-  \`${head}\`(CU := go, PV := 10, CV => n);
+  \`${head}\` : ${type}(CU := go, PV := 10, CV => n);
 END_NETWORK
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK FB_C
@@ -72,8 +73,10 @@ END_FUNCTION_BLOCK`
     )
   }
   expect(read("fbs : ARRAY [1..2] OF FB_C;")).toEqual([])
-  expect(read("fbs : ARRAY [1..2] OF INT;")[0]).toContain("an FB instance the declarations do not name")
+  expect(read("fbs : ARRAY [1..2] OF FB_C;", "fbs[1]", "TON")[0]).toContain("is declared a 'FB_C'")
+  expect(read("fbs : ARRAY [1..2] OF INT;", "fbs[1]", "TON")).toEqual([])
   expect(read("m : ARRAY [0..1, 0..3] OF FB_C;", "m[0, 1]")).toEqual([])
-  expect(read("m : ARRAY [0..1, 0..3] OF FB_C;", "m[0]")[0]).toContain("an FB instance the declarations do not name")
-  expect(read("fbs : ARRAY [1..2] OF FB_C;", "fbs[1, 2]")[0]).toContain("an FB instance the declarations do not name")
+  expect(read("m : ARRAY [0..1, 0..3] OF FB_C;", "m[0, 1]", "TON")[0]).toContain("is declared a 'FB_C'")
+  expect(read("m : ARRAY [0..1, 0..3] OF FB_C;", "m[0]", "TON")).toEqual([])
+  expect(read("fbs : ARRAY [1..2] OF FB_C;", "fbs[1, 2]", "TON")).toEqual([])
 })
