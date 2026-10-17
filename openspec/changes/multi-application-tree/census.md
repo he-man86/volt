@@ -29,3 +29,7 @@ About 60 sites: Engine 22, Contracts 4, CODESYS driver 3, TwinCAT driver 7, Volt
 - A move pairs a delete and an add only within one application; across applications it is a delete + a create.
 - `build` builds every application / PLC project.
 - TwinCAT paths gain the `<system project>/<PLC project>/` prefix; no migration (no users yet).
+- TwinCAT paths MIRROR THE SOLUTION TREE, as CODESYS mirrors its device tree (owner, 2026-10-17: today we only see the inside of
+  one PLC project, with its task beside the POUs): `<system project>/SYSTEM/Tasks/PlcTask.task`,
+  `<system project>/PLC/<plc project>/POUs/MAIN.pou`. MOTION / I/O / SAFETY / C++ stay out (Volt edits none; CODESYS
+  carries no hardware either) unless the owner wants read-only descriptors like `.device`.
