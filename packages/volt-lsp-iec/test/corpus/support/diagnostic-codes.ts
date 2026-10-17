@@ -48,10 +48,6 @@ export const KNOWN_UNMAPPED = new Set([
   "network-undeclared-identifier",
   "network-unknown-member",
   "network-unknown-pin",
-  // "An inconsistent element has been detected (Missing EN pin)…" (openspec bridge-refusal-review 1.5,
-  // `rcc_network_eno_without_en`): a graphical-model message no catalog entry documents a number for — the 220
-  // documented codes hold no such sentence, and the recorded build carries none.
-  "network-missing-en",
   // The format's own findings (readability.md P9, P12, P13; `checks/network/_format.ts`): no compiler message at all.
   "network-split-reused",
   "network-en-unwired",

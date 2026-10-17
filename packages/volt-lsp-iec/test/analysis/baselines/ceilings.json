@@ -1,6 +1,6 @@
 {
   "fixtures.codesys": {
-    "group calls: GAP": 4,
+    "group calls: GAP": 1,
     "group calls: never-fired builders": 2,
     "group calls: open FP": 0,
     "group declarations: GAP": 19,
@@ -28,13 +28,13 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 106,
-    "total: GAP": 441,
+    "total: GAP": 440,
     "total: never-fired builders": 3,
     "total: open FP": 0,
     "total: unowned GAP": 66
   },
   "fixtures.twincat": {
-    "group calls: GAP": 4,
+    "group calls: GAP": 0,
     "group calls: never-fired builders": 3,
     "group calls: open FP": 0,
     "group declarations: GAP": 16,

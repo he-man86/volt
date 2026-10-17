@@ -44,7 +44,7 @@ public static class NetworkTextReader
     internal sealed record ReadTrace(NetworkLexer? Lexer,
                                      IReadOnlyDictionary<Node, (int Offset, int Length)> Spans, IReadOnlyList<Tok> Headers);
 
-    private sealed class ByIdentity : IEqualityComparer<Node>
+    internal sealed class ByIdentity : IEqualityComparer<Node>
     {
         public static readonly ByIdentity Instance = new();
         public bool Equals(Node? x, Node? y) => ReferenceEquals(x, y);

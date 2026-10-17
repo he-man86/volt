@@ -115,27 +115,97 @@ const NEGATED_INT_PIN: readonly CeilingException[] = [
 ]
 
 /**
- * …and the gap 2R.3 left unowned (ld-fbd-coverage, re-recorded 2026-10-16): `ng_box_output_arrow` records "The
- * assignment source is incorrect." for a function's result pin wired straight to a variable, and the one builder that
- * spelled the sentence answered ENO read off a FUNCTION's box — which CODESYS now answers otherwise for the box 2R.3's
- * push builds ("'ENO' is no component of …"), so the builder went with its last true positive. The gap is the same gap.
+ * …and a FUNCTION box given one positional value more than it declares, on TwinCAT (ld-fbd-coverage 2R.4,
+ * `ng_m_function_too_many`, recorded 2026-10-17): the push derives no name for the extra pin and TwinCAT's in-place
+ * write leaves it the empty name, so its build adds "Identifier '' not defined" to the arity error both vendors give —
+ * which the LSP gives alone. No corpus network calls a function positionally (every drawn function box names its pins).
  */
-const SOURCE_SENTENCE_UNOWNED: readonly CeilingException[] = [
+const EXTRA_POSITIONAL_PIN_TC: readonly CeilingException[] = [
   {
-    baseline: "fixtures.codesys",
-    measure: "total: unowned GAP",
+    baseline: "fixtures.twincat",
+    measure: "total: GAP",
     by: 1,
-    fixture: "ng_box_output_arrow",
-    task: "none: the LSP gives no answer for a function's result pin wired to a variable (a gap before 2R.3 too)",
-    why: "its builder answered ENO off a function box, which the 2R.3 recording no longer answers so",
+    fixture: "ng_m_function_too_many",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "an extra positional pin on a function box: TwinCAT also answers \"Identifier '' not defined\" for its empty name",
   },
+  // the same message, as the front-end's resolution census counts it (a recorded "not defined" the LSP does not give)
+  ...(["findings", "messages twincat: recorded only"] as const).map((measure) => ({
+    baseline: "resolution-dump",
+    measure,
+    by: 1,
+    fixture: "ng_m_function_too_many",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "an extra positional pin on a function box: TwinCAT's \"Identifier '' not defined\" for its empty name",
+  })),
+]
+
+/**
+ * \u2026and the call boxes the 2R.4 gate recorded (`ng_m_*`, 2026-10-17) whose answer the LSP does not give:
+ *
+ * - a LIBRARY function's box on CODESYS, whatever its pins (`LEN(txt)`, `LEN(STR := txt)`, `Standard.LEN(txt)`): the push
+ *   builds it without the CallType the editor gives it \u2014 it holds no declaration of a library's function \u2014 and the build
+ *   answers "The assignment source is incorrect.". The LSP cannot say it: the box the editor DRAWS builds (bakon-nano's
+ *   REPLACE/DELETE, clean in its recorded build), and a pulled text does not tell the two apart. NOT niche (3 boxes in
+ *   the corpora): the push's defect, owed in tasks.md 2R.4b.
+ * - the FB's own METHOD called without an instance on CODESYS (no CallType: the push holds no declaration of the POU's
+ *   members) \u2014 niche: TwinCAT builds it, and the corpora hold no such box.
+ * - TwinCAT's empty-name answers for a positional pin nothing names (a METHOD's \u2014 its "'' is no input" the LSP gives \u2014 or a
+ *   library function's), as on `ng_m_function_too_many`, and its namespace errors for `Standard.LEN` \u2014 a CODESYS
+ *   namespace (TwinCAT's is `Tc2_Standard`), which the LSP's TwinCAT library model does not refuse.
+ */
+const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
+  ...(["ng_m_library_function", "ng_m_library_function_named", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
+    (["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
+      baseline: "fixtures.codesys",
+      measure,
+      by: 1,
+      fixture,
+      task: "ld-fbd-coverage 2R.4b: the push builds a library function's box with its CallType (3 boxes in the corpora)",
+      why: "a library function's box the push builds without a CallType: \"The assignment source is incorrect.\", which the drawn box does not give",
+    })),
+  ),
+  ...(["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
+    baseline: "fixtures.codesys",
+    measure,
+    by: 1,
+    fixture: "ng_m_own_method",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "the FB's own METHOD called without an instance: the push builds its box without CallType Method, \"The assignment source is incorrect.\"",
+  })),
+  ...(
+    [
+      ["ng_m_method_positional", 1],
+      ["ng_m_library_function", 2],
+      ["ng_m_library_function_qualified", 3],
+    ] as const
+  ).map(([fixture, by]) => ({
+    baseline: "fixtures.twincat",
+    measure: "total: GAP",
+    by,
+    fixture,
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "a positional pin no declaration names (TwinCAT's \"'' is no input\" / \"Identifier '' not defined\"), or CODESYS's namespace `Standard` on TwinCAT",
+  })),
+  // the same "not defined" messages, as the front-end's resolution census counts them (recorded, not given by the LSP)
+  ...(["ng_m_method_positional", "ng_m_library_function", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
+    (["findings", "messages twincat: recorded only"] as const).map((measure) => ({
+      baseline: "resolution-dump",
+      measure,
+      by: 1,
+      fixture,
+      task: "none: niche, accepted loss (0 occurrences in the corpora)",
+      why: "TwinCAT's \"Identifier '' not defined\" for a positional pin no declaration names, or \"Identifier 'Standard' not defined\" for CODESYS's namespace",
+    })),
+  ),
 ]
 
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
+  ...EXTRA_POSITIONAL_PIN_TC,
+  ...UNNAMED_CALL_BOXES,
   ...BEFORE_CASCADES,
   ...ROOT_GAPS,
   ...REVERSED_ARRAY_SIZE,
   ...INDEXOF_UNTYPED,
   ...NEGATED_INT_PIN,
-  ...SOURCE_SENTENCE_UNOWNED,
 ]

@@ -35,13 +35,16 @@ async function remove(names: readonly string[]): Promise<void> {
 
 const program = (n: string) => `PROGRAM ${n}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\n\nEND_PROGRAM\n`
 const fun = (n: string) => `FUNCTION ${n} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nIMPLEMENTATION ST\n${n} := a + 1;\n\nEND_FUNCTION\n`
+// A FUNCTION's positional pins are pushed NAMED: the push gives a function box its input names from the declaration
+// (openspec ld-fbd-coverage 2R.4, DIALECT N40 — CODESYS builds no function box without them), so `f(n)` is the box
+// `f(a := n)` and pulls back so (`pulls`); the CLI adopts that text as the IDE's (graphical/positional-call-cli).
 const caller = (n: string, lang: "FBD" | "LD", vars: string, net: string) =>
 	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 interface Case {
 	readonly what: string
 	readonly callee: { readonly name: string; readonly source: string }
-	readonly caller: { readonly name: string; readonly source: string }
+	readonly caller: { readonly name: string; readonly source: string; readonly pulls?: string }
 	/** Refused on TwinCAT today — the known divergence. False: accepted on both vendors. */
 	readonly twincatRefuses: boolean
 }
@@ -56,13 +59,21 @@ const CASES: readonly Case[] = [
 	{
 		what: "ENO read off a box calling a FUNCTION created by the same push",
 		callee: { name: fid("lagF"), source: fun(id("lagF")) },
-		caller: { name: fid("lagFc"), source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(n) EN go\n  ok := ENO;`) },
+		caller: {
+			name: fid("lagFc"),
+			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(n) EN go\n  ok := ENO;`),
+			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `${id("lagF")}(a := n) EN go\n  ok := ENO;`),
+		},
 		twincatRefuses: true,
 	},
 	{
 		what: "a box whose ENO nothing reads calling a FUNCTION created by the same push",
 		callee: { name: fid("lagG"), source: fun(id("lagG")) },
-		caller: { name: fid("lagGc"), source: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(n);`) },
+		caller: {
+			name: fid("lagGc"),
+			source: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(n);`),
+			pulls: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(a := n);`),
+		},
 		twincatRefuses: false,
 	},
 ]
@@ -85,7 +96,7 @@ describe(`graphical / a call box of a POU this session created (${BASE})`, () =>
 				])
 				if (!refuses) {
 					expect(landedInFull(r), `${c.what} was refused on ${VENDOR}: ${JSON.stringify(r.conflicts)}`).toBe(true)
-					expect((await fetchItem(c.caller.name)).sourceText, `${c.caller.name} came back reshaped`).toBe(c.caller.source)
+					expect((await fetchItem(c.caller.name)).sourceText, `${c.caller.name} came back reshaped`).toBe(c.caller.pulls ?? c.caller.source)
 					return
 				}
 				expectVendorDifference("push-without-header-check 5.Q.9: TwinCAT builds the box from the lagging 604 seed", {

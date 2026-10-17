@@ -24,6 +24,7 @@ public sealed class NetworkScope
     private readonly Func<string, bool> _contains;
     private readonly Func<string, bool> _isPou;
     private readonly Func<string, string?> _instanceType;
+    private readonly Func<string, Format.Network.Callee?> _callee;
 
     /// <param name="names">Every name in scope.</param>
     /// <param name="pous">The POUs the body can call (functions, FB types, programs). Each is also a name in scope.</param>
@@ -51,13 +52,17 @@ public sealed class NetworkScope
         _contains = nameSet.Contains;
         _isPou = pouSet.Contains;
         _instanceType = n => instances.TryGetValue(n, out var t) ? t : null;
+        // A scope stated as name lists holds no declaration to derive a callee from (Callee).
+        _callee = _ => null;
     }
 
-    private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType)
+    private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType,
+                         Func<string, Format.Network.Callee?> callee)
     {
         _contains = contains;
         _isPou = isPou;
         _instanceType = instanceType;
+        _callee = callee;
     }
 
     /// <summary>A scope that knows nothing — explicit, never a default.</summary>
@@ -126,12 +131,17 @@ public sealed class NetworkScope
             if (string.Equals(head, St.StDeclaration.SuperCall, StringComparison.OrdinalIgnoreCase))
                 return St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf);
             if (!NetworkSpelling.IsName(head)) return null;
-            var type = St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf)
-                       ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(head)
-                           ? St.StDeclaration.TypeOfCallTarget(global.Value.Text, head, declarationOf)
-                           : null);
+            var type = DeclaredType(head);
             return type is not null && CanBeBlock(type) ? type : null;
         }
+
+        // The declared type of a variable path: a local or owner variable first, then a global.
+        string? DeclaredType(string head) =>
+            !NetworkSpelling.IsName(head) ? null
+            : St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf)
+              ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(head)
+                  ? St.StDeclaration.TypeOfCallTarget(global.Value.Text, head, declarationOf)
+                  : null);
 
         // D3 + D4 — by KIND and by the vendor's refused NAMES, never by a callee's text: a word the vendor refuses as a
         // POU name is no block on that vendor; a project item of another kind (a DUT, an interface, a GVL) is none; a
@@ -147,14 +157,59 @@ public sealed class NetworkScope
         bool Contains(string name) =>
             local.Contains(name) || global.Value.Names.Contains(name) || declarationOf(name) is not null;
 
-        return new NetworkScope(Contains, IsPou, InstanceType);
+        // B7 D (2R.4): a project FUNCTION, by its own declaration's header — a callee by NAME only (a dotted head is a
+        // member or a library's, an instance is a block).
+        Format.Network.Callee? CalleeOf(string type)
+        {
+            // A METHOD of an instance in scope (`fbm.Visible`) or of an interface variable (`itf.M`): its box compiles
+            // only with CallType Method (measured, design "2R.4"; the interface's and an instance ACTION's box recorded
+            // by `ng_m_*`, 2R.4 gate). Its inputs are the method's, which no top-level declaration holds — none derived.
+            var dot = type.LastIndexOf('.');
+            if (dot > 0)
+            {
+                var owner = type.Substring(0, dot);
+                return InstanceType(type) is null
+                       && (InstanceType(owner) is not null || DeclaredType(owner) is { } t && kindOf(t) == ItemKind.Kinds.Interface)
+                    ? new Format.Network.Callee(Format.Network.Callee.MethodCallType, Array.Empty<string>(), null)
+                    : null;
+            }
+            if (!IsPou(type) || InstanceType(type) is not null || local.Contains(type)) return null;
+            var declaration = declarationOf(type);
+            return St.StDeclaration.IsFunction(declaration)
+                ? new Format.Network.Callee(Format.Network.Callee.FunctionCallType, St.StDeclaration.InputNames(declaration),
+                                            St.StDeclaration.OutputNames(declaration))
+                : null;
+        }
+
+        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf);
     }
 
     public bool Contains(string name) => _contains(name);
+
+    /// <summary>What a call box of <paramref name="type"/> is built with besides its text (B7 D, ld-fbd-coverage 2R.4):
+    /// the vendor <c>CallType</c> and the callee's input names, from its declaration — or null where nothing is derived.
+    /// Answers a project FUNCTION only: measured live (CODESYS SP21, design "2R.4"), its box compiles only with
+    /// <c>CallType Function</c> and its input names, while every other call kind Volt builds without them compiles
+    /// and runs as drawn. A callee the project does not hold (a library's) has no declaration here: null, never a
+    /// guess.</summary>
+    public Format.Network.Callee? Callee(string type) => _callee(type);
 
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>
     public bool IsCallable(string name) => _isPou(name) || _instanceType(name) is not null;
 
     /// <summary>The FB type of <paramref name="head"/> when it is an instance in scope, else null.</summary>
     public string? InstanceType(string head) => _instanceType(head);
+}
+
+/// <summary>A call box's derived members (B7 D, ld-fbd-coverage 2R.4): the vendor <c>CallType</c> member name, the
+/// callee's input names in declaration order (<see cref="NetworkScope.Callee"/>) and its <c>VAR_OUTPUT</c> names — null
+/// where the declaration is not read (a METHOD's), so no output list is derived.</summary>
+public sealed record Callee(string CallType, IReadOnlyList<string> Inputs, IReadOnlyList<string>? Outputs)
+{
+    /// <summary>The vendor enum member a FUNCTION's box holds (CODESYS <c>Operator.Function</c>; 113 corpus boxes).</summary>
+    public const string FunctionCallType = "Function";
+
+    /// <summary>The vendor enum member a METHOD's box holds (CODESYS <c>Operator.Method</c>, the drawn box measured
+    /// 2026-10-16; 0 in the corpora).</summary>
+    public const string MethodCallType = "Method";
 }

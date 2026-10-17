@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -251,7 +251,7 @@ public class CodesysNwlCompletenessOracleTests
             {
                 BoxType = n.Str("BoxType")!,
                 Instance = n["Instance"] is ArchiveNode inst ? Operand(inst, path + ".Instance") : null,
-                CallType = n.Str("CallType"),
+                CallType = (Nwl.Operator)Enum.Parse(typeof(Nwl.Operator), n.Str("CallType")!),
                 InputItemList = inputs.Items.Select((t, j) => TreeOrNull(t, $"{path}.InputItems[{j}]")!).ToArray(),
                 InputParams = Params(n["InputParam"]),
                 OutputParams = Params(n["OutputParam"]),
@@ -434,7 +434,7 @@ public class CodesysNwlCompletenessOracleTests
             node.Set("InputItems", new ArchiveList(b.InputItemList.Select(Tree)))
                 .Set("InputParam", Params(b.InputParams))
                 .Set("OutputParam", Params(b.OutputParams));
-            if (b.CallType is not null) node.Set("CallType", E(b.CallType.ToString()!));
+            if (b.CallTypeSet) node.Set("CallType", E(b.CallType.ToString()));
             node.Set("EN", b.En is bool en ? B(en) : null).Set("ENO", b.Eno is bool eno ? B(eno) : null)
                 .Set("STSnippet", b.STSnippet is Nwl.STSnippet s ? Snippet(s) : null)
                 .Set("ProvidesSTSnippet", B(b.ProvidesSTSnippet));
@@ -679,40 +679,40 @@ public class CodesysNwlCompletenessOracleTests
         // into the comparison: the counts below grew by what those networks hold, and OutputParam's four entries closed
         // (its Names and Types are the box's pragma members, NetworkMembers.OfBox).
                         new("BoxTreeBox.BoxType — changed", 19, 19, "2.3 design gap (1b.3): an FB/program call's BoxType is the instance's declared type — D with {BoxType := '…'}"),
-        new("BoxTreeBox.CallType — changed", 306, 1063, "2.2 nwl-call-type (R): a fresh box holds None"),
-        new("BoxTreeBox.EN — changed", 162, 227, "2.2 nwl-box-en-eno (R)"),
-        new("BoxTreeBox.ENO — changed", 162, 227, "2.2 nwl-box-en-eno (R)"),
-        new("BoxTreeBox.InputFlags — changed", 2, 2, "2.3 nwl-input-flags-list (R): a zero-only InputFlags list (lenze FirstErrorCapture #3, #4) — the API answers an archived null as unset flags (KnownApiShapes), so the reader must read the archive, as SymbolComment (N27)"),
-        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 106, 222, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
-        new("Flags.Fixed in BoxTreeBox.Flags — changed", 144, 182, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
-        new("Flags.Fixed in BoxTreeBox.InputFlags — changed", 1, 4, "2.2 nwl-flags-fixed (R): a pin's flag set (S6's pro2193 SetAlarm)"),
-        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 251, 1279, "2.2 nwl-flags-fixed (R): a fresh flag set holds false"),
-        new("Flags.Flags in BoxTreeAssign.Flags — changed", 1, 1, "2.2 nwl-assign-item-flags (R); 2.3: the writer ORs the target's Return onto the item"),
-        new("NWLImplementationObject.BranchCounter — not written", 44, 44, "2.2 nwl-branch-counter (R)"),
+        new("BoxTreeBox.CallType — changed", 295, 963, "2R.4: a FUNCTION's and a METHOD's CallType are DERIVED (the writer sets them from the callee, NetworkScope.Callee — 100 boxes closed); the rest are the operators the vendor resolves from BoxType on reload (the doubles do not) and the FB, PROGRAM and conversion boxes, whose fresh None runs as the drawn value (cache, measured: design '2R.4')"),
+        new("BoxTreeBox.EN — changed", 162, 227, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived from the text's EN"),
+        new("BoxTreeBox.ENO — changed", 162, 227, "2R.4 cache: a stored false on a box with no enable runs as Volt's null (measured); true is derived with EN"),
+        new("BoxTreeBox.InputFlags — changed", 2, 2, "2R.4 cache: a zero-only InputFlags list (lenze FirstErrorCapture #3, #4) runs as Volt's null (measured)"),
+        new("Flags.Fixed in BoxTreeAssign.OutputItems.OutputItems.Flags — changed", 106, 222, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
+        new("Flags.Fixed in BoxTreeBox.Flags — changed", 144, 182, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
+        new("Flags.Fixed in BoxTreeBox.InputFlags — changed", 1, 4, "2R.4 cache: a pin's flag set (S6's pro2193 SetAlarm); Fixed runs as Volt's false (measured)"),
+        new("Flags.Fixed in BoxTreeOperand.Operand.Flags — changed", 251, 1279, "2R.4 cache: Fixed runs as Volt's false (measured, FBD boxes and operands, LD coils)"),
+        new("Flags.Flags in BoxTreeAssign.Flags — changed", 1, 1, "2R.4 cache: the item's Jump/Return bit runs as the target's alone (measured, JMP and RETURN); the writer keeps both, as TwinCAT's importer writes them (C13)"),
+        new("NWLImplementationObject.BranchCounter — not written", 44, 44, "2R.4 cache: BranchCounter 328 runs as 0 (measured, six parallels); a network rebuild never writes the body"),
         new("NWLImplementationObject.NetworkListComment — not written", 44, 44, "2.3 D: the writer sets the constant"),
         new("NWLImplementationObject.ValidIds — not written", 44, 44, "2.3 D: the writer sets the constant"),
-        new("Operand.Address in BoxTreeAssign.OutputItems.OutputItems — changed", 16, 30, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Address in BoxTreeBox.Instance — changed", 8, 8, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Address in BoxTreeOperand.Operand — changed", 26, 204, "2.2 nwl-address-sentinel (R): the stored sentinel against the fresh \"\""),
-        new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 234, 514, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
-        new("Operand.Boolean in BoxTreeOperand.Operand — changed", 264, 1596, "2.2 nwl-operand-boolean (R): a fresh operand holds false"),
+        new("Operand.Address in BoxTreeAssign.OutputItems.OutputItems — changed", 16, 30, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
+        new("Operand.Address in BoxTreeBox.Instance — changed", 8, 8, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
+        new("Operand.Address in BoxTreeOperand.Operand — changed", 26, 204, "2R.4 cache: the stored sentinel runs as the fresh \"\" (measured)"),
+        new("Operand.Boolean in BoxTreeAssign.OutputItems.OutputItems — changed", 234, 514, "2R.4 cache: Boolean runs as Volt's false (measured)"),
+        new("Operand.Boolean in BoxTreeOperand.Operand — changed", 264, 1596, "2R.4 cache: Boolean runs as Volt's false (measured)"),
         new("Operand.IsInstance in BoxTreeBox.Instance — changed", 313, 1070, "2.3 D: true exactly for the box's Instance"),
         new("Operand.LValue in BoxTreeAssign.OutputItems.OutputItems — changed", 246, 528, "2.3 D: true exactly for an assign target or a box output slot"),
-        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 46, 107, "2.3 D: true exactly for an assign target or a box output slot — the unwired slots a push lays out are empty operands the writer does not mark; 2R.3: fewer, since a call's unwired slots go with its output list (B7 L, below)"),
+        new("Operand.LValue in BoxTreeBox.OutputItems.OutputItems — changed", 51, 121, "2.3 D: true exactly for an assign target or a box output slot — the IDE resolves it on load and the writer sets none; the doubles do not resolve, so every unwired slot a push lays out reads false here; 2R.4: more slots, since a FUNCTION's box lists every VAR_OUTPUT as drawn"),
         new("Operand.Operand in BoxTreeBox.Instance — changed", 271, 933, "2.3 D: null on a function/operator instance (the writer writes '')"),
         new("Operand.SymbolComment in BoxTreeAssign.OutputItems.OutputItems — changed", 1, 1, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
         new("Operand.SymbolComment in BoxTreeOperand.Operand — changed", 1, 9, "2.3 S+: {SymbolComment := '…'} — pro2193 SetAlarm #0, reached since S6 (a real rebuild of it is refused: NetworkText.RefuseSymbolCommentLoss)"),
-        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 246, 528, "2.2 nwl-operand-type (R)"),
-        new("Operand.Type in BoxTreeBox.Instance — changed", 119, 156, "2.2 nwl-instance-type (R)"),
-        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 42, 103, "2.2 nwl-operand-type (R): an output slot's stored type, the unwired ones included since the slots are laid out as the vendor's; 2R.3: fewer, since a call's unwired slots go with its output list (B7 L, below)"),
-        new("Operand.Type in BoxTreeOperand.Operand — changed", 326, 2436, "2.2 nwl-operand-type (R); 2R.3 (B6): a leaf feeding a split no longer writes its stored type (no split type in the text), so the 15 S3a leaves joined"),
-        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 159, 225, "DIALECT N37: a drawn function box's null result slot, which goes with its name '   '; 2.3 R nwl-output-param-names: a PROGRAM call with EN's second null slot; and 2R.3 lost-on-rebuild (L): a call's stored output slots beyond its text pins go with its output list (see ParamList.Names)"),
+        new("Operand.Type in BoxTreeAssign.OutputItems.OutputItems — changed", 246, 528, "2R.4 cache: a stale Operand.Type runs as Volt's (measured)"),
+        new("Operand.Type in BoxTreeBox.Instance — changed", 119, 156, "2R.4 cache: Instance.Type TON / ton / TOF runs as Volt's \"\" (measured)"),
+        new("Operand.Type in BoxTreeBox.OutputItems.OutputItems — changed", 47, 117, "2R.4 cache (measured: a stale Operand.Type runs as Volt's): an output slot's stored type, the unwired ones included since the slots are laid out as the vendor's — a FUNCTION's every VAR_OUTPUT since 2R.4"),
+        new("Operand.Type in BoxTreeOperand.Operand — changed", 326, 2436, "2R.4 cache (measured: a stale Operand.Type runs as Volt's); 2R.3 (B6): a leaf feeding a split no longer writes its stored type (no split type in the text), so the 15 S3a leaves joined"),
+        new("OutputItemList.OutputItems in BoxTreeBox.OutputItems — list length changed", 97, 131, "2R.4 D: a FUNCTION's box is built with its result slot and every VAR_OUTPUT (NetworkDerivation.OutputNames — 94 closed); left: a PROGRAM call with EN's second null slot (2.3 R nwl-output-param-names), a call's stored slots beyond its text pins where its callee is a library's or an FB (lost on rebuild, see ParamList.Names)"),
         new("ParamList.Names in BoxTreeBox.InputParam — list length changed", 35, 73, "2.3 D: a partial list names only the named pins — the writer pads every input"),
-        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 154, 219, "DIALECT N37 (a vendor limit, 2.3): a drawn FUNCTION box's result pin '   ', which no box Volt builds can hold (N21); and 2R.3 lost-on-rebuild (L): the pragma is gone, so a call's stored output names beyond its text pins (TON ['Q', 'ET'], …) are lost on rebuild until their derivation from the callee's declaration (measured 2R.3, design '2R.3 measured': 231 of 279 call boxes' stored lists are the declaration's; owed to 2R.4) — every rebuild names the loss (RebuildLoss)"),
-        new("ParamList.Types in BoxTreeBox.InputParam — changed", 194, 1228, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.InputParam — list length changed", 35, 73, "2.2 nwl-param-types (R)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 18, 40, "2R.3 B7 L: a call's stored output type where the text pin's derivation types it '' (no pragma) — derived from the callee's declaration in 2R.4 (see ParamList.Names)"),
-        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 154, 219, "DIALECT N37: the type of a drawn function box's result pin '   ', and 2R.3 lost-on-rebuild (L): the types of a call's stored output names, which go with the names (see ParamList.Names)"),
+        new("ParamList.Names in BoxTreeBox.OutputParam — list length changed", 92, 125, "2R.4 D: a FUNCTION's result pin '   ' and every VAR_OUTPUT are derived from its declaration and build with its derived CallType (measured; DIALECT N37 was a box without it — 94 closed); left, lost on rebuild: a function box with a positional `=>` pin (2, its slots stay the text's),: an FB's or a library function's stored output names beyond its text pins (TON ['Q', 'ET'], —) — every rebuild names the loss (RebuildLoss)"),
+        new("ParamList.Types in BoxTreeBox.InputParam — changed", 194, 1228, "2R.4 cache: stale input/output Types run as Volt's (measured)"),
+        new("ParamList.Types in BoxTreeBox.InputParam — list length changed", 35, 73, "2R.4 cache: stale input/output Types run as Volt's (measured)"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — changed", 89, 149, "2R.4 cache (measured: stale output Types run as Volt's ''): a call's stored output types — more since a FUNCTION's whole output list is built (its types '', ENO BOOL)"),
+        new("ParamList.Types in BoxTreeBox.OutputParam — list length changed", 92, 125, "the types of the output names above (ParamList.Names), which go with them"),
         new("TextDocument.TextBlobForSerialisation in STSnippet.STSnippet.TextDocument — a cache citing no vendor-facts row ('text-blob-serialisation')", 7, 7, "2.3: the vendor-facts row text-blob-serialisation, carried from 2.2 (not in 2.2's row list; bridge-one-to-one left it open: completeness.known.ts)"),
     };
 }

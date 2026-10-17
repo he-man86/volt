@@ -711,3 +711,62 @@ re-measured, not raised.
 - **Not built in 2R.3:** P13's code lens (what a rebuild drops needs the stored members, which the LSP never sees — the
   push's `RebuildLoss` names them) and P9's renumber quick fix (a fix ships only with a recorded AFTER, lsp-quick-fixes
   §3); the P9 warning, the bare-`EN` and rail-coil hints and the VS Code `files.trimTrailingWhitespace` default are.
+
+## 2R.4 The members 2.3 left open — measured per member (2026-10-16/17)
+
+**Target.** Every member tasks 2R.4 names gets one disposition under B7 — cache (dropped), derived on push, or its
+network `UNSUPPORTED` — from a measurement, never from the census alone: 2R.2's Open item 5 asked for "drawn vs rebuilt
+per member", and a member whose loss changes behaviour refuses its networks on rebuild.
+
+**Choice: run the drawn value against Volt's, one member at a time, in simulation.** The lab (session scratchpad
+`awkward\lab`, batches 9, 11–15; headless SP21 runscript, a fresh online simulation per POU) takes a POU Volt pushed,
+edits ONE member in its native archive to the value the editor stores (or a stale one), imports both into a
+CodesysTestProject copy, builds and runs each with two input sets, and compares every output. A member whose box does
+not compile without it is derived; one that runs the same is a cache. Rejected: `record:exec` over conformance
+fixtures (the push cannot write the drawn value — that is the point — so a fixture cannot hold it); re-reading after a
+reopen (2.2's rows did, and found no member re-derived: that says nothing about behaviour).
+
+**Measured (DIALECT N40).**
+
+| member | drawn vs Volt's | disposition |
+|---|---|---|
+| `Flags.Fixed`, `Operand.Boolean`, `Address` sentinel | every operand and flag set set, FBD boxes and LD `S=`/`R=` coils: same outputs | cache |
+| `BranchCounter` | 328 vs 0 on a body of six parallels: same | cache (a network rebuild never writes the body; P11's "differing → UNSUPPORTED" has no case) |
+| `Operand.Type`, `Instance.Type` | stale on every operand; `TON` / `ton` / `TOF` vs `''`: same | cache |
+| `ParamList.Types` | stale input and output types on ADD, TON, GT: same | cache |
+| `InputFlags` zero-only | `[0, 0, 0]` vs null: same | cache |
+| `EN`/`ENO` | stored `false` on a box with no enable vs null: same; on an enabled ADD `ENO false` → its coil reads the data output, "Cannot convert type 'INT' to type 'BOOL'"; `EN false` beside an EN slot and `EN true` on a GT without one do not compile | derived from the text's enable (as built since 2.2); the stored `false` a cache |
+| `CallType` | FUNCTION: without it "The assignment source is incorrect." (with the input names too), with it alone "requires exactly '1' inputs", with both it runs as drawn; METHOD: does not compile without `Method`, runs with it; FB, PROGRAM, conversion: `None` runs as the drawn value | **derived** for a FUNCTION and a METHOD (the declaration's header), cache otherwise |
+| input names | a FUNCTION's box needs them (above) | **derived** for a FUNCTION's positional pins, from its `VAR_INPUT`/`VAR_IN_OUT` in declaration order |
+| a FUNCTION's output list | with `CallType Function` its result pin `'   '` builds (N37 was a box without it) | **derived**: `['   ', <VAR_OUTPUTs>]`, with EN `['ENO', <VAR_OUTPUTs>]` — the editor's layout, 113 of 113 corpus function boxes |
+| titles / comments | a trailing space, a trailing CR LF: same (no code) | S exact since 2R.3 |
+| item Jump/Return bit | item bit 0 vs the target's echo, JMP and RETURN: same | cache (the writer keeps writing both, as TwinCAT's importer does, C13) |
+| `SymbolComment` | stale copy vs none: same (awkward-sweep #24) | cache by behaviour; its E refusal stays for 2R.5, which owns its spelling (owner: "if it is possible … encode and decode it") |
+
+No member's loss changes behaviour, so no network is refused on rebuild for one.
+
+**As built.**
+- `NetworkScope.Callee(type)` answers a project FUNCTION (its declaration's header, `StDeclaration.PouHeader`; inputs and
+  outputs by `StDeclaration.InputNames`/`OutputNames`) and a METHOD of an instance in scope (`inst.M`). A library
+  callee has no declaration in the scope: nothing derived (L, named by `RebuildLoss`).
+- The input names are derived ONCE, in the push's gate (`NetworkDerivation.Derive` in `NetworkTextGate.Validate`), so
+  both drivers build them and the canonical text is the next pull's (`AwF(v)` → `AwF(i := v)`). TwinCAT's positional
+  function calls, which answered "'' is no input of 'F'", build clean with them. A box with more positional values than
+  inputs derives nothing (the build names the arity; the LSP's `checkBoxArity` says it while typing). A box with a
+  positional `=>` pin keeps the text's slot layout (unmeasured on a drawn function box).
+- The CODESYS writer sets `CallType` (`NwlInterop.SetEnum`) and a FUNCTION's whole output list; TwinCAT's import
+  resolves both from the PLCopen it is handed.
+- Re-recorded, both vendors (CODESYS SP21 en, TwinCAT Project13 LCID 1033), all 69 graphical fixtures in one batch
+  each: two answers moved, both to a clean build — `ng_box_output_arrow` ("The assignment source is incorrect.") and
+  `rcc_network_eno_function_without_en` ("'ENO' is no component of …"); the LSP's `network-missing-en` check lost its
+  last recorded case and was deleted with its message. New fixtures `ng_m_*` (network-graphical-d.ts), one per call
+  kind and derivation rule.
+- **Gate (2026-10-17).** The CLI's post-push check reads with no project and cannot derive: it lends the held box's
+  names to the pushed box's positional pins instead (`NetworkDerivation.NamedAs`, the same walk as `Derive`), so
+  `f(n)` held as `f(a := n)` is the IDE's layout of the push, adopted — not "another program". A METHOD through an
+  INTERFACE variable is a method's box (`CallType Method`); an instance ACTION's box with it builds (measured). Not
+  derived, for want of a declaration: a METHOD's input names, the FB's own METHOD's CallType (niche), and a LIBRARY
+  function's CallType — CODESYS refuses that box built by a push, named or not, while the drawn one builds (3 corpus
+  boxes, tasks 2R.4b). The LSP's `checkCallBoxes` (in place of `checkBoxArity`) says what the build says of a box the
+  push writes wherever the drawn box says the same: a function's pins against its inputs, a method's positional pin,
+  a library function's ENO without EN — never the library box's own error, which the drawn box does not give.

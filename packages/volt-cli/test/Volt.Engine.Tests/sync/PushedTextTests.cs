@@ -93,4 +93,25 @@ public class PushedTextTests
         Assert.False(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "END_FUNCTION_BLOCK")));
         Assert.True(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "end_program")));
     }
+
+    /// <summary>A positional FUNCTION call is pushed with the input names the gate derives from the callee's
+    /// declaration (ld-fbd-coverage 2R.4), and the IDE holds them: <c>F(n)</c> comes back <c>F(a := n)</c>. The CLI
+    /// reads with no project, so it cannot derive — it is the same item all the same, adopted as the IDE's text, never
+    /// "held otherwise" (which pinned <c>volt/ide</c> to the pushed text and brought the names in on the next pull as an
+    /// IDE change nobody made). A held pin with another VALUE, or a pin the text named held under another NAME, is
+    /// another program.</summary>
+    [Theory]
+    [InlineData("r := F(n);", "r := F(a := n);", true)]
+    [InlineData("r := F(n, m);", "r := F(a := n, b := m);", true)]
+    [InlineData("r := F(n, b := m);", "r := F(a := n, b := m);", true)]
+    [InlineData("r := F(n);", "r := F(a := m);", false)]
+    [InlineData("r := F(a := n);", "r := F(b := n);", false)]
+    [InlineData("r := F(n, b := m);", "r := F(a := n, c := m);", false)]
+    [InlineData("r := F(n);", "r := G(a := n);", false)]
+    public void A_positional_function_call_held_with_its_derived_names_is_the_same_item(string pushed, string held, bool same)
+    {
+        static string Prg(string s) =>
+            "PROGRAM P\nVAR\n  n, m, r : INT;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  " + s + "\nEND_NETWORK\nEND_PROGRAM\n";
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(pushed), Prg(held)));
+    }
 }

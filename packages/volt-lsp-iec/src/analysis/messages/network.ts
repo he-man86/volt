@@ -4,7 +4,8 @@
  * One slice of `Messages` (`index.ts`); every template is written once for both vendors — a vendor difference is a
  * switch on `tc` inside it, never a second copy (openspec lsp-same-standard design.md §2.2).
  */
-import type { VendorWording } from "./shared.js"
+import { sharedMessages, type VendorWording } from "./shared.js"
+import { callMessages } from "./calls.js"
 
 export interface NetworkMessages {
   /**
@@ -43,15 +44,24 @@ export interface NetworkMessages {
    */
   unresolvedAssignTarget(): string
   /**
-   * ENO read on a FUNCTION's box that has no EN (`F(a, b)` ⏎ `x := ENO;`): CODESYS reads the ENO as a member of the
-   * function's result — "'ENO' is no component of 'F'" and, where a coil takes it, the shared "Cannot convert type
-   * 'Unknown type: 'F.ENO'' to type '<the coil's>'" (`rcc_network_eno_function_without_en`, SP21, re-recorded 2026-10-16
-   * on the box 2R.3's push builds). Undefined on TwinCAT: its driver refuses the box before a build (`TcEnoRefusal`).
+   * ENO read on a LIBRARY function's box that has no EN (`LEN(t)` ⏎ `x := ENO;`): CODESYS reads the ENO as a member of
+   * the result — "'ENO' is no component of 'LEN'", the function's own name even when the head is qualified
+   * (`ng_m_library_function_eno`, `…_qualified_eno`, SP21). Undefined on TwinCAT: its driver refuses the box before a
+   * build (`TcEnoRefusal`). A PROJECT function's box is built with its output list since 2R.4 and builds clean.
    */
-  enoOfAFunction(head: string): string | undefined
+  enoOfALibraryFunction(name: string): string | undefined
+  /**
+   * A METHOD box of an instance given a POSITIONAL pin (`fbm.M(v)`): the push names no method's pins (it holds no
+   * declaration of the method), and each vendor's build says so its own way (`ng_m_method_positional`, 2R.4 gate):
+   * CODESYS counts the unnamed pin as no input — "Function 'M' requires exactly '1' inputs", the call slice's wording;
+   * TwinCAT names the empty input — "'' is no input of 'M'" (the shared wording; its "Identifier '' not defined" after it
+   * is an accepted loss, `baseline-c.ts`).
+   */
+  methodBoxPositionalPins(method: string, count: number): string
 }
 
-export function networkMessages({ tc }: VendorWording): NetworkMessages {
+export function networkMessages(w: VendorWording): NetworkMessages {
+  const { tc } = w
   return {
     // MEASURED on both vendors now (`network_unnamed_*`, 2026-09-20) — this note used to say TwinCAT was
     // unverified and the CODESYS wording stood for both. It does not: they agree on the operand message
@@ -59,6 +69,8 @@ export function networkMessages({ tc }: VendorWording): NetworkMessages {
     unresolvedOperand: () => "Expression expected instead of '?'",
     unresolvedOperandToken: () => (tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"),
     unresolvedAssignTarget: () => (tc ? "Assignment target not specified" : "The assignment target is not specified."),
-    enoOfAFunction: (head) => (tc ? undefined : `'ENO' is no component of '${head}'`),
+    enoOfALibraryFunction: (name) => (tc ? undefined : `'ENO' is no component of '${name}'`),
+    methodBoxPositionalPins: (method, count) =>
+      tc ? sharedMessages(w).noInput("", method.toUpperCase()) : callMessages(w).functionRequiresInputs(method, count),
   }
 }

@@ -85,6 +85,66 @@ public static class StDeclaration
     public static IEnumerable<string> DeclaredNames(string? declaration) =>
         Statements(declaration).SelectMany(s => s.Names);
 
+    // A FUNCTION's header: the declaration's first code opens with the word (not FUNCTION_BLOCK).
+    private static readonly Regex FunctionHeader = new(
+        @"^\s*FUNCTION\b(?!_)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    // A VAR block's opening keyword (any: VAR, VAR_INPUT, VAR_IN_OUT, …) or its END_VAR, a section's qualifier (as
+    // StatementEnd has them: `VAR_IN_OUT CONSTANT` opens the block, the word is no part of its first statement), and a
+    // statement's `;`, in the comment-free code.
+    private static readonly Regex BlockToken = new(
+        @"\b(?<close>END_VAR)\b|\b(?<open>VAR(?:_[A-Z_]+)?)\b|\b(?<qualifier>CONSTANT|RETAIN|NON_RETAIN|PERSISTENT)\b|(?<end>;)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>Whether a POU's declaration is a FUNCTION's, comments and pragmas skipped — what the box a graphical
+    /// body calls it with needs (ld-fbd-coverage 2R.4, DIALECT N40: a FUNCTION's box compiles only with
+    /// <c>CallType Function</c> and its input names). A BOX MEMBER, read off the CALLEE: the item's own kind and wire name
+    /// stay its IDE class's (<c>pou</c>), which does not tell a function from a block or a program.</summary>
+    public static bool IsFunction(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) return false;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        return FunctionHeader.IsMatch(code);
+    }
+
+    /// <summary>The names a positional call fills, in order: every <c>VAR_INPUT</c> and <c>VAR_IN_OUT</c> variable as
+    /// declared, across blocks — comments and pragmas skipped; outputs and locals are none.</summary>
+    public static IReadOnlyList<string> InputNames(string? declaration) => BlockNames(declaration, "VAR_INPUT", "VAR_IN_OUT");
+
+    /// <summary>Every <c>VAR_OUTPUT</c> variable as declared, across blocks — the output pins the editor draws on a
+    /// FUNCTION's box after its result (ld-fbd-coverage 2R.4).</summary>
+    public static IReadOnlyList<string> OutputNames(string? declaration) => BlockNames(declaration, "VAR_OUTPUT");
+
+    private static IReadOnlyList<string> BlockNames(string? declaration, params string[] blocks)
+    {
+        var names = new List<string>();
+        if (string.IsNullOrEmpty(declaration)) return names;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        string? block = null;
+        var from = 0;
+        foreach (Match t in BlockToken.Matches(code))
+        {
+            if (t.Groups["open"].Success)
+            {
+                block = t.Groups["open"].Value.ToUpperInvariant();
+                from = t.Index + t.Length;
+            }
+            else if (t.Groups["qualifier"].Success) from = t.Index + t.Length;
+            else
+            {
+                if (block is not null && Array.IndexOf(blocks, block) >= 0)
+                {
+                    var m = VarStatement.Match(code.Substring(from, t.Index - from));
+                    if (m.Success) names.AddRange(m.Groups["names"].Value.Split(',').Select(n => n.Trim()));
+                }
+                if (t.Groups["close"].Success) block = null;
+                from = t.Index + t.Length;
+            }
+        }
+        return names;
+    }
+
     /// <summary>The language's name for a call to the base implementation. Not an instance, and not a variable
     /// anything declares — which is exactly why looking it up as one failed.</summary>
     public const string SuperCall = "SUPER^";

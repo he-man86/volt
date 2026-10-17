@@ -29,8 +29,11 @@ namespace Volt.Engine.Format.Network;
 /// (DIALECT N29) measured as not re-derived: <c>Flags.Fixed</c>, <c>Operand.Boolean</c> and the <c>Address</c> archive
 /// sentinel — and, since 2R.3 deleted the pragma (B7), every member design 2R.2 files L "lost on rebuild": a box's
 /// stored output and input lists and their types, its <c>BoxType</c> spelling, <c>Instance.Type</c>, <c>Operand.Type</c>,
-/// <c>EN</c>/<c>ENO</c>, <c>CallType</c> and its pin flag list; each leaves <see cref="Candidates"/> when 2R.4 derives or
-/// measures it. The item <c>Id</c> is not one: both IDEs mint
+/// <c>EN</c>/<c>ENO</c>, <c>CallType</c> and its pin flag list. 2R.4 measured each by running the drawn value against
+/// Volt's (DIALECT N40): every one of them but a call's output names, its input names and its type spelling runs the
+/// same — an editor cache, still named here because the rebuild drops it (readability P13: what a rebuild drops is
+/// shown) — and a FUNCTION's and a METHOD's <c>CallType</c>, a FUNCTION's input names and its output list are DERIVED
+/// now (<see cref="NetworkDerivation"/>), so a rebuild holds them. The item <c>Id</c> is not one: both IDEs mint
 /// every Id themselves (vendor-facts <c>nwl-item-id</c>), and TwinCAT's splice gives a rebuilt network Ids no other
 /// network of the body holds (<c>TcNetworkWriter.Splice</c>). <c>BranchCounter</c> lives on the body, which a network
 /// rebuild does not touch.</para>

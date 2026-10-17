@@ -15,7 +15,7 @@
     "builder defaultNotConstant: 0 TP on twincat (called by checkConstantContext)",
     "builder defaultOutputUnused: 0 TP on twincat (called by checkAbstractOutputDefault)",
     "builder duplicateMethod: 0 TP on both vendors (called by checkDuplicateDeclarations)",
-    "builder enoOfAFunction: 0 TP on twincat (called by network-text)",
+    "builder enoOfALibraryFunction: 0 TP on twincat (called by network-text)",
     "builder fbReInitShape: 0 TP on twincat (called by checkLifecycleSignatures)",
     "builder functionRequiresInputRange: 0 TP on twincat (called by checkCallArguments)",
     "builder genericCount: 0 TP on twincat (called by checkGenericInstantiation)",

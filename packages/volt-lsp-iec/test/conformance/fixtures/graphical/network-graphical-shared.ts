@@ -60,6 +60,14 @@ export function ng(name: string, pouName: string, feature: string, source: strin
 export const TWINCAT_REFUSES: Record<string, string | undefined> = {
   ng_box_output_arrow:
     "TwinCAT's PLCopen importer honours a box output pin wired straight to a variable and then lowers it to a SEPARATE assignment, so the body that came back would not be the one pushed — `volt push` refuses rather than writing a body the IDE would silently change (measured 2026-09-21).",
+  // ld-fbd-coverage 2R.4: the same output-pin lowering, on an enabled FUNCTION call (recorded 2026-10-17).
+  ng_m_function_enabled:
+    "TwinCAT: this graphical body writes a box's output pin straight to a variable (`F_NG_m_split(… doubled => …)`). Volt has no way to CREATE that through PLCopen — the importer lowers the wire to a SEPARATE assignment however the pin is declared, so the body that came back would not be the one pushed. The IDE can draw the pin; editing one that already exists works.",
+  // ld-fbd-coverage 2R.4 gate: a LIBRARY function's box read through ENO with no EN (recorded 2026-10-17, Project13).
+  ng_m_library_function_eno:
+    "TwinCAT: the text reads the 'LEN' box through ENO (an open line a later ENO takes, B4), and the IDE builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text matches the box the IDE builds.",
+  ng_m_library_function_qualified_eno:
+    "TwinCAT: the text reads the 'Standard.LEN' box through ENO (an open line a later ENO takes, B4), and the IDE builds that box with no ENO output — ENO names an output the box does not have. Read as a value, the text matches the box the IDE builds.",
   ng_execute_box:
     "an Execute box is a TwinCAT construct Volt cannot express as PLCopen; the IDE has to draw it (measured 2026-09-21).",
   // ld-fbd-coverage 2R.3, re-recorded 2026-10-16: the TwinCAT rows of these predate the driver's post-import checks

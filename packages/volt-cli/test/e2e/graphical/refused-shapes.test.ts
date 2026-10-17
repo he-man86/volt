@@ -48,7 +48,7 @@ setDefaultTimeout(180_000)
 
 interface Shape {
 	/** The wire items the body needs, in push order — the LAST one carries the shape under test. */
-	readonly items: readonly { readonly name: string; readonly source: string }[]
+	readonly items: readonly { readonly name: string; readonly source: string; readonly pulls?: string }[]
 	/** What the shape is, in the words the failure message should use. */
 	readonly what: string
 	/** The vendors whose driver refuses it today. Emptying an entry is how this ratchet shrinks. */
@@ -179,6 +179,20 @@ END_NETWORK
 
 END_FUNCTION_BLOCK
 `,
+				// the positional pin is pushed named (ld-fbd-coverage 2R.4: a FUNCTION box's input names are derived)
+				pulls: `FUNCTION_BLOCK VltRefArrow
+VAR
+\tsrc : INT := 5;
+\tnext : INT;
+\ttwice : INT;
+END_VAR
+IMPLEMENTATION FBD
+NETWORK
+  next := VltRefSplit(source := src, doubled => twice);
+END_NETWORK
+
+END_FUNCTION_BLOCK
+`,
 			},
 		],
 	},
@@ -226,7 +240,7 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 
 			expect(refused, `${shape.what} was ACCEPTED on ${VENDOR} — the driver learned it, so take it off the list`).toBe(false)
 			for (const item of shape.items)
-				expect((await fetchItem(item.name)).sourceText, `${item.name} was accepted but came back reshaped`).toBe(item.source)
+				expect((await fetchItem(item.name)).sourceText, `${item.name} was accepted but came back reshaped`).toBe(item.pulls ?? item.source)
 			await remove(names)
 		})
 	}

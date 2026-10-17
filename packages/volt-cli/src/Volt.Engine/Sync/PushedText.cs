@@ -68,7 +68,8 @@ public static class PushedText
 
     /// <summary>One body against the other: byte-equal, the same tokens (<see cref="NetworkTextGate.SameTokens"/>), or
     /// — since another SPELLING of a graphical body is written and comes back canonical (openspec
-    /// <c>bridge-refusal-review</c> 2.12) — the same canonical text. The canonical form is read against the body's own
+    /// <c>bridge-refusal-review</c> 2.12) — the same canonical text, a positional FUNCTION pin counted as the name the
+    /// push derived for it and the IDE holds (<see cref="NetworkDerivation.NamedAs"/>). The canonical form is read against the body's own
     /// declarations only (<paramref name="declaration"/>): the CLI has no project to resolve against, and both texts are
     /// read in that one scope, so equal canonical renderings are one model. A text that does not read in it is not
     /// claimed to be the same. For the same reason the CLI asks no item's kind (it holds no project). It links no driver,
@@ -83,6 +84,12 @@ public static class PushedText
                                                   kindOf: _ => null, isRefusedPouName: BothVendorsRefusedNames.Contains);
         var cx = NetworkTextGate.Validate(x, scope);
         var cy = NetworkTextGate.Validate(y, scope);
-        return cx.Canonical is { } canonicalX && cy.Canonical is { } canonicalY && canonicalX == canonicalY;
+        if (cx.Canonical is not { } canonicalX || cy.Canonical is not { } canonicalY) return false;
+        if (canonicalX == canonicalY) return true;
+        // The push names a FUNCTION box's positional pins from the callee's declaration (NetworkDerivation), and the IDE
+        // holds them named: `f(n)` comes back `f(a := n)`. This scope has no callee to derive from, so the names are read
+        // back off the held box — the same type at the same place, every pin named — and the pushed text is that body.
+        var named = NetworkDerivation.NamedAs(cx.Body!, cy.Body!);
+        return !ReferenceEquals(named, cx.Body) && NetworkTextWriter.Write(named, scope) == canonicalY;
     }
 }

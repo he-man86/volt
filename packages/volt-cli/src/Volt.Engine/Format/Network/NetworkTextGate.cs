@@ -38,10 +38,13 @@ public static class NetworkTextGate
         if (!read.Ok) return new NetworkGateResult(null, read.Diagnostics, null);
         var lexer = trace.Lexer;
 
+        // The members the push derives from the declarations (B7 D, ld-fbd-coverage 2R.4): a FUNCTION call's positional
+        // pins take their formal names — what either driver builds, and so the text the next pull shows.
+        var body = NetworkDerivation.Derive(read.Body!, scope, out var origin);
         string canonical;
         try
         {
-            canonical = NetworkTextWriter.Write(read.Body!, scope);
+            canonical = NetworkTextWriter.Write(body, scope);
         }
         catch (NetworkUnrepresentableException e)
         {
@@ -51,11 +54,12 @@ public static class NetworkTextGate
             // Both are always there: the writer records the network of every refusal, the reader marks every node
             // the writer can name, and a body that read has one header per network. A miss is a Volt defect, and
             // reporting it at 1:1 would blame the engineer's first line for it.
+            var at = e.At is not null && origin.TryGetValue(e.At, out var written) ? written : e.At;
             var (offset, length) =
-                e.At is not null
-                    ? trace.Spans.TryGetValue(e.At, out var span) ? span
+                at is not null
+                    ? trace.Spans.TryGetValue(at, out var span) ? span
                       : throw new InvalidOperationException(
-                          $"network text v2: the writer refused a node the reader did not mark ({e.At.GetType().Name}): {e.Message}")
+                          $"network text v2: the writer refused a node the reader did not mark ({at.GetType().Name}): {e.Message}")
                     : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
                     : throw new InvalidOperationException(
                         $"network text v2: the writer refused network {e.Network?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, which the reader did not read: {e.Message}");
@@ -76,7 +80,7 @@ public static class NetworkTextGate
                 "network text v2: the canonical form of a valid body does not read back — " +
                 again.Diagnostics[0].Code + ": " + again.Diagnostics[0].Message + "\n\n" + canonical);
 
-        return new NetworkGateResult(read.Body, Array.Empty<NetworkTextDiagnostic>(), canonical);
+        return new NetworkGateResult(body, Array.Empty<NetworkTextDiagnostic>(), canonical);
     }
 
     /// <summary>

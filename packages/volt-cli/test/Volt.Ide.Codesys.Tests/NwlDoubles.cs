@@ -19,6 +19,14 @@ namespace Volt.Ide.Codesys.Tests;
 internal static class Nwl
 {
     /// <summary>An implementation aspect: the thing <c>CodesysNetworkReader.Read</c> is handed.</summary>
+    /// <summary>The members of the vendor's call-type enum the corpora store (census: And, Or, FunctionBlock, Function,
+    /// Move, …) and a METHOD's (measured on a drawn box, ld-fbd-coverage 2R.4).</summary>
+    internal enum Operator
+    {
+        None, And, Or, Xor, Not, Move, Add, Sub, Mul, Div, Mod, Gt, Ge, Eq, Ne, Le, Lt,
+        Function, FunctionBlock, Program, Method, Conversion,
+    }
+
     internal sealed class NWLImplementationObject
     {
         // The vendor's `NWLDisplayMode` as the driver reads it (`CodesysDriver.ViewModeText`): "Ld", "Fbd" or "Il". The
@@ -283,7 +291,16 @@ internal static class Nwl
         /// test that cares (<c>A_box_with_no_instance_clears_the_vendors_marker</c>) rather than imposed on
         /// every read test here.</para></summary>
         public object? Instance { get; set; } = new Operand();
-        public object? CallType { get; set; }
+        /// <summary>The vendor's <c>CallType</c>, an ENUM (<c>_3S.CoDeSys.Core.LanguageModel.Operator</c>) — so the writer
+        /// sets it by member name (<c>NwlInterop.SetEnum</c>). A fresh box answers <c>None</c>; <see cref="CallTypeSet"/>
+        /// tells a value the writer (or a test describing a stored box) set from the fresh one.</summary>
+        public Operator CallType
+        {
+            get { return _callType ?? Operator.None; }
+            set { _callType = value; }
+        }
+        private Operator? _callType;
+        public bool CallTypeSet => _callType.HasValue;
 
         /// <summary>Settable for a test that DESCRIBES a live box, and appended to by the writer.</summary>
         public object[] InputItemList

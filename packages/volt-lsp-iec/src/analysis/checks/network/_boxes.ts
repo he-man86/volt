@@ -1,10 +1,10 @@
 /**
  * The network-text BOX checks (`network-analysis.ts` runs them per network): the vendor's unconnected-slot marker
- * `???`, an FB instance's pins, and `.ENO` read off a box with no EN.
+ * `???`, an FB instance's pins, and what the build answers for a call box the push builds (`checkCallBoxes`).
  */
 import { type NetworkEno, type NetworkTextStatement, type NetworkValue, type Span, callReading, walkValues } from "../../../frontend/syntax/index.js"
 import { headIsVariable, inferExprType, instanceFb, renderType, resolveCallee } from "../../../frontend/types/index.js"
-import { extendsChain, hasUnresolvedBase, type Scope } from "../../../frontend/symbols/index.js"
+import { extendsChain, hasUnresolvedBase, isLibrarySymbol, type Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import type { Messages } from "../../messages/index.js"
 
@@ -62,22 +62,29 @@ export function checkPins(
 }
 
 /**
- * network-missing-en: an open line whose box has no EN, read through its `ENO` (B4, P3), on a box that is no FB call.
- * The push writes the box the text describes (openspec bridge-refusal-review 1.5) — since 2R.3 with its output list
- * derived from the text, ENO first — and CODESYS's build reads the ENO as a member of the FUNCTION's result
- * (SP21, re-recorded 2026-10-16, `rcc_network_eno_function_without_en`):
+ * The CALL BOX checks (ld-fbd-coverage 2R.4 and its gate): what CODESYS's build answers for a box Volt's push builds from
+ * the text. The push names a PROJECT FUNCTION's positional pins from its declaration and gives it its CallType
+ * (`NetworkDerivation`); it has no declaration of a LIBRARY function or of a METHOD, so their positional pins stay
+ * unnamed, and a box of the FB's own METHOD (no instance) gets no CallType. Each answer is recorded (`ng_m_*`, SP21):
  *
- *   `FUN(a, b)` ⏎ `x := ENO;`      "'ENO' is no component of 'FUN'"
- *                                  "Cannot convert type 'Unknown type: 'FUN.ENO'' to type 'BOOL'" (the coil's type)
+ *   project FUNCTION, pins ≠ its inputs   `y := F(v, w);` `y := F2(v);` `y := F(v, i := w);`
+ *                                         "Function 'F' requires exactly 'n' inputs" — the ST check's message
+ *   METHOD of an instance, a positional   `y := fbm.M(v);`  the same, of the method (CODESYS); TwinCAT "'' is no input
+ *                                         of 'M'"
+ *   LIBRARY function read through ENO     `LEN(t)` ⏎ `x := ENO;` "'ENO' is no component of 'LEN'" and the coil's
+ *                                         "Cannot convert type 'Unknown type: 'LEN.ENO'' to type 'BOOL'" (CODESYS)
  *
- * (Before 2R.3 the box was built without that list and the build answered "The assignment source is incorrect.")
- * A FUNCTION's box is a head that resolves to a declared callable (`isRealCall`, the same resolution the `??? :=` rule
- * splits on), a namespace-qualified one included. An FB call may declare ENO without EN (Lenze `Dryer`, N16): there ENO
- * is the FB's own output — a box headed by a variable (`headIsVariable`, whether or not its FB type resolves) or the
- * vendor's unnamed instance `??? : TYPE(…)`, and nothing is said. An OPERATOR box read so has no text at all (the reader
- * refuses it, P3, N21 — "an operator box shows ENO only with EN"), and any other head is unmeasured: nothing is said.
+ * A function's count is the ST check's (`complete`, `positionalArity`); too few counts only an input with no default
+ * (one with a default is unmeasured). Any other call kind and shape is unmeasured here, and nothing is said.
+ *
+ * NOT SAID: the FB's own METHOD called without an instance (`y := M(k := v);`) — CODESYS answers the pushed box "The
+ * assignment source is incorrect." (no CallType: the push holds no declaration of the POU's members) and TwinCAT builds it
+ * (`ng_m_own_method`); niche, accepted loss (0 own-method boxes in the corpora). And a LIBRARY function's box whose value is consumed (`y := LEN(t);`) — CODESYS answers the pushed box "The
+ * assignment source is incorrect." (`ng_m_library_function`), but the box the editor DRAWS builds (bakon-nano's
+ * `REPLACE`/`DELETE` boxes, clean in its recorded build), and a pulled text cannot tell the two apart. The defect is
+ * the push's (it builds the box without the CallType the editor gives it), not the text's — ld-fbd-coverage 2R.4 gate.
  */
-export function checkEnoWithoutEn(
+export function checkCallBoxes(
   statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
@@ -86,20 +93,57 @@ export function checkEnoWithoutEn(
 ): void {
   for (const s of statements)
     for (const v of walkValues(s)) {
-      if (v.kind !== "eno" || v.box.kind !== "call") continue
-      const box = v.box
-      if (box.en !== undefined || box.unnamedType !== undefined) continue
-      if (box.headExpr === undefined || headIsVariable(box.headExpr, scope, project)) continue
-      if (!isRealCall(box, scope, project)) continue
-      // the coil the ENO drives is typed against the member the build could not find (measured on a coil only)
-      const target = s.kind === "assign" && s.value === v ? s.targets[s.targets.length - 1]?.expr : undefined
-      const to = target === undefined ? undefined : renderType(inferExprType(target, scope, project), { form: "compiler" })
-      const member = messages.enoOfAFunction(box.head.text)
-      if (member === undefined) continue
-      out.push({ severity: "error", span: box.span, source: SOURCE, code: "network-missing-en", message: member })
-      if (to !== undefined)
-        out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message: messages.cannotConvert(messages.unknownType(`${box.head.text}.ENO`), to) })
+      if (v.kind === "eno") {
+        enoOfALibraryFunction(s, v, scope, project, messages, out)
+        continue
+      }
+      if (v.kind !== "call") continue
+      const call = callReading(v)
+      if (call?.kind !== "call") continue
+      const callee = resolveCallee(call, scope, project)
+      if (callee === undefined) continue
+      const inputs = call.args.filter((a) => !a.output)
+      const positional = inputs.filter((a) => a.param === undefined)
+      const library = isLibrarySymbol(callee.sym)
+      const error = (span: Span, code: string, message: string): void => {
+        out.push({ severity: "error", span, source: SOURCE, code, message })
+      }
+      if (callee.sym.kind === "function" && callee.complete) {
+        const excess = positional[callee.positionalArity] ?? (library ? undefined : inputs[callee.positionalArity])
+        const required = callee.positional.filter((p) => p.inOut || callee.params.find((q) => q.name === p.name)?.hasDefault !== true).length
+        if (excess !== undefined) error(excess.span, "function-argument-count", messages.functionRequiresInputs(callee.sym.name, callee.positionalArity))
+        else if (!library && inputs.length < required)
+          error(v.head.span, "function-argument-count", messages.functionRequiresInputs(callee.sym.name, callee.positionalArity))
+        continue
+      }
+      if (callee.sym.kind === "method" && v.head.text.includes(".") && positional.length > 0)
+        error(positional[0]!.span, "function-argument-count", messages.methodBoxPositionalPins(callee.sym.name, callee.positionalArity))
     }
+}
+
+/** `LEN(t)` ⏎ `x := ENO;` — see `checkCallBoxes`: a LIBRARY function's box with no EN, read through its ENO. */
+function enoOfALibraryFunction(
+  s: NetworkTextStatement,
+  v: NetworkEno,
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  const box = v.box
+  if (box.kind !== "call" || box.en !== undefined || box.unnamedType !== undefined) return
+  if (box.headExpr === undefined || headIsVariable(box.headExpr, scope, project)) return
+  const call = callReading(box)
+  const callee = call?.kind === "call" ? resolveCallee(call, scope, project) : undefined
+  if (callee?.sym.kind !== "function" || !isLibrarySymbol(callee.sym)) return
+  const member = messages.enoOfALibraryFunction(callee.sym.name)
+  if (member === undefined) return
+  out.push({ severity: "error", span: box.span, source: SOURCE, code: "network-missing-en", message: member })
+  // the coil the ENO drives is typed against the member the build could not find (measured on a coil only)
+  const target = s.kind === "assign" && s.value === v ? s.targets[s.targets.length - 1]?.expr : undefined
+  if (target === undefined) return
+  const to = renderType(inferExprType(target, scope, project), { form: "compiler" })
+  out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message: messages.cannotConvert(messages.unknownType(`${box.head.text}.ENO`), to) })
 }
 
 /**

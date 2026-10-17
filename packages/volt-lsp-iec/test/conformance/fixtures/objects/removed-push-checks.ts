@@ -162,8 +162,8 @@ END_TYPE
     { vendorRefuses: { codesys: OPERATOR_ENO_WITHOUT_EN, twincat: OPERATOR_ENO_WITHOUT_EN } },
   ),
 
-  // …and on a user FUNCTION's box: the network-missing-en check takes every head that is no variable, and only ADD (an
-  // operator) was recorded (review 5+6)
+  // …and on a user FUNCTION's box: the push derives a project FUNCTION's CallType and output list from its declaration
+  // (ld-fbd-coverage 2R.4), and CODESYS builds it clean. A LIBRARY function's box read so is `ng_m_library_function_eno`.
   {
     name: "rcc_network_eno_function_without_en",
     pouName: "FB_LANG_rcc_nw_eno_fun",

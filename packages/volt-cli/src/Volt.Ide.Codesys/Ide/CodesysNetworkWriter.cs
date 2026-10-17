@@ -178,7 +178,7 @@ namespace Volt.Ide.Codesys
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
-            var ctx = new BuildContext(net);
+            var ctx = new BuildContext(net, scope);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree, consumed: false));
 
@@ -342,8 +342,9 @@ namespace Volt.Ide.Codesys
         private sealed class BuildContext
         {
             private readonly object _net;
+            private readonly NetworkScope _scope;
 
-            public BuildContext(object net) { _net = net; }
+            public BuildContext(object net, NetworkScope scope) { _net = net; _scope = scope; }
 
             /// <param name="consumed">Whether something consumes the node — everything but a top-level item. The
             /// text reads a box's ENO output differently at the top level (<c>NetworkText.HasEnoOutput</c>).</param>
@@ -439,8 +440,17 @@ namespace Volt.Ide.Codesys
                                 "reader builds every FB call with one.");
 
                         var box = NwlInterop.New(_net, "BoxTreeBox");
-                        // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.
                         NwlInterop.Set(box, "BoxType", b.Type);
+                        // THE CALL TYPE OF A FUNCTION OR METHOD CALL, from the callee's declaration (ld-fbd-coverage 2R.4,
+                        // B7 D) — what the editor gives a box it draws; its input names the push's gate derived already
+                        // (NetworkDerivation.Derive). The vendor resolves an operator's CallType from its type name on
+                        // reload, but not a FUNCTION's or a METHOD's: measured live (SP21, simulation, design "2R.4"),
+                        // Volt's box without it answers "The assignment source is incorrect." (the input names alone too),
+                        // the CallType without the names "Function 'AwF' requires exactly '1' inputs", both run as drawn.
+                        // An FB call, a PROGRAM call and a conversion run the same with the fresh None, so the scope names
+                        // no callee for them and the vendor keeps its own.
+                        var callee = b.Instance is null && b.StCode is null ? _scope.Callee(b.Type) : null;
+                        if (callee is not null) NwlInterop.SetEnum(box, "CallType", callee.CallType);
 
                         // Everything else the READER models on a box had no counterpart here and was dropped in
                         // silence: an FB call lost its instance, an embedded output vanished, an EN pin was
@@ -575,6 +585,13 @@ namespace Volt.Ide.Codesys
                         // pins give (NetworkMembers.DerivedOutputNames / DerivedOutputTypes). The output items are laid
                         // out by them: each pin in the slot its name holds.
                         var (names, types) = NetworkMembers.Buildable(b, new BoxSite(consumed));
+                        // A FUNCTION's whole output list, as the editor draws it (2R.4): its result pin '   ' (or the ENO
+                        // echo) and every VAR_OUTPUT, wired or not — which the '   ' pin needs the derived CallType for.
+                        if (callee is not null && NetworkDerivation.OutputNames(b, callee, eno) is { } drawn)
+                        {
+                            names = drawn;
+                            types = drawn.Select(n => n == Box.EnoPin ? "BOOL" : "").ToList();
+                        }
                         var slots = OutputSlots(b, eno, names);
                         if (slots.Count > 0)
                         {

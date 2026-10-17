@@ -77,9 +77,13 @@ public class NoKindFromTextTests
     {
         ["Volt.Engine/Format/St/StReader.cs"] = new(1, "the END line mirror's three keywords (PouHeaderKeyword)"),
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the refusal of a POU with no header names the three keywords the END line mirrors"),
-        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(2,
+        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(3,
             "network-text scope's statement reader: the block words (VAR_GLOBAL, STRUCT, UNION …) that end a variable " +
-            "statement (D5) — it reads names and types, no header and no kind"),
+            "statement (D5) — it reads names and types, no header and no kind; and IsFunction, the CALLEE's header a call " +
+            "box's CallType is derived from (ld-fbd-coverage 2R.4, DIALECT N40: a FUNCTION's box compiles only with " +
+            "CallType Function) — a box member, never the item's own kind or wire name, which stay its class's (pou). " +
+            "OPEN FOR THE OWNER (tasks 2R.4 gate, finding 6): a callee pushed in the same batch is read off its unchecked " +
+            "pushed text; the alternative is the IDE object's own POU type, which no driver reports yet"),
         ["Volt.Engine/Library/LibSignatureRenderer.cs"] = new(8,
             "WRITES a library item's text from the vendor's signature; reads no text"),
         ["Volt.Engine/Format/Network/NetworkTextReader.cs"] = new(3,

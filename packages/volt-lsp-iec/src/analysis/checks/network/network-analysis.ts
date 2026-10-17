@@ -27,7 +27,7 @@ import type { Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import type { Messages } from "../../messages/index.js"
 import { checkHoles, checkStatements } from "./_assignments.js"
-import { checkEnoWithoutEn, checkPins, checkUnresolvedBoxes } from "./_boxes.js"
+import { checkCallBoxes, checkPins, checkUnresolvedBoxes } from "./_boxes.js"
 import { checkLabels } from "./_labels.js"
 import { checkFormatHints, checkSplitsReused } from "./_format.js"
 import { checkBinaryOps, checkConversionArgs, checkUndeclared } from "./_operands.js"
@@ -60,7 +60,7 @@ export function computeNetworkTextDiagnostics(
       checkConversionArgs(network.statements, scope, project, messages, out)
       checkUndeclared(network.statements, scope, project, messages, out)
       checkPins(network.statements, scope, project, messages, out)
-      checkEnoWithoutEn(network.statements, scope, project, messages, out)
+      checkCallBoxes(network.statements, scope, project, messages, out)
       checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
       checkFormatHints(network.statements, out)
     }

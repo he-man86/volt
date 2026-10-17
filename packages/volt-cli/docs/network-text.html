@@ -513,19 +513,21 @@ x := ``;</pre>
   <code>``</code> is the empty-text operand. Operand text that contains a backtick has no spelling.
 </p>
 
-<h3 id="lost">Members the text does not spell — derived, or lost on rebuild (B7)</h3>
+<h3 id="lost">Members the text does not spell — derived, or dropped (B7)</h3>
+<pre>y := f(a);            // pushed: f's box gets CallType Function, pin name from f's VAR_INPUT, result '   '
+y := f(i := a);       // what the next pull shows
+x := fb.m(k := a);    // a method's box gets CallType Method</pre>
 <p>
-  <b>There is no pragma.</b> The bridge derives every stored member from the text and the declarations, as the editor
-  does, and the text states a member only where the stored value differs and has a natural spelling: the exact title,
-  the parallel's <code>SHORTCIRCUIT</code>. A member that differs and has no natural spelling is <b>lost on rebuild,
-  not refused</b> (owner, 2R.2 Open item 5): an unchanged network is never rebuilt and keeps it byte for byte; an edited
-  one is built with the derivation, and the push names what it drops (<code>RebuildLoss</code>). They are a bare
-  <code>a AND b</code> drawn by the editor (a stored output slot <code>['']</code>: 17 boxes in 8 networks), a
-  function's result name <code>'   '</code> (105 of 113 function boxes), a call's stored output list where the
-  editor's cache differs from its declaration, a split's differing type (0) and <code>Fixed</code>,
-  <code>Boolean</code>, the <code>Address</code> sentinel (C4). Deriving a call's output list from its callee's
-  declaration is ld-fbd-coverage 2R.4's (a declaration-derived list matched the stored one on 231 of 279 corpus call
-  boxes; the rest are stale editor caches).
+  <b>There is no pragma.</b> A member the text does not spell is either <b>derived</b> on push from the text and the
+  declarations, as the editor does, or an <b>editor cache</b>, measured to run the same whatever it holds
+  (DIALECT N40), and dropped when a network is rebuilt. Derived: a FUNCTION's or METHOD's <code>CallType</code>, a
+  FUNCTION's input names (in its declaration's order) and its output list (<code>'   '</code> or <code>ENO</code>,
+  then every <code>VAR_OUTPUT</code>), <code>EN</code>/<code>ENO</code> from the enable. Caches: <code>Fixed</code>,
+  <code>Boolean</code>, the <code>Address</code> sentinel, <code>BranchCounter</code>, operand, instance and pin
+  types, a zero-only pin-flag list, a stored <code>EN</code>/<code>ENO</code> <code>false</code>, the item's
+  jump/return bit, an FB's, program's or conversion's <code>CallType</code>. Lost on rebuild, and named by the push
+  (<code>RebuildLoss</code>): a library function's or an FB's stored output names beyond its text pins, its type
+  spelling. An unchanged network is never rebuilt and keeps every member byte for byte.
 </p>
 
 <h2 id="ladder">The ladder oracle — two real rungs</h2>

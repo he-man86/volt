@@ -778,9 +778,85 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **Numbers:** C# Engine 2935 + 1 skipped, CODESYS 446, TwinCAT 547, Cli 297, Repo.Gates 243, Contracts 42,
       Connector 146; volt-cli unit 154; LSP full (VOLT_REQUIRE_FULL=1) 10366 pass, 34 skip, 428 todo, 0 fail (10828 tests, 372 files); volt-vscode 39; `bun run check` 16/16;
       `rate:fixtures` — map unchanged.
-- [ ] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
+- [x] 2R.4 The members 2.3 left open (`Fixed`, `Boolean`, `Address`, `BranchCounter`, `Operand.Type`, `Instance.Type`,
       `ParamList.Types`/`InputFlags`, `EN`/`ENO`, `CallType`, exact titles/comments, the item Jump/Return bit,
       `SymbolComment`) under B7: cache, derived, or network `UNSUPPORTED` — measured per member, no pragma.
+      **Done 2026-10-17 (uncommitted, for the gate).** Measured per member by running the drawn value against Volt's in
+      CODESYS simulation (SP21 3.5.21.40; native-archive edits, two input sets each; design "2R.4", DIALECT N40): **cache**
+      (runs the same) — `Fixed`, `Boolean`, the `Address` sentinel (FBD and LD coils), `BranchCounter` (328 vs 0),
+      `Operand.Type`, `Instance.Type` (`TON`/`ton`/`TOF`), `ParamList.Types`, a zero-only `InputFlags`, a stored
+      `EN`/`ENO` false on a box with no enable, the item Jump/Return bit (JMP and RETURN), trailing title/comment white
+      space (S exact since 2R.3), an FB's, PROGRAM's and conversion's `CallType`, `SymbolComment` (sweep #24; its E
+      refusal stays for 2R.5, which owns its spelling); **derived** (load-bearing: the box does not compile without it) — a
+      FUNCTION's `CallType` and input names, a METHOD's `CallType`, a FUNCTION's whole output list (`'   '` or `ENO`, then
+      every VAR_OUTPUT — N37's "cannot be built" was a box without the CallType), `EN`/`ENO` true from the enable. No
+      member's loss changes behaviour, so no network is refused on rebuild for one. Built: `NetworkScope.Callee`,
+      `NetworkDerivation` (input names derived once in the push's gate — both vendors; CallType and output list in the
+      CODESYS writer, TwinCAT's import resolves both), `StDeclaration.IsFunction`/`InputNames`/`OutputNames`; the LSP's
+      `checkBoxArity` (a function box given too many positional values, as the ST check); `network-missing-en` and its
+      message deleted (its last recorded case now builds clean). New fixtures `ng_m_*` (9, `network-graphical-d.ts`),
+      recorded on both vendors with all 69 graphical fixtures in one batch each (CODESYS en, TwinCAT Project13 LCID
+      1033): CODESYS 8 clean + `ng_m_function_too_many` (the arity error); moved to a clean build: `ng_box_output_arrow`,
+      `rcc_network_eno_function_without_en`; TwinCAT 7 clean, `ng_m_function_enabled` refused (output pin, as
+      `ng_box_output_arrow`), `ng_m_function_too_many` adds "Identifier '' not defined" (niche: accepted loss, 0 in the
+      corpora — ceiling exceptions `EXTRA_POSITIONAL_PIN_TC`). A positional FUNCTION call now pulls back named
+      (`f(a)` → `f(i := a)`, the gate's canonical form); two e2e texts (`callee-seed-lag`, `refused-shapes`) push the
+      named form. **For the owner:** (1) the one header read the kind gate now allows (`StDeclaration.IsFunction`, the
+      CALLEE's header — a box's CallType, never an item's kind); (2) positional FUNCTION pins are accepted and normalized
+      to named on pull (default) — the alternative is refusing them as P5 refuses a call form the word fits.
+      **Numbers:** C# Engine 2959 + 1 skipped, CODESYS 453, TwinCAT 547, Cli 297, Repo.Gates 243, Contracts 42,
+      Connector 146; volt-cli unit 154; graphical e2e CODESYS 135/135 (TwinCAT: the two changed files, 12/12); LSP
+      test/conformance 6964 pass / 385 todo / 0 fail, test/frontend 25/25 (baselines rewritten: counts only), src 2993/2993,
+      test/analysis census 13/13 (TP 5846 → 5845, GAP 515 → 514, unowned 83 → 82), test/baseline green; typecheck,
+      lint (warnings only), `bun run check` 16/16; `rate:fixtures` — unaskable 109 → 118 (the nine `ng_m_*`); recorder
+      testCount CODESYS 5616 → 5625.
+      **Gate 2R.4 (2026-10-17) — the seven review findings, test first** (recorded on own instances,
+      `ide.ps1 -Instance ld-fbd-coverage`: CODESYS SP21 `en`, TwinCAT Project13 LCID 1033; 13 new `ng_m_*` fixtures, one
+      batch per vendor). (1) **The CLI's post-push check** took `F(n)` held as `F(a := n)` for another program, so the
+      next pull brought the names in as an IDE change: `PushedText.SameBody` now lends the held box's names to the pushed
+      box's positional pins (`NetworkDerivation.NamedAs` — the same type at the same place, every pin named; a pin the text
+      named keeps its name) — `PushedTextTests` 7 rows, and live `graphical/positional-call-cli.test.ts` (`volt push` of a
+      positional call: the workspace holds `F(a := n)`, `status` empty, `pull` "already up to date"; both vendors). The two
+      e2e texts push the POSITIONAL form again and state what pulls back (`pulls`). (2) `StDeclaration.InputNames` read
+      `VAR_IN_OUT CONSTANT` (any qualifier) into the first statement and dropped its variable: a qualifier now opens the
+      block (6 rows); `ng_m_function_constant_in_out` and `ng_m_function_in_out_first` (VAR_IN_OUT before VAR_INPUT) build
+      clean on both — the declaration's order across both kinds is CODESYS's positional order. (3) **A library function's
+      box** (`ng_m_library_function{,_named,_qualified}`, `…_eno`, `…_qualified_eno`): CODESYS answers the pushed box "The
+      assignment source is incorrect." with its input named or not (TwinCAT: clean named, "'' is no input of 'LEN'"
+      positional), and read through ENO "'ENO' is no component of 'LEN'" + the coil's conversion (TwinCAT refuses that
+      push, `TcEnoRefusal` — `vendorRefuses`). The LSP gives the ENO pair again (`enoOfALibraryFunction`, in place of the
+      deleted `enoOfAFunction`); it does NOT give the assignment-source error: the box the editor DRAWS builds, and
+      firing on bakon-nano's REPLACE/DELETE boxes was 2 corpus false positives. It is the push's defect, not the text's —
+      **2R.4b**. (4) `CalleeOf` gives `CallType Method` to a METHOD through an INTERFACE variable (`ng_m_interface_method`
+      clean on both; before the gate it was built without one); an instance ACTION with `CallType Method` is now measured
+      (`ng_m_action_call`, clean on both). The FB's own METHOD without an instance (`ng_m_own_method`): CODESYS "The
+      assignment source is incorrect.", TwinCAT clean — deriving it needs the POU's members, which no scope holds: niche,
+      accepted loss (0 own-method boxes in the six corpora). (5) Fixtures for the derivation's edges: too FEW values and a
+      positional value then a named pin of the same formal answer "Function 'F' requires exactly 'n' inputs" on both;
+      a METHOD called positionally, CODESYS "Function 'M_twice' requires exactly '1' inputs", TwinCAT "'' is no input of
+      'M_TWICE'" + "Identifier '' not defined" (the push names no method's pins — niche, 0 in the corpora). The LSP's
+      `checkCallBoxes` replaces `checkBoxArity`: a project function's pins against its inputs once named (too few counts
+      inputs with no default), and a method's positional pin (`methodBoxPositionalPins`, each vendor's wording).
+      (6) **For the owner — not decided here:** the kind gate's third header read (`StDeclaration.IsFunction`, the
+      callee's header) stays as the implementer wrote it, marked OPEN in `NoKindFromTextTests`; the alternative is the IDE
+      object's own POU type, which no driver reports yet. (7) The BOM is gone from `StDeclaration.cs`; DIALECT N37 no longer
+      names a pragma; N40 carries the gate's measurements; `removed-push-checks.ts` no longer describes the deleted check.
+      Ceiling exceptions `UNNAMED_CALL_BOXES` (`baseline-c.ts`); no ceiling raised. **Side finding (for the owner, not
+      Volt's):** a variable named `s` in any POU's VAR — ST too — does not build on CODESYS SP21 ("Unexpected token 's'
+      found", single-use probe, deleted); the library fixtures use `txt`.
+      **Numbers:** C# Engine 2974 + 1 skipped, CODESYS 453, TwinCAT 547, Cli 297, Repo.Gates 243, Contracts 42, Connector
+      146; volt-cli unit 154; graphical e2e CODESYS 136/136 (the new CLI test included), TwinCAT the three changed files
+      13/13; LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10368 pass / 34 skip / 428 todo / 0 fail; src 2994/2994, test/frontend 25/25 (baselines rewritten:
+      counts only), test/analysis census 13/13 (CODESYS TP 5845 → 5852, GAP 514 → 518, all four excepted; TwinCAT TP
+      7032 → 7035, GAP 880 → 886, all six excepted); typecheck, lint (warnings only), `bun run check` 16/16;
+      `rate:fixtures` — unaskable 118 → 131; recorder testCount CODESYS 5625 → 5638, TwinCAT 5594.
+- [ ] 2R.4b **A LIBRARY function's box is built without its CallType** (2R.4 gate, finding 3). Measured (SP21,
+      `ng_m_library_function{,_named,_qualified}`): CODESYS answers the box a push builds "The assignment source is
+      incorrect." — positional or named — where the editor's drawn box (CallType Function) builds; so an EDITED network
+      holding one does not build. 3 boxes in the corpora (bakon-nano `Recipes`: REPLACE ×2, DELETE). The push holds no
+      declaration of a library's function to derive the CallType (and positional names) from: owed is the driver's read
+      of it (the IDE's library signature) — measure first. TwinCAT builds the named box (its import resolves it). Until
+      then the LSP cannot say it (the drawn box builds) and the census carries the three as ceiling exceptions.
 - [ ] 2R.5 **Owner 2026-10-16: "if it is possible then we should be able to encode and decode it."** Zero in the corpora
       is NOT a reason to refuse. Every shape the IDE can STORE (draw, or hold after an import) gets a spelling, a
       fixture on both vendors and a round trip — whether it compiles or not. Applies to every X / refused-by-name row

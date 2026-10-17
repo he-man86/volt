@@ -19,7 +19,7 @@
  *     not-lowered    385
  *     lsp-gap         88
  *     diverges         5
- *     unaskable      109
+ *     unaskable      131
  *
  *   tier                     lowered    clean
  *     decl                    842      842
@@ -3419,6 +3419,28 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_group_nary: { evidence: "unaskable" },
   ng_group_nested: { evidence: "unaskable" },
   ng_label_jmp_resolved: { evidence: "unaskable" },
+  ng_m_action_call: { evidence: "unaskable" },
+  ng_m_conversion: { evidence: "unaskable" },
+  ng_m_function_constant_in_out: { evidence: "unaskable" },
+  ng_m_function_enabled: { evidence: "unaskable" },
+  ng_m_function_in_out_first: { evidence: "unaskable" },
+  ng_m_function_named: { evidence: "unaskable" },
+  ng_m_function_output_unwired: { evidence: "unaskable" },
+  ng_m_function_positional: { evidence: "unaskable" },
+  ng_m_function_positional_then_named_same: { evidence: "unaskable" },
+  ng_m_function_too_few: { evidence: "unaskable" },
+  ng_m_function_too_many: { evidence: "unaskable" },
+  ng_m_function_two_inputs: { evidence: "unaskable" },
+  ng_m_interface_method: { evidence: "unaskable" },
+  ng_m_library_function: { evidence: "unaskable" },
+  ng_m_library_function_eno: { evidence: "unaskable" },
+  ng_m_library_function_named: { evidence: "unaskable" },
+  ng_m_library_function_qualified: { evidence: "unaskable" },
+  ng_m_library_function_qualified_eno: { evidence: "unaskable" },
+  ng_m_method_call: { evidence: "unaskable" },
+  ng_m_method_positional: { evidence: "unaskable" },
+  ng_m_own_method: { evidence: "unaskable" },
+  ng_m_program_call: { evidence: "unaskable" },
   ng_negation_sink: { evidence: "unaskable" },
   ng_network_disabled: { evidence: "unaskable" },
   ng_network_title_and_comment: { evidence: "unaskable" },
