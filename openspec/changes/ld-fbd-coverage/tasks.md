@@ -1006,6 +1006,13 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       vendors; (3) after the native-writer merge lands: writer, reader, LSP parser, case set and network-text.html
       together, the open-line machinery deleted, not kept beside; (4) full gates + graphical e2e on both vendors. The
       flow must stay identical (owner): text order = stored order, a round trip never changes evaluation order.
+      **Owner 2026-10-17, after the review: option 1 — v2 with the staircase**, plus the review's fixes (readability.md
+      "v2 review": P2 + rule 3 deleted so newlines are layout, EXECUTE `body ⏎ END_EXECUTE [ENO] [EN src]`, one bracket
+      rule for a box as a word's operand or BRANCH feed, one output tail `[outputs] [ENO [=> v]] [[NOT] EN [src]]`, #23
+      spelled `ENO => v`). The staircase is the WRITER's layout only (each nested box one step deeper): the reader ignores
+      indentation, any layout that reads to the tree is accepted, the next pull shows the staircase. LSP: a run-order
+      hint on chains. Measure first: EN-vs-inputs evaluation order, whether the push can set a box's connection on
+      CODESYS (MainOutputIndex read-only, N21) and TwinCAT.
       **FINAL (owner 2026-10-17, supersedes the "always write both pins" paragraph above and the `EN ENO ENO` form):**
       no bare own-`ENO` on a box's line. The word `ENO` means ONE thing, the ENO of the open line above (today's P3,
       unchanged); a line without `;` hands its ENO on; `=> x` AFTER the EN part is the box's own ENO driving the coil x
