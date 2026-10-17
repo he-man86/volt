@@ -998,11 +998,13 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       separate word for the incoming wire (e.g. `above`) was offered and is NOT decided — owner: "not sure about adding
       a new keyword yet". Measure first: a box with ENO and no EN (a call that hands its ENO on), and EN with no ENO,
       both get the same rule (write the pin that exists).
-      **Open, owner unsure (2026-10-17): the common rung "a coil on the last ENO"** (`… EN ENO ENO` / `lamp := ENO;`, three
-      lines). Owner floated `MOVE 2 => b EN ENO ENO => lamp` for the COIL, but `ENO => lamp` is the spelling above for the
-      ENO PIN wired to a variable — a different stored tree. First step of 2R.6: draw both in CODESYS (coil on ENO vs
-      ENO pin to a variable, LD and FBD), store, build, run, and show the owner the two drawings and the two NWL trees
-      side by side. Default until the owner decides: the coil stays `lamp := ENO;`, the pin is `ENO => lamp`.
+      **Decided (owner 2026-10-17): `ENO => lamp` is the COIL on the box's ENO** — "write eno on every block and
+      directly set the var to it": `MOVE 2 => b EN ENO ENO => lamp;` replaces `… EN ENO ENO` / `lamp := ENO;`. The other
+      stored tree, the ENO PIN wired to a variable (awkward-sweep #23), is REFUSED by name: measured SP21 it stores and
+      builds but never writes the variable (AwNamedEno, c = TRUE: x = 7, lamp = FALSE), so it fails "stores AND runs".
+      This supersedes the `MOVE 0 EN c ENO => lamp` = pin reading at the top of this task. Live check of the step: push
+      `MOVE 1 => a EN start ENO` / `MOVE 2 => b EN ENO ENO => lamp;` on CODESYS and TwinCAT, build, run, lamp follows
+      start; pull gives the same text.
       Next, same principle, owner to confirm per row: the other call-form shapes (an unconnected word-box input
       `MUL(, a, 6)`, a negated box pin `AND(a, NOT IN2 := b)`, an empty MOVE `MOVE(IN := , => x)`, the NOT box
       `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
