@@ -510,3 +510,22 @@ exception; one it does not store is refused by name.
 
 **Writer layout:** a nested enabled box in an EN slot goes on the next line, aligned under the outer box, so a chain is
 one box per line; inside brackets, as now, layout is free.
+
+### v2 review (read-only, 2026-10-17) — findings for the owner
+
+- **Implementation: yes.** v2 deletes the only real re-rendering: the writer's open-line hoisting (`Item()` levels +
+  reverse, `EnoRead`, `TextHasEno`), the reader's open-line queue and `Role.Eno`, the same in the LSP port, ~30 cases.
+  With P2 also deleted (newlines become layout: P2 existed only for open lines), the writer is a plain walk except the
+  hidden output-slot derivation, `.name`, the word/call choice and `JMP l;`.
+- **Flow: worse.** A chain written root first reads against execution: `lamp := t ADD c => t ENO EN` / `a MUL b => t
+  ENO EN start;` runs MUL first. Swapping two lines of a chain is a different valid tree, silently (open lines refused
+  it). Minimum counter: a staircase layout (each nested box one step deeper), the stated rule "a box runs after its EN
+  and inputs", an LSP run-order hint; measure EN-vs-inputs evaluation order.
+- **Fixes v2 needs:** delete P2 + rule 3; EXECUTE as `EXECUTE⏎body⏎END_EXECUTE [ENO] [EN src]`; generalize P4 (1) to
+  "a box with EN/ENO, a word box or a parallel as another word's operand or as a BRANCH feed is bracketed"; one output
+  tail `[outputs] [ENO [=> v]] [[NOT] EN [src]]` (spells #23 `ENO => v`, which stores and builds — refusing it pulls
+  today's `named-eno-pin` networks UNSUPPORTED); `ENO` = the box has the pin, the connection following from N16, a pin
+  read by value / `.name` refused unless measured to run.
+- **Push risk:** CODESYS `MainOutputIndex` is read-only and the compiler derives the connection from EN (N21) — a text
+  whose stated connection differs is pull-only. Measure on both vendors (TwinCAT names connections in its own archive).
+- Counts: rules 13 → 11, language exceptions ~20 → ~12 (mostly vendor facts), doc −20 to −25 lines. The saving is code.
