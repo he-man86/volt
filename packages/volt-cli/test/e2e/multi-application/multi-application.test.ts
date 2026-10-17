@@ -29,13 +29,29 @@ setDefaultTimeout(600_000)
 
 const lf = (s: string) => s.replace(/\r\n/g, "\n")
 
-/** Each application's main program, by its path, and the items every application must hold under its own path. */
-type Expected = { mains: string[]; items: string[] }
+/** Each application's main program, by its path, and the items every application must hold under its own path.
+ *  `buildErrors`: the fixture's own build errors, each as `<item path> :: <message>` (`-` for no item). `tasks`: the task
+ *  of each application in `applications`' order. */
+type Expected = {
+	mains: string[]
+	items: string[]
+	applications: string[]
+	tasks: string[]
+	project: string
+	buildErrors: string[]
+	compiled: string[]
+}
 
 const CODESYS: Expected = (() => {
 	const app = (d: string) => `${d}/Plc Logic/Application`
 	const devices = ["Device", "Device_1"]
 	return {
+		project: "CodesysTwoDevices.3.5.21.40",
+		// Measured 2026-10-17 (SP21 Patch 4): both applications compile clean although they declare the same names.
+		buildErrors: [],
+		compiled: devices.map((d) => `${app(d)}/PLC_PRG.pou`),
+		applications: devices.map(app),
+		tasks: devices.map((d) => `${app(d)}/Task Configuration/MainTask.task`),
 		mains: devices.map((d) => `${app(d)}/PLC_PRG.pou`),
 		items: devices.flatMap((d) => [
 			`${d}/${d}.device`,
@@ -60,6 +76,19 @@ const TWINCAT: Expected = (() => {
 	]
 	const plcs = [plc(P14, "Untitled2"), plc(P14, "Untitled1"), plc(P14, "Untitled3"), plc(P1, "Untitled1")]
 	return {
+		project: "TwinCAT MultiProject",
+		// Measured 2026-10-17 (4024.74): Untitled1's task calls MAIN, which that PLC project does not hold (design §9) —
+		// an error on that task, as CODESYS names the same fault; nothing else, although the four PLC projects repeat
+		// PLC_PRG / MAIN / PlcTask.
+		buildErrors: [
+			`${plc(P14, "Untitled1")}/PlcTask.task :: Identifier 'MAIN' not defined`,
+			`${plc(P14, "Untitled1")}/PlcTask.task :: Program name, function or function block instance expected instead of 'MAIN'`,
+		],
+		// The mains a task calls. Untitled1's task calls MAIN, so nothing calls its PLC_PRG, and a POU no task calls is not
+		// compiled on either vendor ("a POU no task calls is not compiled" below) — a fault in it is in no build.
+		compiled: mains.filter((m) => !m.startsWith(`${plc(P14, "Untitled1")}/`)),
+		applications: plcs,
+		tasks: plcs.map((p) => `${p}/PlcTask.task`),
 		mains,
 		items: [
 			`${P14}/${P14}.device`,
@@ -157,6 +186,177 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 				for (const other of expected.mains.filter((o) => o !== p))
 					expect(text[p]!, `${p} holds the edit meant for ${other}`).not.toContain(marker(other))
 			}
+		})
+	})
+
+	// §3: an application is STATED by the bridge, never parsed out of a path by a client.
+	it("refs and fetch state every application by its root path", async () => {
+		const r = await bridge.refs()
+		expect([...(r.applications ?? [])].sort()).toEqual([...expected.applications].sort())
+		const f = await bridge.fetch({ knownItems: {}, onlyItems: [expected.mains[0]!] })
+		expect([...(f.applications ?? [])].sort()).toEqual([...expected.applications].sort())
+	})
+
+	// §7: one IDE window is one bound project — the CODESYS `.project`, the TwinCAT solution — whatever it holds.
+	it("health lists the IDE as one project, named after what was opened", async () => {
+		const h = await bridge.health()
+		expect((h.projects ?? []).map((p: any) => p.project)).toEqual([expected.project])
+	})
+
+	// §5/§9: a move pairs only within one application; a `to` in another application reaching the bridge is refused per
+	// op, BAD_REQUEST naming both applications, before anything is applied.
+	it("a move into another application is refused, naming both, and changes nothing", async () => {
+		const [from, other] = expected.mains
+		const refs = await bridge.refs()
+		const to = `${expected.applications.find((a) => !from!.startsWith(`${a}/`) && other!.startsWith(`${a}/`))}/VltE2EMoved.pou`
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: from, to, ifVersion: refs.items[from!] }] })
+		expect(r.accepted, JSON.stringify(r)).toBe(false)
+		const c = (r.conflicts ?? []).find((x: any) => x.name === from)
+		expect(c?.code, JSON.stringify(r.conflicts)).toBe("BAD_REQUEST")
+		for (const app of expected.applications.filter((a) => from!.startsWith(`${a}/`) || to.startsWith(`${a}/`)))
+			expect(String(c.reason), String(c.reason)).toContain(app)
+		const after = await bridge.refs()
+		expect(after.projectVersion).toBe(refs.projectVersion)
+	})
+
+	/** A build's errors as `<item path> :: <message>` (`-` for none) — the name is compared, not only the message: a
+	 *  fault both vendors give must land on the same item on the wire. */
+	const errorsOf = (r: any): string[] =>
+		(r.diagnostics ?? []).filter((d: any) => d.severity === "error").map((d: any) => `${d.name ?? "-"} :: ${d.message}`).sort()
+	/** The application a path lies in: the longest stated root it is under. */
+	const applicationOf = (path: string) =>
+		expected.applications.filter((a) => path.startsWith(`${a}/`)).sort((a, b) => b.length - a.length)[0]!
+
+	/** Push `ops` against the current refs; an op's `ifVersion: "current"` is the item's version now. */
+	async function pushNow(ops: any[]) {
+		const refs = await bridge.refs()
+		for (const o of ops) if (o.ifVersion === "current") o.ifVersion = refs.items?.[o.name] ?? null
+		return bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
+	}
+
+	/** Put back what a test changed: each edited path's original text, each created path deleted (one that is not there
+	 *  any more is skipped). */
+	async function restore(original: Record<string, string>, created: string[]) {
+		const refs = await bridge.refs()
+		const ops = [
+			...Object.keys(original).filter((p) => refs.items?.[p]).map((p) => ({ op: "set", name: p, sourceText: original[p], ifVersion: refs.items[p] })),
+			...created.filter((p) => refs.items?.[p]).map((p) => ({ op: "deleteItem", name: p, ifVersion: refs.items[p] })),
+		]
+		if (ops.length) await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
+	}
+
+	it("the fixture builds with only its own known errors", async () => {
+		const r = await bridge.build()
+		expect(errorsOf(r), JSON.stringify(r.diagnostics)).toEqual([...expected.buildErrors].sort())
+	})
+
+	// §8's oracle, measured on both vendors 2026-10-17: each application is its own scope. The same global declared in two
+	// applications is two globals — no ambiguity — and a function block another application holds is an unknown type.
+	describe("each application is its own scope", () => {
+		const original: Record<string, string> = {}
+		const created: string[] = []
+		afterAll(() => restore(original, created))
+
+		it("the same global in two applications is no conflict; another application's FB is an unknown type", async () => {
+			const [mainA, mainB] = expected.compiled as [string, string]
+			const [appA, appB] = [applicationOf(mainA), applicationOf(mainB)]
+			expect(appA).not.toBe(appB)
+			const f = await bridge.fetch({ knownItems: {}, onlyItems: [mainA, mainB] })
+			for (const c of f.changed ?? []) original[c.name] = lf(c.sourceText)
+			expect(missing(original, [mainA, mainB])).toEqual([])
+			const gvl = "VAR_GLOBAL\n\tgVltShared : INT;\nEND_VAR\n"
+			const fbA = `${appA}/VltE2EOnlyA.pou`
+			created.push(`${appA}/VltE2EShared.gvl`, `${appB}/VltE2EShared.gvl`, fbA)
+			const pushed = await pushNow([
+				{ op: "set", name: `${appA}/VltE2EShared.gvl`, sourceText: gvl, ifVersion: null },
+				{ op: "set", name: `${appB}/VltE2EShared.gvl`, sourceText: gvl, ifVersion: null },
+				{ op: "set", name: fbA, sourceText: "FUNCTION_BLOCK VltE2EOnlyA\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n", ifVersion: null },
+				{ op: "set", name: mainA, sourceText: original[mainA]!.replace(/^IMPLEMENTATION ST$/m, "IMPLEMENTATION ST\ngVltShared := 1;"), ifVersion: "current" },
+				{
+					op: "set",
+					name: mainB,
+					sourceText: original[mainB]!.replace(/^VAR$/m, "VAR\n\tvltCross : VltE2EOnlyA;").replace(/^IMPLEMENTATION ST$/m, "IMPLEMENTATION ST\ngVltShared := 2;"),
+					ifVersion: "current",
+				},
+			])
+			expect(landedInFull(pushed), JSON.stringify(pushed.conflicts ?? pushed).slice(0, 600)).toBe(true)
+
+			const r = await bridge.build()
+			expect(errorsOf(r), JSON.stringify(r.diagnostics)).toEqual([...expected.buildErrors, `${mainB} :: Unknown type: 'VltE2EOnlyA'`].sort())
+			// CODESYS states the code (TwinCAT writes none): the LSP's `Unknown type` is the same C0077.
+			if (VENDOR === "codesys") expect(r.diagnostics.find((d: any) => d.name === mainB)?.code).toBe("C0077")
+		})
+	})
+
+	// Measured on both vendors 2026-10-17: a task that calls a program its application does not hold is an error ON THE
+	// TASK — the same two messages, the same item path on the wire.
+	it("a task calling a program its application does not hold is an error on that task", async () => {
+		const task = expected.tasks[expected.applications.indexOf(applicationOf(expected.compiled[0]!))]!
+		const f = await bridge.fetch({ knownItems: {}, onlyItems: [task] })
+		const text = lf(f.changed?.find((c: any) => c.name === task)?.sourceText ?? "")
+		expect(text).toMatch(/^Calls:/m)
+		try {
+			const pushed = await pushNow([{ op: "set", name: task, sourceText: text.replace(/^Calls:.*$/m, "Calls:     VltE2ENoSuchProgram"), ifVersion: "current" }])
+			expect(landedInFull(pushed), JSON.stringify(pushed.conflicts ?? pushed).slice(0, 600)).toBe(true)
+			const r = await bridge.build()
+			expect(errorsOf(r), JSON.stringify(r.diagnostics)).toEqual(
+				[
+					...expected.buildErrors,
+					`${task} :: Identifier 'VltE2ENoSuchProgram' not defined`,
+					`${task} :: Program name, function or function block instance expected instead of 'VltE2ENoSuchProgram'`,
+				].sort(),
+			)
+		} finally {
+			await restore({ [task]: text }, [])
+		}
+	})
+
+	// Measured on both vendors 2026-10-17: the build compiles what a task reaches. A fault in a POU no task calls is in no
+	// build — which is why `compiled` leaves out a main program its own task does not call.
+	it("a POU no task calls is not compiled", async () => {
+		const p = `${applicationOf(expected.compiled[0]!)}/VltE2EUncalled.pou`
+		try {
+			const pushed = await pushNow([
+				{ op: "set", name: p, sourceText: "PROGRAM VltE2EUncalled\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nzzVltMultiApp := 1;\nEND_PROGRAM\n", ifVersion: null },
+			])
+			expect(landedInFull(pushed), JSON.stringify(pushed.conflicts ?? pushed).slice(0, 600)).toBe(true)
+			const r = await bridge.build()
+			expect(errorsOf(r), JSON.stringify(r.diagnostics)).toEqual([...expected.buildErrors].sort())
+		} finally {
+			await restore({}, [p])
+		}
+	})
+
+	// §6: `build` compiles EVERY application, and a diagnostic carries its item's path — the same fault in each main
+	// program is one diagnostic per application, never one folded across them.
+	describe("build compiles every application", () => {
+		const original: Record<string, string> = {}
+		const token = "zzVltMultiApp"
+		const undefinedHere = (r: any) =>
+			// The compiler's "not defined" error alone (CODESYS also says C0018 about the same line), as build-diagnostics.test.ts.
+			(r.diagnostics ?? []).filter((d: any) => d.severity === "error" &&
+				(d.code !== undefined ? d.code === "C0046" : d.message === `Identifier '${token}' not defined`) && String(d.message).includes(`'${token}'`))
+
+		afterAll(() => restore(original, []))
+
+		it("the same fault in each application's main program is one diagnostic per path", async () => {
+			const f = await bridge.fetch({ knownItems: {}, onlyItems: expected.mains })
+			for (const c of f.changed ?? []) if (expected.mains.includes(c.name)) original[c.name] = lf(c.sourceText)
+			expect(missing(original, expected.mains)).toEqual([])
+			const refs = await bridge.refs()
+			const ops = expected.mains.map((p) => ({
+				op: "set",
+				name: p,
+				sourceText: original[p]!.replace(/^IMPLEMENTATION ST$/m, `IMPLEMENTATION ST
+${token} := 1;`),
+				ifVersion: refs.items?.[p] ?? null,
+			}))
+			const pushed = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
+			expect(landedInFull(pushed), JSON.stringify(pushed.conflicts ?? pushed).slice(0, 600)).toBe(true)
+
+			const r = await bridge.build()
+			expect(r.success).toBe(false)
+			expect(undefinedHere(r).map((d: any) => d.name).sort(), JSON.stringify(r.diagnostics)).toEqual([...expected.compiled].sort())
 		})
 	})
 })

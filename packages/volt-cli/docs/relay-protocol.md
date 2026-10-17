@@ -321,12 +321,12 @@ B→R {"hello":{"protocol":1,"volt":"0.0.1.842","vendor":"codesys","pipe":"volt.
 
 R→B {"id":"r1","op":"refs","body":{}}
 B→R {"id":"r1","progress":{"operation":"refs","done":60,"total":138}}
-B→R {"id":"r1","result":{"projectVersion":"9f3c…","items":{…},"folders":{…},"platform":"codesys","projectName":"AWA_Palletizer"}}
+B→R {"id":"r1","result":{"projectVersion":"9f3c…","items":{…},"applications":[…],"platform":"codesys","projectName":"AWA_Palletizer"}}
 
 R→B {"id":"r2","op":"push","body":{"ops":[…],"expectedProjectVersion":"9f3c…"}}
 R→B {"id":"r3","op":"health"}              a second request, in flight at the same time
 B→R {"id":"r3","result":{"projects":[…]}}  answers immediately; r2 still holds the IDE
-B→R {"id":"r2","result":{"accepted":false,"conflicts":[{"name":"FB_Motor.pou","code":"STALE_ITEM_VERSION",…}]}}
+B→R {"id":"r2","result":{"accepted":false,"conflicts":[{"name":"Device/Plc Logic/Application/FB_Motor.pou","code":"STALE_ITEM_VERSION",…}]}}
 
 B→R {"volt":"ping"}
 R→B {"volt":"pong"}

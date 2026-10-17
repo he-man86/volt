@@ -51,7 +51,7 @@ public sealed class WalkResult
     public IReadOnlyList<string> UnwalkedFolders { get; }
 
     /// <summary>Objects the walk SAW and could not classify — their kind is unknown, so they are in no version map
-    /// under a full name; the read ops publish them in <c>unreadable</c> by bare name.</summary>
+    /// under a path; the read ops publish them in <c>unreadable</c> as <c>&lt;folder&gt;/&lt;bare name&gt;</c>.</summary>
     public IReadOnlyList<UnreadableObject> UnreadableObjects { get; }
 
     /// <summary>The root folder of every APPLICATION the walk passed (CODESYS: each <c>IApplicationObject</c>; TwinCAT:

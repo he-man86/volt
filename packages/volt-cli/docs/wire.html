@@ -29,7 +29,7 @@
 <p>
   The stream is <b>newline-delimited JSON</b> in both directions. A request is one object:
 </p>
-<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["FB_Motor.pou"] } }</pre>
+<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["Device/Plc Logic/Application/FB_Motor.pou"] } }</pre>
 <p>
   A response is a run of frames on the same connection: zero or more <code>progress</code> frames, then exactly
   one terminal <code>result</code> or <code>error</code>. Each frame carries a single key.
@@ -56,17 +56,28 @@
 
 <h2 id="identity">Identity, versions and the two gates</h2>
 <p>
-  <b>The item NAME is the identity.</b> <code>refs</code>, <code>fetch</code>'s <code>knownItems</code>, every
-  push op and the one-item-per-file layout are all keyed by it. On the wire that name is <b>full</b> —
-  <code>name.kind</code>, e.g. <code>CM_Carrier.pou</code> — because IEC guarantees unique names <i>within</i> a
-  kind, not across them: a control module and the visualization that draws it are legitimately
-  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in the same project. Below the vendor
-  seam the same item is addressed by its <b>bare</b> name, which is the IDE's own lookup key.
+  <b>The item's PATH is its identity</b>: its folder in the IDE's own tree and its file name with the kind,
+  <code>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</code>. <code>refs</code>, <code>fetch</code>'s <code>knownItems</code>
+  and <code>onlyItems</code>, every push op and its conflicts, a build diagnostic and the workspace layout are all
+  keyed by it, so two <code>PLC_PRG.pou</code> in two applications are two items, and so are
+  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in one folder. Below the vendor seam the item
+  is looked up by its <b>bare</b> name inside the container its path names, never across the whole tree.
+</p>
+<pre>Device/Plc Logic/Application/PLC_PRG.pou          CODESYS: a device's application
+Device_1/Plc Logic/Application/PLC_PRG.pou        another device, another item
+TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou     TwinCAT: system project / PLC / PLC project
+Project Settings.projectsettings                  CODESYS: the tree root (the POU pool)</pre>
+<p>
+  <code>refs</code> and <code>fetch</code> state the root path of every application in <code>applications</code>.
+  An item belongs to the application whose root is the longest prefix of its path; an item under none belongs to
+  the pool. A client never parses a vendor segment. A client that sends <code>knownItems</code> also sends the
+  <code>applications</code> its baseline was read with, as <code>knownApplications</code>: a known path under a folder
+  the walk could not read is then judged by the application it was in.
 </p>
 <table>
   <tr><th>version</th><th>covers</th><th>used by</th></tr>
   <tr><td class="name">projectVersion</td><td>Every tracked item's content, aggregated.</td><td>The push lease — <code>expectedProjectVersion</code>.</td></tr>
-  <tr><td class="name">items[name]</td><td>One item's content.</td><td>The per-item optimistic guard — <code>ifVersion</code>.</td></tr>
+  <tr><td class="name">items[path]</td><td>One item's content.</td><td>The per-item optimistic guard — <code>ifVersion</code>.</td></tr>
 </table>
 <p>
   A push therefore has two independent gates. <code>expectedProjectVersion</code> is the lease over the whole
@@ -86,24 +97,20 @@
   <tr><th>op</th><th>means</th></tr>
   <tr>
     <td class="name">set</td>
-    <td>The item named <code>name</code> should end up as <code>toName ?? name</code>, in
-      <code>toFolder ?? (where it is now)</code>, with <code>sourceText ?? (what it has now)</code>. One op
-      expresses <b>create, update, rename, move</b> and any combination of them, applied atomically.</td>
+    <td>The item at path <code>name</code> should end up at <code>to ?? name</code>, with
+      <code>sourceText ?? (what it has now)</code>. A path that names no item is a create there. One op
+      expresses <b>create, update, rename, move</b> and any combination of them, applied atomically. A move stays
+      inside one application; a <code>to</code> in another application is refused <code>BAD_REQUEST</code> naming both
+      (moving there is a delete and a create).</td>
   </tr>
   <tr><td class="name">deleteItem</td><td>Remove the item.</td></tr>
 </table>
 <div class="note">
-  <b>Absent is not empty</b>, and the difference is load-bearing. <code>toFolder: null</code> means "keep the
-  current folder". <code>toFolder: ""</code> is a <i>destination</i> — the tree root, which on CODESYS is the
-  project's own POU pool. Reading empty as absent once made a drag out of the Application report ACCEPTED,
-  move nothing, and put the file back on the next pull.
-</div>
-<div class="note">
   <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a
-  <code>set</code>'s <code>toName</code>, compared case-insensitively. A second op on the same wire name
-  (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a name another op
+  <code>set</code>'s <code>to</code>, compared case-insensitively. A second op on the same path
+  (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a path another op
   sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
-  <code>set</code>; a delete and a create of the same name are two pushes. That batch used to replace the object —
+  <code>set</code>; a delete and a create of the same path are two pushes. That batch used to replace the object —
   and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network settings)
   — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
   (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
@@ -122,7 +129,7 @@
 </div>
 <p>
   <b>Folders are not entities.</b> There is no folder op, because Volt models structure the way git does: a
-  folder is the path an item lives in, created on demand from an item's <code>toFolder</code>, and a push
+  folder is the path an item lives in, created on demand from an item's path, and a push
   <b>prunes the folders it empties</b> — the way git removes a directory once its last file goes. Only folders
   <i>that push</i> emptied, recursively up the chain, and never a vendor container.
 </p>
@@ -216,7 +223,7 @@
   Only the live IDE can refuse an op that the pre-flight passed — a member name it will not take, a body its
   importer rejects. When it does after earlier ops landed, the push <b>stops</b> there (the earlier ops are not
   rolled back, the later ones are not applied) and answers <code>accepted:true</code> with the usual receipt
-  (<code>newItems</code>, <code>newFolders</code>, <code>newProjectVersion</code>) <b>and</b> a conflict for every op
+  (<code>newItems</code>, <code>newProjectVersion</code>) <b>and</b> a conflict for every op
   that did not land: the refused op with its own code, and each op after it in apply order with
   <code>NOT_ATTEMPTED</code>. <b>Every op the list does not name landed.</b> When the refused op was the first one
   applied, nothing landed in full and the answer is <code>accepted:false</code>; whatever of that op the IDE kept (an

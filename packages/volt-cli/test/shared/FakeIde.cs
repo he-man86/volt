@@ -478,7 +478,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     /// <summary>Which node each create was given as its PARENT. `Recorded` only carries the name, so a create
     /// that lands in the wrong container looks identical to one that lands in the right one — which is how an
-    /// empty `toFolder` resolving to the Application instead of the tree root stayed invisible offline.</summary>
+    /// root-level path resolving to the Application instead of the tree root stayed invisible offline.</summary>
     public Dictionary<string, string> CreatedParents { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Task settings pushed, by item name. Recorded rather than applied, like every other mutation

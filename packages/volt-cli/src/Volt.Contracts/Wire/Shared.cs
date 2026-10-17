@@ -27,7 +27,7 @@ public abstract class BoundRequest
     public string? ExpectedProjectName { get; set; }
 }
 
-/// <summary>What both READ ops answer with: the project's version map, its folder map, the two "this view is
+/// <summary>What both READ ops answer with: the project's version map, its applications, the two "this view is
 /// short" lists, and the identity the bridge actually walked.
 ///
 /// <para><c>RefsResponse</c> and <c>FetchResponse</c> carried these six members as two copies, doc comments
@@ -36,7 +36,7 @@ public abstract class BoundRequest
 /// `volt status` walks through <c>refs</c>.</para></summary>
 public abstract class ReadResponse
 {
-    /// <summary>Aggregate over every tracked item's NAME and VERSION — the lease a push quotes back as
+    /// <summary>Aggregate over every tracked item's PATH and VERSION — the lease a push quotes back as
     /// <c>expectedProjectVersion</c>. Content-sensitive: any edit, move, add or delete changes it.</summary>
     [JsonPropertyName("projectVersion")]
     public string ProjectVersion { get; set; } = "";

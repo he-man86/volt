@@ -106,6 +106,9 @@ test("a finding's fixes travel in Diagnostic.data; a finding without one has no 
 // ONE SCOPE PER APPLICATION (openspec multi-application-tree, design §8): each application has its own GVLs, so the same
 // global in two applications is two globals, one per scope — not C0136. A name resolves inside its own application and
 // the POU pool (the items under no application), never in another application.
+// The compiler's answer, measured live on CODESYS SP21 and TwinCAT 4024 (volt-cli e2e `multi-application`, "the same global in
+// two applications is no conflict; another application's FB is an unknown type"): no error for the shared global, and the one
+// error `C0077 Unknown type: '<FB>'` on the program that names the other application's FB.
 test("the same global in two applications is no ambiguity, and another application's FB is not in scope", () => {
   const ws = "C:/ws/src"
   const appA = `${ws}/Device/Plc Logic/Application`
@@ -126,8 +129,7 @@ test("the same global in two applications is no ambiguity, and another applicati
   const of = (u: string) => documentDiagnostics(store, store.workspace().find((x) => x.uri === u)!)
   expect(of(uri(`${appA}/PLC_PRG.pou`))).toEqual([])
   const b = of(uri(`${appB}/PLC_PRG.pou`))
-  expect(b.some((x) => x.code === "C0136")).toBe(false)
-  expect(b.map((x) => x.message)).toContain("Unknown type: 'FB_OnlyA'")
+  expect(b.map((x) => [x.code, x.message])).toEqual([["C0077", "Unknown type: 'FB_OnlyA'"]])
   // the pool is every application's
   expect(store.project(uri(`${appB}/PLC_PRG.pou`)).symbols.has("fb_pool")).toBe(true)
   expect(store.project(uri(`${appB}/PLC_PRG.pou`)).symbols.has("fb_onlya")).toBe(false)

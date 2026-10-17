@@ -164,7 +164,7 @@ window.VOLT = {
         "x-outcomes": [
           "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "BAD_REQUEST for a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 nor \u0060init: true\u0060: it is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
-          "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a name absent from a folder it did read is still in \u0060removed\u0060, judged by \u0060knownFolders\u0060.",
+          "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a known path absent from a folder it did read (the path\u0027s own prefix) is still in \u0060removed\u0060.",
           "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
         ],
         "result": {

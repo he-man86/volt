@@ -141,23 +141,29 @@ code, not of the folder names — the names only have to make it legible.
 > driver reaches its vendor's own representation below the seam. The vendor facts that outlived that layer moved
 > to `Ide/DIALECT.md`, which is where they belong: they are about how the two IDEs behave, not about a transport.
 
-### Protocol invariant: the item **name** is the identity
+### Protocol invariant: the item **path** is the identity
 
-The whole wire is keyed by item NAME — `refs` `items`/`kinds`/`folders`, `fetch` `knownItems`, every push op,
-`structureVersion` (hash of sorted *names*), and the one-item-per-file workspace layout. Load-bearing across
-`volt-cli` and `volt-vscode`. Two spellings of that name exist and the boundary between them is exact: **below the
-vendor seam the name is BARE** (the IDE's own lookup key, no extension), and **on the wire it is FULL** —
-`name.kind`, e.g. `CM_Carrier.pou`. Every version/folder map Volt publishes or gates against is keyed by the full
-name, derived in ONE place (`Versioning.VersionedItem.Identity`); an item that could not be materialized has no full
-name and keeps its bare one there.
+The whole wire is keyed by the item's PATH in the IDE's own tree, `<folder>/<name>.<kind>` — `refs`/`fetch` `items`,
+`removed`, `knownItems`, `onlyItems`, every push op (`name`, a `set`'s `to`) and conflict, a build diagnostic whose object the vendor names,
+`projectVersion` (hash over path + version), and the one-item-per-file workspace layout. One `refs` holds every device
+and application (CODESYS) and every system project and PLC project (TwinCAT), so two `PLC_PRG.pou` in two
+applications are two items, and so are `CM_Carrier.pou` and `CM_Carrier.visualization` in one folder. The path is
+derived in ONE place (`Versioning.VersionedItem.Identity`); an item that could not be materialized has no kind and is
+named `<folder>/<bare name>`. **Below the vendor seam the name is BARE** (the IDE's own lookup key, no extension), and
+a push resolves it only inside the container its path names (`ItemLookup`), never across the tree. `docs/items.html`
+shows one tree per vendor.
 
-This section used to say the wire was keyed by BARE name and that same-name items collapsing last-write-wins was "a
-non-issue for source items (IEC guarantees unique names)". IEC guarantees unique names *within a kind*, not across
-kinds: a control module and the visualization that draws it are `CM_Carrier.pou` and `CM_Carrier.visualization`, and
-a real customer project ships two such pairs. Collapsed onto one slot, the FB's version was invisible to the aggregate
-hash and the push's `ifVersion` gate answered with the VISUALIZATION's hash — the FB could be pulled and never pushed
-back. **Do not add a "duplicate name" guard that throws** — real projects legitimately repeat names across kinds, and
-throwing breaks `refs`; the fix was keying the wire's maps by the identity the wire already publishes.
+**Applications are stated, never parsed.** Each driver's walk names the root folder of every application
+(`WalkResult.Applications`; CODESYS each `IApplicationObject`, TwinCAT each PLC project), and `refs`/`fetch` publish
+them as `applications`. An item belongs to the application whose root is the longest prefix of its path
+(`ItemPath.ApplicationOf`); an item under none is in the pool (the CODESYS project root). No layer above the drivers
+reads a vendor segment such as `Plc Logic` or `PLC`. On this rest: a move pairs only within one application (the CLI
+never pairs across; the bridge refuses a cross-application `to`, `BAD_REQUEST` naming both), `build` compiles every
+application, a client sends its baseline's `knownApplications` so a path under an unread device is judged by the
+application it was in, and the LSP resolves a name inside its own application, its libraries and the pool.
+
+**Do not add a "duplicate name" guard that throws** — real projects repeat names across kinds and across
+applications, and throwing breaks `refs`.
 
 ### Wire / materialization invariants (each cites its Core symbol)
 
@@ -250,13 +256,12 @@ throwing breaks `refs`; the fix was keying the wire's maps by the identity the w
   pulls the same text on both (`test/shared/WireParityCases.cs`); any other stored text refuses the interface by
   name, and a pushed non-empty declaration is refused on TwinCAT.
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
-  library (`Library/LibraryManifest`); `verbose` fetch (`FetchRequest.Verbose`) adds each element's declaration-only
-  signature as a read-only item, excluded from `structureVersion`. Volt implements no signature extraction on TwinCAT, so the set is empty there. That is a gap in VOLT and
-  nothing else: the surface EXISTS and has now been measured — `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()`
-  returns ~181k chars of structured signatures on the fixture, out-of-process (DIALECT C2c). This line used to
-  read "TwinCAT (out-of-process) can't extract", which was the same shape of invented incapacity as "TwinCAT has
-  no move" (D4f) — both wrong, both for months.
-- **What round-trips, and what is refused instead** — push→fetch returns byte-identical `sourceText`/`folder`/`name`
+  library (`Library/LibraryManifest`); a fetch adds each element's declaration-only signature as a read-only item
+  beside its library's manifest, re-extracted only when a walked `.library` changed (`FetchService`). Signatures are
+  never in `refs`, so never in `projectVersion`. Both vendors extract them: CODESYS from the precompiled signatures
+  after a build (`CodesysObjectModel.Libraries.cs`), TwinCAT from `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()` out-of-process
+  (`TcLibrarySignatures`, DIALECT C2c).
+- **What round-trips, and what is refused instead** — push→fetch returns byte-identical `sourceText` at the same path
   for every member the text spells, and an **emptied body is cleared, not silently retained**. That is the
   completeness oracle's claim (`scripts/completeness.ts`, openspec `bridge-one-to-one` 2.1: vendor object → text →
   push into a blank copy → re-read reproduces every non-cache member, an undecided member fails by name) — not
@@ -433,11 +438,11 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     typed `<interface>`, so the write was accepted and changed nothing. The document layer that hosted all five
     is deleted, and the rule outlived it: **address the object, never search under it.** `ICodeStore` now takes an
     `ItemRef` per item and `WriteMembers` resolves each member by NAME from one map.
-12. **A name is not a path.** Wire item names carry no folder (`Foo.pou`); workspace entries are src-relative paths
-    (`Folder/Foo.pou`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
-    the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors
-    found this independently from opposite sides of the call. If a set crosses that boundary, convert at the
-    boundary and name the variable for what it holds.
+12. **A bare name is not a path.** The wire and the workspace key an item by its path (`Folder/Foo.pou`); below the
+    seam the IDE's key is the bare name (`Foo`). `IdeTree` once matched a set of NAMES against PATHS, so an item
+    deleted in the IDE never left the workspace unless it sat in the project root — and the one test covering it
+    used a root item. If a set crosses that boundary, convert at the boundary (`ItemPath`) and name the variable for
+    what it holds.
 13. **One object never fails the walk — so a classifier may refuse, and must not guess.** `RefinePou` once had to
     return a code for every input, because the CODESYS tree walk's `try/catch` wrapped only `GetChildren` and a
     throw aborted `WalkItems` and with it every fetch/refs/init/push for the project — and "a code for every input"

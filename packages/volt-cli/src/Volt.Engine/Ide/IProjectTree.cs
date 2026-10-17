@@ -17,8 +17,8 @@ public interface IProjectTree
     WalkResult WalkItems();
 
     /// <summary>The root the <see cref="WalkItems"/> folder paths are measured from — the whole tree's origin
-    /// (CODESYS primary project; TwinCAT PLC project root). A non-empty push <c>toFolder</c> is the FULL path
-    /// from here, exactly as the walk emits it, so push placement is symmetric with fetch.</summary>
+    /// (CODESYS primary project; TwinCAT solution). A push path's folder is measured from here, exactly as the walk
+    /// emits it, so push placement is symmetric with fetch.</summary>
     ItemRef GetTreeRoot();
 
     // NO Lookup member. Finding an item by name is a WALK over the four members above, so it is shared code

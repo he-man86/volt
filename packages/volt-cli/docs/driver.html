@@ -77,8 +77,8 @@ string? BodyLanguage(ItemRef item);</pre>
 <table>
   <tr><th>type</th><th>is</th></tr>
   <tr><td class="name">ItemRef</td><td>An opaque handle to one node in the IDE's tree — a <code>readonly struct</code> wrapping the vendor's native object. The engine never unwraps it.</td></tr>
-  <tr><td class="name">ProjectItem</td><td>What a walk found: <code>(Name, Item, KindCode, Folder)</code>. <code>Name</code> is the stable identity, <code>Folder</code> its path from the tree root.</td></tr>
-  <tr><td class="name">WalkResult</td><td><code>Items</code> plus <code>UnwalkedFolders</code> — and <code>Complete</code>. See below; this is the most easily-missed part of the contract.</td></tr>
+  <tr><td class="name">ProjectItem</td><td>What a walk found: <code>(Name, Item, KindCode, Folder)</code>. <code>Name</code> is the bare name, the IDE's lookup key inside <code>Folder</code>, its path from the tree root. The wire identity is the path <code>Folder/Name.kind</code>, derived in one place (<code>VersionedItem.Identity</code>).</td></tr>
+  <tr><td class="name">WalkResult</td><td><code>Items</code> plus <code>UnwalkedFolders</code> — and <code>Complete</code> — and <code>Applications</code>, the root folder of every application the walk passed (CODESYS: each <code>IApplicationObject</code>; TwinCAT: each PLC project). See below; this is the most easily-missed part of the contract.</td></tr>
   <tr><td class="name">ItemContent</td><td><code>(Kind, Declaration, Body, Members, Properties)</code>. One record for both directions — a read builds it, the ST writer renders it, the ST reader parses it back, a push applies it.</td></tr>
   <tr><td class="name">Member</td><td>A method, action or property, with its own declaration, body and <code>Properties</code>, and a property's <code>Getter</code>/<code>Setter</code>.</td></tr>
   <tr><td class="name">ObjectProperties</td><td>Every member of the vendor object that is neither its text nor a measured editor cache — its class where the text cannot tell it, its build properties, its comment, its network-variable settings, its file link (<a href="items.html#properties">the <code>%</code>-lines</a>). Closed and typed: a vendor member no field names refuses the item by name. <b>Required</b> on <code>ItemContent</code> and <code>Member</code>, with no default, so a driver that has not read an object's properties cannot build its content; <code>ObjectProperties.None</code> is for a kind with no vendor carrier at all (a task, a library reference, a device), never for an object the driver did not read.</td></tr>
@@ -99,14 +99,13 @@ string? BodyLanguage(ItemRef item);</pre>
 
 <h3 id="presence">Presence is the object</h3>
 <p>
-  Three places where <code>null</code> and empty mean different things, each of which cost data before it was
+  Two places where <code>null</code> and empty mean different things, each of which cost data before it was
   spelled out:
 </p>
 <table>
   <tr><th>value</th><th>null means</th><th>empty means</th></tr>
   <tr><td class="name">ItemContent.Body</td><td>The item <b>has</b> no body; write nothing.</td><td>Clear the body. TwinCAT skipped empty implementations once, so emptying a body silently kept the old code.</td></tr>
   <tr><td class="name">Member.Getter / Setter</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>An <code>Accessor</code> with an empty body: it exists and has no code (the interface case).</td></tr>
-  <tr><td class="name">SetItemOp.ToFolder</td><td>Keep the current folder.</td><td>A destination: the tree root.</td></tr>
 </table>
 <p>
   And one place where a default would cost data: <b>the class at the create</b>. <code>IProjectTree.CreateChild</code>

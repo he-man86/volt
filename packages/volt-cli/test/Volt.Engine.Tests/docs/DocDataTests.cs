@@ -125,7 +125,7 @@ public class DocDataTests
             + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
             + "first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
             "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a "
-            + "name absent from a folder it did read is still in `removed`, judged by `knownFolders`.",
+            + "known path absent from a folder it did read (the path's own prefix) is still in `removed`.",
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
@@ -347,7 +347,7 @@ public class DocDataTests
         // This used to write a sentence saying `op` selects `set` or `deleteItem` and emit neither — no
         // discriminator, no `oneOf`, and no `SetItemOp`/`DeleteItemOp` schema at all. So the document called
         // "the artefact to hand to another project" described `push`, the only MUTATING op, as taking
-        // `{name, ifVersion}`: no `sourceText`, no `toFolder`, no `toName`. A generated client could read but
+        // `{name, ifVersion}`: no `sourceText`, no `to`. A generated client could read but
         // not write. The gate did not catch it because it reflects PROPERTIES, and `[JsonDerivedType]` is an
         // attribute on the type — which is precisely the kind of gap a generator must close itself.
         var poly = t.GetCustomAttribute<JsonPolymorphicAttribute>();
@@ -376,7 +376,7 @@ public class DocDataTests
     /// <summary>Whether a client may OMIT this field — which is not the same question in both directions.
     ///
     /// <para>NULLABLE is the signal on both sides: an absent field means "unchanged"/"not asked", and that
-    /// distinction is load-bearing (`toFolder` absent vs `""`).</para>
+    /// distinction is load-bearing (`to` absent keeps the item where it is).</para>
     ///
     /// <para>On a REQUEST a non-nullable VALUE type is optional too, because the deserializer supplies its
     /// default and absence is the normal way to say it. `fetch` with no `init` is an ordinary incremental fetch

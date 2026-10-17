@@ -142,7 +142,7 @@ function typeOf(schema) {
 }
 
 /** The field table for a schema (or a `$ref` to one). An ABSENT optional field is not the same as an empty
- *  one on this wire — `toFolder` unset means "leave it where it is" — so optionality is marked, not implied. */
+ *  one on this wire — `to` unset means "leave it at its path" — so optionality is marked, not implied. */
 function fieldTable(schema, doc) {
   const s = schema?.$ref ? doc.components.schemas[refName(schema.$ref)] : schema
   if (!s?.properties) return ""

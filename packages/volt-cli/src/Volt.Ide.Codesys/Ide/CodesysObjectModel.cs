@@ -77,8 +77,8 @@ namespace Volt.Ide.Codesys
             return list;
         }
 
-        /// <summary>The node's name. NEVER "": the item name IS the wire identity (refs, knownItems, every push
-        /// op, structureVersion, the one-item-per-file layout), and the tree walk uses it as both the item name
+        /// <summary>The node's name. NEVER "": the item name is part of the wire identity, its path (refs,
+        /// knownItems, every push op, the one-item-per-file layout), and the tree walk uses it as both the item name
         /// and a folder-path segment — so a fabricated blank corrupts identity rather than merely losing text.
         /// Two same-named blanks collapse last-write-wins, silently.
         /// <para>The two calls are an ARITY probe (see GetChildren): some scripting objects expose

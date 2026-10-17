@@ -51,4 +51,46 @@
       `Volt.Cli` outputs were held by another session's processes, so the TwinCAT worker was built to the scratchpad and
       served with `ide.ps1 -BridgeDir`.
       Left for 3.4: `docs/wire.html` still spells `toName`/`toFolder`/`newFolders`; `items.html` and ARCHITECTURE.
-- [ ] 3.4 Gates green on both vendors; docs (`items.html`, ARCHITECTURE "item name is the identity") updated.
+- [x] 3.4 Gates green on both vendors; docs (`items.html`, ARCHITECTURE "item name is the identity") updated.
+      **Gate step 3b (2026-10-17).** Docs: `wire.html`, `items.html`, `driver.html`, `relay-protocol.md`, the OpenRPC
+      document and ARCHITECTURE spell the path identity and `to`. Review findings, five:
+      (1) **taken, measured**: §8 had no recording. The e2e `multi-application` now records it on both vendors ("each
+      application is its own scope"): a GVL with the same global in two applications plus an FB of the first named in
+      the second builds with exactly one error, `C0077 Unknown type: 'VltE2EOnlyA'` on the second application's
+      program (CODESYS SP21 and TwinCAT 4024, same name and message). The LSP test cites that and now asserts the code and
+      message as the only diagnostic, not "contains".
+      (2) **taken, measured**: the second explanation is the right one. A fault in a POU no task calls, in Untitled2 (no
+      task error), is in no build on either vendor (new e2e "a POU no task calls is not compiled"). `compiled` and design
+      §9 now say Untitled1's PLC_PRG is left out because nothing calls it, not because its build stops.
+      (3) **taken, test-first**: `TcObjectModel` keys the cross-pane dedupe by `Path.GetFullPath` of the file, so one file
+      spelled with `\` or `/` or a `..` is one diagnostic (`OneFileSpelledTwoWaysIsOneDiagnostic`, red → green). A line
+      naming no file keeps its caption (its PLC project) in the key: each PLC project's own line is kept, as CODESYS keeps
+      each build's.
+      (4) **taken in part**: `doc.js` (`to` unset) and ARCHITECTURE's library-signature bullet (no `structureVersion`, no
+      `verbose`; TwinCAT does extract, `TcLibrarySignatures`) are fixed, plus the round-trip bullet (`sourceText` at the same
+      path, not `folder`/`name`). **CLAUDE.md is not edited**: a workflow step does not change CLAUDE.md. For the owner, a
+      suggested "Protocol invariant" opening: "The wire is keyed by the item's PATH, `<folder>/<name>.<kind>`
+      (`Device/Plc Logic/Application/PLC_PRG.pou`). This covers `refs`, `fetch` `knownItems`, every push op, `projectVersion`
+      and the workspace layout. Below the vendor seam the driver looks up the BARE name inside the container the path names.
+      The identity is derived in one place (`Versioning.VersionedItem.Identity`)."
+      (5) **taken, measured, a real wire difference, fixed**: for a task that calls a program its application does not
+      hold, CODESYS names the task (`…/Task Configuration/MainTask.task`, C0046 + C0035). TwinCAT gave no name. Its compiler
+      writes the error on `…\Untitled1\PlcTask.TcTTO` (read from the Build pane), but `BeckhoffDriver.NameByPath` only
+      considered source kinds, and four `PlcTask` made the engine's bare-name lookup ambiguous. It now considers every
+      addressable item (`ItemKind.IsAddressableItem`), so TwinCAT names `…/PLC/Untitled1/PlcTask.task`. The new e2e "a task
+      calling a program its application does not hold is an error on that task" (red on TwinCAT before: name null)
+      compares path + message on both vendors, and `buildErrors` now carries names.
+      **Numbers**: typecheck clean (5 packages); `bun run lint`, the LSP lint and `bun run check` (16/16) green. C# (Debug):
+      `Volt.Engine.Tests` 2988 pass / 1 skip, `Volt.Cli.Tests` 301, `Volt.Contracts.Tests` 42, `Volt.Repo.Gates` 243,
+      `Volt.Ide.Twincat.Tests` 591 (+2), `Volt.Ide.Codesys.Tests` 457, `Volt.Connector.Tests` 146, all 0 fail. volt-cli unit
+      159 pass. LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) 10351 pass / 34 skip / 428 todo / 0 fail
+      over 372 files. Fixtures and the transpiler are unchanged, so no `rate:fixtures`. Live e2e, own instance
+      `multi-application-tree`, one vendor up at a time: CODESYS (CodesysTestProject.3.5.21.40) 320 pass / 92 skip /
+      0 fail; TwinCAT Project14 317 pass / 97 skip / 0 fail; `multi-application` 12/12 on CodesysTwoDevices and 12/12 on TwinCAT MultiProject
+      (+8). A first run with both IDEs up at once failed 34 / 23. Those failures were the cross-vendor halves (which run
+      only when both are up) and `IDE_BUSY`: the two suites drove the TwinCAT IDE at the same time. It was not a product
+      failure, and it was re-run one vendor at a time. The TwinCAT worker was again built to the scratchpad and served
+      with `-BridgeDir`.
+      **Open for this change, not this step (owner steering in CLAUDE.local.md, 2026-10-17)**: design §1 still drops the
+      TwinCAT PLC project's inner node (`Untitled2 Project`) from the path. The owner calls that a review finding to fix
+      in this change: every node is a path segment, and the task sits at `…/<plc>/<plc> Project/PlcTask.task`.

@@ -31,28 +31,43 @@
   <tr><td><b>a folder</b></td><td>It becomes a path SEGMENT on the items beneath it. Folders are never items and have no file.</td></tr>
   <tr><td><b>a container manager</b></td><td>A library / recipe / visualization manager: pure grouping, no content of its own. Recursed exactly like a folder, so a library materializes at <code>Library Manager/&lt;lib&gt;/&lt;lib&gt;.library</code> with no stub beside the folder.</td></tr>
   <tr><td><b>inlined in a POU</b></td><td>A method, action, property, accessor or transition. It travels inside its POU's single file, as a block the ST layer renders and parses back.</td></tr>
-  <tr><td><b>a recurse-only container</b></td><td>CODESYS's Application / PlcLogic / Device / Task Configuration, and any node carrying no specific object type. Walked through, never emitted.</td></tr>
+  <tr><td><b>a device</b></td><td>A target: a CODESYS <code>IDeviceObject</code>, a TwinCAT system project. A read-only <code>.device</code> descriptor. With children it sits in a folder of its own name, beside them (<code>Device/Device.device</code>); a leaf is a plain file.</td></tr>
+  <tr><td><b>a recurse-only container</b></td><td>CODESYS's Application / PlcLogic / Task Configuration, TwinCAT's <code>PLC</code> node and PLC project, and any node carrying no specific object type. Walked through, never emitted.</td></tr>
   <tr><td><b>skipped</b></td><td>Transient and hidden objects, and CODESYS's own <code>IUnknownObject</code> "no plugin loaded" marker.</td></tr>
 </table>
 
-<h2 id="identity">Names, kinds and extensions</h2>
+<h2 id="identity">Paths, kinds and extensions</h2>
 <p>
-  <b>The item NAME is the identity, and on the wire it is full</b> — <code>name.kind</code>. IEC guarantees
-  unique names within a kind, not across them: a control module and the visualization that draws it are
-  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code>, and a real customer project ships two
-  such pairs. Collapsed onto one bare slot, the walk order picked a winner — the FB's version was invisible to
-  the aggregate hash, and the push's <code>ifVersion</code> gate answered with the <i>visualization's</i> hash,
-  which meant the FB could be pulled and never pushed back.
+  <b>An item is identified by its PATH</b>: its folder in the IDE's own tree and its file name with the kind,
+  <code>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</code>. One tree holds every device and application (CODESYS) and every
+  system project and PLC project (TwinCAT); each item sits where its IDE keeps it.
 </p>
-<div class="note">
-  Do <b>not</b> add a duplicate-name guard that throws. Real projects legitimately repeat names across kinds,
-  and throwing breaks <code>refs</code>. The fix is to key the wire's maps by the identity the wire already
-  publishes.
-</div>
+<pre>Project Settings.projectsettings
+Device/Device.device
+Device/Plc Logic/Application/PLC_PRG.pou
+Device/Plc Logic/Application/PLC_PRG.visualization
+Device/Plc Logic/Application/Task Configuration/MainTask.task
+Device_1/Device_1.device
+Device_1/Plc Logic/Application/PLC_PRG.pou</pre>
+<pre>TwinCAT Project14/TwinCAT Project14.device
+TwinCAT Project14/PLC/Untitled2/PlcTask.task
+TwinCAT Project14/PLC/Untitled2/Project Settings.projectsettings
+TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou
+TwinCAT Project1/TwinCAT Project1.device
+TwinCAT Project1/PLC/Untitled1/POUs/MAIN.pou</pre>
 <p>
-  Below the vendor seam the same item is addressed by its <b>bare</b> name — the IDE's own lookup key, which
-  has no extension. Every version and folder map Volt publishes is keyed by the full name and derived in one
-  place; an item that could not be materialized has no full name and keeps its bare one there.
+  So the same name in two applications is two items, and so is the same name in two kinds. Real projects repeat both:
+  do <b>not</b> add a duplicate-name guard. Below the vendor seam the item is looked up by its <b>bare</b> name (the
+  IDE's own key, no extension) inside the container its path names. The path is derived in one place
+  (<code>Versioning.VersionedItem.Identity</code>); an item that could not be materialized has no kind and is named
+  <code>&lt;folder&gt;/&lt;bare name&gt;</code>.
+</p>
+<p>
+  <b>Applications are stated.</b> <code>refs</code> and <code>fetch</code> name the root path of every application
+  (<code>Device/Plc Logic/Application</code>, <code>TwinCAT Project1/PLC/Untitled1</code>). An item belongs to the
+  application whose root is the longest prefix of its path; an item under none is in the pool (the CODESYS project
+  root). A move pairs only within one application: a file that changes application is a delete and a create. The LSP
+  resolves a name inside its own application, its libraries and the pool.
 </p>
 <p>
   A file's extension carries the <b>kind</b> — what the IDE stores per object, its class — and nothing else. A
@@ -329,7 +344,8 @@
   <tr><td class="name">ILibManObject · IVisualManagerObject · IVisualObject · IRecipeManObject</td><td>library_manager (+ synthetic library refs) · visualization_manager · visualization · recipe_manager</td></tr>
   <tr><td class="name">IImagePoolObject · IGlobalTextListObject · ITextListObject · ITaskObject</td><td>image_pool · text_list · text_list · task</td></tr>
   <tr><td class="name">IProjectInfoObject · ITraceObject · IRecipeDefinitionObject · ISymbolConfigObject · IWorkspaceObject</td><td>project_info · trace · recipe · symbol_config · project_settings — the read-only descriptors</td></tr>
-  <tr><td class="name">IApplicationObject · IPlcLogicObject · IDeviceObject · ITaskConfigObject</td><td>recursed, never emitted</td></tr>
+  <tr><td class="name">IDeviceObject</td><td>device — a read-only descriptor, its children walked beside it</td></tr>
+  <tr><td class="name">IApplicationObject · IPlcLogicObject · ITaskConfigObject</td><td>recursed, never emitted; each <code>IApplicationObject</code> is stated as an application</td></tr>
   <tr><td class="name">ITransientObject · IHiddenObject</td><td>skipped</td></tr>
   <tr><td class="name">IUnknownObject</td><td>CODESYS's own "no plugin loaded" marker. Skipped and <b>not</b> recursed — 20 such nodes on one real project.</td></tr>
 </table>

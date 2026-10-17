@@ -70,7 +70,7 @@ public class IdeBusyTests
                 expectedProjectVersion = lease,
                 ops = new object[]
                 {
-                    new { op = "set", name = "Q.pou", toFolder = "", ifVersion = (string?)null,
+                    new { op = "set", name = "Q.pou", ifVersion = (string?)null,
                           sourceText = "PROGRAM Q\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n" },
                 },
             }));

@@ -243,8 +243,9 @@ internal sealed partial class TcObjectModel
     ///
     /// <para>ONE ENTRY PER DIAGNOSTIC, however many panes carry it. A PLC build writes the same error to Visual Studio's
     /// own Build pane AND to TwinCAT's, so with every pane read the same error arrives twice; the engineer would see it
-    /// twice. But ONLY a repeat is dropped: the key is the OBJECT the compiler named (the file stem plus the dotted path
-    /// after its `;`), not what the wire publishes. The wire folds a property accessor into its property (`FB.Prop.Get`
+    /// twice. But ONLY a repeat is dropped: the key is the OBJECT the compiler named (the file plus the dotted path
+    /// after its `;`), not what the wire publishes — the file, not its stem: two PLC projects may each hold a POU of one
+    /// name. The wire folds a property accessor into its property (`FB.Prop.Get`
     /// and `FB.Prop.Set` are both `member: Prop`) and TwinCAT writes no column, so a key built from the published fields
     /// merged a GET's error into the SET's identical one - a real IDE diagnostic lost, while CODESYS returned both
     /// (openspec <c>codesys-diagnostic-child-names</c>). The MSBuild `N&gt;` prefix the Build pane adds is not in the
@@ -300,10 +301,15 @@ internal sealed partial class TcObjectModel
                 Name = name,
                 Member = member,
             };
-            // Separated by U+0001 so no two field splits collide.
+            // Separated by U+0001 so no two field splits collide. The FILE, not its stem: two PLC projects may each
+            // hold a POU of one name (openspec multi-application-tree), and the same fault in both is two diagnostics.
+            // The file by its FULL path, so one file two panes spell differently (`\` or `/`, a `..`) is one file. A line
+            // naming no file is keyed by the caption it names (its PLC project): each PLC project's own line is kept.
+            var path = PathOf(FileOf(captured));
+            var where = file is null ? path : System.IO.Path.GetFullPath(path);
             parsed.Add((diagnostic,
-                $"{file}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}",
-                file is null ? null : PathOf(FileOf(captured))));
+                $"{where.ToUpperInvariant()}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}",
+                file is null ? null : path));
         }
         return parsed;
     }

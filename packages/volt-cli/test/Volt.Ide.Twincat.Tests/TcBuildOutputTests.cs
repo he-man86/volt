@@ -285,6 +285,32 @@ public class TcBuildOutputTests
         Assert.Equal(("FB", "Compute"), (Assert.Single(kept).Name, kept[0].Member));
     }
 
+    /// <summary>Two PLC projects each holding a POU of one name, the same fault on the same line of each (openspec
+    /// <c>multi-application-tree</c> §6, measured live on the TwinCAT MultiProject fixture: the fault planted in
+    /// <c>Untitled3/POUs/MAIN</c> and in <c>TwinCAT Project1/…/Untitled1/POUs/MAIN</c> came back ONCE). They are two
+    /// FILES, so two diagnostics: the key is the file the compiler named, not its stem.</summary>
+    [Fact]
+    public void TheSameErrorInTwoFilesOfOneNameIsTwoDiagnostics()
+    {
+        var kept = Collect(
+            @"1>C:\s\P14\Untitled3\POUs\MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR +
+            @"2>C:\s\P1\Untitled1\POUs\MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR,
+            @"C:\s\P14\Untitled3\POUs\MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR +
+            @"C:\s\P1\Untitled1\POUs\MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR);
+        Assert.Equal(new[] { "MAIN", "MAIN" }, kept.Select(d => d.Name));
+    }
+
+    /// <summary>The key is the FILE, so one file the two panes spell differently (separators, a relative segment) is
+    /// still one file: the same fault in it is one diagnostic (gate review of multi-application-tree step 3b).</summary>
+    [Fact]
+    public void OneFileSpelledTwoWaysIsOneDiagnostic()
+    {
+        var kept = Collect(
+            @"1>C:\p\MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR,
+            @"C:/p/x/../MAIN.TcPOU(5) : error: Identifier 'zz' not defined" + CR);
+        Assert.Equal("MAIN", Assert.Single(kept).Name);
+    }
+
     /// <summary>The object path must be UNDER the file's own POU: <c>FB.TcPOU;FB.Compute</c>. A path whose first segment
     /// is something else is a shape nobody measured, and reading its second segment as a member of <c>FB</c> would be a
     /// guess. It is published unanchored - the message survives, the location is not invented.</summary>

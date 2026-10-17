@@ -221,7 +221,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override bool Build() => _om.Build();
     /// <summary>The build's diagnostics, each item named by its folder and bare name where the file the compiler named
     /// lies in one PLC project's directory and that PLC project holds exactly one item of the name — so the same message
-    /// in two PLC projects is two diagnostics, each on its own item (openspec multi-application-tree, design §6). Anything
+    /// in two PLC projects is two diagnostics, each on its own item (openspec multi-application-tree, design §6). The item
+    /// is any the wire addresses (<see cref="Volt.Engine.Item.ItemKind.IsAddressableItem"/>), the task too: a task that calls
+    /// a program its PLC project does not hold is an error the compiler writes on `…\PlcTask.TcTTO`, and CODESYS names the
+    /// same fault by the task's path (measured 2026-10-17, both vendors). Anything
     /// else keeps the bare name, which the engine resolves when it is unique and answers with no name when it is not.
     /// <para>NAMING IS DECORATION, NOT THE BUILD: it walks the tree and reads each PLC project's directory — COM reads that
     /// fault on an everyday XAE (<c>RPC_E_CALL_REJECTED</c>). A fault there leaves the compiler's diagnostics with their
@@ -255,7 +258,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
             if (home is null) continue;
             var candidates = items.Where(i => ItemPath.IsUnder(i.Folder, home.Path)
                                               && string.Equals(i.Name, d.Name, StringComparison.OrdinalIgnoreCase)
-                                              && Volt.Engine.Item.ItemKind.IsTopLevelCrud(i.KindCode)).ToList();
+                                              && Volt.Engine.Item.ItemKind.IsAddressableItem(i.KindCode)).ToList();
             if (candidates.Count == 1) paths.Add((d, ItemPath.Of(candidates[0].Folder, candidates[0].Name)));
         }
         foreach (var (d, path) in paths) d.Name = path;

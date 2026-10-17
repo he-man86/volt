@@ -141,7 +141,7 @@ application. The same GVL name in two applications is not a C0136 ambiguity.
   into what an earlier build already gave; one build's own repeats are all kept (a CODESYS message has no position, so two
   empty CASE arms are two identical messages), and a line on no object is each build's own and is kept. TwinCAT names a
   diagnostic by path when the file the compiler named lies in one PLC project's directory and that PLC project holds
-  exactly one item of the name; otherwise the bare name stays, and the engine resolves it only where it is unique. That
+  exactly one addressable item of the name (a task too: a task's call error is written on its `.TcTTO`, and CODESYS names it by the task's path); otherwise the bare name stays, and the engine resolves it only where it is unique. That
   naming is decoration: a COM fault while doing it leaves the bare names, never replaces the diagnostics.
 - **Removal under an unread folder** (§4): a known path there is retired only as a move — its file name walked at another
   path of the same application, or of the pool for a source item. A descriptor outside every application never pairs:
@@ -161,4 +161,4 @@ application. The same GVL name in two applications is not a C0136 ambiguity.
   dead-code set stays workspace-wide.
 - **Fixture**: `TwinCAT MultiProject/TwinCAT Project14/Untitled1/Untitled1.plcproj` did not list `POUs\PLC_PRG.TcPOU`,
   so XAE did not load the POU the red e2e expects there (the file was on disk only). The plcproj now lists it. That PLC
-  project's task still calls `MAIN`, which it does not hold: the fixture's build reports `Identifier 'MAIN' not defined`.
+  project's task still calls `MAIN`, which it does not hold: the fixture's build reports `Identifier 'MAIN' not defined` on that task, and nothing calls its `PLC_PRG` — on both vendors a POU no task calls is not compiled.
