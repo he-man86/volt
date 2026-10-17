@@ -1,7 +1,12 @@
 ## 1. Measure
 
-- [ ] 1.1 Live: the full TwinCAT e2e and the release-matrix TwinCAT cell with the x86 single-file worker
+- [x] 1.1 Live: the full TwinCAT e2e and the release-matrix TwinCAT cell with the x86 single-file worker
       (`ide.ps1 -BridgeDir dist\TwincatBridge`) on TcXaeShell 4024. Green = go; a failure is fixed test-first or reported.
+      Measured 2026-10-18 (build-cli [3b] publish line, TcXaeShell 15.0 / 3.1.4024.74 32-bit): the worker ran under
+      WOW64 (32-bit), one per pipe, and spawned no `VoltTwincatExplorer.exe` (in-process read). TwinCAT Project14 e2e
+      317 pass / 97 skip / 0 fail (= the x64+helper baseline); multi-application (`TwinCAT MultiProject`) 12/12. The
+      matrix cell's judgement (`judge`, release-matrix-cells.ts) over that run's `VOLT_E2E_REPORT`: GREEN twincat-32.
+      `release-matrix.ts` itself has no worker-folder option (it builds and serves bin\Release) - 2.3 gives it one.
 
 ## 2. Build
 
