@@ -1001,6 +1001,11 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       **SUPERSEDED the same day by readability.md "2R.6 proposal v2" (the text in CODESYS's order, root first; owner:
       "staying closer to CS would make our logic a better fit"). v2 goes to the owner for review before any code; what
       follows is kept as the record.**
+      **Owner 2026-10-17: "think we should refactor like this" — v2 is the direction.** Order: (1) the read-only review
+      of the whole language under v2 (running) folded into readability.md v2; (2) the live measurements v2 lists, both
+      vendors; (3) after the native-writer merge lands: writer, reader, LSP parser, case set and network-text.html
+      together, the open-line machinery deleted, not kept beside; (4) full gates + graphical e2e on both vendors. The
+      flow must stay identical (owner): text order = stored order, a round trip never changes evaluation order.
       **FINAL (owner 2026-10-17, supersedes the "always write both pins" paragraph above and the `EN ENO ENO` form):**
       no bare own-`ENO` on a box's line. The word `ENO` means ONE thing, the ENO of the open line above (today's P3,
       unchanged); a line without `;` hands its ENO on; `=> x` AFTER the EN part is the box's own ENO driving the coil x
