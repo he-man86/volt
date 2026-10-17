@@ -201,6 +201,25 @@ const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
 ]
 
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
+  // the native TwinCAT writer (openspec twincat-inproc-host): fixtures the PLCopen route could not push have a TwinCAT
+  // recording since 2026-10-17 (Project13), and on three TwinCAT answers what the LSP does not say — a LIBRARY function's
+  // box read through ENO with no EN ("Function 'LEN' requires exactly '1' inputs"; qualified, "Program name, function or
+  // function block instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined") and a valued `???`
+  // call ("Cannot convert type 'Unknown type: '''…" + "Identifier '' not defined"). Newly measured, not a regression.
+  ...(
+    [
+      ["ng_m_library_function_eno", 1],
+      ["ng_m_library_function_qualified_eno", 2],
+      ["network_unnamed_target_of_valued_call", 2],
+    ] as const
+  ).map(([fixture, by]) => ({
+    baseline: "fixtures.twincat",
+    measure: "total: GAP",
+    by,
+    fixture,
+    task: "the LSP's TwinCAT answers for a library function's box read through ENO with no EN, and for a valued `???` call (TwinCAT re-record 2026-10-17)",
+    why: "TwinCAT recordings of shapes the PLCopen route refused, first taken after the native writer (twincat-inproc-host)",
+  })),
   ...EXTRA_POSITIONAL_PIN_TC,
   ...UNNAMED_CALL_BOXES,
   ...BEFORE_CASCADES,

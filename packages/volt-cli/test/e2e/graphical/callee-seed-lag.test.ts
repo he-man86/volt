@@ -18,7 +18,7 @@
  *
  * <p><b>Taken off, 2026-10-16 (openspec twincat-inproc-host).</b> The box was built from the tree code by TwinCAT's PLCopen
  * IMPORT; the native writer builds the box the TEXT states, so both shapes are accepted and round-trip on TwinCAT too. The
- * LSP conformance fixtures' `vendorRefuses.twincat` for this shape is the recorder's to lift (a re-record).</p>
+ * LSP conformance fixtures' `vendorRefuses.twincat` for this shape went with it (re-recorded 2026-10-17, Project13).</p>
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference } from "../harness"
