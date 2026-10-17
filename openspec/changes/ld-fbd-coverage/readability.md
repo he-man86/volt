@@ -453,3 +453,8 @@ for one slot (EN) and puts `=>` (otherwise "pin wired to a variable") before a b
 finds the nested chain unreadable.
 
 Measure before building: every row above pushed, built and run on CODESYS and TwinCAT, and pulled to the same text.
+
+**Owner 2026-10-17: REJECTED** — "i dont like the nested solution, then i prefer closing the rung with a ;". Open lines
+(P3) stay. What 2R.6 keeps: every enabled box writes the EN and ENO pins it has; a plain coil on the box's own ENO is
+`… ENO => lamp;` on its line (tasks 2R.6); a split on it `… ENO => split21;`; the ENO pin wired to a variable is refused
+(#23). Every other ENO read (a chain, an expression, a set/reset coil, a pin) is the open line and the word `ENO`.
