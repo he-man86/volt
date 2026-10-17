@@ -998,6 +998,11 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
       separate word for the incoming wire (e.g. `above`) was offered and is NOT decided — owner: "not sure about adding
       a new keyword yet". Measure first: a box with ENO and no EN (a call that hands its ENO on), and EN with no ENO,
       both get the same rule (write the pin that exists).
+      **Open, owner unsure (2026-10-17): the common rung "a coil on the last ENO"** (`… EN ENO ENO` / `lamp := ENO;`, three
+      lines). Owner floated `MOVE 2 => b EN ENO ENO => lamp` for the COIL, but `ENO => lamp` is the spelling above for the
+      ENO PIN wired to a variable — a different stored tree. First step of 2R.6: draw both in CODESYS (coil on ENO vs
+      ENO pin to a variable, LD and FBD), store, build, run, and show the owner the two drawings and the two NWL trees
+      side by side. Default until the owner decides: the coil stays `lamp := ENO;`, the pin is `ENO => lamp`.
       Next, same principle, owner to confirm per row: the other call-form shapes (an unconnected word-box input
       `MUL(, a, 6)`, a negated box pin `AND(a, NOT IN2 := b)`, an empty MOVE `MOVE(IN := , => x)`, the NOT box
       `NOT(IN := a)`) — count each in the corpora, propose an in-place mark in the word form, no call form left.
