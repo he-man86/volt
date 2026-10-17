@@ -1162,8 +1162,21 @@ new one (`+ - * / > <` …, `MOVE(…, => x)`, `EN :=` on a box, `.ENO`, the mem
 
 ## 3. Verify and close
 
-- [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
+- [x] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
       vendors; full LSP suite cold; archive.
+      **Done 2026-10-17 (code at 51c2570005, network text v2.1); the archive waits for 3.2 (owner).** All six re-pulled
+      through `refresh:corpus` from own `ide.ps1` instances (`corpus-*`, network text on): pro2193, lenze-mid,
+      awa-palletizer and bakon-nano from their variant files, CodesysTestProject from `test/fixtures/CodesysTestProject.project`
+      (the file its build oracle was recorded from; the 3.5.21.40 one differs in `UTF-8 encoding`), twincat-project14
+      from Fixture 14. Every source file came back byte-identical to the committed tree (2R.6b's gate had already pulled
+      v2.1). LD/FBD bodies: lenze-mid 34 LD + 6 FBD (374 networks), pro2193 2 FBD, awa-palletizer 1 FBD, bakon-nano 1
+      FBD, twincat-project14 2 LD, CodesysTestProject 0; **0 bodies `IMPLEMENTATION LD|FBD UNSUPPORTED`, 0 network
+      `UNSUPPORTED` lines** in any corpus. Not taken: the `Library Manager/` placeholder moves (`(unresolved)/…` ⇄
+      `<Lib>, %2A (System)/…`, and the `stale.ts` manifests with them) — the pulling IDE's resolution, which flips between
+      machines/sessions (`test/corpus/support/stale.ts`); and CTP's `VltFixtureMembers.pou` (`MISSING_OBJECTS`: needs the
+      build oracle re-recorded with it). Baselines rewritten with `VOLT_WRITE_BASELINE=1`: unchanged. LSP full suite
+      cold (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10345 pass / 34 skip / 428 todo / 0 fail; graphical e2e CODESYS
+      152/152, TwinCAT Project14 149 pass / 5 skip / 0 fail (own instances, built from this tree).
 - [ ] 3.2 **Turn LD/FBD on for PLCAssist** (owner 2026-10-14). Until this change closes, PLCAssist treats LD/FBD exactly like
       CFC/SFC/IL — always read-only, `networkText: false` in its LSP snippet check, its read-only rule in its
       plcRead tool description naming LD/FBD with CFC/SFC/IL (`docs/VOLT_UPDATE_2026-10-14.md` in the PLCAssist repo). At close,
