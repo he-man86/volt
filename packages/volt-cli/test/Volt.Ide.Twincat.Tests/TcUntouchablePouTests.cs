@@ -178,10 +178,12 @@ public class TcUntouchablePouTests
     {
         private readonly Tipc _tipc;
         public SysManager(Tipc tipc) => _tipc = tipc;
+        /// <summary>The system project's I/O devices node (<c>TIID</c>), or none.</summary>
+        public Node? Tiid { get; set; }
         public object LookupTreeItem(string path) => path switch
         {
             "TIPC" => _tipc,
-            "TIID" => new Empty(),
+            "TIID" => Tiid ?? (object)new Empty(),
             _ => Resolve(path) ?? throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001)),
         };
 
@@ -200,12 +202,13 @@ public class TcUntouchablePouTests
     }
 
     internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
-        Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null, string? plcproj = null)
+        Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null, string? plcproj = null,
+        Func<Xae, Node>? tiid = null)
     {
         var xae = new Xae();
         var root = build(xae);
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
-            new SysManager(new Tipc(new Plc(root, plcproj)))));
+            new SysManager(new Tipc(new Plc(root, plcproj))) { Tiid = tiid?.Invoke(xae) }));
         var model = new TcObjectModel
         {
             BindWindow = _ => window,
@@ -222,7 +225,7 @@ public class TcUntouchablePouTests
     /// production write runs in. For offline tests that drive a POU double directly: every child access goes through
     /// the C2i guard, which reads the bound project's hierarchy.</summary>
     /// <summary>The PLC project's application root — where its items' paths start (openspec multi-application-tree).</summary>
-    internal const string App = "TwinCAT Project14/PLC/Untitled2";
+    internal const string App = "TwinCAT Project14/PLC/Untitled2/Untitled2 Project";
 
     /// <summary>The system project's <c>.device</c> descriptor — the walk's first item, before the PLC project's.</summary>
     internal const string SystemDescriptor = "TwinCAT Project14";

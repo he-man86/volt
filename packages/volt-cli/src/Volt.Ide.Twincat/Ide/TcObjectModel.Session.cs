@@ -315,7 +315,9 @@ internal sealed partial class TcObjectModel
             {
                 dynamic plc = tipc.Child[i];
                 string plcName = plc.Name;
-                plcs.Add(new TcPlc(system, manager, plc, plcName));
+                // Its inner project node is a path segment, named as the tree names it (`Untitled2 Project`).
+                string nestedName = plc.NestedProject.Name;
+                plcs.Add(new TcPlc(system, manager, plc, plcName, nestedName));
             }
         }
         if (plcs.Count == 0) throw new InvalidOperationException("Cannot find a PLC project under TIPC in any system project of the solution.");

@@ -65,7 +65,7 @@ const CODESYS: Expected = (() => {
 })()
 
 const TWINCAT: Expected = (() => {
-	const plc = (sys: string, p: string) => `${sys}/PLC/${p}`
+	const plc = (sys: string, p: string) => `${sys}/PLC/${p}/${p} Project`
 	const P14 = "TwinCAT Project14"
 	const P1 = "TwinCAT Project1"
 	const mains = [

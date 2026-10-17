@@ -1,6 +1,6 @@
 /**
  * WHERE THE RECORDERS PUSH (openspec `multi-application-tree`): the wire keys an item by its PATH in the IDE's tree
- * (`Device/Plc Logic/Application/PLC_PRG.pou`, `TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou`), and a push op names
+ * (`Device/Plc Logic/Application/PLC_PRG.pou`, `TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs/MAIN.pou`), and a push op names
  * the path it writes — there is no `toFolder` any more, and a bare `X.pou` is an item at the TREE ROOT (the CODESYS POU
  * pool; nothing on TwinCAT, whose root holds system projects). So every script finds the fixture's main program by its
  * file name, and pushes beside it by path.

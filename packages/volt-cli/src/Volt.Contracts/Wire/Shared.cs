@@ -49,7 +49,7 @@ public abstract class ReadResponse
     public Dictionary<string, string> Items { get; set; } = new();
 
     /// <summary>The root path of every application the project holds (CODESYS: each <c>IApplicationObject</c>,
-    /// <c>Device/Plc Logic/Application</c>; TwinCAT: each PLC project, <c>TwinCAT Project1/PLC/Untitled1</c>). An item
+    /// <c>Device/Plc Logic/Application</c>; TwinCAT: each PLC project's project node, <c>TwinCAT Project1/PLC/Untitled1/Untitled1 Project</c>). An item
     /// belongs to the application whose root is the longest prefix of its path; an item under none (the CODESYS POU pool)
     /// belongs to the pool. A client never parses a vendor segment such as <c>Plc Logic</c> to find one.</summary>
     [JsonPropertyName("applications")]

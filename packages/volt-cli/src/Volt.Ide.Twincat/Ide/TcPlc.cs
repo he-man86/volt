@@ -6,9 +6,9 @@ namespace Volt.Ide.Twincat;
 /// One PLC project of one system project of the bound solution — what every tree read and write addresses
 /// (<see cref="TcObjectModel.Use"/>), and the APPLICATION its items belong to (openspec <c>multi-application-tree</c>).
 ///
-/// <para>Its items sit at <see cref="Path"/>, <c>&lt;system project&gt;/PLC/&lt;PLC project&gt;</c>, mirroring the
-/// solution tree as CODESYS's walk mirrors its device tree. The PLC project's inner node (<c>Untitled2 Project</c>, the
-/// <c>NestedProject</c>) is not a segment: its children sit directly under the PLC project's name (design §1).</para>
+/// <para>Its items sit at <see cref="Path"/>, <c>&lt;system project&gt;/PLC/&lt;PLC project&gt;/&lt;its project node&gt;</c>
+/// (<c>TwinCAT Project14/PLC/Untitled2/Untitled2 Project</c>): every node of the solution tree is a segment, the PLC
+/// project's inner node (its <c>NestedProject</c>, named as the tree names it) too (design §1).</para>
 ///
 /// <para>It carries the per-PLC state one operation reads: its Solution Explorer snapshot and its root's tree path,
 /// so addressing another PLC project and back reads neither twice.</para>
@@ -18,13 +18,14 @@ internal sealed class TcPlc
     /// <summary>The segment the solution tree puts between a system project and its PLC projects.</summary>
     public const string PlcSegment = "PLC";
 
-    public TcPlc(string system, object manager, object node, string name)
+    public TcPlc(string system, object manager, object node, string name, string projectName)
     {
         System = system;
         Manager = manager;
         Node = node;
         Name = name;
-        Path = FolderPath.Append(FolderPath.Append(FolderPath.Encode(system), PlcSegment), name);
+        ProjectName = projectName;
+        Path = FolderPath.Append(FolderPath.Append(FolderPath.Append(FolderPath.Encode(system), PlcSegment), name), projectName);
     }
 
     /// <summary>The system project's name (the solution project, <c>TwinCAT Project14</c>).</summary>
@@ -39,7 +40,11 @@ internal sealed class TcPlc
     /// <summary>The PLC project's name (<c>Untitled2</c>).</summary>
     public string Name { get; }
 
-    /// <summary>The application root: <c>&lt;system&gt;/PLC/&lt;plc&gt;</c>, encoded as the walk encodes folders.</summary>
+    /// <summary>Its inner project node's name, as the tree names it (<c>Untitled2 Project</c>, the <c>NestedProject</c>):
+    /// the node its items, its task and its settings sit under.</summary>
+    public string ProjectName { get; }
+
+    /// <summary>The application root: <c>&lt;system&gt;/PLC/&lt;plc&gt;/&lt;project&gt;</c>, encoded as the walk encodes folders.</summary>
     public string Path { get; }
 
     /// <summary>This operation's Solution Explorer snapshot of the PLC project, or null before the first child access.</summary>

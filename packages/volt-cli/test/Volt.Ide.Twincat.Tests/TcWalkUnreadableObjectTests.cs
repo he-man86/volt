@@ -54,7 +54,7 @@ public class TcWalkUnreadableObjectTests
     [Fact]
     public void A_node_whose_kind_faults_is_named_with_its_folder_and_the_walk_goes_on()
     {
-        var root = new Node("PLC", ItemKind.PlcFolder,
+        var root = new Node("Untitled2 Project", ItemKind.PlcFolder,
             new Node("Data", ItemKind.PlcFolder,
                 new Node("SER_OperationModeType", null),
                 new Node("PlcDataType", ItemKind.PlcDut)));
@@ -77,7 +77,7 @@ public class TcWalkUnreadableObjectTests
     [Fact]
     public void A_root_node_whose_kind_faults_marks_its_own_subtree_not_walked()
     {
-        var root = new Node("PLC", ItemKind.PlcFolder,
+        var root = new Node("Untitled2 Project", ItemKind.PlcFolder,
             new Node("Machine", null, new Node("Main", ItemKind.PlcPou)),
             new Node("Data", ItemKind.PlcFolder, new Node("PlcDataType", ItemKind.PlcDut)));
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",

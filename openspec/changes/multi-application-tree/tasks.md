@@ -94,7 +94,7 @@
       **Open for this change, not this step (owner steering in CLAUDE.local.md, 2026-10-17)**: design §1 still drops the
       TwinCAT PLC project's inner node (`Untitled2 Project`) from the path. The owner calls that a review finding to fix
       in this change: every node is a path segment, and the task sits at `…/<plc>/<plc> Project/PlcTask.task`.
-- [ ] 3.5 TwinCAT paths follow the solution tree exactly, every node (owner steering, CLAUDE.local.md 2026-10-17: "i dont
+- [x] 3.5 TwinCAT paths follow the solution tree exactly, every node (owner steering, CLAUDE.local.md 2026-10-17: "i dont
       think we should move things around in the tree"). Two places skip or regroup a node today, both confirmed in the
       code by the close step (2026-10-18):
       (a) the PLC project's inner node (`Untitled2 Project`, the `NestedProject`) is not a path segment
@@ -107,3 +107,18 @@
       Test-first: the offline driver tests and the `multi-application` e2e state the new paths (red → green); design §1,
       §3 and §9, `items.html`/`wire.html` examples and `TcPlc`'s doc follow. Gate: C# suites, the LSP full suite,
       live e2e on both vendors (own instance `multi-application-tree`, one vendor at a time).
+      **Gate step 3.5 (2026-10-18).** Built: `TcPlc` carries its project node's name, read from the tree
+      (`NestedProject.Name`, measured `Untitled2 Project` on every PLC project of MultiProject), and `Path` ends in it, so
+      items, the task (`…/Untitled2/Untitled2 Project/PlcTask.task`), the settings and the `applications` root sit
+      under it. The driver navigates it as its own node (`PlcItemNode` → `PlcProjectNode`). I/O descriptors go under
+      `<system>/I%2FO/Devices/`. Test-first: `TcSolutionTreePathTests` (2 new) and the path constant every TwinCAT driver
+      test states were red (18) → green; the `multi-application` e2e states the new paths. One double named the project
+      node `PLC`, a name TwinCAT never gives (`TcWalkUnreadableObjectTests`); it now says `Untitled2 Project`.
+      **Numbers**: typecheck clean (5 packages); `bun run lint` exit 0; `bun run check` 16/16. C# (Debug):
+      `Volt.Engine.Tests` 2988 pass / 1 skip, `Volt.Cli.Tests` 301, `Volt.Contracts.Tests` 42, `Volt.Repo.Gates` 243,
+      `Volt.Ide.Twincat.Tests` 593 (+2), `Volt.Ide.Codesys.Tests` 457, `Volt.Connector.Tests` 146, 0 fail. volt-cli
+      unit 159 pass. LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) 10351 pass / 34 skip / 428 todo /
+      0 fail over 372 files. Live e2e, own instance `multi-application-tree`, one vendor at a time: TwinCAT Project14
+      317 pass / 97 skip / 0 fail; `multi-application` 12/12 on TwinCAT MultiProject and 12/12 on CodesysTwoDevices;
+      CODESYS (CodesysTestProject.3.5.21.40) 320 pass / 92 skip / 0 fail. The TwinCAT worker was built to the
+      scratchpad and served with `-BridgeDir` (another session's worker held the Release output).

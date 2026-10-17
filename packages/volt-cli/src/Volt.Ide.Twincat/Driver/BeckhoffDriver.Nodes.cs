@@ -55,7 +55,17 @@ public sealed partial class BeckhoffDriver
         public override string ToString() => System + "/" + TcPlc.PlcSegment;
     }
 
-    /// <summary>A PLC project — named as the solution names it (<c>Untitled2</c>), its children the NestedProject's.</summary>
+    /// <summary>A PLC project item under <c>TIPC</c> — named as the solution names it (<c>Untitled2</c>), holding its
+    /// project node (<see cref="PlcProjectNode"/>).</summary>
+    internal sealed class PlcItemNode
+    {
+        public PlcItemNode(TcPlc plc) => Plc = plc;
+        public TcPlc Plc { get; }
+        public override string ToString() => Plc.System + "/" + TcPlc.PlcSegment + "/" + Plc.Name;
+    }
+
+    /// <summary>A PLC project's project node — its NestedProject, named as the tree names it (<c>Untitled2 Project</c>),
+    /// the application root its children are the NestedProject's.</summary>
     internal sealed class PlcProjectNode
     {
         public PlcProjectNode(TcPlc plc) => Plc = plc;

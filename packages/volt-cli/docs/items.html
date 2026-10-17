@@ -50,11 +50,11 @@ Device/Plc Logic/Application/Task Configuration/MainTask.task
 Device_1/Device_1.device
 Device_1/Plc Logic/Application/PLC_PRG.pou</pre>
 <pre>TwinCAT Project14/TwinCAT Project14.device
-TwinCAT Project14/PLC/Untitled2/PlcTask.task
-TwinCAT Project14/PLC/Untitled2/Project Settings.projectsettings
-TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/PlcTask.task
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/Project Settings.projectsettings
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs/MAIN.pou
 TwinCAT Project1/TwinCAT Project1.device
-TwinCAT Project1/PLC/Untitled1/POUs/MAIN.pou</pre>
+TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
 <p>
   So the same name in two applications is two items, and so is the same name in two kinds. Real projects repeat both:
   do <b>not</b> add a duplicate-name guard. Below the vendor seam the item is looked up by its <b>bare</b> name (the
@@ -64,7 +64,7 @@ TwinCAT Project1/PLC/Untitled1/POUs/MAIN.pou</pre>
 </p>
 <p>
   <b>Applications are stated.</b> <code>refs</code> and <code>fetch</code> name the root path of every application
-  (<code>Device/Plc Logic/Application</code>, <code>TwinCAT Project1/PLC/Untitled1</code>). An item belongs to the
+  (<code>Device/Plc Logic/Application</code>, <code>TwinCAT Project1/PLC/Untitled1/Untitled1 Project</code>). An item belongs to the
   application whose root is the longest prefix of its path; an item under none is in the pool (the CODESYS project
   root). A move pairs only within one application: a file that changes application is a delete and a create. The LSP
   resolves a name inside its own application, its libraries and the pool.

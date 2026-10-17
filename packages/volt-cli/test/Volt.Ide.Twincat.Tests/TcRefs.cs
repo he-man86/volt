@@ -14,7 +14,7 @@ internal static class TcRefs
     [ThreadStatic] internal static TcPlc? Bound;
 
     /// <summary>A PLC project for a driver bound to nothing: the tests that read a node's own text and no tree.</summary>
-    private static readonly TcPlc Loose = new("System", new object(), new object(), "Plc");
+    private static readonly TcPlc Loose = new("System", new object(), new object(), "Plc", "Plc Project");
 
     /// <summary><paramref name="com"/> in the PLC project the last <see cref="TcUntouchablePouTests.Project"/> bound.</summary>
     internal static ItemRef Ref(object com) =>

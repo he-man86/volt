@@ -172,7 +172,7 @@ public sealed partial class BeckhoffDriver
         }
     }
 
-    /// <summary>A system project's I/O tree, walked under the synthetic <c>I/O Devices</c> folder at the system project's
+    /// <summary>A system project's I/O devices (<c>TIID</c>), walked where the solution tree shows them: <c>I/O</c> → <c>Devices</c> under the system project's
     /// path (<paramref name="systemFolder"/>) — each system project has its own <c>TIID</c>.
     ///
     /// <para><b>It takes <paramref name="unwalked"/> for the same reason <see cref="WalkInner"/> does.</b> Every
@@ -190,8 +190,8 @@ public sealed partial class BeckhoffDriver
     /// measured, failing toward "keep the files" is the honest default.)</para></summary>
     private void WalkIoDevices(object manager, string systemFolder, List<ProjectItem> items, List<string> unwalked)
     {
-        // The synthetic label carries a literal '/', so it is encoded like any other segment.
-        var ioFolder = FolderPath.Append(systemFolder, "I/O Devices");
+        // The tree's own nodes (`I/O` holds `Devices`); the `/` in `I/O` is encoded like any other segment's.
+        var ioFolder = FolderPath.Append(FolderPath.Append(systemFolder, "I/O"), "Devices");
 
         object tiid;
         try { tiid = _om.LookupIn(manager, "TIID"); }
@@ -286,6 +286,7 @@ public sealed partial class BeckhoffDriver
         SolutionNode => SystemsWithPlcs().Count,
         SystemNode => 1,   // its `PLC` node
         PlcFolderNode folder => PlcsOf(folder.System).Count,
+        PlcItemNode => 1,   // its project node (the PLC project's instance node holds nothing Volt reads)
         _ => _om.ChildCount(Com(item)),
     };
 
@@ -293,7 +294,8 @@ public sealed partial class BeckhoffDriver
     {
         SolutionNode => new(new SystemNode(SystemsWithPlcs()[index1Based - 1])),
         SystemNode system => index1Based == 1 ? new(new PlcFolderNode(system.Name)) : throw new ArgumentOutOfRangeException(nameof(index1Based)),
-        PlcFolderNode folder => new(new PlcProjectNode(PlcsOf(folder.System)[index1Based - 1])),
+        PlcFolderNode folder => new(new PlcItemNode(PlcsOf(folder.System)[index1Based - 1])),
+        PlcItemNode plc => index1Based == 1 ? new(new PlcProjectNode(plc.Plc)) : throw new ArgumentOutOfRangeException(nameof(index1Based)),
         _ => Wrap(_om.ChildAt(Com(parent), index1Based)),
     };
 
@@ -307,17 +309,18 @@ public sealed partial class BeckhoffDriver
         SolutionNode => _om.ProjectName ?? "",
         SystemNode system => system.Name,
         PlcFolderNode => TcPlc.PlcSegment,
-        PlcProjectNode project => project.Plc.Name,
+        PlcItemNode plc => plc.Plc.Name,
+        PlcProjectNode project => project.Plc.ProjectName,
         SystemDescriptorNode descriptor => descriptor.System,
         _ => _om.GetName(Com(item)),   // never "" — the name is the wire identity
     };
 
     public int KindCode(ItemRef item) => item.Native switch
     {
-        SolutionNode or PlcFolderNode => ItemKind.GenericContainer,
+        SolutionNode or PlcFolderNode or PlcItemNode => ItemKind.GenericContainer,
         // A system project holds no item a push places (design §2): the device container, as CODESYS's device node.
         SystemNode => ItemKind.Device,
-        // A PLC project holds items as an Application does (a move target, TreeNav.MoveHolders).
+        // A PLC project's project node holds items as an Application does (a move target, TreeNav.MoveHolders).
         PlcProjectNode => ItemKind.Application,
         SystemDescriptorNode => ItemKind.PlcDevice,
         TcProjectSettingsNode => ItemKind.PlcProjectSettings,

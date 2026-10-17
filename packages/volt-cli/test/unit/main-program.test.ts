@@ -12,8 +12,8 @@ const codesys = {
   applications: ["Device/Plc Logic/Application"],
 }
 const twincat = {
-  items: { "TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou": "m" },
-  applications: ["TwinCAT Project14/PLC/Untitled2"],
+  items: { "TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs/MAIN.pou": "m" },
+  applications: ["TwinCAT Project14/PLC/Untitled2/Untitled2 Project"],
 }
 
 test("the main program is found by its file name, with its folder and application", () => {
@@ -22,7 +22,7 @@ test("the main program is found by its file name, with its folder and applicatio
     folder: "Device/Plc Logic/Application",
     application: "Device/Plc Logic/Application",
   })
-  expect(mainProgram(twincat).folder).toBe("TwinCAT Project14/PLC/Untitled2/POUs")
+  expect(mainProgram(twincat).folder).toBe("TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs")
 })
 
 test("no main program, or one per application, is refused by name", () => {
@@ -39,7 +39,7 @@ test("an item beside it is spelled by path; the tree root is a bare file", () =>
 
 test("the old `toFolder: \"\"` lands where it did: the CODESYS project root, the TwinCAT PLC project's root", () => {
   expect(legacyCreateFolder(mainProgram(codesys), "codesys")).toBe("")
-  expect(legacyCreateFolder(mainProgram(twincat), "twincat")).toBe("TwinCAT Project14/PLC/Untitled2")
+  expect(legacyCreateFolder(mainProgram(twincat), "twincat")).toBe("TwinCAT Project14/PLC/Untitled2/Untitled2 Project")
 })
 
 test("a file name resolves to the one path that holds it; two are refused by name", () => {

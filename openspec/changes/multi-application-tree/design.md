@@ -23,27 +23,28 @@ Device_1/Plc Logic/Application/Task Configuration/MainTask.task
 
 ```
 TwinCAT Project14/TwinCAT Project14.device
-TwinCAT Project14/PLC/Untitled2/PLC_PRG.pou
-TwinCAT Project14/PLC/Untitled2/PlcTask.task
-TwinCAT Project14/PLC/Untitled2/Project Settings.projectsettings
-TwinCAT Project14/PLC/Untitled2/References/Tc2_Standard/Tc2_Standard.library
-TwinCAT Project14/PLC/Untitled1/POUs/PLC_PRG.pou
-TwinCAT Project14/PLC/Untitled3/POUs/MAIN.pou
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/PLC_PRG.pou
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/PlcTask.task
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/Project Settings.projectsettings
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/References/Tc2_Standard/Tc2_Standard.library
+TwinCAT Project14/PLC/Untitled1/Untitled1 Project/POUs/PLC_PRG.pou
+TwinCAT Project14/PLC/Untitled3/Untitled3 Project/POUs/MAIN.pou
 TwinCAT Project1/TwinCAT Project1.device
-TwinCAT Project1/PLC/Untitled1/POUs/MAIN.pou
+TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou
 ```
 
 Each item sits where its IDE keeps it. Neither vendor's tree is reshaped to look like the other's.
 
 - **TwinCAT task.** The `.task` item is the PLC project's task object (`PlcTask.TcTTO`, code 621, the one that holds the
-  calls). The IDE keeps it inside the PLC project, so its path is `<system>/PLC/<plc>/PlcTask.task`. It is not under
+  calls). The IDE keeps it inside the PLC project's project node, so its path is
+  `<system>/PLC/<plc>/<plc> Project/PlcTask.task`. It is not under
   `SYSTEM/Tasks`, because the fixture shows that cannot work: `TwinCAT Project14` holds three `PlcTask.TcTTO` (one per
   PLC project) and only two real-time tasks (`PlcTask`, `PlcTask1`), so `SYSTEM/Tasks/PlcTask.task` would be three
   items on one path. (This changes the census default. The owner can override it.)
-- The TwinCAT PLC project's inner node (`Untitled2 Project`) is not a path segment. Its children sit directly under
-  `<plc>/`, as the census decided.
+- The TwinCAT PLC project's inner node (`Untitled2 Project`, the `.plcproj`) is a path segment, like every node of the
+  solution tree (owner, 2026-10-17: nothing is moved in the tree). It is the application root.
 - `Project Settings.projectsettings` is per project on CODESYS (at the root) and per PLC project on TwinCAT (the
-  settings live in the `.plcproj`).
+  settings live in the `.plcproj`, so they sit under its project node).
 
 ## 2. Containers become read-only descriptors
 
@@ -64,8 +65,8 @@ read MOTION, I/O, SAFETY or C++, and CODESYS carries no hardware either.
 
 ```json
 "applications": ["Device/Plc Logic/Application", "Device_1/Plc Logic/Application"]
-"applications": ["TwinCAT Project14/PLC/Untitled2", "TwinCAT Project14/PLC/Untitled1",
-                 "TwinCAT Project14/PLC/Untitled3", "TwinCAT Project1/PLC/Untitled1"]
+"applications": ["TwinCAT Project14/PLC/Untitled2/Untitled2 Project", "TwinCAT Project14/PLC/Untitled1/Untitled1 Project",
+                 "TwinCAT Project14/PLC/Untitled3/Untitled3 Project", "TwinCAT Project1/PLC/Untitled1/Untitled1 Project"]
 ```
 
 An item belongs to the application whose root is the longest prefix of its path. An item under no root (the CODESYS
@@ -99,7 +100,7 @@ application(B)` (§3). Every other pair stays a delete and a create.
 ```
 Device/Plc Logic/Application/POUs/X.pou -> Device/Plc Logic/Application/Lib/X.pou        set {to}  (move)
 Device/Plc Logic/Application/X.pou      -> Device_1/Plc Logic/Application/X.pou          delete + create
-TwinCAT Project14/PLC/Untitled2/X.pou   -> TwinCAT Project1/PLC/Untitled1/X.pou          delete + create
+TwinCAT Project14/PLC/Untitled2/Untitled2 Project/X.pou -> TwinCAT Project1/PLC/Untitled1/Untitled1 Project/X.pou   delete + create
 ```
 
 The pool counts as its own application. So a CODESYS move between the pool and an application becomes a delete and a
@@ -129,7 +130,7 @@ application. The same GVL name in two applications is not a C0136 ambiguity.
 
 - **TwinCAT `.device`** (§2): `Name: <system>`, `Type: <the solution's target platform>`, `Version: <the TwinCAT build>`,
   in the device descriptor's own format (measured: `TwinCAT RT (x64)`, `3.1.4024.74`). The I/O device descriptors the
-  walk already read stay, now under their system project: `<system>/I%2FO Devices/…`.
+  walk already read stay, now under their system project where the tree shows them: `<system>/I%2FO/Devices/…`.
 - **The pool on TwinCAT** (§3): there is none. Every item is under a PLC project except each system project's `.device`
   and its I/O descriptors, which belong to no application.
 - **A push op names only its own fields**: a `set` or `deleteItem` carrying any other member (`toFolder`, `toName`) is
