@@ -94,3 +94,16 @@
       **Open for this change, not this step (owner steering in CLAUDE.local.md, 2026-10-17)**: design §1 still drops the
       TwinCAT PLC project's inner node (`Untitled2 Project`) from the path. The owner calls that a review finding to fix
       in this change: every node is a path segment, and the task sits at `…/<plc>/<plc> Project/PlcTask.task`.
+- [ ] 3.5 TwinCAT paths follow the solution tree exactly, every node (owner steering, CLAUDE.local.md 2026-10-17: "i dont
+      think we should move things around in the tree"). Two places skip or regroup a node today, both confirmed in the
+      code by the close step (2026-10-18):
+      (a) the PLC project's inner node (`Untitled2 Project`, the `NestedProject`) is not a path segment
+      (`TcPlc.Path`, design §1 "is not a path segment"). It becomes one: `TwinCAT Project14/PLC/Untitled2/Untitled2
+      Project/POUs/MAIN.pou`, and the task sits at `…/Untitled2/Untitled2 Project/PlcTask.task`, where TwinCAT shows it.
+      `Project Settings.projectsettings` (the `.plcproj`'s settings) sits under the node that owns it. The application
+      root in `applications` moves with it.
+      (b) the I/O descriptors are walked under a synthetic `I/O Devices` folder (`BeckhoffDriver.WalkIoDevices`). They
+      go under the tree's own nodes (`I/O` → `Devices`).
+      Test-first: the offline driver tests and the `multi-application` e2e state the new paths (red → green); design §1,
+      §3 and §9, `items.html`/`wire.html` examples and `TcPlc`'s doc follow. Gate: C# suites, the LSP full suite,
+      live e2e on both vendors (own instance `multi-application-tree`, one vendor at a time).
