@@ -410,3 +410,46 @@ P13 LSP: hover ENO → the line it takes (line N); hover BRANCH → its branches
 
 One pass over writer, reader, LSP parser and goldens — the same files 2.3 was rewriting. The model, the drivers and push
 pairing do not change.
+
+## 2R.6 proposal — the ENO without open lines (2026-10-17)
+
+Owner: "not the biggest fan … where we need to use the `;` sign to know where the ENO comes from", and "write ENO on
+every block". Corpora (966 networks, 149 ENO reads): 74 inside an expression or pin (`x := ENO AND t;`, `x R= ENO;`,
+`f(iEN := ENO, …)`), 39 a chain (`… EN ENO`), 27 a plain coil, 5 a split, 0 two ENOs into one box.
+
+**Proposal: the consumer CONTAINS the box, as NWL stores it.** NWL holds an ENO read as the consumer's child: the
+coil's, the pin's, the next box's EN slot. So the text writes the enabled box in that slot, like any other value, and
+the box states its pins (owner): `EN [source]` and `ENO`. A box written with `ENO` gives its ENO; one without gives its
+value. Nothing else.
+
+    lamp := MOVE 0 => x EN c ENO;                              // coil on ENO
+    x R= MOVE 1 => a EN c ENO;                                 // reset coil on ENO
+    x := (MOVE 1 => a EN c ENO) AND t;                         // ENO in an expression (bracketed: a word's operand)
+    f(iEN := MOVE 1 => a EN c ENO, x := 5);                    // ENO into a pin
+    split1 := MOVE 1 => a EN c ENO;                            // ENO read twice (a split CODESYS stores)
+    x := (MOVE 1 => a EN c ENO) AND (MOVE 2 => b EN d ENO);    // two ENOs into one box
+    done := MOVE 2 => b EN (MOVE 1 => a EN start ENO) ENO;     // a chain
+    MOVE 0 => x EN c ENO;                                      // ENO not connected
+    lamp := (a GT 5 EN c);                                     // an enabled comparison read by its VALUE (no ENO)
+
+Deleted with it: open lines and their ordering (P3, the level order of mixed trees), `;` as a signal, "an enabled box
+is the root of its line", the word `ENO` as a reference (it is only the pin now), `split21 := ENO;`, `done := ENO;`
+after EXECUTE (`done := EXECUTE EN go … END_EXECUTE ENO;`), and the special case "an enabled comparison is the only
+enabled value" (the text shows it: no `ENO` written). `ENO => lamp` (recorded above as the coil) is NOT needed: the
+coil is `lamp := … ENO;`, target on the left like every coil; the ENO pin wired to a variable stays refused (#23).
+Still refused by the vendor, not the grammar: an enabled box without ENO read by value other than a comparison (#21).
+
+**The cost: a chain reads inside-out**, like a nested ST call — the first box in the drawing is the innermost. Two
+boxes read fine (above); a chain of four, as the writer would lay it out:
+
+    t := MOVE 100 => t4 EN (
+           MOVE 750 => t3 EN (
+             MOVE 2000 => t2 EN (
+               MOVE 175 => t1 EN c ENO) ENO) ENO) ENO;
+
+**Alternative B for chains only, in drawing order:** `ENO =>` followed by a box feeds that box's EN —
+`MOVE 175 => t1 EN c ENO => MOVE 2000 => t2 ENO => MOVE 750 => t3 ENO;`. Reads like the rung, but it is a second form
+for one slot (EN) and puts `=>` (otherwise "pin wired to a variable") before a box. Not recommended unless the owner
+finds the nested chain unreadable.
+
+Measure before building: every row above pushed, built and run on CODESYS and TwinCAT, and pulled to the same text.
