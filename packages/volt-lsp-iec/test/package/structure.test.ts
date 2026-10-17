@@ -80,7 +80,7 @@ test("src/ holds no loose source file at its top level", () => {
 })
 
 test("every folder of src/ and test/ has its sentence in docs/architecture.md 'The tree', and the tree names no other", () => {
-  const { described, malformed } = describedFolders(readFileSync(join(PACKAGE, "docs", "architecture.md"), "utf8"))
+  const { described, malformed } = describedFolders(readFileSync(join(PACKAGE, "docs", "architecture.md"), "utf8").replace(/\r\n/g, "\n"))
   expect(malformed).toEqual([])
   const onDisk = [...foldersUnder("src"), ...foldersUnder("test")]
   expect(onDisk.filter((f) => !described.has(f))).toEqual([])
