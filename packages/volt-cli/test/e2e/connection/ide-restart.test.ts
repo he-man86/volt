@@ -21,6 +21,7 @@ import { spawnSync } from "node:child_process"
 import { basename, join } from "node:path"
 import { bridge, serving, requireHealthy, opErrorCode, BASE, VENDOR, currentPipe } from "../harness"
 import { servedSolutionDir } from "../lib/tc-files"
+import { declineRecovery } from "../lib/tc-recovery"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
 const ENABLED = process.env.VOLT_E2E_IDE_CHAOS === "1" && VENDOR === "twincat"
@@ -89,6 +90,8 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		reopenIde()
 		let recovered = false
 		for (let i = 0; i < 90; i++) { // up to ~3 min: boot + build
+			// Killed with unsaved work (Volt saves nothing), XAE opens on "Recovered Files"; the engineer declines it.
+			declineRecovery(target!.sln)
 			const c = await opErrorCode(() => bridge.connect(bound))
 			if (c === null && (await serving())) { recovered = true; break }
 			await sleep(2000)
