@@ -15,7 +15,8 @@ supervision in the connector; wire types in `Volt.Contracts`.
 
 ### Requirement: a new vendor is one IDE host
 Adding a vendor SHALL require only a new IDE host project implementing the `Volt.Engine/Ide` contract (driver + pipe
-host); `Volt.Engine` above that contract, the wire and the CLI SHALL name no vendor and assume no CODESYS-family fact.
+host); `Volt.Engine` above that contract, the wire and the CLI SHALL assume no CODESYS-family fact; a vendor appears above it only as a
+name (the binding's `vendor`, which names the pipe), never as a branch.
 
 #### Scenario: a vendor outside the CODESYS family
 - **WHEN** a vendor with no NWL and no CODESYS object model is added
