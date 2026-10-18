@@ -5,9 +5,12 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Ide;
 
 /// <summary>
-/// Find a TOP-LEVEL item by its PATH — the descent to its folder and a scan of that folder alone, over the tree contract
+/// Find a TOP-LEVEL item by its PATH — <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>, the identity the wire publishes: the
+/// descent to its folder and a scan of that folder alone for the object of that name AND that kind, over the tree contract
 /// every driver already implements. Never a search of the whole tree (openspec <c>multi-application-tree</c>, design §4):
-/// two applications each holding <c>PLC_PRG</c> are two items, and only the folder tells which one an op names.
+/// two applications each holding <c>PLC_PRG</c> are two items, and only the folder tells which one an op names. The kind
+/// is part of the identity (openspec <c>unreadable-name-carries-kind</c> 1.7): <c>X.dut</c> never resolves to an object
+/// <c>X</c> of another kind, readable or not.
 /// <list type="bullet">
 /// <item><b>Case-insensitively</b>: IEC 61131-3 identifiers are case-insensitive and both IDEs treat them so —
 /// pushing <c>fb_Motor</c> at an IDE holding <c>FB_Motor</c> must find it, not CREATE a second one.</item>
@@ -23,15 +26,15 @@ public static class ItemLookup
     /// <summary>Depth guard against a cyclic or pathologically nested tree, not a limit any real project reaches.</summary>
     private const int MaxDepth = 14;
 
-    /// <summary>The top-level item at <paramref name="barePath"/> — <c>&lt;folder&gt;/&lt;bare name&gt;</c>
-    /// (<see cref="ItemPath.BarePathOf"/>), the folder as the walk spells it — or null.
+    /// <summary>The top-level item at <paramref name="path"/> — its wire path, the folder as the walk spells it — or
+    /// null.
     /// <para>Descends from <see cref="IProjectTree.GetTreeRoot"/> — the same origin both driver walks use, and the one
     /// the push's paths are measured from, so lookup and placement agree about where the tree starts — matching each
     /// container by name as the push's placement does (<c>TreeNav</c>). A folder that is not there holds no item:
     /// null.</para></summary>
-    public static ItemRef? Find(IProjectTree tree, string barePath)
+    public static ItemRef? Find(IProjectTree tree, string path)
     {
-        var (item, untouchable) = Locate(tree, barePath);
+        var (item, untouchable) = Locate(tree, path);
         if (untouchable is { } u)
             throw new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}");
         return item;
@@ -44,27 +47,36 @@ public static class ItemLookup
     /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
     /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
     /// allowed past an unreadable item: they delete it through its parent, by name.</summary>
-    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string barePath)
+    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string path)
     {
-        var name = ItemPath.FileOf(barePath);
-        var doing = $"looking for '{barePath}'";
-        var folderPath = ItemPath.FolderOf(barePath);
+        var file = ItemPath.FileOf(path);
+        var kind = ItemKind.KindForWireName(path)
+                   ?? throw new System.ArgumentException($"'{path}' is not a wire path: its extension names no kind", nameof(path));
+        var doing = $"looking for '{path}'";
+        var folderPath = ItemPath.FolderOf(path);
         if (Descend(tree, folderPath, doing) is not { } folder) return (null, null);
         ItemRef? hit = null;
         Untouchable? untouchable = null;
-        Scan(tree, folder, doing, (item, itemName, kind) =>
+        Scan(tree, folder, doing, (item, itemName, code) =>
         {
-            if (!ItemKind.IsAddressableItem(kind) || !string.Equals(itemName, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (!ItemKind.IsAddressableItem(code) || ItemKind.Map(code) != kind || !Names(itemName, file)) return true;
             hit = item;
             return false;
         }, (parent, u) =>
         {
-            if (!string.Equals(u.Name, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (u.Kind != kind || !Names(u.Name, file)) return true;
             untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kind);
             return false;
         }, FolderPath.Segments(folderPath).Count());
         return (hit, untouchable);
     }
+
+    /// <summary>Is the IDE's <paramref name="ideName"/> the object a wire <paramref name="file"/> names? Its bare name, or
+    /// the file name itself for a kind the IDE names by its file (<c>Untitled2.tmc</c>) — the inverse of how the walk
+    /// mints the path (<c>Versioning.PathOf</c>). Ignoring case, as the IDE resolves a name.</summary>
+    private static bool Names(string ideName, string file) =>
+        string.Equals(ideName, ItemPath.BareOf(file), System.StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ideName, file, System.StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The node at the encoded <paramref name="folder"/>, descended from the tree root one container per
     /// segment (a structural node, a container-manager, a user folder — anything that is not a top-level item, as the

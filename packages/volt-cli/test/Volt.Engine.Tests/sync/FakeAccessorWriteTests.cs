@@ -60,7 +60,7 @@ public class FakeAccessorWriteTests
         Assert.True(created.Accepted, Why(created));
         Assert.Contains("P := TRUE;", Fetch(ide, "FB_P.pou"));
 
-        var item = ItemLookup.Find(ide, "FB_P")!.Value;
+        var item = ItemLookup.Find(ide, "FB_P.pou")!.Value;
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Pou, FbDecl, null, new List<Member>
         {
             new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None, Getter: new Accessor(null, null)),
@@ -102,7 +102,7 @@ public class FakeAccessorWriteTests
         Assert.True(created.Accepted, Why(created));
         Assert.Contains("GET\nVAR\n\tx : INT;\nEND_VAR\nEND_GET", Fetch(ide, "I_P.itf"));
 
-        var item = ItemLookup.Find(ide, "I_P")!.Value;
+        var item = ItemLookup.Find(ide, "I_P.itf")!.Value;
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I_P", null, new List<Member>
         {
             new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,

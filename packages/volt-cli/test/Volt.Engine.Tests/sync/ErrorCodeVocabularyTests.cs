@@ -43,10 +43,10 @@ public class ErrorCodeVocabularyTests
     public void A_tree_read_the_IDE_refused_during_a_lookup_is_ITEM_UNVERIFIED(string read, string place, FakeIde ide)
     {
         // By its path, in `POUs`: the lookup descends to the folder the path names (openspec multi-application-tree).
-        var ex = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "POUs/FB_Wanted"));
+        var ex = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "POUs/FB_Wanted.pou"));
 
         Assert.True(ex.ErrorCode == ConflictCodes.ItemUnverified, $"{read}: {ex.ErrorCode} — {ex.Message}");
-        Assert.Contains("'POUs/FB_Wanted'", ex.Message);      // the item the lookup was for
+        Assert.Contains("'POUs/FB_Wanted.pou'", ex.Message);      // the item the lookup was for
         Assert.Contains(place, ex.Message);                   // the folder whose read the IDE refused
         Assert.Contains("COM fault", ex.Message);             // and what the IDE said
         Assert.IsType<System.InvalidOperationException>(ex.InnerException);   // the IDE's own exception, kept
@@ -71,7 +71,7 @@ public class ErrorCodeVocabularyTests
         var refused = Assert.Single(resp.Conflicts!);
         Assert.Equal("FB_New.pou", refused.Name);
         Assert.Equal(ConflictCodes.ItemUnverified, refused.Code);
-        Assert.Contains("'FB_New'", refused.Reason);
+        Assert.Contains("'FB_New.pou'", refused.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create"));
     }
 
@@ -98,10 +98,11 @@ public class ErrorCodeVocabularyTests
         Assert.Contains($"'{wireName}' is read-only", refused.Reason);
     }
 
-    /// <summary>A MOVE whose name resolves to an object that is no source item (a task the pushed `.pou` name shares its
-    /// bare name with — a lookup is by bare name) is the request naming something a move never takes — Volt's rule, not the IDE's.</summary>
+    /// <summary>A MOVE whose `.pou` name shares its bare name only with a task names no item: an op resolves by its whole
+    /// path, kind included (openspec unreadable-name-carries-kind 1.7), so it never reaches the task. With no item and no
+    /// source it is the request lacking what a create needs — BAD_REQUEST — and nothing moves.</summary>
     [Fact]
-    public void A_move_of_a_non_source_item_is_BAD_REQUEST()
+    public void A_move_naming_a_kind_the_object_is_not_is_BAD_REQUEST_and_moves_nothing()
     {
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
@@ -117,8 +118,8 @@ public class ErrorCodeVocabularyTests
 
         var refused = Assert.Single(resp.Conflicts!, c => c.Code != ConflictCodes.NotAttempted);
         Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
-        Assert.Contains("'CM_Carrier'", refused.Reason);
-        Assert.Contains("only source items", refused.Reason);
+        Assert.Contains("'CM_Carrier.pou'", refused.Reason);
+        Assert.Contains("a new item needs sourceText", refused.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move"));
     }
 

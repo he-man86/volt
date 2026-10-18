@@ -83,7 +83,7 @@ public class PushValidatesOnceTests
     public void A_write_handed_a_network_body_without_its_model_is_refused_naming_the_site()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd));
-        var item = ItemLookup.Find(ide, "FB_N");
+        var item = ItemLookup.Find(ide, "FB_N.pou");
         var ex = Assert.Throws<InvalidOperationException>(() => ide.WriteContent(item!.Value,
             new ItemContent(ItemKind.Kinds.Pou, Decl, FbdEdited, new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("FBD")),
             Array.Empty<PushedNetworkBody>()));

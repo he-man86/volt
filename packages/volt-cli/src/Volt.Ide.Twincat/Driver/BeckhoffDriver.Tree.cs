@@ -516,7 +516,7 @@ public sealed partial class BeckhoffDriver
             var pouParent = _om.Parent(pou);
             // Its path, read BEFORE the round trip kills every handle into it (D4d): the lookup after it starts from the
             // tree root, in the POU's own folder.
-            var pouPath = ItemPath.Of(WireFolderOf(pouParent), pouName);
+            var pouPath = Volt.Engine.Sync.Versioning.PathOf(ItemKind.Map(_om.ItemType(pou))!, WireFolderOf(pouParent), pouName);
             _om.MoveMember(pouParent, pouName, name, folder);
 
             // CONFIRM it. The round trip reports success by side effect and has already deleted and re-imported

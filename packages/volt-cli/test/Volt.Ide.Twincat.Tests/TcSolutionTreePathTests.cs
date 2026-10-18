@@ -32,8 +32,8 @@ public class TcSolutionTreePathTests
         Assert.Equal(root, walk.Items.Single(i => i.Name == "PlcTask").Folder);
         Assert.Equal(root, walk.Items.Single(i => i.KindCode == ItemKind.PlcProjectSettings).Folder);
         // A push descends the same segments.
-        Assert.NotNull(ItemLookup.Find(driver, root + "/POUs/MAIN"));
-        Assert.Null(ItemLookup.Find(driver, "TwinCAT Project14/PLC/Untitled2/POUs/MAIN"));
+        Assert.NotNull(ItemLookup.Find(driver, root + "/POUs/MAIN.pou"));
+        Assert.Null(ItemLookup.Find(driver, "TwinCAT Project14/PLC/Untitled2/POUs/MAIN.pou"));
     }
 
     [Fact]

@@ -40,7 +40,7 @@ public class LookupFaultTests
     {
         var ide = WithFaultingRoot();
 
-        var ex = Record.Exception(() => ItemLookup.Find(ide, "PLC_PRG"));
+        var ex = Record.Exception(() => ItemLookup.Find(ide, "PLC_PRG.pou"));
         _out.WriteLine($"result: {(ex is null ? "returned null (absence)" : ex.GetType().Name + ": " + ex.Message)}");
 
         Assert.True(ex is not null,
@@ -53,7 +53,7 @@ public class LookupFaultTests
     public void A_genuinely_absent_item_still_answers_null()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
-        Assert.Null(ItemLookup.Find(ide, "FB_NoSuchThing"));
+        Assert.Null(ItemLookup.Find(ide, "FB_NoSuchThing.pou"));
     }
 
     /// <summary>And an item that IS there is still found — the ordinary path is untouched.</summary>
@@ -61,6 +61,6 @@ public class LookupFaultTests
     public void A_present_item_is_still_found()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
-        Assert.NotNull(ItemLookup.Find(ide, "PLC_PRG"));
+        Assert.NotNull(ItemLookup.Find(ide, "PLC_PRG.pou"));
     }
 }

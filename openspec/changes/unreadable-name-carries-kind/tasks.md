@@ -20,6 +20,14 @@
       this change the bare-path gate answered `UNREADABLE`); on an unopened TwinCAT POU it is `UNREADABLE` from
       `ApplyToUnopened`. "Applied" needs the apply to resolve by path or the re-type check to read the tree kind —
       neither is in this design.
+      **2026-10-18, owner decision "resolve a push op by its path" BUILT:** `ItemLookup.Find/Locate` take the wire path
+      and match the bare name AND the kind its extension states; the push's item cache is keyed by the full path; every
+      re-find passes the full path (both drivers share the lookup; the TwinCAT member move's re-find passes its owner's
+      kind). `X.dut` no longer reaches the object `X`: the delete-of-another-kind arm and `ApplyToUnopened`'s kind check
+      are gone (unreachable). **The two "applied" cases stay skipped, stopped again:** DIALECT C38 (measured the same day,
+      both vendors) shows an application holds ONE object of a name across POU, DUT and GVL, so the IDE refuses a DUT `X`
+      beside a POU `X` - the op can never be applied, and "applied" is not the answer to pin. What the push should answer
+      (e.g. `ITEM_EXISTS` from the C38 name-scope pre-flight extended to creates) is the owner's.
 - [x] 1.8 `refs` and `fetch` over one walk give identical `unreadable` and `unreadableNodes` lists.
 - [x] 1.9 CODESYS offline: a container whose property read fails → a client that knows an item under it does not get it
       in `removed` (the subtree is in `unwalkedFolders`). Green today; must stay green through 2.1.

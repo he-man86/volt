@@ -96,7 +96,7 @@ public class UnreadableItemPathTests
 
     /// <summary>The item an op names is its PATH: a <c>set</c> on <c>X.dut</c> is not refused over an unreadable POU
     /// <c>X</c> of known kind — it names another item. Only an object whose kind is unknown may be what the op lands on.</summary>
-    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner: the gate no longer refuses this op, but the APPLY resolves it by folder + bare name (the IDE's lookup key) and lands on the object X of another kind - a re-type (UNSUPPORTED on a readable X; INTERNAL_ERROR from the failed read of an unreadable X.pou; UNREADABLE from ApplyToUnopened for an unopened X). The design's 'applied' needs the apply to resolve by path, which it does not plan.")]
+    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner (2026-10-18): the apply now resolves an op by its whole path, so X.dut never reaches the object X; but DIALECT C38 (measured today, both vendors) shows an application holds ONE object of a name across POU/DUT/GVL, so the IDE refuses a DUT X beside a POU X and this op can never be applied. The fake models no name scope (its create returns the POU). The owner decides the expected answer (e.g. ITEM_EXISTS from the C38 name-scope pre-flight extended to creates).")]
     public void A_set_of_another_kind_beside_an_unreadable_item_of_known_kind_is_applied()
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("X", "Data"));
@@ -110,7 +110,7 @@ public class UnreadableItemPathTests
         Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
     }
 
-    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner: the gate no longer refuses this op, but the APPLY resolves it by folder + bare name (the IDE's lookup key) and lands on the object X of another kind - a re-type (UNSUPPORTED on a readable X; INTERNAL_ERROR from the failed read of an unreadable X.pou; UNREADABLE from ApplyToUnopened for an unopened X). The design's 'applied' needs the apply to resolve by path, which it does not plan.")]
+    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner (2026-10-18): the apply now resolves an op by its whole path, so X.dut never reaches the object X; but DIALECT C38 (measured today, both vendors) shows an application holds ONE object of a name across POU/DUT/GVL, so the IDE refuses a DUT X beside a POU X and this op can never be applied. The fake models no name scope (its create returns the POU). The owner decides the expected answer (e.g. ITEM_EXISTS from the C38 name-scope pre-flight extended to creates).")]
     public void A_set_beside_an_unopened_POU_of_its_bare_name_is_applied()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "PROGRAM X\nVAR\nEND_VAR", "n := 0;", "Data"));

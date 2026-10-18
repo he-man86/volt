@@ -116,7 +116,7 @@ public class WireVocabularyTests
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
             ("Volt.Engine/Ide/ItemLookup.cs", 1),
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
-            ("Volt.Engine/Sync/PushService.cs", 5),
+            ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // +1 an interface accessor the saved file does not hold (gate review of step 3, 5)

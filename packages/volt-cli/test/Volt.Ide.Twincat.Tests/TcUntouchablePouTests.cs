@@ -281,8 +281,8 @@ public class TcUntouchablePouTests
     {
         var (driver, _, xae, _) = Project(Census);
 
-        Assert.NotNull(ItemLookup.Find(driver, App + "/VltCensus/VltX_UCI"));
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_UCFB"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/VltCensus/VltX_UCI.itf"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_UCFB.pou"));
 
         Assert.Equal(BridgeErrorCodes.Unreadable, refusal.ErrorCode);
         Assert.Contains("'VltX_UCFB'", refusal.Message);
@@ -295,7 +295,7 @@ public class TcUntouchablePouTests
     public void A_delete_goes_through_the_parent_by_name_only()
     {
         var (driver, _, xae, root) = Project(Census);
-        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB");
+        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB.pou");
 
         driver.Delete(untouchable!.Parent, untouchable.Name);
 
@@ -317,11 +317,11 @@ public class TcUntouchablePouTests
             new Node(x, "POUs", ItemKind.PlcFolder, false,
                 new Node(x, "Motor1", ItemKind.PlcPou), new Node(x, "Motor2", ItemKind.PlcPou), new Node(x, "Motor3", ItemKind.PlcPou)),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
-        var motor1 = ItemLookup.Find(driver, App + "/POUs/Motor1")!.Value;
+        var motor1 = ItemLookup.Find(driver, App + "/POUs/Motor1.pou")!.Value;
 
         driver.Delete(driver.Parent(motor1), "Motor1");
 
-        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor3"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor3.pou"));
         Assert.False(xae.Dead);
     }
 
@@ -383,7 +383,7 @@ public class TcUntouchablePouTests
                 new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou))),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/F/X/P"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/F/X/P.pou"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("Untitled2 Project^F'", refusal.Message);
@@ -403,7 +403,7 @@ public class TcUntouchablePouTests
         driver.WalkItems();
         root.Kids.Add(new Node(xae, "Added", ItemKind.PlcPou) { Owner = root });
 
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/PLC_PRG"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/PLC_PRG.pou"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("'TIPC^Untitled2^Untitled2 Project'", refusal.Message);
@@ -425,7 +425,7 @@ public class TcUntouchablePouTests
         };
 
         // A lookup THROUGH the folder: an item's path names the folders it descends (openspec multi-application-tree).
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_EG"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/VltCensus/VltX_EG.gvl"));
 
         Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("'VltCensus' holds 4 children", refusal.Message);
@@ -489,7 +489,7 @@ public class TcUntouchablePouTests
 
         Assert.Equal(motors.Prepend(SystemDescriptor).Append("PLC_PRG").Append("Project Settings"), walk.Items.Select(i => i.Name));
         Assert.InRange(pathReadsInTheWalk, 1, 3);   // the PLC root once, and each of its two folders' scans
-        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor8"));
+        Assert.NotNull(ItemLookup.Find(driver, App + "/POUs/Motor8.pou"));
         Assert.Empty(xae.Lookups);
     }
 
@@ -668,7 +668,7 @@ public class TcUntouchablePouTests
         Assert.Equal("VltX_UCFB", Assert.Single(walk.UnreadableObjects).Name);
 
         // Volt deletes it through its parent and creates a new item of the name: that one opens.
-        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB");
+        var (_, untouchable) = ItemLookup.Locate(driver, App + "/VltCensus/VltX_UCFB.pou");
         driver.Delete(untouchable!.Parent, untouchable.Name);
         var fresh = new Node(xae, "VltX_UCFB", ItemKind.PlcPou) { Owner = root.Kids[0] };
         root.Kids[0].Kids.Add(fresh);
@@ -702,7 +702,7 @@ public class TcUntouchablePouTests
         Assert.False(xae.Dead);
         Assert.Contains("VltX_W", walk.Items.Select(i => i.Name));
         Assert.Equal(new[] { "VltX_UCFB" }, walk.UnreadableObjects.Select(u => u.Name));   // the one loaded broken stays
-        var (found, untouchable) = ItemLookup.Locate(driver, App + "/VltX_W");
+        var (found, untouchable) = ItemLookup.Locate(driver, App + "/VltX_W.pou");
         Assert.Null(untouchable);
         Assert.Same(created, ((BeckhoffDriver.TcNode)found!.Value.Native).Com);
     }

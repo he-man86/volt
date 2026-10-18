@@ -74,8 +74,8 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        Assert.NotNull(ItemLookup.Find(ide, "Data/B"));
-        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "Data/Broken"));
+        Assert.NotNull(ItemLookup.Find(ide, "Data/B.pou"));
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "Data/Broken.pou"));
         Assert.Equal(BridgeErrorCodes.Unreadable, refusal.ErrorCode);
         Assert.Contains("'Broken'", refusal.Message);
         Assert.DoesNotContain(ItemLookup.All(ide), x => x.Name == "Broken");
@@ -176,7 +176,8 @@ public class UnopenedItemTests
     }
 
     /// <summary>Force drops a version gate; it never widens what a name means. `Broken.dut` names a DUT, and the
-    /// IDE's `Broken` is a POU — it is not deleted.</summary>
+    /// IDE's `Broken` is a POU: the op resolves by its whole path, kind included, so it names no item — the idempotent
+    /// delete of an item that is not there — and the POU is neither deleted nor opened.</summary>
     [Fact]
     public void A_forced_op_naming_a_kind_it_cannot_be_does_not_reach_it()
     {
@@ -188,9 +189,9 @@ public class UnopenedItemTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.dut" } },
         });
 
-        Assert.False(push.Accepted);
-        Assert.Equal(BridgeErrorCodes.Unreadable, Assert.Single(push.Conflicts!).Code);
+        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
         Assert.True(ide.Exists("Broken"));
         Assert.DoesNotContain("delete:Broken", ide.Recorded);
+        Assert.Empty(ide.OpenedUnopened);
     }
 }

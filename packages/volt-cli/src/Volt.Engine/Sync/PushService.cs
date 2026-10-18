@@ -71,7 +71,7 @@ public static class PushService
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
-            if (ItemKind.IsAddressableItem(it.KindCode)) itemCache[ItemPath.Of(it.Folder, it.Name)] = (it.Item, it.Folder);
+            if (ItemKind.IsAddressableItem(it.KindCode)) itemCache[Versioning.PathOf(kind, it.Folder, it.Name)] = (it.Item, it.Folder);
             if (!needVersions) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
@@ -234,7 +234,7 @@ public static class PushService
             // so the push said "moved" and the next pull moved the file back. Only a MOVE of an item the IDE holds — a
             // create keeps the vendor's own create refusal.
             if (op is SetItemOp { To: { } movedTo } mover
-                && itemCache.TryGetValue(ItemPath.BarePathOf(mover.Name), out var placed)
+                && itemCache.TryGetValue(mover.Name, out var placed)
                 && ItemPath.FolderOf(movedTo) is var toFolder
                 && !string.Equals(toFolder, placed.Folder, StringComparison.OrdinalIgnoreCase))
             {
@@ -269,10 +269,10 @@ public static class PushService
                 if (ItemKind.IsTaskWireName(set.Name)) ide.ValidateTask(TaskDescriptorFormat.Read(text));
                 else
                 {
-                    var creating = WillCreate(walk, itemCache, ItemPath.BarePathOf(set.Name));
+                    var creating = WillCreate(walk, itemCache, set.Name);
                     // Read by the kind of the path the op LANDS at — its extension, never the text's header.
-                    var cached = itemCache.TryGetValue(ItemPath.BarePathOf(set.Name), out var held) ? held.Item : (ItemRef?)null;
-                    var source = ValidateSourceOrThrow(ide, ItemPath.BarePathOf(set.Name), text, creating, pushedDeclarations,
+                    var cached = itemCache.TryGetValue(set.Name, out var held) ? held.Item : (ItemRef?)null;
+                    var source = ValidateSourceOrThrow(ide, set.Name, text, creating, pushedDeclarations,
                                           ItemKind.KindForWireName(set.To ?? set.Name)!, cached);
                     validated[set.Name] = source;
                     var bodies = source.Bodies;
@@ -284,7 +284,7 @@ public static class PushService
                     // driver gets the item written into (null for a create) and the validated MODELS, never the text
                     // (2.27, D8/D12).
                     if (bodies.Count > 0)
-                        ide.ValidateSource(creating ? null : cached ?? ItemLookup.Find(ide, ItemPath.BarePathOf(set.Name)), bodies);
+                        ide.ValidateSource(creating ? null : cached ?? ItemLookup.Find(ide, set.Name), bodies);
                 }
             }
             catch (Exception ex) { preflight.Add(ConflictFor(op, ex)); }
@@ -446,7 +446,7 @@ public static class PushService
         {
             var sources = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
             if (!ItemKind.IsTaskWireName(w.Name))
-                sources[w.Name] = ValidateSourceOrThrow(ide, ItemPath.BarePathOf(w.Name), w.SourceText!, isCreate: false,
+                sources[w.Name] = ValidateSourceOrThrow(ide, w.Name, w.SourceText!, isCreate: false,
                                                         declarations, ItemKind.KindForWireName(w.Name)!, existing: null);
             ApplyOp(ide, new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase), notOpened,
                     w, force: true, sources, new OpOutcome());
@@ -594,7 +594,7 @@ public static class PushService
     {
         foreach (var op in ops)
         {
-            if (!itemCache.TryGetValue(ItemPath.BarePathOf(op.Name), out var cached)) continue;
+            if (!itemCache.TryGetValue(op.Name, out var cached)) continue;
             switch (op)
             {
                 case DeleteItemOp:
@@ -636,7 +636,7 @@ public static class PushService
     /// placement, a rename ran before a caller sent ahead of it, and the caller's op then met a text it had not read).</summary>
     private static string? Places(PushOp op, Dictionary<string, (ItemRef Item, string Folder)> itemCache) => op switch
     {
-        SetItemOp set when !itemCache.ContainsKey(ItemPath.BarePathOf(set.Name)) => ItemPath.FolderOf(set.To ?? set.Name),
+        SetItemOp set when !itemCache.ContainsKey(set.Name) => ItemPath.FolderOf(set.To ?? set.Name),
         SetItemOp { To: { } to } set when !string.Equals(ItemPath.FolderOf(to), ItemPath.FolderOf(set.Name),
                                                          StringComparison.OrdinalIgnoreCase) => ItemPath.FolderOf(to),
         _ => null,
@@ -755,16 +755,16 @@ public static class PushService
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, UnreadableObject> notOpened,
         PushOp op, bool force, IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
-        // The wire carries PATHS; the IDE is extensionless and names an object inside its container. Convert once, here,
-        // at the boundary: the item is looked up in the folder its path names, and nowhere else.
+        // The wire carries PATHS; the IDE is extensionless and names an object inside its container. The op is resolved
+        // by its whole path — the folder it names, the bare name AND the kind its extension states — so `X.dut` never
+        // lands on an object `X` of another kind (openspec unreadable-name-carries-kind 1.7).
         var name = ItemPath.BareOf(op.Name);
-        var barePath = ItemPath.BarePathOf(op.Name);
-        var inCache = itemCache.TryGetValue(barePath, out var cached);
+        var inCache = itemCache.TryGetValue(op.Name, out var cached);
         ItemRef? existing = null;
         if (inCache) existing = cached.Item;
         else
         {
-            var (found, untouchable) = ItemLookup.Locate(ide, barePath);
+            var (found, untouchable) = ItemLookup.Locate(ide, op.Name);
             if (untouchable is { } u) return ApplyToUnopened(ide, u, op, force, validated, outcome);
             existing = found;
         }
@@ -778,12 +778,6 @@ public static class PushService
                 return ApplySetTask(ide, name, currentFolder, existing, set, outcome);
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, validated, outcome);
-            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.pou` both
-            // resolve to the object `X`. So the op's kind is checked against the object's own kind, and a delete of a
-            // name of another kind finds nothing, with or without force (force drops a version gate; it never widens
-            // what a name means). Every kind has one extension, so the kind and the bare name are the whole wire name.
-            case DeleteItemOp when existing is { } found && !NamesThisItem(ide, found, op.Name):
-                return "no-op";
             case DeleteItemOp when existing is { } del:
                 // THE SAME LAST-MOMENT CHECK THE SET ARM DOES — a delete is the one op that cannot be undone.
                 // `inCache ? … : null`, NOT `currentFolder`: that collapses "at the ROOT" and "not seen by the walk"
@@ -811,18 +805,14 @@ public static class PushService
     /// refused a set; a delete reaches here). With force — the documented way past an unreadable item — it is
     /// handled through the PARENT, by name, never through the item's own handle: a delete is the parent's delete, and
     /// a set deletes it and creates the pushed item in its place (the same folder unless the op moves it). Both were
-    /// measured to leave the IDE alive. An op whose extension names a kind the object cannot be (it is a POU) does
-    /// not reach it: the name means another item, and force never widens what a name means.</para></summary>
+    /// measured to leave the IDE alive. Only an op of the object's own kind reaches it: the lookup resolves the whole
+    /// path, kind included, so `X.dut` beside an unopened POU `X` is another item.</para></summary>
     private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u, PushOp op, bool force,
         IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
         if (!force)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{u.Name}' is not read: {u.Reason}");
-        if (ItemKind.KindForWireName(op.Name) != u.Kind)
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a {u.Kind} that is " +
-                $"not read ({u.Reason}). Delete or replace it under its own kind.");
 
         switch (op)
         {
@@ -845,24 +835,13 @@ public static class PushService
         }
     }
 
-    /// <summary>Is <paramref name="wireName"/> the wire name of <paramref name="item"/>, the object the bare lookup
-    /// resolved it to? The kinds must agree — the tree says what the object IS, the extension what the op names. Every
-    /// kind has ONE extension (a DUT is <c>X.dut</c>, openspec <c>push-without-header-check</c> 5.P), so the kind and
-    /// the bare name are the whole wire name: no content is read, and an item whose content cannot be read is
-    /// deleted by its name under the generic unreadable rule like any other.</summary>
-    private static bool NamesThisItem(IIdeDriver ide, ItemRef item, string wireName)
-    {
-        var kind = ItemKind.Map(ide.KindCode(item));
-        return kind is not null && kind == ItemKind.KindForWireName(wireName);
-    }
-
     /// <summary>EVERY PATH A PUSH OP CARRIES — its <c>name</c> and a set's <c>to</c> — IS A WIRE PATH: its file name's
     /// extension names an item kind, as every path <c>refs</c>/<c>fetch</c> publish does. Anything else is refused
     /// <c>BAD_REQUEST</c> before a read or a write, forced or not.
     ///
-    /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its BARE name, so
-    /// <c>X.foo</c> reaches the object <c>X</c> while every check keyed by the full name misses it (no version entry, no
-    /// kind to hold the text to). Force drops a version gate; it never makes a name mean something. The retired
+    /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its whole path, kind
+    /// included, so <c>X.foo</c> names no object and no kind to hold the text to: there is nothing it could mean. Force
+    /// drops a version gate; it never makes a name mean something. The retired
     /// per-subtype names are such names: a DUT is <c>X.dut</c>, a POU <c>X.pou</c> (openspec
     /// <c>push-without-header-check</c> 5.P, 5.Q).</para></summary>
     private static void RequireWireNames(IEnumerable<PushOp> ops)
@@ -960,7 +939,7 @@ public static class PushService
                 // not undo it, and the conflict must say the task is no longer under its old name.
                 outcome.Renamed = (name, ItemPath.BareOf(to), ItemPath.Of(currentFolder, ItemPath.FileOf(to)));   // kept if anything after it is refused
                 name = ItemPath.BareOf(to);
-                task = Refind(ide, ItemPath.Of(currentFolder, name), $"task '{op.Name}' could not be found after being renamed to '{to}'");
+                task = Refind(ide, Versioning.PathOf(ItemKind.Kinds.Task, currentFolder, name), $"task '{op.Name}' could not be found after being renamed to '{to}'");
                 action = "renamed+updated";
             }
         }
@@ -992,7 +971,7 @@ public static class PushService
         {
             throw;   // unreachable: the filter returns false, so the original refusal propagates untouched.
         }
-        catch when (before is not null && RecordKept(outcome, TaskKept(ide, ItemPath.Of(currentFolder, name), before)))
+        catch when (before is not null && RecordKept(outcome, TaskKept(ide, Versioning.PathOf(ItemKind.Kinds.Task, currentFolder, name), before)))
         {
             throw;   // unreachable: the filter returns false.
         }
@@ -1052,7 +1031,7 @@ public static class PushService
             // it. Withdrawn only where the IDE is shown to have ignored it (the case-only check).
             outcome.Renamed = (name, currentName, ItemPath.Of(currentFolder, ItemPath.FileOf(op.To!)));   // kept if a later step of this op is refused (`ConflictFor`)
             // Refresh the staled handle, and FAIL on a miss: the pre-rename handle would write onto the OLD identity.
-            item = Refind(ide, ItemPath.Of(currentFolder, currentName),
+            item = Refind(ide, Versioning.PathOf(ItemKind.KindForWireName(op.Name)!, currentFolder, currentName),
                 $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
                 "write through the pre-rename handle");
 
@@ -1132,7 +1111,7 @@ public static class PushService
                 textLanded = true;
                 // RE-RESOLVE before moving: on TwinCAT the write is a document IMPORT, which invalidates every handle
                 // into the item it replaced (DIALECT D4d), so the handle this method was called with is dead.
-                item = Refind(ide, ItemPath.Of(fromFolder, name),
+                item = Refind(ide, Versioning.PathOf(kind, fromFolder, name),
                     $"'{name}' could not be found after its content was written — the write appears to have " +
                     "replaced it and the move cannot proceed.");
             }
@@ -1161,7 +1140,7 @@ public static class PushService
             // encoding a per-vendor quirk in the engine.
             if (source is { } settle)
             {
-                var relocated = Refind(ide, ItemPath.Of(newFolder, name),
+                var relocated = Refind(ide, Versioning.PathOf(kind, newFolder, name),
                     $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                     "push is failed rather than leaving the item holding its pre-edit content.");
                 WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, outcome);
@@ -1203,10 +1182,10 @@ public static class PushService
     /// into, with its scope and where it sits — what the driver's own pre-flight is handed
     /// (<see cref="ICodeStore.ValidateSource"/>) and what the apply WRITES from (<see cref="WriteItemFromSource"/>), so the
     /// text is read and each body validated ONCE (openspec bridge-refusal-review D8/D12).</returns>
-    private static ValidatedSource ValidateSourceOrThrow(IIdeDriver ide, string barePath, string src, bool isCreate,
+    private static ValidatedSource ValidateSourceOrThrow(IIdeDriver ide, string path, string src, bool isCreate,
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
-        var name = ItemPath.FileOf(barePath);
+        var name = ItemPath.BareOf(path);
         // Throws InvalidSt when the text cannot be split into what the push writes. FOLDED as the IDE's content is
         // (openspec abstract-member-parity): a file pulled before the fold states `IMPLEMENTATION ST` with an empty body
         // under an ABSTRACT member, which is the same content as `IMPLEMENTATION NONE`.
@@ -1230,13 +1209,13 @@ public static class PushService
             .Where(x => x.Why is not null).ToList();
         if (refusedNames.Count > 0)
         {
-            var held = HeldMembers(ide, barePath, isCreate, existing);
+            var held = HeldMembers(ide, path, isCreate, existing);
             foreach (var (m, why) in refusedNames)
                 if (!Holds(held, m))
                     throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {why}",
                                                     ChildRefusalCause.Name);
         }
-        RefuseMemberCreates(ide, barePath, split, isCreate, existing);
+        RefuseMemberCreates(ide, path, split, isCreate, existing);
         // …and object properties the vendor has no measured member for (openspec bridge-one-to-one §1.1: TwinCAT, every
         // key) — from the text alone, before the first write, on the item and on every member it carries.
         ide.ValidateProperties($"'{name}'", split.Properties, isCreate);
@@ -1304,14 +1283,14 @@ public static class PushService
     /// rule): an existing member is written through, never created, so its declaration is the build's to judge. The
     /// IDE's members are read only when the driver refuses one, which is rare; an update the walk did not cache is
     /// looked up live.</summary>
-    private static void RefuseMemberCreates(IIdeDriver ide, string barePath, ItemContent split, bool isCreate, ItemRef? existing)
+    private static void RefuseMemberCreates(IIdeDriver ide, string path, ItemContent split, bool isCreate, ItemRef? existing)
     {
-        var name = ItemPath.FileOf(barePath);
+        var name = ItemPath.BareOf(path);
         var refused = split.Members
             .Select(m => (Member: m, Why: ide.RefusedMemberCreate(m.Kind, m.Name, CreateSeed(m))))
             .Where(x => x.Why is not null).ToList();
         if (refused.Count == 0) return;
-        var held = HeldMembers(ide, barePath, isCreate, existing);
+        var held = HeldMembers(ide, path, isCreate, existing);
         foreach (var (m, why) in refused)
         {
             if (Holds(held, m)) continue;
@@ -1323,9 +1302,9 @@ public static class PushService
     /// <summary>The members the IDE holds under the item an update writes (none for a create), read live — the set a
     /// pushed member is "existing" against (<see cref="ReconcileMembers"/>'s rule: same name, case-insensitively, and
     /// same kind).</summary>
-    private static List<Member> HeldMembers(IIdeDriver ide, string barePath, bool isCreate, ItemRef? existing) =>
-        !isCreate && (existing ?? ItemLookup.Find(ide, barePath)) is { } item
-            ? ReadLive(ide, item, ItemPath.FileOf(barePath)).Members.ToList() : new List<Member>();
+    private static List<Member> HeldMembers(IIdeDriver ide, string path, bool isCreate, ItemRef? existing) =>
+        !isCreate && (existing ?? ItemLookup.Find(ide, path)) is { } item
+            ? ReadLive(ide, item, ItemPath.BareOf(path)).Members.ToList() : new List<Member>();
 
     private static bool Holds(List<Member> held, Member m) =>
         held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind);
@@ -1339,8 +1318,8 @@ public static class PushService
     /// the verdict to the write's own guard — not a guess: saying "create" where the apply says "update" would refuse a
     /// push of any project that merely CONTAINS a CFC POU.</para></summary>
     private static bool WillCreate(WalkResult walk, Dictionary<string, (ItemRef Item, string Folder)> itemCache,
-                                   string barePath) =>
-        walk.Complete && !itemCache.ContainsKey(barePath);
+                                   string path) =>
+        walk.Complete && !itemCache.ContainsKey(path);
 
     /// <summary>The kind of a wire name the pre-flight ADMITTED (<see cref="RequireWireNames"/> refuses every op whose
     /// name or toName has an extension that names no kind, before anything is applied). Null here is therefore Volt's
@@ -1501,18 +1480,18 @@ public static class PushService
                 // A write may replace the item on a vendor whose handles do not survive a change (TwinCAT, D4d), so the
                 // member reconcile below starts from a fresh handle there, as the content write after it does.
                 if (!ide.HandlesSurviveStructureChange)
-                    pou = Refind(ide, ItemPath.Of(folder ?? "", name),
+                    pou = Refind(ide, Versioning.PathOf(split.Kind, folder ?? "", name),
                         $"'{name}' cannot be found after its declaration was written — refusing to create its " +
                         "members through a handle the write invalidated");
             }
 
             // The member SET, for a create and an update alike. A create reaches here with the item existing but
             // empty, so every member the source declares is new; an update reconciles against what is there.
-            if (ReconcileMembers(ide, pou, ItemPath.Of(folder ?? "", name), live, split, changes, MemberRefusal))
+            if (ReconcileMembers(ide, pou, Versioning.PathOf(split.Kind, folder ?? "", name), live, split, changes, MemberRefusal))
                 // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: placing one is a round
                 // trip through the enclosing POU's own archive (DIALECT D4j), and the import replaces the item (D4d).
                 // Re-find from a FRESH tree root, because the PARENT handle dies with it.
-                pou = Refind(ide, ItemPath.Of(folder ?? "", name),
+                pou = Refind(ide, Versioning.PathOf(split.Kind, folder ?? "", name),
                     $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
                     "handle the member create invalidated");
 
@@ -1608,12 +1587,12 @@ public static class PushService
     /// <summary>What of an existing task's refused settings write stays: null when the task reads back exactly as it did
     /// before the write. A task that cannot be read back is NOT assumed unchanged — that would claim a fact nobody
     /// measured — so the conflict says it may have changed, and is <c>partiallyApplied</c> (the client re-reads it).</summary>
-    private static string? TaskKept(IIdeDriver ide, string barePath, string before)
+    private static string? TaskKept(IIdeDriver ide, string path, string before)
     {
-        var name = ItemPath.FileOf(barePath);
+        var name = ItemPath.BareOf(path);
         try
         {
-            var task = Refind(ide, barePath, $"task '{name}' cannot be found");
+            var task = Refind(ide, path, $"task '{name}' cannot be found");
             var after = ide.ReadManifest(task, ItemKind.Kinds.Task);
             return after == before ? null
                 : $"part of the settings of '{name}' was written before it and stays (the IDE now holds: " +
@@ -1775,7 +1754,7 @@ public static class PushService
     /// not a member — no reader models one, so it can never appear in a pushed source — and reconciling against
     /// the wider "inlined in a POU" set would delete every transition of an SFC POU on its first write, silently.</para></summary>
     /// <returns><c>true</c> when the project was mutated, so the caller knows its handles may be stale.</returns>
-    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, string barePath, ItemContent live, ItemContent pushed,
+    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, string path, ItemContent live, ItemContent pushed,
                                          MemberChanges changes, Func<string?> landed)
     {
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
@@ -1789,7 +1768,7 @@ public static class PushService
         ItemRef Owner()
         {
             if (!mutated || ide.HandlesSurviveStructureChange) return pou;
-            return pou = ItemLookup.Find(ide, barePath) ?? pou;
+            return pou = ItemLookup.Find(ide, path) ?? pou;
         }
 
         // `have`/`want` are keyed on NAME alone, so a member whose KIND changed would be neither created nor deleted.
@@ -1945,11 +1924,11 @@ public static class PushService
         m.Properties.Class
         ?? (m.Kind == ItemKind.Kinds.Method && m.Stated?.IsNone == true ? ObjectClass.AbstractMethodClass : null);
 
-    /// <summary>Find the item at <paramref name="barePath"/> (its folder and bare name) again after a step that may have
+    /// <summary>Find the item at <paramref name="path"/> (its wire path: folder, bare name and kind) again after a step that may have
     /// replaced its handle, or refuse with IDE_LOST_ITEM and <paramref name="lost"/>: the step reported success, so the
     /// item MUST be there.</summary>
-    private static ItemRef Refind(IIdeDriver ide, string barePath, string lost) =>
-        ItemLookup.Find(ide, barePath) ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, lost);
+    private static ItemRef Refind(IIdeDriver ide, string path, string lost) =>
+        ItemLookup.Find(ide, path) ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, lost);
 
     /// <summary>A member whose KIND changed under its name, or whose CLASS changed — in place or across a rename — is
     /// refused by name before anything of the update is written (task 3.4, DIALECT C2l): a kind is a class, and a class

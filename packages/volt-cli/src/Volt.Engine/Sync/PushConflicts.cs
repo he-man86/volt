@@ -47,15 +47,15 @@ internal static class PushConflicts
             // top of one.
             //
             // CASE-INSENSITIVELY when the exact spelling misses: IEC identifiers ignore case, and the apply resolves
-            // the op in its folder by bare name ignoring case. The gate must find the item the apply will find, or
+            // the op in its folder by bare name and kind ignoring case. The gate must find the item the apply will find, or
             // `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
             var key = pending.ContainsKey(name) ? name
                 : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase)) ?? name;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
             // AN OBJECT THE WALK COULD NOT CLASSIFY, under the folder and bare name this op names. Its kind is unknown,
-            // so an op on ANY `X.<kind>` there that is not a published identity may be that very object: the apply
-            // resolves by bare name in that folder and would land on it unchecked. Refused as what it is, by name — never a stale-version conflict quoting
+            // so an op on ANY `X.<kind>` there that is not a published identity may be that very object: the IDE
+            // holds one object of a name (DIALECT C38), and no lookup can say which kind it is. Refused as what it is, by name — never a stale-version conflict quoting
             // the sentinel (no pull can satisfy one: the object stays unreadable and no fetch ever sends it), and never
             // through the version map, which keys these objects by a path that is no wire name
             // (`Versioning.CountUnclassifiable`). Force skipped this whole loop above, as it does every item check.

@@ -67,7 +67,8 @@
   and <code>onlyItems</code>, every push op and its conflicts, a build diagnostic and the workspace layout are all
   keyed by it, so two <code>PLC_PRG.pou</code> in two applications are two items, and so are
   <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in one folder. Below the vendor seam the item
-  is looked up by its <b>bare</b> name inside the container its path names, never across the whole tree.
+  is looked up by its <b>bare</b> name and its kind inside the container its path names, never across the whole tree:
+  <code>X.dut</code> never resolves to an object <code>X</code> of another kind.
 </p>
 <p>
   <b>A path you address</b> (<code>onlyItems</code>, a push op's <code>name</code> and <code>to</code>) finds the IDE
