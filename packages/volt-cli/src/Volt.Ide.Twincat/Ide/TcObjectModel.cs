@@ -248,7 +248,7 @@ internal sealed partial class TcObjectModel
         if (listed != count && CurrentPlc.StaleSinceWrite)
         {
             // Volt's own create or delete in this operation is newer than the snapshot: ask a fresh one.
-            ForgetExplorer();
+            ForgetSystem(CurrentPlc.System);
             explorer = Explorer();
             if (explorer.InsidePou(rel)) return;
             listed = explorer.ListedChildren(rel);
@@ -322,16 +322,28 @@ internal sealed partial class TcObjectModel
     private readonly HashSet<string> _flaggedThisSession = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Drop the snapshots — every PLC project's — so the next child access reads the hierarchy afresh. Called
-    /// at the start of every operation (<c>BeckhoffDriver.MarshalToIdeThread</c>), and after a structural write while
-    /// something is flagged (a create or delete changes the names a guarded folder is addressed by).</summary>
+    /// at the start of every operation (<c>BeckhoffDriver.MarshalToIdeThread</c>).</summary>
     public void ForgetExplorer()
     {
         _systemHierarchies.Clear();
         if (_plcs is null) return;
+        foreach (var plc in _plcs) Forget(plc);
+    }
+
+    /// <summary>Drop the snapshots of the system project <paramref name="system"/> — its hierarchy, and every one of its
+    /// PLC projects' — after a structural write in it: a create or delete changes that system project's hierarchy and no
+    /// other's, so another system project's snapshot of this operation still holds.</summary>
+    private void ForgetSystem(string system)
+    {
+        _systemHierarchies.Remove(system);
+        if (_plcs is null) return;
         foreach (var plc in _plcs)
-        {
-            plc.Explorer = null; plc.RootPath = null; plc.Root = null; plc.ProjectFile = null; plc.StaleSinceWrite = false;
-        }
+            if (string.Equals(plc.System, system, StringComparison.Ordinal)) Forget(plc);
+    }
+
+    private static void Forget(TcPlc plc)
+    {
+        plc.Explorer = null; plc.RootPath = null; plc.Root = null; plc.ProjectFile = null; plc.StaleSinceWrite = false;
     }
 
     /// <summary>A CLEAN snapshot read before a structural write in this operation: it still lists the old child counts.
@@ -342,7 +354,7 @@ internal sealed partial class TcObjectModel
     /// Per PLC project: <see cref="TcPlc.StaleSinceWrite"/>.</summary>
     private void StructureChanged()
     {
-        if (_explorer is { Clean: false }) ForgetExplorer();
+        if (_explorer is { Clean: false }) ForgetSystem(CurrentPlc.System);
         else if (_explorer is not null) CurrentPlc.StaleSinceWrite = true;
     }
 
