@@ -58,7 +58,7 @@ public sealed partial class BeckhoffDriver
                 // swallowed as a child fault (DIALECT C2i).
                 _om.Explorer();
                 applications.Add(plc.Path);
-                WalkInner(_om.PlcRoot(), plc.Path, plc, items, unwalked, unreadable);
+                WalkInner(_om.PlcRoot(), kind: null, plc.Path, plc, items, unwalked, unreadable);
                 // The compiler settings have no tree node on TwinCAT (they are the PLC project's property pages), so the
                 // item is NAMED here, at the PLC project's root, and read when its manifest is asked for (ReadManifest).
                 // Unconditional on purpose: an item whose presence depended on a read would vanish on a read fault, and
@@ -71,14 +71,15 @@ public sealed partial class BeckhoffDriver
         return new WalkResult(items, unwalked, unreadable, applications);
     }
 
-    private void WalkInner(object node, string folderPath, TcPlc plc, List<ProjectItem> items, List<string> unwalked,
+    /// <param name="kind">The node's tree kind as this walk read it, null for the PLC project root (never classified).</param>
+    private void WalkInner(object node, int? kind, string folderPath, TcPlc plc, List<ProjectItem> items, List<string> unwalked,
                            List<UnreadableObject> unreadable)
     {
         // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
         // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
         // like this once hid a real read bug (FB-with-method / interface) for a long time.
         int count;
-        try { count = _om.ChildCount(node); }
+        try { count = kind is { } known ? _om.ChildCount(node, known) : _om.ChildCount(node); }
         catch (Exception ex)
         {
             // The ENTIRE subtree is lost here, not one item. Recorded as well as logged: the log was at Debug,
@@ -136,7 +137,7 @@ public sealed partial class BeckhoffDriver
             if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
-                WalkInner(child, nested, plc, items, unwalked, unreadable);
+                WalkInner(child, itemType, nested, plc, items, unwalked, unreadable);
                 continue;
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
@@ -151,7 +152,7 @@ public sealed partial class BeckhoffDriver
             // refs/fetch, and absent means DELETED to a pull. One unreadable node must not break the walk (the
             // WarnUnmappedTcCode line above is the established policy), but it must be SAID.
             int childCount;
-            try { childCount = _om.ChildCount(child); }
+            try { childCount = _om.ChildCount(child, itemType); }
             catch (Exception ex)
             {
                 // SAID on the channel the caller can act on, not only to the log. The three sibling catches in
@@ -169,8 +170,8 @@ public sealed partial class BeckhoffDriver
             bool isHybrid = childCount > 0 && !ItemKind.IsTopLevelCrud(itemType) && !ItemKind.InlinesItsChildren(itemType);
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
-            items.Add(new ProjectItem(name, new ItemRef(new TcNode(child, plc)), itemType, emitFolder));
-            if (isHybrid) WalkInner(child, emitFolder, plc, items, unwalked, unreadable);
+            items.Add(new ProjectItem(name, new ItemRef(new TcNode(child, plc, itemType)), itemType, emitFolder));
+            if (isHybrid) WalkInner(child, itemType, emitFolder, plc, items, unwalked, unreadable);
         }
     }
 
@@ -289,6 +290,7 @@ public sealed partial class BeckhoffDriver
         SystemNode => 1,   // its `PLC` node
         PlcFolderNode folder => PlcsOf(folder.System).Count,
         PlcItemNode => 1,   // its project node (the PLC project's instance node holds nothing Volt reads)
+        TcNode { Kind: { } kind } => _om.ChildCount(Com(item), kind),
         _ => _om.ChildCount(Com(item)),
     };
 
@@ -327,6 +329,7 @@ public sealed partial class BeckhoffDriver
         SystemDescriptorNode => ItemKind.PlcDevice,
         TcProjectSettingsNode => ItemKind.PlcProjectSettings,
         IoNode => ItemKind.PlcDevice,
+        TcNode { Kind: { } kind } => kind,   // as the walk that found it read it
         _ => ClassifiedKind(Com(item)),
     };
 

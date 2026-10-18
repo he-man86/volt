@@ -34,6 +34,11 @@ public class TcUntouchablePouTests
         public int PathReads;
         public readonly List<string> Lookups = new();
         public readonly List<string> Deleted = new();
+        /// <summary>How often each node's <c>ItemType</c> and <c>Name</c> were read, by node name, and the PLC project
+        /// item's <c>NestedProject</c> — the COM reads an operation pays per node.</summary>
+        public readonly Dictionary<string, int> TypeReads = new();
+        public readonly Dictionary<string, int> NameReads = new();
+        public int NestedReads;
         public void Alive()
         {
             if (Dead) throw new COMException("The remote procedure call failed.", unchecked((int)0x800706BE));
@@ -83,7 +88,7 @@ public class TcUntouchablePouTests
         /// last saved under until a save (<see cref="Persisted"/>, DIALECT D4f, vendor-facts `tc-rename-then-move`).</summary>
         public string Name
         {
-            get { _xae.Alive(); return _name; }
+            get { _xae.Alive(); _xae.NameReads[_name] = _xae.NameReads.GetValueOrDefault(_name) + 1; return _name; }
             set { _xae.Alive(); if (Persisted is null) Persisted = _name; _name = value; Renames.Add(value); }
         }
         private string _name = "";
@@ -93,7 +98,8 @@ public class TcUntouchablePouTests
         public string? Persisted;
         /// <summary>File > Save All: every document carries its tree item's name again.</summary>
         public void SaveAll() { Persisted = null; foreach (var k in Kids) k.SaveAll(); }
-        public int ItemType { get { _xae.Alive(); return _type; } }
+        public int ItemType { get { _xae.Alive(); _xae.TypeReads[_name] = _xae.TypeReads.GetValueOrDefault(_name) + 1; return _type; } }
+        public Xae X => _xae;
         public int ChildCount { get { _xae.Alive(); return Kids.Count; } }
         public Children Child { get; }
         public string PathName
@@ -180,10 +186,11 @@ public class TcUntouchablePouTests
         /// <param name="projectPath">The <c>.plcproj</c> the item names — the shared empty one unless a test writes its own.</param>
         public Plc(Node nested, string? projectPath = null)
         {
-            NestedProject = nested;
+            _nested = nested;
             _project = projectPath ?? Project;
         }
-        public Node NestedProject { get; }
+        private readonly Node _nested;
+        public Node NestedProject { get { _nested.X.NestedReads++; return _nested; } }
         /// <summary>The PLC project's name, as the solution names it (<c>TIPC^Untitled2</c>).</summary>
         public string Name => "Untitled2";
         private readonly string _project;

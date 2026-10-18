@@ -21,12 +21,15 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 public sealed partial class BeckhoffDriver
 {
-    /// <summary>A COM tree node of the PLC project <see cref="Plc"/>.</summary>
+    /// <summary>A COM tree node of the PLC project <see cref="Plc"/> — with its tree <see cref="Kind"/> when the walk that
+    /// found it read it, so reading the item asks the IDE no fact the same operation's walk already has.</summary>
     internal sealed class TcNode
     {
-        public TcNode(object com, TcPlc plc) { Com = com; Plc = plc; }
+        public TcNode(object com, TcPlc plc, int? kind = null) { Com = com; Plc = plc; Kind = kind; }
         public object Com { get; }
         public TcPlc Plc { get; }
+        /// <summary>The node's <c>ItemType</c> as the walk read it, or null for a node reached otherwise.</summary>
+        public int? Kind { get; }
         public override string ToString() => $"{Plc}: {Com}";
     }
 

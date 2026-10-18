@@ -23,7 +23,8 @@ internal sealed partial class TcObjectModel
     /// review of step 3, finding 6): it used to read as an object with no properties, so an excluded object whose file
     /// could not be found pulled as a built one. Null only for a node that answers no automation XML at all — no TwinCAT
     /// tree item does; it is the offline doubles' shape.</summary>
-    public TcSavedFacts? SavedFacts(object node, string what)
+    /// <param name="what">The item, as a refusal names it — formatted only when one is thrown.</param>
+    public TcSavedFacts? SavedFacts(object node, Func<string> what)
     {
         // The file's own facts are read here; the .plcproj entry only when the caller asks (`CompileEntry`), after the file
         // has been judged — a refusal by the file needs no project read.
@@ -32,18 +33,18 @@ internal sealed partial class TcObjectModel
         catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }   // no automation XML: no tree item
         if (string.IsNullOrEmpty(xml))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{what}: TwinCAT answers no item XML for it — Volt reads its saved file for what the text cannot say, so " +
+                $"{what()}: TwinCAT answers no item XML for it — Volt reads its saved file for what the text cannot say, so " +
                 "it is not pulled rather than pulled as an object with no properties.");
         var path = XDocument.Parse(xml!).Root?.Element("VSProperties")?.Elements("VSProperty")
             .FirstOrDefault(p => (string?)p.Element("Name") == "FullPath")?.Element("Value")?.Value;
         if (string.IsNullOrEmpty(path))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{what}: TwinCAT publishes no FullPath for it — Volt reads its saved file for what the text cannot say " +
+                $"{what()}: TwinCAT publishes no FullPath for it — Volt reads its saved file for what the text cannot say " +
                 "(its special function, its object properties, its build entry), so it is not pulled rather than pulled " +
                 "as an object with none.");
         if (!File.Exists(path))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{what}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All) and pull " +
+                $"{what()}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All) and pull " +
                 "again; Volt reads that file for what the text cannot say, so it is not pulled without it.");
 
         var doc = XDocument.Load(path!, LoadOptions.PreserveWhitespace);

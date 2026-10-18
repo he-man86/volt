@@ -165,14 +165,15 @@ internal sealed partial class TcObjectModel
 
     // ── tree primitives ─────────────────────────────────────────────
     /// <summary>The ADDRESSED PLC project's root (its NestedProject, <see cref="CurrentPlc"/>). Lazily resolves the PLC
-    /// projects on first use (EnsurePlc) — this is THE point where a content op reaches into a PLC application.</summary>
+    /// projects on first use (EnsurePlc) — this is THE point where a content op reaches into a PLC application. Asked of
+    /// the PLC project item once per operation (<see cref="TcPlc.Root"/>, dropped with the snapshots).</summary>
     public object PlcRoot()
     {
         EnsurePlc();
 
         // NO FALLBACK: a stale-handle RPC fault here must reach `ShouldMarkDegraded`, so `RunRead` recovers. A
         // substitute node is the origin of every walk — a wrong one shifts every folder path in the project.
-        return _plcNode!.NestedProject;
+        return CurrentPlc.Root ??= (object)_plcNode!.NestedProject;
     }
 
     // Raw COM reads — these THROW on failure; the tree-walk callers catch and skip/continue (that
@@ -185,6 +186,15 @@ internal sealed partial class TcObjectModel
     {
         var count = RawChildCount(node);
         if (ItemType(node) == ItemKind.PlcFolder) RequireListed(Explorer(), node, count);
+        return count;
+    }
+
+    /// <summary><see cref="ChildCount(object)"/> of a node whose kind the caller has just read (<see cref="ItemType"/>) —
+    /// the walk classifies every child before it counts that child's children.</summary>
+    public int ChildCount(object node, int kind)
+    {
+        var count = RawChildCount(node);
+        if (kind == ItemKind.PlcFolder) RequireListed(Explorer(), node, count);
         return count;
     }
 
@@ -318,7 +328,7 @@ internal sealed partial class TcObjectModel
     {
         _systemHierarchies.Clear();
         if (_plcs is null) return;
-        foreach (var plc in _plcs) { plc.Explorer = null; plc.RootPath = null; plc.StaleSinceWrite = false; }
+        foreach (var plc in _plcs) { plc.Explorer = null; plc.RootPath = null; plc.Root = null; plc.StaleSinceWrite = false; }
     }
 
     /// <summary>A CLEAN snapshot read before a structural write in this operation: it still lists the old child counts.

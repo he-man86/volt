@@ -42,8 +42,8 @@ public sealed partial class BeckhoffDriver
             members.Add(ReadMember(site, ownerIsInterface, declaration));
 
         // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text.
-        var facts = _om.SavedFacts(Com(item), $"'{Name(item)}'");
-        if (ownerIsInterface && facts is not null) RequireMeasuredAccessorDeclarations(Name(item), facts, members);
+        var facts = _om.SavedFacts(Com(item), () => $"'{Name(item)}'");
+        if (ownerIsInterface && facts is not null) RequireMeasuredAccessorDeclarations(() => Name(item), facts, members);
 
         // Every text verbatim, trailing newlines included (openspec bridge-one-to-one §1.1, trailing-newline-cache).
         return new ItemContent(KindOf(item), declaration, body, members, ReadProperties(item, facts), unsupported, stated);
@@ -59,7 +59,7 @@ public sealed partial class BeckhoffDriver
     /// refused BY NAME — it used to be read by nothing, so a stored <c>VAR x : INT; END_VAR</c> pulled as the empty
     /// declaration. An accessor the saved file does not hold is an unsaved edit, and its stored text is unknown: refused by
     /// name too, with the remedy.</summary>
-    private static void RequireMeasuredAccessorDeclarations(string itf, TcSavedFacts facts, IReadOnlyList<Member> members)
+    private static void RequireMeasuredAccessorDeclarations(Func<string> itf, TcSavedFacts facts, IReadOnlyList<Member> members)
     {
         foreach (var m in members)
         {
@@ -72,10 +72,10 @@ public sealed partial class BeckhoffDriver
         void Require(string property, string accessor, bool present, string? declaration)
         {
             if (!present) return;
-            var what = $"'{itf}' ({System.IO.Path.GetFileName(facts.File)}): its property '{property}' {accessor}";
+            string What() => $"'{itf()}' ({System.IO.Path.GetFileName(facts.File)}): its property '{property}' {accessor}";
             if (declaration is null)
                 throw new BridgeException(BridgeErrorCodes.Unreadable,
-                    $"{what} is not in the saved file — save the project in the IDE (File > Save All) and pull again: Volt " +
+                    $"{What()} is not in the saved file — save the project in the IDE (File > Save All) and pull again: Volt " +
                     "reads the accessor's stored declaration from that file, since TwinCAT answers it on no other path (D21).");
             // Both stored forms the vendor was seen to save are the empty declaration the text spells: the measured
             // constant, and the EMPTY declaration of a vendor-saved file (`fixtures/tc-pou/ITF1.TcIO`, ProductVersion
@@ -83,7 +83,7 @@ public sealed partial class BeckhoffDriver
             // admitted, so such an interface was refused on pull with no remedy.
             if (declaration.Length != 0 && declaration != MeasuredInterfaceAccessorDeclaration)
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"{what} stores the declaration '{declaration.Replace("\n", " / ")}' — TwinCAT stores 'PUBLIC / VAR / " +
+                    $"{What()} stores the declaration '{declaration.Replace("\n", " / ")}' — TwinCAT stores 'PUBLIC / VAR / " +
                     "END_VAR' on every interface accessor it makes (tc-itf-accessor-decl), a 3.1.4024.16 save stores none " +
                     "(ITF1.TcIO); Volt spells either as the empty declaration, and no automation path reads or writes " +
                     "another (D21), so the interface is not pulled rather than pulled without it.");
@@ -100,18 +100,18 @@ public sealed partial class BeckhoffDriver
     private ObjectProperties ReadProperties(ItemRef item, TcSavedFacts? facts)
     {
         if (facts is null) return ObjectProperties.None;
-        var what = $"'{Name(item)}' ({System.IO.Path.GetFileName(facts.File)})";
+        string What() => $"'{Name(item)}' ({System.IO.Path.GetFileName(facts.File)})";   // named only when refused
         if (facts.SpecialFunc is { } special && special != "None")
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} is a TwinCAT special function (SpecialFunc=\"{special}\") — its class has no measured spelling " +
+                $"{What()} is a TwinCAT special function (SpecialFunc=\"{special}\") — its class has no measured spelling " +
                 "on TwinCAT (tc-special-classes, DIALECT C2s), so it is not pulled as a plain POU.");
         if (facts.ObjectPropertyClasses.FirstOrDefault(c => c != "SFCProperty") is { } property)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} holds the object property '{property}' — TwinCAT has no measured member Volt can spell for it, " +
+                $"{What()} holds the object property '{property}' — TwinCAT has no measured member Volt can spell for it, " +
                 "so the object is not pulled without it.");
         if (_om.CompileEntry(facts.File).FirstOrDefault(e => e != "SubType") is { } entry)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what}: its .plcproj entry holds <{entry}> — a build property TwinCAT has no measured member for in " +
+                $"{What()}: its .plcproj entry holds <{entry}> — a build property TwinCAT has no measured member for in " +
                 "Volt's text (an excluded object must not read as a built one), so the object is not pulled.");
         return ObjectProperties.None;
     }
