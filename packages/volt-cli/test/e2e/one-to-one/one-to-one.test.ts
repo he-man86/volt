@@ -152,7 +152,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 	// finding 5: a standalone transition
 	it("an SFC POU holding a standalone transition is refused by name on pull", async () => {
 		const f = await bridge.fetch({ knownItems: {}, onlyItems: [await pathOf("VltFixtureSfc.pou")] })
-		expect((f.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).toContain("VltFixtureSfc")
+		expect((f.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).toContain("VltFixtureSfc.pou")
 	})
 
 	// finding 2: a member rename keeps the object. LAST in this block, on purpose: while the finding holds, the rename is a

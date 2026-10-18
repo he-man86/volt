@@ -48,7 +48,7 @@ export const PLATFORM_GAPS = {
 			"DIALECT V7 (gate 2a): up to 3.5.18.30 each reference archives its own `Params` - and SP18 archives a library's " +
 			"DEFAULTS there: a project SP18's own scripting made (device + add_placeholder Analyzation) names 6 values " +
 			"(measured 2026-10-14, environment-dependency-audit 2.5b), which Volt does not spell yet, so the Library " +
-			"Manager is named unreadable",
+			"Manager is named in unreadableNodes",
 	},
 } satisfies Record<string, PlatformGap>
 

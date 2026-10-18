@@ -270,7 +270,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			// up — a folder the driver could not enumerate, which makes absence meaningless beneath it. `removed` is
 			// the engine's removal verdict over the names a client says it knows (`ReadResponse.Removed`, shared with
 			// `fetch`): refs carries it since removal is decided once, in the engine, for both read ops.
-			const shape = ["applications", "items", "platform", "projectName", "projectVersion", "removed", "unreadable", "unwalkedFolders"]
+			const shape = ["applications", "items", "platform", "projectName", "projectVersion", "removed", "unreadable", "unreadableNodes", "unwalkedFolders"]
 			expect(Object.keys(ra).sort()).toEqual(shape)
 			expect(Object.keys(rb).sort()).toEqual(shape)
 			// Asked about no known names, neither vendor can report one removed.
@@ -281,6 +281,8 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			// since one vendor quietly dropping an item is exactly what this suite exists to catch.
 			expect(ra.unreadable).toEqual([])
 			expect(rb.unreadable).toEqual([])
+			expect(ra.unreadableNodes).toEqual([])
+			expect(rb.unreadableNodes).toEqual([])
 
 			// The ITEM is ONE row keyed by its path on both sides, and a METHOD child does not get a
 			// row of its own — the member rides inside its parent's document. That is the structural half of

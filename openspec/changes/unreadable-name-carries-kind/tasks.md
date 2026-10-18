@@ -41,7 +41,7 @@
 - [x] 2.6 Correct the comments that state the kindless premise (`Versioning.cs:109-112`, `Shared.cs:58-59`, `:104-106`,
       `Removal.cs:11-15`).
 - [x] 2.7 CLI (`Program.cs:195`, `:254`) and volt-control (`types.ts`) show both lists.
-- [ ] 2.8 e2e: replace the 4 kind guesses with the entry's `name`; fix the dead check at `refusals/table.ts:327`.
+- [x] 2.8 e2e: replace the 4 kind guesses with the entry's `name`; fix the dead check at `refusals/table.ts:327`.
       `push-without-header-check.test.ts` and `kind-name-cycle.test.ts` carry another session's uncommitted edits:
       commit by explicit pathspec, never `git add -A`.
 - [x] 2.9 Scripts on the full path: `volt-cli/scripts/vendor-facts.ts:741`, `completeness.ts:439-445` (`refusedAt`),

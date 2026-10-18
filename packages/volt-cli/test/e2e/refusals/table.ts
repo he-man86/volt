@@ -88,7 +88,7 @@ export async function sweep(b: Bridge): Promise<void> {
 	const mine = (n: string) => fileOf(n).startsWith(REF_PREFIX)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: `${n}.pou`, ifVersion: null })),
+		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: n, ifVersion: null })),
 	]
 	if (ops.length === 0) return
 	const r = await b.call("push", { expectedProjectVersion: refs.projectVersion, force: true, ops })
@@ -324,7 +324,7 @@ export const ROWS: Row[] = [
 			await createFb(b, bare, text)
 			// In the load that wrote it: read like any POU, and a create over it collides — the same on both vendors.
 			const refs = await refsOf(b)
-			if (!refs.items?.[b.at(bare)] || (refs.unreadable ?? []).includes(inFolder(b.root, bare)))
+			if (!refs.items?.[b.at(bare)] || (refs.unreadable ?? []).some((u: { name: string }) => u.name === b.at(bare)))
 				throw new Error(`${b.vendor}: '${b.at(bare)}' is not read in the load that wrote it: ${JSON.stringify(refs.unreadable)}`)
 			const over = await pushFresh(b, [{ op: "set", name: b.at(bare), sourceText: fb(bare), ifVersion: null }])
 			// The version is hashed over the item's path, which carries each vendor's spine: only the answer is compared.

@@ -28,23 +28,14 @@ import { buildErrorKey, expectedBuildErrorKey } from "../lib/build-error-key"
 
 const KEY = "nohdr_"
 
-/** The extension each name that can come back unreadable was pushed under: `unreadable` lists `<folder>/<bare name>`, and a
- *  forced delete reaches the object only under its own kind. Only this row records `unreadable` (the GVL holding a
- *  retired comment did until openspec bridge-refusal-review 1.4); any other name listed there is a new fact, and the
- *  sweep says so rather than guess its kind. */
-const pushedAs = new Map<string, string>([["uc_fb", "pou"]].map(([k, e]) => [id(KEY + k), e]))
-
 /** Delete every item this file made, readable or not. */
 async function sweep(): Promise<void> {
 	const refs = await bridge.refs()
 	const mine = (n: string) => fileOf(n).startsWith(`${PREFIX}_${KEY}`)
 	const ops = [
 		...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
-			const ext = pushedAs.get(fileOf(n))
-			if (!ext) throw new Error(`'${n}' is unreadable and is no shape of this file — no kind to delete it under`)
-			return { op: "deleteItem", name: `${n}.${ext}`, ifVersion: null }
-		}),
+		// An unreadable item is named by its path, the name a forced delete reaches it by.
+		...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: n, ifVersion: null })),
 	]
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, force: true, ops })
@@ -61,9 +52,9 @@ async function sweep(): Promise<void> {
 async function expectHeld(bare: string, ext: string, text: string, held: "fetched" | "unreadable"): Promise<void> {
 	const refs = await bridge.refs()
 	const names = Object.keys(refs.items).map(fileOf).filter((n) => n.slice(0, n.lastIndexOf(".")) === bare)
-	const unreadable = (refs.unreadable ?? []).map((u: any) => fileOf(String(u?.name ?? u))).filter((n: string) => n === bare)
+	const unreadable = (refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name)).filter((n: string) => n.slice(0, n.lastIndexOf(".")) === bare)
 	if (held === "unreadable") {
-		expect({ names, unreadable }).toEqual({ names: [], unreadable: [bare] })
+		expect({ names, unreadable }).toEqual({ names: [], unreadable: [`${bare}.${ext}`] })
 		return
 	}
 	expect({ names, unreadable }).toEqual({ names: [`${bare}.${ext}`], unreadable: [] })

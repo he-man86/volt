@@ -179,20 +179,19 @@ export async function cleanup(): Promise<void> {
  * private `clean()` with the same `items[name] ?? "UNREADABLE000000"` sentinel — because the harness offered only
  * a prefix-wide sweep. The sentinel is load-bearing: an item that was accepted but is NOT enumerable in `refs`
  * (the TwinCAT bug `items/child-roundtrip-parity` exists for) has no readable version, and a delete still has to
- * reach it — at the path `refs.unreadable` names it under (`<folder>/<bare name>`; the kind is the file name's). An
+ * reach it — at the path `refs.unreadable` names it by (`<folder>/<name>.<kind>`, the path it has while it reads). An
  * item that is neither listed nor unreadable is gone already: nothing is sent.</p>
  */
 export async function removeItem(name: string): Promise<void> {
 	const refs = await bridge.refs()
 	const items = refs.items ?? {}
 	const listed = pathIn(items, name, refs.applications)
-	const bare = fileOf(name).replace(/\.[^.]*$/, "")
 	const unreadable: string[] = (refs.unreadable ?? [])
-		.map((u: any) => String(u.name ?? ""))
-		.filter((u: string) => (name.includes("/") ? u === inFolder(folderOf(name), bare) : fileOf(u) === bare))
+		.map((u: { name: string }) => u.name)
+		.filter((u: string) => (name.includes("/") ? u === name : fileOf(u) === fileOf(name)))
 	if (listed === undefined && unreadable.length > 1)
 		throw new Error(`'${name}' is unreadable under ${unreadable.length} folders (${unreadable.join(", ")}) — name one by its path`)
-	const path = listed ?? (unreadable.length === 1 ? inFolder(folderOf(unreadable[0]!), fileOf(name)) : undefined)
+	const path = listed ?? (unreadable.length === 1 ? unreadable[0] : undefined)
 	if (path === undefined) return
 	await bridge.push({
 		expectedProjectVersion: refs.projectVersion,

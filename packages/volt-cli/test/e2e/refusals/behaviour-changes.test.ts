@@ -133,7 +133,7 @@ const ROWS: Row[] = [
 			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.gvl`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			const refs = await refsOf(b)
-			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain(bare)
+			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain(`${bare}.gvl`)
 			const back = noBlanks((await fetchOne(b, b.path(`${bare}.gvl`))).sourceText)
 			expect(back).toBe(noBlanks(text))
 			return { text: back }
@@ -196,7 +196,7 @@ const ROWS: Row[] = [
 			const refs = await refsOf(b)
 			const cfc = pathIn(refs.items, "VltFixtureCfc.pou", refs.applications)
 			expect(cfc, `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
-			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain("VltFixtureCfc")
+			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain("VltFixtureCfc.pou")
 			const text = (await fetchOne(b, cfc!)).sourceText as string
 			expect(text).toContain("\nIMPLEMENTATION CFC UNSUPPORTED\n")
 			// Whole: the declaration (its header and its VAR block) stands above the marker — a marker alone is the drop

@@ -94,17 +94,13 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 	let root = ""
 	let dir = "" // the workspace folder of the main program — where every shape's file is written
 
-	/** Every forced delete of this file's names, readable or not (an unreadable one by the kind it was pushed as). */
+	/** Every forced delete of this file's names, readable or not (an unreadable one by the path `unreadable` names it by). */
 	async function sweep(): Promise<void> {
 		const refs = await bridge.refs()
 		const mine = (n: string) => fileOf(n).startsWith(`${PREFIX}_${KEY}`)
 		const ops = [
 			...Object.keys(refs.items ?? {}).filter(mine).map((n) => ({ op: "deleteItem", name: n, ifVersion: null })),
-			...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => {
-				const s = shapes.find((x) => S(x.key) === fileOf(n))
-				if (!s) throw new Error(`'${n}' is unreadable and is no shape of this file`)
-				return { op: "deleteItem", name: `${n}.${s.ext}`, ifVersion: null }
-			}),
+			...(refs.unreadable ?? []).map((u: { name: string }) => u.name).filter(mine).map((n: string) => ({ op: "deleteItem", name: n, ifVersion: null })),
 		]
 		if (ops.length === 0) return
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, force: true, ops })
