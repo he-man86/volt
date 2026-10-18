@@ -934,6 +934,14 @@ switch ($Action) {
         # is now closed through its own shutdown first (Close-Ours).
         [void](Close-Instance $Vendor -DryRun:$DryRun)
         if (-not $DryRun) { Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue }
+        # The copy goes too. Left behind it never shrinks: XAE adds a ~1.8 MB `_CompileInfo` file per build and deletes
+        # none, and every agent names its own instance — 80 copies, one of them 3.8 GB, filled C: on 2026-10-18 and
+        # crashed an XAE mid-run. `up` rebuilds the copy from the committed fixture anyway.
+        $copy = Get-CopyRoot $Vendor
+        if (-not $DryRun -and -not $InPlace -and (Test-Path $copy)) {
+            try { Remove-Item $copy -Recurse -Force -ErrorAction Stop }
+            catch { Write-Warning "could not remove this instance's copy $copy (a process still holds it): $($_.Exception.Message)" }
+        }
     }
     "up" {
         # LD and FBD network text ON for what this launches (openspec implementation-keyword 3c). The bridge reads the
