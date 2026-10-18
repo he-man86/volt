@@ -37,7 +37,9 @@ public static class FetchService
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
         // `[]` MEANS "THESE ZERO ITEMS", everywhere — never collapsed to null, which would read as "every item" to the
         // per-item filter and run the full library-signature extraction for a directed preview of nothing.
-        var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems);
+        // An ADDRESSED path finds the IDE item ignoring case, as push's `name`/`to` do (openspec one-path-comparer); the
+        // answer spells the IDE's path. A HELD key (`knownItems`) stays exact: see Removal.
+        var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems, StringComparer.OrdinalIgnoreCase);
 
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
         // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.

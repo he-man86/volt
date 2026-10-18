@@ -89,6 +89,49 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A CASE-ONLY RENAME IN THE IDE leaves ONE entry (openspec <c>one-path-comparer</c> 1.3). The bridge answers
+    /// the held key <c>Calc.pou</c> in <c>removed</c> and <c>calc.pou</c> in <c>items</c>; the CLI subtracts the first
+    /// from a case-sensitive git tree and adds the second. (a) the <c>volt/ide</c> tree, (b) the work tree.</summary>
+    [Fact]
+    public void Pull_after_an_IDE_side_case_only_rename_leaves_one_entry_in_volt_ide()
+    {
+        const string fb = "FUNCTION_BLOCK Calc\nVAR\nEND_VAR";
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("Calc", fb, "", "POUs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            ide.RemoveItem("Calc");
+            ide.AddItem(FakeIde.Item.TextualPou("calc", fb.Replace("Calc", "calc"), "", "POUs"));
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var tree = Git.ListTree(Git.ResolveGitDir(root), "refs/remotes/volt/ide")
+                .Select(e => e.Path).Where(p => p.StartsWith("src/POUs/", System.StringComparison.Ordinal)).ToArray();
+            Assert.Equal(new[] { "src/POUs/calc.pou" }, tree);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>(b) of the above: the WORK TREE after the pull's <c>git merge</c> on a case-insensitive file system.</summary>
+    [Fact]
+    public void Pull_after_an_IDE_side_case_only_rename_leaves_one_file_in_the_work_tree()
+    {
+        const string fb = "FUNCTION_BLOCK Calc\nVAR\nEND_VAR";
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("Calc", fb, "", "POUs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            ide.RemoveItem("Calc");
+            ide.AddItem(FakeIde.Item.TextualPou("calc", fb.Replace("Calc", "calc"), "", "POUs"));
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var files = Directory.GetFiles(Path.Combine(root, "src", "POUs")).Select(Path.GetFileName).ToArray();
+            Assert.Equal(new[] { "calc.pou" }, files);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Pull_reports_a_conflict_when_both_sides_edited_the_same_item()
     {

@@ -43,7 +43,8 @@ public class FetchRequest : BoundRequest
     [JsonPropertyName("knownApplications")]
     public List<string>? KnownApplications { get; set; }
 
-    /// <summary>A directed read: answer only the items whose PATHS are listed here, and judge nothing outside them
+    /// <summary>A directed read: answer only the items whose PATHS are listed here (matched ignoring case, answered in the
+    /// IDE's spelling), and judge nothing outside them
     /// removed. Naming a <c>.library</c> returns its manifest AND every signature of that library, in the folder and
     /// with the bytes a full fetch writes them (unless <see cref="LibraryManifestOnly"/>); the signatures come from one
     /// extraction, cached for the session against every <c>.library</c>'s version, so the FIRST such read of a

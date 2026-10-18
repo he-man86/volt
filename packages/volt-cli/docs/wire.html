@@ -70,6 +70,11 @@
   is looked up by its <b>bare</b> name inside the container its path names, never across the whole tree.
 </p>
 <p>
+  <b>A path you address</b> (<code>onlyItems</code>, a push op's <code>name</code> and <code>to</code>) finds the IDE
+  item ignoring case, and every answer spells it as the IDE does. <b>A key you hold</b> (<code>knownItems</code>) is
+  exact: a case-only rename in the IDE is the old key in <code>removed</code> and the new one in <code>items</code>.
+</p>
+<p>
   Every item path on the wire has this form, readable or not. <code>unreadable</code> lists the items the walk found
   and did not read, each <code>{ name, reason }</code> with <code>name</code> the path the item has in
   <code>items</code> while it reads &mdash; the name a forced <code>deleteItem</code> addresses it by.
@@ -125,7 +130,7 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
 </table>
 <div class="note">
   <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a
-  <code>set</code>'s <code>to</code>, compared case-insensitively. A second op on the same path
+  <code>set</code>'s <code>to</code>, an addressed path (<a href="#identity">identity</a>). A second op on the same path
   (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a path another op
   sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
   <code>set</code>; a delete and a create of the same path are two pushes. That batch used to replace the object —
