@@ -339,8 +339,18 @@ public class DocDataTests
             if (!IsOptional(p, isRequest)) required.Add(wireName);
         }
 
+        // A union member names its own discriminator value, so its schema can close over every member it has.
+        if (t.BaseType?.GetCustomAttribute<JsonPolymorphicAttribute>() is { } basePoly)
+        {
+            var value = t.BaseType.GetCustomAttributes<JsonDerivedTypeAttribute>().Single(d => d.DerivedType == t).TypeDiscriminator;
+            props[basePoly.TypeDiscriminatorPropertyName ?? "$type"] = new JsonObject { ["type"] = "string", ["const"] = value?.ToString() };
+        }
+
         var schema = new JsonObject { ["type"] = "object", ["properties"] = props };
         if (required.Count > 0) schema["required"] = required;
+        // A request body is read strictly (WireJson.Request): a member the type does not define is BAD_REQUEST. A
+        // union's base leaves it to its members, each of which closes over its own members.
+        if (isRequest && t.GetCustomAttribute<JsonPolymorphicAttribute>() is null) schema["additionalProperties"] = false;
 
         // A DISCRIMINATED UNION IS EMITTED, not described in prose.
         //

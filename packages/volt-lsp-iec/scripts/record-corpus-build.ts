@@ -25,7 +25,7 @@ const health = await call("health")
 const vendor = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" : "codesys")
 
 console.log(`Building ${PROJECT} on ${target()} (${vendor}) …`)
-const r = await call("build", { buildType: "full" })
+const r = await call("build", {})
 const diagnostics = (r.diagnostics ?? [])
   .filter((d: any) => d.severity === "error" || d.severity === "warning")
   .map((d: any) => ({ severity: d.severity, message: String(d.message), line: d.line ?? 0 }))

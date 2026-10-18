@@ -737,11 +737,8 @@ public static class PushService
                 return "no-op";  // idempotent delete of an item that isn't there — the legitimate case
 
             default:
-                // An op that is neither a set nor a delete (a missing or PascalCase `op` discriminator deserializes
-                // as the BASE PushOp) is refused, never an accepted no-op.
-                throw new BridgeException(BridgeErrorCodes.BadRequest,
-                    $"push op for '{name}' has no recognised 'op' discriminator — expected \"set\" or " +
-                    "\"deleteItem\" (lower-camel, exactly). The op was ignored rather than applied.");
+                // PushOp is abstract: an op with no discriminator is refused when the body is read (BridgePipeHost.Body).
+                throw new InvalidOperationException($"no apply arm for {op.GetType().Name}");
         }
     }
 
@@ -782,8 +779,7 @@ public static class PushService
                                     SourceOf(validated, set), ItemPath.FolderOf(wireName), outcome);
                 return "replaced";
             default:
-                throw new BridgeException(BridgeErrorCodes.BadRequest,
-                    $"push op for '{u.Name}' has no recognised 'op' discriminator — expected \"set\" or \"deleteItem\".");
+                throw new InvalidOperationException($"no apply arm for {op.GetType().Name}");
         }
     }
 

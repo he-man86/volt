@@ -285,8 +285,9 @@ public class PipeTransportTests
             new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthConnected = false }, pipe);
         host.Start();
 
-        var ex = Assert.Throws<PipeCallException>(() =>
-            new PipeClient(pipe).Call(op, new { knownItems = new Dictionary<string, string>() }));
+        // Each op's own body: `knownItems` is a member of `refs` and `fetch` only, and a body is read strictly.
+        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() } : new { };
+        var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, body));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
 
@@ -341,10 +342,53 @@ public class PipeTransportTests
         Assert.Contains(field, ex.Message);
     }
 
-    /// <summary>Send ONE line exactly as given — no serializer between the test and the server, which is the
-    /// whole point of a malformed-input test — and read the error code out of the frame that comes back. Reads
-    /// the raw JSON rather than <c>PipeFrame</c>, which is internal to the wire and stays that way.</summary>
-    private static string RawErrorCode(string pipe, string line)
+    /// <summary>EVERY REQUEST BODY REFUSES A MEMBER ITS OP DOES NOT HAVE (openspec <c>refuse-unknown-request-members</c>).
+    /// A folder-wire client's <c>knownFolders</c> was dropped in silence, and its root-keyed <c>knownItems</c> then read
+    /// every item outside the root as removed; a recorder's deleted <c>buildType</c> reached nothing. One strict read
+    /// answers each with BAD_REQUEST naming the op and the member, before the walk, the apply or the build.</summary>
+    [Theory]
+    [InlineData("fetch", @"{""knownItems"":{},""knownFolders"":{}}", "knownFolders")]
+    [InlineData("refs", @"{""knownItems"":{},""knownFolders"":{}}", "knownFolders")]
+    [InlineData("build", @"{""buildType"":""full""}", "buildType")]
+    [InlineData("connect", @"{""x"":1}", "x")]
+    [InlineData("push", @"{""ops"":[],""x"":1}", "x")]
+    [InlineData("fetch", @"{""KnownItems"":{}}", "KnownItems")]
+    [InlineData("push", @"{""ops"":[{""name"":""P.pou""}]}", "push")]
+    public void A_request_body_member_the_op_does_not_have_is_a_BAD_REQUEST_naming_the_op_and_the_member(
+        string op, string body, string member)
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"));
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        var error = RawError(pipe, $@"{{""op"":""{op}"",""body"":{body}}}");
+
+        Assert.Equal("BAD_REQUEST", error.Code);
+        Assert.Contains($"`{op}`", error.Message);
+        Assert.Contains(member, error.Message);
+        Assert.Equal(0, ide.WalkCalls);
+        Assert.Empty(ide.BuildSequence);
+        Assert.Null(ide.Selected);
+    }
+
+    /// <summary>The envelope and the responses read their members by their exact name, as request bodies do: a
+    /// PascalCase spelling has no sender, and accepting it gave every member two spellings.</summary>
+    [Fact]
+    public void A_miscased_member_of_the_envelope_or_a_response_is_not_read()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        var error = RawError(pipe, @"{""Op"":""health""}");
+        Assert.Equal("BAD_REQUEST", error.Code);
+
+        var health = JsonSerializer.Deserialize<HealthResponse>(@"{""BridgeVersion"":""9.9.9""}", WireJson.Read)!;
+        Assert.Null(health.BridgeVersion);
+    }
+
+    private static (string Code, string Message) RawError(string pipe, string line)
     {
         using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
         client.Connect(5000);
@@ -354,10 +398,15 @@ public class PipeTransportTests
         using var reader = new System.IO.StreamReader(client, System.Text.Encoding.UTF8);
         var raw = reader.ReadLine() ?? throw new Xunit.Sdk.XunitException("the bridge answered nothing to: " + line);
         using var doc = JsonDocument.Parse(raw);
-        return doc.RootElement.TryGetProperty("error", out var err)
-            ? err.GetProperty("code").GetString()!
-            : throw new Xunit.Sdk.XunitException("expected an error frame, got: " + raw);
+        if (!doc.RootElement.TryGetProperty("error", out var err))
+            throw new Xunit.Sdk.XunitException("expected an error frame, got: " + raw);
+        return (err.GetProperty("code").GetString()!, err.GetProperty("message").GetString()!);
     }
+
+    /// <summary>Send ONE line exactly as given — no serializer between the test and the server, which is the
+    /// whole point of a malformed-input test — and read the error code out of the frame that comes back. Reads
+    /// the raw JSON rather than <c>PipeFrame</c>, which is internal to the wire and stays that way.</summary>
+    private static string RawErrorCode(string pipe, string line) => RawError(pipe, line).Code;
 
     /// <summary>The tray's Disconnect, end to end over the wire. `disconnect` must REFUSE sync without tearing the
     /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean

@@ -319,7 +319,8 @@ window.VOLT = {
             "project": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "RefsRequest": {
           "type": "object",
@@ -342,7 +343,8 @@ window.VOLT = {
             "expectedProjectName": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "RefsResponse": {
           "type": "object",
@@ -444,7 +446,8 @@ window.VOLT = {
             "expectedProjectName": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "FetchResponse": {
           "type": "object",
@@ -579,7 +582,8 @@ window.VOLT = {
           },
           "required": [
             "ops"
-          ]
+          ],
+          "additionalProperties": false
         },
         "PushOp": {
           "type": "object",
@@ -627,11 +631,16 @@ window.VOLT = {
             },
             "ifVersion": {
               "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set"
             }
           },
           "required": [
             "name"
-          ]
+          ],
+          "additionalProperties": false
         },
         "DeleteItemOp": {
           "type": "object",
@@ -641,11 +650,16 @@ window.VOLT = {
             },
             "ifVersion": {
               "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "deleteItem"
             }
           },
           "required": [
             "name"
-          ]
+          ],
+          "additionalProperties": false
         },
         "PushResponse": {
           "type": "object",
@@ -734,7 +748,8 @@ window.VOLT = {
             "expectedProjectName": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "BuildResponse": {
           "type": "object",

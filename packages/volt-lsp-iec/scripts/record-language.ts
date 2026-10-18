@@ -345,7 +345,7 @@ for (const t of ALL_TESTS) {
       await setPlcPrg(markImplementations(plcPrgSource(t)))
     }
     const started = performance.now()
-    const r = await call("build", { buildType: "incremental" })
+    const r = await call("build", {})
     const durationMs = Math.round(performance.now() - started)
     const diagnostics = (r.diagnostics ?? [])
       .filter((d: any) => d.severity === "error" || d.severity === "warning")

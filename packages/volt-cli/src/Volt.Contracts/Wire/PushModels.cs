@@ -25,8 +25,7 @@ public class PushRequest : BoundRequest
     /// text of every item the push changed, exactly as a fetch returns it (openspec
     /// <c>st-roundtrip-fixed-point</c>, route A). A client that patches its own text then holds what a read would give
     /// (volt's canonical form: one blank line before the END line, members METHOD, ACTION, PROPERTY then by name) without
-    /// a second call. Absent or <c>false</c>: the answer is unchanged. Additive: an older bridge ignores it and answers
-    /// without <c>newSources</c>, which a client reads as "re-read".</summary>
+    /// a second call. Absent or <c>false</c>: the answer is unchanged.</summary>
     [JsonPropertyName("returnSources")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ReturnSources { get; set; }
@@ -35,7 +34,7 @@ public class PushRequest : BoundRequest
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
 [JsonDerivedType(typeof(SetItemOp), "set")]
 [JsonDerivedType(typeof(DeleteItemOp), "deleteItem")]
-public class PushOp
+public abstract class PushOp
 {
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
@@ -49,10 +48,7 @@ public class PushOp
 /// a create there. One op expresses create / update / rename / move and any combination, applied atomically — a rename
 /// (the file name changes) uses the IDE's native rename and changes no item the push does not name (callers keep their
 /// text unless the push sends them — DIALECT C2p); a move (the folder changes) relocates the object, within one
-/// application only (openspec <c>multi-application-tree</c>: a move to another application is a delete and a create).
-/// <para>A member the op does not have is refused, BAD_REQUEST naming it: a client still sending the retired
-/// <c>toFolder</c>/<c>toName</c> had them dropped in silence, and its bare name created the item at the tree root.</para></summary>
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+/// application only (openspec <c>multi-application-tree</c>: a move to another application is a delete and a create).</summary>
 public class SetItemOp : PushOp
 {
     /// <summary>The PATH the item should end up at, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>, exactly as the walk
@@ -65,7 +61,6 @@ public class SetItemOp : PushOp
     public string? SourceText { get; set; }
 }
 
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public class DeleteItemOp : PushOp
 {
 }

@@ -73,7 +73,7 @@ await pushOps([
     ifVersion: await version(plcName),
   },
 ])
-const r = await call("build", { buildType: "incremental" })
+const r = await call("build", {})
 
 // Match each diagnostic back to its (src → dst) pair by the type names in the message. The compiler reports
 // line 0, so the message text is the only key. Both wordings name src FIRST, dst SECOND.

@@ -226,12 +226,18 @@ public sealed class BridgePipeHost : IDisposable
     /// nothing. It is also the likeliest error a NEW client makes, which is when a wrong answer costs most.</para>
     ///
     /// <para>The message names the op and the type, because a client holding the OpenRPC document can look the
-    /// second one up; the exception's own text says which member was wrong.</para></summary>
+    /// second one up; the exception's own text says which member was wrong.</para>
+    ///
+    /// <para>Every body is read STRICTLY (<see cref="WireJson.Request"/>): a member its type does not define, or one
+    /// spelled in another case, is refused here, before any IDE work — so a client still sending a retired member
+    /// (<c>knownFolders</c>, <c>buildType</c>) is told so instead of being answered as if it had sent nothing. A push op
+    /// with no <c>op</c> discriminator is refused by the same read: <see cref="PushOp"/> is abstract, and the
+    /// serializer's <c>NotSupportedException</c> for it is the caller's fault like any other.</para></summary>
     private static T Body<T>(PipeRequest req) where T : new()
     {
         if (!req.Body.HasValue || req.Body.Value.ValueKind == JsonValueKind.Null) return new T();
-        try { return JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Read) ?? new T(); }
-        catch (JsonException ex)
+        try { return JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Request) ?? new T(); }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 $"the body of `{req.Op}` is not a valid {typeof(T).Name}: {ex.Message}");

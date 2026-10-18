@@ -178,7 +178,7 @@ for (const c of targets) {
     await fx.reset()
     for (const it of [...items, ...extraItems]) await fx.set(it.wire, it.src)
     await fx.set("PLC_PRG.pou", plcBody ?? synthPlc(instTypes, calls))
-    const r = await call("build", { buildType: "full" })
+    const r = await call("build", {})
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
     lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode, c.reproFiles)
     const actualN = actual.map(norm)

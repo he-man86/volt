@@ -44,7 +44,7 @@ const main = mainProgram(refs0)
 const plcName = main.path
 const wire = inFolder(legacyCreateFolder(main, V), `${unitName}.pou`)
 const plcOrig = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed.find((i: any) => i.name === plcName).sourceText
-const base = new Set(((await call("build", { buildType: "incremental" })).diagnostics ?? []).map(key))
+const base = new Set(((await call("build", {})).diagnostics ?? []).map(key))
 
 // VOLT_NO_INSTANTIATE=1 pushes the POU and does NOT reference it from the main program - which is how you
 // ask the OTHER question: is this object compiled AT ALL? CODESYS generates code only for what it can reach,
@@ -64,7 +64,7 @@ if (instantiate)
 if (!(await pushOps(ops))) {
   console.error("push rejected"); process.exit(1)
 }
-const r = await call("build", { buildType: "incremental" })
+const r = await call("build", {})
 const ide = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map(key).filter((m: string) => !base.has(m)).sort()
 await pushOps([{ op: "deleteItem", name: wire, ifVersion: await ver(wire) }, { op: "set", name: plcName, sourceText: plcOrig, ifVersion: await ver(plcName) }])
 

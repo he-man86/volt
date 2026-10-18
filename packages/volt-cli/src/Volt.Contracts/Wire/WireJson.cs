@@ -5,8 +5,9 @@ namespace Volt.Contracts;
 
 /// <summary>The ONE encoding of the pipe wire — both directions, both ends.
 /// <para><b>Write</b>: camelCase field names, nulls omitted (so each response frame serializes to a single key).
-/// <b>Read</b>: case-insensitive, because a client that predates a DTO's explicit
-/// <c>[JsonPropertyName]</c> may still be sending the property's PascalCase name.</para>
+/// <b>Read</b>: member names match exactly. A request body (<see cref="Request"/>) also refuses a member its type
+/// does not define; the envelope and the responses (<see cref="Read"/>) skip one, which is what lets an added response
+/// member ship without a protocol bump (<c>docs/relay-protocol.md</c>).</para>
 /// <para>It lives in Contracts rather than beside the pipe because the ENCODING is part of the wire contract, not
 /// of the transport that carries it. Before this, one writer config sat <c>internal</c> inside the pipe assembly
 /// and THREE separate reader configs were declared independently — by the bridge host, by the CLI's client and by
@@ -25,9 +26,19 @@ public static class WireJson
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    /// <summary>Deserializing a request body or a response frame.</summary>
+    /// <summary>Deserializing the request envelope or a response frame: exact member names — the spelling
+    /// <see cref="Write"/> produces, so a member without its own <c>[JsonPropertyName]</c> (<c>ProjectEntry</c>'s
+    /// positional members) reads back as written — and an unknown member skipped.</summary>
     public static readonly JsonSerializerOptions Read = new()
     {
-        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    /// <summary>Deserializing a request BODY: exact member names, and a member the op's request type does not define
+    /// is an error — a client still sending a retired member is told so instead of having it dropped.</summary>
+    public static readonly JsonSerializerOptions Request = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 }
