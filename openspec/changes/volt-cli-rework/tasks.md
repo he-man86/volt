@@ -3,8 +3,10 @@ Requires: `ld-fbd-coverage` and `multi-application-tree` — both archived; this
 **Goal (owner, 2026-10-18): a new vendor is one IDE host** (proposal, spec). Every step below is judged by it: code is
 placed so a vendor outside the CODESYS family (Siemens, Rockwell) implements the `Ide/` contract in its own host and
 nothing above that contract learns its name. Shared code goes to `Volt.Engine` only if it names no CODESYS-family fact;
-what both current hosts share as a family (NWL, DIALECT N1, the object model) goes to the family layer
-`Volt.Ide.CodesysFamily` (owner default 2026-10-18: a project of its own, built for net48 and the x86 worker).
+a CODESYS-family fact (NWL, DIALECT N1, the object model) stays BELOW the contract, in the hosts. Whether the two hosts
+share such code is NOT decided (owner, 2026-10-18: "careful about combining those 2 into 1 package" — different runtimes,
+net48 in-proc vs the x86 worker; TwinCAT reaches NWL its own way; one vendor's fix must not risk the other). 1.1 lists
+the candidates with evidence; 1.2 decides each; the default is two self-contained hosts.
 
 Order (owner, 2026-10-17): **behind the wire first** — `Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat` (and their
 tests), with the wire as it stands after `multi-application-tree` as the fixed reference (3.3: byte-identical before/after).
@@ -85,8 +87,8 @@ standing practice:
 
 ## 3. Rework (project by project, test-first)
 
-- [ ] 3.1 Move misplaced code to its owning project (CODESYS-family code shared by both hosts → `Volt.Ide.CodesysFamily`,
-      starting with the one model → NWL translation); delete legacy; fix each bug behind its test.
+- [ ] 3.1 Move misplaced code to its owning project (CODESYS-family code above the contract → down into the hosts;
+      shared between the hosts only where 1.2 approved it); delete legacy; fix each bug behind its test.
 - [ ] 3.2 Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
       to 1.3's recording (a 1.2 wire deletion re-records it once, in its own change, before the rework).

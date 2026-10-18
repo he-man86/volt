@@ -8,7 +8,7 @@ volt-bridge + volt-git merged, network text rewritten twice — and the owner ex
 **The goal (owner, 2026-10-18): a new vendor can be added after this.** Everything below the wire is reworked so that
 adding a vendor outside the CODESYS family (Siemens, Rockwell) means writing one IDE host against the `Ide/` contract,
 with nothing above the seam to learn its name. The two vendors Volt has today are both CODESYS-family; what they share
-as a family (NWL, DIALECT N1) is a family layer, never the Engine core's assumption.
+as a family (NWL, DIALECT N1) lives below the `Ide/` contract, never as the Engine core's assumption.
 
 ## What Changes
 
@@ -16,8 +16,9 @@ A multi-agent workflow (owner opted in) over every volt-cli project — `Volt.En
 `Volt.Ide.Twincat`, the connector, `Volt.Contracts`, `scripts/`, and the test projects:
 
 - **Placement.** Every piece of code lives in the project that owns its concern, not scattered: logic that names no
-  vendor and no CODESYS-family fact moves to `Volt.Engine`; what the two hosts share as a CODESYS family moves to
-  `Volt.Ide.CodesysFamily`; only irreducible vendor glue stays in a host (ARCHITECTURE.md). The asymmetries
+  vendor and no CODESYS-family fact moves to `Volt.Engine`; CODESYS-family facts stay below the `Ide/` contract, in the
+  hosts. Sharing code between the two hosts is decided per case in 1.2, with two self-contained hosts as the default
+  (owner: careful about combining them into one package). The asymmetries
   recorded in `Ide/DIALECT.md` are load-bearing and stay where they are.
 - **Legacy.** Code, comments and docs serving removed designs or old formats are deleted (no users, no backward compat).
 - **Hidden bugs.** Fallbacks that mask a broken state, silent defaults, untested branches — each found bug gets a
