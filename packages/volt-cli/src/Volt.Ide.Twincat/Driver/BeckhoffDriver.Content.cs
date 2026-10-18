@@ -360,7 +360,7 @@ public sealed partial class BeckhoffDriver
                 $"'{_om.GetName(Com(item))}' has no parent, so its archive cannot be rewritten");
         var pouName = _om.GetName(Com(item));
 
-        _om.SetMemberBodies(parent, pouName, resolved);
+        _om.SetMemberBodies(Com(item), resolved);
 
         // The POU was deleted and re-imported, so every handle into it is dead. The PARENT was not replaced,
         // so it is still good to walk.

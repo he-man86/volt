@@ -54,18 +54,6 @@ public static class BridgeErrorCodes
     /// <c>codesys-build-nesting</c>).</summary>
     public const string IdeBusy = "IDE_BUSY";
 
-    /// <summary>The IDE refused to SAVE: what was applied is in the IDE's memory and not on disk. TwinCAT only — its
-    /// writes land in the open project and are committed by <c>File.SaveAll</c>, which a push runs before its apply and
-    /// after it, and a build before it; CODESYS commits each write as it lands. Raised outside the push's per-op handling,
-    /// so it arrives as an error FRAME on <c>push</c> and <c>build</c>; after a push's apply it means every op landed in
-    /// the IDE and the receipt was not sent. Not a vendor limit (<see cref="Unsupported"/>: "no retry will change it") and
-    /// not a Volt bug (<see cref="InternalError"/>): a save fails for a locked file or a busy IDE and the remedy is to save —
-    /// File &gt; Save All in the IDE, or retry the call — then <c>volt pull</c> to see what landed. The IDE's exception
-    /// travels as the inner one, so a dead COM channel still degrades the session (review of
-    /// <c>bridge-refusal-review</c> step V: it was <c>UNSUPPORTED</c>, a code neither op declared, and before that
-    /// <c>INTERNAL_ERROR</c>).</summary>
-    public const string IdeSaveFailed = "IDE_SAVE_FAILED";
-
     /// <summary>Volt's OWN broken invariant, and nothing else: a state Volt's code guarantees cannot happen, and the
     /// catch-all <c>PipeServer</c> (and the push's <c>ConflictFor</c>) assign to any exception nobody coded. An IDE
     /// state is never this — an unreadable folder is <c>ITEM_UNVERIFIED</c>, an IDE refusal <see cref="Unsupported"/>,

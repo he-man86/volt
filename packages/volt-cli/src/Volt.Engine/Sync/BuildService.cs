@@ -24,7 +24,6 @@ public static class BuildService
         {
             // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
-            ide.FlushPendingWrites();
             // ONE kind of build. A clean (CODESYS CleanAll, TwinCAT SolutionBuild.Clean) is reachable but buys nothing:
             // measured on live CODESYS 3.5.21.40, the build after a clean does not recompile (~60 ms vs ~2100 ms cold) —
             // it discards online-change data, not the language model — so `--full` was deleted rather than wired to it.

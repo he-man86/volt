@@ -7846,6 +7846,175 @@
 		],
 		"tto-cycle-us": "10000"
 	},
+	"tc-unsaved-build": {
+		"diagnostics@built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "';' expected instead of 'VltF_NbF'",
+					"name": "TwinCAT Project14/PLC/Untitled2/Untitled2 Project/VltF_NbUse.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"diagnostics@negative": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "';' expected instead of 'VltF_NbF'",
+					"name": "TwinCAT Project14/PLC/Untitled2/Untitled2 Project/VltF_NbUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'(VltF_NbF(1) + VltF_NbNoSuchName);\r\n' is no valid statement",
+					"name": "TwinCAT Project14/PLC/Untitled2/Untitled2 Project/VltF_NbUse.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"file.impl@broken": "r := VltF_NbF(1);\n",
+		"file.impl@negative": "r := VltF_NbF(1) + VltF_NbNoSuchName;\n",
+		"saved@broken": true,
+		"saved@built": true,
+		"saved@called": true,
+		"saved@negative": true,
+		"steps": [
+			"create f: accepted",
+			"create u: accepted",
+			"find main: accepted",
+			"setText main (push): accepted",
+			"build: accepted",
+			"setText u: accepted",
+			"build: accepted"
+		]
+	},
+	"tc-unsaved-move": {
+		"decl.p1@edited": "PROGRAM VltF_Nm1\nVAR\n\tedited : INT;\nEND_VAR\n",
+		"decl.p1@edited-moved": "PROGRAM VltF_Nm1\nVAR\n\tedited : INT;\nEND_VAR\n",
+		"decl.p1@reloaded": "PROGRAM VltF_Nm1\nVAR\n\tedited : INT;\nEND_VAR\n",
+		"decl.p2@created-moved": "PROGRAM VltF_Nm2\nVAR\n\tfresh : INT;\nEND_VAR\n",
+		"decl.p2@reloaded": "PROGRAM VltF_Nm2\nVAR\n\tfresh : INT;\nEND_VAR\n",
+		"decl.p3@moved-renamed": "PROGRAM VltF_Nm3b\nVAR\n\tthird : INT;\nEND_VAR\n",
+		"decl.p3@reloaded": "PROGRAM VltF_Nm3b\nVAR\n\tthird : INT;\nEND_VAR\n",
+		"fb-children@member-moved": [
+			"Step"
+		],
+		"fb-children@reloaded": [
+			"Step"
+		],
+		"fetched.fb@member-moved": "FUNCTION_BLOCK VltF_NmFb\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : INT\n\nIMPLEMENTATION ST\nEND_METHOD\n",
+		"fetched.fb@reloaded": "FUNCTION_BLOCK VltF_NmFb\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : INT\n\nIMPLEMENTATION ST\nEND_METHOD\n",
+		"fetched.p1@member-moved": "PROGRAM VltF_Nm1\nVAR\n\tedited : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nfirst := 1;\n\n\nEND_PROGRAM\n",
+		"fetched.p1@reloaded": "PROGRAM VltF_Nm1\nVAR\n\tedited : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nfirst := 1;\n\n\nEND_PROGRAM\n",
+		"fetched.p2@member-moved": "PROGRAM VltF_Nm2\nVAR\n\tfresh : INT;\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_PROGRAM\n",
+		"fetched.p2@reloaded": "PROGRAM VltF_Nm2\nVAR\n\tfresh : INT;\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_PROGRAM\n",
+		"fetched.p3@member-moved": "PROGRAM VltF_Nm3b\nVAR\n\tthird : INT;\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_PROGRAM\n",
+		"fetched.p3@reloaded": "PROGRAM VltF_Nm3b\nVAR\n\tthird : INT;\nEND_VAR\n\nIMPLEMENTATION ST\n\nEND_PROGRAM\n",
+		"held-children@created-moved": [
+			"VltF_Nm1",
+			"VltF_Nm2"
+		],
+		"held-children@edited-moved": [
+			"VltF_Nm1"
+		],
+		"held-children@member-moved": [
+			"VltF_Nm1",
+			"VltF_Nm2",
+			"VltF_Nm3b",
+			"VltF_NmFb"
+		],
+		"held-children@moved-renamed": [
+			"VltF_Nm1",
+			"VltF_Nm2",
+			"VltF_Nm3b"
+		],
+		"held-children@reloaded": [
+			"VltF_Nm1",
+			"VltF_Nm2",
+			"VltF_Nm3b",
+			"VltF_NmFb"
+		],
+		"impl.p1@edited": "edited := 7;\n",
+		"impl.p1@edited-moved": "first := 1;\n",
+		"impl.p1@reloaded": "first := 1;\n",
+		"impl.p2@created-moved": "",
+		"impl.p2@reloaded": "",
+		"saved@edited": true,
+		"saved@edited-moved": true,
+		"saved@member-moved": true,
+		"steps": [
+			"create held: accepted",
+			"create p1: accepted",
+			"setText p1: accepted",
+			"move p1: accepted",
+			"create p2: accepted",
+			"move p2: accepted",
+			"create p3: accepted",
+			"move p3: accepted",
+			"rename p3: accepted",
+			"create fb: accepted",
+			"create m: accepted",
+			"move fb: accepted",
+			"reload: accepted"
+		]
+	},
+	"tc-unsaved-name-reuse": {
+		"decl.x2@recreated": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n",
+		"decl.x2@reloaded": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n",
+		"decl.x2@renamed-onto-deleted": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n",
+		"decl.y@reloaded": "PROGRAM VltF_NsZ\nVAR\n\tfromY : INT;\nEND_VAR\n",
+		"decl.y@renamed-onto-deleted": "PROGRAM VltF_NsZ\nVAR\n\tfromY : INT;\nEND_VAR\n",
+		"fetched.x2@reloaded": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nsecond := 2;\n\n\nEND_PROGRAM\n",
+		"fetched.x2@renamed-onto-deleted": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nsecond := 2;\n\n\nEND_PROGRAM\n",
+		"fetched.y@reloaded": "PROGRAM VltF_NsZ\nVAR\n\tfromY : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nfromY := 3;\n\n\nEND_PROGRAM\n",
+		"fetched.y@renamed-onto-deleted": "PROGRAM VltF_NsZ\nVAR\n\tfromY : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nfromY := 3;\n\n\nEND_PROGRAM\n",
+		"file.decl.x2@recreated": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n",
+		"file.decl.x2@reloaded": "PROGRAM VltF_NsX\nVAR\n\tsecond : INT;\nEND_VAR\n",
+		"file.decl.y@reloaded": "PROGRAM VltF_NsZ\nVAR\n\tfromY : INT;\nEND_VAR\n",
+		"file.decl.y@renamed-onto-deleted": "PROGRAM VltF_NsY\nVAR\n\tfromY : INT;\nEND_VAR\n",
+		"file.name.x2@recreated": "VltF_NsX",
+		"file.name.x2@reloaded": "VltF_NsX",
+		"file.name.y@reloaded": "VltF_NsZ",
+		"file.name.y@renamed-onto-deleted": "VltF_NsY",
+		"saved@deleted": true,
+		"saved@recreated": true,
+		"saved@renamed-onto-deleted": true,
+		"steps": [
+			"create x1: accepted",
+			"delete x1: accepted",
+			"create x2: accepted",
+			"create y: accepted",
+			"create z: accepted",
+			"delete z: accepted",
+			"rename y: accepted",
+			"reload: accepted"
+		]
+	},
+	"tc-unsaved-read": {
+		"fetched.itf@itf-made": "INTERFACE IVltF_NrI\n\n\nPROPERTY Level : INT\nEND_PROPERTY\n\nEND_INTERFACE\n",
+		"fetched.itf@reloaded": "INTERFACE IVltF_NrI\n\n\nPROPERTY Level : INT\nEND_PROPERTY\n\nEND_INTERFACE\n",
+		"fetched.p@created": "PROGRAM VltF_NrP\nVAR\n\tbefore : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nbefore := 5;\n\n\nEND_PROGRAM\n",
+		"fetched.p@reloaded": "PROGRAM VltF_NrQ\nVAR\n\tbefore : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nbefore := 5;\n\n\nEND_PROGRAM\n",
+		"fetched.p@renamed": "PROGRAM VltF_NrQ\nVAR\n\tbefore : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nbefore := 5;\n\n\nEND_PROGRAM\n",
+		"file.impl@created": "",
+		"file.impl@renamed": "",
+		"file.itf": "Level",
+		"file.name.p": "VltF_NrP",
+		"steps": [
+			"create p: accepted",
+			"setText p: accepted",
+			"rename p: accepted",
+			"create itf: accepted",
+			"create prop: accepted",
+			"reload: accepted"
+		]
+	},
 	"trailing-newline-cache": {
 		"decl.p@reloaded": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",
 		"decl.p@written": "PROGRAM VltF_Trail\nVAR\n\tx : INT;\nEND_VAR\n\n\n",

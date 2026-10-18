@@ -25,6 +25,9 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcHiddenBodyWriteTests
 {
+    private static readonly System.Collections.Generic.IReadOnlyList<TcItemArchive.LiveText> NoLive =
+        System.Array.Empty<TcItemArchive.LiveText>();
+
     /// <summary>A TwinCAT tree node: its name, kind, the two text slots, and its children. Every assignment to
     /// <c>ImplementationText</c> is counted — "never written" is a count of zero, not a value that happens to match.</summary>
     public sealed class Node
@@ -159,7 +162,7 @@ public class TcHiddenBodyWriteTests
         var nwl = ladder.Substring(ladder.IndexOf("<NWL>", StringComparison.Ordinal),
             ladder.IndexOf("</NWL>", StringComparison.Ordinal) + "</NWL>".Length - ladder.IndexOf("<NWL>", StringComparison.Ordinal));
 
-        TcItemArchive.SetMemberBodies(parent, "VltProbe_Hidden", new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
+        TcItemArchive.SetMemberBodies(parent, "VltProbe_Hidden", NoLive, null, new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
 
         var was = Encoding.UTF8.GetString(before);
         var now = Encoding.UTF8.GetString(Assert.IsType<byte[]>(parent.Imported));
@@ -177,7 +180,7 @@ public class TcHiddenBodyWriteTests
         var before = File.ReadAllBytes(Fixtures.Path("tc-pou", "MembersHidden.TcPOU"));
         var parent = new ArchiveParent(before);
 
-        TcItemArchive.MoveMember(parent, "VltProbe_Hidden", "M_Chart", "Sub");
+        TcItemArchive.MoveMember(parent, "VltProbe_Hidden", NoLive, null, "M_Chart", "Sub");
 
         var was = Encoding.UTF8.GetString(before);
         var now = Encoding.UTF8.GetString(Assert.IsType<byte[]>(parent.Imported));
@@ -203,7 +206,7 @@ public class TcHiddenBodyWriteTests
         var from = new ArchiveParent(before);
         var to = new ArchiveParent(Array.Empty<byte>());
 
-        TcItemArchive.Move(from, to, "VltProbe_Hidden", new ArchiveParent(Array.Empty<byte>()),
+        TcItemArchive.Move(from, to, "VltProbe_Hidden", NoLive, null, new ArchiveParent(Array.Empty<byte>()),
                            (Func<object, IReadOnlyCollection<string>>)(_ => Array.Empty<string>()));
 
         Assert.Null(from.Imported);                                        // not restored: the move went through
@@ -222,7 +225,7 @@ public class TcHiddenBodyWriteTests
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, before.Take(3).ToArray());   // the vendor writes a BOM
         var parent = new ArchiveParent(before);
 
-        TcItemArchive.MoveMember(parent, "VltProbe_Hidden", "M_Chart", "");
+        TcItemArchive.MoveMember(parent, "VltProbe_Hidden", NoLive, null, "M_Chart", "");
 
         Assert.Equal(before, Assert.IsType<byte[]>(parent.Imported));
     }
@@ -237,7 +240,7 @@ public class TcHiddenBodyWriteTests
         var start = ladder.IndexOf("<NWL>", StringComparison.Ordinal);
         var nwl = ladder.Substring(start, ladder.IndexOf("</NWL>", StringComparison.Ordinal) + "</NWL>".Length - start);
 
-        TcItemArchive.SetMemberBodies(parent, "VltProbe_Hidden", new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
+        TcItemArchive.SetMemberBodies(parent, "VltProbe_Hidden", NoLive, null, new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
 
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF, (byte)'<' },
                      Assert.IsType<byte[]>(parent.Imported).Take(4).ToArray());

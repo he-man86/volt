@@ -54,6 +54,16 @@ public class TcAttachTests
         public bool Saved => true;
     }
 
+    /// <summary>An open XAE document: its moniker, and how it was closed (EnvDTE <c>vsSaveChanges</c>).</summary>
+    public sealed class Document
+    {
+        public Document(Dte owner, string fullName) { _owner = owner; FullName = fullName; }
+        private readonly Dte _owner;
+        public string FullName { get; }
+        public int? ClosedWith;
+        public void Close(int save) { ClosedWith = save; _owner.Documents.Remove(this); }
+    }
+
     /// <summary>An XAE window: its solution, and the version the attach reads.</summary>
     public sealed class Dte
     {
@@ -65,6 +75,8 @@ public class TcAttachTests
         /// <summary>What File > Save All does to the double's project, if anything; every command is recorded.</summary>
         public System.Action? OnSaveAll { get; set; }
         public List<string> Commands { get; } = new();
+        /// <summary>The open documents (<c>X.TcPOU;X.M</c> for a member's); a closed one leaves the list.</summary>
+        public List<Document> Documents { get; } = new();
         public void ExecuteCommand(string command)
         {
             Commands.Add(command);

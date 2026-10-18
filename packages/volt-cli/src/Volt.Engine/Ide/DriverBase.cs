@@ -147,7 +147,6 @@ public abstract class DriverBase : IIdeSession
     protected abstract T MarshalToIdeThread<T>(Func<T> fn);
 
     public abstract void SelectProject(ConnectRequest sel);
-    public abstract void FlushPendingWrites();
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
 

@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
@@ -45,9 +46,9 @@ internal static class TcItemArchive
     /// import, and an undo that restores the item under ANOTHER name is refused naming both — never reported as a
     /// plain refusal. <paramref name="childNames"/> lists a node's child names (the object model's own walk, which never
     /// opens a child Volt must not touch, DIALECT C2i).</para></summary>
-    public static void Move(dynamic from, dynamic to, string name, object plcRoot,
-                            Func<object, IReadOnlyCollection<string>> childNames) =>
-        RoundTrip(from, to, name, null, new Strays(plcRoot, childNames));
+    public static void Move(dynamic from, dynamic to, string name, IReadOnlyList<LiveText> live, Action? discard,
+                            object plcRoot, Func<object, IReadOnlyCollection<string>> childNames) =>
+        RoundTrip(from, to, name, null, live, discard, new Strays(plcRoot, childNames));
 
     /// <summary>Where a refused import may have left a copy, and how to read a node's child names (see <see cref="Move"/>).</summary>
     private sealed record Strays(object PlcRoot, Func<object, IReadOnlyCollection<string>> ChildNames)
@@ -72,12 +73,13 @@ internal static class TcItemArchive
     /// is expressible, exactly, in Beckhoff's own storage format.</para>
     ///
     /// <para>An empty <paramref name="folderPath"/> moves the member back to the POU root.</para></summary>
-    public static void MoveMember(dynamic pouParent, string pouName, string memberName, string folderPath)
+    public static void MoveMember(dynamic pouParent, string pouName, IReadOnlyList<LiveText> live, Action? discard,
+                                  string memberName, string folderPath)
     {
         // The lambda is typed BEFORE the call: RoundTrip's first arguments are `dynamic`, so the whole invocation
         // binds at runtime and a bare lambda has no type to infer there.
         Action<string> place = zip => SetMemberFolder(zip, memberName, folderPath);
-        RoundTrip(pouParent, pouParent, pouName, place);
+        RoundTrip(pouParent, pouParent, pouName, place, live, discard);
     }
 
     /// <summary>Give POU MEMBERS graphical bodies, by rewriting the POU's own archive and re-importing it.
@@ -96,16 +98,29 @@ internal static class TcItemArchive
     /// <para>Each body is addressed by its PATH inside the POU: <c>["M_G"]</c> for a method or action,
     /// <c>["P_G", "Get"]</c> for an accessor — which is how the archive nests them
     /// (<c>&lt;Property Name="P_G"&gt;&lt;Get Name="Get"&gt;</c>).</para></summary>
-    public static void SetMemberBodies(dynamic pouParent, string pouName,
+    public static void SetMemberBodies(dynamic pouParent, string pouName, IReadOnlyList<LiveText> live, Action? discard,
                                        System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
     {
         Action<string> write = zip => SetBodies(zip, bodies);
-        RoundTrip(pouParent, pouParent, pouName, write);
+        RoundTrip(pouParent, pouParent, pouName, write, live, discard);
     }
 
-    /// <summary>Export <paramref name="name"/> out of <paramref name="from"/>, optionally rewrite the archive, and
-    /// import it into <paramref name="to"/>. The one shape both relocations share.</summary>
-    private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite, Strays? strays = null)
+    /// <summary>One text slot of the item as the IDE holds it NOW, by its path below the item: <c>[]</c> the item itself,
+    /// <c>["M"]</c> a member, <c>["P", "Get"]</c> an accessor. A null text is a slot the object does not have, or one
+    /// that is not carried (<see cref="TcObjectModel.LiveTexts"/>).</summary>
+    internal sealed record LiveText(string[] Path, string? Declaration, string? Implementation);
+
+    /// <summary>Export <paramref name="name"/> out of <paramref name="from"/>, make the archive hold what the IDE holds
+    /// (<paramref name="live"/>), optionally rewrite it, and import it into <paramref name="to"/>. The one shape every
+    /// round trip shares.
+    ///
+    /// <para><b>The export is the SAVED document, not what the IDE holds</b> (DIALECT D45, vendor-facts
+    /// <c>tc-unsaved-move</c>): an implementation written since the last save, and a rename, are not in it. Volt never
+    /// saves the engineer's project, so the round trip carries the live state itself: every text slot that differs from
+    /// the archive is written into it before the import (<see cref="CarryLive"/>), and an item the archive still names
+    /// by its saved name is renamed to its live one after the import.</para></summary>
+    private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite,
+                                  IReadOnlyList<LiveText> live, Action? discard, Strays? strays = null)
     {
         var zip = Path.Combine(Path.GetTempPath(), "volt_move_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture) + ".zip");
         // Set when the archive becomes the ONLY surviving copy of the item — the source has been deleted and the
@@ -115,10 +130,14 @@ internal static class TcItemArchive
         {
             from.ExportChild(name, zip);
             Flatten(zip);
+            // The name the archive carries: the item's SAVED name, which an import gives it (a rename since is not in it).
+            var archived = CarryLive(zip, name, live);
             rewrite?.Invoke(zip);
+            // The member documents XAE holds open would make the delete ask to save them (D45); the archive carries them.
+            discard?.Invoke();
             from.DeleteChild(name);
             // Asked BEFORE the import: a name the root holds already is another object, never the move's own copy.
-            var rootHeldName = strays is { } before && before.Holds(before.PlcRoot, name);
+            var rootHeldName = strays is { } before && before.Holds(before.PlcRoot, archived);
             try
             {
                 to.ImportChild(zip, Type.Missing, false, Type.Missing);
@@ -128,8 +147,8 @@ internal static class TcItemArchive
                 // A REFUSED import that still deposited the item at the PLC project root (DIALECT C2q): that copy is
                 // the move's own, so it goes before the undo — else the undo's re-import clashes with it and the
                 // vendor renames the restored item.
-                if (strays is { } s && !rootHeldName && s.Holds(s.PlcRoot, name))
-                    ((dynamic)s.PlcRoot).DeleteChild(name);
+                if (strays is { } s && !rootHeldName && s.Holds(s.PlcRoot, archived))
+                    ((dynamic)s.PlcRoot).DeleteChild(archived);
 
                 // Put it back where it came from. If THIS throws too the original is genuinely gone, and the
                 // archive path is in the message so it can be re-imported by hand.
@@ -147,6 +166,15 @@ internal static class TcItemArchive
                         $"import it manually ({restore.Message})", restore);
                 }
 
+                // Restored under its SAVED name: give it its live name back, as the move would have.
+                try { Rename(from, archived, name); }
+                catch (Exception rename)
+                {
+                    throw new InvalidOperationException(
+                        $"move of '{name}' was refused ({refused.Message}) and its undo restored the item under its saved " +
+                        $"name '{archived}' ({rename.Message}) — rename it back to '{name}' in the IDE", refused);
+                }
+
                 // RESTORED — but under its own name? The vendor renames an import that clashes (`GVL_PackML_1`), and
                 // a renamed restore is a NEW item to the next pull, not "the move was refused".
                 if (strays is { } r && !r.Holds((object)from, name))
@@ -159,11 +187,145 @@ internal static class TcItemArchive
                 }
                 throw;
             }
+            Rename(to, archived, name);
         }
         // Deleted on every path EXCEPT the unrecoverable one. Keeping every archive would litter %TEMP% after
         // an ordinary hiccup the undo already repaired; keeping this one is the difference between a failed move
         // and a lost POU.
         finally { if (!archiveIsLastCopy) { try { File.Delete(zip); } catch { /* temp file */ } } }
+    }
+
+    /// <summary>The imported item under <paramref name="parent"/> carries its SAVED name <paramref name="archived"/>; give
+    /// it its live name. Measured (D45, <c>tc-unsaved-move</c>): a rename after the import lands, header and all.</summary>
+    private static void Rename(dynamic parent, string archived, string name)
+    {
+        if (string.Equals(archived, name, StringComparison.Ordinal)) return;
+        dynamic landed = parent.LookupChild(archived);
+        landed.Name = name;
+    }
+
+    /// <summary>Write what the IDE holds into the exported archive: each <paramref name="live"/> slot whose text differs
+    /// from the archived one replaces it — a declaration as its CDATA, a textual body as its <c>&lt;ST&gt;</c>, a network
+    /// body as its <c>&lt;NWL&gt;</c> element, with the body's <c>LineIds</c> removed as <see cref="TrySetBody"/> does
+    /// (line bookkeeping for text that is no longer there). A body archived in any other form (CFC, SFC) travels as
+    /// archived. A slot equal to the archive leaves the vendor's bytes untouched.
+    ///
+    /// <para>A live member the archive does not hold (renamed since the save) is refused HERE, before the item is
+    /// deleted: the import would drop it. Returns the name the archive carries.</para></summary>
+    private static string CarryLive(string zip, string name, IReadOnlyList<LiveText> live)
+    {
+        var rebuilt = zip + ".live";
+        try { File.Delete(rebuilt); } catch { /* fresh temp */ }
+        string? archived = null;
+        var carried = new HashSet<string>(StringComparer.Ordinal);
+        var changedAny = false;
+        using (var src = ZipFile.OpenRead(zip))
+        using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
+        {
+            foreach (var entry in src.Entries)
+            {
+                var (text, bom) = ReadEntry(entry);
+                if (IsPlcSource(entry.FullName) && archived is null)
+                {
+                    var doc = ParseVerbatim(text);
+                    var obj = doc.Root?.Elements().FirstOrDefault()
+                        ?? throw new InvalidOperationException($"the archive of '{name}' holds no object element");
+                    archived = (string?)obj.Attribute("Name") ?? Path.GetFileNameWithoutExtension(Leaf(entry.FullName));
+                    var changed = false;
+                    foreach (var slot in live)
+                    {
+                        if (Slot(obj, slot.Path) is not { } el) continue;
+                        carried.Add(string.Join(".", slot.Path));
+                        changed |= CarryDeclaration(el, slot.Declaration);
+                        changed |= CarryImplementation(obj, el, slot.Implementation);
+                    }
+                    if (changed) { text = SaveVerbatim(doc); changedAny = true; }
+                }
+                WriteEntry(dst, entry.FullName, text, bom);
+            }
+        }
+        var lost = live.Select(t => string.Join(".", t.Path)).Where(k => !carried.Contains(k)).ToList();
+        if (archived is null || lost.Count > 0)
+        {
+            try { File.Delete(rebuilt); } catch { /* temp */ }
+            if (archived is null) throw new InvalidOperationException($"the archive of '{name}' holds no source document");
+            // A vendor limit, not Volt's invariant: TwinCAT's archive carries no member renamed since the save (D45).
+            throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
+                $"'{name}': '{string.Join("', '", lost)}' is in the IDE but not in the document TwinCAT exports for it " +
+                "(renamed since the project was saved) — the round trip would drop it, so nothing was changed. Save the " +
+                "project in the IDE and push again.");
+        }
+        if (changedAny) { File.Delete(zip); File.Move(rebuilt, zip); }
+        else File.Delete(rebuilt);
+        return archived;
+    }
+
+    /// <summary>The archive element of the slot at <paramref name="path"/> below the item's own element, matched by name
+    /// ordinal-ignore-case, as every layer matches a member (see <see cref="TrySetBody"/>).</summary>
+    private static XElement? Slot(XElement obj, string[] path)
+    {
+        XElement? at = obj;
+        foreach (var step in path)
+        {
+            at = at?.Descendants().FirstOrDefault(e => e.Name.LocalName is "Method" or "Action" or "Property" or "Transition"
+                                                                         or "Get" or "Set"
+                                                       && string.Equals((string?)e.Attribute("Name"), step,
+                                                                        StringComparison.OrdinalIgnoreCase));
+            if (at is null) return null;
+        }
+        return at;
+    }
+
+    private static bool CarryDeclaration(XElement el, string? live)
+    {
+        if (live is null || el.Elements().FirstOrDefault(e => e.Name.LocalName == "Declaration") is not { } d) return false;
+        if (SameText(d.Value, live)) return false;
+        d.ReplaceNodes(new XCData(live));
+        return true;
+    }
+
+    private static bool CarryImplementation(XElement obj, XElement el, string? live)
+    {
+        if (live is null || el.Elements().FirstOrDefault(e => e.Name.LocalName == "Implementation") is not { } impl)
+            return false;
+        var form = impl.Elements().FirstOrDefault();
+        if (TcArchive.Root(live) is null)
+        {
+            // A textual body is carried into an ST body; a body archived in another form is not text.
+            if (form is not null && form.Name.LocalName != "ST") return false;
+            if (form is null ? live.Length == 0 : SameText(form.Value, live)) return false;
+            impl.ReplaceNodes(new XElement(impl.Name.Namespace + "ST", new XCData(live)));
+        }
+        else
+        {
+            var network = XElement.Parse(live);
+            if (form is not null && form.Name.LocalName is not ("ST" or "NWL")) return false;
+            if (form is not null && form.Name.LocalName == "NWL"
+                && XNode.DeepEquals(XElement.Parse(form.ToString(SaveOptions.DisableFormatting)), network))
+                return false;
+            impl.ReplaceNodes(network);
+        }
+        RemoveLineIds(obj, el);
+        return true;
+    }
+
+    /// <summary>Text compared line endings aside: the archive stores CRLF.</summary>
+    private static bool SameText(string archived, string live) =>
+        string.Equals(archived.Replace("\r\n", "\n"), live.Replace("\r\n", "\n"), StringComparison.Ordinal);
+
+    /// <summary>Remove the <c>&lt;LineIds Name="POU.M"&gt;</c> of the body at <paramref name="el"/>: the item's own name,
+    /// then the path as the archive spells it.</summary>
+    private static void RemoveLineIds(XElement obj, XElement el)
+    {
+        var spelled = new List<string>();
+        for (var e = el; e != null && e != obj; e = e.Parent)
+            if (e.Attribute("Name") is { } n) spelled.Insert(0, n.Value);
+        spelled.Insert(0, (string?)obj.Attribute("Name") ?? "");
+        var key = string.Join(".", spelled);
+        foreach (var ids in obj.Descendants().Where(e => e.Name.LocalName == "LineIds"
+                                                         && string.Equals((string?)e.Attribute("Name"), key,
+                                                                          StringComparison.OrdinalIgnoreCase)).ToList())
+            ids.Remove();
     }
 
     /// <summary>Strip every entry's directory prefix, so <c>ImportChild</c> has no source path left to recreate

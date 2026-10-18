@@ -84,9 +84,11 @@ public class TcUntouchablePouTests
         public string Name
         {
             get { _xae.Alive(); return _name; }
-            set { _xae.Alive(); if (Persisted is null) Persisted = _name; _name = value; }
+            set { _xae.Alive(); if (Persisted is null) Persisted = _name; _name = value; Renames.Add(value); }
         }
         private string _name = "";
+        /// <summary>Every name the item was given, in order.</summary>
+        public readonly List<string> Renames = new();
         /// <summary>The name the item's saved document carries — what an export serializes. Null: its current name.</summary>
         public string? Persisted;
         /// <summary>File > Save All: every document carries its tree item's name again.</summary>
@@ -124,15 +126,29 @@ public class TcUntouchablePouTests
             using var entry = zip.CreateEntry($@"POUs\{kid.Persisted ?? name}.TcPOU").Open();
             entry.Write(kid.Document!, 0, kid.Document!.Length);
         }
-        /// <summary>The re-import recreates the child — a NEW tree item, appended, as TwinCAT does.</summary>
+        /// <summary>The re-import recreates the child — a NEW tree item, appended, as TwinCAT does — named and filled from
+        /// the document it imports: its object element's <c>Name</c> (else the entry's), its declaration and ST body.</summary>
         public void ImportChild(string zipPath, object a, bool b, object c)
         {
             _xae.Alive();
             using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
             var entry = Assert.Single(zip.Entries);
-            var kid = new Node(_xae, System.IO.Path.GetFileNameWithoutExtension(entry.Name), ItemKind.PlcPou) { Owner = this };
+            using var bytes = new System.IO.MemoryStream();
+            using (var input = entry.Open()) input.CopyTo(bytes);
+            var obj = System.Xml.Linq.XDocument.Parse(System.Text.Encoding.UTF8.GetString(bytes.ToArray()).TrimStart('\uFEFF'))
+                .Root?.Elements().FirstOrDefault();
+            var name = (string?)obj?.Attribute("Name") ?? System.IO.Path.GetFileNameWithoutExtension(entry.Name);
+            var kid = new Node(_xae, name, ItemKind.PlcPou) { Owner = this, Document = bytes.ToArray() };
+            if (obj?.Elements().FirstOrDefault(e => e.Name.LocalName == "Declaration") is { } d) kid._declaration = d.Value;
+            if (obj?.Descendants().FirstOrDefault(e => e.Name.LocalName == "ST") is { } st) kid.ImplementationText = st.Value;
             Kids.Add(kid);
         }
+
+        /// <summary>A POU document as TwinCAT saves it, carrying <paramref name="name"/>, a declaration and an ST body.</summary>
+        public static byte[] PouDocument(string name, string declaration, string body) => System.Text.Encoding.UTF8.GetBytes(
+            $"<?xml version=\"1.0\" encoding=\"utf-8\"?><TcPlcObject Version=\"1.1.0.1\"><POU Name=\"{name}\" Id=\"{{1}}\">" +
+            $"<Declaration><![CDATA[{declaration}]]></Declaration><Implementation><ST><![CDATA[{body}]]></ST></Implementation>" +
+            $"<LineIds Name=\"{name}\"><LineId Id=\"1\" Count=\"1\" /></LineIds></POU></TcPlcObject>");
         internal Node Touch(Node k)
         {
             _xae.Alive();
@@ -218,6 +234,9 @@ public class TcUntouchablePouTests
     internal static ExplorerNode SystemAround(ExplorerNode plc) =>
         new("TwinCAT Project14", "", "TwinCAT Project14", new List<ExplorerNode> { plc });
 
+    /// <summary>The XAE window of the last <see cref="Project"/>: its <c>Commands</c> say what was asked of the shell.</summary>
+    [ThreadStatic] internal static TcAttachTests.Dte? LastWindow;
+
     internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
         Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null, string? plcproj = null,
         Func<Xae, Node>? tiid = null)
@@ -226,6 +245,7 @@ public class TcUntouchablePouTests
         var root = build(xae);
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
             new SysManager(new Tipc(new Plc(root, plcproj))) { Tiid = tiid?.Invoke(xae) })) { OnSaveAll = root.SaveAll };
+        LastWindow = window;
         var model = new TcObjectModel
         {
             BindWindow = _ => window,

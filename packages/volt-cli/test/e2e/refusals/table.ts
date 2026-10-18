@@ -235,15 +235,6 @@ export const ROWS: Row[] = [
 		},
 	},
 	{
-		code: "IDE_SAVE_FAILED",
-		live: false,
-		reason:
-			"raised when TwinCAT's File.SaveAll throws; no fixture state makes the XAE refuse a save without a modal dialog " +
-			"(a read-only .TcPOU opens a 'file is read-only' prompt, and a modal window blocks every COM call — " +
-			"twincat-com-automation-traps). CODESYS saves nothing on push (the project file is written on SAVE only, " +
-			"test/e2e/README 'storage model'), so the code has no CODESYS situation at all",
-	},
-	{
 		code: "BAD_REQUEST",
 		live: true,
 		trigger: "a `fetch` with no baseline (no `knownItems`, no `onlyItems`, no `init`)",

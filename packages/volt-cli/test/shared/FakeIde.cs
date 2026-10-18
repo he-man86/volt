@@ -1443,22 +1443,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
     /// <summary>The build-side call SEQUENCE, in its own list rather than <see cref="Recorded"/> so the tests
-    /// that assert over that list are unaffected. It exists because ORDER is the contract here: a build reads
-    /// what is on disk, so `FlushPendingWrites` has to run BEFORE it or the compile misses the writes the same
-    /// push just made — and a no-op flush made that unobservable.</summary>
+    /// that assert over that list are unaffected.</summary>
     public List<string> BuildSequence { get; } = new();
-
-    /// <summary>Hold a push or build IN FLIGHT at its first step, the flush: it signals <see cref="FlushEntered"/> and
-    /// blocks until <see cref="FlushBlock"/> is set.</summary>
-    public ManualResetEventSlim? FlushEntered { get; init; }
-    public ManualResetEventSlim? FlushBlock { get; init; }
-
-    public override void FlushPendingWrites()
-    {
-        BuildSequence.Add("flush");
-        FlushEntered?.Set();
-        FlushBlock?.Wait();
-    }
 
     // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
     public bool BuildSucceeds { get; init; } = true;

@@ -28,6 +28,9 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcRoundTripTests
 {
+    private static readonly System.Collections.Generic.IReadOnlyList<TcItemArchive.LiveText> NoLive =
+        System.Array.Empty<TcItemArchive.LiveText>();
+
     private static string Fixture(string name) => Fixtures.Path("tc-pou", name);
 
     /// <summary>The NWL body of a vendor-written .TcPOU, exactly as it sits in the file.</summary>
@@ -182,7 +185,7 @@ public class TcRoundTripTests
     {
         var node = new PouNode(File.ReadAllText(Fixture("ITF1.TcIO")));
 
-        TcItemArchive.MoveMember(node, "ITF1", "METH", "Helpers");
+        TcItemArchive.MoveMember(node, "ITF1", NoLive, null, "METH", "Helpers");
 
         var written = node.LastImported;
         Assert.NotNull(written);
@@ -417,7 +420,7 @@ public class TcRoundTripTests
     {
         var node = new PouNode(File.ReadAllText(Fixture("ITF1.TcIO")), entryName: "DUTs/ITF1.TcIO");
 
-        TcItemArchive.MoveMember(node, "ITF1", "METH", "Helpers");
+        TcItemArchive.MoveMember(node, "ITF1", NoLive, null, "METH", "Helpers");
 
         Assert.NotNull(node.LastImported);
         Assert.Contains("FolderPath=\"Helpers", node.LastImported!);

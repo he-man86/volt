@@ -217,7 +217,6 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     }
 
     // ── build ───────────────────────────────────────────────────────
-    public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
     /// <summary>The build's diagnostics, each item named by its folder and bare name where the file the compiler named
     /// lies in one PLC project's directory and that PLC project holds exactly one item of the name — so the same message

@@ -9,7 +9,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// A TWINCAT WINDOW WHOSE SOLUTION HAS NO FILE SAYS WHY IT IS NOT SERVED (openspec <c>twincat-unsaved-solution-named</c>,
 /// option B). Measured 2026-10-18 on TcXaeShell 15.0 / 4024: a <c>.tsproj</c> opened with File > Open > Project where no
 /// <c>.sln</c> holds it gives a solution with an empty <c>FullName</c> (XAE states its name, <c>TwinCAT Project14</c>), and
-/// <c>File.SaveAll</c> on it opens a modal "Save File As" dialog — which every push and build runs, and which blocks COM.
+/// <c>File.SaveAll</c> on it opens a modal "Save File As" dialog, which blocks COM — and a build saves before it compiles (D45).
 /// So the window stays rowless (no name to bind a workspace to, no push that cannot hang), and the refusal names the cause
 /// instead of "waiting for an IDE project" while the project is open in front of the user.
 /// </summary>

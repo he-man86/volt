@@ -36,7 +36,6 @@ public static class PushService
         OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
-        ide.FlushPendingWrites();
 
         // A PUSH OF NO OPS WRITES NOTHING, so its lease check and its receipt are ONE walk — a read's worth of work, the
         // floor under every write (e2e `stability/latency`). Walked twice, it cost two reads (TwinCAT MultiProject).
@@ -371,9 +370,6 @@ public static class PushService
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = applied.Count, Total = opTotal });
         }
 
-        // The partial path runs what the full path runs: on TwinCAT the applied ops are not saved without this.
-        ide.FlushPendingWrites();
-
         // PRUNE THE FOLDERS THIS PUSH EMPTIED, as git removes a directory whose last file went (the rationale and
         // the measurement are on `TreeNav.PruneEmptied`). Candidates are the folders the APPLIED deletes and moves
         // LEFT, from the pre-apply cache; only those actually empty afterwards go.
@@ -385,7 +381,6 @@ public static class PushService
         if (textsBefore is not null && lastRenameAt >= 0)
         {
             PutBackWhatTheRenameTouched(ide, textsBefore, appliedAt, lastRenameAt, notLanded, pushedDeclarations, notOpened);
-            ide.FlushPendingWrites();
         }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), never the pre-apply

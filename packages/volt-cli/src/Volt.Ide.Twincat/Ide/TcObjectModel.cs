@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Volt.Engine;
@@ -476,25 +477,118 @@ internal sealed partial class TcObjectModel
         if (_flaggedThisSession.Count > 0 && RelPath(parent) is { } rel)
             _flaggedThisSession.Remove(CurrentPlc.Path + "|" + (rel.Length == 0 ? name : rel + "^" + name));
         StructureChanged();
+        DiscardMemberDocuments(parent, name);
         ((dynamic)parent).DeleteChild(name);
         if (linked is { } path) DeleteSystemTask(path);
     }
-    public void Rename(object node, string newName) { StructureChanged(); ((dynamic)node).Name = newName; }
 
-    /// <summary>Relocate a child whole. TwinCAT's tree item has no <c>Move</c>/<c>Reparent</c> member — the full
+    /// <summary>Close, WITHOUT saving, the open member documents of the child <paramref name="name"/> of
+    /// <paramref name="parent"/> that is about to be deleted. XAE keeps a document per member a write reached
+    /// (<c>X.TcPOU;X.M</c>, <c>X.TcPOU;X.P.Get</c>, <c>X.TcPOU;X\F\M</c> in a POU folder), dirty until a save, and deleting the item or the member asks, MODALLY,
+    /// "Save changes to the following items?" — a modal dialog blocks every COM call (DIALECT D45). What is deleted needs
+    /// no buffer, and an archive round trip carries the live texts in the archive (<see cref="LiveTexts"/>), so nothing is
+    /// lost. The item's own document never asks, and is left alone.</summary>
+    internal void DiscardMemberDocuments(object parent, string name)
+    {
+        if (_dte == null)
+            throw new BridgeException(BridgeErrorCodes.PlcDisconnected, $"cannot delete '{name}': no IDE is attached");
+        var pou = ItemKind.HoldsMembers(ItemType(parent)) ? parent : EnclosingPouOf(parent);
+        var owner = pou is null ? null : GetName(pou);
+        var mine = new List<object>();
+        foreach (var doc in (System.Collections.IEnumerable)_dte.Documents)
+        {
+            var full = (string)((dynamic)doc).FullName;
+            var at = full.IndexOf(';');
+            if (at < 0) continue;
+            var file = System.IO.Path.GetFileNameWithoutExtension(full.Substring(0, at));
+            // The POU, then its member path: `X.M`, `X.P.Get`, and `X\Helpers\M` for a member in a POU folder.
+            var steps = full.Substring(at + 1).Split('.', '\\');
+            var ofIt = owner is null
+                ? string.Equals(file, name, StringComparison.OrdinalIgnoreCase)
+                  && string.Equals(steps[0], name, StringComparison.OrdinalIgnoreCase)
+                : string.Equals(file, owner, StringComparison.OrdinalIgnoreCase)
+                  && string.Equals(steps[0], owner, StringComparison.OrdinalIgnoreCase)
+                  && steps.Skip(1).Contains(name, StringComparer.OrdinalIgnoreCase);
+            if (ofIt) mine.Add(doc);
+        }
+        foreach (var doc in mine) ((dynamic)doc).Close(VsSaveChangesNo);
+    }
+
+    /// <summary>EnvDTE <c>vsSaveChanges.vsSaveChangesNo</c>.</summary>
+    private const int VsSaveChangesNo = 2;
+    /// <summary>Rename a tree item. A CASE-ONLY rename goes through a temporary name: done in one step and left unsaved,
+    /// XAE renames the file in place and then asks, modally, whether to reload a file "changed outside the environment"
+    /// (and a later delete of the item asks to save it) — a modal dialog blocks every COM call. Through another name
+    /// first it asks nothing (DIALECT D45, measured on 4024).</summary>
+    public void Rename(object node, string newName)
+    {
+        StructureChanged();
+        dynamic n = node;
+        var current = (string)n.Name;
+        if (!string.Equals(current, newName, StringComparison.Ordinal)
+            && string.Equals(current, newName, StringComparison.OrdinalIgnoreCase))
+            n.Name = newName + "_v" + Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture).Substring(0, 8);
+        n.Name = newName;
+    }
+
+    /// <summary>Relocate an item whole. TwinCAT's tree item has no <c>Move</c>/<c>Reparent</c> member — the full
     /// dispatch surface of <c>ITcSmTreeItem</c> was enumerated off the shipped type library to settle that, rather
     /// than inferred from a handful of name guesses — but <see cref="TcItemArchive"/> builds one out of the
-    /// export/import pair, which carries children and graphical bodies. See DIALECT D4f.</summary>
-    public void Move(object parent, object target, string name)
+    /// export/import pair, which carries children and graphical bodies. See DIALECT D4f. The archive is the item's SAVED
+    /// document, so the round trip carries what the IDE holds (<see cref="LiveTexts"/>, DIALECT D45).</summary>
+    public void Move(object node, object target)
     {
-        // The archive is the item's SAVED document, and a tree rename is not in it until a save: renamed and then moved,
-        // the item lands under its OLD name (measured on 4024 into a new and an existing folder; renamed, saved, then
-        // moved it keeps the new one — vendor-facts `tc-rename-then-move`, DIALECT D4f). So what is pending is saved first.
-        FlushPendingWrites();
+        var parent = Parent(node);
+        var name = GetName(node);
+        var live = LiveTexts(node);
         StructureChanged();
         // Typed BEFORE the call: the dynamic arguments bind the whole invocation at runtime, where a method group has no type.
         Func<object, IReadOnlyCollection<string>> childNames = ChildNames;
-        TcItemArchive.Move((dynamic)parent, (dynamic)target, name, PlcRoot(), childNames);
+        Action discard = () => DiscardMemberDocuments(parent, name);
+        TcItemArchive.Move((dynamic)parent, (dynamic)target, name, live, discard, PlcRoot(), childNames);
+    }
+
+    /// <summary>Every text slot of <paramref name="item"/> and its members as the IDE holds them NOW — what an archive
+    /// round trip must carry, since the export is the SAVED document (DIALECT D45). Members are found through
+    /// <see cref="ChildAt"/>, so a child Volt must not open (C2i) is not read (its archived text travels). An interface
+    /// accessor's declaration is no automation slot (D21) and is not read.</summary>
+    internal IReadOnlyList<TcItemArchive.LiveText> LiveTexts(object item)
+    {
+        var texts = new List<TcItemArchive.LiveText>
+        {
+            new(Array.Empty<string>(), ReadSlot(item, "DeclarationText"), ReadSlot(item, "ImplementationText")),
+        };
+        var itf = ItemType(item) == ItemKind.PlcItf;
+        Walk(item, Array.Empty<string>());
+        return texts;
+
+        void Walk(object node, string[] path)
+        {
+            for (int i = 1, n = RawChildCount(node); i <= n; i++)
+            {
+                object child;
+                try { child = ChildAt(node, i); }
+                catch (UnreadableItemException) { continue; }
+                var type = ItemType(child);
+                if (type == ItemKind.PlcFolder) { Walk(child, path); continue; }   // a POU-internal folder is no path step
+                var at = path.Append(GetName(child)).ToArray();
+                if (!(itf && type is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet))
+                    texts.Add(new(at, ReadSlot(child, "DeclarationText"), ReadSlot(child, "ImplementationText")));
+                Walk(child, at);
+            }
+        }
+    }
+
+    /// <summary>A text slot's value, or null when the object has no such slot (a binder miss, a COM "no such member").</summary>
+    private static string? ReadSlot(object node, string member)
+    {
+        try
+        {
+            dynamic n = node;
+            return member == "DeclarationText" ? (string?)n.DeclarationText : (string?)n.ImplementationText;
+        }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }
+        catch (System.Runtime.InteropServices.COMException ex) when (IsMissingMember(ex)) { return null; }
     }
 
     /// <summary>A node's child names, through <see cref="ChildAt"/> — so a child Volt must not open (DIALECT C2i) is
@@ -513,20 +607,27 @@ internal sealed partial class TcObjectModel
     /// <summary>Place a POU MEMBER into a folder inside its own POU. Delegates to
     /// <see cref="TcItemArchive.MoveMember"/>, which rewrites the POU's own <c>.TcPOU</c> — a member is not a
     /// separate file, so it has no archive of its own to move.</summary>
-    public void MoveMember(object pouParent, string pouName, string memberName, string folderPath)
+    public void MoveMember(object pou, string memberName, string folderPath)
     {
+        var live = LiveTexts(pou);
         StructureChanged();
-        TcItemArchive.MoveMember((dynamic)pouParent, pouName, memberName, folderPath);
+        var parent = Parent(pou);
+        var name = GetName(pou);
+        Action discard = () => DiscardMemberDocuments(parent, name);
+        TcItemArchive.MoveMember((dynamic)parent, name, live, discard, memberName, folderPath);
     }
 
     /// <summary>Give POU MEMBERS graphical bodies. Delegates to <see cref="TcItemArchive.SetMemberBodies"/>,
     /// which rewrites the POU's own <c>.TcPOU</c> and re-imports it — the only route that works, because
     /// assigning an NWL archive to a member's <c>ImplementationText</c> stores it as ST TEXT (D32).</summary>
-    public void SetMemberBodies(object pouParent, string pouName,
-                                System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
+    public void SetMemberBodies(object pou, System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
     {
+        var live = LiveTexts(pou);
         StructureChanged();
-        TcItemArchive.SetMemberBodies((dynamic)pouParent, pouName, bodies);
+        var parent = Parent(pou);
+        var name = GetName(pou);
+        Action discard = () => DiscardMemberDocuments(parent, name);
+        TcItemArchive.SetMemberBodies((dynamic)parent, name, live, discard, bodies);
     }
 
     /// <summary>The POU that ENCLOSES <paramref name="node"/>, or null when the node is not inside one — the test

@@ -17,50 +17,6 @@ namespace Volt.Ide.Twincat;
 internal sealed partial class TcObjectModel
 {
     // ── build / diagnostics ─────────────────────────────────────────
-    /// <summary>Commit applied writes to TwinCAT's own store, via the ONE shell command <c>File.SaveAll</c> — it
-    /// persists open documents, every dirty PROJECT (including the <c>.plcproj</c>) and the solution in a single
-    /// call. Tree operations (create/delete/rename) change the project structure on disk, so the projects must be
-    /// persisted too — otherwise a later rename collides with stale files from async tree deletions.
-    /// <para>A failure here is NOT swallowed. Durability is this method's entire purpose: `push` calls it and then
-    /// reports success, so a silently-failed save means Volt tells the engineer their work is committed while it
-    /// exists only in the IDE's memory — and an IDE crash loses it. Fail loud instead, and let the push fail.</para></summary>
-    public void FlushPendingWrites()
-    {
-        if (_dte == null)
-            throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
-                "cannot commit writes — no IDE is attached");
-        // ponytail: saves the whole solution + ALL open documents, which also commits the engineer's unrelated dirty
-        // editors — a side effect on data Volt does not own. DECIDED (2026-07-30) to scope this to only what Volt
-        // wrote; not yet implemented because a write here targets a system-manager TREE NODE
-        // (n.DeclarationText/ImplementationText), and a tree node exposes no DTE document or file path, so the
-        // node -> document/project mapping has to be found against the live COM model first. Until then the broad
-        // save stays, because it is what makes `push` durable at all (CODESYS commits on write, so dropping it would
-        // leave push durable on one vendor and not the other). Upgrade path in
-        // openspec/changes/fix-push-data-loss tasks §4.
-        // `Solution.Save()` DOES NOT EXIST. EnvDTE's solution interface exposes SaveAs, not Save, so this line threw
-        // `'System.__ComObject' does not contain a definition for 'Save'` on EVERY push — and because it threw
-        // FIRST, `Documents.SaveAll()` never ran either. Under the old bare `catch { }` the whole method was a
-        // silent no-op, which is why a 90-pass TwinCAT baseline was recorded against a save that never happened;
-        // making the failure loud (838c4140e1) turned that into 63 red e2e tests, exactly the diagnostic that
-        // commit predicted. `File.SaveAll` is the shell command behind File > Save All: it persists open documents,
-        // every dirty PROJECT (including the `.plcproj` whose missing registration is the orphan bug,
-        // openspec/changes/fix-push-data-loss §3) and the solution, in one call that actually exists.
-        try
-        {
-            _dte.ExecuteCommand("File.SaveAll");
-        }
-        catch (Exception ex)
-        {
-            // IDE_SAVE_FAILED: the applied writes are in the IDE's memory, not on disk — a transient state whose remedy is
-            // to save, never a vendor limit (UNSUPPORTED) nor a Volt bug (INTERNAL_ERROR). It arrives as a frame on push
-            // and build, which declare it (review of openspec bridge-refusal-review step V).
-            VoltLog.Warn($"File.SaveAll failed — applied writes may not be on disk: {ex.Message}");
-            throw new BridgeException(BridgeErrorCodes.IdeSaveFailed,
-                $"the IDE could not save the applied changes, so they are NOT committed to disk: {ex.Message} " +
-                "Save in the IDE (File > Save All) or retry, then `volt pull` to see what landed.", ex);
-        }
-    }
-
     /// <summary>Build the solution and report whether it passed.
     ///
     /// <para><b>An unreadable VERDICT is reported as failure; a dead CHANNEL is not a verdict at all.</b> The two
@@ -74,8 +30,10 @@ internal sealed partial class TcObjectModel
     ///
     /// <para>So the RPC family propagates, everything else is logged and reported as a failed build (the
     /// standing rule for "I could not read the result"), and a null <c>_dte</c> — no IDE attached — is
-    /// <c>PlcDisconnected</c> rather than "your project does not compile", which is what
-    /// <c>FlushPendingWrites</c> already answers for the same state.</para></summary>
+    /// <c>PlcDisconnected</c> rather than "your project does not compile".</para>
+    ///
+    /// <para><b>Nothing is saved first</b>: the build compiles what the IDE holds in memory (DIALECT D45, vendor-facts
+    /// <c>tc-unsaved-build</c>), as CODESYS's does.</para></summary>
     public bool Build()
     {
         if (_dte == null)

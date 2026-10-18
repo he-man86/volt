@@ -207,7 +207,6 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // keeps answering "healthy" — that is DriverBase's open _opInFlight ARCH FOLLOW-UP, not a guarantee this driver
     // gets. See DriverBase.OverlayLiveHealth.
 
-    public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 
     /// <summary>EVERY APPLICATION IS BUILT (openspec multi-application-tree, design §6) — it was only the first one
     /// <c>FindApplication</c> met, so a project of two devices compiled one of them and reported the other clean.

@@ -42,7 +42,8 @@ public class WireVocabularyTests
             ("Volt.Engine.Host/BridgePipeHost.cs", 1),
             ("Volt.Engine/BridgeException.cs", 2),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.cs", 1),
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 2))),
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1),   // -1 the save Volt no longer makes (D45)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),   // a delete with no IDE attached, before its member documents are closed (D45)
         new("another project is served", "the bound project is not the one named: rebind, never merge", "WRONG_PROJECT", At(
             ("Volt.Engine/BridgeException.cs", 1))),
         new("the bridge cannot serve this IDE process (it lacks a capability, or Volt's assemblies loaded twice, or this worker cannot unmarshal its Solution Explorer)",
@@ -53,9 +54,6 @@ public class WireVocabularyTests
         new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",
             "IDE_BUSY", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
-        new("the IDE refused to save what was applied", "save in the IDE or retry, then pull: the writes are in the IDE, not on disk",
-            "IDE_SAVE_FAILED", At(
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1))),
         new("the request breaks the wire's own rules", "change the REQUEST", "BAD_REQUEST", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
@@ -90,6 +88,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 9),   // +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
+            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 1),   // a member renamed since the save, which TwinCAT's archive does not carry (D45)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
@@ -371,7 +370,7 @@ public class WireVocabularyTests
         // +1 (merge onto 2R): a named ENO pin on a box built with no ENO output, which the reader refuses (P5).
         ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 8),
         ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
-        ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),
+        ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 7),   // +2 carrying the live state (D45): an archive with no object element / no source document; +1 an undo restored under its saved name the rename back refused
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 6),   // +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),

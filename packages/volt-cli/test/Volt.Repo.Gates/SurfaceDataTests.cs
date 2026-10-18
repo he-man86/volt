@@ -127,7 +127,7 @@ public class SurfaceDataTests
             new[] { "--force", "--dry-run", "--force-with-lease=<v>", "--json" }, true),
         new("status", "Incoming / outgoing / merge state.", "",
             new[] { "--json", "--porcelain", "--local" }, false),
-        new("build", "Build through the IDE and return its diagnostics.", "", new[] { "--json" }, false),
+        new("build", "Build through the IDE and return its diagnostics. On TwinCAT a build saves changed documents, as XAE's Build does.", "", new[] { "--json" }, false),
         new("show", "A file at a ref.", "<ref> <path>", Array.Empty<string>(), false),
         new("merge", "Finish a conflicted pull.", "",
             new[] { "--continue", "--abort", "--resolve <path>", "--use-ours", "--use-theirs" }, true),

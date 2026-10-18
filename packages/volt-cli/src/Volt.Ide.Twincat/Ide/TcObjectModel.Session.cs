@@ -176,8 +176,8 @@ internal sealed partial class TcObjectModel
 
     /// <summary>Why this window serves nothing while a TwinCAT project is open in it, or null: its solution has no file.
     /// A <c>.tsproj</c> opened with File > Open > Project where no <c>.sln</c> holds it gives a solution with an empty
-    /// <c>FullName</c>, and <c>File.SaveAll</c> — which every push and build runs — then opens a modal "Save File As"
-    /// that blocks COM (DIALECT D44). So the window is not served, and the refusal says how to serve it.</summary>
+    /// <c>FullName</c>, and a save then opens a modal "Save File As" that blocks COM — and a build saves before it
+    /// compiles (DIALECT D44, D45). So the window is not served, and the refusal says how to serve it.</summary>
     public string? NotServedBecause()
     {
         if (_dte == null) return null;

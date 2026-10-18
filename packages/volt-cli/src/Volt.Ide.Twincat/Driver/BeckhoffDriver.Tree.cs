@@ -519,7 +519,7 @@ public sealed partial class BeckhoffDriver
             // Its path, read BEFORE the round trip kills every handle into it (D4d): the lookup after it starts from the
             // tree root, in the POU's own folder.
             var pouPath = Volt.Engine.Sync.Versioning.PathOf(ItemKind.Map(_om.ItemType(pou))!, WireFolderOf(pouParent), pouName);
-            _om.MoveMember(pouParent, pouName, name, folder);
+            _om.MoveMember(pou, name, folder);
 
             // CONFIRM it. The round trip reports success by side effect and has already deleted and re-imported
             // the POU by this point, so a placement that silently did not land would be indistinguishable from one
@@ -532,7 +532,7 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
-        _om.Move(_om.Parent(node), Com(target), name);
+        _om.Move(node, Com(target));
         // The archive round trip returns no handle and reports success by side effect, so CONFIRM it: a move that
         // silently landed nowhere would otherwise be indistinguishable from one that worked, and the caller has
         // already written the item's content by this point.

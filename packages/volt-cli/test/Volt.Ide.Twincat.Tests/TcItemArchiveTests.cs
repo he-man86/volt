@@ -18,6 +18,9 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcItemArchiveTests
 {
+    private static readonly System.Collections.Generic.IReadOnlyList<TcItemArchive.LiveText> NoLive =
+        System.Array.Empty<TcItemArchive.LiveText>();
+
     /// <summary>A stand-in for a TwinCAT tree node. Bound via <c>dynamic</c>, so the method NAMES are the whole
     /// contract — the same way the driver itself talks to the vendor.
     /// <para>PUBLIC, and it has to be: <c>dynamic</c> resolves against the accessibility of the CALL SITE, which
@@ -73,7 +76,7 @@ public class TcItemArchiveTests
     private static void Move(FakeNode from, FakeNode to, string name, FakeNode? root = null)
     {
         from.Children.Add(name);
-        TcItemArchive.Move(from, to, name, root ?? new FakeNode(), Names);
+        TcItemArchive.Move(from, to, name, NoLive, null, root ?? new FakeNode(), Names);
     }
 
     /// <summary>A REFUSED import that still deposited the item at the PLC project root is cleaned up before the undo

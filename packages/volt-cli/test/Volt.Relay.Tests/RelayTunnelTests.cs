@@ -560,15 +560,13 @@ public class RelayTunnelTests : IDisposable
     {
         var entered = new ManualResetEventSlim(false);
         var release = new ManualResetEventSlim(false);
-        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
-        {
-            FlushEntered = entered,
-            FlushBlock = release,
-        };
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"));
         var log = new LogCapture();
         var delay = new FakeDelay();
         var (relay, _, _) = Start(out _, ide, delay, log);
         await relay.AwaitHello();
+        // Hold the push IN FLIGHT at its walk (armed after the hello, so nothing before the push is held).
+        ide.OnWalkItems = () => { entered.Set(); release.Wait(); };
 
         relay.SendRequest("r5", Ops.Push, new { ops = Array.Empty<object>() });
         Assert.True(entered.Wait(15_000), "the push never reached the blocking step");

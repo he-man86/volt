@@ -120,7 +120,6 @@ public class HonestHealthTests
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
-        public override void FlushPendingWrites() { }
         public override bool Build() => true;
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
@@ -177,7 +176,6 @@ public class HonestHealthTests
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
-        public override void FlushPendingWrites() { }
         public override bool Build() => true;
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>

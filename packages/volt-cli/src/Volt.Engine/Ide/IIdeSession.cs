@@ -92,9 +92,6 @@ public interface IIdeSession
     void SelectProject(ConnectRequest sel);
 
     // ── build ──
-    /// <summary>Commit any buffered edits to the IDE's own store (TwinCAT SaveAll; CODESYS no-op,
-    /// writes commit immediately). Called before reading versions and after applying a push.</summary>
-    void FlushPendingWrites();
     bool Build();
 
     /// <summary>The last build's diagnostics, as FRESH objects the caller owns.

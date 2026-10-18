@@ -211,7 +211,7 @@ window.VOLT_SURFACES = {
       },
       {
         "name": "build",
-        "summary": "Build through the IDE and return its diagnostics.",
+        "summary": "Build through the IDE and return its diagnostics. On TwinCAT a build saves changed documents, as XAE\u0027s Build does.",
         "args": "",
         "flags": [
           "--json"

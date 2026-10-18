@@ -32,20 +32,16 @@ public class BuildServiceTests
     private static BridgeDiagnostic Error(string message) =>
         new() { Severity = Severity.Error, Message = message };
 
-    /// <summary>THE FLUSH RUNS BEFORE THE BUILD, and this is the ordering the whole op depends on.
-    ///
-    /// <para>A build reads what the IDE has committed. Writes from the push that just ran may still be pending,
-    /// so a build that compiles first reports diagnostics for the PREVIOUS state of the code — passing over a
-    /// broken edit, or failing over one already fixed. Either way the engineer is told about a project that no
-    /// longer exists.</para></summary>
+    /// <summary>A BUILD IS ONE COMPILE OF WHAT THE IDE HOLDS, and nothing else: Volt never saves the engineer's project
+    /// (DIALECT D45 — TwinCAT compiles its in-memory project, as CODESYS does).</summary>
     [Fact]
-    public void The_pending_writes_are_flushed_before_the_compile()
+    public void A_build_is_one_compile_and_nothing_else()
     {
         var ide = Ide();
 
         BuildService.Handle(ide, Bound());
 
-        Assert.Equal(new[] { "flush", "build" }, ide.BuildSequence);
+        Assert.Equal(new[] { "build" }, ide.BuildSequence);
     }
 
     /// <summary>A FAILED BUILD IS success:false PLUS DIAGNOSTICS, never an error frame. The client wants the

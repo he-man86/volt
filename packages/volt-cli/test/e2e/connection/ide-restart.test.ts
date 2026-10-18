@@ -2,7 +2,10 @@
  * IDE-PROCESS chaos: close the IDE serving the bound project MID-CONNECTION and reopen it, asserting the bridge
  * (a) reports a clean disconnect while the IDE is gone — no crash, no wrong-project, `PLC_DISCONNECTED` (never a
  * dead-handle "still serving" nor an opaque INTERNAL_ERROR), and (b) AUTO-RECOVERS to the SAME project by its
- * stable name once the IDE returns, with the work saved before the kill still intact (no corruption).
+ * stable name once the IDE returns.
+ *
+ * What survives the kill is the engineer's, not Volt's: Volt never saves the project (a push is an edit in the open
+ * IDE, as on CODESYS), so work the engineer did not save is gone with the process, exactly as in the IDE itself.
  *
  * This drives real OS process kills + a fresh TcXaeShell boot + build, so it is SLOW, DESTRUCTIVE (it closes an
  * IDE window), and LOCAL-only. It is GATED behind `VOLT_E2E_IDE_CHAOS=1` and runs only for TwinCAT: there the
@@ -16,7 +19,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { basename, join } from "node:path"
-import { bridge, serving, requireHealthy, opErrorCode, createItem, fetchSource, fid, BASE, VENDOR, currentPipe, itemIn, pathOf } from "../harness"
+import { bridge, serving, requireHealthy, opErrorCode, BASE, VENDOR, currentPipe } from "../harness"
 import { servedSolutionDir } from "../lib/tc-files"
 
 const DISCONNECTED = "PLC_DISCONNECTED"
@@ -81,35 +84,18 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		expect(code).toBe(DISCONNECTED)
 	})
 
-	it("reopening the IDE => the bridge auto-recovers the SAME project by name, work saved before the kill intact", async () => {
-		// A pushed item is SaveAll'd to disk, so it must survive the IDE dying and coming back.
-		const name = fid("restart_survives")
-		// (the IDE is down from the previous test) bring it back first so we can create the item
-		reopenIde()
-		let up = false
-		for (let i = 0; i < 90; i++) { // up to ~3 min: boot + build
-			const c = await opErrorCode(() => bridge.connect(bound))
-			if (c === null && (await serving())) { up = true; break }
-			await sleep(2000)
-		}
-		expect(up).toBe(true)
-
-		await createItem(name, "FUNCTION_BLOCK VltE2E_restart_survives\nVAR\n\tkeep : INT := 99;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK")
-
-		// Now the real test: kill it AFTER the item is saved, reopen, and the item must still be there.
-		killIde()
-		for (let i = 0; i < 20; i++) { if ((await opErrorCode(() => bridge.refs())) === DISCONNECTED) break; await sleep(2000) }
+	it("reopening the IDE => the bridge auto-recovers the SAME project by name", async () => {
+		// (the IDE is down from the previous test)
 		reopenIde()
 		let recovered = false
-		for (let i = 0; i < 90; i++) {
+		for (let i = 0; i < 90; i++) { // up to ~3 min: boot + build
 			const c = await opErrorCode(() => bridge.connect(bound))
 			if (c === null && (await serving())) { recovered = true; break }
 			await sleep(2000)
 		}
 		expect(recovered).toBe(true)
-		expect(await fetchSource(name)).toContain("keep : INT := 99") // no corruption across the crash/restart
-
-		const v = itemIn(await bridge.refs(), name)
-		if (v) await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: await pathOf(name), ifVersion: v }] })
+		const served = (await bridge.projects()).find((p: any) => p.status && p.status !== "idle")
+		expect(served?.project).toBe(bound.project)
+		expect(Object.keys((await bridge.refs()).items ?? {}).length).toBeGreaterThan(0)
 	})
 })

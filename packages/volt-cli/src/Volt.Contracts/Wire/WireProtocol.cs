@@ -13,7 +13,8 @@ namespace Volt.Contracts;
 /// <para>1: the path wire (openspec <c>multi-application-tree</c>) — items keyed by <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>,
 /// request bodies read strictly, <c>unreadable</c> named by path beside <c>unreadableNodes</c>. The number stayed 1 for
 /// this release by owner decision (PLC Assist's relay serves 1 only, and refuses an outdated bridge by its own
-/// bridge-version check); this schema is pinned as protocol 1, and the next shape change bumps.</para></summary>
+/// bridge-version check), and so did the error vocabulary's loss of a save refusal (Volt saves nothing, DIALECT D45);
+/// this schema is pinned as protocol 1, and the next shape change bumps.</para></summary>
 public static class WireProtocol
 {
     public const int Version = 1;

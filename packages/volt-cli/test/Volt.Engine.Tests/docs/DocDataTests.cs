@@ -129,13 +129,11 @@ public class DocDataTests
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy, BridgeErrorCodes.IdeSaveFailed, BridgeErrorCodes.InternalError }, new[]
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
             BusyFrame,
-            "TwinCAT saves the project before the apply and after it (`File.SaveAll`); a save the IDE refuses is the "
-            + "frame IDE_SAVE_FAILED. After the apply it means every op landed in the IDE and is not on disk, and the "
-            + "receipt was not sent: save in the IDE or retry, then pull.",
+            "A push writes into the open project and saves nothing, on both vendors: the engineer saves.",
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
             + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
             "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
@@ -155,15 +153,15 @@ public class DocDataTests
             + "Each is ABSENT when it does not apply — never false.",
         }),
         [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.IdeBusy, BridgeErrorCodes.IdeSaveFailed }, new[]
+                               BridgeErrorCodes.IdeBusy }, new[]
         {
             BusyFrame,
             "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
             + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",
             "Everything after it IS caught: a thrown build answers `success:false` with the message as one "
             + "error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
-            "Except a CODED refusal, which passes as its frame: TwinCAT saves the project before it builds, and a "
-            + "save the IDE refuses is IDE_SAVE_FAILED — save in the IDE or retry.",
+            "The build compiles what the IDE holds in memory, and Volt calls no save. On TwinCAT a build saves changed "
+            + "documents, as XAE's Build does (DIALECT D45).",
             "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
             + "TwinCAT reads the IDE's own count of failed projects.",
         }),
@@ -775,7 +773,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "7057518c9dada5cd7c1212ffa133cbe23cbac6a5220e92bbd62a175933861ba2";
+    private const string PinnedWireShape = "1af57a9dd6b3db65d528cab4c6de8b5f157d55b657e0c90b2c8841d4147e9062";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

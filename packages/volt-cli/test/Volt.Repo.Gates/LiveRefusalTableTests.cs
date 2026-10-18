@@ -29,7 +29,6 @@ public class LiveRefusalTableTests
     private static readonly HashSet<string> NoLiveTrigger = new(StringComparer.Ordinal)
     {
         "IDE_UNSUPPORTED",   // an IDE below the minimum; both fixture IDEs meet it
-        "IDE_SAVE_FAILED",   // TwinCAT SaveAll refusal: only reachable through a modal dialog; CODESYS saves nothing
         "INTERNAL_ERROR",    // Volt's own broken invariant: a live trigger IS a bug
         "IDE_LOST_ITEM",     // a post-condition: a healthy IDE does not lose what it just took
         "ITEM_UNVERIFIED",   // an enumeration the IDE refuses; neither fixture refuses one without crashing XAE
