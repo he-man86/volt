@@ -57,7 +57,14 @@ public class NoTestOnlyCodeInSrcTests
 
         ["IsDteMoniker"] = "which ROT entries are an XAE's DTE, split out so the 64-bit TcXaeShell64's moniker is " +
                            "pinned offline (no 64-bit XAE runs here); its production caller is the ROT walk in the " +
-                           "same file (RotInstances.EnumRunningDtesOnce)",
+                           "same file (RotInstances.RotSnapshot.Take)",
+
+        ["PickWindow"] = "which ROT entry is a worker's OWN XAE window, split out so the rule that another process's " +
+                         "DTE is never bound nor called is pinned offline (TcBindByPidTests) — the ROT itself is a live " +
+                         "machine. Its production caller is BindByPid, in the same file",
+
+        ["PidInName"] = "the pid a DTE's ROT display name states, pinned offline beside PickWindow, its production " +
+                        "caller in the same file",
 
         ["CheckOnce"] = "the update CHECK against a feed, split out for the same reason as ChooseBridgePipe: it takes " +
                         "the feed URL as a parameter so UpdaterVerificationTests can serve a localhost release whose " +
