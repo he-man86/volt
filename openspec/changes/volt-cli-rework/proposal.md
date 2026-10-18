@@ -15,8 +15,9 @@ as a family (NWL, DIALECT N1) is a family layer, never the Engine core's assumpt
 A multi-agent workflow (owner opted in) over every volt-cli project — `Volt.Engine`, `Volt.Cli`, `Volt.Ide.Codesys`,
 `Volt.Ide.Twincat`, the connector, `Volt.Contracts`, `scripts/`, and the test projects:
 
-- **Placement.** Every piece of code lives in the project that owns its concern, not scattered: vendor-neutral logic in
-  an IDE host moves to `Volt.Engine`; only irreducible vendor glue stays in a host (ARCHITECTURE.md). The asymmetries
+- **Placement.** Every piece of code lives in the project that owns its concern, not scattered: logic that names no
+  vendor and no CODESYS-family fact moves to `Volt.Engine`; what the two hosts share as a CODESYS family moves to
+  `Volt.Ide.CodesysFamily`; only irreducible vendor glue stays in a host (ARCHITECTURE.md). The asymmetries
   recorded in `Ide/DIALECT.md` are load-bearing and stay where they are.
 - **Legacy.** Code, comments and docs serving removed designs or old formats are deleted (no users, no backward compat).
 - **Hidden bugs.** Fallbacks that mask a broken state, silent defaults, untested branches — each found bug gets a
@@ -25,8 +26,10 @@ A multi-agent workflow (owner opted in) over every volt-cli project — `Volt.En
 - **Refactor or reimplement.** A project is refactored in place; one found to be a tangle is reimplemented — only with
   the owner's OK, behind the same tests.
 
-Not implemented now: this change is a spec only until `ld-fbd-coverage` AND `multi-application-tree` close (2026-10-17:
-the path-identity change reshapes the same wire, Sync and drivers — rework after it, not across it).
+Scope of the goal: BELOW the wire a new vendor is one host. ABOVE it a vendor still needs one registration point each in
+the connector (launch), the installer (payload) and the LSP (dialect) — named in `ARCHITECTURE.md` by this change, built
+in the front-of-wire phase. Budget: 1.x (map, audits, safety net) is moderate; 2–3 (find, rework) is large and starts
+after the owner's 1.2 review.
 
 ## Impact
 

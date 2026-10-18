@@ -1,13 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: every volt-cli concern lives in the project that owns it
-Code in `packages/volt-cli` SHALL live in the project that owns its concern: shared, vendor-neutral logic in
-`Volt.Engine`; only irreducible vendor glue in `Volt.Ide.Codesys` / `Volt.Ide.Twincat`; the CLI verbs in `Volt.Cli`;
+Code in `packages/volt-cli` SHALL live in the project that owns its concern: shared logic that names no vendor and no
+CODESYS-family fact in `Volt.Engine`; what both CODESYS-family hosts share in `Volt.Ide.CodesysFamily`; only irreducible
+vendor glue in `Volt.Ide.Codesys` / `Volt.Ide.Twincat`; the CLI verbs in `Volt.Cli`;
 supervision in the connector; wire types in `Volt.Contracts`.
 
 #### Scenario: vendor-neutral logic found in an IDE host
 - **WHEN** the same logic exists in both IDE hosts, or a host holds logic that names no vendor fact
-- **THEN** it moves to `Volt.Engine`, and both vendors still serve byte-identical wire responses
+- **THEN** it moves to `Volt.Engine` if it names no CODESYS-family fact, else to `Volt.Ide.CodesysFamily`, and both
+  vendors still serve byte-identical wire responses
 
 #### Scenario: a recorded vendor asymmetry
 - **WHEN** code differs between the hosts because of an entry in `Ide/DIALECT.md`
@@ -20,11 +22,17 @@ name (the binding's `vendor`, which names the pipe), never as a branch.
 
 #### Scenario: a vendor outside the CODESYS family
 - **WHEN** a vendor with no NWL and no CODESYS object model is added
-- **THEN** it implements the `Ide/` contract in its own host, and no Engine, wire or CLI code changes to admit it
+- **THEN** it implements the `Ide/` contract in its own host, and no Engine, wire or CLI code changes to admit it; above
+  the wire it adds one registration each in the connector, the installer and the LSP dialect
+
+#### Scenario: the claim is tested without a third real vendor
+- **WHEN** the suites run
+- **THEN** a gate shows Engine above `Ide/`, Contracts and Cli name no vendor or NWL symbol, and a minimal test vendor
+  outside the CODESYS family passes the transport suite
 
 #### Scenario: a CODESYS-family fact above the seam
 - **WHEN** Engine code above the `Ide/` contract depends on a fact only the CODESYS family has (NWL, its object types)
-- **THEN** it moves into a family layer the two current hosts share, below the contract
+- **THEN** it moves into `Volt.Ide.CodesysFamily`, below the contract
 
 ### Requirement: no legacy code, no hidden behaviour
 `packages/volt-cli` SHALL contain no code, comment or doc that serves a removed design or an old format, and no
