@@ -5,6 +5,11 @@ Owner 2026-10-16: once LD/FBD is fully implemented in the app (`ld-fbd-coverage`
 volt-bridge + volt-git merged, network text rewritten twice — and the owner expects legacy code, hidden bugs and hidden
 (undocumented) features to have accumulated, and code to sit in the wrong project.
 
+**The goal (owner, 2026-10-18): a new vendor can be added after this.** Everything below the wire is reworked so that
+adding a vendor outside the CODESYS family (Siemens, Rockwell) means writing one IDE host against the `Ide/` contract,
+with nothing above the seam to learn its name. The two vendors Volt has today are both CODESYS-family; what they share
+as a family (NWL, DIALECT N1) is a family layer, never the Engine core's assumption.
+
 ## What Changes
 
 A multi-agent workflow (owner opted in) over every volt-cli project — `Volt.Engine`, `Volt.Cli`, `Volt.Ide.Codesys`,
