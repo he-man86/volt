@@ -28,7 +28,11 @@ a client and a bridge from the same commit. The audit and the rework add, as sta
 - **A mixed-version e2e cell**: the current CLI against the previous release's bridge (and the reverse), which must be
   refused by name before any op, never misread.
 - **Size and fuzz inputs for the LSP**: generated deep and long inputs (nesting, flat chains, long files) in the suite,
-  so a crash on input nobody typed is found here first.
+  so a crash on input nobody typed is found here first. Input from `lsp-deep-input-no-stack-overflow` (archived
+  2026-10-18): limits on Node 24 (src bundled for node) parentheses 3000, nested `IF` 1500, flat `+`/`OR` 5000; bun (the
+  suite's runtime) does not overflow at 5000 parentheses and does at 20000; corpus maxima over 26451 files parentheses
+  7, statement nesting 8, binary chain 29, unary chain 1. A document whose findings throw already answers one
+  `not-analysed` error (`DiagnosticsPublisher.compute`); deep input itself is still unanalysable.
 
 ## 1. Map
 

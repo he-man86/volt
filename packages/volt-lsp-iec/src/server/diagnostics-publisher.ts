@@ -9,11 +9,13 @@
  * `resultId = generation` (any keystroke would re-send every report of a 7.7k-file workspace); per-file dependency
  * tracking (there is no dependency graph — relink and dead code reach across files). The target is a pass per CHANGE,
  * not per pull. A document the store quarantined (its parse or bind threw) reports one `not-analysed` error, never a
- * clean `full []`.
+ * clean `full []`; so does a document whose findings threw (input far deeper than real code overflows a recursive pass,
+ * openspec lsp-deep-input-no-stack-overflow), which is logged and fails no other document's report.
  */
 import { createHash } from "node:crypto"
 import {
   DiagnosticSeverity,
+  MessageType,
   DocumentDiagnosticReportKind,
   PublishDiagnosticsNotification,
   type Diagnostic,
@@ -33,6 +35,8 @@ export interface PublisherHost {
   readonly store: WorkspaceStore
   readonly indexed: boolean
   readonly clientSupportsPull: boolean
+  /** A line in the client's log (`window/logMessage`). */
+  log(type: MessageType, message: string): void
 }
 
 interface Findings {
@@ -41,16 +45,26 @@ interface Findings {
   items: Diagnostic[]
 }
 
-/** The report of a document the server could not read: its parse or bind threw, and the log says why. */
-const NOT_ANALYSED: Diagnostic = {
+/** The one error a document the server could not analyse reports, on line 0; the log says why. */
+const notAnalysed = (message: string): Diagnostic => ({
   range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
   severity: DiagnosticSeverity.Error,
   source: "volt-lsp-iec",
   code: "not-analysed",
-  message:
-    "The language server failed reading this file, so it is not analysed (the language server's log names the error). " +
+  message,
+})
+
+/** Its parse or bind threw: the store quarantined it. */
+const NOT_READ = notAnalysed(
+  "The language server failed reading this file, so it is not analysed (the language server's log names the error). " +
     "Its declarations are left out of the project until the file changes: files that use them report them unresolved.",
-}
+)
+
+/** Its findings threw. Its declarations were read, so the rest of the project still uses them. */
+const NOT_COMPUTED = notAnalysed(
+  "The language server failed computing this file's findings, so none are reported (the language server's log names " +
+    "the error). Its declarations are still used by the rest of the project.",
+)
 
 const resultIdOf = (items: readonly Diagnostic[]): string => createHash("sha1").update(JSON.stringify(items)).digest("hex")
 
@@ -147,8 +161,18 @@ export class DiagnosticsPublisher {
     const store = this.host.store
     store.project() // built first: a bind that throws quarantines here, not after the document was found clean
     const d = store.doc(uri)
-    if (store.quarantined(uri)) return [NOT_ANALYSED]
-    if (d !== undefined) return documentDiagnostics(store, d)
+    if (store.quarantined(uri)) return [NOT_READ]
+    if (d !== undefined) {
+      try {
+        return documentDiagnostics(store, d)
+      } catch (e) {
+        this.host.log(
+          MessageType.Error,
+          `volt-lsp-iec: the findings of ${uri} could not be computed: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+        )
+        return [NOT_COMPUTED]
+      }
+    }
     // A `.library` manifest is no document: its one possible diagnostic is being stale (`libraryManifestDiagnostics`).
     return [...this.manifestReports()].find(([m]) => sameDocument(m, uri))?.[1] ?? []
   }

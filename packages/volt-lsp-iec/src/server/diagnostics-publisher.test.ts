@@ -32,6 +32,7 @@ function setup(options: { indexed?: boolean; pull?: boolean } = {}) {
     store,
     indexed: options.indexed ?? true,
     clientSupportsPull: options.pull ?? true,
+    log: () => {},
   }
   return { store, sent, publisher: new DiagnosticsPublisher(host) }
 }

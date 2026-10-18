@@ -8,7 +8,11 @@ message SHALL state only the consequence of its own cause (declarations left out
 a findings throw).
 
 #### Scenario: one deep document in the workspace
-- **WHEN** the workspace holds a function block whose body nests 5000 parentheses, and another document with an
-  assignment type mismatch
+- **WHEN** the workspace holds a program whose body nests parentheses past the runtime's stack (Node 24 from 3000, bun
+  from 20000), and another document with an assignment type mismatch
 - **THEN** `workspace/diagnostic` answers the deep document with one `not-analysed` error and the other with its type
   mismatch
+
+#### Scenario: the same document pulled alone
+- **WHEN** a client pulls the deep document with `textDocument/diagnostic`, twice in one generation
+- **THEN** both answers are the one `not-analysed` error, and the findings are computed (and the error logged) once

@@ -313,3 +313,43 @@ test(
   },
   10_000,
 )
+
+/** A body nested `depth` parentheses deep — the PLC Assist item (openspec lsp-deep-input-no-stack-overflow). Real code
+ *  nests at most 7 (corpus census); this is far past every recursive pass's stack. */
+const DEEP = (name: string, depth: number) => PRG(name, `i := ${"(".repeat(depth)}1${")".repeat(depth)};`)
+/** Past the stack of the runtime the suite runs on: Node 24 overflows from 3000, bun (whose stack is larger) not at
+ *  5000 and from 20000. */
+const DEPTH = 20_000
+const NOT_COMPUTED = /failed computing this file's findings/
+
+test("a document whose findings throw answers one `not-analysed` error; the workspace pull answers every other document", async () => {
+  const h = harness()
+  await h.init(CAPS.pull)
+  const good = "file:///Main.pou"
+  const deep = "file:///PD.pou"
+  await h.open(good, BROKEN)
+  await h.open(deep, DEEP("PD", DEPTH))
+  const reports = await h.workspacePull()
+  expect((reports.find((r) => r.uri === good)?.items ?? []).map((d) => d.code)).toContain("C0032")
+  const own = reports.find((r) => r.uri === deep)?.items ?? []
+  expect(own.map((d) => ({ code: d.code, line: d.range.start.line, severity: d.severity }))).toEqual(NOT_ANALYSED)
+  expect(own[0]!.message).toMatch(NOT_COMPUTED)
+  expect(h.logs().some((l) => l.message.includes(deep))).toBe(true)
+  h.dispose()
+}, 30_000)
+
+test("the same document through `textDocument/diagnostic`: one `not-analysed` error, computed once per generation", async () => {
+  const h = harness()
+  await h.init(CAPS.pull)
+  const deep = "file:///PD.pou"
+  await h.open(deep, DEEP("PD", DEPTH))
+  const first = await h.pull(deep)
+  expect(first.map((d) => ({ code: d.code, line: d.range.start.line, severity: d.severity }))).toEqual(NOT_ANALYSED)
+  expect(first[0]!.message).toMatch(NOT_COMPUTED)
+  const logged = () => h.logs().filter((l) => l.message.includes(deep)).length
+  const once = logged()
+  expect(once).toBe(1)
+  await h.pull(deep)
+  expect(logged()).toBe(once)
+  h.dispose()
+}, 30_000)
