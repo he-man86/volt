@@ -115,4 +115,35 @@ public class PushPreflightCostTests
         Assert.Equal("checking", frames[0].Phase);
         Assert.Contains(frames, f => f.Phase == "applying");
     }
+
+    /// <summary>A PUSH OF NO OPS IS ONE READ (e2e `stability/latency`: "a no-op push is not more expensive than a read";
+    /// TwinCAT MultiProject measured it at about twice a refs). Nothing is applied, so the lease check and the receipt are
+    /// the same walk: the project is walked once, and the answer is the one that walk gives.</summary>
+    [Fact]
+    public void A_push_of_no_ops_walks_the_project_once_and_answers_its_receipt()
+    {
+        var ide = Project();
+        var refs = RefsService.Handle(ide);
+        var before = ide.WalkCalls;
+
+        var res = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
+
+        Assert.Equal(1, ide.WalkCalls - before);
+        Assert.True(res.Accepted);
+        Assert.Equal(refs.ProjectVersion, res.NewProjectVersion);
+        Assert.Equal(refs.Items.OrderBy(x => x.Key).ToList(), res.NewItems!.OrderBy(x => x.Key).ToList());
+    }
+
+    /// <summary>…and a stale lease is still STALE_PROJECT_VERSION, from that one walk.</summary>
+    [Fact]
+    public void A_push_of_no_ops_with_a_stale_lease_is_refused()
+    {
+        var ide = Project();
+
+        var res = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = "0000000000000000", Ops = new List<PushOp>() });
+
+        Assert.False(res.Accepted);
+        Assert.Equal(ConflictCodes.StaleProjectVersion, Assert.Single(res.Conflicts!).Code);
+        Assert.Equal(RefsService.Handle(ide).ProjectVersion, res.CurrentProjectVersion);
+    }
 }

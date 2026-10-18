@@ -212,7 +212,7 @@ public class TcProjectSettingsTests
                 new Node("PLC_PRG", ItemKind.PlcPou, ""));
             var plc = new Plc(root, Fixture("plc-project-item.xml").Replace("%PROJECT_PATH%", _plcproj));
             var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14", new SysManager(new Tipc(plc))));
-            var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => root.Explorer() });
+            var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new System.Collections.Generic.List<ExplorerNode> { root.Explorer() }) });
             driver.Connect(xaePid: 1);
             return driver;
         }

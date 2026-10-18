@@ -53,7 +53,7 @@ public class TcUntouchablePouTests
         private readonly int _type;
         public Node(Xae xae, string name, int type, bool poisoned = false, params Node[] kids)
         {
-            _xae = xae; Name = name; _type = type; Poisoned = poisoned; Kids = kids.ToList();
+            _xae = xae; _name = name; _type = type; Poisoned = poisoned; Kids = kids.ToList();
             foreach (var k in Kids) k.Owner = this;
             Child = new Children(this);
         }
@@ -79,8 +79,18 @@ public class TcUntouchablePouTests
             Kids.Add(kid);
             return kid;
         }
-        public string Name { get { _xae.Alive(); return _name; } private init => _name = value; }
-        private readonly string _name = "";
+        /// <summary>The tree item's name. Setting it renames the tree item only: the item's DOCUMENT keeps the name it was
+        /// last saved under until a save (<see cref="Persisted"/>, DIALECT D4f, vendor-facts `tc-rename-then-move`).</summary>
+        public string Name
+        {
+            get { _xae.Alive(); return _name; }
+            set { _xae.Alive(); if (Persisted is null) Persisted = _name; _name = value; }
+        }
+        private string _name = "";
+        /// <summary>The name the item's saved document carries — what an export serializes. Null: its current name.</summary>
+        public string? Persisted;
+        /// <summary>File > Save All: every document carries its tree item's name again.</summary>
+        public void SaveAll() { Persisted = null; foreach (var k in Kids) k.SaveAll(); }
         public int ItemType { get { _xae.Alive(); return _type; } }
         public int ChildCount { get { _xae.Alive(); return Kids.Count; } }
         public Children Child { get; }
@@ -111,7 +121,7 @@ public class TcUntouchablePouTests
         {
             var kid = Touch(Kids.First(k => k._name == name));
             using var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create);
-            using var entry = zip.CreateEntry($@"POUs\{name}.TcPOU").Open();
+            using var entry = zip.CreateEntry($@"POUs\{kid.Persisted ?? name}.TcPOU").Open();
             entry.Write(kid.Document!, 0, kid.Document!.Length);
         }
         /// <summary>The re-import recreates the child — a NEW tree item, appended, as TwinCAT does.</summary>
@@ -201,6 +211,13 @@ public class TcUntouchablePouTests
         }
     }
 
+    /// <summary>The system project's hierarchy holding the PLC project <paramref name="plc"/> — what one read answers.</summary>
+    internal static ExplorerNode SystemOf(Node plc) => SystemAround(plc.Explorer());
+
+    /// <summary>The system project's hierarchy around the PLC project's node <paramref name="plc"/>.</summary>
+    internal static ExplorerNode SystemAround(ExplorerNode plc) =>
+        new("TwinCAT Project14", "", "TwinCAT Project14", new List<ExplorerNode> { plc });
+
     internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
         Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null, string? plcproj = null,
         Func<Xae, Node>? tiid = null)
@@ -208,12 +225,12 @@ public class TcUntouchablePouTests
         var xae = new Xae();
         var root = build(xae);
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
-            new SysManager(new Tipc(new Plc(root, plcproj))) { Tiid = tiid?.Invoke(xae) }));
+            new SysManager(new Tipc(new Plc(root, plcproj))) { Tiid = tiid?.Invoke(xae) })) { OnSaveAll = root.SaveAll };
         var model = new TcObjectModel
         {
             BindWindow = _ => window,
-            // The read is scoped to its system project (TcHierarchy.Scoped): two systems may hold a PLC project of one name.
-            ReadExplorer = explorer ?? ((_, name) => name == "TwinCAT Project14|Untitled2 Project" ? root.Explorer() : null),
+            // The read is of the system project: two systems may hold a PLC project of one name.
+            ReadExplorer = explorer ?? ((_, system) => system == "TwinCAT Project14" ? SystemOf(root) : null),
         };
         var driver = new BeckhoffDriver(model);
         driver.Connect(xaePid: 1);
@@ -416,7 +433,7 @@ public class TcUntouchablePouTests
     public void A_lookup_through_a_folder_the_hierarchy_lists_short_answers_ITEM_UNVERIFIED_naming_it()
     {
         var hierarchy = (ExplorerNode?)null;
-        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy);
+        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         var census = root.Explorer();
         hierarchy = census with
         {
@@ -455,15 +472,15 @@ public class TcUntouchablePouTests
                 new Node(x, "X", ItemKind.PlcPou),
                 new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou), new Node(x, "Hidden", ItemKind.PlcPou)),
                 new Node(x, "PLC_PRG", ItemKind.PlcPouProg)),
-            (_, name) =>
+            (_, system) =>
             {
-                if (name != "TwinCAT Project14|Untitled2 Project") return null;
+                if (system != "TwinCAT Project14") return null;
                 var full = built!.Explorer();
                 var folder = full.Children[1];
-                return full with
+                return SystemAround(full with
                 {
                     Children = new[] { full.Children[0], folder with { Children = folder.Children.Take(1).ToList() }, full.Children[2] },
-                };
+                });
             });
 
         var walk = driver.WalkItems();
@@ -499,7 +516,7 @@ public class TcUntouchablePouTests
     public void A_child_count_that_disagrees_with_the_hierarchy_leaves_the_folder_unwalked()
     {
         var hierarchy = (ExplorerNode?)null;
-        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy);
+        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         var census = root.Explorer();
         var folder = census.Children[0];
         hierarchy = census with
@@ -522,7 +539,7 @@ public class TcUntouchablePouTests
     public void A_folder_the_hierarchy_lists_short_is_not_read_and_its_POU_is_never_opened()
     {
         var hierarchy = (ExplorerNode?)null;
-        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy);
+        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         var census = root.Explorer();
         hierarchy = census with
         {
@@ -543,7 +560,7 @@ public class TcUntouchablePouTests
     public void A_project_the_hierarchy_lists_short_is_refused_and_nothing_is_opened()
     {
         var hierarchy = (ExplorerNode?)null;
-        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy);
+        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         var census = root.Explorer();
         hierarchy = census with { Children = census.Children.Skip(1).ToList() };
 
@@ -648,7 +665,7 @@ public class TcUntouchablePouTests
     public void A_POU_flagged_once_stays_unopened_after_its_caption_heals_until_Volt_deletes_it()
     {
         var hierarchy = (ExplorerNode?)null;
-        var (driver, model, xae, root) = Project(Census, (_, _) => hierarchy);
+        var (driver, model, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         hierarchy = root.Explorer();
         Assert.Equal("VltX_UCFB", Assert.Single(driver.WalkItems().UnreadableObjects).Name);
 

@@ -3262,6 +3262,79 @@ export const ROWS: Row[] = [
     ],
   },
   {
+    // PLC Assist (2026-10-18, MultiProject): a `set` that renames AND moves into a new folder answered IDE_LOST_ITEM, the
+    // IDE holding the item moved under its OLD name. TwinCAT's move is an export/delete/import of the item's document
+    // (D4f): does a rename made just before it travel, and does a save between them, or the reverse order, change that?
+    id: "tc-rename-then-move",
+    dialect: ["D4f"],
+    vendors: {
+      twincat: true,
+      codesys: { absent: "CODESYS moves the object itself (`move`), no document round trip: nothing of a rename can be left behind" },
+    },
+    steps: [
+      { op: "create", as: "held", kind: "folder", name: "VltF_RmHeld", parent: "root", via: "script" },
+      {
+        op: "create",
+        as: "p1",
+        kind: "program",
+        name: "VltF_Rm1",
+        parent: "root",
+        via: "script",
+        decl: DECL.program("VltF_Rm1"),
+      },
+      {
+        op: "create",
+        as: "p2",
+        kind: "program",
+        name: "VltF_Rm2",
+        parent: "root",
+        via: "script",
+        decl: DECL.program("VltF_Rm2"),
+      },
+      {
+        op: "create",
+        as: "p3",
+        kind: "program",
+        name: "VltF_Rm3",
+        parent: "root",
+        via: "script",
+        decl: DECL.program("VltF_Rm3"),
+      },
+      {
+        tag: "created",
+        op: "create",
+        as: "p4",
+        kind: "program",
+        name: "VltF_Rm4",
+        parent: "root",
+        via: "script",
+        decl: DECL.program("VltF_Rm4"),
+      },
+      // (a) rename, then move into a folder created after the rename
+      { op: "rename", on: "p1", to: "VltF_Rm1b", via: "script" },
+      { op: "create", as: "new1", kind: "folder", name: "VltF_RmNew1", parent: "root", via: "script" },
+      { tag: "renamed-moved-new", op: "move", on: "p1", to: "new1", via: "script" },
+      // (b) rename, then move into a folder that was already there
+      { op: "rename", on: "p2", to: "VltF_Rm2b", via: "script" },
+      { tag: "renamed-moved-held", op: "move", on: "p2", to: "held", via: "script" },
+      // (c) rename, save, then move into a new folder
+      { op: "rename", on: "p3", to: "VltF_Rm3b", via: "script" },
+      { op: "invoke", path: "dte.ExecuteCommand", args: ["File.SaveAll"] },
+      { op: "create", as: "new3", kind: "folder", name: "VltF_RmNew3", parent: "root", via: "script" },
+      { tag: "renamed-saved-moved", op: "move", on: "p3", to: "new3", via: "script" },
+      // (d) move into a new folder, then rename
+      { op: "create", as: "new4", kind: "folder", name: "VltF_RmNew4", parent: "root", via: "script" },
+      { op: "move", on: "p4", to: "new4", via: "script" },
+      { tag: "moved-renamed", op: "rename", on: "p4", to: "VltF_Rm4b", via: "script" },
+    ],
+    reads: [
+      { key: "new1-children", at: "renamed-moved-new", on: "new1", op: "children" },
+      { key: "held-children", at: "renamed-moved-held", on: "held", op: "children" },
+      { key: "new3-children", at: "renamed-saved-moved", on: "new3", op: "children" },
+      { key: "new4-children", at: "moved-renamed", on: "new4", op: "children" },
+    ],
+  },
+  {
     // openspec `move-onto-existing-path-refused` 1.1: a rename or a move onto a name the IDE already holds, asked of the
     // vendor directly (no Volt gate) - refused, clash-renamed, or two objects - and which kinds share the name scope.
     id: "name-onto-taken",

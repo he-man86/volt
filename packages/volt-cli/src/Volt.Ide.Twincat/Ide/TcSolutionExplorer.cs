@@ -31,7 +31,7 @@ internal sealed record ExplorerNode(string Name, string? Canonical, string Capti
 /// "what the read requires"). TcXaeShell 15 is 32-bit and ships its own x86 copy, registration-free, beside it:
 /// <c>Common7\IDE\Automation\msenvp.dll</c> + <c>msenvp.dll.manifest</c> (a 64-bit VS 2022-based shell carries an
 /// amd64 one at the same place, measured on VS 2022 itself). The read ALWAYS activates the IDE's own manifest
-/// (<see cref="ReadPlcProject"/>) and refuses without it (<see cref="ProxyManifestMissingException"/>): whatever COM has
+/// (<see cref="ReadSystem"/>) and refuses without it (<see cref="ProxyManifestMissingException"/>): whatever COM has
 /// registered is never what the read rests on — the only 64-bit copy anyone registers is Visual Studio's, which is
 /// why a 64-bit reader worked on a machine with VS 2022 and nowhere else.</para>
 /// </summary>
@@ -148,29 +148,22 @@ internal static class TcSolutionExplorer
 
     private static readonly Guid SidVsSolution = new("7f7cd0db-91ef-49dc-9fa9-02d128515dd4");
 
-    /// <summary>Between the system project and the PLC project in a scoped request (<c>TcHierarchy.Scoped</c>) — a
-    /// character no project name holds (it is no legal file-name character).</summary>
-    public const char ScopeSeparator = '|';
-
-    /// <summary>The hierarchy node of the PLC project named <paramref name="plcProjectName"/> (the PLC tree's nested
-    /// project, e.g. <c>Untitled2 Project</c>), with every node beneath it; null when the hierarchy has no such node.
-    /// Scoped (<c>system|plc</c>, <c>TcHierarchy.Scoped</c>): searched only under that system project's own hierarchy,
-    /// whose root names the system project — two system projects may hold a PLC project of one name.
-    /// Throws when the hierarchy itself cannot be read. <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy
-    /// manifest there is active for the whole read, so every interface the read unmarshals finds it.</summary>
-    public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string ideDir)
+    /// <summary>The hierarchy of the SYSTEM project named <paramref name="system"/> (its root names it, by name or
+    /// caption), with every node beneath it — every PLC project of that system project in one read; null when the
+    /// solution holds no such system project. Scoped to the system project because two system projects may hold a PLC
+    /// project of one name (<see cref="Find"/> then searches one). Throws when the hierarchy itself cannot be read.
+    /// <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy manifest there is active for the whole read, so
+    /// every interface the read unmarshals finds it.</summary>
+    public static ExplorerNode? ReadSystem(object dte, string system, string ideDir)
     {
         using (Activate(ideDir, out var refused))
-            try { return Read(dte, plcProjectName); }
+            try { return Read(dte, system); }
             catch (COMException ex) when (refused.Length > 0 && IsProxyMissing(ex.HResult))
             { throw new COMException(refused + ex.Message, ex.HResult); }
     }
 
-    private static ExplorerNode? Read(object dte, string plcProjectName)
+    private static ExplorerNode? Read(object dte, string system)
     {
-        string? system = null;
-        var cut = plcProjectName.IndexOf(ScopeSeparator);
-        if (cut >= 0) { system = plcProjectName.Substring(0, cut); plcProjectName = plcProjectName.Substring(cut + 1); }
         var sp = (IOleServiceProvider)dte;
         var sid = SidVsSolution;
         var iid = typeof(IVsSolution).GUID;
@@ -187,19 +180,24 @@ internal static class TcSolutionExplorer
             var unread = new List<string>();
             var name = Prop(one[0], VsItemIdRoot, VshPropIdName, unread);
             var caption = Prop(one[0], VsItemIdRoot, VshPropIdCaption, unread);
-            if (system is not null && !string.Equals(name, system, StringComparison.Ordinal)
-                && !string.Equals(caption, system, StringComparison.Ordinal)) continue;
-            var root = new ExplorerNode(name, "", caption, Children(one[0], VsItemIdRoot, 0, unread), Unread(unread));
-            if (Find(root, plcProjectName) is { } hit) return hit;
+            if (!string.Equals(name, system, StringComparison.Ordinal) && !string.Equals(caption, system, StringComparison.Ordinal))
+                continue;
+            return new ExplorerNode(name, "", caption, Children(one[0], VsItemIdRoot, 0, unread), Unread(unread));
         }
         return null;
     }
 
-    private static ExplorerNode? Find(ExplorerNode node, string name)
+    /// <summary>The node of the PLC project named <paramref name="name"/> (the PLC tree's nested project, e.g.
+    /// <c>Untitled2 Project</c>) inside a system project's hierarchy, with every node beneath it; null when it holds none.
+    /// The node of that name that holds children is the nested project (the PLC project item of the same name above it
+    /// holds it); a project holding nothing answers its one node.</summary>
+    public static ExplorerNode? Find(ExplorerNode node, string name) => Find(node, name, withChildren: true) ?? Find(node, name, withChildren: false);
+
+    private static ExplorerNode? Find(ExplorerNode node, string name, bool withChildren)
     {
-        if (string.Equals(node.Name, name, StringComparison.Ordinal) && node.Children.Count > 0) return node;
+        if (string.Equals(node.Name, name, StringComparison.Ordinal) && (!withChildren || node.Children.Count > 0)) return node;
         foreach (var c in node.Children)
-            if (Find(c, name) is { } hit) return hit;
+            if (Find(c, name, withChildren) is { } hit) return hit;
         return null;
     }
 

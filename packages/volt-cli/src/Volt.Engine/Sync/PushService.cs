@@ -38,6 +38,10 @@ public static class PushService
         var sw = Stopwatch.StartNew();
         ide.FlushPendingWrites();
 
+        // A PUSH OF NO OPS WRITES NOTHING, so its lease check and its receipt are ONE walk — a read's worth of work, the
+        // floor under every write (e2e `stability/latency`). Walked twice, it cost two reads (TwinCAT MultiProject).
+        if (request.Ops.Count == 0) return NothingToApply(ide, request, sw);
+
 
         // Pre-apply walk: conflict detection (per-item ifVersion guards) + the apply-boundary item cache. The item
         // cache is keyed by FOLDER + BARE IDE name (the IDE's own key, inside the container the path names); the version
@@ -421,6 +425,26 @@ public static class PushService
         VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         var accepted = PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.UnwalkedFolders);
         accepted.NewSources = newSources;
+        return accepted;
+    }
+
+    /// <summary>A push of no ops: the one walk is the lease's version and the receipt. A stale lease is refused as the
+    /// gate refuses it; otherwise the answer is that walk's (what the receipt walk of a push that applied nothing gave).
+    /// With <c>returnSources</c> there is no changed item to return: nothing landed, and nothing changed between two walks.</summary>
+    private static PushResponse NothingToApply(IIdeDriver ide, PushRequest request, Stopwatch sw)
+    {
+        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
+        var stale = PushConflicts.DetectConflicts(new List<PushOp>(), request.ExpectedProjectVersion, request.Force,
+                                                  receipt.Versions, receipt.ProjectVersion, receipt.UnwalkedFolders.Count == 0,
+                                                  Array.Empty<string>());
+        if (stale.Count > 0)
+        {
+            VoltLog.Info($"push 0 ops — REJECTED (stale lease) ({sw.ElapsedMilliseconds}ms)");
+            return PushResponse.RejectedResult(stale, receipt.ProjectVersion);
+        }
+        VoltLog.Info($"push 0 ops — accepted [no-op] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
+        var accepted = PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.UnwalkedFolders);
+        accepted.NewSources = request.ReturnSources == true ? new Dictionary<string, string>() : null;
         return accepted;
     }
 

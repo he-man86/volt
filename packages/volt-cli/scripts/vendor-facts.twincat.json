@@ -7758,6 +7758,39 @@
 		"warning-as-error": null,
 		"warning-list": null
 	},
+	"tc-rename-then-move": {
+		"held-children": [
+			"VltF_Rm2"
+		],
+		"new1-children": [
+			"VltF_Rm1"
+		],
+		"new3-children": [
+			"VltF_Rm3b"
+		],
+		"new4-children": [
+			"VltF_Rm4b"
+		],
+		"steps": [
+			"create held: accepted",
+			"create p1: accepted",
+			"create p2: accepted",
+			"create p3: accepted",
+			"create p4: accepted",
+			"rename p1: accepted",
+			"create new1: accepted",
+			"move p1: accepted",
+			"rename p2: accepted",
+			"move p2: accepted",
+			"rename p3: accepted",
+			"invoke dte.ExecuteCommand: accepted",
+			"create new3: accepted",
+			"move p3: accepted",
+			"create new4: accepted",
+			"move p4: accepted",
+			"rename p4: accepted"
+		]
+	},
 	"tc-special-classes": {
 		"automation-pou-def": [
 			"DeclarationExport=<DeclarationExport>",

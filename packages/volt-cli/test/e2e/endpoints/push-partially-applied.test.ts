@@ -144,6 +144,23 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect((await fetchItem(to)).sourceText, "the edit did not land").toContain("x := x + 3;")
 	})
 
+	// A RENAME+MOVE WITH NO TEXT INTO A NEW SUBFOLDER (PLC Assist, 2026-10-18, TwinCAT MultiProject): it answered
+	// IDE_LOST_ITEM, the IDE holding the item moved under its OLD name — TwinCAT's move exports the item's SAVED document,
+	// which a rename does not reach until a save (DIALECT D4f, offline twin `TcRenameThenMoveTests`).
+	it("a rename+move into a new subfolder lands renamed and moved", async () => {
+		const from = pid("pa_rmnA"), to = inFolder(inFolder(home, id("pa_rmnSub")), fid("pa_rmnB"))
+		const created = await pushOps([{ op: "set", name: from, sourceText: fb(id("pa_rmnA")), ifVersion: null }])
+		expect(created.accepted, `the FB to rename was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		const before = await bridge.refs()
+
+		const r = await pushOps([{ op: "set", name: from, to, ifVersion: before.items[from] }])
+		expect(r.conflicts, `a rename+move was refused: ${JSON.stringify(r.conflicts)}`).toBeUndefined()
+		const after = await bridge.refs()
+		expect(after.items[from]).toBeUndefined()
+		expect(after.items[to], `not at ${to}: ${Object.keys(after.items).filter((k) => k.includes("pa_rmn")).join(", ")}`).toBeDefined()
+		expect(r.newItems?.[to]).toBe(after.items[to])
+	})
+
 	// WHAT A RENAME DOES TO THE ITEM'S OWN TEXT: its header, and nothing else — on both vendors. TwinCAT's native rename
 	// also rewrites the item's own code references (DIALECT C2o) and the push puts them back (openspec bridge-refusal-review
 	// 8.4: a push changes exactly what it names). A rename-only op (no sourceText): the text is the pre-push fetch with the

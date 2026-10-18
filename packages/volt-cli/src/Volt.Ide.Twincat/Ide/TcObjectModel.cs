@@ -250,12 +250,18 @@ internal sealed partial class TcObjectModel
                 "This folder is not read.");
     }
 
-    /// <summary>Reads the PLC project's Solution Explorer node — by a reader of the XAE's own bitness
+    /// <summary>Reads a SYSTEM project's Solution Explorer hierarchy, root first — by a reader of the XAE's own bitness
     /// (<see cref="TcHierarchy"/>); replaceable so the offline suite can hand in a hierarchy (the DTE there is a plain
-    /// double, not an OLE service provider).</summary>
+    /// double, not an OLE service provider). Null when the solution holds no such system project. One read covers every
+    /// PLC project of the system project, and is kept for the operation (<see cref="_systemHierarchies"/>): the read walks
+    /// the whole system project (~47 ms on MultiProject's `TwinCAT Project14`), and was paid once per PLC project.</summary>
     internal Func<object, string, ExplorerNode?> ReadExplorer { get; set; }
 
-    public TcObjectModel() { ReadExplorer = (dte, plcProject) => TcHierarchy.Read(_xaePid, dte, plcProject); }
+    /// <summary>This operation's system-project hierarchies, by system project name; dropped with the snapshots
+    /// (<see cref="ForgetExplorer"/>).</summary>
+    private readonly Dictionary<string, ExplorerNode?> _systemHierarchies = new(StringComparer.Ordinal);
+
+    public TcObjectModel() { ReadExplorer = (dte, system) => TcHierarchy.ReadSystem(_xaePid, dte, system); }
 
     /// <summary>Why this bridge serves nothing, or null: the IDE's hierarchy cannot be read by any reader Volt has
     /// (<see cref="HierarchyUnreachableException"/>), and Volt does not walk the TwinCAT tree without it (C2i). Set by
@@ -309,6 +315,7 @@ internal sealed partial class TcObjectModel
     /// something is flagged (a create or delete changes the names a guarded folder is addressed by).</summary>
     public void ForgetExplorer()
     {
+        _systemHierarchies.Clear();
         if (_plcs is null) return;
         foreach (var plc in _plcs) { plc.Explorer = null; plc.RootPath = null; plc.StaleSinceWrite = false; }
     }
@@ -334,7 +341,13 @@ internal sealed partial class TcObjectModel
         ExplorerNode? node;
         // SCOPED TO ITS SYSTEM PROJECT: two system projects may each hold a PLC project of one name (`Untitled1` in
         // `TwinCAT Project14` and in `TwinCAT Project1`), and a name alone would read the first one's hierarchy.
-        try { node = ReadExplorer(_dte!, TcHierarchy.Scoped(CurrentPlc.System, plcProject)); }
+        try
+        {
+            var system = CurrentPlc.System;
+            if (!_systemHierarchies.TryGetValue(system, out var hierarchy))
+                _systemHierarchies[system] = hierarchy = ReadExplorer(_dte!, system);
+            node = hierarchy is null ? null : TcSolutionExplorer.Find(hierarchy, plcProject);
+        }
         catch (HierarchyUnreachableException ex) { throw Unreachable(ex.Message); }
         catch (Exception ex)
         {
@@ -474,6 +487,10 @@ internal sealed partial class TcObjectModel
     /// export/import pair, which carries children and graphical bodies. See DIALECT D4f.</summary>
     public void Move(object parent, object target, string name)
     {
+        // The archive is the item's SAVED document, and a tree rename is not in it until a save: renamed and then moved,
+        // the item lands under its OLD name (measured on 4024 into a new and an existing folder; renamed, saved, then
+        // moved it keeps the new one — vendor-facts `tc-rename-then-move`, DIALECT D4f). So what is pending is saved first.
+        FlushPendingWrites();
         StructureChanged();
         // Typed BEFORE the call: the dynamic arguments bind the whole invocation at runtime, where a method group has no type.
         Func<object, IReadOnlyCollection<string>> childNames = ChildNames;

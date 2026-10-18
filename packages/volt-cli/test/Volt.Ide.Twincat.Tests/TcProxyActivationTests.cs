@@ -23,7 +23,7 @@ public class TcProxyActivationTests
         try
         {
             // The DTE is a plain object, no OLE service provider: a read that got past the activation fails on that cast.
-            var ex = Record.Exception(() => TcSolutionExplorer.ReadPlcProject(new object(), "P", ide));
+            var ex = Record.Exception(() => TcSolutionExplorer.ReadSystem(new object(), "P", ide));
             Assert.IsType<InvalidCastException>(ex);
         }
         finally { Directory.Delete(ide, recursive: true); }

@@ -35,7 +35,7 @@ public class TcSilentFallbackTests
     private static (BeckhoffDriver Driver, TcObjectModel Model) Attached(object window, TcWalkUnreadableObjectTests.Node? tree = null)
     {
         var model = new TcObjectModel { BindWindow = _ => window };
-        if (tree is not null) model.ReadExplorer = (_, _) => tree.Explorer();
+        if (tree is not null) model.ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new System.Collections.Generic.List<ExplorerNode> { tree.Explorer() });
         var driver = new BeckhoffDriver(model);
         driver.Connect(xaePid: 1);
         return (driver, model);

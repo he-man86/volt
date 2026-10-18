@@ -30,19 +30,14 @@ internal static class TcHierarchy
     /// (<c>TcHierarchySelectionTests</c>) — the 64-bit XAE (TcXaeShell64) included, which no machine here runs.</summary>
     internal static bool Reads(bool xaeIs32Bit, bool workerIs64Bit) => xaeIs32Bit != workerIs64Bit;
 
-    /// <summary>The request for the PLC project <paramref name="plcProject"/> (its nested project's name) inside the system
-    /// project <paramref name="system"/>, one line: a name alone would answer the first system project's PLC project of
-    /// that name (<c>TcSolutionExplorer.ReadPlcProject</c>).</summary>
-    public static string Scoped(string system, string plcProject) => system + TcSolutionExplorer.ScopeSeparator + plcProject;
-
-    /// <summary>The PLC project's hierarchy node of XAE <paramref name="xaePid"/> — see <c>TcSolutionExplorer.ReadPlcProject</c>.
-    /// Throws <see cref="HierarchyUnreachableException"/> when this worker cannot unmarshal it, anything else when the
-    /// read failed.</summary>
-    public static ExplorerNode? Read(int xaePid, object dte, string plcProject)
+    /// <summary>The system project <paramref name="system"/>'s hierarchy in XAE <paramref name="xaePid"/> — see
+    /// <c>TcSolutionExplorer.ReadSystem</c>. Throws <see cref="HierarchyUnreachableException"/> when this worker cannot
+    /// unmarshal it, anything else when the read failed.</summary>
+    public static ExplorerNode? ReadSystem(int xaePid, object dte, string system)
     {
         var xae = Xae(xaePid);
         if (!Reads(xae.Is32Bit, Environment.Is64BitProcess)) throw new HierarchyUnreachableException(OtherBitness(xae.Is32Bit));
-        try { return TcSolutionExplorer.ReadPlcProject(dte, plcProject, xae.IdeDir); }
+        try { return TcSolutionExplorer.ReadSystem(dte, system, xae.IdeDir); }
         catch (TcSolutionExplorer.ProxyManifestMissingException ex) { throw new HierarchyUnreachableException(ex.Message); }
         catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
         { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} worker: {ex.Message}"); }

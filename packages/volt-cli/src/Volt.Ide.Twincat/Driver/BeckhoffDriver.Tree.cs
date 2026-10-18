@@ -35,7 +35,9 @@ public sealed partial class BeckhoffDriver
         // it: an item created or renamed since the last one must be in the scope network text is written and read
         // against (ProjectDeclarations), or a pulled call through it would go to the marker as undeclared.
         _declarations = null;
-        _om.ForgetExplorer();
+        // The Solution Explorer snapshot is NOT dropped here: the operation dropped it at its start
+        // (`MarshalToIdeThread`), and a structural write since marks it stale (`TcObjectModel.StructureChanged`). Dropping it
+        // per walk read every hierarchy twice per push (the pre-apply walk and the receipt), measured on MultiProject.
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();

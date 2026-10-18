@@ -59,6 +59,14 @@ public class TcAttachTests
         public string Version => "15.0";
         /// <summary>The window list the build-output read reaches the Output window through; none unless a test sets one.</summary>
         public object? Windows { get; set; }
+        /// <summary>What File > Save All does to the double's project, if anything; every command is recorded.</summary>
+        public System.Action? OnSaveAll { get; set; }
+        public List<string> Commands { get; } = new();
+        public void ExecuteCommand(string command)
+        {
+            Commands.Add(command);
+            if (command == "File.SaveAll") OnSaveAll?.Invoke();
+        }
     }
 
     private static Project Tc(string name) => new(name, new TcComTree.SysManager());
