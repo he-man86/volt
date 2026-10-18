@@ -64,6 +64,18 @@ standing practice:
       network text) and how a Siemens (FB/FC/DB/UDT/OB) or Rockwell (programs/routines/tags) project would say its own;
       and the `Ide/` CONTRACT (`ICodeStore`, `IProjectTree`, …) judged by "could a non-CODESYS host implement this?"
       (folders, POU children, get/set properties, NWL bodies). Output: a list for 1.2, not a fix.
+      The audit does NOT design a Siemens host — what that looks like is unknown (owner); it checks that the SPLIT makes
+      sense for it. Siemens is the probe question, not a spec: its kinds (FB, FC, OB, DB, UDT, tag tables), its text
+      language SCL (close to ST, not the same), and its LAD/FBD in its own model (SimaticML via TIA Openness), with STL
+      unsupported like IL. Three splits to hold:
+      - KINDS by extension (owner): the extension names the kind and picks the item's handler; the host states its
+        kinds; nothing above it holds the list. The extension set that `bun run check` keeps identical across C#, the
+        LSP, volt-control, the VS Code extension and the plugin becomes ONE registry each vendor adds to, refusing two
+        vendors that spell one extension differently.
+      - LANGUAGES by the `IMPLEMENTATION <LANG>` line: one kind may hold bodies in several languages (a Siemens FB in
+        SCL or LAD); each language's reader/writer is plugged in by that name (`IMPLEMENTATION SCL` slots in).
+      - NETWORKS: `NetworkModel` + network text are ONE graphical form, hoped to be reused for TIA LAD/FBD but not
+        known to fit; nothing above the contract may assume every graphical body is one, so a vendor can bring its own.
 - [ ] 1.1b Foreign-client review (above): ONLY `docs/wire.html` + the OpenRPC document, no repo context.
 - [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented.
 
