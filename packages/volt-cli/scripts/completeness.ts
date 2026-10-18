@@ -425,7 +425,7 @@ export function pickCodesys(objects: CsObject[], items: Record<string, string>, 
   // Every item the pull REFUSES is a subject too (gate review of step 4b, finding 4): it is no wire item, so the cover
   // above never sees it, and its known entries outlived every run unjudged. Its refusal by name is what the run judges.
   for (const o of objects) {
-    const at = o.class && o.class in CS_ITEM_EXT ? refusedAt(refused, o.name) : undefined
+    const at = o.class && o.class in CS_ITEM_EXT ? refusedAt(refused, `${o.name}.${CS_ITEM_EXT[o.class!]}`) : undefined
     if (at === undefined) continue
     const wire = inFolder(at, `${o.name}.${CS_ITEM_EXT[o.class!]}`)
     if (wire in items || out.some((s) => s.wire === wire)) continue
@@ -437,11 +437,12 @@ export function pickCodesys(objects: CsObject[], items: Record<string, string>, 
 /** Why a subject the pull refuses was taken. */
 const REFUSED_SUBJECT = "every item the pull refuses"
 
-/** The folder the pull's `unreadable` list names the object `name` under (`<folder>/<bare name>`), or undefined when
- *  it names none; two are refused by name — a bare name two folders hold names no one object. */
-function refusedAt(refused: readonly string[], name: string): string | undefined {
-  const hits = refused.filter((u) => fileOf(u) === name)
-  if (hits.length > 1) throw new Error(`the pull refuses '${name}' under ${hits.length} folders (${hits.join(", ")})`)
+/** The folder the pull's `unreadable` list names the item `file` (`<name>.<kind>`) under — each entry is the item's
+ *  path, `<folder>/<name>.<kind>` — or undefined when it names none; two are refused by name — a file name two folders
+ *  hold names no one object. */
+function refusedAt(refused: readonly string[], file: string): string | undefined {
+  const hits = refused.filter((u) => fileOf(u) === file)
+  if (hits.length > 1) throw new Error(`the pull refuses '${file}' under ${hits.length} folders (${hits.join(", ")})`)
   return hits.length === 1 ? folderOf(hits[0]!) : undefined
 }
 
@@ -454,7 +455,7 @@ export function pickTwincat(objects: TcObject[], items: Record<string, string>, 
     if (!(ext in TC_ITEM_EXT)) continue
     const file = `${o.name}.${TC_ITEM_EXT[ext]}`
     const listed = pathIn(items, file)
-    const at = listed === undefined ? refusedAt(refused, o.name) : undefined
+    const at = listed === undefined ? refusedAt(refused, file) : undefined
     const wire = listed ?? (at === undefined ? undefined : inFolder(at, file))
     if (wire === undefined || out.some((s) => s.wire === wire)) continue
     out.push({ name: o.name, wire, folder: folderOf(wire), cls: ext, why: at !== undefined ? REFUSED_SUBJECT : o.file! })

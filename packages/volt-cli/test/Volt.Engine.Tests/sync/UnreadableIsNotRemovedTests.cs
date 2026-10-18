@@ -70,7 +70,7 @@ public class UnreadableIsNotRemovedTests
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}] unreadable: [{string.Join(", ", res.Unreadable)}]");
 
-        Assert.Equal(new[] { "CM_Carrier" }, res.Unreadable.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { "CM_Carrier.pou" }, res.Unreadable.Select(u => u.Name).ToArray());
         Assert.DoesNotContain("CM_Carrier.pou", res.Removed);
         Assert.Contains("CM_Carrier.visualization", res.Removed);
     }
@@ -98,14 +98,10 @@ public class UnreadableIsNotRemovedTests
         Assert.Contains(other, res.Removed);
     }
 
-    /// <summary>WHY THE REMOVAL EXEMPTION HAS NO "NAME WITHOUT A KIND" ARM. The one case such an arm could serve is
-    /// a BARE identity — an item that could not be materialized is versioned under its bare name
-    /// (<c>VersionedItem.Identity</c>) — but that key feeds only the aggregate <c>projectVersion</c>. Neither
-    /// `refs` nor `fetch` publishes an unreadable item in <c>Items</c> (it travels in <c>Unreadable</c>), so no
-    /// client baseline can hold `FB_Broken` without its extension, and every known name the removal pass meets
-    /// carries one. The arm exempted exactly the names it could not place, which is the case above.</summary>
+    /// <summary>An unreadable item is in no <c>Items</c> map, and <c>Unreadable</c> names it by the path it has there
+    /// while it reads — the one name the removal pass exempts.</summary>
     [Fact]
-    public void An_unreadable_item_is_published_under_no_name_so_no_baseline_holds_a_bare_one()
+    public void An_unreadable_item_is_absent_from_items_and_listed_by_its_path()
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("FB_Broken"));
 
@@ -114,8 +110,8 @@ public class UnreadableIsNotRemovedTests
 
         Assert.Empty(refs.Items);
         Assert.Empty(fetch.Items);
-        Assert.Equal(new[] { "FB_Broken" }, refs.Unreadable.Select(u => u.Name).ToArray());
-        Assert.Equal(new[] { "FB_Broken" }, fetch.Unreadable.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { "FB_Broken.pou" }, refs.Unreadable.Select(u => u.Name).ToArray());
+        Assert.Equal(new[] { "FB_Broken.pou" }, fetch.Unreadable.Select(u => u.Name).ToArray());
     }
 
     /// <summary>A PARTIAL walk reports NO deletions at all.

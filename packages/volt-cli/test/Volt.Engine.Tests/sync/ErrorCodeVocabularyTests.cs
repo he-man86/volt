@@ -191,7 +191,7 @@ public class ErrorCodeVocabularyTests
                 throw new BridgeException(BridgeErrorCodes.Unreadable,
                     "'Step': the IDE reports no declaration for this member — that is a broken item, not a transport gap");
         };
-        Assert.Contains("FB_A", RefsService.Handle(ide).Unreadable.Select(u => u.Name));
+        Assert.Contains("FB_A.pou", RefsService.Handle(ide).Unreadable.Select(u => u.Name));
 
         var forced = PushService.Handle(ide, new PushRequest
         {

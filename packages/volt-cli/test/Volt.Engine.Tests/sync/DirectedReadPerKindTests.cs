@@ -324,7 +324,7 @@ public class DirectedReadPerKindTests
         foreach (var answer in new[] { full, directed })
         {
             Assert.DoesNotContain(answer.Changed, c => c.SourceText.Contains(row.Shows!, StringComparison.Ordinal));
-            Assert.Contains(owner, answer.Unreadable.Select(u => Volt.Engine.Item.ItemPath.FileOf(u.Name)));
+            Assert.Contains(owner + ".pou", answer.Unreadable.Select(u => Volt.Engine.Item.ItemPath.FileOf(u.Name)));
         }
     }
 

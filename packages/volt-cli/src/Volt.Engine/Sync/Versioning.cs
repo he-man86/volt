@@ -20,6 +20,13 @@ public static class Versioning
     public static string FolderOf(string kind, string walkedFolder, string name) =>
         kind == ItemKind.Kinds.Library ? Library.LibraryLayout.FolderFor(walkedFolder, name) : walkedFolder;
 
+    /// <summary>THE PATH an item has on the wire, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>, from what the walk states of
+    /// it: its kind, the folder it was walked in and its bare IDE name. The one place an item's path is minted — every
+    /// version map, <c>items</c> and <c>unreadable</c> key on it, so an item that cannot be read is named exactly as it
+    /// is while it reads (a verbatim-named kind once, a library in its own folder).</summary>
+    public static string PathOf(string kind, string walkedFolder, string bareName) =>
+        ItemPath.Of(FolderOf(kind, walkedFolder, bareName), Materializer.FullWireName(bareName, kind));
+
     public static (string Version, WorkspaceItem Item) Materialize(
         IIdeDriver ide, string name, string kind, ItemRef item, string folder)
     {
@@ -31,40 +38,42 @@ public static class Versioning
     /// item looks unchanged across reads.</summary>
     public const string Unreadable = "UNREADABLE000000";
 
-    /// <summary>Record every object the walk saw and could not CLASSIFY (<see cref="WalkResult.UnreadableObjects"/>)
-    /// in <paramref name="versions"/> with the <see cref="Unreadable"/> sentinel, and return them as
-    /// <c>&lt;folder&gt;/&lt;bare name&gt;</c> for the op's <c>unreadable</c> list (one entry per OBJECT). It exists, so it counts toward the aggregate version like
-    /// an unreadable item does — an object that cannot be read is not one that was deleted. ONE function for the three
-    /// version-producing walks (refs, fetch, the push gate), so their maps cannot disagree.
+    /// <summary>Record every object the walk saw and did not read (<see cref="WalkResult.UnreadableObjects"/>) in
+    /// <paramref name="versions"/> with the <see cref="Unreadable"/> sentinel, and return them for the op's two lists. It
+    /// exists, so it counts toward the aggregate version like an unreadable item does — an object that cannot be read is
+    /// not one that was deleted. ONE function for the three version-producing walks (refs, fetch, the push gate), so
+    /// their maps cannot disagree.
     ///
-    /// <para><b>One entry per object, never per bare name</b> (CLAUDE.md, the item-name invariant): IEC makes a name
-    /// unique within a kind, and this object's kind is exactly what is unknown — <c>CM_Carrier</c> the FB and
-    /// <c>CM_Carrier</c> the visualization are two objects, and one entry for both would let deleting either leave
-    /// <c>projectVersion</c> unchanged. The key is <see cref="UnclassifiableKey"/>: never a wire
-    /// name, so the push's <c>ifVersion</c> gate cannot resolve an op onto it (an op on such a name is refused as
-    /// unreadable by <c>PushConflicts</c>, by name).</para></summary>
-    public static System.Collections.Generic.IReadOnlyList<Volt.Contracts.UnreadableItem> CountUnclassifiable(
-        WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions,
-        System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>? unreadableKinds = null)
+    /// <para>An object of known item kind is an ITEM: keyed and named by its path (<see cref="PathOf"/>), as it is in
+    /// <c>items</c> while it reads. A container node (<see cref="ItemKind.Kinds.Folder"/>) and an object whose kind is
+    /// unknown are NODES with no file: named by their node path, and keyed by <see cref="UnclassifiableKey"/> — never a
+    /// wire name, so the push's <c>ifVersion</c> gate cannot resolve an op onto one (an op that may land on an object of
+    /// unknown kind is refused as unreadable by <c>PushConflicts</c>, by name).</para></summary>
+    public static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
+        CountUnclassifiable(WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions)
     {
-        var names = new System.Collections.Generic.List<Volt.Contracts.UnreadableItem>();
+        var items = new System.Collections.Generic.List<UnreadableItem>();
+        var nodes = new System.Collections.Generic.List<UnreadableNode>();
         var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
         foreach (var o in walk.UnreadableObjects)
         {
-            var path = FolderPath.Append(o.Folder, o.Name);
-            seen[path] = seen.TryGetValue(path, out var n) ? n + 1 : 0;
-            versions[UnclassifiableKey(path, seen[path])] = Unreadable;
-            // Its kind family is known though it was never read (UnreadableObject.Kinds): the removal pass keeps a known
-            // name of those kinds, as it does for an item that failed to materialize, since its folder counts as walked.
-            if (unreadableKinds is not null && o.Kinds is { } kinds)
-                foreach (var k in kinds) Removal.AddUnreadable(unreadableKinds, ItemPath.Of(FolderOf(k, o.Folder, o.Name), o.Name), k);
-            names.Add(new Volt.Contracts.UnreadableItem(ItemPath.Of(o.Folder, o.Name), o.Reason));
+            if (o.Kind is { } kind && kind != ItemKind.Kinds.Folder)
+            {
+                var path = PathOf(kind, o.Folder, o.Name);
+                versions[path] = Unreadable;
+                items.Add(new UnreadableItem(path, o.Reason));
+                continue;
+            }
+            var node = FolderPath.Append(o.Folder, o.Name);
+            seen[node] = seen.TryGetValue(node, out var n) ? n + 1 : 0;
+            versions[UnclassifiableKey(node, seen[node])] = Unreadable;
+            nodes.Add(new UnreadableNode(ItemPath.Of(o.Folder, o.Name), o.Reason));
         }
-        return names;
+        return (items, nodes);
     }
 
-    /// <summary>The version-map key of the <paramref name="ordinal"/>-th unclassifiable object at encoded
-    /// <paramref name="path"/> (two objects of one name can share a folder — the FB and its visualization). It starts
+    /// <summary>The version-map key of the <paramref name="ordinal"/>-th node at encoded <paramref name="path"/> (two
+    /// objects of one name can share a folder — the FB and its visualization, when neither kind could be read). It starts
     /// with <c>/</c>, which no wire name and no encoded path segment does, so it can collide with no item.</summary>
     private static string UnclassifiableKey(string path, int ordinal) => $"/{path}#{ordinal}";
 
@@ -79,12 +88,11 @@ public static class Versioning
     {
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug): a silent catch hides a real materialize bug.
-        var at = FolderOf(kind, folder, name);
-        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, at, name, null); }
+        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, kind, folder, name, null); }
         catch (System.Exception ex)
         {
-            VoltLog.Warn($"materialize failed name='{ItemPath.Of(at, name)}' kind='{kind}' — body skipped from pull: {ex.Message}");
-            return new VersionedItem(Unreadable, null, at, name, ex.Message);
+            VoltLog.Warn($"materialize failed name='{PathOf(kind, folder, name)}' — body skipped from pull: {ex.Message}");
+            return new VersionedItem(Unreadable, null, kind, folder, name, ex.Message);
         }
     }
 }
@@ -100,26 +108,25 @@ public static class Versioning
 /// item-name invariant).</para>
 ///
 /// <para>So the identity is the item's PATH — the folder it is reported in plus its full name (the name and its kind
-/// extension), <see cref="ItemPath.Of"/> — which is what <c>refs</c> and <c>fetch</c> publish and therefore the only
-/// identity a client can ever quote back. The FOLDER is part of it because names are not unique across applications
-/// either: two devices whose applications both hold <c>PLC_PRG</c> are two programs, and keyed by full name alone one
-/// application's code was silently missing from a pull and a push wrote one of each pair (openspec
+/// extension), <see cref="Versioning.PathOf"/> — which is what <c>refs</c> and <c>fetch</c> publish and therefore the
+/// only identity a client can ever quote back. The FOLDER is part of it because names are not unique across
+/// applications either: two devices whose applications both hold <c>PLC_PRG</c> are two programs, and keyed by full name
+/// alone one application's code was silently missing from a pull and a push wrote one of each pair (openspec
 /// <c>multi-application-tree</c>). This is not a "duplicate name" guard and adds none: bare-name lookup below the
 /// vendor seam is untouched, inside the container the path names — that is the IDE's own lookup key.</para>
 ///
-/// <para>An UNREADABLE item never materialized, so it has no full name and keeps its bare one, in its folder. It is
-/// absent from the wire index either way (DIALECT C7) and no client holds a version for it; the bare key only keeps it
-/// counted in the aggregate hash and blocks a create landing on top of it. Re-deriving a full name for it would
-/// lean on the very kind mapping that may be what defeated the read.</para></summary>
+/// <para>An UNREADABLE item has the same identity: the walk states its kind, so its path does not depend on whether its
+/// content could be read (openspec <c>unreadable-name-carries-kind</c>).</para></summary>
 public sealed class VersionedItem
 {
-    internal VersionedItem(string version, WorkspaceItem? materialized, string folder, string bareName, string? reason)
+    internal VersionedItem(string version, WorkspaceItem? materialized, string kind, string walkedFolder, string bareName,
+                           string? reason)
     {
         Version = version;
         Materialized = materialized;
-        Folder = folder;
-        Identity = ItemPath.Of(folder, materialized?.FullName ?? bareName);
-        Unread = reason is null ? null : new Volt.Contracts.UnreadableItem(ItemPath.Of(folder, bareName), reason);
+        Folder = Versioning.FolderOf(kind, walkedFolder, bareName);
+        Identity = Versioning.PathOf(kind, walkedFolder, bareName);
+        Unread = reason is null ? null : new UnreadableItem(Identity, reason);
     }
 
     /// <summary>The folder the item is REPORTED in (<see cref="Versioning.FolderOf"/>: a library sits in its own) — the
@@ -135,7 +142,7 @@ public sealed class VersionedItem
     /// <summary>The key EVERY version map uses for this item — its path. See the type doc — this is the whole point.</summary>
     public string Identity { get; }
 
-    /// <summary>The item as the read ops list it unreadable — <c>&lt;folder&gt;/&lt;bare name&gt;</c> and the refusal that
-    /// left it out — or null when it materialized.</summary>
-    public Volt.Contracts.UnreadableItem? Unread { get; }
+    /// <summary>The item as the read ops list it unreadable — its path and the refusal that left it out — or null when it
+    /// materialized.</summary>
+    public UnreadableItem? Unread { get; }
 }

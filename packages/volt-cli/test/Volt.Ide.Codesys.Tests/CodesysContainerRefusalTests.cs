@@ -55,6 +55,8 @@ namespace Volt.Ide.Codesys.Tests
             public bool is_folder => Object == null;
             public IObject? Object { get; }
             public object[] Props { get; }
+            /// <summary>The IDE refuses to read this node's object: a non-folder's kind, or a folder's properties.</summary>
+            public bool Faults { get; init; }
             public string get_name(bool _) => _name;
             public IEnumerable<TreeNode> get_children(bool _) => _children;
             public IEnumerable<TreeNode> Self() => new[] { this }.Concat(_children.SelectMany(c => c.Self()));
@@ -72,7 +74,9 @@ namespace Volt.Ide.Codesys.Tests
             private readonly Dictionary<Guid, TreeNode> _byGuid = new();
             public Manager(TreeNode root) { foreach (var n in root.Self()) _byGuid[n.guid] = n; }
             public PropsMeta GetObjectToRead(int nProjectHandle, Guid objectGuid) =>
-                new(_byGuid[objectGuid].Object, _byGuid[objectGuid].Props);
+                _byGuid[objectGuid].Faults
+                    ? throw new InvalidOperationException("the IDE refused to read the object")
+                    : new(_byGuid[objectGuid].Object, _byGuid[objectGuid].Props);
         }
 
         public sealed class Projects { public Projects(object primary) => this.primary = primary; public object primary { get; } }
@@ -125,15 +129,51 @@ namespace Volt.Ide.Codesys.Tests
             Assert.True(walk.Complete);
             var inside = walk.UnreadableObjects.Single(o => o.Name == "SimType");
             Assert.Equal("Sim", inside.Folder);
-            Assert.Equal(new[] { ItemKind.Kinds.Dut }, inside.Kinds);
+            Assert.Equal(ItemKind.Kinds.Dut, inside.Kind);
             Assert.Contains("excluded", inside.Reason);
             Assert.Equal("Sim/Deep", walk.UnreadableObjects.Single(o => o.Name == "DeepType").Folder);
             // A DUT deleted in the IDE beside the excluded folder is reported removed; the excluded one is not.
-            var kinds = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-            Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>(), kinds);
+            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Gone.dut", "Sim/SimType.dut" },
-                new HashSet<string> { "Kept.dut" }, kinds, walk.UnwalkedFolders, walk.Applications, walk.Applications);
+                new HashSet<string> { "Kept.dut" }, unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
             Assert.Equal(new[] { "Gone.dut" }, removed);
+        }
+
+        /// <summary>A TREE NODE WITH NO FILE is listed apart (openspec <c>unreadable-name-carries-kind</c>): a container holding
+        /// a setting no text spells, and an object whose kind the IDE could not state, are in <c>unreadableNodes</c> by their
+        /// node path — never in <c>unreadable</c>, whose entries are items named by their path.</summary>
+        [Fact]
+        public void A_container_setting_and_an_object_of_unknown_kind_are_nodes_not_items()
+        {
+            var linked = new _3S.CoDeSys.LanguageModelManager.BuildProperty { LinkAlways = true };
+            var root = new TreeNode("<project>", null, null,
+                new TreeNode("Lib", null, new object[] { linked }, Type("LibType")),
+                new TreeNode("Broken", new Dut("TYPE Broken : INT; END_TYPE"), null) { Faults = true });
+
+            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(Walk(root), new Dictionary<string, string>());
+
+            Assert.Empty(items);
+            Assert.Equal(new[] { "Lib", "Broken" }, nodes.Select(n => n.Name));
+        }
+
+        /// <summary>A CONTAINER WHOSE PROPERTIES CANNOT BE READ is a node, and what it holds was not read: a client that
+        /// knows an item under it is not told it was removed (its subtree is unwalked).</summary>
+        [Fact]
+        public void A_container_whose_properties_cannot_be_read_hides_nothing_beneath_it_as_removed()
+        {
+            var root = new TreeNode("<project>", null, null,
+                new TreeNode("Sim", null, null, Type("SimType")) { Faults = true },
+                Type("Kept"));
+
+            var walk = Walk(root);
+            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+            var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Sim/SimType.dut", "Kept.dut" },
+                new HashSet<string> { "Kept.dut" }, items.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
+
+            Assert.Equal(new[] { "Sim" }, nodes.Select(n => n.Name));
+            Assert.Empty(items);
+            Assert.Contains("Sim", walk.UnwalkedFolders);
+            Assert.Empty(removed);
         }
 
         /// <summary>A folder whose build property is off its default for a reason OTHER than ExcludeFromBuild is listed by

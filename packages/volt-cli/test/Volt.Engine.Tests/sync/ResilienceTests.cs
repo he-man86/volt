@@ -31,9 +31,8 @@ public class ResilienceTests
         var v = Versioning.SafeVersion(ide, it.Name, ItemKind.Map(it.KindCode)!, it.Item, it.Folder);
         Assert.Equal(Versioning.Unreadable, v.Version);
         Assert.Null(v.Materialized);   // no body — omitted from the Items map but still in the project hash
-        // …and with no materialized full name to key it by, its identity falls back to the BARE name. That is the
-        // one item in a walk whose identity is not `name.ext`, and the hash still has to count it.
-        Assert.Equal("Bad", v.Identity);
+        // …and its identity is its path all the same: the walk states its kind, whether or not its content reads.
+        Assert.Equal("Bad.pou", v.Identity);
     }
 
     [Fact]
@@ -71,8 +70,8 @@ public class ResilienceTests
         var refs = RefsService.Handle(ide);
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
 
-        Assert.Equal(new[] { "Bad" }, refs.Unreadable.Select(u => u.Name));
-        Assert.Equal(new[] { "Bad" }, fetch.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Bad.pou" }, refs.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Bad.pou" }, fetch.Unreadable.Select(u => u.Name));
 
         // …and it is still NOT a removal: an item Volt could not read has not gone anywhere, and reporting it as
         // removed would make the next pull delete the engineer's file.

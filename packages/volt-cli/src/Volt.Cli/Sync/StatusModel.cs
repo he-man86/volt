@@ -15,9 +15,12 @@ public sealed class BridgeSnapshot
     /// of the project, so nothing may be concluded from a name's absence.</summary>
     public List<string> UnwalkedFolders { get; set; } = new();
 
-    /// <summary>Items the bridge FOUND but could not materialize, by bare name, each with its reason. They exist in the
+    /// <summary>Items the bridge FOUND but could not materialize, by path, each with its reason. They exist in the
     /// IDE and cannot be pushed; one an earlier pull read keeps its last-read file here (held), any other has none.</summary>
     public List<UnreadableItem> Unreadable { get; set; } = new();
+
+    /// <summary>Tree nodes with no file the bridge did not read, by node path, each with its reason.</summary>
+    public List<UnreadableNode> UnreadableNodes { get; set; } = new();
 
     /// <summary>Did a REFS WALK produce <see cref="Items"/>? False for `volt status --local`, which deliberately
     /// skips the bridge — and an empty map from "we did not ask" must not be diffed like an empty project.
@@ -140,6 +143,7 @@ public static class StatusModel
             PathByName = pathByName,
             ProjectMismatch = snap.ProjectMismatch,
             Unreadable = snap.Unreadable,
+            UnreadableNodes = snap.UnreadableNodes,
             UnwalkedFolders = snap.UnwalkedFolders,
             Summary = summary,
             Online = snap.Online,

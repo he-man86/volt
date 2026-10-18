@@ -736,9 +736,9 @@ export function wireSide(
   const fetchText = async (wire: string) => {
     const f = await withTimeout(call("fetch", { knownItems: {}, onlyItems: [wire] }), TIMEOUT_MS, "fetch")
     const it = (f.changed ?? []).find((i: any) => i.name === wire)
-    // A refused item answers with its reason (the wire's `unreadable` entry), the refusal a run judges by name.
-    const bare = wire.slice(0, wire.lastIndexOf("."))
-    const refused = ((f.unreadable ?? []) as { name: string; reason: string }[]).filter((u) => u.name === bare)
+    // A refused item answers with its reason (the wire's `unreadable` entry, named by the item's path), the refusal a run
+    // judges by name.
+    const refused = ((f.unreadable ?? []) as { name: string; reason: string }[]).filter((u) => u.name === wire)
     if (!it && refused.length) throw new Error(`refused: ${refused.map((u) => u.reason).join("; ")}`)
     if (typeof it?.sourceText !== "string") throw new Error(`fetch returned no text for ${wire}`)
     return it.sourceText as string

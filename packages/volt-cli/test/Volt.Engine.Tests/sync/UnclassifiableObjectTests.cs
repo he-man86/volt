@@ -46,7 +46,8 @@ public class UnclassifiableObjectTests
 
         var refs = RefsService.Handle(ide);
 
-        Assert.Equal(new[] { "Data/SER_OperationModeType" }, refs.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Data/SER_OperationModeType" }, refs.UnreadableNodes.Select(u => u.Name));
+        Assert.Empty(refs.Unreadable);
         Assert.Contains("A.pou", refs.Items.Keys);
         Assert.Contains("Data/B.pou", refs.Items.Keys);
         Assert.DoesNotContain("Data/SER_OperationModeType.pou", refs.Items.Keys);
@@ -63,7 +64,7 @@ public class UnclassifiableObjectTests
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
 
-        Assert.Equal(new[] { "Data/SER_OperationModeType" }, fetch.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Data/SER_OperationModeType" }, fetch.UnreadableNodes.Select(u => u.Name));
         Assert.Empty(fetch.Removed);
         Assert.Empty(refs.Removed);
     }
@@ -84,8 +85,8 @@ public class UnclassifiableObjectTests
             });
         ide.UnclassifiableItems = new[] { "Zeta", "Alpha" };
 
-        var refs = RefsService.Handle(ide).Unreadable.Select(u => u.Name).ToList();
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Unreadable.Select(u => u.Name).ToList();
+        var refs = RefsService.Handle(ide).UnreadableNodes.Select(u => u.Name).ToList();
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).UnreadableNodes.Select(u => u.Name).ToList();
 
         Assert.Equal(new[] { "Data/Alpha", "Zeta" }, fetch);
         Assert.Equal(fetch, refs);
@@ -130,7 +131,7 @@ public class UnclassifiableObjectTests
 
         Assert.Empty(fetch.Removed);
         Assert.Empty(refs.Removed);
-        Assert.Equal(new[] { "Device" }, refs.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Device" }, refs.UnreadableNodes.Select(u => u.Name));
     }
 
     /// <summary>The CODESYS walk's own children-enumeration failure at the root and an unclassifiable root object
@@ -168,7 +169,7 @@ public class UnclassifiableObjectTests
         var withBoth = RefsService.Handle(Ide(both: true));
         var withOne = RefsService.Handle(Ide(both: false));
 
-        Assert.Equal(new[] { "Modules/CM_Carrier", "Visu/CM_Carrier" }, withBoth.Unreadable.Select(u => u.Name));
+        Assert.Equal(new[] { "Modules/CM_Carrier", "Visu/CM_Carrier" }, withBoth.UnreadableNodes.Select(u => u.Name));
         Assert.NotEqual(withOne.ProjectVersion, withBoth.ProjectVersion);
     }
 

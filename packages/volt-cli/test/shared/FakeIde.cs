@@ -317,17 +317,20 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // The ROOT ("") covers everything: a root whose children cannot be enumerated hides the whole project.
         static bool Under(string folder, string root) =>
             root.Length == 0 || folder == root || folder.StartsWith(root + "/", StringComparison.Ordinal);
+        // A member (method, action, property, …) is collected inside its POU and a folder is recursed, neither emitted as
+        // an item — as both shipped walks do (`ItemKind.IsInlinedInPou`, `PlcFolder`).
         var walked = _items
+            .Where(i => !ItemKind.IsInlinedInPou(i.KindCode) && i.KindCode != ItemKind.PlcFolder)
             .Where(i => !UnwalkableFolders.Any(f => Under(i.Folder, f)) && !unclassifiedSubtrees.Any(s => Under(i.Folder, s)))
             .ToList();
         var items = walked.Where(i => !UnclassifiableItems.Contains(i.Name) && !UnopenedItems.Contains(i.Name))
             .Select(i => new ProjectItem(i.Name, RefTo(i), i.KindCode, i.Folder))
             .ToList();
         var unreadable = walked.Where(i => UnclassifiableItems.Contains(i.Name))
-            .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it"))
+            .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it", Kind: null))
             .ToList();
         unreadable.AddRange(walked.Where(i => UnopenedItems.Contains(i.Name))
-            .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKinds)));
+            .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKind)));
         // An application under a folder the walk could not enter is never stated: a real walk cannot see it.
         var applications = ContainerKinds.Where(kv => kv.Value == ItemKind.Application).Select(kv => kv.Key)
             .Where(a => !UnwalkableFolders.Any(f => Under(a, f)) && !unclassifiedSubtrees.Any(s => Under(a, s)))
@@ -371,12 +374,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var child = IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
                                        : Ref(Find(parent).Children![index1Based - 1]);
         if (NameOf(child) is { } n && UnopenedItems.Contains(n))
-            throw new UnreadableItemException(n, UnopenedReason, UnopenedKinds);
+            throw new UnreadableItemException(n, UnopenedReason, UnopenedKind);
         return child;
     }
 
     public const string UnopenedReason = "the fake must not open it (DIALECT C2i)";
-    public static readonly IReadOnlyList<string> UnopenedKinds = new[] { ItemKind.Kinds.Pou };
+    public const string UnopenedKind = ItemKind.Kinds.Pou;
 
     // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
     // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
@@ -1344,7 +1347,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     };
 
 
-    public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
+    /// <summary>A manifest kind's text — or, for an item whose <see cref="Item.UnreadableReason"/> is set, the read
+    /// failing as a driver's does (a <c>.tmc</c> the IDE cannot render).</summary>
+    public string ReadManifest(ItemRef item, string kind) =>
+        Find(item) is { UnreadableReason: { } why } ? throw new InvalidOperationException(why) : Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
     // The LIVE signals (IsConnected / ServedProjectName / Vendor) and the CACHED health snapshot are SEPARATE

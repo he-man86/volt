@@ -138,7 +138,7 @@ internal static class TreeNav
     /// kind <paramref name="kind"/> (the name case-insensitive, as IEC names are)? Read-only — a move's post-condition.
     /// NAME AND KIND, because the bare name is not the identity: an FB and its visualization share one
     /// (<c>CM_Carrier.pou</c> / <c>CM_Carrier.visualization</c>), and a name alone let the visualization answer for an FB
-    /// the IDE never moved. A child the driver must not open (DIALECT C2i) is answered by its name and the kinds the
+    /// the IDE never moved. A child the driver must not open (DIALECT C2i) is answered by its name and the kind the
     /// vendor states for it.</summary>
     internal static bool FolderHolds(IIdeDriver ide, string folder, string name, string kind)
     {
@@ -153,7 +153,7 @@ internal static class TreeNav
             catch (UnreadableItemException untouchable)
             {
                 if (string.Equals(untouchable.Name, name, StringComparison.OrdinalIgnoreCase)
-                    && untouchable.Kinds.Contains(kind)) return true;
+                    && untouchable.Kind == kind) return true;
             }
         }
         return false;

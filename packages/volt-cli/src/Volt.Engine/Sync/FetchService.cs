@@ -124,7 +124,6 @@ public static class FetchService
 
         var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Fetch, phase: null, onItem: OnItem);
         var unwalkedFolders = snap.UnwalkedFolders;
-        var unreadableKinds = snap.UnreadableKinds;
         var done = snap.Walked;
         // Each library ref's APPLICATION, now that the walk has stated them: a signature extracted for one application
         // lands beside that application's own `.library` (design §6), never another's.
@@ -145,7 +144,7 @@ public static class FetchService
         // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
         // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
         // per folder: absent from a manager the walk DID read is removed, whatever other folder it could not read.
-        var goneFromWalk = Removal.Removed(knownItems.Keys, fullVersions.Keys, unreadableKinds, unwalkedFolders, snap.Applications, request.KnownApplications);
+        var goneFromWalk = Removal.Removed(knownItems.Keys, fullVersions.Keys, snap.Unreadable.Select(u => u.Name), unwalkedFolders, snap.Applications, request.KnownApplications);
         var unseenLibrary = knownItems.Keys.Any(k =>
             k.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(k)
             && !goneFromWalk.Contains(k));
@@ -246,7 +245,8 @@ public static class FetchService
             // The items the walk found and could not materialize. Already tracked (with the Unreadable sentinel,
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
-            Unreadable = ProjectSnapshot.WireOrder(snap.Unreadable.Distinct()),
+            Unreadable = snap.Unreadable,
+            UnreadableNodes = snap.UnreadableNodes,
             // The caveat travels WITH the answer. `removed` above already spares everything under these
             // folders; saying so is what lets a client keep the baseline entries it did not see as well.
             UnwalkedFolders = unwalkedFolders.ToList(),

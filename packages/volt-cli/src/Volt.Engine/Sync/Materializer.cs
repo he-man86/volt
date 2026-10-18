@@ -133,17 +133,17 @@ public static class Materializer
     }
 
     /// <summary>The name an item is known by ON THE WIRE — <c>name.ext</c> — from the BARE name the IDE holds.
-    /// <b>The one place a full wire name is minted</b>: <c>VersionedItem.Identity</c>, and through it every
-    /// <c>refs</c>/<c>fetch</c>/receipt map and every push gate, keys on what this returns.
+    /// <b>The one place a full wire name is minted</b>: <c>Versioning.PathOf</c> builds every item path from it, and
+    /// through it every <c>refs</c>/<c>fetch</c>/receipt map, every <c>unreadable</c> entry and every push gate keys on
+    /// what this returns.
     ///
     /// <para><b>A DUT is <c>X.dut</c></b>, whatever its shape (openspec <c>push-without-header-check</c> 5.P): the
     /// name is a pure function of the kind for every kind, so nothing here reads the item's text, its subtype or a
     /// vendor parse. A client writes the wire name as the file name.</para>
     ///
-    /// <para>PRIVATE, and it stays that way: <see cref="Materialize"/> is the public path and every item goes
-    /// through it, so a test has no reason to reach past it. Making this public to test it directly is what
-    /// `NoTestOnlyCodeInSrcTests` exists to catch — and it did.</para></summary>
-    private static string FullWireName(string bareName, string kind)
+    /// <para>Internal, never public: <c>Versioning.PathOf</c> is the one caller, and a test reaches it through the read
+    /// ops (`NoTestOnlyCodeInSrcTests`).</para></summary>
+    internal static string FullWireName(string bareName, string kind)
     {
         var ext = ItemKind.ExtFor(kind);
         return IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";

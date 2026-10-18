@@ -258,9 +258,22 @@ public class TcUntouchablePouTests
         var named = Assert.Single(walk.UnreadableObjects);
         Assert.Equal(("VltX_UCFB", App + "/VltCensus"), (named.Name, named.Folder));
         Assert.Contains("crashes TcXaeShell", named.Reason);
-        Assert.Equal(new[] { ItemKind.Kinds.Pou }, named.Kinds);
+        Assert.Equal(ItemKind.Kinds.Pou, named.Kind);
         Assert.True(walk.Complete, string.Join(",", walk.UnwalkedFolders));   // a POU is no container: its folder was walked whole
         Assert.DoesNotContain("VltX_UCFB", xae.Lookups);
+    }
+
+    /// <summary>The POU is named on the wire by its PATH, ending in its kind's extension — the name a forced
+    /// <c>deleteItem</c> addresses it by (openspec <c>unreadable-name-carries-kind</c>).</summary>
+    [Fact]
+    public void The_unopened_POU_is_listed_by_its_path()
+    {
+        var (driver, _, _, _) = Project(Census);
+
+        var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(driver.WalkItems(), new Dictionary<string, string>());
+
+        Assert.Equal(new[] { App + "/VltCensus/VltX_UCFB.pou" }, items.Select(u => u.Name));
+        Assert.Empty(nodes);
     }
 
     [Fact]

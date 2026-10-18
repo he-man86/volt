@@ -69,7 +69,7 @@ public sealed partial class CodesysDriver
             catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
             {
                 BridgeLog.Warn($"could not read the kind of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null));
                 continue;
             }
 
@@ -94,15 +94,18 @@ public sealed partial class CodesysDriver
                 // finding 3) is named in the pull report: an excluded folder's objects are not walked (they are not
                 // built, and nothing would read them as excluded — so neither pulled as built nor read as deleted); an
                 // application's or the Task Configuration's setting is listed, and what is under them is walked.
+                var sub = FolderPath.Append(folderPath, name);
                 (string Reason, bool Inside)? held;
                 try { held = _om.ContainerRefusal(child); }
                 catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
                 {
+                    // Its kind is KNOWN (a container): its folder was walked whole. What it holds was not read, so its
+                    // own subtree is unwalked — nothing under it is read as deleted.
                     BridgeLog.Warn($"could not read the properties of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                    unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
+                    unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
+                    unwalked.Add(sub);
                     continue;
                 }
-                var sub = FolderPath.Append(folderPath, name);
                 // EVERY APPLICATION IS STATED, by its root (openspec multi-application-tree, design §3): an item belongs to
                 // the one whose root is the longest prefix of its path, and no layer above reads `Plc Logic` to find one.
                 if (code == ItemKind.Application) applications.Add(sub);
@@ -112,7 +115,7 @@ public sealed partial class CodesysDriver
                     // Its kind is KNOWN (a container), so it is no object of unknown kind: the folder it sits in was
                     // walked whole, and absence beside it still means deleted (gate review of step 3, finding 1 — recorded
                     // with no kind, it put its PARENT into UnwalkedFolders, at the root the whole project).
-                    unreadable.Add(new UnreadableObject(name, folderPath, refusal.Reason, Array.Empty<string>()));
+                    unreadable.Add(new UnreadableObject(name, folderPath, refusal.Reason, ItemKind.Kinds.Folder));
                     if (!refusal.Inside)
                     {
                         // An EXCLUDED folder's objects are not built, so none is pulled as a built one — but each is
@@ -125,7 +128,7 @@ public sealed partial class CodesysDriver
                             if (ItemKind.Map(it.KindCode) is { } kind)
                                 unreadable.Add(new UnreadableObject(it.Name, it.Folder,
                                     $"'{it.Name}' sits in the excluded folder '{sub}' — it is not built, so it is not pulled as a built one",
-                                    new[] { kind }));
+                                    kind));
                         continue;
                     }
                 }
@@ -161,20 +164,20 @@ public sealed partial class CodesysDriver
                     catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
                     {
                         BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Array.Empty<string>()));
+                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
                         unwalked.Add(managerFolder);
                         continue;
                     }
                     foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                     foreach (var (lib, why) in refused)
-                        unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, new[] { ItemKind.Kinds.Library }));
+                        unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, ItemKind.Kinds.Library));
                     // What the manager holds that no manifest spells is named in the pull report (openspec
                     // bridge-one-to-one §1.1 library manager; gate review of step 3, finding 4) — its references walked.
                     foreach (var why in unspelled)
                     {
                         BridgeLog.Warn($"pull: '{name}' {why}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {why}.", Array.Empty<string>()));
+                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {why}.", ItemKind.Kinds.Folder));
                     }
                 }
                 else

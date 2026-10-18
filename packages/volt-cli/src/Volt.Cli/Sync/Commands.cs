@@ -114,7 +114,7 @@ public static class Commands
         // The seed is a pull like any other, so it names what a pull names: every body it brought in read-only.
         var unsupported = UnsupportedNote(fetched.Changed);
         return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus,
-            fetched.Unreadable, fetched.UnwalkedFolders,
+            fetched.Unreadable, fetched.UnreadableNodes, fetched.UnwalkedFolders,
             unsupported is null ? null : $"pulled {ideFiles.Count} file(s) — workspace ready. {unsupported}");
     }
 
@@ -306,6 +306,7 @@ public static class Commands
             ProjectVersion = fetched.ProjectVersion,
             UnwalkedFolders = fetched.UnwalkedFolders,
             Unreadable = fetched.Unreadable,
+            UnreadableNodes = fetched.UnreadableNodes,
             // The pull just adopted this list (or, dry, would): the post-status reports the same removals.
             Removed = fetched.Removed,
         });
@@ -1266,6 +1267,7 @@ public static class Commands
         // Carried so status can say the view is INCOMPLETE: with a folder unread, `Items` is a PARTIAL view.
         UnwalkedFolders = refs.UnwalkedFolders,
         Unreadable = refs.Unreadable,
+        UnreadableNodes = refs.UnreadableNodes,
         Removed = refs.Removed,
     };
 }

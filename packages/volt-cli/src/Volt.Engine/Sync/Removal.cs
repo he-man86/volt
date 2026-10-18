@@ -8,11 +8,10 @@ namespace Volt.Engine.Sync;
 /// <summary>THE one rule for "a path the client knows is gone from the IDE" — <c>ReadResponse.Removed</c> on
 /// both read ops (<c>refs</c> for <c>volt status</c>, <c>fetch</c> for <c>volt pull</c>).
 ///
-/// <para>It lives here because deciding it needs facts only the walk has. The unreadable exemption is keyed by
-/// the item's folder, bare name AND the kind it was walked as — IEC makes names unique within a kind, not across kinds
-/// (CLAUDE.md, the item-name invariant), and the wire's <c>unreadable</c> list carries no kind, so a client
-/// cannot re-derive it: by bare name alone an unreadable program <c>X</c> would shield a deleted DUT <c>X.dut</c>. One
-/// rule for both ops also keeps <c>volt status</c> and <c>volt pull</c> from disagreeing about what is removed.</para>
+/// <para>It lives here because deciding it needs facts only the walk has. An item the walk found and did not read is
+/// exempt by its PATH — the one it has in <c>items</c> while it reads, so an unreadable program <c>X.pou</c> shields
+/// nothing but itself, never a deleted DUT <c>X.dut</c> (CLAUDE.md, the item-name invariant). One rule for both ops
+/// also keeps <c>volt status</c> and <c>volt pull</c> from disagreeing about what is removed.</para>
 ///
 /// <para>A PARTIAL walk is not a reason to report nothing. Absence under a folder the walk could not enumerate
 /// proves nothing, but absence from a folder it DID read is as good as on a complete walk — and a known path says
@@ -36,12 +35,13 @@ internal static class Removal
     public static List<string> Removed(
         IEnumerable<string> known,
         ICollection<string> walked,
-        IReadOnlyDictionary<string, HashSet<string>> unreadableKinds,
+        IEnumerable<string> unreadable,
         IReadOnlyList<string> unwalkedFolders,
         IReadOnlyList<string> applications,
         IReadOnlyList<string>? knownApplications)
     {
         var roots = knownApplications is null ? applications : applications.Concat(knownApplications).ToList();
+        var unread = new HashSet<string>(unreadable, System.StringComparer.Ordinal);
         // The scope in which IEC makes a file name unique: the path's application, or the pool for a source item; null
         // where no rule makes it unique, and such a path never pairs.
         string? Key(string path, bool knownPath)
@@ -58,34 +58,12 @@ internal static class Removal
                 .Contains(key);
 
         return known.Where(path => !walked.Contains(path)
-                                   && !IsUnreadable(path, unreadableKinds)
+                                   && !unread.Contains(path)
                                    && (unwalkedFolders.Count == 0 || !UnderAny(ItemPath.FolderOf(path), unwalkedFolders)
                                        || MovedWithinItsApplication(path)))
                     .OrderBy(n => n, System.StringComparer.Ordinal)
                     .ToList();
     }
-
-    /// <summary>Record an item the walk found and could not read, under <c>&lt;folder&gt;/&lt;bare name&gt;</c> and its
-    /// walked kind.</summary>
-    public static void AddUnreadable(Dictionary<string, HashSet<string>> unreadableKinds, string barePath, string kind)
-    {
-        if (!unreadableKinds.TryGetValue(barePath, out var kinds))
-            unreadableKinds[barePath] = kinds = new HashSet<string>(System.StringComparer.Ordinal);
-        kinds.Add(kind);
-    }
-
-    /// <summary>Is the known path <paramref name="known"/> an item this walk saw and could not read? Same folder, bare
-    /// name AND the kind it was walked as — a name of ANOTHER kind that shares the bare name is a different item,
-    /// and absent from the walk means gone.
-    ///
-    /// <para>A known name whose kind cannot be read off its extension is NOT exempt: exempting it would shield a deleted
-    /// item behind an unreadable one of another kind (FB <c>X</c> unreadable keeping a deleted <c>X.dut</c> alive, whose
-    /// next edit then pushes as a create). No legitimate known name lacks a kind —
-    /// an unreadable item is published in <c>Unreadable</c>, never in <c>Items</c>, so no baseline holds its bare
-    /// identity — and the answer for any other unplaceable name is the ordinary one: not in this walk.</para></summary>
-    private static bool IsUnreadable(string known, IReadOnlyDictionary<string, HashSet<string>> unreadableKinds) =>
-        unreadableKinds.TryGetValue(ItemPath.BarePathOf(known), out var kinds)
-        && ItemKind.KindForWireName(known) is { } kind && kinds.Contains(kind);
 
     /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The walk's unwalked
     /// folders and the client's known folders are the same shape, so this is a prefix test on `/` boundaries.

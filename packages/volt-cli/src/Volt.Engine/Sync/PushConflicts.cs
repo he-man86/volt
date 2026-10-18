@@ -43,18 +43,14 @@ internal static class PushConflicts
             var bare = ItemPath.BarePathOf(name);     // its folder and bare name, the IDE's own key there
             var clientVersion = op.IfVersion;
             // Resolve on the PATH: that is the identity `refs`/`fetch` publish, so it is the only one the client can
-            // have quoted in `ifVersion`. The BARE-PATH fallback covers exactly one case — an UNREADABLE item, which
-            // never materialized, has no kind extension, and is therefore keyed by its folder and bare name (DIALECT
-            // C7). It is absent from refs, so no client holds a version for it; the fallback exists only so a CREATE
-            // cannot land on top of one.
+            // have quoted in `ifVersion` — and an unreadable item is keyed by its path too, so a CREATE cannot land on
+            // top of one.
             //
             // CASE-INSENSITIVELY when the exact spelling misses: IEC identifiers ignore case, and the apply resolves
             // the op in its folder by bare name ignoring case. The gate must find the item the apply will find, or
             // `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
             var key = pending.ContainsKey(name) ? name
-                : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
-                  ?? pending.Keys.FirstOrDefault(k => string.Equals(k, bare, StringComparison.OrdinalIgnoreCase))
-                  ?? bare;
+                : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase)) ?? name;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
             // AN OBJECT THE WALK COULD NOT CLASSIFY, under the folder and bare name this op names. Its kind is unknown,
@@ -71,7 +67,7 @@ internal static class PushConflicts
                     Code = BridgeErrorCodes.Unreadable,
                     Reason = $"the IDE holds an object '{bare}' whose kind the bridge could not read, so it cannot "
                            + "tell whether this item is that object, and a push cannot write it safely. It is named in "
-                           + "the `unreadable` list of every refs/fetch. Fix it in the IDE, or push with --force.",
+                           + "the `unreadableNodes` list of every refs/fetch. Fix it in the IDE, or push with --force.",
                 });
                 continue;
             }

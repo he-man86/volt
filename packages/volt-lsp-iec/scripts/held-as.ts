@@ -6,7 +6,7 @@
  * An item pushed as `X.ext` is not always held as `X.ext` afterwards, since the push writes a top-level text as sent
  * (`openspec/changes/push-without-header-check`, measured live 2026-09-30):
  *   - the IDE keeps the spelling of the object it holds, so `x.pou` may come back as `X.pou`;
- *   - a GVL holding a retired `(* @volt-… *)` comment is in the project but listed under `unreadable` by bare name,
+ *   - a GVL holding a retired `(* @volt-… *)` comment is in the project but listed under `unreadable` by its path,
  *     and only a FORCED push deletes one (a plain delete is refused UNREADABLE).
  * So each is looked up under its own name first, then under a name the IDE may publish that one object under — the
  * engine's `PushedText.MayBeHeldAs`: the same name in another case. A POU has one name, `X.pou`, since 5.Q (CODESYS
@@ -38,7 +38,7 @@ export interface Held {
 }
 export interface RefsAnswer {
   items: Record<string, string | null>
-  /** Each item the walk found and did not pull: its bare name and the bridge's reason. */
+  /** Each item the walk found and did not pull: its path (`<folder>/<name>.<kind>`) and the bridge's reason. */
   unreadable?: { name: string; reason: string }[]
 }
 export const heldIn = (r: RefsAnswer): Held => ({
@@ -60,8 +60,8 @@ export function deleteOpsFor(
       (n) => !before.items.has(n),
     )
     for (const n of held) ops.push({ op: "deleteItem", name: n, ifVersion: r.items[n] ?? null })
-    const bare = bareOf(wire)
-    if (held.length === 0 && MAY_BE_UNREADABLE.has(extOf(wire)) && now.unreadable.has(bare) && !before.unreadable.has(bare)) {
+    const path = wire.toLowerCase()
+    if (held.length === 0 && MAY_BE_UNREADABLE.has(extOf(wire)) && now.unreadable.has(path) && !before.unreadable.has(path)) {
       ops.push({ op: "deleteItem", name: wire, ifVersion: null })
       force = true
     }
@@ -74,6 +74,6 @@ export function orphansIn(fixtureWires: Iterable<string>, r0: RefsAnswer): strin
   const wires = [...fixtureWires]
   return [
     ...wires.filter((w) => Object.keys(r0.items).some((n) => n === w || mayBeHeldAs(w, n))),
-    ...wires.filter((w) => (r0.unreadable ?? []).some((u) => u.name.toLowerCase() === bareOf(w))),
+    ...wires.filter((w) => (r0.unreadable ?? []).some((u) => u.name.toLowerCase() === w.toLowerCase())),
   ]
 }

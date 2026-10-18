@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
@@ -39,10 +40,11 @@ public static class RefsService
             // deliberately absent from `Items` — naming them here is the only way a client can tell the
             // difference between "this project has no such POU" and "Volt could not read it".
             Unreadable = snap.Unreadable,
+            UnreadableNodes = snap.UnreadableNodes,
             // What of the client's baseline is gone — by the rule `fetch` uses (`Removal`), so `volt status` and
             // `volt pull` read one answer. A refs sent no baseline (discovery, an older client) reports none.
             Removed = req?.KnownItems is { } known
-                ? Removal.Removed(known.Keys, snap.FullVersions.Keys, snap.UnreadableKinds, snap.UnwalkedFolders, snap.Applications, req.KnownApplications)
+                ? Removal.Removed(known.Keys, snap.FullVersions.Keys, snap.Unreadable.Select(u => u.Name), snap.UnwalkedFolders, snap.Applications, req.KnownApplications)
                 : new List<string>(),
             // THE PROJECT THIS WALK IS OF, atomic with the walk, as `fetch` echoes it: a caller that asked WITHOUT a
             // binding (discovery, the e2e harness) learns what the version map is a map OF.

@@ -424,7 +424,7 @@ describe("picking subjects", () => {
   // Gate review of step 4b, finding 4: an item the pull REFUSES is no wire item, so it was no candidate — never judged,
   // and its known entries (VltFixtureSfc's: a trailing newline, a held transition) outlived every run as claims nobody
   // measured. Every refused item is a subject, as every task is: its refusal by name is what the run judges.
-  it("takes every item the pull refuses, at the folder its unreadable name states (CODESYS and TwinCAT)", () => {
+  it("takes every item the pull refuses, at the folder its unreadable path states (CODESYS and TwinCAT)", () => {
     const cs = pickCodesys(
       [
         { guid: "p1", name: "FB_A", class: POU, parent: "app", props: ["SVFoldersProperty"], build: null },
@@ -433,7 +433,7 @@ describe("picking subjects", () => {
         { guid: "v1", name: "Sfc", class: "VisualObject.VisualObject", parent: "app", props: [], build: null },
       ],
       { "App/FB_A.pou": "v" },
-      ["App/Sfc"],
+      ["App/Sfc.pou"],
     )
     expect(cs.subjects.map((s) => [s.wire, s.folder, s.why])).toEqual([
       ["App/FB_A.pou", "App", "item:POUObject.POUObject"],
@@ -445,7 +445,7 @@ describe("picking subjects", () => {
         { name: "Broken", itemType: 602, path: "b", file: "Broken.TcPOU" },
       ],
       { "Sys/PLC/P/MAIN.pou": "v" },
-      ["Sys/PLC/P/Broken"],
+      ["Sys/PLC/P/Broken.pou"],
     )
     expect(tc.subjects.map((s) => [s.wire, s.why])).toEqual([
       ["Sys/PLC/P/Broken.pou", "every item the pull refuses"],

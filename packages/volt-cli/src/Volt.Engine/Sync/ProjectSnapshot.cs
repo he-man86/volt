@@ -35,8 +35,8 @@ internal sealed class ProjectSnapshot
     /// are normally organised) collapsed onto one slot and the walk order decided which survived. The shadowed
     /// item was then invisible to the aggregate hash, so editing it did not move <c>projectVersion</c> and
     /// <c>volt pull</c> took its "nothing to pull" fast path over a real code change.</para>
-    /// <para>An UNREADABLE item has no full name (it never materialized), so it is keyed by its folder and bare name here.
-    /// That keeps it counted in the hash while staying absent from the wire index — DIALECT C7, unchanged.</para></summary>
+    /// <para>An UNREADABLE item is keyed by its path here too (the walk states its kind). That keeps it counted in the
+    /// hash while it stays absent from the wire index — DIALECT C7.</para></summary>
     public Dictionary<string, string> Versions { get; } = new();
 
     /// <summary>Item path → version — the wire <c>Items</c> map.</summary>
@@ -59,20 +59,21 @@ internal sealed class ProjectSnapshot
     /// <summary>How many objects the driver's walk returned, tracked or not — the progress bar's denominator.</summary>
     public int Walked { get; private set; }
 
-    /// <summary>Items the walk found but could not materialize, BY NAME. A count was enough for a log line; the
-    /// names are what let a client say WHICH item did not come through — and an unreadable item is invisible
-    /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
+    /// <summary>Items the walk found and did not read, BY PATH — the wire <c>unreadable</c> list, in
+    /// <see cref="WireOrder{T}"/>. A count was enough for a log line; the paths are what let a client say WHICH item
+    /// did not come through — and an unreadable item is invisible otherwise, because it is tracked in the version hash
+    /// but absent from the wire index (DIALECT C7).</summary>
     public List<UnreadableItem> Unreadable { get; } = new List<UnreadableItem>();
 
-    /// <summary>THE order every read op names its unreadable items in — by name, then reason, ordinally — so refs and
-    /// fetch answer one list (environment-dependency-audit 2.5b: with two unreadable items on 3.5.18.30 refs kept the
-    /// walk's order and fetch sorted, and a client comparing them saw a disagreement that was not there).</summary>
-    public static List<UnreadableItem> WireOrder(IEnumerable<UnreadableItem> items) =>
-        items.OrderBy(n => n.Name, StringComparer.Ordinal).ThenBy(n => n.Reason, StringComparer.Ordinal).ToList();
+    /// <summary>Tree nodes with no file the walk did not read, by node path — the wire <c>unreadableNodes</c> list, in
+    /// <see cref="WireOrder{T}"/>.</summary>
+    public List<UnreadableNode> UnreadableNodes { get; } = new List<UnreadableNode>();
 
-    /// <summary>The same unreadable items, <c>&lt;folder&gt;/&lt;bare name&gt;</c> → the kinds each was walked as — what
-    /// <see cref="Removal"/> needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
-    public Dictionary<string, HashSet<string>> UnreadableKinds { get; } = new(StringComparer.Ordinal);
+    /// <summary>THE order every read op names both lists in — by name, then reason, ordinally — so refs and fetch
+    /// answer one list (environment-dependency-audit 2.5b: with two unreadable items on 3.5.18.30 refs kept the walk's
+    /// order and fetch sorted, and a client comparing them saw a disagreement that was not there).</summary>
+    private static List<T> WireOrder<T>(IEnumerable<T> entries, Func<T, string> name, Func<T, string> reason) =>
+        entries.OrderBy(name, StringComparer.Ordinal).ThenBy(reason, StringComparer.Ordinal).ToList();
 
     /// <summary>Folders the driver could not enumerate. Non-empty means "there may be items under here this
     /// walk did not see" — never "these are gone". Everything derived from this snapshot is partial when it
@@ -143,20 +144,19 @@ internal sealed class ProjectSnapshot
                 snap.FullVersions[v.Identity] = v.Version;
                 if (keepText is not null && keepText(v.Identity, v.Version)) snap.Texts[v.Identity] = mat.Text;
             }
-            // An item that could not be READ has not gone anywhere — it is in the hash with the Unreadable sentinel. Keyed
-            // by its folder, BARE name and the WALKED kind (the full name would come from the content that defeated the
-            // read), so the removal pass does not read "absent" as "deleted" for it, and for it alone (`Removal`).
-            else { snap.Unreadable.Add(v.Unread!); Removal.AddUnreadable(snap.UnreadableKinds, ItemPath.Of(folder, it.Name), kind); }
+            // An item that could not be READ has not gone anywhere — it is in the hash with the Unreadable sentinel, and
+            // listed by its path, so the removal pass does not read "absent" as "deleted" for it, and for it alone.
+            else snap.Unreadable.Add(v.Unread!);
             onItem?.Invoke(it, kind, folder, v);
         }
-        // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
-        // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree. Their
-        // removal exemption is their FOLDER when their kind is unknown (WalkResult puts it in UnwalkedFolders), and
-        // UnreadableKinds when the vendor named their kind family without a read (UnreadableObject.Kinds).
-        snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions, snap.UnreadableKinds));
-        var named = WireOrder(snap.Unreadable);
+        // Objects the walk saw and did not read: in the hash (they exist) and listed — by the one rule every walk
+        // applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree. An item's removal exemption is
+        // its path in `Unreadable`; an object of unknown kind's is its FOLDER (WalkResult puts it in UnwalkedFolders).
+        var (items, nodes) = Versioning.CountUnclassifiable(walk, snap.Versions);
+        var named = WireOrder(snap.Unreadable.Concat(items), u => u.Name, u => u.Reason);
         snap.Unreadable.Clear();
         snap.Unreadable.AddRange(named);
+        snap.UnreadableNodes.AddRange(WireOrder(nodes, u => u.Name, u => u.Reason));
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         return snap;
     }

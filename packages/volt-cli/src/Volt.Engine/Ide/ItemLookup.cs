@@ -39,7 +39,7 @@ public static class ItemLookup
 
     /// <summary>A top-level item the driver names but must not open (<see cref="UnreadableItemException"/>), with the
     /// parent it sits under — the one handle through which it can still be deleted, by name, without being touched.</summary>
-    public sealed record Untouchable(ItemRef Parent, string Name, string Reason, System.Collections.Generic.IReadOnlyList<string> Kinds);
+    public sealed record Untouchable(ItemRef Parent, string Name, string Reason, string Kind);
 
     /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
     /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
@@ -60,7 +60,7 @@ public static class ItemLookup
         }, (parent, u) =>
         {
             if (!string.Equals(u.Name, name, System.StringComparison.OrdinalIgnoreCase)) return true;
-            untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kinds);
+            untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kind);
             return false;
         }, FolderPath.Segments(folderPath).Count());
         return (hit, untouchable);

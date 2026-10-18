@@ -82,17 +82,17 @@ namespace Volt.Ide.Codesys.Tests
             // The other is named — its folder, its kind, the vendor member that refused it.
             var niche = Assert.Single(walk.UnreadableObjects);
             Assert.Equal((NichePlaceholder, Manager), (niche.Name, niche.Folder));
-            Assert.Equal(new[] { ItemKind.Kinds.Library }, niche.Kinds);
+            Assert.Equal(ItemKind.Kinds.Library, niche.Kind);
             Assert.Contains("PublishSymbolsInContainer", niche.Reason);
 
             // …so the client does not delete its file.
             // Its path: its own folder under the manager, as every library's (LibraryLayout).
             var file = ItemPath.Of(Volt.Engine.Library.LibraryLayout.FolderFor(Manager, NichePlaceholder),
                                    NichePlaceholder + "." + ItemKind.Kinds.Library);
-            var kinds = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);
-            Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>(), kinds);
+            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+            Assert.Equal(new[] { file }, unreadable.Select(u => u.Name));
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { file },
-                new HashSet<string>(), kinds, walk.UnwalkedFolders, walk.Applications, walk.Applications);
+                new HashSet<string>(), unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
             Assert.Empty(removed);
         }
 

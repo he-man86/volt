@@ -93,9 +93,9 @@ public sealed partial class BeckhoffDriver
             catch (UnreadableItemException untouchable)
             {
                 // NAMED, never opened: a POU the IDE does not read as a POU, whose tree item crashes XAE after a load
-                // (DIALECT C2i). Its kind family is known, so it is no container and this folder still counts as walked.
+                // (DIALECT C2i). Its kind is known, so it is no container and this folder still counts as walked.
                 VoltLog.Warn($"walk: '{untouchable.Name}' at folder='{folderPath}' is not opened: {untouchable.Reason}");
-                unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kinds));
+                unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kind));
                 continue;
             }
             catch (Exception ex)
@@ -120,10 +120,10 @@ public sealed partial class BeckhoffDriver
             catch (Exception ex)
             {
                 // NAMED, not only folder-marked: the walk knows which object it was, and `refs`/`fetch` list it in
-                // `unreadable` (WalkResult derives the folder) — the same answer the CODESYS walk gives (openspec
+                // `unreadableNodes` (WalkResult derives the folder) — the same answer the CODESYS walk gives (openspec
                 // codesys-refs-guid-int32; the parity boundary is the wire).
                 VoltLog.Warn($"walk: kind unreadable for '{name}' at folder='{folderPath}': {ex.Message}");
-                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null));
                 continue;
             }
 

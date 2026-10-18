@@ -63,6 +63,17 @@
   <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in one folder. Below the vendor seam the item
   is looked up by its <b>bare</b> name inside the container its path names, never across the whole tree.
 </p>
+<p>
+  Every item path on the wire has this form, readable or not. <code>unreadable</code> lists the items the walk found
+  and did not read, each <code>{ name, reason }</code> with <code>name</code> the path the item has in
+  <code>items</code> while it reads &mdash; the name a forced <code>deleteItem</code> addresses it by.
+  <code>unreadableNodes</code> lists the tree nodes with no file the walk did not read, each <code>{ name, reason }</code>
+  with <code>name</code> the node path <code>&lt;folder&gt;/&lt;name&gt;</code>: a container holding a setting no text
+  spells, or an object whose kind the IDE could not state (its folder and subtree are then in
+  <code>unwalkedFolders</code>).
+</p>
+<pre>Device/Plc Logic/Application/CM_Carrier.pou       unreadable: an FB whose body could not be read
+Device/Plc Logic/Application/Library Manager      unreadableNodes: a manager holding a setting no text spells</pre>
 <pre>Device/Plc Logic/Application/PLC_PRG.pou          CODESYS: a device's application
 Device_1/Plc Logic/Application/PLC_PRG.pou        another device, another item
 TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs/MAIN.pou
@@ -176,7 +187,7 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   <tr><td class="name">UNSUPPORTED</td><td>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent &mdash; never Volt&rsquo;s own rule about a request (<code>BAD_REQUEST</code>) and never a Volt bug (<code>INTERNAL_ERROR</code>). A shape this vendor cannot write, a create, import or task call-list rebuild the IDE refused, a member kind with no mapping, a descriptor field the vendor has no counterpart for, a <code>%</code>-line this vendor has no measured member for, a class it cannot create (a <code>%CLASS</code> create), or a member re-typed under the same name. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, an item whose kind has no canonical text form, or an object holding a vendor member no text spells (the item is listed <code>unreadable</code> naming the member, never pulled without it).</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
   <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read, or a <code>%</code>-line out of place, out of order, repeated, or with a value it does not take &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
-  <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized (or a member of it has no declaration), so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it. An item the IDE does not return at all (a member it holds no declaration for) cannot be updated in place, forced or not &mdash; the refusal says so: fix it in the IDE, or replace it &mdash; push its <code>deleteItem</code>, then push it again as a create.</td></tr>
+  <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized (or a member of it has no declaration), so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>, by its path.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it. An item the IDE does not return at all (a member it holds no declaration for) cannot be updated in place, forced or not &mdash; the refusal says so: fix it in the IDE, or replace it &mdash; push its <code>deleteItem</code>, then push it again as a create.</td></tr>
   <tr><td class="name">INTERNAL_ERROR</td><td>Volt&rsquo;s own broken invariant, and nothing else: a state Volt&rsquo;s code guarantees cannot happen, or an exception nobody coded (the fallback of <code>PipeServer</code> and of the push&rsquo;s conflicts). An IDE state is never this &mdash; an unreadable folder is <code>ITEM_UNVERIFIED</code>, an IDE refusal <code>UNSUPPORTED</code>, a broken post-condition <code>IDE_LOST_ITEM</code>, a member the IDE holds no declaration for <code>UNREADABLE</code>, a save the IDE refused <code>IDE_SAVE_FAILED</code>.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
 </table>
 

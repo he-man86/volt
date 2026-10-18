@@ -132,7 +132,6 @@ internal sealed class ExplorerSnapshot
         "(DIALECT C2i), so Volt does not read it.";
 
     /// <summary>The wire kind a <c>.TcPOU</c> is, known without opening it: a POU is ONE kind, <c>X.pou</c> (openspec
-    /// <c>push-without-header-check</c> 5.Q), so an untouchable POU is named under exactly one name and the CLI matches
-    /// it to its file. (It was three candidates — program, function block, function — while the extension said which.)</summary>
-    public static readonly IReadOnlyList<string> PouKinds = new[] { ItemKind.Kinds.Pou };
+    /// <c>push-without-header-check</c> 5.Q), so an untouchable POU is named by its path like every item.</summary>
+    public const string PouKind = ItemKind.Kinds.Pou;
 }

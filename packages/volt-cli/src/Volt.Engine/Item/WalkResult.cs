@@ -18,9 +18,9 @@ namespace Volt.Engine.Item;
 /// <para><b>One object the walk cannot even CLASSIFY never fails the walk</b> (openspec
 /// <c>codesys-refs-guid-int32</c>). The CODESYS walk read every child's object to learn its kind with no guard, so
 /// one failed read threw out of <c>WalkItems</c> and <c>refs</c> answered <c>INTERNAL_ERROR</c> for the whole
-/// project. Such an object is <see cref="UnreadableObjects"/> — by NAME, so <c>refs</c>/<c>fetch</c> can list it
-/// as unreadable — and its folder counts as not fully read (<see cref="UnwalkedFolders"/>): its kind is unknown,
-/// so neither its own file nor, if it is a container, anything beneath it may be read as deleted.</para>
+/// project. Such an object is <see cref="UnreadableObjects"/> with no kind, and its folder counts as not fully read
+/// (<see cref="UnwalkedFolders"/>): its kind is unknown, so neither its own file nor, if it is a container, anything
+/// beneath it may be read as deleted.</para>
 /// </summary>
 public sealed class WalkResult
 {
@@ -30,15 +30,15 @@ public sealed class WalkResult
         Items = items;
         UnreadableObjects = unreadableObjects;
         Applications = applications;
-        // DERIVED here, once, for both drivers: a driver that records the object cannot forget its folder — nor its
-        // OWN subtree, which the walk never entered (its kind is unknown, so it may be a container: CODESYS's root
-        // children are the Device node(s)). The parent alone is not enough at the root: for a root-level object
+        // DERIVED here, once, for both drivers: a driver that records an object of unknown kind cannot forget its folder
+        // — nor its OWN subtree, which the walk never entered (its kind is unknown, so it may be a container: CODESYS's
+        // root children are the Device node(s)). The parent alone is not enough at the root: for a root-level object
         // that is "", and the subtree is named explicitly so the unwalked list says where the walk stopped.
-        // NOT for an object whose kind FAMILY the vendor stated without it being read (<see cref="UnreadableObject.Kinds"/>):
-        // it is no container, so its folder was walked whole and absence beside it still means deleted; its own known
-        // name is kept by the removal pass, which matches it by those kinds.
+        // NOT for an object whose kind the vendor stated (<see cref="UnreadableObject.Kind"/>): an item's folder was
+        // walked whole and absence beside it still means deleted; a container that stops the walk states its own
+        // subtree unwalked where it stops it.
         UnwalkedFolders = unwalkedFolders
-            .Concat(unreadableObjects.Where(o => o.Kinds is null).SelectMany(o => new[] { o.Folder, FolderPath.Append(o.Folder, o.Name) }))
+            .Concat(unreadableObjects.Where(o => o.Kind is null).SelectMany(o => new[] { o.Folder, FolderPath.Append(o.Folder, o.Name) }))
             .Distinct().ToList();
     }
 
@@ -50,8 +50,9 @@ public sealed class WalkResult
     /// gone".</summary>
     public IReadOnlyList<string> UnwalkedFolders { get; }
 
-    /// <summary>Objects the walk SAW and could not classify — their kind is unknown, so they are in no version map
-    /// under a path; the read ops publish them in <c>unreadable</c> as <c>&lt;folder&gt;/&lt;bare name&gt;</c>.</summary>
+    /// <summary>Objects the walk SAW and did not read: an item of known kind it could not or must not read (the read ops
+    /// publish it in <c>unreadable</c> by its path), or a tree node with no file — a container holding what no text
+    /// spells, or an object whose kind is unknown (<c>unreadableNodes</c>, by its node path).</summary>
     public IReadOnlyList<UnreadableObject> UnreadableObjects { get; }
 
     /// <summary>The root folder of every APPLICATION the walk passed (CODESYS: each <c>IApplicationObject</c>; TwinCAT:
@@ -66,9 +67,9 @@ public sealed class WalkResult
 
 }
 
-/// <summary>An object the walk found at <paramref name="Folder"/> and could not read the kind of, and why.
-/// <para><paramref name="Kinds"/>: null when nothing is known of what it is (it may even be a container). Set when the
-/// vendor names the object's kind family WITHOUT the object being read — a TwinCAT POU Volt must not touch (DIALECT
-/// C2i) is a program, a function block or a function. Then its folder counts as walked, and a known name of one of
-/// these kinds is kept, never read as deleted (<c>Removal</c>).</para></summary>
-public sealed record UnreadableObject(string Name, string Folder, string Reason, IReadOnlyList<string>? Kinds = null);
+/// <summary>An object the walk found at <paramref name="Folder"/> and did not read, and why.
+/// <para><paramref name="Kind"/> is what the object IS, as the IDE's tree states it: an item's kind (<see cref="ItemKind.Kinds"/>),
+/// whose path is then <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c> like every item's; <see cref="ItemKind.Kinds.Folder"/>
+/// for a container node, which has no file; or null when the IDE failed to answer what its own object is — then nothing
+/// is known of it (it may even be a container) and its folder and subtree count as unwalked.</para></summary>
+public sealed record UnreadableObject(string Name, string Folder, string Reason, string? Kind);

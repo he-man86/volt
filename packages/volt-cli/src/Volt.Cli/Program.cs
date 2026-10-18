@@ -114,7 +114,7 @@ internal static class Program
     private static int CmdInit(BridgeClient bridge, Args a)
     {
         var r = Commands.Init(a.Operand(0) ?? a.Workspace, bridge, Reporter.Create());
-        if (r.Kind == ResultKinds.Ok) WarnIfPartial(r.Unreadable!, r.UnwalkedFolders!);   // stderr — stdout stays the JSON
+        if (r.Kind == ResultKinds.Ok) WarnIfPartial(r.Unreadable!, r.UnreadableNodes!, r.UnwalkedFolders!);   // stderr — stdout stays the JSON
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
         if (r.Kind == ResultKinds.Error) { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine($"created workspace at {r.Workspace}");
@@ -193,6 +193,7 @@ internal static class Program
                 Console.WriteLine($"# mismatch {pm.ConfiguredAs.Platform}/{pm.ConfiguredAs.ProjectName} {pm.BridgeReports.Platform}/{pm.BridgeReports.ProjectName}");
             if (s.Merging is { } mg) Console.WriteLine($"# merging {mg.Conflicts.Count}");
             foreach (var n in s.Unreadable) Console.WriteLine($"# unreadable {n.Name}");
+            foreach (var n in s.UnreadableNodes) Console.WriteLine($"# unreadable-node {n.Name}");
             foreach (var f in s.UnwalkedFolders) Console.WriteLine($"# unwalked {f}");
 
             void EmitLines(string code, List<string> names) { foreach (var n in names) Console.WriteLine($"{code} {(s.PathByName.TryGetValue(n, out var p) ? p : n)}"); }
@@ -239,19 +240,25 @@ internal static class Program
     ///
     /// <para>Written to stderr: it is a caveat on a successful command, and a caller piping `volt status` is
     /// reading the item lines, not this.</para></summary>
-    private static void WarnIfPartial(StatusData s) => WarnIfPartial(s.Unreadable, s.UnwalkedFolders);
+    private static void WarnIfPartial(StatusData s) => WarnIfPartial(s.Unreadable, s.UnreadableNodes, s.UnwalkedFolders);
 
     /// <summary>The same caveat from the lists themselves — `volt init` has no status, and it is the verb that most
     /// needs it: a fresh init of a project whose excluded folders hold objects left them out of git without a word
     /// (gate review of bridge-one-to-one step 4b, finding 1). EACH ITEM WITH ITS REASON: "could not read" was the
     /// only reason the header gave, and an object in a folder excluded from build was read perfectly well — it is left
     /// out by design, and only the bridge's reason says so.</summary>
-    private static void WarnIfPartial(IReadOnlyList<UnreadableItem> unreadable, IReadOnlyList<string> unwalked)
+    private static void WarnIfPartial(IReadOnlyList<UnreadableItem> unreadable, IReadOnlyList<UnreadableNode> nodes,
+                                      IReadOnlyList<string> unwalked)
     {
         if (unreadable.Count > 0)
         {
             Console.Error.WriteLine($"warning: the IDE holds {unreadable.Count} item(s) volt did not pull — none can be pushed; a file here, if any, is the last one pulled. Each, and why:");
             foreach (var n in unreadable) Console.Error.WriteLine($"  ? {n.Name}: {n.Reason}");
+        }
+        if (nodes.Count > 0)
+        {
+            Console.Error.WriteLine($"warning: the IDE holds {nodes.Count} node(s) whose content volt did not read. Each, and why:");
+            foreach (var n in nodes) Console.Error.WriteLine($"  ? {n.Name}/: {n.Reason}");
         }
         if (unwalked.Count > 0)
         {

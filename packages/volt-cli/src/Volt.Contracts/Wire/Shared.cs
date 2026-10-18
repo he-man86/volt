@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Volt.Contracts;
@@ -55,27 +55,34 @@ public abstract class ReadResponse
     [JsonPropertyName("applications")]
     public List<string> Applications { get; set; } = new();
 
-    /// <summary>Items the walk FOUND but could not materialize, by <c>&lt;folder&gt;/&lt;bare name&gt;</c> (no kind could be
-    /// read) — normally empty.
+    /// <summary>Items the walk FOUND and did not read — normally empty. Each is named by its PATH,
+    /// <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>: exactly the path it has in <see cref="Items"/> while it reads, so a
+    /// client can address it (a forced <c>deleteItem</c> of that name is the repair) and two items of one bare name are
+    /// never one entry.
     ///
     /// <para><b>An unreadable item is the one failure a client cannot otherwise see.</b> It still exists, and it
     /// still counts toward <see cref="ProjectVersion"/> (tracked with the Unreadable sentinel so a pull does not
     /// mistake it for deleted), but it has no entry in <see cref="Items"/>, so nothing but this list says it is
     /// there: a client that never read it has no file for it and the POU is simply ABSENT, with no error anywhere
     /// (a client that read it before keeps its last file, held and stale). That happened to a real project: one box whose <c>En</c> pin
-    /// read as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para></summary>
+    /// read as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para>
     ///
-    /// <para>Each entry carries its REASON (gate review of step 4b, finding 1): the name alone said an item was left out
-    /// and not why — an object in a folder excluded from build, one holding a vendor member no text spells, a read that
-    /// failed — so every client printed bare names and the reason reached only the bridge log.</para>
+    /// <para>Each entry carries its REASON: an object in a folder excluded from build, one holding a vendor member no
+    /// text spells, a read that failed.</para></summary>
     [JsonPropertyName("unreadable")]
     public List<UnreadableItem> Unreadable { get; set; } = new();
 
+    /// <summary>Tree nodes the walk FOUND that have no file and hold what it did not read — normally empty. Each is
+    /// named by its node path, <c>&lt;folder&gt;/&lt;name&gt;</c>: a container holding a setting no text spells (a
+    /// Library Manager, an application's compiler defines), or an object whose kind the IDE could not state — then
+    /// its folder and its own subtree are in <see cref="UnwalkedFolders"/>.</summary>
+    [JsonPropertyName("unreadableNodes")]
+    public List<UnreadableNode> UnreadableNodes { get; set; } = new();
+
     /// <summary>Paths in the client's baseline (<c>knownItems</c>) that are GONE from the IDE — the one removal
     /// decision, made here in the engine for every read op, so no client derives a deletion from absence with a
-    /// rule of its own. Gone means: not walked, and not an item the walk found and could not read (matched by bare
-    /// path AND kind — names repeat across kinds); on a PARTIAL walk also sitting in a folder the walk read (the path's
-    /// own folder). Empty when the request sent no baseline, on <c>init</c>, and for a directed
+    /// rule of its own. Gone means: not walked, and not in <see cref="Unreadable"/>; on a PARTIAL walk also sitting in a
+    /// folder the walk read (the path's own folder). Empty when the request sent no baseline, on <c>init</c>, and for a directed
     /// (<c>onlyItems</c>) fetch.</summary>
     [JsonPropertyName("removed")]
     public List<string> Removed { get; set; } = new();
@@ -101,14 +108,30 @@ public abstract class ReadResponse
     public string? ProjectName { get; set; }
 }
 
-/// <summary>An item the walk found and did not materialize: its folder and BARE name, <c>&lt;folder&gt;/&lt;bare&gt;</c> (it
-/// has no kind extension — the kind mapping may be what defeated the read) and why, in the words of the refusal that left
-/// it out.</summary>
+/// <summary>An item the walk found and did not read: its path, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>, and why, in
+/// the words of the refusal that left it out.</summary>
 public sealed record UnreadableItem
 {
     public UnreadableItem() { }
 
     public UnreadableItem(string name, string reason) { Name = name; Reason = reason; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; init; } = "";
+
+    public override string ToString() => $"{Name} — {Reason}";
+}
+
+/// <summary>A tree node with no file that holds what the walk did not read: its node path, <c>&lt;folder&gt;/&lt;name&gt;</c>,
+/// and why.</summary>
+public sealed record UnreadableNode
+{
+    public UnreadableNode() { }
+
+    public UnreadableNode(string name, string reason) { Name = name; Reason = reason; }
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";

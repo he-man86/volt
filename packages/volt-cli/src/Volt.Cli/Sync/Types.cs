@@ -81,6 +81,10 @@ public sealed class StatusData
     /// from build is left out of the pull by design, and a bare name could not say so.</para></summary>
     public List<UnreadableItem> Unreadable { get; set; } = new();
 
+    /// <summary>Tree nodes with no file the bridge did not read (a container's setting no text spells, an object whose
+    /// kind the IDE could not state), by node path, each with its reason.</summary>
+    public List<UnreadableNode> UnreadableNodes { get; set; } = new();
+
     /// <summary>Folders the bridge could not ENUMERATE — normally empty. Non-empty means the item list is a
     /// partial view, so <see cref="Incoming"/> reports no deletions and neither should anything downstream:
     /// absence proves nothing about a subtree nobody could read.</summary>
@@ -150,12 +154,14 @@ public sealed class InitResult
     /// <summary>What the seed did NOT bring, as the fetch named it (each item with its reason; the folders the walk could
     /// not read) — set on ok, as a pull's status carries them.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<UnreadableItem>? Unreadable { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<UnreadableNode>? UnreadableNodes { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<string>? UnwalkedFolders { get; set; }
 
     public static InitResult Ok(string project, string workspace, bool gitCreated, int pulled, int scaffold, int corpus,
-                                List<UnreadableItem> unreadable, List<string> unwalkedFolders, string? note = null) =>
+                                List<UnreadableItem> unreadable, List<UnreadableNode> unreadableNodes, List<string> unwalkedFolders,
+                                string? note = null) =>
         new() { Kind = ResultKinds.Ok, Project = project, Workspace = workspace, GitCreated = gitCreated, Pulled = pulled, Scaffold = scaffold, Corpus = corpus,
-                Unreadable = unreadable, UnwalkedFolders = unwalkedFolders, Note = note };
+                Unreadable = unreadable, UnreadableNodes = unreadableNodes, UnwalkedFolders = unwalkedFolders, Note = note };
     public static InitResult Error(string reason) => new() { Kind = ResultKinds.Error, Reason = reason };
 }
 

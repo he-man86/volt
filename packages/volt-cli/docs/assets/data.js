@@ -370,6 +370,12 @@ window.VOLT = {
                 "$ref": "#/components/schemas/UnreadableItem"
               }
             },
+            "unreadableNodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/UnreadableNode"
+              }
+            },
             "removed": {
               "type": "array",
               "items": {
@@ -394,11 +400,27 @@ window.VOLT = {
             "items",
             "applications",
             "unreadable",
+            "unreadableNodes",
             "removed",
             "unwalkedFolders"
           ]
         },
         "UnreadableItem": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "reason"
+          ]
+        },
+        "UnreadableNode": {
           "type": "object",
           "properties": {
             "name": {
@@ -482,6 +504,12 @@ window.VOLT = {
                 "$ref": "#/components/schemas/UnreadableItem"
               }
             },
+            "unreadableNodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/UnreadableNode"
+              }
+            },
             "removed": {
               "type": "array",
               "items": {
@@ -508,6 +536,7 @@ window.VOLT = {
             "items",
             "applications",
             "unreadable",
+            "unreadableNodes",
             "removed",
             "unwalkedFolders"
           ]

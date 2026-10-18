@@ -11,11 +11,14 @@ export interface StatusJson {
 	 *  "we didn't ask", not "the IDE has nothing" — a consumer must carry the previous incoming forward rather
 	 *  than replacing it, or every local save would report the IDE as having nothing for you. */
 	incomingStale?: boolean
-	/** Items the IDE holds that the bridge did not pull, by bare name, each with the reason it gave. They have no entry in any
+	/** Items the IDE holds that the bridge did not pull, by path (`<folder>/<name>.<kind>`), each with the reason it gave. They have no entry in any
 	 *  change set, so nothing else here mentions them — an unreadable POU is indistinguishable from one that was
 	 *  never in the project unless this is rendered. One an earlier pull read is HELD: its last-read file stays in
 	 *  the workspace (an item caught mid-edit), stale, and no unforced push of it is accepted. */
 	unreadable?: { name: string; reason: string }[]
+	/** Tree nodes with no file that hold what the bridge did not read, by node path (`<folder>/<name>`), each with its
+	 *  reason: a container holding a setting no text spells, or an object whose kind the IDE could not state. */
+	unreadableNodes?: { name: string; reason: string }[]
 	/** Folders the bridge could not ENUMERATE. Non-empty means the item view is PARTIAL: `incoming` reports no
 	 *  removals, because absence proves nothing about a subtree nobody could read. The counts cannot be trusted
 	 *  while this is set. */

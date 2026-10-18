@@ -219,7 +219,7 @@ internal sealed partial class TcObjectModel
                 "folder is not read.");
         var name = guarded.Names[index1Based - 1];
         if (guarded.Untouchable.Contains(name))
-            throw new UnreadableItemException(name, ExplorerSnapshot.Reason(name), ExplorerSnapshot.PouKinds);
+            throw new UnreadableItemException(name, ExplorerSnapshot.Reason(name), ExplorerSnapshot.PouKind);
         return (object)((dynamic)node).LookupChild(name);
     }
 

@@ -71,10 +71,10 @@ public static class PushService
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
             if (textsBefore is not null && v.Materialized is { } was) textsBefore[v.Identity] = was.Text;
         }
-        // Each object the driver NAMES but must not open (UnreadableObject.Kinds: a TwinCAT POU, DIALECT C2i), by its
-        // folder and bare name.
-        var notOpened = walk.UnreadableObjects.Where(o => o.Kinds is not null)
-            .GroupBy(o => ItemPath.Of(o.Folder, o.Name), StringComparer.OrdinalIgnoreCase)
+        // Each ITEM the walk names and did not read (a TwinCAT POU it must not open, DIALECT C2i; an item in a CODESYS
+        // folder excluded from build), by its path — the name an op on it carries.
+        var notOpened = walk.UnreadableObjects.Where(o => o.Kind is { } k && k != ItemKind.Kinds.Folder)
+            .GroupBy(o => Versioning.PathOf(o.Kind!, o.Folder, o.Name), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         // An object the walk could not classify counts here exactly as on refs and fetch, or the gate would refuse
         // every push quoting refs' projectVersion while it stays unreadable.
@@ -105,8 +105,11 @@ public static class PushService
 
         var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
                                                       currentVersions, currentProjectVersion, walk.Complete,
-                                                      // the IDE resolves a name case-insensitively (itemCache), so this does too
-                                                      new HashSet<string>(walk.UnreadableObjects.Select(o => ItemPath.Of(o.Folder, o.Name)),
+                                                      // Only an object whose KIND is unknown may be what an op of any
+                                                      // kind lands on. The IDE resolves a name case-insensitively
+                                                      // (itemCache), so this does too.
+                                                      new HashSet<string>(walk.UnreadableObjects.Where(o => o.Kind is null)
+                                                                              .Select(o => ItemPath.Of(o.Folder, o.Name)),
                                                                           StringComparer.OrdinalIgnoreCase));
         PushResponse RejectAll(List<PushConflict> refused)
         {
@@ -149,7 +152,7 @@ public static class PushService
             // AN ITEM THE DRIVER MUST NOT OPEN (DIALECT C2i) is refused here, without force, by name: the gate lets a
             // delete of it through (no version entry) and `itemCache` never holds it, so nothing else stops it before
             // `ApplyToUnopened` in the apply loop.
-            if (!request.Force && notOpened.TryGetValue(ItemPath.BarePathOf(op.Name), out var u))
+            if (!request.Force && notOpened.TryGetValue(op.Name, out var u))
             {
                 preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}")));
                 continue;
@@ -757,9 +760,9 @@ public static class PushService
         if (!force)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{u.Name}' is not read: {u.Reason}");
-        if (ItemKind.KindForWireName(op.Name) is not { } kind || !u.Kinds.Contains(kind))
+        if (ItemKind.KindForWireName(op.Name) != u.Kind)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a {string.Join(" or ", u.Kinds)} that is " +
+                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a {u.Kind} that is " +
                 $"not read ({u.Reason}). Delete or replace it under its own kind.");
 
         switch (op)

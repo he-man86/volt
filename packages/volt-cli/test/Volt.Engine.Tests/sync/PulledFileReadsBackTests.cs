@@ -58,7 +58,7 @@ public class PulledFileReadsBackTests
         var refs = RefsService.Handle(Fb(("A", "x := 1; END_METHOD")));
 
         Assert.DoesNotContain("K.pou", refs.Items.Keys);
-        Assert.Contains("K", refs.Unreadable.Select(u => u.Name));
+        Assert.Contains("K.pou", refs.Unreadable.Select(u => u.Name));
     }
 
     [Fact]

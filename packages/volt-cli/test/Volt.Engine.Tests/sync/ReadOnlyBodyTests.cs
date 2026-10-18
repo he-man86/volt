@@ -570,7 +570,7 @@ public class ReadOnlyBodyTests
 
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
         Assert.Contains(fetch.Changed, i => i.Name == "FB_Chart.pou");
-        Assert.DoesNotContain("FB_Chart", fetch.Unreadable.Select(u => u.Name));
+        Assert.DoesNotContain("FB_Chart.pou", fetch.Unreadable.Select(u => u.Name));
     }
 
     /// <summary>An ST body the IDE holds whose text has a BOUNDARY line (outside every comment) cannot be written into a
@@ -591,7 +591,7 @@ public class ReadOnlyBodyTests
 
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
         Assert.Empty(fetch.Changed);
-        Assert.Contains("FB_Chart", fetch.Unreadable.Select(u => u.Name));
+        Assert.Contains("FB_Chart.pou", fetch.Unreadable.Select(u => u.Name));
     }
 
     /// <summary>A LINE IS THE BOUNDARY ONLY WHEN IT IS ONE (openspec <c>bridge-refusal-review</c> D9, task 4.9): an ST body

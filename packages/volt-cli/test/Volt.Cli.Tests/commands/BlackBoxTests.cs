@@ -388,19 +388,19 @@ public class BlackBoxTests
         {
             var init = RunVolt(parent, pipe, "init");
             Assert.True(init.Code == 0, $"init exit {init.Code}: {init.Err}");
-            Assert.True(init.Err.Contains("  ? DUTs/X: 'X': read failed (COM)"), init.Err);
+            Assert.True(init.Err.Contains("  ? DUTs/X.dut: 'X': read failed (COM)"), init.Err);
 
             foreach (var verb in new[] { "pull", "status" })
             {
                 var r = RunVolt(root, pipe, verb);
                 Assert.True(r.Code == 0, $"{verb} exit {r.Code}: {r.Err}");
-                Assert.Contains("  ? DUTs/X: 'X': read failed (COM)", r.Err);
+                Assert.Contains("  ? DUTs/X.dut: 'X': read failed (COM)", r.Err);
             }
 
             var json = RunVolt(root, pipe, "status", "--json");
             using var sj = JsonDocument.Parse(json.Out.Trim());
             var u = Assert.Single(sj.RootElement.GetProperty("unreadable").EnumerateArray());
-            Assert.Equal("DUTs/X", u.GetProperty("name").GetString());
+            Assert.Equal("DUTs/X.dut", u.GetProperty("name").GetString());
             Assert.Equal("'X': read failed (COM)", u.GetProperty("reason").GetString());
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); TestUtil.ForceDelete(parent); }
