@@ -18,7 +18,16 @@ behind-the-wire refactor, so the fixed reference is the simplified wire.
 seven defects our gates missed (strict members on push only; case-insensitive paths on push only; `unreadable` without a
 kind; a protocol number that never moved; a move onto an existing path; an unsaved TwinCAT window with no row; an LSP
 stack overflow). The pattern: a rule enforced at several call sites, one of which drifted; and tests that only ever pair
-a client and a bridge from the same commit. The audit and the rework add, as standing practice:
+a client and a bridge from the same commit. **The premise behind that gap is false** (owner, 2026-10-18): the wire is
+not an internal seam between our CLI and our bridge — PLC Assist ships the bridge bundles and drives the pipe itself, so
+the bridge + wire is a PUBLIC API with a second client. Every review step (1.1, 2.x) judges the bridge as that API: what
+does it do for a request our CLI never sends (other case, other order, a taken name, an old protocol, an IDE state the
+CLI happens to avoid)? A rule that holds only because our CLI is polite is a finding. The audit and the rework add, as
+standing practice:
+- **A contract suite driven by the OpenRPC document, not by our CLI**: every op and member the schema allows,
+  including the awkward combinations, sent straight to the pipe against both live bridges; it asserts the response
+  shape and the error code `wire.html` promises (an IDE state is never `INTERNAL_ERROR`). Built in 1.1 from the audit,
+  run in every e2e cell.
 - **Foreign-client review**: an agent given ONLY `docs/wire.html` and the OpenRPC document, no repo context, writes a
   minimal client and reports every inconsistency between the contract, the read side and the write side. Run in 1.1,
   and as a step of every change that touches `Volt.Contracts/Wire` (the change workflow gets it).
@@ -50,6 +59,8 @@ a client and a bridge from the same commit. The audit and the rework add, as sta
 - [ ] 2.1 Legacy: code/comments/docs of removed designs and old formats.
 - [ ] 2.2 Hidden bugs: masking fallbacks, silent defaults, untested branches — a failing test per bug.
 - [ ] 2.3 Hidden features: behaviour no doc or test states — owner decides document+test or delete.
+- [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
+      what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
 
 ## 3. Rework (project by project, test-first)
 
