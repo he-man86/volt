@@ -22,7 +22,7 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge } from "../lib/bridge"
 import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX, fileOf, inFolder } from "../lib/workspace"
-import { withMainProgramRestored } from "../lib/compile"
+import { withMainProgramRestored, drivenBuild } from "../lib/compile"
 import { BASE, VENDOR } from "../lib/pipe"
 import { buildErrorKey, expectedBuildErrorKey } from "../lib/build-error-key"
 
@@ -72,7 +72,7 @@ async function expectHeld(bare: string, ext: string, text: string, held: "fetche
 }
 
 async function errors(): Promise<any[]> {
-	return ((await bridge.build()).diagnostics ?? []).filter((d: any) => d.severity === "error")
+	return ((await drivenBuild()).diagnostics ?? []).filter((d: any) => d.severity === "error")
 }
 
 /** Push `text` under `wire`, reference it from the main program (a declaration and/or a body line), build, and hand

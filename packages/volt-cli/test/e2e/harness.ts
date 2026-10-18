@@ -43,7 +43,7 @@ export {
 	fileOf,
 	folderOf,
 } from "./lib/workspace"
-export { ensureCompiles, instantiate, diagnostics, withMainProgramRestored, clearTestInstances } from "./lib/compile"
+export { ensureCompiles, instantiate, diagnostics, drivenBuild, withMainProgramRestored, clearTestInstances } from "./lib/compile"
 export { expectRoundTrip, expectRoundTripOrRefusal, expectStable, expectNoOperandsLost, bodyOf } from "./lib/roundtrip"
 export { snapshot, assertDelta, libraryRoots, inLibrary, type Snapshot } from "./lib/versions"
 

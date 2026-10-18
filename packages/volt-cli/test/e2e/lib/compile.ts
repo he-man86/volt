@@ -7,6 +7,28 @@
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
 import { PREFIX, fetchItem, mainProgram, pushOps } from "./workspace"
+import { drivenDiagnostics } from "./main-program"
+
+/** The applications the served project states, read once: a suite never adds or removes one. */
+let _applications: string[] | undefined
+async function applications(): Promise<string[]> {
+	return (_applications ??= (await bridge.refs()).applications ?? [])
+}
+
+/**
+ * `build`, as the application the suite drives sees it: its diagnostics are the driven application's
+ * (`drivenDiagnostics`), and it succeeded when the build did, or failed only on errors of another application. On a single-application fixture that is the
+ * build itself. On TwinCAT MultiProject — the release cell — every build also reports Untitled1's own fault, which
+ * `test/e2e/multi-application` pins; this is how the rest of the suite does not mistake it for its own.
+ */
+export async function drivenBuild(): Promise<{ success: boolean; diagnostics: any[] }> {
+	const r = await bridge.build()
+	const all = r.diagnostics ?? []
+	const diagnostics = drivenDiagnostics(all, await applications())
+	const isError = (d: any) => d.severity === "error"
+	const elsewhere = !diagnostics.some(isError) && all.some(isError)
+	return { ...r, diagnostics, success: r.success || elsewhere }
+}
 
 /**
  * Run `body` and put the main program back exactly as it was, whatever happens.
@@ -94,15 +116,16 @@ export async function instantiate(pouName: string): Promise<void> {
  * jump that did not compile at all (DIALECT C13).</p>
  *
  * <p>Zero-errors-project-wide is simpler AND stronger, and it is honest only because it was measured: with every
- * test POU removed, CodesysTestProject and TwinCAT Project14 each build 0 errors / 0 warnings. Any error is
+ * test POU removed, CodesysTestProject and TwinCAT Project14 each build 0 errors / 0 warnings, and so does TwinCAT
+ * MultiProject's driven PLC project (its Untitled1 holds the fixture's one fault, outside it — `drivenBuild`). Any error is
  * therefore the POU under test or one an earlier test left behind, and failing loudly on the second is a feature.
  * If a fixture ever legitimately carries an error, snapshot the diagnostics first and assert the set does not
  * GROW — do not reintroduce a filter that can silently match nothing.</p>
  */
 export async function ensureCompiles(pouName: string): Promise<void> {
 	await instantiate(pouName)
-	const r = await bridge.build()
-	const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
+	const r = await drivenBuild()
+	const errors = r.diagnostics.filter((d: any) => d.severity === "error")
 	if (errors.length > 0) console.warn("build errors:", JSON.stringify(errors).slice(0, 500))
 	expect(errors.length, `the build reported ${errors.length} error(s) — see above`).toBe(0)
 }
@@ -110,5 +133,5 @@ export async function ensureCompiles(pouName: string): Promise<void> {
 /** Every diagnostic the project currently reports, for tests that must assert a set does not GROW rather than
  *  that it is empty. */
 export async function diagnostics(): Promise<any[]> {
-	return (await bridge.build()).diagnostics ?? []
+	return (await drivenBuild()).diagnostics
 }

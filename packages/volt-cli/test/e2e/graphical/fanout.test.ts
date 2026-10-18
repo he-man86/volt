@@ -20,6 +20,7 @@ import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, BASE, inFolder, projectRoot } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+import { drivenBuild } from "../lib/compile"
 
 /** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -95,7 +96,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		await clean()
 		// Counted, not attributed: a build diagnostic names no POU, and a PROGRAM cannot be instantiated to force it
 		// (`ensureCompiles`) — the baseline is whatever the fixture reports without it (labels.test.ts, same reason).
-		const errors = async () => ((await bridge.build()).diagnostics ?? []).filter((d: any) => d.severity === "error")
+		const errors = async () => ((await drivenBuild()).diagnostics ?? []).filter((d: any) => d.severity === "error")
 		const before = (await errors()).length
 
 		const src =

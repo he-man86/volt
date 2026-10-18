@@ -14,7 +14,7 @@
  */
 import { describe, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, VENDOR, BASE, currentPipe, inFolder, projectRoot } from "../harness"
-import { withMainProgramRestored, instantiate } from "../lib/compile"
+import { withMainProgramRestored, instantiate, drivenBuild } from "../lib/compile"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
 import { openInTwinCatEditor } from "../lib/tc-editor"
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
@@ -141,7 +141,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 	it("the project builds with 0 errors with every shape instantiated", async () => {
 		await withMainProgramRestored(async () => {
 			for (const c of cases) await instantiate(c.bare)
-			const r = await bridge.build()
+			const r = await drivenBuild()
 			const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
 				.map((d: any) => `${d.name}: ${d.message}`).sort()
 			// (An operator read through its ENO with its result wired nowhere did not build — "The assignment target is not

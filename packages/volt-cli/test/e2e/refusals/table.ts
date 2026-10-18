@@ -22,7 +22,7 @@
 import { callOn } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
-import { fileOf, inFolder } from "../lib/main-program"
+import { drivenApplication, fileOf, inFolder } from "../lib/main-program"
 
 /** The UNREADABLE row's in-session state per vendor (its setup): the normalized answer to a create over it — compared across vendors by the parity half (8.4: in the load that wrote it, identical). */
 export const IN_SESSION = new Map<string, { answer: unknown }>()
@@ -43,7 +43,7 @@ export type Bridge = {
 	vendor: "codesys" | "twincat"
 	/** The served project's name, as `health` reports it — the one string WRONG_PROJECT and the masks need. */
 	project: string
-	/** Where a row creates its items: the project's own root — CODESYS's tree root (`""`), TwinCAT's one PLC project
+	/** Where a row creates its items: the project's own root — CODESYS's tree root (`""`), TwinCAT's driven PLC project
 	 *  (its tree root holds system projects). The one path prefix the vendors' answers differ by, masked as `<root>/`. */
 	root: string
 	/** The path of a row item `<bare>.pou` in {@link root}. */
@@ -438,10 +438,12 @@ export async function bindBridge(pipe: string, vendor: "codesys" | "twincat"): P
 		const h = await call("health").catch(() => ({ projects: [] }))
 		const served = (h.projects ?? []).find((p: any) => p.status && p.status !== "idle")
 		if (served) {
-			const apps: string[] = (await call("refs")).applications ?? []
-			if (vendor === "twincat" && apps.length !== 1)
-				throw new Error(`${vendor}: the matrix serves one PLC project, ${pipe} states ${apps.length} (${apps.join(", ")})`)
-			const root = vendor === "codesys" ? "" : apps[0]!
+			// TwinCAT: the PLC project the suite drives — the first the walk states (`drivenApplication`); the release cell
+			// serves four (TwinCAT MultiProject).
+			const driven = drivenApplication((await call("refs")).applications)
+			if (vendor === "twincat" && driven === null)
+				throw new Error(`${vendor}: ${pipe} states no PLC project — the matrix drives one`)
+			const root = vendor === "codesys" ? "" : driven!
 			return {
 				pipe, vendor, project: served.project, call, root,
 				at: (bare: string) => inFolder(root, `${bare}.pou`),

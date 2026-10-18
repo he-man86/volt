@@ -4,7 +4,7 @@
  * suite per cell) is the matrix itself.
  */
 import { describe, expect, it } from "bun:test"
-import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, type Cell } from "../../scripts/release-matrix-cells"
+import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, TWINCAT_FIXTURE, type Cell } from "../../scripts/release-matrix-cells"
 
 const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
@@ -27,7 +27,7 @@ describe("cells", () => {
 		expect(codesysFixture("3.5.21.60", FIXTURES)).toBeUndefined()   // never another version's file (owner: "you can't reuse them")
 	})
 	it("a TwinCAT cell per shell bitness, red where Visual Studio's 64-bit proxy is registered", () => {
-		expect(twincatCells([32, 32], false)).toEqual([{ id: "twincat-32", vendor: "twincat", bits: 32, refusal: undefined }])
+		expect(twincatCells([32, 32], false)).toEqual([{ id: "twincat-32", vendor: "twincat", bits: 32, fixture: TWINCAT_FIXTURE, refusal: undefined }])
 		const red = twincatCells([32, 64], true)
 		expect(red.map((c) => c.id)).toEqual(["twincat-32", "twincat-64"])
 		expect(red.every((c) => c.refusal?.includes("DIALECT C2t"))).toBe(true)
@@ -136,6 +136,16 @@ describe("verdict", () => {
 	it("red when the run served another project than the cell's fixture", () => {
 		expect(judge(cell, parseSummary(summary, 0), [{ ...drove[0], project: "CodesysTestProject" }]).why)
 			.toContain("served CodesysTestProject, not this cell's CodesysTestProject.3.5.21.40")
+	})
+	// The TwinCAT cell serves the multi-PLC-project solution; health names the project after the solution.
+	it("a TwinCAT cell is green only on a 32-bit XAE serving TwinCAT MultiProject", () => {
+		const [tc] = twincatCells([32], false)
+		expect(tc!.fixture).toBe("TwinCAT MultiProject/TwinCAT MultiProject.sln")
+		const ran = [{ vendor: "twincat", bits: 32, ideVersion: "3.1.4024.74", project: "TwinCAT MultiProject" }]
+		expect(judge(tc!, parseSummary(summary, 0), ran).green).toBe(true)
+		expect(judge(tc!, parseSummary(summary, 0), [{ ...ran[0]!, bits: 64 }]).why).toContain("64-bit, not this cell")
+		expect(judge(tc!, parseSummary(summary, 0), [{ ...ran[0]!, project: "TwinCAT Project14" }]).why)
+			.toContain("served TwinCAT Project14, not this cell's TwinCAT MultiProject")
 	})
 	it("a cell refused up front is red with its reason, whatever ran", () => {
 		expect(judge({ ...cell, refusal: "why" }, parseSummary(summary, 0), drove)).toMatchObject({ green: false, why: "why" })

@@ -15,6 +15,7 @@ import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, expectRoundTrip, BASE, inFolder, projectRoot, removeItem } from "../harness"
 
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
+import { drivenBuild } from "../lib/compile"
 
 /** On a CODESYS version that cannot take an LD/FBD write, every test here must end in that refusal (lib/platform.ts). */
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -39,7 +40,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * A baseline before and after is robust to whatever the fixture project already reports.
 	 */
 	const problems = async (): Promise<string[]> => {
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		return (r.diagnostics ?? [])
 			.filter((d: any) => d.severity === "error" || d.severity === "warning")
 			.map((d: any) => `${d.severity}: ${d.message ?? ""}`)

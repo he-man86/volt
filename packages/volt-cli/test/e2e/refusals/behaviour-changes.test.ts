@@ -22,7 +22,7 @@ import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bu
 import { fixturePipeOrSkip } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { REF_PREFIX, bindBridge, normalize, pushFresh, refsOf, sweep, type Answer, type Bridge } from "./table"
-import { fileOf, folderOf, inFolder, mainProgram, pathIn } from "../lib/main-program"
+import { drivenDiagnostics, fileOf, folderOf, inFolder, mainProgram, pathIn } from "../lib/main-program"
 
 setDefaultTimeout(240_000)
 
@@ -43,9 +43,12 @@ function errorsOf(errs: string[], bare: string): string[] {
 	return errs.filter((e) => e.slice(0, e.indexOf(": ")).includes(bare))
 }
 
+/** The build's errors on the driven application (`drivenDiagnostics`): TwinCAT MultiProject's Untitled1 carries its
+ *  own fault, which is no row's. */
 async function errors(b: Bridge): Promise<string[]> {
 	const r = await b.call("build", {})
-	return (r.diagnostics ?? []).filter((d: any) => d.severity === "error").map((d: any) => `${d.name}: ${d.message}`).sort()
+	const own = drivenDiagnostics(r.diagnostics ?? [], (await refsOf(b)).applications)
+	return own.filter((d: any) => d.severity === "error").map((d: any) => `${d.name}: ${d.message}`).sort()
 }
 
 /** Reference `decl`/`body` from the main program, build, and put the main program back — whatever happens. */

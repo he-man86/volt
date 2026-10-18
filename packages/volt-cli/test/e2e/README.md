@@ -79,10 +79,10 @@ Instead of running against whatever you happen to have open, the suite targets c
 | `CodesysTestProject.<version>.project` | CODESYS | the source made NATIVE to each installed version (`scripts/author-version-fixture.py`): what `ide.ps1 up -CodesysVersion <v>` serves by default and the release matrix runs; 3.5.18.30's holds its own differences (`lib/platform.ts`) |
 | `CodesysOneToOne.project` | CODESYS | CodesysTestProject + the IDE-authored `bridge-one-to-one` objects (`one-to-one/`, the completeness oracle) |
 | `Untitled1.project` | CODESYS | **hand-authored**: `FB_GraphicalChild` (ST FB + **CFC method child**), `FB_FolderChild` (**action inside a folder**) |
-| `TwinCAT Project14/` | TwinCAT | THE TwinCAT e2e fixture — what `ide.ps1 up -Vendor twincat` serves by default and the release matrix runs; holds every IDE-authored object the suite needs (`VltFixtureCfc`/`VltFixtureSfc` as function blocks, `VltFixtureMembers`) |
+| `TwinCAT Project14/` | TwinCAT | the single-PLC-project TwinCAT fixture — what `ide.ps1 up -Vendor twincat` serves by default; holds every IDE-authored object the suite needs (`VltFixtureCfc`/`VltFixtureSfc` as function blocks, `VltFixtureMembers`) |
 | `TwinCAT Project13/` | TwinCAT | the 64-bit (`TwinCAT RT (x64)`) target the LSP recorders need (`-Fixture 13`); a smaller project, its diagram fixtures are PROGRAMs and it has no `VltFixtureMembers` |
 | `CodesysTwoDevices.3.5.21.40.project` | CODESYS | two devices whose applications hold the same names (`multi-application/`, openspec `multi-application-tree`) |
-| `TwinCAT MultiProject/` | TwinCAT | two system projects, four PLC projects (`-Fixture "test/fixtures/TwinCAT MultiProject/TwinCAT MultiProject.sln"`; `multi-application/`) |
+| `TwinCAT MultiProject/` | TwinCAT | what the release matrix's TwinCAT cell runs: two system projects, four PLC projects — `TwinCAT Project14` (Untitled2, Project14's own with the suite's objects; Untitled1; Untitled3) and `TwinCAT Project1` (Untitled1) (`-Fixture "test/fixtures/TwinCAT MultiProject/TwinCAT MultiProject.sln"`). The suite drives Untitled2, the first PLC project the walk states; `multi-application/` covers all four |
 
 `Untitled1.project` holds the two shapes the write path is hardest on, both hand-authored because a test cannot
 provision the first at all (CFC is unsupported, so Volt never creates one):

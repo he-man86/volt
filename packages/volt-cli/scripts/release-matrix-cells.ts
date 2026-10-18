@@ -4,7 +4,8 @@
  * run's output is read, and when a cell is green. Tested offline in `test/unit/release-matrix.test.ts`.
  */
 export type Vendor = "codesys" | "twincat"
-/** A cell; `bits` is absent only on a vendor's `-none` cell, which is red by its refusal and never runs. */
+/** A cell; `bits` is absent only on a vendor's `-none` cell, which is red by its refusal and never runs. `fixture` is
+ *  relative to `test/fixtures`: a CODESYS `.project`, or the TwinCAT `.sln` (`TWINCAT_FIXTURE`). */
 export type Cell = { id: string; vendor: Vendor; version?: string; bits?: 32 | 64; fixture?: string; refusal?: string }
 export type Outcome = { pass: number; fail: number; skip: number; exit: number | null }
 export type Report = { vendor: string; bits: number; ideVersion: string | null; project: string }
@@ -43,6 +44,14 @@ export function codesysCells(programFiles64: string[], programFiles32: string[],
 }
 
 /**
+ * The solution every TwinCAT cell serves: two system projects, four PLC projects (`TwinCAT Project14` holding Untitled2 —
+ * the suite's fixture objects — Untitled1 and Untitled3; `TwinCAT Project1` holding Untitled1), so the release proves
+ * several PLC projects in one tree as every CODESYS cell proves two devices. The suite drives the first PLC project the
+ * walk states; `test/e2e/multi-application` covers all four.
+ */
+export const TWINCAT_FIXTURE = "TwinCAT MultiProject/TwinCAT MultiProject.sln"
+
+/**
  * The TwinCAT cells, one per registered shell bitness; red up front where the customer's state is not this machine's.
  * No registered shell is ONE red cell, `twincat-none` (gate 2c+3 review: it used to be no cell, and a CODESYS-only
  * matrix promoted a build with zero TwinCAT coverage).
@@ -51,7 +60,7 @@ export function twincatCells(shellBits: (32 | 64)[], vsProxy64Registered: boolea
 	if (shellBits.length === 0)
 		return [{ id: "twincat-none", vendor: "twincat", refusal: "no TwinCAT XAE shell is registered (no TcXaeShell*.DTE.* ProgID) - the matrix cannot cover TwinCAT" }]
 	return [...new Set(shellBits)].sort((a, b) => a - b).map((bits) => ({
-		id: `twincat-${bits}`, vendor: "twincat" as const, bits,
+		id: `twincat-${bits}`, vendor: "twincat" as const, bits, fixture: TWINCAT_FIXTURE,
 		refusal: vsProxy64Registered
 			? "Visual Studio's 64-bit msenvp proxy is registered (HKLM\\SOFTWARE\\Classes\\CLSID\\{E6D78900-BB40-4039-9C54-593A242B65DA}, 64-bit view) - not a customer's machine (DIALECT C2t)"
 			: undefined,
@@ -94,7 +103,8 @@ export function judge(cell: Cell, outcome: Outcome | undefined, reports: Report[
 	const wrong = drove.filter((r) => r.bits !== cell.bits || (cell.version !== undefined && r.ideVersion !== cell.version))
 	if (wrong.length > 0)
 		return { cell, green: false, why: `the run drove ${wrong.map((r) => `${r.ideVersion} ${r.bits}-bit`).join(", ")}, not this cell`, outcome }
-	const project = cell.fixture?.replace(/\.project$/, "")
+	// The project health names: a CODESYS file's base name, a TwinCAT solution's.
+	const project = cell.fixture?.replace(/^.*\//, "").replace(/\.(project|sln)$/, "")
 	const other = project === undefined ? [] : drove.filter((r) => r.project !== project)
 	if (other.length > 0)
 		return { cell, green: false, why: `the run served ${other.map((r) => r.project).join(", ")}, not this cell's ${project}`, outcome }

@@ -88,8 +88,9 @@ regressions shipped green: the TwinCAT bridge needed a proxy only Visual Studio 
 Visual Studio), and an SP18 member absence failed 212 of 218 e2e tests while SP21 was green (openspec
 environment-dependency-audit). The matrix runs the WHOLE `packages/volt-cli/test/e2e` suite once per installed IDE
 variant — every `CODESYS <version>` under `Program Files` (64-bit) and `Program Files (x86)` (32-bit), every registered
-XAE shell by its exe's PE bitness — each served by `ide.ps1 up -Instance release-matrix` on that variant's own fixture,
-then prints the matrix and exits non-zero on any red cell. `release.ts` refuses to promote a build unless
+XAE shell by its exe's PE bitness — each served by `ide.ps1 up -Instance release-matrix` on that variant's own fixture
+(a CODESYS cell its version's `CodesysTestProject.<version>.project`, two devices; a TwinCAT cell `TwinCAT MultiProject`,
+four PLC projects in two system projects), then prints the matrix and exits non-zero on any red cell. `release.ts` refuses to promote a build unless
 `dist/release-matrix/result.json` says green for that build's commit (a checkout with modified or untracked files
 outside `openspec/` records NOT green — an untracked source file is built into what ran), then attaches it to the release
 as `release-matrix.json`; `promote.yml` checks that attachment against the release's own commit

@@ -28,7 +28,7 @@ import { join, dirname, basename } from "node:path"
 import { bridge } from "../lib/bridge"
 import { VENDOR, BASE, currentPipe } from "../lib/pipe"
 import { id, requireHealthy, mainProgram, fetchItem, PREFIX, landedInFull, fileOf } from "../lib/workspace"
-import { withMainProgramRestored } from "../lib/compile"
+import { withMainProgramRestored, drivenBuild } from "../lib/compile"
 import { newestBuiltCli } from "../lib/cli-exe"
 
 // Point @volt/control at the newest built volt.exe (lib/cli-exe.ts); skip the suite if none is present.
@@ -189,7 +189,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 				.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${body.join("\n")}\n`)
 			const r = await bridge.push({ ops: [{ op: "set", name: main, sourceText: src, ifVersion: m.version }] })
 			expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)
-			const errors = ((await bridge.build()).diagnostics ?? []).filter((d: any) => d.severity === "error")
+			const errors = ((await drivenBuild()).diagnostics ?? []).filter((d: any) => d.severity === "error")
 			expect(errors.map((e: any) => `${e.name}: ${e.message}`)).toEqual([])
 		})
 		// The main program is restored through the bridge; the workspace takes it back on the next pull.

@@ -5,7 +5,7 @@
  * new ground truth could be recorded.
  */
 import { expect, test } from "bun:test"
-import { inFolder, legacyCreateFolder, mainProgram, pathIn } from "../e2e/lib/main-program"
+import { drivenDiagnostics, inFolder, legacyCreateFolder, mainProgram, pathIn } from "../e2e/lib/main-program"
 
 const codesys = {
   items: { "Device/Device.device": "d", "Device/Plc Logic/Application/PLC_PRG.pou": "p", "GVL_Pool.gvl": "g" },
@@ -67,4 +67,18 @@ test("a file name every application repeats names the first application's item; 
   expect(pathIn({ "X.pou": "pool", "B/X.pou": "b" }, "X.pou", apps)).toBe("X.pou")
   expect(() => pathIn({ "A/X.pou": "a", "A/Sub/X.pou": "s" }, "X.pou", apps)).toThrow("A/X.pou, A/Sub/X.pou")
   expect(() => pathIn({ "B/X.pou": "b", "C/X.pou": "c" }, "X.pou", ["A", "B", "C"])).toThrow("B/X.pou, C/X.pou")
+})
+
+// TwinCAT MultiProject (the release cell): every build also reports Untitled1's own fault, which is no test's on the
+// driven PLC project — but an error of the driven one, or of no application, is never dropped.
+test("a build's diagnostics are the driven application's: another application's are not", () => {
+  const apps = ["S/PLC/A/A Project", "S/PLC/B/B Project"]
+  const d = [
+    { name: "S/PLC/A/A Project/POUs/X.pou", m: 1 },
+    { name: "S/PLC/B/B Project/PlcTask.task", m: 2 },
+    { name: "GVL_Pool.gvl", m: 3 },
+    { name: null, m: 4 },
+  ]
+  expect(drivenDiagnostics(d, apps).map((x) => x.m)).toEqual([1, 3, 4])
+  expect(drivenDiagnostics(d, []).map((x) => x.m)).toEqual([1, 2, 3, 4])
 })

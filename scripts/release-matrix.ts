@@ -131,7 +131,7 @@ async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<bo
 		"-Vendor", cell.vendor, "-Instance", instanceOf(cell)]
 	if (action === "up") {
 		if (cell.vendor === "codesys") args.push("-CodesysVersion", cell.version!, "-CodesysBitness", String(cell.bits), "-Fixture", join(FIXTURES, cell.fixture!))
-		else args.push("-Fixture", "14", "-XaeBitness", String(cell.bits))
+		else args.push("-Fixture", join(FIXTURES, cell.fixture!), "-XaeBitness", String(cell.bits))
 		args.push("-Wait", "-NoBuild")   // built once, before the pool (buildBridges): cells at once share one bin\
 	}
 	const r = await run("powershell", args, { timeout: action === "up" ? 20 * 60_000 : 10 * 60_000 })
@@ -199,7 +199,7 @@ if (import.meta.main) {
 	}
 	let cells = machineCells()
 	if (process.argv.includes("--list")) {
-		for (const c of cells) console.log(`${c.id.padEnd(24)} ${c.refusal ? `RED before running: ${c.refusal}` : c.fixture ?? "TwinCAT Project14"}`)
+		for (const c of cells) console.log(`${c.id.padEnd(24)} ${c.refusal ? `RED before running: ${c.refusal}` : c.fixture}`)
 		process.exit(0)
 	}
 	const only = arg("--only")?.split(",")

@@ -43,6 +43,21 @@ export function applicationOf(path: string, applications: readonly string[] | un
   )
 }
 
+/**
+ * The diagnostics of a build that are the driven application's (`drivenApplication`): every one but those whose item
+ * lies in ANOTHER stated application. A build compiles every application, and a fixture's other application may carry
+ * its own fault (TwinCAT MultiProject's Untitled1 task calls a MAIN that PLC project does not hold) — that error is no
+ * test's on the driven application. A diagnostic of no application (the pool, project settings, no item) stays.
+ */
+export function drivenDiagnostics<D extends { name?: string | null }>(diagnostics: D[], applications: readonly string[] | undefined): D[] {
+  const driven = drivenApplication(applications)
+  if (driven === null) return diagnostics
+  return diagnostics.filter((d) => {
+    const app = d.name ? applicationOf(d.name, applications) : null
+    return app === null || app === driven
+  })
+}
+
 /** Of several paths, those the driven application can mean: in it, or in no application at all. An item of ANOTHER
  *  application is never what a file name names when it lies in the driven one too. */
 function inDriven(paths: string[], applications: readonly string[] | undefined): string[] {

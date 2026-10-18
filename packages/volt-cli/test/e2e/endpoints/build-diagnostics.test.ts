@@ -8,7 +8,7 @@
  * evidence of anything.</p>
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE, at } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE, at, drivenBuild } from "../harness"
 import { fb, METHOD, ACTION, MARK } from "../fixtures"
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
@@ -23,7 +23,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(fid("b_ok"), `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success, "a project holding only a valid FB must build clean").toBe(true)
 		expect(r.diagnostics.filter((d: any) => d.severity === "error")).toEqual([])
 	})
@@ -34,7 +34,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(fid("b_undef"), src)
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success).toBe(false)
 		const errors = r.diagnostics.filter((d: any) => d.severity === "error")
 		expect(errors.length).toBeGreaterThan(0)
@@ -54,7 +54,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(fid("b_dup"), src)
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success).toBe(false)
 		const errors = r.diagnostics.filter((d: any) => d.severity === "error")
 		expect(errors.length).toBeGreaterThan(0)
@@ -75,7 +75,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(fid("b_type"), src)
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success).toBe(false)
 		const errors = r.diagnostics.filter((d: any) => d.severity === "error")
 		expect(errors.length).toBeGreaterThan(0)
@@ -127,7 +127,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 			await createItem(wire, fb(name, { children }))
 			await instantiateInPlcPrg(name)
 
-			const r = await bridge.build()
+			const r = await drivenBuild()
 			expect(r.success).toBe(false)
 			const hits = zz(r)
 			expect(hits.map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
@@ -144,7 +144,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(wire, fb(name, { children }))
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success).toBe(false)
 		expect(zz(r).map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
 			.toEqual([{ name: wire, member: "Prop" }, { name: wire, member: "Prop" }])
@@ -155,7 +155,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(wire, fb(name, { body: "x := 1;\nzzSelf := 1;", children: METHOD("Compute") }))
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		const hits = undefinedIn(r, "zzSelf")
 		expect(hits.map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
 			.toEqual([{ name: wire, member: undefined }])
@@ -167,7 +167,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		await createItem(fid("b_col"), src)
 		await instantiateInPlcPrg(name)
 
-		const r = await bridge.build()
+		const r = await drivenBuild()
 		expect(r.success).toBe(false)
 		for (const d of r.diagnostics)
 			expect(typeof d.column).toBe("number")
