@@ -1,4 +1,4 @@
-> One wire release with `relay-protocol-tracks-wire-breaks` (which carries the shared tasks: protocol 2, the schema pin)
+> One wire release with `relay-protocol-tracks-wire-breaks` (which carries the shared tasks: the protocol number — kept at 1 by owner decision — and the schema pin)
 > and `unreadable-name-carries-kind`. Apply this change before the relay change re-pins the schema.
 
 ## Why

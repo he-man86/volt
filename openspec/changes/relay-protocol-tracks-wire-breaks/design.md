@@ -1,3 +1,12 @@
+## Owner decision, 2026-10-18 (after the build)
+
+Owner/PLC Assist: the number stays 1 for this release; this schema is pinned as protocol 1. PLC Assist's relay
+refuses anything but 1, and an outdated bridge is refused by PLC Assist's app through its own bridge-version check,
+so a bump now would only cut every updated bridge off its relay. Everything else of this change stands: the one
+constant read by `hello` and `health`, `health.protocol`, the CLI's `BRIDGE_PROTOCOL` check (a bridge from before the
+member has no `protocol` and is still refused, as "none"), the schema-hash pin (beside 1: the next shape change
+bumps) and the neutral 1008 line. Where the text below says 2, read 1 for this release.
+
 ## Decision
 
 Protocol 2 for the path-wire release, which carries all three PLCAssist findings. One constant (`WireProtocol.Version`)

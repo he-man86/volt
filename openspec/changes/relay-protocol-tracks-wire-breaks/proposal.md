@@ -1,4 +1,4 @@
-> One wire release, protocol 2, together with `refuse-unknown-request-members` and `unreadable-name-carries-kind`.
+> One wire release (the number stays 1 by owner decision, 2026-10-18 — see design.md), together with `refuse-unknown-request-members` and `unreadable-name-carries-kind`.
 > This change carries the shared tasks (the number, the schema pin, the release order) and is applied LAST.
 
 ## Why
@@ -29,7 +29,7 @@ Nothing tells the two peers apart before the first op:
 
 ## What Changes
 
-- **One number, `WireProtocol.Version = 2`**, in `Volt.Contracts`. `hello.protocol`, `health.protocol` and the OpenRPC
+- **One number, `WireProtocol.Version`** (`1` for this release, owner decision — design.md), in `Volt.Contracts`. `hello.protocol`, `health.protocol` and the OpenRPC
   `info.version` all read it. `RelayFrames.Protocol` is deleted.
 - **A shape break is enforced, not described.** A gate pins the hash of the generated `volt-bridge.openrpc.json` beside
   `WireProtocol.Version`. Any wire SHAPE edit turns it red until its author re-pins it, deciding bump or no bump by one
@@ -43,7 +43,7 @@ Nothing tells the two peers apart before the first op:
   bridge's `health`, keeps reading it. The refusal is a CLI-local code, `BRIDGE_PROTOCOL`, naming both numbers, with the
   remedy that follows the comparison: bridge older or none → "restart the IDE to load the updated bridge"; bridge newer →
   "update Volt". The connector does not refuse: it only reads `health` and issues no op.
-- **A neutral refusal line.** `RefusalLine` no longer guesses which side is older: "This bridge speaks relay protocol 2
+- **A neutral refusal line.** `RefusalLine` no longer guesses which side is older: "This bridge speaks relay protocol 1
   (release <volt>); the relay serves another. If this is not the latest bridge, download it; if it is, the service has not
   updated yet and nothing on this machine needs changing." The relay's reason format is unchanged. The substring
   `protocol` in a 1008 reason is the contract, stated in `relay-protocol.md`: it is what PLCAssist's relay already sends.

@@ -24,7 +24,7 @@ public class BridgeProtocolTests
     }
 
     [Theory]
-    [InlineData(1, "1")]
+    [InlineData(0, "0")]
     [InlineData(null, "none")]
     public void An_older_bridge_or_one_with_no_number_is_refused_before_any_op_and_told_to_restart_the_IDE(int? theirs, string named)
     {

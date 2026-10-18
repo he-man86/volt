@@ -59,4 +59,4 @@ is required. The engine's `Kinds` list becomes one `Kind`, and the removal exemp
 
 An old client reading the new `unreadable` gets a different meaning without a refusal (it appends an extension and gets
 `X.pou.pou`; it ignores `unreadableNodes`). That is a bump under `relay-protocol-tracks-wire-breaks`, so this change lands
-in the protocol-2 release. Slipping it past the release costs protocol 3 and another PLCAssist relay redeploy.
+in the same release. (Owner decision 2026-10-18: the number stays 1 for this release; PLC Assist refuses outdated bridges by its own bridge-version check.)

@@ -774,8 +774,8 @@ public class DocDataTests
     }
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
-    private const int PinnedProtocol = 2;
-    private const string PinnedWireShape = "bad11947bc13bbba8c5a6889e37ac6af795e87282d2bfc631fb0de9a22b145b5";
+    private const int PinnedProtocol = 1;
+    private const string PinnedWireShape = "7057518c9dada5cd7c1212ffa133cbe23cbac6a5220e92bbd62a175933861ba2";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

@@ -74,7 +74,7 @@ public class RelayTunnelTests : IDisposable
         var hello = await relay.AwaitHello();
 
         Assert.Equal(WireProtocol.Version, hello.GetProperty("protocol").GetInt32());
-        Assert.Equal(2, WireProtocol.Version);
+        Assert.Equal(1, WireProtocol.Version);
         Assert.Equal("codesys", hello.GetProperty("vendor").GetString());
         Assert.False(string.IsNullOrEmpty(hello.GetProperty("pipe").GetString()));
 
@@ -303,15 +303,15 @@ public class RelayTunnelTests : IDisposable
         var (relay, _, _) = Start(out _, delay: delay, log: log);
         await relay.AwaitHello();
 
-        relay.Close(1008, "unsupported protocol 2");
+        relay.Close(1008, "unsupported protocol 1");
         var wait = await delay.NextWait();
 
         var errors = log.At(VoltLogLevel.Error);
         Assert.True(errors.Count == 1, "expected exactly one error line, got:\n" + log);
-        Assert.Contains("unsupported protocol 2", errors[0]);
+        Assert.Contains("unsupported protocol 1", errors[0]);
         // NEUTRAL: an un-redeployed relay refuses the newer bridge with the same words an updated one uses for an older
         // bridge, so the line says which protocol and release this bridge is and gives both remedies, never a verdict.
-        Assert.Contains("This bridge speaks relay protocol 2 (release 0.0.0-test); the relay serves another.", errors[0]);
+        Assert.Contains("This bridge speaks relay protocol 1 (release 0.0.0-test); the relay serves another.", errors[0]);
         Assert.Contains("If this is not the latest bridge, download it", errors[0]);
         Assert.Contains("if it is, the service has not updated yet and nothing on this machine needs changing", errors[0]);
 
@@ -380,7 +380,7 @@ public class RelayTunnelTests : IDisposable
             delay.Release();
         }
 
-        relay.Close(1008, "unsupported protocol 2");
+        relay.Close(1008, "unsupported protocol 1");
         AssertWait(RefusedCeiling, await delay.NextWait(), "after a 1008");
         delay.Release();
 
@@ -395,7 +395,7 @@ public class RelayTunnelTests : IDisposable
     [InlineData(1000, "replaced by a live bridge")]
     [InlineData(1001, "going away")]
     [InlineData(1011, "internal error")]
-    [InlineData(1008, "unsupported protocol 2")]
+    [InlineData(1008, "unsupported protocol 1")]
     public async Task Every_relay_close_is_logged_with_its_status_and_description(int status, string description)
     {
         var delay = new FakeDelay();
@@ -418,7 +418,7 @@ public class RelayTunnelTests : IDisposable
         var (relay, _, _) = Start(out var pipe, delay: delay, log: new LogCapture());
         await relay.AwaitHello();
 
-        relay.Close(1008, "unsupported protocol 2");
+        relay.Close(1008, "unsupported protocol 1");
         await delay.NextWait();
 
         // The tunnel is sitting out its refusal. The engineer's own CLI talks to the same pipe and must not notice.

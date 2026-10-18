@@ -51,12 +51,12 @@ keep-alive interval is 25 s, matching the protocol's heartbeat below.
 The bridge's first frame, before any response frame:
 
 ```json
-{ "hello": { "protocol": 2, "volt": "0.0.1.842", "vendor": "codesys", "pipe": "volt.bridge.codesys.1234" } }
+{ "hello": { "protocol": 1, "volt": "0.0.1.842", "vendor": "codesys", "pipe": "volt.bridge.codesys.1234" } }
 ```
 
 | field | meaning |
 | --- | --- |
-| `protocol` | The wire protocol, `WireProtocol.Version`: `2`. The same number `health.protocol` and the OpenRPC document's `info.version` carry. It changes when an old peer would read the new wire without refusing it and take a different meaning; `DocDataTests` pins the generated schema's hash beside it, so a change of shape fails until its author re-pins and decides, and a change of meaning is the author's call by the same rule. |
+| `protocol` | The wire protocol, `WireProtocol.Version`: `1`. The same number `health.protocol` and the OpenRPC document's `info.version` carry. It changes when an old peer would read the new wire without refusing it and take a different meaning; `DocDataTests` pins the generated schema's hash beside it, so a change of shape fails until its author re-pins and decides, and a change of meaning is the author's call by the same rule. |
 | `volt` | The bridge's release, for the relay's logs and support — the same value `health.bridgeVersion` carries (`BridgeRelease`): the stamped version of a release build (`0.0.1.842`), or `(dev) <commit>` for an unstamped one (`(dev)` alone only when its file states no commit). Empty only when the bridge cannot read its own file. It was the assembly version, `1.0.0.0` on every unstamped build. |
 | `vendor` | `codesys` or `twincat`. |
 | `pipe` | The local pipe this tunnel serves. Diagnostic: it identifies WHICH IDE on a machine with several. |
@@ -171,7 +171,7 @@ each also gets its own `abandoned` terminal line (see "The bridge log" below).
 
 | How the connection ended | Level and `<cause>` | Next dial |
 | --- | --- | --- |
-| Close **1008** with a reason | ERROR: `the relay refused this bridge (1008 "<reason>").` When the reason contains `protocol`, it adds: `This bridge speaks relay protocol 2 (release <volt>); the relay serves another. If this is not the latest bridge, download it; if it is, the service has not updated yet and nothing on this machine needs changing.` It does not guess which side is older: an un-redeployed relay refuses a newer bridge with the words an updated one uses for an older bridge. It ends `Trying again in 60 minutes.` | after **1 hour** (+ up to 1 s jitter) |
+| Close **1008** with a reason | ERROR: `the relay refused this bridge (1008 "<reason>").` When the reason contains `protocol`, it adds: `This bridge speaks relay protocol 1 (release <volt>); the relay serves another. If this is not the latest bridge, download it; if it is, the service has not updated yet and nothing on this machine needs changing.` It does not guess which side is older: an un-redeployed relay refuses a newer bridge with the words an updated one uses for an older bridge. It ends `Trying again in 60 minutes.` | after **1 hour** (+ up to 1 s jitter) |
 | Close with any other status (1000, 1001, 1011, …) | INFO: `the relay closed the connection: <status> "<description>"` | ordinary backoff |
 | No close at all (1006: the flow died, the relay restarted) | WARN: `dropped without a close (<exception>): <message>` | ordinary backoff |
 | The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 60s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
@@ -319,7 +319,7 @@ readable by every process on the machine.
 
 ```
 B→R (upgrade)  Authorization: Bearer abc…
-B→R {"hello":{"protocol":2,"volt":"0.0.1.842","vendor":"codesys","pipe":"volt.bridge.codesys.9112"}}
+B→R {"hello":{"protocol":1,"volt":"0.0.1.842","vendor":"codesys","pipe":"volt.bridge.codesys.9112"}}
 
 R→B {"id":"r1","op":"refs","body":{}}
 B→R {"id":"r1","progress":{"operation":"refs","done":60,"total":138}}
@@ -339,10 +339,10 @@ Note `r2`: rejected, and still a `result`. Nothing was applied.
 A bridge from another protocol version:
 
 ```
-B→R {"hello":{"protocol":2,"volt":"0.0.1.842",…}}
-R→B (close 1008 "unsupported protocol 2")
-    bridge log: [error] relay: the relay refused this bridge (1008 "unsupported protocol 2"). This bridge speaks
-                relay protocol 2 (release 0.0.1.842); the relay serves another. If this is not the latest bridge,
+B→R {"hello":{"protocol":1,"volt":"0.0.1.842",…}}
+R→B (close 1008 "unsupported protocol 1")
+    bridge log: [error] relay: the relay refused this bridge (1008 "unsupported protocol 1"). This bridge speaks
+                relay protocol 1 (release 0.0.1.842); the relay serves another. If this is not the latest bridge,
                 download it; if it is, the service has not updated yet and nothing on this machine needs changing.
                 Trying again in 60 minutes.
 ```

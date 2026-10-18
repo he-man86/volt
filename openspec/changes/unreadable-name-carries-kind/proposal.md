@@ -1,4 +1,4 @@
-> One wire release, protocol 2, together with `refuse-unknown-request-members` and `relay-protocol-tracks-wire-breaks`
+> One wire release (protocol number kept at 1 by owner decision, 2026-10-18), together with `refuse-unknown-request-members` and `relay-protocol-tracks-wire-breaks`
 > (which carries the shared tasks). This changes what a response member means, so it must ride the same bump.
 
 ## Why

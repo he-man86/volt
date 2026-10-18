@@ -5,7 +5,7 @@
 
 ## 1. Tests red
 
-- [x] 1.1 `RelayTunnelTests`: `hello` carries `protocol: 2` (pinned at 1 today, `:76`), read from `WireProtocol.Version`.
+- [x] 1.1 `RelayTunnelTests`: `hello` carries `protocol: 1` (owner decision 2026-10-18; was planned as 2), read from `WireProtocol.Version`.
 - [x] 1.2 `RelayTunnelTests`: a 1008 whose reason contains `protocol` logs the neutral line (both remedies, no verdict).
       Update the pins at `:298-310`, `:378`, `:393`, `:416`.
 - [x] 1.3 `DocDataTests`: the generated `volt-bridge.openrpc.json` hashes to the value pinned beside
@@ -20,7 +20,7 @@
 
 ## 2. Implement
 
-- [x] 2.1 `Volt.Contracts`: `WireProtocol.Version = 2`. Delete `RelayFrames.Protocol`; `Hello` and `RefusalLine` read the
+- [x] 2.1 `Volt.Contracts`: `WireProtocol.Version = 1` (owner decision 2026-10-18; was planned as 2). Delete `RelayFrames.Protocol`; `Hello` and `RefusalLine` read the
       new constant.
 - [x] 2.2 `HealthResponse.Protocol` (`int?`, required in the schema), stamped in `BridgePipeHost` beside
       `h.BridgeVersion = Release`, so both vendors and `FakeIde` carry it.
