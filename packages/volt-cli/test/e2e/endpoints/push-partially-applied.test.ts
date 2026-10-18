@@ -161,6 +161,24 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect(r.newItems?.[to]).toBe(after.items[to])
 	})
 
+	// A CREATE WHOSE NAME ANOTHER FOLDER OF THE APPLICATION HOLDS (PLC Assist, 2026-10-18, TwinCAT MultiProject): it
+	// reached the apply and answered INTERNAL_ERROR ("already exists within the corresponding namespace"). Both IDEs hold
+	// one object of a name per application (DIALECT C38): ITEM_EXISTS before anything lands, naming the item that holds it.
+	it("a create onto a name another folder holds is ITEM_EXISTS naming it, on both vendors", async () => {
+		const held = pid("pa_nsA"), clash = inFolder(inFolder(home, id("pa_nsSub")), fid("pa_nsA"))
+		const created = await pushOps([{ op: "set", name: held, sourceText: fb(id("pa_nsA")), ifVersion: null }])
+		expect(created.accepted, `the FB holding the name was not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		const before = await bridge.refs()
+
+		const r = await pushOps([{ op: "set", name: clash, sourceText: fb(id("pa_nsA")), ifVersion: null }])
+		expect(r.accepted).toBe(false)
+		const c = (r.conflicts ?? [])[0]
+		expect(c?.code, JSON.stringify(r.conflicts)).toBe("ITEM_EXISTS")
+		expect(c?.reason).toContain(held)
+		expect(c?.currentVersion).toBe(before.items[held])
+		expect((await bridge.refs()).projectVersion, "something of the refused create landed").toBe(before.projectVersion)
+	})
+
 	// WHAT A RENAME DOES TO THE ITEM'S OWN TEXT: its header, and nothing else — on both vendors. TwinCAT's native rename
 	// also rewrites the item's own code references (DIALECT C2o) and the push puts them back (openspec bridge-refusal-review
 	// 8.4: a push changes exactly what it names). A rename-only op (no sourceText): the text is the pre-push fetch with the
