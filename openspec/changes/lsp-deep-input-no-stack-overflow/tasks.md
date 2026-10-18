@@ -9,7 +9,8 @@
 ## 2. Implement
 
 - [ ] 2.1 `DiagnosticsPublisher.compute`: catch around `documentDiagnostics`, log the error with the URI, return the
-      one `not-analysed` diagnostic with the computing-failed message. `computeDiagnostics` is unchanged.
+      one `not-analysed` diagnostic with the computing-failed message (declarations still used). The quarantine message
+      keeps only its own consequence. `computeDiagnostics` is unchanged.
 
 ## 3. Hand-off
 

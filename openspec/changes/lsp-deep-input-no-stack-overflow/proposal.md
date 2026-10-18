@@ -1,3 +1,6 @@
+> Answers the PLC Assist finding: `volt-lsp-iec` throws `RangeError: Maximum call stack size exceeded` on deeply
+> nested input.
+>
 > Standalone, `packages/volt-lsp-iec` only. No bridge wire and no protocol number. Deep-input generation belongs to
 > `volt-cli-rework`'s LSP size-and-fuzz task (`tasks.md:30`).
 
@@ -28,9 +31,10 @@ The measured defect is in Volt's own server, which the throw takes down beyond t
 ## What Changes
 
 - **One boundary per document in the publisher.** `compute` catches a throw from `documentDiagnostics`, logs it as the
-  bind quarantine does, and returns one `not-analysed` error for that document, with a message that says its findings
-  could not be computed (the existing message says its declarations are left out, which is not true here). The result is
-  cached for the generation like any other, and the workspace report keeps serving every other document.
+  bind quarantine does, and returns one `not-analysed` error for that document. One code, one fact: "this file has no
+  findings". Each message states only its own consequence: the quarantine one keeps "its declarations are left out…";
+  the new one says its findings could not be computed and its declarations are still used. The result is cached for the
+  generation like any other, and the workspace report keeps serving every other document.
 - `computeDiagnostics` keeps throwing for library callers: loud, and PLC Assist's fail-open on a throw is its own
   policy. Its crash test keeps working unchanged.
 - No depth guard, no new diagnostic code, no iterative rewrite: nothing real reaches the limits.

@@ -2,11 +2,14 @@
 
 - [ ] 1.1 Live, TwinCAT 4024 XAE: File > Open > Project on a `.tsproj`. Record `Solution.IsOpen`, `FullName`,
       `Properties.Item("Name").Value`, each project's `Name`, and today's `health` and `refs` answers. Repeat after
-      File > Save All, and on an ordinary saved `.sln` (stated name vs file name). Record in `DIALECT.md`.
+      File > Save All, and on an ordinary saved `.sln` (stated name vs file name). On the temporary solution, also
+      from the worker (a probe binding it despite today's `SolutionName()`): `_dte.ExecuteCommand("File.SaveAll")`, a
+      `push` and a `build` through the bridge. Does any raise a dialog or block? Record in `DIALECT.md`.
       - Empty `FullName` never occurs → close the change with that DIALECT note, no code.
-      - Stated name readable and non-empty → sections 2-4 as written.
-      - Stated name empty or unreadable → rewrite spec and tasks to the cause-naming `PLC_DISCONNECTED` message (design,
-        option B) before section 2.
+      - Stated name readable and non-empty, and `File.SaveAll` raises no dialog → sections 2-4 as written.
+      - Stated name empty or unreadable, OR `File.SaveAll` raises a dialog → option B: rewrite spec and tasks to keep
+        the window rowless and make `PLC_DISCONNECTED` name the cause ("This TwinCAT window's solution is not saved;
+        save it (File > Save All) to sync it."), before section 2.
 - [ ] 1.2 CODESYS SP21: File > New Project, before any save. Does it get a row and a sync? Record it; a gap there is its
       own change.
 

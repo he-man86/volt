@@ -19,7 +19,7 @@ states the address-vs-held-key rule once.
   spelling. Every other read site compares a client-HELD key and answers it back.
 - `removed` consumer: `Commands.cs:384` → `IdeTree.BuildVoltIdeTree`, an ordinal `removedSet` over a case-sensitive git
   tree. Under A, a case-only IDE rename leaves `Calc.pou` and `calc.pou` in `refs/remotes/volt/ide` (git's "paths have
-  collided" on Windows). Today's answer leaves one file. No test pins it (`case-only` in `test/` is push-side only).
+  collided" on Windows). Today's answer leaves one tree entry; the work tree after `git merge` is unmeasured (task 1.3). No test pins it (`case-only` in `test/` is push-side only).
 - Volt's own `onlyItems` senders (`Commands.cs:910`, `:1007`, `test/e2e/lib/workspace.ts:339`) send the IDE's spelling
   from `refs`; same-case requests answer identically under B.
 - IDE paths are unique ignoring case (`ItemLookupTests.cs:32`, the kind extension), so B is never ambiguous.

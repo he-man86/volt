@@ -12,7 +12,8 @@
       `…/FB_B.pou`; nothing of the batch applied (an earlier op in the batch is not applied either). Today: the gate
       passes it.
 - [ ] 2.2 FakeIde: move onto a path the walk holds → `ITEM_EXISTS`, nothing applied.
-- [ ] 2.3 FakeIde: 2.1 with `force: true` and no lease (a pure move and a rename) → still `ITEM_EXISTS`.
+- [ ] 2.3 FakeIde: 2.1 with `force: true` and no lease (a pure move and a rename) → still `ITEM_EXISTS`, `currentVersion` the
+      version of the item at `to`.
 - [ ] 2.4 Only if 1.1 measures an application-wide scope: rename onto a name held in another folder of the application
       → `ITEM_EXISTS`.
 - [ ] 2.5 Pins: a case-only rename applies; a move beside a same-named `.visualization` applies; a create onto an
@@ -20,14 +21,20 @@
 
 ## 3. Implement
 
-- [ ] 3.1 `PushService` pre-flight: for each `set` whose `to` differs from its `name` ignoring case, refuse `ITEM_EXISTS`
-      if the walk's identity set (built once from `walk.Items`, plus the full-path `unreadable` items once
-      `unreadable-name-carries-kind` lands) holds `to` ignoring case. Collect every refusal; the batch stays
+- [ ] 3.1 `PushService` (`:46-49`): a `relocating` flag (any `set` whose `to` differs from `name` ignoring case) joins
+      `needVersions`; `renaming` alone keeps driving `textsBefore`. Pre-flight: for each such `set`, refuse
+      `ITEM_EXISTS` with `currentVersion` = the version at `to` if `currentVersions.Keys` (a set built once with
+      `OrdinalIgnoreCase`) holds `to`. No full name is derived anywhere else. Collect every refusal; the batch stays
       all-or-nothing.
-- [ ] 3.2 Only if 1.1 measures it: key by (application via `ItemPath.ApplicationOf`, bare name) for the measured kinds;
-      one sentence matcher per vendor for a measured vendor refusal that still reaches `ConflictFor`.
+- [ ] 3.2 Only if 1.1 measures it: key by (folder or application, bare name) for the kinds 1.1 shows sharing a name
+      scope (POU vs DUT vs GVL), with a FakeIde test per measured pair; one sentence matcher per vendor for a measured
+      vendor refusal that still reaches `ConflictFor`.
 
 ## 4. Docs
 
-- [ ] 4.1 `wire.html`: the `ITEM_EXISTS` row reads "A `set` lands on a path the IDE holds: a create (`ifVersion: null`),
-      or a rename or move's `to` (force or not)". The one-op-per-item note says freeing `to` is an earlier push.
+- [ ] 4.1 `wire.html`: the `ITEM_EXISTS` row reads "A `set` lands on a path the IDE holds: a create (`ifVersion: null`,
+      gate only, so a forced create overwrites), or a rename or move's `to` (pre-flight, force or not). `currentVersion`
+      is the version of the item there." Remedy: "A create: fetch its version and push an update, or pick another name.
+      A `to`: pick another `to`, or free it in an earlier push." The gate-codes intro says `ITEM_EXISTS` also comes from
+      the pre-flight. `ConflictCodes.ItemExists` summary says the same. The one-op-per-item note says freeing `to` is an
+      earlier push.

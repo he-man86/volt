@@ -13,7 +13,7 @@ ignoring case, and every path the bridge answers SHALL be spelled as the IDE spe
 
 #### Scenario: a case-only rename in the IDE
 - **WHEN** the client's `knownItems` holds `…/Calc.pou` and the engineer renames it `calc` in the IDE
-- **THEN** `refs` and `fetch` answer `…/Calc.pou` in `removed` and `…/calc.pou` in `items`, and `volt pull` leaves one file
+- **THEN** `refs` and `fetch` answer `…/Calc.pou` in `removed` and `…/calc.pou` in `items`
 
 #### Scenario: push name in another case
 - **WHEN** a push sends `set { "name": "device/plc logic/application/fb_motor.pou", … }` with the version of `…/FB_Motor.pou`

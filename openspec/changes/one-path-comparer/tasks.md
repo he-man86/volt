@@ -5,8 +5,10 @@
       `Device/Plc Logic/Application/FB_Motor.pou`. Today: empty.
 - [ ] 1.2 Pin (green before and after), `Volt.Engine.Tests`: `knownItems` holds `…/Calc.pou`, the IDE renames it `calc` →
       `refs` and `fetch` answer `removed: ["…/Calc.pou"]` and `…/calc.pou` in `items`.
-- [ ] 1.3 Pin (green before and after), `Volt.Cli.Tests`: the same rename through `volt pull` → `refs/remotes/volt/ide`
-      and the work tree hold exactly one file, `…/calc.pou`.
+- [ ] 1.3 Measure first, `Volt.Cli.Tests`: the same rename through `volt pull`; assert separately (a) the
+      `refs/remotes/volt/ide` tree holds exactly `…/calc.pou`, (b) the work tree holds exactly `…/calc.pou`. Only an
+      assertion seen green today becomes a pin. A wrong work tree today is a CLI defect with its own change, not this
+      one's.
 
 ## 2. Implement
 

@@ -1,3 +1,6 @@
+> Answers the PLC Assist finding: a TwinCAT window whose solution has no `.sln` gets no `health` row and answers
+> `PLC_DISCONNECTED`.
+>
 > Standalone. No wire shape or meaning changes, so no protocol bump. Gated on a live measurement (task 1.1): if XAE never
 > holds the state, the change closes with a DIALECT note and no code.
 
@@ -27,7 +30,8 @@ temporary solution with no file. Task 1.1 measures it on XAE 4024.
   equals its `.sln` file name (measured in 1.1). A temporary solution has the name VS gives it, so the window serves as an
   ordinary row, as it did before `multi-application-tree`. Saving under another name is a rename, which the connector
   already shows as a rebind row.
-- If 1.1 measures that the stated name is empty or unreadable on a temporary solution, this change instead keeps the
+- If 1.1 measures that the stated name is empty or unreadable on a temporary solution, or that `File.SaveAll` (run by
+  every TwinCAT push and build, `TcObjectModel.Build.cs:50`) raises a Save As dialog on it, this change instead keeps the
   window rowless and makes the existing `PLC_DISCONNECTED` refusal say the cause ("This TwinCAT window's solution is not
   saved; save it (File > Save All) to sync it."). The spec and tasks are rewritten to that before implementing.
 - No new row status, field or error code.

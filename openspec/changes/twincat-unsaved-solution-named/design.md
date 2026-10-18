@@ -1,16 +1,19 @@
 ## Decision
 
 Read the solution's name from the one place XAE states it (`Solution.Properties.Item("Name")`), not from the `.sln`
-file. Gated on task 1.1: the trigger is unmeasured on XAE. If the stated name is unreadable on a temporary solution,
-fall to option B. If the state never occurs, close with a DIALECT note.
+file. Gated on task 1.1: the trigger is unmeasured on XAE. Option B instead if the stated name is unreadable on a
+temporary solution, OR if a push or build through the bridge on it raises a dialog: both run `File.SaveAll`
+(`TcObjectModel.Build.cs:50`), which on a solution with no file may open Save As, and a modal dialog blocks COM (the
+push hangs instead of failing loud). That risk is why `SolutionName()` keeps such a window rowless today
+(`TcObjectModel.Session.cs:177-178`). If the state never occurs, close with a DIALECT note.
 
 ## Options considered
 
 | Option | Wire | Verdict |
 |---|---|---|
 | A. An `unsaved` row named after the first system project, a `reason` member, `SOLUTION_UNSAVED` | New status, optional field, new code | Rejected (below). |
-| B. Keep the window rowless; `PLC_DISCONNECTED` names the cause | Message text only | Fallback, if 1.1 finds the stated name unreadable. Fixes the message, not the invisible window. |
-| **C. Name the solution by what XAE states** | None: an ordinary row | **Chosen**, if 1.1 confirms |
+| B. Keep the window rowless; `PLC_DISCONNECTED` names the cause | Message text only | Fallback, if 1.1 finds the stated name unreadable or `File.SaveAll` raising a dialog. Fixes the message, not the invisible window. |
+| **C. Name the solution by what XAE states** | None: an ordinary row | **Chosen**, if 1.1 confirms a readable name and no dialog on push/build |
 
 ## Measurements
 
