@@ -46,7 +46,10 @@ public class TcAttachTests
     {
         public Projects Projects { get; } = new();
         public string? Name { get; set; }
-        public string FullName => Name ?? (Projects.Count > 0 ? $@"C:\p\{Projects.Items[0].Name}.sln" : "");
+        /// <summary>A solution with no file: a <c>.tsproj</c> opened with File > Open > Project where no <c>.sln</c> holds
+        /// it (measured 2026-10-18: <c>FullName</c> empty, XAE naming the solution after the project).</summary>
+        public bool Unsaved { get; set; }
+        public string FullName => Unsaved ? "" : Name ?? (Projects.Count > 0 ? $@"C:\p\{Projects.Items[0].Name}.sln" : "");
         public int Count => Projects.Count;
         public bool Saved => true;
     }

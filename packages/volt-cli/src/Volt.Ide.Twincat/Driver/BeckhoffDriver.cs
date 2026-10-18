@@ -44,6 +44,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     public override string? ProductVendor => _om.ProductVendor;
     /// <summary>Set when XAE's Solution Explorer cannot be read by this worker (DIALECT C2t): every op but <c>health</c> then answers <c>IDE_UNSUPPORTED</c> with this sentence.</summary>
     public override string? Unsupported => _om.Unsupported;
+    public override string? NotServedBecause => _om.NotServedBecause();
 
     /// <summary>The start check behind <see cref="Unsupported"/> (<c>TcObjectModel.CheckHierarchy</c>); run by the
     /// worker on the STA thread right after <see cref="Connect"/>.</summary>

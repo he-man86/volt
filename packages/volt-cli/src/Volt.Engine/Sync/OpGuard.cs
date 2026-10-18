@@ -25,7 +25,7 @@ internal static class OpGuard
     public static (string Vendor, string? ProjectName) RequireBoundProject(
         IIdeDriver ide, string? expectedPlatform, string? expectedName)
     {
-        if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
+        if (!ide.IsConnected) throw BridgeException.PlcDisconnected(ide.NotServedBecause);
         var served = ide.ServedProjectName;
 
         // EACH SUPPLIED EXPECTATION IS CHECKED ON ITS OWN: `ExpectedPlatform` and `ExpectedProjectName` are independent

@@ -49,6 +49,11 @@ public interface IIdeSession
     /// <c>IDE_UNSUPPORTED</c>, every row idle — is <c>BridgePipeHost</c>'s, once for both vendors. Never a version
     /// floor: an IDE is refused for a missing capability, never for its number.</summary>
     string? Unsupported { get; }
+
+    /// <summary>Null, or why the IDE serves no project while one is open in it — the sentence a <c>PLC_DISCONNECTED</c>
+    /// refusal then carries instead of "waiting for an IDE project". A state read, no policy: TwinCAT names a window
+    /// whose solution has no file (DIALECT D44).</summary>
+    string? NotServedBecause { get; }
     // NB: there is deliberately NO Connect() here. The startup attach is vendor-shaped (CODESYS: an in-proc snapshot
     // on its primary thread; TwinCAT: attach to a specific XAE by pid, `Connect(int)`), so each driver exposes its own
     // and its own host calls it. Core never connects — `Ops.Connect` maps to SelectProject; nothing here is Core's.

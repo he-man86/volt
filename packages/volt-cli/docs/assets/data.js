@@ -1826,6 +1826,11 @@ window.VOLT = {
           "signature": "string? Unsupported { get; }"
         },
         {
+          "name": "NotServedBecause",
+          "kind": "property",
+          "signature": "string? NotServedBecause { get; }"
+        },
+        {
           "name": "Disconnect",
           "kind": "method",
           "signature": "void Disconnect()"

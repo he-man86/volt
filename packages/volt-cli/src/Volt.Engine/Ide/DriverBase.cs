@@ -115,6 +115,9 @@ public abstract class DriverBase : IIdeSession
     /// <summary>See <see cref="IIdeSession.Unsupported"/>. Default: nothing missing. CODESYS overrides it with its
     /// capability check (<c>CodesysCapabilities</c>); TwinCAT has no measured capability gap and inherits this.</summary>
     public virtual string? Unsupported => null;
+
+    /// <summary>See <see cref="IIdeSession.NotServedBecause"/>. Default: an IDE with a project open serves it.</summary>
+    public virtual string? NotServedBecause => null;
     // No abstract Connect(): startup attach is vendor-shaped (CODESYS Connect() vs TwinCAT Connect(int xaePid)), each
     // driver declares its own and its own host calls it — Core never connects. See IIdeSession.
     public abstract void Disconnect();

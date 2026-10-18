@@ -174,6 +174,21 @@ internal sealed partial class TcObjectModel
         return (_ideVersion, SolutionName() is { } name && TwinCatSystems().Count > 0 ? new List<string> { name } : new List<string>());
     }
 
+    /// <summary>Why this window serves nothing while a TwinCAT project is open in it, or null: its solution has no file.
+    /// A <c>.tsproj</c> opened with File > Open > Project where no <c>.sln</c> holds it gives a solution with an empty
+    /// <c>FullName</c>, and <c>File.SaveAll</c> — which every push and build runs — then opens a modal "Save File As"
+    /// that blocks COM (DIALECT D44). So the window is not served, and the refusal says how to serve it.</summary>
+    public string? NotServedBecause()
+    {
+        if (_dte == null) return null;
+        string? file;
+        try { file = (string?)_dte.Solution.FullName; }
+        catch { return null; }   // unreadable: SolutionName() logs it, and the generic refusal stands
+        return string.IsNullOrEmpty(file) && TwinCatSystems().Count > 0
+            ? "This TwinCAT window's solution is not saved; save it (File > Save All) to sync it."
+            : null;
+    }
+
     /// <summary>The open solution's name — its <c>.sln</c> file's, as the engineer sees it in XAE — or null when no
     /// solution file is open (nothing is served then: an unsaved solution has no name to bind a workspace to).</summary>
     private string? SolutionName()

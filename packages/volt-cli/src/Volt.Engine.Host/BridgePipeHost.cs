@@ -158,7 +158,8 @@ public sealed class BridgePipeHost : IDisposable
                         (!string.IsNullOrEmpty(sel.Project) &&
                          !string.Equals(_ide.ServedProjectName, sel.Project, StringComparison.Ordinal)))
                         throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
-                            string.IsNullOrEmpty(sel.Project)
+                            !_ide.IsConnected && _ide.NotServedBecause is { } why ? why
+                            : string.IsNullOrEmpty(sel.Project)
                                 ? "the bridge could not attach an IDE project"
                                 : $"could not attach “{sel.Project}” — the IDE has no such project open (with more than one IDE window open, make sure it's in the one being served).");
                     return (object)new { ok = true };

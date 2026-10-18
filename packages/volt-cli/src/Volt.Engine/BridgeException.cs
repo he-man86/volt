@@ -27,8 +27,8 @@ public class BridgeException : CodedException
     /// <summary>The bridge is up but no IDE project is loaded — every project-touching op rejects with this until
     /// a project is attached. The tray's deliberate PAUSE shares the code and has its own text; see
     /// <see cref="Paused"/>.</summary>
-    public static BridgeException PlcDisconnected() =>
-        new(BridgeErrorCodes.PlcDisconnected, "Bridge is waiting for an IDE project");
+    public static BridgeException PlcDisconnected(string? cause = null) =>
+        new(BridgeErrorCodes.PlcDisconnected, cause ?? "Bridge is waiting for an IDE project");
 
     /// <summary>The bridge is serving a different project than the workspace is bound to — the op refuses rather
     /// than touch the wrong IDE. The client matches on the CODE alone (<c>Sync/Commands</c>); this text is what the
