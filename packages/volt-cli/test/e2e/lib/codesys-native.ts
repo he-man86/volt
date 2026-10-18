@@ -49,16 +49,21 @@ export function nativeImplementations(xml: string): string[] {
 	return out
 }
 
-/** The served CODESYS's OWN serialization of `bare` and every object under it (`export_native`, recursive) — the
- *  object's archive as the IDE writes it: its class's type GUID, its object properties, its members. Throws naming the
- *  reason when the probe refuses, and after a bounded wait when it never answers — a launcher without the probe. */
-export async function codesysNativeExport(bare: string): Promise<string> {
+/** The served CODESYS's OWN serialization of an object and every object under it (`export_native`, recursive) — the
+ *  object's archive as the IDE writes it: its class's type GUID, its object properties, its members. `object` is its
+ *  bare name, or its wire path (`Device/Plc Logic/Application/VltFixtureCfc.pou`, kind and all) where two applications
+ *  hold the name. Throws naming the reason when the probe refuses, and after a bounded wait when it never answers — a
+ *  launcher without the probe. */
+export async function codesysNativeExport(object: string): Promise<string> {
+	// The probe addresses a tree path: the wire path without the item's kind.
+	const request = object.includes("/") ? object.replace(/\.[^./]+$/, "") : object
+	const bare = request.slice(request.lastIndexOf("/") + 1)
 	const folder = probeFolder()
 	mkdirSync(folder, { recursive: true })
 	const id = randomUUID().replace(/-/g, "")
 	const tmp = join(folder, `request.${id}.tmp`)
 	writeFileSync(tmp, `${id}
-${bare}
+${request}
 `)
 	renameSync(tmp, join(folder, "request"))            // whole, or not at all: the probe reads it on its next tick
 
@@ -75,16 +80,17 @@ ${bare}
 		await Bun.sleep(100)
 	}
 	try {
-		if (existsSync(error)) throw new Error(`the CODESYS native-export probe refused '${bare}': ${readFileSync(error, "utf8")}`)
+		if (existsSync(error)) throw new Error(`the CODESYS native-export probe refused '${request}': ${readFileSync(error, "utf8")}`)
 		return readFileSync(exported, "utf8")
 	} finally {
 		for (const f of [done, error, exported]) rmSync(f, { force: true })
 	}
 }
 
-/** The bodies the served CODESYS holds for `bare` (and every object under it), byte for byte. */
-export async function codesysImplementations(bare: string): Promise<string[]> {
-	const found = nativeImplementations(await codesysNativeExport(bare))
-	if (found.length === 0) throw new Error(`the native export of '${bare}' holds no Implementation`)
+/** The bodies the served CODESYS holds for an object (a bare name or a wire path — `codesysNativeExport`) and every
+ *  object under it, byte for byte. */
+export async function codesysImplementations(object: string): Promise<string[]> {
+	const found = nativeImplementations(await codesysNativeExport(object))
+	if (found.length === 0) throw new Error(`the native export of '${object}' holds no Implementation`)
 	return found
 }

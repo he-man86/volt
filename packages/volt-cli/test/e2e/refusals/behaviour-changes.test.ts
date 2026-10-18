@@ -191,7 +191,7 @@ const ROWS: Row[] = [
 		title: "D27 a CFC body pulls whole — declaration and the language-naming marker, never a dropped POU",
 		run: async (b) => {
 			const refs = await refsOf(b)
-			const cfc = pathIn(refs.items, "VltFixtureCfc.pou")
+			const cfc = pathIn(refs.items, "VltFixtureCfc.pou", refs.applications)
 			expect(cfc, `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
 			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain("VltFixtureCfc")
 			const text = (await fetchOne(b, cfc!)).sourceText as string

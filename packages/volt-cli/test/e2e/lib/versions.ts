@@ -16,16 +16,16 @@ import { expect } from "bun:test"
 import { bridge } from "./bridge"
 import { folderOf, pathIn } from "./main-program"
 
-export type Snapshot = { project: string; items: Record<string, string> }
+export type Snapshot = { project: string; items: Record<string, string>; applications?: string[] }
 
 export async function snapshot(): Promise<Snapshot> {
 	const r = await bridge.refs()
-	return { project: r.projectVersion, items: r.items }
+	return { project: r.projectVersion, items: r.items, applications: r.applications }
 }
 
 /** An item's version — by path, or by its file name (`pathIn`) — or undefined when absent. */
 export function versionIn(s: Snapshot, name: string): string | undefined {
-	const path = pathIn(s.items, name)
+	const path = pathIn(s.items, name, s.applications)
 	return path === undefined ? undefined : s.items[path]
 }
 

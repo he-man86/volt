@@ -15,7 +15,7 @@
  */
 import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf, inFolder } from "../harness"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf, inFolder, pathIn } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject, tcPouFile } from "../lib/tc-files"
 
@@ -52,7 +52,9 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 		project = servedProject(await bridge.health())
 		const refs = await bridge.refs()
 		for (const [, bare] of CASES) {
-			const full = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${bare}.`))
+			// By file name, in the driven application: every CodesysTestProject carries a second device holding the same POUs.
+			const named = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${bare}.`))
+			const full = named === undefined ? undefined : pathIn(refs.items, fileOf(named), refs.applications)
 			if (!full) throw new Error(`fixture POU '${bare}' is missing from this project — it is committed; re-add it in the IDE`)
 			wire.set(bare, full)
 		}
@@ -64,8 +66,8 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 		return pushOps([{ op: "set", name, sourceText, ifVersion: refs.items[name] }])
 	}
 
-	/** The bodies the IDE holds for `bare`, byte for byte (see the file header). */
-	const heldBody = (bare: string) => heldImplementations(bare, project)
+	/** The bodies the IDE holds for the item at `path`, byte for byte (see the file header). */
+	const heldBody = (path: string) => heldImplementations(path, project)
 
 	for (const [lang, bare] of CASES) {
 		it(`a ${lang} POU pulls as IMPLEMENTATION ${lang} UNSUPPORTED, and its edited declaration is pushed while its body is untouched`, async () => {
@@ -77,9 +79,9 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			// The bytes BEFORE ANY PUSH — the body as the served project holds it now. Taking the baseline after a push
 			// would make whatever that push did the reference, so a push that rewrote the body would compare equal to
 			// itself. The restating push (the ordinary no-op) is then held to the same bytes like every other push.
-			const before = await heldBody(bare)
+			const before = await heldBody(name)
 			expect((await set(name, pulled)).accepted).toBe(true)
-			expect(await heldBody(bare)).toEqual(before)
+			expect(await heldBody(name)).toEqual(before)
 
 			const edited = withProbeInput(pulled, bare)
 			expect(edited).not.toBe(pulled)
@@ -91,7 +93,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				expect(after).toContain("bVoltHiddenProbe : BOOL;")             // the declaration landed
 				expect(after).toContain(`\nIMPLEMENTATION ${lang} UNSUPPORTED\n`) // still the same hidden body
 				expect(after).toBe(edited)
-				expect(await heldBody(bare)).toEqual(before)                           // and not one byte of it moved
+				expect(await heldBody(name)).toEqual(before)                           // and not one byte of it moved
 				// …read from a file that DID take this push: the saved declaration carries the probe, so the bytes compared
 				// above are the IDE's current state and not a file nothing wrote.
 				expectVendorDifference("openspec implementation-keyword 3b.1: only TwinCAT saves a push to a readable file", {
@@ -102,7 +104,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				// Leave the fixture as found — and that restore is itself a declaration push over a hidden body.
 				expect((await set(name, pulled)).accepted).toBe(true)
 				expect((await fetchItem(name)).sourceText).toBe(pulled)
-				expect(await heldBody(bare)).toEqual(before)
+				expect(await heldBody(name)).toEqual(before)
 			}
 		})
 	}
@@ -119,7 +121,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			const home: string = found.folder ?? ""
 			const pulled = found.sourceText as string
 			const away = home ? `${home}/VltE2E_HiddenMove` : "VltE2E_HiddenMove"
-			const before = await heldBody(bare)
+			const before = await heldBody(name)
 
 			/** Where the item is now: a move changes its path. */
 			let at = name
@@ -137,7 +139,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				const moved = await move({ to: into(away) })                  // moved, nothing else
 				expect(moved.folder).toBe(away)
 				expect(moved.sourceText).toBe(pulled)
-				expect(await heldBody(bare)).toEqual(before)
+				expect(await heldBody(at)).toEqual(before)
 				// …read from the file the move WROTE: the re-imported document lives in the new folder, so the bytes above
 				// are the IDE's state after the move and not a copy it left behind.
 				expectVendorDifference("openspec implementation-keyword 3b.1: only TwinCAT saves a push to a readable file", {
@@ -149,13 +151,13 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				const back = await move({ to: into(home), sourceText: edited }) // moved back, declaration edited
 				expect(back.folder ?? "").toBe(home)
 				expect(back.sourceText).toBe(edited)
-				expect(await heldBody(bare)).toEqual(before)
+				expect(await heldBody(at)).toEqual(before)
 			} finally {
 				const now = await fetchItem(at)
 				const restored = await move({ ...(now.folder === home ? {} : { to: into(home) }), sourceText: pulled })
 				expect(restored.folder ?? "").toBe(home)
 				expect(restored.sourceText).toBe(pulled)
-				expect(await heldBody(bare)).toEqual(before)
+				expect(await heldBody(at)).toEqual(before)
 			}
 		})
 	}

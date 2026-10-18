@@ -24,21 +24,49 @@ export const folderOf = (path: string): string => (path.includes("/") ? path.sli
 export const inFolder = (folder: string, file: string): string => (folder === "" ? file : `${folder}/${file}`)
 
 /**
- * The one main program of the project `refs` answered. None, or more than one (a fixture of two applications), is
- * refused by name: a recorder that picked one would push and build a project the fixture does not describe.
+ * The application a suite or recorder drives when the project holds several: the FIRST the walk states (`applications`
+ * is in the IDE's tree order). Every CodesysTestProject fixture carries a second device whose application repeats the
+ * first one's names (PLC_PRG, MainTask, VltFixture*); `test/e2e/multi-application` covers every application, the rest
+ * drives this one. Null when the walk states none.
  */
-export function mainProgram(refs: { items: Record<string, unknown>; applications?: readonly string[] }): MainProgram {
-  const found = Object.keys(refs.items).filter((p) => MAIN_FILES.includes(fileOf(p)))
-  if (found.length === 0) throw new Error(`no PLC_PRG/MAIN in project (looked for ${MAIN_FILES.join(", ")} by file name)`)
-  if (found.length > 1)
-    throw new Error(`the project holds ${found.length} main programs (${found.join(", ")}) — the recorders serve one application`)
-  const path = found[0]!
+export function drivenApplication(applications: readonly string[] | undefined): string | null {
+  return applications?.[0] ?? null
+}
+
+/** The longest stated application root `path` lies in, or null (the pool, a device descriptor, project settings). */
+export function applicationOf(path: string, applications: readonly string[] | undefined): string | null {
   const lower = path.toLowerCase()
-  const application =
-    (refs.applications ?? [])
+  return (
+    (applications ?? [])
       .filter((root) => lower === root.toLowerCase() || lower.startsWith(root.toLowerCase() + "/"))
       .sort((a, b) => b.length - a.length)[0] ?? null
-  return { path, folder: folderOf(path), application }
+  )
+}
+
+/** Of several paths, those the driven application can mean: in it, or in no application at all. An item of ANOTHER
+ *  application is never what a file name names when it lies in the driven one too. */
+function inDriven(paths: string[], applications: readonly string[] | undefined): string[] {
+  const driven = drivenApplication(applications)
+  if (driven === null) return paths
+  return paths.filter((p) => {
+    const app = applicationOf(p, applications)
+    return app === null || app === driven
+  })
+}
+
+/**
+ * The main program of the project `refs` answered — of its driven application (`drivenApplication`) when each
+ * application holds one. None, or more than one there, is refused by name: a recorder that picked one would push and
+ * build a project the fixture does not describe.
+ */
+export function mainProgram(refs: { items: Record<string, unknown>; applications?: readonly string[] }): MainProgram {
+  const all = Object.keys(refs.items).filter((p) => MAIN_FILES.includes(fileOf(p)))
+  if (all.length === 0) throw new Error(`no PLC_PRG/MAIN in project (looked for ${MAIN_FILES.join(", ")} by file name)`)
+  const found = all.length > 1 ? inDriven(all, refs.applications) : all
+  if (found.length !== 1)
+    throw new Error(`the project holds ${all.length} main programs (${all.join(", ")}) — none is the one main program of its first application`)
+  const path = found[0]!
+  return { path, folder: folderOf(path), application: applicationOf(path, refs.applications) }
 }
 
 /**
@@ -55,12 +83,16 @@ export function legacyCreateFolder(main: MainProgram, vendor: "codesys" | "twinc
 
 /**
  * The path of `name` in a version map: `name` itself when it is a key, else the ONE key whose file name it is
- * (`VltE2E_x.pou` → `Device/Plc Logic/Application/POUs/VltE2E_x.pou`). Undefined when no key has it; two or more are
- * refused by name — a file name two folders hold names no one item, and a caller that picked one would act on the wrong.
+ * (`VltE2E_x.pou` → `Device/Plc Logic/Application/POUs/VltE2E_x.pou`). Given the walk's `applications`, a file name
+ * every application repeats names the driven application's item (`drivenApplication`). Undefined when no key has it;
+ * two or more left are refused by name — a file name two folders hold names no one item, and a caller that picked one
+ * would act on the wrong.
  */
-export function pathIn(items: Record<string, unknown>, name: string): string | undefined {
+export function pathIn(items: Record<string, unknown>, name: string, applications?: readonly string[]): string | undefined {
   if (name in items) return name
-  const found = Object.keys(items).filter((p) => fileOf(p) === name)
-  if (found.length > 1) throw new Error(`'${name}' names ${found.length} items (${found.join(", ")}) — name one by its path`)
+  const all = Object.keys(items).filter((p) => fileOf(p) === name)
+  const found = all.length > 1 ? inDriven(all, applications) : all
+  if (found.length > 1 || (all.length > 1 && found.length === 0))
+    throw new Error(`'${name}' names ${all.length} items (${all.join(", ")}) — name one by its path`)
   return found[0]
 }

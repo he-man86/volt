@@ -17,7 +17,7 @@
  * before ANY push, read from the vendor's own serialization (`lib/held-body.ts`). Every case puts the fixture back.</p>
  */
 import { describe, expect, beforeAll, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf } from "../harness"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE, fileOf, pathIn } from "../harness"
 import { heldImplementations } from "../lib/held-body"
 import { servedProject } from "../lib/tc-files"
 
@@ -47,7 +47,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		})
 		// Sorted: a member moved into a folder is exported after its siblings on CODESYS, and ORDER in the tree is no
 		// body. Each body is still compared whole, byte for byte.
-		return (await heldImplementations(BARE, project)).filter((b) => language.test(b)).sort()
+		return (await heldImplementations(name, project)).filter((b) => language.test(b)).sort()
 	}
 
 	async function push(sourceText: string, extra: Record<string, unknown> = {}): Promise<void> {
@@ -60,7 +60,9 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		await requireHealthy()
 		project = servedProject(await bridge.health())
 		const refs = await bridge.refs()
-		const full = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${BARE}.`))
+		// By file name, in the driven application: every CodesysTestProject carries a second device holding the same POU.
+		const named = Object.keys(refs.items).find((n) => fileOf(n).startsWith(`${BARE}.`))
+		const full = named === undefined ? undefined : pathIn(refs.items, fileOf(named), refs.applications)
 		if (!full)
 			throw new Error(
 				`fixture POU '${BARE}' is missing from ${project} — it is committed into the CODESYS test project and ` +
@@ -115,11 +117,11 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		const ld = (coil: string) =>
 			`\nMETHOD VltE2E_Ld : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${coil} := p AND bGo;\nEND_NETWORK\nEND_METHOD\n`
 		const added = pulled + ld("VltE2E_Ld")
-		const bodies = (await heldImplementations(BARE, project)).length
+		const bodies = (await heldImplementations(name, project)).length
 		await push(added)
 		// The control: the bodies are read from the IDE's state AFTER the push — the new member's body is among them —
 		// so the equality below is not two reads of a copy nothing wrote.
-		expect((await heldImplementations(BARE, project)).length).toBe(bodies + 1)
+		expect((await heldImplementations(name, project)).length).toBe(bodies + 1)
 		const got = (await fetchItem(name)).sourceText as string
 		expect(got).toContain("METHOD VltE2E_Ld : BOOL")
 		expect(got).toContain("IMPLEMENTATION LD\nNETWORK")

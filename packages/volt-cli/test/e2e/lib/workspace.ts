@@ -12,7 +12,7 @@ import { bridge, healthStatus } from "./bridge"
 import { appendFileSync } from "node:fs"
 import { currentPipe, VENDOR } from "./pipe"
 import { e2eReport, FixtureRefusal, ideLine, pipeBitness } from "./fixture-ide"
-import { fileOf, folderOf, inFolder, pathIn } from "./main-program"
+import { drivenApplication, fileOf, folderOf, inFolder, pathIn } from "./main-program"
 
 export { fileOf, folderOf, inFolder, pathIn }
 
@@ -185,7 +185,7 @@ export async function cleanup(): Promise<void> {
 export async function removeItem(name: string): Promise<void> {
 	const refs = await bridge.refs()
 	const items = refs.items ?? {}
-	const listed = pathIn(items, name)
+	const listed = pathIn(items, name, refs.applications)
 	const bare = fileOf(name).replace(/\.[^.]*$/, "")
 	const unreadable: string[] = (refs.unreadable ?? [])
 		.map((u: any) => String(u.name ?? ""))
@@ -215,15 +215,15 @@ async function plcRoot(): Promise<string> {
 	return (_plcRoot = main ? folderOf(main) : await applicationRoot())
 }
 
-/** The root of the one application the served project states (`refs.applications`): CODESYS's
- *  `Device/Plc Logic/Application`, TwinCAT's PLC project. Where a move starts that must stay in its application. The suite
- *  serves single-application fixtures; another count is refused by name (the multi-application fixtures have their own
- *  suite). */
+/** The root of the application the suite drives (`drivenApplication`: the first the served project states):
+ *  CODESYS's `Device/Plc Logic/Application`, TwinCAT's PLC project. Where a move starts that must stay in its
+ *  application. Every CodesysTestProject fixture also carries a second device; `multi-application` covers it. A project
+ *  stating none is refused by name. */
 export async function applicationRoot(): Promise<string> {
 	const apps: string[] = (await bridge.refs()).applications ?? []
-	if (apps.length !== 1)
-		throw new Error(`the served project states ${apps.length} applications (${apps.join(", ")}) — this suite serves one`)
-	return apps[0]!
+	const driven = drivenApplication(apps)
+	if (driven === null) throw new Error("the served project states no application — this suite drives one")
+	return driven
 }
 
 /**
@@ -235,9 +235,9 @@ export async function projectRoot(): Promise<string> {
 }
 
 /** An item's version in a `refs` answer — by path, or by its file name (`pathIn`) — or undefined when it holds none. */
-export function itemIn(refs: { items?: Record<string, string> }, name: string): string | undefined {
+export function itemIn(refs: { items?: Record<string, string>; applications?: readonly string[] }, name: string): string | undefined {
 	const items = refs.items ?? {}
-	const path = pathIn(items, name)
+	const path = pathIn(items, name, refs.applications)
 	return path === undefined ? undefined : items[path]
 }
 
@@ -253,7 +253,8 @@ export async function at(file: string, folder?: string): Promise<string> {
 
 /** The path `refs` holds `name` under (a path, or a file name — `pathIn`). Throws when it holds none. */
 export async function pathOf(name: string): Promise<string> {
-	const path = pathIn((await bridge.refs()).items ?? {}, name)
+	const refs = await bridge.refs()
+	const path = pathIn(refs.items ?? {}, name, refs.applications)
 	if (path === undefined) throw new Error(`'${name}' is not in refs`)
 	return path
 }
@@ -291,16 +292,19 @@ export async function plcFolder(sub = ""): Promise<string> {
 /**
  * The project's main/entry program — its PATH — the POU that FB instances are added to so the compiler reaches them.
  * CODESYS default-names it `PLC_PRG`, TwinCAT `MAIN`; found in `refs` by file name rather than hardcoded so the same
- * suite runs against either vendor's default project. Two (a project of two applications) are refused by name.
+ * suite runs against either vendor's default project. In a project of several applications it is the driven one's
+ * (`drivenApplication`); two left there are refused by name.
  */
 let _mainProgram: string | null = null
 export async function mainProgram(): Promise<string | null> {
 	if (_mainProgram !== null) return _mainProgram || null
-	const items = Object.keys((await bridge.refs()).items ?? {})
+	const refs = await bridge.refs()
 	// Every POU is `X.pou` (push-without-header-check 5.Q), so the entry program is found by its vendor default name.
-	const found = items.filter((n) => /^(PLC_PRG|MAIN)\.pou$/i.test(fileOf(n)))
-	if (found.length > 1)
-		throw new Error(`the project holds ${found.length} main programs (${found.join(", ")}) — this suite serves one application`)
+	const all = Object.keys(refs.items ?? {}).filter((n) => /^(PLC_PRG|MAIN)\.pou$/i.test(fileOf(n)))
+	const driven = drivenApplication(refs.applications)
+	const found = all.length > 1 && driven !== null ? all.filter((n) => n.startsWith(`${driven}/`)) : all
+	if (found.length > 1 || (all.length > 1 && found.length === 0))
+		throw new Error(`the project holds ${all.length} main programs (${all.join(", ")}) — none is the one main program of its first application`)
 	_mainProgram = found[0] ?? ""
 	return _mainProgram || null
 }
@@ -319,7 +323,7 @@ export async function createItem(name: string, src: string, folder?: string): Pr
 /** Update an item's content in place, guarded with its current version. Pass `folder` only to MOVE it there. */
 export async function updateItem(name: string, src: string, folder?: string): Promise<any> {
 	const refs = await bridge.refs()
-	const path = pathIn(refs.items ?? {}, name)
+	const path = pathIn(refs.items ?? {}, name, refs.applications)
 	if (path === undefined) throw new Error(`update '${name}': not in refs`)
 	const op: Record<string, unknown> = { op: "set", name: path, sourceText: src, ifVersion: refs.items[path] }
 	if (folder !== undefined) op.to = inFolder(folder, fileOf(path))
@@ -344,7 +348,8 @@ export async function fetchSource(name: string): Promise<string> {
 
 /** The current version of an item — by path, or by its file name — or null when it is not enumerable. */
 export async function versionOf(name: string): Promise<string | null> {
-	const items = (await bridge.refs()).items ?? {}
-	const path = pathIn(items, name)
+	const refs = await bridge.refs()
+	const items = refs.items ?? {}
+	const path = pathIn(items, name, refs.applications)
 	return path === undefined ? null : items[path]
 }

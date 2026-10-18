@@ -6,13 +6,14 @@
  * change: CODESYS returns ONE `PLC_PRG.pou` (Device_1's; Device's application is missing), TwinCAT returns the first PLC
  * project of the selected system project and nothing of the other three.</p>
  *
- * <p>The fixtures are the owner's two edited projects: `test/fixtures/CodesysTwoDevices.3.5.21.40.project` (two devices,
- * each with an application holding the same names) and `test/fixtures/TwinCAT MultiProject/` (system project
- * `TwinCAT Project14` with PLC projects Untitled2, Untitled1, Untitled3; system project `TwinCAT Project1` with Untitled1).
- * The suite is skipped against any other fixture.</p>
+ * <p>The fixtures: on CODESYS every `test/fixtures/CodesysTestProject.<version>.project` — the project the release matrix
+ * serves on each version — carries two devices, each with an application holding the same names (PLC_PRG, MainTask,
+ * VltFixtureCfc/Members/Sfc), as does `test/fixtures/CodesysTwoDevices.3.5.21.40.project`; on TwinCAT
+ * `test/fixtures/TwinCAT MultiProject/` (system project `TwinCAT Project14` with PLC projects Untitled2, Untitled1,
+ * Untitled3; system project `TwinCAT Project1` with Untitled1). The suite is skipped against any other fixture.</p>
  *
  * <pre>
- *   powershell -File scripts/ide.ps1 up -Vendor codesys -Instance multi-app -Fixture test/fixtures/CodesysTwoDevices.3.5.21.40.project -Wait
+ *   powershell -File scripts/ide.ps1 up -Vendor codesys -Instance multi-app -CodesysVersion 3.5.21.40 -Wait
  *   VOLT_E2E_INSTANCE=multi-app VOLT_VENDOR=codesys bun test test/e2e/multi-application
  *   powershell -File scripts/ide.ps1 up -Vendor twincat -Instance multi-app -Fixture "test/fixtures/TwinCAT MultiProject/TwinCAT MultiProject.sln" -Wait
  *   VOLT_E2E_INSTANCE=multi-app VOLT_VENDOR=twincat bun test test/e2e/multi-application
@@ -21,6 +22,7 @@
 import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout } from "bun:test"
 import { basename } from "node:path"
 import { bridge } from "../lib/bridge"
+import { E2E_INSTANCE, readInstances } from "../lib/fixture-ide"
 import { BASE, VENDOR } from "../lib/pipe"
 import { servedSolutionDir } from "../lib/tc-files"
 import { landedInFull, requireHealthy } from "../lib/workspace"
@@ -33,6 +35,8 @@ const lf = (s: string) => s.replace(/\r\n/g, "\n")
  *  `buildErrors`: the fixture's own build errors, each as `<item path> :: <message>` (`-` for no item). `tasks`: the task
  *  of each application in `applications`' order. */
 type Expected = {
+	/** CODESYS: the devices the fixture's descriptors name, each holding one application (TwinCAT: none). */
+	devices: string[]
 	mains: string[]
 	items: string[]
 	applications: string[]
@@ -42,16 +46,43 @@ type Expected = {
 	compiled: string[]
 }
 
-const CODESYS: Expected = (() => {
+/** The CODESYS project the served IDE OPENED, by its file's base name (`CodesysTestProject.3.5.21.40`), read from the
+ *  `ide.ps1` instance's record — not from the wire under test. */
+function openedCodesysProject(): string | undefined {
+	const inst = readInstances("codesys").find((i) => i.instance === E2E_INSTANCE)
+	const opened = (inst?.projects ?? []).filter((p) => /\.project$/i.test(p))
+	return opened.length === 1 ? basename(opened[0]!).replace(/\.project$/i, "") : undefined
+}
+
+/** The CODESYS fixtures of two devices: every version's CodesysTestProject, and CodesysTwoDevices. */
+const isCodesysMultiAppFixture = (project: string) => /^(CodesysTestProject|CodesysTwoDevices)\.\d+\.\d+\.\d+\.\d+$/.test(project)
+
+/** The devices a CODESYS fixture holds, read from its device descriptors (`<device>/<device>.device`) — the devices'
+ *  names are the owner's; that there are TWO, each with one application holding the same items, is the fixture fact. */
+const DEVICES = 2
+
+function codesysExpected(project: string, items: Record<string, unknown>): Expected {
 	const app = (d: string) => `${d}/Plc Logic/Application`
-	const devices = ["Device", "Device_1"]
+	const devices = Object.keys(items)
+		.map((p) => /^([^/]+)\/([^/]+)\.device$/.exec(p))
+		.filter((m): m is RegExpExecArray => m !== null && m[1] === m[2])
+		.map((m) => m[1]!)
+	// The task's folder is the IDE's own tree node, and its name is the version's: `Task Configuration` from SP21 on,
+	// `TaskConfiguration` on 3.5.18.30. So the task is read where the tree puts it — the one `MainTask.task` in the
+	// application — and a missing one is spelled so that `refs holds every item` names it.
+	const taskOf = (d: string) => {
+		const found = Object.keys(items).filter((p) => p.startsWith(`${app(d)}/`) && p.endsWith("/MainTask.task"))
+		return found.length === 1 ? found[0]! : `${app(d)}/<one task configuration, found ${found.length}>/MainTask.task`
+	}
 	return {
-		project: "CodesysTwoDevices.3.5.21.40",
-		// Measured 2026-10-17 (SP21 Patch 4): both applications compile clean although they declare the same names.
+		project,
+		devices,
+		// Measured 2026-10-17 (SP21 Patch 4, CodesysTwoDevices) and 2026-10-18 (each CodesysTestProject): both
+		// applications compile clean although they declare the same names.
 		buildErrors: [],
 		compiled: devices.map((d) => `${app(d)}/PLC_PRG.pou`),
 		applications: devices.map(app),
-		tasks: devices.map((d) => `${app(d)}/Task Configuration/MainTask.task`),
+		tasks: devices.map(taskOf),
 		mains: devices.map((d) => `${app(d)}/PLC_PRG.pou`),
 		items: devices.flatMap((d) => [
 			`${d}/${d}.device`,
@@ -59,10 +90,10 @@ const CODESYS: Expected = (() => {
 			`${app(d)}/VltFixtureCfc.pou`,
 			`${app(d)}/VltFixtureMembers.pou`,
 			`${app(d)}/VltFixtureSfc.pou`,
-			`${app(d)}/Task Configuration/MainTask.task`,
+			taskOf(d),
 		]),
 	}
-})()
+}
 
 const TWINCAT: Expected = (() => {
 	const plc = (sys: string, p: string) => `${sys}/PLC/${p}/${p} Project`
@@ -77,6 +108,7 @@ const TWINCAT: Expected = (() => {
 	const plcs = [plc(P14, "Untitled2"), plc(P14, "Untitled1"), plc(P14, "Untitled3"), plc(P1, "Untitled1")]
 	return {
 		project: "TwinCAT MultiProject",
+		devices: [],
 		// Measured 2026-10-17 (4024.74): Untitled1's task calls MAIN, which that PLC project does not hold (design §9) —
 		// an error on that task, as CODESYS names the same fault; nothing else, although the four PLC projects repeat
 		// PLC_PRG / MAIN / PlcTask.
@@ -102,13 +134,13 @@ const TWINCAT: Expected = (() => {
 	}
 })()
 
-/** Is the served IDE holding one of the two multi-application fixtures? Read from what was OPENED, not from the wire
- *  under test: CODESYS names its project after the file, TwinCAT's XAE was launched on the solution's `.sln`. */
-async function servesMultiAppFixture(): Promise<boolean> {
+/** Is the served IDE holding one of the multi-application fixtures? Read from what was OPENED, not from the wire under
+ *  test: CODESYS's project file (the `ide.ps1` instance's record), TwinCAT's XAE was launched on the solution's `.sln`. */
+function servesMultiAppFixture(): boolean {
 	try {
 		if (VENDOR === "codesys") {
-			const h = await bridge.health()
-			return (h.projects ?? []).some((p: any) => String(p.project ?? "").startsWith("CodesysTwoDevices"))
+			const opened = openedCodesysProject()
+			return opened !== undefined && isCodesysMultiAppFixture(opened)
 		}
 		return basename(servedSolutionDir()) === "TwinCAT MultiProject"
 	} catch {
@@ -116,10 +148,11 @@ async function servesMultiAppFixture(): Promise<boolean> {
 	}
 }
 
-const served = await servesMultiAppFixture()
+const served = servesMultiAppFixture()
 if (!served)
-	console.warn(`[multi-application] ${BASE} serves neither CodesysTwoDevices nor TwinCAT MultiProject — skipped (see the header)`)
-const expected = VENDOR === "codesys" ? CODESYS : TWINCAT
+	console.warn(`[multi-application] ${BASE} serves no CodesysTestProject/CodesysTwoDevices nor TwinCAT MultiProject — skipped (see the header)`)
+/** Set in `beforeAll`: CODESYS's devices are read from the fixture's descriptors once the IDE serves. */
+let expected: Expected = TWINCAT
 
 /** What of `want` a version map lacks — named in the failure, so a red run says which application went missing. */
 const missing = (map: Record<string, unknown>, want: string[]) => want.filter((p) => !(p in map))
@@ -127,6 +160,12 @@ const missing = (map: Record<string, unknown>, want: string[]) => want.filter((p
 describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 	beforeAll(async () => {
 		await requireHealthy(300_000)
+		if (VENDOR === "codesys") expected = codesysExpected(openedCodesysProject()!, (await bridge.refs()).items ?? {})
+	})
+
+	it(`the fixture's ${VENDOR === "codesys" ? `${DEVICES} devices are` : "system projects are"} all walked`, () => {
+		if (VENDOR === "codesys") expect(expected.devices, "device descriptors in refs").toHaveLength(DEVICES)
+		expect(expected.applications.length).toBeGreaterThan(1)
 	})
 
 	it("refs holds every item of every application under its own path", async () => {

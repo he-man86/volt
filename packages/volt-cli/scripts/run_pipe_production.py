@@ -115,10 +115,21 @@ _open_fixture()
 #
 # THE PROTOCOL is files, so the product's wire gains no test-only op: a test writes `request` into
 # %LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\ (pid = this CODESYS, the one the pipe is named after) holding a
-# request id on the first line and one object name per line after it; this probe exports each named object to
-# `<id>.<name>.export` and then writes `<id>.done` - or `<id>.error` with the reason, so a test fails naming it rather
+# request id on the first line and one object per line after it - its name, or its tree path (`Device/Plc Logic/
+# Application/VltFixtureCfc`, the wire path without its kind) when two devices hold the same name; this probe exports
+# each object to `<id>.<name>.export` (the path's last segment) and then writes `<id>.done` - or `<id>.error` with the reason, so a test fails naming it rather
 # than timing out. A WinForms timer runs it ON THE UI THREAD, the thread the pipe host's calls run on too, so an
 # export never interleaves with a push.
+def _tree_path(obj):
+    """The names from the tree root down to `obj` - the segments of its wire path."""
+    parts = []
+    while obj is not None and hasattr(obj, "get_name"):
+        parts.append(obj.get_name())
+        obj = getattr(obj, "parent", None)
+    parts.reverse()
+    return parts
+
+
 def _native_probe():
     try:
         import clr
@@ -168,10 +179,12 @@ def _native_probe():
                 proj = projects.primary
                 if proj is None:
                     raise Exception("no project is open")
-                for name in names:
-                    found = [o for o in proj.find(name, True) if o.get_name() == name]
+                for wanted in names:
+                    segments = wanted.split("/")
+                    name = segments[-1]
+                    found = [o for o in proj.find(name, True) if o.get_name() == name and _tree_path(o)[-len(segments):] == segments]
                     if len(found) != 1:
-                        raise Exception("expected ONE object named '%s', found %d" % (name, len(found)))
+                        raise Exception("expected ONE object at '%s', found %d" % (wanted, len(found)))
                     proj.export_native(found, os.path.join(folder, "%s.%s.export" % (rid, name)), recursive=True)
                 open(os.path.join(folder, rid + ".done"), "w").close()
             except Exception as e:

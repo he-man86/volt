@@ -12,15 +12,17 @@ import { expectVendorDifference } from "./bridge"
 import { codesysImplementations } from "./codesys-native"
 import { tcImplementations, tcPouFile } from "./tc-files"
 
-/** Every body of `bare` — its own, each member's and accessor's — as the IDE holds it, in order. `project` is the
- *  served project (`servedProject(health)`), which TwinCAT's file lookup needs. */
-export async function heldImplementations(bare: string, project: string): Promise<string[]> {
+/** Every body of an item — its own, each member's and accessor's — as the IDE holds it, in order. `item` is its bare
+ *  name, or its wire path where two applications hold the name (every CodesysTestProject fixture carries two devices).
+ *  `project` is the served project (`servedProject(health)`), which TwinCAT's file lookup needs. */
+export async function heldImplementations(item: string, project: string): Promise<string[]> {
+	const bare = item.slice(item.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")
 	return expectVendorDifference(
 		"openspec implementation-keyword 4.1: TwinCAT saves a push to a readable .TcPOU; CODESYS saves nothing, so its " +
 			"bodies are read through the served IDE's native export",
 		{
 			twincat: async () => tcImplementations(tcPouFile(bare, project)),
-			codesys: () => codesysImplementations(bare),
+			codesys: () => codesysImplementations(item),
 		},
 	)
 }
