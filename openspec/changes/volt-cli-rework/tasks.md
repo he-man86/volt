@@ -45,6 +45,10 @@ standing practice:
 
 ## 1. Map
 
+- [ ] 1.0 LOC baseline (owner, 2026-10-18), measured at the commit the rework starts from: per project in `src/` and
+      `test/`, C# lines split code / comment / blank (bin, obj excluded), plus `scripts/`. Recorded here; 4.1 measures
+      the same way and reports before → after per project.
+
 - [ ] 1.1 Per project: what it owns (ARCHITECTURE.md, README) vs what its code does; list misplaced code, duplicated
       logic between the hosts, and cross-project leaks. Merge with the 2026-10-16 simplify reviews (what is left).
       Open question for 1.2 (owner, 2026-10-17, not decided): the translation model → NWL nodes is done twice, once per
@@ -70,4 +74,5 @@ standing practice:
 
 ## 4. Close
 
+- [ ] 4.0 LOC after: the 1.0 measurement again, before → after per project (code / comment / blank).
 - [ ] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.
