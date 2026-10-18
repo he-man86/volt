@@ -14,6 +14,22 @@ or unstructured field (owner): a leftover of a removed design, a loose string wh
 optional values whose combinations mean different things. The owner decides the list in 1.2; the deletions land as one small wire change BEFORE the
 behind-the-wire refactor, so the fixed reference is the simplified wire.
 
+**Find what an outside client finds** (owner, 2026-10-18). PLC Assist, writing a second client against the docs, found
+seven defects our gates missed (strict members on push only; case-insensitive paths on push only; `unreadable` without a
+kind; a protocol number that never moved; a move onto an existing path; an unsaved TwinCAT window with no row; an LSP
+stack overflow). The pattern: a rule enforced at several call sites, one of which drifted; and tests that only ever pair
+a client and a bridge from the same commit. The audit and the rework add, as standing practice:
+- **Foreign-client review**: an agent given ONLY `docs/wire.html` and the OpenRPC document, no repo context, writes a
+  minimal client and reports every inconsistency between the contract, the read side and the write side. Run in 1.1,
+  and as a step of every change that touches `Volt.Contracts/Wire` (the change workflow gets it).
+- **One place per rule, gated**: every wire rule (path comparer, wire-name minter, strict request reader, protocol number
+  beside the schema pin) has one implementation and a `Volt.Repo.Gates` test that a new call site cannot bypass it. The
+  audit lists every rule that lives in more than one place.
+- **A mixed-version e2e cell**: the current CLI against the previous release's bridge (and the reverse), which must be
+  refused by name before any op, never misread.
+- **Size and fuzz inputs for the LSP**: generated deep and long inputs (nesting, flat chains, long files) in the suite,
+  so a crash on input nobody typed is found here first.
+
 ## 1. Map
 
 - [ ] 1.1 Per project: what it owns (ARCHITECTURE.md, README) vs what its code does; list misplaced code, duplicated
