@@ -101,11 +101,6 @@ namespace Volt.Connector
     /// connection state is read off the row (no second health probe).</summary>
     public static class WireProjects
     {
-        // READ tolerance, deliberately not the pipe's WRITE options: the wire writes camelCase, this reads any casing.
-        // The pair is asymmetric on purpose, so this is NOT a stale hand-copy of `PipeJson.Options` waiting to be
-        // deduplicated — swapping it narrows what a version-skewed bridge can be parsed from, and needs its own move.
-
-
         public static List<DetectedProject> Flatten(JsonElement healthRoot, string vendor, string? pipe)
         {
             HealthResponse? parsed;

@@ -46,9 +46,6 @@ namespace Volt.Relay
             Ops.Health, Ops.Refs, Ops.Fetch, Ops.Push, Ops.Build,
         };
 
-        /// <summary>This document's version. No negotiation — a relay that does not speak it closes the socket.</summary>
-        public const int Protocol = 1;
-
         public static string Hello(string? voltVersion, string vendor, string pipe)
         {
             using (var stream = new System.IO.MemoryStream())
@@ -57,7 +54,8 @@ namespace Volt.Relay
                 {
                     w.WriteStartObject();
                     w.WriteStartObject("hello");
-                    w.WriteNumber("protocol", Protocol);
+                    // The one wire number (WireProtocol). No negotiation — a relay that does not speak it closes the socket.
+                    w.WriteNumber("protocol", WireProtocol.Version);
                     w.WriteString("volt", voltVersion ?? "");
                     w.WriteString("vendor", vendor ?? "");
                     w.WriteString("pipe", pipe ?? "");

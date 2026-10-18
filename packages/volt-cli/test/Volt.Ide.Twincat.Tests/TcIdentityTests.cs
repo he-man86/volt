@@ -160,6 +160,7 @@ public class TcIdentityTests
         Assert.NotEmpty(rows);                                                // Assert.All passes on an empty array
         Assert.All(rows, p => Assert.Equal("3.1.4024.74", p.GetProperty("version").GetString()));
         Assert.False(string.IsNullOrEmpty(h.GetProperty("bridgeVersion").GetString()));
+        Assert.Equal(Volt.Contracts.WireProtocol.Version, h.GetProperty("protocol").GetInt32());
 
         var empty = new Dte(Tc("TwinCAT Project14"));
         empty.Remote.Version = "";

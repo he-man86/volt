@@ -68,6 +68,13 @@ public class HealthResponse
     [JsonPropertyName("bridgeVersion")]
     public string? BridgeVersion { get; set; }
 
+    /// <summary>The wire protocol this bridge speaks, <see cref="WireProtocol.Version"/>. Every bridge writes it (the
+    /// schema requires it); it is <c>int?</c> here only because a bridge from before it sends none, and a reader of
+    /// <c>health</c> — the connector — still has to read that bridge. The CLI refuses one whose number is not its own,
+    /// absent included (<c>BRIDGE_PROTOCOL</c>).</summary>
+    [JsonPropertyName("protocol")]
+    public int? Protocol { get; set; }
+
     /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the
     /// bridge can serve. While it is set, every row is <c>idle</c>.</summary>
     [JsonPropertyName("unsupported")]

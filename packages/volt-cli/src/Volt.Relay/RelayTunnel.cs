@@ -207,14 +207,19 @@ namespace Volt.Relay
         }
 
         /// <summary>The one line an engineer reads when the relay turns their bridge away. It names the relay's
-        /// reason verbatim, and says what to do only when the reason is the protocol: a bridge refused for any
-        /// other cause would be refused just the same after an update, so the hint would send them the wrong way.</summary>
-        private static string RefusalLine(RelayClose close)
+        /// reason verbatim, and says what to do only when the reason is the protocol (a 1008 whose reason contains
+        /// <c>protocol</c> — the contract, <c>docs/relay-protocol.md</c>): a bridge refused for any other cause would be
+        /// refused just the same after an update, so a hint would send them the wrong way.
+        /// <para>The protocol line does NOT guess which side is older. An un-redeployed relay refuses a newer bridge with
+        /// the same words an updated one uses for an older bridge, and it cannot say which it is, so the line states this
+        /// bridge's protocol and release and gives both remedies.</para></summary>
+        private string RefusalLine(RelayClose close)
         {
             var line = "relay: the relay refused this bridge (" + close + ").";
             if (close.Description.IndexOf("protocol", StringComparison.OrdinalIgnoreCase) >= 0)
-                line += " This bridge speaks relay protocol " + RelayFrames.Protocol +
-                        ", which the relay does not serve: download the latest bridge.";
+                line += " This bridge speaks relay protocol " + WireProtocol.Version + " (release " + (_voltVersion ?? "unknown") +
+                        "); the relay serves another. If this is not the latest bridge, download it; if it is, the service " +
+                        "has not updated yet and nothing on this machine needs changing.";
             return line + " Trying again in " + (int)RefusedCeiling.TotalMinutes + " minutes.";
         }
 

@@ -51,11 +51,19 @@ public sealed class BridgePipeHost : IDisposable
         return r;
     });
 
-    public BridgePipeHost(IIdeDriver ide, string pipeName)
+    public BridgePipeHost(IIdeDriver ide, string pipeName) : this(ide, pipeName, WireProtocol.Version) { }
+
+    /// <param name="protocol">The wire protocol <c>health</c> states — <see cref="WireProtocol.Version"/>, what every
+    /// shipped host states (the two-argument constructor). A test states another (or null, a bridge from before the
+    /// member) to stand for a peer of another release.</param>
+    public BridgePipeHost(IIdeDriver ide, string pipeName, int? protocol)
     {
         _ide = ide;
+        _protocol = protocol;
         _server = new PipeServer(pipeName, Dispatch);
     }
+
+    private readonly int? _protocol;
 
     public void Start() => _server.Start();
     public void Stop() => _server.Stop();
@@ -108,6 +116,7 @@ public sealed class BridgePipeHost : IDisposable
                 h.ProductVersion = _ide.ProductVersion;
                 h.ProductVendor = _ide.ProductVendor;
                 h.BridgeVersion = Release;
+                h.Protocol = _protocol;
                 h.Unsupported = unsupported;
                 return h;
             }

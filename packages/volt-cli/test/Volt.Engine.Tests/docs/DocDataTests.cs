@@ -268,7 +268,8 @@ public class DocDataTests
             ["info"] = new JsonObject
             {
                 ["title"] = "Volt bridge",
-                ["version"] = "1.0.0",
+                // The wire protocol the document describes — the one number `hello` and `health` carry.
+                ["version"] = WireProtocol.Version.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["description"] =
                     "The wire a Volt bridge serves over a Windows NAMED PIPE — `volt.bridge.<vendor>.<pid>`, one "
                     + "per live IDE. One request object per call: `{ \"op\": \"<name>\", \"body\": { ... } }`, "
@@ -336,7 +337,7 @@ public class DocDataTests
             var wireName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                            ?? JsonNamingPolicy.CamelCase.ConvertName(p.Name);
             props[wireName] = TypeSchema(p.PropertyType, schemas, isRequest);
-            if (!IsOptional(p, isRequest)) required.Add(wireName);
+            if (!IsOptional(p, isRequest) || SchemaRequired.Contains((t, p.Name))) required.Add(wireName);
         }
 
         // A union member names its own discriminator value, so its schema can close over every member it has.
@@ -382,6 +383,10 @@ public class DocDataTests
         }
         return schema;
     }
+
+    /// <summary>Members every bridge writes whose C# type is nullable for a reason of the READER, not the wire: the schema
+    /// requires them. <c>health.protocol</c> is <c>int?</c> only so the connector can still read a bridge from before it.</summary>
+    private static readonly HashSet<(Type, string)> SchemaRequired = new() { (typeof(HealthResponse), nameof(HealthResponse.Protocol)) };
 
     /// <summary>Whether a client may OMIT this field — which is not the same question in both directions.
     ///
@@ -745,6 +750,44 @@ public class DocDataTests
         var docs = DocsDir();
         GateOrWrite(Path.Combine(docs, "volt-bridge.openrpc.json"), RenderJson(spec));
         GateOrWrite(Path.Combine(docs, "assets", "data.js"), RenderDataJs(BuildData(spec)));
+    }
+
+    /// <summary>THE WIRE'S SHAPE IS PINNED BESIDE ITS PROTOCOL NUMBER (openspec <c>relay-protocol-tracks-wire-breaks</c>).
+    /// The generated document is a complete fingerprint of the wire's SHAPE, so any contract edit turns this red until
+    /// its author re-pins it — and decides, by the bump rule, whether <see cref="WireProtocol.Version"/> moves. Five
+    /// breaking wire commits shipped under protocol 1 while a prose rule asked for a bump; this is the check that rule
+    /// never had. A change of MEANING with the same shape passes it: that is the author's call, by the same rule.</summary>
+    [Fact]
+    public void The_wire_shape_is_pinned_beside_its_protocol_number()
+    {
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            Encoding.UTF8.GetBytes(RenderJson(BuildSpec()).ReplaceLineEndings("\n")))).ToLowerInvariant();
+
+        Assert.True(WireProtocol.Version == PinnedProtocol && hash == PinnedWireShape,
+            $"The wire's shape changed: volt-bridge.openrpc.json hashes to {hash}, pinned {PinnedWireShape} for protocol "
+            + $"{PinnedProtocol} (WireProtocol.Version is {WireProtocol.Version}). "
+            + "Decide by the bump rule: the protocol changes when an old peer would read the new wire without refusing it and "
+            + "take a different meaning. A removed, renamed or re-meant response member needs a bump; a new request member "
+            + "does not (request bodies are read strictly, so an old bridge refuses it), nor does a new response member an "
+            + "old client can ignore. Bump WireProtocol.Version if it does, then re-pin here: "
+            + $"PinnedProtocol = {WireProtocol.Version}, PinnedWireShape = \"{hash}\".");
+    }
+
+    /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
+    private const int PinnedProtocol = 2;
+    private const string PinnedWireShape = "bad11947bc13bbba8c5a6889e37ac6af795e87282d2bfc631fb0de9a22b145b5";
+
+    /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
+    /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge
+    /// from before it).</summary>
+    [Fact]
+    public void The_document_is_versioned_by_the_protocol_and_health_requires_it()
+    {
+        var spec = BuildSpec();
+        Assert.Equal(WireProtocol.Version.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                     spec["info"]!["version"]!.GetValue<string>());
+        var required = spec["components"]!["schemas"]!["HealthResponse"]!["required"]!.AsArray().Select(r => r!.GetValue<string>());
+        Assert.Contains("protocol", required);
     }
 
     /// <summary>EVERY OP IS DESCRIBED. The op→types mapping above is hand-written because it lives in a switch

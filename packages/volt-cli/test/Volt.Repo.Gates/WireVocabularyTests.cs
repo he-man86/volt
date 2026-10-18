@@ -60,7 +60,7 @@ public class WireVocabularyTests
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
             ("Volt.Engine/Sync/FetchService.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 10),   // +1 a move into another application; +1 a task moved out of its container (multi-application-tree)
+            ("Volt.Engine/Sync/PushService.cs", 8),   // +1 a move into another application; +1 a task moved out of its container (multi-application-tree); -2 the base-type op dispatch: PushOp is abstract, an op with no discriminator is refused by the strict body read (refuse-unknown-request-members)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)
@@ -344,6 +344,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         ("Volt.Engine/Sync/Materializer.cs", 1),
+        ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 2),   // +1 no Application to extract library signatures for, moved here from CodesysObjectModel.Libraries.cs (per application, multi-application-tree)

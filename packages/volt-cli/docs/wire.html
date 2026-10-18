@@ -53,6 +53,12 @@
   IDE thread, so it is the one op that is safe to poll while a push or a build is running. Everything else
   takes the IDE.
 </div>
+<p>
+  <code>health.protocol</code> is the wire protocol the bridge speaks, <code>WireProtocol.Version</code> &mdash; the
+  number the relay <code>hello</code> and this document's <code>info.version</code> carry. It changes when an old peer
+  would read the new wire without refusing it and take a different meaning. The CLI sends no op to a bridge of another
+  number, absent included (<code>BRIDGE_PROTOCOL</code>, <a href="cli.html#binding">cli</a>).
+</p>
 
 <h2 id="identity">Identity, versions and the two gates</h2>
 <p>

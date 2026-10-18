@@ -328,4 +328,17 @@ public class PerPipeProjectSourceTests
         Assert.Null(row.ProductVendor);
         Assert.Null(row.BridgeVersion);
     }
+
+    /// <summary>A bridge from before <c>health.protocol</c> is still READ: the connector only reads health and sends no
+    /// op, so it lists the project of a stale in-proc bridge; the CLI is what refuses it (openspec
+    /// <c>relay-protocol-tracks-wire-breaks</c>).</summary>
+    [Fact]
+    public void A_bridge_whose_health_has_no_protocol_is_still_read()
+    {
+        var row = Assert.Single(WireProjects.Flatten(Health(
+            """{ "projects": [ { "vendor": "codesys", "version": "3.5.21.40", "project": "P", "status": "healthy", "dirty": false } ], "bridgeVersion": "0.9.100" }"""),
+            "codesys", null));
+        Assert.Equal("P", row.ProjectName);
+        Assert.Equal("0.9.100", row.BridgeVersion);
+    }
 }

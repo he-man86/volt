@@ -2,7 +2,7 @@
   "openrpc": "1.2.6",
   "info": {
     "title": "Volt bridge",
-    "version": "1.0.0",
+    "version": "2",
     "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE. One request object per call: \u0060{ \u0022op\u0022: \u0022\u003Cname\u003E\u0022, \u0022body\u0022: { ... } }\u0060, answered with the method\u0027s result or \u0060{ \u0022error\u0022: { \u0022code\u0022: \u0022...\u0022, \u0022message\u0022: \u0022...\u0022 } }\u0060.\n\nGENERATED from the C# contract types by \u0060DocDataTests\u0060; edit those, not this file."
   },
   "servers": [
@@ -274,13 +274,17 @@
           "bridgeVersion": {
             "type": "string"
           },
+          "protocol": {
+            "type": "integer"
+          },
           "unsupported": {
             "type": "string"
           }
         },
         "required": [
           "projects",
-          "networkText"
+          "networkText",
+          "protocol"
         ]
       },
       "ProjectEntry": {

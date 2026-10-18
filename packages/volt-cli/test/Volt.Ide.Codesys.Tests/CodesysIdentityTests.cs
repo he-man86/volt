@@ -117,6 +117,7 @@ namespace Volt.Ide.Codesys.Tests
                 // stamped from (review gate 2: an Equal against BridgePipeHost.Release would pass on any reading)
                 Assert.Equal(D3OfHostFile(), h.GetProperty("bridgeVersion").GetString());
                 Assert.NotEqual(typeof(BridgePipeHost).Assembly.GetName().Version!.ToString(), h.GetProperty("bridgeVersion").GetString());
+                Assert.Equal(Volt.Contracts.WireProtocol.Version, h.GetProperty("protocol").GetInt32());
             }
             finally
             {
