@@ -45,17 +45,29 @@ Every producer emits at most one kind, so `UnreadableObject.Kinds` (a list) desc
   `<folder>/<name>`: a container setting no text spells, or an object whose kind could not be read. Both members are
   required on both lists.
 - **Engine:** `UnreadableObject.Kinds` becomes one `string? Kind` (null: unknown; `folder`: a container node; else the
-  item's kind). `CodesysDriver.Tree.cs:102` records `folder`. `Removal`'s exemption is membership of the unreadable full
-  paths; `UnreadableKinds`, `AddUnreadable` and the bare-path/kind matching are deleted. `PushService`'s `notOpened` is
-  keyed by full path.
+  item's kind). `CodesysDriver.Tree.cs:102` records `folder` AND adds the container's subtree to `unwalked` itself, as
+  `:164` does: today that subtree reaches `UnwalkedFolders` only through `WalkResult`'s `Kinds is null` rule
+  (`WalkResult.cs:41-43`), so without it every known item under the container would be reported removed. That rule
+  stays for `Kind is null` only. The same list becomes one `Kind` in `UnreadableItemException.Kinds`,
+  `ItemLookup.Untouchable.Kinds` (`PushService.ApplyToUnopened`, `:763-765`) and `ExplorerSnapshot.PouKinds`.
+  `Removal`'s exemption is membership of the unreadable full paths; `UnreadableKinds`, `AddUnreadable` and the
+  bare-path/kind matching are deleted. `PushService`'s `notOpened` is keyed by full path. `PushConflicts` gets the bare
+  paths of `Kind is null` objects only (`PushService.cs:109` passes every unreadable object today, so `set X.dut` beside
+  an unreadable `X.pou` is still refused), and the bare-path fallback in its key resolution (`PushConflicts.cs:46-56`)
+  is deleted: every unreadable item is keyed by its full path.
 - `refs` and `fetch` emit both lists through one ordering function; neither collapses entries.
 - CLI and volt-control print both lists. The 4 e2e kind guesses are replaced by the entry's `name`. The dead check at
   `refusals/table.ts:327` (an `UnreadableItem` compared to a string) is fixed.
+- The scripts that match the bare name switch to the full path: `volt-cli/scripts/vendor-facts.ts:741`,
+  `completeness.ts:439-445` (`refusedAt`), `volt-lsp-iec/scripts/held-as.ts:46`, `:64`, `:77` and its test fixture
+  (`held-as.test.ts:60`). Each would otherwise silently stop matching.
 
 ## Impact
 
 - `Volt.Contracts/Wire/Shared.cs` (`unreadable` meaning, `unreadableNodes`), `Volt.Engine/Item/WalkResult.cs`
-  (`UnreadableObject.Kind`), `Volt.Engine/Sync/Versioning.cs`, `Removal.cs`, `Materializer.cs`, `PushService.cs`,
-  `RefsService.cs`, `FetchService.cs`, both vendors' `*.Tree.cs`, `FakeIde`.
+  (`UnreadableObject.Kind`), `Volt.Engine/Ide/UnreadableItemException.cs`, `ItemLookup.cs`,
+  `Volt.Engine/Sync/Versioning.cs`, `Removal.cs`, `Materializer.cs`, `PushService.cs`, `PushConflicts.cs`,
+  `RefsService.cs`, `FetchService.cs`, both vendors' `*.Tree.cs`, `Volt.Ide.Twincat/Ide/ExplorerSnapshot.cs`, `FakeIde`.
+- Scripts: `volt-cli/scripts/vendor-facts.ts`, `completeness.ts`; `volt-lsp-iec/scripts/held-as.ts`, `held-as.test.ts`.
 - `Volt.Cli` (`Program.cs:195`, `:254`), `packages/volt-control` (`types.ts:18`), e2e harness.
 - `docs/wire.html`, OpenRPC (regenerated), `Volt.Engine/Ide/DIALECT.md` (C2i, C7, V7 wording).

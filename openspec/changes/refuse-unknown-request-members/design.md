@@ -1,7 +1,8 @@
 ## Decision
 
 One request options object, `WireJson.Request` (case-exact, `Disallow`), used by `Body<T>`. The two per-type attributes
-are deleted.
+are deleted. `PushOp` is abstract, so a missing discriminator is refused by the same read. `WireJson.Read` is case-exact
+and keeps only unknown-member leniency.
 
 ## Options considered
 
@@ -31,6 +32,10 @@ are deleted.
   two spellings. Rules: no backward compatibility; one way to say each fact.
 - **The `Volt.Repo.Gates` enumeration.** It is unnecessary when strictness lives in the one read every body takes.
 - **"The design step picks attribute or options."** Decided: options.
+- **Case-insensitive frames and responses.** Same 0-sender compat as for requests (`PipeServer.cs:229`,
+  `BridgeClient.cs:40`, `PerPipeProjectSource.cs:112`). Rule: no backward compatibility. Unknown-member leniency stays: it
+  is what lets an added response member ship without a bump.
+- **A concrete `PushOp` and its dispatch-time refusal.** Two places refuse one mistake. Rule: one way to say each fact.
 - **A pin that responses stay lenient.** Response leniency is the relay change's rule (an additive response member does
   not bump the protocol; a changed meaning does). It is not this change's behaviour to pin.
 

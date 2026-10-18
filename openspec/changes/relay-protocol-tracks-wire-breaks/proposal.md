@@ -31,22 +31,28 @@ Nothing tells the two peers apart before the first op:
 
 - **One number, `WireProtocol.Version = 2`**, in `Volt.Contracts`. `hello.protocol`, `health.protocol` and the OpenRPC
   `info.version` all read it. `RelayFrames.Protocol` is deleted.
-- **The bump is enforced, not described.** A gate pins the hash of the generated `volt-bridge.openrpc.json` beside
-  `WireProtocol.Version`. Any wire edit turns it red until its author re-pins it, deciding bump or no bump by one rule:
-  the number changes when an old peer would read the new wire without refusing it and take a different meaning.
-- **`health.protocol`, read by the CLI.** Every bridge writes it. `BridgeClient` reads `health` once per process before its
-  first op and refuses a bridge whose `protocol` is not its own (an absent member reads as no protocol and is refused the
-  same way). The refusal is a CLI-local code, `BRIDGE_PROTOCOL`, naming both numbers and the remedy ("restart the IDE to
-  load the updated bridge"). The connector does not refuse: it only reads `health` and issues no op.
+- **A shape break is enforced, not described.** A gate pins the hash of the generated `volt-bridge.openrpc.json` beside
+  `WireProtocol.Version`. Any wire SHAPE edit turns it red until its author re-pins it, deciding bump or no bump by one
+  rule: the number changes when an old peer would read the new wire without refusing it and take a different meaning. A
+  change of meaning with the same shape (the schema carries no member descriptions) is not caught; it is covered by the
+  rule alone. All 5 measured breaks changed shape.
+- **`health.protocol`, read by the CLI.** Every bridge writes it; the schema marks it required. It is stamped by
+  `BridgePipeHost` beside `bridgeVersion`, so every host (both vendors and `FakeIde`) carries it. `BridgeClient` reads
+  `health` once per process before its first op and refuses a bridge whose `protocol` is not its own. The C# member is
+  `int?`: an old bridge's absent member reads as "none", never as 0, and the connector, which must still read an old
+  bridge's `health`, keeps reading it. The refusal is a CLI-local code, `BRIDGE_PROTOCOL`, naming both numbers, with the
+  remedy that follows the comparison: bridge older or none → "restart the IDE to load the updated bridge"; bridge newer →
+  "update Volt". The connector does not refuse: it only reads `health` and issues no op.
 - **A neutral refusal line.** `RefusalLine` no longer guesses which side is older: "This bridge speaks relay protocol 2
   (release <volt>); the relay serves another. If this is not the latest bridge, download it; if it is, the service has not
-  updated yet and nothing on this machine needs changing." The relay's reason format is unchanged.
+  updated yet and nothing on this machine needs changing." The relay's reason format is unchanged. The substring
+  `protocol` in a 1008 reason is the contract, stated in `relay-protocol.md`: it is what PLCAssist's relay already sends.
 - `relay-protocol.md`: the rule (one sentence), `protocol` defined as `WireProtocol.Version`, and every example rewritten
   with paths.
 
 ## Impact
 
-- `Volt.Contracts` (`WireProtocol`, `HealthResponse.Protocol`), `Volt.Engine/Ide/DriverBase.cs` (fills it),
+- `Volt.Contracts` (`WireProtocol`, `HealthResponse.Protocol`), `Volt.Engine.Host/BridgePipeHost.cs` (stamps it),
   `Volt.Relay` (`RelayFrames`, `RelayTunnel.RefusalLine`), `Volt.Cli/Sync/BridgeClient.cs`.
 - `test/Volt.Engine.Tests/docs/DocDataTests.cs` (the pin, `info.version`), `docs/volt-bridge.openrpc.json`,
   `docs/wire.html`, `docs/cli.html` (the new code), `docs/relay-protocol.md`.

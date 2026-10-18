@@ -27,7 +27,19 @@ is required. The engine's `Kinds` list becomes one `Kind`, and the removal exemp
 - Consumers: Volt's product code prints the name only (CLI 2 sites, volt-control 1 type). The e2e harness guesses the kind
   in 4 places to form a forced `deleteItem`, which is direct evidence that a client needs the full path.
 - `Removal` shields only entries with a kind today (`Versioning.cs`, `o.Kinds is { }`). Moving `null`/`[]` entries to
-  `unreadableNodes` therefore changes no removal answer.
+  `unreadableNodes` therefore changes no removal answer, PROVIDED `:102` keeps its subtree unwalked: today it gets there
+  only through `WalkResult`'s `Kinds is null` rule, which a `folder` kind leaves. So `:102` adds its subtree to
+  `unwalked` itself, as `:164` does (test 1.9).
+- Bare-name consumers outside the product: `vendor-facts.ts:741`, `completeness.ts:439-445`, `held-as.ts:46`, `:64`,
+  `:77`. Each switches to the full path; none refuses on a miss, so each would go silently wrong.
+- `PushConflicts` refuses a `set` whose bare path matches ANY unreadable object (`PushService.cs:109`,
+  `PushConflicts.cs:43-66`). Only an object of unknown kind can be what such a `set` lands on, so only those are passed.
+
+## Kept, and why
+
+- **`UnclassifiableKey`'s ordinal** (`Versioning.cs:66`). It is not a feature for a measured case: it keeps the version-map
+  key unique so two same-named `Kind is null` objects in one folder neither throw on insert nor collapse onto one slot,
+  the collapse `CLAUDE.md` records costing real data. Removing it would need a choice between those two failures.
 
 ## Cut, and the rule that cut it
 
@@ -35,6 +47,8 @@ is required. The engine's `Kinds` list becomes one `Kind`, and the removal exemp
 - **The "kind family spanning more than one extension" rule and its pin.** No producer can emit one. It is made
   unrepresentable (one `Kind`) instead of tested. Rule: measured cases only.
 - **The optional `name`/`object` pair.** Replaced by two lists. Rule: no bag of optional fields.
+- **The bare-path fallback in `PushConflicts`' key resolution** (`PushConflicts.cs:46-56`). It existed because an
+  unreadable item had no kind; with every unreadable item keyed by its full path it is the leftover of the removed design.
 - **"Engine keys unchanged".** With the full path on the wire, the bare-path + kinds removal key is the leftover of the
   removed design, and it carries the verbatim-kind bug. Rule: no leftover of a removed design.
 - **`ItemKind.ExtFor(kind)`.** Replaced by the existing minter, which gets verbatim kinds and library folders right. Rule:

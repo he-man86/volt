@@ -17,6 +17,10 @@ be `BAD_REQUEST` naming the op and the member, before any IDE work. Response fra
 - **WHEN** a client sends `push { "ops": [ … ], "x": 1 }`
 - **THEN** the push fails `BAD_REQUEST` naming `x`, and no op is applied
 
+#### Scenario: a push op with no discriminator
+- **WHEN** a client sends `push { "ops": [ { "name": "X.pou" } ] }`
+- **THEN** the push fails `BAD_REQUEST` naming `push`, and no op is applied
+
 #### Scenario: a miscased member
 - **WHEN** a client sends `fetch { "KnownItems": { … } }`
 - **THEN** the call fails `BAD_REQUEST` naming `KnownItems`

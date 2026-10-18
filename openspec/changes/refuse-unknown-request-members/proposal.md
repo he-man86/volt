@@ -31,7 +31,12 @@ PascalCase request members across TS and C# senders finds 0 hits and 0 pins.
   wrapper already answers `BAD_REQUEST` "the body of `<op>` is not a valid `<Type>`: The JSON property '`<member>`' could
   not be mapped…", which names the op and the member. No new message code.
 - The two per-type attributes on `SetItemOp`/`DeleteItemOp` are deleted: one mechanism.
-- `WireJson.Read` stays as it is for responses and the envelope.
+- **`PushOp` becomes abstract.** A push op with no `op` discriminator is refused by the same read as `BAD_REQUEST`, instead
+  of being read as a plain `PushOp` and refused later by a separate dispatch branch (`MalformedPushOpTests.cs:28-41`),
+  which is deleted with its test.
+- **`WireJson.Read` (envelope and responses) becomes case-exact too.** Its one reason, "a client that predates
+  `[JsonPropertyName]` may still be sending PascalCase" (`WireJson.cs:8-9`), is the same 0-sender compat. It keeps only
+  unknown-member leniency, which the relay change's bump rule relies on.
 - The six `buildType` senders stop sending it.
 - The OpenRPC generator emits `additionalProperties: false` on request object schemas.
 - Docs: `wire.html`'s `BAD_REQUEST` row gains "a body member the op does not have". `relay-protocol.md`'s "a request field
@@ -40,8 +45,9 @@ PascalCase request members across TS and C# senders finds 0 hits and 0 pins.
 
 ## Impact
 
-- `Volt.Contracts/Wire/WireJson.cs`, `PushModels.cs`; `Volt.Engine.Host/BridgePipeHost.cs` (`Body<T>`).
+- `Volt.Contracts/Wire/WireJson.cs`, `PushModels.cs`; `Volt.Engine.Host/BridgePipeHost.cs` (`Body<T>`), `PushService`
+  (the base-type dispatch branch).
 - `test/Volt.Engine.Tests/docs/DocDataTests.cs` (schema generator), `docs/volt-bridge.openrpc.json`, `docs/wire.html`,
   `docs/relay-protocol.md`.
 - `packages/volt-lsp-iec/scripts/` (six call sites).
-- Tests: `PipeTransportTests`.
+- Tests: `PipeTransportTests`, `MalformedPushOpTests` (the base-type case is deleted).
