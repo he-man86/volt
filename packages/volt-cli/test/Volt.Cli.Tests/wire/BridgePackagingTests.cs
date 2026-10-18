@@ -150,9 +150,10 @@ public class BridgePackagingTests
     }
 
     /// <summary>A pid Windows reused for a process this run cannot inspect (pid 4 is System) is not one this run started:
-    /// the sweep must not throw on it, or every later run fails until the folder is deleted by hand (2026-10-15, audiodg).</summary>
+    /// the sweep must not throw on it, or every later run fails until the folder is deleted by hand (2026-10-15, audiodg).
+    /// Whether it reads as alive depends on elevation (an elevated CI runner can inspect System), so only the throw is pinned.</summary>
     [Fact]
-    public void A_pid_reused_by_a_protected_process_is_not_alive_to_the_sweep() => Assert.False(Alive(4));
+    public void A_pid_reused_by_a_protected_process_does_not_throw_in_the_sweep() => Assert.Null(Record.Exception(() => Alive(4)));
 
     private static bool Alive(int pid)
     {
