@@ -1818,6 +1818,94 @@
 			"move subject2: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:ImportChild) failed: No elements imported. Please check content of the archive file '<archive>' for valid data and name conflicts!"
 		]
 	},
+	"name-onto-taken": {
+		"fa-children@create-other-folder": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@created": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@dut-onto-fb": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@gvl-onto-fb": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@other-folder": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@prg-onto-fb": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fa-children@same-folder": [
+			"VltF_TkD",
+			"VltF_TkG",
+			"VltF_TkX",
+			"VltF_TkY"
+		],
+		"fb-children@create-other-folder": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@created": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@dut-onto-fb": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@gvl-onto-fb": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@other-folder": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@prg-onto-fb": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"fb-children@same-folder": [
+			"VltF_TkP",
+			"VltF_TkZ"
+		],
+		"steps": [
+			"create fa: accepted",
+			"create fb: accepted",
+			"create x: accepted",
+			"create y: accepted",
+			"create z: accepted",
+			"create d: accepted",
+			"create g: accepted",
+			"create p: accepted",
+			"rename y: refused: InvalidOperationException: A file or folder with the name '<solution>\\TwinCAT Project14\\Untitled2\\VltF_TkA\\VltF_TkX.TcPOU' already exists on disk at this location. Please choose another name.",
+			"rename z: refused: ApplicationException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename d: refused: ApplicationException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename g: refused: ApplicationException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename p: refused: ApplicationException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"create x2: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: An object with the name 'VltF_TkX' already exists within the corresponding namespace.\nObject Path: 'TwinCAT_Project14.PLC.Untitled2.VltF_TkA.VltF_TkX'"
+		]
+	},
 	"nwl-address-sentinel": {
 		"diagnostics@built": {
 			"diagnostics": [

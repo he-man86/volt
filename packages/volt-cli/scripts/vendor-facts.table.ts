@@ -3262,6 +3262,114 @@ export const ROWS: Row[] = [
     ],
   },
   {
+    // openspec `move-onto-existing-path-refused` 1.1: a rename or a move onto a name the IDE already holds, asked of the
+    // vendor directly (no Volt gate) - refused, clash-renamed, or two objects - and which kinds share the name scope.
+    id: "name-onto-taken",
+    dialect: ["C38"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      { op: "create", as: "fa", kind: "folder", name: "VltF_TkA", parent: "root", via: "script" },
+      { op: "create", as: "fb", kind: "folder", name: "VltF_TkB", parent: "root", via: "script" },
+      {
+        op: "create",
+        as: "x",
+        kind: "function_block",
+        name: "VltF_TkX",
+        parent: "fa",
+        via: "script",
+        decl: DECL.function_block("VltF_TkX"),
+      },
+      {
+        op: "create",
+        as: "y",
+        kind: "function_block",
+        name: "VltF_TkY",
+        parent: "fa",
+        via: "script",
+        decl: DECL.function_block("VltF_TkY"),
+      },
+      {
+        op: "create",
+        as: "z",
+        kind: "function_block",
+        name: "VltF_TkZ",
+        parent: "fb",
+        via: "script",
+        decl: DECL.function_block("VltF_TkZ"),
+      },
+      {
+        op: "create",
+        as: "d",
+        kind: "dut",
+        seed: "struct",
+        name: "VltF_TkD",
+        parent: "fa",
+        via: "script",
+        decl: DUT.struct("VltF_TkD"),
+      },
+      { op: "create", as: "g", kind: "gvl", name: "VltF_TkG", parent: "fa", via: "script" },
+      {
+        tag: "created",
+        op: "create",
+        as: "p",
+        kind: "program",
+        name: "VltF_TkP",
+        parent: "fb",
+        via: "script",
+        decl: DECL.program("VltF_TkP"),
+      },
+      // (a) the same folder, the same kind; (b) another folder of the application.
+      { tag: "same-folder", op: "rename", on: "y", to: "VltF_TkX", via: "script" },
+      { tag: "other-folder", op: "rename", on: "z", to: "VltF_TkX", via: "script" },
+      // Which kinds share the name scope with an FB: a DUT, a GVL, a program.
+      { tag: "dut-onto-fb", op: "rename", on: "d", to: "VltF_TkX", via: "script" },
+      { tag: "gvl-onto-fb", op: "rename", on: "g", to: "VltF_TkX", via: "script" },
+      { tag: "prg-onto-fb", op: "rename", on: "p", to: "VltF_TkX", via: "script" },
+      // (c) can the IDE hold a taken name in another folder at all - the state a move onto a held name needs?
+      {
+        tag: "create-other-folder",
+        op: "create",
+        as: "x2",
+        kind: "function_block",
+        name: "VltF_TkX",
+        parent: "fb",
+        via: "script",
+        decl: DECL.function_block("VltF_TkX"),
+      },
+    ],
+    reads: [
+      {
+        key: "fa-children",
+        at: [
+          "created",
+          "same-folder",
+          "other-folder",
+          "dut-onto-fb",
+          "gvl-onto-fb",
+          "prg-onto-fb",
+          "create-other-folder",
+        ],
+        on: "fa",
+        op: "children",
+      },
+      {
+        key: "fb-children",
+        at: [
+          "created",
+          "same-folder",
+          "other-folder",
+          "dut-onto-fb",
+          "gvl-onto-fb",
+          "prg-onto-fb",
+          "create-other-folder",
+        ],
+        on: "fb",
+        op: "children",
+      },
+    ],
+  },
+  {
     // openspec `bridge-one-to-one` 1.3, proposal finding 1: can a create make each class Volt folds — through the
     // vendor's own factory or class, the way its Add Object does — and do the class, its special member and the text
     // survive a reload? A refused create is the vendor's answer, recorded. The text-list enum's rows after a

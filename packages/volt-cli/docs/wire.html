@@ -133,7 +133,7 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   <code>set</code>'s <code>to</code>, an addressed path (<a href="#identity">identity</a>). A second op on the same path
   (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a path another op
   sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
-  <code>set</code>; a delete and a create of the same path are two pushes. That batch used to replace the object —
+  <code>set</code>; a delete and a create of the same path are two pushes, and so is freeing a path and moving onto it. That batch used to replace the object —
   and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network settings)
   — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
   (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
@@ -224,13 +224,13 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   A rejected push is not an error frame — it is a normal <code>result</code> with <code>accepted:false</code>
   and a <code>conflicts</code> list, because a version conflict is an expected outcome rather than a failure.
   Nothing was applied. These five are the gate's own answers, and they are five because the engineer's next
-  step is different for each:
+  step is different for each. <code>ITEM_EXISTS</code> also comes from the pre-flight, for a <code>to</code>:
 </p>
 <table>
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
   <tr><td class="name">STALE_PROJECT_VERSION</td><td>The lease: the project moved between the fetch that produced <code>expectedProjectVersion</code> and this push. Reported on a synthetic row named <code>&lt;project&gt;</code>, which is not an item and cannot collide with one.</td><td>Pull, then push again.</td></tr>
   <tr><td class="name">STALE_ITEM_VERSION</td><td>That item moved since you read its version — the ordinary edit collision. <code>yourVersion</code> and <code>currentVersion</code> are both set.</td><td>Pull that item, merge, push again.</td></tr>
-  <tr><td class="name">ITEM_EXISTS</td><td>A create (<code>ifVersion: null</code>) landed on a name the IDE already holds.</td><td>Fetch its version and push an update, or pick another name. <b>Not</b> pull-and-retry.</td></tr>
+  <tr><td class="name">ITEM_EXISTS</td><td>A <code>set</code> lands on a path the IDE holds: a create (<code>ifVersion: null</code>, gate only, so a forced create overwrites), or a rename or move's <code>to</code> (pre-flight, force or not) &mdash; a rename too when a POU, DUT or GVL of the same application holds its name in another folder or kind, since the IDE holds one object of a name per application. <code>currentVersion</code> is the version of the item there.</td><td>A create: fetch its version and push an update, or pick another name. A <code>to</code>: pick another <code>to</code>, or free it in an earlier push. <b>Not</b> pull-and-retry.</td></tr>
   <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
   <tr><td class="name">ITEM_UNVERIFIED</td><td>The push could not READ the item — the pre-apply walk skipped the folder it lives in, so absence proves nothing. The opposite news to <code>ITEM_MISSING</code>: the item is almost certainly still there and the <i>bridge</i> is what is impaired. The same code when the apply meets it: TwinCAT reads a folder only when its Solution Explorer hierarchy vouches for every child (DIALECT C2i), and a push&rsquo;s apply-time lookup through a folder it does not vouch for &mdash; or one holding two children of one name (D34) &mdash; answers this, naming the folder. So does a lookup whose child count, child or name read the IDE refuses outright, and a forced replace of an item the walk named but whose folder it did not read. A hierarchy that cannot vouch for the PLC project <i>itself</i> stops the walk before anything is read: <code>refs</code>, <code>fetch</code> and <code>push</code> then answer it as an error <i>frame</i> with this code &mdash; the one gate code that can arrive as a frame. Resolving a body&rsquo;s names reads every declaration of the project, so such a folder <i>anywhere</i> refuses that op too, the message saying the refusal is the folder&rsquo;s, not the item&rsquo;s. (It was <code>INTERNAL_ERROR</code>.)</td><td>Fix what stops the IDE enumerating that folder &mdash; the message names it; a <code>refs</code>/<code>fetch</code> walk lists the folders it skipped in <code>unwalkedFolders</code>. Do not recreate the item.</td></tr>
 </table>

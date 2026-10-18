@@ -23,3 +23,18 @@ visualization with the same bare name SHALL NOT make it a collision.
 #### Scenario: beside a visualization of the same name
 - **WHEN** a push moves `…/POUs/Y.pou` into `…/IO`, which holds `Y.visualization` and no `Y.pou`
 - **THEN** the move is not refused as a collision
+
+### Requirement: a rename onto a name its application holds is refused before anything lands
+Both IDEs hold one object of a name per application for a POU, a DUT and a GVL, in any folder (DIALECT C38). The push
+SHALL refuse, before any op is applied and whether or not `force` is set, a `set` whose `to` changes the bare name to
+one a POU, DUT or GVL of the same application holds, when `to` is itself a POU, DUT or GVL. The conflict SHALL carry
+`ITEM_EXISTS` on the op's `name`, name the item that holds the name, and carry its version as `currentVersion`.
+
+#### Scenario: another folder, another kind
+- **WHEN** the IDE holds `POUs/FB_X.pou` and `Other/D_Z.dut` in one application, and a push renames `Other/D_Z.dut` to
+  `Other/FB_X.dut`
+- **THEN** it is refused `ITEM_EXISTS` naming `POUs/FB_X.pou`, with or without force, and the project is unchanged
+
+#### Scenario: another application
+- **WHEN** the name is held only in another application
+- **THEN** the rename is not refused as a collision

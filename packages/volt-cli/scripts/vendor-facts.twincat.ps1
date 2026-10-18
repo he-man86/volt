@@ -296,6 +296,9 @@ function Why($e) {
     # A refused import quotes the move's archive path, which lives under this account's TEMP: the snapshot holds the
     # token, so the fact reads the same on every machine and account.
     if ($script:MoveArchive) { $msg = $msg.Replace($script:MoveArchive, "<archive>") }
+    # A refusal on disk quotes the file's path, under this instance's fixture copy: the token likewise.
+    $sln = Split-Path -Parent ([string]$script:dte.Solution.FullName)
+    if ($sln) { $msg = $msg.Replace($sln, "<solution>") }
     return "$($e.GetType().Name): $msg"
 }
 

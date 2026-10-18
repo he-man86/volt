@@ -131,8 +131,10 @@ public class WireVocabularyTests
         new("the item moved since its version was read", "pull that item, merge, push again", "STALE_ITEM_VERSION", At(
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 1))),
-        new("a create landed on a name the IDE holds", "push an update, or pick another name", "ITEM_EXISTS", At(
-            ("Volt.Engine/Sync/PushConflicts.cs", 1))),
+        new("a set landed on a path the IDE holds (a create, or a rename or move's to)",
+            "a create: push an update or pick another name; a to: pick another or free it first", "ITEM_EXISTS", At(
+            ("Volt.Engine/Sync/PushConflicts.cs", 1),
+            ("Volt.Engine/Sync/PushService.cs", 2))),   // move-onto-existing-path-refused: a held `to`, a held name (C38)
         new("a quoted item is gone (complete walk)", "create it, or drop the op", "ITEM_MISSING", At(
             ("Volt.Engine/Sync/PushConflicts.cs", 1))),
         new("the push could not read where the item lives", "fix what stops the IDE enumerating that place",

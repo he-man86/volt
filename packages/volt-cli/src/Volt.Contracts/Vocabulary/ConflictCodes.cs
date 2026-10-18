@@ -75,9 +75,11 @@ public static class ConflictCodes
     /// that item, merge, push again.</summary>
     public const string StaleItemVersion = "STALE_ITEM_VERSION";
 
-    /// <summary>A CREATE (<c>ifVersion: null</c>) landed on a name the IDE already holds. Remedy: fetch the
-    /// item's version and push it as an update, or pick another name — NOT "pull and retry", which is what the
-    /// stale-version codes mean and what a caller reading only the prose could not tell this apart from.</summary>
+    /// <summary>A <c>set</c> landed on a path the IDE already holds: a CREATE (<c>ifVersion: null</c>; the gate, so a
+    /// forced create overwrites) or a rename or move's <c>to</c> (the pre-flight, force or not). <c>currentVersion</c> is
+    /// the version of the item there. Remedy: for a create, fetch the item's version and push it as an update, or pick
+    /// another name; for a <c>to</c>, pick another one or free it in an earlier push — NOT "pull and retry", which is
+    /// what the stale-version codes mean and what a caller reading only the prose could not tell this apart from.</summary>
     public const string ItemExists = "ITEM_EXISTS";
 
     /// <summary>The client quoted a version for an item that is no longer there. Distinct from

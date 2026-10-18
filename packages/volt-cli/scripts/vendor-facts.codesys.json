@@ -5897,6 +5897,95 @@
 			"MainTask"
 		]
 	},
+	"name-onto-taken": {
+		"fa-children@create-other-folder": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@created": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@dut-onto-fb": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@gvl-onto-fb": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@other-folder": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@prg-onto-fb": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fa-children@same-folder": [
+			"VltF_TkX",
+			"VltF_TkY",
+			"VltF_TkD",
+			"VltF_TkG"
+		],
+		"fb-children@create-other-folder": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@created": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@dut-onto-fb": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@gvl-onto-fb": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@other-folder": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@prg-onto-fb": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"fb-children@same-folder": [
+			"VltF_TkZ",
+			"VltF_TkP"
+		],
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create fa: accepted",
+			"create fb: accepted",
+			"create x: accepted",
+			"create y: accepted",
+			"create z: accepted",
+			"create d: accepted",
+			"create g: accepted",
+			"create p: accepted",
+			"rename y: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename z: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename d: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename g: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"rename p: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace.",
+			"create x2: refused: BaseException: An object with the name 'VltF_TkX' already exists within the corresponding namespace."
+		]
+	},
 	"nwl-address-sentinel": {
 		"diagnostics@built": [],
 		"diagnostics@rebuilt": [],

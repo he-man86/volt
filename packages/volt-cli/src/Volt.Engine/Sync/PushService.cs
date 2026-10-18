@@ -21,6 +21,14 @@ namespace Volt.Engine.Sync;
 /// <c>/refs</c> exactly.</summary>
 public static class PushService
 {
+    /// <summary>The kinds that share the IDE's name scope, measured on both vendors (DIALECT C38): a POU, a DUT and a GVL
+    /// of one application cannot hold one name. Other kinds are not judged (an FB and its visualization share a name in
+    /// real projects).</summary>
+    private static readonly HashSet<string> NameScopeKinds = new(StringComparer.Ordinal)
+    {
+        ItemKind.Kinds.Pou, ItemKind.Kinds.Dut, ItemKind.Kinds.Gvl,
+    };
+
     public static PushResponse Handle(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
@@ -46,7 +54,12 @@ public static class PushService
         // (`PutBackWhatTheRenameTouched`). The item CACHE is needed either way; it comes from the walk, not the read.
         var renaming = request.Ops.OfType<SetItemOp>().Any(s => s.To is { } to
             && !string.Equals(ItemPath.BareOf(to), ItemPath.BareOf(s.Name), StringComparison.Ordinal));
-        var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true || renaming;
+        // A `set` whose `to` is another path (a move or a rename, not a case-only one) needs the version map under force
+        // too: the pre-flight refuses a `to` the IDE already holds, and the map is the one place full identities exist.
+        var relocating = request.Ops.OfType<SetItemOp>().Any(s => s.To is { } to
+            && !string.Equals(to, s.Name, StringComparison.OrdinalIgnoreCase));
+        var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true
+                           || renaming || relocating;
         var textsBefore = renaming ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) : null;
         var currentVersions = new Dictionary<string, string>();
         var gatedVersions = new Dictionary<string, string>();
@@ -142,6 +155,22 @@ public static class PushService
         // pushed DUT), so applying the rest lands a project no op-level check can say builds.
         var refusedByGate = new HashSet<string>(conflicts.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
         var preflight = new List<PushConflict>();
+        // The paths the IDE holds BEFORE the apply, compared ignoring case as every addressed path is (one-path-comparer).
+        // Only the pre-apply walk can hold a `to`: an earlier op of the batch onto it is refused by RequireOneOpPerItem.
+        var heldBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // …and the NAMES they hold in the IDE's name scope (DIALECT C38): both IDEs refuse a rename onto a name an object
+        // of the same application holds, in any folder, for each kind measured to share it.
+        var namesBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? NameScopeKey(string path) =>
+            ItemKind.KindForWireName(path) is { } k && NameScopeKinds.Contains(k)
+                ? $"{ItemPath.ApplicationOf(path, walk.Applications)}/{ItemPath.BareOf(path)}"
+                : null;
+        if (relocating)
+            foreach (var kv in currentVersions)
+            {
+                if (!heldBefore.ContainsKey(kv.Key)) heldBefore[kv.Key] = kv.Value;
+                if (NameScopeKey(kv.Key) is { } key && !namesBefore.ContainsKey(key)) namesBefore[key] = kv.Key;
+            }
         // EACH SET OP'S TEXT, READ AND VALIDATED ONCE (openspec bridge-refusal-review D8/D12), by the op's name — one op per
         // wire identity (RequireOneOpPerItem). The apply writes from these: no second read, no second validation.
         var validated = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
@@ -156,6 +185,36 @@ public static class PushService
             {
                 preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}")));
                 continue;
+            }
+
+            // A RENAME OR A MOVE ONTO A PATH THE IDE HOLDS (openspec move-onto-existing-path-refused), force or not: the
+            // gate's version check says nothing about `to`, and what the IDE then does is its own (a refusal after earlier
+            // ops landed, or a clash-rename). ITEM_EXISTS, as a create onto a held path: `currentVersion` is what is there.
+            if (op is SetItemOp { To: { } onto } relocated
+                && !string.Equals(onto, relocated.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                if (heldBefore.TryGetValue(onto, out var there))
+                {
+                    preflight.Add(new PushConflict
+                    {
+                        Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = there,
+                        Reason = $"'{onto}' is taken: the IDE holds an item at that path. Pick another `to`, or free it in " +
+                                 "an earlier push.",
+                    });
+                    continue;
+                }
+                // A RENAME (the bare name changes) onto a name its application already holds in another folder or kind.
+                if (!string.Equals(ItemPath.BareOf(onto), ItemPath.BareOf(relocated.Name), StringComparison.OrdinalIgnoreCase)
+                    && NameScopeKey(onto) is { } scoped && namesBefore.TryGetValue(scoped, out var holder))
+                {
+                    preflight.Add(new PushConflict
+                    {
+                        Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = heldBefore[holder],
+                        Reason = $"'{ItemPath.BareOf(onto)}' is taken: the IDE holds '{holder}', and an application holds " +
+                                 "one object of a name. Pick another `to`, or free it in an earlier push.",
+                    });
+                    continue;
+                }
             }
 
             // A READ-ONLY DESCRIPTOR (`.projectsettings`, `.device`, `.library`, …) is something the IDE RENDERS, not
