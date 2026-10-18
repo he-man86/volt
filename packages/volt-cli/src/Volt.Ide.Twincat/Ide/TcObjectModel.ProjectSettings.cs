@@ -7,23 +7,27 @@ internal sealed partial class TcObjectModel
 {
     /// <summary>The PLC project's compiler settings (openspec <c>twincat-project-settings</c>), read afresh on every
     /// call: the NestedProject's <c>ProduceXml()</c> for the three live rows, and the <c>.plcproj</c> — found through the
-    /// PLC project item's own <c>PlcProjectDef/ProjectPath</c> — for the disabled warnings, which nothing on the
-    /// automation interface exposes (DIALECT D37, D38). The translation is <see cref="TcProjectSettings"/>.
+    /// PLC project item's own <c>PlcProjectDef/ProjectPath</c> (<see cref="PlcProjectFile"/>) — for the disabled
+    /// warnings, which nothing on the automation interface exposes (DIALECT D37, D38). The translation is
+    /// <see cref="TcProjectSettings"/>.
     ///
     /// <para>No catch: an unreadable <c>.plcproj</c> or a faulting COM call fails this item's read, which the walk's
     /// consumers turn into one named unreadable item — never into a descriptor with the warnings row missing, which
     /// would make the LSP report every disabled warning again.</para></summary>
     public ProjectSettings ReadProjectSettings()
     {
-        var nested = ProduceXml(PlcRoot());          // EnsurePlc: _plcNode is the PLC project item (TIPC^<plc>)
-        var path = TcProjectSettings.ProjectPath(ProduceXml(_plcNode!));
-        return TcProjectSettings.Read(File.ReadAllText(path), nested);
+        var nested = ProduceXml(PlcRoot());          // EnsurePlc: the addressed PLC project
+        return TcProjectSettings.Read(File.ReadAllText(PlcProjectFile(CurrentPlc)), nested);
     }
 
     /// <summary>The directory of <paramref name="plc"/>'s <c>.plcproj</c> — where the compiler's file paths for its
     /// objects lie.</summary>
-    public string PlcProjectDirectory(TcPlc plc) =>
-        Path.GetDirectoryName(Path.GetFullPath(TcProjectSettings.ProjectPath(ProduceXml(plc.Node))))!;
+    public string PlcProjectDirectory(TcPlc plc) => Path.GetDirectoryName(Path.GetFullPath(PlcProjectFile(plc)))!;
+
+    /// <summary>The path of <paramref name="plc"/>'s <c>.plcproj</c>, from the PLC project item's own XML — asked once per
+    /// operation (<see cref="TcPlc.ProjectFile"/>, dropped with the snapshots): the settings and the build entries both
+    /// read it.</summary>
+    private string PlcProjectFile(TcPlc plc) => plc.ProjectFile ??= TcProjectSettings.ProjectPath(ProduceXml(plc.Node));
 }
 
 /// <summary>The handle of one PLC project's synthesized <c>Project Settings</c> item. TwinCAT has no tree node for the

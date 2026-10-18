@@ -188,7 +188,7 @@ public class TcProjectSettingsTests
 
     /// <summary>A TwinCAT window with one PLC project whose <c>.plcproj</c> is a temp copy of a measured fixture.
     /// The doubles are plain C# objects reached through <c>dynamic</c>, as the driver reaches the COM ones.</summary>
-    private sealed class SettingsProject : IDisposable
+    internal sealed class SettingsProject : IDisposable
     {
         private readonly string _dir = Path.Combine(Path.GetTempPath(), "volt-tc-settings-" + Guid.NewGuid().ToString("N"));
         private readonly string _plcproj;
@@ -206,11 +206,15 @@ public class TcProjectSettingsTests
         /// <summary>What Save All does: the file on disk changes, the automation interface does not (D37).</summary>
         public void Save(string fixture) => File.Copy(Fixtures.Path("tc-project-settings", fixture), _plcproj, overwrite: true);
 
-        public BeckhoffDriver Driver()
+        /// <summary>The PLC project item of the last <see cref="Driver"/>.</summary>
+        public Plc? Item { get; private set; }
+
+        /// <param name="items">The PLC project's items; PLC_PRG, answering no item XML, when none are given.</param>
+        public BeckhoffDriver Driver(params Node[] items)
         {
             var root = new Node("Untitled2 Project", ItemKind.PlcFolder, Fixture(_nested),
-                new Node("PLC_PRG", ItemKind.PlcPou, ""));
-            var plc = new Plc(root, Fixture("plc-project-item.xml").Replace("%PROJECT_PATH%", _plcproj));
+                items.Length > 0 ? items : new[] { new Node("PLC_PRG", ItemKind.PlcPou, "") });
+            var plc = Item = new Plc(root, Fixture("plc-project-item.xml").Replace("%PROJECT_PATH%", _plcproj));
             var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14", new SysManager(new Tipc(plc))));
             var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new System.Collections.Generic.List<ExplorerNode> { root.Explorer() }) });
             driver.Connect(xaePid: 1);
@@ -244,7 +248,11 @@ public class TcProjectSettingsTests
         public int ItemType { get; }
         public int ChildCount { get; }
         public Children Child { get; }
-        public string ProduceXml(bool recursive) => _xml;
+        public string DeclarationText { get; set; } = "";
+        public string ImplementationText { get; set; } = "";
+        /// <summary>How often the item's XML was produced.</summary>
+        public int XmlReads;
+        public string ProduceXml(bool recursive) { XmlReads++; return _xml; }
     }
 
     public sealed class Plc
@@ -253,6 +261,8 @@ public class TcProjectSettingsTests
         public Plc(Node nested, string xml) { NestedProject = nested; _xml = xml; }
         public Node NestedProject { get; }
         public string Name => "Untitled2";
-        public string ProduceXml(bool recursive) => _xml;
+        /// <summary>How often the PLC project item's XML — where its <c>.plcproj</c> path is — was produced.</summary>
+        public int XmlReads;
+        public string ProduceXml(bool recursive) { XmlReads++; return _xml; }
     }
 }

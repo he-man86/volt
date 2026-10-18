@@ -688,6 +688,13 @@ public sealed partial class BeckhoffDriver
         // A system project's `.device` → the target, as CODESYS describes its device (design §2).
         if (item.Native is SystemDescriptorNode system) return SystemDescriptor(system.System);
 
+        // ONE STUB FORM ON BOTH VENDORS (openspec bridge-one-to-one §1.1 "Non-source items and stubs", wire parity 2.3): a
+        // kind with no descriptor reader is `ItemKind.EmptyManifest` — the kind and a newline — as on CODESYS, whatever its
+        // XML says, so its XML is not produced. This wrote `Name=<name>`, so the same visualization hashed differently per
+        // vendor; the name is the file's.
+        if (kind != ItemKind.Kinds.Library && kind != ItemKind.Kinds.Device && kind != ItemKind.Kinds.Task)
+            return ItemKind.EmptyManifest(kind);
+
         // No silent catch: ProduceXml failing is a real error. An item that genuinely produces no XML
         // yields the canonical, kind-stamped empty manifest (deterministic version basis) — the SAME Core
         // helper CODESYS falls through to, so the two vendors cannot drift on those bytes.
@@ -708,12 +715,7 @@ public sealed partial class BeckhoffDriver
         // `Name=` / `linked-task=`, which described Volt's difficulty rather than the task: `TIRT^PlcTask` is a
         // tree path, and the cycle time and POU calls an engineer actually wants were nowhere in the file.
         // Assembling it means reading the linked system task too — see TcTaskSchedule.
-        if (kind == ItemKind.Kinds.Task) return TaskDescriptorFormat.Write(_om.ReadTask(Com(item)));
-
-        // ONE STUB FORM ON BOTH VENDORS (openspec bridge-one-to-one §1.1 "Non-source items and stubs", wire parity 2.3): a
-        // kind with no descriptor reader is `ItemKind.EmptyManifest` — the kind and a newline — as on CODESYS. This wrote
-        // `Name=<name>`, so the same visualization hashed differently per vendor; the name is the file's.
-        return ItemKind.EmptyManifest(kind);
+        return TaskDescriptorFormat.Write(_om.ReadTask(Com(item)));
     }
 
     /// <summary>A system project's read-only descriptor: the target, in the device descriptor's own format and width

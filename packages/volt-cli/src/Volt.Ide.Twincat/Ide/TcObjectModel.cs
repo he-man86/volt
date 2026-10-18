@@ -328,7 +328,10 @@ internal sealed partial class TcObjectModel
     {
         _systemHierarchies.Clear();
         if (_plcs is null) return;
-        foreach (var plc in _plcs) { plc.Explorer = null; plc.RootPath = null; plc.Root = null; plc.StaleSinceWrite = false; }
+        foreach (var plc in _plcs)
+        {
+            plc.Explorer = null; plc.RootPath = null; plc.Root = null; plc.ProjectFile = null; plc.StaleSinceWrite = false;
+        }
     }
 
     /// <summary>A CLEAN snapshot read before a structural write in this operation: it still lists the old child counts.

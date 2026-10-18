@@ -98,7 +98,7 @@ internal sealed partial class TcObjectModel
         // The .plcproj's path is the PLC project item's, asked once per bound PLC node (a new bind re-asks).
         if (_compileProject is null || !ReferenceEquals(_compileProjectOf, (object)_plcNode!))
         {
-            _compileProject = Path.GetFullPath(TcProjectSettings.ProjectPath(ProduceXml((object)_plcNode!)));
+            _compileProject = Path.GetFullPath(PlcProjectFile(CurrentPlc));
             _compileProjectOf = _plcNode;
             _compileEntries = null;
         }

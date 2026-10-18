@@ -50,6 +50,9 @@ internal sealed class TcPlc
     /// <summary>This operation's Solution Explorer snapshot of the PLC project, or null before the first child access.</summary>
     public ExplorerSnapshot? Explorer { get; set; }
 
+    /// <summary>The path of the PLC project's <c>.plcproj</c>, from the item's own XML, asked once per operation.</summary>
+    public string? ProjectFile { get; set; }
+
     /// <summary>The PLC project root (the item's <c>NestedProject</c>), asked once per operation.</summary>
     public object? Root { get; set; }
 
