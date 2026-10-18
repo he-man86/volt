@@ -94,10 +94,13 @@ public class UnreadableItemPathTests
         Assert.Equal(new[] { "Data/SER_OperationModeType", "Device/Plc Logic/Application/Library Manager" }, nodes.Select(u => u.Name));
     }
 
-    /// <summary>The item an op names is its PATH: a <c>set</c> on <c>X.dut</c> is not refused over an unreadable POU
-    /// <c>X</c> of known kind — it names another item. Only an object whose kind is unknown may be what the op lands on.</summary>
-    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner (2026-10-18): the apply now resolves an op by its whole path, so X.dut never reaches the object X; but DIALECT C38 (measured today, both vendors) shows an application holds ONE object of a name across POU/DUT/GVL, so the IDE refuses a DUT X beside a POU X and this op can never be applied. The fake models no name scope (its create returns the POU). The owner decides the expected answer (e.g. ITEM_EXISTS from the C38 name-scope pre-flight extended to creates).")]
-    public void A_set_of_another_kind_beside_an_unreadable_item_of_known_kind_is_applied()
+    /// <summary>The item an op names is its PATH: a <c>set</c> on <c>X.dut</c> beside an unreadable POU <c>X</c> of known
+    /// kind names another item — it is not refused <c>UNREADABLE</c>, never reads the POU and never re-types it. But the
+    /// IDE holds one object of a name per application across POU, DUT and GVL (DIALECT C38), so the create can never be
+    /// applied: <c>ITEM_EXISTS</c>, naming the POU that holds the name (openspec unreadable-name-carries-kind 1.7; it
+    /// was <c>INTERNAL_ERROR</c> from the failed read of the POU). Only an object whose kind is unknown is <c>UNREADABLE</c>.</summary>
+    [Fact]
+    public void A_set_of_another_kind_beside_an_unreadable_item_of_known_kind_is_ITEM_EXISTS_naming_it()
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("X", "Data"));
 
@@ -107,11 +110,15 @@ public class UnreadableItemPathTests
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
+        var c = Assert.Single(push.Conflicts!);
+        Assert.Equal(ConflictCodes.ItemExists, c.Code);
+        Assert.Contains("Data/X.pou", c.Reason);
     }
 
-    [Fact(Skip = "openspec unreadable-name-carries-kind 1.7, stopped for the owner (2026-10-18): the apply now resolves an op by its whole path, so X.dut never reaches the object X; but DIALECT C38 (measured today, both vendors) shows an application holds ONE object of a name across POU/DUT/GVL, so the IDE refuses a DUT X beside a POU X and this op can never be applied. The fake models no name scope (its create returns the POU). The owner decides the expected answer (e.g. ITEM_EXISTS from the C38 name-scope pre-flight extended to creates).")]
-    public void A_set_beside_an_unopened_POU_of_its_bare_name_is_applied()
+    /// <summary>The same beside a TwinCAT POU the driver must not open (C2i): <c>ITEM_EXISTS</c>, and the POU is not
+    /// opened.</summary>
+    [Fact]
+    public void A_set_beside_an_unopened_POU_of_its_bare_name_is_ITEM_EXISTS_and_opens_nothing()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "PROGRAM X\nVAR\nEND_VAR", "n := 0;", "Data"));
         ide.UnopenedItems.Add("X");
@@ -122,7 +129,9 @@ public class UnreadableItemPathTests
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
+        var c = Assert.Single(push.Conflicts!);
+        Assert.Equal(ConflictCodes.ItemExists, c.Code);
+        Assert.Contains("Data/X.pou", c.Reason);
         Assert.Empty(ide.OpenedUnopened);
     }
 

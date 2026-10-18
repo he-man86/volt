@@ -31,3 +31,12 @@ lists.
 #### Scenario: a container whose properties cannot be read
 - **WHEN** the CODESYS walk cannot read a container's properties, and a client knows an item under it
 - **THEN** the container is in `unreadableNodes`, and that item is not in `removed`
+
+### Requirement: a push op resolves by its whole path
+A push op SHALL be resolved by its folder, bare name and the kind its extension states, on both drivers; an op naming
+`X.dut` SHALL NOT reach an object `X` of another kind, readable or not. A create onto a name a POU, DUT or GVL of the
+same application holds (DIALECT C38) SHALL be refused `ITEM_EXISTS` naming that item, force or not.
+
+#### Scenario: a DUT beside an unreadable POU of its name
+- **WHEN** the IDE holds `Data/X.pou`, whose body cannot be read, and a push sets `Data/X.dut`
+- **THEN** it is refused `ITEM_EXISTS` naming `Data/X.pou`; the POU is not read, not opened and not re-typed

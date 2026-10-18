@@ -134,6 +134,41 @@ public class MoveOntoTakenPathTests
         }
     }
 
+    /// <summary>A CREATE onto a name its application holds in another folder or kind is the same IDE state (C38: the IDE
+    /// refuses the create, which reached the apply as INTERNAL_ERROR) — ITEM_EXISTS naming the holder, force or not.</summary>
+    [Theory]
+    [InlineData("Other/FB_X.pou", "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("Other/FB_X.dut", "TYPE FB_X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n")]
+    [InlineData("POUs/fb_x.gvl", "VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")]
+    public void A_create_onto_a_name_the_application_holds_is_ITEM_EXISTS(string name, string text)
+    {
+        var ide = new FakeIde(Fb("FB_X", "POUs"), Fb("FB_Z", "Other"));
+        var v = RefsService.Handle(ide).Items.ToDictionary(x => x.Key, x => x.Value);
+
+        foreach (var force in new[] { false, true })
+        {
+            var res = Push(ide, force, new SetItemOp { Name = name, SourceText = text, IfVersion = null });
+
+            var c = Assert.Single(res.Conflicts!);
+            Assert.Equal(ConflictCodes.ItemExists, c.Code);
+            Assert.Contains("POUs/FB_X.pou", c.Reason);
+            Assert.Equal(v["POUs/FB_X.pou"], c.CurrentVersion);
+            AssertNothingApplied(ide, v);
+        }
+    }
+
+    [Fact]
+    public void A_create_onto_a_name_another_application_holds_applies()
+    {
+        var ide = new FakeIde(Fb("FB_X", "Dev1/Plc Logic/App"), Fb("FB_Z", "Dev2/Plc Logic/App"));
+        ide.ContainerKinds["Dev1/Plc Logic/App"] = ItemKind.Application;
+        ide.ContainerKinds["Dev2/Plc Logic/App"] = ItemKind.Application;
+
+        var res = Push(ide, false, new SetItemOp { Name = "Dev2/Plc Logic/App/FB_X.pou", SourceText = Src("FB_X"), IfVersion = null });
+
+        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+    }
+
     /// <summary>The scope is the APPLICATION: the same name in another application is another namespace.</summary>
     [Fact]
     public void A_rename_onto_a_name_another_application_holds_applies()

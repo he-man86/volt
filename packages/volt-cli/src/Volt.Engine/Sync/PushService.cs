@@ -158,19 +158,38 @@ public static class PushService
         // The paths the IDE holds BEFORE the apply, compared ignoring case as every addressed path is (one-path-comparer).
         // Only the pre-apply walk can hold a `to`: an earlier op of the batch onto it is refused by RequireOneOpPerItem.
         var heldBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        // …and the NAMES they hold in the IDE's name scope (DIALECT C38): both IDEs refuse a rename onto a name an object
-        // of the same application holds, in any folder, for each kind measured to share it.
+        if (relocating)
+            foreach (var kv in currentVersions)
+                if (!heldBefore.ContainsKey(kv.Key)) heldBefore[kv.Key] = kv.Value;
+        // …and the NAMES the walk's items hold in the IDE's name scope (DIALECT C38): both IDEs refuse a create or a
+        // rename onto a name an object of the same application holds, in any folder, for each kind measured to share it.
+        // From the walk itself (every item it named, read or not), so it holds under force with no versions read.
         var namesBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string? NameScopeKey(string path) =>
             ItemKind.KindForWireName(path) is { } k && NameScopeKinds.Contains(k)
                 ? $"{ItemPath.ApplicationOf(path, walk.Applications)}/{ItemPath.BareOf(path)}"
                 : null;
-        if (relocating)
-            foreach (var kv in currentVersions)
+        foreach (var path in itemCache.Keys.Concat(notOpened.Keys))
+            if (NameScopeKey(path) is { } key && !namesBefore.ContainsKey(key)) namesBefore[key] = path;
+        // The version of the item that holds a name — the walk's when it read versions, else read now (one item, only on
+        // a refusal), the unreadable sentinel for an item the driver must not open.
+        string VersionAt(string path) =>
+            currentVersions.TryGetValue(path, out var known) ? known
+            : itemCache.TryGetValue(path, out var held) && ItemKind.KindForWireName(path) is { } kind
+                ? Versioning.SafeVersion(ide, ItemPath.BareOf(path), kind, held.Item, held.Folder).Version
+                : Versioning.Unreadable;
+        // An op that brings a name into the application — a create, or a rename — onto a name another item of the
+        // application holds, ITEM_EXISTS naming that item.
+        PushConflict? NameTaken(PushOp op, string landing)
+        {
+            if (NameScopeKey(landing) is not { } scoped || !namesBefore.TryGetValue(scoped, out var holder)) return null;
+            return new PushConflict
             {
-                if (!heldBefore.ContainsKey(kv.Key)) heldBefore[kv.Key] = kv.Value;
-                if (NameScopeKey(kv.Key) is { } key && !namesBefore.ContainsKey(key)) namesBefore[key] = kv.Key;
-            }
+                Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = VersionAt(holder),
+                Reason = $"'{ItemPath.BareOf(landing)}' is taken: the IDE holds '{holder}', and an application holds one " +
+                         "object of a name. Pick another name, or free it in an earlier push.",
+            };
+        }
         // EACH SET OP'S TEXT, READ AND VALIDATED ONCE (openspec bridge-refusal-review D8/D12), by the op's name — one op per
         // wire identity (RequireOneOpPerItem). The apply writes from these: no second read, no second validation.
         var validated = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
@@ -205,16 +224,21 @@ public static class PushService
                 }
                 // A RENAME (the bare name changes) onto a name its application already holds in another folder or kind.
                 if (!string.Equals(ItemPath.BareOf(onto), ItemPath.BareOf(relocated.Name), StringComparison.OrdinalIgnoreCase)
-                    && NameScopeKey(onto) is { } scoped && namesBefore.TryGetValue(scoped, out var holder))
+                    && NameTaken(op, onto) is { } renamedOnto)
                 {
-                    preflight.Add(new PushConflict
-                    {
-                        Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = heldBefore[holder],
-                        Reason = $"'{ItemPath.BareOf(onto)}' is taken: the IDE holds '{holder}', and an application holds " +
-                                 "one object of a name. Pick another `to`, or free it in an earlier push.",
-                    });
+                    preflight.Add(renamedOnto);
                     continue;
                 }
+            }
+            // A CREATE (its path names no item the walk holds) onto a name its application holds. The same path is the
+            // gate's create rule, and a forced create there overwrites; another folder or kind is the IDE's refusal.
+            if (op is SetItemOp creator && walk.Complete
+                && !itemCache.ContainsKey(creator.Name) && !notOpened.ContainsKey(creator.Name)
+                && !heldBefore.ContainsKey(creator.To ?? creator.Name)
+                && NameTaken(op, creator.To ?? creator.Name) is { } createdOnto)
+            {
+                preflight.Add(createdOnto);
+                continue;
             }
 
             // A READ-ONLY DESCRIPTOR (`.projectsettings`, `.device`, `.library`, …) is something the IDE RENDERS, not

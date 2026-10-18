@@ -9,7 +9,7 @@
 - [x] 1.5 TwinCAT offline (`TcWalkUnreadableObjectTests`): a C2i POU's entry ends in `.pou`.
 - [x] 1.6 CODESYS offline: a container setting no text spells, and an object whose kind could not be read, are in
       `unreadableNodes` as `<folder>/<name>`, not in `unreadable`.
-- [ ] 1.7 `PushService`: a `set` on `X.dut` is applied, not refused `UNREADABLE`, beside an unopened TwinCAT POU `X`
+- [x] 1.7 `PushService`: a `set` on `X.dut` is applied, not refused `UNREADABLE`, beside an unopened TwinCAT POU `X`
       (`notOpened`) AND beside an unreadable `X.pou` of known kind (`PushConflicts`). Beside an object of unknown kind
       `X` it is still refused.
       **Stopped for the owner (2026-10-18):** the unknown-kind case is pinned and green. The two "applied" cases are
@@ -28,6 +28,11 @@
       both vendors) shows an application holds ONE object of a name across POU, DUT and GVL, so the IDE refuses a DUT `X`
       beside a POU `X` - the op can never be applied, and "applied" is not the answer to pin. What the push should answer
       (e.g. `ITEM_EXISTS` from the C38 name-scope pre-flight extended to creates) is the owner's.
+      **Closed the same day:** PLC Assist then found the create case live on TwinCAT (`INTERNAL_ERROR` "already exists
+      within the corresponding namespace" for a create whose name another folder holds), and the coordinator directed
+      `ITEM_EXISTS`. The C38 name-scope pre-flight now covers creates, and the two cases assert `ITEM_EXISTS` naming the
+      POU that holds the name (not "applied": the IDE cannot hold both) — no `UNREADABLE`, no read of the POU, nothing
+      opened. The `INTERNAL_ERROR` regression is gone.
 - [x] 1.8 `refs` and `fetch` over one walk give identical `unreadable` and `unreadableNodes` lists.
 - [x] 1.9 CODESYS offline: a container whose property read fails → a client that knows an item under it does not get it
       in `removed` (the subtree is in `unwalkedFolders`). Green today; must stay green through 2.1.
