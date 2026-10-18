@@ -51,8 +51,10 @@
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
                     probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
-.PARAMETER BridgeDir twincat: a folder holding the worker AS SHIPPED (VoltBridgeTwincat.exe, + VoltTwincatExplorer.exe
-                    for an x64 one; e.g. dist\TwincatBridge, the x86 single-file PLCAssist ships) - that exe is spawned, nothing built.
+.PARAMETER BridgeDir twincat: a folder holding the worker AS SHIPPED, of the XAE shell's bitness (VoltBridgeTwincat.exe;
+                    e.g. dist\TwincatBridge or dist\stage\connector\x86 for a 32-bit shell, dist\stage\connector for a
+                    64-bit one) - that exe is spawned, nothing built; a worker of the other bitness is refused by name.
+                    Without it, the worker of the shell's bitness is built (-r win-x86 | win-x64) and spawned.
                     codesys: serve the bridge AS INSTALLED — a folder laid out like the installer's {app}\codesys
                     (Volt.Ide.Codesys.dll + start/stop_volt_codesys.py; e.g. dist\stage\codesys after build:installer).
                     The IDE runs THAT folder's start script with VOLT_BRIDGE_DLL removed from its environment, so the
@@ -260,13 +262,19 @@ function Test-TwincatAttached([int]$xaePid, [System.Diagnostics.Process]$worker,
     return $false
 }
 
-function Build-Bridge([string]$vendor) {
+# The TwinCAT worker of an XAE of this bitness: one build per bitness, each in its RID's own output folder (the
+# connector resolves the same folders in a dev tree), self-contained because no x86 .NET runtime is a given. Only a
+# worker of the XAE's bitness reads its Solution Explorer (DIALECT C2t).
+function Get-TwincatRid([int]$bits) { if ($bits -eq 32) { "win-x86" } else { "win-x64" } }
+
+function Build-Bridge([string]$vendor, [string]$rid = "") {
     if ($NoBuild) { return }
     # A stale Release binary silently serves the OLD wire shape — the "stale bridge" trap, which has produced
     # more than one recorded-fixture that had to be thrown away. Safe on `up`: nothing is running yet to lock it.
     $proj = if ($vendor -eq "codesys") { "src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" } else { "src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" }
-    Write-Host "building $(Split-Path $proj -Leaf) (Release) so the bridge isn't stale..."
-    & $DOTNET build (Join-Path $ROOT $proj) -c Release --nologo -v quiet
+    $ridArgs = if ($rid) { @("-r", $rid, "--self-contained", "true") } else { @() }
+    Write-Host "building $(Split-Path $proj -Leaf) (Release$(if ($rid) { " $rid" })) so the bridge isn't stale..."
+    & $DOTNET build (Join-Path $ROOT $proj) -c Release @ridArgs --nologo -v quiet
     if ($LASTEXITCODE -ne 0) { throw "bridge build failed (exit $LASTEXITCODE) - fix it before launching a stale binary" }
 }
 
@@ -777,16 +785,23 @@ function Up-Twincat {
     }
     $ide    = $shells[0]
     if ($shells.Count -gt 1) { Write-Host "XAE shells installed: $($shells -join ', ') - using $ide" }
-    Write-Host "XAE shell: $ide ($(Get-PeBits $ide)-bit)"
+    $xaeBits = Get-PeBits $ide
+    Write-Host "XAE shell: $ide ($xaeBits-bit)"
+    # The worker of the shell's bitness, as the connector picks it (TwincatWorkers): the other one cannot read this
+    # XAE's Solution Explorer (DIALECT C2t).
     if ($BridgeDir) {
         # The worker AS SHIPPED (e.g. dist\TwincatBridge, the single-file bundle PLCAssist ships): its own exe, no build.
         $worker = Join-Path (Resolve-Path $BridgeDir).Path "VoltBridgeTwincat.exe"
         if (-not (Test-Path $worker)) { throw "-BridgeDir $BridgeDir holds no VoltBridgeTwincat.exe" }
+        $workerBits = Get-PeBits $worker
+        if ($workerBits -ne $xaeBits) { throw "-BridgeDir $BridgeDir holds a $workerBits-bit worker and the XAE shell is $xaeBits-bit: only a worker of the XAE's bitness reads its Solution Explorer (DIALECT C2t)" }
         Write-Host "Worker:  as shipped, $worker"
     } else {
-        $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\VoltBridgeTwincat.exe"
-        Build-Bridge "twincat"
-        if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat): $worker" }
+        $rid = Get-TwincatRid $xaeBits
+        $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\$rid\VoltBridgeTwincat.exe"
+        Build-Bridge "twincat" $rid
+        if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat -r $rid): $worker" }
+        Write-Host "Worker:  $worker"
     }
 
     $slns = [ordered]@{

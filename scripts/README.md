@@ -63,7 +63,8 @@ scripts/build-payload.ts`) only to debug that stage; `--no-cli` skips dotnet.
 
 **`binary-targets.ts` is a step of `build-payload.ts`** (its self-check, after the by-name file list): it reads the PE
 header of every `.exe`/`.dll` in the payload and refuses one built for a CPU its place does not allow — the in-proc
-CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), `VoltTwincatExplorer.exe` x86 (XAE's own x86 proxy),
+CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), the TwinCAT workers `connector/x86/VoltBridgeTwincat.exe` x86 and `connector/VoltBridgeTwincat.exe` x64 (each
+reads its XAE through the XAE's own proxy, of the XAE's bitness),
 MinGit's `bin/git/usr/libexec/getprocaddr32.exe` x86 (its helper for interrupting a 32-bit child), everything
 else x64/AnyCPU (openspec environment-dependency-audit 1.2). Run it directly (`bun scripts/binary-targets.ts [dir]`)
 on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe` — or the next free number — is x86, and allowed). What a PE header cannot say (the LSP's `-baseline` bun target, the installer's
@@ -112,7 +113,7 @@ notes (date, build, pass/fail and what failed). The `release:matrix` above runs 
 |---|---|---|
 | 1 | TwinCAT 3.1.4024 only — no Visual Studio, no Git for Windows (the field bug's machine) | the connector serves an XAE (no `IDE_UNSUPPORTED`); `volt init/pull/push/status`; a build with an error lists it |
 | 2 | Windows system locale tr-TR, then ru-RU (system locale + display language), real CODESYS and XAE | as 1, on each IDE; `volt pull` of a project with `VAR_IN_OUT` and `I`/`i` identifiers; a build with an error |
-| 3 | Windows 10 LTSC 2019 (.NET Framework 4.7.2, no 4.8) | the installer runs; the TwinCAT hierarchy read (`VoltTwincatExplorer.exe`, net472); no .NET install dialog |
+| 3 | Windows 10 LTSC 2019 (.NET Framework 4.7.2, no 4.8) | the installer runs; the x86 TwinCAT worker serves a 32-bit XAE (refs, pull, push); no .NET install dialog |
 | 4 | A non-admin user whose name is Cyrillic (`C:\Users\Тест`: `%TEMP%`/`%APPDATA%` non-ASCII), system code page 1252 | install, connector, CODESYS activation, TwinCAT pull/push, a TwinCAT folder move and a graphical create (both hand XAE a `%TEMP%` path) |
 | 5 | No git on PATH | `volt init/pull/push` run on the bundled `bin\git` |
 | 6 | A CPU without AVX2 (or a VM that masks it) | the LSP (`volt-lsp-iec.exe`, bun `x64-baseline`) starts and answers |

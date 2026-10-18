@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
-// COMPILED TWICE: into the TwinCAT worker, and into VoltTwincatExplorer.exe (net48, x86), the reader of a 32-bit XAE
-// (TcHierarchy says when which). So it depends on nothing but the framework: no Volt assembly, no newer-than-net48 API.
 namespace Volt.Ide.Twincat;
 
 /// <summary>One node of XAE's Solution Explorer, as the VS hierarchy reports it: the node's NAME
@@ -29,7 +27,7 @@ internal sealed record ExplorerNode(string Name, string? Canonical, string Capti
 ///
 /// <para><b>Unlike every other call Volt makes into XAE, these are not IDispatch:</b> IVsSolution, IEnumHierarchies and
 /// IVsHierarchy cross the process boundary through the proxy/stub in <c>msenvp.dll</c> (PSFactoryBuffer
-/// <c>{E6D78900-BB40-4039-9C54-593A242B65DA}</c>), and that proxy must be of the READER's bitness (DIALECT C2i,
+/// <c>{E6D78900-BB40-4039-9C54-593A242B65DA}</c>), and that proxy must be of the READER's bitness (DIALECT C2t,
 /// "what the read requires"). TcXaeShell 15 is 32-bit and ships its own x86 copy, registration-free, beside it:
 /// <c>Common7\IDE\Automation\msenvp.dll</c> + <c>msenvp.dll.manifest</c> (a 64-bit VS 2022-based shell carries an
 /// amd64 one at the same place, measured on VS 2022 itself). The read ALWAYS activates the IDE's own manifest

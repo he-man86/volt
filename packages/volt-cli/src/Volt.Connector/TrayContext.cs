@@ -24,7 +24,7 @@ namespace Volt.Connector
         private readonly NotifyIcon _icon;
         private readonly System.Windows.Forms.Timer _timer;
         private readonly TwincatFleet _fleet = new(); // probe → reconcile → spawn/reap, all of it in Connector.Core
-        private readonly string? _twincatExe = ConnectorSetup.TwincatExe();
+        private readonly TwincatWorkers _twincatWorkers = ConnectorSetup.TwincatWorkers();
         /// <summary>The XAE fleet's own clock. A wall-clock instant rather than a tick counter, because
         /// `TickAsync` is called by every client session poll as well as by the tray's timer — see
         /// <see cref="ReconcileTwincatWorkers"/>.</summary>
@@ -174,11 +174,11 @@ namespace Volt.Connector
         /// not something to do at a rate nobody chose.</para></summary>
         private async Task ReconcileTwincatWorkers()
         {
-            if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
+            if (_twincatWorkers.Probe is null) return;                     // no worker binary (dev without a build)
             var now = DateTime.UtcNow;
             if (now - _lastFleetTickUtc < FleetInterval) return;
             _lastFleetTickUtc = now;
-            await _fleet.Tick(_twincatExe, TimeSpan.FromSeconds(6));
+            await _fleet.Tick(_twincatWorkers, TimeSpan.FromSeconds(6));
         }
 
         // ── notifications ──────────────────────────────────────────────────

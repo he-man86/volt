@@ -10,7 +10,8 @@
  * Output:
  *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two files, the PATH dir —
  *                         + git/, the CLI's own MinGit (a folder: not on PATH; the full CLI only, never a bridge bundle)
- *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime (+ VoltTwincatExplorer.exe, net48 x86)
+ *   dist/volt/connector/  VoltConnector.exe + the x64 VoltBridgeTwincat.exe on one runtime, and x86/VoltBridgeTwincat.exe
+ *                         (the x86 worker, single-file) — the worker of each XAE bitness
  *   dist/volt/codesys/    Volt.Ide.Codesys.dll + start/stop_volt_codesys.py
  *
  * No .vsix: the extension ships from the Marketplace (openspec vscode-extension-marketplace), not the installer.
@@ -172,7 +173,7 @@ const required = skipCli
       "bin/git/VOLT-SOURCE.txt",
       "connector/VoltConnector.exe",
       "connector/VoltBridgeTwincat.exe",
-      "connector/VoltTwincatExplorer.exe",
+      "connector/x86/VoltBridgeTwincat.exe",
       "connector/Volt.Engine.Host.dll",
       "codesys/Volt.Ide.Codesys.dll",
       "codesys/start_volt_codesys.py",
@@ -204,7 +205,7 @@ if (bridgeGit.length > 0) {
 }
 
 // …and every binary in it is built for the CPU its place allows (binary-targets.ts: the in-proc CODESYS DLL AnyCPU, the
-// hierarchy reader x86, everything else x64/AnyCPU). The PE header is what Windows loads by, so it is read, not the csproj.
+// TwinCAT workers x86 and x64, everything else x64/AnyCPU). The PE header is what Windows loads by, so it is read, not the csproj.
 const targets = checkTargets(out)
 if (targets.wrong.length > 0) {
   console.error(`✗ ${targets.wrong.length} binaries in dist/volt are built for a CPU their place does not allow:\n  ${targets.wrong.join("\n  ")}`)

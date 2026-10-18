@@ -58,6 +58,25 @@ export function twincatCells(shellBits: (32 | 64)[], vsProxy64Registered: boolea
 	}))
 }
 
+/** One bridge build the cells serve: a project, and for the TwinCAT worker the RID of a cell's shell bitness. */
+export type BridgeBuild = { project: "Volt.Ide.Codesys" | "Volt.Ide.Twincat"; rid?: "win-x86" | "win-x64" }
+
+/**
+ * The bridges the runnable cells serve, built ONCE before they start: CODESYS's in-proc DLL once (AnyCPU, every edition
+ * loads it), and the TwinCAT worker once per shell bitness - only a worker of the XAE's bitness reads its Solution
+ * Explorer (DIALECT C2t), so a cell runs the build the connector would pick for it, from that RID's own output folder,
+ * which is where `ide.ps1` spawns it from.
+ */
+export function bridgeBuilds(cells: Cell[]): BridgeBuild[] {
+	const runnable = cells.filter((c) => !c.refusal)
+	const builds: BridgeBuild[] = []
+	if (runnable.some((c) => c.vendor === "codesys")) builds.push({ project: "Volt.Ide.Codesys" })
+	for (const bits of [32, 64] as const)
+		if (runnable.some((c) => c.vendor === "twincat" && c.bits === bits))
+			builds.push({ project: "Volt.Ide.Twincat", rid: bits === 32 ? "win-x86" : "win-x64" })
+	return builds
+}
+
 /** Bun's summary lines (` 296 pass`, ` 0 fail`, ` 70 skip`); a missing count is 0, a missing summary is no outcome. */
 export function parseSummary(text: string, exit: number | null): Outcome | undefined {
 	const n = (word: string) => Number(new RegExp(`^\\s*(\\d+) ${word}$`, "m").exec(text)?.[1] ?? NaN)

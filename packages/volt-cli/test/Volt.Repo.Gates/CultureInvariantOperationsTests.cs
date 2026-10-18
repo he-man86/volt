@@ -163,9 +163,9 @@ public class CultureInvariantOperationsTests
     /// as typed calls; fixed at 2.8, where <c>src/.editorconfig</c> made them errors. A rule the build only warns about is a
     /// rule nobody reads, so the gate asks for the error form — <c>dotnet_diagnostic.CA1305.severity = error</c> in a config
     /// the projects read, or the id in <c>WarningsAsErrors</c> — and for <c>AnalysisLevel</c> in <c>src/Directory.Build.props</c>:
-    /// without it the SDK runs no .NET analyzer on a netstandard2.0/net48/net472 project, so the severities would hold for
-    /// the net10 projects only (measured 2026-10-13: an <c>int.ToString()</c> in Volt.Ide.Codesys, Volt.Ide.Twincat.Explorer
-    /// and Volt.Wire fails their build with it).</summary>
+    /// without it the SDK runs no .NET analyzer on a netstandard2.0/net48 project, so the severities would hold for
+    /// the net10 projects only (measured 2026-10-13: an <c>int.ToString()</c> in Volt.Ide.Codesys and Volt.Wire fails their
+    /// build with it).</summary>
     [Fact]
     public void The_toolchain_build_fails_on_a_culture_typed_call()
     {
@@ -181,7 +181,7 @@ public class CultureInvariantOperationsTests
             "the shipped C# projects do not build these globalization rules as errors: " + string.Join(", ", missing));
         var srcProps = Path.Combine(pkg, "src", "Directory.Build.props");
         Assert.True(File.Exists(srcProps) && Regex.IsMatch(File.ReadAllText(srcProps), @"<AnalysisLevel>\s*latest\s*</AnalysisLevel>", RegexOptions.CultureInvariant),
-            "src/Directory.Build.props sets no <AnalysisLevel>latest</AnalysisLevel> — the netstandard2.0/net48/net472 projects run no analyzer, and the severities hold for the net10 ones only");
+            "src/Directory.Build.props sets no <AnalysisLevel>latest</AnalysisLevel> — the netstandard2.0/net48 projects run no analyzer, and the severities hold for the net10 ones only");
     }
 
     // ── the gate fires (the scanner is tested on text, so a rule that matches nothing cannot pass for a clean tree) ──

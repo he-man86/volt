@@ -44,7 +44,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path"
 
 import {
-	codesysCells, dirtyPaths, judge, parseSummary, proofRefusal, renderMatrix, twincatCells,
+	bridgeBuilds, codesysCells, dirtyPaths, judge, parseSummary, proofRefusal, renderMatrix, twincatCells,
 	type Cell, type Outcome, type Report, type Verdict,
 } from "../packages/volt-cli/scripts/release-matrix-cells.js"
 
@@ -139,16 +139,16 @@ async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<bo
 	return r.status === 0
 }
 
-/** The bridges every cell serves, built ONCE before the cells start: each `ide.ps1 up` used to rebuild them into the
- *  same bin\, and three cells starting together failed on each other's locked output (MSB3231). Same dotnet and
- *  build line as ide.ps1's Build-Bridge. */
+/** The bridges every cell serves (`bridgeBuilds`), built ONCE before the cells start: each `ide.ps1 up` used to rebuild
+ *  them into the same bin\, and three cells starting together failed on each other's locked output (MSB3231). Same
+ *  dotnet and build line as ide.ps1's Build-Bridge: the TwinCAT worker per shell bitness, `-r <rid> --self-contained`. */
 function buildBridges(cells: Cell[]): void {
-	const projects = { codesys: "Volt.Ide.Codesys", twincat: "Volt.Ide.Twincat" }
-	for (const vendor of new Set(cells.filter((c) => !c.refusal).map((c) => c.vendor))) {
-		const proj = join(CLI, "src", projects[vendor], `${projects[vendor]}.csproj`)
-		console.log(`building ${projects[vendor]} (Release) ...`)
-		const r = spawnSync("C:\\Program Files\\dotnet\\dotnet.exe", ["build", proj, "-c", "Release", "--nologo", "-v", "quiet"], { encoding: "utf8" })
-		if (r.status !== 0) { console.error(`✗ ${projects[vendor]} build failed - no cell can run:\n${r.stdout ?? ""}${r.stderr ?? ""}`); process.exit(1) }
+	for (const b of bridgeBuilds(cells)) {
+		const proj = join(CLI, "src", b.project, `${b.project}.csproj`)
+		const rid = b.rid ? ["-r", b.rid, "--self-contained", "true"] : []
+		console.log(`building ${b.project} (Release${b.rid ? ` ${b.rid}` : ""}) ...`)
+		const r = spawnSync("C:\\Program Files\\dotnet\\dotnet.exe", ["build", proj, "-c", "Release", ...rid, "--nologo", "-v", "quiet"], { encoding: "utf8" })
+		if (r.status !== 0) { console.error(`✗ ${b.project} build failed - no cell can run:\n${r.stdout ?? ""}${r.stderr ?? ""}`); process.exit(1) }
 	}
 }
 

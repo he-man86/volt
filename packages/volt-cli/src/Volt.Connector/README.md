@@ -95,14 +95,17 @@ edges).
   live DTE; CODESYS confirms its primary) — no worker respawn, no target env. On connect, the notification
   **names the platform** ("Connected to MyMachine (CODESYS)").
 - **Supervises**: spawns the ExternalAttach workers on start, respawns on crash, kills its own child tree on
-  exit (never a broad process-name kill — that could take down a live IDE).
+  exit (never a broad process-name kill — that could take down a live IDE). A TwinCAT worker has its XAE's bitness
+  (`IsWow64Process` on the XAE pid; DIALECT C2t): the x86 build for TcXaeShell, the x64 build for TcXaeShell64. An XAE
+  whose build is missing gets no worker and is named once in the log.
 - **Single-instance** (a named mutex) so two connectors don't fight over the bridges.
 
 ## Config (env overrides)
 
 | var | purpose |
 |---|---|
-| `VOLT_TWINCAT_BRIDGE` | path to `VoltBridgeTwincat.exe` (else: next to the connector, then the dev build output) |
+| `VOLT_TWINCAT_BRIDGE_X86` | path to the x86 `VoltBridgeTwincat.exe`, the worker of a 32-bit XAE (else: `x86\` beside the connector, then the dev `win-x86` build output) |
+| `VOLT_TWINCAT_BRIDGE_X64` | path to the x64 `VoltBridgeTwincat.exe`, the worker of a 64-bit XAE (else: beside the connector, then the dev `win-x64` build output) |
 | `VOLT_CODESYS_SCRIPT` | path to `start_volt_codesys.py` (overrides the published `Documents\Volt\` + install-dir copies the "Activate" action points at) |
 | `VOLT_BRIDGE_DLL` | DEV ONLY (`ide.ps1` sets it): path to `Volt.Ide.Codesys.dll`, overriding `start_volt_codesys.py`'s own resolution. No installer writes it |
 
@@ -121,12 +124,12 @@ location + format). A deliberate ~50-line file logger, not a framework.
 
 ```
 dotnet build src/Volt.Connector -c Release
-./src/Volt.Connector/bin/Release/net8.0-windows/VoltConnector.exe
+./src/Volt.Connector/bin/Release/net10.0-windows/VoltConnector.exe
 ```
 
-`build-cli.ps1` publishes `VoltConnector.exe` and the TwinCAT worker into ONE folder on one runtime (`dist\Connector`
-→ `{app}\connector\`) and the CODESYS bridge + scripts beside it (`dist\Codesys` → `{app}\codesys\`), so path
-resolution is zero-config: the worker next to the connector, the desktop and the scripts one level up and across. The UI-free model + its tests live in `Volt.Connector.Core` /
+`build-cli.ps1` publishes `VoltConnector.exe` and the x64 TwinCAT worker into ONE folder on one runtime (`dist\Connector`
+→ `{app}\connector\`), the x86 worker single-file into its `x86\` folder, and the CODESYS bridge + scripts beside it
+(`dist\Codesys` → `{app}\codesys\`), so path resolution is zero-config: the workers next to the connector, the desktop and the scripts one level up and across. The UI-free model + its tests live in `Volt.Connector.Core` /
 `test/Volt.Connector.Tests`.
 
 ## Testing the connection model

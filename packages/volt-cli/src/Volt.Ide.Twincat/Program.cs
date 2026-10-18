@@ -120,7 +120,7 @@ var sta = new Thread(() =>
     // yet, stay degraded — the driver re-acquires the same pid on a content op / recovery.
     try { driver.Connect(xaePid); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE pid {xaePid} ({ex.Message})"); }
-    // Can XAE's Solution Explorer be read from here at all (DIALECT C2i)? Asked once, so health says it before any op.
+    // Can XAE's Solution Explorer be read from here at all (DIALECT C2t)? Asked once, so health says it before any op.
     // A check that cannot RUN is no verdict: the first read decides then, with the same sentence.
     try
     {

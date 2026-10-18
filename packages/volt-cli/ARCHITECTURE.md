@@ -27,8 +27,10 @@ src/Volt.Relay            netstandard2.0  the opt-in relay tunnel both bridges s
                                           a sidecar enables it): forwards allow-listed pipe calls over a WebSocket
                                           (docs/relay-protocol.md).
 src/Volt.Ide.Codesys  net48 library   CODESYS bridge — driver + pipe host, loaded IN-PROCESS by the IDE.
-src/Volt.Ide.Twincat  net10 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM.
-src/Volt.Ide.Twincat.Explorer  net48 x86 exe  the worker's reader of a 32-bit XAE's Solution Explorer: the hierarchy proxy must match the reader's bitness (DIALECT C2t).
+src/Volt.Ide.Twincat  net10 exe        TwinCAT bridge — driver + worker, STANDALONE, attaches to XAE over COM. One build
+                                          per XAE bitness (x86 for TcXaeShell, x64 for TcXaeShell64), the one the
+                                          connector starts: the Solution Explorer hierarchy proxy must match the
+                                          worker's bitness, so each reads its XAE in-process (DIALECT C2t).
 src/Volt.Cli              net10 exe        the `volt` CLI — the pipe CLIENT (see README.md).
 src/Volt.Connector.Core  net10 library the connector's UI-free model (DetectedProject / IProjectSource /
                                           ConnectionManager) AND the TwinCAT worker fleet. Here, not in the tray,

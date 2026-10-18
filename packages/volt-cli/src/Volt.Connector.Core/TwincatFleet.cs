@@ -5,6 +5,19 @@ using Volt.Contracts;
 
 namespace Volt.Connector
 {
+    /// <summary>The TwinCAT worker builds the connector ships, one per XAE bitness (DIALECT C2t): the worker reads the
+    /// XAE's Solution Explorer in-process, through the XAE's own msenvp proxy, so it must have the XAE's bitness — the
+    /// x86 build for TcXaeShell (4024), the x64 build for TcXaeShell64 (4026). Null = that build is not there.</summary>
+    public sealed record TwincatWorkers(string? X86, string? X64)
+    {
+        /// <summary>The build that serves an XAE of this bitness.</summary>
+        public string? For(bool xaeIs32Bit) => xaeIs32Bit ? X86 : X64;
+
+        /// <summary>The build that runs the pid probe (<c>--list-xae-pids</c>): the ROT lists every XAE to a process of
+        /// either bitness, so it is whichever build is there, the x64 one first (the connector's own bitness).</summary>
+        public string? Probe => !string.IsNullOrEmpty(X64) ? X64 : !string.IsNullOrEmpty(X86) ? X86 : null;
+    }
+
     /// <summary>
     /// The whole TwinCAT worker FLEET: probe → reconcile → spawn/reap, composed in one place over the pure reap
     /// policy (<see cref="TwincatSupervisor"/>), the pid probe (<see cref="TwincatXaeProbe"/>) and the process
@@ -27,32 +40,36 @@ namespace Volt.Connector
         private readonly Func<System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)>> _shells;
         private readonly System.Collections.Generic.HashSet<int> _elevatedOutOfSight = new();
 
-        public TwincatFleet() : this(TwincatXaeProbe.ListPids, MachineShells) { }
+        /// <summary>The XAE's bitness by pid (null = unreadable), as a seam: it is a fact about real processes.</summary>
+        private readonly Func<int, bool?> _xaeIs32Bit;
+        private readonly System.Collections.Generic.HashSet<int> _unservable = new();
+
+        public TwincatFleet() : this(TwincatXaeProbe.ListPids, MachineShells, Volt.Wire.ProcessBitness.Is32Bit) { }
 
         private static System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)> MachineShells() =>
             Volt.Wire.ProcessElevation.Self()
                 ? Array.Empty<(int, bool?)>()
                 : Volt.Wire.ProcessElevation.Of(Vendors.TwincatShellProcesses);
 
-        /// <summary>The pid probe, as a seam. It is the ONE part of this loop a test cannot drive: it spawns a
-        /// COM-isolated subprocess and reads its stdout, so without this the composition below — the thing the
-        /// class was extracted from the tray to make testable — could only be exercised by having real XAE
-        /// windows open. Everything else (the reap policy, the supervisor, the probe-health edge detector) is
-        /// already reachable; only the pid source was not.</summary>
-        internal TwincatFleet(Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> listPids)
-            : this(listPids, () => Array.Empty<(int, bool?)>()) { }
-
-        /// <summary>…and the shells, as a seam: which XAE runs elevated is a fact about real processes.</summary>
+        /// <summary>The pid probe, the shells and the XAE bitness, as seams. The probe is the part of this loop a test
+        /// cannot drive: it spawns a COM-isolated subprocess and reads its stdout, so without this the composition
+        /// below — the thing the class was extracted from the tray to make testable — could only be exercised by having
+        /// real XAE windows open. Which XAE runs elevated, and its bitness, are facts about real processes.</summary>
         internal TwincatFleet(Func<string?, TimeSpan, System.Collections.Generic.IReadOnlyList<int>?> listPids,
-            Func<System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)>> shells)
+            Func<System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)>> shells, Func<int, bool?> xaeIs32Bit)
         {
             _listPids = listPids;
             _shells = shells;
+            _xaeIs32Bit = xaeIs32Bit;
         }
 
         /// <summary>The XAE pids this fleet has named as elevated and out of the probe's sight (environment-dependency-audit
         /// 2.2) — each named once in the log, for as long as the connector runs.</summary>
         public System.Collections.Generic.IReadOnlyCollection<int> ElevatedOutOfSight => _elevatedOutOfSight;
+
+        /// <summary>The XAE pids this fleet has named as having no worker build of their bitness — each named once in the
+        /// log, for as long as the connector runs.</summary>
+        public System.Collections.Generic.IReadOnlyCollection<int> Unservable => _unservable;
 
         /// <summary>The worker id for one XAE window — the SAME string across spawn, reap and restart, so it is
         /// spelled exactly once.</summary>
@@ -63,9 +80,10 @@ namespace Volt.Connector
         /// live pid (<see cref="BridgeSupervisor.EnsureWorker"/> is idempotent AND respawns a crashed one, so this
         /// also covers a worker that died while its XAE lived), and reap workers whose XAE has been gone long enough
         /// (the policy debounces a transient probe miss). CODESYS is in-proc — never spawned.</summary>
-        public async Task Tick(string? probeExe, TimeSpan probeTimeout)
+        public async Task Tick(TwincatWorkers workers, TimeSpan probeTimeout)
         {
-            if (string.IsNullOrEmpty(probeExe)) return;                    // no worker binary (dev without a build)
+            var probeExe = workers.Probe;
+            if (probeExe is null) return;                                  // no worker binary (dev without a build)
             var pids = await Task.Run(() => _listPids(probeExe, probeTimeout));
 
             // SAY SO WHEN THE PROBE STOPS WORKING. Returning here on null is right — a persistently failing
@@ -92,7 +110,20 @@ namespace Volt.Connector
                         + "or run the connector elevated too.");
             var reap = _policy.Reap(pids);
             foreach (var pid in pids)
-                _supervisor.EnsureWorker(new WorkerSpec(WorkerId(pid), probeExe, $"{WorkerCli.XaePid} {pid}"));
+            {
+                // The worker of the XAE's own bitness, or none: a worker of the other bitness cannot read that XAE's
+                // Solution Explorer (DIALECT C2t). An unreadable bitness (the XAE exited since the probe) waits a pass.
+                if (_xaeIs32Bit(pid) is not { } is32) continue;
+                var exe = workers.For(is32);
+                if (string.IsNullOrEmpty(exe))
+                {
+                    if (_unservable.Add(pid))
+                        VoltLog.Error($"TwinCAT XAE pid {pid} is {(is32 ? "32" : "64")}-bit and the {(is32 ? "x86" : "x64")} TwinCAT "
+                            + "worker is not installed beside the connector, so it gets no TwinCAT bridge. Reinstall Volt.");
+                    continue;
+                }
+                _supervisor.EnsureWorker(new WorkerSpec(WorkerId(pid), exe, $"{WorkerCli.XaePid} {pid}"));
+            }
             foreach (var pid in reap)
                 _supervisor.StopWorker(WorkerId(pid));
         }

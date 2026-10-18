@@ -63,7 +63,7 @@ const connectorExe = join(installDir, "connector", "VoltConnector.exe")
 const stamped = [
   connectorExe,
   join(installDir, "connector", "VoltBridgeTwincat.exe"),
-  join(installDir, "connector", "VoltTwincatExplorer.exe"),
+  join(installDir, "connector", "x86", "VoltBridgeTwincat.exe"),
   join(installDir, "connector", "Volt.Engine.Host.dll"),
   cliExe,
   desktopExe,

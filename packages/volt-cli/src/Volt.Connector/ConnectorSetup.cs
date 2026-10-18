@@ -22,10 +22,17 @@ namespace Volt.Connector
             new PerPipeProjectSource(Vendors.Codesys, PipeNames.CodesysPrefix),
         };
 
-        /// <summary>The TwinCAT worker exe the supervisor spawns one of per XAE window (<c>--xae-pid &lt;pid&gt;</c>),
-        /// and probes for live XAE pids (<c>--list-xae-pids</c>). Null when it can't be found (dev without a build).</summary>
-        public static string? TwincatExe() =>
-            ResolveWorker("VOLT_TWINCAT_BRIDGE", "VoltBridgeTwincat.exe", "Volt.Ide.Twincat");
+        private const string TwincatWorkerExe = "VoltBridgeTwincat.exe";
+
+        /// <summary>The TwinCAT worker builds the supervisor spawns one of per XAE window (<c>--xae-pid &lt;pid&gt;</c>), the
+        /// one of that XAE's bitness (<see cref="TwincatWorkers"/>). Shipped: the x64 build on the connector's runtime
+        /// beside it, the x86 build single-file in <c>x86\</c>. Dev: each build's own output (<c>ide.ps1</c> builds them
+        /// with <c>-r win-x86</c> / <c>-r win-x64</c>). A build that can't be found is null.</summary>
+        public static TwincatWorkers TwincatWorkers() => new(
+            X86: ResolveWorker("VOLT_TWINCAT_BRIDGE_X86", Path.Combine("x86", TwincatWorkerExe), "Volt.Ide.Twincat",
+                Path.Combine("win-x86", TwincatWorkerExe)),
+            X64: ResolveWorker("VOLT_TWINCAT_BRIDGE_X64", TwincatWorkerExe, "Volt.Ide.Twincat",
+                Path.Combine("win-x64", TwincatWorkerExe)));
 
         /// <summary>Resolve a worker exe: env override → next to the connector (shipped) → the dev build output.
         ///
@@ -36,15 +43,15 @@ namespace Volt.Connector
         /// returns null for a missing exe, null means "the probe FAILED" (not "no XAE"), and a failed probe
         /// deliberately leaves the fleet untouched — so a dev build detected no TwinCAT at all, reported an
         /// empty project list, and logged nothing.</para></summary>
-        private static string? ResolveWorker(string envVar, string exeName, string projectDir)
+        private static string? ResolveWorker(string envVar, string shipped, string projectDir, string built)
         {
             var baseDir = AppContext.BaseDirectory;
             foreach (var c in new[]
             {
                 Environment.GetEnvironmentVariable(envVar),
-                Path.Combine(baseDir, exeName),
-                Path.Combine(baseDir, "..", "..", "..", "..", projectDir, "bin", "Release", "net10.0-windows", exeName),
-                Path.Combine(baseDir, "..", "..", "..", "..", projectDir, "bin", "Debug", "net10.0-windows", exeName),
+                Path.Combine(baseDir, shipped),
+                Path.Combine(baseDir, "..", "..", "..", "..", projectDir, "bin", "Release", "net10.0-windows", built),
+                Path.Combine(baseDir, "..", "..", "..", "..", projectDir, "bin", "Debug", "net10.0-windows", built),
             })
             {
                 if (string.IsNullOrEmpty(c)) continue;

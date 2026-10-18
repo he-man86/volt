@@ -4,7 +4,7 @@
  * suite per cell) is the matrix itself.
  */
 import { describe, expect, it } from "bun:test"
-import { codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, type Cell } from "../../scripts/release-matrix-cells"
+import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, type Cell } from "../../scripts/release-matrix-cells"
 
 const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
@@ -53,6 +53,25 @@ describe("cells", () => {
 
 /** WHAT THE BUILD IS MADE OF (gate 2c+3 review): an untracked source file is built into the bridge under test, so it
  *  makes the checkout dirty like a modified one; only `openspec/` (proposals, never built) is outside the build. */
+describe("bridge builds", () => {
+	// DIALECT C2t: only a worker of the XAE's bitness reads its Solution Explorer, so a TwinCAT cell serves the build of
+	// its shell's bitness, as the connector picks it and ide.ps1 spawns it (bin\Release\net10.0-windows\<rid>).
+	it("one TwinCAT build per cell bitness, CODESYS once, refused cells none", () => {
+		const cells: Cell[] = [
+			{ id: "codesys-3.5.21.40-64", vendor: "codesys", version: "3.5.21.40", bits: 64, fixture: "x.project" },
+			{ id: "codesys-3.5.21.60-32", vendor: "codesys", version: "3.5.21.60", bits: 32, fixture: "y.project" },
+			{ id: "twincat-32", vendor: "twincat", bits: 32 },
+			{ id: "twincat-64", vendor: "twincat", bits: 64 },
+		]
+		expect(bridgeBuilds(cells)).toEqual([
+			{ project: "Volt.Ide.Codesys" },
+			{ project: "Volt.Ide.Twincat", rid: "win-x86" },
+			{ project: "Volt.Ide.Twincat", rid: "win-x64" },
+		])
+		expect(bridgeBuilds([{ id: "twincat-32", vendor: "twincat", bits: 32, refusal: "no" }, { id: "twincat-none", vendor: "twincat", refusal: "none" }])).toEqual([])
+	})
+})
+
 describe("dirty checkout", () => {
 	it("a modified or an untracked file outside openspec/ is dirty", () => {
 		expect(dirtyPaths(" M installer/Volt.iss\n?? packages/volt-cli/src/Volt.Ide.Codesys/Driver/CodesysRefusalWording.cs\n")).toEqual([

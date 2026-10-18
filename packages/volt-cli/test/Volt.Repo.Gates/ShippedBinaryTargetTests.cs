@@ -9,11 +9,11 @@ namespace Volt.Repo.Gates;
 /// <summary>
 /// EVERY SHIPPED BINARY IS BUILT FOR THE MACHINES VOLT INSTALLS ON (openspec <c>environment-dependency-audit</c> 1.2, the
 /// bitness/target gate). The PE header of every binary in the payload is read by <c>scripts/binary-targets.ts</c>, which
-/// <c>build-payload.ts</c> runs on the tree it built (the in-proc CODESYS DLL AnyCPU, the hierarchy reader x86, the rest
-/// x64/AnyCPU). What a PE header cannot say is held here as text, each one a choice the hotfix of 2026-10-13 made and
+/// <c>build-payload.ts</c> runs on the tree it built (the in-proc CODESYS DLL AnyCPU, the TwinCAT worker x86 and x64, the
+/// rest x64/AnyCPU). What a PE header cannot say is held here as text, each one a choice the hotfix of 2026-10-13 made and
 /// nothing gated (0.1 census): the LSP compiled for bun's BASELINE x64 (the default needs AVX2, which the Atom/Celeron of
 /// an industrial panel PC lacks — the LSP crashed at start there), the installer refusing a non-x64 Windows, and the
-/// payload check actually wired in. The x86 reader's .NET Framework (4.7.2) is <c>TwincatHierarchyReaderRuntimeTests</c>.
+/// payload check actually wired in.
 /// </summary>
 public class ShippedBinaryTargetTests
 {
@@ -43,7 +43,8 @@ public class ShippedBinaryTargetTests
         Assert.Matches(new Regex(@"checkTargets\(out\)", RegexOptions.CultureInvariant), payload);
         var targets = File.ReadAllText(Path.Combine(Root, "scripts", "binary-targets.ts"));
         Assert.Contains("\"codesys/Volt.Ide.Codesys.dll\") return [\"AnyCPU\"]", targets);
-        Assert.Contains("\"connector/VoltTwincatExplorer.exe\") return [\"x86\"]", targets);
+        Assert.Contains("\"connector/x86/VoltBridgeTwincat.exe\") return [\"x86\"]", targets);
+        Assert.Contains("\"connector/VoltBridgeTwincat.exe\") return [\"x64\"]", targets);
         // Every DLL CODESYS loads in-proc, not only the bridge: a dependency built for x64 beside it fails in a 32-bit IDE
         // (review of gate 1).
         Assert.Contains("path.startsWith(\"codesys/\") && path.toLowerCase().endsWith(\".dll\")) return [\"AnyCPU\"]", targets);

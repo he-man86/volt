@@ -5,13 +5,14 @@
  *   bun scripts/binary-targets.ts [dir]     # default dist/volt; also an installed {app}
  *
  * Reads the PE header of every .exe/.dll under the payload and refuses the tree when one is built for a CPU its place
- * does not allow. Volt installs on x64 Windows only (installer/Volt.iss `ArchitecturesAllowed=x64compatible`), and three
+ * does not allow. Volt installs on x64 Windows only (installer/Volt.iss `ArchitecturesAllowed=x64compatible`), and these
  * places have a bitness of their own:
  *   - every DLL under `codesys/` (the bridge `Volt.Ide.Codesys.dll`, and any dependency beside it) is loaded IN-PROC by
  *     CODESYS, which exists as 32- and 64-bit: it must be AnyCPU (IL only, neither 32BITREQUIRED nor 32BITPREFERRED) or
  *     one of the two IDEs cannot load it.
- *   - `connector/VoltTwincatExplorer.exe` reads the 32-bit XAE's hierarchy through XAE's own x86 proxy (DIALECT C2t):
- *     it must be x86.
+ *   - the two TwinCAT worker builds read an XAE's hierarchy through XAE's own proxy, of XAE's bitness (DIALECT C2t):
+ *     `connector/x86/VoltBridgeTwincat.exe` (the worker of a 32-bit XAE) must be x86, `connector/VoltBridgeTwincat.exe`
+ *     (the worker of a 64-bit XAE) x64.
  *   - `unins000.exe` (or the next free number — Inno numbers on) at the root of an INSTALLED {app} is Inno Setup's
  *     uninstaller, which Inno builds x86 whatever the install mode (measured: `Setup.e32`, the stub it copies there, is x86). It is not in the payload; it is allowed so
  *     the check runs on an installed tree.
@@ -69,11 +70,12 @@ export function peTarget(bytes: Uint8Array): Target | null {
   throw new Error("the CLR header's RVA lies in no section")
 }
 
-/** The targets a payload path may have: the three places with a bitness of their own, and the rule for the rest. */
+/** The targets a payload path may have: the places with a bitness of their own, and the rule for the rest. */
 export function allowed(path: string): readonly Target[] {
   if (path === "codesys/Volt.Ide.Codesys.dll") return ["AnyCPU"]
   if (path.startsWith("codesys/") && path.toLowerCase().endsWith(".dll")) return ["AnyCPU"] // in-proc beside the bridge
-  if (path === "connector/VoltTwincatExplorer.exe") return ["x86"]
+  if (path === "connector/x86/VoltBridgeTwincat.exe") return ["x86"]
+  if (path === "connector/VoltBridgeTwincat.exe") return ["x64"]
   if (/^unins\d{3}\.exe$/i.test(path)) return ["x86"] // Inno Setup's uninstaller (unins000.exe, or the next free number), in an installed {app}
   // MinGit's helper that reads a 32-bit process's Ctrl+C entry point (how git interrupts a 32-bit child) — x86 by its
   // purpose; the bundled git is unmodified (bin/git, openspec environment-dependency-audit 2.1; measured on 2.56.0.2).

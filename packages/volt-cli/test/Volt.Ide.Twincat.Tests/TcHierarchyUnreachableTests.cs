@@ -11,13 +11,13 @@ using static Volt.Ide.Twincat.Tests.TcWalkUnreadableObjectTests;
 namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
-/// AN IDE WHOSE HIERARCHY NO READER CAN UNMARSHAL IS UNSUPPORTED, NOT AN UNVERIFIED FOLDER (openspec
+/// AN IDE WHOSE HIERARCHY THIS WORKER CANNOT UNMARSHAL IS UNSUPPORTED, NOT AN UNVERIFIED FOLDER (openspec
 /// <c>twincat-x64-solution-explorer-marshaling</c> 1.1).
 ///
 /// <para>The field case: on a plain TwinCAT install the worker's hierarchy read answered
 /// <c>QueryService(SVsSolution) failed (0x80040154)</c> on every op, wrapped as <c>ITEM_UNVERIFIED</c> "the Solution
 /// Explorer hierarchy is unreadable" — which a client reads as "this folder could not be confirmed", and which sent a
-/// customer looking for a missing folder while <c>health</c> said OK. A reader that cannot exist is a fact about the
+/// customer looking for a missing folder while <c>health</c> said OK. A read that cannot happen is a fact about the
 /// IDE: <c>IDE_UNSUPPORTED</c>, one sentence naming the IDE and what is missing, on every op and on
 /// <c>health</c>. A read that DID reach the hierarchy and failed stays <c>ITEM_UNVERIFIED</c>.</para>
 /// </summary>
@@ -34,16 +34,16 @@ public class TcHierarchyUnreachableTests
     }
 
     [Fact]
-    public void A_hierarchy_no_reader_can_unmarshal_makes_the_bridge_unsupported_naming_the_ide_and_what_is_missing()
+    public void A_hierarchy_this_worker_cannot_unmarshal_makes_the_bridge_unsupported_naming_the_ide_and_what_is_missing()
     {
-        var driver = Attached((_, _) => throw new HierarchyUnreachableException("the 32-bit hierarchy reader is missing"));
+        var driver = Attached((_, _) => throw new HierarchyUnreachableException("the XAE is 32-bit and this TwinCAT worker is 64-bit"));
         Assert.Null(driver.Unsupported);
 
         var refused = Assert.Throws<BridgeException>(() => driver.WalkItems());
 
         Assert.Equal(BridgeErrorCodes.IdeUnsupported, refused.ErrorCode);
         Assert.Contains("15.0", refused.Message);                                  // the IDE, by its version
-        Assert.Contains("the 32-bit hierarchy reader is missing", refused.Message); // what it lacks
+        Assert.Contains("the XAE is 32-bit and this TwinCAT worker is 64-bit", refused.Message); // what it lacks
         Assert.Equal(refused.Message, driver.Unsupported);                         // health and every op say it from now on
     }
 

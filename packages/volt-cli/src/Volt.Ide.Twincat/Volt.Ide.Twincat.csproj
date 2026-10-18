@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- The TwinCAT integration: a standalone net10 worker exe the connector spawns. Holds the BeckhoffDriver
-         (attaches to a running XAE over COM) + Program.cs, which serves that driver over the NAMED PIPE. -->
+    <!-- The TwinCAT integration: a standalone net10 worker exe the connector spawns, one build per XAE bitness
+         (win-x86 for TcXaeShell, win-x64 for TcXaeShell64; DIALECT C2t). Holds the BeckhoffDriver (attaches to a
+         running XAE over COM) + Program.cs, which serves that driver over the NAMED PIPE. -->
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>Volt.Ide.Twincat</RootNamespace>
@@ -19,14 +20,5 @@
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
     <ProjectReference Include="..\Volt.Relay\Volt.Relay.csproj" />
-    <!-- VoltTwincatExplorer.exe (net48 x86), the reader of a 32-bit XAE's Solution Explorer (TcHierarchy): built with
-         this project - as itself, x86 net48, never under the worker's RID or self-contained publish - and copied
-         beside VoltBridgeTwincat.exe in its build AND publish output, never referenced. Not for a win-x86 worker: it
-         reads a 32-bit XAE in-process (TcHierarchy.ReaderFor never picks the helper), so the helper would be dead weight. -->
-    <ProjectReference Condition="'$(RuntimeIdentifier)' != 'win-x86'"
-                      Include="..\Volt.Ide.Twincat.Explorer\Volt.Ide.Twincat.Explorer.csproj"
-                      ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true"
-                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained"
-                      OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>
