@@ -272,11 +272,11 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         return found;
     }
 
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk)
     {
         var raw = FoldAcrossBuilds(_lastBuilds
                                    ?? new() { _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList() });
-        var names = NamesFor(raw);
+        var names = NamesFor(raw, walk);
         return raw.Select(m =>
         {
             var placed = m.TryGetValue("objectGuid", out var g) && g is Guid guid && names.TryGetValue(guid, out var p) ? p : null;
@@ -343,7 +343,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// 3.5.21.40 (DIALECT C27, openspec <c>codesys-diagnostic-child-names</c> 1.2, <c>diagnostic-child-guid.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/diagnostic-child-guid.log</c>)): an
     /// error in a METHOD body points at the method (`FB_DcnMeth/MExecute`), one in a property GET at the accessor
     /// (`FB_DcnMeth/PProp/Get`), one in an action at the action — never at the FB, never `Guid.Empty`. Resolved
-    /// against <see cref="WalkItems"/> alone, which lists top-level items, every one of them was published with no
+    /// against the walk alone, which lists top-level items, every one of them was published with no
     /// name (field case <c>c802b74d</c>). So a guid the walk does not place is looked for UNDER the items: the item
     /// is the file the client opens, and the member is the child directly under it (through any POU-internal
     /// folder), which is how an accessor names its property.</para>
@@ -351,13 +351,14 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <para>Children are read only for a guid the top-level walk did not place, so a build whose errors are all in
     /// item bodies opens no POU. The descent is structural - names, guids and folder flags, no object reads - and is
     /// limited to the kinds that HOLD members (<see cref="ItemKind.HoldsMembers"/>).</para></summary>
-    private Dictionary<Guid, Placement> NamesFor(List<Dictionary<string, object?>> raw)
+    /// <param name="walk">The build's one walk of the tree (<c>IIdeSession.GetBuildDiagnostics</c>).</param>
+    private Dictionary<Guid, Placement> NamesFor(List<Dictionary<string, object?>> raw, Func<WalkResult> walk)
     {
         var wanted = new HashSet<Guid>(raw.Select(m => m.TryGetValue("objectGuid", out var g) ? g as Guid? : null)
                                           .Where(g => g is not null).Select(g => g!.Value));
         var names = new Dictionary<Guid, Placement>();
         if (wanted.Count == 0) return names;
-        var items = WalkItems().Items;
+        var items = walk().Items;
         foreach (var pi in items)
         {
             // A library reference is Volt's own node over a Library Manager row (LibRefNode): no IDE object, no guid,

@@ -115,7 +115,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(root);
             _3S.CoDeSys.ScriptDriverSystem.APEnvironment.MessageStorage = new MessageStore(messages);
-            try { return new CodesysDriver(new Projects(root)).GetBuildDiagnostics().ToList(); }
+            try { var driver = new CodesysDriver(new Projects(root)); return driver.GetBuildDiagnostics(driver.WalkItems).ToList(); }
             finally
             {
                 _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
@@ -196,7 +196,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var driver = new CodesysDriver(new Projects(root));
                 driver.Build();
-                return driver.GetBuildDiagnostics().ToList();
+                return driver.GetBuildDiagnostics(driver.WalkItems).ToList();
             }
             finally
             {

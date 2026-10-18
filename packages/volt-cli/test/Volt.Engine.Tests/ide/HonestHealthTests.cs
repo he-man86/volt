@@ -121,7 +121,7 @@ public class HonestHealthTests
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
         public override bool Build() => true;
-        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
+        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
         public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
@@ -177,7 +177,7 @@ public class HonestHealthTests
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
         public override bool Build() => true;
-        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
+        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
         public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>

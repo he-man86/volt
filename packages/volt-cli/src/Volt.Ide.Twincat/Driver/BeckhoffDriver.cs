@@ -229,10 +229,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// fault on an everyday XAE (<c>RPC_E_CALL_REJECTED</c>). A fault there leaves the compiler's diagnostics with their
     /// bare names (logged), never replaces them: the build ran, and nameless diagnostics beat no diagnostics
     /// (BuildService).</para></summary>
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk)
     {
         var diagnostics = _om.GetBuildDiagnostics();
-        try { NameByPath(diagnostics); }
+        try { NameByPath(diagnostics, walk); }
         catch (Exception ex)
         {
             VoltLog.Warn($"build: could not name the diagnostics by path ({ex.Message}) — reporting them with the " +
@@ -241,12 +241,12 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
         return diagnostics;
     }
 
-    private void NameByPath(IReadOnlyList<BridgeDiagnostic> diagnostics)
+    private void NameByPath(IReadOnlyList<BridgeDiagnostic> diagnostics, Func<WalkResult> walk)
     {
         var named = diagnostics.Where(d => d.Name is not null && _om.LastDiagnosticFiles.ContainsKey(d)).ToList();
         if (named.Count == 0) return;
         var directories = _om.Plcs().Select(p => (Plc: p, Directory: _om.PlcProjectDirectory(p))).ToList();
-        var items = WalkItems().Items;
+        var items = walk().Items;
         // Every path is worked out before any is set, so a fault part-way leaves ALL the bare names, not a mix.
         var paths = new List<(BridgeDiagnostic Diagnostic, string Path)>();
         foreach (var d in named)

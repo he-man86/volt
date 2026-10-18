@@ -29,13 +29,16 @@ public static class BuildService
             // it discards online-change data, not the language model — so `--full` was deleted rather than wired to it.
             var success = ide.Build();
             sw.Stop();
-            var diagnostics = ide.GetBuildDiagnostics().ToList();
+            // ONE walk names the diagnostics, the driver's and the promotion's: made when first asked, never twice.
+            WalkResult? walked = null;
+            WalkResult Walk() => walked ??= ide.WalkItems();
+            var diagnostics = ide.GetBuildDiagnostics(Walk).ToList();
             // GUARDED, like `TreeNav.PruneEmptied` in PushService and for the same reason. This walks the live
             // tree and reads items, where a COM fault is an ordinary event — and it is pure DECORATION. Letting
             // one throw reach the catch below would turn a build that ran, compiled and produced real
             // diagnostics into `success:false` plus one fabricated "Build failed" line, discarding every
             // diagnostic the engineer actually needs. Nameless diagnostics beat no diagnostics.
-            try { PromoteNames(ide, diagnostics); }
+            try { PromoteNames(ide, Walk, diagnostics); }
             catch (Exception ex) { VoltLog.Warn($"build: could not name the diagnostics ({ex.Message}) — reporting them without item names"); }
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
@@ -91,11 +94,11 @@ public static class BuildService
     /// tell whose <c>Execute</c> it is.</para>
     ///
     /// <para>Costs a tree walk plus a read of the NAMED items only, and only when a diagnostic carried a name
-    /// at all — a clean build walks nothing. On CODESYS this is the SECOND walk: the driver has already made
-    /// one to turn `IMessage.ObjectGuid` into a bare name, which it must, because a guid is vendor-specific and
-    /// resolving it below the seam is the whole point of the split. Both are tree walks without reads; the
-    /// expensive part — materializing an item to learn its kind — happens here and only for the named ones.</para></summary>
-    private static void PromoteNames(IIdeDriver ide, List<BridgeDiagnostic> diagnostics)
+    /// at all — a clean build walks nothing. The walk is the build's one (<paramref name="walk"/>): the driver that
+    /// named the diagnostics from the tree — CODESYS turning `IMessage.ObjectGuid` into a bare name, TwinCAT placing a
+    /// compiler file in its PLC project — walked it through the same call, so nothing is walked twice. The expensive
+    /// part — materializing an item to learn its kind — happens here and only for the named ones.</para></summary>
+    private static void PromoteNames(IIdeDriver ide, Func<WalkResult> walk, List<BridgeDiagnostic> diagnostics)
     {
         // CLEARED FIRST, assigned last. What the drivers put here is a BARE name, and the field's contract is
         // FULL or null — so between those two instants the only safe value is null. If the walk below throws
@@ -115,7 +118,7 @@ public static class BuildService
         // looked up.
         var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var holders = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pi in ide.WalkItems().Items)
+        foreach (var pi in walk().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
             if (ItemKind.Map(pi.KindCode) is not { } kind) continue;

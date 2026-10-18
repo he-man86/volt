@@ -148,7 +148,7 @@ public abstract class DriverBase : IIdeSession
 
     public abstract void SelectProject(ConnectRequest sel);
     public abstract bool Build();
-    public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
+    public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk);
 
     /// <summary>Precompile + read the referenced-library signatures. FetchService calls this ONLY when a referenced
     /// library's `.library` version changed (the client sends the versions it has in knownItems; the `.library` files

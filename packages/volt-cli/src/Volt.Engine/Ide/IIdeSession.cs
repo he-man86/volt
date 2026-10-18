@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Volt.Contracts;
+using Volt.Engine.Item;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 
@@ -100,8 +101,12 @@ public interface IIdeSession
     /// answers with the BARE name its vendor gave (CODESYS resolves <c>IMessage.ObjectGuid</c>, TwinCAT takes
     /// the stem of the path in its output pane) and only the engine can derive the wire's full `name.kind`. So
     /// a driver that handed back a cached list would see its own cache promoted, and the NEXT build would find
-    /// full names where it expected bare ones and resolve every one of them to null.</para></summary>
-    IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
+    /// full names where it expected bare ones and resolve every one of them to null.</para>
+    ///
+    /// <para><paramref name="walk"/> is the build's ONE walk of the tree: a driver that names a diagnostic by the item
+    /// it lies in asks the tree through it, and the engine promotes the names from the same walk — made the first
+    /// time either asks, and not at all when neither does.</para></summary>
+    IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk);
 
     // ── library signatures ──
     /// <summary>Extract every referenced-library element's SIGNATURE (declaration only, no body) from the

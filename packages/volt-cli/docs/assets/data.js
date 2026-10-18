@@ -1880,7 +1880,7 @@ window.VOLT = {
         {
           "name": "GetBuildDiagnostics",
           "kind": "method",
-          "signature": "IReadOnlyList\u003CBridgeDiagnostic\u003E GetBuildDiagnostics()"
+          "signature": "IReadOnlyList\u003CBridgeDiagnostic\u003E GetBuildDiagnostics(Func\u003CWalkResult\u003E walk)"
         },
         {
           "name": "ExtractLibrarySignatures",

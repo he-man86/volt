@@ -52,6 +52,8 @@ public class TcAttachTests
         public string FullName => Unsaved ? "" : Name ?? (Projects.Count > 0 ? $@"C:\p\{Projects.Items[0].Name}.sln" : "");
         public int Count => Projects.Count;
         public bool Saved => true;
+        /// <summary>The build object a build drives; none unless a test sets one.</summary>
+        public object? SolutionBuild { get; set; }
     }
 
     /// <summary>An open XAE document: its moniker, and how it was closed (EnvDTE <c>vsSaveChanges</c>).</summary>

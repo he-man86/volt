@@ -77,7 +77,8 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var success = new CodesysObjectModel(null, platform: null).Build(new ApplicationNode());
                 Assert.Equal(1, cmd.Builds);
-                return (success, new CodesysDriver(null).GetBuildDiagnostics().ToList());
+                var driver = new CodesysDriver(null);
+                return (success, driver.GetBuildDiagnostics(driver.WalkItems).ToList());
             }
             finally
             {

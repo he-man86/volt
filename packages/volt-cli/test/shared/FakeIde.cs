@@ -1473,7 +1473,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <summary>A COPY per call, because that is the contract (see <c>IIdeSession.GetBuildDiagnostics</c>): the
     /// caller rewrites <c>Name</c> in place, and handing out the test's own list would let one build's promotion
     /// leak into the next — a fake that hid the very aliasing the contract exists to prevent.</summary>
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk) =>
         BuildDiagnostics.Select(d => new BridgeDiagnostic
         {
             Name = d.Name, Member = d.Member, Code = d.Code, Severity = d.Severity, Message = d.Message, Line = d.Line,
