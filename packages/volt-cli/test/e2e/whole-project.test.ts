@@ -60,21 +60,31 @@ describe(`whole project (${BASE})`, () => {
 		const refs: any = await bridge.refs()
 		const fetched: any = await bridge.fetch({ knownItems: {} })
 
-		// A version that lacks a fact names exactly that item unreadable, with exactly that refusal (lib/platform.ts):
-		// 3.5.18.30 cannot give Volt its Project Settings, and it archives library parameter DEFAULTS Volt does not
-		// spell. Anything else unreadable there is still a failure.
-		const gaps: [any, string][] = [[PLATFORM_GAPS.projectSettings, "Project Settings"], [PLATFORM_GAPS.libraryParameterDefaults, "Library Manager"]]
-		const held: [any, string][] = []
+		// A version that lacks a fact names exactly that tree node unreadable, with exactly that refusal (lib/platform.ts):
+		// 3.5.18.30 cannot give Volt its Project Settings (an ITEM: `unreadable`, by its file), and it archives library
+		// parameter DEFAULTS Volt does not spell (the Library Manager, a CONTAINER: `unreadableNodes`, by its node path).
+		// Anything else unreadable there is still a failure.
+		type Gap = [any, "unreadable" | "unreadableNodes", string]
+		const gaps: Gap[] = [
+			[PLATFORM_GAPS.projectSettings, "unreadable", "Project Settings.projectsettings"],
+			[PLATFORM_GAPS.libraryParameterDefaults, "unreadableNodes", "Library Manager"],
+		]
+		const held: Gap[] = []
 		for (const g of gaps) if (await lacks(g[0])) held.push(g)
-		const expectedGap = (u: any) => held.find(([g, item]) => fileOf(String(u?.name ?? "")) === item && String(u?.reason).includes(g.refusal))
-		const lost = (us: any[] | undefined) => (us ?? []).filter((u) => !expectedGap(u))
-		for (const u of refs.unreadable ?? [])
-			if (expectedGap(u)) console.log(`[e2e] expected on CODESYS ${await servedPlatform()}: ${expectedGap(u)![0].id} (${expectedGap(u)![0].record})`)
-		expect(lost(refs.unreadable), `refs could not materialize: ${JSON.stringify(refs.unreadable)}`).toEqual([])
-		expect(lost(fetched.unreadable), `fetch could not materialize: ${JSON.stringify(fetched.unreadable)}`).toEqual([])
+		const expectedGap = (list: Gap[1], u: any) =>
+			held.find(([g, l, node]) => l === list && fileOf(String(u?.name ?? "")) === node && String(u?.reason).includes(g.refusal))
+		const lost = (list: Gap[1], us: any[] | undefined) => (us ?? []).filter((u) => !expectedGap(list, u))
+		for (const list of ["unreadable", "unreadableNodes"] as const)
+			for (const u of refs[list] ?? [])
+				if (expectedGap(list, u)) console.log(`[e2e] expected on CODESYS ${await servedPlatform()}: ${expectedGap(list, u)![0].id} (${expectedGap(list, u)![0].record})`)
+		expect(lost("unreadable", refs.unreadable), `refs could not materialize: ${JSON.stringify(refs.unreadable)}`).toEqual([])
+		expect(lost("unreadable", fetched.unreadable), `fetch could not materialize: ${JSON.stringify(fetched.unreadable)}`).toEqual([])
+		expect(lost("unreadableNodes", refs.unreadableNodes), `refs left nodes unread: ${JSON.stringify(refs.unreadableNodes)}`).toEqual([])
+		expect(lost("unreadableNodes", fetched.unreadableNodes), `fetch left nodes unread: ${JSON.stringify(fetched.unreadableNodes)}`).toEqual([])
 
 		// …and the two agree, so a client cannot get a clean answer from one and a loss from the other.
 		expect(fetched.unreadable ?? []).toEqual(refs.unreadable ?? [])
+		expect(fetched.unreadableNodes ?? []).toEqual(refs.unreadableNodes ?? [])
 	})
 
 	/** NOTHING DRIFTS. Every editable item is pushed back EXACTLY as it was pulled. A correct bridge accepts it

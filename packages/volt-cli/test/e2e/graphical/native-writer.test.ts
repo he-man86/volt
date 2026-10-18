@@ -140,7 +140,8 @@ describe(`graphical / native writer (${BASE})`, () => {
 
 	it("the project builds with 0 errors with every shape instantiated", async () => {
 		await withMainProgramRestored(async () => {
-			for (const c of cases) await instantiate(c.bare)
+			// Only what was STORED: a version that writes no shape (DIALECT V2) has no type to instantiate.
+			for (const c of cases) if (rows.get(c.key)?.stores) await instantiate(c.bare)
 			const r = await drivenBuild()
 			const errors = (r.diagnostics ?? []).filter((d: any) => d.severity === "error")
 				.map((d: any) => `${d.name}: ${d.message}`).sort()

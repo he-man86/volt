@@ -83,7 +83,20 @@ ${request}
 		if (existsSync(error)) throw new Error(`the CODESYS native-export probe refused '${request}': ${readFileSync(error, "utf8")}`)
 		return readFileSync(exported, "utf8")
 	} finally {
-		for (const f of [done, error, exported]) rmSync(f, { force: true })
+		for (const f of [done, error, exported]) await removeWhenReleased(f)
+	}
+}
+
+/** Deletes `file` once CODESYS has closed it: the probe can still hold the `.done` it just wrote (EBUSY). Bun 1.4.2's
+ *  `rmSync`/`rm` ignore `maxRetries` (measured: EBUSY at once, with and without `recursive`), so the wait is here. */
+async function removeWhenReleased(file: string): Promise<void> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return rmSync(file, { force: true })
+		} catch (e: any) {
+			if (e?.code !== "EBUSY" || attempt >= 50) throw e
+			await Bun.sleep(100)
+		}
 	}
 }
 
