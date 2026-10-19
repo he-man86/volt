@@ -201,14 +201,29 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		expect(reasons(r)).toContain("%CLASS")
 	})
 
-	it("%EXCLUDE_FROM_BUILD is refused by name (no measured TwinCAT member)", async () => {
+	// DIALECT C39: the line is the item's live Exclude flag, written and read back without a save.
+	it("%EXCLUDE_FROM_BUILD creates an excluded POU, and removing the line builds it again", async () => {
 		const name = `${PREFIX}_OtoExcluded`
+		made.push(`${name}.pou`)
+		const excluded = `FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n`
+		expect(landedInFull(await create(`${name}.pou`, excluded))).toBe(true)
+		const pulled = await fetchItem(`${name}.pou`)
+		expect(lf(pulled.sourceText)).toBe(excluded)
+
+		const built = excluded.replace("%EXCLUDE_FROM_BUILD\n", "")
+		const r = await pushOps([{ op: "set", name: await pathOf(`${name}.pou`), sourceText: built, ifVersion: pulled.version }])
+		expect(landedInFull(r)).toBe(true)
+		expect(lf((await fetchItem(`${name}.pou`)).sourceText)).toBe(built)
+	})
+
+	it("%LINK_ALWAYS is refused by name (no measured TwinCAT member)", async () => {
+		const name = `${PREFIX}_OtoLinked`
 		made.push(`${name}.pou`)
 		const r = await create(
 			`${name}.pou`,
-			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n\nEND_FUNCTION_BLOCK\n`,
+			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%LINK_ALWAYS\n\nEND_FUNCTION_BLOCK\n`,
 		)
 		expect(landedInFull(r)).toBe(false)
-		expect(reasons(r)).toContain("%EXCLUDE_FROM_BUILD")
+		expect(reasons(r)).toContain("%LINK_ALWAYS")
 	})
 })

@@ -87,8 +87,9 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),
             ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 9),   // +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 10),   // +1 a member's %EXCLUDE_FROM_BUILD inside a POU that carries it too (C39); +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
             ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 1),   // a member renamed since the save, which TwinCAT's archive does not carry (D45)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 1),   // an Exclude write the IDE took and did not apply, read back (C39)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
@@ -118,8 +119,8 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 5),   // +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 8),   // +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 1))),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
 

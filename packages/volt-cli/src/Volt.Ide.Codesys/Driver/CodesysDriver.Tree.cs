@@ -124,11 +124,7 @@ public sealed partial class CodesysDriver
                         // every create (`WillCreate`). Walked as any folder, then reported instead of published.
                         var held2 = new List<ProjectItem>();
                         Walk(child, sub, held2, unwalked, unreadable, applications);
-                        foreach (var it in held2)
-                            if (ItemKind.Map(it.KindCode) is { } kind)
-                                unreadable.Add(new UnreadableObject(it.Name, it.Folder,
-                                    $"'{it.Name}' sits in the excluded folder '{sub}' — it is not built, so it is not pulled as a built one",
-                                    kind));
+                        ExcludedFolder.NameItems(held2, sub, unreadable);
                         continue;
                     }
                 }

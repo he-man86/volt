@@ -163,10 +163,17 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
     <code>%COMMENT</code>; a change to <code>%NETVAR</code>, <code>%PARAMETER_LIST</code> or <code>%FILE_LINK</code> —
     the line added, removed or edited, on an existing object or a new one — is refused by name before anything of the
     push lands (no measured write: 1, 0 and 1 occurrence in the corpora, niche: accepted loss). Change it in the IDE and
-    pull; the line round-trips unchanged. <code>%CLASS</code> is never changed in place (below). TwinCAT has no measured
-    member for any key: a push carrying one is refused by name, and a pull of an item with a <code>.plcproj</code> build
-    entry other than <code>SubType</code> (or an <code>&lt;ObjectProperties&gt;</code> other than an SFC body's) is
-    refused by name, until a measurement says what it is.</li>
+    pull; the line round-trips unchanged. <code>%CLASS</code> is never changed in place (below). TwinCAT READS and
+    WRITES <code>%EXCLUDE_FROM_BUILD</code>: an item's or a member's own live <i>Exclude from build</i> flag (DIALECT
+    C39), saved or not. A member of an excluded POU has no flag of its own there, so a push carrying the line on both
+    the POU and a member is refused by name. TwinCAT has no measured member for any other key: a push carrying one is
+    refused by name, and a pull of an item with a <code>.plcproj</code> build entry other than <code>SubType</code> and
+    <code>ExcludeFromBuild</code> (or an <code>&lt;ObjectProperties&gt;</code> other than an SFC body's) is refused by
+    name.</li>
+  <li id="excluded-folder"><b>An excluded folder</b> has no line: on both vendors it is in <code>unreadableNodes</code>
+    with its reason, and every item under it is in <code>unreadable</code> — <i>'X' sits in the excluded folder
+    '&lt;folder&gt;' — it is not built, so it is not pulled as a built one</i>. An op on such an item is refused by name,
+    and it is never read as deleted.</li>
   <li><b>Migration:</b> a re-pull adds the lines to the files that carry such properties. A text written before them
     would push "not excluded" over an excluded object, so the binding records the text-format version and a push from
     an older workspace is refused: <i>re-pull: the text predates object properties</i>.</li>
@@ -227,9 +234,10 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
   <tr>
     <td class="name"><a href="#properties"><code>%</code>-lines</a></td>
     <td class="yes">read and written</td>
-    <td>refused</td>
-    <td>No TwinCAT build property or object property has been measured; a push carrying any key is refused by name,
-      and a pull of an item that carries one is refused by name.</td>
+    <td><code>%EXCLUDE_FROM_BUILD</code> read and written</td>
+    <td>TwinCAT's live <i>Exclude from build</i> flag (C39) is <code>%EXCLUDE_FROM_BUILD</code>. No other build property
+      or object property has been measured; a push carrying another key is refused by name, and a pull of an item that
+      carries one is refused by name.</td>
   </tr>
   <tr>
     <td class="name"><code>%CLASS</code> create</td>

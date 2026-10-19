@@ -141,6 +141,20 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%ONLINE_CHANGE_RESERVE 200\n%UNDEFINE 'SIM'\n", text);
         }
 
+        /// <summary>WIRE PARITY (DIALECT C39): a function block excluded by its own flag pulls the text TwinCAT pulls for
+        /// one whose live <c>Exclude</c> is set (<c>TcExclusionTests</c>).</summary>
+        [Fact]
+        public void An_excluded_function_block_pulls_the_shared_text()
+        {
+            var body = new _3S.CoDeSys.STObject.STImplementationObject();
+            try { body.TextDocument.Insert(0, Volt.Tests.Shared.WireParityCases.ExcludedBody); } catch (InvalidOperationException) { }   // lands, then throws (NwlDoubles)
+            var pou = new Node("FB_X", 1, new Pou(Volt.Tests.Shared.WireParityCases.ExcludedDeclaration, body));
+            var build = new _3S.CoDeSys.LanguageModelManager.BuildProperty { ExcludeFromBuild = true };
+            var text = With(new PropManager((pou, new object[] { build })), () =>
+                Volt.Engine.Format.St.StWriter.Write(new CodesysDriver(projects: null).ReadContent(new ItemRef(pou))));
+            Assert.Equal(Volt.Tests.Shared.WireParityCases.ExcludedFunctionBlock, text);
+        }
+
         /// <summary>A build property whose seven members are all at their measured default spells nothing (31 of the 56).</summary>
         [Fact]
         public void A_defaulted_build_property_spells_nothing()

@@ -16,15 +16,14 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcObjectPropertiesTests
 {
+    /// <summary>Every key but <c>%EXCLUDE_FROM_BUILD</c>, which is the live <c>Exclude</c> flag (C39, <c>TcExclusionTests</c>).</summary>
     [Theory]
-    [InlineData("%EXCLUDE_FROM_BUILD")]
     [InlineData("%LINK_ALWAYS")]
     [InlineData("%COMMENT")]
     public void A_pushed_property_line_is_refused_by_name(string key)
     {
         var props = key switch
         {
-            "%EXCLUDE_FROM_BUILD" => ObjectProperties.None with { ExcludeFromBuild = true },
             "%LINK_ALWAYS" => ObjectProperties.None with { LinkAlways = true },
             _ => ObjectProperties.None with { Comment = "doc" },
         };
@@ -62,8 +61,8 @@ public class TcObjectPropertiesTests
         public string ImplementationText { get; set; } = "x := 1;";
         public int ChildCount => 0;
         public string ProduceXml(bool recursive) =>
-            $"<TreeItem><ItemName>FB_Saved</ItemName><VSProperties><VSProperty><Name>FullPath</Name><Value>{_file}</Value>" +
-            "</VSProperty></VSProperties></TreeItem>";
+            "<TreeItem><ItemName>FB_Saved</ItemName><VSProperties>" + TcExclusionTests.Property("False") +
+            $"<VSProperty><Name>FullPath</Name><Value>{_file}</Value></VSProperty></VSProperties></TreeItem>";
     }
 
     private static string Saved(string pouAttributes, string objectProperties)
@@ -157,8 +156,8 @@ public class TcObjectPropertiesTests
     }
 
     /// <summary>A LINKED file — its <c>.plcproj</c> <c>Include</c> outside the project folder — is found by its full path:
-    /// its <c>&lt;ExcludeFromBuild&gt;</c> refuses it by name, as an entry inside the folder does. The prefix compare never
-    /// saw it, so the object pulled as a built one.</summary>
+    /// a build entry Volt has no member for refuses it by name, as an entry inside the folder does. The prefix compare
+    /// never saw it.</summary>
     [Fact]
     public void A_linked_files_build_entry_is_read_and_refuses_it_by_name()
     {
@@ -174,12 +173,12 @@ public class TcObjectPropertiesTests
             var plcproj = Path.Combine(projectDir, "Plc.plcproj");
             File.WriteAllText(plcproj,
                 "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup>" +
-                "<Compile Include=\"..\\Shared\\FB_Saved.TcPOU\"><SubType>Code</SubType><ExcludeFromBuild>true</ExcludeFromBuild></Compile>" +
+                "<Compile Include=\"..\\Shared\\FB_Saved.TcPOU\"><SubType>Code</SubType><LinkAlways>true</LinkAlways></Compile>" +
                 "</ItemGroup></Project>");
 
             var ex = Assert.Throws<BridgeException>(() =>
                 TcUntouchablePouTests.BoundDriver(plcproj).ReadContent(TcRefs.Ref(new SavedNode(file))));
-            Assert.Contains("ExcludeFromBuild", ex.Message);
+            Assert.Contains("LinkAlways", ex.Message);
             Assert.Contains("'FB_Saved'", ex.Message);
         }
         finally { Directory.Delete(root, recursive: true); }
@@ -199,8 +198,8 @@ public class TcObjectPropertiesTests
         public int ChildCount => Kids.Length;
         public TcHiddenBodyWriteTests.Children Child => new(new System.Collections.Generic.List<TcHiddenBodyWriteTests.Node>(Kids));
         public string ProduceXml(bool recursive) =>
-            $"<TreeItem><ItemName>I_Saved</ItemName><VSProperties><VSProperty><Name>FullPath</Name><Value>{_file}</Value>" +
-            "</VSProperty></VSProperties></TreeItem>";
+            "<TreeItem><ItemName>I_Saved</ItemName><VSProperties>" + TcExclusionTests.Property("False") +
+            $"<VSProperty><Name>FullPath</Name><Value>{_file}</Value></VSProperty></VSProperties></TreeItem>";
     }
 
     private static string SavedInterface(string getDeclaration)

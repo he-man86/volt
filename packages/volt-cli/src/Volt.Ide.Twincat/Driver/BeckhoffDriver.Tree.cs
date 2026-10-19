@@ -72,8 +72,10 @@ public sealed partial class BeckhoffDriver
     }
 
     /// <param name="kind">The node's tree kind as this walk read it, null for the PLC project root (never classified).</param>
+    /// <param name="underExcluded">The node sits in an excluded folder: what it holds goes to <paramref name="items"/> for
+    /// that folder to name, and no folder under it is asked whether it is built.</param>
     private void WalkInner(object node, int? kind, string folderPath, TcPlc plc, List<ProjectItem> items, List<string> unwalked,
-                           List<UnreadableObject> unreadable)
+                           List<UnreadableObject> unreadable, bool underExcluded = false)
     {
         // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
         // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
@@ -137,7 +139,44 @@ public sealed partial class BeckhoffDriver
             if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
-                WalkInner(child, itemType, nested, plc, items, unwalked, unreadable);
+                // AN EXCLUDED FOLDER (DIALECT C39) is read from its live Exclude property — saved or not — and answered as
+                // CODESYS answers one: the folder in `unreadableNodes`, every item under it named in `unreadable` by its
+                // kind, so none is pulled as a built one and none is read as deleted. Under it every node reads as
+                // inherited (`readonly`), so nothing below is asked again: the outermost excluded folder names them all.
+                if (itemType == ItemKind.PlcFolder && !underExcluded)
+                {
+                    TcExclusion? exclusion;
+                    try { exclusion = _om.Exclusion(child, () => $"'{name}'"); }
+                    catch (Exception ex)
+                    {
+                        // Its kind is KNOWN (a folder): the folder it sits in was walked whole. Whether it is built was not
+                        // read, so its own subtree is unwalked — nothing under it is read as deleted.
+                        VoltLog.Warn($"walk: the Exclude property of folder '{name}' at folder='{folderPath}' is unreadable (named unreadable): {ex.Message}");
+                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
+                        unwalked.Add(nested);
+                        continue;
+                    }
+                    if (exclusion == TcExclusion.Inherited)
+                    {
+                        var why = $"'{name}': TwinCAT reads it as excluded by a folder above it, and the walk found no " +
+                                  "excluded folder there (DIALECT C39), so what it holds is not read.";
+                        VoltLog.Warn($"walk: {why}");
+                        unreadable.Add(new UnreadableObject(name, folderPath, why, ItemKind.Kinds.Folder));
+                        unwalked.Add(nested);
+                        continue;
+                    }
+                    if (exclusion == TcExclusion.Own)
+                    {
+                        var entry = ExcludedFolder.Folder(name, folderPath);
+                        VoltLog.Warn($"pull: {entry.Reason}");
+                        unreadable.Add(entry);
+                        var held = new List<ProjectItem>();
+                        WalkInner(child, itemType, nested, plc, held, unwalked, unreadable, underExcluded: true);
+                        ExcludedFolder.NameItems(held, nested, unreadable);
+                        continue;
+                    }
+                }
+                WalkInner(child, itemType, nested, plc, items, unwalked, unreadable, underExcluded);
                 continue;
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
@@ -171,7 +210,7 @@ public sealed partial class BeckhoffDriver
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
             items.Add(new ProjectItem(name, new ItemRef(new TcNode(child, plc, itemType)), itemType, emitFolder));
-            if (isHybrid) WalkInner(child, itemType, emitFolder, plc, items, unwalked, unreadable);
+            if (isHybrid) WalkInner(child, itemType, emitFolder, plc, items, unwalked, unreadable, underExcluded);
         }
     }
 

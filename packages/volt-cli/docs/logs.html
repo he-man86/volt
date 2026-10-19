@@ -104,10 +104,9 @@ not the same as gone.</pre>
     means the <a href="items.html">kind table</a> has a gap.</li>
 </ol>
 <div class="note">
-  <b>"It was excluded from the build in the IDE" is never the explanation.</b> Exclude-from-build is not
-  modelled: an excluded object syncs as an ordinary file like any other, and there is no such drop kind. That
-  explanation was once in this table, with the verdict "expected; confirms the item was excluded, not lost" —
-  a ready-made way to close a genuine missing-item report as normal.
+  <b>An object excluded from the build by its own flag is never missing.</b> It syncs as an ordinary file carrying
+  <code>%EXCLUDE_FROM_BUILD</code>. Only an object in an excluded FOLDER has no file, and the printed
+  <code>unreadable</code> list says so by name (<i>sits in the excluded folder …</i>).
 </div>
 
 <h2 id="session">When the bridge itself misbehaves</h2>

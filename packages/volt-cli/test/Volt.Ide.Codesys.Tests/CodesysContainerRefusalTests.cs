@@ -140,6 +140,22 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(new[] { "Gone.dut" }, removed);
         }
 
+        /// <summary>WIRE PARITY (DIALECT C39): the excluded folder's entries, word for word, in the order TwinCAT's walk
+        /// gives them for the same tree (<c>TcExclusionTests</c>).</summary>
+        [Fact]
+        public void An_excluded_folder_answers_the_shared_entries()
+        {
+            var excluded = new _3S.CoDeSys.LanguageModelManager.BuildProperty { ExcludeFromBuild = true };
+            var root = new TreeNode("<project>", null, null,
+                new TreeNode("Sim", null, new object[] { excluded }, Type("SimType"), new TreeNode("Deep", null, null, Type("DeepType"))),
+                Type("Kept"));
+
+            var walk = Walk(root);
+
+            Assert.Equal(WireParityCases.ExcludedFolderEntries(""),
+                         walk.UnreadableObjects.Select(o => (o.Name, o.Folder, o.Reason, o.Kind)).ToArray());
+        }
+
         /// <summary>A TREE NODE WITH NO FILE is listed apart (openspec <c>unreadable-name-carries-kind</c>): a container holding
         /// a setting no text spells, and an object whose kind the IDE could not state, are in <c>unreadableNodes</c> by their
         /// node path — never in <c>unreadable</c>, whose entries are items named by their path.</summary>

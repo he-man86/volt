@@ -53,7 +53,8 @@ public class TcUntouchablePouTests
         public Node this[int i] => _owner.Touch(_owner.Kids[i - 1]);
     }
 
-    public sealed class Node
+    /// <summary>Not sealed: <c>TcExclusionTests.Folder</c> adds the automation XML a folder answers.</summary>
+    public class Node
     {
         private readonly Xae _xae;
         private readonly int _type;

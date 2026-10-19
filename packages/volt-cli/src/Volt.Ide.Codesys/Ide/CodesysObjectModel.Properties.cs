@@ -170,7 +170,7 @@ namespace Volt.Ide.Codesys
             if (MetaProperties(meta).FirstOrDefault(p => p.GetType().Name == "BuildProperty") is { } build)
             {
                 var set = new List<string>();
-                if (RequireBool(build, "ExcludeFromBuild", what)) { set.Add("ExcludeFromBuild"); excluded = true; }
+                if (RequireBool(build, "ExcludeFromBuild", what)) { set.Add(Volt.Engine.Ide.ExcludedFolder.ExcludeFromBuild); excluded = true; }
                 if (RequireBool(build, "LinkAlways", what)) set.Add("LinkAlways");
                 if (RequireBool(build, "External", what)) set.Add("External");
                 if (RequireBool(build, "EnableSystemCall", what)) set.Add("EnableSystemCall");
@@ -180,7 +180,7 @@ namespace Volt.Ide.Codesys
                 if (d.Length > 0) set.Add($"CompilerDefines '{d}'");
                 if (Count(NwlInterop.Declared(build, "Undefines") ?? throw Unreadable(what, "BuildProperty.Undefines")) > 0)
                     set.Add("Undefines");
-                if (set.Count > 0) reasons.Add($"its build property ({string.Join(", ", set)})");
+                if (set.Count > 0) reasons.Add(Volt.Engine.Ide.ExcludedFolder.BuildProperty(set));
             }
             var folder = IsFolder(node);
             var obj = folder ? null : GetMember(meta, "Object");
@@ -199,10 +199,7 @@ namespace Volt.Ide.Codesys
             // Only an EXCLUDED folder's objects are unbuilt (gate review of step 3, finding 4): a folder linked always,
             // or holding defines, holds built objects, and they are walked.
             var inside = !(folder && excluded);
-            return ($"{what} holds {string.Join(" and ", reasons)} — it is no item, and Volt's text has no line for it " +
-                    "(openspec bridge-one-to-one §1.1: refused by name in the pull report)" +
-                    (inside ? "." : "; the objects in an excluded folder are not built, so they are not pulled as built ones."),
-                    inside);
+            return (Volt.Engine.Ide.ExcludedFolder.Reason(what, reasons, inside), inside);
         }
 
         /// <summary>THE MEASURED CONSTANTS of the source classes (design §1.1 "Members of the source classes"; gate review of

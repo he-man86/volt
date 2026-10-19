@@ -58,6 +58,40 @@ public static class WireParityCases
     /// header line.</summary>
     public const string InterfaceDeclaration = "INTERFACE I_Motor";
 
+    /// <summary>A function block excluded from the build by its OWN flag (CODESYS <c>BuildProperty.ExcludeFromBuild</c>,
+    /// TwinCAT's live <c>Exclude</c> VSProperty, DIALECT C39): the one property line under its implementation line.</summary>
+    public const string ExcludedDeclaration = "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR";
+    public const string ExcludedBody = "x := 1;";
+    public const string ExcludedFunctionBlock =
+        "FUNCTION_BLOCK FB_X\n" +
+        "VAR\n" +
+        "END_VAR\n" +
+        "IMPLEMENTATION ST\n" +
+        "%EXCLUDE_FROM_BUILD\n" +
+        "x := 1;\n" +
+        "\n" +
+        "END_FUNCTION_BLOCK\n";
+
+    /// <summary>The walk's answer for an EXCLUDED FOLDER <c>Sim</c> under <paramref name="root"/>, holding the struct
+    /// <c>SimType</c> and the folder <c>Deep</c> with the struct <c>DeepType</c> (DIALECT C39): the folder is a node with its
+    /// reason, and each item under it is named by its kind — in this order, on both vendors.</summary>
+    public static (string Name, string Folder, string Reason, string? Kind)[] ExcludedFolderEntries(string root)
+    {
+        string At(string folder, string name) => folder.Length == 0 ? name : folder + "/" + name;
+        var sim = At(root, "Sim");
+        string Inside(string name) =>
+            $"'{name}' sits in the excluded folder '{sim}' — it is not built, so it is not pulled as a built one";
+        return new (string, string, string, string?)[]
+        {
+            ("Sim", root,
+             "'Sim' holds its build property (ExcludeFromBuild) — it is no item, and Volt's text has no line for it (openspec " +
+             "bridge-one-to-one §1.1: refused by name in the pull report); the objects in an excluded folder are not built, " +
+             "so they are not pulled as built ones.", "folder"),
+            ("SimType", sim, Inside("SimType"), "dut"),
+            ("DeepType", At(sim, "Deep"), Inside("DeepType"), "dut"),
+        };
+    }
+
     public const string InterfaceWithGetter =
         "INTERFACE I_Motor\n" +
         "\n" +

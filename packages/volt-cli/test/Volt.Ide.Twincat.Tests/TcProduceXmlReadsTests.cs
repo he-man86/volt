@@ -42,7 +42,8 @@ public class TcProduceXmlReadsTests
         {
             using var project = new SettingsProject("untouched.plcproj.xml");
             var pou = new Node("PLC_PRG", ItemKind.PlcPouProg,
-                "<TreeItem><ItemName>PLC_PRG</ItemName><VSProperties><VSProperty><Name>FullPath</Name>" +
+                "<TreeItem><ItemName>PLC_PRG</ItemName><VSProperties>" + TcExclusionTests.Property("False") +
+                "<VSProperty><Name>FullPath</Name>" +
                 $"<Value>{file}</Value></VSProperty></VSProperties></TreeItem>") { DeclarationText = "PROGRAM PLC_PRG\nVAR\nEND_VAR" };
             var driver = project.Driver(pou);
             var walk = driver.WalkItems().Gated().Items;
