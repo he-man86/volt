@@ -1,2 +1,0 @@
-- [ ] 1.1 Generators for deep nesting, flat chains and long files, sized from the limits in the proposal.
-- [ ] 1.2 Each generated input answers findings or one `not-analysed` on the shipped Node runtime and on bun.

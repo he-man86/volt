@@ -103,7 +103,8 @@ test/
   lsp/                       the server as a client sees it: the black-box suites that drive the whole server over its
                              protocol (capability-matrix, diagnostic-identity, navigation-golden, network-text-switch,
                              implementation-keyword-diagnostics, the scheduling suites diagnostics-pull, disk-sync and
-                             server-robustness, the opt-in latency bench); harness.ts — the LSP client they and
+                             server-robustness, input-nobody-types — generated input past
+                             the stack, on the node bundle and bun — the opt-in latency bench); harness.ts — the LSP client they and
                              src/server's colocated tests drive, sources.ts — the documents and steps they share,
                              probes.ts — the delegating parse, compute and read mocks the scheduling suites count work with
   package/                   the package's own shape: build.test.ts (the published build compiles), layering.test.ts
