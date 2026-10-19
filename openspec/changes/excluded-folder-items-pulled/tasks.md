@@ -25,13 +25,11 @@ Requires `codesys-application-defines-spelled` tasks 2.4 and 5.2 (the shared bui
 - [ ] 3.2 A push carrying `%EXCLUDE_FROM_BUILD` on TwinCAT writes it by the member 1.1 found.
 - [ ] 3.3 If 1.1 found folder exclusion: an excluded folder → its `.folder` descriptor, byte-identical to CODESYS's.
 
-## 4. LSP: tests red (from the build-conformance recordings; the recording is a live CODESYS step)
+## 4. LSP
 
-- [ ] 4.1 Record a build-conformance fixture: an excluded FB with an error inside it, a built program instantiating it,
-      one excluded by its own flag and one by its folder.
-- [ ] 4.2 No diagnostics inside either excluded FB. Today: reported.
-- [ ] 4.3 The built program's reference to each excluded FB is reported with the recording's error. Today: resolved.
-- [ ] 4.4 Effective exclusion is derived from the item's own `%EXCLUDE_FROM_BUILD` or a `.folder` above it.
+- [ ] 4.1 See `lsp-excluded-from-build`, which built the own-flag half. What stays here: the folder half (`.folder` in
+      `REFERENCE_EXTENSIONS`, then the folder clause in `effectivelyExcluded`), and the scope half with its live recording
+      (a built program that references an FB excluded by its own flag and one excluded by its folder).
 
 ## 5. Implement
 
@@ -40,8 +38,7 @@ Requires `codesys-application-defines-spelled` tasks 2.4 and 5.2 (the shared bui
 - [ ] 5.2 CODESYS: the walk emits the descriptor and walks excluded folders as any folder; `ContainerRefusal` drops the
       folder case and the held-list branch.
 - [ ] 5.3 TwinCAT per 1.1: `%EXCLUDE_FROM_BUILD` read and written; the `.folder` descriptor if the setting exists.
-- [ ] 5.4 LSP: `.folder` in `REFERENCE_EXTENSIONS`; effective exclusion; no diagnostics and no scope for excluded items.
-- [ ] 5.5 `scripts/completeness.known.ts`: remove only the subjects refused for an excluded folder.
+- [ ] 5.4 `scripts/completeness.known.ts`: remove only the subjects refused for an excluded folder.
 
 ## 6. Docs
 
