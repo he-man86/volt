@@ -62,7 +62,7 @@ export function documentDiagnostics(store: WorkspaceStore, d: Document): VoltDia
     documentFindings({
       doc: d,
       project,
-      config: store.config,
+      config: store.configs.configFor(d.uri),
       dead: store.deadSet(),
       deadMembers: store.deadMembers(),
       manifests: store.workspaceRefs.libraryManifests,

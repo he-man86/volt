@@ -1,7 +1,7 @@
 /**
  * THE VENDOR A WORKSPACE FOLDER IS BOUND TO — `<git dir>/volt/config.json` `bridge.vendor`, written by `volt init --vendor`
  * (the C# `WorkspaceConfig.Bridge.Vendor`, `packages/volt-cli/src/Volt.Cli/Sync/Config.cs`). The binding is the one
- * place a pulled workspace states its vendor: no source file does, and TwinCAT has no `.device`/`.projectsettings`.
+ * place a pulled workspace states its vendor: no source file does, and TwinCAT has no `.device`.
  *
  * No binding file ⇒ unbound (`undefined`). A binding file that does not state `codesys` or `twincat` is refused by
  * name, never read as unbound: a malformed binding is a broken workspace, and guessing past it would pick a dialect.

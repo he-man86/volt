@@ -18,7 +18,7 @@
  * list, is no fact about it, and the server keeps what it last read.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
-import { basename, extname, join } from "node:path"
+import { basename, dirname, extname, join } from "node:path"
 import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "../frontend/library/index.js"
 import type { DeviceInstance } from "../frontend/symbols/index.js"
@@ -131,14 +131,21 @@ const taskRootsOf = (file: string): string[] =>
 export interface WorkspaceRefScan {
   refs: WorkspaceRefs
   taskRoots: Set<string>
-  /** Per-code states from the project's `.projectsettings`, or undefined when the project has none (a
-   *  TwinCAT workspace, or one pulled before the bridge emitted it) ⇒ the editor's settings stand alone. */
-  projectDiagnostics?: Partial<Record<ConfigurableCode, DiagnosticState>>
+  /** Every `.projectsettings` read, each with the folder it governs. Empty: the editor's settings stand alone. */
+  projectSettings: ProjectSettings[]
   /** Every reference file read, by path — what tells a deleted folder that held one (a host may send ONE event for it). */
   paths: string[]
   /** The reference files that exist and could not be read (EBUSY, EPERM…): a scan with one is NOT the whole reference
    *  state — dropping that file's library, settings or task roots would be a guess, not a fact. */
   unreadable: Unreadable[]
+}
+
+/** One PLC project's compiler-warning states (`projectDiagnosticsFrom`) and the folder they govern: the one its
+ *  `.projectsettings` sits in — the project node (CODESYS: the project root; TwinCAT: each PLC project's own node, one
+ *  per PLC project of a solution). A document is judged by the settings of the deepest such folder that holds it. */
+export interface ProjectSettings {
+  folder: string
+  diagnostics: Partial<Record<ConfigurableCode, DiagnosticState>>
 }
 
 /** A file that exists and could not be read, with the I/O code that said so. */
@@ -170,7 +177,7 @@ class RefCollector {
   private readonly deviceNames: string[] = []
   private readonly taskRoots = new Set<string>()
   private readonly paths: string[] = []
-  private projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
+  private readonly projectSettings: ProjectSettings[] = []
 
   /** Read `file` when it is a reference file (`ext` EXACT — see `scanWorkspace`); false when it is not one. */
   read(file: string, ext: string): boolean {
@@ -184,9 +191,9 @@ class RefCollector {
       const name = deviceNameOf(file)
       if (name !== undefined) this.deviceNames.push(name)
     } else if (ext === ".projectsettings") {
-      // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
-      // a second would mean two projects in one root, which the workspace model does not support anyway.
-      this.projectDiagnostics = projectDiagnosticsFrom(readFileSync(file, "utf8"))
+      // One PLC project's compiler-warning configuration — see `projectDiagnosticsFrom`. A TwinCAT solution holds one
+      // per PLC project: each governs its own folder, and none replaces another's.
+      this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(readFileSync(file, "utf8")) })
     } else {
       for (const p of taskRootsOf(file)) this.taskRoots.add(p.toLowerCase())
     }
@@ -203,7 +210,7 @@ class RefCollector {
       },
       taskRoots: this.taskRoots,
       paths: this.paths,
-      ...(this.projectDiagnostics === undefined ? {} : { projectDiagnostics: this.projectDiagnostics }),
+      projectSettings: this.projectSettings,
     }
   }
 }
@@ -215,7 +222,15 @@ class RefCollector {
  */
 export function scanWorkspace(root: string): WorkspaceScan {
   if (root.length === 0)
-    return { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [], paths: [], unreadable: [], unreadableSources: [] }
+    return {
+      refs: EMPTY_WORKSPACE_REFS,
+      taskRoots: new Set(),
+      projectSettings: [],
+      sources: [],
+      paths: [],
+      unreadable: [],
+      unreadableSources: [],
+    }
   const refs = new RefCollector(boundApplications(root))
   const sources: { path: string; source: string }[] = []
   const unreadable: Unreadable[] = []

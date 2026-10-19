@@ -320,7 +320,7 @@ below; the documents live in the workspace layer:
   (`project-build`) and, when the binding states two or more applications (`binding` `boundApplications`, from
   `ide-refs.json`), one table per application — its own documents and libraries plus the POU pool's, so a name resolves
   inside its own application and the same GVL in two is no C0136 (`application-scopes`); a pool document is analysed in
-  EACH application's table, as CODESYS compiles it in each (`projectsFor`) —, the dead-code cache (`dead-code-cache`), the reference state, and a `generation` bumped only when
+  EACH application's table, as CODESYS compiles it in each (`projectsFor`) —, the dead-code cache (`dead-code-cache`), the reference state, the config each document is analysed under (`project-configs`: each `.projectsettings` over the editor's options for the documents under its own folder — one per PLC project of a TwinCAT solution), and a `generation` bumped only when
   what analysis sees moves (the merged text, the refs, the task roots, the config). The disk layer is crawled ONCE, at
   `initialized` (`seedDisk`); after that it changes ONE FILE AT A TIME (`upsertDisk` / `deleteDisk` / `deleteDiskUnder`,
   a watched batch's files rebound together with one relink in `diskBatch`), and only a reference file (`.library`,

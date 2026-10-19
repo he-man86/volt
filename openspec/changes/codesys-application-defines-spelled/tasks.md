@@ -22,7 +22,7 @@
 
 ## 4. LSP: tests red
 
-- [ ] 4.1 `.projectsettings` per project: two PLC projects with different disabled warnings → each project's items get
+- [x] 4.1 `.projectsettings` per project: two PLC projects with different disabled warnings → each project's items get
       their own. Today: the last one read wins (`workspace-refs.ts:186-189`).
 - [ ] 4.2 `defined(A)` answered from the item's own application's `.application` (two applications, different defines).
 - [ ] 4.3 `project_defined` still answers from the project's defines.

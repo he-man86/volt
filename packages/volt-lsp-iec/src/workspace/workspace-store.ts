@@ -24,6 +24,7 @@ import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./workspace-refs.js"
 import { bindFailures, buildProject } from "./project-build.js"
 import { Quarantine, type Layer } from "./quarantine.js"
 import { ApplicationScopes } from "./application-scopes.js"
+import { ProjectConfigs } from "./project-configs.js"
 import type { Document } from "../services/index.js"
 
 /** Where a document that could not be analysed is told — the server logs it to the client. REQUIRED, never
@@ -49,38 +50,35 @@ export class WorkspaceStore {
   // like `docs()` (normalized key → the exact Document bound), so an edit can unbind the old + bind the new.
   private projectScope: Scope | undefined
   private boundDocs = new Map<string, Document>()
-  private readonly apps = new ApplicationScopes({ docs: () => this.docs(), refs: () => this.refs, vendor: () => this.cfg.vendor })
+  private readonly apps = new ApplicationScopes({ docs: () => this.docs(), refs: () => this.refs, vendor: () => this.configs.editor.vendor })
   private readonly dead = new DeadCodeCache({
     docs: () => this.docs(),
     roots: () => this.roots,
-    diagnoseDeadCode: () => this.cfg.diagnoseDeadCode,
+    diagnoseDeadCode: () => this.configs.editor.diagnoseDeadCode,
     keyOf: normalizeKey,
   })
+  /** The editor's config and each PLC project's over it: `configFor(uri)` is the one a document is analysed under. */
+  readonly configs: ProjectConfigs
 
   constructor(
-    private cfg: ResolvedConfig,
+    cfg: ResolvedConfig,
     /** How every parse of this store reads its sources — network text on or off. REQUIRED, never defaulted: the server
      *  passes what its environment says (`server/config.ts`), and a test states its own. */
     private readonly parse: ParseOptions,
     private readonly onFailure: FailureReport,
-  ) {}
+  ) {
+    this.configs = new ProjectConfigs(cfg)
+  }
 
   /** Bumped by every mutation that changes what analysis sees (the file header says which do not). */
   get generation(): number {
-    return this.gen
+    return this.gen + this.configs.generation
   }
   get workspaceRefs(): WorkspaceRefs {
     return this.refs
   }
   get taskRoots(): ReadonlySet<string> | undefined {
     return this.roots
-  }
-  get config(): ResolvedConfig {
-    return this.cfg
-  }
-  set config(config: ResolvedConfig) {
-    this.cfg = config
-    this.gen++
   }
 
   /** The references AND the task roots, in one mutation: the project scope and the dead caches are rebuilt from the
@@ -115,7 +113,7 @@ export class WorkspaceStore {
       return undefined
     }
     try {
-      return { uri, source, parseResult: parseDocument(uri, source, this.parse, this.cfg.vendor) }
+      return { uri, source, parseResult: parseDocument(uri, source, this.parse, this.configs.editor.vendor) }
     } catch (e) {
       this.quarantine(key, uri, source, layer, e)
       return undefined
@@ -169,9 +167,9 @@ export class WorkspaceStore {
     while (this.projectScope === undefined) {
       const docs = this.docs()
       try {
-        this.projectScope = buildProject(docs, this.refs, this.cfg.vendor)
+        this.projectScope = buildProject(docs, this.refs, this.configs.editor.vendor)
       } catch (e) {
-        const failed = bindFailures(docs, this.cfg.vendor)
+        const failed = bindFailures(docs, this.configs.editor.vendor)
         if (failed.length === 0) throw e
         for (const { doc, error } of failed) this.quarantineDoc(doc, error) // each drops the project: the loop rebuilds
         continue

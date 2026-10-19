@@ -85,7 +85,7 @@ test("the workspace scan picks up the project's .projectsettings", () => {
     )
     writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
     const scan = scanWorkspace(dir)
-    expect(scan.projectDiagnostics).toEqual({ "inout-own-access": "off" })
+    expect(scan.projectSettings).toEqual([{ folder: dir, diagnostics: { "inout-own-access": "off" } }])
     expect(scan.sources.length).toBe(1) // the settings file is NOT a source unit
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -153,7 +153,7 @@ test("the workspace scan strips every leading BOM, as the push does", () => {
  *
  * Everything around this was already covered — `projectDiagnosticsFrom` parses the lines (config.test.ts),
  * `scanWorkspace` finds the file (above), and `resolveConfig` gives the project the last word — and a chain
- * of green links is still not a connected chain. `projectDiagnostics` rides on the SCAN, beside `refs` rather
+ * of green links is still not a connected chain. `projectSettings` rides on the SCAN, beside `refs` rather
  * than inside it, so a consumer holding only `scanWorkspaceRefs(dir).refs` gets a workspace where the project's
  * compiler settings silently do nothing. Every test above passes in that world.
  *
@@ -166,7 +166,8 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
   // `n;` is a bare expression statement: C0139, one of the codes the compiler-warnings dialog can switch off.
   const noOpCount = (): number => {
     const scan = scanWorkspace(dir)
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnostics: scan.projectDiagnostics }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.configs.configure({ vendor: "codesys" }, scan.projectSettings)
     store.setRefs(scan.refs, scan.taskRoots)
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     let n = 0
@@ -192,7 +193,40 @@ test("a workspace with no .projectsettings leaves the editor's settings alone", 
   const dir = mkdtempSync(join(tmpdir(), "volt-ps-"))
   try {
     writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nEND_PROGRAM\n")
-    expect(scanWorkspace(dir).projectDiagnostics).toBeUndefined()
+    expect(scanWorkspace(dir).projectSettings).toEqual([])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// A TwinCAT solution holds one Project Settings per PLC project, at that project's own node. They were one slot, so
+// the LAST file the walk read decided every project's warnings: A's switched-off C0139 came back in A.
+test("each PLC project's .projectsettings governs its own documents, and none replaces another's", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-ps2-"))
+  try {
+    const a = join(dir, "PLC", "A", "A Project")
+    const b = join(dir, "PLC", "B", "B Project")
+    for (const [p, disabled] of [[a, "C0139"], [b, "C0371"]] as const) {
+      mkdirSync(join(p, "POUs"), { recursive: true })
+      writeFileSync(join(p, "Project Settings.projectsettings"), `Disabled warnings:     ${disabled}\n`)
+      writeFileSync(join(p, "POUs", "Prog.pou"), "PROGRAM Prog\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
+    }
+    const scan = scanWorkspace(dir)
+    expect(scan.projectSettings).toEqual([
+      { folder: a, diagnostics: { "no-op-statement": "off" } },
+      { folder: b, diagnostics: { "inout-own-access": "off" } },
+    ])
+    const store = new WorkspaceStore(resolveConfig({ vendor: "twincat" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.configs.configure({ vendor: "twincat" }, scan.projectSettings)
+    // Two PROGRAMs named Prog are two PLC projects' own; only C0139 is asked about here.
+    store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
+    const c0139 = (project: string): number =>
+      documentDiagnostics(store, store.workspace().find((d) => d.uri === join(project, "POUs", "Prog.pou"))!).filter(
+        (x) => String(x.code) === "C0139",
+      ).length
+    expect(c0139(a), "A switched C0139 off").toBe(0)
+    expect(c0139(b), "B did not").toBe(1)
+    expect(store.configs.configFor(join(dir, "Loose.pou")).diagnostics["no-op-statement"], "no project holds it").toBe("warning")
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

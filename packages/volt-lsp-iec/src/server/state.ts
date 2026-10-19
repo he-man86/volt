@@ -26,16 +26,16 @@ import {
   type ProtocolRequestType,
 } from "vscode-languageserver-protocol/node"
 import { pathToFileURL } from "node:url"
-import {
-  resolveConfig,
-  type AnalysisInitOptions,
-  type ConfigurableCode,
-  type DiagnosticState,
-  type Vendor,
-} from "../analysis/index.js"
+import type { AnalysisInitOptions, Vendor } from "../analysis/index.js"
 import type { Scope } from "../frontend/symbols/index.js"
 import { offsetFromPosition, type Document } from "../services/index.js"
-import { scanWorkspace, scanWorkspaceRefs, type Unreadable, type WorkspaceRefScan } from "../workspace/workspace-refs.js"
+import {
+  scanWorkspace,
+  scanWorkspaceRefs,
+  type ProjectSettings,
+  type Unreadable,
+  type WorkspaceRefScan,
+} from "../workspace/workspace-refs.js"
 import type { WorkspaceStore } from "../workspace/workspace-store.js"
 import { DiagnosticsPublisher } from "./diagnostics-publisher.js"
 
@@ -60,8 +60,8 @@ export class ServerState {
   shutdown = false
   /** What the EDITOR asked for, kept so a re-scan can re-apply the project's settings on top of it. */
   editorOptions: EditorOptions = {}
-  /** What the PROJECT configures (`.projectsettings`), refreshed by every reference scan. */
-  projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
+  /** What each PLC PROJECT configures (its `.projectsettings`), refreshed by every reference scan. */
+  projectSettings: readonly ProjectSettings[] = []
   /** The reference files the last scan read, by path (a deleted folder that held one re-scans the references). */
   refPaths: readonly string[] = []
   /** Source paths a watched batch could not read (EBUSY while the CLI or the IDE writes): re-read at the next batch. */
@@ -182,14 +182,11 @@ export class ServerState {
    * A compiler warning's state is a fact about the project, not a preference of whoever opened it: CODESYS
    * stores it in the project, the bridge mirrors it into `.projectsettings`, and it must therefore beat an
    * editor setting rather than be overridden by one. Editor options still own everything the project does
-   * not speak to — `diagnoseDeadCode`, and any code the project leaves at its default.
+   * not speak to — `diagnoseDeadCode`, and any code the project leaves at its default. Each PLC project's settings
+   * govern its own documents (`WorkspaceStore.configFor`).
    */
   applyResolvedConfig(): void {
-    this.store.config = resolveConfig({
-      vendor: this.vendor,
-      diagnoseDeadCode: this.editorOptions.diagnoseDeadCode,
-      diagnostics: { ...this.editorOptions.diagnostics, ...this.projectDiagnostics },
-    })
+    this.store.configs.configure({ ...this.editorOptions, vendor: this.vendor }, this.projectSettings)
   }
 
   /** The whole reference state from one scan: refs and task roots in one store mutation, and the config re-resolved
@@ -197,7 +194,7 @@ export class ServerState {
   applyRefScan(scan: WorkspaceRefScan): void {
     this.store.setRefs(scan.refs, scan.taskRoots)
     this.refPaths = scan.paths
-    this.projectDiagnostics = scan.projectDiagnostics
+    this.projectSettings = scan.projectSettings
     this.applyResolvedConfig()
   }
 

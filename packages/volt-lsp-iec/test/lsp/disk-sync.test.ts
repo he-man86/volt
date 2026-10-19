@@ -317,6 +317,31 @@ test("a `.projectsettings` change re-resolves the project's configuration", asyn
   h.dispose()
 })
 
+test("each PLC project's documents are judged by that project's own `.projectsettings`", async () => {
+  // A TwinCAT solution holds one Project Settings per PLC project, at the project's own node. `b;` is C0139.
+  const prog = (name: string) => `PROGRAM ${name}\nVAR\n\tb : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nb;\nEND_PROGRAM\n`
+  const root = tempWorkspace({
+    "PLC/A/A Project/Project Settings.projectsettings": "Disabled warnings: C0139\n",
+    "PLC/A/A Project/POUs/ProgA.pou": prog("ProgA"),
+    "PLC/B/B Project/Project Settings.projectsettings": "Disabled warnings: C0371\n",
+    "PLC/B/B Project/POUs/ProgB.pou": prog("ProgB"),
+  })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, CAPS.vscode)
+  const codes = async (rel: string) =>
+    ((await h.workspacePull()).find((r) => r.uri === fileUri(root, rel))?.items ?? []).map((d) => d.code)
+  expect(await codes("PLC/A/A Project/POUs/ProgA.pou"), "A switched C0139 off").not.toContain("C0139")
+  expect(await codes("PLC/B/B Project/POUs/ProgB.pou"), "B did not").toContain("C0139")
+  // B's settings change: B follows it, and A keeps its own.
+  writeFileSync(join(root, "PLC/B/B Project/Project Settings.projectsettings"), "Warnings as errors: C0139\n")
+  await h.watched([{ uri: fileUri(root, "PLC/B/B Project/Project Settings.projectsettings"), type: FileChangeType.Changed }])
+  expect(await codes("PLC/A/A Project/POUs/ProgA.pou")).not.toContain("C0139")
+  const b = (await h.workspacePull()).find((r) => r.uri === fileUri(root, "PLC/B/B Project/POUs/ProgB.pou"))?.items ?? []
+  expect(b.filter((d) => d.code === "C0139").map((d) => d.severity)).toEqual([1]) // Error
+  h.dispose()
+})
+
 test("push mode: a watched batch re-publishes an open document whose findings it moved", async () => {
   const w = workspace()
   const h = harness()
