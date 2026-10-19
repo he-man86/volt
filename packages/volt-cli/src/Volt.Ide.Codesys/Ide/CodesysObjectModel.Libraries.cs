@@ -18,15 +18,16 @@ namespace Volt.Ide.Codesys
         /// live in the <c>ILibManObject</c> collection — so each is surfaced as a
         /// synthetic <see cref="LibRefNode"/> the adapter emits as a `library` item,
         /// matching TwinCAT's flat library refs. Read-only (no push target).
-        /// <para>…and what the manager holds that no manifest spells, each a reason for the pull report
-        /// (<paramref name="unspelled"/>; openspec bridge-one-to-one §1.1 library manager, gate review of step 3, finding
+        /// <para>…and what the manager holds that no manifest spells, its reasons joined into ONE for the pull report
+        /// (<paramref name="unspelled"/>, null when there is none — one node, one entry: openspec
+        /// library-manager-one-node-entry; bridge-one-to-one §1.1 library manager, gate review of step 3, finding
         /// 4): a redirection of a placeholder no reference here names, and the parameter values the project sets (their
         /// vendor form is an <c>IExpression</c> whose text form Volt has not measured — 3 managers in the corpora).</para>
         /// <para>…and the references it holds that cannot be materialized (<paramref name="refused"/>: the reference's name
         /// and why). Each is named in the pull report with its kind, so its <c>.library</c> file is kept rather than read as
         /// deleted (cli-bridges review B2). A reference whose IDENTITY cannot be read has no name to keep, so it fails the
         /// manager — which the walk names unreadable, leaving its folder unwalked.</para></summary>
-        public List<LibRefNode> GetLibraryRefs(object libManNode, out List<string> unspelled,
+        public List<LibRefNode> GetLibraryRefs(object libManNode, out string? unspelled,
                                                out List<(string Name, string Reason)> refused)
         {
             // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
@@ -94,15 +95,18 @@ namespace Volt.Ide.Codesys
             foreach (var item in items) if (item != null) Walk(item);
 
             refused = notMaterialized;
-            unspelled = new List<string>();
+            // ONE NODE, ONE REASON (openspec library-manager-one-node-entry A): joined like every other container's, so the
+            // manager is one unreadableNodes entry with one version slot.
+            var reasons = new List<string>();
             var stray = redirects.Keys.Where(k => !redirected.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
             if (stray.Count > 0)
-                unspelled.Add($"it redirects {stray.Count} placeholder(s) no reference here names ({string.Join(", ", stray)}) — a " +
-                              "REDIRECT line stands in the manifest of the placeholder it redirects, and none materializes here");
+                reasons.Add($"it redirects {stray.Count} placeholder(s) no reference here names ({string.Join(", ", stray)}) — a " +
+                            "REDIRECT line stands in the manifest of the placeholder it redirects, and none materializes here");
             if (ParameterValues(iobj, items) is { Count: > 0 } parameters)
-                unspelled.Add($"sets {parameters.Sum(p => p.Values)} library parameter value(s) " +
-                              $"({string.Join(", ", parameters.Select(p => p.Library))}) — CODESYS holds each as an IExpression " +
-                              "whose text form Volt has not measured, so no PARAMETER line spells them yet");
+                reasons.Add($"sets {parameters.Sum(p => p.Values)} library parameter value(s) " +
+                            $"({string.Join(", ", parameters.Select(p => p.Library))}) — CODESYS holds each as an IExpression " +
+                            "whose text form Volt has not measured, so no PARAMETER line spells them yet");
+            unspelled = reasons.Count == 0 ? null : string.Join(" and ", reasons);
             return byName.Values.ToList();
         }
 

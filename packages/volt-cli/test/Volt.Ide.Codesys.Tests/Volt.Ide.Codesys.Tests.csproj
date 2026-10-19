@@ -39,6 +39,8 @@
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <Compile Include="..\shared\WireParityCases.cs" Link="WireParityCases.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
+    <!-- One tree node, at most one unreadableNodes entry: the gate every offline walk passes through. -->
+    <Compile Include="..\shared\OneEntryPerNode.cs" Link="OneEntryPerNode.cs" />
     <!-- Who a bridge pipe admits (environment-dependency-audit 2.2): net10 here, net48 in the CODESYS suite. -->
     <Compile Include="..\shared\PipeAccessTests.cs" Link="PipeAccessTests.cs" />
     <Compile Include="..\shared\UnelevatedFact.cs" Link="UnelevatedFact.cs" />

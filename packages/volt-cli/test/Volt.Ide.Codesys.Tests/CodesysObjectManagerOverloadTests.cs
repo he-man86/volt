@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Codesys.Tests.CodesysHiddenBodyWriteTests;
 
 namespace Volt.Ide.Codesys.Tests
@@ -129,7 +130,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = mgr;
             try
             {
-                var walk = new CodesysDriver(new Projects(root)).WalkItems();
+                var walk = new CodesysDriver(new Projects(root)).WalkItems().Gated();
 
                 Assert.Empty(walk.UnreadableObjects);
                 Assert.True(walk.Complete);
@@ -167,7 +168,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = mgr;
             try
             {
-                var walk = new CodesysDriver(new Projects(root)).WalkItems();
+                var walk = new CodesysDriver(new Projects(root)).WalkItems().Gated();
 
                 Assert.Equal(new[] { "PlcDataType" }, walk.Items.Select(i => i.Name));
                 var lost = Assert.Single(walk.UnreadableObjects);
@@ -193,7 +194,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = mgr;
             try
             {
-                var walk = new CodesysDriver(new Projects(new GuidNode("<project>", null, device))).WalkItems();
+                var walk = new CodesysDriver(new Projects(new GuidNode("<project>", null, device))).WalkItems().Gated();
 
                 var lost = Assert.Single(walk.UnreadableObjects);
                 Assert.Equal(("Device", ""), (lost.Name, lost.Folder));
@@ -207,7 +208,7 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_root_whose_children_cannot_be_read_is_unwalked_as_the_root()
         {
-            var walk = new CodesysDriver(new Projects(new ThrowingRoot())).WalkItems();
+            var walk = new CodesysDriver(new Projects(new ThrowingRoot())).WalkItems().Gated();
             Assert.Equal(new[] { "" }, walk.UnwalkedFolders);
         }
 

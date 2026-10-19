@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Codesys.Tests.CodesysContainerRefusalTests;
 using static Volt.Ide.Codesys.Tests.CodesysMemberAvailabilityTests;
 
@@ -68,7 +69,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var root = new TreeNode("<project>", null, null, new TreeNode(Manager, libMan, null));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new CodesysContainerRefusalTests.Manager(root);
-            try { return new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, "3.5.21.40").WalkItems(); }
+            try { return new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, "3.5.21.40").WalkItems().Gated(); }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 

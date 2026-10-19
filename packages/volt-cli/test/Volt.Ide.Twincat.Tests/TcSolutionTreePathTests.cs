@@ -2,6 +2,7 @@ using System.Linq;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -23,7 +24,7 @@ public class TcSolutionTreePathTests
     {
         var (driver, _, _, _) = Project(Plc);
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         const string root = "TwinCAT Project14/PLC/Untitled2/Untitled2 Project";
         Assert.Equal(new[] { root }, walk.Applications);
@@ -41,7 +42,7 @@ public class TcSolutionTreePathTests
     {
         var (driver, _, _, _) = Project(Plc, tiid: x => new Node(x, "Devices", 0, false, new Node(x, "Device 1 (EtherCAT)", 0)));
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         var device = walk.Items.Single(i => i.Name == "Device 1 (EtherCAT)");
         Assert.Equal((ItemKind.PlcDevice, FolderPath.Append(FolderPath.Append("TwinCAT Project14", "I/O"), "Devices")),

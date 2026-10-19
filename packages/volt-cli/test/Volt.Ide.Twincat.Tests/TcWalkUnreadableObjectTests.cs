@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcComTree;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -63,7 +64,7 @@ public class TcWalkUnreadableObjectTests
         var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new System.Collections.Generic.List<ExplorerNode> { root.Explorer() }) });
         driver.Connect(xaePid: 1);
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.Equal(new[] { TcUntouchablePouTests.SystemDescriptor, "PlcDataType", "Project Settings" }, walk.Items.Select(i => i.Name));
         var lost = Assert.Single(walk.UnreadableObjects);
@@ -85,7 +86,7 @@ public class TcWalkUnreadableObjectTests
         var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new System.Collections.Generic.List<ExplorerNode> { root.Explorer() }) });
         driver.Connect(xaePid: 1);
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         var lost = Assert.Single(walk.UnreadableObjects);
         Assert.Equal(("Machine", TcUntouchablePouTests.App), (lost.Name, lost.Folder));

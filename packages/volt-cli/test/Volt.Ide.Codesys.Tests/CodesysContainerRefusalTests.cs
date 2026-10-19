@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Codesys.Tests.CodesysHiddenBodyWriteTests;
 
 namespace Volt.Ide.Codesys.Tests
@@ -84,7 +85,7 @@ namespace Volt.Ide.Codesys.Tests
         private static WalkResult Walk(TreeNode root)
         {
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
-            try { return new CodesysDriver(new Projects(root)).WalkItems(); }
+            try { return new CodesysDriver(new Projects(root)).WalkItems().Gated(); }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 

@@ -1,6 +1,7 @@
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -27,7 +28,7 @@ public class TcWalkComReadsTests
         var (driver, _, xae, _) = Project(Tree);
         xae.TypeReads.Clear();
 
-        driver.WalkItems();
+        driver.WalkItems().Gated();
 
         Assert.Equal(new[] { "Inner", "Motor", "PLC_PRG", "POUs", "Pump", "Untitled2 Project" }, xae.TypeReads.Keys.OrderBy(k => k));
         Assert.All(xae.TypeReads, r => Assert.Equal(1, r.Value));
@@ -54,12 +55,12 @@ public class TcWalkComReadsTests
         model.ForgetExplorer();   // a new operation
         xae.NestedReads = 0;
 
-        driver.WalkItems();
-        driver.WalkItems();
+        driver.WalkItems().Gated();
+        driver.WalkItems().Gated();
         Assert.Equal(1, xae.NestedReads);
 
         model.ForgetExplorer();   // the next operation asks again
-        driver.WalkItems();
+        driver.WalkItems().Gated();
         Assert.Equal(2, xae.NestedReads);
     }
 }

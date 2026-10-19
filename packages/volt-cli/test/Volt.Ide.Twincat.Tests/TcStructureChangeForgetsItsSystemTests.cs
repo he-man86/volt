@@ -3,6 +3,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -48,7 +49,7 @@ public class TcStructureChangeForgetsItsSystemTests
         var plcs = model.Plcs();
         ItemRef PousOf(Sys s, int plc) => new(new BeckhoffDriver.TcNode(s.Pous, plcs[plc], ItemKind.PlcFolder));
 
-        driver.WalkItems();
+        driver.WalkItems().Gated();
         Assert.Equal(1, reads[a.Name]);
         Assert.Equal(1, reads[b.Name]);
 

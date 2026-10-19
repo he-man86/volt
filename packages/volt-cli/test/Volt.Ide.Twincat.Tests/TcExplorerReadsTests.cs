@@ -1,5 +1,6 @@
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -25,8 +26,8 @@ public class TcExplorerReadsTests
                 new Node(x, "PLC_PRG", ItemKind.PlcPouProg)),
             (_, system) => { reads++; return system == "TwinCAT Project14" ? SystemOf(tree!) : null; });
 
-        driver.WalkItems();
-        driver.WalkItems();
+        driver.WalkItems().Gated();
+        driver.WalkItems().Gated();
 
         Assert.Equal(1, reads);
     }
@@ -41,7 +42,7 @@ public class TcExplorerReadsTests
                 new Node(x, "PLC_PRG", ItemKind.PlcPouProg)),
             (_, system) => { reads.Add(system); return system == "TwinCAT Project14" ? SystemOf(tree!) : null; });
 
-        driver.WalkItems();
+        driver.WalkItems().Gated();
 
         Assert.Equal(new[] { "TwinCAT Project14" }, reads);
     }

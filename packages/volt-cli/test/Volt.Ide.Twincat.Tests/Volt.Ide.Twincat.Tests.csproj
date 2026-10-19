@@ -30,6 +30,8 @@
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <Compile Include="..\shared\WireParityCases.cs" Link="WireParityCases.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
+    <!-- One tree node, at most one unreadableNodes entry: the gate every offline walk passes through. -->
+    <Compile Include="..\shared\OneEntryPerNode.cs" Link="OneEntryPerNode.cs" />
     <!-- The one in-memory driver double, for the fetch tests that feed it this vendor's REAL parsed signatures
          (TcDirectedLibraryReadTests). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Codesys.Tests.CodesysContainerRefusalTests;
 using H = Volt.Ide.Codesys.Tests.CodesysHiddenBodyWriteTests;
 
@@ -61,7 +62,7 @@ namespace Volt.Ide.Codesys.Tests
                 new Node("Ghost", null, false));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
             WalkResult walk;
-            try { walk = new CodesysDriver(new Projects(root)).WalkItems(); }
+            try { walk = new CodesysDriver(new Projects(root)).WalkItems().Gated(); }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
 
             Assert.Contains(walk.Items, i => i.Name == "Kept");

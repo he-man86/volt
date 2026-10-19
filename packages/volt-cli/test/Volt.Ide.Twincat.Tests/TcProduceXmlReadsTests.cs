@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcProjectSettingsTests;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -44,7 +45,7 @@ public class TcProduceXmlReadsTests
                 "<TreeItem><ItemName>PLC_PRG</ItemName><VSProperties><VSProperty><Name>FullPath</Name>" +
                 $"<Value>{file}</Value></VSProperty></VSProperties></TreeItem>") { DeclarationText = "PROGRAM PLC_PRG\nVAR\nEND_VAR" };
             var driver = project.Driver(pou);
-            var walk = driver.WalkItems().Items;
+            var walk = driver.WalkItems().Gated().Items;
 
             driver.ReadManifest(walk.Single(i => i.KindCode == ItemKind.PlcProjectSettings).Item, ItemKind.Kinds.ProjectSettings);
             driver.ReadContent(walk.Single(i => i.Name == "PLC_PRG").Item);

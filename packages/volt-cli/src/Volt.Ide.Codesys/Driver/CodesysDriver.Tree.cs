@@ -158,7 +158,7 @@ public sealed partial class CodesysDriver
                     // file there is read as removed, and absence beside the manager still means deleted. A binder
                     // failure is the bridge disagreeing with the IDE's surface and fails the op, as for every object.
                     List<LibRefNode> refs;
-                    List<string> unspelled;
+                    string? unspelled;
                     List<(string Name, string Reason)> refused;
                     try { refs = _om.GetLibraryRefs(child, out unspelled, out refused); }
                     catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
@@ -174,10 +174,11 @@ public sealed partial class CodesysDriver
                         unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, ItemKind.Kinds.Library));
                     // What the manager holds that no manifest spells is named in the pull report (openspec
                     // bridge-one-to-one §1.1 library manager; gate review of step 3, finding 4) — its references walked.
-                    foreach (var why in unspelled)
+                    // ONE entry: the manager is one node (openspec library-manager-one-node-entry).
+                    if (unspelled is { } reason)
                     {
-                        BridgeLog.Warn($"pull: '{name}' {why}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {why}.", ItemKind.Kinds.Folder));
+                        BridgeLog.Warn($"pull: '{name}' {reason}");
+                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {reason}.", ItemKind.Kinds.Folder));
                     }
                 }
                 else

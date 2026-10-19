@@ -8,6 +8,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Ide.Twincat;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Twincat.Tests.TcComTree;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -295,7 +296,7 @@ public class TcUntouchablePouTests
     {
         var (driver, _, xae, _) = Project(Census);
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Equal(new[] { SystemDescriptor, "VltX_EG", "VltX_FP", "VltX_UCI", "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
@@ -314,7 +315,7 @@ public class TcUntouchablePouTests
     {
         var (driver, _, _, _) = Project(Census);
 
-        var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(driver.WalkItems(), new Dictionary<string, string>());
+        var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(driver.WalkItems().Gated(), new Dictionary<string, string>());
 
         Assert.Equal(new[] { App + "/VltCensus/VltX_UCFB.pou" }, items.Select(u => u.Name));
         Assert.Empty(nodes);
@@ -380,7 +381,7 @@ public class TcUntouchablePouTests
             new Node(x, "Clash", ItemKind.PlcDutStruct),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.Empty(walk.UnwalkedFolders);
         Assert.Contains("Inner", walk.Items.Select(i => i.Name));
@@ -402,7 +403,7 @@ public class TcUntouchablePouTests
                 new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou))),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Contains(App + "/F", walk.UnwalkedFolders);
@@ -444,7 +445,7 @@ public class TcUntouchablePouTests
         var (driver, _, xae, root) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcSystemRoot, false,
             new Node(x, "U", ItemKind.PlcPou, poisoned: true),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
-        driver.WalkItems();
+        driver.WalkItems().Gated();
         root.Kids.Add(new Node(xae, "Added", ItemKind.PlcPou) { Owner = root });
 
         var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, App + "/PLC_PRG.pou"));
@@ -510,7 +511,7 @@ public class TcUntouchablePouTests
                 });
             });
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Contains(App + "/X", walk.UnwalkedFolders);
@@ -528,7 +529,7 @@ public class TcUntouchablePouTests
             new Node(x, "POUs", ItemKind.PlcFolder, false, motors.Select(m => new Node(x, m, ItemKind.PlcPou)).ToArray()),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
         var pathReadsInTheWalk = xae.PathReads;
 
         Assert.Equal(motors.Prepend(SystemDescriptor).Append("PLC_PRG").Append("Project Settings"), walk.Items.Select(i => i.Name));
@@ -552,7 +553,7 @@ public class TcUntouchablePouTests
                 .Concat(census.Children.Skip(1)).ToList(),
         };
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Contains(App + "/VltCensus", walk.UnwalkedFolders);
@@ -574,7 +575,7 @@ public class TcUntouchablePouTests
                 .Concat(census.Children.Skip(1)).ToList(),
         };
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Contains(App + "/VltCensus", walk.UnwalkedFolders);
@@ -694,7 +695,7 @@ public class TcUntouchablePouTests
         var hierarchy = (ExplorerNode?)null;
         var (driver, model, xae, root) = Project(Census, (_, _) => hierarchy is null ? null : SystemAround(hierarchy));
         hierarchy = root.Explorer();
-        Assert.Equal("VltX_UCFB", Assert.Single(driver.WalkItems().UnreadableObjects).Name);
+        Assert.Equal("VltX_UCFB", Assert.Single(driver.WalkItems().Gated().UnreadableObjects).Name);
 
         // The engineer fixes its text in the editor: the caption heals, the tree item is the one loaded broken.
         var healed = root.Explorer();
@@ -706,7 +707,7 @@ public class TcUntouchablePouTests
                 .Concat(healed.Children.Skip(1)).ToList(),
         };
         model.ForgetExplorer();   // a new operation
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Equal("VltX_UCFB", Assert.Single(walk.UnreadableObjects).Name);
@@ -719,7 +720,7 @@ public class TcUntouchablePouTests
         hierarchy = root.Explorer();
         model.ForgetExplorer();
 
-        var after = driver.WalkItems();
+        var after = driver.WalkItems().Gated();
         Assert.False(xae.Dead);
         Assert.Empty(after.UnreadableObjects);
         Assert.Contains("VltX_UCFB", after.Items.Select(i => i.Name));
@@ -741,7 +742,7 @@ public class TcUntouchablePouTests
         Assert.Equal("VltX_W", created.Caption);   // premise: the IDE does not read it as a POU
         model.ForgetExplorer();                    // a new operation
 
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.Contains("VltX_W", walk.Items.Select(i => i.Name));
@@ -765,7 +766,7 @@ public class TcUntouchablePouTests
 
         created.Poisoned = true;   // XAE loaded the project again (from disk): the item is loaded broken now
         model.ForgetExplorer();
-        var walk = driver.WalkItems();
+        var walk = driver.WalkItems().Gated();
 
         Assert.False(xae.Dead);
         Assert.DoesNotContain("VltX_W", walk.Items.Select(i => i.Name));

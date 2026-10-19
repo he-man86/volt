@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 using static Volt.Ide.Codesys.Tests.CodesysContainerRefusalTests;
 using H = Volt.Ide.Codesys.Tests.CodesysHiddenBodyWriteTests;
 
@@ -34,14 +35,33 @@ namespace Volt.Ide.Codesys.Tests
             /// <summary>The references it holds — by default one placeholder that archives no parameter values.</summary>
             public object[] Libraries { get; init; } = { new ArchivedItem() };
             public IEnumerable GetAllLibraries(bool includeHidden) => Libraries;
-            public IEnumerable GetRedirectedPlaceholderNames() => Array.Empty<string>();
+            /// <summary>Its placeholder redirections — placeholder → resolution; none by default.</summary>
+            public System.Collections.Generic.Dictionary<string, string> Redirects { get; init; } = new();
+            public IEnumerable GetRedirectedPlaceholderNames() => Redirects.Keys.ToArray();
+            public string GetRedirectedPlaceholderResolution(string name) => Redirects[name];
+            /// <summary>Its archived <c>ParameterTable</c> entries (<see cref="ParameterTableEntry"/>); none by default.</summary>
+            public object[] ParameterTable { get; init; } = Array.Empty<object>();
             public string[] SerializableValueNames => ArchivesParameterTable
                 ? new[] { "Items", "ParameterTable", "PlaceholderRedirectionTable" }
                 : new[] { "Items", "PlaceholderRedirectionTable" };
             public object? GetSerializableValue(string name) => name switch
             {
                 "ParameterTable" when ParameterTableThrows => throw new InvalidOperationException("the vendor's getter failed"),
-                "ParameterTable" => new ArrayList(),
+                "ParameterTable" => new ArrayList(ParameterTable),
+                _ => throw new ArgumentException(name),
+            };
+        }
+
+        /// <summary>One archived <c>ParameterTable</c> entry: the library it belongs to, and the values the project sets.</summary>
+        public sealed class ParameterTableEntry
+        {
+            public string Name { get; init; } = "";
+            public object[] Values { get; init; } = Array.Empty<object>();
+            public string[] SerializableValueNames => new[] { "Name", "Values" };
+            public object? GetSerializableValue(string name) => name switch
+            {
+                "Name" => Name,
+                "Values" => Values,
                 _ => throw new ArgumentException(name),
             };
         }
@@ -62,15 +82,19 @@ namespace Volt.Ide.Codesys.Tests
                 name == "Params" ? Params : throw new ArgumentException(name);
         }
 
-        private const string Manager = "Library Manager";
+        internal const string Manager = "Library Manager";
 
-        private static WalkResult Walk(LibManObject libMan, string? platform)
+        internal static WalkResult Walk(LibManObject libMan, string? platform, bool gated = true)
         {
             var root = new TreeNode("<project>", null, null,
                 new TreeNode(Manager, libMan, null),
                 new TreeNode("Kept", new Dut("TYPE Kept :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"), null));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
-            try { return new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, platform).WalkItems(); }
+            try
+            {
+                var walk = new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, platform).WalkItems();
+                return gated ? walk.Gated() : walk;
+            }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
@@ -140,7 +164,7 @@ namespace Volt.Ide.Codesys.Tests
                 new TreeNode("Task Configuration", new TaskConfigObject(), null,
                     new TreeNode("Kept", new Dut("TYPE Kept :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"), null)));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
-            try { return new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, platform).WalkItems(); }
+            try { return new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, platform).WalkItems().Gated(); }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
