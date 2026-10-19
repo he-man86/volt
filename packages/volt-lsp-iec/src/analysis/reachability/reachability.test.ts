@@ -209,3 +209,32 @@ test("ownerPou returns the file's primary POU, undefined for a non-POU file", ()
   expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK", { networkText: true }, "codesys"))).toBe("f")
   expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE", { networkText: true }, "codesys"))).toBeUndefined()
 })
+
+// EXCLUDED CODE IS NO EDGE (openspec lsp-excluded-from-build): the compiler does not build an excluded object (DIALECT
+// C2j), so what it names is not called by it, and an excluded PROGRAM runs nothing.
+const EXCLUDED_METHOD = `FUNCTION_BLOCK F
+IMPLEMENTATION ST
+END_FUNCTION_BLOCK
+METHOD Old
+VAR
+\tx : FB_X;
+END_VAR
+IMPLEMENTATION ST
+%EXCLUDE_FROM_BUILD
+x();
+END_METHOD`
+
+test("an FB used only inside an excluded method is dead; the same method built keeps it live", () => {
+  const main = PRG("Main", "VAR i : F; END_VAR\ni();")
+  const x = FB("FB_X", "VAR y : INT; END_VAR", "y := 1;")
+  expect(deadPous([main, file("F.pou", EXCLUDED_METHOD), x]).has("fb_x")).toBe(true)
+  expect(deadPous([main, file("F.pou", EXCLUDED_METHOD.replace("%EXCLUDE_FROM_BUILD\n", "")), x]).has("fb_x")).toBe(false)
+})
+
+test("an excluded PROGRAM is no root: an FB only it uses is dead, though no task configuration says so", () => {
+  const old = file("Old.pou", "PROGRAM Old\nVAR\n\ty : FB_Y;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\ny();\nEND_PROGRAM")
+  const y = FB("FB_Y", "VAR z : INT; END_VAR", "z := 1;")
+  const dead = deadPous([PRG("Main", "VAR a : INT; END_VAR\na := 1;"), old, y])
+  expect(dead.has("fb_y")).toBe(true)
+  expect(dead.has("old")).toBe(true)
+})

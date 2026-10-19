@@ -101,3 +101,39 @@ test("missing language: a Library Manager file with an unstated body gets nothin
   const uri = "file:///App/Library%20Manager/Lib/FB_Dead.pou"
   expect(missingLanguageLines({ [uri]: UNSTATED_DEAD_FB }, uri)).toEqual([])
 })
+
+// EXCLUDED FROM BUILD (openspec lsp-excluded-from-build): CODESYS compiles no excluded object (DIALECT C2j), so one gives
+// nothing, as a dead POU gives nothing, whether reachability finds it live or not and with dead-code diagnosis on. The
+// missing-language finding follows the push, so it stays.
+const FB_TYPE_ERROR = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK\n"
+
+test("an excluded FB that a live PROGRAM reaches shows nothing, parse errors included", () => {
+  const fb = (flag: string) =>
+    `FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\n${flag}i := b;\nEND_FUNCTION_BLOCK\n`
+  const built = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": fb("") }
+  expect(lines(built, "C:/w/FB_Live.pou")).toEqual([["C0002", 4], ["C0032", 7]])
+  const excluded = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": fb("%EXCLUDE_FROM_BUILD\n") }
+  expect(lines(excluded, "C:/w/FB_Live.pou")).toEqual([])
+  expect(lines(excluded, "C:/w/FB_Live.pou", true)).toEqual([])
+})
+
+test("an excluded method that an interface keeps live shows nothing; the rest of its FB still does", () => {
+  const files = (flag: string) => ({
+    "C:/w/PLC_PRG.pou": PRG_MAIN,
+    "C:/w/I.itf": "INTERFACE I\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE\n",
+    "C:/w/FB_Live.pou": FB_TYPE_ERROR + `METHOD M : BOOL\nIMPLEMENTATION ST\n${flag}i := b;\nEND_METHOD\n`,
+  })
+  expect(lines(files(""), "C:/w/FB_Live.pou")).toEqual([["C0032", 6], ["C0032", 10]])
+  expect(lines(files("%EXCLUDE_FROM_BUILD\n"), "C:/w/FB_Live.pou")).toEqual([["C0032", 6]])
+  expect(lines(files("%EXCLUDE_FROM_BUILD\n"), "C:/w/FB_Live.pou", true)).toEqual([["C0032", 6]])
+})
+
+test("missing language: a member of an excluded FB with an unstated body still gets the one finding", () => {
+  const files = {
+    "C:/w/PLC_PRG.pou": PRG_MAIN,
+    "C:/w/FB_Live.pou":
+      FB_TYPE_ERROR.replace("IMPLEMENTATION ST\n", "IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n") +
+      "METHOD Unused\nVAR\n\tx : INT;\nEND_VAR\nx := 1;\nEND_METHOD\n",
+  }
+  expect(lines(files, "C:/w/FB_Live.pou", true)).toEqual([["missing-language", 13]])
+})

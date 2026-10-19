@@ -55,3 +55,5 @@ export {
   type FileReachInfo,
 } from "./reachability/reachability.js"
 export { deadNameUniverse, reachDeadEquivalent } from "./reachability/dead-code-equivalence.js"
+// excluded from build (openspec lsp-excluded-from-build): the one place that decides which objects the compiler does not build
+export { effectivelyExcluded } from "./reachability/exclusion.js"

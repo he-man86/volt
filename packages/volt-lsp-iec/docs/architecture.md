@@ -82,7 +82,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       workspace/  the workspace's own findings: a materialization another Volt wrote, said on its manifests
     messages/  every message text, one slice per check group, one template per message for both vendors
     pipeline/  the registry, its run order and the context a check is handed, and one document's findings composed
-    reachability/  which units and members are dead — the server suppresses diagnostics on them
+    reachability/  which units and members are dead, and which objects are excluded from build — the server suppresses diagnostics on both
     shared/  rules more than one check applies, the diagnostic item and its fixes, the fix text edits, the near-miss engine
   services/  E — the LSP features over the layers below
     assist/  hover (the built-in hover text among it), completion, signature help, inlay hints, code lens, code actions
@@ -262,7 +262,9 @@ walks over those rules, grouped by concern: `types/` · `declarations/` · `name
 the registry, and has its test beside it (`scripts/check-layering.ts`, rules A2–A6; openspec analysis-conformance
 design.md §2). Every body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each
 check traces to a conformance fixture recorded against the live compiler. Dead-code reachability — which units and
-members are dead — is an analysis of the program and lives in `reachability/` (out through `analysis/index`); the policy,
+members are dead — is an analysis of the program and lives in `reachability/` (out through `analysis/index`), beside
+exclusion (`reachability/exclusion` `effectivelyExcluded`, the one place that decides which objects the compiler does not
+build: an excluded object gives nothing whatever `diagnoseDeadCode` says, and its code is no reachability edge); the policy,
 suppressing diagnostics on dead code unless `diagnoseDeadCode`, is `pipeline/document` `documentFindings` (one document's findings composed: the library gate, the dead-code and unstated-body quiet, the missing-language finding; the server adds only the LSP conversion — openspec lsp-server-scheduling 2.4).
 
 The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
@@ -730,7 +732,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Findings → LSP diagnostics; push vs pull, resultIds, versions | `server/document-diagnostics` (the conversion) · `server/diagnostics-publisher` `DiagnosticsPublisher` |
 | Live document + project state (open/disk layers, parse cache, eager index, per-file disk sync, quarantine) | `workspace/workspace-store` `WorkspaceStore` |
 | Built-in and pragma hover text (types/operators/conversions/pragmas/…) | `services/assist/builtin-hover` |
-| Dead-code reachability | `analysis/reachability` |
+| Dead-code reachability; exclusion from build | `analysis/reachability` (`exclusion` `effectivelyExcluded`) |
 
 **2. Per-layer barrels.** Each layer exposes its public surface through one `index.ts`; consumers import
 `from "../frontend/types/index.js"`, not `from "../frontend/types/elementary.js"`. One import path per layer makes "where does X come from"

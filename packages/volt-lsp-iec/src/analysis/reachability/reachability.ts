@@ -26,6 +26,7 @@ import {
   type Span,
   type TopLevel,
 } from "../../frontend/syntax/index.js"
+import { effectivelyExcluded, inExcluded } from "./exclusion.js"
 
 export interface ReachabilityInput {
   uri: string
@@ -91,13 +92,15 @@ function firstPou(units: readonly TopLevel[]): Pou | undefined {
  */
 export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
   const { parseResult, uri } = file
+  // Excluded code is no edge: the compiler builds none of it (`exclusion.ts`), so what it names is not called by it.
+  const excluded = effectivelyExcluded(parseResult)
   const refs = new Set<string>()
   const ordered = [...parseResult.units].filter((u) => "span" in u).sort((a, b) => a.span.start - b.span.start)
   const buckets = new Map<TopLevel, Set<string>>()
   for (const u of ordered) buckets.set(u, new Set())
   let ui = 0
   for (const tok of parseResult.tokens) {
-    if (tok.kind !== "identifier") continue
+    if (tok.kind !== "identifier" || excluded.file || inExcluded(tok.span, excluded.objects)) continue
     const lc = tok.text.toLowerCase()
     refs.add(lc)
     while (ui < ordered.length && ordered[ui]!.span.end <= tok.span.start) ui++
@@ -108,6 +111,7 @@ export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
   const programs: string[] = []
   const implementers = new Map<string, string[]>()
   catalog(parseResult.units, pous, programs, implementers)
+  if (excluded.file) programs.length = 0 // an excluded PROGRAM runs nothing: no root
 
   const ifaceMethods: string[] = []
   for (const u of parseResult.units)
@@ -206,9 +210,8 @@ export function deadPous(files: readonly ReachabilityInput[], taskRoots?: Readon
 
 /**
  * Dead MEMBERS — methods/actions of a LIVE POU that are unreachable from live code (the finer granularity
- * beyond `deadPous`). CODESYS excludes individual methods from build; an excluded method (its calls
- * commented out, "moved elsewhere") forms a closed island referenced only from other excluded members — the
- * compiler skips it, so the LSP must too. Returns each dead member's full declaration span, per URI, for
+ * beyond `deadPous`). An uncalled method (its calls commented out, "moved elsewhere") forms a closed island
+ * referenced only from other uncalled members — the compiler reports no semantic finding in it, so the LSP must not. Returns each dead member's full declaration span, per URI, for
  * per-diagnostic suppression (a live FB can still contain dead methods).
  *
  * Same fixpoint as `deadPous`, one level down: seed the live refs from each live POU's OWN body (methods

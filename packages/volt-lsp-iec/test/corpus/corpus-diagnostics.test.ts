@@ -8,7 +8,9 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import { allowedCode } from "./support/diagnostic-codes.js"
-import { projectDocuments } from "./support/diagnostics.js"
+import { documentsDiagnosingDeadCode, projectDocuments } from "./support/diagnostics.js"
+import { effectivelyExcluded } from "../../src/analysis/index.js"
+import { isLibrarySymbol } from "../../src/frontend/symbols/index.js"
 import { corpusVendor } from "./support/project.js"
 import { CORPUS, hasCorpus, projectDirs, norm } from "./support/walk.js"
 
@@ -154,6 +156,44 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
     expect(offenders).toEqual([])
     expect(dupes).toEqual([])
   }, CORPUS_TIMEOUT)
+})
+
+/**
+ * AN OBJECT EXCLUDED FROM BUILD IS NO BUILT CODE (openspec lsp-excluded-from-build). CODESYS compiles no excluded object
+ * (DIALECT C2j: no signature in any context), so the recorded build says nothing about one, whatever the LSP's dead-code
+ * setting. With `diagnoseDeadCode` on, the reachability quiet is off, so a finding inside an excluded object can only
+ * be kept out by the exclusion itself. Every `%EXCLUDE_FROM_BUILD` the project's own objects carry must sit in an object
+ * `effectivelyExcluded` names, so the selection cannot miss one.
+ */
+describe.skipIf(!hasCorpus)("2b. an object excluded from build is no built code", () => {
+  const FLAG_LINE = /^%EXCLUDE_FROM_BUILD[ \t]*\r?$/gm
+  for (const project of projectDirs()) {
+    const dir = join(CORPUS, project)
+    const vendor = corpusVendor(dir)
+    const recPath = join(dir, `expected-build.${vendor}.json`)
+    test.skipIf(!existsSync(recPath))(`${project}: with dead-code diagnosis on, nothing inside an excluded object is invented`, () => {
+      const rec = JSON.parse(readFileSync(recPath, "utf8")) as BuildRecording
+      const docs = documentsDiagnosingDeadCode(dir, vendor, (d) => !isLibrarySymbol(d) && d.source.includes("%EXCLUDE_FROM_BUILD"))
+      const unnamed: string[] = []
+      const invented: string[] = []
+      for (const d of docs) {
+        const excluded = effectivelyExcluded(d.parseResult)
+        const inside = (line: number, col: number): boolean =>
+          excluded.file || excluded.objects.some((s) => (line > s.startLine - 1 || (line === s.startLine - 1 && col >= s.startCol)) && (line < s.endLine - 1 || (line === s.endLine - 1 && col < s.endCol)))
+        for (const m of d.source.matchAll(FLAG_LINE)) {
+          const before = d.source.slice(0, m.index)
+          const line = before.split("\n").length - 1
+          if (!inside(line, 0)) unnamed.push(`${d.uri.slice(dir.length)}:${line + 1}`)
+        }
+        const gated = d.diagnostics.filter((x) => (x.severity === DiagnosticSeverity.Error || x.severity === DiagnosticSeverity.Warning) && inside(x.range.start.line, x.range.start.character))
+        for (const m of buildFalsePositives(gated.map((x) => x.message), rec.diagnostics.map((x) => x.message)))
+          invented.push(`${d.uri.slice(dir.length)}: ${m}`)
+      }
+      console.log(`  [corpus] ${project} — ${docs.length} documents with an excluded object`)
+      expect(unnamed).toEqual([])
+      expect(invented).toEqual([])
+    }, CORPUS_TIMEOUT)
+  }
 })
 
 // The comparison logic is pure and is verified whether or not any recording exists yet.
