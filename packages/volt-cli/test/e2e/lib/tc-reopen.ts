@@ -6,6 +6,10 @@
  * and a modal blocks every COM call): save all, close the solution, reopen it through the same DTE, then `connect` —
  * the worker's held PLC node answers E_FAIL after a reopen until it is acquired anew (DIALECT C2i). Refuses any XAE
  * whose solution is not under this instance's fixture copy (`fixture-ide.ts`).</p>
+ *
+ * <p>Reopened is READY when every PLC project is back with the children it had before the close: the tree's shape
+ * (each system project's PLC projects, and each one's child count) is read before the close and polled for after the
+ * open (120 s at most).</p>
  */
 import { spawnSync } from "node:child_process"
 import { compileTempEnv } from "./fixture-ide"
@@ -33,13 +37,24 @@ $dte = [VoltRotReopen]::Get("!TcXaeShell.DTE.15.0:${pid}")
 if (-not $dte) { throw "XAE ${pid} has no DTE in the ROT" }
 $sln = $dte.Solution.FullName
 if ($sln -notlike "*${copy}*") { throw "not this instance's fixture copy: $sln" }
+function Shape($d) {
+  $parts = @()
+  for ($i = 1; $i -le $d.Solution.Projects.Count; $i++) {
+    $p = $d.Solution.Projects.Item($i)
+    try { $tipc = $p.Object.LookupTreeItem("TIPC") } catch { continue }
+    for ($j = 1; $j -le $tipc.ChildCount; $j++) { $plc = $tipc.Child($j); $parts += "$($p.Name)/$($plc.Name)=$($plc.NestedProject.ChildCount)" }
+  }
+  ($parts | Sort-Object) -join ";"
+}
+$before = Shape $dte
+if (-not $before) { throw "the solution holds no PLC project to reopen" }
 $dte.ExecuteCommand("File.SaveAll")
 $dte.Solution.Close($true)
 $dte.Solution.Open($sln)
 $t0 = Get-Date
-while (((Get-Date) - $t0).TotalSeconds -lt 120) { try { if ($dte.Solution.Projects.Count -ge 1) { break } } catch {}; Start-Sleep 2 }
-if ($dte.Solution.Projects.Count -lt 1) { throw "the solution did not reopen within 120 s" }
-Start-Sleep 10
+$now = $null
+while (((Get-Date) - $t0).TotalSeconds -lt 120) { try { $now = Shape $dte; if ($now -eq $before) { break } } catch {}; Start-Sleep -Milliseconds 500 }
+if ($now -ne $before) { throw "the solution did not reopen within 120 s: its PLC projects are '$now', and were '$before'" }
 `
 	const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], { encoding: "utf8", timeout: 240_000, env: compileTempEnv() })
 	if (r.status !== 0) throw new Error(`reopening the TwinCAT solution failed: ${r.stderr || r.stdout}`)
