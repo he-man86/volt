@@ -20,16 +20,26 @@ the principle (qualify from the signature, spell bare on both vendors, or keep t
 
 ## 2. Tests red (offline, after 1)
 
-- [ ] 2.1 A CODESYS reference with set values pulls `PARAMETER` lines byte-identical to TwinCAT's for the same name and
+- [x] 2.1 ~~not built~~ A CODESYS reference with set values pulls `PARAMETER` lines byte-identical to TwinCAT's for the same name and
       value (`test/shared/WireParityCases.cs`), in vendor order.
-- [ ] 2.2 A changed value changes that manifest's version. Today: no version moves.
-- [ ] 2.3 A value for a library no walked reference names stays a reason in the manager's one entry.
+- [x] 2.2 ~~not built~~ A changed value changes that manifest's version. Today: no version moves.
+- [x] 2.3 ~~not built~~ A value for a library no walked reference names stays a reason in the manager's one entry.
 
 ## 3. Implement
 
-- [ ] 3.1 `ParameterValues` returns the values (name, text) by the member 1.1 found; `ToLibRef` passes them as
+- [x] 3.1 ~~not built~~ `ParameterValues` returns the values (name, text) by the member 1.1 found; `ToLibRef` passes them as
       `parameters`; the count reason goes.
 
 ## 4. Docs
 
-- [ ] 4.1 `docs/wire.html` `Library Manager` example.
+- [x] 4.1 ~~not built~~ `docs/wire.html` `Library Manager` example.
+
+## Close-out (owner, 2026-10-19)
+
+Closed unbuilt at the 1.x gate. The measurement (DIALECT V7) contradicts byte-identical parity: CODESYS stores the
+parameter name bare (`TABLE_UPPER_BOUND`), TwinCAT qualified (`PARAM.TABLE_UPPER_BOUND`); the list name is only in the
+library's signature (a precompile the walk does not do), and SP21 sorts the values by key where TwinCAT keeps declaration
+order. Owner chose option 3: the values stay a counted reason in the Library Manager's one `unreadableNodes` entry. Known
+gap kept: an IDE edit to a value moves no version. Rejected for now: qualifying from the signature (cost), and spelling
+bare on both vendors (ambiguous when two lists share a name). Revisit in volt-cli-rework if needed. The spec delta is not
+applied (archived with --skip-specs): no requirement was built.
