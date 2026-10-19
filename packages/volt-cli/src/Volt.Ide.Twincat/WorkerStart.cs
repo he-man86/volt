@@ -19,8 +19,9 @@ namespace Volt.Ide.Twincat;
 ///   holds ends the process with exit 3 and the reason in the log; the connector logs the exit and restarts.</item>
 /// <item><see cref="RunDoubleClick"/> — a person ran the exe. It scans the XAE windows and serves the first whose pipe
 ///   name it can claim, names the others, and while every window is served (or none is open) says so and keeps
-///   scanning, with no deadline: closing the window stops it. Every exit the person did not ask for prints its reason
-///   and waits for Enter, because the console window is this bridge's whole user interface.</item>
+///   scanning, with no deadline: closing the window stops it. The console window is this bridge's whole user
+///   interface, so the log at Info and above is teed to it, and every exit the person did not ask for prints its
+///   reason and waits for Enter.</item>
 /// </list>
 /// Both CLAIM the pipe name before they attach (<see cref="PipeServer.TakeName"/>): a window another bridge serves is
 /// never bound or attached to. Every part that touches the machine is in <see cref="Parts"/>.
@@ -73,6 +74,15 @@ internal sealed class WorkerStart
     }
 
     public int RunDoubleClick()
+    {
+        // The log, on the console too: the served solution and its changes, an XAE the worker cannot read, every relay
+        // state, in the words the log uses. Not under --xae-pid: the connector writes that worker's stdout into the log.
+        VoltLog.TeeTo(_p.Console);
+        try { return ScanAndServe(); }
+        finally { VoltLog.TeeTo(null); }
+    }
+
+    private int ScanAndServe()
     {
         try
         {
@@ -140,7 +150,8 @@ internal sealed class WorkerStart
                 using var host = new BridgePipeHost(attached.Driver, claim);
                 host.Start();
                 _p.Log(VoltLogLevel.Info, $"twincat bridge serving on pipe {pipe} (xae pid {pid}), bridge {BridgePipeHost.Release ?? "(release unreadable)"}");
-                _p.Console.WriteLine($"Bridge connected to TwinCAT (pid {pid}). Close this window to stop it.");
+                // Only what is true once the pipe is up, whatever the attach did: the attach's own lines say what it serves.
+                _p.Console.WriteLine($"Pipe {pipe} is up. Close this window to stop the bridge.");
 
                 using var stop = _p.Stop();
                 // The relay tunnel, exactly as CODESYS starts it: the same Core helper, so the two vendors cannot drift.
@@ -150,7 +161,8 @@ internal sealed class WorkerStart
                     Vendors.Twincat,
                     BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
                     m => _p.Log(VoltLogLevel.Info, m),
-                    m => _p.Log(VoltLogLevel.Error, m));
+                    m => _p.Log(VoltLogLevel.Error, m),
+                    out _);
                 stop.Wait();
                 _p.Log(VoltLogLevel.Info, $"twincat bridge stopping (pipe {pipe})");
                 tunnel?.Dispose();

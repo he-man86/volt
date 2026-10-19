@@ -17,6 +17,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// part that touches the machine (the ROT, the pipe-name claim, the window caption, the console, the wait between
 /// scans, the attach and the stop) is injected; the pipe server and the bridge host are the real ones.
 /// </summary>
+[Collection(VoltLogTee.Name)]
 public class TcWorkerStartTests
 {
     private sealed class Run
@@ -33,6 +34,8 @@ public class TcWorkerStartTests
         public int Scans;
         public Func<int, IReadOnlyList<int>> PidsAt = _ => Array.Empty<int>();
         public Action<int> OnScan = _ => { };
+        public Action OnAttach = () => { };
+        public Func<FakeIde> Driver = () => new FakeIde(Array.Empty<FakeIde.Item>());
         public Func<int, string> PipeName;
         public readonly Dictionary<int, string> Captions = new();
         private readonly Dictionary<string, int> _pidOf = new();
@@ -54,7 +57,8 @@ public class TcWorkerStartTests
             Attach = pid =>
             {
                 Attached.Add(pid);
-                return new WorkerStart.Attached(new FakeIde(Array.Empty<FakeIde.Item>()), () => { });
+                OnAttach();
+                return new WorkerStart.Attached(Driver(), () => { });
             },
             Console = Console,
             WaitForEnter = () => Enters++,
@@ -202,6 +206,57 @@ public class TcWorkerStartTests
         Assert.Equal(0, run.Enters);
     }
 
+    // ── what the console says (openspec bridge-console-says-what-it-serves) ─────────────────────────────────────────
+
+    /// <summary>For a double-click start the console window is the whole user interface, so every log line at Info and
+    /// above is written to it as well; under <c>--xae-pid</c> the connector already writes the worker's stdout into the
+    /// log, so the tee is off.</summary>
+    [Fact]
+    public void A_double_click_start_tees_the_log_at_Info_and_above_to_its_console()
+    {
+        var info = "tee-info-" + Guid.NewGuid().ToString("N");
+        var debug = "tee-debug-" + Guid.NewGuid().ToString("N");
+        var run = new Run { PidsAt = _ => new[] { 1234 } };
+        run.OnAttach = () => { VoltLog.Info(info); VoltLog.Debug(debug); };
+
+        run.Start().RunDoubleClick();
+
+        Assert.Contains(info, run.Out);
+        Assert.DoesNotContain(debug, run.Out);
+        VoltLog.Info(info + "-after");
+        Assert.DoesNotContain(info + "-after", run.Out);   // the tee ends with the start
+    }
+
+    [Fact]
+    public void A_supervised_start_tees_nothing_to_its_console()
+    {
+        var info = "tee-info-" + Guid.NewGuid().ToString("N");
+        var run = new Run();
+        run.OnAttach = () => VoltLog.Info(info);
+
+        run.Start().RunSupervised(1234);
+
+        Assert.DoesNotContain(info, run.Out);
+    }
+
+    /// <summary>The pipe-up line is printed whatever the attach did, so it claims nothing about TwinCAT or the relay:
+    /// the attach's own lines (the served solution, <c>Unsupported</c>) say that, through the tee.</summary>
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, "TcXaeShell 15.0: the bridge cannot read XAE's Solution Explorer")]
+    public void No_console_line_says_connected_and_the_pipe_up_line_says_only_that_the_pipe_is_up(bool connected, string? unsupported)
+    {
+        var run = new Run { PidsAt = _ => new[] { 1234 } };
+        run.Driver = () => new FakeIde(Array.Empty<FakeIde.Item>()) { HealthConnected = connected, UnsupportedReason = unsupported };
+
+        Assert.Equal(0, run.Start().RunDoubleClick());
+
+        Assert.DoesNotContain("connected", run.Out, StringComparison.OrdinalIgnoreCase);
+        var up = run.Out.Split('\n').Single(l => l.Contains(run.Prefix + "1234"));
+        Assert.Contains("is up", up);
+        Assert.Contains("Close this window to stop the bridge", up);
+    }
+
     [Fact]
     public void A_supervised_start_on_a_free_name_attaches_and_serves()
     {
@@ -212,4 +267,12 @@ public class TcWorkerStartTests
         Assert.Equal(new[] { 1234 }, run.Attached);
         Assert.Equal(0, run.Enters);
     }
+}
+
+/// <summary>The log tee is process-wide: while a start in this collection tees, a line another test logs in parallel
+/// would land on its console. So nothing runs beside it.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class VoltLogTee
+{
+    public const string Name = "VoltLog tee";
 }

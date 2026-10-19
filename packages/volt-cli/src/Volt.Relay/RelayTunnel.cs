@@ -234,8 +234,8 @@ namespace Volt.Relay
             {
                 _socket = socket;
                 await socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping).ConfigureAwait(false);
+                // The socket is open; the relay has accepted nothing yet. "connected" is logged on its first frame.
                 conn.ConnectedUtc = DateTime.UtcNow;
-                Log(VoltLogLevel.Info, "relay: connected to " + _config.SafeDescription);
 
                 _lastInboundUtc = DateTime.UtcNow;
                 await SendAsync(RelayFrames.Hello(_voltVersion, _vendor, _pipeName), stopping).ConfigureAwait(false);
@@ -276,7 +276,12 @@ namespace Volt.Relay
                 var text = received.Text!;
 
                 _lastInboundUtc = DateTime.UtcNow;
-                _accepted = true;
+                if (!_accepted)
+                {
+                    // The relay's first frame on this connection is its acceptance: connected means accepted.
+                    _accepted = true;
+                    Log(VoltLogLevel.Info, "relay: connected to " + _config.SafeDescription);
+                }
                 var frame = RelayFrames.Read(text);
 
                 switch (frame.Kind)

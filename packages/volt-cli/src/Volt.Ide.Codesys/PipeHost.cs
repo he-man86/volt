@@ -24,12 +24,13 @@ public static class PipeHost
     public static bool IsRunning => _host is not null;
 
     public static string Start(object? projects, object? system, object? online) =>
-        Start(projects, p => new CodesysDriver(p), logDir: null);
+        Start(projects, p => new CodesysDriver(p), logDir: null, Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)));
 
-    /// <summary>The start over a given driver and log folder — the offline tests drive the real start sequence over a
-    /// <see cref="CodesysDriver"/> on doubles and read its log (openspec ide-identity-report: the start log is the field
-    /// evidence for 3.1/3.2). Production passes the real driver and the durable log folder.</summary>
-    internal static string Start(object? projects, Func<object?, CodesysDriver> newDriver, string? logDir)
+    /// <summary>The start over a given driver, log folder and relay folder — the offline tests drive the real start
+    /// sequence over a <see cref="CodesysDriver"/> on doubles and read its log (openspec ide-identity-report: the start log
+    /// is the field evidence for 3.1/3.2). Production passes the real driver, the durable log folder and the folder the
+    /// bridge was loaded from (where its relay sidecar sits).</summary>
+    internal static string Start(object? projects, Func<object?, CodesysDriver> newDriver, string? logDir, string? relayDir)
     {
         lock (_gate)
         {
@@ -71,7 +72,7 @@ public static class PipeHost
             //
             // No sidecar file means no tunnel, no socket, and a bridge that behaves exactly as it does
             // today. That is the default, and it is why this cannot regress a local install.
-            StartTunnelIfConfigured();
+            var relay = StartTunnelIfConfigured(relayDir);
 
             // An IDE lacking what the bridge needs: the pipe is up (so every client gets IDE_UNSUPPORTED with the reason
             // rather than no bridge at all), but it serves nothing, and this line — printed to the CODESYS message
@@ -83,10 +84,12 @@ public static class PipeHost
                 return $"Volt: {product}{reason} The bridge on pipe {_pipeName} refuses every call (IDE_UNSUPPORTED).";
             }
 
-            var where = _driver.IsConnected ? "connected to IDE" : "no project open";
+            // The message window line: what is served, the relay's state at start, and the log, where every later relay
+            // state is.
+            var where = _driver.IsConnected && _driver.ServedProjectName is { } served ? $"serving {served}" : "no project open";
             VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
             var oem = _driver.OemProduct is { } o ? $"{o} on " : "";
-            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion})";
+            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion}); {relay}; log: {VoltLog.Dir}";
         }
     }
 
@@ -97,17 +100,20 @@ public static class PipeHost
     /// <para>Every failure here is logged and swallowed ON PURPOSE. The tunnel is an addition to a bridge
     /// that already works locally; taking the whole bridge down because a remote relay is unreachable, or
     /// because someone mistyped a URL, would trade a working local install for a broken one. A malformed
-    /// sidecar is still loud — it is named in the log — but it is not fatal.</para></summary>
-    private static void StartTunnelIfConfigured()
+    /// sidecar is still loud — it is named in the log — but it is not fatal.</para>
+    /// <para>Returns the relay's state at start, for the message window line.</para></summary>
+    private static string StartTunnelIfConfigured(string? relayDir)
     {
         HookIdeExit();
         _tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
-            Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)),
+            relayDir,
             _pipeName,
             Vendors.Codesys,
             BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
             m => VoltLog.Info(m),
-            m => VoltLog.Error(m));
+            m => VoltLog.Error(m),
+            out var state);
+        return state;
     }
 
     private static int _exitHooked;

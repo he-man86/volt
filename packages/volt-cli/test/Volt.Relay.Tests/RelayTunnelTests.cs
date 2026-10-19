@@ -583,6 +583,37 @@ public class RelayTunnelTests : IDisposable
         Assert.DoesNotContain(relay.Received, f => f.Contains("\"r5\""));
     }
 
+    // ── "connected" means accepted (openspec bridge-console-says-what-it-serves) ──────────────
+
+    [Fact]
+    public async Task A_socket_that_opens_and_closes_before_any_inbound_frame_logs_no_connected_line()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Close(1008, "not this bridge");
+        await delay.NextWait();
+
+        Assert.DoesNotContain(log.Lines, l => l.Message.StartsWith("relay: connected", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_first_inbound_frame_of_a_connection_logs_connected_once()
+    {
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, log: log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("r1", "health");
+        await relay.AwaitFrame("r1", "result");
+        relay.SendRequest("r2", "health");
+        await relay.AwaitFrame("r2", "result");
+
+        Assert.Single(log.Lines, l => l.Message == "relay: connected to relay.test");
+    }
+
     [Fact]
     public async Task A_relay_close_is_one_info_end_line_with_age_cause_in_flight_and_next_dial()
     {

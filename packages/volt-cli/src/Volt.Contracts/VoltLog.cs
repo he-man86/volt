@@ -72,12 +72,26 @@ public static class VoltLog
         WriteLine(source, $"[{Timestamp()}][{source}] {line}");
     }
 
+    private static volatile TextWriter? _tee;
+
+    /// <summary>Also write every line at Info and above to <paramref name="console"/> (null: stop). Off by default. A
+    /// TwinCAT bridge a person started turns it on: its console window is its whole user interface. A supervised worker
+    /// leaves it off, because its supervisor already writes the worker's stdout into the log.</summary>
+    public static void TeeTo(TextWriter? console) => _tee = console;
+
     // This process's own source tag — only Raw() logs under someone else's (a supervised worker's).
     private static void Write(VoltLogLevel level, string message)
     {
         if (level < _level) return;
         var source = _source;
-        WriteLine(source, $"[{Timestamp()}][{source}][{level.ToString().ToLowerInvariant()}] {message}");
+        var line = $"[{Timestamp()}][{source}][{level.ToString().ToLowerInvariant()}] {message}";
+        WriteLine(source, line);
+        var tee = _tee;
+        if (tee != null && level >= VoltLogLevel.Info)
+        {
+            try { lock (tee) tee.WriteLine(line); }
+            catch { /* logging must never throw into the caller */ }
+        }
     }
 
     private static void WriteLine(string source, string line)

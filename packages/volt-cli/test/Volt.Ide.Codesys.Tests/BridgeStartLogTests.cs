@@ -33,15 +33,19 @@ namespace Volt.Ide.Codesys.Tests
             new CodesysDriver(projects, () => new CodesysPlatform.HostExe("PLC Designer", "4.1.0.37740", "Lenze Automation GmbH"));
 
         /// <summary>Start, call health, stop — in THIS AppDomain. Returns (start message, log text, health json).</summary>
-        private static (string Started, string Log, string Health) Run(object? objectManager, Action? afterStart = null)
+        private static (string Started, string Log, string Health) Run(object? objectManager, Action? afterStart = null, string? sidecar = null)
         {
             var dir = Path.Combine(Path.GetTempPath(), "volt-start-log-" + Guid.NewGuid().ToString("N"));
+            // The bundle folder the relay sidecar sits in: a folder of the test's own, holding the given sidecar or none.
+            var bundle = Path.Combine(dir, "bundle");
+            Directory.CreateDirectory(bundle);
+            if (sidecar != null) File.WriteAllText(Path.Combine(bundle, Volt.Relay.RelaySidecar.FileName), sidecar);
             _3S.CoDeSys.Core.SystemInstances.Engine =
                 new CodesysCapabilityTests.Engine(new CodesysCapabilityTests.Oem("Lenze PLC Designer"));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = objectManager;
             try
             {
-                var started = PipeHost.Start(null, Lenze, dir);
+                var started = PipeHost.Start(null, Lenze, dir, bundle);
                 string health;
                 try
                 {
@@ -74,7 +78,23 @@ namespace Volt.Ide.Codesys.Tests
                 log);
 
             Assert.Contains($"[info] CODESYS bridge ready on {Pipe} (no project open)", log);
-            Assert.Equal($"Volt bridge started on pipe {Pipe} (no project open, Lenze PLC Designer on CODESYS {Platform})", started);
+            Assert.StartsWith($"Volt bridge started on pipe {Pipe} (no project open, Lenze PLC Designer on CODESYS {Platform})", started);
+        }
+
+        /// <summary>The line printed into the CODESYS message window names what the bridge serves, the relay's state at
+        /// start and where the log is — later relay states are only there (openspec bridge-console-says-what-it-serves).</summary>
+        [Theory]
+        [InlineData(null, "relay not configured")]
+        [InlineData("{\"url\":\"wss://relay.test/bridge\",\"token\":\"t\"}", "relay dialing relay.test")]
+        [InlineData("{ not json", "relay not started: ")]
+        public void The_start_line_names_the_project_the_relay_state_and_the_log_directory(string? sidecar, string relay)
+        {
+            string? logDir = null;
+            var (started, _, _) = Run(new object(), () => logDir = Volt.Contracts.VoltLog.Dir, sidecar);
+
+            Assert.Contains("(no project open,", started);
+            Assert.Contains("; " + relay, started);
+            Assert.EndsWith("; log: " + logDir, started);
         }
 
         /// <summary>The capability refusal (the ONLY refusal): the log names the product, the platform and what is
