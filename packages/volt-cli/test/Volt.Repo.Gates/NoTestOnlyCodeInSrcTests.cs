@@ -66,6 +66,13 @@ public class NoTestOnlyCodeInSrcTests
         ["PidInName"] = "the pid a DTE's ROT display name states, pinned offline beside PickWindow, its production " +
                         "caller in the same file",
 
+        ["PidsFromNames"] = "the double-click scan's rule that a DTE whose ROT name states its pid is never bound, pinned " +
+                            "offline beside PickWindow (TcBindByPidTests); its production caller is ListPidsByName, in the " +
+                            "same file",
+
+        ["MutexName"] = "the one spelling of a pipe name's cross-process mutex, so PipeNameClaimTests can stand for another " +
+                        "process holding the name; its production caller is TakeName, in the same file",
+
         ["CheckOnce"] = "the update CHECK against a feed, split out for the same reason as ChooseBridgePipe: it takes " +
                         "the feed URL as a parameter so UpdaterVerificationTests can serve a localhost release whose " +
                         "digest does not match (openspec installer-rebuild). Its production callers, Start and " +

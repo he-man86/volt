@@ -382,7 +382,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1),
         ("Volt.Relay/RelayTunnel.cs", 2),
-        ("Volt.Wire/PipeServer.cs", 2),
+        ("Volt.Wire/PipeServer.cs", 0),   // -2 a held pipe name is PipeNameTakenException now (twincat-double-click-next-free-xae): it reaches the host that took the claim, never a frame
         ("Volt.Wire/PipeAcl.cs", 1));   // a pipe bind the OS refused (environment-dependency-audit 2.2): it reaches PipeServer.Start's caller, the host, which reports it — never a frame
 
     /// <summary>A <c>throw new</c> of a BCL exception type that carries no wire code.</summary>

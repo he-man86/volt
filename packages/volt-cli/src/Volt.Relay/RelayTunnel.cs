@@ -103,23 +103,11 @@ namespace Volt.Relay
             _delay = reconnectDelay ?? ((wait, token) => Task.Delay(wait, token));
             // Injected because VoltLog is one process-wide file shared by every test running in parallel, and the
             // log line is the tunnel's only surface to the engineer: a test must be able to read exactly its own.
-            _log = log ?? LogToVoltLog;
+            _log = log ?? VoltLog.Log;
             // Injected only so a test can watch the watchdog fire without waiting 60-85 s. The protocol's
             // numbers are what every real tunnel runs.
             _pingEvery = pingEvery ?? DefaultPingEvery;
             _silenceLimit = silenceLimit ?? DefaultSilenceLimit;
-        }
-
-        private static void LogToVoltLog(VoltLogLevel level, string message)
-        {
-            switch (level)
-            {
-                case VoltLogLevel.Debug: VoltLog.Debug(message); break;
-                case VoltLogLevel.Info: VoltLog.Info(message); break;
-                case VoltLogLevel.Warn: VoltLog.Warn(message); break;
-                case VoltLogLevel.Error: VoltLog.Error(message); break;
-                default: throw new ArgumentOutOfRangeException(nameof(level), level, "not a VoltLog level");
-            }
         }
 
         private void Log(VoltLogLevel level, string message) => _log(level, message);

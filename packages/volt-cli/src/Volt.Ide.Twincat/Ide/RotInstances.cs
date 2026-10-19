@@ -7,9 +7,10 @@ using System.Runtime.InteropServices.ComTypes;
 namespace Volt.Ide.Twincat;
 
 /// <summary>
-/// Reaches running DTE instances (TcXaeShell / Visual Studio) through the COM Running Object Table. Two callers:
+/// Reaches running DTE instances (TcXaeShell / Visual Studio) through the COM Running Object Table. Three callers:
 /// the connector's <c>--list-xae-pids</c> probe (<see cref="TryEnumeratePids"/> → the XAE window pids to supervise),
-/// and a per-XAE worker binding its ONE window (<see cref="BindByPid"/>). Identity is the window PROCESS id
+/// the double-click start's scan (<see cref="ListPidsByName"/>), and a per-XAE worker binding its ONE window
+/// (<see cref="BindByPid"/>). Identity is the window PROCESS id
 /// (<see cref="PidOf"/>) — stable for the process lifetime, unlike the ephemeral ROT moniker TcXaeShell re-registers.
 ///
 /// MUST run on an STA thread — foreign DTE objects are apartment-bound, and the registered
@@ -72,6 +73,34 @@ internal static class RotInstances
             release(dte);
         }
         return null;
+    }
+
+    /// <summary>The XAE window pids of the ROT, read from the display names: what the double-click start scans. No DTE
+    /// whose name states a pid is bound, so one busy XAE cannot stall the scan of the others. MUST run on an STA
+    /// thread (a name that states no pid is bound and asked).</summary>
+    public static List<int> ListPidsByName()
+    {
+        using var rot = RotSnapshot.Take();
+        return PidsFromNames(rot.Entries, PidOf, Release);
+    }
+
+    /// <summary>The pids <paramref name="entries"/> name, in ROT order, each once. An entry whose name states its pid is
+    /// that pid and is never bound; one whose name states none is bound, asked for its window (<paramref name="pidOf"/>)
+    /// and released, as <see cref="PickWindow"/> does.</summary>
+    internal static List<int> PidsFromNames(IReadOnlyList<RotEntry> entries, Func<object, int> pidOf, Action<object> release)
+    {
+        var pids = new List<int>();
+        foreach (var entry in entries)
+        {
+            var pid = PidInName(entry.Name) ?? 0;
+            if (pid == 0 && entry.Bind() is { } dte)
+            {
+                pid = pidOf(dte);
+                release(dte);
+            }
+            if (pid != 0 && !pids.Contains(pid)) pids.Add(pid);
+        }
+        return pids;
     }
 
     /// <summary>The pid a DTE's ROT display name states — the number after its last <c>:</c> — or null when it states

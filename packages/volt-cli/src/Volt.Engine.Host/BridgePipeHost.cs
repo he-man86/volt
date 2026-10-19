@@ -63,6 +63,14 @@ public sealed class BridgePipeHost : IDisposable
         _server = new PipeServer(pipeName, Dispatch);
     }
 
+    /// <summary>A host that serves under a pipe-name claim its caller took first (<see cref="PipeServer.TakeName"/>).</summary>
+    public BridgePipeHost(IIdeDriver ide, PipeNameClaim claim)
+    {
+        _ide = ide;
+        _protocol = WireProtocol.Version;
+        _server = new PipeServer(claim, Dispatch);
+    }
+
     private readonly int? _protocol;
 
     public void Start() => _server.Start();

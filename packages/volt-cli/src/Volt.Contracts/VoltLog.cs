@@ -55,6 +55,9 @@ public static class VoltLog
         }
     }
 
+    /// <summary>A line at <paramref name="level"/>: the one form a caller that takes its log as a parameter is handed.</summary>
+    public static void Log(VoltLogLevel level, string message) => Write(level, message);
+
     public static void Debug(string message) => Write(VoltLogLevel.Debug, message);
     public static void Info(string message) => Write(VoltLogLevel.Info, message);
     public static void Warn(string message) => Write(VoltLogLevel.Warn, message);

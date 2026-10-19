@@ -37,6 +37,34 @@ public class TcBindByPidTests
         public object? Pick(int pid) => RotInstances.PickWindow(pid, Entries,
             dte => { Asked.Add(((Window)dte).Pid); return ((Window)dte).Pid; },
             dte => Released.Add(((Window)dte).Pid));
+
+        public List<int> Pids() => RotInstances.PidsFromNames(Entries,
+            dte => { Asked.Add(((Window)dte).Pid); return ((Window)dte).Pid; },
+            dte => Released.Add(((Window)dte).Pid));
+    }
+
+    /// <summary>The double-click scan lists the XAE windows from the ROT NAMES (openspec
+    /// twincat-double-click-next-free-xae): a name that states its pid is the pid, and that DTE is never bound —
+    /// one busy XAE must not stall the scan of all of them.</summary>
+    [Fact]
+    public void The_scan_lists_pids_from_the_names_and_binds_no_entry_whose_name_states_one()
+    {
+        var rot = new Rot().Add("!TcXaeShell.DTE.15.0:111", 111).Add("!TcXaeShell.DTE.15.0:222", 222);
+
+        Assert.Equal(new[] { 111, 222 }, rot.Pids());
+        Assert.Empty(rot.Bound);
+        Assert.Empty(rot.Asked);
+    }
+
+    [Fact]
+    public void The_scan_binds_asks_and_releases_an_entry_whose_name_states_no_pid()
+    {
+        var rot = new Rot().Add("!VisualStudio.DTE.17.0", 333).Add("!TcXaeShell.DTE.15.0:111", 111).Add("!TcXaeShell.DTE.15.0:111", 111);
+
+        Assert.Equal(new[] { 333, 111 }, rot.Pids());
+        Assert.Equal(new[] { "!VisualStudio.DTE.17.0" }, rot.Bound);
+        Assert.Equal(new[] { 333 }, rot.Asked);
+        Assert.Equal(new[] { 333 }, rot.Released);
     }
 
     [Fact]
