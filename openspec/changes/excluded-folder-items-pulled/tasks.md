@@ -43,3 +43,9 @@ Requires `codesys-application-defines-spelled` tasks 2.4 and 5.2 (the shared bui
 ## 6. Docs
 
 - [ ] 6.1 `docs/wire.html` (`unreadable` reasons, the `.folder` descriptor), DIALECT, the `PropertyLines` doc.
+
+## Follow-up (2026-10-19)
+
+- [ ] TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from the saved `.plcproj`, with the
+      same save lag C39 describes for exclusion; read them from the live `ProduceXml` VSProperties as
+      `twincat-exclusion-from-ide` (archived) does for `Exclude`.
