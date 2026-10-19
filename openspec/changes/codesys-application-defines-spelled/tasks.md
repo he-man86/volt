@@ -34,7 +34,9 @@
 - [ ] 5.2 The shared build-property layout in the descriptor format.
 - [ ] 5.3 CODESYS: the walk emits the item; `ContainerRefusal` drops the Application case; the descriptor read.
 - [ ] 5.4 TwinCAT: the walk emits the item at the PLC project node; `TcProjectSettings` stops filling `ProjectDefines`.
-- [ ] 5.5 LSP: `.application` in `REFERENCE_EXTENSIONS`; defines per application root; settings per project.
+- [ ] 5.5 LSP: `.application` in `REFERENCE_EXTENSIONS`; defines per application, looked up by the SAME key as the
+      settings (the folder the descriptor sits in, deepest wins: `src/workspace/project-configs.ts`). Settings per project
+      are done (4.1, 6d2106a0db).
 
 ## 6. Live and docs
 
