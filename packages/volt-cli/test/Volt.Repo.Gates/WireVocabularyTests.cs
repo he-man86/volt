@@ -57,6 +57,7 @@ public class WireVocabularyTests
         new("the request breaks the wire's own rules", "change the REQUEST", "BAD_REQUEST", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
+            ("Volt.Engine/Sync/BuildService.cs", 2),   // build-selects-application: an `applications` root the project does not hold, an empty list
             ("Volt.Engine/Sync/FetchService.cs", 1),
             ("Volt.Engine/Sync/GrepService.cs", 4),   // grep-item-sources: a limit out of range, an empty pattern, one that does not compile, one that times out on a line
             ("Volt.Engine/Sync/PushService.cs", 8),   // +1 a move into another application; +1 a task moved out of its container (multi-application-tree); -2 the base-type op dispatch: PushOp is abstract, an op with no discriminator is refused by the strict body read (refuse-unknown-request-members)

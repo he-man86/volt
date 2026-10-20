@@ -397,5 +397,27 @@ ${token} := 1;`),
 			expect(r.success).toBe(false)
 			expect(undefinedHere(r).map((d: any) => d.name).sort(), JSON.stringify(r.diagnostics)).toEqual([...expected.compiled].sort())
 		})
+
+		// openspec build-selects-application: a build that names one application compiles that one alone — the fault the
+		// test above put in every main program is reported for the named application's only, and every named diagnostic
+		// lies under its root. On TwinCAT the build is `BuildProject` of that PLC project (DIALECT D46).
+		it("a build naming one application compiles that one alone", async () => {
+			const one = expected.compiled[0]!
+			const root = applicationOf(one)
+			const r = await bridge.build({ applications: [root] })
+			expect(undefinedHere(r).map((d: any) => d.name), JSON.stringify(r.diagnostics)).toEqual([one])
+			const elsewhere = (r.diagnostics ?? []).filter((d: any) => d.name && !String(d.name).startsWith(`${root}/`))
+			expect(elsewhere, JSON.stringify(elsewhere)).toEqual([])
+		})
+
+		it("a build naming an application the project does not hold is refused by name", async () => {
+			const unknown = `${expected.applications[0]}_VltE2E_none`
+			const refused = await bridge.build({ applications: [unknown] }).then(
+				(r: any) => `answered ${JSON.stringify(r).slice(0, 200)}`,
+				(e: Error) => e.message,
+			)
+			expect(refused).toStartWith("BAD_REQUEST: ")
+			expect(refused).toContain(`'${unknown}'`)
+		})
 	})
 })

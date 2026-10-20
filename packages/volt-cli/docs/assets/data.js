@@ -231,10 +231,12 @@ window.VOLT = {
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "BAD_REQUEST",
           "IDE_BUSY"
         ],
         "x-outcomes": [
           "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
+          "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold (named), or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
           "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
           "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
           "The build compiles what the IDE holds in memory, and Volt calls no save. On TwinCAT a build saves changed documents, as XAE\u0027s Build does (DIALECT D45).",
@@ -815,6 +817,12 @@ window.VOLT = {
         "BuildRequest": {
           "type": "object",
           "properties": {
+            "applications": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "expectedPlatform": {
               "type": "string"
             },
@@ -2032,7 +2040,7 @@ window.VOLT = {
         {
           "name": "Build",
           "kind": "method",
-          "signature": "bool Build()"
+          "signature": "bool Build(IReadOnlyCollection\u003Cstring\u003E? applications)"
         },
         {
           "name": "GetBuildDiagnostics",

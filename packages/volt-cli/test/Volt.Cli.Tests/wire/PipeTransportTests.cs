@@ -431,6 +431,33 @@ public class PipeTransportTests
         Assert.Null(ide.Selected);
     }
 
+    /// <summary>A BUILD NAMES ITS APPLICATIONS ON THE WIRE (openspec <c>build-selects-application</c> 2.1-2.2): a root
+    /// <c>refs</c> published reaches the driver as the one application to build, and a root the project does not hold is a
+    /// BAD_REQUEST frame naming it, with nothing built.</summary>
+    [Fact]
+    public void A_build_names_its_applications_over_the_pipe_and_an_unknown_root_is_a_BAD_REQUEST_naming_it()
+    {
+        const string app = "Device/Plc Logic/Application";
+        var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;", app))
+        { HealthPlatform = "codesys", HealthProjectName = "Demo" };
+        ide.ContainerKinds["Device"] = Volt.Engine.Item.ItemKind.Device;
+        ide.ContainerKinds["Device/Plc Logic"] = Volt.Engine.Item.ItemKind.PlcLogic;
+        ide.ContainerKinds[app] = Volt.Engine.Item.ItemKind.Application;
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+        const string bound = @"""expectedPlatform"":""codesys"",""expectedProjectName"":""Demo""";
+
+        var error = RawError(pipe, $@"{{""op"":""build"",""body"":{{{bound},""applications"":[""Device_1/Plc Logic/Application""]}}}}");
+        Assert.Equal("BAD_REQUEST", error.Code);
+        Assert.Contains("'Device_1/Plc Logic/Application'", error.Message);
+        Assert.Empty(ide.BuildSequence);
+
+        var built = RawTerminal(pipe, $@"{{""op"":""build"",""body"":{{{bound},""applications"":[""{app}""]}}}}");
+        Assert.True(built.GetProperty("result").GetProperty("success").GetBoolean());
+        Assert.Equal(new[] { app }, Assert.Single(ide.BuiltApplications));
+    }
+
     /// <summary>The envelope and the responses read their members by their exact name, as request bodies do: a
     /// PascalCase spelling has no sender, and accepting it gave every member two spellings.</summary>
     [Fact]

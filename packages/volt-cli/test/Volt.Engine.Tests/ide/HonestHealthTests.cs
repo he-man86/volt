@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Volt.Wire;
@@ -120,7 +120,7 @@ public class HonestHealthTests
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
-        public override bool Build() => true;
+        public override bool Build(IReadOnlyCollection<string>? applications) => true;
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
@@ -176,7 +176,7 @@ public class HonestHealthTests
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
-        public override bool Build() => true;
+        public override bool Build(IReadOnlyCollection<string>? applications) => true;
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");

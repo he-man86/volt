@@ -217,7 +217,11 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     }
 
     // ── build ───────────────────────────────────────────────────────
-    public override bool Build() => _om.Build();
+    /// <summary>The whole solution, or the named PLC projects alone, each by its own <c>BuildProject</c> (DIALECT D46).</summary>
+    public override bool Build(IReadOnlyCollection<string>? applications) =>
+        applications is null
+            ? _om.Build()
+            : _om.Build(_om.Plcs().Where(p => applications.Contains(p.Path, StringComparer.OrdinalIgnoreCase)).ToList());
     /// <summary>The build's diagnostics, each item named by its folder and bare name where the file the compiler named
     /// lies in one PLC project's directory and that PLC project holds exactly one item of the name — so the same message
     /// in two PLC projects is two diagnostics, each on its own item (openspec multi-application-tree, design §6). The item

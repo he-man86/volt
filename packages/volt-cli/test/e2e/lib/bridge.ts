@@ -22,7 +22,7 @@ export const bridge = {
 			for (const c of r?.conflicts ?? []) if (typeof c?.reason === "string") pushReasons.push(c.reason)
 			return r
 		}),
-	build: (): Promise<any> => call("build", {}),
+	build: (req: { applications?: string[] } = {}): Promise<any> => call("build", req),
 	grep: (req: { pattern: string; literal?: boolean; caseSensitive?: boolean; paths?: string[]; limit?: number }): Promise<any> =>
 		call("grep", req),
 	// `init` was its own op until it turned out to be `fetch { init: true }` with the identity guard missing.

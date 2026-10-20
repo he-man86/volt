@@ -3,10 +3,15 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Contracts;
 
-/// <summary><c>build</c> takes nothing but the bound identity — so `volt build` reports diagnostics for the
-/// project the workspace is bound to, not whatever happens to be open.</summary>
+/// <summary><c>build</c> takes the bound identity — so `volt build` reports diagnostics for the project the workspace is
+/// bound to, not whatever happens to be open — and, optionally, the applications to compile.</summary>
 public class BuildRequest : BoundRequest
 {
+    /// <summary>The roots of the applications to compile, as <c>refs</c>/<c>fetch</c> publish them in
+    /// <see cref="ReadResponse.Applications"/>; only their diagnostics are reported. Absent: every application. A root
+    /// the project does not hold, or an empty list, is refused with <c>BAD_REQUEST</c> before anything is built.</summary>
+    [JsonPropertyName("applications")]
+    public List<string>? Applications { get; set; }
 }
 
 /// <summary>The wire's diagnostic severity vocabulary — <c>error</c> / <c>warning</c> / <c>info</c>, and the one

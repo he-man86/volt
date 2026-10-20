@@ -274,7 +274,8 @@ internal static class Program
         var pending = Commands.UnpushedCount(root);
         if (pending > 0 && !a.Has("--json"))
             Console.WriteLine($"note: {pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run `volt push` first.");
-        var r = Commands.Build(root, bridge, Reporter.Create());
+        var apps = a.All("--app");
+        var r = Commands.Build(root, bridge, apps.Count > 0 ? apps : null, Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Refused ? 1 : r.Success ? 0 : 2; }
         // A REFUSAL EXITS 1 WITH THE REASON ON STDERR, exactly as `pull` and `push` answer the same two
         // preconditions. It used to print `Build FAILED (0ms)` over a fabricated compiler diagnostic and exit 2,
@@ -329,7 +330,7 @@ internal static class Program
             }
             limit = n;
         }
-        var paths = a.ValuesOf("--path");
+        var paths = a.All("--path");
         var r = Commands.Grep(root, bridge, new Volt.Contracts.GrepRequest
         {
             Pattern = pattern,
@@ -472,7 +473,11 @@ internal static class Program
     /// So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
     /// this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.</summary>
     private static readonly HashSet<string> ValueFlags =
-        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port", "--path", "--limit" };
+        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port", "--app", "--path", "--limit" };
+
+    /// <summary>The value flags that may be given more than once, each occurrence adding a value (<c>Args.All</c>):
+    /// <c>volt build --app A --app B</c>. Every other value flag takes one.</summary>
+    private static readonly HashSet<string> RepeatableFlags = new() { "--app", "--path" };
 
     /// <summary>Every BOOLEAN flag the CLI reads. Its only job is to make an unknown one an ERROR.
     ///
@@ -522,22 +527,25 @@ internal static class Program
                 throw new InvalidOperationException(
                     $"'{f}' is read as a value flag but is not in ValueFlags — `{f} <value>` would be parsed as a " +
                     "stray operand. Add it to the set.");
+            if (RepeatableFlags.Contains(f))
+                throw new InvalidOperationException($"'{f}' may be given more than once — read it with `All`.");
             return Values.TryGetValue(f, out var v) ? v : null;
         }
-        /// <summary>Every value given for a flag that TAKES one, in order — for a flag that may repeat
-        /// (<c>volt grep --path a --path b</c>). <see cref="Value"/> answers the last.</summary>
-        public IReadOnlyList<string> ValuesOf(string f)
+        /// <summary>Every value of a flag that may be given more than once (<see cref="RepeatableFlags"/>), in order.</summary>
+        public List<string> All(string f)
         {
-            Value(f);   // the same declared-flag check
-            return Repeated.TryGetValue(f, out var all) ? all : Array.Empty<string>();
+            if (!RepeatableFlags.Contains(f))
+                throw new InvalidOperationException($"'{f}' is read as a repeatable flag but is not in RepeatableFlags.");
+            return Repeated.TryGetValue(f, out var v) ? v : new List<string>();
         }
-        public void Set(string f, string v)
+        public Dictionary<string, List<string>> Repeated = new();
+        /// <summary>Record one value of the value flag <paramref name="f"/>: appended for a repeatable flag, set otherwise.</summary>
+        public void Set(string f, string value)
         {
-            Values[f] = v;
+            if (!RepeatableFlags.Contains(f)) { Values[f] = value; return; }
             if (!Repeated.TryGetValue(f, out var all)) Repeated[f] = all = new List<string>();
-            all.Add(v);
+            all.Add(value);
         }
-        private readonly Dictionary<string, List<string>> Repeated = new();
         public string? Operand(int i) => i < Operands.Count ? Operands[i] : null;
     }
 
@@ -646,7 +654,7 @@ internal static class Program
         "  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run] [--json]\n" +
         "  push     workspace → IDE → fast-forward volt/ide          [--force] [--dry-run] [--force-with-lease=<v>] [--json]\n" +
         "  status   incoming / outgoing / merge state                [--json] [--porcelain] [--local]\n" +
-        "  build    build via the IDE; returns diagnostics                    [--json]\n" +
+        "  build    build via the IDE; returns diagnostics      [--app <application root>]... [--json]\n" +
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
         "  grep     the IDE's lines matching a pattern:  <pattern>   [--literal] [--case-sensitive] [--path <glob>]… [--limit N] [--json]\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +

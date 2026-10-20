@@ -19,6 +19,13 @@ public static class BuildService
         // "build failed" diagnostic instead of surfacing as a proper error frame.
         OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
 
+        // ONE walk names the diagnostics, the driver's and the promotion's, and states the applications a named build is
+        // checked against: made when first asked, never twice.
+        WalkResult? walked = null;
+        WalkResult Walk() => walked ??= ide.WalkItems();
+        // Also outside the try/catch: an unknown root is the caller's error, not a failed build.
+        var applications = request.Applications is { } named ? Selected(named, Walk().Applications) : null;
+
         var sw = Stopwatch.StartNew();
         try
         {
@@ -27,11 +34,8 @@ public static class BuildService
             // ONE kind of build. A clean (CODESYS CleanAll, TwinCAT SolutionBuild.Clean) is reachable but buys nothing:
             // measured on live CODESYS 3.5.21.40, the build after a clean does not recompile (~60 ms vs ~2100 ms cold) —
             // it discards online-change data, not the language model — so `--full` was deleted rather than wired to it.
-            var success = ide.Build();
+            var success = ide.Build(applications);
             sw.Stop();
-            // ONE walk names the diagnostics, the driver's and the promotion's: made when first asked, never twice.
-            WalkResult? walked = null;
-            WalkResult Walk() => walked ??= ide.WalkItems();
             var diagnostics = ide.GetBuildDiagnostics(Walk).ToList();
             // GUARDED, like `TreeNav.PruneEmptied` in PushService and for the same reason. This walks the live
             // tree and reads items, where a COM fault is an ordinary event — and it is pure DECORATION. Letting
@@ -68,6 +72,22 @@ public static class BuildService
                 Diagnostics = new List<BridgeDiagnostic> { new() { Severity = Severity.Error, Message = "Build failed: " + ex.Message } },
             };
         }
+    }
+
+    /// <summary>The applications a build names, in the IDE's spelling and the walk's order — the roots <c>refs</c>
+    /// publishes, matched ignoring case as every path on this wire is. A root the project does not hold is refused by
+    /// name, and so is an empty list (it would build nothing and report success), before anything is built.</summary>
+    private static List<string> Selected(IReadOnlyCollection<string> named, IReadOnlyList<string> held)
+    {
+        if (named.Count == 0)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                "build: `applications` is empty — name at least one application root, or omit it to build every application");
+        var unknown = named.Where(n => !held.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (unknown.Count > 0)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                $"build: the project holds no application {string.Join(", ", unknown.Select(u => $"'{u}'"))} — "
+                + $"its applications are {string.Join(", ", held.Select(h => $"'{h}'"))}; nothing was built");
+        return held.Where(h => named.Contains(h, StringComparer.OrdinalIgnoreCase)).ToList();
     }
 
     /// <summary>Turn each diagnostic's item into its wire PATH, or into null.

@@ -147,7 +147,7 @@ public abstract class DriverBase : IIdeSession
     protected abstract T MarshalToIdeThread<T>(Func<T> fn);
 
     public abstract void SelectProject(ConnectRequest sel);
-    public abstract bool Build();
+    public abstract bool Build(IReadOnlyCollection<string>? applications);
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk);
 
     /// <summary>Precompile + read the referenced-library signatures. FetchService calls this ONLY when a referenced

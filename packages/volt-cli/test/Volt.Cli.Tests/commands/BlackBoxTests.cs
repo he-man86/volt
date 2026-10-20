@@ -288,6 +288,41 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>`volt build --app &lt;root&gt;` (repeatable) builds the named applications alone (openspec
+    /// <c>build-selects-application</c>); a root the project does not hold is a refusal naming it — exit 1 — with
+    /// nothing built.</summary>
+    [Fact]
+    public void Build_app_builds_the_named_applications_and_refuses_an_unknown_one()
+    {
+        const string a = "Device/Plc Logic/Application", b = "Device_1/Plc Logic/Application";
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;", a),
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "y := 1;", b))
+        { HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo" };
+        foreach (var app in new[] { a, b })
+        {
+            var device = app.Substring(0, app.IndexOf('/'));
+            ide.ContainerKinds[device] = Volt.Engine.Item.ItemKind.Device;
+            ide.ContainerKinds[device + "/Plc Logic"] = Volt.Engine.Item.ItemKind.PlcLogic;
+            ide.ContainerKinds[app] = Volt.Engine.Item.ItemKind.Application;
+        }
+        var (root, host, pipe) = Boot(ide);
+        try
+        {
+            RunVolt(root, pipe, "pull");
+
+            var both = RunVolt(root, pipe, "build", "--app", b, "--app", a);
+            Assert.True(both.Code == 0, $"build exit {both.Code}: {both.Err}");
+            Assert.Equal(new[] { a, b }, ide.BuiltApplications[^1]);
+
+            var unknown = RunVolt(root, pipe, "build", "--app", "Device_2/Plc Logic/Application");
+            Assert.Equal(1, unknown.Code);
+            Assert.Contains("'Device_2/Plc Logic/Application'", unknown.Err);
+            Assert.Single(ide.BuiltApplications);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>An error inside a METHOD names the item's file AND the method (openspec
     /// <c>codesys-diagnostic-child-names</c>): `--json` carries <c>member</c>, and the printed location puts it between
     /// the file and the line, because the vendor counts that line inside the method (DIALECT D36).</summary>

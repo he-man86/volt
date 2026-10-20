@@ -93,7 +93,10 @@ public interface IIdeSession
     void SelectProject(ConnectRequest sel);
 
     // ── build ──
-    bool Build();
+    /// <summary>Compile <paramref name="applications"/> — application roots exactly as <see cref="WalkResult.Applications"/>
+    /// states them, which <c>BuildService</c> checked — or every application when null, and answer whether each compiled.
+    /// The diagnostics <see cref="GetBuildDiagnostics"/> then reports are those builds' alone.</summary>
+    bool Build(IReadOnlyCollection<string>? applications);
 
     /// <summary>The last build's diagnostics, as FRESH objects the caller owns.
     ///

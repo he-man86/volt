@@ -954,8 +954,10 @@ public static class Commands
         return held;
     }
 
-    /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>
-    public static BuildResult Build(string root, BridgeClient bridge, Action<ProgressFrame>? onProgress = null)
+    /// <summary>volt build — build via the IDE, return normalized diagnostics. <paramref name="applications"/> names the
+    /// application roots to compile (`--app`, as `refs` states them); null builds every application.</summary>
+    public static BuildResult Build(string root, BridgeClient bridge, List<string>? applications = null,
+                                    Action<ProgressFrame>? onProgress = null)
     {
         if (!Config.ConfigExists(root)) return BuildResult.Refuse("not a Volt workspace — run `volt init` first");
         // No pre-op health round-trip: the build carries the bound project and the bridge guards it in-op, so the
@@ -968,9 +970,14 @@ public static class Commands
             {
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
+                Applications = applications,
             }, onProgress);
         }
-        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return BuildResult.Refuse(e.Message); }
+        // An `--app` the project does not hold is the bridge's BAD_REQUEST naming it: a refusal, like the two preconditions.
+        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code) || e.Code == BridgeErrorCodes.BadRequest)
+        {
+            return BuildResult.Refuse(e.Message);
+        }
         return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
     }
 

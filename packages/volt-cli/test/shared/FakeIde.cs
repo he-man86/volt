@@ -1462,9 +1462,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ManualResetEventSlim? BuildEntered { get; init; }
     public ManualResetEventSlim? BuildBlock { get; init; }
 
-    public override bool Build()
+    /// <summary>The applications each build was asked for — null for every application — in call order.</summary>
+    public List<IReadOnlyCollection<string>?> BuiltApplications { get; } = new();
+
+    public override bool Build(IReadOnlyCollection<string>? applications)
     {
         BuildSequence.Add("build");
+        BuiltApplications.Add(applications);
         BuildEntered?.Set();
         BuildBlock?.Wait();
         if (BuildThrows) throw new InvalidOperationException("the IDE's compiler faulted");

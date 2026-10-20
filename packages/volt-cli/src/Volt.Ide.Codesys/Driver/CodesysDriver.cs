@@ -212,14 +212,19 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <c>FindApplication</c> met, so a project of two devices compiled one of them and reported the other clean.
     /// <para>The IDE's Build message category holds ONE build's messages (a build replaces them, measured — see
     /// <c>CodesysObjectModel.BuildMessages</c>), so each application's are read right after its own build and kept for
-    /// <see cref="GetBuildDiagnostics"/>. The build succeeds when every application's does.</para></summary>
-    public override bool Build()
+    /// <see cref="GetBuildDiagnostics"/>. The build succeeds when every application's does.</para>
+    /// <para>A build that names applications (openspec <c>build-selects-application</c>) builds those alone, so the message
+    /// view holds only their messages.</para></summary>
+    public override bool Build(IReadOnlyCollection<string>? applications)
     {
-        var applications = Applications();
-        if (applications.Count == 0) throw new InvalidOperationException("CODESYS: no Application to build");
+        var all = Applications();
+        if (all.Count == 0) throw new InvalidOperationException("CODESYS: no Application to build");
+        var chosen = applications is null
+            ? all
+            : all.Where(a => applications.Contains(a.Path, StringComparer.OrdinalIgnoreCase)).ToList();
         var builds = new List<List<Dictionary<string, object?>>>();
         var success = true;
-        foreach (var (app, _) in applications)
+        foreach (var (app, _) in chosen)
         {
             success &= _om.Build(app);
             builds.Add(_om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList());

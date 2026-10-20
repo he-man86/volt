@@ -103,7 +103,8 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   (<code>A/App</code> holds <code>A/App/X.pou</code>, not <code>A/App2/X.pou</code>); an item under none belongs to
   the pool. A client never parses a vendor segment. A client that sends <code>knownItems</code> also sends the
   <code>applications</code> its baseline was read with, as <code>knownApplications</code>: a known path under a folder
-  the walk could not read is then judged by the application it was in.
+  the walk could not read is then judged by the application it was in. <code>build</code> takes the same roots as
+  <code>applications</code> to compile those alone; without it every application is built.
 </p>
 <table>
   <tr><th>version</th><th>covers</th><th>used by</th></tr>

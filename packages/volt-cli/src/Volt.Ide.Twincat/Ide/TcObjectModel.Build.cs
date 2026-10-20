@@ -36,10 +36,53 @@ internal sealed partial class TcObjectModel
     /// <c>tc-unsaved-build</c>), as CODESYS's does.</para></summary>
     public bool Build()
     {
-        if (_dte == null)
-            throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
-                "no TwinCAT XAE is attached, so there is nothing to build — this is a disconnected session, " +
-                "not a project that failed to compile");
+        _builtPanes = null;
+        _paneFault = null;
+        return Compile(sb => sb.Build(true));
+    }
+
+    /// <summary>Build <paramref name="plcs"/> alone, each by its own <c>SolutionBuild.BuildProject</c> with the active
+    /// configuration and the PLC project's <c>UniqueName</c> — its <c>.plcproj</c> relative to the solution's directory
+    /// (DIALECT D46: it compiles that PLC project and nothing else). The Build pane holds one build only, so the panes are
+    /// read right after each, and <see cref="GetBuildDiagnostics"/> answers from those reads. The build succeeds when every
+    /// PLC project's does.</summary>
+    public bool Build(IReadOnlyList<TcPlc> plcs)
+    {
+        if (_dte == null) throw Disconnected();
+        _paneFault = null;
+        var solutionDirectory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath((string)_dte.Solution.FullName))!;
+        var panes = new List<string>();
+        var success = true;
+        foreach (var plc in plcs)
+        {
+            var uniqueName = System.IO.Path.GetRelativePath(solutionDirectory, System.IO.Path.GetFullPath(PlcProjectFile(plc)));
+            success &= Compile(sb =>
+                sb.BuildProject($"{sb.ActiveConfiguration.Name}|{sb.ActiveConfiguration.PlatformName}", uniqueName, true));
+            try { panes.AddRange(PaneTexts()); }
+            catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex)) { _paneFault = ex; }
+        }
+        _builtPanes = panes;
+        return success;
+    }
+
+    /// <summary>The Output panes' texts read right after each build of a <see cref="Build(IReadOnlyList{TcPlc})"/> of named
+    /// PLC projects, in build order — null after a whole-solution build, whose diagnostics are read from the live panes.</summary>
+    private List<string>? _builtPanes;
+
+    /// <summary>Why a read of the panes after one of those builds failed — reported by <see cref="GetBuildDiagnostics"/>
+    /// as an incomplete list, as a failing read of the live panes is.</summary>
+    private Exception? _paneFault;
+
+    private static BridgeException Disconnected() =>
+        new(BridgeErrorCodes.PlcDisconnected,
+            "no TwinCAT XAE is attached, so there is nothing to build — this is a disconnected session, " +
+            "not a project that failed to compile");
+
+    /// <summary>Run one build through <paramref name="start"/> and read its verdict: the failed-project count of
+    /// <c>LastBuildInfo</c>, which counts the projects that build compiled.</summary>
+    private bool Compile(Action<dynamic> start)
+    {
+        if (_dte == null) throw Disconnected();
         try
         {
             dynamic sb = _dte.Solution.SolutionBuild;
@@ -59,8 +102,9 @@ internal sealed partial class TcObjectModel
             // failed-project count as this build's verdict, on a wire-visible boolean. Ten seconds is also not a
             // plausible ceiling for a real PLC build, so the fall-through was reachable rather than theoretical.
             // The file's own rule five lines down says it: "NOT catch { failed = 0; }. That turned 'I could not
-            // read the build result' into 'the build passed'."
-            sb.Build(true);
+            // read the build result' into 'the build passed'." `BuildProject(…, true)` is synchronous the same way
+            // (DIALECT D46).
+            start(sb);
             // NOT `catch { failed = 0; }`. That turned "I could not read the build result" into "the build
             // passed" — on a WIRE-VISIBLE boolean, so a client is told a failing project compiles. The sibling
             // GetBuildDiagnostics already applies the opposite reasoning to its own partial-parse case.
@@ -129,50 +173,8 @@ internal sealed partial class TcObjectModel
         if (_dte == null) return result;
         try
         {
-            dynamic output = _dte.Windows.Item("{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}").Object;
-            int paneCount = output.OutputWindowPanes.Count;
-            for (int p = 1; p <= paneCount; p++)
-            {
-                dynamic pane;
-                try { pane = output.OutputWindowPanes.Item(p); } catch { continue; }
-                // EVERY PANE IS PARSED. This does not need to know WHICH pane a build writes to — it needs the
-                // diagnostics, and the regex below already IS the test: a line only matches if it is shaped
-                // `file(line,col) : error|warning|message : text`, which is a compiler's output and not a
-                // window's chrome.
-                //
-                // It used to select panes by `pane.Name.Contains("Build") || .Contains("TwinCAT")` — a
-                // case-sensitive substring test on the shell's USER-VISIBLE caption. The driver supports full
-                // Visual Studio as well as TcXaeShell, and full VS ships localized UI in Beckhoff's own market;
-                // on such a host nothing matches, and a FAILING build is then reported with zero errors.
-                // Selecting by pane GUID instead would only trade one magic string for another: the Build pane's
-                // GUID is a documented VS SDK constant, but TwinCAT's own pane GUID is documented nowhere and was
-                // measured on a single install, so it is exactly the kind of value that quietly stops matching
-                // on the next version. Not identifying the pane at all removes the question.
-                // AN EMPTY PANE THROWS, and that is its ordinary state — not a fault to abort the sweep for.
-                // Measured on live TcXaeShell 15.0 (2026-08-30): of seven panes, `Build`, `TwinCAT` and
-                // `Source Control - Git` return text, while `Debug`, `Build Order` and the two other source
-                // control panes each answer `COMException 0x80004005` (E_FAIL) from `TextDocument`. Letting that
-                // reach the outer catch aborted the WHOLE parse on the first empty pane, so the build reported
-                // one synthetic "could not finish reading" error and nothing else.
-                //
-                // Skipping here does NOT hide a failing build: the verdict comes from `LastBuildInfo` in
-                // `Build()`, never from this list, so the worst case is a failure reported without its detail —
-                // and this now reads every pane, where the previous name-matching version read at most two.
-                string text;
-                try
-                {
-                    dynamic td = pane.TextDocument;
-                    dynamic ep = td.StartPoint.CreateEditPoint();
-                    text = (string)ep.GetText(td.EndPoint);
-                }
-                catch (Exception ex)
-                {
-                    VoltLog.Debug($"twincat: an Output pane has no readable text (usually an empty one): {ex.Message}");
-                    continue;
-                }
-                if (string.IsNullOrEmpty(text)) continue;
-                CollectPane(text, seen, result, LastDiagnosticFiles);
-            }
+            foreach (var text in _builtPanes ?? PaneTexts()) CollectPane(text, seen, result, LastDiagnosticFiles);
+            if (_builtPanes is not null && _paneFault is { } fault) throw fault;
         }
         catch (Exception ex)
         {
@@ -195,6 +197,57 @@ internal sealed partial class TcObjectModel
             });
         }
         return result;
+    }
+
+    /// <summary>The text of every Output pane that has some. A fault reaching the Output window itself propagates: the
+    /// caller reports it as an incomplete list (<see cref="GetBuildDiagnostics"/>).</summary>
+    private List<string> PaneTexts()
+    {
+        var texts = new List<string>();
+        dynamic output = _dte!.Windows.Item("{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}").Object;
+        int paneCount = output.OutputWindowPanes.Count;
+        for (int p = 1; p <= paneCount; p++)
+        {
+            dynamic pane;
+            try { pane = output.OutputWindowPanes.Item(p); } catch { continue; }
+            // EVERY PANE IS PARSED. This does not need to know WHICH pane a build writes to — it needs the
+            // diagnostics, and the regex below already IS the test: a line only matches if it is shaped
+            // `file(line,col) : error|warning|message : text`, which is a compiler's output and not a
+            // window's chrome.
+            //
+            // It used to select panes by `pane.Name.Contains("Build") || .Contains("TwinCAT")` — a
+            // case-sensitive substring test on the shell's USER-VISIBLE caption. The driver supports full
+            // Visual Studio as well as TcXaeShell, and full VS ships localized UI in Beckhoff's own market;
+            // on such a host nothing matches, and a FAILING build is then reported with zero errors.
+            // Selecting by pane GUID instead would only trade one magic string for another: the Build pane's
+            // GUID is a documented VS SDK constant, but TwinCAT's own pane GUID is documented nowhere and was
+            // measured on a single install, so it is exactly the kind of value that quietly stops matching
+            // on the next version. Not identifying the pane at all removes the question.
+            // AN EMPTY PANE THROWS, and that is its ordinary state — not a fault to abort the sweep for.
+            // Measured on live TcXaeShell 15.0 (2026-08-30): of seven panes, `Build`, `TwinCAT` and
+            // `Source Control - Git` return text, while `Debug`, `Build Order` and the two other source
+            // control panes each answer `COMException 0x80004005` (E_FAIL) from `TextDocument`. Letting that
+            // reach the outer catch aborted the WHOLE parse on the first empty pane, so the build reported
+            // one synthetic "could not finish reading" error and nothing else.
+            //
+            // Skipping here does NOT hide a failing build: the verdict comes from `LastBuildInfo` in
+            // `Build()`, never from this list, so the worst case is a failure reported without its detail —
+            // and this now reads every pane, where the previous name-matching version read at most two.
+            string text;
+            try
+            {
+                dynamic td = pane.TextDocument;
+                dynamic ep = td.StartPoint.CreateEditPoint();
+                text = (string)ep.GetText(td.EndPoint);
+            }
+            catch (Exception ex)
+            {
+                VoltLog.Debug($"twincat: an Output pane has no readable text (usually an empty one): {ex.Message}");
+                continue;
+            }
+            if (!string.IsNullOrEmpty(text)) texts.Add(text);
+        }
+        return texts;
     }
 
     /// <summary>One pane's diagnostics, appended to <paramref name="into"/> unless an earlier pane already carried them.

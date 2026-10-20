@@ -181,21 +181,31 @@ namespace Volt.Ide.Codesys.Tests
         {
             private readonly PerBuildMessageStore _store;
             public BuildCommands(PerBuildMessageStore store) => _store = store;
-            public void ExecuteCommand(Guid command, string[] args) => _store.NextBuild();
+            /// <summary>The arguments of every build command, in order (`--applicationGuid=…`).</summary>
+            public List<string> Built { get; } = new();
+            public void ExecuteCommand(Guid command, string[] args) { Built.AddRange(args); _store.NextBuild(); }
         }
 
         /// <summary>Builds every application of <paramref name="root"/> through the driver (one batch of messages per
         /// application's build), then reads its diagnostics.</summary>
-        private static List<Volt.Contracts.BridgeDiagnostic> BuildAll(TreeNode root, params Message[][] builds)
+        private static List<Volt.Contracts.BridgeDiagnostic> BuildAll(TreeNode root, params Message[][] builds) =>
+            BuildNamed(root, null, out _, builds);
+
+        /// <summary>Builds <paramref name="applications"/> of <paramref name="root"/> (every one when null) and reads the
+        /// diagnostics; <paramref name="built"/> is the build commands' arguments.</summary>
+        private static List<Volt.Contracts.BridgeDiagnostic> BuildNamed(TreeNode root, string[]? applications,
+                                                                         out List<string> built, params Message[][] builds)
         {
             var store = new PerBuildMessageStore(builds);
+            var commands = new BuildCommands(store);
+            built = commands.Built;
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(root);
             _3S.CoDeSys.ScriptDriverSystem.APEnvironment.MessageStorage = store;
-            _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = new BuildCommands(store);
+            _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = commands;
             try
             {
                 var driver = new CodesysDriver(new Projects(root));
-                driver.Build();
+                driver.Build(applications);
                 return driver.GetBuildDiagnostics(driver.WalkItems).ToList();
             }
             finally
@@ -249,6 +259,22 @@ namespace Volt.Ide.Codesys.Tests
                 "------ Build started: Application: Device_1.Application -------",
                 "Compile complete -- 1 errors, 0 warnings",
             }, d.Select(x => x.Message));
+        }
+
+        /// <summary>A BUILD THAT NAMES ONE APPLICATION BUILDS THAT ONE (openspec <c>build-selects-application</c> 2.1): one
+        /// build command, for the named application's object, and only its messages are reported.</summary>
+        [Fact]
+        public void A_build_naming_one_application_builds_it_alone_and_reports_its_messages_alone()
+        {
+            var (root, by) = TwoApplications();
+            var second = root.get_children(false).Single(n => n.get_name(false) == "Application_1");
+
+            var d = BuildNamed(root, new[] { "Application_1" }, out var built,
+                new[] { new Message(by["PLC_PRG"].guid, 0, "only the second application's build reports this") },
+                new[] { new Message(by["FB_Motor"].guid, 46, "a build of the first application would report this") });
+
+            Assert.Equal(new[] { "--applicationGuid=" + second.guid }, built);
+            Assert.Equal(new[] { "only the second application's build reports this" }, d.Select(x => x.Message));
         }
 
         /// <summary>ONE BUILD'S REPEATS ARE ALL KEPT. A CODESYS message carries no position (line 0 on every recorded one),
