@@ -18,6 +18,7 @@ import { createHash } from "node:crypto"
 import { bridge, cleanup, requireHealthy, createItem, fetchSource, BASE, pathOf, fid, id, opErrorCode } from "../harness"
 import { MARK } from "../fixtures"
 import { call } from "../lib/pipe"
+import { expectGap, PLATFORM_GAPS } from "../lib/platform"
 
 /** `Hasher.ComputeItemVersion`: 16 hex of SHA-1 over `folder=<folder>\0src=<text>\0` (UTF-8). */
 const itemVersion = (folder: string, text: string) =>
@@ -108,7 +109,8 @@ describe(`endpoints / grep (${BASE})`, () => {
 		expect(entry?.reason).toContain(`IMPLEMENTATION ${HIDDEN.exec(hidden.sourceText)![1]} UNSUPPORTED`)
 	})
 
-	it("2.6: a network-text body is searched as fetch ships it", async () => {
+	// A version that cannot take an LD/FBD body from Volt (DIALECT V2) ends this case in that named refusal.
+	it("2.6: a network-text body is searched as fetch ships it", () => expectGap(PLATFORM_GAPS.graphicalWrite, "a network-text body is searched", async () => {
 		const name = id("g_fbd")
 		await createItem(fid("g_fbd"),
 			`PROGRAM ${name}\nVAR\n\tstart : BOOL;\n\tstop : BOOL;\n\tlamp : BOOL;\nEND_VAR\n` +
@@ -127,7 +129,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		expect(r.matches[0].text).toBe(lineOf(text, r.matches[0].line))
 		expect(r.matches[0].line).toBeGreaterThan(at)
 		expect(r.notSearched).toEqual([])
-	})
+	}))
 
 	it("2.6: unreadable items are named, libraries are out of scope, unwalked folders pass through", async () => {
 		const refs = await bridge.refs()
