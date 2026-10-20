@@ -159,12 +159,21 @@ for (const { name, get } of copies) {
 const refBlock = /ReferenceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!refBlock) throw new Error("check-wiring: could not find ItemKind.ReferenceKindExtensions");
 const REF_CANON = normExts([...refBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
-const scanSrc = readRepo("packages/volt-lsp-iec/src/workspace/workspace-refs.ts");
-const watchM = /SCANNED_EXTENSIONS[^=]*=\s*\[\s*\.\.\.SOURCE_EXTENSIONS\s*,\s*([^\]]*)\]/.exec(scanSrc);
+// The LSP's constants are EVALUATED, not matched as text: the list is built from other constants, and a regex over
+// its spelling found no quoted string in `[...SOURCE_EXTENSIONS, ...REFERENCE_EXTENSIONS]` and so passed whatever the
+// set held (volt-cli-rework 1.0, finding (d)).
+const lspRefs = await import(join(REPO_ROOT, "packages/volt-lsp-iec/src/workspace/workspace-refs.ts"));
+const lspSources = await import(join(REPO_ROOT, "packages/volt-lsp-iec/src/workspace/source-extensions.ts"));
 check(`lsp SCANNED_EXTENSIONS (scanned + watched) reference exts ⊆ canonical [${REF_CANON.join(", ")}]`, () => {
-	if (!watchM) return "could not find SCANNED_EXTENSIONS = [...SOURCE_EXTENSIONS, …] in workspace-refs.ts";
-	const watched = normExts(quotedStrings(watchM[1]));
-	const stray = watched.filter((e) => !REF_CANON.includes(e));
+	const scanned = normExts(lspRefs.SCANNED_EXTENSIONS as readonly string[]);
+	const sources = normExts(lspSources.SOURCE_EXTENSIONS as readonly string[]);
+	const refs = normExts(lspRefs.REFERENCE_EXTENSIONS as ReadonlySet<string>);
+	if (refs.length === 0) return "REFERENCE_EXTENSIONS is empty";
+	const unscanned = [...sources, ...refs].filter((e) => !scanned.includes(e));
+	if (unscanned.length > 0) return `SCANNED_EXTENSIONS misses ${unscanned.join(", ")} — it is SOURCE_EXTENSIONS + REFERENCE_EXTENSIONS`;
+	const extra = scanned.filter((e) => !sources.includes(e) && !refs.includes(e));
+	if (extra.length > 0) return `SCANNED_EXTENSIONS adds ${extra.join(", ")}, in neither SOURCE_EXTENSIONS nor REFERENCE_EXTENSIONS`;
+	const stray = refs.filter((e) => !REF_CANON.includes(e));
 	return stray.length === 0 || `watches non-canonical reference ext(s): ${stray.join(", ")} — add to ItemKind.ReferenceKindExtensions or fix the spelling`;
 });
 
