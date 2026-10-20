@@ -795,7 +795,7 @@ public class DocDataTests
     /// its author re-pins it — and decides, by the bump rule, whether <see cref="WireProtocol.Version"/> moves. Five
     /// breaking wire commits shipped under protocol 1 while a prose rule asked for a bump; this is the check that rule
     /// never had. A change of MEANING with the same shape passes it: that is the author's call, by the same rule.</summary>
-    [Fact(Skip = "re-pinned as protocol 1 in the final step (the protocol number stays 1, owner 2026-10-20)")]
+    [Fact]
     public void The_wire_shape_is_pinned_beside_its_protocol_number()
     {
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
@@ -813,7 +813,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "1af57a9dd6b3db65d528cab4c6de8b5f157d55b657e0c90b2c8841d4147e9062";
+    private const string PinnedWireShape = "b912ca5f835efbe9510284806493e74bcb03434220ce0b91f15590666e76a9ce";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge
