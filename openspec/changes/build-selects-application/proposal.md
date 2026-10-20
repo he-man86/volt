@@ -18,5 +18,4 @@ waits for all of them and reads every application's diagnostics.
 ## Impact
 
 A new request member. Request bodies are strict, so an older bridge refuses it, and the OpenRPC schema hash changes:
-the wire protocol number goes to 2 (`relay-protocol-tracks-wire-breaks`), so this lands in a release that may bump it,
-coordinated with PLC Assist.
+the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1, in the release's final step, coordinated with PLC Assist.

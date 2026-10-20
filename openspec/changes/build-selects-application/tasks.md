@@ -19,5 +19,5 @@
 ## 3. Implement
 
 - [x] 3.1 `BuildRequest.Applications`, `BuildService`, both drivers; `volt build --app`.
-- [ ] 3.2 OpenRPC, `wire.html`; schema re-pinned at protocol 2 (owner and PLC Assist agree on the release first).
-      OpenRPC regenerated and `wire.html` updated; the pin test is skipped until the protocol-2 step re-pins it.
+- [ ] 3.2 OpenRPC, `wire.html`; the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1 (owner and PLC Assist agree on the release first).
+      OpenRPC regenerated and `wire.html` updated; the pin test is skipped until the release's final step re-pins it.
