@@ -23,6 +23,12 @@ public delegate object PipeDispatch(PipeRequest request, Action<object> emitProg
 /// </summary>
 public sealed class PipeServer : IDisposable
 {
+    /// <summary>The largest request frame the server reads, in bytes, newline excluded: 64 MiB. A frame is
+    /// buffered whole before it is parsed, and on CODESYS that buffer is inside the IDE process, so it has a bound.
+    /// The largest legitimate request is a push of a whole project: the biggest corpus project is 6.2 MB of text
+    /// on disk (pro2193), so the cap leaves about ten times headroom for JSON escaping and growth.</summary>
+    public const int MaxFrameBytes = 64 * 1024 * 1024;
+
     private readonly string _pipeName;
     private readonly PipeDispatch _dispatch;
     private volatile bool _running;
@@ -205,9 +211,10 @@ public sealed class PipeServer : IDisposable
         using (server)
         {
             string? op = null;
+            var oversize = false;
             try
             {
-                var line = ReadLine(server);
+                var line = ReadLine(server, out oversize);
                 if (line == null) return;
                 // A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT. This used to let the JsonException reach
                 // the catch below, which stamps anything uncoded as INTERNAL_ERROR — so a client that sent a
@@ -252,22 +259,31 @@ public sealed class PipeServer : IDisposable
                         VoltLog.Error($"pipe {_pipeName}: the error frame could not be written — " + CallFailure.LogText(writeEx));
                 }
             }
-            try { server.WaitForPipeDrain(); } catch { }
+            // An oversize frame's sender may still be writing and not reading: a drain would wait on it for ever.
+            // The connection is closed instead, the refusal already written.
+            if (!oversize) { try { server.WaitForPipeDrain(); } catch { } }
         }
     }
 
-    private static string? ReadLine(Stream s)
+    private static string? ReadLine(Stream s, out bool oversize)
     {
+        oversize = false;
         using var buf = new MemoryStream();
         var chunk = new byte[8192];
         while (true)
         {
             int n = s.Read(chunk, 0, chunk.Length);
             if (n <= 0) return buf.Length == 0 ? null : Encoding.UTF8.GetString(buf.ToArray());
-            for (int i = 0; i < n; i++)
+            int end = Array.IndexOf(chunk, (byte)'\n', 0, n);
+            if (buf.Length + (end < 0 ? n : end) > MaxFrameBytes)
             {
-                if (chunk[i] == (byte)'\n') { buf.Write(chunk, 0, i); return Encoding.UTF8.GetString(buf.ToArray()); }
+                oversize = true;
+                throw new CodedException(BridgeErrorCodes.BadRequest,
+                    $"the request frame exceeds the frame cap of {MaxFrameBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)} " +
+                    "bytes before its newline, so it was not read and the connection is closed. A request is ONE line " +
+                    "of `{\"op\":…,\"body\":…}`.");
             }
+            if (end >= 0) { buf.Write(chunk, 0, end); return Encoding.UTF8.GetString(buf.ToArray()); }
             buf.Write(chunk, 0, n);
         }
     }

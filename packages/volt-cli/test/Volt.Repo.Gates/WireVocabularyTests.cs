@@ -64,7 +64,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 4),
             ("Volt.Relay/RelayTunnel.cs", 1),
-            ("Volt.Wire/PipeServer.cs", 1))),
+            ("Volt.Wire/PipeServer.cs", 2))),   // +1 a request frame over MaxFrameBytes (volt-cli-rework 1.0 bug b)
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
             ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE

@@ -388,6 +388,60 @@ public class PipeTransportTests
         Assert.Null(health.BridgeVersion);
     }
 
+    /// <summary>A REQUEST FRAME HAS A SIZE CAP (<see cref="PipeServer.MaxFrameBytes"/>). The frame is read into memory
+    /// before it is parsed, and on CODESYS that memory is the IDE's own process: a client that streams bytes with no
+    /// newline used to grow the buffer without bound. Past the cap the server answers BAD_REQUEST naming the cap,
+    /// closes the connection, and keeps serving.</summary>
+    [Fact]
+    public async Task A_request_frame_over_the_size_cap_is_a_BAD_REQUEST_and_the_bridge_keeps_serving()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        using (var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut,
+                   System.IO.Pipes.PipeOptions.Asynchronous))
+        {
+            client.Connect(5000);
+            // Writes past the cap with no newline, until the server closes the connection under it.
+            var flood = Task.Run(async () =>
+            {
+                var chunk = new byte[1 << 20];
+                Array.Fill(chunk, (byte)'x');
+                try
+                {
+                    for (long sent = 0; sent <= PipeServer.MaxFrameBytes + chunk.Length; sent += chunk.Length)
+                        await client.WriteAsync(chunk, 0, chunk.Length);
+                }
+                catch (System.IO.IOException) { /* the server closed the connection: expected */ }
+                catch (ObjectDisposedException) { }
+            });
+
+            var buf = new byte[64 * 1024];
+            var answer = new System.IO.MemoryStream();
+            var read = Task.Run(async () =>
+            {
+                int n;
+                while ((n = await client.ReadAsync(buf, 0, buf.Length)) > 0)
+                {
+                    answer.Write(buf, 0, n);
+                    if (Array.IndexOf(buf, (byte)'\n', 0, n) >= 0) break;
+                }
+            });
+            await read.WaitAsync(TimeSpan.FromSeconds(30));   // TimeoutException: the bridge never answered
+            var raw = System.Text.Encoding.UTF8.GetString(answer.ToArray()).Trim();
+            using var doc = JsonDocument.Parse(raw);
+            var err = doc.RootElement.GetProperty("error");
+            Assert.Equal("BAD_REQUEST", err.GetProperty("code").GetString());
+            Assert.Contains(PipeServer.MaxFrameBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                err.GetProperty("message").GetString());
+            await flood.WaitAsync(TimeSpan.FromSeconds(30));  // TimeoutException: the connection was not closed
+        }
+
+        // The process did not fall over and the server still answers.
+        Assert.True(new PipeClient(pipe).Call("health").TryGetProperty("projects", out _));
+    }
+
     private static (string Code, string Message) RawError(string pipe, string line)
     {
         using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
