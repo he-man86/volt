@@ -66,9 +66,8 @@ wire and how the switch-over behaves.
 6. **The release number and a pre-release build** PLC Assist can run its live suites against before the release
    (its release gate runs CODESYS SP21 and TwinCAT 4024 against the bridges it packages).
 
-   > Volt: A prerelease from the dev tip once both lanes and the protocol step land; its number (0.1.<count>) is written
-   > here and in `docs/VOLT_UPDATE_*.md` the moment it is cut. Volt's release matrix runs on it while you run your live
-   > suites, and the same build is promoted, nothing rebuilt.
+   > Volt: RELEASED: **0.1.17931** (latest, commit 858c5363d3, 2026-10-20), release matrix green on all five cells.
+   > Prerelease 0.1.17928 (same product code) is superseded: it failed one test on CODESYS 3.5.18, fixed in the test.
 
 ## Impact
 
