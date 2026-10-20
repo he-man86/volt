@@ -200,7 +200,9 @@ export function derivePatterns(project: Project, health: any, refs: any): Case[]
 	const member = firstIn(/[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*/, "zzz.no_member")
 	const index = firstIn(/[A-Za-z_][A-Za-z0-9_]*\[/, "zzz_no_index[")
 	const id = frequent[0] ?? "zzz_none"
-	const swapped = [...id].map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join("")
+	// Case variants are only telling on an identifier that HAS case: the first frequent one mixing both.
+	const mixed = frequent.find((w) => w !== w.toUpperCase() && w !== w.toLowerCase()) ?? id
+	const swapped = [...mixed].map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join("")
 
 	const paths = Object.keys(refs.items)
 	const root: string | undefined = refs.applications?.[0]
@@ -215,12 +217,13 @@ export function derivePatterns(project: Project, health: any, refs: any): Case[]
 		{ label: "literal call `(`", req: { pattern: call, literal: true } },
 		{ label: "literal member `.`", req: { pattern: member, literal: true } },
 		{ label: "literal index `[`", req: { pattern: index, literal: true } },
-		{ label: "case: UPPER", req: { pattern: id.toUpperCase() } },
-		{ label: "case: lower", req: { pattern: id.toLowerCase() } },
-		{ label: "case: exact, caseSensitive", req: { pattern: id, caseSensitive: true } },
+		{ label: "case: UPPER", req: { pattern: mixed.toUpperCase() } },
+		{ label: "case: lower", req: { pattern: mixed.toLowerCase() } },
+		{ label: "case: exact, caseSensitive", req: { pattern: mixed, caseSensitive: true } },
 		{ label: "case: swapped, caseSensitive", req: { pattern: swapped, caseSensitive: true } },
 		{ label: "case: swapped literal, caseSensitive", req: { pattern: swapped, literal: true, caseSensitive: true } },
 		{ label: "anchored ^\\s*END_", req: { pattern: "^\\s*END_" } },
+		{ label: "long lines .{501} (the 500 cut)", req: { pattern: ".{501}" } },
 		{ label: "glob **/*.gvl", req: { pattern: id, paths: ["**/*.gvl"] } },
 		{ label: "glob ? in a file name", req: { pattern: id, paths: [qGlob] } },
 		{ label: "glob matching nothing", req: { pattern: id, paths: ["**/zzz_no_such_*.pou"] } },
@@ -233,6 +236,7 @@ export function derivePatterns(project: Project, health: any, refs: any): Case[]
 		cases.push({ label: "network text IMPLEMENTATION FBD", req: { pattern: "IMPLEMENTATION FBD", literal: true, caseSensitive: true } })
 	}
 	cases.push({ label: "CAP: `.` at limit 1000", req: { pattern: "." }, cap: true })
+	cases.push({ label: "CAP: `;` at limit 7", req: { pattern: ";", literal: true, limit: 7 }, cap: true })
 	for (const c of cases) c.req.limit ??= LIMIT_MAX
 	return cases
 }
