@@ -32,7 +32,7 @@ public class CaseVariantNameGateTests
         var refs = RefsService.Handle(ide);
         Assert.Contains(live, refs.Items.Keys);
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = name, IfVersion = null, SourceText = text } },
@@ -54,7 +54,7 @@ public class CaseVariantNameGateTests
         var ide = Ide();
         var refs = RefsService.Handle(ide);
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new DeleteItemOp { Name = name, IfVersion = "0123456789abcdef" } },

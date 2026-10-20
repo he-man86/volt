@@ -31,7 +31,7 @@ public class PartialWalkTests
     {
         var ide = new FakeIde();
         foreach (var (name, folder) in new[] { ("A", ""), ("B", ""), ("Deep", "Machine") })
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp>

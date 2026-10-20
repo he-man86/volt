@@ -3,6 +3,7 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
+using Volt.Tests.Shared;
 using Xunit;
 using static Volt.Ide.Twincat.Tests.TcBuildDiagnosticNamingTests;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
@@ -68,7 +69,7 @@ public class TcBuildSelectsApplicationTests
             @"1>C:\p\TwinCAT Project14\Untitled2\MAIN.TcPOU(3,1) : error : Identifier 'b' not defined" + "\r\n");
         LastWindow.Solution.SolutionBuild = build;
 
-        var r = BuildService.Handle(driver, new BuildRequest { Applications = new() { App } });
+        var r = BoundWrite.Build(driver, new BuildRequest { Applications = new() { App } });
 
         Assert.Equal(new[] { @"BuildProject(Release|TwinCAT RT (x64), TwinCAT Project14\Untitled2\Untitled2.plcproj)" }, build.Calls);
         Assert.False(r.Success);
@@ -105,7 +106,7 @@ public class TcBuildSelectsApplicationTests
         var build = new RecordingSolutionBuild(pane, "");
         LastWindow.Solution.SolutionBuild = build;
 
-        BuildService.Handle(driver, new BuildRequest());
+        BoundWrite.Build(driver, new BuildRequest());
 
         Assert.Equal(new[] { "Build" }, build.Calls);
     }

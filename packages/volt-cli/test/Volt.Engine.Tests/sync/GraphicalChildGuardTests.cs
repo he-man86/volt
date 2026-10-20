@@ -48,7 +48,7 @@ public class GraphicalChildGuardTests
     private static PushResponse Push(FakeIde ide, string body)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -163,7 +163,7 @@ public class GraphicalChildGuardTests
         var ide = IdeWithChild("M", childLang: null);
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

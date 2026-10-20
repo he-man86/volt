@@ -1,6 +1,7 @@
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
+using Volt.Tests.Shared;
 using Xunit;
 using static Volt.Ide.Twincat.Tests.TcBuildDiagnosticNamingTests;
 using static Volt.Ide.Twincat.Tests.TcUntouchablePouTests;
@@ -26,7 +27,7 @@ public class TcBuildOneWalkTests
         LastWindow.Solution.SolutionBuild = new TcSilentFallbackTests.SolutionBuild();
         xae.TypeReads.Clear();
 
-        var build = BuildService.Handle(driver, new BuildRequest());
+        var build = BoundWrite.Build(driver, new BuildRequest());
 
         Assert.Equal(App + "/MAIN.pou", Assert.Single(build.Diagnostics).Name);
         Assert.Equal(1, xae.TypeReads["MAIN"]);   // one walk classifies it once

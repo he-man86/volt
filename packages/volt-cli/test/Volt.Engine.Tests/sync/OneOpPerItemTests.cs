@@ -33,7 +33,7 @@ public class OneOpPerItemTests
     private static PushResponse Push(FakeIde ide, bool force, System.Func<RefsResponse, List<PushOp>> ops)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = force,

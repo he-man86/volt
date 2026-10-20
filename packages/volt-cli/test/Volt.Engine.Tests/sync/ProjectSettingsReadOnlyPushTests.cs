@@ -26,7 +26,7 @@ public class ProjectSettingsReadOnlyPushTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "", ""));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "Project Settings.projectsettings", SourceText = Descriptor } },
@@ -47,7 +47,7 @@ public class ProjectSettingsReadOnlyPushTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "", ""));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -76,7 +76,7 @@ public class ProjectSettingsReadOnlyPushTests
         var refs = RefsService.Handle(ide);
         Assert.True(refs.Items.ContainsKey(wireName), $"the double must publish {wireName}");
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

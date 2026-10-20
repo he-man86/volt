@@ -31,7 +31,7 @@ public class PushConflictCodeTests
         $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = ops.ToList(),
@@ -97,7 +97,7 @@ public class PushConflictCodeTests
     {
         var ide = new FakeIde();
 
-        var stale = PushService.Handle(ide, new PushRequest
+        var stale = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
             Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
@@ -207,7 +207,7 @@ public class PushConflictCodeTests
             RefuseContentWrite = _ => new NotSupportedException("this vendor cannot draw that"),
         };
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             Ops = new List<PushOp>
             {

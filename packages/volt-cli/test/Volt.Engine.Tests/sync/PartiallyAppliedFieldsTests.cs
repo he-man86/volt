@@ -35,7 +35,7 @@ public class PartiallyAppliedFieldsTests
         new System.InvalidOperationException($"The name '{name}' is not valid for this object.");
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
+        BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
 
     private static SetItemOp Create(string wireName, string source) =>
         new() { Name = wireName, IfVersion = null, SourceText = source };
@@ -286,7 +286,7 @@ public class PartiallyAppliedFieldsTests
         ide.UnopenedItems.Add("Broken");
         failCreate = true;
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =

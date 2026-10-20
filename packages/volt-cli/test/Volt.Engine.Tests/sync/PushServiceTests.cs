@@ -22,7 +22,7 @@ public class PushServiceTests
     }
 
     private static PushResponse Push(FakeIde ide, string pv, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = pv, Ops = ops.ToList() });
+        BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = pv, Ops = ops.ToList() });
 
     [Fact]
     public void Set_rename_uses_native_rename_no_recreate()
@@ -405,7 +405,7 @@ public class PushServiceTests
 
         var refs = RefsService.Handle(ide);
         Assert.Contains("SFC_PRG.pou", refs.Unreadable.Select(u => u.Name));
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = true,

@@ -91,7 +91,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -115,7 +115,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppB}/PLC_PRG.pou", SourceText = Prg("b := 3;"), IfVersion = refs.Items[$"{AppA}/PLC_PRG.pou"] } },
         });
@@ -133,7 +133,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new DeleteItemOp { Name = $"{AppA}/POUs/FB_Shared.pou", IfVersion = refs.Items[$"{AppA}/POUs/FB_Shared.pou"] } },
@@ -151,7 +151,7 @@ public class MultiApplicationTreeTests
         var refs = RefsService.Handle(ide);
         var fb = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n";
 
-        var first = PushService.Handle(ide, new PushRequest
+        var first = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppA}/POUs/FB_New.pou", SourceText = fb } },
@@ -159,7 +159,7 @@ public class MultiApplicationTreeTests
         Assert.True(first.Accepted, string.Join("; ", (first.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
 
         // The same name in the OTHER application is a create too, not a collision with the first.
-        var second = PushService.Handle(ide, new PushRequest
+        var second = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = first.NewProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppB}/POUs/FB_New.pou", SourceText = fb } },
@@ -175,7 +175,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -198,7 +198,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -221,7 +221,7 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "GVL_Pool.gvl", To = $"{AppA}/GVL_Pool.gvl", IfVersion = refs.Items["GVL_Pool.gvl"] } },
@@ -331,7 +331,7 @@ public class MultiApplicationTreeTests
             new() { Name = "PLC_PRG", Severity = Severity.Error, Message = "unplaced" },
         });
 
-        var build = BuildService.Handle(ide, new BuildRequest());
+        var build = BoundWrite.Build(ide, new BuildRequest());
 
         Assert.Equal($"{AppA}/PLC_PRG.pou", build.Diagnostics[0].Name);
         Assert.Equal($"{AppB}/PLC_PRG.pou", build.Diagnostics[1].Name);

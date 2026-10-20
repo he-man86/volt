@@ -68,6 +68,10 @@ public class DocDataTests
         "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project "
         + "ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.";
 
+    private const string WriteNamesItsProject =
+        "BAD_REQUEST as an error FRAME when `expectedPlatform` or `expectedProjectName` is absent or empty, naming each "
+        + "missing member, before anything is walked: a write names the project it writes. The reads keep both optional.";
+
     private const string BusyFrame =
         "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is "
         + "marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS "
@@ -131,10 +135,12 @@ public class DocDataTests
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy, BridgeErrorCodes.InternalError }, new[]
+                              BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy,
+                              BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
             BusyFrame,
+            WriteNamesItsProject,
             "A push writes into the open project and saves nothing, on both vendors: the engineer saves.",
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
             + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
@@ -158,6 +164,7 @@ public class DocDataTests
                                BridgeErrorCodes.BadRequest, BridgeErrorCodes.IdeBusy }, new[]
         {
             BusyFrame,
+            WriteNamesItsProject,
             "BAD_REQUEST for an `applications` root the project does not hold (named), or an empty list, before "
             + "anything is built. Named roots build those applications alone and report only their diagnostics; "
             + "absent, every application is built.",
@@ -405,11 +412,18 @@ public class DocDataTests
         return schema;
     }
 
-    /// <summary>Members every bridge writes whose C# type is nullable for a reason of the READER, not the wire: the schema
-    /// requires them. <c>health.protocol</c> and <c>health.ops</c> are nullable only so the connector can still read a bridge from before them.</summary>
+    /// <summary>Members the wire requires whose C# type is nullable for a reason of the READER: the schema requires them.
+    /// <c>health.protocol</c> and <c>health.ops</c> are nullable only so the connector can still read a bridge from before them; a write's
+    /// identity is nullable so the bridge can tell an absent member from a sent one.</summary>
     private static readonly HashSet<(Type, string)> SchemaRequired = new()
     {
         (typeof(HealthResponse), nameof(HealthResponse.Protocol)), (typeof(HealthResponse), nameof(HealthResponse.Ops)),
+        // A write names its project (openspec push-requires-project-identity). Nullable in C# so the bridge can name a
+        // missing member in its BAD_REQUEST rather than read an empty default; optional on the reads.
+        (typeof(PushRequest), nameof(BoundRequest.ExpectedPlatform)),
+        (typeof(PushRequest), nameof(BoundRequest.ExpectedProjectName)),
+        (typeof(BuildRequest), nameof(BoundRequest.ExpectedPlatform)),
+        (typeof(BuildRequest), nameof(BoundRequest.ExpectedProjectName)),
     };
 
     /// <summary>Whether a client may OMIT this field — which is not the same question in both directions.
@@ -781,7 +795,7 @@ public class DocDataTests
     /// its author re-pins it — and decides, by the bump rule, whether <see cref="WireProtocol.Version"/> moves. Five
     /// breaking wire commits shipped under protocol 1 while a prose rule asked for a bump; this is the check that rule
     /// never had. A change of MEANING with the same shape passes it: that is the author's call, by the same rule.</summary>
-    [Fact(Skip = "re-pinned at protocol 2 in the final step")]
+    [Fact(Skip = "re-pinned as protocol 1 in the final step (the protocol number stays 1, owner 2026-10-20)")]
     public void The_wire_shape_is_pinned_beside_its_protocol_number()
     {
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(

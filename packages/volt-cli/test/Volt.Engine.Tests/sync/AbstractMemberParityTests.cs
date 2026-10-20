@@ -74,7 +74,7 @@ public class AbstractMemberParityTests
     private static PushResponse Push(FakeIde ide, string sourceText)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = Name, IfVersion = refs.Items[Name], SourceText = sourceText } },
@@ -528,7 +528,7 @@ public class AbstractMemberParityTests
         Assert.NotEqual(refs.Items[Name], preVersion);
         var edit = preUpgrade.Replace("METHOD ABSTRACT Pick : INT", "METHOD ABSTRACT Pick : INT\n// edited");
 
-        var stale = PushService.Handle(ide, new PushRequest
+        var stale = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = Name, IfVersion = preVersion, SourceText = edit } },

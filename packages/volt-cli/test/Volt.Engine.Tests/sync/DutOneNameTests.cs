@@ -32,7 +32,7 @@ public class DutOneNameTests
         var refs = RefsService.Handle(ide);
         Assert.Equal(new[] { "DUTs/X.dut" }, refs.Items.Keys.ToArray());
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "DUTs/X.dut", IfVersion = refs.Items["DUTs/X.dut"], SourceText = Enum } },
@@ -55,7 +55,7 @@ public class DutOneNameTests
         var ide = OneStruct();
         var refs = RefsService.Handle(ide);
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = force,
@@ -86,7 +86,7 @@ public class DutOneNameTests
         var pou = new FakeIde(new FakeIde.Item("X", ItemKind.PlcPou, "DUTs", true,
             "FUNCTION_BLOCK X\nVAR\nEND_VAR", "", null, "read failed (COM)"));
 
-        PushResponse Delete(FakeIde ide, string name) => PushService.Handle(ide, new PushRequest
+        PushResponse Delete(FakeIde ide, string name) => BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Force = force,

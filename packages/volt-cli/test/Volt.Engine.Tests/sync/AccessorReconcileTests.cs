@@ -52,7 +52,7 @@ public class AccessorReconcileTests
     private static PushResponse Push(FakeIde ide, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new System.Collections.Generic.List<PushOp>

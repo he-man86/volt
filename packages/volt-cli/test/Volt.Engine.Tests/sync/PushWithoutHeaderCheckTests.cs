@@ -26,7 +26,7 @@ public class PushWithoutHeaderCheckTests
         new(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
 
     private static PushResponse Create(FakeIde ide, string wireName, string text) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = wireName, IfVersion = null, SourceText = text } },

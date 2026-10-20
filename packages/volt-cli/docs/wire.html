@@ -117,7 +117,9 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   that the item has not moved under you. <code>force</code> drops the per-item checks and keeps the lease.
   Separately, <code>expectedProjectName</code>/<code>expectedPlatform</code> are an <b>identity</b> check —
   they refuse with <code>WRONG_PROJECT</code> regardless of <code>force</code>, so a forced push still cannot
-  clobber the wrong IDE.
+  clobber the wrong IDE. A write — <code>push</code> and <code>build</code> — must send both: one absent or empty is
+  <code>BAD_REQUEST</code> naming it, before anything is done. On <code>refs</code> and <code>fetch</code> they are
+  optional, and the answer echoes the <code>platform</code>/<code>projectName</code> it walked.
 </p>
 
 <h2 id="push-ops">The push op union</h2>

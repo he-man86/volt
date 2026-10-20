@@ -31,7 +31,7 @@ public class PushValidatesOnceTests
     private static PushResponse Push(FakeIde ide, Func<RefsResponse, SetItemOp> op)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op(refs) } });
+        return BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op(refs) } });
     }
 
     private static string Reasons(PushResponse r) =>

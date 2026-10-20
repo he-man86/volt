@@ -33,7 +33,7 @@ public class ItemKindIsNotRewritableTests
     private static PushResponse Push(FakeIde ide, string wireName, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new System.Collections.Generic.List<PushOp>
@@ -50,7 +50,7 @@ public class ItemKindIsNotRewritableTests
     {
         var ide = WithFunctionBlock();
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new System.Collections.Generic.List<PushOp>

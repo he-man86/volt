@@ -40,7 +40,7 @@ public class NetworkTextSwitchTests
     private static PushResponse Update(FakeIde ide, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_Mix.pou", SourceText = source, IfVersion = refs.Items["FB_Mix.pou"] } },

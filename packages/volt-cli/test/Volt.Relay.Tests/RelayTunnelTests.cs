@@ -124,9 +124,9 @@ public class RelayTunnelTests : IDisposable
         var (relay, _, _) = Start();
         await relay.AwaitHello();
 
-        relay.Send("{\"id\":\"plain\",\"op\":\"push\",\"body\":{\"ops\":[]}}");
+        relay.Send("{\"id\":\"plain\",\"op\":\"push\",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]}}");
         var plain = await relay.AwaitFrame("plain", "result");
-        relay.Send("{\"id\":\"budget\",\"op\":\"push\",\"body\":{\"ops\":[]},\"budgetMs\":0}");
+        relay.Send("{\"id\":\"budget\",\"op\":\"push\",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]},\"budgetMs\":0}");
         var budget = await relay.AwaitFrame("budget", "result");
 
         Assert.Equal(plain.GetRawText(), budget.GetRawText());
@@ -527,7 +527,7 @@ public class RelayTunnelTests : IDisposable
         await relay.AwaitHello();
 
         relay.FailSendWhen = frame => frame.StartsWith("{\"id\":\"r1\",\"result\"");
-        relay.SendRequest("r1", Ops.Push, new { ops = Array.Empty<object>() });
+        relay.SendRequest("r1", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() });
 
         var line = await AwaitTerminalLine(log, "r1");
         Assert.Matches(@"^relay: -> push \(r1\) ok accepted newProjectVersion=\S+ \d+ms delivered=no \(WebSocketException: .+\)$", line);
@@ -582,7 +582,7 @@ public class RelayTunnelTests : IDisposable
         // Hold the push IN FLIGHT at its walk (armed after the hello, so nothing before the push is held).
         ide.OnWalkItems = () => { entered.Set(); release.Wait(); };
 
-        relay.SendRequest("r5", Ops.Push, new { ops = Array.Empty<object>() });
+        relay.SendRequest("r5", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() });
         Assert.True(entered.Wait(15_000), "the push never reached the blocking step");
         relay.DieWithoutClose();
         await delay.NextWait();

@@ -30,7 +30,7 @@ public class FetchDirectedTests
     {
         var ide = new FakeIde();
         foreach (var n in new[] { "A", "B", "C" })
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.pou", SourceText = Prg(n), IfVersion = null } },
@@ -63,7 +63,7 @@ public class FetchDirectedTests
     {
         var ide = Project();
         var before = Baseline(ide);
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new DeleteItemOp { Name = "B.pou", IfVersion = before["B.pou"] } },

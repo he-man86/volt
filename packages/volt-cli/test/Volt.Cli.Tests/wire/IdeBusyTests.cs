@@ -40,6 +40,9 @@ public class IdeBusyTests
         return null!;
     }
 
+    /// <summary>The binding a build sends (openspec push-requires-project-identity).</summary>
+    private static readonly object Demo = new { expectedPlatform = "codesys", expectedProjectName = "Demo" };
+
     [Fact]
     public void A_build_and_a_push_during_a_build_are_refused_IDE_BUSY_and_nothing_runs_twice()
     {
@@ -55,18 +58,20 @@ public class IdeBusyTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var first = Task.Run(() => new PipeClient(pipe).Call("build"));
+        var first = Task.Run(() => new PipeClient(pipe).Call("build", Demo));
         try
         {
             Assert.True(entered.Wait(15_000), "the first build never reached the compile");
             var lease = new PipeClient(pipe).Call("refs").GetProperty("projectVersion").GetString();
 
-            var build = Refused(() => new PipeClient(pipe).Call("build"));
+            var build = Refused(() => new PipeClient(pipe).Call("build", Demo));
             Assert.Equal("IDE_BUSY", build.Code);
             Assert.Equal("the IDE is running a build or push — nothing was applied", build.Message);
 
             var push = Refused(() => new PipeClient(pipe).Call("push", new
             {
+                expectedPlatform = "codesys",
+                expectedProjectName = "Demo",
                 expectedProjectVersion = lease,
                 ops = new object[]
                 {
@@ -87,7 +92,7 @@ public class IdeBusyTests
         Assert.Empty(ide.Recorded);                                     // no write
 
         // The gate is released when the op ends: the next build runs.
-        new PipeClient(pipe).Call("build");
+        new PipeClient(pipe).Call("build", Demo);
         Assert.Equal(2, ide.BuildSequence.Count(s => s == "build"));
     }
 
@@ -101,7 +106,7 @@ public class IdeBusyTests
 
         var bad = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("push", new { ops = "all of them" }));
         Assert.Equal("BAD_REQUEST", bad.Code);
-        new PipeClient(pipe).Call("build");
+        new PipeClient(pipe).Call("build", Demo);
         Assert.Equal(1, ide.BuildSequence.Count(s => s == "build"));
     }
 }

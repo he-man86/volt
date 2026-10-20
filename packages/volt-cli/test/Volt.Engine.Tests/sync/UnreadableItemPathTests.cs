@@ -104,7 +104,7 @@ public class UnreadableItemPathTests
     {
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("X", "Data"));
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },
@@ -123,7 +123,7 @@ public class UnreadableItemPathTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "PROGRAM X\nVAR\nEND_VAR", "n := 0;", "Data"));
         ide.UnopenedItems.Add("X");
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },
@@ -141,7 +141,7 @@ public class UnreadableItemPathTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "PROGRAM X\nVAR\nEND_VAR", "n := 0;", "Data"));
         ide.UnclassifiableItems = new[] { "X" };
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },

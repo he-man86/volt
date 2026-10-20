@@ -37,7 +37,7 @@ public class DriverPreflightModelsTests
     private static PushResponse Push(FakeIde ide, string wireName, string src)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = wireName, SourceText = src, IfVersion = null } },
@@ -95,7 +95,7 @@ public class DriverPreflightModelsTests
         ide.ExistingValidated.Clear();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_Axis.pou", SourceText = Plain("FB_Axis").Replace("out := a;", "out := NOT a;"), IfVersion = refs.Items["FB_Axis.pou"] } },

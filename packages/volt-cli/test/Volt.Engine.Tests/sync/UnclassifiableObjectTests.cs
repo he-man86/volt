@@ -27,7 +27,7 @@ public class UnclassifiableObjectTests
         var items = new List<(string, string)> { ("A", ""), ("B", "Data") };
         if (withEnum) items.Add(("SER_OperationModeType", "Data"));
         foreach (var (name, folder) in items)
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp>
@@ -78,7 +78,7 @@ public class UnclassifiableObjectTests
     {
         var ide = new FakeIde();
         foreach (var (name, folder) in new[] { ("Zeta", ""), ("Alpha", "Data") })
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp> { new SetItemOp { Name = folder.Length == 0 ? $"{name}.pou" : $"{folder}/{name}.pou", SourceText = Prg(name), IfVersion = null } },
@@ -104,7 +104,7 @@ public class UnclassifiableObjectTests
 
         var refs = RefsService.Handle(ide);
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
-        var push = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
+        var push = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
 
         Assert.NotEqual(without, refs.ProjectVersion);
         Assert.Equal(refs.ProjectVersion, fetch.ProjectVersion);
@@ -183,7 +183,7 @@ public class UnclassifiableObjectTests
         var v = RefsService.Handle(ide).Items["Data/SER_OperationModeType.pou"];
         ide.UnclassifiableItems = new[] { "SER_OperationModeType" };
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             Ops = new List<PushOp>
             {
@@ -205,7 +205,7 @@ public class UnclassifiableObjectTests
         var ide = Project();
         ide.UnclassifiableItems = new[] { "SER_OperationModeType" };
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             Ops = new List<PushOp>
             {

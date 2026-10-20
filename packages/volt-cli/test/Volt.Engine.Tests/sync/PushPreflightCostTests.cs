@@ -28,7 +28,7 @@ public class PushPreflightCostTests
     {
         var ide = new FakeIde();
         foreach (var n in new[] { "A", "B", "C" })
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.pou", SourceText = Prg(n), IfVersion = null } },
             });
@@ -45,7 +45,7 @@ public class PushPreflightCostTests
         var reads = 0;
         var inPreflight = true;
         ide.OnReadContent = (_, _) => { if (inPreflight) reads++; };
-        var res = PushService.Handle(ide, req, f => { if (f.Phase == "applying") inPreflight = false; });
+        var res = BoundWrite.Push(ide, req, f => { if (f.Phase == "applying") inPreflight = false; });
         ide.OnReadContent = null;
         return (res, reads);
     }
@@ -89,7 +89,7 @@ public class PushPreflightCostTests
     [Fact]
     public void A_forced_push_with_a_stale_lease_is_still_refused()
     {
-        var res = PushService.Handle(Project(), new PushRequest
+        var res = BoundWrite.Push(Project(), new PushRequest
         {
             Force = true,
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
@@ -107,7 +107,7 @@ public class PushPreflightCostTests
     {
         var frames = new List<ProgressFrame>();
 
-        PushService.Handle(Project(), new PushRequest
+        BoundWrite.Push(Project(), new PushRequest
         {
             Ops = new List<PushOp> { new SetItemOp { Name = "D.pou", SourceText = Prg("D"), IfVersion = null } },
         }, frames.Add);
@@ -126,7 +126,7 @@ public class PushPreflightCostTests
         var refs = RefsService.Handle(ide);
         var before = ide.WalkCalls;
 
-        var res = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
+        var res = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
 
         Assert.Equal(1, ide.WalkCalls - before);
         Assert.True(res.Accepted);
@@ -140,7 +140,7 @@ public class PushPreflightCostTests
     {
         var ide = Project();
 
-        var res = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = "0000000000000000", Ops = new List<PushOp>() });
+        var res = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = "0000000000000000", Ops = new List<PushOp>() });
 
         Assert.False(res.Accepted);
         Assert.Equal(ConflictCodes.StaleProjectVersion, Assert.Single(res.Conflicts!).Code);

@@ -17,7 +17,7 @@ public static class BuildService
     {
         // Guard OUTSIDE the try/catch below — else WRONG_PROJECT/PLC_DISCONNECTED would be swallowed into a fake
         // "build failed" diagnostic instead of surfacing as a proper error frame.
-        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
+        OpGuard.RequireBinding(ide, Ops.Build, request.ExpectedPlatform, request.ExpectedProjectName);
 
         // ONE walk names the diagnostics, the driver's and the promotion's, and states the applications a named build is
         // checked against: made when first asked, never twice.

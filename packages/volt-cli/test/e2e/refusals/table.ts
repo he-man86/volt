@@ -19,7 +19,7 @@
  * row's `divergence` opens with `divergence: { vendor: "<v>", answers: "<CODE>"` — the gate pins each one, so a new
  * divergence fails until the owner lists it (8.4).</p>
  */
-import { callOn } from "../lib/pipe"
+import { callBound } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
 import { drivenApplication, fileOf, inFolder } from "../lib/main-program"
@@ -423,7 +423,7 @@ export const ROWS: Row[] = [
 /** Bind a pipe to a {@link Bridge}: the served project's name comes from `health` (a TwinCAT XAE serves nothing until
  *  told, so this selects the first detected project and waits for it — the same thing `requireHealthy` does). */
 export async function bindBridge(pipe: string, vendor: "codesys" | "twincat"): Promise<Bridge> {
-	const call = (op: string, body?: unknown) => callOn(pipe, op, body)
+	const call = (op: string, body?: unknown) => callBound(pipe, op, body)
 	const t0 = Date.now()
 	while (Date.now() - t0 < 90_000) {
 		const h = await call("health").catch(() => ({ projects: [] }))

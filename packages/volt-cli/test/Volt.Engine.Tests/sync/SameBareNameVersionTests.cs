@@ -55,7 +55,7 @@ public class SameBareNameVersionTests
         // pass for the wrong reason.
         Assert.NotEqual(refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"], refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.visualization"]);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -85,7 +85,7 @@ public class SameBareNameVersionTests
         var ide = ControlModuleWithItsVisu();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -114,7 +114,7 @@ public class SameBareNameVersionTests
         var ide = ControlModuleWithItsVisu();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

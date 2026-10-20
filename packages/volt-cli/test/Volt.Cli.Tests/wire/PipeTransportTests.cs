@@ -342,7 +342,7 @@ public class PipeTransportTests
         host.Start();
 
         // Each op's own body: `knownItems` is a member of `refs` and `fetch` only, and a body is read strictly.
-        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() } : new { };
+        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() } : new { expectedPlatform = "codesys", expectedProjectName = "FakeProject" };
         var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, body));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
@@ -458,6 +458,33 @@ public class PipeTransportTests
         Assert.Equal(new[] { app }, Assert.Single(ide.BuiltApplications));
     }
 
+    /// <summary>A WRITE NAMES ITS PROJECT ON THE WIRE (openspec <c>push-requires-project-identity</c> 1.4): a <c>push</c>
+    /// whose body omits the identity, and one with no body at all, answer a BAD_REQUEST frame naming the members, and
+    /// nothing is walked or written.</summary>
+    [Fact]
+    public void A_push_without_its_binding_is_a_BAD_REQUEST_frame_naming_the_members()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"));
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        foreach (var line in new[]
+        {
+            @"{""op"":""push"",""body"":{""ops"":[{""op"":""deleteItem"",""name"":""P.pou"",""ifVersion"":null}],""force"":true}}",
+            @"{""op"":""push""}",
+            @"{""op"":""build"",""body"":{""expectedPlatform"":""codesys""}}",
+        })
+        {
+            var error = RawError(pipe, line);
+            Assert.Equal("BAD_REQUEST", error.Code);
+            Assert.Contains("expectedProjectName", error.Message);
+        }
+        Assert.Equal(0, ide.WalkCalls);
+        Assert.Empty(ide.Recorded);
+        Assert.Empty(ide.BuildSequence);
+    }
+
     /// <summary>The envelope and the responses read their members by their exact name, as request bodies do: a
     /// PascalCase spelling has no sender, and accepting it gave every member two spellings.</summary>
     [Fact]
@@ -541,7 +568,7 @@ public class PipeTransportTests
         host.Start();
 
         var frame = RawTerminal(pipe,
-            @"{""op"":""push"",""body"":{""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
+            @"{""op"":""push"",""body"":{""expectedPlatform"":""codesys"",""expectedProjectName"":""FakeProject"",""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
             @"""sourceText"":""PROGRAM Q\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n"",""op"":""set""}]}}");
 
         Assert.True(frame.TryGetProperty("result", out var result), "expected a result frame, got: " + frame);

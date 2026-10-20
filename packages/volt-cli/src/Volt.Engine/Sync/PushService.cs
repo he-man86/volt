@@ -33,7 +33,7 @@ public static class PushService
     {
         // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
         // the version gate) still can't clobber the wrong IDE.
-        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
+        OpGuard.RequireBinding(ide, Ops.Push, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
 

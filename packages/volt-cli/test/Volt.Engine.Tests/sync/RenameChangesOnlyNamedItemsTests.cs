@@ -29,7 +29,7 @@ public class RenameChangesOnlyNamedItemsTests
     { RewritesReferencesOnRename = twincat, RewritesOwnReferencesOnRename = twincat };
 
     private static PushResponse Push(FakeIde ide, bool force, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = force ? null : RefsService.Handle(ide).ProjectVersion,
             Force = force,

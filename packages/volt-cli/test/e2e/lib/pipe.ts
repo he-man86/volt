@@ -121,7 +121,31 @@ export function call(op: string, body?: unknown): Promise<any> {
 	} catch (e) {
 		return Promise.reject(e)
 	}
-	return callOn(pipe, op, body)
+	return callBound(pipe, op, body)
+}
+
+/** The ops that write, and so must name the project they write (openspec `push-requires-project-identity`). */
+const WRITES = new Set(["push", "build"])
+
+/** Per pipe: the identity its bridge echoed on `refs` — dropped when the harness connects or disconnects it. */
+const identities = new Map<string, Promise<{ expectedPlatform: string; expectedProjectName: string }>>()
+
+/**
+ * One call as a bound client makes it: a WRITE carries the identity of the project the bridge serves, as the CLI sends
+ * its binding — read from the bridge's own `refs` echo, once per pipe. A body that names either member keeps its own, so a
+ * test of a wrong or missing binding sends exactly what it means to; {@link callOn} sends a body as given.
+ */
+export function callBound(pipe: string, op: string, body?: unknown): Promise<any> {
+	if (op === "connect" || op === "disconnect") identities.delete(pipe)
+	const b: Record<string, unknown> = typeof body === "object" && body !== null ? { ...body } : {}
+	if (!WRITES.has(op) || "expectedPlatform" in b || "expectedProjectName" in b) return callOn(pipe, op, body)
+	let identity = identities.get(pipe)
+	if (!identity) {
+		identity = callOn(pipe, "refs").then((r: any) => ({ expectedPlatform: r.platform, expectedProjectName: r.projectName }))
+		identity.catch(() => identities.delete(pipe))
+		identities.set(pipe, identity)
+	}
+	return identity.then((id) => callOn(pipe, op, { ...b, ...id }))
 }
 
 /**

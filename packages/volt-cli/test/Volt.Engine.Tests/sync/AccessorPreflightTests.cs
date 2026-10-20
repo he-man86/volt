@@ -47,7 +47,7 @@ public class AccessorPreflightTests
     private static PushResponse Push(FakeIde ide, params PushOp[] ops)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = ops.ToList(),
@@ -137,7 +137,7 @@ public class AccessorPreflightTests
                                                "FUNCTION_BLOCK FB_Cfc", "", "CFC", null));
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new()

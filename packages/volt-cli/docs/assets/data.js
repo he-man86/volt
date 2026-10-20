@@ -192,6 +192,7 @@ window.VOLT = {
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "BAD_REQUEST",
           "ITEM_UNVERIFIED",
           "IDE_BUSY",
           "INTERNAL_ERROR"
@@ -199,6 +200,7 @@ window.VOLT = {
         "x-outcomes": [
           "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
+          "BAD_REQUEST as an error FRAME when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
           "A push writes into the open project and saves nothing, on both vendors: the engineer saves.",
           "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as a conflict. A client MUST check \u0060accepted\u0060 AND \u0060conflicts\u0060.",
           "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody coded. Match the code, never the message.",
@@ -236,6 +238,7 @@ window.VOLT = {
         ],
         "x-outcomes": [
           "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
+          "BAD_REQUEST as an error FRAME when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
           "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold (named), or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
           "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
           "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
@@ -656,7 +659,9 @@ window.VOLT = {
             }
           },
           "required": [
-            "ops"
+            "ops",
+            "expectedPlatform",
+            "expectedProjectName"
           ],
           "additionalProperties": false
         },
@@ -830,6 +835,10 @@ window.VOLT = {
               "type": "string"
             }
           },
+          "required": [
+            "expectedPlatform",
+            "expectedProjectName"
+          ],
           "additionalProperties": false
         },
         "BuildResponse": {

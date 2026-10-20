@@ -28,7 +28,7 @@ public class UnopenedItemTests
     {
         var ide = new FakeIde();
         foreach (var (name, folder) in new[] { ("A", ""), ("B", "Data"), ("Broken", "Data") })
-            PushService.Handle(ide, new PushRequest
+            BoundWrite.Push(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp> { new SetItemOp { Name = folder.Length == 0 ? $"{name}.pou" : $"{folder}/{name}.pou", SourceText = Fb(name) } },
@@ -87,12 +87,12 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        var set = PushService.Handle(ide, new PushRequest
+        var set = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText = Fb("Broken") } },
         });
-        var delete = PushService.Handle(ide, new PushRequest
+        var delete = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
@@ -115,7 +115,7 @@ public class UnopenedItemTests
     {
         var (ide, baseline) = Project();
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
@@ -140,7 +140,7 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
@@ -159,7 +159,7 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText = Fb("Broken") } },
@@ -183,7 +183,7 @@ public class UnopenedItemTests
     {
         var (ide, _) = Project();
 
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.dut" } },

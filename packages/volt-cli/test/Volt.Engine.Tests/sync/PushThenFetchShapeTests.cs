@@ -70,7 +70,7 @@ public class PushThenFetchShapeTests
         "END_PROPERTY\n";
 
     private static PushResponse Set(FakeIde ide, string text, string? ifVersion) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_Motor.pou", SourceText = text, IfVersion = ifVersion } },

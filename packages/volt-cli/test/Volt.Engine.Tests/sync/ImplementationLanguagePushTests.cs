@@ -41,7 +41,7 @@ public class ImplementationLanguagePushTests
     private static PushResponse Create(FakeIde ide, string source, string name = "FB_Motor.pou")
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = name, SourceText = source, IfVersion = null } },
@@ -52,7 +52,7 @@ public class ImplementationLanguagePushTests
     private static PushResponse Update(FakeIde ide, string name, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = name, SourceText = source, IfVersion = refs.Items[name] } },

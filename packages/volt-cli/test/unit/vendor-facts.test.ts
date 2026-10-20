@@ -412,7 +412,7 @@ describe("the pipe side", () => {
       calls.push({ op, body })
       if (op === "health") return opts.health ? opts.health() : { projects: [{ project: "P", status: "healthy" }] }
       if (op === "connect") return opts.connect ? opts.connect() : {}
-      if (op === "refs") return { projectVersion: "v", items, folders: {} }
+      if (op === "refs") return { projectVersion: "v", items, folders: {}, platform: "codesys", projectName: "P" }
       if (op === "push") {
         const a = opts.push ? opts.push(body) : { accepted: true, conflicts: [] }
         if (a.accepted && body.ops[0].op === "set" && body.ops[0].sourceText !== undefined)
@@ -420,6 +420,7 @@ describe("the pipe side", () => {
         return a
       }
       if (op === "fetch") return { changed: [{ name: body.onlyItems[0], sourceText: "TEXT\n" }] }
+      if (op === "build") return { success: true, duration: 1, diagnostics: [] }
       throw new Error(`unexpected ${op}`)
     }
     return { call, calls, setItems: (i: Record<string, string>) => (items = i) }
@@ -541,6 +542,17 @@ describe("the pipe side", () => {
     expect(await wire.fetched("fb", ctx)).toBe("TEXT\n")
     expect(b.calls.find((c) => c.op === "fetch")?.body).toEqual({ knownItems: {}, onlyItems: ["VltA_Base.pou"] })
     await expect(wire.fetched("nope", ctx)).rejects.toThrow("no handle 'nope'")
+  })
+
+  it("every write carries the identity the bridge's refs echoed (push-requires-project-identity)", async () => {
+    const b = bridge({})
+    const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
+    const ctx = ctxOf()
+    await wire.step({ op: "create", as: "x", kind: "program", name: "VltF_I", parent: "root", via: "push", source: "S" }, ctx)
+    await wire.build(ctx)
+    const writes = b.calls.filter((c) => c.op === "push" || c.op === "build")
+    expect(writes.map((c) => c.op)).toEqual(["push", "build"])
+    for (const w of writes) expect([w.body.expectedPlatform, w.body.expectedProjectName]).toEqual(["codesys", "P"])
   })
 
   it("the build answers its success with its diagnostics", async () => {

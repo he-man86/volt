@@ -115,7 +115,7 @@ public class MemberKindIsItsClassTests
         var refs = RefsService.Handle(ide);
         var text = Materializer.Materialize(ide, "K", ItemKind.Kinds.Pou, new ItemRef("K")).Text;
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "K.pou", SourceText = text, IfVersion = refs.Items["K.pou"] } },

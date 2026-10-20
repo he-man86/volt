@@ -24,7 +24,7 @@ public class BuildDiagnosticNameTests
     private const string Prog = "PROGRAM Boiler\nVAR\nEND_VAR\n";
     private const string Fb = "FUNCTION_BLOCK Boiler\nVAR\nEND_VAR\n";
 
-    private static BuildResponse Build(FakeIde ide) => BuildService.Handle(ide, new BuildRequest());
+    private static BuildResponse Build(FakeIde ide) => BoundWrite.Build(ide, new BuildRequest());
 
     private static FakeIde.Item Pou(string name, string decl) =>
         FakeIde.Item.TextualPou(name, decl, "n := 0;\n");

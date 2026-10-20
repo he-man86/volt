@@ -138,7 +138,7 @@ public class LanguageChangeGuardTests
     static PushResponse PushSt(FakeIde ide, string body)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

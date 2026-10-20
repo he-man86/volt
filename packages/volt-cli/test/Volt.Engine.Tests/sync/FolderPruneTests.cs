@@ -41,7 +41,7 @@ public class FolderPruneTests
     private static void Push(FakeIde ide, params PushOp[] ops)
     {
         var refs = RefsService.Handle(ide);
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = ops.ToList(),

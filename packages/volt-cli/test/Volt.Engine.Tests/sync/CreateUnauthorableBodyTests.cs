@@ -39,7 +39,7 @@ public class CreateUnauthorableBodyTests
     private static FakeIde Empty() => new();
 
     private static PushResponse Create(FakeIde ide, string sourceText) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = Name, IfVersion = null, SourceText = sourceText } },

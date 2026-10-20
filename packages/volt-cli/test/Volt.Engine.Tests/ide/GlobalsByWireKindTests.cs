@@ -73,7 +73,7 @@ public class GlobalsByWireKindTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",
             "IMPLEMENTATION FBD\nNETWORK\n  n := 1;\nEND_NETWORK"));
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

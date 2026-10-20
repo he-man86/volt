@@ -48,7 +48,7 @@ public class AbstractMemberNoSlotTests
     private static PushResponse Push(FakeIde ide, string sourceText)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = Name, IfVersion = refs.Items[Name], SourceText = sourceText } },

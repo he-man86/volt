@@ -50,7 +50,7 @@ public class PushReturnsSourcesTests
         new() { Name = wireName, IfVersion = null, SourceText = source };
 
     private static PushResponse Push(FakeIde ide, bool? returnSources, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             ReturnSources = returnSources,

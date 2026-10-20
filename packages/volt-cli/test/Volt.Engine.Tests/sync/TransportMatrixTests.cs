@@ -106,7 +106,7 @@ public class TransportMatrixTests
     private static List<string> Apply(FakeIde ide, SetItemOp op)
     {
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
+        var resp = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
         Assert.True(resp.Accepted,
             "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         return ide.Recorded;
@@ -254,7 +254,7 @@ public class TransportMatrixTests
         var ide = new FakeIde(new FakeIde.Item("K", code, "", true, "MANIFEST", null, null, null))
            ;
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items.GetValueOrDefault($"K.{ext}"), SourceText = "MANIFEST" } },
@@ -310,7 +310,7 @@ public class TransportMatrixTests
             new FakeIde.Item("M", ItemKind.PlcMethod, "", false, "METHOD M : BOOL", "", "CFC", null));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp
@@ -372,7 +372,7 @@ public class TransportMatrixTests
         names.AddRange(fetch.Removed);
 
         // A create and an update, pushed under the names the wire published — and the receipt that answers them.
-        var push = PushService.Handle(ide, new PushRequest
+        var push = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new()

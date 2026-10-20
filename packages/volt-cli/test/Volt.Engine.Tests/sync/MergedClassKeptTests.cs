@@ -52,7 +52,7 @@ public class MergedClassKeptTests
         var refs = RefsService.Handle(ide);
         op.IfVersion = refs.Items[op.Name];
         ide.Recorded.Clear();
-        return PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
+        return BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
     }
 
     private static void AssertKeptInPlace(FakeIde ide, PushResponse resp, string name, string label)

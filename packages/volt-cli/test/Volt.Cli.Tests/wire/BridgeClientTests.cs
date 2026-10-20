@@ -94,6 +94,8 @@ public class BridgeClientTests
                 .Changed.First(c => c.Name == "PLC_PRG.pou").SourceText.Replace("x := 1", "x := 2");
             var resp = client.PushBatch(new PushRequest
             {
+                ExpectedPlatform = refs.Platform,
+                ExpectedProjectName = refs.ProjectName,
                 ExpectedProjectVersion = refs.ProjectVersion,
                 Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = src } },
             });
@@ -112,6 +114,8 @@ public class BridgeClientTests
             var refs = client.GetRefs();
             var resp = client.PushBatch(new PushRequest
             {
+                ExpectedPlatform = refs.Platform,
+                ExpectedProjectName = refs.ProjectName,
                 ExpectedProjectVersion = "stale-pv",
                 Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nx := 2;" } },
             });

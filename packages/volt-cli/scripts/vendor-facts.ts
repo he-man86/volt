@@ -678,6 +678,8 @@ export function wireSide(
   const sleep = opts.sleep ?? ((ms: number) => Bun.sleep(ms))
   const serveTimeoutMs = opts.serveTimeoutMs ?? LONG_TIMEOUT_MS
   const refs = () => withTimeout(call("refs"), TIMEOUT_MS, "refs")
+  /** The project a write names (openspec push-requires-project-identity): the one the bridge's own refs echoed. */
+  const bound = (r: any) => ({ expectedPlatform: r.platform, expectedProjectName: r.projectName })
   /** Wait until a project is served, asking the bridge to connect the one it lists. Every failure on the way is kept and
    *  retried, and the timeout names the last one; a status the contract does not name is refused at once. `reconnect`
    *  connects once even when health already reads served (the project behind it was replaced). */
@@ -731,7 +733,7 @@ export function wireSide(
   const push = async (op: Record<string, unknown>): Promise<any> => {
     await serving()
     const r = await refs()
-    return withTimeout(call("push", { expectedProjectVersion: r.projectVersion, ops: [op] }), LONG_TIMEOUT_MS, "push")
+    return withTimeout(call("push", { ...bound(r), expectedProjectVersion: r.projectVersion, ops: [op] }), LONG_TIMEOUT_MS, "push")
   }
   const fetchText = async (wire: string) => {
     const f = await withTimeout(call("fetch", { knownItems: {}, onlyItems: [wire] }), TIMEOUT_MS, "fetch")
@@ -839,7 +841,7 @@ export function wireSide(
     },
     async build() {
       await serving()
-      const b = await withTimeout(call("build", {}), LONG_TIMEOUT_MS, "build")
+      const b = await withTimeout(call("build", bound(await refs())), LONG_TIMEOUT_MS, "build")
       if (typeof b?.success !== "boolean")
         throw new Error(`the bridge's build answered no success: ${JSON.stringify(b)}`)
       return { success: b.success, diagnostics: (b.diagnostics ?? []) as unknown[] }

@@ -42,7 +42,7 @@ public class UnchangedBodyIsNotWrittenTests
     private static ItemContent? Written(FakeIde ide, string source)
     {
         var refs = RefsService.Handle(ide);
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_X.pou", SourceText = source, IfVersion = refs.Items["FB_X.pou"] } },

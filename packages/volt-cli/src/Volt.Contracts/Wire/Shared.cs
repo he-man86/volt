@@ -11,9 +11,10 @@ namespace Volt.Contracts;
 /// snapshot (~5s on TwinCAT) that, right after a rebind or reopen, still names the OLD project — and inside that
 /// window a client checking health first would walk the wrong project and believe it.</para>
 ///
-/// <para>Null means NO identity check — discovery, a first <c>init</c> that has nothing to be bound to yet, or an
-/// older client. That carve-out is load-bearing, not laziness: the e2e harness and the <c>VOLT_PIPE</c> paths both
-/// ask without a binding.</para>
+/// <para>On a READ (<c>refs</c>, <c>fetch</c>) null means NO identity check — discovery, or a first <c>init</c> that
+/// has nothing to be bound to yet; the read echoes what it walked. A WRITE (<c>push</c>, <c>build</c>) requires both: one
+/// absent or empty is <c>BAD_REQUEST</c> naming it (openspec <c>push-requires-project-identity</c>). They stay nullable
+/// so the bridge can tell an absent member from a sent one.</para>
 ///
 /// <para>The pair lived on four request types with four copies of this paragraph. They were already required to
 /// mean the same thing — <c>OpGuard.RequireBoundProject</c> is the single reader — so the duplication could only

@@ -237,7 +237,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // connected, and the Core `select` handler must refuse loud. Default: select attaches fine.
     public bool SelectConnects { get; init; } = true;
     private bool _attached = true;
-    public string HealthPlatform { get; init; } = "";
+    public string HealthPlatform { get; init; } = "codesys";
     // Default non-null so a bare `new FakeIde(...)` models a connected bridge WITH a project loaded (serving). A test
     // that wants "connected to the IDE but no project" sets this to null explicitly (then nothing serves).
     public string? HealthProjectName { get; set; } = "FakeProject";
@@ -1500,6 +1500,29 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ExtractEntered?.Set();
         ExtractBlock?.Wait();
         return LibSignatures;
+    }
+}
+
+/// <summary>A WRITE AS EVERY CLIENT OF OURS SENDS IT: bound to the project the bridge serves (openspec
+/// <c>push-requires-project-identity</c>). A request that names no identity is given the served one — what the CLI sends
+/// from its binding — and one that names any keeps its own, so a test of a WRONG binding still sends it. The tests of the
+/// missing-binding refusal call <c>PushService</c>/<c>BuildService</c> directly.</summary>
+public static class BoundWrite
+{
+    public static PushResponse Push(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null) =>
+        Volt.Engine.Sync.PushService.Handle(ide, Bind(ide, request), onProgress);
+
+    public static BuildResponse Build(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null) =>
+        Volt.Engine.Sync.BuildService.Handle(ide, Bind(ide, request), onProgress);
+
+    private static T Bind<T>(IIdeDriver ide, T request) where T : BoundRequest
+    {
+        if (request.ExpectedPlatform is null && request.ExpectedProjectName is null)
+        {
+            request.ExpectedPlatform = ide.Vendor;
+            request.ExpectedProjectName = ide.ServedProjectName;
+        }
+        return request;
     }
 }
 

@@ -45,7 +45,7 @@ public class CreateOrderTests
     private static void Push(FakeIde ide, params SetItemOp[] ops)
     {
         var refs = RefsService.Handle(ide);
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = ops.Cast<PushOp>().ToList(),

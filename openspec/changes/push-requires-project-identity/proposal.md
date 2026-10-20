@@ -1,5 +1,5 @@
-> Protocol-2 release, with `build-selects-application` and `grep-item-sources`. The OpenRPC hash and
-> `WireProtocol.Version` are re-pinned once, in that release's final step.
+> One wire release, with `build-selects-application` and `grep-item-sources`: the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1, once, in that
+> release's final step.
 
 ## Why
 
@@ -37,5 +37,5 @@ through the relay.
 ## Impact
 
 A request that was accepted is now refused: an older client that pushes without identity gets `BAD_REQUEST`. It is a
-schema change (required members), so it rides the protocol-2 release. PLC Assist must send both members on `push` and
+schema change (required members), so it rides that release (the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1). PLC Assist must send both members on `push` and
 `build`.

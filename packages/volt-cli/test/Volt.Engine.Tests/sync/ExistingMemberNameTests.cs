@@ -37,7 +37,7 @@ public class ExistingMemberNameTests
     }
 
     private static PushResponse Update(FakeIde ide, string version, string source) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "命令队列管理.pou", IfVersion = version, SourceText = source } },
@@ -70,7 +70,7 @@ public class ExistingMemberNameTests
     {
         var (ide, version) = WithCjkMethod(items => RefusingNonAscii(items));
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>

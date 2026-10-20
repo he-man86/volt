@@ -128,8 +128,4 @@ public class BuildServiceTests
         Assert.Contains("the IDE's compiler faulted", only.Message);
     }
 
-    /// <summary>NO EXPECTED IDENTITY still builds — init and older clients, the same rule every other op keeps.</summary>
-    [Fact]
-    public void No_expected_identity_builds_anyway()
-        => Assert.True(BuildService.Handle(Ide(), new BuildRequest()).Success);
 }

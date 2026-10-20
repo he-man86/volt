@@ -34,7 +34,7 @@ public class FakeAccessorWriteTests
         $"PROPERTY P : BOOL\nGET\n{get}\nEND_GET\nEND_PROPERTY\n";
 
     private static PushResponse Create(FakeIde ide, string wireName, string src) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = wireName, SourceText = src, IfVersion = null } },

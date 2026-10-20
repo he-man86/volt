@@ -42,7 +42,7 @@ public class PushDeclarationTransportTests
     private static void Push(FakeIde ide, string name, string src)
     {
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = name, IfVersion = refs.Items[name], SourceText = src } },

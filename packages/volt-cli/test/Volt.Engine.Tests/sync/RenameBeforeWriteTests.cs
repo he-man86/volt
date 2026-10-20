@@ -48,7 +48,7 @@ public class RenameBeforeWriteTests
         var before = refs.Items.Keys.OrderBy(k => k).ToList();
         _out.WriteLine($"before: [{string.Join(", ", before)}]");
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -83,7 +83,7 @@ public class RenameBeforeWriteTests
             FakeIde.Item.TextualPou("FB_Old", "PROGRAM FB_Old\nVAR\nEND_VAR", "y := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -115,7 +115,7 @@ public class RenameBeforeWriteTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_Old", "FUNCTION_BLOCK FB_Old\nVAR\nEND_VAR", "y := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -153,7 +153,7 @@ public class RenameBeforeWriteTests
             fake.EditImplementation(fake.Name(item), "y := 999;   // the engineer's edit");
         };
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -197,7 +197,7 @@ public class RenameBeforeWriteTests
         };
         var header = toName is null ? "FB_Old" : "FB_New";
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -235,7 +235,7 @@ public class RenameBeforeWriteTests
         var refs = RefsService.Handle(ide);
         var header = toName is null ? "FB_Old" : "FB_New";
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

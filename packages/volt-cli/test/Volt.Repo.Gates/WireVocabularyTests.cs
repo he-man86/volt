@@ -60,6 +60,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/BuildService.cs", 2),   // build-selects-application: an `applications` root the project does not hold, an empty list
             ("Volt.Engine/Sync/FetchService.cs", 1),
             ("Volt.Engine/Sync/GrepService.cs", 4),   // grep-item-sources: a limit out of range, an empty pattern, one that does not compile, one that times out on a line
+            ("Volt.Engine/Sync/OpGuard.cs", 1),   // push-requires-project-identity: a write without its project's identity
             ("Volt.Engine/Sync/PushService.cs", 8),   // +1 a move into another application; +1 a task moved out of its container (multi-application-tree); -2 the base-type op dispatch: PushOp is abstract, an op with no discriminator is refused by the strict body read (refuse-unknown-request-members)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`

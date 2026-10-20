@@ -46,7 +46,7 @@ public class PushKeepsWhatLandedTests
     private static readonly string[] ClientAdvice = { "volt pull", "Pull first", "push again", "--force", "NOTE:" };
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
+        BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion, Ops = ops.ToList() });
 
     private static SetItemOp Create(string wireName, string source) =>
         new() { Name = wireName, IfVersion = null, SourceText = source };
@@ -193,7 +193,7 @@ public class PushKeepsWhatLandedTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"));
         var lease = RefsService.Handle(ide).ProjectVersion;
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = lease,
             Ops = new List<PushOp>
@@ -216,7 +216,7 @@ public class PushKeepsWhatLandedTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"));
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = "not-the-lease",
             Ops = new List<PushOp> { Create("B.pou", "not a POU at all") },
@@ -287,7 +287,7 @@ public class PushKeepsWhatLandedTests
             fake.EditImplementation("B", "x := 999;   // the engineer's edit");
         };
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -323,7 +323,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -375,7 +375,7 @@ public class PushKeepsWhatLandedTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("B", "PROGRAM B\nVAR\nEND_VAR", "x := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -409,7 +409,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -446,7 +446,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -482,7 +482,7 @@ public class PushKeepsWhatLandedTests
         ide.UnopenedItems.Add("Broken");
         failCreate = true;
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =
@@ -533,7 +533,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -565,7 +565,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -596,7 +596,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -629,7 +629,7 @@ public class PushKeepsWhatLandedTests
         var refs = RefsService.Handle(ide);
         const string edited = "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n";
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -663,7 +663,7 @@ public class PushKeepsWhatLandedTests
         };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -717,7 +717,7 @@ public class PushKeepsWhatLandedTests
         var ide = RefusingLog(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -882,7 +882,7 @@ public class PushKeepsWhatLandedTests
         ide.Recorded.Clear();
 
         var held = RefsService.Handle(ide);
-        var adding = PushService.Handle(ide, new PushRequest
+        var adding = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = held.ProjectVersion,
             Ops = new List<PushOp>
@@ -896,7 +896,7 @@ public class PushKeepsWhatLandedTests
         Assert.Empty(ide.Recorded);
         Assert.Contains("interface property 'Q'", Assert.Single(adding.Conflicts!).Reason);
 
-        var rewriting = PushService.Handle(ide, new PushRequest
+        var rewriting = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = held.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "I_X.itf", IfVersion = held.Items["I_X.itf"], SourceText = ItfUntyped } },

@@ -35,7 +35,7 @@ public class PouMergeWriteTests
     private static PushResponse Push(FakeIde ide, string src)
     {
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], SourceText = src } },
@@ -99,7 +99,7 @@ public class PouMergeWriteTests
         var src = "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n"
                 + "\nMETHOD One : BOOL\nIMPLEMENTATION ST\n%FOLDER Helpers\nOne := TRUE;\nEND_METHOD\n"
                 + "\nMETHOD Two : BOOL\nIMPLEMENTATION ST\n%FOLDER Helpers/Inner\nTwo := TRUE;\nEND_METHOD\n";
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Two.pou", IfVersion = refs.Items["FB_Two.pou"], SourceText = src } },
@@ -126,7 +126,7 @@ public class PouMergeWriteTests
     private static PushResponse PushOp(FakeIde ide, SetItemOp op)
     {
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
+        var resp = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
         Assert.True(resp.Accepted,
             "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         return resp;
@@ -264,7 +264,7 @@ public class PouMergeWriteTests
         var refs = RefsService.Handle(ide);
         var src = "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
                 + "\nMETHOD Ready : INT\nIMPLEMENTATION ST\nReady := x;\nEND_METHOD\n";
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_K.pou", IfVersion = refs.Items["FB_K.pou"], SourceText = src } },
@@ -289,7 +289,7 @@ public class PouMergeWriteTests
         var src = "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
                 // An ACTION: a dropped method and an added method of the same kind would be one member RENAMED (task 3.4).
                 + "\nACTION Fresh\nIMPLEMENTATION ST\nx := 2;\nEND_ACTION\n";
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_D.pou", IfVersion = refs.Items["FB_D.pou"], SourceText = src } },

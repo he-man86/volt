@@ -33,7 +33,7 @@ internal static class OneToOneSteps
     {
         var refs = RefsService.Handle(ide);
         ide.Recorded.Clear();
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = wire, SourceText = text, IfVersion = refs.Items[wire] } },
@@ -45,7 +45,7 @@ internal static class OneToOneSteps
     {
         var refs = RefsService.Handle(ide);
         ide.Recorded.Clear();
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = folder.Length == 0 ? wire : $"{folder}/{wire}", SourceText = text, IfVersion = null } },

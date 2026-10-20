@@ -30,7 +30,7 @@ public class DeclarationBeforeMembersTests
     private static PushResponse Push(FakeIde ide, string wireName, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>

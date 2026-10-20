@@ -38,7 +38,7 @@ public class PushTaskTests
     }
 
     private static PushResponse Push(FakeIde ide, string projectVersion, params PushOp[] ops) =>
-        PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = projectVersion, Ops = ops.ToList() });
+        BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = projectVersion, Ops = ops.ToList() });
 
     [Fact]
     public void A_task_is_PUSHABLE_at_all()

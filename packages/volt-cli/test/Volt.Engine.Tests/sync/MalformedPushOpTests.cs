@@ -22,7 +22,7 @@ public class MalformedPushOpTests
         var ide = Ide();
         var refs = RefsService.Handle(ide);
 
-        var res = PushService.Handle(ide, new PushRequest
+        var res = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_AlreadyGone.pou", IfVersion = null } },

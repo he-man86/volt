@@ -51,7 +51,7 @@ public class ReadOnlyBodyTests
     private static PushResponse Update(FakeIde ide, string source)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_Chart.pou", SourceText = source, IfVersion = refs.Items["FB_Chart.pou"] } },
@@ -255,7 +255,7 @@ public class ReadOnlyBodyTests
         if (renamed) pushed = pushed.Replace("FUNCTION_BLOCK FB_Chart\n", "FUNCTION_BLOCK FB_Moved\n");
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -612,7 +612,7 @@ public class ReadOnlyBodyTests
         Assert.Equal($"{decl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
 
         var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Chart.pou", IfVersion = refs.Items["FB_Chart.pou"], SourceText = text.Replace("x := a", "x := b") } },

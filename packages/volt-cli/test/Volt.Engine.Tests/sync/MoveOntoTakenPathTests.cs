@@ -27,7 +27,7 @@ public class MoveOntoTakenPathTests
 
     private static FakeIde ThreeFbs() => new(Fb("FB_A", "POUs"), Fb("FB_B", "POUs"), Fb("FB_C", "POUs"));
 
-    private static PushResponse Push(FakeIde ide, bool force, params PushOp[] ops) => PushService.Handle(ide, new PushRequest
+    private static PushResponse Push(FakeIde ide, bool force, params PushOp[] ops) => BoundWrite.Push(ide, new PushRequest
     {
         ExpectedProjectVersion = force ? null : RefsService.Handle(ide).ProjectVersion,
         Force = force,

@@ -9,10 +9,28 @@ namespace Volt.Engine.Sync;
 /// round-trip. Because the guard runs INSIDE the op (on the IDE's marshalled thread, via BridgePipeHost's
 /// <c>RunOp</c>/<c>RunRead</c> → <c>RunOnStaThread</c>), it is atomic with the op's work — a concurrent <c>select</c> (which also
 /// marshals) can't slip between the check and the op, which a separate pre-op health call structurally cannot
-/// guarantee. When the caller supplies no expected identity (init/discovery, or an older client) only the
-/// connected check runs.</summary>
+/// guarantee. A READ (<c>refs</c>, <c>fetch</c>) whose caller supplies no expected identity (init/discovery) runs the
+/// connected check only; a WRITE (<c>push</c>, <c>build</c>) must name its project (<see cref="RequireBinding"/>).</summary>
 internal static class OpGuard
 {
+    /// <summary>The guard of a WRITE op — <c>push</c>, and <c>build</c>, which on TwinCAT saves the served solution's
+    /// changed documents (DIALECT D45, D46): both identity members are REQUIRED (openspec
+    /// <c>push-requires-project-identity</c>). One missing or empty is <c>BAD_REQUEST</c> naming it, whatever the
+    /// bridge's state and before anything is walked; a write that names neither used to write into whatever project the
+    /// bridge served. Then the check every op runs (<see cref="RequireBoundProject"/>).</summary>
+    public static (string Vendor, string? ProjectName) RequireBinding(
+        IIdeDriver ide, string op, string? expectedPlatform, string? expectedName)
+    {
+        var missing = new System.Collections.Generic.List<string>();
+        if (string.IsNullOrEmpty(expectedPlatform)) missing.Add("expectedPlatform");
+        if (string.IsNullOrEmpty(expectedName)) missing.Add("expectedProjectName");
+        if (missing.Count > 0)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                $"{op}: {string.Join(" and ", missing)} {(missing.Count == 1 ? "is" : "are")} required — a write names " +
+                "the project it writes, and the bridge writes into no project it was not named; nothing was done");
+        return RequireBoundProject(ide, expectedPlatform, expectedName);
+    }
+
     /// <summary>Throws <c>PLC_DISCONNECTED</c> if no project is attached, or <c>WRONG_PROJECT</c> if the live
     /// bridge is serving a project other than the one the caller is bound to. Returns the LIVE identity it checked,
     /// so a caller can echo it back (a read op does, so the client can double-check before it merges).
@@ -30,7 +48,8 @@ internal static class OpGuard
 
         // EACH SUPPLIED EXPECTATION IS CHECKED ON ITS OWN: `ExpectedPlatform` and `ExpectedProjectName` are independent
         // nullable wire fields, so a platform with no name must still be checked — else a client bound to TwinCAT
-        // could push into a CODESYS bridge. Supplying NEITHER runs only the connected check (init/discovery).
+        // could push into a CODESYS bridge. A read supplying NEITHER runs only the connected check (init/discovery); a
+        // write cannot get here without both (RequireBinding).
         var wrongName = !string.IsNullOrEmpty(expectedName)
                         && !string.Equals(served, expectedName, StringComparison.Ordinal);
         var wrongVendor = !string.IsNullOrEmpty(expectedPlatform)

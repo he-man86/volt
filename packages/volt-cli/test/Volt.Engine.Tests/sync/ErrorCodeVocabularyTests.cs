@@ -59,7 +59,7 @@ public class ErrorCodeVocabularyTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;")) { FaultingChildReads = new[] { "<root>" } };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
@@ -87,7 +87,7 @@ public class ErrorCodeVocabularyTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = wireName, SourceText = "anything\n" } },
@@ -109,7 +109,7 @@ public class ErrorCodeVocabularyTests
             new FakeIde.Item("CM_Carrier", ItemKind.PlcTask, "", true, "Type:     Cyclic\nInterval: 10ms\nPriority: 1\n", null, null, null));
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = true,
@@ -155,7 +155,7 @@ public class ErrorCodeVocabularyTests
         ide.UnwalkableFolders = new[] { "Hidden" };
         var refs = RefsService.Handle(ide);
 
-        var resp = PushService.Handle(ide, new PushRequest
+        var resp = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Force = true,
@@ -194,7 +194,7 @@ public class ErrorCodeVocabularyTests
         };
         Assert.Contains("FB_A.pou", RefsService.Handle(ide).Unreadable.Select(u => u.Name));
 
-        var forced = PushService.Handle(ide, new PushRequest
+        var forced = BoundWrite.Push(ide, new PushRequest
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } },
@@ -207,9 +207,9 @@ public class ErrorCodeVocabularyTests
         Assert.Contains("with or without force", refused.Reason);        // force is not the way out here…
         Assert.Contains("deleteItem", refused.Reason);                   // …delete, then create, is
 
-        var deleted = PushService.Handle(ide, new PushRequest { Force = true, Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_A.pou" } } });
+        var deleted = BoundWrite.Push(ide, new PushRequest { Force = true, Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_A.pou" } } });
         Assert.True(deleted.Accepted, string.Join("; ", (deleted.Conflicts ?? new()).Select(c => c.Reason)));
-        var created = PushService.Handle(ide, new PushRequest { Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } } });
+        var created = BoundWrite.Push(ide, new PushRequest { Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } } });
         Assert.True(created.Accepted, string.Join("; ", (created.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.Contains("FB_A.pou", RefsService.Handle(ide).Items.Keys);
     }

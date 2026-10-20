@@ -7,7 +7,7 @@
  * function rather than hidden behind a helper.</p>
  */
 import { expect } from "bun:test"
-import { call, callOn, VENDOR } from "./pipe"
+import { call, callBound, VENDOR } from "./pipe"
 
 /** Every refusal reason a push answered with, in order — read by `platform.ts`, which must tell a version's expected
  *  refusal from any other failure even when a test's own assertion message does not quote it. */
@@ -41,7 +41,7 @@ export const bridge = {
 /** A client bound to ONE named pipe, for the cross-vendor suite — same ops, same framing, it just never asks which
  *  pipe is "the" pipe, because parity means talking to two at once. */
 export function clientFor(pipe: string) {
-	const on = (op: string, body?: unknown) => callOn(pipe, op, body)
+	const on = (op: string, body?: unknown) => callBound(pipe, op, body)
 	return {
 		pipe,
 		health: (): Promise<any> => on("health"),

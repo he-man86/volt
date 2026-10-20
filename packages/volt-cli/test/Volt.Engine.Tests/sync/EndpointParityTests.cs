@@ -82,7 +82,7 @@ public class EndpointParityTests
         var ide = Mixed();
         var refs = RefsService.Handle(ide);
         // An empty push still returns a fresh receipt (a cold re-walk) — it must equal /refs.
-        var receipt = PushService.Handle(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
+        var receipt = BoundWrite.Push(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
 
         Assert.True(receipt.Accepted);
         Assert.Equal(refs.ProjectVersion, receipt.NewProjectVersion);
@@ -105,7 +105,7 @@ public class EndpointParityTests
         var ide = Mixed();
         var refs = RefsService.Handle(ide);
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
-        var receipt = PushService.Handle(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
+        var receipt = BoundWrite.Push(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
 
         var lib = fetch.Changed.Single(c => c.Name.EndsWith(".library", System.StringComparison.Ordinal));
         Assert.Equal("Library Manager/CmpX", lib.Folder());        // where the file is WRITTEN

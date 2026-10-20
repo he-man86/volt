@@ -31,7 +31,7 @@ public class PushDeleteGuardTests
     private static FakeIde WithItem(string name, string folder = "")
     {
         var ide = new FakeIde();
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
@@ -47,7 +47,7 @@ public class PushDeleteGuardTests
     /// did: the edit landed during that walk, the push then failed the LEASE, and a test meant to prove the
     /// delete guard was passing on an unrelated refusal.</summary>
     private static PushResponse Delete(FakeIde ide, string wire, string? ifVersion, string lease, bool force = false) =>
-        PushService.Handle(ide, new PushRequest
+        BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = lease,
             Force = force,

@@ -35,7 +35,7 @@ public class PushSiblingDeclarationsTests
     private static PushResponse PushBoth(FakeIde ide)
     {
         var refs = RefsService.Handle(ide);
-        return PushService.Handle(ide, new PushRequest
+        return BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new()

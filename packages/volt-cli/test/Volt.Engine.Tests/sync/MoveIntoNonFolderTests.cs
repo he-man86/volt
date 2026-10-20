@@ -54,7 +54,7 @@ public class MoveIntoNonFolderTests
         var ops = new[] { (name, toFolder) }.Concat(more)
             .Select(m => (PushOp)new SetItemOp { Name = m.Item1, To = ItemPath.Of(m.Item2, ItemPath.FileOf(m.Item1)), IfVersion = refs.Items[m.Item1] })
             .ToList();
-        return PushService.Handle(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = ops });
+        return BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = ops });
     }
 
     [Theory]
