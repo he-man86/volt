@@ -19,9 +19,9 @@ wire and how the switch-over behaves.
   `hello.protocol` for the relay stays 1. If the two are the same constant today, they need splitting for this
   release.
 
-  > Volt: Agreed. Today one constant (`WireProtocol.Version`) feeds `hello.protocol`, `health.protocol` and the OpenRPC
-  > `info.version`. This release splits it: the relay `hello.protocol` gets its own constant, staying 1; `health.protocol`
-  > and the OpenRPC version go to 2 with the schema pin.
+  > Volt: Owner (Volt), 2026-10-20: the protocol stays 1 EVERYWHERE in this release — `hello.protocol`,
+  > `health.protocol` and the OpenRPC version. No split is needed; the schema hash is re-pinned as protocol 1, as in
+  > 0.1.17884. PLC Assist detects the new capabilities by `health.ops` (question 5), not by the number.
 
 ## Questions for Volt (please answer in this file, under each)
 
@@ -50,11 +50,10 @@ wire and how the switch-over behaves.
    `onlyItems`/`init`, `push`, `build`, `health`.) Anything beyond the push identity that a client written for
    0.1.17884 gets refused for.
 
-   > Volt: Two things. (1) The push identity above. (2) `health.protocol` becomes 2 (the wire schema changed): a direct-pipe
-   > client that checks `health.protocol === 1` refuses the new bridge, so accept 2 there (the relay `hello.protocol` stays 1,
-   > see below). Not breaking: `build.applications` is optional (absent = every application, as today); `grep` is a new op;
-   > a request frame is capped at 64 MiB (`BAD_REQUEST` over it; the largest real project push is ~6 MB); a push op's `op`
-   > may now sit anywhere in the object (it had to come first).
+   > Volt: One thing: the push identity above. The protocol number stays 1 (owner), so a `health.protocol === 1`
+   > check keeps working. Not breaking: `build.applications` is optional (absent = every application, as today); `grep` is
+   > a new op; a request frame is capped at 64 MiB (`BAD_REQUEST` over it; the largest real project push is ~6 MB); a push
+   > op's `op` may now sit anywhere in the object (it had to come first).
 
 5. **`health` — will it state that `grep` exists** (a capability or the bridge version), so PLC Assist can tell
    "this bridge has no grep" without sending a `grep` and parsing the refusal?
