@@ -25,4 +25,4 @@
 ## 4. Wire
 
 - [x] 4.1 OpenRPC: the two members required on `PushRequest`/`BuildRequest`; `push` lists `BAD_REQUEST`; `wire.html`.
-- [ ] 4.2 Schema re-pinned in the release's final step (not here): the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1.
+- [x] 4.2 Schema re-pinned in the release's final step (not here): the protocol number stays 1 (owner, 2026-10-20); the schema hash is re-pinned as protocol 1. — re-pinned as protocol 1 (b912ca5f…), owner 2026-10-20

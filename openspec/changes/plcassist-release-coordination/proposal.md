@@ -30,7 +30,9 @@ wire and how the switch-over behaves.
 
    > Volt: The members that exist today on every bound request (`BoundRequest`, top level of the request body):
    > `expectedProjectName` and `expectedPlatform`. Nothing new to add. What changes: on `push` (the one writing op) both
-   > become REQUIRED; read ops (`refs`, `fetch`, `grep`, `build`) keep them optional and check whichever is supplied.
+   > become REQUIRED on `push` AND `build`; read ops (`refs`, `fetch`, `grep`) keep them optional and check whichever is
+> supplied. `build` counts as a write: on TwinCAT a build saves the served solution's changed documents (XAE's own
+> "Before building: Save all changes", DIALECT D45/D46), so a build of the wrong project writes to disk.
 
 2. **Its value?** The `projectName` that `refs`/`fetch` answer, something else from `refs` (a project id, the
    `.project` / `.sln` path), or a value from `health`?
@@ -41,7 +43,7 @@ wire and how the switch-over behaves.
 3. **What does a push without it, or with the wrong one, answer?** Error code and message, so PLC Assist maps it to a
    user-facing reason rather than "unknown".
 
-   > Volt: Missing either member → `BAD_REQUEST`, naming the missing member, nothing written (the strict reader already
+   > Volt: Missing either member on `push` or `build` → `BAD_REQUEST`, naming the missing member, nothing written or built (the strict reader already
    > answers this way for a malformed body). Wrong name or vendor → `WRONG_PROJECT` (exists today): "the bridge is serving
    > <vendor>/<name>, but this workspace is bound to <vendor>/<name> — open the bound project in the IDE (or Reconnect)".
    > Nothing is written in either case.
