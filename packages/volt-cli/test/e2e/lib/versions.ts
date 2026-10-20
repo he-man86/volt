@@ -13,8 +13,15 @@
  * old suite did it in most places, and it says nothing about the other two.</p>
  */
 import { expect } from "bun:test"
+import { createHash } from "node:crypto"
 import { bridge } from "./bridge"
 import { folderOf, pathIn } from "./main-program"
+
+/** An item's content version as `Hasher.ComputeItemVersion` computes it: 16 hex of SHA-1 over
+ *  `folder=<folder>\0src=<text>\0` (UTF-8), the folder being the path's own prefix. The STOP GATE of
+ *  `grep-item-sources` (task 1.2) holds when the `sourceText` `fetch` ships hashes to the version `refs` states. */
+export const itemVersion = (path: string, text: string): string =>
+	createHash("sha1").update(`folder=${folderOf(path)}\0src=${text}\0`, "utf8").digest("hex").slice(0, 16)
 
 export type Snapshot = { project: string; items: Record<string, string>; applications?: string[] }
 

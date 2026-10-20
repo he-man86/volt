@@ -14,16 +14,11 @@
  * </pre>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { createHash } from "node:crypto"
 import { bridge, cleanup, requireHealthy, createItem, fetchSource, BASE, pathOf, fid, id, opErrorCode } from "../harness"
 import { MARK } from "../fixtures"
 import { call } from "../lib/pipe"
 import { expectGap, PLATFORM_GAPS } from "../lib/platform"
-
-/** `Hasher.ComputeItemVersion`: 16 hex of SHA-1 over `folder=<folder>\0src=<text>\0` (UTF-8). */
-const itemVersion = (folder: string, text: string) =>
-	createHash("sha1").update(`folder=${folder}\0src=${text}\0`, "utf8").digest("hex").slice(0, 16)
-const folderOf = (path: string) => (path.lastIndexOf("/") < 0 ? "" : path.slice(0, path.lastIndexOf("/")))
+import { itemVersion } from "../lib/versions"
 /** The fetched text's line `n` (1-based), without its line ending. */
 const lineOf = (text: string, n: number) => text.split("\n")[n - 1].replace(/\r$/, "")
 
@@ -51,7 +46,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 			const c = byName.get(p)
 			if (!c) { differing.push(`${p}: refs names it, fetch shipped no text`); continue }
 			if (c.version !== refs.items[p]) differing.push(`${p}: fetch version ${c.version} != refs ${refs.items[p]}`)
-			if (itemVersion(folderOf(p), c.sourceText) !== refs.items[p]) differing.push(`${p}: sourceText does not hash to the refs version`)
+			if (itemVersion(p, c.sourceText) !== refs.items[p]) differing.push(`${p}: sourceText does not hash to the refs version`)
 		}
 		console.log(`[grep gate] ${items.length} items, ${differing.length} differing; refs ${refsMs}ms, grep ${grepMs}ms, init fetch ${ms}ms`)
 		expect(differing).toEqual([])
@@ -121,7 +116,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		const at = lines.indexOf("IMPLEMENTATION FBD") + 1
 		expect(at, `the bridge ships the FBD body as network text:\n${text}`).toBeGreaterThan(0)
 		// The stop gate for a network-text body too: the text refs hashes is the text fetch ships.
-		expect(itemVersion(folderOf(path), text)).toBe((await bridge.refs()).items[path])
+		expect(itemVersion(path, text)).toBe((await bridge.refs()).items[path])
 
 		const r = await bridge.grep({ pattern: "lamp := start", literal: true, paths: [path] })
 
