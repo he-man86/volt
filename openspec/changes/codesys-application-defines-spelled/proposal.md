@@ -2,8 +2,7 @@
 > `unreadableNodes` because its build property holds `CompilerDefines 'VISU_USEPROPERTYINFO'` ("Volt's text has no line
 > for it").
 >
-> No wire member changes; protocol stays 1: the new item and its kind are content. Shares its rule with
-> `excluded-folder-items-pulled`.
+> No wire member changes; protocol stays 1: the new item and its kind are content.
 
 ## The rule: container descriptors (owner, 2026-10-19)
 

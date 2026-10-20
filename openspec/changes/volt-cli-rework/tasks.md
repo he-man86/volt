@@ -94,6 +94,8 @@ standing practice:
 - [ ] 2.1 Legacy: code/comments/docs of removed designs and old formats.
 - [ ] 2.2 Hidden bugs: masking fallbacks, silent defaults, untested branches — a failing test per bug.
 - [ ] 2.3 Hidden features: behaviour no doc or test states — owner decides document+test or delete.
+- [ ] 2.3a TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from the saved `.plcproj`
+      (the save lag DIALECT C39 measured for exclusion); read them from the live `ProduceXml` VSProperties as `Exclude` is.
 - [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
 
