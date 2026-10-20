@@ -67,14 +67,14 @@ standing practice:
 - [x] 1.0 LOC baseline (`input/loc-baseline.md`, at e2405e51bd) (owner, 2026-10-18), measured at the commit the rework starts from: per project in `src/` and
       `test/`, C# lines split code / comment / blank (bin, obj excluded), plus `scripts/`. Recorded here; 4.1 measures
       the same way and reports before → after per project.
-- [ ] 1.0a QUALITY RATING before (owner, 2026-10-20): per project behind the wire, a score 1–10 on fixed criteria, each
+- [x] 1.0a (`input/map-and-rating.md`) QUALITY RATING before (owner, 2026-10-20): per project behind the wire, a score 1–10 on fixed criteria, each
       with its evidence (file:line or a count) so the after-rating is comparable: placement (code in its owning project),
       duplication (rules implemented more than once), vendor-neutrality above `Ide/` (vendor/NWL names, the 1.3 gate's
       count), legacy (dead code and history comments), test strength (red-before-fix coverage, fakes asserting bugs
       away), public-API robustness (requests our CLI never sends), size (LOC, comment share). Same criteria, same scale,
       every time.
 
-- [ ] 1.1 Per project BEHIND THE WIRE (`Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat`, `Volt.Contracts`/`Wire` and
+- [x] 1.1 (`input/map-and-rating.md`) Per project BEHIND THE WIRE (`Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat`, `Volt.Contracts`/`Wire` and
       their tests; the CLI, connector and frontends are the later phase): what it owns (ARCHITECTURE.md, README) vs what its code does; list misplaced code, duplicated
       logic between the hosts, and cross-project leaks. Merge with the 2026-10-16 simplify reviews (what is left).
       Open question for 1.2 (owner, 2026-10-17, not decided): the translation model → NWL nodes is done twice, once per
@@ -82,7 +82,7 @@ standing practice:
       identical on both vendors (DIALECT N1). NWL is the CODESYS family's format, not vendor-neutral — a future vendor
       (Siemens, Rockwell) has no NWL — so the Engine core stays at `NetworkModel`. Candidate (with evidence; the default is two
       self-contained hosts): one shared CODESYS-family NWL layer used by both drivers, each only placing it.
-- [ ] 1.1a Vendor-neutrality audit of the two contracts a new vendor meets (goal): the WIRE — every fact that is
+- [x] 1.1a (`input/vendor-neutrality.md`) Vendor-neutrality audit of the two contracts a new vendor meets (goal): the WIRE — every fact that is
       CODESYS-family (item kinds `.pou/.dut/.gvl/.visualization/.task/.device`, the path shape, `IMPLEMENTATION LD/FBD`
       network text) and how a Siemens (FB/FC/DB/UDT/OB) or Rockwell (programs/routines/tags) project would say its own;
       and the `Ide/` CONTRACT (`ICodeStore`, `IProjectTree`, …) judged by "could a non-CODESYS host implement this?"
@@ -99,7 +99,7 @@ standing practice:
         SCL or LAD); each language's reader/writer is plugged in by that name (`IMPLEMENTATION SCL` slots in).
       - NETWORKS: `NetworkModel` + network text are ONE graphical form, hoped to be reused for TIA LAD/FBD but not
         known to fit; nothing above the contract may assume every graphical body is one, so a vendor can bring its own.
-- [ ] 1.1b Foreign-client review (above): ONLY `docs/wire.html` + the OpenRPC document, no repo context.
+- [x] 1.1b (`input/foreign-client-review.md`) Foreign-client review (above): ONLY `docs/wire.html` + the OpenRPC document, no repo context.
 - [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented — with the POTENTIAL
       rating per project after the proposed work (same criteria as 1.0a, each score tied to the findings that move it).
 
