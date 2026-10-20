@@ -1,0 +1,76 @@
+> PLC Assist, 2026-10-20. Coordination for the release that ships `grep-item-sources`, `build-selects-application`
+> and project identity required on a push. Owner decision recorded here; open questions below need Volt's answer
+> before PLC Assist builds its side.
+
+## Why
+
+That release changes the wire for PLC Assist in three places at once: a new op (`grep`), a new optional build member
+(`applications`), and a push that is refused without project identity. PLC Assist ships its side in the same moment
+(new tools, a chat-version bump, new bridge packages), so both sides need one written agreement on what goes on the
+wire and how the switch-over behaves.
+
+## What Changes
+
+- **The relay protocol stays 1** (owner, 2026-10-20). The bridge keeps sending `hello.protocol: 1` in this release
+  although the wire changes, as in release 0.1.17884. PLC Assist's relay is not changed and accepts only 1. An older
+  bridge is caught by PLC Assist itself: a bridge downloaded before the release shows "needs updating", and an op it
+  does not know (`grep`) is answered to the user as "download the latest bridge".
+- **`WireProtocol.Version` and the schema pin**: whatever Volt needs internally, the number the bridge puts in
+  `hello.protocol` for the relay stays 1. If the two are the same constant today, they need splitting for this
+  release.
+
+  > Volt: Agreed. Today one constant (`WireProtocol.Version`) feeds `hello.protocol`, `health.protocol` and the OpenRPC
+  > `info.version`. This release splits it: the relay `hello.protocol` gets its own constant, staying 1; `health.protocol`
+  > and the OpenRPC version go to 2 with the schema pin.
+
+## Questions for Volt (please answer in this file, under each)
+
+1. **Project identity on a push — which field?** Name of the request member, and where it lives (`PushRequest` top
+   level?).
+
+   > Volt: The members that exist today on every bound request (`BoundRequest`, top level of the request body):
+   > `expectedProjectName` and `expectedPlatform`. Nothing new to add. What changes: on `push` (the one writing op) both
+   > become REQUIRED; read ops (`refs`, `fetch`, `grep`, `build`) keep them optional and check whichever is supplied.
+
+2. **Its value?** The `projectName` that `refs`/`fetch` answer, something else from `refs` (a project id, the
+   `.project` / `.sln` path), or a value from `health`?
+
+   > Volt: `expectedProjectName` = the `projectName` that `refs`/`fetch` answer (also `health.projects[].project`), compared
+   > exactly (ordinal, case-sensitive). `expectedPlatform` = the vendor id (`codesys` | `twincat`), compared ignoring case.
+
+3. **What does a push without it, or with the wrong one, answer?** Error code and message, so PLC Assist maps it to a
+   user-facing reason rather than "unknown".
+
+   > Volt: Missing either member → `BAD_REQUEST`, naming the missing member, nothing written (the strict reader already
+   > answers this way for a malformed body). Wrong name or vendor → `WRONG_PROJECT` (exists today): "the bridge is serving
+   > <vendor>/<name>, but this workspace is bound to <vendor>/<name> — open the bound project in the IDE (or Reconnect)".
+   > Nothing is written in either case.
+
+4. **Does anything else in the release break an existing request?** (Today PLC Assist sends `refs`, `fetch` with
+   `onlyItems`/`init`, `push`, `build`, `health`.) Anything beyond the push identity that a client written for
+   0.1.17884 gets refused for.
+
+   > Volt: Two things. (1) The push identity above. (2) `health.protocol` becomes 2 (the wire schema changed): a direct-pipe
+   > client that checks `health.protocol === 1` refuses the new bridge, so accept 2 there (the relay `hello.protocol` stays 1,
+   > see below). Not breaking: `build.applications` is optional (absent = every application, as today); `grep` is a new op;
+   > a request frame is capped at 64 MiB (`BAD_REQUEST` over it; the largest real project push is ~6 MB); a push op's `op`
+   > may now sit anywhere in the object (it had to come first).
+
+5. **`health` — will it state that `grep` exists** (a capability or the bridge version), so PLC Assist can tell
+   "this bridge has no grep" without sending a `grep` and parsing the refusal?
+
+   > Volt: Yes. `health` gains `ops`: the list of op names the bridge answers (`refs`, `fetch`, `push`, `build`, `grep`, …).
+   > "No grep" = `grep` not in `ops` (or no `ops` at all: an older bridge).
+
+6. **The release number and a pre-release build** PLC Assist can run its live suites against before the release
+   (its release gate runs CODESYS SP21 and TwinCAT 4024 against the bridges it packages).
+
+   > Volt: A prerelease from the dev tip once both lanes and the protocol step land; its number (0.1.<count>) is written
+   > here and in `docs/VOLT_UPDATE_*.md` the moment it is cut. Volt's release matrix runs on it while you run your live
+   > suites, and the same build is promoted, nothing rebuilt.
+
+## Impact
+
+PLC Assist's side is written down in its own repo: `openspec/changes/plc-grep-and-glob` (tools `plcGrep` and
+`plcGlob`, push identity, one chat-version bump). It is built once questions 1–5 are answered, and released together
+with Volt's release.
