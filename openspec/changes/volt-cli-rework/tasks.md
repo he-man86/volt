@@ -10,7 +10,8 @@ the candidates with evidence; 1.2 decides each; the default is two self-containe
 
 Order (owner, 2026-10-17): **behind the wire first** — `Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat` (and their
 tests), with the wire as it stands after `multi-application-tree` as the fixed reference (3.3: byte-identical before/after).
-The rework never changes the wire; a wire defect it finds becomes its own small change. The front of the wire (`Volt.Cli`,
+The rework never changes the wire; a wire defect it finds (1.1a included) becomes its own small change — and any wire
+change means wire protocol 2, so it is coordinated with PLC Assist and lands in a release that may bump the number. The front of the wire (`Volt.Cli`,
 the connector, volt-control, volt-vscode) follows afterwards, against the same wire.
 
 **The wire itself is reviewed critically first** (owner, 2026-10-17: "agents tend to add logic to solve edge cases that are
@@ -46,19 +47,41 @@ standing practice:
   refused by name before any op, never misread.
 - (The LSP size and fuzz inputs are `volt-lsp-iec`, outside this change: openspec `lsp-size-fuzz`.)
 
+## Inputs since 2026-10-18 (known items, placed by the map)
+
+- Fix (behind the wire): TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from
+  the saved `.plcproj` (the save lag DIALECT C39 measured for exclusion); read them from the live `ProduceXml`
+  VSProperties as `Exclude` is.
+- Performance (behind the wire, profiled 2026-10-19): the declarations index built from the op's own walk instead of a
+  second `ItemLookup.All` (~300 s per TwinCAT e2e run), and the Explorer hierarchy read for the PLC subtree only
+  (~300 s). Deferred from the low-risk speed fixes; each needs an identity test (refs/fetch byte-identical).
+- Unsaved CFC/SFC bodies are not carried by a TwinCAT move (`TcItemArchive.CarryLive`): measure, then refuse by name
+  rather than lose the edit.
+- Tests: the e2e redundant-read cut (audit 2026-10-19: ~1,750 refs per TwinCAT run, ~10 min; the last independent read
+  after a write stays); `ide-restart` rewritten to the one-worker-per-XAE model (a new XAE gets a new worker).
+- Front of the wire (later phase): `RotInstances.TryEnumeratePids` (`--list-xae-pids`) still calls every DTE and can
+  stall on a busy XAE; `ComMessageFilter.RetryRejectedCall` retries without a cap (owner decision).
+
 ## 1. Map
 
 - [ ] 1.0 LOC baseline (owner, 2026-10-18), measured at the commit the rework starts from: per project in `src/` and
       `test/`, C# lines split code / comment / blank (bin, obj excluded), plus `scripts/`. Recorded here; 4.1 measures
       the same way and reports before → after per project.
+- [ ] 1.0a QUALITY RATING before (owner, 2026-10-20): per project behind the wire, a score 1–10 on fixed criteria, each
+      with its evidence (file:line or a count) so the after-rating is comparable: placement (code in its owning project),
+      duplication (rules implemented more than once), vendor-neutrality above `Ide/` (vendor/NWL names, the 1.3 gate's
+      count), legacy (dead code and history comments), test strength (red-before-fix coverage, fakes asserting bugs
+      away), public-API robustness (requests our CLI never sends), size (LOC, comment share). Same criteria, same scale,
+      every time.
 
-- [ ] 1.1 Per project: what it owns (ARCHITECTURE.md, README) vs what its code does; list misplaced code, duplicated
+- [ ] 1.1 Per project BEHIND THE WIRE (`Volt.Engine`, `Volt.Ide.Codesys`, `Volt.Ide.Twincat`, `Volt.Contracts`/`Wire` and
+      their tests; the CLI, connector and frontends are the later phase): what it owns (ARCHITECTURE.md, README) vs what its code does; list misplaced code, duplicated
       logic between the hosts, and cross-project leaks. Merge with the 2026-10-16 simplify reviews (what is left).
       Open question for 1.2 (owner, 2026-10-17, not decided): the translation model → NWL nodes is done twice, once per
       driver (`CodesysNetworkWriter` 875 lines; `TcArchiveBuilder` + `TcNetworkWriter` 1660) although the NWL model is
       identical on both vendors (DIALECT N1). NWL is the CODESYS family's format, not vendor-neutral — a future vendor
-      (Siemens, Rockwell) has no NWL — so the Engine core stays at `NetworkModel`. Proposal: one shared CODESYS-family NWL
-      layer (model → NWL description) used by both drivers, each driver only placing it (live objects / XmlArchive).
+      (Siemens, Rockwell) has no NWL — so the Engine core stays at `NetworkModel`. Candidate (with evidence; the default is two
+      self-contained hosts): one shared CODESYS-family NWL layer used by both drivers, each only placing it.
 - [ ] 1.1a Vendor-neutrality audit of the two contracts a new vendor meets (goal): the WIRE — every fact that is
       CODESYS-family (item kinds `.pou/.dut/.gvl/.visualization/.task/.device`, the path shape, `IMPLEMENTATION LD/FBD`
       network text) and how a Siemens (FB/FC/DB/UDT/OB) or Rockwell (programs/routines/tags) project would say its own;
@@ -77,14 +100,16 @@ standing practice:
       - NETWORKS: `NetworkModel` + network text are ONE graphical form, hoped to be reused for TIA LAD/FBD but not
         known to fit; nothing above the contract may assume every graphical body is one, so a vendor can bring its own.
 - [ ] 1.1b Foreign-client review (above): ONLY `docs/wire.html` + the OpenRPC document, no repo context.
-- [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented.
+- [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented — with the POTENTIAL
+      rating per project after the proposed work (same criteria as 1.0a, each score tied to the findings that move it).
 
 - [ ] 1.3 Safety net before any rework, from the 1.2 decisions:
       - the OpenRPC-driven contract suite (above), which also RECORDS a wire transcript per vendor fixture — the
         byte-identical reference 3.3 compares against;
       - one implementation + one `Volt.Repo.Gates` test per wire rule (path comparer, wire-name minter, strict request
         reader, protocol number beside the schema pin, error-code mapping);
-      - the mixed-version e2e cell (current CLI ↔ previous release's bridge, refused by name before any op);
+      - the mixed-version e2e cell (current CLI ↔ the previous release's bridge, 0.1.17884 today, refused by name before
+        any op);
       - the new-vendor proof: a `Volt.Repo.Gates` test that `Volt.Engine` above `Ide/`, `Volt.Contracts` and `Volt.Cli`
         name no `Codesys`/`Twincat`/`Beckhoff`/`Nwl` symbol (red now is expected: it lists the work), and a minimal
         third test vendor OUTSIDE the CODESYS family (no NWL, its own object model) that passes the transport suite.
@@ -94,8 +119,6 @@ standing practice:
 - [ ] 2.1 Legacy: code/comments/docs of removed designs and old formats.
 - [ ] 2.2 Hidden bugs: masking fallbacks, silent defaults, untested branches — a failing test per bug.
 - [ ] 2.3 Hidden features: behaviour no doc or test states — owner decides document+test or delete.
-- [ ] 2.3a TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from the saved `.plcproj`
-      (the save lag DIALECT C39 measured for exclusion); read them from the live `ProduceXml` VSProperties as `Exclude` is.
 - [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
 
@@ -110,6 +133,7 @@ standing practice:
 
 ## 4. Close
 
+- [ ] 4.0b QUALITY RATING after: the 1.0a criteria re-scored with evidence, before → potential (1.2) → after.
 - [ ] 4.0 LOC after: the 1.0 measurement again, before → after per project (code / comment / blank).
 - [ ] 4.0a `ARCHITECTURE.md` gains "Adding a vendor": exactly what a host implements (the `Ide/` contract), and the
       registration points above the wire a vendor still needs — the connector's launch, the installer payload, the LSP
