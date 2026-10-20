@@ -100,7 +100,8 @@ standing practice:
       - NETWORKS: `NetworkModel` + network text are ONE graphical form, hoped to be reused for TIA LAD/FBD but not
         known to fit; nothing above the contract may assume every graphical body is one, so a vendor can bring its own.
 - [x] 1.1b (`input/foreign-client-review.md`) Foreign-client review (above): ONLY `docs/wire.html` + the OpenRPC document, no repo context.
-- [ ] 1.2 Owner review of the map: which projects are refactored, which (if any) reimplemented — with the POTENTIAL
+- [x] 1.2 DECIDED 2026-10-20 (owner delegated): option C in `design.md` — rewrite the `Ide/` contract and the Engine above
+      it, refactor both hosts in place, bugs first, then the 1.3 safety net. Owner review of the map: which projects are refactored, which (if any) reimplemented — with the POTENTIAL
       rating per project after the proposed work (same criteria as 1.0a, each score tied to the findings that move it).
 
 - [ ] 1.3 Safety net before any rework, from the 1.2 decisions:
