@@ -35,8 +35,8 @@ searched), `totalMatches`, `truncated`, `notSearched` and `unwalkedFolders`.
 - **THEN** `items` holds exactly those two paths, each with the version `refs` answers for it, and no source text
 
 #### Scenario: case-insensitive by default
-- **WHEN** `grep` asks for `fbmotor` without `caseSensitive`
-- **THEN** lines containing `FB_Motor`, `fbMotor` and `FBMOTOR` all match; with `caseSensitive: true` only exact case
+- **WHEN** `grep` asks for `fb_motor` without `caseSensitive`
+- **THEN** lines containing `FB_Motor`, `fb_motor` and `FB_MOTOR` all match (and `fbMotor`, another identifier, does not); with `caseSensitive: true` only exact case
   matches
 
 ### Requirement: a matched line is the line fetch ships
@@ -107,6 +107,16 @@ in `unwalkedFolders`, as `refs` answers them.
 #### Scenario: an unreadable item
 - **WHEN** `FB_Broken.pou` is in `refs`' `unreadable` list and in scope
 - **THEN** `notSearched` holds `FB_Broken.pou` with the reason `refs` gives, and no match is answered for it
+
+### Requirement: health names the ops the bridge answers
+`health` SHALL carry `ops`: the name of every op the bridge answers, taken from its own dispatch table, so the list
+and what the bridge serves cannot disagree. A client SHALL read a `health` without `ops` as a bridge from before the
+list.
+
+#### Scenario: a bridge that searches
+- **WHEN** a client asks `health` of a bridge that serves `grep`
+- **THEN** `ops` holds `grep` beside `health`, `refs`, `fetch`, `push` and `build`, and every name in it is answered
+  by the bridge, while a name not in it is refused as an unknown op
 
 ### Requirement: the answer is bounded
 At most `limit` matches SHALL be returned. The search SHALL still count every match for `totalMatches`, and SHALL stop

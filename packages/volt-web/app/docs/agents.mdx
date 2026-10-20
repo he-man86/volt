@@ -51,7 +51,7 @@ It is worth gating the commands that write to your PLC. In your project's `.clau
 ```json
 {
   "permissions": {
-    "allow": ["Bash(volt status:*)", "Bash(volt show:*)", "Bash(volt build:*)"],
+    "allow": ["Bash(volt status:*)", "Bash(volt show:*)", "Bash(volt build:*)", "Bash(volt grep:*)"],
     "ask": ["Bash(volt init:*)", "Bash(volt pull:*)", "Bash(volt push:*)", "Bash(volt merge:*)"]
   }
 }

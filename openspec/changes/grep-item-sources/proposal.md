@@ -1,9 +1,10 @@
-> PLC Assist, 2026-10-20. Wanted: the AI's biggest missing tool. Lands in a release that bumps the wire protocol
-> (see Impact), coordinated with PLC Assist.
+> PLC Assist, 2026-10-20. Wanted: the AI's biggest missing tool. Lands in the release coordinated with PLC Assist
+> (see Impact).
 >
 > Owner adjustments, 2026-10-20 (before any code): the scope is **what `fetch` ships as text**, derived from the code
 > path `fetch` uses, not a list of languages; the byte-identity of the hashed text and `fetch`'s `sourceText`
-> (task 1.2) is a STOP GATE; everything else as proposed.
+> (task 1.2) is a STOP GATE; everything else as proposed. Agreed with PLC Assist during the work: `health` names the
+> ops a bridge answers (`ops`), and the wire protocol stays 1 (owner).
 
 ## Why
 
@@ -26,7 +27,7 @@ what the AI expects to be able to do and what the bridge offers.
 - Each matched item's version is answered with its matches, the same version `refs` states, so a client knows whether
   the item it holds is the one that matched.
 - Options: regular expression or literal text; case-INsensitive by default (IEC 61131-3 identifiers are
-  case-insensitive, and a search for `fbmotor` must find `FB_Motor`); an optional path glob limiting which items are
+  case-insensitive, and a search for `fb_motor` must find `FB_Motor`); an optional path glob limiting which items are
   searched; a cap on returned matches with an honest `truncated` count.
 - **The scope is what `fetch` ships as text.** Searched: every walked item whose `fetch` answer carries a
   `sourceText`, network-text bodies (`IMPLEMENTATION LD`/`FBD`) included whenever the bridge serves network text
@@ -34,6 +35,8 @@ what the AI expects to be able to do and what the bridge offers.
   text (`unreadable`), and every body that reads `IMPLEMENTATION <LANG> UNSUPPORTED` (CFC, SFC, IL; an LD/FBD body
   network text cannot represent or that a bridge with network text off hides) — the item's declaration and its other
   bodies are still searched. A search that finds nothing must never be mistaken for a search that could not look.
+- `health.ops`: every op the bridge answers, from its own dispatch table, so a client can tell a bridge that
+  searches from one that does not.
 - `volt grep <pattern>` on the CLI.
 
 ## Non-goals
@@ -45,8 +48,9 @@ what the AI expects to be able to do and what the bridge offers.
 
 ## Impact
 
-A new op. An older bridge refuses an op it does not know, and the OpenRPC schema hash changes: the wire protocol number
-goes to 2 (`relay-protocol-tracks-wire-breaks`). PLC Assist treats a bridge without `grep` as "search unavailable —
-download the latest bridge", not as a failure. Lands together with `build-selects-application`, so the protocol moves
-once: this change adds the op and leaves `WireProtocol.Version` and the schema pin alone; a final coordinating step
-bumps to 2 and re-pins after both changes land.
+A new op, and a new `health` member, `ops`: every op the bridge answers, from its own dispatch table. An older bridge
+refuses an op it does not know and sends no `ops`; PLC Assist reads `health.ops` and treats a bridge without `grep` as
+"search unavailable — download the latest bridge", not as a failure. The wire protocol stays 1 (owner, 2026-10-20):
+both additions are additive, and a capability is detected through `health.ops`, not through the number. The OpenRPC
+schema hash changes; this change leaves the pin alone, and a final coordinating step re-pins it as protocol 1 after
+`build-selects-application` lands too.
