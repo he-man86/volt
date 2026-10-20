@@ -35,10 +35,13 @@ public static class WireJson
     };
 
     /// <summary>Deserializing a request BODY: exact member names, and a member the op's request type does not define
-    /// is an error — a client still sending a retired member is told so instead of having it dropped.</summary>
+    /// is an error — a client still sending a retired member is told so instead of having it dropped. A push op's
+    /// <c>op</c> discriminator may stand anywhere in its object: JSON members are unordered, and the serializer's
+    /// default read it only as the first member.</summary>
     public static readonly JsonSerializerOptions Request = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        AllowOutOfOrderMetadataProperties = true,
     };
 }

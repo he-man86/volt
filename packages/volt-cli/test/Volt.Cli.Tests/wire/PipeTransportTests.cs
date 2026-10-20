@@ -354,6 +354,8 @@ public class PipeTransportTests
     [InlineData("push", @"{""ops"":[],""x"":1}", "x")]
     [InlineData("fetch", @"{""KnownItems"":{}}", "KnownItems")]
     [InlineData("push", @"{""ops"":[{""name"":""P.pou""}]}", "push")]
+    [InlineData("push", @"{""ops"":[{""name"":""P.pou"",""x"":1,""op"":""set""}]}", "x")]
+    [InlineData("push", @"{""ops"":[{""name"":""P.pou"",""Op"":""set""}]}", "push")]
     public void A_request_body_member_the_op_does_not_have_is_a_BAD_REQUEST_naming_the_op_and_the_member(
         string op, string body, string member)
     {
@@ -440,6 +442,44 @@ public class PipeTransportTests
 
         // The process did not fall over and the server still answers.
         Assert.True(new PipeClient(pipe).Call("health").TryGetProperty("projects", out _));
+    }
+
+    /// <summary>A PUSH OP'S <c>op</c> MAY STAND ANYWHERE IN ITS OBJECT (volt-cli-rework 1.0, finding (e)). JSON members
+    /// are unordered, and the serializer's polymorphism default read the discriminator only as the FIRST member, so a
+    /// client that wrote <c>op</c> last was refused BAD_REQUEST by a rule no document stated. Strictness otherwise holds:
+    /// an unknown member and a miscased one are still refused (the theories above).</summary>
+    [Fact]
+    public void A_push_op_whose_discriminator_comes_last_is_accepted_and_applied()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"));
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        var frame = RawTerminal(pipe,
+            @"{""op"":""push"",""body"":{""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
+            @"""sourceText"":""PROGRAM Q\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n"",""op"":""set""}]}}");
+
+        Assert.True(frame.TryGetProperty("result", out var result), "expected a result frame, got: " + frame);
+        Assert.True(result.GetProperty("accepted").GetBoolean(), "the push was not accepted: " + result);
+        Assert.Contains(ide.CreatedItems, i => i.Contains('Q'));
+    }
+
+    /// <summary>Send ONE line exactly as given and answer the terminal frame (<c>result</c> or <c>error</c>).</summary>
+    private static JsonElement RawTerminal(string pipe, string line)
+    {
+        using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
+        client.Connect(5000);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(line + "\n");
+        client.Write(bytes, 0, bytes.Length);
+        client.Flush();
+        using var reader = new System.IO.StreamReader(client, System.Text.Encoding.UTF8);
+        while (reader.ReadLine() is { } raw)
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (!doc.RootElement.TryGetProperty("progress", out _)) return doc.RootElement.Clone();
+        }
+        throw new Xunit.Sdk.XunitException("the bridge answered no terminal frame to: " + line);
     }
 
     private static (string Code, string Message) RawError(string pipe, string line)
