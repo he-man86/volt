@@ -64,7 +64,7 @@ standing practice:
 
 ## 1. Map
 
-- [ ] 1.0 LOC baseline (owner, 2026-10-18), measured at the commit the rework starts from: per project in `src/` and
+- [x] 1.0 LOC baseline (`input/loc-baseline.md`, at e2405e51bd) (owner, 2026-10-18), measured at the commit the rework starts from: per project in `src/` and
       `test/`, C# lines split code / comment / blank (bin, obj excluded), plus `scripts/`. Recorded here; 4.1 measures
       the same way and reports before → after per project.
 - [ ] 1.0a QUALITY RATING before (owner, 2026-10-20): per project behind the wire, a score 1–10 on fixed criteria, each
