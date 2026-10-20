@@ -99,7 +99,8 @@ TwinCAT Project14/PLC/Untitled2/Untitled2 Project/POUs/MAIN.pou
 Project Settings.projectsettings                  CODESYS: the tree root (the POU pool)</pre>
 <p>
   <code>refs</code> and <code>fetch</code> state the root path of every application in <code>applications</code>.
-  An item belongs to the application whose root is the longest prefix of its path; an item under none belongs to
+  An item belongs to the application whose root is the longest prefix of its path, matched by whole segments
+  (<code>A/App</code> holds <code>A/App/X.pou</code>, not <code>A/App2/X.pou</code>); an item under none belongs to
   the pool. A client never parses a vendor segment. A client that sends <code>knownItems</code> also sends the
   <code>applications</code> its baseline was read with, as <code>knownApplications</code>: a known path under a folder
   the walk could not read is then judged by the application it was in.
