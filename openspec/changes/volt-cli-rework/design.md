@@ -68,6 +68,18 @@ The owner delegated the decision ("review all options in detail and decide"). In
    push baseline, the frame rules, no history) — together with the wire changes the audit implies (`networkText` →
    `languages`, the vendor enum from the vendor table): one change, wire protocol 2, coordinated with PLC Assist.
 
+**Runner-ready (owner, 2026-10-20: a self-hosted live-IDE runner comes later).** The safety net of step 2 and every
+live check after it are built so a self-hosted Windows runner can run them unchanged, while they run on the dev machine
+until then:
+- one entry point per live check (`bun run release:matrix`, extended with the contract suite and the transcript
+  comparison), no interactive step, no dependency on the engineer's own open IDEs or desktop state;
+- each run serves its own fixture copies through `ide.ps1` and closes them, so a run leaves the machine as it found it;
+- every result is a file (`release-matrix.json`, the transcript diff, per-cell logs) that a workflow can attach and that
+  `promote` already reads;
+- a prepared workflow for the runner (`schedule` + `workflow_dispatch` + push to `dev`, never `pull_request` — the repo
+  is public), disabled until the machine exists: openspec `ci-live-ide-runner`.
+When the runner exists it moves before step 5, so the Engine rewrite runs under continuous live checking.
+
 Guardrails: a measured vendor workaround is never dropped without its DIALECT row and a test that pins it; a step that
 cannot keep the transcript byte-identical stops and is reported.
 

@@ -1,0 +1,4 @@
+- [ ] 1.1 Owner: a Windows machine with the matrix's IDE variants, auto-logon, the GitHub runner in the user session.
+- [ ] 1.2 The workflow (schedule, workflow_dispatch, push to dev; no pull_request), attaching release-matrix.json.
+- [ ] 1.3 Repository setting: approval required for outside-contributor workflows; document it in scripts/README.md.
+- [ ] 1.4 A run leaves no IDE process and no fixture copy behind (ide.ps1 down per cell; a cleanup step on failure).
