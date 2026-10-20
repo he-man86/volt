@@ -43,7 +43,7 @@ namespace Volt.Relay
         /// absent: a remote party does not get to rebind which project an engineer's IDE serves.</para></summary>
         public static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal)
         {
-            Ops.Health, Ops.Refs, Ops.Fetch, Ops.Push, Ops.Build,
+            Ops.Health, Ops.Refs, Ops.Fetch, Ops.Push, Ops.Build, Ops.Grep,
         };
 
         public static string Hello(string? voltVersion, string vendor, string pipe)

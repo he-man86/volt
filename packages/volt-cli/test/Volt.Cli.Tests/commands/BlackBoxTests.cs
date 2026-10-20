@@ -123,6 +123,7 @@ public class BlackBoxTests
                 new[] { "rebind", "--vendor", "codesys", "--project-name", "X" },
                 new[] { "status" },
                 new[] { "pull" },
+                new[] { "grep", "x", "--path", "**/*.pou", "--path", "*.gvl", "--limit", "5" },
             })
             {
                 var r = RunVolt(root, pipe, argv);
@@ -130,6 +131,45 @@ public class BlackBoxTests
             }
         }
         finally { host.Dispose(); }
+    }
+
+    /// <summary>`volt grep` prints each IDE line it matched as `src/&lt;path&gt;:&lt;line&gt;:&lt;text&gt;` — the workspace file a
+    /// pull writes, the fetched line number and the line byte for byte — and exits 0 (openspec <c>grep-item-sources</c>).</summary>
+    [Fact]
+    public void Grep_prints_path_line_and_text_and_exits_zero()
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg("x := 1;\n\tlamp := x;"), FakeIde.Item.TextualPou("GVL", "VAR_GLOBAL\n\tlamp : BOOL;\nEND_VAR", "")));
+        try
+        {
+            var r = RunVolt(root, pipe, "grep", "LAMP");
+            Assert.True(r.Code == 0, $"grep exit {r.Code}: {r.Err}");
+            var lines = r.Out.Replace("\r", "").TrimEnd('\n').Split('\n');
+            Assert.Equal(new[] { "src/GVL.gvl:2:\tlamp : BOOL;", "src/PLC_PRG.pou:6:\tlamp := x;" }, lines);
+
+            var only = RunVolt(root, pipe, "grep", "lamp", "--case-sensitive", "--path", "*.gvl", "--json");
+            Assert.True(only.Code == 0, $"grep --json exit {only.Code}: {only.Err}");
+            using var j = JsonDocument.Parse(only.Out.Trim());
+            Assert.Equal("ok", j.RootElement.GetProperty("kind").GetString());
+            Assert.Equal(1, j.RootElement.GetProperty("searched").GetInt32());
+            Assert.Equal("GVL.gvl", j.RootElement.GetProperty("matches")[0].GetProperty("path").GetString());
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A pattern the bridge refuses is the user's to fix: exit 1, the reason on stderr, nothing on stdout.</summary>
+    [Fact]
+    public void Grep_with_an_invalid_pattern_exits_one_with_the_reason()
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var r = RunVolt(root, pipe, "grep", "fbMotor(");
+            Assert.Equal(1, r.Code);
+            Assert.Contains("not a valid regular expression", r.Err);
+            Assert.Equal("", r.Out.Trim());
+            Assert.Equal(0, RunVolt(root, pipe, "grep", "fbMotor(", "--literal").Code);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
     [Fact]

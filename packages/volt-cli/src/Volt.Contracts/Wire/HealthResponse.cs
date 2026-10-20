@@ -75,6 +75,13 @@ public class HealthResponse
     [JsonPropertyName("protocol")]
     public int? Protocol { get; set; }
 
+    /// <summary>Every op this bridge answers (<c>health</c>, <c>refs</c>, <c>grep</c>, …), from its own dispatch table —
+    /// how a client tells what it can ask for (a bridge without <c>grep</c> cannot search). Every bridge writes it; it is
+    /// nullable here only because a bridge from before it sends none, which is how a client recognises an older
+    /// bridge.</summary>
+    [JsonPropertyName("ops")]
+    public List<string>? Ops { get; set; }
+
     /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the
     /// bridge can serve. While it is set, every row is <c>idle</c>.</summary>
     [JsonPropertyName("unsupported")]

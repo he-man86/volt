@@ -24,10 +24,9 @@ public static class Materializer
             RefuseHeaderless(name, build);
             var text = StWriter.Write(build);
             RefuseUnreadableBack(name, build, text);
-            return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
+            return new WorkspaceItem(text, FullWireName(name, build.Kind), HiddenIn(build));
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind),
-                                 Array.Empty<UnsupportedBody>());
+        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind), Array.Empty<HiddenBody>());
     }
 
     /// <summary>What a pull writes, a push reads back — WITH THE SAME MEMBERS. The IDE stores each member's text on its
@@ -100,17 +99,18 @@ public static class Materializer
             throw StWriter.NoHeader(name);
     }
 
-    /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with its reason —
-    /// the one fact about the item its text does not carry, gathered here, where the content is in hand, for the pull
-    /// message. A reason on a body that is NOT such a line, or such a line with no reason, is a driver that broke the
-    /// pairing (<see cref="ItemContent.Unsupported"/>), and is refused rather than reported half.
+    /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>, with its reason
+    /// for an LD/FBD one — the one fact about the item its text does not carry in full, gathered here, where the content
+    /// is in hand, for the pull message and for <c>grep</c>'s <c>notSearched</c>. A reason on a body that is NOT such an
+    /// LD/FBD line, or such a line with no reason, is a driver that broke the pairing (<see cref="ItemContent.Unsupported"/>),
+    /// and is refused rather than reported half.
     ///
-    /// <para>A CFC, SFC or IL body is UNSUPPORTED too, and carries no reason: its line states the language, and "Volt
-    /// does not read that language" is the whole reason. Only an LD/FBD body — a language Volt DOES read — needs the
-    /// fact network text had no spelling for.</para></summary>
-    private static IReadOnlyList<UnsupportedBody> UnsupportedIn(ItemContent content)
+    /// <para>A CFC, SFC or IL body carries no reason: its line states the language, and "Volt does not read that
+    /// language" is the whole reason. Only an LD/FBD body — a language Volt DOES read — needs the fact network text had
+    /// no spelling for.</para></summary>
+    private static IReadOnlyList<HiddenBody> HiddenIn(ItemContent content)
     {
-        var found = new List<UnsupportedBody>();
+        var found = new List<HiddenBody>();
         Add(null, content.Body, content.Unsupported);
         foreach (var m in content.Members)
         {
@@ -128,7 +128,7 @@ public static class Materializer
                 throw new InvalidOperationException(
                     $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{body?.Trim()}' with " +
                     $"{(reason is null ? "no reason" : $"the reason '{reason}'")} — an UNSUPPORTED body and its reason come together");
-            if (language is not null) found.Add(new UnsupportedBody { Member = member, Language = language, Reason = reason! });
+            if (hidden is not null) found.Add(new HiddenBody(member, hidden, reason));
         }
     }
 

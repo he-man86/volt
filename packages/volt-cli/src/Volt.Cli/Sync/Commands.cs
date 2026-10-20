@@ -974,6 +974,27 @@ public static class Commands
         return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
     }
 
+    /// <summary>volt grep — search the IDE's text for a pattern (the bridge's <c>grep</c>, openspec
+    /// <c>grep-item-sources</c>): the matching lines of what a pull would write, bound to the workspace's project.</summary>
+    public static GrepResult Grep(string root, BridgeClient bridge, GrepRequest request, Action<ProgressFrame>? onProgress = null)
+    {
+        if (!Config.ConfigExists(root)) return GrepResult.Refuse("not a Volt workspace — run `volt init` first");
+        var cfg = Config.LoadConfig(root);
+        request.ExpectedPlatform = cfg.Project.Platform;
+        request.ExpectedProjectName = cfg.Project.ProjectName;
+        GrepResponse r;
+        try { r = bridge.Grep(request, onProgress); }
+        catch (PipeCallException e) when (IsPreconditionRefusal(e.Code) || e.Code == BridgeErrorCodes.BadRequest)
+        {
+            return GrepResult.Refuse(e.Message);
+        }
+        return new GrepResult
+        {
+            Matches = r.Matches, Items = r.Items, Searched = r.Searched, TotalMatches = r.TotalMatches,
+            Truncated = r.Truncated, NotSearched = r.NotSearched, UnwalkedFolders = r.UnwalkedFolders,
+        };
+    }
+
     /// <summary>How many workspace items differ from the IDE baseline — local changes not yet pushed. 0 when unbound.</summary>
     public static int UnpushedCount(string root)
     {

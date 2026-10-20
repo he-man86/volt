@@ -41,6 +41,62 @@ public class PipeTransportTests
         Assert.True(result.TryGetProperty("changed", out _)); // the result IS a FetchResponse
     }
 
+    /// <summary>`grep` over the pipe answers the matching LINES with the matched item's refs version (openspec
+    /// <c>grep-item-sources</c>), and a pattern that does not compile is a coded BAD_REQUEST, not INTERNAL_ERROR.</summary>
+    [Fact]
+    public void Grep_answers_lines_and_versions_over_the_pipe()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "fbMotor();\nx := fbMotor.bRunning;", "POUs"),
+            FakeIde.Item.TextualPou("P2", "PROGRAM P2\nVAR\nEND_VAR", "y := 1;", "POUs"));
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+        var client = new PipeClient(pipe);
+        var version = client.Call("refs").GetProperty("items").GetProperty("POUs/PLC_PRG.pou").GetString();
+
+        var result = client.Call("grep", new { pattern = "bRunning" });
+
+        var match = Assert.Single(result.GetProperty("matches").EnumerateArray().ToList());
+        Assert.Equal("POUs/PLC_PRG.pou", match.GetProperty("path").GetString());
+        Assert.Equal("x := fbMotor.bRunning;", match.GetProperty("text").GetString());
+        Assert.Equal(version, result.GetProperty("items").GetProperty("POUs/PLC_PRG.pou").GetString());
+        Assert.Equal(2, result.GetProperty("searched").GetInt32());
+
+        var ex = Assert.Throws<PipeCallException>(() => client.Call("grep", new { pattern = "fbMotor(" }));
+        Assert.Equal("BAD_REQUEST", ex.Code);
+    }
+
+    /// <summary>`health.ops` IS THE DISPATCH TABLE (openspec <c>grep-item-sources</c>): every op it names is answered by
+    /// an arm of the host's switch, and every other name — each <see cref="Ops"/> constant it leaves out, and a name no
+    /// op has — is refused as an unknown op. A client reads it to know what it can ask; a list that drifted from the
+    /// switch would promise an op the bridge refuses, or hide one it serves.</summary>
+    [Fact]
+    public void Health_ops_is_exactly_the_set_of_ops_the_host_dispatches()
+    {
+        var constants = typeof(Ops).GetFields()
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string)).Select(f => (string)f.GetRawConstantValue()!).ToList();
+        foreach (var op in constants.Append("no-such-op"))
+        {
+            var pipe = Pipe();
+            using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+            host.Start();
+            string? unknown = null;
+            try { new PipeClient(pipe).Call(op, new { }); }
+            catch (PipeCallException e) when (e.Message.Contains($"unknown op '{op}'")) { unknown = e.Message; }
+            catch (PipeCallException) { }   // refused for its body or state: the op IS dispatched
+            Assert.True((unknown is null) == BridgePipeHost.Served.Contains(op),
+                $"`{op}`: {(unknown is null ? "dispatched" : "unknown")}, and health.ops {(BridgePipeHost.Served.Contains(op) ? "names" : "omits")} it");
+        }
+
+        var health = Pipe();
+        using var h = new BridgePipeHost(new FakeIde(), health);
+        h.Start();
+        var ops = new PipeClient(health).Call("health").GetProperty("ops").EnumerateArray().Select(o => o.GetString()).ToList();
+        Assert.Equal(BridgePipeHost.Served, ops);
+        Assert.Contains(Ops.Grep, ops);
+    }
+
     [Fact]
     public void Verbose_init_folds_library_signatures_into_one_phaseless_total_over_the_pipe()
     {
@@ -350,6 +406,7 @@ public class PipeTransportTests
     [InlineData("fetch", @"{""knownItems"":{},""knownFolders"":{}}", "knownFolders")]
     [InlineData("refs", @"{""knownItems"":{},""knownFolders"":{}}", "knownFolders")]
     [InlineData("build", @"{""buildType"":""full""}", "buildType")]
+    [InlineData("grep", @"{""pattern"":""x"",""regex"":true}", "regex")]
     [InlineData("connect", @"{""x"":1}", "x")]
     [InlineData("push", @"{""ops"":[],""x"":1}", "x")]
     [InlineData("fetch", @"{""KnownItems"":{}}", "KnownItems")]

@@ -25,7 +25,7 @@ src/
   Volt.Engine/              netstandard2.0  the engine (ST/network text, push/fetch/build/refs, versioning, the
                                             Ide-driver contract) — and NO transport.
   Volt.Engine.Host/         netstandard2.0  BridgePipeHost: op → service, marshalled onto the IDE thread.
-  Volt.Cli/                 net10 exe        the `volt` CLI (init/pull/push/status/build/show/merge/rebind) +
+  Volt.Cli/                 net10 exe        the `volt` CLI (init/pull/push/status/build/grep/show/merge/rebind) +
                                             Sync/ (git-native client: the volt/ide merge tree, status, materialize)
                                             — runs ITS OWN git, MinGit beside volt.exe (git\cmd\git.exe; pinned,
                                             SHA-256-verified and fetched into .cache/mingit by MinGit.targets), never

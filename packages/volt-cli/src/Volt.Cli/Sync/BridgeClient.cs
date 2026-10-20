@@ -95,6 +95,9 @@ public sealed class BridgeClient
     public BuildResponse Build(BuildRequest req, Action<ProgressFrame>? onProgress = null) =>
         De<BuildResponse>(Call(Ops.Build, req, Forward(onProgress)));
 
+    public GrepResponse Grep(GrepRequest req, Action<ProgressFrame>? onProgress = null) =>
+        De<GrepResponse>(Call(Ops.Grep, req, Forward(onProgress)));
+
     /// <summary>Every pipe call goes through here, so "the bridge is unreachable" is decided AT THE TRANSPORT
     /// and nowhere else.
     ///

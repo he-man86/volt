@@ -187,3 +187,15 @@ public sealed class BuildResult
 
     public static BuildResult Refuse(string reason) => new() { Kind = ResultKinds.Refused, Success = false, Reason = reason };
 }
+
+/// <summary>`volt grep`'s result: the bridge's <c>grep</c> answer as it came, plus the <c>kind</c> every verb's
+/// <c>--json</c> carries — <c>refused</c> with the reason for a workspace that is not bound, a bridge on another
+/// project, or a pattern the bridge refused.</summary>
+public sealed class GrepResult : GrepResponse
+{
+    [JsonPropertyName("kind")] public string Kind { get; set; } = ResultKinds.Ok;
+    [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
+
+    public static GrepResult Refuse(string reason) => new() { Kind = ResultKinds.Refused, Reason = reason };
+}

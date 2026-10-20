@@ -42,7 +42,8 @@ window.VOLT = {
           "Never gated by \u0060disconnect\u0060 \u2014 while paused every row is forced to \u0060idle\u0060, because the list is how the user reconnects.",
           "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead.",
           "Answers even when the IDE lacks what the bridge needs: \u0060unsupported\u0060 then carries the fixed reason every other op answers with as IDE_UNSUPPORTED, \u0060ideVersion\u0060 the IDE version, and every row is idle. Never a version floor \u2014 an IDE is refused for what it lacks, not for its number.",
-          "Always states the bridge identity at top level, rows or not, refused or not: \u0060productName\u0060, \u0060productVersion\u0060 and \u0060productVendor\u0060 (what the user runs, its own number and its maker), \u0060ideVersion\u0060 (the platform under it \u2014 the CODESYS framework version, or the TwinCAT build) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060 for an unstamped build). Each is absent when its source does not answer, never filled from another, and none of them decides whether the bridge serves."
+          "Always states the bridge identity at top level, rows or not, refused or not: \u0060productName\u0060, \u0060productVersion\u0060 and \u0060productVendor\u0060 (what the user runs, its own number and its maker), \u0060ideVersion\u0060 (the platform under it \u2014 the CODESYS framework version, or the TwinCAT build) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060 for an unstamped build). Each is absent when its source does not answer, never filled from another, and none of them decides whether the bridge serves.",
+          "\u0060ops\u0060 names every op this bridge answers, from its own dispatch table: a client asks it before an op an older bridge may lack (\u0060grep\u0060). A frame without \u0060ops\u0060 is a bridge from before it."
         ],
         "result": {
           "name": "result",
@@ -245,6 +246,40 @@ window.VOLT = {
             "$ref": "#/components/schemas/BuildResponse"
           }
         }
+      },
+      {
+        "name": "grep",
+        "summary": "Search the text \u0060fetch\u0060 ships for each item, line by line, and answer the matching LINES \u2014 path, 1-based line, the line as fetched \u2014 with each matched item\u0027s \u0060refs\u0060 version, never whole sources. A regular expression or \u0060literal\u0060 text, ignoring case unless \u0060caseSensitive\u0060; \u0060paths\u0060 globs limit what is searched. What could not be searched is named in \u0060notSearched\u0060.",
+        "paramStructure": "by-name",
+        "params": [
+          {
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/GrepRequest"
+            }
+          }
+        ],
+        "x-errorCodes": [
+          "IDE_UNSUPPORTED",
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "BAD_REQUEST",
+          "ITEM_UNVERIFIED",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+          "BAD_REQUEST, before the walk, for an empty \u0060pattern\u0060, a regular expression that does not compile (the parse error named) or a \u0060limit\u0060 outside 1\u20131000; and, with no partial answer, for a pattern that takes longer than 100 ms on one line.",
+          "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number, byte for byte. An \u0060unreadable\u0060 item, and a body that reads \u0060IMPLEMENTATION \u003CLANG\u003E UNSUPPORTED\u0060, are named in \u0060notSearched\u0060 instead; libraries are out of scope and unlisted.",
+          "The answer is bounded: at most \u0060limit\u0060 matches, counted up to 10000 in \u0060totalMatches\u0060; \u0060truncated\u0060 when more were found than answered."
+        ],
+        "result": {
+          "name": "result",
+          "schema": {
+            "$ref": "#/components/schemas/GrepResponse"
+          }
+        }
       }
     ],
     "components": {
@@ -279,6 +314,12 @@ window.VOLT = {
             "protocol": {
               "type": "integer"
             },
+            "ops": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "unsupported": {
               "type": "string"
             }
@@ -286,7 +327,8 @@ window.VOLT = {
           "required": [
             "projects",
             "networkText",
-            "protocol"
+            "protocol",
+            "ops"
           ]
         },
         "ProjectEntry": {
@@ -835,6 +877,120 @@ window.VOLT = {
             "line",
             "column"
           ]
+        },
+        "GrepRequest": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "literal": {
+              "type": "boolean"
+            },
+            "caseSensitive": {
+              "type": "boolean"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "type": "integer"
+            },
+            "expectedPlatform": {
+              "type": "string"
+            },
+            "expectedProjectName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "additionalProperties": false
+        },
+        "GrepResponse": {
+          "type": "object",
+          "properties": {
+            "matches": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/GrepMatch"
+              }
+            },
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "searched": {
+              "type": "integer"
+            },
+            "totalMatches": {
+              "type": "integer"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "notSearched": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/NotSearchedItem"
+              }
+            },
+            "unwalkedFolders": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "matches",
+            "items",
+            "searched",
+            "totalMatches",
+            "truncated",
+            "notSearched",
+            "unwalkedFolders"
+          ]
+        },
+        "GrepMatch": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "line",
+            "text"
+          ]
+        },
+        "NotSearchedItem": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "reason"
+          ]
         }
       }
     }
@@ -846,7 +1002,8 @@ window.VOLT = {
     "refs",
     "fetch",
     "push",
-    "build"
+    "build",
+    "grep"
   ],
   "errors": [
     "PLC_DISCONNECTED",

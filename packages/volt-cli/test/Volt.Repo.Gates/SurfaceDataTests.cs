@@ -129,6 +129,9 @@ public class SurfaceDataTests
             new[] { "--json", "--porcelain", "--local" }, false),
         new("build", "Build through the IDE and return its diagnostics. On TwinCAT a build saves changed documents, as XAE's Build does.", "", new[] { "--json" }, false),
         new("show", "A file at a ref.", "<ref> <path>", Array.Empty<string>(), false),
+        new("grep", "The IDE's lines matching a pattern, as `src/<path>:<line>:<text>` — the text a pull writes, "
+            + "searched where the bridge holds it. What could not be searched is named on stderr.", "<pattern>",
+            new[] { "--literal", "--case-sensitive", "--path <glob>", "--limit <n>", "--json" }, false),
         new("merge", "Finish a conflicted pull.", "",
             new[] { "--continue", "--abort", "--resolve <path>", "--use-ours", "--use-theirs" }, true),
         new("open", "Open the Volt desktop app on this workspace.", "[<dir>]", Array.Empty<string>(), false),

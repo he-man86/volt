@@ -147,6 +147,20 @@ public class RelayTunnelTests : IDisposable
         Assert.Equal(1, projects.GetArrayLength());
     }
 
+    /// <summary>`grep` is tunnelled (openspec <c>grep-item-sources</c>): the op PLC Assist's AI searches with is in the
+    /// allowlist, and its answer comes back through the real pipe.</summary>
+    [Fact]
+    public async Task A_grep_round_trips_through_the_real_pipe()
+    {
+        var (relay, _, _) = Start();
+        await relay.AwaitHello();
+
+        relay.SendRequest("r1", Ops.Grep, new { pattern = "x" });
+        var result = await relay.AwaitFrame("r1", "result");
+        Assert.True(result.TryGetProperty("matches", out _));
+        Assert.True(result.TryGetProperty("searched", out _));
+    }
+
     /// <summary>Progress frames arrive BEFORE the terminal frame and carry the same id. A relay demultiplexes
     /// on id alone, so a progress frame that arrived after its result would be attributed to nothing.</summary>
     [Fact]

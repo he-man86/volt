@@ -113,7 +113,7 @@ ignored, but counts as traffic for the watchdog.
 ## The op allowlist
 
 ```
-health   refs   fetch   push   build
+health   refs   fetch   push   build   grep
 ```
 
 Anything else, including `connect` and `disconnect`, is answered `BAD_REQUEST` **without touching the pipe**.

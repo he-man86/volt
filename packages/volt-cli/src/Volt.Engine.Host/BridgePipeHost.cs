@@ -82,6 +82,14 @@ public sealed class BridgePipeHost : IDisposable
     private static bool AllowedWhilePaused(string? op) =>
         op == Ops.Health || op == Ops.Connect || op == Ops.Disconnect;
 
+    /// <summary>The ops <see cref="Dispatch"/> answers — one arm each — as <c>health.ops</c> states them, so a client can
+    /// tell what this bridge can be asked (a bridge without <c>grep</c> cannot search). Kept beside the switch it lists,
+    /// and pinned to it by <c>PipeTransportTests</c>: every name here dispatches, every other name is an unknown op.</summary>
+    public static readonly IReadOnlyList<string> Served = new[]
+    {
+        Ops.Health, Ops.Connect, Ops.Disconnect, Ops.Refs, Ops.Fetch, Ops.Grep, Ops.Push, Ops.Build,
+    };
+
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
         // An IDE that lacks what the bridge needs serves NOTHING but `health` — not even connect/disconnect, which
@@ -125,6 +133,7 @@ public sealed class BridgePipeHost : IDisposable
                 h.ProductVendor = _ide.ProductVendor;
                 h.BridgeVersion = Release;
                 h.Protocol = _protocol;
+                h.Ops = Served.ToList();
                 h.Unsupported = unsupported;
                 return h;
             }
@@ -184,6 +193,8 @@ public sealed class BridgePipeHost : IDisposable
                 return RunRead(() => (object)RefsService.Handle(_ide, Body<RefsRequest>(req), f => onProgress(f)));
             case Ops.Fetch:
                 return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
+            case Ops.Grep:
+                return RunRead(() => (object)GrepService.Handle(_ide, Body<GrepRequest>(req), f => onProgress(f)));
             case Ops.Push:
                 return Gated(() => RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f))));
             case Ops.Build:

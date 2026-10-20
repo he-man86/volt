@@ -84,6 +84,7 @@ internal static class Program
                 "push" => CmdPush(root, Bridge(), a),
                 "status" => CmdStatus(root, Bridge(), a),
                 "build" => CmdBuild(root, Bridge(), a),
+                "grep" => CmdGrep(root, Bridge(), a),
                 "show" => CmdShow(root, Bridge(), a),
                 "merge" => CmdMerge(root, a),
                 "open" => CmdOpen(a),
@@ -306,6 +307,52 @@ internal static class Program
         return at + " ";
     }
 
+    /// <summary>`volt grep <pattern>` — the IDE's matching lines, as a compiler or grep prints them:
+    /// <c>src/&lt;path&gt;:&lt;line&gt;:&lt;text&gt;</c>, the workspace file a pull writes for the item. What could not be
+    /// searched, and a cut answer, go to stderr, so stdout is the matches alone. Exit 0 with an answer (matches or none),
+    /// 1 when refused.</summary>
+    private static int CmdGrep(string root, BridgeClient bridge, Args a)
+    {
+        var pattern = a.Operand(0);
+        if (pattern is null || a.Operands.Count > 1)
+        {
+            Console.Error.WriteLine("usage: volt grep <pattern> [--literal] [--case-sensitive] [--path <glob>]… [--limit N] [--json]");
+            return 1;
+        }
+        int? limit = null;
+        if (a.Value("--limit") is { } l)
+        {
+            if (!int.TryParse(l, NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+            {
+                Console.Error.WriteLine($"'--limit' takes a number, not '{l}'");
+                return 1;
+            }
+            limit = n;
+        }
+        var paths = a.ValuesOf("--path");
+        var r = Commands.Grep(root, bridge, new Volt.Contracts.GrepRequest
+        {
+            Pattern = pattern,
+            Literal = a.Has("--literal"),
+            CaseSensitive = a.Has("--case-sensitive"),
+            Paths = paths.Count == 0 ? null : paths.ToList(),
+            Limit = limit,
+        });
+        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
+        if (r.Kind != ResultKinds.Ok) { Console.Error.WriteLine(r.Reason); return 1; }
+        foreach (var m in r.Matches) Console.WriteLine($"src/{m.Path}:{m.Line}:{m.Text}");
+        if (r.Truncated)
+            Console.Error.WriteLine($"note: {r.Matches.Count} of {(r.TotalMatches >= Volt.Engine.Sync.GrepService.CountCap ? "at least " : "")}" +
+                                    $"{r.TotalMatches} matches shown — narrow the pattern or --path, or raise --limit (at most 1000)");
+        foreach (var n in r.NotSearched) Console.Error.WriteLine($"not searched: src/{n.Name} — {n.Reason}");
+        if (r.UnwalkedFolders.Count > 0)
+        {
+            Console.Error.WriteLine($"warning: {r.UnwalkedFolders.Count} folder(s) could not be read, so nothing under them was searched:");
+            foreach (var f in r.UnwalkedFolders) Console.Error.WriteLine($"  ? {f}/");
+        }
+        return 0;
+    }
+
     private static int CmdShow(string root, BridgeClient bridge, Args a)
     {
         var refName = a.Operand(0);
@@ -425,7 +472,7 @@ internal static class Program
     /// So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
     /// this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.</summary>
     private static readonly HashSet<string> ValueFlags =
-        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port" };
+        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port", "--path", "--limit" };
 
     /// <summary>Every BOOLEAN flag the CLI reads. Its only job is to make an unknown one an ERROR.
     ///
@@ -446,7 +493,7 @@ internal static class Program
     /// much weaker defect, and it would need a per-verb table this parser has no honest source for.</para></summary>
     private static readonly HashSet<string> BoolFlags = new()
     {
-        "--abort", "--allow-write", "--continue", "--dry-run", "--force", "--json",
+        "--abort", "--allow-write", "--case-sensitive", "--continue", "--dry-run", "--force", "--json", "--literal",
         "--local", "--no-open", "--porcelain", "--use-ours", "--use-theirs",
     };
 
@@ -477,6 +524,20 @@ internal static class Program
                     "stray operand. Add it to the set.");
             return Values.TryGetValue(f, out var v) ? v : null;
         }
+        /// <summary>Every value given for a flag that TAKES one, in order — for a flag that may repeat
+        /// (<c>volt grep --path a --path b</c>). <see cref="Value"/> answers the last.</summary>
+        public IReadOnlyList<string> ValuesOf(string f)
+        {
+            Value(f);   // the same declared-flag check
+            return Repeated.TryGetValue(f, out var all) ? all : Array.Empty<string>();
+        }
+        public void Set(string f, string v)
+        {
+            Values[f] = v;
+            if (!Repeated.TryGetValue(f, out var all)) Repeated[f] = all = new List<string>();
+            all.Add(v);
+        }
+        private readonly Dictionary<string, List<string>> Repeated = new();
         public string? Operand(int i) => i < Operands.Count ? Operands[i] : null;
     }
 
@@ -532,7 +593,7 @@ internal static class Program
                     // no reading of `=false` that is safe to guess at either, so this refuses rather than picks.
                     if (!ValueFlags.Contains(name))
                         throw new ArgError($"'{name}' does not take a value — write `{name}` on its own.");
-                    a.Values[name] = s[(eq + 1)..];
+                    a.Set(name, s[(eq + 1)..]);
                 }
                 else if (ValueFlags.Contains(name))
                 {
@@ -550,7 +611,7 @@ internal static class Program
                     // missing-value case wearing a disguise.
                     if (i + 1 >= argv.Length || argv[i + 1].StartsWith("--", StringComparison.Ordinal))
                         throw new ArgError($"'{name}' needs a value — `{name} <value>`.");
-                    a.Values[name] = argv[++i];
+                    a.Set(name, argv[++i]);
                 }
                 else a.Flags.Add(name);
             }
@@ -587,6 +648,7 @@ internal static class Program
         "  status   incoming / outgoing / merge state                [--json] [--porcelain] [--local]\n" +
         "  build    build via the IDE; returns diagnostics                    [--json]\n" +
         "           (IDE-sync history is native git: `git log volt/ide`)\n" +
+        "  grep     the IDE's lines matching a pattern:  <pattern>   [--literal] [--case-sensitive] [--path <glob>]… [--limit N] [--json]\n" +
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
         "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
         "  open     open the Volt desktop app on this workspace              [<dir>]\n" +

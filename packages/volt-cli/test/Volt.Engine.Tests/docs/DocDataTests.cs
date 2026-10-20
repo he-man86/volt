@@ -93,6 +93,8 @@ public class DocDataTests
             + "(the platform under it — the CODESYS framework version, or the TwinCAT build) and `bridgeVersion` (the "
             + "stamped release, or `(dev) <commit>` for an unstamped build). Each is absent when its source does not "
             + "answer, never filled from another, and none of them decides whether the bridge serves.",
+            "`ops` names every op this bridge answers, from its own dispatch table: a client asks it before an op an "
+            + "older bridge may lack (`grep`). A frame without `ops` is a bridge from before it.",
         }),
         [Ops.Connect] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
         {
@@ -165,6 +167,19 @@ public class DocDataTests
             "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
             + "TwinCAT reads the IDE's own count of failed projects.",
         }),
+        [Ops.Grep] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                              BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+        {
+            UnverifiedProjectFrame,
+            "BAD_REQUEST, before the walk, for an empty `pattern`, a regular expression that does not compile (the "
+            + "parse error named) or a `limit` outside 1–1000; and, with no partial answer, for a pattern that takes "
+            + "longer than 100 ms on one line.",
+            "What it searches is what `fetch` ships as text, from the same walk: a matched line is the fetched line at "
+            + "that number, byte for byte. An `unreadable` item, and a body that reads `IMPLEMENTATION <LANG> "
+            + "UNSUPPORTED`, are named in `notSearched` instead; libraries are out of scope and unlisted.",
+            "The answer is bounded: at most `limit` matches, counted up to 10000 in `totalMatches`; `truncated` when "
+            + "more were found than answered.",
+        }),
     };
 
     private static readonly (string Op, Type? Param, Type? Result, string Summary)[] Methods =
@@ -198,6 +213,11 @@ public class DocDataTests
         (Ops.Build, typeof(BuildRequest), typeof(BuildResponse),
             "Compile the bound project and return the IDE's own diagnostics. This is the oracle a client uses " +
             "to tell its own analysis from the vendor's."),
+        (Ops.Grep, typeof(GrepRequest), typeof(GrepResponse),
+            "Search the text `fetch` ships for each item, line by line, and answer the matching LINES — path, " +
+            "1-based line, the line as fetched — with each matched item's `refs` version, never whole sources. A " +
+            "regular expression or `literal` text, ignoring case unless `caseSensitive`; `paths` globs limit what is " +
+            "searched. What could not be searched is named in `notSearched`."),
     };
 
     /// <summary>The three facets of <see cref="IIdeDriver"/>, in the order the driver page presents them.</summary>
@@ -383,8 +403,11 @@ public class DocDataTests
     }
 
     /// <summary>Members every bridge writes whose C# type is nullable for a reason of the READER, not the wire: the schema
-    /// requires them. <c>health.protocol</c> is <c>int?</c> only so the connector can still read a bridge from before it.</summary>
-    private static readonly HashSet<(Type, string)> SchemaRequired = new() { (typeof(HealthResponse), nameof(HealthResponse.Protocol)) };
+    /// requires them. <c>health.protocol</c> and <c>health.ops</c> are nullable only so the connector can still read a bridge from before them.</summary>
+    private static readonly HashSet<(Type, string)> SchemaRequired = new()
+    {
+        (typeof(HealthResponse), nameof(HealthResponse.Protocol)), (typeof(HealthResponse), nameof(HealthResponse.Ops)),
+    };
 
     /// <summary>Whether a client may OMIT this field — which is not the same question in both directions.
     ///

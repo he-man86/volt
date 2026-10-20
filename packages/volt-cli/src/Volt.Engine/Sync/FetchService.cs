@@ -107,7 +107,7 @@ public static class FetchService
                 Name = path,
                 Version = version,
                 SourceText = mat.Text,
-                Unsupported = mat.Unsupported.Count == 0 ? null : mat.Unsupported.ToList(),
+                Unsupported = UnsupportedOf(mat),
             };
 
             if (!isInit && knownItems.TryGetValue(path, out var known) && known == version)
@@ -260,6 +260,15 @@ public static class FetchService
         };
     }
 
+
+    /// <summary>The item's <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> bodies with why — the wire's <c>unsupported</c>, or
+    /// null when it has none. A CFC, SFC or IL body is hidden too, and carries no reason: its line says it all.</summary>
+    private static List<UnsupportedBody>? UnsupportedOf(WorkspaceItem mat)
+    {
+        var bodies = mat.Hidden.Where(h => h.Reason is not null)
+            .Select(h => new UnsupportedBody { Member = h.Member, Language = h.Language, Reason = h.Reason! }).ToList();
+        return bodies.Count == 0 ? null : bodies;
+    }
 
     /// <summary>Format the non-zero drop tallies for the completion log — e.g. <c> (skipped: 2 unmapped-kind,
     /// 1 unreadable)</c>, or empty when nothing was dropped. Keeps the common clean-pull line uncluttered.</summary>

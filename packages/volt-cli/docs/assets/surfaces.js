@@ -226,6 +226,19 @@ window.VOLT_SURFACES = {
         "mutates": false
       },
       {
+        "name": "grep",
+        "summary": "The IDE\u0027s lines matching a pattern, as \u0060src/\u003Cpath\u003E:\u003Cline\u003E:\u003Ctext\u003E\u0060 \u2014 the text a pull writes, searched where the bridge holds it. What could not be searched is named on stderr.",
+        "args": "\u003Cpattern\u003E",
+        "flags": [
+          "--literal",
+          "--case-sensitive",
+          "--path \u003Cglob\u003E",
+          "--limit \u003Cn\u003E",
+          "--json"
+        ],
+        "mutates": false
+      },
+      {
         "name": "merge",
         "summary": "Finish a conflicted pull.",
         "args": "",

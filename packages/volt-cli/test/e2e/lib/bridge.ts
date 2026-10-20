@@ -1,6 +1,6 @@
 /**
- * THE OP CLIENT — the eight ops the bridge serves, named exactly as the wire names them
- * (`Volt.Contracts.Vocabulary.Ops`: health · connect · disconnect · refs · fetch · init · push · build).
+ * THE OP CLIENT — the ops the bridge serves, named exactly as the wire names them
+ * (`Volt.Contracts.Vocabulary.Ops`: health · connect · disconnect · refs · fetch · init · push · build · grep).
  *
  * <p>One typed entry point per op and nothing else. Item-level convenience (create/update/delete/cleanup) lives in
  * `workspace.ts`; this layer stays a thin, honest mirror of the contract so a missing op is visible as a missing
@@ -23,6 +23,8 @@ export const bridge = {
 			return r
 		}),
 	build: (): Promise<any> => call("build", {}),
+	grep: (req: { pattern: string; literal?: boolean; caseSensitive?: boolean; paths?: string[]; limit?: number }): Promise<any> =>
+		call("grep", req),
 	// `init` was its own op until it turned out to be `fetch { init: true }` with the identity guard missing.
 	init: (): Promise<any> => call("fetch", { init: true }),
 	// The connection-lifecycle ops the CONNECTOR drives (the tray and the two frontends), not the CLI. `disconnect`

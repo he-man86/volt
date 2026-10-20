@@ -15,7 +15,7 @@
 
 <h1>The wire</h1>
 <p class="lede">
-  Seven ops over a Windows named pipe. This is the parity boundary — the same object answers with the same text
+  Eight ops over a Windows named pipe. This is the parity boundary — the same object answers with the same text
   on both vendors, and what one vendor cannot hold it refuses by name (<a href="items.html#one-sided">items</a>) — and
   it is the thing to build a client against.
 </p>
@@ -305,6 +305,32 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
     <td>The only vendor fact above the seam.</td>
   </tr>
 </table>
+
+<h2 id="grep">Searching: grep</h2>
+<p>
+  <code>grep</code> searches the text <code>fetch</code> ships, line by line, and answers lines — never sources:
+</p>
+<pre>{ "op": "grep", "body": { "pattern": "lamp", "paths": ["**/*.pou"] } }
+
+{ "matches": [ { "path": "POUs/PRG_A.pou", "line": 7, "text": "\tlamp := start AND NOT stop;" } ],
+  "items": { "POUs/PRG_A.pou": "3f2a9c01d4e5b6a7" },
+  "searched": 12, "totalMatches": 1, "truncated": false,
+  "notSearched": [ { "name": "POUs/PRG_B.pou", "reason": "its body reads IMPLEMENTATION CFC UNSUPPORTED" } ],
+  "unwalkedFolders": [] }</pre>
+<p>
+  Line <code>7</code> is line 7 of that item's fetched <code>sourceText</code>, and <code>text</code> is that line byte for
+  byte (cut at 500 characters with <code>…</code>), so it can be quoted back in a push. <code>items</code> holds each
+  matched item's <code>refs</code> version. <code>pattern</code> is a .NET regular expression, or plain text with
+  <code>literal: true</code>; case is ignored unless <code>caseSensitive: true</code>. In <code>paths</code>,
+  <code>*</code> stays within a segment, <code>**</code> crosses segments and <code>?</code> is one character. At most
+  <code>limit</code> matches (default 200, 1–1000) are answered; <code>totalMatches</code> counts to 10000.
+  <code>.library</code> items and library signatures are not searched.
+</p>
+<p>
+  Before asking, a client reads <code>health.ops</code>: every op the bridge answers, from its own dispatch table. A
+  bridge that lists no <code>grep</code> cannot search, and a <code>health</code> with no <code>ops</code> at all is a
+  bridge from before the list.
+</p>
 
 <h2 id="ops">The ops</h2>
 <p class="lede">

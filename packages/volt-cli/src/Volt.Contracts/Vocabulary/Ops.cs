@@ -16,4 +16,5 @@ public static class Ops
     public const string Fetch = "fetch";
     public const string Push = "push";
     public const string Build = "build";
+    public const string Grep = "grep";
 }
