@@ -384,6 +384,46 @@ The reachability analysis SHALL be conservative: when reachability is UNCERTAIN 
 - **WHEN** an FB is only ever reached through an interface-typed variable or other dynamic dispatch the analysis cannot statically resolve
 - **THEN** the LSP treats it as LIVE (never dead), so its diagnostics are never wrongly suppressed
 
+
+### Requirement: An object excluded from build is not diagnosed as built code
+
+One function (`reachability/exclusion` `effectivelyExcluded`) SHALL decide whether an object is excluded from build:
+its own `%EXCLUDE_FROM_BUILD` line (a file's own object excludes the whole file; a method, action, property or
+interface member excludes itself). An excluded object SHALL give no findings, parse errors included, whether or not
+`diagnoseDeadCode` is on; the missing-language finding SHALL stay, because it follows the push. The identifiers inside
+excluded code SHALL NOT be reachability edges, and an excluded PROGRAM SHALL NOT be a root.
+
+#### Scenario: An excluded FB that built code reaches
+- **WHEN** live program `p` instantiates FB `fb`, and `fb` carries `%EXCLUDE_FROM_BUILD` and a type error
+- **THEN** the LSP reports nothing inside `fb`
+
+#### Scenario: Code used only from excluded code
+- **WHEN** FB `x` is used only inside an excluded method
+- **THEN** `x` is dead, as an FB nothing calls is
+
+### Requirement: Each PLC project's settings govern its own documents
+
+Every `.projectsettings` in the workspace SHALL govern the documents under the folder it sits in, layered over the
+editor's options, the deepest such folder winning (`project-configs`). One settings file SHALL never overwrite another's:
+a TwinCAT solution holds one per PLC project. A document under no settings folder SHALL use the editor's options alone.
+
+#### Scenario: Two PLC projects with different warnings
+- **WHEN** PLC project `A` disables warning `C0139` and PLC project `B` disables `C0371`
+- **THEN** `A`'s documents report no `C0139`, and `B`'s documents still do
+
+### Requirement: A document whose findings throw does not take down the others
+
+When computing a document's findings throws (for example input nested past the runtime's stack), the server SHALL report
+that document with one `not-analysed` error stating that its findings could not be computed and its declarations are
+still used, log the error once per generation, and SHALL keep answering every other document. `not-analysed` SHALL mean
+one fact, "this file has no findings"; its message SHALL state only the consequence of its own cause (declarations left
+out after a parse or bind throw; kept after a findings throw). Generated deep and long inputs, on the shipped Node
+runtime and on bun, are in the suite (`test/lsp/input-nobody-types.test.ts`).
+
+#### Scenario: One deep document in the workspace
+- **WHEN** the workspace holds a program nested past the runtime's stack, and another document with a type mismatch
+- **THEN** a workspace pull answers the deep document with one `not-analysed` error and the other with its type mismatch
+
 ### Requirement: Graphical CFC/SFC bodies are not diagnosed and carry no read-only marker
 
 The LSP SHALL treat a CFC/SFC body — its line `IMPLEMENTATION CFC|SFC UNSUPPORTED` with nothing under it (see

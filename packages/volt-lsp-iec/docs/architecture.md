@@ -329,7 +329,9 @@ below; the documents live in the workspace layer:
   `.device`, `.task`, `.projectsettings`) or a directory event re-scans the references (`workspace-refs`
   `scanWorkspaceRefs`, which reads no source; `setRefs`). A document whose parse or bind throws is **quarantined**
   (`quarantine`, one per layer): out of the merged set until its content changes, the project rebuilt without it,
-  logged by name, and reported as one `not-analysed` error — never a clean report. Freshness comes from
+  logged by name, and reported as one `not-analysed` error — never a clean report. A document whose FINDINGS throw
+  (input past the runtime's stack) is not quarantined: its declarations stay in the project, and it answers one
+  `not-analysed` error computed and logged once per generation (`DiagnosticsPublisher.compute`). Freshness comes from
   `workspace/didChangeWatchedFiles` (**not** file-operation events — one item per file makes a rename a delete+create
   the watcher already reports); a client that cannot register a watcher gets the server's own recursive `fs.watch`
   (`server/file-watch`), fed through the same batch.
