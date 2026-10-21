@@ -72,6 +72,22 @@ public static class WireParityCases
         "\n" +
         "END_FUNCTION_BLOCK\n";
 
+    /// <summary>A function block linked always, external, with compiler defines (CODESYS <c>BuildProperty.LinkAlways</c> /
+    /// <c>.External</c> / <c>.CompilerDefines</c>, TwinCAT's live <c>LinkAlways</c> / <c>External</c> /
+    /// <c>CompilerDefines</c> VSProperties, DIALECT C40): the three property lines under its implementation line.</summary>
+    public const string BuildPropertiesDefines = "SIM, X:=2";
+    public const string BuildPropertiesFunctionBlock =
+        "FUNCTION_BLOCK FB_X\n" +
+        "VAR\n" +
+        "END_VAR\n" +
+        "IMPLEMENTATION ST\n" +
+        "%LINK_ALWAYS\n" +
+        "%EXTERNAL\n" +
+        "%COMPILER_DEFINES 'SIM, X:=2'\n" +
+        "x := 1;\n" +
+        "\n" +
+        "END_FUNCTION_BLOCK\n";
+
     /// <summary>The walk's answer for an EXCLUDED FOLDER <c>Sim</c> under <paramref name="root"/>, holding the struct
     /// <c>SimType</c> and the folder <c>Deep</c> with the struct <c>DeepType</c> (DIALECT C39): the folder is a node with its
     /// reason, and each item under it is named by its kind — in this order, on both vendors.</summary>

@@ -31,10 +31,66 @@ public class TcExclusionTests
         _ => $"<VSProperty category=\"Advanced\"><Name>Exclude</Name><Value>{exclude}</Value></VSProperty>",
     };
 
+    /// <summary>The <c>Advanced</c> VSProperties TcXaeShell publishes on every PLC item and member (C39, C40): the
+    /// <c>Exclude</c> of <see cref="Property"/>, then <c>External</c>, <c>LinkAlways</c> and <c>CompilerDefines</c> at the
+    /// values given (their measured defaults when none is).</summary>
+    internal static string Advanced(string? exclude, string external = "False", string linkAlways = "False", string defines = "") =>
+        Property(exclude) + Own("External", external) + Own("LinkAlways", linkAlways) + Own("CompilerDefines", defines);
+
+    internal static string Own(string name, string value) =>
+        $"<VSProperty category=\"Advanced\"><Name>{name}</Name><Value>{System.Security.SecurityElement.Escape(value)}</Value></VSProperty>";
+
     /// <summary>The live flag a <c>ConsumeXml</c> of the one property sets, as C39 measured.</summary>
     private static string Consumed(string xml) =>
         System.Xml.Linq.XElement.Parse(xml).Descendants("VSProperty").Single(p => (string?)p.Element("Name") == "Exclude")
             .Element("Value")!.Value;
+
+    /// <summary>A PLC item's or member's live build properties (C39, C40), as its automation XML answers them; a
+    /// <c>ConsumeXml</c> sets each property it names — one property per call, as the bridge writes them.</summary>
+    public sealed class Live
+    {
+        public Live(string? exclude) => Exclude = exclude;
+        public string? Exclude;
+        public string External = "False", LinkAlways = "False", CompilerDefines = "";
+        /// <summary>A POU's <c>AdditionalAllocation</c>; null where the node publishes none (every non-POU).</summary>
+        public string? AdditionalAllocation;
+        /// <summary>The property TcXaeShell marks <c>readonly</c> — never measured on these (C40); a test's what-if.</summary>
+        public string? ReadOnly;
+        /// <summary>The property the node does not publish — never measured (C40); a test's what-if.</summary>
+        public string? Omitted;
+        /// <summary>A <c>ConsumeXml</c> the IDE accepts and does not apply.</summary>
+        public bool Inert;
+        public readonly List<string> Consumes = new();
+
+        public string Xml =>
+            Property(Exclude) + Prop("External", External) + Prop("LinkAlways", LinkAlways) +
+            Prop("CompilerDefines", CompilerDefines) + (AdditionalAllocation is { } a ? Prop("AdditionalAllocation", a) : "");
+
+        private string Prop(string name, string value) =>
+            name == Omitted ? ""
+            : name == ReadOnly ? Own(name, value).Replace("category=\"Advanced\"", "category=\"Advanced\" readonly=\"true\"")
+            : Own(name, value);
+
+        public void Consume(string xml)
+        {
+            Consumes.Add(xml);
+            if (Inert) return;
+            var p = Assert.Single(System.Xml.Linq.XElement.Parse(xml).Descendants("VSProperty"));
+            var value = p.Element("Value")!.Value;
+            switch (p.Element("Name")!.Value)
+            {
+                case "Exclude": Exclude = value; break;
+                case "External": External = value; break;
+                case "LinkAlways": LinkAlways = value; break;
+                case "CompilerDefines": CompilerDefines = value; break;
+                default: throw new InvalidOperationException("unmeasured property " + p.Element("Name")!.Value);
+            }
+        }
+
+        /// <summary>The written property names, in order.</summary>
+        public IEnumerable<string> Written => Consumes.Select(c =>
+            System.Xml.Linq.XElement.Parse(c).Descendants("VSProperty").Single().Element("Name")!.Value);
+    }
 
     /// <summary>A PLC folder answering its automation XML.</summary>
     public sealed class Folder : Node
@@ -46,21 +102,22 @@ public class TcExclusionTests
             $"<TreeItem><ItemName>{Name}</ItemName><ItemType>601</ItemType><VSProperties>{Property(Exclude)}</VSProperties></TreeItem>";
     }
 
-    /// <summary>A member of <see cref="Pou"/>: its own live flag.</summary>
+    /// <summary>A member of <see cref="Pou"/>: its own live build properties.</summary>
     public sealed class Member
     {
         public Member(string name, int type, string declaration, string? exclude)
-        { Name = name; ItemType = type; DeclarationText = declaration; Exclude = exclude; }
+        { Name = name; ItemType = type; DeclarationText = declaration; Live = new Live(exclude); }
         public string Name { get; }
         public int ItemType { get; }
         public string DeclarationText { get; set; }
         public string ImplementationText { get; set; } = "";
         public int ChildCount => 0;
-        public string? Exclude;
-        public readonly List<string> Consumes = new();
+        public readonly Live Live;
+        public string? Exclude => Live.Exclude;
+        public List<string> Consumes => Live.Consumes;
         public string ProduceXml(bool recursive) =>
-            $"<TreeItem><ItemName>{Name}</ItemName><VSProperties>{Property(Exclude)}</VSProperties></TreeItem>";
-        public void ConsumeXml(string xml) { Consumes.Add(xml); Exclude = Consumed(xml); }
+            $"<TreeItem><ItemName>{Name}</ItemName><VSProperties>{Live.Xml}</VSProperties></TreeItem>";
+        public void ConsumeXml(string xml) => Live.Consume(xml);
     }
 
     public sealed class Kids
@@ -70,53 +127,57 @@ public class TcExclusionTests
         public Member this[int index1Based] => _kids[index1Based - 1];
     }
 
-    /// <summary>A POU publishing its saved file and its live flag; a <c>ConsumeXml</c> of <c>Exclude</c> sets the flag.</summary>
+    /// <summary>A POU (or, with <see cref="Name"/> and <see cref="ItemType"/> set, a GVL) publishing its saved file and its
+    /// live build properties; a <c>ConsumeXml</c> sets the property it names.</summary>
     public sealed class Pou
     {
         private readonly string _file;
         public Pou(string file, string? exclude, params Member[] members)
-        { _file = file; Exclude = exclude; Members = members.ToList(); }
-        public string Name => "FB_X";
-        public int ItemType => ItemKind.PlcPou;
+        { _file = file; Live = new Live(exclude) { AdditionalAllocation = "0" }; Members = members.ToList(); }
+        public string Name { get; init; } = "FB_X";
+        public int ItemType { get; init; } = ItemKind.PlcPou;
         public string DeclarationText { get; set; } = WireParityCases.ExcludedDeclaration;
         public string ImplementationText { get; set; } = WireParityCases.ExcludedBody;
         public readonly List<Member> Members;
         public int ChildCount => Members.Count;
         public Kids Child => new(Members);
-        public string? Exclude;
-        public readonly List<string> Consumes = new();
+        public readonly Live Live;
+        public string? Exclude => Live.Exclude;
+        public List<string> Consumes => Live.Consumes;
         public string ProduceXml(bool recursive) =>
-            $"<TreeItem><ItemName>FB_X</ItemName><VSProperties>{Property(Exclude)}<VSProperty category=\"Misc\" readonly=\"true\">" +
+            $"<TreeItem><ItemName>{Name}</ItemName><VSProperties>{Live.Xml}<VSProperty category=\"Misc\" readonly=\"true\">" +
             $"<Name>FullPath</Name><Value>{_file}</Value></VSProperty></VSProperties></TreeItem>";
-        public void ConsumeXml(string xml) { Consumes.Add(xml); Exclude = Consumed(xml); }
+        public void ConsumeXml(string xml) => Live.Consume(xml);
     }
 
-    /// <summary>A saved PLC project: <c>FB_X.TcPOU</c> beside a <c>.plcproj</c> whose <c>Compile</c> entry for it holds
+    /// <summary>A saved PLC project: <c>FB_X.TcPOU</c> (or the <paramref name="file"/> given, holding a
+    /// <paramref name="element"/>) beside a <c>.plcproj</c> whose <c>Compile</c> entry for it holds
     /// <paramref name="entry"/>.</summary>
-    private sealed class Saved : IDisposable
+    internal sealed class Saved : IDisposable
     {
         private readonly string _dir = Path.Combine(Path.GetTempPath(), "volt-tc-exclusion-" + Guid.NewGuid().ToString("N"));
         public string File { get; }
         public string Project { get; }
-        public Saved(string entry)
+        public Saved(string entry, string file = "FB_X.TcPOU", string element = "POU")
         {
             Directory.CreateDirectory(_dir);
-            File = Path.Combine(_dir, "FB_X.TcPOU");
+            File = Path.Combine(_dir, file);
+            var name = Path.GetFileNameWithoutExtension(file);
             System.IO.File.WriteAllText(File,
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<TcPlcObject Version=\"1.1.0.1\">\n" +
-                $"  <POU Name=\"FB_X\" Id=\"{{{Guid.NewGuid()}}}\" SpecialFunc=\"None\">\n" +
-                "    <Declaration><![CDATA[FUNCTION_BLOCK FB_X]]></Declaration>\n  </POU>\n</TcPlcObject>\n");
+                $"  <{element} Name=\"{name}\" Id=\"{{{Guid.NewGuid()}}}\" SpecialFunc=\"None\">\n" +
+                $"    <Declaration><![CDATA[{name}]]></Declaration>\n  </{element}>\n</TcPlcObject>\n");
             Project = Path.Combine(_dir, "Plc.plcproj");
             System.IO.File.WriteAllText(Project,
                 "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup>" +
-                $"<Compile Include=\"FB_X.TcPOU\">{entry}</Compile></ItemGroup></Project>");
+                $"<Compile Include=\"{file}\">{entry}</Compile></ItemGroup></Project>");
         }
         public void Dispose() => Directory.Delete(_dir, recursive: true);
     }
 
-    private const string SubType = "<SubType>Code</SubType>";
+    internal const string SubType = "<SubType>Code</SubType>";
 
-    private static ItemContent Read(Saved saved, Pou pou) => BoundDriver(saved.Project).ReadContent(TcRefs.Ref(pou));
+    internal static ItemContent Read(Saved saved, Pou pou) => BoundDriver(saved.Project).ReadContent(TcRefs.Ref(pou));
 
     // ── an item's own flag ───────────────────────────────────────────────────────────────────────────────────────────
 
@@ -158,13 +219,13 @@ public class TcExclusionTests
         Assert.Equal(ObjectProperties.None, Read(saved, new Pou(saved.File, "False")).Properties);
     }
 
-    /// <summary>A saved build entry Volt has no member for is still refused by name.</summary>
+    /// <summary>A saved build entry that is no copy of a live property (C39, C40) is still refused by name.</summary>
     [Fact]
     public void Another_saved_build_entry_is_still_refused_by_name()
     {
-        using var saved = new Saved(SubType + "<LinkAlways>true</LinkAlways>");
+        using var saved = new Saved(SubType + "<DependentUpon>FB_Y.TcPOU</DependentUpon>");
         var ex = Assert.Throws<BridgeException>(() => Read(saved, new Pou(saved.File, "False")));
-        Assert.Contains("<LinkAlways>", ex.Message);
+        Assert.Contains("<DependentUpon>", ex.Message);
     }
 
     /// <summary>An item read as excluded by a folder above it is named by the walk and never read; one read here is a

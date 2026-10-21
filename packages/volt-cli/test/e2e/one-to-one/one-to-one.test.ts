@@ -216,14 +216,39 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		expect(lf((await fetchItem(`${name}.pou`)).sourceText)).toBe(built)
 	})
 
-	it("%LINK_ALWAYS is refused by name (no measured TwinCAT member)", async () => {
+	// DIALECT C40: the lines are the item's live LinkAlways / External / CompilerDefines, written and read back unsaved.
+	it("%LINK_ALWAYS creates a linked GVL, read back byte-exact, and removing the line clears it", async () => {
 		const name = `${PREFIX}_OtoLinked`
+		made.push(`${name}.gvl`)
+		const linked = `VAR_GLOBAL\n\tbStart : BOOL;\nEND_VAR\n%LINK_ALWAYS\n`
+		expect(landedInFull(await create(`${name}.gvl`, linked))).toBe(true)
+		const pulled = await fetchItem(`${name}.gvl`)
+		expect(lf(pulled.sourceText)).toBe(linked)
+
+		const plain = linked.replace("%LINK_ALWAYS\n", "")
+		const r = await pushOps([{ op: "set", name: await pathOf(`${name}.gvl`), sourceText: plain, ifVersion: pulled.version }])
+		expect(landedInFull(r)).toBe(true)
+		expect(lf((await fetchItem(`${name}.gvl`)).sourceText)).toBe(plain)
+	})
+
+	it("%LINK_ALWAYS, %EXTERNAL and %COMPILER_DEFINES on a POU and its method round-trip byte-exact", async () => {
+		const name = `${PREFIX}_OtoBuildProps`
+		made.push(`${name}.pou`)
+		const src =
+			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%LINK_ALWAYS\n%EXTERNAL\n%COMPILER_DEFINES 'SIM, X:=2'\nx := 1;\n\nEND_FUNCTION_BLOCK\n\n` +
+			`METHOD Run : BOOL\nIMPLEMENTATION ST\n%LINK_ALWAYS\nRun := TRUE;\nEND_METHOD\n`
+		expect(landedInFull(await create(`${name}.pou`, src))).toBe(true)
+		expect(lf((await fetchItem(`${name}.pou`)).sourceText)).toBe(src)
+	})
+
+	it("%ENABLE_SYSTEM_CALL is refused by name (no measured TwinCAT member)", async () => {
+		const name = `${PREFIX}_OtoSysCall`
 		made.push(`${name}.pou`)
 		const r = await create(
 			`${name}.pou`,
-			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%LINK_ALWAYS\n\nEND_FUNCTION_BLOCK\n`,
+			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%ENABLE_SYSTEM_CALL\n\nEND_FUNCTION_BLOCK\n`,
 		)
 		expect(landedInFull(r)).toBe(false)
-		expect(reasons(r)).toContain("%LINK_ALWAYS")
+		expect(reasons(r)).toContain("%ENABLE_SYSTEM_CALL")
 	})
 })

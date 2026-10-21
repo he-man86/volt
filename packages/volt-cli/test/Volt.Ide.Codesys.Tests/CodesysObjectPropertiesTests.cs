@@ -155,6 +155,22 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(Volt.Tests.Shared.WireParityCases.ExcludedFunctionBlock, text);
         }
 
+        /// <summary>WIRE PARITY (DIALECT C40): a function block linked always, external, with compiler defines pulls the text
+        /// TwinCAT pulls for one whose live <c>LinkAlways</c>, <c>External</c> and <c>CompilerDefines</c> are set
+        /// (<c>TcBuildPropertiesTests</c>).</summary>
+        [Fact]
+        public void A_linked_external_function_block_with_defines_pulls_the_shared_text()
+        {
+            var body = new _3S.CoDeSys.STObject.STImplementationObject();
+            try { body.TextDocument.Insert(0, Volt.Tests.Shared.WireParityCases.ExcludedBody); } catch (InvalidOperationException) { }   // lands, then throws (NwlDoubles)
+            var pou = new Node("FB_X", 1, new Pou(Volt.Tests.Shared.WireParityCases.ExcludedDeclaration, body));
+            var build = new _3S.CoDeSys.LanguageModelManager.BuildProperty
+                { LinkAlways = true, External = true, CompilerDefines = Volt.Tests.Shared.WireParityCases.BuildPropertiesDefines };
+            var text = With(new PropManager((pou, new object[] { build })), () =>
+                Volt.Engine.Format.St.StWriter.Write(new CodesysDriver(projects: null).ReadContent(new ItemRef(pou))));
+            Assert.Equal(Volt.Tests.Shared.WireParityCases.BuildPropertiesFunctionBlock, text);
+        }
+
         /// <summary>A build property whose seven members are all at their measured default spells nothing (31 of the 56).</summary>
         [Fact]
         public void A_defaulted_build_property_spells_nothing()

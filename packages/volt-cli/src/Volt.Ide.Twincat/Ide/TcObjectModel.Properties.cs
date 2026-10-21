@@ -15,15 +15,97 @@ namespace Volt.Ide.Twincat;
 /// for an accessor the file does not hold, <c>""</c> for one that holds no <c>&lt;Declaration&gt;</c>).</summary>
 internal sealed record TcSavedFacts(string File, string? SpecialFunc, IReadOnlyList<string> ObjectPropertyClasses,
                                     IReadOnlyDictionary<string, (string? Get, string? Set)> InterfaceAccessors,
-                                    TcExclusion Exclusion);
+                                    TcBuild Build);
 
 /// <summary>Whether the IDE builds a tree node, as its LIVE <c>Exclude</c> property answers (DIALECT C39): <c>False</c>
 /// is <see cref="Built"/>; <c>True</c> is the node's <see cref="Own"/> flag, or <see cref="Inherited"/> when the IDE marks
 /// the property <c>readonly</c> — the node sits under an excluded folder (or, for a member, in an excluded POU).</summary>
 internal enum TcExclusion { Built, Own, Inherited }
 
+/// <summary>A PLC item's or member's build properties, as its LIVE <c>Advanced</c> VSProperties answer them (DIALECT C39,
+/// C40): its exclusion, <c>LinkAlways</c>, <c>External</c> and <c>CompilerDefines</c> (null for the empty value) — the
+/// <c>%EXCLUDE_FROM_BUILD</c>, <c>%LINK_ALWAYS</c>, <c>%EXTERNAL</c> and <c>%COMPILER_DEFINES</c> lines.</summary>
+internal sealed record TcBuild(TcExclusion Exclusion, bool LinkAlways, bool External, string? CompilerDefines);
+
 internal sealed partial class TcObjectModel
 {
+    /// <summary>The build properties a PLC item and member publish beside <c>Exclude</c> (C40), by their VSProperty name.</summary>
+    internal const string LinkAlwaysProperty = "LinkAlways", ExternalProperty = "External",
+                          CompilerDefinesProperty = "CompilerDefines", AdditionalAllocationProperty = "AdditionalAllocation";
+
+    /// <summary>The node's live build properties (C39, C40), from its <c>ProduceXml</c>, which TwinCAT answers from memory,
+    /// saved or not. Null only for a node that answers no automation XML at all — no TwinCAT tree item does; it is the
+    /// offline doubles' shape.</summary>
+    /// <param name="what">The node, as a refusal names it — formatted only when one is thrown.</param>
+    public TcBuild? Build(object node, Func<string> what)
+    {
+        string? xml;
+        try { xml = ((dynamic)node).ProduceXml(false) as string; }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }   // no automation XML: no tree item
+        if (string.IsNullOrEmpty(xml))
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: TwinCAT answers no item XML for it — Volt reads its build properties there, so it is not " +
+                "pulled rather than pulled without them.");
+        return BuildOf(XDocument.Parse(xml!).Root, what);
+    }
+
+    /// <summary>The build properties of a node's item XML. Every PLC item and member publishes <c>LinkAlways</c>,
+    /// <c>External</c> and <c>CompilerDefines</c> as its own value — never <c>readonly</c>, under an excluded folder or POU
+    /// too (C40); one missing or <c>readonly</c>, or a flag other than <c>True</c>/<c>False</c>, is refused by name, never
+    /// read as unset. A POU's <c>AdditionalAllocation</c> has no line (C40): a value other than <c>0</c> refuses the object
+    /// by name.</summary>
+    private static TcBuild BuildOf(XElement? item, Func<string> what)
+    {
+        var exclusion = ExclusionOf(item, what);
+        if ((string?)VsProperty(item, AdditionalAllocationProperty)?.Element("Value") is { } bytes && bytes != "0")
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what()}: its AdditionalAllocation is '{bytes}' — a build property Volt's text has no line for (DIALECT " +
+                "C40), so the object is not pulled rather than pulled without it. Set it to 0 in the IDE, or edit the " +
+                "object there.");
+        var defines = Own(item, CompilerDefinesProperty, what);
+        return new TcBuild(exclusion, Flag(item, LinkAlwaysProperty, what), Flag(item, ExternalProperty, what),
+                           defines.Length == 0 ? null : defines);
+    }
+
+    private static XElement? VsProperty(XElement? item, string name) =>
+        item?.Element("VSProperties")?.Elements("VSProperty").FirstOrDefault(p => (string?)p.Element("Name") == name);
+
+    /// <summary>The value of the node's own, writable build property <paramref name="name"/> (C40).</summary>
+    private static string Own(XElement? item, string name, Func<string> what)
+    {
+        var property = VsProperty(item, name)
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: TwinCAT publishes no {name} property for it — Volt reads that build property there (DIALECT " +
+                "C40), so it is not pulled rather than pulled without it.");
+        if ((string?)property.Attribute("readonly") == "true")
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: TwinCAT marks its {name} property read-only — Volt has measured it only as the object's own " +
+                "value (DIALECT C40), so it is not pulled.");
+        return (string?)property.Element("Value") ?? "";
+    }
+
+    private static bool Flag(XElement? item, string name, Func<string> what) =>
+        Own(item, name, what) switch
+        {
+            "True" => true,
+            "False" => false,
+            var other => throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: its {name} property reads '{other}' — neither True nor False (DIALECT C40), so it is not pulled."),
+        };
+
+    /// <summary>Set the node's own build property <paramref name="name"/> to <paramref name="value"/> through
+    /// <c>ConsumeXml</c> of that one property (C40), and READ IT BACK: a write the IDE accepted and did not apply is refused
+    /// by name, never reported as landed.</summary>
+    public void WriteBuildProperty(object node, string name, string value, Func<string> what)
+    {
+        ((dynamic)node).ConsumeXml(new XElement("TreeItem", new XElement("VSProperties", new XElement("VSProperty",
+            new XElement("Name", name), new XElement("Value", value)))).ToString(SaveOptions.DisableFormatting));
+        var xml = ((dynamic)node).ProduceXml(false) as string;
+        var now = string.IsNullOrEmpty(xml) ? null : (string?)VsProperty(XDocument.Parse(xml!).Root, name)?.Element("Value");
+        if (now != value)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what()}: TwinCAT took {name}='{value}' and reads '{now}' back — the write did not land (DIALECT C40).");
+    }
     /// <summary>The node's live exclusion (DIALECT C39): its <c>ProduceXml</c>'s <c>Exclude</c> VSProperty, which TwinCAT
     /// answers from memory, saved or not, and which holds an exclusion inherited from a folder. Null only for a node that
     /// answers no automation XML at all — no TwinCAT tree item does; it is the offline doubles' shape.</summary>
@@ -95,8 +177,8 @@ internal sealed partial class TcObjectModel
                 $"{what()}: TwinCAT publishes no FullPath for it — Volt reads its saved file for what the text cannot say " +
                 "(its special function, its object properties, its build entry), so it is not pulled rather than pulled " +
                 "as an object with none.");
-        // The live exclusion, from the same XML: the item's own flag, or one inherited from a folder (C39).
-        var exclusion = ExclusionOf(item, what);
+        // The live build properties, from the same XML: the exclusion (own, or inherited from a folder, C39) and the rest (C40).
+        var build = BuildOf(item, what);
         if (!File.Exists(path))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All) and pull " +
@@ -116,7 +198,7 @@ internal sealed partial class TcObjectModel
         if (obj.Name.LocalName == "Itf")
             foreach (var p in obj.Descendants().Where(e => e.Name.LocalName == "Property" && e.Attribute("Name") is not null))
                 accessors[(string)p.Attribute("Name")!] = (StoredDeclaration(p, "Get"), StoredDeclaration(p, "Set"));
-        return new TcSavedFacts(path!, special, classes, accessors, exclusion);
+        return new TcSavedFacts(path!, special, classes, accessors, build);
     }
 
     /// <summary>An interface property accessor's stored declaration, line ends as LF: null when the property holds no such
@@ -127,9 +209,10 @@ internal sealed partial class TcObjectModel
 
     /// <summary>The child elements of the <c>.plcproj</c>'s <c>&lt;Compile Include&gt;</c> entry for
     /// <paramref name="file"/> — none when the saved project does not list it yet (a new object, before the project is
-    /// saved: TwinCAT writes the source file at the create and the <c>.plcproj</c> on save). Exclusion is not read here:
-    /// the saved <c>&lt;ExcludeFromBuild&gt;</c> lags the IDE until a save and never holds a folder's, so the live
-    /// <c>Exclude</c> property decides it (<see cref="Exclusion"/>, C39).
+    /// saved: TwinCAT writes the source file at the create and the <c>.plcproj</c> on save). No build property is read
+    /// here: the saved <c>&lt;ExcludeFromBuild&gt;</c>, <c>&lt;LinkAlways&gt;</c>, <c>&lt;External&gt;</c>,
+    /// <c>&lt;CompilerDefines&gt;</c> and <c>&lt;AdditionalAllocation&gt;</c> lag the IDE until a save, so the live
+    /// properties decide them (<see cref="Build"/>, C39, C40).
     ///
     /// <para><b>Every entry, wherever its file is</b> (gate review of step 3, finding 6): an <c>Include</c> is resolved
     /// against the project's folder and compared as a full path, so a LINKED file outside it (<c>..\Shared\X.TcPOU</c>)

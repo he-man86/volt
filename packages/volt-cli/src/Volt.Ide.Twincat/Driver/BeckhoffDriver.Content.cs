@@ -90,14 +90,23 @@ public sealed partial class BeckhoffDriver
         }
     }
 
+    /// <summary>The <c>.plcproj</c> build entries that are the save's copy of a live property the item publishes (C39,
+    /// C40), whatever their value — and <c>SubType</c>.</summary>
+    private static readonly HashSet<string> SavedCopies = new(StringComparer.Ordinal)
+    {
+        "SubType", "ExcludeFromBuild", TcObjectModel.LinkAlwaysProperty, TcObjectModel.ExternalProperty,
+        TcObjectModel.CompilerDefinesProperty, TcObjectModel.AdditionalAllocationProperty,
+    };
+
     /// <summary>The object's properties on TwinCAT (openspec bridge-one-to-one §1.1 "TwinCAT and the object-property
-    /// lines"): <c>%EXCLUDE_FROM_BUILD</c> when the item's own live <c>Exclude</c> flag is set (DIALECT C39), and no
-    /// measured member for any other key — and an object whose SAVED files hold what the text cannot say is refused by
-    /// name, never read as a plain one: a <c>SpecialFunc</c> other than <c>None</c> (the vocabulary is unmeasured,
-    /// <c>tc-special-classes</c>, DIALECT C2s), an <c>&lt;ObjectProperties&gt;</c> archive other than the SFC body's (which
-    /// travels with its unsupported body), or a <c>.plcproj</c> build entry other than <c>SubType</c> and
-    /// <c>ExcludeFromBuild</c>. <paramref name="facts"/> null: the node answers no automation XML
-    /// (<see cref="TcObjectModel.SavedFacts"/>) — the offline doubles' shape.</summary>
+    /// lines"): its LIVE build properties (DIALECT C39, C40) — <c>%EXCLUDE_FROM_BUILD</c> for its own <c>Exclude</c> flag,
+    /// <c>%LINK_ALWAYS</c>, <c>%EXTERNAL</c>, <c>%COMPILER_DEFINES</c> — and no measured member for any other key; an
+    /// object whose SAVED files hold what the text cannot say is refused by name, never read as a plain one: a
+    /// <c>SpecialFunc</c> other than <c>None</c> (the vocabulary is unmeasured, <c>tc-special-classes</c>, DIALECT C2s), an
+    /// <c>&lt;ObjectProperties&gt;</c> archive other than the SFC body's (which travels with its unsupported body), or a
+    /// <c>.plcproj</c> build entry that is no copy of a live property (<see cref="SavedCopies"/>).
+    /// <paramref name="facts"/> null: the node answers no automation XML (<see cref="TcObjectModel.SavedFacts"/>) — the
+    /// offline doubles' shape.</summary>
     private ObjectProperties ReadProperties(ItemRef item, TcSavedFacts? facts)
     {
         if (facts is null) return ObjectProperties.None;
@@ -110,40 +119,46 @@ public sealed partial class BeckhoffDriver
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{What()} holds the object property '{property}' — TwinCAT has no measured member Volt can spell for it, " +
                 "so the object is not pulled without it.");
-        // The saved entry's <ExcludeFromBuild> is the save's copy of the live flag read below (C39), whatever its value.
-        if (_om.CompileEntry(facts.File).FirstOrDefault(e => e is not ("SubType" or "ExcludeFromBuild")) is { } entry)
+        if (_om.CompileEntry(facts.File).FirstOrDefault(e => !SavedCopies.Contains(e)) is { } entry)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{What()}: its .plcproj entry holds <{entry}> — a build property TwinCAT has no measured member for in " +
                 "Volt's text, so the object is not pulled.");
-        return facts.Exclusion switch
-        {
-            TcExclusion.Built => ObjectProperties.None,
-            TcExclusion.Own => ObjectProperties.None with { ExcludeFromBuild = true },
-            // An item under an excluded folder is named by the walk and never read (WalkInner): one read here is a folder
-            // exclusion the walk did not see.
-            _ => throw new BridgeException(BridgeErrorCodes.Unreadable,
+        // An item under an excluded folder is named by the walk and never read (WalkInner): one read here is a folder
+        // exclusion the walk did not see.
+        if (facts.Build.Exclusion == TcExclusion.Inherited)
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{What()}: TwinCAT reads it as excluded by a folder above it, and the walk found no excluded folder there " +
-                "(DIALECT C39), so it is not pulled."),
-        };
+                "(DIALECT C39), so it is not pulled.");
+        return Spelled(facts.Build);
     }
 
-    /// <summary>A member's own exclusion (C39): <c>%EXCLUDE_FROM_BUILD</c> on its own flag. One that reads as inherited is
-    /// excluded by its POU, whose own line says so; TwinCAT shows no member flag of its own under an excluded POU.</summary>
-    private ObjectProperties MemberProperties(ItemRef member, string name) =>
-        _om.Exclusion(Com(member), () => $"'{name}'") == TcExclusion.Own
-            ? ObjectProperties.None with { ExcludeFromBuild = true }
-            : ObjectProperties.None;
-
-    /// <summary>Write each pushed exclusion that differs from the live one (C39) — the item's and every pushed member's —
-    /// AFTER the text, so nothing a text write rewrites can undo it. An item being included goes first and one being
-    /// excluded last: TwinCAT shows a member of an excluded POU as excluded by its POU, with no flag of its own to set.</summary>
-    private void WriteExclusions(ItemRef item, ItemContent content)
+    /// <summary>The lines live build properties spell (C39, C40): an exclusion only when it is the node's own.</summary>
+    private static ObjectProperties Spelled(TcBuild build) => ObjectProperties.None with
     {
-        var live = _om.Exclusion(Com(item), () => $"'{Name(item)}'");
+        ExcludeFromBuild = build.Exclusion == TcExclusion.Own,
+        LinkAlways = build.LinkAlways,
+        External = build.External,
+        CompilerDefines = build.CompilerDefines,
+    };
+
+    /// <summary>A member's own build properties (C39, C40). An exclusion that reads as inherited is its POU's, whose own
+    /// line says so; TwinCAT shows no member flag of its own under an excluded POU. The others are always its own.</summary>
+    private ObjectProperties MemberProperties(ItemRef member, string name) =>
+        _om.Build(Com(member), () => $"'{name}'") is { } build ? Spelled(build) : ObjectProperties.None;
+
+    /// <summary>Write each pushed build property that differs from the live one (C39, C40) — the item's and every pushed
+    /// member's — AFTER the text, so nothing a text write rewrites can undo it. An item being included goes first and one
+    /// being excluded last: TwinCAT shows a member of an excluded POU as excluded by its POU, with no flag of its own to
+    /// set.</summary>
+    private void WriteBuildProperties(ItemRef item, ItemContent content)
+    {
+        string Item() => $"'{Name(item)}'";
+        var live = _om.Build(Com(item), Item);
         if (live is null) return;   // no automation XML: the offline doubles' shape
-        var held = live == TcExclusion.Own;
+        var held = live.Exclusion == TcExclusion.Own;
         var pushed = content.Properties.ExcludeFromBuild;
-        if (held && !pushed) _om.WriteExclusion(Com(item), false, () => $"'{Name(item)}'");
+        if (held && !pushed) _om.WriteExclusion(Com(item), false, Item);
+        WriteOwn(Com(item), live, content.Properties, Item);
 
         if (content.Members.Count > 0)
         {
@@ -153,21 +168,39 @@ public sealed partial class BeckhoffDriver
             {
                 if (!sites.TryGetValue(m.Name, out var member)) continue;   // the member write refused it by name
                 string What() => $"'{Name(item)}': its {m.Kind.Replace('_', ' ')} '{m.Name}'";
-                if (_om.Exclusion(Com(member), What) == TcExclusion.Own == m.Properties.ExcludeFromBuild) continue;
-                _om.WriteExclusion(Com(member), m.Properties.ExcludeFromBuild, What);
+                if (_om.Build(Com(member), What) is not { } memberLive) continue;
+                if (memberLive.Exclusion == TcExclusion.Own != m.Properties.ExcludeFromBuild)
+                    _om.WriteExclusion(Com(member), m.Properties.ExcludeFromBuild, What);
+                WriteOwn(Com(member), memberLive, m.Properties, What);
             }
         }
 
-        if (!held && pushed) _om.WriteExclusion(Com(item), true, () => $"'{Name(item)}'");
+        if (!held && pushed) _om.WriteExclusion(Com(item), true, Item);
     }
 
-    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>): <c>%EXCLUDE_FROM_BUILD</c>
-    /// is the item's or member's live <c>Exclude</c> flag, written by <see cref="WriteExclusions"/> (DIALECT C39); TwinCAT
-    /// has no measured member for any other <c>%</c>-key (design §1.1), so a text carrying one is refused by name — never
-    /// dropped.</summary>
+    /// <summary>Write <c>LinkAlways</c>, <c>External</c> and <c>CompilerDefines</c> where the pushed value differs from the
+    /// live one, each by its own <c>ConsumeXml</c>, read back (C40).</summary>
+    private void WriteOwn(object node, TcBuild live, ObjectProperties pushed, Func<string> what)
+    {
+        static string Flag(bool on) => on ? "True" : "False";
+        if (live.LinkAlways != pushed.LinkAlways)
+            _om.WriteBuildProperty(node, TcObjectModel.LinkAlwaysProperty, Flag(pushed.LinkAlways), what);
+        if (live.External != pushed.External)
+            _om.WriteBuildProperty(node, TcObjectModel.ExternalProperty, Flag(pushed.External), what);
+        if (live.CompilerDefines != pushed.CompilerDefines)
+            _om.WriteBuildProperty(node, TcObjectModel.CompilerDefinesProperty, pushed.CompilerDefines ?? "", what);
+    }
+
+    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>): <c>%EXCLUDE_FROM_BUILD</c>,
+    /// <c>%LINK_ALWAYS</c>, <c>%EXTERNAL</c> and <c>%COMPILER_DEFINES</c> are the item's or member's live build properties,
+    /// written by <see cref="WriteBuildProperties"/> (DIALECT C39, C40); TwinCAT has no measured member for any other
+    /// <c>%</c>-key (design §1.1), so a text carrying one is refused by name — never dropped.</summary>
     public override void ValidateProperties(string what, ObjectProperties pushed, bool create)
     {
-        var lines = Volt.Engine.Format.St.PropertyLines.Write(pushed with { Class = null, ExcludeFromBuild = false });
+        var lines = Volt.Engine.Format.St.PropertyLines.Write(pushed with
+        {
+            Class = null, ExcludeFromBuild = false, LinkAlways = false, External = false, CompilerDefines = null,
+        });
         if (lines.Count == 0) return;
         var key = lines[0].Split(' ')[0];
         throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -252,7 +285,7 @@ public sealed partial class BeckhoffDriver
                 "carries it too — TwinCAT holds no flag of its own for a member of an excluded POU (DIALECT C39). Remove " +
                 "the member's line: the POU's excludes it.");
         // Through the handle the text write hands back: a member archive round trip replaces the POU (D4d).
-        WriteExclusions(WriteText(item, content, bodies), content);
+        WriteBuildProperties(WriteText(item, content, bodies), content);
     }
 
     /// <returns>The item's live handle after the write.</returns>
