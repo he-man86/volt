@@ -21,7 +21,8 @@ namespace Volt.Engine.Ide;
 ///
 /// <para><b>The IDE half is read once and cached for the life of this instance</b>, and a driver keeps an instance for
 /// ONE operation — it drops it at the start of every project walk (<c>WalkItems</c>), so an item created since the
-/// last operation is seen. The project is indexed in ONE walk (<see cref="ItemLookup.All"/>), the first time a body asks about a name its own declarations
+/// last operation is seen. The project is indexed in ONE walk (<see cref="ItemLookup.All"/>, or the operation's own walk
+/// where the driver hands it in), the first time a body asks about a name its own declarations
 /// do not hold — a call head (every function a body calls is such a name), a name shaped like a wire — and each
 /// declaration is read the first time it is asked for. A walk per name would be a walk per function a project
 /// calls.</para>
@@ -29,6 +30,7 @@ namespace Volt.Engine.Ide;
 public sealed class ProjectDeclarations
 {
     private readonly IProjectTree _tree;
+    private readonly Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? _items;
     private readonly Func<ItemRef, string?> _read;
     private readonly Func<string, bool> _isRefusedPouName;
     private readonly Func<IReadOnlyList<Library.LibSignature>> _librarySignatures;
@@ -52,7 +54,7 @@ public sealed class ProjectDeclarations
             // must: skipping it would resolve a name it holds as unknown. But the refusal lands on the OP's item, which
             // may well have been read, so it says why this op needed the folder — the code stays (the bridge is
             // impaired, the remedy is the folder's), the reason is added (review of bridge-refusal-review 7).
-            try { all = ItemLookup.All(_tree); }
+            try { all = _items?.Invoke() ?? ItemLookup.All(_tree); }
             catch (Exception ex) when (ex is Volt.Contracts.ICodedError coded && coded.ErrorCode == Volt.Contracts.ConflictCodes.ItemUnverified)
             {
                 throw new BridgeException(coded.ErrorCode,
@@ -75,9 +77,15 @@ public sealed class ProjectDeclarations
     /// (<c>IIdeSession.ExtractLibrarySignatures</c>) — a library FUNCTION's box is built with what it states (ld-fbd-coverage
     /// 2R.4b). Read at most once per instance, and only when a pushed box names a callee nothing in the project names: on
     /// CODESYS the read precompiles (a build), so a push with no such box never pays for it.</param>
+    /// <param name="items">Every top-level item of the tree, as <see cref="ItemLookup.All"/> lists them and in its order —
+    /// from a walk the operation already made, when the driver has one that still describes the tree (TwinCAT: openspec
+    /// <c>twincat-large-solution-refs</c>, the index was a second full walk of the solution); null (or a null answer)
+    /// walks the tree for it.</param>
     public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
-                               Func<IReadOnlyList<Library.LibSignature>> librarySignatures)
+                               Func<IReadOnlyList<Library.LibSignature>> librarySignatures,
+                               Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? items = null)
     {
+        _items = items;
         _tree = tree ?? throw new ArgumentNullException(nameof(tree));
         _read = readDeclaration ?? throw new ArgumentNullException(nameof(readDeclaration));
         _isRefusedPouName = isRefusedPouName ?? throw new ArgumentNullException(nameof(isRefusedPouName));

@@ -13,8 +13,9 @@ namespace Volt.Ide.Codesys;
 /// <c>LibRefNode</c> for a library reference).</summary>
 public sealed partial class CodesysDriver
 {
-    public WalkResult WalkItems()
+    public WalkResult WalkItems(WalkObserver? observer = null)
     {
+        _walkObserver = observer;
         // A walk starts an operation (fetch, refs, push, build), and the project's declarations are read afresh for
         // it: an item created or renamed since the last one must be in the scope network text is written and read
         // against (ProjectDeclarations), or a pulled call through it would go to the marker as undeclared.
@@ -24,9 +25,14 @@ public sealed partial class CodesysDriver
         var unreadable = new List<UnreadableObject>();
         var applications = new List<string>();
         var root = _om.PrimaryProject;
-        if (root != null) Walk(root, "", items, unwalked, unreadable, applications);
+        try { if (root != null) Walk(root, "", items, unwalked, unreadable, applications); }
+        finally { _walkObserver = null; }
         return new WalkResult(items, unwalked, unreadable, applications);
     }
+
+    /// <summary>The observer of the walk running now (<see cref="WalkItems"/>): told each application as its subtree is
+    /// walked. CODESYS learns its applications as it walks, so it states no total.</summary>
+    private WalkObserver? _walkObserver;
 
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
     // structural node (PLC Logic / Application / Task Configuration), or a device — nests its children under its
@@ -125,10 +131,12 @@ public sealed partial class CodesysDriver
                         var held2 = new List<ProjectItem>();
                         Walk(child, sub, held2, unwalked, unreadable, applications);
                         ExcludedFolder.NameItems(held2, sub, unreadable);
+                        if (code == ItemKind.Application) _walkObserver?.ApplicationWalked(sub, applications.Count, null);
                         continue;
                     }
                 }
                 Walk(child, sub, items, unwalked, unreadable, applications);
+                if (code == ItemKind.Application) _walkObserver?.ApplicationWalked(sub, applications.Count, null);
                 continue;
             }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown

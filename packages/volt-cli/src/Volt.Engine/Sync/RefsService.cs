@@ -22,13 +22,23 @@ public static class RefsService
         // caller gets "is the bridge on my project?" answered here, not from the throttled health cache.
         var bound = OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
 
-        var sw = Stopwatch.StartNew();
-        var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs);
+        // ONE INFO LINE PER REFS, saying where its time went (openspec twincat-large-solution-refs): the walk and its
+        // phases, each application, the materialize. A refs that fails says what it was doing — the PLC project it had
+        // walked last, or the item it was reading — so a fault in the field names its place (its stack follows in the
+        // pipe server's error line).
+        var clock = new SnapshotClock();
+        ProjectSnapshot snap;
+        try { snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs, clock: clock); }
+        catch (Exception ex)
+        {
+            VoltLog.Warn($"refs: failed after {clock.ElapsedMs} ms while {clock.Doing} — {ex.GetType().Name}: {ex.Message} | {clock}");
+            throw;
+        }
 
         var hit = new List<string>();
         if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");
-        if (snap.Unreadable.Count > 0) hit.Add($"{snap.Unreadable.Count} unreadable: {string.Join(", ", snap.Unreadable)}");
-        VoltLog.Debug($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} ({sw.ElapsedMilliseconds}ms)");
+        if (snap.Unreadable.Count > 0) hit.Add($"{snap.Unreadable.Count} unreadable");
+        VoltLog.Info($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} in {clock.ElapsedMs} ms — {clock}");
 
         return new RefsResponse
         {

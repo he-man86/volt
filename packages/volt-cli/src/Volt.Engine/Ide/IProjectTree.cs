@@ -13,8 +13,10 @@ public interface IProjectTree
     /// <para>The completeness half is not bookkeeping. A driver skips a subtree it cannot enumerate rather than
     /// failing the pull, which is right; but `FetchService` derives DELETIONS from absence, so a caller that
     /// cannot tell a partial walk from a complete one deletes the engineer's files for everything under the
-    /// folder that faulted. See <see cref="WalkResult"/>.</para></summary>
-    WalkResult WalkItems();
+    /// folder that faulted. See <see cref="WalkResult"/>.</para>
+    /// <para><paramref name="observer"/>, when given, is told each application as its walk finishes and the time of any
+    /// vendor-only phase (<see cref="WalkObserver"/>) — the progress and the timing line of a long walk.</para></summary>
+    WalkResult WalkItems(WalkObserver? observer = null);
 
     /// <summary>The root the <see cref="WalkItems"/> folder paths are measured from — the whole tree's origin
     /// (CODESYS primary project; TwinCAT solution). A push path's folder is measured from here, exactly as the walk

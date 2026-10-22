@@ -190,7 +190,10 @@ public sealed class BridgePipeHost : IDisposable
                 _paused = true;
                 return new { ok = true };
             case Ops.Refs:
-                return RunRead(() => (object)RefsService.Handle(_ide, Body<RefsRequest>(req), f => onProgress(f)));
+            {
+                var body = Body<RefsRequest>(req);
+                return _refs.Run(Key(req), onProgress, progress => RunRead(() => (object)RefsService.Handle(_ide, body, f => progress(f))));
+            }
             case Ops.Fetch:
                 return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
             case Ops.Grep:
@@ -205,6 +208,14 @@ public sealed class BridgePipeHost : IDisposable
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown op '{req.Op}'");
         }
     }
+
+    /// <summary>The <c>refs</c> running now, by request body (<see cref="SingleFlight"/>).</summary>
+    private readonly SingleFlight _refs = new(Ops.Refs);
+
+    /// <summary>A request body as its caller sent it — the one key two calls share an answer by: equal bodies ask the
+    /// same question (the same baseline, the same expected project).</summary>
+    private static string Key(PipeRequest req) =>
+        req.Body is { ValueKind: not JsonValueKind.Null } body ? body.GetRawText() : "";
 
     // Run a push or build under the write gate, or refuse it at once if another one holds it.
     private object Gated(Func<object> run)

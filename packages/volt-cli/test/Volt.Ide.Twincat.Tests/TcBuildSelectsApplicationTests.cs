@@ -93,7 +93,7 @@ public class TcBuildSelectsApplicationTests
         pane.Text = "1>Untitled1 : error : a line of another build\r\n";
 
         Assert.Equal(new[] { "the named build's own line" },
-            driver.GetBuildDiagnostics(driver.WalkItems).Select(x => x.Message));
+            driver.GetBuildDiagnostics(() => driver.WalkItems()).Select(x => x.Message));
     }
 
     /// <summary>Absent, every application is built, as before: the whole solution's <c>Build</c> (2.3).</summary>

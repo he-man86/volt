@@ -33,11 +33,11 @@ internal static class TcHierarchy
     /// <summary>The system project <paramref name="system"/>'s hierarchy in XAE <paramref name="xaePid"/> — see
     /// <c>TcSolutionExplorer.ReadSystem</c>. Throws <see cref="HierarchyUnreachableException"/> when this worker cannot
     /// unmarshal it, anything else when the read failed.</summary>
-    public static ExplorerNode? ReadSystem(int xaePid, object dte, string system)
+    public static ExplorerNode? ReadSystem(int xaePid, object dte, string system, TcSolutionExplorer.Roots roots)
     {
         var xae = Xae(xaePid);
         if (!Reads(xae.Is32Bit, Environment.Is64BitProcess)) throw new HierarchyUnreachableException(OtherBitness(xae.Is32Bit));
-        try { return TcSolutionExplorer.ReadSystem(dte, system, xae.IdeDir); }
+        try { return TcSolutionExplorer.ReadSystem(dte, system, xae.IdeDir, roots); }
         catch (TcSolutionExplorer.ProxyManifestMissingException ex) { throw new HierarchyUnreachableException(ex.Message); }
         catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
         { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} worker: {ex.Message}"); }

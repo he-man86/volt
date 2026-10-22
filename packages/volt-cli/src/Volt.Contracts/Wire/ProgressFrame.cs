@@ -19,6 +19,11 @@ public sealed class ProgressFrame
     [JsonPropertyName("phase")]
     public string? Phase { get; set; }
 
+    /// <summary>The phase of a read op's WALK frames (<c>refs</c>, <c>fetch</c>): one per application as the walk
+    /// finishes it, <see cref="Done"/> applications of <see cref="Total"/> (null where the vendor learns its applications
+    /// as it walks). They come before the op's item frames and count applications, not items.</summary>
+    public const string WalkingPhase = "walking";
+
     // NEVER SET BY THE BRIDGE. A pipe client sees these null on every frame, always: the bridge serves one op
     // at a time and has no idea it is step 2 of a `volt pull`. They are filled in CLI-side by `PhaseProgress`,
     // which wraps the bridge's frames as a multi-step VERB runs (pull/init: fetch → write → finalize) so a

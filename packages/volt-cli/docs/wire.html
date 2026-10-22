@@ -52,6 +52,23 @@
   <code>phaseIndex</code>/<code>phaseCount</code>, so a frontend folds the per-phase fraction into one
   monotonic bar: <code>(phaseIndex + done/total) / phaseCount</code>.
 </p>
+<p>
+  <code>refs</code> and <code>fetch</code> report their <b>walk</b> first: one frame per application as the walk
+  finishes it, with <code>phase</code> <code>"walking"</code>, <code>done</code> applications walked and
+  <code>total</code> applications (TwinCAT: its PLC projects; CODESYS learns its applications as it walks and sends no
+  <code>total</code>). Then the item frames: the first with <code>phase</code> <code>"reading"</code>,
+  <code>done</code> 0 and <code>total</code> items, then one every 25 items and one at the last.
+</p>
+<pre>{"progress":{"operation":"refs","done":1,"total":18,"phase":"walking"}}
+…
+{"progress":{"operation":"refs","done":18,"total":18,"phase":"walking"}}
+{"progress":{"operation":"refs","done":0,"total":630,"phase":"reading"}}
+{"progress":{"operation":"refs","done":25,"total":630}}</pre>
+<p>
+  A <code>refs</code> that arrives while one with the same body runs <b>joins</b> it: it receives the running one's
+  frames from then on and the same terminal frame. Nothing is kept once it answers; the next <code>refs</code> walks
+  again.
+</p>
 <div class="note">
   <b><code>health</code> never blocks.</b> It answers from a cached snapshot and is never marshalled onto the
   IDE thread, so it is the one op that is safe to poll while a push or a build is running. Everything else

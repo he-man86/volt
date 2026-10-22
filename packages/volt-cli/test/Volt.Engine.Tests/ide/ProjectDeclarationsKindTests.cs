@@ -30,7 +30,7 @@ public class ProjectDeclarationsKindTests
         public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_rows[index1Based - 1]);
         public string Name(ItemRef item) => ((Row)item.Native).Name;
         public int KindCode(ItemRef item) => ((Row)item.Native).Kind;
-        public WalkResult WalkItems() => throw new NotSupportedException();
+        public WalkResult WalkItems(WalkObserver? observer = null) => throw new NotSupportedException();
         public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
         public bool HandlesSurviveStructureChange => true;
         public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls) => throw new NotSupportedException();

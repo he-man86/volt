@@ -342,8 +342,14 @@ namespace Volt.Relay
                 {
                     // One pipe connection per request id — the pipe's own concurrency, which is what lets `health`
                     // answer off the IDE thread while `push` holds it.
+                    // ON A THREAD OF ITS OWN (LongRunning), never one of the pool's: the call blocks for as long as the op
+                    // runs, and a 148 s `refs` retried by its caller held one pool thread per retry. Past the pool's
+                    // minimum the pool injects threads slowly, and the heartbeat, the receive loop and every send — all
+                    // pool work — waited behind them: measured, one ping in 1.5 s at a 100 ms cadence (openspec
+                    // twincat-large-solution-refs; RelayTunnelTests.Pings_keep_their_cadence…). The pipe server does the
+                    // same for the same reason (PipeServer.AcceptLoop).
                     var client = new PipeClient(_pipeName);
-                    var result = await Task.Run(() => client.Call(
+                    var result = await Task.Factory.StartNew(() => client.Call(
                         op,
                         request.Body,
                         progress =>
@@ -352,7 +358,7 @@ namespace Volt.Relay
                             // terminal frame is the thing the caller is waiting for.
                             try { SendAsync(RelayFrames.Progress(id, progress), token).GetAwaiter().GetResult(); }
                             catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: dropped a progress frame: " + ex.Message); }
-                        }), token).ConfigureAwait(false);
+                        }), token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(false);
                     outcome = "ok" + PushVerdict(op, result);
                     frame = RelayFrames.Result(id, result);
                 }

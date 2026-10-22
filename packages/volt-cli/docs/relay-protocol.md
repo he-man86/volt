@@ -107,6 +107,11 @@ A terminal frame ends the request. A relay MUST tolerate zero progress frames (m
 NOT assume any relationship between `done`/`total` and time. Progress is best-effort: a progress frame that
 fails to send is dropped, the request is not.
 
+`refs` and `fetch` send frames from the start of their walk: one per application walked (`phase: "walking"`,
+`done` of `total` applications; a TwinCAT PLC project is an application), then the item frames (`phase:
+"reading"` first, then one every 25 items). On a large TwinCAT solution the walk alone can take longer than a
+minute, so a relay that counts progress sees the bridge working before any item is read (`wire.html`).
+
 **Anything else** from the relay (a frame with no `op`: a pong, a keepalive, a field from a newer relay) is
 ignored, but counts as traffic for the watchdog.
 
@@ -137,6 +142,13 @@ nested inside the running build — its build pumps the IDE's thread — and Twi
 
 The reads (`refs`, `fetch`) are not gated: they change nothing. On TwinCAT they queue behind a running build;
 on CODESYS one may answer while a build runs. That is a difference in timing, never in the bytes answered.
+
+**A `refs` while an identical `refs` runs joins it** (same body): it receives the running one's progress frames
+from then on and the same terminal frame, so a retry waits for the walk already under way instead of queueing
+another. Nothing is kept once it answers: the next `refs` walks again.
+
+The heartbeat is the bridge's own: every request's pipe call holds a thread of its own, so neither a long op on
+the IDE's thread nor the requests waiting behind it delay a ping.
 
 A relay may have many requests in flight on one socket. Frames for different ids interleave freely; a relay
 demultiplexes on `id` and nothing else. Frame ORDER is guaranteed only within one id.

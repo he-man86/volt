@@ -272,7 +272,11 @@ internal sealed partial class TcObjectModel
     /// (<see cref="ForgetExplorer"/>).</summary>
     private readonly Dictionary<string, ExplorerNode?> _systemHierarchies = new(StringComparer.Ordinal);
 
-    public TcObjectModel() { ReadExplorer = (dte, system) => TcHierarchy.ReadSystem(_xaePid, dte, system); }
+    public TcObjectModel() { ReadExplorer = (dte, system) => TcHierarchy.ReadSystem(_xaePid, dte, system, _roots ??= new()); }
+
+    /// <summary>This operation's enumeration of the solution's project hierarchies (<see cref="TcSolutionExplorer.Roots"/>),
+    /// dropped with the snapshots (<see cref="ForgetExplorer"/>).</summary>
+    private TcSolutionExplorer.Roots? _roots;
 
     /// <summary>Why this bridge serves nothing, or null: the IDE's hierarchy cannot be read by any reader Volt has
     /// (<see cref="HierarchyUnreachableException"/>), and Volt does not walk the TwinCAT tree without it (C2i). Set by
@@ -326,6 +330,7 @@ internal sealed partial class TcObjectModel
     public void ForgetExplorer()
     {
         _systemHierarchies.Clear();
+        _roots = null;
         if (_plcs is null) return;
         foreach (var plc in _plcs) Forget(plc);
     }
@@ -351,12 +356,19 @@ internal sealed partial class TcObjectModel
     /// asked again of a fresh read before the folder is refused (<see cref="RequireListed"/>) — the refusal is for a
     /// hierarchy that came back short, not for one Volt's own create or delete made stale (5Qa review: a create + update
     /// + delete batch, and every member create's re-find, were refused live "holds 2 … the Solution Explorer lists 3").
-    /// Per PLC project: <see cref="TcPlc.StaleSinceWrite"/>.</summary>
+    /// Per PLC project: <see cref="TcPlc.StaleSinceWrite"/>.
+    /// <para>Every structural write is counted (<see cref="StructureWrites"/>), so what a walk read can be told from what
+    /// the tree holds now.</para></summary>
     private void StructureChanged()
     {
+        StructureWrites++;
         if (_explorer is { Clean: false }) ForgetSystem(CurrentPlc.System);
         else if (_explorer is not null) CurrentPlc.StaleSinceWrite = true;
     }
+
+    /// <summary>How many structural writes (create, delete, rename, move, member placement) this session has made — a
+    /// walk's results describe the tree only while this is what it was when the walk read them.</summary>
+    public int StructureWrites { get; private set; }
 
     /// <summary>The snapshot for this operation, read once. REQUIRED: without it Volt cannot know which child would
     /// crash XAE, so an unreadable hierarchy fails the operation — there is no unguarded walk to fall back to.</summary>

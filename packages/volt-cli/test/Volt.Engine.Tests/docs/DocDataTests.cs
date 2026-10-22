@@ -81,6 +81,12 @@ public class DocDataTests
     /// <summary>The frame codes beyond <see cref="BridgeErrorCodes"/>: exactly the one gate code a walk can stop on.</summary>
     private static readonly string[] GateCodesAsFrames = { ConflictCodes.ItemUnverified };
 
+    /// <summary>The progress a read op sends while it walks (openspec <c>twincat-large-solution-refs</c>).</summary>
+    private const string WalkFrames =
+        "Progress frames start with the WALK: one per application as the walk finishes it, `phase: \"walking\"`, `done` "
+        + "applications of `total` (a TwinCAT PLC project is an application; CODESYS states no `total`). The item frames "
+        + "follow: `phase: \"reading\"` with `done` 0 of `total` items, then one every 25 items and one at the last.";
+
     private static readonly Dictionary<string, (string[] Errors, string[] Outcomes)> Outcomes = new()
     {
         [Ops.Health] = (new[] { BridgeErrorCodes.InternalError }, new[]
@@ -122,6 +128,10 @@ public class DocDataTests
             + "stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
             "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The "
             + "session is marked degraded meanwhile, which `health` reports.",
+            WalkFrames,
+            "A `refs` that arrives while one with the same body runs JOINS it: it receives that one's progress frames from "
+            + "then on and the same terminal frame, result or error. Nothing is kept once it answers: the next `refs` walks "
+            + "again.",
         }),
         [Ops.Fetch] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                                BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
@@ -133,6 +143,7 @@ public class DocDataTests
             "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a "
             + "known path absent from a folder it did read (the path's own prefix) is still in `removed`.",
             "Items that would not materialize are named in `unreadable`, not raised.",
+            WalkFrames,
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                               BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy,
@@ -813,7 +824,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "b912ca5f835efbe9510284806493e74bcb03434220ce0b91f15590666e76a9ce";
+    private const string PinnedWireShape = "daa5db5909296cbec20a8b528d029588d51bae052a1d2c7a4063672b0948a24c";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

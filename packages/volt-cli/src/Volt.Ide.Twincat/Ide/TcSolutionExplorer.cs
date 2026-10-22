@@ -149,42 +149,96 @@ internal static class TcSolutionExplorer
     private static readonly Guid SidVsSolution = new("7f7cd0db-91ef-49dc-9fa9-02d128515dd4");
 
     /// <summary>The hierarchy of the SYSTEM project named <paramref name="system"/> (its root names it, by name or
-    /// caption), with every node beneath it — every PLC project of that system project in one read; null when the
+    /// caption), with every PLC project of it in full (<see cref="PlcSubtree"/>) — in one read; null when the
     /// solution holds no such system project. Scoped to the system project because two system projects may hold a PLC
     /// project of one name (<see cref="Find"/> then searches one). Throws when the hierarchy itself cannot be read.
     /// <paramref name="ideDir"/> is the IDE exe's folder: XAE's proxy manifest there is active for the whole read, so
-    /// every interface the read unmarshals finds it.</summary>
-    public static ExplorerNode? ReadSystem(object dte, string system, string ideDir)
+    /// every interface the read unmarshals finds it. <paramref name="roots"/> is the operation's enumeration of the
+    /// solution's projects.</summary>
+    public static ExplorerNode? ReadSystem(object dte, string system, string ideDir, Roots roots)
     {
         using (Activate(ideDir, out var refused))
-            try { return Read(dte, system); }
+            try { return Read(dte, system, roots); }
             catch (COMException ex) when (refused.Length > 0 && IsProxyMissing(ex.HResult))
             { throw new COMException(refused + ex.Message, ex.HResult); }
     }
 
-    private static ExplorerNode? Read(object dte, string system)
+    /// <summary>The solution's project hierarchies, enumerated ONCE per operation and named as they are met
+    /// (<see cref="TcObjectModel.ForgetExplorer"/> drops them with the snapshots). Each system project's read enumerated
+    /// the solution's projects from the start until it met its own, reading each root's name and caption — n/2 projects
+    /// per read, n reads per walk: O(n²) cross-process reads on an n-system solution (openspec
+    /// <c>twincat-large-solution-refs</c>).</summary>
+    internal sealed class Roots
     {
-        var sp = (IOleServiceProvider)dte;
-        var sid = SidVsSolution;
-        var iid = typeof(IVsSolution).GUID;
-        Check(sp.QueryService(ref sid, ref iid, out var p), "QueryService(SVsSolution)");
-        IVsSolution solution;
-        try { solution = (IVsSolution)Marshal.GetObjectForIUnknown(p); }
-        finally { Marshal.Release(p); }
+        private IEnumHierarchies? _enum;
+        private bool _exhausted;
+        private readonly List<(string Name, string Caption, List<string> Unread, IVsHierarchy Hierarchy)> _seen = new();
 
-        var any = Guid.Empty;
-        Check(solution.GetProjectEnum(EpfAllProjects, ref any, out var projects), "IVsSolution.GetProjectEnum");
-        var one = new IVsHierarchy[1];
-        while (projects.Next(1, one, out var got) == 0 && got == 1)
+        /// <summary>The root named <paramref name="system"/> (by name or caption), enumerating on from where the last
+        /// lookup stopped; null when the solution holds none.</summary>
+        internal (string Name, string Caption, List<string> Unread, IVsHierarchy Hierarchy)? Find(object dte, string system)
         {
-            var unread = new List<string>();
-            var name = Prop(one[0], VsItemIdRoot, VshPropIdName, unread);
-            var caption = Prop(one[0], VsItemIdRoot, VshPropIdCaption, unread);
-            if (!string.Equals(name, system, StringComparison.Ordinal) && !string.Equals(caption, system, StringComparison.Ordinal))
-                continue;
-            return new ExplorerNode(name, "", caption, Children(one[0], VsItemIdRoot, 0, unread), Unread(unread));
+            foreach (var r in _seen)
+                if (Names(r.Name, r.Caption, system)) return r;
+            if (_exhausted) return null;
+            _enum ??= Enumerate(dte);
+            var one = new IVsHierarchy[1];
+            while (_enum.Next(1, one, out var got) == 0 && got == 1)
+            {
+                var unread = new List<string>();
+                var r = (Prop(one[0], VsItemIdRoot, VshPropIdName, unread), Prop(one[0], VsItemIdRoot, VshPropIdCaption, unread), unread, one[0]);
+                _seen.Add(r);
+                if (Names(r.Item1, r.Item2, system)) return r;
+            }
+            _exhausted = true;
+            return null;
         }
-        return null;
+
+        private static bool Names(string name, string caption, string system) =>
+            string.Equals(name, system, StringComparison.Ordinal) || string.Equals(caption, system, StringComparison.Ordinal);
+
+        private static IEnumHierarchies Enumerate(object dte)
+        {
+            var sp = (IOleServiceProvider)dte;
+            var sid = SidVsSolution;
+            var iid = typeof(IVsSolution).GUID;
+            Check(sp.QueryService(ref sid, ref iid, out var p), "QueryService(SVsSolution)");
+            IVsSolution solution;
+            try { solution = (IVsSolution)Marshal.GetObjectForIUnknown(p); }
+            finally { Marshal.Release(p); }
+            var any = Guid.Empty;
+            Check(solution.GetProjectEnum(EpfAllProjects, ref any, out var projects), "IVsSolution.GetProjectEnum");
+            return projects;
+        }
+    }
+
+    /// <summary>The system-manager tree node of the PLC projects: the canonical name XAE gives the system project's
+    /// <c>PLC</c> node — its tree path, the one <c>LookupTreeItem("TIPC")</c> resolves, not a caption.</summary>
+    private const string PlcNode = "TIPC";
+
+    /// <summary>THE PLC SUBTREE ONLY (openspec <c>twincat-large-solution-refs</c>): the snapshot reads nothing outside the
+    /// PLC projects' own trees — every caller finds a PLC project's node (<see cref="Find"/>) and reads below it. The rest
+    /// of the system project — SYSTEM, MOTION, SAFETY, C++, the I/O tree with every device, terminal and channel, and each
+    /// PLC project's instance with every mapped symbol — was read node by node, three cross-process calls a node, and
+    /// grows with the plant, not with the code. Below the system project's root only the <c>PLC</c> node (canonical
+    /// <see cref="PlcNode"/>) is descended; below a PLC project item (<c>TIPC|&lt;plc&gt;</c>) only its project node, not
+    /// its instance (<c>TIPC|&lt;plc&gt;|&lt;plc&gt; Instance</c>, a system-manager path). Every node passed over is still
+    /// listed, with no children; a node whose canonical name could not be read is descended, as before. The canonical
+    /// names were measured on MultiProject (2026-10-21, <c>TcPlcSubtreeReadTests</c>), and the snapshot of every PLC project
+    /// compared equal to the one the whole hierarchy gives.</summary>
+    internal static bool PlcSubtree(int depth, string? canonical) => depth switch
+    {
+        0 => canonical is null || string.Equals(canonical, PlcNode, StringComparison.Ordinal),
+        2 => canonical is null || !canonical.StartsWith(PlcNode + "|", StringComparison.Ordinal),
+        _ => true,
+    };
+
+    private static ExplorerNode? Read(object dte, string system, Roots roots)
+    {
+        if (roots.Find(dte, system) is not { } found) return null;
+        var (name, caption, rootUnread, hierarchy) = found;
+        var unread = new List<string>(rootUnread);
+        return new ExplorerNode(name, "", caption, Children(hierarchy, VsItemIdRoot, 0, unread, PlcSubtree), Unread(unread));
     }
 
     /// <summary>The node of the PLC project named <paramref name="name"/> (the PLC tree's nested project, e.g.
@@ -205,7 +259,10 @@ internal static class TcSolutionExplorer
     /// QUIETLY OR STANDS IN A VALUE FOR ITSELF: a failure is recorded — on the child whose property it was, or in
     /// <paramref name="unread"/> (the parent's) when the child list itself could not be read on — and the snapshot
     /// refuses any such node inside the PLC project.</summary>
-    internal static List<ExplorerNode> Children(IVsHierarchy h, uint id, int depth, List<string> unread)
+    /// <param name="descend">Whether to read the subtree of the child at <c>depth</c> whose canonical name is the
+    /// string — null reads every subtree. A child not descended is listed with no children.</param>
+    internal static List<ExplorerNode> Children(IVsHierarchy h, uint id, int depth, List<string> unread,
+                                                Func<int, string?, bool>? descend = null)
     {
         var list = new List<ExplorerNode>();
         if (depth > MaxDepth) { unread.Add($"deeper than {MaxDepth} levels"); return list; }
@@ -218,14 +275,15 @@ internal static class TcSolutionExplorer
             var canonical = h.GetCanonicalName(c, out var cn) == 0 ? cn ?? "" : null;
             List<ExplorerNode> below;
             var ih = typeof(IVsHierarchy).GUID;
-            if (h.GetNestedHierarchy(c, ref ih, out var nested, out var nestedId) == 0 && nested != IntPtr.Zero)
+            if (descend is not null && !descend(depth, canonical)) below = new List<ExplorerNode>();
+            else if (h.GetNestedHierarchy(c, ref ih, out var nested, out var nestedId) == 0 && nested != IntPtr.Zero)
             {
                 IVsHierarchy nh;
                 try { nh = (IVsHierarchy)Marshal.GetObjectForIUnknown(nested); }
                 finally { Marshal.Release(nested); }
-                below = Children(nh, nestedId, depth + 1, mine);
+                below = Children(nh, nestedId, depth + 1, mine, descend);
             }
-            else below = Children(h, c, depth + 1, mine);
+            else below = Children(h, c, depth + 1, mine, descend);
             var name = Prop(h, c, VshPropIdName, mine);
             var caption = Prop(h, c, VshPropIdCaption, mine);
             list.Add(new ExplorerNode(name, canonical, caption, below, Unread(mine)));
@@ -254,7 +312,25 @@ internal static class TcSolutionExplorer
 
     private static string? Unread(List<string> unread) => unread.Count == 0 ? null : string.Join("; ", unread);
 
-    private static uint ItemId(object v) => v is int i ? unchecked((uint)i) : Convert.ToUInt32(v, CultureInfo.InvariantCulture);
+    /// <summary>The VSITEMID a hierarchy answered as a VARIANT. A VSITEMID is a DWORD, and a project system boxes it as
+    /// it likes: <c>VT_I4</c> (a pointer-valued id at or above 2 GB is a negative <c>Int32</c>), <c>VT_UI4</c>, a narrower
+    /// type, or <c>VT_I8</c> holding the DWORD sign- or zero-extended. Each is the same 32 bits. A checked conversion
+    /// threw <c>OverflowException</c> on every negative one (openspec <c>twincat-large-solution-refs</c> 2). A value no
+    /// DWORD can be is refused by name, never truncated into another item's id.</summary>
+    internal static uint ItemId(object v) => v switch
+    {
+        int i => unchecked((uint)i),
+        uint u => u,
+        long l when l >= int.MinValue && l <= uint.MaxValue => unchecked((uint)l),
+        ulong ul when ul <= uint.MaxValue => (uint)ul,
+        short s => unchecked((uint)s),
+        ushort us => us,
+        sbyte sb => unchecked((uint)sb),
+        byte b => b,
+        _ => throw new InvalidOperationException(
+            $"the hierarchy answered an item id that is no DWORD: {v.GetType().Name} " +
+            $"{Convert.ToString(v, CultureInfo.InvariantCulture)}"),
+    };
 
     private static void Check(int hr, string what)
     {
@@ -262,19 +338,19 @@ internal static class TcSolutionExplorer
     }
 
     [ComImport, Guid("6d5140c1-7436-11ce-8034-00aa006009fa"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IOleServiceProvider
+    internal interface IOleServiceProvider
     {
         [PreserveSig] int QueryService(ref Guid guidService, ref Guid riid, out IntPtr ppvObject);
     }
 
     [ComImport, Guid("7f7cd0db-91ef-49dc-9fa9-02d128515dd4"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IVsSolution
+    internal interface IVsSolution
     {
         [PreserveSig] int GetProjectEnum(uint grfEnumFlags, ref Guid rguidEnumOnlyThisType, out IEnumHierarchies ppenum);
     }
 
     [ComImport, Guid("bec77711-2df9-44d7-b478-a453c2e8a134"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IEnumHierarchies
+    internal interface IEnumHierarchies
     {
         [PreserveSig] int Next(uint celt, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 0)] IVsHierarchy[] rgelt,
                                out uint pceltFetched);

@@ -68,7 +68,14 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // Every operation reads the Solution Explorer snapshot afresh (lazily, on its first child access): the engineer
     // may have broken or fixed a POU in XAE since the last op, and which children are safe to open is decided by it
     // (DIALECT C2i). Dropping it costs nothing; an op that opens no child never reads it.
-    protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(() => { _om.ForgetExplorer(); return func(); });
+    // The declarations and the walk they may be indexed from go too: nothing an operation read answers the next one.
+    protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(() =>
+    {
+        _om.ForgetExplorer();
+        _declarations = null;
+        _walkIndex = null;
+        return func();
+    });
 
     // ── health ──────────────────────────────────────────────────────
     // DriverBase composes the response (cached list + live overlay) and owns the probe's single-flight/failure

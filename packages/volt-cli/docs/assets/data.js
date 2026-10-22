@@ -132,7 +132,9 @@ window.VOLT = {
         "x-outcomes": [
           "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "An item whose body will not materialize is NOT an error: it is named in \u0060unreadable\u0060, keeps a stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
-          "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The session is marked degraded meanwhile, which \u0060health\u0060 reports."
+          "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The session is marked degraded meanwhile, which \u0060health\u0060 reports.",
+          "Progress frames start with the WALK: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: \u0060phase: \u0022reading\u0022\u0060 with \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last.",
+          "A \u0060refs\u0060 that arrives while one with the same body runs JOINS it: it receives that one\u0027s progress frames from then on and the same terminal frame, result or error. Nothing is kept once it answers: the next \u0060refs\u0060 walks again."
         ],
         "result": {
           "name": "result",
@@ -166,7 +168,8 @@ window.VOLT = {
           "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "BAD_REQUEST for a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 nor \u0060init: true\u0060: it is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
           "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a known path absent from a folder it did read (the path\u0027s own prefix) is still in \u0060removed\u0060.",
-          "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
+          "Items that would not materialize are named in \u0060unreadable\u0060, not raised.",
+          "Progress frames start with the WALK: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: \u0060phase: \u0022reading\u0022\u0060 with \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last."
         ],
         "result": {
           "name": "result",
@@ -2075,7 +2078,7 @@ window.VOLT = {
         {
           "name": "WalkItems",
           "kind": "method",
-          "signature": "WalkResult WalkItems()"
+          "signature": "WalkResult WalkItems(WalkObserver? observer = \u2026)"
         },
         {
           "name": "GetTreeRoot",

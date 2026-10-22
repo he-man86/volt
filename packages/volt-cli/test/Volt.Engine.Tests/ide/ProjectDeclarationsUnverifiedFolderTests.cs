@@ -34,7 +34,7 @@ public class ProjectDeclarationsUnverifiedFolderTests
         public ItemRef ChildAt(ItemRef parent, int index1Based) => new(index1Based == 1 ? _folder : _fb);
         public string Name(ItemRef item) => ((Node)item.Native).Name;
         public int KindCode(ItemRef item) => ((Node)item.Native).Kind;
-        public WalkResult WalkItems() => throw new NotSupportedException();
+        public WalkResult WalkItems(WalkObserver? observer = null) => throw new NotSupportedException();
         public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
         public bool HandlesSurviveStructureChange => true;
         public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls) => throw new NotSupportedException();

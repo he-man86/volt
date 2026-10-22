@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
@@ -97,15 +98,28 @@ internal sealed class ProjectSnapshot
     /// its text; null keeps none. <paramref name="phase"/> is the first progress frame's phase.
     /// <para><paramref name="onItem"/> is called for every TRACKED item once the snapshot has recorded it — the item,
     /// its wire kind, the folder it is reported under (<c>Versioning.FolderOf</c>) and its version — so a caller that
-    /// needs more of each item (<c>fetch</c>) adds to this walk instead of keeping a second copy of its gates.</para></summary>
+    /// needs more of each item (<c>fetch</c>) adds to this walk instead of keeping a second copy of its gates.</para>
+    /// <para>The WALK reports too, before any item is read (openspec <c>twincat-large-solution-refs</c>): one frame per
+    /// application as the driver finishes walking it — <c>phase: "walking"</c>, <c>done</c> applications of
+    /// <c>total</c> (null where the vendor learns its applications as it walks) — so a client sees work through a walk
+    /// that takes minutes on a large TwinCAT solution. <paramref name="clock"/>, when given, records where the time went
+    /// (<see cref="SnapshotClock"/>).</para></summary>
     public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs,
                                        Func<string, string, bool>? keepText = null, string? phase = "reading",
-                                       Action<ProjectItem, string, string, VersionedItem>? onItem = null)
+                                       Action<ProjectItem, string, string, VersionedItem>? onItem = null,
+                                       SnapshotClock? clock = null)
     {
         var snap = new ProjectSnapshot();
+        var time = clock ?? new SnapshotClock();
+        var observer = new WalkObserver((application, walkedApps, apps) =>
+        {
+            time.ApplicationWalked(application);
+            onProgress?.Invoke(new ProgressFrame { Operation = operation, Done = walkedApps, Total = apps, Phase = ProgressFrame.WalkingPhase });
+        });
         // COMPLETENESS TRAVELS WITH THE ITEMS: `refs` drives `volt status`, which renders every item under an
         // unenumerable folder as INCOMING-REMOVED unless the snapshot says the walk did not see it.
-        var walk = ide.WalkItems();
+        var walk = ide.WalkItems(observer);
+        time.Walked(observer);
         var walked = walk.Items;
         snap.UnwalkedFolders.AddRange(walk.UnwalkedFolders);
         snap.Applications.AddRange(walk.Applications);
@@ -137,7 +151,11 @@ internal sealed class ProjectSnapshot
             // lives in its OWN folder beside its signatures), and SafeVersion applies it to the hash itself, so refs,
             // fetch and the receipt cannot drift apart.
             var folder = Versioning.FolderOf(kind, walkedFolder, it.Name);
+            time.Materializing(Versioning.PathOf(kind, walkedFolder, it.Name));
+            var started = Stopwatch.GetTimestamp();
             var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, walkedFolder);
+            time.Materialized(ItemPath.ApplicationOf(walkedFolder, walk.Applications), kind,
+                              (Stopwatch.GetTimestamp() - started) * 1000 / Stopwatch.Frequency);
             snap.Versions[v.Identity] = v.Version;
             if (v.Materialized is { } mat)
             {
@@ -158,6 +176,7 @@ internal sealed class ProjectSnapshot
         snap.Unreadable.AddRange(named);
         snap.UnreadableNodes.AddRange(WireOrder(nodes, u => u.Name, u => u.Reason));
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
+        time.Done();
         return snap;
     }
 }

@@ -63,6 +63,14 @@ public class NoTestOnlyCodeInSrcTests
                          "DTE is never bound nor called is pinned offline (TcBindByPidTests) — the ROT itself is a live " +
                          "machine. Its production caller is BindByPid, in the same file",
 
+        ["ItemId"] = "how a Solution Explorer item id answered as any integer VARIANT is read as its DWORD, split out so every " +
+                     "boxed type XAE may answer is pinned offline (TcHierarchyItemIdTests, twincat-large-solution-refs); its " +
+                     "production caller is the hierarchy read in the same file (TcSolutionExplorer.Children)",
+
+        ["PlcSubtree"] = "which Solution Explorer nodes the snapshot reads (the PLC projects only), split out so the rule is " +
+                         "pinned offline against the canonical names measured on MultiProject (TcPlcSubtreeReadTests); its " +
+                         "production caller is the system read in the same file (TcSolutionExplorer.Read)",
+
         ["PidInName"] = "the pid a DTE's ROT display name states, pinned offline beside PickWindow, its production " +
                         "caller in the same file",
 

@@ -2,6 +2,7 @@ using System.Globalization;
 using System;
 using System.Xml.Linq;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Volt.Engine;
 using Volt.Contracts;
@@ -29,7 +30,7 @@ public sealed partial class BeckhoffDriver
     /// REFUSED, never dropped), are <see cref="TcTaskSchedule"/>'s subject.</summary>
     public void WriteTask(ItemRef task, TaskSettings settings) => _om.WriteTask(Com(task), settings);
 
-    public WalkResult WalkItems()
+    public WalkResult WalkItems(WalkObserver? observer = null)
     {
         // A walk starts an operation (fetch, refs, push, build), and the project's declarations are read afresh for
         // it: an item created or renamed since the last one must be in the scope network text is written and read
@@ -42,6 +43,38 @@ public sealed partial class BeckhoffDriver
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();
         var applications = new List<string>();
+        _walkIndex = null;
+        _walking = new List<(ItemRef, string, int)>();
+        try { WalkSystems(observer, items, unwalked, unreadable, applications); }
+        catch { _walking = null; throw; }
+        var result = new WalkResult(items, unwalked, unreadable, applications);
+        // The declarations index is this walk's, while it describes the tree (WalkIndex).
+        if (result.Complete) (_walkIndex, _walkIndexAt) = (_walking, _om.StructureWrites);
+        _walking = null;
+        return result;
+    }
+
+    /// <summary>Every top-level item the walk running now passed, in tree order — under an excluded folder too — as
+    /// <see cref="ItemLookup.All"/> lists them; null between walks.</summary>
+    private List<(ItemRef Item, string Name, int Kind)>? _walking;
+
+    /// <summary>The last complete walk's top-level items (<see cref="_walking"/>) and the structural-write count it was
+    /// read at (<see cref="TcObjectModel.StructureWrites"/>).</summary>
+    private List<(ItemRef Item, string Name, int Kind)>? _walkIndex;
+    private int _walkIndexAt;
+
+    /// <summary>THE DECLARATIONS INDEX FROM THE OPERATION'S OWN WALK (openspec <c>twincat-large-solution-refs</c>): every
+    /// top-level item, as <see cref="ItemLookup.All"/> would list them — it was a second full walk of the solution, with a
+    /// COM round trip per node, in every operation that read a graphical body. Only while the walk still describes the
+    /// tree: a walk that did not read every folder (<see cref="WalkResult.Complete"/>) or a structural write since it
+    /// (<see cref="TcObjectModel.StructureWrites"/> — a create, delete, rename, move or member placement, whose import
+    /// also kills every handle in the POU) leaves the index to its own walk of the tree, as before. Null then.</summary>
+    internal IReadOnlyList<(ItemRef Item, string Name, int Kind)>? WalkIndex() =>
+        _walkIndex is { } walked && _walkIndexAt == _om.StructureWrites ? walked : null;
+
+    private void WalkSystems(WalkObserver? observer, List<ProjectItem> items, List<string> unwalked,
+                             List<UnreadableObject> unreadable, List<string> applications)
+    {
         // EVERY SYSTEM PROJECT, EVERY PLC PROJECT (openspec multi-application-tree): the walk read the first PLC project
         // of the bound system project and skipped the others without a word.
         foreach (var (system, manager) in _om.Systems())
@@ -56,7 +89,9 @@ public sealed partial class BeckhoffDriver
                 // The Solution Explorer snapshot is read FIRST, outside the per-node catches below: without it the walk
                 // cannot know which child would crash XAE, so an unreadable hierarchy fails the walk rather than being
                 // swallowed as a child fault (DIALECT C2i).
+                var explorer = Stopwatch.StartNew();
                 _om.Explorer();
+                observer?.Phase("Solution Explorer", explorer.ElapsedMilliseconds);
                 applications.Add(plc.Path);
                 WalkInner(_om.PlcRoot(), kind: null, plc.Path, plc, items, unwalked, unreadable);
                 // The compiler settings have no tree node on TwinCAT (they are the PLC project's property pages), so the
@@ -65,10 +100,12 @@ public sealed partial class BeckhoffDriver
                 // absence reads as DELETED to a pull — a failed read is an unreadable item.
                 items.Add(new ProjectItem(ProjectSettingsFormat.ItemName, new ItemRef(new TcProjectSettingsNode(plc)),
                                           ItemKind.PlcProjectSettings, plc.Path));
+                observer?.ApplicationWalked(plc.Path, applications.Count, _om.Plcs().Count);
             }
+            var io = Stopwatch.StartNew();
             WalkIoDevices(manager, systemFolder, items, unwalked);
+            observer?.Phase("I/O devices", io.ElapsedMilliseconds);
         }
-        return new WalkResult(items, unwalked, unreadable, applications);
     }
 
     /// <param name="kind">The node's tree kind as this walk read it, null for the PLC project root (never classified).</param>
@@ -209,7 +246,12 @@ public sealed partial class BeckhoffDriver
             bool isHybrid = childCount > 0 && !ItemKind.IsTopLevelCrud(itemType) && !ItemKind.InlinesItsChildren(itemType);
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
-            items.Add(new ProjectItem(name, new ItemRef(new TcNode(child, plc, itemType)), itemType, emitFolder));
+            var item = new ItemRef(new TcNode(child, plc, itemType));
+            items.Add(new ProjectItem(name, item, itemType, emitFolder));
+            // The declarations index lists what ItemLookup.All lists, in its order: an addressable item, never what is
+            // beneath it. A hybrid node is never addressable (a top-level source item is no hybrid, and the task — the
+            // one addressable kind besides them — folds its children into its own file).
+            if (ItemKind.IsAddressableItem(itemType)) _walking?.Add((item, name, itemType));
             if (isHybrid) WalkInner(child, itemType, emitFolder, plc, items, unwalked, unreadable, underExcluded);
         }
     }

@@ -220,6 +220,37 @@ public class RelayTunnelTests : IDisposable
         await relay.AwaitFrame("slow", "result");
     }
 
+    /// <summary>THE HEARTBEAT NEVER WAITS FOR THE IDE (openspec <c>twincat-large-solution-refs</c> 1). A field log of a
+    /// 148 s <c>refs</c> on an 18-PLC-project TwinCAT solution, retried by its caller while it ran, was read as "the
+    /// bridge stops answering pings". The ping is the tunnel's own frame, sent on its own clock; every request holds a
+    /// thread of its own for its pipe call (never one of the pool's, which a pile of held calls could starve), so neither
+    /// a long walk on the IDE's one thread nor the retries waiting for it delay a ping.</summary>
+    [Fact]
+    public async Task Pings_keep_their_cadence_while_retried_refs_hold_the_IDE_thread()
+    {
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var ide = new FakeIde(serializeSta: true, FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+        };
+        ide.OnWalkItems = () => { entered.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+        var (relay, _, _) = Start(out _, ide, pingEvery: TimeSpan.FromMilliseconds(100));
+        await relay.AwaitHello();
+
+        relay.SendRequest("r0", Ops.Refs);
+        Assert.True(entered.Wait(15_000), "the refs never reached its walk");
+        for (var i = 1; i <= 2 * Environment.ProcessorCount + 4; i++) relay.SendRequest("r" + i, Ops.Refs);
+        int Pings() => relay.Received.Count(f => f == "{\"volt\":\"ping\"}");
+        var before = Pings();
+        await Task.Delay(1500);
+        var during = Pings() - before;
+
+        release.Set();
+        await relay.AwaitFrame("r0", "result");
+        Assert.True(during >= 8, $"{during} pings in 1.5 s at a 100 ms cadence while the refs ran");
+    }
+
     // ── errors ───────────────────────────────────────────────────
 
     /// <summary>A coded bridge error crosses as its own code. The tunnel adds no vocabulary: a client matches

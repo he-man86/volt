@@ -306,7 +306,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// one had no way to prove it here.</summary>
     public Action? OnWalkItems { get; set; }
 
-    public WalkResult WalkItems()
+    public WalkResult WalkItems(WalkObserver? observer = null)
     {
         WalkCalls++;
         OnWalkItems?.Invoke();
@@ -335,6 +335,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var applications = ContainerKinds.Where(kv => kv.Value == ItemKind.Application).Select(kv => kv.Key)
             .Where(a => !UnwalkableFolders.Any(f => Under(a, f)) && !unclassifiedSubtrees.Any(s => Under(a, s)))
             .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        for (var i = 0; i < applications.Count; i++) observer?.ApplicationWalked(applications[i], i + 1, applications.Count);
         return new WalkResult(items, UnwalkableFolders, unreadable, applications);
     }
     /// <summary>Folder paths that are the vendor's TASK CONTAINER rather than a plain user folder. A real tree

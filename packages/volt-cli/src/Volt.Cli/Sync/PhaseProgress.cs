@@ -27,9 +27,12 @@ internal sealed class PhaseProgress
     }
 
     /// <summary>An <c>onProgress</c> for phase <paramref name="index"/> that re-tags a wrapped sub-op's own frames
-    /// (e.g. the bridge fetch), preserving their <c>done/total</c>.</summary>
+    /// (e.g. the bridge fetch), preserving their <c>done/total</c>. The bridge's WALK frames
+    /// (<c>phase: "walking"</c>, applications walked) come before its item frames and count something else, so they
+    /// mark the phase active without a fraction: counted on the bar, they filled it and then dropped it back to 0 at
+    /// the first item frame.</summary>
     public Action<ProgressFrame>? Wrap(int index, string label) =>
-        _sink is null ? null : f => Send(index, label, f.Done, f.Total);
+        _sink is null ? null : f => Send(index, label, f.Done, f.Phase == ProgressFrame.WalkingPhase ? null : f.Total);
 
     /// <summary>Report phase <paramref name="index"/> progress from a CLI-driven loop.</summary>
     public void Report(int index, string label, int done, int total) => Send(index, label, done, total);

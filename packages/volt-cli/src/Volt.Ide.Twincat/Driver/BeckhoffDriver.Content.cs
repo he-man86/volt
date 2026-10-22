@@ -642,8 +642,9 @@ public sealed partial class BeckhoffDriver
     /// <para>A graphical box can call through a name the POU does not declare — a qualified path walks a GVL,
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more
     /// item's declaration, and only the driver can ask its IDE for one.</para></summary>
-    private ProjectDeclarations Declarations =>
-        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(Com(item)), RefusedPouName, ExtractLibrarySignatures);
+    internal ProjectDeclarations Declarations =>
+        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(Com(item)), RefusedPouName, ExtractLibrarySignatures,
+                                                  WalkIndex);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>

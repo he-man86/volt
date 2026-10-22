@@ -40,6 +40,8 @@ public class TcUntouchablePouTests
         public readonly Dictionary<string, int> TypeReads = new();
         public readonly Dictionary<string, int> NameReads = new();
         public int NestedReads;
+        /// <summary>How often a PLC project item's own XML (<c>ProduceXml</c>, its <c>.plcproj</c> path) was asked.</summary>
+        public int PlcXmlReads;
         public void Alive()
         {
             if (Dead) throw new COMException("The remote procedure call failed.", unchecked((int)0x800706BE));
@@ -203,8 +205,11 @@ public class TcUntouchablePouTests
             System.IO.File.WriteAllText(path, "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup /></Project>");
             return path;
         }
-        public string ProduceXml(bool recursive) =>
-            $"<TreeItem><PlcProjectDef><ProjectPath>{_project}</ProjectPath></PlcProjectDef></TreeItem>";
+        public string ProduceXml(bool recursive)
+        {
+            _nested.X.PlcXmlReads++;
+            return $"<TreeItem><PlcProjectDef><ProjectPath>{_project}</ProjectPath></PlcProjectDef></TreeItem>";
+        }
     }
 
     public sealed class Empty { public int ChildCount => 0; public int ItemType => 0; }
