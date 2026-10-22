@@ -164,12 +164,13 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
     the line added, removed or edited, on an existing object or a new one — is refused by name before anything of the
     push lands (no measured write: 1, 0 and 1 occurrence in the corpora, niche: accepted loss). Change it in the IDE and
     pull; the line round-trips unchanged. <code>%CLASS</code> is never changed in place (below). TwinCAT READS and
-    WRITES <code>%EXCLUDE_FROM_BUILD</code>: an item's or a member's own live <i>Exclude from build</i> flag (DIALECT
-    C39), saved or not. A member of an excluded POU has no flag of its own there, so a push carrying the line on both
-    the POU and a member is refused by name. TwinCAT has no measured member for any other key: a push carrying one is
-    refused by name, and a pull of an item with a <code>.plcproj</code> build entry other than <code>SubType</code> and
-    <code>ExcludeFromBuild</code> (or an <code>&lt;ObjectProperties&gt;</code> other than an SFC body's) is refused by
-    name.</li>
+    WRITES the build keys its items and members hold live, saved or not: <code>%EXCLUDE_FROM_BUILD</code> (the own
+    <i>Exclude from build</i> flag, DIALECT C39), <code>%LINK_ALWAYS</code>, <code>%EXTERNAL</code> and
+    <code>%COMPILER_DEFINES</code> (C40). A member of an excluded POU has no exclusion flag of its own there, so a push
+    carrying <code>%EXCLUDE_FROM_BUILD</code> on both the POU and a member is refused by name. TwinCAT has no measured
+    member for any other key: a push carrying one is refused by name, and so is a pull of a POU whose
+    <i>Additional allocation</i> is not 0, of an item with a <code>.plcproj</code> build entry that is no saved copy of
+    those properties, or with an <code>&lt;ObjectProperties&gt;</code> other than an SFC body's.</li>
   <li id="excluded-folder"><b>An excluded folder</b> has no line: on both vendors it is in <code>unreadableNodes</code>
     with its reason, and every item under it is in <code>unreadable</code> — <i>'X' sits in the excluded folder
     '&lt;folder&gt;' — it is not built, so it is not pulled as a built one</i>. An op on such an item is refused by name,
@@ -234,10 +235,11 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
   <tr>
     <td class="name"><a href="#properties"><code>%</code>-lines</a></td>
     <td class="yes">read and written</td>
-    <td><code>%EXCLUDE_FROM_BUILD</code> read and written</td>
-    <td>TwinCAT's live <i>Exclude from build</i> flag (C39) is <code>%EXCLUDE_FROM_BUILD</code>. No other build property
-      or object property has been measured; a push carrying another key is refused by name, and a pull of an item that
-      carries one is refused by name.</td>
+    <td><code>%EXCLUDE_FROM_BUILD</code>, <code>%LINK_ALWAYS</code>, <code>%EXTERNAL</code>,
+      <code>%COMPILER_DEFINES</code> read and written</td>
+    <td>TwinCAT's live <i>Exclude from build</i> flag (C39), <i>Link always</i>, <i>External</i> and <i>Compiler
+      defines</i> (C40) are those lines. No other build property or object property has been measured; a push carrying
+      another key is refused by name, and a pull of an item that carries one is refused by name.</td>
   </tr>
   <tr>
     <td class="name"><code>%CLASS</code> create</td>
