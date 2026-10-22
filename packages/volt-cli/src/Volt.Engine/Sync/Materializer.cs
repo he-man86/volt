@@ -20,83 +20,11 @@ public static class Materializer
             // `IMPLEMENTATION NONE` on both vendors whoever made the object, so the fetched text, the refs walk and every
             // version hash it feeds are one text for one declaration.
             var build = AbstractMemberFold.Apply(ide.ReadContent(item));
-            RefuseMemberOfAnotherClass(name, build);
-            RefuseHeaderless(name, build);
-            var text = StWriter.Write(build);
-            RefuseUnreadableBack(name, build, text);
+            // The file is the IEC layout's (IecFormat), which refuses what a pull must not write, naming the item.
+            var text = IecFormat.Instance.Write(FamilyContent.ToContent(build), name);
             return new WorkspaceItem(text, FullWireName(name, build.Kind), HiddenIn(build));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind), Array.Empty<HiddenBody>());
-    }
-
-    /// <summary>What a pull writes, a push reads back — WITH THE SAME MEMBERS. The IDE stores each member's text on its
-    /// own; the push reads them back out of ONE file through the child splitter, which refuses a text it cannot split
-    /// right (an END keyword after code on its line, text after an END keyword, a member keyword inside an open member).
-    /// An IDE member whose stored text holds such a shape would be pulled into a file no push accepts, not even
-    /// unchanged — and a comment one member leaves open and another closes reads as ONE comment in the file, swallowing
-    /// the member between them, which the next push deletes. So the pull reads its own text back through the splitter
-    /// (<see cref="StReader.SplitMembers"/> — the split alone, not what a body holds) and refuses the item unless it
-    /// gets every member back as itself (kind and name): listed unreadable, the workspace file left alone (openspec
-    /// <c>push-without-header-check</c> 5.E.1). 0 such items in the six corpora.</summary>
-    private static void RefuseUnreadableBack(string name, ItemContent pulled, string text)
-    {
-        IReadOnlyList<Member> back;
-        try { back = StReader.SplitMembers(text, pulled.Kind, name); }
-        catch (BridgeException ex)
-        {
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{name}': the file a pull would write does not read back on a push ({ex.Message}), so the item is not " +
-                "pulled until its text is changed in the IDE.");
-        }
-        var got = back.Select(Label).ToList();
-        foreach (var m in pulled.Members)
-        {
-            if (got.Remove(Label(m))) continue;
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{name}': its {Label(m)} does not read back from the file a pull would write (read back: " +
-                $"{(back.Count == 0 ? "no members" : string.Join(", ", back.Select(Label)))}) — a comment " +
-                "one member leaves open and another closes is one comment in the file. A push of it would delete that " +
-                "member, so the item is not pulled until its text is changed in the IDE.");
-        }
-        if (got.Count > 0)
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{name}': the file a pull would write reads back with {string.Join(", ", got)}, which the IDE does not " +
-                "hold, so the item is not pulled until its text is changed in the IDE.");
-
-        static string Label(Member m) => $"{m.Kind.Replace('_', ' ')} '{m.Name}'";
-    }
-
-    /// <summary>A member's KIND is its CLASS — the driver reports it from the IDE object (a method, a property, an
-    /// action), never from its text — and the file must say the same, because the push reads a member's kind from the
-    /// keyword that opens its block (<see cref="StReader.MemberHeaderKeyword"/>). CODESYS stores whatever text a method
-    /// is given and keeps it a method (DIALECT C2l): one holding <c>PROPERTY</c> text pulled verbatim would come back on
-    /// the next push as a property — the method deleted and a property created (<c>PushService.ReconcileMembers</c>,
-    /// a member whose kind changed), under a push that changed nothing. So the item is refused here, as
-    /// <see cref="RefuseUnreadableBack"/> refuses a text no push can split back: listed unreadable, the workspace file left
-    /// alone, the reason naming the member, its class and the keyword its text opens with (openspec
-    /// <c>push-without-header-check</c> 5.Q.5, M-a). An action carries no declaration of its own (its <c>ACTION</c> line
-    /// is written from its class), and a declaration with no code opens with no keyword to disagree.</summary>
-    private static void RefuseMemberOfAnotherClass(string name, ItemContent content)
-    {
-        foreach (var m in content.Members)
-        {
-            var expected = StReader.MemberKeywordFor(m.Kind);
-            if (expected is null || StReader.MemberHeaderKeyword(m.Declaration) is not { } opens || opens == expected) continue;
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' holds text that opens with '{opens}', not {expected}. " +
-                $"A member's kind is its class in the IDE, and a file opening the member with '{opens}' would be read back " +
-                $"by a push as another kind of member (the {m.Kind.Replace('_', ' ')} deleted and another created), so the " +
-                $"item is not pulled until the member's text opens with {expected} in the IDE.");
-        }
-    }
-
-    /// <summary>A POU whose declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION has no END line to mirror
-    /// (<see cref="StWriter.NoHeader"/>) and is refused BY NAME — it used to close with an invented
-    /// <c>END_FUNCTION_BLOCK</c> (openspec <c>bridge-one-to-one</c> task 3.5).</summary>
-    private static void RefuseHeaderless(string name, ItemContent content)
-    {
-        if (content.Kind == ItemKind.Kinds.Pou && StReader.PouHeaderKeyword(content.Declaration) is null)
-            throw StWriter.NoHeader(name);
     }
 
     /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>, with its reason

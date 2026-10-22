@@ -27,7 +27,7 @@ public static class AdmittedFormats
         ToItemContent(f.Format.Read(text, kind, name ?? kind, f.Catalog, f.Vendor));
 
     internal static string Write((IItemFormat Format, Catalog Catalog, string Vendor) f, ItemContent content) =>
-        f.Format.Write(ToContent(content));
+        f.Format.Write(ToContent(content), content.Kind);
 
     /// <summary>A new-contract <see cref="Content"/> as the old record. The language travels as the FACT
     /// (<see cref="StatedLanguage"/>), the code as the body text with no line in front — the old record's convention for

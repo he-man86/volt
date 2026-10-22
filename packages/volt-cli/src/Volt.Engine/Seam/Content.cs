@@ -44,7 +44,9 @@ public sealed record Content(
 
 /// <summary>A member of a source item (a method, an action, a property, a routine), with its own body and properties.
 /// <see cref="Folder"/> is its place inside the item; <see cref="Get"/>/<see cref="Set"/> are a property's accessors,
-/// present exactly when the member has one.</summary>
+/// present exactly when the member has one. <see cref="Signature"/> is the declared type of a signature member (the
+/// return type of a method, the type of a property) as a FORMAT read it off the text, for the create that needs it
+/// (<see cref="CreateArgs.Signature"/>); null from a host, which reads no text for it.</summary>
 public sealed record ContentMember(
     string Kind,
     string Name,
@@ -53,7 +55,8 @@ public sealed record ContentMember(
     PropertySet Properties,
     string? Folder = null,
     ContentAccessor? Get = null,
-    ContentAccessor? Set = null);
+    ContentAccessor? Set = null,
+    string? Signature = null);
 
 /// <summary>A property's GET or SET: its own declaration and body (a signature-only accessor has a null body).</summary>
 public sealed record ContentAccessor(string? Declaration, BodyText? Body);

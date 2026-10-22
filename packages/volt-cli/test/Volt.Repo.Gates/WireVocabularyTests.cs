@@ -74,6 +74,8 @@ public class WireVocabularyTests
             ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/AdmittedFormats.cs", 2),   // volt-cli-rework step 4 (until step 5): a declared %-key, or an old-record property, the other record cannot hold
+            ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
+            ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
             ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
             ("Volt.Engine/Format/St/StReader.cs", 3),
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // gate review of step 3, finding 8: a %NETVAR value the line cannot carry
@@ -82,7 +84,6 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/MemberSites.cs", 1),   // bridge-one-to-one §3: a transition, refused by name
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
-            ("Volt.Engine/Sync/Materializer.cs", 4),
             ("Volt.Engine/Sync/PushService.cs", 10),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)
@@ -100,6 +101,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Format/St/AdmittedFormats.cs", 1),   // volt-cli-rework step 4: a body that reached the new contract without its stated language
+            ("Volt.Engine/Format/St/FamilyContent.cs", 2),   // volt-cli-rework step 5: a body with no stated language, or one its stated language does not spell back
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Item/SeamAdmission.cs", 1),   // moved from PushService.PouKindToCode's default arm (volt-cli-rework step 4)
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
@@ -356,6 +358,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/St/PropertyLines.cs", 2),
         ("Volt.Engine/Format/St/StReader.cs", 1),
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
+        ("Volt.Engine/Ide/LegacyDriver.cs", 1),   // volt-cli-rework step 5: the build's walk not made by the adapter's own Walk — Volt's own invariant
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         ("Volt.Engine/Item/SeamAdmission.cs", 2),   // a third vendor re-declaring a family kind, or one kind admitted as two rows: a host's declaration refused at startup, Volt's own invariant (volt-cli-rework step 4)
         // The new contract's registries (volt-cli-rework step 3): a host's declaration that conflicts with another's or
@@ -363,6 +366,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
         ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
         ("Volt.Engine/Seam/VendorRegistry.cs", 3),
+        ("Volt.Engine/Sync/HostLink.cs", 1),   // volt-cli-rework step 5: an old-contract member asked of a new-contract host's composed session — Volt's own invariant
         ("Volt.Engine/Sync/Materializer.cs", 1),
         ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)

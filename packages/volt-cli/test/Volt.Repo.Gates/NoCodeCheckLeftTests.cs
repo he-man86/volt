@@ -52,9 +52,10 @@ public class NoCodeCheckLeftTests
             "4.3: network scope read a callee's header through CodeHelper.HeaderLine (StDeclaration); deleted with its last caller (D3)"),
 
         // Step 4b (D8/D12, D11): ratchets on what the step made ONE.
-        ["NetworkText.Validate( outside the pre-flight"] = new(@"\bNetworkText\.Validate\s*\(", 1,
+        ["NetworkText.Validate( outside the pre-flight"] = new(@"\bNetworkText\.Validate\s*\(", 2,
             "4.8 / 4.12: each network body validated once — SourceScopes.Validated, the push pre-flight's door; the " +
-            "drivers' writes take the model"),
+            "drivers' writes take the model. 2 while volt-cli-rework step 5.1 adds the new contract's door " +
+            "(NetworkBodyReader) beside it; 5.2 moves the push onto it and deletes SourceScopes.Validated"),
         ["CarriesAccessors"] = new(@"\bCarriesAccessors\b", 0, "4.11: the kind's shape is ItemKind.ShapeOf"),
         ["ImplementationMarker.AppliesTo"] = new(@"\bAppliesTo\s*\(", 0, "4.11: the kind's shape is ItemKind.ShapeOf"),
 

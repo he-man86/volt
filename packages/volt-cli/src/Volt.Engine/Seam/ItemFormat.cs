@@ -14,7 +14,9 @@ public interface IItemFormat
     /// <summary>The format's name: two hosts registering one kind must name the same format.</summary>
     string Name { get; }
 
-    string Write(Content content);
+    /// <summary>The file of <paramref name="content"/>, an item named <paramref name="name"/> (the bare name the path gives,
+    /// for a refusal that names it). A content the layout has no spelling for is refused, coded, naming the item.</summary>
+    string Write(Content content, string name);
 
     /// <summary>Read <paramref name="text"/> as an item of <paramref name="kind"/> named <paramref name="name"/> (the bare
     /// name the path gives), as <paramref name="vendor"/> shows its languages. A text that does not read is the client's:

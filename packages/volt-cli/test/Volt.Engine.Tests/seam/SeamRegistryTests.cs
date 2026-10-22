@@ -16,7 +16,7 @@ public class SeamRegistryTests
     {
         public StubFormat(string name) => Name = name;
         public string Name { get; }
-        public string Write(Content content) => throw new NotSupportedException();
+        public string Write(Content content, string name) => throw new NotSupportedException();
         public Content Read(string text, string kind, string name, Catalog catalog, string vendor) => throw new NotSupportedException();
     }
 

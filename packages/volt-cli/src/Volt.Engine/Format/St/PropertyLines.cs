@@ -227,6 +227,9 @@ public static class PropertyLines
     }
 
     /// <summary>An ST STRING literal, alone: <c>'…'</c> with its <c>$</c>-escapes.</summary>
+    /// <summary>The string an ST string literal spells (the inverse of <see cref="StString"/>).</summary>
+    internal static string ReadString(string literal) => ReadStString(literal, "a property value", literal, "the value");
+
     private static string ReadStString(string value, string at, string line, string named)
     {
         var v = value.Trim();
@@ -265,7 +268,8 @@ public static class PropertyLines
 
     /// <summary><paramref name="s"/> as an ST STRING literal: <c>'</c> → <c>$'</c>, <c>$</c> → <c>$$</c>, a line break
     /// <c>$N</c> / <c>$R</c>, a tab <c>$T</c>, any other control character <c>$hh</c> — one line, read back exactly.</summary>
-    private static string StString(string s)
+    /// <summary>An ST string literal of <paramref name="s"/>, as every quoted property value spells it.</summary>
+    internal static string StString(string s)
     {
         var sb = new StringBuilder("'");
         foreach (var c in s)

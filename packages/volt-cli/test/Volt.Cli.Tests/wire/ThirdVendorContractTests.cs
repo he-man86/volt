@@ -21,7 +21,7 @@ public class ThirdVendorContractTests
     {
         var content = Fakeco.Format.Read(text, kind, "X", Fakecos, Fakeco.Id);
 
-        Assert.Equal(text, Fakeco.Format.Write(content));
+        Assert.Equal(text, Fakeco.Format.Write(content, "X"));
     }
 
     [Fact]

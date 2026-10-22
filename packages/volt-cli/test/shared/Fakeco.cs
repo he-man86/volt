@@ -255,7 +255,7 @@ public sealed class FakecoFormat : IItemFormat
 {
     public string Name => "fakeco";
 
-    public string Write(Content content)
+    public string Write(Content content, string name)
     {
         var sb = new StringBuilder();
         foreach (var p in content.Properties.Items) sb.Append(p).Append('\n');

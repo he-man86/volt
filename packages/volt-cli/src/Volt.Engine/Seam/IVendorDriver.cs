@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Ide;
@@ -84,8 +85,10 @@ public enum NodeRole
 
 /// <summary>A node, classified by its host. <see cref="HoldsItems"/>: an item may be created in or moved into it (always
 /// true for a folder). <see cref="Takes"/>: the item kinds a DEDICATED container holds whatever its (localized) name —
-/// a new item of such a kind goes into it when its folder's last segment is missing.</summary>
-public sealed record NodeClass(NodeRole Role, string? Kind = null, bool HoldsItems = false, IReadOnlyList<string>? Takes = null)
+/// a new item of such a kind goes into it when its folder's last segment is missing. <see cref="Noun"/>: what the IDE calls a
+/// node that is no folder ("device node"), for a refusal that names it; null where the role says it.</summary>
+public sealed record NodeClass(NodeRole Role, string? Kind = null, bool HoldsItems = false, IReadOnlyList<string>? Takes = null,
+                               string? Noun = null)
 {
     public static readonly NodeClass Folder = new(NodeRole.Folder, HoldsItems: true);
     public static readonly NodeClass Skip = new(NodeRole.Skip);
@@ -93,6 +96,13 @@ public sealed record NodeClass(NodeRole Role, string? Kind = null, bool HoldsIte
     public static NodeClass Member(string kind) => new(NodeRole.Member, kind);
     public static NodeClass Container(bool holdsItems, params string[] takes) =>
         new(NodeRole.Container, null, holdsItems, takes.Length == 0 ? null : takes);
+
+    /// <summary>Equal when every field is, the kinds a container takes by their values.</summary>
+    public bool Equals(NodeClass? other) =>
+        other is not null && Role == other.Role && Kind == other.Kind && HoldsItems == other.HoldsItems && Noun == other.Noun
+        && (Takes ?? Array.Empty<string>()).SequenceEqual(other.Takes ?? Array.Empty<string>());
+
+    public override int GetHashCode() => ((int)Role * 397) ^ (Kind?.GetHashCode() ?? 0) ^ (HoldsItems ? 1 : 0);
 }
 
 /// <summary>One item a walk found: its BARE name, its handle, its kind (a registered string) and its folder path.</summary>

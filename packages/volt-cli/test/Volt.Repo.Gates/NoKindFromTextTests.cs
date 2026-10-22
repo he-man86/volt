@@ -68,7 +68,7 @@ public class NoKindFromTextTests
             "the child splitter (5.E) and the outer END line the pull mirrors from the header (5.Q.3)"),
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1,
             "writes the END line that mirrors the declaration's own header (5.Q.3) — file format, no kind"),
-        ["Volt.Engine/Sync/Materializer.cs"] = new(2,
+        ["Volt.Engine/Format/St/IecFormat.cs"] = new(2,
             "holds a member's text to its CLASS (5.Q.5) and refuses a POU whose text opens with no header (bridge-one-to-one 3.5); decides nothing"),
     };
 
