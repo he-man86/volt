@@ -108,9 +108,10 @@ standing practice:
       - [x] the OpenRPC-driven contract suite (above): `test/e2e/contract/openrpc-contract.test.ts`, 173 cases, green on
             CODESYS 3.5.21.40 and TwinCAT MultiProject with 5 FINDINGS held red-first (the suite's `FINDINGS`);
       - [x] the wire TRANSCRIPT recorder + comparer (`scripts/wire-transcript.ts`), run per release-matrix cell;
-      - [ ] the transcript REFERENCES per vendor fixture (`test/transcripts/<cell>.jsonl`, `bun run release:matrix
-            --record-transcripts`) — the byte-identical reference 3.3 compares against; recorded by the coordinator once
-            the refs progress-frame change has landed;
+      - [x] the transcript REFERENCES per vendor fixture (`test/transcripts/<cell>.jsonl`, `bun run release:matrix
+            --record-transcripts`) — the byte-identical reference 3.3 compares against; recorded 2026-10-22 on b2e67e79a3
+            for the five fixture cells (CODESYS 3.5.18.30-64, 3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64, twincat-32), each
+            then compared identical in a full `release:matrix` run, with no normalisation change;
       - [x] one implementation + one `Volt.Repo.Gates` test per wire rule (path comparer, wire-name minter, strict request
             reader, protocol number beside the schema pin, error-code mapping): `WireRulesHaveOneImplementationTests`,
             ratchets where a rule has several sites today;
