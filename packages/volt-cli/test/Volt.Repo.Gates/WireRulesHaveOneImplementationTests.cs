@@ -244,6 +244,7 @@ public class WireRulesHaveOneImplementationTests
     private static readonly Dictionary<string, int> PathComparerPins = new(StringComparer.Ordinal)
     {
         ["Volt.Engine.Host/BridgePipeHost.cs"] = 1,
+        ["Volt.Engine.Host/SingleFlight.cs"] = 1,   // keys a running refs by its REQUEST BODY, not a path
         ["Volt.Engine/Ide/BothVendorsRefusedNames.cs"] = 1,
         ["Volt.Engine/Ide/BridgeLog.cs"] = 1,
         ["Volt.Engine/Ide/ItemLookup.cs"] = 3,
@@ -265,6 +266,7 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Sync/PushService.cs"] = 55,
         ["Volt.Engine/Sync/PushedText.cs"] = 2,
         ["Volt.Engine/Sync/Removal.cs"] = 5,
+        ["Volt.Engine/Sync/SnapshotClock.cs"] = 1,   // per-application timing for the refs log line only; no identity decision
         ["Volt.Engine/Sync/Versioning.cs"] = 1,
     };
 
