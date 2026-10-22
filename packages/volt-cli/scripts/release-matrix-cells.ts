@@ -113,6 +113,35 @@ export function judge(cell: Cell, outcome: Outcome | undefined, reports: Report[
 	return { cell, green: true, why: `${outcome.pass} pass, ${outcome.skip} skip`, outcome }
 }
 
+/**
+ * The wire transcript of a cell (openspec `volt-cli-rework` 1.3), as `wire-transcript.ts compare` exits: 0 identical to the
+ * cell's reference, 1 different (the diff is the cell's `<cell>.transcript.diff`), 2 no reference recorded; `recorded`
+ * when the run wrote the reference instead (`--record-transcripts`); `failed` when the scenario did not run to its end.
+ */
+export type TranscriptOutcome =
+	| { kind: "identical" }
+	| { kind: "differs"; steps: number }
+	| { kind: "no-reference"; reference: string }
+	| { kind: "recorded"; reference: string }
+	| { kind: "failed"; why: string }
+
+/** A cell's verdict with its transcript folded in: a suite verdict stays red; a green one goes red unless the transcript
+ *  is identical to the reference (or was just recorded as it). A missing reference is red by name — it compares nothing. */
+export function withTranscript(v: Verdict, t: TranscriptOutcome | undefined): Verdict {
+	if (!t) return v
+	const said = (why: string) => `${v.why}; transcript ${why}`
+	switch (t.kind) {
+		case "identical": return { ...v, why: said("identical") }
+		case "recorded": return { ...v, why: said(`recorded to ${t.reference}`) }
+		case "differs": return { ...v, green: false, why: said(`DIFFERS from the reference in ${t.steps} step(s) (see the cell's .transcript.diff)`) }
+		case "no-reference": return { ...v, green: false, why: said(`has no reference (${t.reference}) - record it with --record-transcripts`) }
+		case "failed": return { ...v, green: false, why: said(`not recorded: ${t.why}`) }
+	}
+}
+
+/** Where a cell's reference transcript is committed, relative to the volt-cli package. */
+export const transcriptReference = (cell: Cell): string => `test/transcripts/${cell.id}.jsonl`
+
 export function renderMatrix(verdicts: Verdict[]): string {
 	const rows = verdicts.map((v) => `${v.green ? "GREEN" : "RED  "}  ${v.cell.id.padEnd(24)}  ${v.why}`)
 	return ["release matrix", ...rows].join("\n")

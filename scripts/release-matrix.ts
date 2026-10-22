@@ -23,6 +23,13 @@
  *   <li>the suite failed, or the IDE did not come up.</li>
  * </ul>
  *
+ * <p>Per cell, besides the suite (whose `test/e2e/contract` is the OpenRPC contract suite, its answers in
+ * `<cell>.contract.jsonl`): the WIRE TRANSCRIPT, recorded on the fresh fixture copy before the suite runs and compared
+ * with the cell's committed reference `packages/volt-cli/test/transcripts/<cell>.jsonl` (`<cell>.transcript.jsonl`,
+ * `<cell>.transcript.diff`; openspec volt-cli-rework 1.3). A transcript that differs, or a cell with no reference, is red
+ * by name. No step is interactive and every result is a file in `dist/release-matrix/`, so a self-hosted runner can run
+ * this unchanged.</p>
+ *
  * <p>A result is written only for a full run on a checkout that IS its HEAD (modified or untracked files outside
  * `openspec/` record it NOT green). `release.ts` attaches it to the release as `release-matrix.json`, and
  * `promote.yml` refuses a release whose attached result is missing or not green on the release's own commit
@@ -33,6 +40,7 @@
  *   bun run release:matrix --jobs 1         # one cell at a time (default 3)
  *   bun run release:matrix --only codesys-3.5.21.60-32,twincat-32
  *   bun run release:matrix --tests test/e2e/endpoints   # a SUBSET: printed, never a release result
+ *   bun run release:matrix --record-transcripts         # write each cell's wire transcript AS its reference (never a result)
  *   bun scripts/release-matrix.ts --verify <result.json> <sha>   # judge a result for a commit (promote.yml)
  *
  * Long: a full cell is the whole e2e suite (tens of minutes). Cells run 3 at a time (`--jobs`), each on its own
@@ -44,8 +52,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path"
 
 import {
-	bridgeBuilds, codesysCells, dirtyPaths, judge, parseSummary, proofRefusal, renderMatrix, twincatCells,
-	type Cell, type Outcome, type Report, type Verdict,
+	bridgeBuilds, codesysCells, dirtyPaths, judge, parseSummary, proofRefusal, renderMatrix, transcriptReference, twincatCells,
+	withTranscript, type Cell, type Outcome, type Report, type TranscriptOutcome, type Verdict,
 } from "../packages/volt-cli/scripts/release-matrix-cells.js"
 
 const REPO = resolve(import.meta.dir, "..")
@@ -152,16 +160,43 @@ function buildBridges(cells: Cell[]): void {
 	}
 }
 
-async function runCell(cell: Cell, tests: string): Promise<Verdict> {
+/**
+ * The cell's wire transcript (`packages/volt-cli/scripts/wire-transcript.ts`), recorded on the fresh fixture copy BEFORE
+ * the suite touches it, then compared with the cell's committed reference — or, with `--record-transcripts`, written AS
+ * that reference. Every file it makes is the cell's: `<cell>.transcript.jsonl` and `<cell>.transcript.diff`.
+ */
+async function transcript(cell: Cell, env: NodeJS.ProcessEnv, record: boolean, log: string[]): Promise<TranscriptOutcome> {
+	const recorded = join(OUT, `${cell.id}.transcript.jsonl`)
+	const reference = transcriptReference(cell)
+	const tool = join("scripts", "wire-transcript.ts")
+	const rec = await run("bun", [tool, "record", "--vendor", cell.vendor, "--instance", instanceOf(cell), "--out", record ? join(CLI, reference) : recorded],
+		{ cwd: CLI, env, timeout: 60 * 60_000 })
+	log.push(`── wire-transcript record (exit ${rec.status})`, rec.text)
+	if (rec.status !== 0) return { kind: "failed", why: `the scenario exited ${rec.status} (see the cell log)` }
+	if (record) return { kind: "recorded", reference }
+	const diff = join(OUT, `${cell.id}.transcript.diff`)
+	const cmp = await run("bun", [tool, "compare", "--reference", join(CLI, reference), "--run", recorded, "--diff", diff], { cwd: CLI, env, timeout: 10 * 60_000 })
+	log.push(`── wire-transcript compare (exit ${cmp.status})`, cmp.text)
+	if (cmp.status === 0) return { kind: "identical" }
+	if (cmp.status === 2) return { kind: "no-reference", reference }
+	if (cmp.status === 1) return { kind: "differs", steps: Number(/^(\d+) step\(s\) differ/m.exec(cmp.text)?.[1] ?? NaN) }
+	return { kind: "failed", why: `the comparer exited ${cmp.status}` }
+}
+
+async function runCell(cell: Cell, tests: string, recordTranscripts: boolean): Promise<Verdict> {
 	if (cell.refusal) return judge(cell, undefined, [])
 	const log: string[] = []
 	const reportFile = join(OUT, `${cell.id}.report.jsonl`)
-	rmSync(reportFile, { force: true })
+	const contractFile = join(OUT, `${cell.id}.contract.jsonl`)
+	for (const f of [reportFile, contractFile, join(OUT, `${cell.id}.transcript.jsonl`), join(OUT, `${cell.id}.transcript.diff`)]) rmSync(f, { force: true })
 	let outcome: Outcome | undefined
+	let wire: TranscriptOutcome | undefined
 	try {
 		if (!(await ide("up", cell, log))) return { cell, green: false, why: "the IDE did not come up (see the cell log)" }
-		const env = { ...process.env, VOLT_E2E_INSTANCE: instanceOf(cell), VOLT_VENDOR: cell.vendor, VOLT_GRAPHICAL: "1", VOLT_E2E_REPORT: reportFile }
+		const env = { ...process.env, VOLT_E2E_INSTANCE: instanceOf(cell), VOLT_VENDOR: cell.vendor, VOLT_GRAPHICAL: "1", VOLT_E2E_REPORT: reportFile, VOLT_CONTRACT_REPORT: contractFile }
 		delete (env as Record<string, string | undefined>).VOLT_PIPE
+		wire = await transcript(cell, env, recordTranscripts, log)
+		// The contract suite (test/e2e/contract) is part of test/e2e: it runs in every cell, its answers in <cell>.contract.jsonl.
 		const r = await run("bun", ["test", tests], { cwd: CLI, env, timeout: 4 * 3600_000 })
 		log.push(`── bun test ${tests} (exit ${r.status})`, r.text)
 		outcome = parseSummary(r.text, r.status)
@@ -172,7 +207,7 @@ async function runCell(cell: Cell, tests: string): Promise<Verdict> {
 	const reports = existsSync(reportFile)
 		? readFileSync(reportFile, "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l) as Report)
 		: []
-	return judge(cell, outcome, reports)
+	return withTranscript(judge(cell, outcome, reports), wire)
 }
 
 function arg(name: string): string | undefined {
@@ -209,7 +244,8 @@ if (import.meta.main) {
 		cells = cells.filter((c) => only.includes(c.id))
 	}
 	const tests = arg("--tests") ?? "test/e2e"
-	const partial = tests !== "test/e2e" || only !== undefined
+	const recordTranscripts = process.argv.includes("--record-transcripts")
+	const partial = tests !== "test/e2e" || only !== undefined || recordTranscripts
 	mkdirSync(OUT, { recursive: true })
 	const jobs = Number(arg("--jobs") ?? 3)
 	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
@@ -221,7 +257,7 @@ if (import.meta.main) {
 		while (next < cells.length) {
 			const i = next++
 			console.log(`• ${cells[i].id} ...`)
-			const v = await runCell(cells[i], tests)
+			const v = await runCell(cells[i], tests, recordTranscripts)
 			console.log(`  ${cells[i].id} ${v.green ? "green" : "RED"}: ${v.why}`)
 			verdicts[i] = v
 		}
@@ -229,7 +265,8 @@ if (import.meta.main) {
 	console.log("\n" + renderMatrix(verdicts))
 	const green = verdicts.length > 0 && verdicts.every((v) => v.green)
 	if (partial) {
-		console.log(`\nPARTIAL (${only ? "--only" : ""}${only && tests !== "test/e2e" ? ", " : ""}${tests !== "test/e2e" ? `--tests ${tests}` : ""}) - not a release result; result.json untouched`)
+		const why = [only ? "--only" : "", tests !== "test/e2e" ? `--tests ${tests}` : "", recordTranscripts ? "--record-transcripts" : ""].filter(Boolean).join(", ")
+		console.log(`\nPARTIAL (${why}) - not a release result; result.json untouched`)
 		process.exit(green ? 0 : 1)
 	}
 	const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).stdout.trim()

@@ -4,7 +4,7 @@
  * suite per cell) is the matrix itself.
  */
 import { describe, expect, it } from "bun:test"
-import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, twincatCells, TWINCAT_FIXTURE, type Cell } from "../../scripts/release-matrix-cells"
+import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, transcriptReference, twincatCells, TWINCAT_FIXTURE, withTranscript, type Cell, type Verdict } from "../../scripts/release-matrix-cells"
 
 const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
@@ -149,5 +149,30 @@ describe("verdict", () => {
 	})
 	it("a cell refused up front is red with its reason, whatever ran", () => {
 		expect(judge({ ...cell, refusal: "why" }, parseSummary(summary, 0), drove)).toMatchObject({ green: false, why: "why" })
+	})
+})
+
+describe("the wire transcript of a cell (volt-cli-rework 1.3)", () => {
+	const cell: Cell = { id: "codesys-3.5.21.40-64", vendor: "codesys", version: "3.5.21.40", bits: 64, fixture: "CodesysTestProject.3.5.21.40.project" }
+	const green: Verdict = { cell, green: true, why: "296 pass, 70 skip" }
+
+	it("keeps a green cell green only when the transcript is identical to the reference, or was just recorded as it", () => {
+		expect(withTranscript(green, { kind: "identical" })).toEqual({ cell, green: true, why: "296 pass, 70 skip; transcript identical" })
+		expect(withTranscript(green, { kind: "recorded", reference: transcriptReference(cell) }).green).toBe(true)
+		expect(withTranscript(green, undefined)).toBe(green)
+	})
+
+	it("turns a cell red by name when the transcript differs, has no reference, or was not recorded", () => {
+		const differs = withTranscript(green, { kind: "differs", steps: 2 })
+		expect(differs.green).toBe(false)
+		expect(differs.why).toContain("DIFFERS from the reference in 2 step(s)")
+		const none = withTranscript(green, { kind: "no-reference", reference: transcriptReference(cell) })
+		expect(none.green).toBe(false)
+		expect(none.why).toContain("test/transcripts/codesys-3.5.21.40-64.jsonl")
+		expect(withTranscript(green, { kind: "failed", why: "the scenario exited 1" }).green).toBe(false)
+	})
+
+	it("never turns a red suite green", () => {
+		expect(withTranscript({ ...green, green: false, why: "3 failed" }, { kind: "identical" }).green).toBe(false)
 	})
 })

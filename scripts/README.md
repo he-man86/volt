@@ -104,6 +104,14 @@ version and bitness the run drove, from `health` and the IDE process) names anot
 `--list` prints the cells; `--only <id,id>` and `--tests <path>` run a subset, printed as PARTIAL and never written as a
 result. Per-cell logs land in `dist/release-matrix/<cell>.log`. Long (the sum of full e2e runs); Windows only.
 
+Each cell also runs the 1.3 safety net of openspec `volt-cli-rework`: the OpenRPC contract suite is
+`test/e2e/contract` (so it runs with the suite; every answer in `<cell>.contract.jsonl`), and the WIRE TRANSCRIPT
+(`packages/volt-cli/scripts/wire-transcript.ts`) is recorded on the fresh fixture copy before the suite and compared with
+the cell's reference `packages/volt-cli/test/transcripts/<cell>.jsonl` (`<cell>.transcript.jsonl`, `<cell>.transcript.diff`).
+A transcript that differs, or a cell with no reference, is red by name. `--record-transcripts` writes each cell's
+transcript AS its reference (PARTIAL, never a result). No step is interactive, each cell serves its own fixture copy and
+closes it, and every result is a file: what a self-hosted runner needs to run it unchanged.
+
 ## The VM checklist — before a release that touches a bridge or the installer
 
 What the dev machine cannot be. Each cell is one VM (or one machine) in that state, with the product INSTALLED from
