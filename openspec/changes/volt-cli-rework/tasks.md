@@ -121,8 +121,10 @@ standing practice:
       - [x] the new-vendor gate: a `Volt.Repo.Gates` test that `Volt.Engine` above `Ide/`, `Volt.Contracts` and `Volt.Cli`
             name no `Codesys`/`Twincat`/`Beckhoff`/`Nwl` symbol, and that `Ide/I*.cs` and `Sync/` hold no `ItemKind.Plc*`
             code or NWL type (`NewVendorGateTests`; a ratchet at 33 and 38 — the counts are the work list);
-      - [ ] a minimal third test vendor OUTSIDE the CODESYS family (no NWL, its own object model) that passes the
-            transport suite (design step 4).
+      - [x] a minimal third test vendor OUTSIDE the CODESYS family (no NWL, its own object model) that passes the
+            transport suite (design step 4): `test/shared/Fakeco.cs` over `SeamDriverAdapter`, `ThirdVendorTransportTests`
+            (refs, fetch, push update/create/delete, build, health over the pipe) and `ThirdVendorContractTests`; its
+            findings F1–F7 in design.md "Step 4 findings" (F3 held red-first until step 5).
 
 ## 2. Find (parallel per project, each finding adversarially verified)
 
@@ -136,6 +138,17 @@ standing practice:
 
 - [ ] 3.1 Move misplaced code to its owning project (CODESYS-family code above the contract → down into the hosts;
       shared between the hosts only where 1.2 approved it); delete legacy; fix each bug behind its test.
+      - [x] design step 3, design first: "New Ide/ contract" in design.md (the interfaces member by member, the
+            Siemens/Rockwell probe, the old contract on the new one, what stays below).
+      - [x] design step 3, built beside the old: `Volt.Engine/Seam/` — `IVendorDriver` (session primitives + tree +
+            store), the four registries (`KindRegistry`, `LanguageRegistry`, `PropertyKeyRegistry`, `VendorRegistry`) in a
+            `Catalog`, `Content`/`BodyText`, `IItemFormat`, `IBodyReader`, `ImplementationLine`. Not wired into `Sync/`.
+            Tests: `Volt.Engine.Tests/seam/SeamRegistryTests.cs` (unknown extension refused by name, a duplicate spelling
+            refused naming both vendors, the family table expressible and registered twice with the same source set).
+      - [x] the new-vendor gate's exact zero over `Volt.Engine/Seam/` (`NewVendorGateTests`).
+      - [ ] design step 5: Sync onto the new contract, the old hosts through the adapter; deletes `SeamAdmission` and
+            `AdmittedFormats` (step-4 door), turns F3 green; `bun run check` then reads the source set from the
+            hosts' declarations (today: `ItemKind.SourceKindExtensions`, proven equal to the registry's).
 - [ ] 3.2 Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
       to 1.3's recording (a 1.2 wire deletion re-records it once, in its own change, before the rework).

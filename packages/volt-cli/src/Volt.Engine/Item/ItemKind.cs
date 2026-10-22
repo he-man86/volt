@@ -186,8 +186,9 @@ public static class ItemKind
             new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: true),
         Kinds.InterfaceProperty =>
             new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.DeclarationsOnly, Signature: true),
-        _ => throw new ArgumentException($"no shape for kind '{kind}': only a source item and the members and accessors " +
-                                         "inside it have one", nameof(kind)),
+        _ => SeamAdmission.Row(kind)?.Shape
+             ?? throw new ArgumentException($"no shape for kind '{kind}': only a source item and the members and accessors " +
+                                            "inside it have one", nameof(kind)),
     };
 
     /// <summary>Code → vendor-neutral wire kind string. null = not emitted as a tracked item: the containers
@@ -228,13 +229,14 @@ public static class ItemKind
         PlcRecipe => Kinds.Recipe,
         PlcSymbolConfig => Kinds.SymbolConfig,
         PlcProjectSettings => Kinds.ProjectSettings,
-        _ => null,
+        _ => SeamAdmission.KindOfCode(code),
     };
 
     /// <summary>Top-level source kinds (full ST text): POU, DUT, GVL, interface.</summary>
     public static bool IsTopLevelCrud(int code) =>
         code is PlcPou or PlcPouProg or PlcPouFunc or PlcGvl or PlcItf
-              or PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion;
+              or PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion
+        || SeamAdmission.IsSourceCode(code);
 
     /// <summary>An item the WIRE ADDRESSES BY NAME at top level: every top-level source kind, plus the
     /// writable reference kinds. This is what a lookup and the push's item cache want.
@@ -258,12 +260,14 @@ public static class ItemKind
     public static bool InlinesItsChildren(int code) => code is PlcTask;
 
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
-    public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
+    public static bool IsSourceKind(string kind) =>
+        SourceKinds.Contains(kind) || SeamAdmission.Row(kind)?.Role == Volt.Engine.Seam.KindRole.Source;
 
     /// <summary>Whether a kind is a READ-ONLY descriptor: a reference kind (<see cref="ReferenceKindExtensions"/>) that
     /// is not one of the <see cref="WritableReferenceKinds"/>. The IDE renders it; a push never writes it.</summary>
     public static bool IsReadOnlyKind(string kind) =>
-        ReferenceKindExtensions.Any(r => r.Kind == kind) && !WritableReferenceSet.Contains(kind);
+        (ReferenceKindExtensions.Any(r => r.Kind == kind) && !WritableReferenceSet.Contains(kind))
+        || SeamAdmission.Row(kind)?.Role == Volt.Engine.Seam.KindRole.Descriptor;
 
     /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
     /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this
@@ -405,7 +409,8 @@ public static class ItemKind
     {
         var dot = (wireName ?? "").LastIndexOf('.');
         return dot < 0 ? null
-             : KindByFileExt.TryGetValue(wireName!.Substring(dot + 1), out var kind) ? kind : null;
+             : KindByFileExt.TryGetValue(wireName!.Substring(dot + 1), out var kind) ? kind
+             : SeamAdmission.KindOfExtension(wireName.Substring(dot + 1));
     }
 
     /// <summary>Is this wire name a TASK — a descriptor, the one non-source kind a push writes, routed by its own
@@ -417,6 +422,16 @@ public static class ItemKind
     /// root folder (the stub's folder) by the file name, which IS the wire name — so the library extension is spelt
     /// only in the table above, and the CLI keeps no copy of it that would silently stop matching.</summary>
     public static bool IsLibraryWireName(string wireName) => KindForWireName(wireName) == Kinds.Library;
+
+    /// <summary>Does the old table itself hold this kind (an item kind with a file, or a member kind)? Asked only by
+    /// <see cref="SeamAdmission"/>, which refuses a third vendor re-declaring a family kind.</summary>
+    internal static bool IsFamilyKind(string kind) =>
+        ExtByKind.ContainsKey(kind) || kind is Kinds.Folder or Kinds.Method or Kinds.Action or Kinds.Property
+            or Kinds.InterfaceMethod or Kinds.InterfaceProperty or Kinds.PropertyGet or Kinds.PropertySet
+            or Kinds.Transition or Kinds.TaskCallReference or Kinds.InterfacePropertyGet or Kinds.InterfacePropertySet;
+
+    /// <summary>Does the old table itself hold this extension?</summary>
+    internal static bool IsFamilyExtension(string extension) => KindByFileExt.ContainsKey(extension);
 
     private static readonly HashSet<string> SourceKinds =
         new(SourceKindExtensions.Select(x => x.Kind), StringComparer.Ordinal);
@@ -441,6 +456,7 @@ public static class ItemKind
     /// SEGMENT, never a file, and both driver walks recurse it without emitting an item.</summary>
     public static string ExtFor(string kind) =>
         ExtByKind.TryGetValue(kind, out var ext) ? ext
+            : SeamAdmission.Row(kind)?.Extension is { } admitted ? admitted
             : throw new ArgumentException(
                 $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");
 }

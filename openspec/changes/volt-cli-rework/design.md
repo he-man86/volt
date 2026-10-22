@@ -117,8 +117,8 @@ THIS vendor holds a key stays the host's pre-flight answer (`ValidateProperties`
 |---|---|---|---|
 | **Session** | | | |
 | `Declaration` | none | the host states its rows; the Catalog is built from them | S1 |
-| `IsConnected`, `Vendor`, `ServedProjectName`, `IdeVersion`, `Product*`, `Unsupported`, `NotServedBecause`, `Disconnect`, degraded state, `ShouldMarkDegraded`, `Recover`, `SelectProject`, `BuildHealthResponse` | same | already generic | C14 |
-| `RunOnIdeThread<T>` | `RunOnStaThread<T>` | STA is a COM detail | C13 |
+| `IsConnected`, `Vendor`, `ServedProjectName`, `IdeVersion`, `Product*`, `Unsupported`, `NotServedBecause`, `Disconnect`, `ShouldMarkDegraded`, `Recover`, `SelectProject` | same | already generic | C14 |
+| `MarshalToIdeThread<T>`, `ProjectRows()`, `HealthProbeFloorMs` | `RunOnStaThread<T>`, degraded state, `BuildHealthResponse` (and `DriverBase`'s protected `MarshalToIdeThread`/`SnapshotHealth`/`ProbeThrottleMs`) | PRIMITIVES only (step-4 finding F5): the degraded-state machine, the busy/freshness bracketing and the health composition are the same for every vendor and stay the engine's; a host supplies rows and its marshal. STA is a COM detail | C13, C14 |
 | `Build(apps)`, `GetBuildDiagnostics(walk)` | same (`walk` returns the new `HostWalk`) | generic | C11, W12 |
 | `ExtractLibrarySignatures()` | same; `LibrarySignatureCache` leaves the contract (the engine holds it) | a vendor with no library manager answers none | C12 |
 | **Tree** | | | |
@@ -138,8 +138,9 @@ THIS vendor holds a key stays the host's pre-flight answer (`ValidateProperties`
 **Plug-ins** (instances the declaration carries):
 - `IBodyReader { object Read(string code, BodyContext ctx) }`: a shown language's validator. Network text's returns
   its `NetworkBody`; a plain-text language returns the code.
-- `IItemFormat { Name; string Write(Content); Content Read(string text, string kind, string name) }`: the FILE layout
-  of a source kind.
+- `IItemFormat { Name; string Write(Content); Content Read(string text, string kind, string name, Catalog, string vendor) }`:
+  the FILE layout of a source kind. It reads through the catalog: the kind's shape, the `IMPLEMENTATION` line
+  (`ImplementationLine`, one grammar, the shown set from the registry) and the `%`-keys.
 
 **Design finding while writing this:** the file layout is not the body language. The IEC layout (`PROGRAM …
 END_PROGRAM`, `METHOD … END_METHOD`, `%`-lines under the `IMPLEMENTATION` line) is `StReader`/`StWriter`. SCL
@@ -148,11 +149,12 @@ languages. So a source kind's row names its `IItemFormat`, and that format asks 
 each `IMPLEMENTATION <LANG>` line: one line grammar, one registry per question.
 
 **Content** (`Seam/Content.cs`):
-- `Content(Kind, Declaration, Body?, Members, PropertySet)`
-- `Body(Language, Code, Form, Why?)`, with `Form` = `Shown` / `Hidden` / `Abstract`. It replaces today's
-  `StatedLanguage`, the language line encoded in the body text, and `Unsupported`.
-- `ContentMember(Kind, Name, Declaration, Body?, PropertySet, Folder?, Get?, Set?)`
-- `ContentAccessor(Declaration?, Body?)`
+- `Content(Kind, Declaration, BodyText?, Members, PropertySet)`
+- `BodyText(Language, Code, Form, Why?)`, with `Form` = `Shown` / `Hidden` / `Abstract`. It replaces today's
+  `StatedLanguage`, the language line encoded in the body text, and `Unsupported`. (Not `Body`: that is a namespace,
+  `Format/Body`, in every file under `Volt.Engine.Format`.)
+- `ContentMember(Kind, Name, Declaration, BodyText?, PropertySet, Folder?, Get?, Set?)`
+- `ContentAccessor(Declaration?, BodyText?)`
 - `PropertySet`: an ordered list of `Property(Key, Value?)`
 
 No NWL type, no number, and no closed language or key list anywhere in `Seam/`. The new-vendor gate pins that at an
@@ -195,3 +197,25 @@ exact zero.
 
 There is no shared family layer (owner). Each host carries its own declaration, and the registry refuses the two
 drifting apart.
+
+### Step 4 findings: the third test vendor (2026-10-22)
+
+`Fakeco` (`test/shared/Fakeco.cs`) implements ONLY `IVendorDriver`: kinds `block` (`.blk`, a body), `type` (`.typ`) and
+`station` (`.stn`, a descriptor); `IMPLEMENTATION FKL` shown (plain text) and `LAD` hidden; keys `%RETAIN` and `%NOTE`;
+its own file layout (`FakecoFormat`: `%`-lines, declaration, `IMPLEMENTATION` line, code); an in-memory tree. A
+test-only adapter (`test/shared/SeamDriverAdapter.cs`, the reverse of step 5's) serves it through the existing
+transport: refs, fetch, push (update, create into a new folder, delete), build and health pass over the pipe
+(`ThirdVendorTransportTests`). What it proved, and what it forced:
+
+| # | Finding | Changed |
+|---|---|---|
+| F1 | The contract fits a non-family vendor with no member of it faked: no code, no NWL, no IEC header. The OLD engine does not: its kind table, its file layout (`StReader`/`StWriter`) and its `int` codes are closed, so `.blk` is `BAD_REQUEST` and dropped from `refs` before the host is asked | a transitional door for kinds a catalog declares, deleted in step 5: `Item/SeamAdmission` (the kind rows under synthetic codes from 100000, never a vendor's) and `Format/St/AdmittedFormats` (the row's `IItemFormat` instead of the IEC layout, `Content` ⇄ `ItemContent`). Family rows untouched, nothing admitted in a shipped process: the wire is byte-identical |
+| F2 | The old pre-flight hands a driver only NETWORK bodies, so a vendor's own shown language (FKL) never reaches `ValidateSource`; and a create's language is decoded from the text (`NetworkText.LanguageOf`: null for FKL) | none in the contract (it already keys every shown body by language, `PushedBody`); the adapter reads every shown body through its registered reader at `Write`. Step 5's engine does it in the pre-flight |
+| F3 | The old kind table is process-wide: a `.pou` pushed to the Fakeco bridge reaches the IEC reader and is refused only by the host, at APPLY (`UNSUPPORTED`), not as `BAD_REQUEST` before any write | held red-first (`A_family_extension_is_a_BAD_REQUEST_on_a_bridge_that_did_not_declare_it`, `ExpectRed` until step 5): a process's catalog is its host's declaration alone |
+| F4 | The old `ObjectProperties` record cannot carry a declared key, so `%RETAIN` cannot cross the old engine | `AdmittedFormats` refuses it by name (`UNSUPPORTED`) instead of dropping it; the keys are proven at the contract (`ThirdVendorContractTests`), over the pipe in step 5 |
+| F5 | A host that only has primitives would have to re-implement the degraded-state machine, the busy/freshness bracketing and the health composition the old `IIdeSession` asks for | `IVendorSession` is primitives only (`MarshalToIdeThread`, `ProjectRows`, `HealthProbeFloorMs`); the composition stays the engine's (`DriverBase` today) |
+| F6 | `KindShape.Composite` and `MembersInside` are read only by `StReader`/`StWriter`: they are IEC-layout facts, not kind facts | none yet: step 5 moves them into the IEC format; the engine keeps `Body`, `Accessors`, `Signature` |
+| F7 | `Body` collides with the `Volt.Engine.Format.Body` namespace in every `Format` file | renamed `BodyText` |
+
+The new-vendor gate pins `Volt.Engine/Seam/` at an exact zero: no vendor or NWL symbol, no family code, no `KindCode`, no
+NWL type (`NewVendorGateTests.The_new_contract_names_no_vendor_no_NWL_and_no_family_code`).

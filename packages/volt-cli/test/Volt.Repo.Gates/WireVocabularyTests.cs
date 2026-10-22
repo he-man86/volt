@@ -73,6 +73,7 @@ public class WireVocabularyTests
             "UNSUPPORTED", At(
             ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
+            ("Volt.Engine/Format/St/AdmittedFormats.cs", 2),   // volt-cli-rework step 4 (until step 5): a declared %-key, or an old-record property, the other record cannot hold
             ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
             ("Volt.Engine/Format/St/StReader.cs", 3),
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // gate review of step 3, finding 8: a %NETVAR value the line cannot carry
@@ -98,9 +99,11 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
+            ("Volt.Engine/Format/St/AdmittedFormats.cs", 1),   // volt-cli-rework step 4: a body that reached the new contract without its stated language
             ("Volt.Engine/Item/ItemKind.cs", 1),
+            ("Volt.Engine/Item/SeamAdmission.cs", 1),   // moved from PushService.PouKindToCode's default arm (volt-cli-rework step 4)
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 7),
+            ("Volt.Engine/Sync/PushService.cs", 6),   // -1 PouKindToCode's default arm, now SeamAdmission.CodeOf
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 a project-settings read of a node that is no PLC project's settings item (multi-application-tree)
             ("Volt.Relay/RelayTunnel.cs", 1),
@@ -354,6 +357,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/St/StReader.cs", 1),
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
+        ("Volt.Engine/Item/SeamAdmission.cs", 2),   // a third vendor re-declaring a family kind, or one kind admitted as two rows: a host's declaration refused at startup, Volt's own invariant (volt-cli-rework step 4)
         // The new contract's registries (volt-cli-rework step 3): a host's declaration that conflicts with another's or
         // breaks a row's shape is refused at REGISTRATION, when a process starts — Volt's own invariant, before any client.
         ("Volt.Engine/Seam/LanguageRegistry.cs", 2),

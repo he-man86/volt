@@ -103,6 +103,13 @@ public class NoTestOnlyCodeInSrcTests
         // Deliberate reference implementations. `FastImport_tree_matches_hash_object_plus_BuildTree` asserts the
         // fast-import path produces a byte-identical tree SHA to plumbing git — so these exist to be the OTHER
         // answer in a differential test, and a differential test with one implementation is not one.
+        // The door a new-contract vendor walks into the OLD engine through (openspec volt-cli-rework step 4): the third
+        // test vendor's adapter is its only caller until step 5 moves Sync onto Volt.Engine.Seam and deletes all three.
+        ["Admit"] = "SeamAdmission: admits a new-contract vendor's kinds into the old engine; its caller is the third test " +
+                    "vendor's adapter until volt-cli-rework step 5 deletes it with the old kind codes",
+        ["ToItemContent"] = "AdmittedFormats: the new contract's Content as the old ItemContent, for the same adapter; step 5's " +
+                            "adapter (old host to new contract) is its production caller",
+        ["ToContent"] = "AdmittedFormats: the inverse of ToItemContent, for the same adapter and step 5's",
         ["BuildTree"] = "reference implementation for the fast-import differential test",
         ["WriteBlob"] = "reference implementation for the fast-import differential test",
     };

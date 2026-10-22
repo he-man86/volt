@@ -2068,8 +2068,9 @@ public static class PushService
         ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Dut => ItemKind.PlcDut, ItemKind.Kinds.Gvl => ItemKind.PlcGvl, ItemKind.Kinds.Interface => ItemKind.PlcItf,
         // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program — and it is
-        // coded as Volt's bug (openspec bridge-refusal-review 2.17), not as the client's malformed request.
-        _ => throw new BridgeException(BridgeErrorCodes.InternalError,
-            $"no create code for the top-level kind '{kind}': the pre-flight admits only a writable source kind"),
+        // coded as Volt's bug (openspec bridge-refusal-review 2.17), not as the client's malformed request. A kind a
+        // new-contract vendor declared travels under its admitted code (`SeamAdmission`, until step 5), and any other
+        // kind is refused there, coded the same.
+        _ => SeamAdmission.CodeOf(kind),
     };
 }
