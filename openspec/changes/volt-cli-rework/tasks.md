@@ -105,15 +105,22 @@ standing practice:
       rating per project after the proposed work (same criteria as 1.0a, each score tied to the findings that move it).
 
 - [ ] 1.3 Safety net before any rework, from the 1.2 decisions:
-      - the OpenRPC-driven contract suite (above), which also RECORDS a wire transcript per vendor fixture — the
-        byte-identical reference 3.3 compares against;
-      - one implementation + one `Volt.Repo.Gates` test per wire rule (path comparer, wire-name minter, strict request
-        reader, protocol number beside the schema pin, error-code mapping);
-      - the mixed-version e2e cell (current CLI ↔ the previous release's bridge, 0.1.17884 today, refused by name before
-        any op);
-      - the new-vendor proof: a `Volt.Repo.Gates` test that `Volt.Engine` above `Ide/`, `Volt.Contracts` and `Volt.Cli`
-        name no `Codesys`/`Twincat`/`Beckhoff`/`Nwl` symbol (red now is expected: it lists the work), and a minimal
-        third test vendor OUTSIDE the CODESYS family (no NWL, its own object model) that passes the transport suite.
+      - [x] the OpenRPC-driven contract suite (above): `test/e2e/contract/openrpc-contract.test.ts`, 173 cases, green on
+            CODESYS 3.5.21.40 and TwinCAT MultiProject with 5 FINDINGS held red-first (the suite's `FINDINGS`);
+      - [x] the wire TRANSCRIPT recorder + comparer (`scripts/wire-transcript.ts`), run per release-matrix cell;
+      - [ ] the transcript REFERENCES per vendor fixture (`test/transcripts/<cell>.jsonl`, `bun run release:matrix
+            --record-transcripts`) — the byte-identical reference 3.3 compares against; recorded by the coordinator once
+            the refs progress-frame change has landed;
+      - [x] one implementation + one `Volt.Repo.Gates` test per wire rule (path comparer, wire-name minter, strict request
+            reader, protocol number beside the schema pin, error-code mapping): `WireRulesHaveOneImplementationTests`,
+            ratchets where a rule has several sites today;
+      - [x] the mixed-version e2e cell (current CLI ↔ the previous release's bridge, 0.1.17931 today, refused by name before
+            any op): `scripts/mixed-version.ts`, the `mixed-version` cell of `bun run release:matrix`;
+      - [x] the new-vendor gate: a `Volt.Repo.Gates` test that `Volt.Engine` above `Ide/`, `Volt.Contracts` and `Volt.Cli`
+            name no `Codesys`/`Twincat`/`Beckhoff`/`Nwl` symbol, and that `Ide/I*.cs` and `Sync/` hold no `ItemKind.Plc*`
+            code or NWL type (`NewVendorGateTests`; a ratchet at 33 and 38 — the counts are the work list);
+      - [ ] a minimal third test vendor OUTSIDE the CODESYS family (no NWL, its own object model) that passes the
+            transport suite (design step 4).
 
 ## 2. Find (parallel per project, each finding adversarially verified)
 
