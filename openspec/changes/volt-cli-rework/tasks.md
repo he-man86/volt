@@ -111,7 +111,8 @@ standing practice:
       - [x] the transcript REFERENCES per vendor fixture (`test/transcripts/<cell>.jsonl`, `bun run release:matrix
             --record-transcripts`) — the byte-identical reference 3.3 compares against; recorded 2026-10-22 on b2e67e79a3
             for the five fixture cells (CODESYS 3.5.18.30-64, 3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64, twincat-32), each
-            then compared identical in a full `release:matrix` run, with no normalisation change;
+            then compared identical (3.5.18.30 on an `--only` rerun: in the full run its first `refs` once answered a
+            transient projectVersion, a STALE_PROJECT_VERSION on the scenario's create), with no normalisation change;
       - [x] one implementation + one `Volt.Repo.Gates` test per wire rule (path comparer, wire-name minter, strict request
             reader, protocol number beside the schema pin, error-code mapping): `WireRulesHaveOneImplementationTests`,
             ratchets where a rule has several sites today;
