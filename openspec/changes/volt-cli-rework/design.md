@@ -219,3 +219,92 @@ transport: refs, fetch, push (update, create into a new folder, delete), build a
 
 The new-vendor gate pins `Volt.Engine/Seam/` at an exact zero: no vendor or NWL symbol, no family code, no `KindCode`, no
 NWL type (`NewVendorGateTests.The_new_contract_names_no_vendor_no_NWL_and_no_family_code`).
+
+## Step 5 plan: the Engine onto the new contract (2026-10-23)
+
+Measured before writing it: `Sync/` is 15 files and ~3.8k lines (`PushService` 2.1k), `Item/` ~1k, `Format/` ~8.5k, `Ide/`
+~2.1k, `Seam/` ~0.8k. The Sync entry points are called ~460 times from the tests, every one with an old-contract driver
+(`FakeIde`, a `DriverBase`). The oracle of every sub-step is the unchanged test suites plus the live matrix's transcript
+comparison on the merged result: a sub-step that cannot keep a test green without changing what the test asserts stops
+and is reported.
+
+### What the Engine holds of one host: `HostLink`
+
+`Sync/HostLink` is the one value every Sync service and the pipe host take:
+
+| Member | What | Until |
+|---|---|---|
+| `Driver` | the host as `IVendorDriver` | for good |
+| `Catalog` | `Catalog.Of(Driver.Declaration)`: THIS host's declaration alone, so a family extension is `BAD_REQUEST` on a bridge that did not declare it (F3) | for good |
+| `Session` | the engine's session composition (`DriverBase`: degraded state, IDE-thread bracketing, single-flight health probe, the health response, the library-signature cache) | step 6 moves it out of `DriverBase` into the engine, when the hosts stop inheriting it |
+
+Two ways in: `HostLink.Of(IVendorDriver)` for a host that speaks only the new contract (the session is the engine's
+composition over the host's primitives, F5), and `HostLink.Of(DriverBase)` for the two shipped hosts and `FakeIde`
+until step 6 (the driver is the adapter below, the session the host itself). An implicit conversion from `DriverBase`
+keeps the ~460 old-contract call sites in the tests compiling unchanged, so they stay the oracle; it goes with the
+adapter in step 6.
+
+### The adapter: old host to new contract (`Ide/LegacyDriver`, deleted in step 6)
+
+It is the table "The old contract on the new one" made code, plus what step 4 found:
+
+- **Declaration** (`Ide/FamilyDeclaration`): built from the old tables (`ItemKind`'s file table, `ShapeOf`,
+  `PropertyLines.Keys`, the six languages), with the vendor row from `Vendors`. Not a hand copy per host in step 5:
+  the hosts are untouched in this step, and a third copy of 30 rows beside two that the registry compares only once
+  both hosts register is a drift risk with no gain. Step 6 moves it into each host (the registry then proves the two
+  spell it alike).
+- **Classify** maps every code the old predicates read, so the engine's rules over `NodeClass` decide what they decided
+  over codes: a source code is `Item(kind)` of a `Source` row, a task `Item(task)` of the `WritableDescriptor` row, a
+  descriptor code `Item(kind)`, `PlcFolder` `Folder`, `Application` `Container(holdsItems)`, `TaskConfig`
+  `Container(takes: task)`, every other container and a container manager `Container`, a member or accessor code
+  `Member(kind)`, `Skip`/`Unknown` `Skip`. Where an old predicate was looser than the role names suggest it stays as
+  loose (a lookup descends through every node that is no source item, as `IsTopLevelCrud` made it), and is listed for
+  step 7.
+- **Walk**: the old items with their kinds as strings. An unmapped code and a container manager never become a
+  `WalkedItem`: the engine's backstop (`ProjectSnapshot`'s two skips) moves here, where the code still exists.
+- **Read / Write**: `ItemContent` ⇄ `Content` (`Format/St/FamilyContent`, the body half of step 4's `AdmittedFormats`
+  plus the `%`-keys): a body's language is its `Stated` fact, its code the text under the line
+  (`ImplementationMarker.Split`/`Join`, the IEC layout's own rule), a hidden body's reason its `Why`, the properties the
+  `PropertyLines` lines as declared keys; `ReturnType`/`DataType` travel as `ContentMember.Signature` (one value, which
+  of the two is the member kind's). A read is folded (`AbstractMemberFold`) as every engine read was.
+- **Bodies**: LD and FBD are read by `Format/Network/NetworkBodyReader` (the old `NetworkScopeFor` + `NetworkText.Validate`,
+  its model the validated network WITH its scope), ST by `PlainTextReader`; the adapter hands the old driver
+  `PushedNetworkBody` rebuilt from them.
+- **Create**: a folder is `PlcFolder`; a source kind its one seed code (`PouKindToCode`, moved here); a member its
+  `MemberCode`; an accessor its POU or interface accessor code; `CreateArgs.Language ?? Signature` is the seed and
+  `Class` the `ObjectClass`.
+- **Pre-flight**: one to one, except `ValidateAccessor(kind, …)`, which reaches the old `ValidateInterfaceAccessor` for
+  an interface property only (the old engine asked nothing else).
+
+### Sub-steps (each committed alone, every C# suite and `test/unit` green)
+
+1. **5.1 the link and the adapter**: `HostLink`, `LegacyDriver`, `FamilyDeclaration`, `IecFormat` (the IEC layout as an
+   `IItemFormat`: `StReader`/`StWriter` through `FamilyContent`, the pull's three IEC refusals moved from
+   `Materializer`), `NetworkBodyReader`. The pipe host takes a `HostLink`; nothing in Sync uses it yet.
+2. **5.2 Sync on the link**: the walks and reads first (`ProjectSnapshot`, `Versioning`, `Materializer`, refs, fetch,
+   grep, build, `OpGuard`), then the tree helpers the push uses (`TreeNav`, `ItemLookup`: `Children`/`Classify`), then
+   the push on `Content` end to end. The push pre-flight reads EVERY shown body through its registered reader (F2) and
+   asks the format for the item's kind by its extension in THIS host's catalog (F3); `%`-keys cross as a `PropertySet`
+   (F4). Fakeco is served as itself (`HostLink.Of(Fakeco)`); the test-only `SeamDriverAdapter` is deleted.
+3. **5.3 kind facts**: `KindShape` moves into `Seam/` without `Composite`/`MembersInside`, which become the IEC format's
+   own table (F6).
+4. **5.4 the transitional seam goes**: `SeamAdmission`, `AdmittedFormats`, the `ItemKind`/`StReader`/`StWriter`
+   hooks, `PouKindToCode` in Sync; every ratchet pin lowered to what is left.
+5. **5.5 the contract-suite defects**: each fixed only where today's wire already has the code for the refusal
+   (protocol stays 1); any other is reported.
+
+### What stays in the Engine after step 5, by name (step 6/7 work, listed so it is not forgotten)
+
+- Family RULES the push still states by kind word, each a vendor fact a host should state: the C38 name scope
+  (`pou`/`dut`/`gvl` share one name), the interface re-find after a create, the abstract method class derived from
+  `IMPLEMENTATION NONE`, a property's accessors named `Get`/`Set`.
+- `ItemContent`, `StReader`/`StWriter` as the IEC format's own model (the old record, below the format now).
+- The NWL member bag in the network model (`NwlMembers`): moving it below the contract is a model change of its own,
+  done with the hosts in step 6.
+- `PushedText` (the CLI's post-push comparison): front of the wire, the later phase.
+
+### Wire
+
+Nothing in step 5 changes a byte on the wire for the two shipped vendors: same walks, same reads, same texts, same
+codes. What changes is Fakeco's (a test vendor): `.pou` on its bridge is `BAD_REQUEST` before any write (F3), and
+`%RETAIN` crosses the pipe (F4).
