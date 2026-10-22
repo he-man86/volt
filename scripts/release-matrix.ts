@@ -27,7 +27,8 @@
  * `<cell>.contract.jsonl`): the WIRE TRANSCRIPT, recorded on the fresh fixture copy before the suite runs and compared
  * with the cell's committed reference `packages/volt-cli/test/transcripts/<cell>.jsonl` (`<cell>.transcript.jsonl`,
  * `<cell>.transcript.diff`; openspec volt-cli-rework 1.3). A transcript that differs, or a cell with no reference, is red
- * by name. No step is interactive and every result is a file in `dist/release-matrix/`, so a self-hosted runner can run
+ * by name. One more cell, `mixed-version`, pairs the current CLI with the previous release's bridge and the reverse
+ * (`packages/volt-cli/scripts/mixed-version.ts`, on CODESYS 3.5.21.40 64-bit; red by name where that cannot run). No step is interactive and every result is a file in `dist/release-matrix/`, so a self-hosted runner can run
  * this unchanged.</p>
  *
  * <p>A result is written only for a full run on a checkout that IS its HEAD (modified or untracked files outside
@@ -52,7 +53,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path"
 
 import {
-	bridgeBuilds, codesysCells, dirtyPaths, judge, parseSummary, proofRefusal, renderMatrix, transcriptReference, twincatCells,
+	bridgeBuilds, codesysCells, dirtyPaths, judge, mixedVersionCell, parseSummary, proofRefusal, renderMatrix, transcriptReference, twincatCells,
 	withTranscript, type Cell, type Outcome, type Report, type TranscriptOutcome, type Verdict,
 } from "../packages/volt-cli/scripts/release-matrix-cells.js"
 
@@ -111,10 +112,30 @@ function vsProxy64Registered(): boolean {
 
 export function machineCells(): Cell[] {
 	const fixtures = readdirSync(FIXTURES)
-	return [
-		...codesysCells(listDir(programFiles("ProgramW6432")), listDir(programFiles("ProgramFiles(x86)")), fixtures),
-		...twincatCells(xaeShellBits(), vsProxy64Registered()),
-	]
+	const codesys = codesysCells(listDir(programFiles("ProgramW6432")), listDir(programFiles("ProgramFiles(x86)")), fixtures)
+	return [...codesys, ...twincatCells(xaeShellBits(), vsProxy64Registered()), mixedVersionCell(codesys)]
+}
+
+/** The current CLI, built ONCE before the pool when the mixed-version cell runs: the e2e cells run `volt.exe` from the
+ *  same `bin\`, and must not see it rebuilt under them. */
+function buildCurrentCli(): string {
+	console.log("building Volt.Cli (Release) ...")
+	const r = spawnSync("C:\\Program Files\\dotnet\\dotnet.exe", ["build", join(CLI, "src", "Volt.Cli", "Volt.Cli.csproj"), "-c", "Release", "--nologo", "-v", "quiet"], { encoding: "utf8" })
+	if (r.status !== 0) { console.error(`✗ Volt.Cli build failed - the mixed-version cell cannot run:\n${r.stdout ?? ""}${r.stderr ?? ""}`); process.exit(1) }
+	const exe = join(CLI, "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
+	if (!existsSync(exe)) { console.error(`✗ no ${exe} after the build`); process.exit(1) }
+	return exe
+}
+
+/** The mixed-version cell: `packages/volt-cli/scripts/mixed-version.ts` on its own instances, judged by its exit and
+ *  summary. Its files are `dist/release-matrix/mixed-version/` (result.json, mixed-version.log, the previous tree). */
+async function runMixedCell(cell: Cell, currentCli: string): Promise<Verdict> {
+	const out = join(OUT, "mixed-version")
+	const r = await run("bun", [join("scripts", "mixed-version.ts"), "--instance-prefix", instanceOf(cell), "--out", out,
+		"--codesys-version", cell.version!, "--bits", String(cell.bits), "--current-cli", currentCli, "--no-build-current"], { cwd: CLI, timeout: 2 * 3600_000 })
+	writeFileSync(join(OUT, `${cell.id}.log`), r.text)
+	const lines = r.text.split(/\r?\n/).filter((l) => /^(GREEN|RED)\s|^what the protocol check/.test(l))
+	return { cell, green: r.status === 0, why: lines.length ? lines.join(" | ") : `mixed-version.ts exited ${r.status} (see the cell log)` }
 }
 
 // ── running a cell ───────────────────────────────────────────────────────────────────────────────────────────
@@ -183,8 +204,9 @@ async function transcript(cell: Cell, env: NodeJS.ProcessEnv, record: boolean, l
 	return { kind: "failed", why: `the comparer exited ${cmp.status}` }
 }
 
-async function runCell(cell: Cell, tests: string, recordTranscripts: boolean): Promise<Verdict> {
+async function runCell(cell: Cell, tests: string, recordTranscripts: boolean, currentCli: () => string): Promise<Verdict> {
 	if (cell.refusal) return judge(cell, undefined, [])
+	if (cell.mixed) return runMixedCell(cell, currentCli())
 	const log: string[] = []
 	const reportFile = join(OUT, `${cell.id}.report.jsonl`)
 	const contractFile = join(OUT, `${cell.id}.contract.jsonl`)
@@ -250,6 +272,7 @@ if (import.meta.main) {
 	const jobs = Number(arg("--jobs") ?? 3)
 	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
 	buildBridges(cells)
+	const currentCli = cells.some((c) => c.mixed && !c.refusal) ? buildCurrentCli() : ""
 	// A pool of `jobs` workers over the cell list; verdicts keep the cells' order for the matrix.
 	const verdicts: Verdict[] = new Array(cells.length)
 	let next = 0
@@ -257,7 +280,7 @@ if (import.meta.main) {
 		while (next < cells.length) {
 			const i = next++
 			console.log(`• ${cells[i].id} ...`)
-			const v = await runCell(cells[i], tests, recordTranscripts)
+			const v = await runCell(cells[i], tests, recordTranscripts, () => currentCli)
 			console.log(`  ${cells[i].id} ${v.green ? "green" : "RED"}: ${v.why}`)
 			verdicts[i] = v
 		}

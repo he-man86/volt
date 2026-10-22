@@ -6,7 +6,7 @@
 export type Vendor = "codesys" | "twincat"
 /** A cell; `bits` is absent only on a vendor's `-none` cell, which is red by its refusal and never runs. `fixture` is
  *  relative to `test/fixtures`: a CODESYS `.project`, or the TwinCAT `.sln` (`TWINCAT_FIXTURE`). */
-export type Cell = { id: string; vendor: Vendor; version?: string; bits?: 32 | 64; fixture?: string; refusal?: string }
+export type Cell = { id: string; vendor: Vendor; version?: string; bits?: 32 | 64; fixture?: string; refusal?: string; mixed?: true }
 export type Outcome = { pass: number; fail: number; skip: number; exit: number | null }
 export type Report = { vendor: string; bits: number; ideVersion: string | null; project: string }
 export type Verdict = { cell: Cell; green: boolean; why: string; outcome?: Outcome }
@@ -65,6 +65,22 @@ export function twincatCells(shellBits: (32 | 64)[], vsProxy64Registered: boolea
 			? "Visual Studio's 64-bit msenvp proxy is registered (HKLM\\SOFTWARE\\Classes\\CLSID\\{E6D78900-BB40-4039-9C54-593A242B65DA}, 64-bit view) - not a customer's machine (DIALECT C2t)"
 			: undefined,
 	}))
+}
+
+/**
+ * THE MIXED-VERSION CELL (openspec `volt-cli-rework` 1.3; `scripts/mixed-version.ts`): the current CLI against the
+ * previous release's bridge and the reverse, on the CODESYS every recording is measured on (3.5.21.40, 64-bit). Red
+ * before running, by name, on a machine without that CODESYS cell runnable.
+ */
+export const MIXED_VERSION_IDE = { version: "3.5.21.40", bits: 64 as const }
+
+export function mixedVersionCell(codesys: Cell[]): Cell {
+	const host = codesys.find((c) => c.version === MIXED_VERSION_IDE.version && c.bits === MIXED_VERSION_IDE.bits)
+	return {
+		id: "mixed-version", vendor: "codesys", version: MIXED_VERSION_IDE.version, bits: MIXED_VERSION_IDE.bits, fixture: host?.fixture, mixed: true,
+		refusal: host && !host.refusal ? undefined
+			: `the mixed-version cell runs on CODESYS ${MIXED_VERSION_IDE.version} ${MIXED_VERSION_IDE.bits}-bit, which this machine ${host ? `cannot serve (${host.refusal})` : "has not installed"}`,
+	}
 }
 
 /** One bridge build the cells serve: a project, and for the TwinCAT worker the RID of a cell's shell bitness. */

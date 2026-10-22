@@ -4,7 +4,7 @@
  * suite per cell) is the matrix itself.
  */
 import { describe, expect, it } from "bun:test"
-import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, parseSummary, proofRefusal, transcriptReference, twincatCells, TWINCAT_FIXTURE, withTranscript, type Cell, type Verdict } from "../../scripts/release-matrix-cells"
+import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, mixedVersionCell, parseSummary, proofRefusal, transcriptReference, twincatCells, TWINCAT_FIXTURE, withTranscript, type Cell, type Verdict } from "../../scripts/release-matrix-cells"
 
 const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
@@ -174,5 +174,17 @@ describe("the wire transcript of a cell (volt-cli-rework 1.3)", () => {
 
 	it("never turns a red suite green", () => {
 		expect(withTranscript({ ...green, green: false, why: "3 failed" }, { kind: "identical" }).green).toBe(false)
+	})
+})
+describe("the mixed-version cell (volt-cli-rework 1.3)", () => {
+	it("runs on CODESYS 3.5.21.40 64-bit, and is red by name where that cell cannot run", () => {
+		const cells = codesysCells(["CODESYS 3.5.21.40"], [], ["CodesysTestProject.3.5.21.40.project"])
+		expect(mixedVersionCell(cells)).toEqual({ id: "mixed-version", vendor: "codesys", version: "3.5.21.40", bits: 64, fixture: "CodesysTestProject.3.5.21.40.project", mixed: true, refusal: undefined })
+		expect(mixedVersionCell(codesysCells(["CODESYS 3.5.22.40"], [], [])).refusal).toContain("has not installed")
+		expect(mixedVersionCell(codesysCells(["CODESYS 3.5.21.40"], [], [])).refusal).toContain("cannot serve (no fixture project native")
+	})
+
+	it("needs the CODESYS bridge built like any CODESYS cell", () => {
+		expect(bridgeBuilds([mixedVersionCell(codesysCells(["CODESYS 3.5.21.40"], [], ["CodesysTestProject.3.5.21.40.project"]))])).toEqual([{ project: "Volt.Ide.Codesys" }])
 	})
 })
