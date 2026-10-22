@@ -241,6 +241,19 @@ and **8** on Project14, because several suites gate on the project being big eno
 (`if (itemCount >= 20)`, a POU with children, a folder two deep). A green run says nothing about which of
 the two it was, so read the SKIP count as part of the result, not as noise.
 
+## The contract suite — the bridge as a public API (`contract/`)
+
+`contract/openrpc-contract.test.ts` builds its requests from `docs/volt-bridge.openrpc.json`, never from the CLI's DTOs
+(openspec `volt-cli-rework` 1.3): for every op and every request member the schema names it sends the member in another
+case, an unknown member, each required member missing, each member of another JSON type or `null`, the members and the
+envelope in another order, a body that is no object, the op in another case — then frames that are no request, paths in
+another case, a taken name, the same item twice, an unknown path, empty and boundary values, and the paused bridge. Every
+answer must be framed as wire.html says, conform STRICTLY to the method's result schema, carry a code the op declares
+(plus BAD_REQUEST) and never INTERNAL_ERROR; where wire.html promises an answer, that answer. A case wire.html makes no
+promise about is an observation, judged by those rules only. A defect it found is listed in `FINDINGS` and must stay
+reproduced: the day it is fixed, its case fails until the entry goes. `VOLT_CONTRACT_REPORT=<file>` writes every case's
+answer as JSON lines (the release matrix keeps one per cell). Writes touch only its own `VltE2E_Ctr*` items.
+
 ## The suites that need more than one plain development bridge
 
 Every file here drives ONE development bridge — the `VOLT_VENDOR` fixture IDE of the `VOLT_E2E_INSTANCE` instance — except a few, and each says so

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * THE WIRE — resolving THIS run's fixture bridge pipe (`fixture-ide.ts`) and making one call on it. Nothing above this layer knows what a
  * socket is.
  *
@@ -146,6 +146,44 @@ export function callBound(pipe: string, op: string, body?: unknown): Promise<any
 		identities.set(pipe, identity)
 	}
 	return identity.then((id) => callOn(pipe, op, { ...b, ...id }))
+}
+
+/** Every line a bridge answered one raw request with, as sent: the frames parsed, the bytes kept. */
+export type RawAnswer = { lines: string[]; frames: any[] }
+
+/**
+ * One request frame sent EXACTLY as given — `frame` is the bytes before the newline, whatever they are (not JSON, members
+ * in any order or case, over the frame cap) — and every line the bridge answered, progress included. The contract suite
+ * and the transcript recorder need what {@link callOn} hides: the request a polite client never sends, and the frames
+ * around the result. Resolves when the bridge closes the connection; a line that is not JSON is kept as a frame
+ * `{ unparsed: <line> }` so the caller can fail on it by name.
+ */
+export function callRaw(pipe: string, frame: string | Buffer): Promise<RawAnswer> {
+	return new Promise((resolve, reject) => {
+		const sock = connect(`\\\\.\\pipe\\${pipe}`)
+		const chunks: Buffer[] = []
+		sock.on("connect", () => {
+			sock.write(frame)
+			sock.write("\n")
+		})
+		sock.on("data", (d: Buffer) => chunks.push(d))
+		const done = () => {
+			const lines = Buffer.concat(chunks).toString("utf8").split("\n").filter((l) => l.length > 0)
+			const frames = lines.map((l) => {
+				try { return JSON.parse(l) } catch { return { unparsed: l } }
+			})
+			resolve({ lines, frames })
+		}
+		sock.on("end", done)
+		sock.on("close", () => done())
+		sock.on("error", (e: NodeJS.ErrnoException) => {
+			// A bridge that refuses an oversize frame closes while the client is still writing (EPIPE): what it answered
+			// before closing is the answer.
+			if ((e.code === "EPIPE" || e.code === "ECONNRESET") && chunks.length > 0) return done()
+			cachedPipe = undefined
+			reject(e)
+		})
+	})
 }
 
 /**
