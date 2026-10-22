@@ -37,8 +37,9 @@ public class WireVocabularyGuardTests
             new[] { "PLC_DISCONNECTED", "WRONG_PROJECT", "IDE_LOST_ITEM", "BAD_REQUEST", "UNSUPPORTED", "IDE_UNSUPPORTED", "IDE_BUSY",
                     "DUPLICATE_CHILD", "INVALID_ST", "INTERNAL_ERROR" },
             // ImplementationMarker.cs spells the workspace keyword `IMPLEMENTATION LD UNSUPPORTED` — a word of the file
-            // format that shares its spelling with the error code, not the error code.
-            new HashSet<string> { "BridgeErrorCodes.cs", "ImplementationMarker.cs" }),
+            // format that shares its spelling with the error code, not the error code. LanguageRegistry.cs spells the same
+            // word for the new contract's one line grammar (volt-cli-rework step 3).
+            new HashSet<string> { "BridgeErrorCodes.cs", "ImplementationMarker.cs", "LanguageRegistry.cs" }),
 
         ("op codes (Ops)",
             new[] { "health", "connect", "disconnect", "refs", "fetch", "push", "build" },
