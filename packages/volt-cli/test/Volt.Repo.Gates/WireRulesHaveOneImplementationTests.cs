@@ -313,5 +313,8 @@ public class WireRulesHaveOneImplementationTests
     private static readonly Dictionary<string, int> CodeLiteralPins = new(StringComparer.Ordinal)
     {
         ["Volt.Engine/Format/St/ImplementationMarker.cs"] = 1,
+        // The IMPLEMENTATION line's own word UNSUPPORTED, spelled like the code as ImplementationMarker's is: the new
+        // contract's line grammar (volt-cli-rework step 3), which replaces that one in step 7.
+        ["Volt.Engine/Seam/LanguageRegistry.cs"] = 1,
     };
 }

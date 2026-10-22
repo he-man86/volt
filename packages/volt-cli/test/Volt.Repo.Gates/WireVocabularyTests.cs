@@ -57,6 +57,7 @@ public class WireVocabularyTests
         new("the request breaks the wire's own rules", "change the REQUEST", "BAD_REQUEST", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
+            ("Volt.Engine/Seam/KindRegistry.cs", 2),   // the new contract (volt-cli-rework step 3): an extension no host registered, a wire name with no extension
             ("Volt.Engine/Sync/BuildService.cs", 2),   // build-selects-application: an `applications` root the project does not hold, an empty list
             ("Volt.Engine/Sync/FetchService.cs", 1),
             ("Volt.Engine/Sync/GrepService.cs", 4),   // grep-item-sources: a limit out of range, an empty pattern, one that does not compile, one that times out on a line
@@ -114,7 +115,12 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // bridge-one-to-one §3: the %-line grammar (one Refuse builder)
-            ("Volt.Engine/Format/St/StReader.cs", 20))),   // +1: code under IMPLEMENTATION NONE (abstract-member-push)
+            ("Volt.Engine/Format/St/StReader.cs", 20),   // +1: code under IMPLEMENTATION NONE (abstract-member-push)
+            // The new contract (volt-cli-rework step 3): the one IMPLEMENTATION line grammar (no line, no language, a
+            // language the vendor does not show) and the declared %-keys (no %-line, an undeclared key, a value its grammar
+            // refuses, a key stated twice) — the layout code, as vendor-neutrality W6 names it.
+            ("Volt.Engine/Seam/ItemFormat.cs", 3),
+            ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 4))),
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
             ("Volt.Engine/Ide/ItemLookup.cs", 1),
@@ -348,6 +354,11 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/St/StReader.cs", 1),
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
+        // The new contract's registries (volt-cli-rework step 3): a host's declaration that conflicts with another's or
+        // breaks a row's shape is refused at REGISTRATION, when a process starts — Volt's own invariant, before any client.
+        ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
+        ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
+        ("Volt.Engine/Seam/VendorRegistry.cs", 3),
         ("Volt.Engine/Sync/Materializer.cs", 1),
         ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)

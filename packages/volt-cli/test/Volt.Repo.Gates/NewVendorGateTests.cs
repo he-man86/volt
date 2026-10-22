@@ -69,6 +69,23 @@ public class NewVendorGateTests
             "model stay below it, in the hosts (design steps 3 and 5).");
     }
 
+    /// <summary>THE NEW CONTRACT HOLDS NONE OF IT (design step 3, "New Ide/ contract"): <c>Volt.Engine/Seam/</c> — the
+    /// interfaces, the four registries, the content model — names no vendor and no NWL, and speaks no family kind code, no
+    /// <c>KindCode</c> and no NWL network type. An EXACT zero, not a ratchet: the contract is written new, so there is no
+    /// debt to pin, and a vendor fact that slips in is a design defect.</summary>
+    [Fact]
+    public void The_new_contract_names_no_vendor_no_NWL_and_no_family_code()
+    {
+        var lines = SourceScan.Lines("Volt.Engine", rel => rel.StartsWith("Volt.Engine/Seam/", StringComparison.Ordinal)).ToList();
+        Assert.True(lines.Select(l => l.File).Distinct().Count() >= 8, "Volt.Engine/Seam/ holds almost no source — did it move?");
+
+        var hits = lines.Where(l => VendorSymbol.IsMatch(l.Code) || FamilyCode.IsMatch(l.Code))
+            .Select(l => $"{l.File}:{l.Line}: {l.Code.Trim()}").ToList();
+        Assert.True(hits.Count == 0,
+            "The new contract (Volt.Engine/Seam/) must name no vendor, no NWL and no family kind code — the host states its " +
+            "kinds, languages and keys through the registries:\n  " + string.Join("\n  ", hits));
+    }
+
     /// <summary>The scan sees the sources it claims to (a gate over moved files passes for the wrong reason).</summary>
     [Fact]
     public void The_scans_read_the_projects()
