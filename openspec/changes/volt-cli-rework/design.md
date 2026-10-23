@@ -308,3 +308,21 @@ It is the table "The old contract on the new one" made code, plus what step 4 fo
 Nothing in step 5 changes a byte on the wire for the two shipped vendors: same walks, same reads, same texts, same
 codes. What changes is Fakeco's (a test vendor): `.pou` on its bridge is `BAD_REQUEST` before any write (F3), and
 `%RETAIN` crosses the pipe (F4).
+
+### Step 5 as built (2026-10-23)
+
+- 5.1 `a90714bec9`, 5.2 `e4b485c4cc`, 5.3 `f0b64f7ae0`, 5.4 `7813757d28`, 5.5 `980f75c518`. The pipe host took the
+  `HostLink` in 5.2, with Sync, not in 5.1. `HostLink.Of(IIdeDriver)` makes its driver and catalog on first use, so a
+  session answers `health` before any declaration is built.
+- The old `ItemLookup.Find`/`Locate` now ask the one lookup (`Sync/TreeLookup`) through the adapter; `ItemLookup.All`
+  stays the hosts' walk for their declarations index. `SourceScopes.Validated` stays for two host tests (the
+  `NetworkText.Validate` count is 2 until step 7).
+- Contract additions the port needed: `IItemFormat.Write(content, name)` (the IEC format's pull refusals name the item),
+  `ContentMember.Signature`, `NodeClass.Noun` (a refusal names a node as the old wording did),
+  `KindRegistry.FindByWireName`, `PropertyKeyRegistry.ClassKey`/`ClassOf`.
+- Measured differences, none on the shipped wire: a signature accessor's body is one value (`""` and `null` were two
+  spellings of "nothing to write"); an unmapped code or a container manager in a walk is dropped by the adapter (log only);
+  the push asks a host's `ValidateSource` whenever a body is shown (the adapter forwards only network bodies, as before).
+- 5.5 not fixed, for the owner: a `deleteItem` quoting a version for a path that names nothing is the documented,
+  pinned idempotent no-op (`PushConflictCodeTests`), where wire.html promises `ITEM_MISSING`. Changing it changes what a
+  replaying client sees.
