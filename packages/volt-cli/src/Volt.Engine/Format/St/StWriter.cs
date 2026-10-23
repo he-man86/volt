@@ -8,6 +8,7 @@ using Volt.Engine;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Format.St;
 
@@ -21,6 +22,7 @@ public static class StWriter
         // A kind a new-contract vendor declared is written by ITS format, not the IEC layout (AdmittedFormats, until step 5).
         if (AdmittedFormats.For(item.Kind) is { } admitted) return AdmittedFormats.Write(admitted, item);
         var shape = ItemKind.ShapeOf(item.Kind);
+        var layout = IecLayout.Of(item.Kind);
         // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its IMPLEMENTATION line where it has
         // one, else closing its declaration — a DUT's, a GVL's, an interface's.
         var props = PropertyLines.Write(item.Properties);
@@ -28,7 +30,7 @@ public static class StWriter
         // keep a declaration's and a body's trailing newlines across a reload, so the file spells them — the text, then
         // the layout's own separator, which is all the reader strips (`StReader.StripSeparator`). Every TrimEnd('\n') that
         // folded them is gone; `…END_VAR\n\n\n` and `…END_VAR` pulled identically, and a push wrote the vendor's away.
-        if (!shape.Composite)
+        if (!layout.Composite)
             return item.Declaration + "\n" + string.Concat(props.Select(l => l + "\n"));
 
         var sb = new StringBuilder();
@@ -58,15 +60,15 @@ public static class StWriter
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 
-        if (shape.MembersInside)
+        if (layout.MembersInside)
         {
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, shape)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, layout)); }
             sb.Append('\n').Append('\n').Append(EndKeyword(item));
         }
         else
         {
             sb.Append('\n').Append('\n').Append(EndKeyword(item));
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, shape)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, layout)); }
         }
 
         sb.Append('\n');
@@ -115,7 +117,7 @@ public static class StWriter
     /// whose members sit in its block (<c>MembersInside</c>, an interface), whose members are signatures. That is the
     /// owner's row, the one the reader splits such a block by, so an ACTION inside an interface (0 in the six corpora) is
     /// written as the reader reads it: unmarked.</summary>
-    private static string AssembleChild(Member child, KindShape owner)
+    private static string AssembleChild(Member child, IecLayout.Shape owner)
     {
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, owner);
@@ -138,7 +140,7 @@ public static class StWriter
         return impl.Length == 0 ? $"{decl}\n{boundary}\n{end}" : $"{decl}\n{boundary}\n{impl}\n{end}";
     }
 
-    private static string AssembleProperty(Member child, KindShape owner)
+    private static string AssembleProperty(Member child, IecLayout.Shape owner)
     {
         // An INTERFACE property's accessors are signatures — no body, so no boundary to mark.
         var marked = !owner.MembersInside && ItemKind.ShapeOf(child.Kind).Accessors == AccessorShape.WithBodies;

@@ -237,9 +237,9 @@ public static class StReader
 	/// <summary>The row of a SOURCE item's kind (<see cref="ItemKind.ShapeOf"/>) — the only kinds this reader reads: a POU,
 	/// an interface, a DUT or a GVL. A member kind, a task or a descriptor reaching it is a caller's bug, not the
 	/// engineer's text (openspec <c>bridge-refusal-review</c> 2.2): <see cref="ArgumentException"/>, INTERNAL_ERROR on push.</summary>
-	private static KindShape ItemShape(string kind) =>
+	private static IecLayout.Shape ItemShape(string kind) =>
 		ItemKind.IsSourceKind(kind)
-			? ItemKind.ShapeOf(kind)
+			? IecLayout.Of(kind)
 			: throw new ArgumentException($"the ST reader has no composite shape for kind '{kind}': it reads a source item " +
 			                              "(a POU, an interface, a DUT or a GVL)", nameof(kind));
 

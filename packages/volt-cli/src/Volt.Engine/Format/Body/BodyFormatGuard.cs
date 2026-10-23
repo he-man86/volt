@@ -4,6 +4,7 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Format.Body;
 

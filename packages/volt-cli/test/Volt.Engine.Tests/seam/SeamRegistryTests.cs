@@ -25,8 +25,8 @@ public class SeamRegistryTests
         public object Read(string code, BodyContext context) => code;
     }
 
-    private static readonly KindShape WithBody = new(Composite: true, MembersInside: false, Body: true, AccessorShape.None, Signature: false);
-    private static readonly KindShape NoBody = new(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: false);
+    private static readonly KindShape WithBody = new(Members: true, Body: true, AccessorShape.None, Signature: false);
+    private static readonly KindShape NoBody = new(Members: false, Body: false, AccessorShape.None, Signature: false);
     private static readonly IItemFormat Layout = new StubFormat("layout");
 
     private static KindRegistry Kinds(params KindRow[] rows)

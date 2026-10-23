@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Item;
+using Volt.Engine.Format.St;
+using Volt.Engine.Seam;
 using K = Volt.Engine.Item.ItemKind.Kinds;
 
 namespace Volt.Engine.Tests;
@@ -31,8 +33,8 @@ public class KindShapeTests
         foreach (var kind in Items)
         {
             var row = ItemKind.ShapeOf(kind);
-            Assert.Equal(OldHasBody(kind), row.Composite);                    // StWriter.HasBody, StReader `Gvl or Dut`
-            Assert.Equal(kind == K.Interface, row.MembersInside);             // StReader `kind == Interface`
+            Assert.Equal(OldHasBody(kind), IecLayout.Of(kind).Composite);     // StWriter.HasBody, StReader `Gvl or Dut` (the layout's column, F6)
+            Assert.Equal(kind == K.Interface, IecLayout.Of(kind).MembersInside);   // StReader `kind == Interface`
             Assert.Equal(OldAppliesTo(kind), row.Body);                       // ImplementationMarker.AppliesTo / CanHold
         }
     }
@@ -74,7 +76,7 @@ public class KindShapeTests
 
         // HasBody(interface) meant "composite": an interface has no IMPLEMENTATION line.
         Assert.True(OldHasBody(K.Interface));
-        Assert.True(ItemKind.ShapeOf(K.Interface).Composite);
+        Assert.True(IecLayout.Of(K.Interface).Composite);
         Assert.False(ItemKind.ShapeOf(K.Interface).Body);
 
         // CarriesAccessors(interface_method) meant "has no body": an interface method has no accessors either.

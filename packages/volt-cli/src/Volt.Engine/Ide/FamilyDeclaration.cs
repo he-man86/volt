@@ -32,7 +32,7 @@ public static class FamilyDeclaration
         },
         PropertyKeys);
 
-    private static readonly KindShape NoShape = new(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: false);
+    private static readonly KindShape NoShape = new(Members: false, Body: false, AccessorShape.None, Signature: false);
 
     /// <summary>Every kind the old table names: the four source kinds in the IEC layout, every descriptor (the task the
     /// one a push writes), and every member and accessor kind a tree node can be classified as.</summary>

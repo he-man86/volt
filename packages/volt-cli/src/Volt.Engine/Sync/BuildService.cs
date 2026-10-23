@@ -106,7 +106,7 @@ public static class BuildService
     /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
     /// client's editor at the wrong file. A diagnostic that carries a <see cref="BridgeDiagnostic.Member"/> is the
     /// exception that is not a guess: it is inside a method, property or action, and only an item whose kind HOLDS
-    /// members (its kind's shape is composite) can be its parent - the visualization cannot, so the FB is the
+    /// members (its kind's shape holds members) can be its parent - the visualization cannot, so the FB is the
     /// one.</para>
     ///
     /// <para>THE MEMBER GOES WITH THE NAME. <see cref="BridgeDiagnostic.Member"/> is the CHILD of the name, so a
@@ -152,7 +152,7 @@ public static class BuildService
             var barePath = ItemPath.Of(pi.Folder, pi.Name);
             Record(resolved, pi.Name, identity);
             Record(resolved, barePath, identity);
-            if (link.Catalog.Kinds.Find(kind)?.Shape?.Composite == true)
+            if (link.Catalog.Kinds.Find(kind)?.Shape?.Members == true)
             {
                 Record(holders, pi.Name, identity);
                 Record(holders, barePath, identity);

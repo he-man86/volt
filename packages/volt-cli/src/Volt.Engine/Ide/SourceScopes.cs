@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Ide
 {

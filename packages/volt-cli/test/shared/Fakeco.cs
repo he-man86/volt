@@ -36,8 +36,8 @@ public sealed class Fakeco : VendorDriverBase, IVendorDriver
         new VendorRow(Id, "Fakeco"),
         new[]
         {
-            KindRow.Source(Block, "blk", new KindShape(Composite: true, MembersInside: false, Body: true, AccessorShape.None, Signature: false), Format),
-            KindRow.Source(Type, "typ", new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: false), Format),
+            KindRow.Source(Block, "blk", new KindShape(Members: true, Body: true, AccessorShape.None, Signature: false), Format),
+            KindRow.Source(Type, "typ", new KindShape(Members: false, Body: false, AccessorShape.None, Signature: false), Format),
             KindRow.Descriptor(Station, "stn"),
         },
         new[] { LanguageRow.Shown(Fkl, PlainTextReader.Instance), LanguageRow.Hidden("LAD") },

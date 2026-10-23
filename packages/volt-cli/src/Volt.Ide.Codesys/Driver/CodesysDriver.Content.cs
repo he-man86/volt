@@ -9,6 +9,7 @@ using Volt.Engine;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Ide.Codesys;
 

@@ -1,6 +1,7 @@
 using System.Linq;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Format.St;
 
