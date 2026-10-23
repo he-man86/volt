@@ -75,3 +75,64 @@ remaining points:
   `CodesysPlatform.Capability.KnownOn` (keep as the measurement record, or delete).
 - **Wire, protocol 2** (deferred, coordinated with PLC Assist): W1/W2 (vendor table, kind vocabulary in Contracts), P4,
   `networkText` → `languages`; plus P3 and `Contracts.Tests` from the OpenRPC document.
+
+## 4.0c Quality rating again — before (1.0a) → potential (1.2) → 4.0b → now
+
+Measured offline at `a6f543b665` (2026-10-23: after 2.1–2.4, 3.1a, 3.1b, 3.3), with `rating-measure.sh` and
+`rating-pins.sh` beside this page (the 1.0a regexes, mechanically). Run on 4.0b's commit `08167c8bfc` the scripts give
+4.0b's numbers (Engine+Host 10,466 code, 309 vendor lines, 83 history, 1,364 facts), so the two columns compare.
+Every row below is the scripts' output on the two commits except T4's file lengths (`wc -l`) and the named sites in parentheses. One 4.0b number was low: it counted 2
+`IsAbstract` copies, but `08167c8bfc` had 3 definitions — `StReader.MemberHeaderIsAbstract` was the third, and the
+survivor (the script's regex now matches any `static bool …IsAbstract(string`, so it is counted on both commits).
+**Not yet after "the rest of 3.1"**: the Engine history lines, `FamilyContent.cs:104`'s refusal text and T4 are still
+open (3.1, unticked); re-run both scripts when they land.
+
+| count | 4.0b `08167c8bfc` | now `a6f543b665` |
+|---|---|---|
+| Engine+Host code / comment / blank | 10,466 / 5,340 / 1,578 | 10,393 / 5,284 / 1,575 |
+| Ide.Codesys | 3,858 / 2,251 / 494 | 3,848 / 2,192 / 496 |
+| Ide.Twincat | 5,824 / 3,320 / 842 | 5,827 / 3,240 / 841 |
+| Contracts; Wire | 632 / 737 / 194; 529 / 210 / 80 | 664 / 717 / 197; 529 / 207 / 80 |
+| vendor lines (code): Engine / Codesys / Twincat / Contracts+Wire | 309 (25) / 623 (423) / 778 (214) / 89 (14) | 308 (25) / 617 (424) / 766 (216) / 89 (14) |
+| history comments: Engine / Codesys / Twincat / Contracts / Wire | 83 / 70 / 84 / 19 / 6 | **34 / 18 / 21 / 7 / 2** |
+| PLCopen: Engine / Codesys / Twincat | 7 / 5 / 17 | 3 / 3 / 3 |
+| test facts (files): Engine / Codesys / Twincat / Contracts | 1364 (161) / 307 (49) / 457 (77) / 17 (5) | 1354 (161) / 318 (51) / 463 (77) / 20 (6) |
+| `IsAbstract` definitions; `"push-reject"` walks | 3 (`BodyFormatGuard`, `AbstractMemberFold`, `StReader.MemberHeaderIsAbstract`); 2 | 1 (`StReader.MemberHeaderIsAbstract`); 1 |
+| path-comparer ratchet; exception→code ratchet | 108 (25 files); 15 (7) | **37 (19)**; 10 (6) |
+| new-vendor ratchet: vendor symbols; family codes | 33 (8 files); 1 | 33 (8); 1 — unchanged |
+| minter up-reach (a host calling `Versioning.PathOf`) | 1 | 1 (`BeckhoffDriver.Tree.cs:597`) |
+| C1 `GetObjectToModify` code lines; T3 `Bits` | 6; 2 | 2 (one `Modify`); 1 |
+| C2 `List<object>` lines; C3 `ParseLine/Column`; D1 `OutputSlots` definitions | 10; 4; 2 | 10; 4; 2 — unchanged (`CodesysNetworkWriter.cs:646`, `TcArchiveBuilder.cs:324`) |
+| T4: `TcNetworkWriter` + `TcArchiveBuilder` + `TcArchiveWriter` lines | 1,160 + 502 + 217 | 1,099 + 487 + 217 |
+| `?? ""` code lines: Engine / Codesys / Twincat | 55 / 30 / 37 | 55 / 29 / 37 |
+| largest file | `PushService.cs` 2,113 | `PushService.cs` 2,143 |
+
+**Correction to 4.0b.** 4.0b scored Engine placement and TwinCAT neutrality on "E5/T1 fixed (no host references
+`Volt.Engine.Sync`)". That is not so: `MinterUpReachPins` holds 1 — `BeckhoffDriver.Tree.cs:597` calls
+`Volt.Engine.Sync.Versioning.PathOf` — and 6 more host code lines name `Volt.Engine.Sync` (`HostLink.Of`,
+`ComposedSession.RowStatus`/`DefaultProbeThrottleMs`, `WorkerStart.cs`'s `using`). Those six are the composition the
+design puts in the engine (F5, `HostLink`); the `PathOf` call is the E5 up-reach, still open. The scores below carry it.
+
+| criterion | Engine (+Host) | Ide.Codesys | Ide.Twincat | Contracts + Wire |
+|---|---|---|---|---|
+| placement | 6 → 8 → 7 → **7**: E1 (host kit in `Ide/`: `InterfaceAccessorGuard`, `MeasuredNames`, `ExcludedFolder`, `BothVendorsRefusedNames`, `DIALECT.md`), E3 and E5 (the 1 `PathOf` up-reach) open | 7 → 8 → 8 → **8**: C2, C3 open | 6 → 8 → 7 → **7.5**: T2 fixed (3.1b: no production branch for the doubles' shape; "offline doubles" 5 → 1 mention); T1 open (the `PathOf` call) | 6 → 8 → 6 → **6**: W1, W2 open |
+| duplication | 6 → 8 → 6 → **7.5**: one `IsAbstract`, one `RejectAll` walk, ONE path comparer (`ItemPath.SameItem`/`SameSpelling`, ratchet 108 → 37, the rest compare no wire path), exception→code 15 → 10 | 5 → 7 → 5 → **6**: C1 fixed (one `Modify`); D1–D3 untouched (no family layer) | 4 → 7 → 4 → **5**: T3 fixed (one `Bits`); T4 open (two writers, 1,803 lines); D1–D3 | 8 → 8 → 8 → **8** |
+| vendor-neutrality above the contract | 3 → 7–8 → 6 → **6**: unchanged — 25 code lines name NWL (E3), the new-vendor ratchet still 33 + 1, `ItemKind`'s IEC/TREEITEMTYPE table in the Engine (E2) | 9 → 9 → 9 → **9** | 8 → 9 → 9 → **8.5**: T1 is not fixed (correction above) | 5 → 7–8 → 5 → **5**: `Vendors` (11 pinned symbols), per-vendor `PipeNames` minters (W1) |
+| legacy | 6 → 8 → 6 → **7**: history 83 → 34, PLCopen 7 → 3, ARCH FOLLOW-UP 1 → 0, the network-text v1 detector deleted, `IsVerbatimKind` pinned; 34 proxy lines and `FamilyContent.cs:104` left (the rest of 3.1) | 6 → 8 → 6 → **7.5**: history 70 → 18, PLCopen 5 → 3, `KnownOn` deleted; C3 scraper still there | 5 → 8 → 5 → **7**: history 84 → 21, PLCopen 17 → 3, `ImportedPinName` deleted | 6 → 7 → 6 → **7.5**: history 25 → 9 (W4 mostly done) |
+| test strength | 7 → 8 → 8 → **8**: 1,354 facts (−10: the v1 tests went with the detector; `FallbackRefusalTests` added); contract suite, transcripts, vendor-parity cell | 7 → 8 → 7 → **8**: C5 each red-first (`CodesysLibraryRefReadTests`, `CodesysTaskCallListRefusalTests`, `CodesysContainerRefusalTests`, `CodesysLibrarySignatureVarsTests`); 318 facts | 6 → 7 → 6.5 → **7.5**: the doubles answer `ProduceXml` and no longer shape the product (T2); T5 measured live; 463 facts; `ide-restart` live | 4 → 7–8 → 4 → **5.5**: 20 facts in 6 files, `RequestNullTests` on the strict reader; still none on `PushOp` polymorphism/DTO shapes from the OpenRPC document |
+| public-API robustness | 5 → 7 → 7 → **7.5**: 2.4's three root causes refused (schema null, a `to` of another kind, a path `refs` cannot publish); P3 (`OpGuard.cs:55`, `BridgePipeHost.cs:179` compare the project name `Ordinal`), P4 open | 6 → 7 → 6 → **7**: C5 refused by name (a library reference with no identity, a facet without `pous`, a folder with no object manager) | 6 → 7 → 6 → **7**: T5 (unparseable device XML refused; binder miss measured correct, D35); the untyped library pin refused; `servedDirty ?? false` recorded for protocol 2 | 5 → 7–8 → 6 → **6.5**: a null entry's refusal keeps its index (`$.ops[1].bogus`); P4 open |
+| size | 5 → 6–7 → 5 → **5**: 10,393 code (−73 since 4.0b); `PushService.cs` 2,143 lines | 6 → 6 → 6 → **6**: 3,848 | 5 → 5 → 5 → **5**: 5,827 | 6 → 6 → 6 → **6** |
+| **overall** (mean of the seven) | 5 → ~8 → 6.5 → **7** (6.9) | 6.5 → ~8 → 6.5 → **7.5** (7.4) | 5.5 → ~7.5 → 6 → **7** (6.8) | 6 → ~8 → 6 → **6.5** (6.4) |
+
+### What still keeps "now" below "potential"
+
+- **The rest of 3.1** (offline): 34 Engine history lines by the proxy, `FamilyContent.cs:104`'s refusal text, T4 (one
+  TwinCAT network writer).
+- **Not on any list yet**: E5/T1 — the one `Versioning.PathOf` up-reach (`BeckhoffDriver.Tree.cs:597`, pinned 1); E1
+  (the host kit in `Engine/Ide/`); C2 (typed diagnostic record) and C3 (`ParseLine`/`ParseColumn` filed in
+  `Libraries.cs`); 37 path-comparer and 10 exception→code sites still pinned; `PushService.cs` grew to 2,143 lines.
+- **Owner decisions**: E3 / D1–D3 (an NWL family layer below the contract). The new-vendor ratchet cannot reach zero
+  without it: 17 of its 33 symbols are `Format/Network` (`NwlMembers`, the `"NWL"` view word).
+- **Wire, protocol 2**: W1/W2 (11 of the 33 symbols are `Vendors.cs`), P3, P4, the nullable `dirty`,
+  `Contracts.Tests` from the OpenRPC document. The CLI's 5 symbols and `PushedText`'s family code are the
+  front-of-wire phase.

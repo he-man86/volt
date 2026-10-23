@@ -366,4 +366,14 @@ standing practice:
       registration points above the wire a vendor still needs — the connector's launch, the installer payload, the LSP
       dialect — which are the front-of-wire phase's work, not this change's.
 - [ ] 4.0c QUALITY RATING again after 2.x and the rest of 3.1, into `input/rating-after.md` (before → potential → after).
+      MEASURED 2026-10-23 on a6f543b665 (after 2.x, 3.1a, 3.1b), `input/rating-after.md` "4.0c", by `input/rating-measure.sh`
+      + `input/rating-pins.sh` (they reproduce 4.0b's numbers on 08167c8bfc, except 4.0b's low `IsAbstract` count — 3
+      definitions then, not 2; every table row is now the scripts' output, gate review 2026-10-23): Engine 5 → ~8 → 6.5 → 7, Codesys 6.5 → ~8 →
+      6.5 → 7.5, Twincat 5.5 → ~7.5 → 6 → 7, Contracts + Wire 6 → ~8 → 6 → 6.5. Moved by: history comments 83/70/84/25 →
+      34/18/21/9, PLCopen 7/5/17 → 3/3/3, path-comparer ratchet 108 → 37, exception→code 15 → 10, C1, T2, T3, C5, T5.
+      Unchanged: new-vendor ratchet 33 + 1, E1/E3, C2/C3, D1–D3, T4, W1/W2, P3/P4. Left UNTICKED: "the rest of 3.1" (the
+      Engine history lines, `FamilyContent.cs:104`, T4) is still open — re-run the two scripts when it lands.
+      Gate review 2026-10-24: `rating-measure.sh` now counts DEFINITIONS for `IsAbstract` (`static bool …IsAbstract(string`:
+      3 on 08167c8bfc → 1 now; it printed 0 before) and `OutputSlots` (2 → 2; it counted calls too, 4); both rows in the
+      table now match the script's output on both commits.
 - [ ] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.
