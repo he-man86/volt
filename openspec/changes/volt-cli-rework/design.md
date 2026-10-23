@@ -558,3 +558,27 @@ vendor-fact home.
   `CodesysPlatform.All` (names the three capabilities as fields of `CodesysPlatform`). `bun run check` and the
   Codesys suite green.
 - Wire: none; transcripts byte-identical.
+
+### Step 2.3 as built (2026-10-23)
+
+- `IsVerbatimKind` KEPT: `docs/items.html` (identity section) states the rule with `Untitled2.tmc` and `X.gvl` →
+  `X.gvl.pou`; `WireIdentityTests.A_name_ending_in_another_kinds_extension_still_gets_its_own` pins the other-kind
+  case (green on first run: the code already held it; no product change).
+- `CodesysPlatform.Capability.KnownOn` DELETED with its constructor argument (three strings, 0 readers); the class
+  summary and DIALECT V2 name the three capability fields instead of the deleted `CodesysPlatform.All`.
+- P2 (`"op"` in any position) unchanged: already pinned and documented.
+- Gate review (3 findings, all fixed, red first):
+  - items.html said an unreadable item "has no kind and is named <folder>/<bare name>"; the code names it by the same
+    path as a readable one (`VersionedItem.Identity`, unreadable-name-carries-kind). Sentence corrected.
+  - The verbatim rule's inverse was a second, unstated rule: `TreeLookup.Names` matched an IDE child by its bare name
+    OR by the whole file name, so `F/A.pou` also found a pou named `A.POU` (which `refs` names `A.POU.pou`). Now the
+    lookup inverts the minter itself (`Versioning.FileOf` = the file part of `PathOf`): a path finds exactly the item
+    `refs` names there. Pinned by `ItemLookupTests.G_a_path_finds_only_the_item_whose_wire_name_it_is`. Left: the
+    minter itself maps `A` and `A.pou` of one kind to one path — IEC names carry no dot, and the six corpora hold 0
+    double-extension names; niche: accepted loss (0 occurrences in the corpora).
+  - `IsVerbatimKind` compared OrdinalIgnoreCase while every reader of a wire extension is Ordinal, so `Std.LIBRARY`
+    minted a wire name whose extension named no kind. Now Ordinal (`Std.LIBRARY` → `Std.LIBRARY.library`); pinned by
+    `WireIdentityTests.A_kept_name_reads_back_to_its_own_kind`; the `FullWireName` summary states the rule (0
+    case-variant extensions in the corpora; cheap, so fixed).
+- Numbers: 3 hidden features found; 2 kept (documented + pinned), 1 deleted; gate: 3 review findings fixed, 4 test
+  cases added (3 red first), 0 fixtures; wire unchanged for every item the corpora hold.

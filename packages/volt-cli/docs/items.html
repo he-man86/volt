@@ -59,8 +59,15 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
   So the same name in two applications is two items, and so is the same name in two kinds. Real projects repeat both:
   do <b>not</b> add a duplicate-name guard. Below the vendor seam the item is looked up by its <b>bare</b> name (the
   IDE's own key, no extension) inside the container its path names. The path is derived in one place
-  (<code>Versioning.VersionedItem.Identity</code>); an item that could not be materialized has no kind and is named
-  <code>&lt;folder&gt;/&lt;bare name&gt;</code>.
+  (<code>Versioning.VersionedItem.Identity</code>). An item whose content could not be read has the same path — its
+  kind is a fact of the IDE's tree, not of its content.
+</p>
+<p>
+  The file name is the IDE's name with its kind's extension appended, unless the IDE's name already ends in that
+  extension, spelled exactly so: TwinCAT names a module description by its file, so it is <code>Untitled2.tmc</code>,
+  not <code>Untitled2.tmc.tmc</code>. <code>X.gvl</code> as a POU is <code>X.gvl.pou</code>; <code>Std.LIBRARY</code> as a
+  library is <code>Std.LIBRARY.library</code>. A push finds an item by inverting this: the path names the child whose
+  file name it is.
 </p>
 <p>
   <b>Applications are stated.</b> <code>refs</code> and <code>fetch</code> name the root path of every application

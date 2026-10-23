@@ -151,9 +151,14 @@ standing practice:
       fails the whole fetch, so it waits for the live dump); RECORDED — `BeckhoffDriver.BuildProjects` reports an
       unreadable `Solution.Saved` as `dirty: false` (`servedDirty ?? false`), a wire fact (a nullable `dirty`) for the
       protocol-2 release. C5 and the rest of T5 stay in 3.1 (need a live IDE).
-- [ ] 2.3 Hidden features: behaviour no doc or test states. Default (owner 2026-10-23, "continue till fully done"):
+- [x] 2.3 Hidden features: behaviour no doc or test states. Done 2026-10-23 (design.md "Step 2.3 as built"): 3 found, 2 kept and pinned, 1 deleted (`KnownOn`). Default (owner 2026-10-23, "continue till fully done"):
       load-bearing behaviour is documented and pinned by a test; behaviour nothing reads is deleted; each one listed
       in design.md with the choice made, so the owner can reverse it. Not a stop for the owner.
+      GATE 2026-10-23: 3 review findings fixed red-first (items.html's unreadable-item sentence; the push lookup now
+      inverts the minter, `Versioning.FileOf`; `IsVerbatimKind` Ordinal like every extension reader); 4 test cases
+      added. Numbers: C# 5120 pass / 0 fail / 1 skip (Engine 3133+1 skip, Cli 357, Connector 153, Twincat 709, Codesys 471,
+      Contracts 42, Repo.Gates 255); TS unit 201/0; typecheck + `bun run check` green; path-comparer ratchet 108 → 107
+      (TreeLookup 3 → 2). Offline gate: no live IDE run (wire unchanged for every corpus item).
 - [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
 
@@ -185,7 +190,7 @@ standing practice:
               doubles): measure on an own ide.ps1 instance, then refuse by name or prove the value correct;
             - hidden features (default 2026-10-23, the owner may override): `Materializer.IsVerbatimKind` KEPT and
               pinned by a test; `CodesysPlatform.Capability.KnownOn` DELETED (`test/e2e/lib/platform.ts` holds the
-              platform facts);
+              platform facts) — DONE in 2.3;
             - the behind-the-wire inputs since 2026-10-18 above: unsaved CFC/SFC on a TwinCAT move (`CarryLive`), the
               e2e redundant-read cut, `ide-restart` on the one-worker-per-XAE model.
             - from 2.1/2.2: delete the network-text v1 detector and `ImportedPinName`; the untyped TwinCAT library pin

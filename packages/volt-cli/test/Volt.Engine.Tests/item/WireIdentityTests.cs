@@ -66,6 +66,22 @@ public class WireIdentityTests
     public void A_tmc_module_description_keeps_its_vendor_name_on_the_wire()
         => Assert.Equal("Untitled2.tmc", Materialize("Untitled2.tmc", ItemKind.Kinds.TmcFile));
 
+    /// <summary>ONLY THE ITEM'S OWN EXTENSION IS LEFT ALONE. A POU whose IDE name ends in ANOTHER kind's extension
+    /// is still extended with its own: <c>X.gvl</c> as a POU is <c>X.gvl.pou</c>, never the GVL's wire name.</summary>
+    [Fact]
+    public void A_name_ending_in_another_kinds_extension_still_gets_its_own()
+        => Assert.Equal("X.gvl.pou", Materialize("X.gvl", ItemKind.Kinds.Pou));
+
+    /// <summary>THE KEPT EXTENSION IS THE KIND'S OWN SPELLING, CASE AND ALL. A wire name's extension is read back to
+    /// its kind case-sensitively (<c>ItemKind.KindForWireName</c>, <c>KindRegistry.FindByWireName</c>), so a name kept
+    /// as is must end in exactly the extension its kind publishes: <c>Std.LIBRARY</c> as a library is
+    /// <c>Std.LIBRARY.library</c>, never a name whose extension maps to no kind.</summary>
+    [Theory]
+    [InlineData("Std.LIBRARY", ItemKind.Kinds.Library)]
+    [InlineData("Untitled2.TMC", ItemKind.Kinds.TmcFile)]
+    public void A_kept_name_reads_back_to_its_own_kind(string ideName, string kind)
+        => Assert.Equal(kind, ItemKind.KindForWireName(Materialize(ideName, kind)));
+
     /// <summary>AND THAT CASE STILL INVERTS. `Bare` strips the LAST dot segment, so a verbatim name inverts to
     /// the stem the IDE holds — the round trip is not identity here, and it is not supposed to be.</summary>
     [Fact]

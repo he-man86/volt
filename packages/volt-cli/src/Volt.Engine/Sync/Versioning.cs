@@ -25,7 +25,12 @@ public static class Versioning
     /// version map, <c>items</c> and <c>unreadable</c> key on it, so an item that cannot be read is named exactly as it
     /// is while it reads (a verbatim-named kind once, a library in its own folder).</summary>
     public static string PathOf(Seam.KindRegistry kinds, string kind, string walkedFolder, string bareName) =>
-        Mint(kind, walkedFolder, bareName, Materializer.FullWireName(bareName, kind, kinds));
+        Mint(kind, walkedFolder, bareName, FileOf(kinds, kind, bareName));
+
+    /// <summary>The FILE NAME part of <see cref="PathOf"/> — what the push's lookup (<c>TreeLookup</c>) inverts, so a
+    /// path finds the item this names at it and no other.</summary>
+    public static string FileOf(Seam.KindRegistry kinds, string kind, string bareName) =>
+        Materializer.FullWireName(bareName, kind, kinds);
 
     private static string Mint(string kind, string walkedFolder, string bareName, string fullName) =>
         ItemPath.Of(FolderOf(kind, walkedFolder, bareName), fullName);

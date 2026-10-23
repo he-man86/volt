@@ -18,37 +18,30 @@ namespace Volt.Ide.Codesys
     /// forwarding facade.</para>
     ///
     /// <para><b>Refused by capability, never by number</b> (owner, 2026-10-01). A fixed SP21 floor would lock out OEM
-    /// IDEs on older platforms that work. <see cref="All"/> (DIALECT V2) is THE list of what the bridge binds at start; each entry
-    /// says which platforms it is known on. Anything else the bridge reflects is reached lazily inside an op (a plugin
+    /// IDEs on older platforms that work. <see cref="Core"/>, <see cref="Dispatcher"/> and <see cref="ObjectManager"/>
+    /// (DIALECT V2) are what the bridge binds at start; the platforms each was measured on are DIALECT V2's. Anything else the bridge reflects is reached lazily inside an op (a plugin
     /// type is not loaded until its plugin is), so checking it here would refuse IDEs that are fine.</para>
     /// </summary>
     internal static class CodesysPlatform
     {
         internal sealed class Capability
         {
-            public Capability(string name, string knownOn) { Name = name; KnownOn = knownOn; }
+            public Capability(string name) { Name = name; }
             /// <summary>What the refusal names — the vendor member, so a user can quote it to support.</summary>
             public string Name { get; }
-            /// <summary>The platforms it has been measured on (not a floor: a platform not listed may have it).</summary>
-            public string KnownOn { get; }
         }
 
         private const string SystemInstancesType = "_3S.CoDeSys.Core.SystemInstances";
 
         /// <summary>The 3S core type every other capability hangs off — and the version source.</summary>
-        public static readonly Capability Core = new(
-            "the core framework type " + SystemInstancesType,
-            "3.5.18.30 (PLCAssist laptop, 2026-09-30), 3.5.21.40 (this repo)");
+        public static readonly Capability Core = new("the core framework type " + SystemInstancesType);
 
         /// <summary>Every object-model touch is marshalled onto the primary thread through this (<see cref="CodesysDispatcher"/>).</summary>
         public static readonly Capability Dispatcher = new(
-            "the primary-thread dispatcher (SystemInstances.Engine.InvokeInPrimaryThread(Delegate, object[], bool))",
-            "3.5.18.30 (PLCAssist laptop, 2026-09-30), 3.5.21.40 (this repo)");
+            "the primary-thread dispatcher (SystemInstances.Engine.InvokeInPrimaryThread(Delegate, object[], bool))");
 
         /// <summary>All source-text I/O goes through the object manager (<see cref="CodesysObjectModel"/>).</summary>
-        public static readonly Capability ObjectManager = new(
-            "the object manager (SystemInstances.ObjectMgr)",
-            "3.5.18.30 (PLCAssist laptop, 2026-09-30), 3.5.21.40 (this repo)");
+        public static readonly Capability ObjectManager = new("the object manager (SystemInstances.ObjectMgr)");
 
         /// <summary>The platform version, e.g. <c>3.5.21.40</c>; null when the core type is not loaded (then
         /// <see cref="Core"/> is missing and the refusal says the version could not be read).</summary>

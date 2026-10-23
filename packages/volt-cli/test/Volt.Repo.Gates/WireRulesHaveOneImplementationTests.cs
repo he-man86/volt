@@ -266,7 +266,7 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Sync/PushedText.cs"] = 2,
         ["Volt.Engine/Sync/Removal.cs"] = 5,
         ["Volt.Engine/Sync/SnapshotClock.cs"] = 1,   // per-application timing for the refs log line only; no identity decision
-        ["Volt.Engine/Sync/TreeLookup.cs"] = 3,   // moved from Ide/ItemLookup (volt-cli-rework step 5: the one lookup, on the new contract)
+        ["Volt.Engine/Sync/TreeLookup.cs"] = 2,   // moved from Ide/ItemLookup (volt-cli-rework step 5); -1 2.3: the item name inverts the minter (Versioning.FileOf)
         ["Volt.Engine/Sync/TreeNav.cs"] = 4,   // moved from Ide/TreeNav (volt-cli-rework step 5)
         ["Volt.Engine/Sync/Versioning.cs"] = 1,
     };

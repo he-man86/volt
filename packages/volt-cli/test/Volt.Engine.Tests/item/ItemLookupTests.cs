@@ -59,6 +59,21 @@ public class ItemLookupTests
         Assert.Null(ItemLookup.Find(ide, "POUs/Sub/FB_Deep.pou"));
     }
 
+    /// <summary>The lookup is the exact inverse of the wire name: a path finds the item <c>refs</c> names at that path
+    /// and no other. An IDE name that already ends in its kind's extension is its wire name as is (<c>FB.pou</c>); one
+    /// that ends in it in another casing is extended (<c>FB.POU</c> is <c>FB.POU.pou</c>), so <c>FB.pou</c> never finds
+    /// it — beside an item <c>FB</c> it would be a second candidate for one path.</summary>
+    [Fact]
+    public void G_a_path_finds_only_the_item_whose_wire_name_it_is()
+    {
+        var kept = Ide(Pou("FB.pou"));
+        Assert.NotNull(ItemLookup.Find(kept, "FB.pou"));
+
+        var extended = Ide(Pou("FB.POU"));
+        Assert.Null(ItemLookup.Find(extended, "FB.pou"));
+        Assert.NotNull(ItemLookup.Find(extended, "FB.POU.pou"));
+    }
+
     /// <summary>Two items of one name in two folders — two applications' <c>PLC_PRG</c> — are found each by its own
     /// path, never one for the other.</summary>
     [Fact]

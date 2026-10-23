@@ -64,11 +64,13 @@ public static class Materializer
     /// through it every <c>refs</c>/<c>fetch</c>/receipt map, every <c>unreadable</c> entry and every push gate keys on
     /// what this returns.
     ///
-    /// <para><b>A DUT is <c>X.dut</c></b>, whatever its shape (openspec <c>push-without-header-check</c> 5.P): the
-    /// name is a pure function of the kind for every kind, so nothing here reads the item's text, its subtype or a
-    /// vendor parse. A client writes the wire name as the file name.</para>
+    /// <para>The wire name is the IDE's name plus its kind's extension, kept as is when the IDE's name already ends in
+    /// exactly that extension (<see cref="IsVerbatimKind"/>). <b>A DUT is <c>X.dut</c></b>, whatever its shape (openspec
+    /// <c>push-without-header-check</c> 5.P): the extension is a pure function of the kind, so nothing here reads the
+    /// item's text, its subtype or a vendor parse. A client writes the wire name as the file name; the push's lookup
+    /// (<c>TreeLookup</c>, through <c>Versioning.FileOf</c>) is this function's inverse.</para>
     ///
-    /// <para>Internal, never public: <c>Versioning.PathOf</c> is the one caller, and a test reaches it through the read
+    /// <para>Internal, never public: <c>Versioning</c> is the one caller, and a test reaches it through the read
     /// ops (`NoTestOnlyCodeInSrcTests`).</para></summary>
     internal static string FullWireName(string bareName, string kind, KindRegistry kinds) =>
         WithExtension(bareName, kinds.ExtensionOf(kind));
@@ -78,9 +80,10 @@ public static class Materializer
 
     /// <summary>The IDE's name already ends in the kind's extension, so it is the wire name as is: TwinCAT names the
     /// module description by its file (<c>Untitled2.tmc</c>, measured — <c>TcSolutionExplorer</c>), and a library ref
-    /// spelled <c>Foo.library</c> is not doubled (<c>WireIdentityTests</c>).</summary>
+    /// spelled <c>Foo.library</c> is not doubled (<c>WireIdentityTests</c>). Ordinal: the extension is read back to its
+    /// kind case-sensitively, so only the kind's own spelling is kept (<c>Std.LIBRARY</c> is <c>Std.LIBRARY.library</c>).</summary>
     private static bool IsVerbatimKind(string name, string ext) =>
-        name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);
+        name.EndsWith("." + ext, StringComparison.Ordinal);
 
     public static string Bare(string wireName)
     {

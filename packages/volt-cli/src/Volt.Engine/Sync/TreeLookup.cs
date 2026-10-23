@@ -40,12 +40,12 @@ internal static class TreeLookup
         ItemLookup.Untouchable? untouchable = null;
         Scan(link, folder, doing, (item, itemName, cls) =>
         {
-            if (!IsAddressable(link, cls) || cls.Kind != kind || !Names(itemName, file)) return true;
+            if (!IsAddressable(link, cls) || cls.Kind != kind || !Names(link, itemName, kind, file)) return true;
             hit = item;
             return false;
         }, (parent, u) =>
         {
-            if (u.Kind != kind || !Names(u.Name, file)) return true;
+            if (u.Kind != kind || !Names(link, u.Name, kind, file)) return true;
             untouchable = new ItemLookup.Untouchable(parent, u.Name, u.Reason, u.Kind);
             return false;
         }, FolderPath.Segments(folderPath).Count());
@@ -63,9 +63,11 @@ internal static class TreeLookup
     /// <summary>The kind a wire name's extension names in THIS host's catalog, or null.</summary>
     public static string? KindOf(HostLink link, string wireName) => link.Catalog.Kinds.FindByWireName(wireName)?.Kind;
 
-    private static bool Names(string ideName, string file) =>
-        string.Equals(ideName, ItemPath.BareOf(file), StringComparison.OrdinalIgnoreCase)
-        || string.Equals(ideName, file, StringComparison.OrdinalIgnoreCase);
+    /// <summary>The IDE child named <paramref name="ideName"/> is the item at <paramref name="file"/> exactly when its
+    /// wire name IS that file name — the lookup inverts the one place a wire name is minted
+    /// (<see cref="Versioning.FileOf"/>), so a path finds the item `refs` names at it and no other.</summary>
+    private static bool Names(HostLink link, string ideName, string kind, string file) =>
+        string.Equals(Versioning.FileOf(link.Catalog.Kinds, kind, ideName), file, StringComparison.OrdinalIgnoreCase);
 
     private static ItemRef? Descend(HostLink link, string folder, string doing)
     {
