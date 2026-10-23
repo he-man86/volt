@@ -10,6 +10,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Sync;
 
@@ -28,10 +29,10 @@ namespace Volt.Engine.Sync;
 /// itself.</summary>
 public static class FetchService
 {
-    public static FetchResponse Handle(IIdeDriver ide, FetchRequest request, Action<ProgressFrame>? onProgress = null)
+    public static FetchResponse Handle(HostLink link, FetchRequest request, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard (replaces the client's old pre-op health check) — atomic with the walk.
-        var bound = OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
+        var bound = OpGuard.RequireBoundProject(link, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
@@ -77,14 +78,14 @@ public static class FetchService
         // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
         var skippedLibraryStubs = new List<FetchedItem>();
 
-        void OnItem(ProjectItem it, string kind, string folder, VersionedItem v)
+        void OnItem(WalkedItem it, string folder, VersionedItem v)
         {
             if (v.Materialized is not { } mat) return;   // unreadable: the snapshot names it and spares it from removal
             var version = v.Version;
             var path = v.Identity;
             var named = onlyItems == null || onlyItems.Contains(path);
 
-            if (kind == ItemKind.Kinds.Library)
+            if (it.Kind == ItemKind.Kinds.Library)
             {
                 // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Its RESOLUTION
                 // is what the matcher joins each signature's LibraryPath to, so the library's signatures land under
@@ -117,14 +118,14 @@ public static class FetchService
                 // below says so, and `IdeTree` acts on it), and a folder arriving WITHOUT its stub reads as
                 // "this library is gone". Whether that happens is not known until the walk finishes, so hold the
                 // stub rather than deciding here.
-                if (kind == ItemKind.Kinds.Library) skippedLibraryStubs.Add(item);
+                if (it.Kind == ItemKind.Kinds.Library) skippedLibraryStubs.Add(item);
                 return;
             }
 
             changed.Add(item);
         }
 
-        var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Fetch, phase: null, onItem: OnItem);
+        var snap = ProjectSnapshot.Walk(link, onProgress, Ops.Fetch, phase: null, onItem: OnItem);
         var unwalkedFolders = snap.UnwalkedFolders;
         var done = snap.Walked;
         // Each library ref's APPLICATION, now that the walk has stated them: a signature extracted for one application
@@ -146,7 +147,7 @@ public static class FetchService
         // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
         // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
         // per folder: absent from a manager the walk DID read is removed, whatever other folder it could not read.
-        var goneFromWalk = Removal.Removed(knownItems.Keys, fullVersions.Keys, snap.Unreadable.Select(u => u.Name), unwalkedFolders, snap.Applications, request.KnownApplications);
+        var goneFromWalk = Removal.Removed(knownItems.Keys, fullVersions.Keys, snap.Unreadable.Select(u => u.Name), unwalkedFolders, snap.Applications, request.KnownApplications, link.Catalog.Kinds);
         var unseenLibrary = knownItems.Keys.Any(k =>
             k.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(k)
             && !goneFromWalk.Contains(k));
@@ -187,16 +188,16 @@ public static class FetchService
         IReadOnlyList<LibSignature> libSigs;
         if (librariesRefreshed)
         {
-            libSigs = ide.ExtractLibrarySignatures();
-            ide.LibrarySignatureCache.Store(project, libRefs, libSigs);
+            libSigs = link.Driver.ExtractLibrarySignatures();
+            link.Session.LibrarySignatureCache.Store(project, libRefs, libSigs);
         }
         else if (directedLibraries)
         {
-            if (ide.LibrarySignatureCache.Reuse(project, libRefs) is { } cached) libSigs = cached;
+            if (link.Session.LibrarySignatureCache.Reuse(project, libRefs) is { } cached) libSigs = cached;
             else
             {
-                libSigs = ide.ExtractLibrarySignatures();
-                ide.LibrarySignatureCache.Store(project, libRefs, libSigs);
+                libSigs = link.Driver.ExtractLibrarySignatures();
+                link.Session.LibrarySignatureCache.Store(project, libRefs, libSigs);
             }
         }
         else libSigs = Array.Empty<LibSignature>();
@@ -232,7 +233,7 @@ public static class FetchService
                 "removed by this fetch only when the walk found it at another path of its own application (moved): " +
                 "items there were not seen, which is not the same as gone.");
 
-        var drops = Drops(("unmapped-kind", snap.Unmapped), ("unreadable", snap.Unreadable.Count),
+        var drops = Drops(("unreadable", snap.Unreadable.Count),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         var libClause = librarySignatures > 0 ? $", {librarySignatures} library signatures" : "";
         VoltLog.Debug($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");

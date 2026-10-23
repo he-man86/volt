@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using Volt.Engine.Host;
 using Volt.Engine.Seam;
+using Volt.Engine.Sync;
 using Volt.Wire;
 using Xunit;
 
@@ -13,7 +14,7 @@ namespace Volt.Cli.Tests;
 /// THE THIRD TEST VENDOR OVER THE PIPE (openspec <c>volt-cli-rework</c> design step 4, spec "a new vendor is one IDE
 /// host"): <see cref="Fakeco"/> — outside the CODESYS family, no NWL, no numeric kind code, its own kinds, language,
 /// property keys and file layout — implements ONLY the new contract, and the existing transport (refs / fetch / push /
-/// build over a named pipe, the way <see cref="FakeIde"/> is driven) serves it through <see cref="SeamDriverAdapter"/>.
+/// build over a named pipe, the way <see cref="FakeIde"/> is driven) serves it as itself (<see cref="HostLink.Of(IVendorDriver)"/>).
 /// </summary>
 public class ThirdVendorTransportTests
 {
@@ -28,7 +29,7 @@ public class ThirdVendorTransportTests
     {
         var ide = new Fakeco();
         var pipe = Pipe();
-        var host = new BridgePipeHost(new SeamDriverAdapter(ide), pipe);
+        var host = new BridgePipeHost(HostLink.Of(ide), pipe);
         host.Start();
         return (ide, host, new PipeClient(pipe));
     }
@@ -73,6 +74,28 @@ public class ThirdVendorTransportTests
             Assert.Equal(MotorText, texts[MotorPath]);
             Assert.Equal("TYPE Speed\nFIELD rpm\n", texts[SpeedPath]);
             Assert.Equal("station Station1\ncycle 10ms\n", texts[StationPath]);
+        }
+    }
+
+    /// <summary>F4 (design "Step 4 findings"): a key the vendor DECLARED crosses the engine both ways — pushed, it reaches
+    /// the host as that property; fetched, the file spells it again.</summary>
+    [Fact]
+    public void A_declared_property_key_crosses_the_pipe_both_ways()
+    {
+        var (ide, host, client) = Serve();
+        using (host)
+        {
+            var refs = client.Call("refs");
+            const string retained = "%RETAIN\n%NOTE 'main drive'\nBLOCK Motor\nIN start\nOUT lamp\nIMPLEMENTATION FKL\nlamp = start\n";
+
+            var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
+                Set(MotorPath, Items(refs)[MotorPath], retained)));
+
+            Assert.True(result.GetProperty("accepted").GetBoolean(), result.ToString());
+            Assert.Equal(new[] { "%RETAIN", "%NOTE 'main drive'" }, ide.At("Station1/Blocks/Motor")!.Properties.Items.Select(p => p.ToString()));
+            var fetch = client.Call("fetch", new { knownItems = new Dictionary<string, string>() });
+            Assert.Equal(retained, fetch.GetProperty("changed").EnumerateArray()
+                .Single(c => c.GetProperty("name").GetString() == MotorPath).GetProperty("sourceText").GetString());
         }
     }
 
@@ -157,11 +180,8 @@ public class ThirdVendorTransportTests
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set("Station1/Blocks/Valve.pou", null, "FUNCTION_BLOCK Valve\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")));
 
-            ExpectRed.Until("volt-cli-rework step 5", "F3: the old kind table admits every family kind on every bridge", () =>
-            {
-                var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
-                Assert.Equal("BAD_REQUEST", conflict.GetProperty("code").GetString());
-            });
+            var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
+            Assert.Equal("BAD_REQUEST", conflict.GetProperty("code").GetString());
         }
     }
 

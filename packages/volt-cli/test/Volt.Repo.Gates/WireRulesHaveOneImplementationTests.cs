@@ -199,7 +199,8 @@ public class WireRulesHaveOneImplementationTests
     /// <item><c>Sync/PushService.cs</c> — <c>ConflictFor</c> (a conflict's code: it ALSO maps <c>NotSupportedException</c> to
     /// UNSUPPORTED, which the frame mapping does not) and the create guard's UNREADABLE filter;</item>
     /// <item><c>Sync/BuildService.cs</c> — an uncoded build failure becomes a failed build, a coded one a frame;</item>
-    /// <item><c>Ide/ItemLookup.cs</c> — an uncoded IDE read failure becomes ITEM_UNVERIFIED (7 sites);</item>
+    /// <item><c>Sync/TreeLookup.cs</c>, <c>Ide/ItemLookup.cs</c> — an uncoded IDE read failure becomes ITEM_UNVERIFIED (the
+    /// lookup's descent; the hosts' walk of every item);</item>
     /// <item><c>Ide/ProjectDeclarations.cs</c> — re-words an ITEM_UNVERIFIED;</item>
     /// <item><c>Volt.Relay/RelayTunnel.cs</c> — every failed relay call is INTERNAL_ERROR.</item>
     /// </list>
@@ -247,12 +248,10 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine.Host/SingleFlight.cs"] = 1,   // keys a running refs by its REQUEST BODY, not a path
         ["Volt.Engine/Ide/BothVendorsRefusedNames.cs"] = 1,
         ["Volt.Engine/Ide/BridgeLog.cs"] = 1,
-        ["Volt.Engine/Ide/ItemLookup.cs"] = 3,
         ["Volt.Engine/Ide/MeasuredNames.cs"] = 1,
         ["Volt.Engine/Ide/ProjectDeclarations.cs"] = 2,
         ["Volt.Engine/Ide/PushedDeclarations.cs"] = 2,
         ["Volt.Engine/Ide/SourceScopes.cs"] = 1,
-        ["Volt.Engine/Ide/TreeNav.cs"] = 4,
         ["Volt.Engine/Item/ItemKind.cs"] = 4,
         ["Volt.Engine/Item/ItemPath.cs"] = 2,
         ["Volt.Engine/Sync/BuildService.cs"] = 6,
@@ -267,6 +266,8 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Sync/PushedText.cs"] = 2,
         ["Volt.Engine/Sync/Removal.cs"] = 5,
         ["Volt.Engine/Sync/SnapshotClock.cs"] = 1,   // per-application timing for the refs log line only; no identity decision
+        ["Volt.Engine/Sync/TreeLookup.cs"] = 3,   // moved from Ide/ItemLookup (volt-cli-rework step 5: the one lookup, on the new contract)
+        ["Volt.Engine/Sync/TreeNav.cs"] = 4,   // moved from Ide/TreeNav (volt-cli-rework step 5)
         ["Volt.Engine/Sync/Versioning.cs"] = 1,
     };
 
@@ -302,10 +303,11 @@ public class WireRulesHaveOneImplementationTests
     /// <see cref="An_exception_is_mapped_to_a_wire_code_nowhere_new_ratchet"/>.</summary>
     private static readonly Dictionary<string, int> ErrorMappingPins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine/Ide/ItemLookup.cs"] = 7,
+        ["Volt.Engine/Ide/ItemLookup.cs"] = 3,   // -4 Find's descent and its fault place, moved to Sync/TreeLookup (volt-cli-rework step 5)
         ["Volt.Engine/Ide/ProjectDeclarations.cs"] = 1,
         ["Volt.Engine/Sync/BuildService.cs"] = 1,
         ["Volt.Engine/Sync/PushService.cs"] = 3,
+        ["Volt.Engine/Sync/TreeLookup.cs"] = 4,   // moved from Ide/ItemLookup (volt-cli-rework step 5)
         ["Volt.Relay/RelayTunnel.cs"] = 1,
         ["Volt.Wire/PipeServer.cs"] = 2,
     };

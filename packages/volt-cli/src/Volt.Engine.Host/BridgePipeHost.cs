@@ -21,7 +21,8 @@ public sealed class BridgePipeHost : IDisposable
 {
 
 
-    private readonly IIdeDriver _ide;
+    private readonly HostLink _link;
+    private readonly IIdeSession _ide;
     private readonly PipeServer _server;
 
     // "Disconnected" without tearing anything down. The tray's Disconnect sets this (`disconnect`); the host stays
@@ -51,22 +52,28 @@ public sealed class BridgePipeHost : IDisposable
         return r;
     });
 
-    public BridgePipeHost(IIdeDriver ide, string pipeName) : this(ide, pipeName, WireProtocol.Version) { }
+    public BridgePipeHost(HostLink link, string pipeName) : this(link, pipeName, WireProtocol.Version) { }
 
     /// <param name="protocol">The wire protocol <c>health</c> states — <see cref="WireProtocol.Version"/>, what every
     /// shipped host states (the two-argument constructor). A test states another (or null, a bridge from before the
     /// member) to stand for a peer of another release.</param>
-    public BridgePipeHost(IIdeDriver ide, string pipeName, int? protocol)
+    public BridgePipeHost(HostLink link, string pipeName, int? protocol)
     {
-        _ide = ide;
+        _link = link;
+        _ide = link.Session;
         _protocol = protocol;
         _server = new PipeServer(pipeName, Dispatch);
     }
 
     /// <summary>A host that serves under a pipe-name claim its caller took first (<see cref="PipeServer.TakeName"/>).</summary>
-    public BridgePipeHost(IIdeDriver ide, PipeNameClaim claim)
+    /// <summary>An old-contract host, through the adapter (<see cref="HostLink.Of(IIdeDriver)"/>) until volt-cli-rework
+    /// step 6 moves the hosts onto the new contract.</summary>
+    public BridgePipeHost(IIdeDriver ide, PipeNameClaim claim) : this(HostLink.Of(ide), claim) { }
+
+    public BridgePipeHost(HostLink link, PipeNameClaim claim)
     {
-        _ide = ide;
+        _link = link;
+        _ide = link.Session;
         _protocol = WireProtocol.Version;
         _server = new PipeServer(claim, Dispatch);
     }
@@ -192,16 +199,16 @@ public sealed class BridgePipeHost : IDisposable
             case Ops.Refs:
             {
                 var body = Body<RefsRequest>(req);
-                return _refs.Run(Key(req), onProgress, progress => RunRead(() => (object)RefsService.Handle(_ide, body, f => progress(f))));
+                return _refs.Run(Key(req), onProgress, progress => RunRead(() => (object)RefsService.Handle(_link, body, f => progress(f))));
             }
             case Ops.Fetch:
-                return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
+                return RunRead(() => (object)FetchService.Handle(_link, Body<FetchRequest>(req), f => onProgress(f)));
             case Ops.Grep:
-                return RunRead(() => (object)GrepService.Handle(_ide, Body<GrepRequest>(req), f => onProgress(f)));
+                return RunRead(() => (object)GrepService.Handle(_link, Body<GrepRequest>(req), f => onProgress(f)));
             case Ops.Push:
-                return Gated(() => RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f))));
+                return Gated(() => RunOp(() => (object)PushService.Handle(_link, Body<PushRequest>(req), f => onProgress(f))));
             case Ops.Build:
-                return Gated(() => RunOp(() => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f))));
+                return Gated(() => RunOp(() => (object)BuildService.Handle(_link, Body<BuildRequest>(req), f => onProgress(f))));
             default:
                 // A coded error, not a raw InvalidOperationException — so the client sees BAD_REQUEST, not the
                 // catch-all INTERNAL_ERROR. Shared Core, so identical on both vendors.

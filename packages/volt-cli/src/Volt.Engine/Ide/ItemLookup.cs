@@ -17,9 +17,9 @@ namespace Volt.Engine.Ide;
 /// <item><b>Top-level CRUD kinds only</b>: the caller asks "does this item already exist", so a METHOD that shares a
 /// POU's name must not answer.</item>
 /// </list>
-/// <para>Shared rather than per driver, so it runs against <c>FakeIde</c> in the offline suite. <see cref="Find"/> and
-/// <see cref="All"/> are ONE walk (<see cref="Walk"/>) with two visitors, so the fault-is-not-absence rule exists
-/// once.</para>
+/// <para>Shared rather than per driver, so it runs against <c>FakeIde</c> in the offline suite. <see cref="Find"/> is
+/// the engine's one lookup (<c>Sync/TreeLookup</c>) asked through the adapter; <see cref="All"/> is the hosts' one walk
+/// of every item, for their declarations index.</para>
 /// </summary>
 public static class ItemLookup
 {
@@ -32,13 +32,7 @@ public static class ItemLookup
     /// the push's paths are measured from, so lookup and placement agree about where the tree starts — matching each
     /// container by name as the push's placement does (<c>TreeNav</c>). A folder that is not there holds no item:
     /// null.</para></summary>
-    public static ItemRef? Find(IProjectTree tree, string path)
-    {
-        var (item, untouchable) = Locate(tree, path);
-        if (untouchable is { } u)
-            throw new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}");
-        return item;
-    }
+    public static ItemRef? Find(IProjectTree tree, string path) => Volt.Engine.Sync.TreeLookup.Find(LinkOf(tree), path);
 
     /// <summary>A top-level item the driver names but must not open (<see cref="UnreadableItemException"/>), with the
     /// parent it sits under — the one handle through which it can still be deleted, by name, without being touched.</summary>
@@ -47,106 +41,14 @@ public static class ItemLookup
     /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
     /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
     /// allowed past an unreadable item: they delete it through its parent, by name.</summary>
-    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string path)
-    {
-        var file = ItemPath.FileOf(path);
-        var kind = ItemKind.KindForWireName(path)
-                   ?? throw new System.ArgumentException($"'{path}' is not a wire path: its extension names no kind", nameof(path));
-        var doing = $"looking for '{path}'";
-        var folderPath = ItemPath.FolderOf(path);
-        if (Descend(tree, folderPath, doing) is not { } folder) return (null, null);
-        ItemRef? hit = null;
-        Untouchable? untouchable = null;
-        Scan(tree, folder, doing, (item, itemName, code) =>
-        {
-            if (!ItemKind.IsAddressableItem(code) || ItemKind.Map(code) != kind || !Names(itemName, file)) return true;
-            hit = item;
-            return false;
-        }, (parent, u) =>
-        {
-            if (u.Kind != kind || !Names(u.Name, file)) return true;
-            untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kind);
-            return false;
-        }, FolderPath.Segments(folderPath).Count());
-        return (hit, untouchable);
-    }
+    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string path) =>
+        Volt.Engine.Sync.TreeLookup.Locate(LinkOf(tree), path);
 
-    /// <summary>Is the IDE's <paramref name="ideName"/> the object a wire <paramref name="file"/> names? Its bare name, or
-    /// the file name itself for a kind the IDE names by its file (<c>Untitled2.tmc</c>) — the inverse of how the walk
-    /// mints the path (<c>Versioning.PathOf</c>). Ignoring case, as the IDE resolves a name.</summary>
-    private static bool Names(string ideName, string file) =>
-        string.Equals(ideName, ItemPath.BareOf(file), System.StringComparison.OrdinalIgnoreCase)
-        || string.Equals(ideName, file, System.StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The node at the encoded <paramref name="folder"/>, descended from the tree root one container per
-    /// segment (a structural node, a container-manager, a user folder — anything that is not a top-level item, as the
-    /// push's placement matches them), or null when a segment is not there. A read the IDE refuses is not absence:
-    /// <c>ITEM_UNVERIFIED</c>, as for every lookup here.</summary>
-    private static ItemRef? Descend(IProjectTree tree, string folder, string doing)
-    {
-        var node = tree.GetTreeRoot();
-        var depth = 0;
-        foreach (var segment in FolderPath.Segments(folder))
-        {
-            ItemRef? next = null;
-            Scan(tree, node, doing, (child, childName, kind) =>
-            {
-                if (ItemKind.IsTopLevelCrud(kind) || !string.Equals(childName, segment, System.StringComparison.OrdinalIgnoreCase))
-                    return true;
-                next = child;
-                return false;
-            }, (_, _) => true, depth);
-            if (next is not { } found) return null;
-            node = found;
-            depth++;
-        }
-        return node;
-    }
-
-    /// <summary>Visit every DIRECT child of <paramref name="node"/> with its name and kind until <paramref name="visit"/>
-    /// answers false — the one child scan the descent and the lookup share, with <see cref="Walk"/>'s fault rules.</summary>
-    private static void Scan(IProjectTree tree, ItemRef node, string doing, System.Func<ItemRef, string, int, bool> visit,
-                             System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable, int depth = 1)
-    {
-        int count;
-        try { count = tree.ChildCount(node); }
-        catch (System.Exception ex) when (ex is not ICodedError)
-        {
-            throw new BridgeException(ConflictCodes.ItemUnverified,
-                $"could not read the children of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
-                $"({ex.Message}). Refusing to report it as absent.", ex);
-        }
-        for (var i = 1; i <= count; i++)
-        {
-            ItemRef child;
-            int kind;
-            try
-            {
-                child = tree.ChildAt(node, i);
-                kind = tree.KindCode(child);
-            }
-            catch (UnreadableItemException untouchable)
-            {
-                if (!visitUntouchable(node, untouchable)) return;
-                continue;
-            }
-            catch (System.Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
-                    $"({ex.Message}). Refusing to report it as absent.", ex);
-            }
-            string name;
-            try { name = tree.Name(child); }
-            catch (System.Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read the name of child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused " +
-                    $"the read ({ex.Message}). Refusing to report it as absent.", ex);
-            }
-            if (!visit(child, name, kind)) return;
-        }
-    }
+    /// <summary>An old-contract host's tree on the new contract, where the one lookup lives (<c>Sync/TreeLookup</c>) —
+    /// until volt-cli-rework step 6 moves the hosts that still ask here onto it.</summary>
+    private static Volt.Engine.Sync.HostLink LinkOf(IProjectTree tree) =>
+        Volt.Engine.Sync.HostLink.Of(tree as IIdeDriver ?? throw new System.ArgumentException(
+            $"{tree?.GetType().Name ?? "null"} is no old-contract host (IIdeDriver)", nameof(tree)));
 
     /// <summary>Every top-level item in the whole tree — its handle, name and tree kind — in ONE walk. For a caller asking
     /// about many names (the declarations index, <see cref="ProjectDeclarations"/>), where a <see cref="Find"/> per name
@@ -255,13 +157,6 @@ public static class ItemLookup
     /// <summary>The folder a refused read was IN, for the refusal's message. Read only after a read has already failed,
     /// so a lookup that succeeds pays nothing for it. The walk's root is the project root; a folder whose name the IDE
     /// refuses too is said to be exactly that, with the IDE's words.</summary>
-    private static string Place(IProjectTree tree, ItemRef node, int depth)
-    {
-        if (depth == 0) return "the project root";
-        try { return $"the folder '{tree.Name(node)}'"; }
-        catch (System.Exception ex) when (ex is not ICodedError)
-        {
-            return $"a folder whose name the IDE refused to read too ({ex.Message})";
-        }
-    }
+    private static string Place(IProjectTree tree, ItemRef node, int depth) =>
+        Volt.Engine.Sync.TreeLookup.Place(LinkOf(tree).Driver, node, depth);
 }

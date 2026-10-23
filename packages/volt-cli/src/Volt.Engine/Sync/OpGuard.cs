@@ -19,7 +19,7 @@ internal static class OpGuard
     /// bridge's state and before anything is walked; a write that names neither used to write into whatever project the
     /// bridge served. Then the check every op runs (<see cref="RequireBoundProject"/>).</summary>
     public static (string Vendor, string? ProjectName) RequireBinding(
-        IIdeDriver ide, string op, string? expectedPlatform, string? expectedName)
+        HostLink link, string op, string? expectedPlatform, string? expectedName)
     {
         var missing = new System.Collections.Generic.List<string>();
         if (string.IsNullOrEmpty(expectedPlatform)) missing.Add("expectedPlatform");
@@ -28,21 +28,22 @@ internal static class OpGuard
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 $"{op}: {string.Join(" and ", missing)} {(missing.Count == 1 ? "is" : "are")} required — a write names " +
                 "the project it writes, and the bridge writes into no project it was not named; nothing was done");
-        return RequireBoundProject(ide, expectedPlatform, expectedName);
+        return RequireBoundProject(link, expectedPlatform, expectedName);
     }
 
     /// <summary>Throws <c>PLC_DISCONNECTED</c> if no project is attached, or <c>WRONG_PROJECT</c> if the live
     /// bridge is serving a project other than the one the caller is bound to. Returns the LIVE identity it checked,
     /// so a caller can echo it back (a read op does, so the client can double-check before it merges).
-    /// <para>Both facts come from the driver's LIVE state (<see cref="IIdeSession.IsConnected"/> +
-    /// <see cref="IIdeSession.ServedProjectName"/>), which is what <c>IIdeSession</c> documents as THE precondition
+    /// <para>Both facts come from the driver's LIVE state (<see cref="Seam.IVendorSession.IsConnected"/> +
+    /// <see cref="Seam.IVendorSession.ServedProjectName"/>), which is what the session contract states as THE precondition
     /// and what <c>RefsService</c> already used. It deliberately does NOT read <c>BuildHealthResponse()</c>: that is
     /// served from a per-vendor THROTTLED cache (~5s on TwinCAT), so deciding a write against it refused pushes with
     /// PLC_DISCONNECTED on stale state while reads of the same bridge succeeded — most visibly right after an IDE
     /// close/reopen, where `connect` and `refs` both pass and the first write fails. One question, one answer.</para></summary>
     public static (string Vendor, string? ProjectName) RequireBoundProject(
-        IIdeDriver ide, string? expectedPlatform, string? expectedName)
+        HostLink link, string? expectedPlatform, string? expectedName)
     {
+        var ide = link.Driver;
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected(ide.NotServedBecause);
         var served = ide.ServedProjectName;
 

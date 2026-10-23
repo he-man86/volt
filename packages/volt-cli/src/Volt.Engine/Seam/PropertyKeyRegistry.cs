@@ -58,6 +58,16 @@ public sealed class PropertyKeyRegistry
     /// <summary>A member's place in its item (<c>%FOLDER</c>) is structure, not a property: no host declares it.</summary>
     public const string FolderKey = "FOLDER";
 
+    /// <summary>The key whose value is the object's vendor CLASS where a host declares one (<c>%CLASS CHECK CheckBounds</c>):
+    /// a class is made at the create (<see cref="CreateArgs.Class"/>) and never changes in place, so a push that states
+    /// another is refused by the engine, by name.</summary>
+    public const string ClassKey = "CLASS";
+
+    /// <summary>The value of <paramref name="set"/>'s <see cref="ClassKey"/> property, or null for an object of the plain
+    /// class.</summary>
+    public static string? ClassOf(PropertySet set) =>
+        (set ?? throw new ArgumentNullException(nameof(set))).Items.FirstOrDefault(p => p.Key == ClassKey)?.Value;
+
     private static readonly Regex KeyShape = new("^[A-Z][A-Z0-9_]*$", RegexOptions.CultureInvariant);
     private static readonly Regex Line = new(@"^%([A-Za-z_][A-Za-z0-9_]*)(?:[ \t]+(.*?))?\s*$", RegexOptions.CultureInvariant);
 

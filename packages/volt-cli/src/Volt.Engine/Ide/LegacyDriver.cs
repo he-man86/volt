@@ -163,7 +163,7 @@ public sealed class LegacyDriver : VendorDriverBase, IVendorDriver
     /// <summary>The one code each kind is created as (design 5.Qa, S1): every POU as a function block and every DUT as a
     /// struct — the vendor takes the kind the TEXT declares (DIALECT C2f/C2g, C2h), and a function block accepts every
     /// member kind until the declaration says otherwise (C2k).</summary>
-    private static int CodeOf(string kind) => kind switch
+    internal static int CodeOf(string kind) => kind switch
     {
         ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Dut => ItemKind.PlcDut,
@@ -211,8 +211,16 @@ public sealed class LegacyDriver : VendorDriverBase, IVendorDriver
 
     // ── the pre-flight ──
     public override void ValidateTask(TaskSettings settings) => _old.ValidateTask(settings);
-    public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedBody> bodies) => _old.ValidateSource(existing, Network(bodies));
-    public override string? RefusedName(string kind, string name) => _old.RefusedName(kind, name);
+    /// <summary>The old host was asked about the NETWORK bodies of an item, and only when it carried one.</summary>
+    public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedBody> bodies)
+    {
+        var network = Network(bodies);
+        if (network.Count > 0) _old.ValidateSource(existing, network);
+    }
+
+    /// <summary>The old host was asked about a POU's name and a member's, the kinds its words were measured on.</summary>
+    public override string? RefusedName(string kind, string name) =>
+        kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut or ItemKind.Kinds.Interface ? null : _old.RefusedName(kind, name);
     public override string? RefusedMemberCreate(string memberKind, string name, CreateArgs args) =>
         _old.RefusedMemberCreate(memberKind, name, Seed(args));
 

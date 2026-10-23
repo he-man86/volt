@@ -6,6 +6,7 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Sync;
 
@@ -13,16 +14,16 @@ namespace Volt.Engine.Sync;
 /// reported as <c>success:false</c> + diagnostics, not an error frame — the client wants the diagnostics.</summary>
 public static class BuildService
 {
-    public static BuildResponse Handle(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null)
+    public static BuildResponse Handle(HostLink link, BuildRequest request, Action<ProgressFrame>? onProgress = null)
     {
         // Guard OUTSIDE the try/catch below — else WRONG_PROJECT/PLC_DISCONNECTED would be swallowed into a fake
         // "build failed" diagnostic instead of surfacing as a proper error frame.
-        OpGuard.RequireBinding(ide, Ops.Build, request.ExpectedPlatform, request.ExpectedProjectName);
+        OpGuard.RequireBinding(link, Ops.Build, request.ExpectedPlatform, request.ExpectedProjectName);
 
         // ONE walk names the diagnostics, the driver's and the promotion's, and states the applications a named build is
         // checked against: made when first asked, never twice.
-        WalkResult? walked = null;
-        WalkResult Walk() => walked ??= ide.WalkItems();
+        HostWalk? walked = null;
+        HostWalk Walk() => walked ??= link.Driver.Walk();
         // Also outside the try/catch: an unknown root is the caller's error, not a failed build.
         var applications = request.Applications is { } named ? Selected(named, Walk().Applications) : null;
 
@@ -34,15 +35,15 @@ public static class BuildService
             // ONE kind of build. A clean (CODESYS CleanAll, TwinCAT SolutionBuild.Clean) is reachable but buys nothing:
             // measured on live CODESYS 3.5.21.40, the build after a clean does not recompile (~60 ms vs ~2100 ms cold) —
             // it discards online-change data, not the language model — so `--full` was deleted rather than wired to it.
-            var success = ide.Build(applications);
+            var success = link.Driver.Build(applications);
             sw.Stop();
-            var diagnostics = ide.GetBuildDiagnostics(Walk).ToList();
+            var diagnostics = link.Driver.GetBuildDiagnostics(Walk).ToList();
             // GUARDED, like `TreeNav.PruneEmptied` in PushService and for the same reason. This walks the live
             // tree and reads items, where a COM fault is an ordinary event — and it is pure DECORATION. Letting
             // one throw reach the catch below would turn a build that ran, compiled and produced real
             // diagnostics into `success:false` plus one fabricated "Build failed" line, discarding every
             // diagnostic the engineer actually needs. Nameless diagnostics beat no diagnostics.
-            try { PromoteNames(ide, Walk, diagnostics); }
+            try { PromoteNames(link, Walk, diagnostics); }
             catch (Exception ex) { VoltLog.Warn($"build: could not name the diagnostics ({ex.Message}) — reporting them without item names"); }
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
@@ -105,7 +106,7 @@ public static class BuildService
     /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
     /// client's editor at the wrong file. A diagnostic that carries a <see cref="BridgeDiagnostic.Member"/> is the
     /// exception that is not a guess: it is inside a method, property or action, and only an item whose kind HOLDS
-    /// members (<see cref="ItemKind.HoldsMembers"/>) can be its parent - the visualization cannot, so the FB is the
+    /// members (its kind's shape is composite) can be its parent - the visualization cannot, so the FB is the
     /// one.</para>
     ///
     /// <para>THE MEMBER GOES WITH THE NAME. <see cref="BridgeDiagnostic.Member"/> is the CHILD of the name, so a
@@ -118,7 +119,7 @@ public static class BuildService
     /// named the diagnostics from the tree — CODESYS turning `IMessage.ObjectGuid` into a bare name, TwinCAT placing a
     /// compiler file in its PLC project — walked it through the same call, so nothing is walked twice. The expensive
     /// part — materializing an item to learn its kind — happens here and only for the named ones.</para></summary>
-    private static void PromoteNames(IIdeDriver ide, Func<WalkResult> walk, List<BridgeDiagnostic> diagnostics)
+    private static void PromoteNames(HostLink link, Func<HostWalk> walk, List<BridgeDiagnostic> diagnostics)
     {
         // CLEARED FIRST, assigned last. What the drivers put here is a BARE name, and the field's contract is
         // FULL or null — so between those two instants the only safe value is null. If the walk below throws
@@ -141,17 +142,17 @@ public static class BuildService
         foreach (var pi in walk().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
-            if (ItemKind.Map(pi.KindCode) is not { } kind) continue;
+            var kind = pi.Kind;
             // Only an item that MATERIALIZED has a path. `Identity` falls back to the BARE name for one that could not be
             // (`VersionedItem`) — and a failing build is exactly when that item is present, since an unreadable body is
             // the sort of thing a compiler complains about. Publishing that would break the one promise this field makes.
-            var v = Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder);
+            var v = Versioning.SafeVersion(link, pi.Name, kind, pi.Item, pi.Folder);
             if (v.Materialized is null) continue;
             var identity = v.Identity;
             var barePath = ItemPath.Of(pi.Folder, pi.Name);
             Record(resolved, pi.Name, identity);
             Record(resolved, barePath, identity);
-            if (ItemKind.HoldsMembers(pi.KindCode))
+            if (link.Catalog.Kinds.Find(kind)?.Shape?.Composite == true)
             {
                 Record(holders, pi.Name, identity);
                 Record(holders, barePath, identity);

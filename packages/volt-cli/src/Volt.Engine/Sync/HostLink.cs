@@ -17,33 +17,40 @@ namespace Volt.Engine.Sync;
 /// response, the library-signature cache).
 ///
 /// <para>Two ways in. <see cref="Of(IVendorDriver)"/>: a host that speaks only the new contract, whose session the engine
-/// composes over its primitives (<see cref="ComposedSession"/>, F5). <see cref="Of(DriverBase)"/>: an old-contract host —
+/// composes over its primitives (<see cref="ComposedSession"/>, F5). <see cref="Of(IIdeDriver)"/>: an old-contract host —
 /// the two shipped ones and the test double — through the adapter (<see cref="LegacyDriver"/>), its session its own
 /// <see cref="DriverBase"/>. The implicit conversion keeps every old-contract call site compiling; it goes with the
 /// adapter in step 6.</para>
 /// </summary>
 public sealed class HostLink
 {
-    private HostLink(IVendorDriver driver, IIdeSession session)
+    private readonly Lazy<IVendorDriver> _driver;
+    private readonly Lazy<Catalog> _catalog;
+
+    /// <summary>The driver and its catalog are made when an op first asks for them: a host's session answers <c>health</c>
+    /// before (and without) its declaration.</summary>
+    private HostLink(Func<IVendorDriver> driver, IIdeSession session)
     {
-        Driver = driver;
+        _driver = new Lazy<IVendorDriver>(driver);
+        _catalog = new Lazy<Catalog>(() => Catalog.Of(Driver.Declaration));
         Session = session;
-        Catalog = Catalog.Of(driver.Declaration);
     }
 
-    public IVendorDriver Driver { get; }
+    public IVendorDriver Driver => _driver.Value;
     public IIdeSession Session { get; }
-    public Catalog Catalog { get; }
+    public Catalog Catalog => _catalog.Value;
 
-    public static HostLink Of(IVendorDriver host) =>
-        new(host ?? throw new ArgumentNullException(nameof(host)), new ComposedSession(host));
+    public static HostLink Of(IVendorDriver host)
+    {
+        if (host is null) throw new ArgumentNullException(nameof(host));
+        return new HostLink(() => host, new ComposedSession(host));
+    }
 
-    public static HostLink Of(DriverBase old) =>
-        old is IIdeDriver driver
-            ? new HostLink(new LegacyDriver(driver), old)
-            : throw new ArgumentException($"{old?.GetType().Name ?? "null"} is no old-contract driver (IIdeDriver)", nameof(old));
+    public static HostLink Of(IIdeDriver old) =>
+        new(() => new LegacyDriver(old), old ?? throw new ArgumentNullException(nameof(old)));
 
-    public static implicit operator HostLink(DriverBase old) => Of(old);
+    public static implicit operator HostLink(DriverBase old) =>
+        Of(old as IIdeDriver ?? throw new ArgumentException($"{old?.GetType().Name ?? "null"} is no old-contract driver (IIdeDriver)", nameof(old)));
 }
 
 /// <summary>The session composition (<see cref="DriverBase"/>) over the PRIMITIVES a new-contract host supplies (F5):

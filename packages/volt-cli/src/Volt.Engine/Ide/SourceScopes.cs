@@ -125,9 +125,4 @@ namespace Volt.Engine.Ide
                 "bridge-refusal-review D8). Volt's bug, not the text's.");
         }
     }
-
-    /// <summary>A pushed item and every network-text body in it, validated once (<see cref="SourceScopes.Validated"/>):
-    /// what the push pre-flight keeps per set op and the apply writes from, so the text is read once (openspec
-    /// <c>bridge-refusal-review</c> D8).</summary>
-    public sealed record ValidatedSource(ItemContent Content, IReadOnlyList<PushedNetworkBody> Bodies);
 }

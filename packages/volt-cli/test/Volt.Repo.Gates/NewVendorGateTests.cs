@@ -121,9 +121,6 @@ public class NewVendorGateTests
     {
         ["Volt.Engine/Ide/ICodeStore.cs"] = 3,
         ["Volt.Engine/Ide/IProjectTree.cs"] = 2,
-        ["Volt.Engine/Sync/BuildService.cs"] = 2,
-        ["Volt.Engine/Sync/ProjectSnapshot.cs"] = 7,
-        ["Volt.Engine/Sync/PushService.cs"] = 23,
         ["Volt.Engine/Sync/PushedText.cs"] = 1,
     };
 }

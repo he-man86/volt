@@ -123,6 +123,14 @@ public sealed class KindRegistry
         return ForExtension(wireName.Substring(dot + 1));
     }
 
+    /// <summary>The row of the item kind a wire name denotes by the extension after its last dot, or null when it names
+    /// none — for the caller that refuses such a name in its own words (a push names the op).</summary>
+    public KindRow? FindByWireName(string wireName)
+    {
+        var dot = (wireName ?? "").LastIndexOf('.');
+        return dot < 0 ? null : _byExtension.TryGetValue(wireName!.Substring(dot + 1), out var row) ? row : null;
+    }
+
     /// <summary>The extension of an item kind. A member kind or an unknown one has none: Volt's bug, refused by name.</summary>
     public string ExtensionOf(string kind) =>
         Require(kind).Extension ?? throw new ArgumentException($"kind '{kind}' is a member and has no extension", nameof(kind));

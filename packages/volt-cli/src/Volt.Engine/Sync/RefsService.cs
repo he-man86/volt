@@ -15,12 +15,12 @@ namespace Volt.Engine.Sync;
 /// never drift. No source bodies — that is <c>fetch</c>.</summary>
 public static class RefsService
 {
-    public static RefsResponse Handle(IIdeDriver ide, RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
+    public static RefsResponse Handle(HostLink link, RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard, the same one every other project-touching op runs — atomic with the walk.
         // `req` (and each of its fields) is optional: a body-less refs checks only connected (discovery). A BOUND
         // caller gets "is the bridge on my project?" answered here, not from the throttled health cache.
-        var bound = OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
+        var bound = OpGuard.RequireBoundProject(link, req?.ExpectedPlatform, req?.ExpectedProjectName);
 
         // ONE INFO LINE PER REFS, saying where its time went (openspec twincat-large-solution-refs): the walk and its
         // phases, each application, the materialize. A refs that fails says what it was doing — the PLC project it had
@@ -28,7 +28,7 @@ public static class RefsService
         // pipe server's error line).
         var clock = new SnapshotClock();
         ProjectSnapshot snap;
-        try { snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs, clock: clock); }
+        try { snap = ProjectSnapshot.Walk(link, onProgress, Ops.Refs, clock: clock); }
         catch (Exception ex)
         {
             VoltLog.Warn($"refs: failed after {clock.ElapsedMs} ms while {clock.Doing} — {ex.GetType().Name}: {ex.Message} | {clock}");
@@ -36,7 +36,6 @@ public static class RefsService
         }
 
         var hit = new List<string>();
-        if (snap.Unmapped > 0) hit.Add($"{snap.Unmapped} unmapped-kind");
         if (snap.Unreadable.Count > 0) hit.Add($"{snap.Unreadable.Count} unreadable");
         VoltLog.Info($"refs: {snap.FullVersions.Count} items{(hit.Count > 0 ? $" (skipped: {string.Join(", ", hit)})" : "")} in {clock.ElapsedMs} ms — {clock}");
 
@@ -54,7 +53,7 @@ public static class RefsService
             // What of the client's baseline is gone — by the rule `fetch` uses (`Removal`), so `volt status` and
             // `volt pull` read one answer. A refs sent no baseline (discovery, an older client) reports none.
             Removed = req?.KnownItems is { } known
-                ? Removal.Removed(known.Keys, snap.FullVersions.Keys, snap.Unreadable.Select(u => u.Name), snap.UnwalkedFolders, snap.Applications, req.KnownApplications)
+                ? Removal.Removed(known.Keys, snap.FullVersions.Keys, snap.Unreadable.Select(u => u.Name), snap.UnwalkedFolders, snap.Applications, req.KnownApplications, link.Catalog.Kinds)
                 : new List<string>(),
             // THE PROJECT THIS WALK IS OF, atomic with the walk, as `fetch` echoes it: a caller that asked WITHOUT a
             // binding (discovery, the e2e harness) learns what the version map is a map OF.

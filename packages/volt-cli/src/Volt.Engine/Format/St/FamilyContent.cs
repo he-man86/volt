@@ -42,19 +42,26 @@ public static class FamilyContent
             ToPropertySet(c.Properties));
     }
 
-    public static ItemContent ToItemContent(Content c)
+    public static ItemContent ToItemContent(Content c) => ToItemContent(c, ToObjectProperties);
+
+    /// <summary>The bodies and declarations of <paramref name="c"/> as the old record, its object properties left out
+    /// (<see cref="ObjectProperties.None"/>): for a rule that reads bodies alone (<c>BodyFormatGuard</c>), whatever keys
+    /// the host declares.</summary>
+    public static ItemContent BodiesOf(Content c) => ToItemContent(c, _ => ObjectProperties.None);
+
+    private static ItemContent ToItemContent(Content c, Func<PropertySet, ObjectProperties> properties)
     {
         if (c is null) throw new ArgumentNullException(nameof(c));
         var (body, stated, why) = OldBody(c.Body);
         return new ItemContent(c.Kind, c.Declaration, body,
-            c.Members.Select(ToMember).ToList(), ToObjectProperties(c.Properties), why, stated);
+            c.Members.Select(m => ToMember(m, properties)).ToList(), properties(c.Properties), why, stated);
     }
 
-    private static Member ToMember(ContentMember m)
+    private static Member ToMember(ContentMember m, Func<PropertySet, ObjectProperties> properties)
     {
         var (body, stated, why) = OldBody(m.Body);
         var isProperty = m.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty;
-        return new Member(m.Kind, m.Name, m.Declaration, body, ToObjectProperties(m.Properties), m.Folder,
+        return new Member(m.Kind, m.Name, m.Declaration, body, properties(m.Properties), m.Folder,
             ToAccessor(m.Get), ToAccessor(m.Set),
             ReturnType: isProperty ? null : m.Signature, DataType: isProperty ? m.Signature : null,
             Unsupported: why, Stated: stated);
@@ -64,21 +71,22 @@ public static class FamilyContent
     {
         if (a is null) return null;
         var (body, stated, why) = OldBody(a.Body);
-        return new Accessor(a.Declaration, body ?? "", why, stated);
+        return new Accessor(a.Declaration, body, why, stated);
     }
 
     /// <summary>An accessor's body. A SIGNATURE accessor (an interface property's, or a bare <c>GET</c> line) states no
-    /// language and has no code — the IEC reader spells it <c>""</c>, a host's read <c>null</c> — and is a null body here;
-    /// back in the old record it is <c>""</c>, which every reader of it took for the same (<c>Accessor.Code</c>).</summary>
+    /// language and has no code — the IEC reader spells it <c>""</c>, a host's read <c>null</c> — and is a null body here,
+    /// as it is back in the old record: no body to write (<c>Accessor.Code</c> reads both as one).</summary>
     private static BodyText? AccessorBody(Accessor a, string what) =>
         a.Stated is null && string.IsNullOrEmpty(a.Body) ? null : NewBody(a.Body, a.Stated, a.Unsupported, what);
 
     private static BodyText? NewBody(string? body, StatedLanguage? stated, string? why, string what)
     {
         if (body is null) return null;
-        if (stated is null)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"{what} reached the new contract with no stated language: a body's language is a fact its reader states");
+        if (stated is null || (why is not null && !stated.Hidden))
+            throw new BridgeException(BridgeErrorCodes.InternalError, stated is null
+                ? $"{what} reached the new contract with no stated language: a body's language is a fact its reader states"
+                : $"{what} is stated '{stated}' and carries the reason '{why}': only a hidden body has one");
         var text = stated.IsNone ? BodyText.Abstract
             : stated.Hidden ? new BodyText(stated.Language, "", BodyForm.Hidden, why)
             : BodyText.Shown(stated.Language, Languages.IsNetwork(stated.Language) ? ImplementationMarker.Split(body).Code : body);

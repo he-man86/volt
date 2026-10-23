@@ -12,6 +12,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Library;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Body;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Sync;
 
@@ -29,17 +30,18 @@ public static class PushService
         ItemKind.Kinds.Pou, ItemKind.Kinds.Dut, ItemKind.Kinds.Gvl,
     };
 
-    public static PushResponse Handle(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null)
+    public static PushResponse Handle(HostLink link, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
         // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
         // the version gate) still can't clobber the wrong IDE.
-        OpGuard.RequireBinding(ide, Ops.Push, request.ExpectedPlatform, request.ExpectedProjectName);
+        OpGuard.RequireBinding(link, Ops.Push, request.ExpectedPlatform, request.ExpectedProjectName);
+        var kinds = link.Catalog.Kinds;
 
         var sw = Stopwatch.StartNew();
 
         // A PUSH OF NO OPS WRITES NOTHING, so its lease check and its receipt are ONE walk — a read's worth of work, the
         // floor under every write (e2e `stability/latency`). Walked twice, it cost two reads (TwinCAT MultiProject).
-        if (request.Ops.Count == 0) return NothingToApply(ide, request, sw);
+        if (request.Ops.Count == 0) return NothingToApply(link, request, sw);
 
 
         // Pre-apply walk: conflict detection (per-item ifVersion guards) + the apply-boundary item cache. The item
@@ -65,50 +67,44 @@ public static class PushService
                            || renaming || relocating;
         var textsBefore = renaming ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) : null;
         var currentVersions = new Dictionary<string, string>();
-        var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         // Held, not just iterated: `Complete` is what makes ABSENCE from this walk meaningful, and the
         // create pre-flight below needs exactly that (see `WillCreate`).
-        var walk = ide.WalkItems();
+        var walk = link.Driver.Walk();
         foreach (var it in walk.Items)
         {
-            var kind = ItemKind.Map(it.KindCode);
-            if (kind == null) continue;
-            if (ItemKind.IsAddressableItem(it.KindCode)) itemCache[Versioning.PathOf(kind, it.Folder, it.Name)] = (it.Item, it.Folder);
+            var kind = it.Kind;
+            if (IsAddressable(kinds, kind)) itemCache[Versioning.PathOf(kinds, kind, it.Folder, it.Name)] = (it.Item, it.Folder);
             if (!needVersions) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
-            // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
-            var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
-            var version = v.Version;
+            // in itemCache — its ItemRef comes from the walk, not the read — so it remains deletable.
+            var v = Versioning.SafeVersion(link, it.Name, kind, it.Item, it.Folder);
             // Keyed by the item's WIRE IDENTITY (its path, see VersionedItem) — the client can only quote back an
             // identity it was GIVEN, so the ifVersion gate has to look it up under that same one. `itemCache` above is
-            // keyed by folder + BARE name on purpose: that is the IDE's OWN lookup key, one rung below the wire.
-            currentVersions[v.Identity] = version;
-            if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
+            // keyed by folder + BARE name on purpose: that is the IDE's OWN lookup key, one rung below the wire. Every
+            // walked item is tracked, so this one map is the lease's hash too — the set refs and the receipt hash.
+            currentVersions[v.Identity] = v.Version;
             if (textsBefore is not null && v.Materialized is { } was) textsBefore[v.Identity] = was.Text;
         }
         // Each ITEM the walk names and did not read (a TwinCAT POU it must not open, DIALECT C2i; an item in a CODESYS
         // folder excluded from build), by its path — the name an op on it carries.
-        var notOpened = walk.UnreadableObjects.Where(o => o.Kind is { } k && k != ItemKind.Kinds.Folder)
-            .GroupBy(o => Versioning.PathOf(o.Kind!, o.Folder, o.Name), StringComparer.OrdinalIgnoreCase)
+        var notOpened = walk.Unreadable.Where(o => o.Kind is { } k && k != ItemKind.Kinds.Folder)
+            .GroupBy(o => Versioning.PathOf(kinds, o.Kind!, o.Folder, o.Name), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         // An object the walk could not classify counts here exactly as on refs and fetch, or the gate would refuse
         // every push quoting refs' projectVersion while it stays unreadable.
-        if (needVersions)
-        {
-            Versioning.CountUnclassifiable(walk, currentVersions);
-            Versioning.CountUnclassifiable(walk, gatedVersions);
-        }
+        if (needVersions) Versioning.CountUnclassifiable(walk, currentVersions, kinds);
+        var walkComplete = walk.UnwalkedFolders.Count == 0;
 
         // Null when the walk skipped the reads — NOT "": every rejection publishes it as
         // `PushResponse.currentProjectVersion`, so a rejection computes the real hash on demand instead (`RejectAll`).
-        string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : null;
+        string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(currentVersions) : null;
 
         // EVERY NAME AN OP CARRIES IS A WIRE NAME, checked before anything reads the ops.
         var ops = request.Ops;
         try
         {
-            RequireWireNames(ops);
+            RequireWireNames(kinds, ops);
             RequireOneOpPerItem(ops);
         }
         catch (PushRefusal refusal)
@@ -116,15 +112,15 @@ public static class PushService
             VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({refusal.OpName}: {refusal.Message}) ({sw.ElapsedMilliseconds}ms)");
             return PushResponse.RejectedResult(
                 new List<PushConflict> { new() { Name = refusal.OpName, Reason = refusal.Message, Code = BridgeErrorCodes.BadRequest } },
-                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
+                currentProjectVersion ?? ProjectSnapshot.Walk(link, operation: "push-reject").ProjectVersion);
         }
 
         var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
-                                                      currentVersions, currentProjectVersion, walk.Complete,
+                                                      currentVersions, currentProjectVersion, walkComplete,
                                                       // Only an object whose KIND is unknown may be what an op of any
                                                       // kind lands on. The IDE resolves a name case-insensitively
                                                       // (itemCache), so this does too.
-                                                      new HashSet<string>(walk.UnreadableObjects.Where(o => o.Kind is null)
+                                                      new HashSet<string>(walk.Unreadable.Where(o => o.Kind is null)
                                                                               .Select(o => ItemPath.Of(o.Folder, o.Name)),
                                                                           StringComparer.OrdinalIgnoreCase));
         PushResponse RejectAll(List<PushConflict> refused)
@@ -132,14 +128,14 @@ public static class PushService
             VoltLog.Info($"push {ops.Count} ops — REJECTED ({refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
             // COMPUTED ON DEMAND when the pre-flight skipped it: a rejection always publishes the real hash.
             return PushResponse.RejectedResult(refused,
-                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
+                currentProjectVersion ?? ProjectSnapshot.Walk(link, operation: "push-reject").ProjectVersion);
         }
 
         // THE LEASE IS ANSWERED WITHOUT THE PRE-FLIGHT: the project moved since the client read it, so no item's verdict
         // means anything until it pulls (openspec `push-keeps-what-landed` design D1). The gate's own list goes with it.
         if (conflicts.Any(c => c.Code == ConflictCodes.StaleProjectVersion)) return RejectAll(conflicts);
 
-        var pushedDeclarations = DeclarationsIn(ops);
+        var pushedDeclarations = DeclarationsIn(link, ops);
 
         // VALIDATE EVERY OP BEFORE APPLYING ANY OF THEM: an op the apply loop refuses leaves the earlier ops written
         // (measured on `Lenze_MID-S100`: 157 of 174 items landed before the refusal). Everything decidable from the
@@ -169,7 +165,7 @@ public static class PushService
         // From the walk itself (every item it named, read or not), so it holds under force with no versions read.
         var namesBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string? NameScopeKey(string path) =>
-            ItemKind.KindForWireName(path) is { } k && NameScopeKinds.Contains(k)
+            TreeLookup.KindOf(link, path) is { } k && NameScopeKinds.Contains(k)
                 ? $"{ItemPath.ApplicationOf(path, walk.Applications)}/{ItemPath.BareOf(path)}"
                 : null;
         foreach (var path in itemCache.Keys.Concat(notOpened.Keys))
@@ -178,8 +174,8 @@ public static class PushService
         // a refusal), the unreadable sentinel for an item the driver must not open.
         string VersionAt(string path) =>
             currentVersions.TryGetValue(path, out var known) ? known
-            : itemCache.TryGetValue(path, out var held) && ItemKind.KindForWireName(path) is { } kind
-                ? Versioning.SafeVersion(ide, ItemPath.BareOf(path), kind, held.Item, held.Folder).Version
+            : itemCache.TryGetValue(path, out var held) && TreeLookup.KindOf(link, path) is { } kind
+                ? Versioning.SafeVersion(link, ItemPath.BareOf(path), kind, held.Item, held.Folder).Version
                 : Versioning.Unreadable;
         // An op that brings a name into the application — a create, or a rename — onto a name another item of the
         // application holds, ITEM_EXISTS naming that item.
@@ -235,7 +231,7 @@ public static class PushService
             }
             // A CREATE (its path names no item the walk holds) onto a name its application holds. The same path is the
             // gate's create rule, and a forced create there overwrites; another folder or kind is the IDE's refusal.
-            if (op is SetItemOp creator && walk.Complete
+            if (op is SetItemOp creator && walkComplete
                 && !itemCache.ContainsKey(creator.Name) && !notOpened.ContainsKey(creator.Name)
                 && !heldBefore.ContainsKey(creator.To ?? creator.Name)
                 && NameTaken(op, creator.To ?? creator.Name) is { } createdOnto)
@@ -248,7 +244,7 @@ public static class PushService
             // something a push writes — on either vendor. A set AND a delete of one are refused by name, before any op
             // lands (a delete otherwise reaches the vendor object). BAD_REQUEST, not UNSUPPORTED: it is Volt's rule,
             // not the IDE refusing a text (openspec bridge-refusal-review V.1).
-            if (ReadOnlyKindOf(op) is { } readOnly)
+            if (ReadOnlyKindOf(kinds, op) is { } readOnly)
             {
                 preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
                     $"'{readOnly.Name}' is read-only: a {readOnly.Kind} descriptor is rendered from the IDE and is never " +
@@ -265,7 +261,7 @@ public static class PushService
                 && ItemPath.FolderOf(movedTo) is var toFolder
                 && !string.Equals(toFolder, placed.Folder, StringComparison.OrdinalIgnoreCase))
             {
-                if (TreeNav.RefusedMoveTarget(ide, toFolder) is { } notAHolder)
+                if (TreeNav.RefusedMoveTarget(link, toFolder) is { } notAHolder)
                 {
                     preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unsupported,
                         $"'{ItemPath.BareOf(mover.Name)}' cannot move into '{toFolder}': {notAHolder}")));
@@ -292,15 +288,15 @@ public static class PushService
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
             try
             {
-                // …and the driver, for what its vendor cannot hold of the settings the gate read (`ICodeStore.ValidateTask`).
-                if (ItemKind.IsTaskWireName(set.Name)) ide.ValidateTask(TaskDescriptorFormat.Read(text));
+                // …and the driver, for what its vendor cannot hold of the settings the gate read (`IVendorStore.ValidateTask`).
+                if (IsWritableDescriptor(kinds, set.Name)) link.Driver.ValidateTask(TaskDescriptorFormat.Read(text));
                 else
                 {
-                    var creating = WillCreate(walk, itemCache, set.Name);
+                    var creating = WillCreate(walkComplete, itemCache, set.Name);
                     // Read by the kind of the path the op LANDS at — its extension, never the text's header.
                     var cached = itemCache.TryGetValue(set.Name, out var held) ? held.Item : (ItemRef?)null;
-                    var source = ValidateSourceOrThrow(ide, set.Name, text, creating, pushedDeclarations,
-                                          ItemKind.KindForWireName(set.To ?? set.Name)!, cached);
+                    var source = ValidateSourceOrThrow(link, set.Name, text, creating, pushedDeclarations,
+                                          TreeLookup.KindOf(link, set.To ?? set.Name)!, cached);
                     validated[set.Name] = source;
                     var bodies = source.Bodies;
                     // …and what only the DRIVER can decide without writing: a body one vendor's format cannot
@@ -311,7 +307,7 @@ public static class PushService
                     // driver gets the item written into (null for a create) and the validated MODELS, never the text
                     // (2.27, D8/D12).
                     if (bodies.Count > 0)
-                        ide.ValidateSource(creating ? null : cached ?? ItemLookup.Find(ide, set.Name), bodies);
+                        link.Driver.ValidateSource(creating ? null : cached ?? TreeLookup.Locate(link, set.Name).Item, bodies);
                 }
             }
             catch (Exception ex) { preflight.Add(ConflictFor(op, ex)); }
@@ -339,7 +335,7 @@ public static class PushService
             var outcome = new OpOutcome();
             // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source
             // line; any other throw is reason-only. `ConflictFor` handles both, and is shared with the pre-flight.
-            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, validated, outcome), op.Name)); }
+            try { applied.Add((ApplyOp(link, itemCache, notOpened, op, request.Force, validated, outcome), op.Name)); }
             catch (Exception ex)
             {
                 // THE LIVE IDE REFUSED THIS OP, and the push STOPS here (openspec `push-keeps-what-landed`, design D2/D3).
@@ -375,12 +371,12 @@ public static class PushService
         // LEFT, from the pre-apply cache; only those actually empty afterwards go.
         // GUARDED: it runs after every op landed, it is cosmetic, and a COM fault in the live vendor is ordinary —
         // a throw here would fail a push that FULLY SUCCEEDED (no receipt, so the client's next push conflicts).
-        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, appliedOps)); }
+        try { TreeNav.PruneEmptied(link, EmptiedFolders(itemCache, appliedOps)); }
         catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
         if (textsBefore is not null && lastRenameAt >= 0)
         {
-            PutBackWhatTheRenameTouched(ide, textsBefore, appliedAt, lastRenameAt, notLanded, pushedDeclarations, notOpened);
+            PutBackWhatTheRenameTouched(link, textsBefore, appliedAt, lastRenameAt, notLanded, pushedDeclarations, notOpened);
         }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), never the pre-apply
@@ -403,7 +399,7 @@ public static class PushService
             keepText = (name, version) => !refused.Contains(name)
                 && (landed.Contains(name) || !currentVersions.TryGetValue(name, out var before) || before != version);
         }
-        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt", keepText: keepText);
+        var receipt = ProjectSnapshot.Walk(link, operation: "push-receipt", keepText: keepText);
         var newSources = keepText is null ? null : receipt.Texts;
 
         // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
@@ -426,9 +422,9 @@ public static class PushService
     /// <summary>A push of no ops: the one walk is the lease's version and the receipt. A stale lease is refused as the
     /// gate refuses it; otherwise the answer is that walk's (what the receipt walk of a push that applied nothing gave).
     /// With <c>returnSources</c> there is no changed item to return: nothing landed, and nothing changed between two walks.</summary>
-    private static PushResponse NothingToApply(IIdeDriver ide, PushRequest request, Stopwatch sw)
+    private static PushResponse NothingToApply(HostLink link, PushRequest request, Stopwatch sw)
     {
-        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
+        var receipt = ProjectSnapshot.Walk(link, operation: "push-receipt");
         var stale = PushConflicts.DetectConflicts(new List<PushOp>(), request.ExpectedProjectVersion, request.Force,
                                                   receipt.Versions, receipt.ProjectVersion, receipt.UnwalkedFolders.Count == 0,
                                                   Array.Empty<string>());
@@ -451,7 +447,7 @@ public static class PushService
     /// renamed item the push sent no text for gets its pre-push text with only the header renamed, and an item the push
     /// SENT before a later rename is written again, so the sent text wins. Each is Volt's own read written back through
     /// Volt's own write, and only where the text differs — on CODESYS that is nothing but the sent re-writes.</summary>
-    private static void PutBackWhatTheRenameTouched(IIdeDriver ide, IReadOnlyDictionary<string, string> before,
+    private static void PutBackWhatTheRenameTouched(HostLink link, IReadOnlyDictionary<string, string> before,
         IReadOnlyList<(int At, PushOp Op)> applied, int lastRenameAt, IReadOnlyCollection<PushConflict>? notLanded,
         PushedDeclarations declarations, IReadOnlyDictionary<string, UnreadableObject> notOpened)
     {
@@ -460,7 +456,7 @@ public static class PushService
         // An item a conflict names is re-read by the client, never answered — and never put back.
         var refused = new HashSet<string>((notLanded ?? new List<PushConflict>())
             .SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(), StringComparer.OrdinalIgnoreCase);
-        var now = ProjectSnapshot.Walk(ide, operation: "push-rename-scope", keepText: (_, _) => true);
+        var now = ProjectSnapshot.Walk(link, operation: "push-rename-scope", keepText: (_, _) => true);
         var writes = new List<SetItemOp>();
         string? Before(string name) => before.TryGetValue(name, out var t) ? t : null;
         foreach (var entry in now.Texts)
@@ -478,7 +474,7 @@ public static class PushService
             }
             else expected = Before(name);
             if (expected is null || expected == text) continue;
-            if (ItemKind.KindForWireName(name) is not { } kind || ItemKind.IsReadOnlyKind(kind)) continue;
+            if (link.Catalog.Kinds.FindByWireName(name) is not { } row || row.Role == KindRole.Descriptor) continue;
             writes.Add(new SetItemOp { Name = name, SourceText = expected });
         }
         foreach (var (at, op) in applied)
@@ -488,10 +484,10 @@ public static class PushService
         foreach (var w in writes)
         {
             var sources = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
-            if (!ItemKind.IsTaskWireName(w.Name))
-                sources[w.Name] = ValidateSourceOrThrow(ide, w.Name, w.SourceText!, isCreate: false,
-                                                        declarations, ItemKind.KindForWireName(w.Name)!, existing: null);
-            ApplyOp(ide, new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase), notOpened,
+            if (!IsWritableDescriptor(link.Catalog.Kinds, w.Name))
+                sources[w.Name] = ValidateSourceOrThrow(link, w.Name, w.SourceText!, isCreate: false,
+                                                        declarations, TreeLookup.KindOf(link, w.Name)!, existing: null);
+            ApplyOp(link, new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase), notOpened,
                     w, force: true, sources, new OpOutcome());
         }
         if (writes.Count > 0)
@@ -724,7 +720,7 @@ public static class PushService
     /// <para>Built ONCE per push, after the pre-flight refused two ops on one wire name
     /// (<see cref="RequireOneOpPerItem"/>). Two KINDS of one bare name can still both be here; the first keeps the
     /// name.</para></summary>
-    private static PushedDeclarations DeclarationsIn(IReadOnlyList<PushOp> ops)
+    private static PushedDeclarations DeclarationsIn(HostLink link, IReadOnlyList<PushOp> ops)
     {
         var items = new List<(string Name, string? Kind, string Declaration)>();
         foreach (var op in ops)
@@ -733,14 +729,15 @@ public static class PushService
             // The name the item will HAVE — a rename+edit is indexed under its new name, because the bodies
             // being pushed alongside it are the ones that reference it by that name.
             var wireName = set.To ?? set.Name;
-            if (ItemKind.IsTaskWireName(wireName)) continue;   // a descriptor declares nothing
+            // A descriptor declares nothing; a source kind is read by its own format (a wire name, checked by
+            // RequireWireNames).
+            if (link.Catalog.Kinds.FindByWireName(wireName) is not { Role: KindRole.Source, Format: { } format } row) continue;
             var name = ItemPath.BareOf(wireName);
-            var kind = ItemKind.KindForWireName(wireName)!;   // a wire name, checked by RequireWireNames
 
             // A source text that does not parse is NOT failed here. This index is a lookup, and the op that
             // carries the bad text is the one that must report it — with its own name, its own line number and
             // the whole apply loop's error handling around it. Failing here would blame the first item pushed.
-            try { items.Add((name, kind, StReader.Read(src, kind).Declaration)); }
+            try { items.Add((name, row.Kind, format.Read(src, row.Kind, name, link.Catalog, link.Driver.Vendor).Declaration)); }
             catch (Exception) { /* the op's own write reports it */ }
         }
         return PushedDeclarations.FromWire(items);
@@ -755,7 +752,7 @@ public static class PushService
     ///
     /// <para>The <see cref="Versioning.Unreadable"/> exemption is correct and load-bearing: you cannot
     /// re-verify a hash that could never be computed in the first place.</para></summary>
-    private static void RequireUnchanged(string name, string? folder, ItemContent live, string? ifVersion)
+    private static void RequireUnchanged(HostLink link, string name, string? folder, Content live, string? ifVersion)
     {
         if (ifVersion is not { } expected || expected == Versioning.Unreadable) return;
 
@@ -766,7 +763,7 @@ public static class PushService
                 $"'{name}': cannot verify the item version without its folder");
 
         // A STALE ITEM VERSION, coded as the pre-apply gate codes the same fact (openspec bridge-refusal-review 2.14).
-        var now = Hasher.ComputeItemVersion(folder, StWriter.Write(live));
+        var now = Hasher.ComputeItemVersion(folder, link.Catalog.Kinds.Require(live.Kind).Format!.Write(live, name));
         if (now != expected)
             throw new StaleItemVersionException(expected, now,
                 $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite it.");
@@ -776,16 +773,15 @@ public static class PushService
     /// reason alone, on an item it is about to destroy. Worth one read: a delete is the single op that cannot
     /// be undone, so a concurrent edit lost here is lost for good, and the receipt would report the item
     /// cleanly gone while status said in sync.</summary>
-    private static void RequireUnchangedBeforeDelete(IIdeDriver ide, string name, ItemRef item, string? folder, string? ifVersion)
+    private static void RequireUnchangedBeforeDelete(HostLink link, string name, ItemRef item, string? folder, string? ifVersion)
     {
         if (ifVersion is not { } expected || expected == Versioning.Unreadable) return;
         if (folder is null) return;   // no folder, no comparable hash — the walk could not have produced one either
 
-        // THE SAME BASIS THE WALK USED (`Versioning.SafeVersion`), not the ST writer: a delete can target a
+        // THE SAME BASIS THE WALK USED (`Versioning.SafeVersion`), not the format alone: a delete can target a
         // non-source item — a `.task` — versioned from its MANIFEST. An unreadable item comes back as the sentinel.
-        var kind = ItemKind.Map(ide.KindCode(item));
-        if (kind is null) return;
-        var now = Versioning.SafeVersion(ide, name, kind, item, folder).Version;
+        if (link.Driver.Classify(item).Kind is not { } kind) return;
+        var now = Versioning.SafeVersion(link, name, kind, item, folder).Version;
         // A stale item version, coded as the set arm's (openspec bridge-refusal-review 2.15).
         if (now != Versioning.Unreadable && now != expected)
             throw new StaleItemVersionException(expected, now,
@@ -794,7 +790,7 @@ public static class PushService
 
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
-    private static string ApplyOp(IIdeDriver ide,
+    private static string ApplyOp(HostLink link,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, UnreadableObject> notOpened,
         PushOp op, bool force, IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
@@ -807,8 +803,8 @@ public static class PushService
         if (inCache) existing = cached.Item;
         else
         {
-            var (found, untouchable) = ItemLookup.Locate(ide, op.Name);
-            if (untouchable is { } u) return ApplyToUnopened(ide, u, op, force, validated, outcome);
+            var (found, untouchable) = TreeLookup.Locate(link, op.Name);
+            if (untouchable is { } u) return ApplyToUnopened(link, u, op, force, validated, outcome);
             existing = found;
         }
         // The folder the item sits in: the walk's, or — for an item the walk did not cache and the lookup found — the
@@ -817,20 +813,20 @@ public static class PushService
 
         switch (op)
         {
-            case SetItemOp set when ItemKind.IsTaskWireName(set.Name):
-                return ApplySetTask(ide, name, currentFolder, existing, set, outcome);
+            case SetItemOp set when IsWritableDescriptor(link.Catalog.Kinds, set.Name):
+                return ApplySetTask(link, AdmittedKind(link, set.Name), name, currentFolder, existing, set, outcome);
             case SetItemOp set:
-                return ApplySetItem(ide, name, existing, currentFolder, set, force, validated, outcome);
+                return ApplySetItem(link, name, existing, currentFolder, set, force, validated, outcome);
             case DeleteItemOp when existing is { } del:
                 // THE SAME LAST-MOMENT CHECK THE SET ARM DOES — a delete is the one op that cannot be undone.
                 // `inCache ? … : null`, NOT `currentFolder`: that collapses "at the ROOT" and "not seen by the walk"
                 // onto "", and the guard hashes the folder, so an item found by `ItemLookup.Find` would never match.
                 // Null makes the guard stand down.
-                RequireUnchangedBeforeDelete(ide, name, del, inCache ? cached.Folder : null,
+                RequireUnchangedBeforeDelete(link, name, del, inCache ? cached.Folder : null,
                                              force ? null : op.IfVersion);
-                // `ide.Name(del)`, NOT the wire `name`: itemCache resolves case-INSENSITIVELY while the drivers'
+                // `link.Driver.Name(del)`, NOT the wire `name`: itemCache resolves case-INSENSITIVELY while the drivers'
                 // child scan matches case-SENSITIVELY, so only the item's ACTUAL IDE name reaches it.
-                ide.Delete(ide.Parent(del), ide.Name(del));
+                link.Driver.Delete(link.Driver.Parent(del), link.Driver.Name(del));
                 return "deleted";
             case DeleteItemOp:
                 return "no-op";  // idempotent delete of an item that isn't there — the legitimate case
@@ -850,7 +846,7 @@ public static class PushService
     /// a set deletes it and creates the pushed item in its place (the same folder unless the op moves it). Both were
     /// measured to leave the IDE alive. Only an op of the object's own kind reaches it: the lookup resolves the whole
     /// path, kind included, so `X.dut` beside an unopened POU `X` is another item.</para></summary>
-    private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u, PushOp op, bool force,
+    private static string ApplyToUnopened(HostLink link, ItemLookup.Untouchable u, PushOp op, bool force,
         IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
         if (!force)
@@ -860,7 +856,7 @@ public static class PushService
         switch (op)
         {
             case DeleteItemOp:
-                ide.Delete(u.Parent, u.Name);
+                link.Driver.Delete(u.Parent, u.Name);
                 return "deleted";
             case SetItemOp set:
                 if (set.SourceText is null)
@@ -868,9 +864,9 @@ public static class PushService
                         $"set '{set.Name}': '{u.Name}' is replaced, not updated, so the op needs sourceText");
                 // The path the op lands at — its `to`, else where it sits (the lookup found it in its path's folder).
                 var wireName = set.To ?? set.Name;
-                ide.Delete(u.Parent, u.Name);
+                link.Driver.Delete(u.Parent, u.Name);
                 outcome.Replaced = u.Name;   // gone from here on, whatever the create below does
-                WriteItemFromSource(ide, ItemPath.BareOf(wireName), wireName, existing: null,
+                WriteItemFromSource(link, ItemPath.BareOf(wireName), wireName, existing: null,
                                     SourceOf(validated, set), ItemPath.FolderOf(wireName), outcome);
                 return "replaced";
             default:
@@ -887,11 +883,11 @@ public static class PushService
     /// drops a version gate; it never makes a name mean something. The retired
     /// per-subtype names are such names: a DUT is <c>X.dut</c>, a POU <c>X.pou</c> (openspec
     /// <c>push-without-header-check</c> 5.P, 5.Q).</para></summary>
-    private static void RequireWireNames(IEnumerable<PushOp> ops)
+    private static void RequireWireNames(KindRegistry kinds, IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)
             foreach (var name in new[] { op.Name, (op as SetItemOp)?.To })
-                if (name is not null && ItemKind.KindForWireName(name) is null)
+                if (name is not null && kinds.FindByWireName(name) is null)
                     throw new PushRefusal(op.Name,
                         $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
                         "exactly as refs/fetch published it, so this op could only be " +
@@ -951,8 +947,8 @@ public static class PushService
     ///
     /// <para>A task DELETE is the generic <c>deleteItem</c>. A task has no move path: <c>MoveItem</c> refuses a
     /// non-source kind, and a task lives in the Task Configuration by definition.</para></summary>
-    private static string ApplySetTask(IIdeDriver ide, string name, string currentFolder, ItemRef? existing, SetItemOp op,
-                                       OpOutcome outcome)
+    private static string ApplySetTask(HostLink link, string kind, string name, string currentFolder, ItemRef? existing,
+                                       SetItemOp op, OpOutcome outcome)
     {
         if (op.SourceText is not { } src)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
@@ -977,12 +973,12 @@ public static class PushService
             // beside it is put back after the apply (`PutBackWhatTheRenameTouched`, DIALECT C2p).
             if (op.To is { } to && !string.Equals(ItemPath.BareOf(to), name, StringComparison.Ordinal))
             {
-                ide.Rename(task, ItemPath.BareOf(to));
+                link.Driver.Rename(task, ItemPath.BareOf(to));
                 // Recorded the moment the rename RETURNS, before the re-find: a re-find that misses (a stale tree) does
                 // not undo it, and the conflict must say the task is no longer under its old name.
                 outcome.Renamed = (name, ItemPath.BareOf(to), ItemPath.Of(currentFolder, ItemPath.FileOf(to)));   // kept if anything after it is refused
                 name = ItemPath.BareOf(to);
-                task = Refind(ide, Versioning.PathOf(ItemKind.Kinds.Task, currentFolder, name), $"task '{op.Name}' could not be found after being renamed to '{to}'");
+                task = Refind(link, Versioning.PathOf(link.Catalog.Kinds, kind, currentFolder, name), $"task '{op.Name}' could not be found after being renamed to '{to}'");
                 action = "renamed+updated";
             }
         }
@@ -991,8 +987,8 @@ public static class PushService
             var target = op.To ?? op.Name;
             name = ItemPath.BareOf(target);
             currentFolder = ItemPath.FolderOf(target);
-            createdParent = TreeNav.ResolveTaskParent(ide, currentFolder, outcome.FoldersCreated);
-            task = ide.CreateChild(createdParent.Value, name, ItemKind.PlcTask, null, null);   // a task has no object-property carrier
+            createdParent = TreeNav.ResolveDedicatedParent(link, kind, currentFolder, outcome.FoldersCreated);
+            task = link.Driver.CreateChild(createdParent.Value, name, kind, CreateArgs.None);   // a task has no object-property carrier
             action = "created";
         }
 
@@ -1005,16 +1001,16 @@ public static class PushService
         // before a later member refuses), and the engine cannot see inside it. So it ASKS: the task's descriptor is read
         // before the write and again after the refusal, and a difference is what stays (review of
         // `push-partially-applied-flag` 1+2).
-        var before = createdParent is null ? ide.ReadManifest(task, ItemKind.Kinds.Task) : null;
+        var before = createdParent is null ? link.Driver.ReadManifest(task, kind) : null;
         try
         {
-            ide.WriteTask(task, settings);
+            link.Driver.WriteTask(task, settings);
         }
-        catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
+        catch when (createdParent is { } parent && Rollback(link, parent, name, outcome))
         {
             throw;   // unreachable: the filter returns false, so the original refusal propagates untouched.
         }
-        catch when (before is not null && RecordKept(outcome, TaskKept(ide, Versioning.PathOf(ItemKind.Kinds.Task, currentFolder, name), before)))
+        catch when (before is not null && RecordKept(outcome, TaskKept(link, kind, Versioning.PathOf(link.Catalog.Kinds, kind, currentFolder, name), before)))
         {
             throw;   // unreachable: the filter returns false.
         }
@@ -1025,7 +1021,7 @@ public static class PushService
     /// is put back after the apply — DIALECT C2p) and
     /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
-    private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
+    private static string ApplySetItem(HostLink link, string name, ItemRef? existing,
                                    string currentFolder, SetItemOp op, bool force,
                                    IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
@@ -1038,7 +1034,7 @@ public static class PushService
             if (op.SourceText is null)
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
             var at = op.To ?? op.Name;
-            WriteItemFromSource(ide, ItemPath.BareOf(at), at, existing: null, SourceOf(validated, op), ItemPath.FolderOf(at), outcome);
+            WriteItemFromSource(link, ItemPath.BareOf(at), at, existing: null, SourceOf(validated, op), ItemPath.FolderOf(at), outcome);
             return "created";
         }
 
@@ -1060,7 +1056,7 @@ public static class PushService
         // already in hand.
         if (op.SourceText is not null && (renames || moves) && lastMomentVersion is not null)
         {
-            RequireUnchanged(name, currentFolder, ReadLive(ide, item, name), lastMomentVersion);
+            RequireUnchanged(link, name, currentFolder, ReadLive(link, item, name), lastMomentVersion);
             lastMomentVersion = null;   // checked, against the right state: the write after the rename must not re-ask
         }
         if (renames && toName is not null)
@@ -1068,13 +1064,13 @@ public static class PushService
             // THE PUSHED TEXT IS ALREADY VALIDATED by the batch pre-flight in `Handle`, so nothing refusable on its text
             // is in flight when the rename runs. A refusal that depends on the item's LIVE state (an unsupported body,
             // a language change) is still caught by the write — which is why the ORDER below (content, then move) stays.
-            ide.Rename(item, toName);                  // native rename; what it rewrites beside the item is put back (C2p)
+            link.Driver.Rename(item, toName);                  // native rename; what it rewrites beside the item is put back (C2p)
             currentName = toName;
             // Recorded the moment the rename RETURNS — before the re-find below, whose miss (a stale tree) does not undo
             // it. Withdrawn only where the IDE is shown to have ignored it (the case-only check).
             outcome.Renamed = (name, currentName, ItemPath.Of(currentFolder, ItemPath.FileOf(op.To!)));   // kept if a later step of this op is refused (`ConflictFor`)
             // Refresh the staled handle, and FAIL on a miss: the pre-rename handle would write onto the OLD identity.
-            item = Refind(ide, Versioning.PathOf(ItemKind.KindForWireName(op.Name)!, currentFolder, currentName),
+            item = Refind(link, Versioning.PathOf(link.Catalog.Kinds, AdmittedKind(link, op.Name), currentFolder, currentName),
                 $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
                 "write through the pre-rename handle");
 
@@ -1082,7 +1078,7 @@ public static class PushService
             // rename it cannot tell a performed rename from an ignored one. Both vendors perform it (measured live
             // 2026-09-01, CODESYS 3.5.21.40 and TcXaeShell 15.0); this check exists because nothing else would KNOW if an
             // IDE quietly no-opped it.
-            var landed = ide.Name(item);
+            var landed = link.Driver.Name(item);
             if (!string.Equals(landed, currentName, StringComparison.Ordinal))
             {
                 outcome.Renamed = null;   // the IDE kept the old spelling: nothing was renamed
@@ -1099,7 +1095,7 @@ public static class PushService
         // which on CODESYS is the project's own POU pool.
         if (moves)
         {
-            MoveItem(ide, currentName, op.To!, item, currentFolder, toFolder!,
+            MoveItem(link, currentName, op.To!, item, currentFolder, toFolder!,
                      op.SourceText is null ? null : SourceOf(validated, op), outcome);   // relocate in the new folder
             return renamed ? "renamed+moved" : "moved";
         }
@@ -1107,7 +1103,7 @@ public static class PushService
         {
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too. A rename+edit was
             // checked before its rename (above), so it passes none.
-            WriteItemFromSource(ide, currentName, op.To ?? op.Name, item, SourceOf(validated, op),
+            WriteItemFromSource(link, currentName, op.To ?? op.Name, item, SourceOf(validated, op),
                                 currentFolder, outcome, lastMomentVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
@@ -1117,25 +1113,33 @@ public static class PushService
     /// <summary>The read-only kind an op names — a delete by its path, a set by either of its paths (the one it targets
     /// and the one it lands at) — or null when every path is writable. A path whose extension names no kind is not
     /// this check's question.</summary>
-    private static (string Name, string Kind)? ReadOnlyKindOf(PushOp op)
+    private static (string Name, string Kind)? ReadOnlyKindOf(KindRegistry kinds, PushOp op)
     {
         foreach (var name in new[] { op.Name, (op as SetItemOp)?.To })
-            if (name is not null && ItemKind.KindForWireName(name) is { } kind && ItemKind.IsReadOnlyKind(kind))
-                return (name, kind);
+            if (name is not null && kinds.FindByWireName(name) is { Role: KindRole.Descriptor } row)
+                return (name, row.Kind);
         return null;
     }
+
+    /// <summary>An item a push can address by its path: a source item, or the one descriptor a push writes.</summary>
+    private static bool IsAddressable(KindRegistry kinds, string kind) =>
+        kinds.Find(kind)?.Role is KindRole.Source or KindRole.WritableDescriptor;
+
+    /// <summary>The descriptor a push WRITES (a task): its text is its own format, not a source file.</summary>
+    private static bool IsWritableDescriptor(KindRegistry kinds, string wireName) =>
+        kinds.FindByWireName(wireName)?.Role == KindRole.WritableDescriptor;
 
     /// <summary>Move an item to another folder — <see cref="IProjectTree.Move"/>, on every driver. The IDE
     /// relocates the object WHOLE: nothing is read, deleted or rebuilt, there is no window in which the item does
     /// not exist, and a graphical item moves like any other. The NAME is kept, so name-based references survive.
     /// <para>Both vendors have a move (TwinCAT: DIALECT D4f), so there is no delete-and-recreate arm.</para></summary>
-    private static void MoveItem(IIdeDriver ide, string name, string wireName, ItemRef item, string fromFolder,
+    private static void MoveItem(HostLink link, string name, string wireName, ItemRef item, string fromFolder,
                                  string newFolder, ValidatedSource? source, OpOutcome outcome)
     {
-        var kind = ItemKind.Map(ide.KindCode(item));
+        var kind = link.Driver.Classify(item).Kind;
         // A move takes a source item only — Volt's wire rule, so BAD_REQUEST (openspec bridge-refusal-review V.1). Reached when the op's bare name finds an object of
         // another kind, a task (the one addressable non-source kind, `.task` routing aside).
-        if (kind == null || !ItemKind.IsSourceKind(kind))
+        if (kind == null || link.Catalog.Kinds.Find(kind)?.Role != KindRole.Source)
             throw new BridgeException(BridgeErrorCodes.BadRequest, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
         // CONTENT FIRST, then the move — the content write is the step that can REFUSE, so a refused move+edit leaves
@@ -1150,24 +1154,24 @@ public static class PushService
         {
             if (source is { } edited)
             {
-                WriteItemFromSource(ide, name, wireName, item, edited, fromFolder, outcome);
+                WriteItemFromSource(link, name, wireName, item, edited, fromFolder, outcome);
                 textLanded = true;
                 // RE-RESOLVE before moving: on TwinCAT the write is a document IMPORT, which invalidates every handle
                 // into the item it replaced (DIALECT D4d), so the handle this method was called with is dead.
-                item = Refind(ide, Versioning.PathOf(kind, fromFolder, name),
+                item = Refind(link, Versioning.PathOf(link.Catalog.Kinds, kind, fromFolder, name),
                     $"'{name}' could not be found after its content was written — the write appears to have " +
                     "replaced it and the move cannot proceed.");
             }
-            ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, newFolder, newFolders));
+            link.Driver.Move(item, TreeNav.ResolveTopLevelFolder(link, newFolder, newFolders));
 
             // AND THE MOVE TOOK (openspec bridge-refusal-review 4.31). An IDE can accept the call and leave the object —
             // CODESYS does for a target that is no folder — and "moved" would then be baked into the client's baseline
             // while the IDE disagrees. The pre-flight refuses the targets known to do that; this catches any other.
-            if (!TreeNav.FolderHolds(ide, newFolder, name, kind))
+            if (!TreeNav.FolderHolds(link, newFolder, name, kind))
             {
                 // By name AND kind: a same-named item of another kind (an FB's visualization) is not the one that moved.
-                var stayed = ide.WalkItems().Items.FirstOrDefault(i =>
-                    string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase) && ItemKind.Map(i.KindCode) == kind);
+                var stayed = link.Driver.Walk().Items.FirstOrDefault(i =>
+                    string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase) && i.Kind == kind);
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"this IDE did not apply the move of '{name}' to '{(newFolder.Length == 0 ? "<the tree root>" : newFolder)}': " +
                     (stayed is null
@@ -1183,10 +1187,10 @@ public static class PushService
             // encoding a per-vendor quirk in the engine.
             if (source is { } settle)
             {
-                var relocated = Refind(ide, Versioning.PathOf(kind, newFolder, name),
+                var relocated = Refind(link, Versioning.PathOf(link.Catalog.Kinds, kind, newFolder, name),
                     $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                     "push is failed rather than leaving the item holding its pre-edit content.");
-                WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, outcome);
+                WriteItemFromSource(link, name, wireName, relocated, settle, newFolder, outcome);
             }
         }
         // A filter, returning false, so the original exception reaches the client untouched (as `RecordKept`). It runs
@@ -1217,22 +1221,23 @@ public static class PushService
     /// decidable from the text alone, which is the class a real push fails on.
     ///
     /// <para>A graphical body is read against the declarations it can see (network text v2: an FB call's type, a
-    /// wire name's collisions — <see cref="IIdeDriver.NetworkScopeFor"/>), and the ones the push does not carry are
+    /// wire name's collisions — the language's reader, against the scope its host builds), and the ones the push does not carry are
     /// the IDE's. So this READS the project — once per operation, indexed in one walk the driver shares with the
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
     /// <returns>The source as the push writes it, and every network-text body it carries as the model this validated it
     /// into, with its scope and where it sits — what the driver's own pre-flight is handed
-    /// (<see cref="ICodeStore.ValidateSource"/>) and what the apply WRITES from (<see cref="WriteItemFromSource"/>), so the
+    /// (<see cref="IVendorStore.ValidateSource"/>) and what the apply WRITES from (<see cref="WriteItemFromSource"/>), so the
     /// text is read and each body validated ONCE (openspec bridge-refusal-review D8/D12).</returns>
-    private static ValidatedSource ValidateSourceOrThrow(IIdeDriver ide, string path, string src, bool isCreate,
+    private static ValidatedSource ValidateSourceOrThrow(HostLink link, string path, string src, bool isCreate,
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
         var name = ItemPath.BareOf(path);
-        // Throws InvalidSt when the text cannot be split into what the push writes. FOLDED as the IDE's content is
-        // (openspec abstract-member-parity): a file pulled before the fold states `IMPLEMENTATION ST` with an empty body
-        // under an ABSTRACT member, which is the same content as `IMPLEMENTATION NONE`.
-        var split = AbstractMemberFold.Apply(StReader.Read(src, wireKind, name));
+        // Throws InvalidSt when the text cannot be split into what the push writes — read by the kind's own FORMAT. The
+        // IEC layout reads it FOLDED as the IDE's content is (openspec abstract-member-parity): a file pulled before the
+        // fold states `IMPLEMENTATION ST` with an empty body under an ABSTRACT member, which is the same content as
+        // `IMPLEMENTATION NONE`.
+        var split = link.Catalog.Kinds.Require(wireKind).Format!.Read(src, wireKind, name, link.Catalog, link.Driver.Vendor);
 
         // A NAME THE IDE REFUSES, from the word alone (openspec `push-keeps-what-landed` 3.1). Both vendors refuse a POU
         // or a METHOD / ACTION / PROPERTY named like a reserved word (`Log`, `INT_TO_REAL`, `__NEW` …) whatever the
@@ -1243,51 +1248,80 @@ public static class PushService
         // refused, though nothing was created). A name that is no identifier is the same refusal by the same door
         // (bridge-refusal-review 3.1). Each name is asked with the kind it creates: a driver answers its words only for
         // the kinds they were measured on. The IDE's members are read only when a name is refused, which is rare.
-        if (isCreate && wireKind == ItemKind.Kinds.Pou && ide.RefusedName(ItemKind.Kinds.Pou, name) is { } pouRefusal)
-            throw new ChildRefusedException($"the IDE refuses to create '{name}': {pouRefusal}", ChildRefusalCause.Name);
+        if (isCreate && link.Driver.RefusedName(wireKind, name) is { } itemRefusal)
+            throw new ChildRefusedException($"the IDE refuses to create '{name}': {itemRefusal}", ChildRefusalCause.Name);
         var refusedNames = split.Members
-            .Where(m => m.Kind is ItemKind.Kinds.Method or ItemKind.Kinds.Action or ItemKind.Kinds.Property
-                            or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty)
-            .Select(m => (Member: m, Why: ide.RefusedName(m.Kind, m.Name)))
+            .Select(m => (Member: m, Why: link.Driver.RefusedName(m.Kind, m.Name)))
             .Where(x => x.Why is not null).ToList();
         if (refusedNames.Count > 0)
         {
-            var held = HeldMembers(ide, path, isCreate, existing);
+            var held = HeldMembers(link, path, isCreate, existing);
             foreach (var (m, why) in refusedNames)
                 if (!Holds(held, m))
                     throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {why}",
                                                     ChildRefusalCause.Name);
         }
-        RefuseMemberCreates(ide, path, split, isCreate, existing);
+        RefuseMemberCreates(link, path, split, isCreate, existing);
         // …and object properties the vendor has no measured member for (openspec bridge-one-to-one §1.1: TwinCAT, every
         // key) — from the text alone, before the first write, on the item and on every member it carries.
-        ide.ValidateProperties($"'{name}'", split.Properties, isCreate);
+        link.Driver.ValidateProperties($"'{name}'", split.Properties, isCreate);
         foreach (var m in split.Members)
-            ide.ValidateProperties($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", m.Properties, isCreate);
-        // …and an INTERFACE property's GET/SET the driver cannot write, from the text alone (`ICodeStore.ValidateInterfaceAccessor`:
-        // CODESYS a body, TwinCAT any edit; review of bridge-refusal-review 3a+3b).
+            link.Driver.ValidateProperties($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", m.Properties, isCreate);
+        // …and a property's GET/SET the driver cannot write, from the text alone (`IVendorStore.ValidateAccessor`: an
+        // INTERFACE property's, CODESYS a body, TwinCAT any edit; review of bridge-refusal-review 3a+3b).
         foreach (var m in split.Members)
         {
-            if (m.Kind != ItemKind.Kinds.InterfaceProperty) continue;
-            if (m.Getter is { } get) ide.ValidateInterfaceAccessor(get);
-            if (m.Setter is { } set) ide.ValidateInterfaceAccessor(set);
+            if (ShapeOf(link, m.Kind).Accessors == AccessorShape.None) continue;
+            if (m.Get is { } get) link.Driver.ValidateAccessor(m.Kind, get);
+            if (m.Set is { } set) link.Driver.ValidateAccessor(m.Kind, set);
         }
-        // …and every graphical body it carries, root and members alike: network text that does not parse is the
-        // most common way an edit is refused, and it is knowable before anything is mutated.
-        //
-        // ACCESSORS INCLUDED: a property's code lives in its GET/SET (`StReader` gives the property `Body: ""`), so
-        // `m.Body` alone would walk past every graphical accessor. Each body against ITS OWN scope (`SourceScopes.BodiesOf`: a member's declarations, then its owner's), the
-        // one the driver writes a pulled body against — network text v2 reads a call head as an FB instance, and a
-        // wire name as free, only against the declarations (`NetworkScope`).
-        var bodies = SourceScopes.Validated(split, declaration => ide.NetworkScopeFor(declaration, pushedDeclarations));
+        // …and every body it carries, root and members alike, read ONCE by its language's reader (F2): network text that
+        // does not parse is the most common way an edit is refused, and it is knowable before anything is mutated.
+        var bodies = ReadBodies(link, split, pushedDeclarations);
 
         // AND A CREATE'S UNSUPPORTED REFUSAL, text-decidable the same way: an UNSUPPORTED line
         // (`IMPLEMENTATION CFC UNSUPPORTED`) over an EXISTING item is the ordinary no-op, but on a create it can only land
         // an empty POU. Whether it is a create is decided by the caller from the walk (`WillCreate`), never guessed: an
         // UPDATE carrying the line must pass, or no project containing a CFC POU could be pushed.
-        if (isCreate) BodyFormatGuard.RequireAuthorable(split);
+        if (isCreate) BodyFormatGuard.RequireAuthorable(FamilyContent.BodiesOf(split), kind => ShapeOf(link, kind));
         return new ValidatedSource(split, bodies);
     }
+
+    /// <summary>Every SHOWN body of <paramref name="content"/> — the item's, each member's, each accessor's, where the
+    /// kind's shape has one — read by its language's reader (F2) against ITS OWN scope: a member's declarations, then its
+    /// owner's (an action has none of its own), the push's own declarations answering before the IDE's. That is the scope
+    /// the host writes a pulled body against, so the pre-flight reads a body exactly as the write will (network text v2:
+    /// a call head reads as an FB instance, and a wire name as free, only against the declarations). The models are what
+    /// the host's pre-flight is handed and what the write takes — no body is read twice (D8/D12).</summary>
+    private static IReadOnlyList<PushedBody> ReadBodies(HostLink link, Content content, PushedDeclarations pushed)
+    {
+        var bodies = new List<PushedBody>();
+        void Read(BodySite site, BodyText? body, string? declaration)
+        {
+            if (body is not { Form: BodyForm.Shown } shown) return;
+            bodies.Add(new PushedBody(site, shown.Language,
+                link.Catalog.Languages.Reader(shown.Language).Read(shown.Code, new BodyContext(declaration, pushed))));
+        }
+        if (ShapeOf(link, content.Kind).Body) Read(BodySite.Item, content.Body, content.Declaration);
+        foreach (var m in content.Members)
+        {
+            var scope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration);
+            var shape = ShapeOf(link, m.Kind);
+            if (shape.Body) Read(new BodySite(m.Name, m.Kind, null), m.Body, scope);
+            if (shape.Accessors != AccessorShape.WithBodies) continue;
+            Read(new BodySite(m.Name, m.Kind, BodySite.Get), m.Get?.Body, SourceScopes.Scope(m.Get?.Declaration, scope));
+            Read(new BodySite(m.Name, m.Kind, BodySite.Set), m.Set?.Body, SourceScopes.Scope(m.Set?.Declaration, scope));
+        }
+        return bodies;
+    }
+
+    /// <summary>The shape THIS host declares for a kind it stated (a walk's, a format's, a wire name's).</summary>
+    private static KindShape ShapeOf(HostLink link, string kind) =>
+        link.Catalog.Kinds.Require(kind).Shape
+        ?? throw new BridgeException(BridgeErrorCodes.InternalError, $"kind '{kind}' has no shape: only a source kind and a member kind do");
+
+    /// <summary>A pushed item's content, read once by its format, and every shown body read once by its reader.</summary>
+    private sealed record ValidatedSource(Content Content, IReadOnlyList<PushedBody> Bodies);
 
     /// <summary>The source the pre-flight read and validated for <paramref name="op"/>. Every set op that carries text and
     /// reaches the apply was pre-flighted (a refused one rejects the whole batch first), so a miss is Volt's bug —
@@ -1306,11 +1340,11 @@ public static class PushService
     /// <c>UNREADABLE</c>. Force skips the version GATE, not this read, so the refusal says what does work: fix it in the
     /// IDE, or replace it — delete, then create, two pushes because one push names an item once
     /// (<c>ErrorCodeVocabularyTests</c>).</para></summary>
-    private static ItemContent ReadLive(IIdeDriver ide, ItemRef item, string name)
+    private static Content ReadLive(HostLink link, ItemRef item, string name)
     {
-        // FOLDED (openspec abstract-member-parity): an ABSTRACT member with no code is `IMPLEMENTATION NONE` whatever the
-        // object's slot, so the version gate, the format guard and `OnlyChanged` all see the text the fetch publishes.
-        try { return AbstractMemberFold.Apply(ide.ReadContent(item)); }
+        // The host's read, as the fetch reads it (the IEC family's FOLDED, openspec abstract-member-parity), so the
+        // version gate, the format guard and `OnlyChanged` all see the text the fetch publishes.
+        try { return link.Driver.Read(item); }
         catch (Exception ex) when (ex is ICodedError { ErrorCode: BridgeErrorCodes.Unreadable })
         {
             throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -1320,20 +1354,20 @@ public static class PushService
     }
 
     /// <summary>A MEMBER CREATE THE IDE REFUSES FROM ITS ARGUMENT, before the first write (bridge-refusal-review 1+2d
-    /// review; <see cref="IIdeDriver.RefusedMemberCreate"/>): TwinCAT creates an interface member with its type and cannot
+    /// review; <see cref="IVendorStore.RefusedMemberCreate"/>): TwinCAT creates an interface member with its type and cannot
     /// create one that states none. Only a member the push CREATES is asked about — every member of a
     /// new item, and on an update one the IDE does not hold under that name and kind (<see cref="ReconcileMembers"/>'s
     /// rule): an existing member is written through, never created, so its declaration is the build's to judge. The
     /// IDE's members are read only when the driver refuses one, which is rare; an update the walk did not cache is
     /// looked up live.</summary>
-    private static void RefuseMemberCreates(IIdeDriver ide, string path, ItemContent split, bool isCreate, ItemRef? existing)
+    private static void RefuseMemberCreates(HostLink link, string path, Content split, bool isCreate, ItemRef? existing)
     {
         var name = ItemPath.BareOf(path);
         var refused = split.Members
-            .Select(m => (Member: m, Why: ide.RefusedMemberCreate(m.Kind, m.Name, CreateSeed(m))))
+            .Select(m => (Member: m, Why: link.Driver.RefusedMemberCreate(m.Kind, m.Name, CreateArgsOf(link, m))))
             .Where(x => x.Why is not null).ToList();
         if (refused.Count == 0) return;
-        var held = HeldMembers(ide, path, isCreate, existing);
+        var held = HeldMembers(link, path, isCreate, existing);
         foreach (var (m, why) in refused)
         {
             if (Holds(held, m)) continue;
@@ -1345,11 +1379,11 @@ public static class PushService
     /// <summary>The members the IDE holds under the item an update writes (none for a create), read live — the set a
     /// pushed member is "existing" against (<see cref="ReconcileMembers"/>'s rule: same name, case-insensitively, and
     /// same kind).</summary>
-    private static List<Member> HeldMembers(IIdeDriver ide, string path, bool isCreate, ItemRef? existing) =>
-        !isCreate && (existing ?? ItemLookup.Find(ide, path)) is { } item
-            ? ReadLive(ide, item, ItemPath.BareOf(path)).Members.ToList() : new List<Member>();
+    private static List<ContentMember> HeldMembers(HostLink link, string path, bool isCreate, ItemRef? existing) =>
+        !isCreate && (existing ?? TreeLookup.Find(link, path)) is { } item
+            ? ReadLive(link, item, ItemPath.BareOf(path)).Members.ToList() : new List<ContentMember>();
 
-    private static bool Holds(List<Member> held, Member m) =>
+    private static bool Holds(List<ContentMember> held, ContentMember m) =>
         held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind);
 
     /// <summary>Does this op CREATE — is there no such item right now?
@@ -1360,15 +1394,15 @@ public static class PushService
     /// <para><c>Complete</c> is what lets absence read as "not there". An incomplete walk declines to decide and leaves
     /// the verdict to the write's own guard — not a guess: saying "create" where the apply says "update" would refuse a
     /// push of any project that merely CONTAINS a CFC POU.</para></summary>
-    private static bool WillCreate(WalkResult walk, Dictionary<string, (ItemRef Item, string Folder)> itemCache,
+    private static bool WillCreate(bool walkComplete, Dictionary<string, (ItemRef Item, string Folder)> itemCache,
                                    string path) =>
-        walk.Complete && !itemCache.ContainsKey(path);
+        walkComplete && !itemCache.ContainsKey(path);
 
     /// <summary>The kind of a wire name the pre-flight ADMITTED (<see cref="RequireWireNames"/> refuses every op whose
     /// name or toName has an extension that names no kind, before anything is applied). Null here is therefore Volt's
     /// bug, not the client's request — INTERNAL_ERROR (openspec <c>bridge-refusal-review</c> 2.16).</summary>
-    private static string AdmittedKind(string wireName) =>
-        ItemKind.KindForWireName(wireName)
+    private static string AdmittedKind(HostLink link, string wireName) =>
+        TreeLookup.KindOf(link, wireName)
         ?? throw new BridgeException(BridgeErrorCodes.InternalError,
             $"'{wireName}' reached the apply with no item kind, which the pre-flight's wire-name check admits for no op");
 
@@ -1377,7 +1411,7 @@ public static class PushService
     /// <paramref name="name"/> is the BARE IDE name the write resolves by, in <paramref name="folder"/> — where the item
     /// IS during this write, or is created; <paramref name="wireName"/> is the path the op lands at (its <c>to</c> for a
     /// rename or a move), whose extension is the kind.</summary>
-    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
+    private static void WriteItemFromSource(HostLink link, string name, string wireName, ItemRef? existing,
                                         ValidatedSource source, string? folder, OpOutcome outcome,
                                         string? ifVersion = null)
     {
@@ -1388,7 +1422,7 @@ public static class PushService
         // THE TEXT IS NOT READ AGAIN (openspec bridge-refusal-review D8): the pre-flight read it and validated every network
         // body once, and the write takes that content and those models. A move+edit writes twice from the one reading.
         var split = source.Content;
-        if (split.Kind != AdmittedKind(wireName))
+        if (split.Kind != AdmittedKind(link, wireName))
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"'{wireName}' is written from a source the pre-flight read as a {split.Kind}");
 
@@ -1405,8 +1439,6 @@ public static class PushService
                 "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
                 "Rename or remove the duplicate.");
 
-        var impl = split.Body;
-        var itemType = PouKindToCode(split.Kind);
         // Read-only enforcement for an EXISTING graphical body is by LIVE IDE STATE, not content: it is refused
         // by the body-type guard below. On a CREATE there is no live state to read, and the UNSUPPORTED line is the only
         // evidence there is — see `BodyFormatGuard.RequireAuthorable`, called on that arm.
@@ -1416,22 +1448,26 @@ public static class PushService
         var declarationLanded = false;   // the item's declaration was written ahead of its members (see below)
         var changes = new MemberChanges();  // what the member reconcile did to the IDE before anything refused (an update's)
         var memberRefusalWorded = false;    // the refusal already says what of the update landed (`MemberRefusal`)
-        ItemContent? live = null;
+        Content? live = null;
         if (existing is not { } existingPou)
         {
             // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
-            var targetParent = TreeNav.ResolveTopLevelFolder(ide, folder, outcome.FoldersCreated);
+            var targetParent = TreeNav.ResolveTopLevelFolder(link, folder, outcome.FoldersCreated);
 
             // The body was validated BEFORE anything is created — by the pre-flight, once (D8) — so a refused push leaves
             // no orphaned, unlisted stub POU behind that blocks the next create.
-            BodyFormatGuard.RequireAuthorable(split);
+            BodyFormatGuard.RequireAuthorable(FamilyContent.BodiesOf(split), kind => ShapeOf(link, kind));
 
-            // The body language is passed UNCONDITIONALLY (null for ST): TwinCAT sets a POU's implementation language at
-            // creation; CODESYS takes it from the content.
+            // The body language is passed UNCONDITIONALLY: TwinCAT sets a POU's implementation language at creation;
+            // CODESYS takes it from the content. The class is made at the create, never changed afterwards (DIALECT C2l).
             // THE IDE MAY REFUSE THE ITEM'S OWN NAME (openspec `push-keeps-what-landed` 2.2, CODESYS SP21: `LOG.pou`
             // "The name '…' is not valid for this object."), creating nothing — so nothing to roll back.
-            try { pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl), split.Properties.Class); }
+            try
+            {
+                pou = link.Driver.CreateChild(targetParent, name, split.Kind,
+                    new CreateArgs(Language: CreateLanguage(link, split.Body), Class: PropertyKeyRegistry.ClassOf(split.Properties)));
+            }
             catch (ChildRefusedException ex)
             {
                 throw new BridgeException(BridgeErrorCodes.Unsupported, $"the IDE refused to create '{name}': {ex.Message}", ex);
@@ -1440,16 +1476,16 @@ public static class PushService
             // The COM reference from CreateChild is stale for interface items: re-find before writing, and FAIL on a
             // miss — on TwinCAT a write to a detached COM object can succeed silently, landing an EMPTY interface. A miss
             // is a refusal of the CREATE, so the object is rolled back (`push-partially-applied-flag` 1+2).
-            if (itemType == ItemKind.PlcItf)
+            if (split.Kind == ItemKind.Kinds.Interface)
             {
                 try
                 {
-                    pou = TreeNav.FindChild(ide, targetParent, name)
+                    pou = TreeNav.FindChild(link, targetParent, name)
                         ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                             $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
                             "through the stale create handle");
                 }
-                catch when (Rollback(ide, targetParent, name, outcome))
+                catch when (Rollback(link, targetParent, name, outcome))
                 {
                     throw;   // unreachable: the filter returns false.
                 }
@@ -1462,7 +1498,7 @@ public static class PushService
             // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
             // must never be overwritten by a textual push, and a UNSUPPORTED line must not be written over one it can.
-            live = ReadLive(ide, pou, name);
+            live = ReadLive(link, pou, name);
 
             // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the object's CLASS — it
             // really is a POU, a DUT, a GVL, an interface — and the op's kind from its wire name's extension. They are
@@ -1483,20 +1519,21 @@ public static class PushService
             // …) never changes in place (DIALECT C2l), so a `%CLASS` line pushed onto an object of another class — or
             // dropped from one that has a class — is refused by name before anything is written: never a delete + create
             // (the object's identity), never ignored.
-            RefuseClassChange($"'{name}'", live.Properties.Class, split.Properties.Class);
+            RefuseClassChange($"'{name}'", PropertyKeyRegistry.ClassOf(live.Properties), PropertyKeyRegistry.ClassOf(split.Properties));
             // …and the same for every MEMBER, before anything is written (the declaration may land first, below): a member
             // whose kind changed, a member whose class changed — a renamed one included — is refused by name (task 3.4).
             RefuseMemberRetypes(name, live, split);
 
             // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW (see `RequireUnchanged`). The content is
             // already in hand (`live`, read for the format guard), so it costs no extra IDE round trip.
-            RequireUnchanged(name, folder, live, ifVersion);
+            RequireUnchanged(link, name, folder, live, ifVersion);
 
-            BodyFormatGuard.RequireWritable(live, split, ide.RefusedLanguageChange);
+            BodyFormatGuard.RequireWritable(FamilyContent.BodiesOf(live), FamilyContent.BodiesOf(split),
+                                            link.Driver.RefusedLanguageChange, kind => ShapeOf(link, kind));
         }
 
         // ONE read of the live item, used by the guard, the reconciler and the write filter alike.
-        live ??= ReadLive(ide, pou, name);
+        live ??= ReadLive(link, pou, name);
 
         // A REFUSED CREATE LEAVES NOTHING BEHIND. The text was validated before creating, but some refusals come from
         // inside the write — a refusal only the live IDE can give (a member it will not create, a write it rejects) —
@@ -1518,32 +1555,32 @@ public static class PushService
             // body travels with the members in the one write below, which restates the declaration (the same text).
             if (CreatesMembers(live, split) && Text(live.Declaration) != Text(split.Declaration))
             {
-                ide.WriteContent(pou, split with { Body = null, Members = new List<Member>() }, source.Bodies);
+                link.Driver.Write(pou, split with { Body = null, Members = new List<ContentMember>() }, source.Bodies);
                 declarationLanded = true;
                 // A write may replace the item on a vendor whose handles do not survive a change (TwinCAT, D4d), so the
                 // member reconcile below starts from a fresh handle there, as the content write after it does.
-                if (!ide.HandlesSurviveStructureChange)
-                    pou = Refind(ide, Versioning.PathOf(split.Kind, folder ?? "", name),
+                if (!link.Driver.HandlesSurviveStructureChange)
+                    pou = Refind(link, Versioning.PathOf(link.Catalog.Kinds, split.Kind, folder ?? "", name),
                         $"'{name}' cannot be found after its declaration was written — refusing to create its " +
                         "members through a handle the write invalidated");
             }
 
             // The member SET, for a create and an update alike. A create reaches here with the item existing but
             // empty, so every member the source declares is new; an update reconciles against what is there.
-            if (ReconcileMembers(ide, pou, Versioning.PathOf(split.Kind, folder ?? "", name), live, split, changes, MemberRefusal))
+            if (ReconcileMembers(link, pou, Versioning.PathOf(link.Catalog.Kinds, split.Kind, folder ?? "", name), live, split, changes, MemberRefusal))
                 // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: placing one is a round
                 // trip through the enclosing POU's own archive (DIALECT D4j), and the import replaces the item (D4d).
                 // Re-find from a FRESH tree root, because the PARENT handle dies with it.
-                pou = Refind(ide, Versioning.PathOf(split.Kind, folder ?? "", name),
+                pou = Refind(link, Versioning.PathOf(link.Catalog.Kinds, split.Kind, folder ?? "", name),
                     $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
                     "handle the member create invalidated");
 
             // ONE call, for create and update alike: declaration, body, members and accessors together.
             // A member the reconcile RENAMED is the live member under its new name (task 3.4): compared as that, so an
             // unchanged body — an abstract method's `IMPLEMENTATION NONE` on an object with no slot — is not written.
-            ide.WriteContent(pou, OnlyChanged(AfterRenames(live, changes), split), source.Bodies);
+            link.Driver.Write(pou, OnlyChanged(AfterRenames(link, live, changes), split), source.Bodies);
         }
-        catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
+        catch when (createdParent is { } parent && Rollback(link, parent, name, outcome))
         {
             throw;   // unreachable: the filter returns false. Present so the compiler sees a complete catch.
         }
@@ -1585,7 +1622,7 @@ public static class PushService
             if (!declarationLanded) return members.Length == 0 ? null : members;
             return $"the declaration of '{name}' was written before it and stays" + (members.Length == 0 ? "" : $", and {members}");
 
-            static string Members(List<Member> ms) => string.Join(", ", ms.Select(m => $"{m.Kind.Replace('_', ' ')} '{m.Name}'"));
+            static string Members(List<ContentMember> ms) => string.Join(", ", ms.Select(m => $"{m.Kind.Replace('_', ' ')} '{m.Name}'"));
         }
 
         // What a member the IDE refuses to create is reported with: the IDE's own reason, and what of the item has
@@ -1613,15 +1650,15 @@ public static class PushService
     /// refused op itself the IDE kept"). Every mutation the reconcile makes is one of these.</summary>
     private sealed class MemberChanges
     {
-        public readonly List<Member> Deleted = new();
-        public readonly List<Member> Created = new();
+        public readonly List<ContentMember> Deleted = new();
+        public readonly List<ContentMember> Created = new();
         /// <summary>POU-internal folders created to place a member, by path from the POU.</summary>
         public readonly List<string> Folders = new();
-        public readonly List<(Member Member, string To)> Moved = new();
+        public readonly List<(ContentMember Member, string To)> Moved = new();
         public readonly List<(string Property, string Accessor)> AccessorsDeleted = new();
         public readonly List<(string Property, string Accessor)> AccessorsCreated = new();
         /// <summary>Members renamed through the vendor's rename (task 3.4), each from its live record to its new name.</summary>
-        public readonly List<(Member From, string To)> Renamed = new();
+        public readonly List<(ContentMember From, string To)> Renamed = new();
 
         public bool Any => Deleted.Count + Created.Count + Folders.Count + Moved.Count
                            + AccessorsDeleted.Count + AccessorsCreated.Count + Renamed.Count > 0;
@@ -1630,13 +1667,13 @@ public static class PushService
     /// <summary>What of an existing task's refused settings write stays: null when the task reads back exactly as it did
     /// before the write. A task that cannot be read back is NOT assumed unchanged — that would claim a fact nobody
     /// measured — so the conflict says it may have changed, and is <c>partiallyApplied</c> (the client re-reads it).</summary>
-    private static string? TaskKept(IIdeDriver ide, string path, string before)
+    private static string? TaskKept(HostLink link, string kind, string path, string before)
     {
         var name = ItemPath.BareOf(path);
         try
         {
-            var task = Refind(ide, path, $"task '{name}' cannot be found");
-            var after = ide.ReadManifest(task, ItemKind.Kinds.Task);
+            var task = Refind(link, path, $"task '{name}' cannot be found");
+            var after = link.Driver.ReadManifest(task, kind);
             return after == before ? null
                 : $"part of the settings of '{name}' was written before it and stays (the IDE now holds: " +
                   $"{after.Trim().Replace("\n", "; ")})";
@@ -1658,7 +1695,7 @@ public static class PushService
     /// <summary>Will reconciling <paramref name="pushed"/>'s members against <paramref name="live"/> CREATE one — a
     /// member the project lacks, or one whose kind changed (deleted and created again)? The question
     /// <see cref="ReconcileMembers"/> answers by doing it, asked first so the declaration can land before.</summary>
-    private static bool CreatesMembers(ItemContent live, ItemContent pushed)
+    private static bool CreatesMembers(Content live, Content pushed)
     {
         var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, StringComparer.OrdinalIgnoreCase);
         return pushed.Members.Any(m => !liveKind.TryGetValue(m.Name, out var k) || k != m.Kind);
@@ -1673,12 +1710,12 @@ public static class PushService
     ///
     /// <para><b>It RECORDS what happened</b> on <paramref name="outcome"/>, for the conflict to say: the create was
     /// removed, or the removal failed and the object stays (openspec <c>push-keeps-what-landed</c> 2a).</para></summary>
-    private static bool Rollback(IIdeDriver ide, ItemRef parent, string name, OpOutcome outcome)
+    private static bool Rollback(HostLink link, ItemRef parent, string name, OpOutcome outcome)
     {
         outcome.Created = name;
         try
         {
-            ide.Delete(parent, Materializer.Bare(name));
+            link.Driver.Delete(parent, Materializer.Bare(name));
             VoltLog.Debug($"push: rolled back the create of '{name}' after its write was refused");
         }
         catch (Exception ex)
@@ -1697,10 +1734,10 @@ public static class PushService
     /// slot, which reads <c>IMPLEMENTATION NONE</c>, its declaration the create's seed (unknown here, so it differs and is
     /// written). So the write sends such a member its declaration and NOT its NONE body: the object has no slot to take
     /// one (the drivers' <c>RequireSlot</c>, D26), and NONE is exactly what it holds. Everything else as it was.</summary>
-    private static ItemContent AfterRenames(ItemContent live, MemberChanges changes)
+    private static Content AfterRenames(HostLink link, Content live, MemberChanges changes)
     {
         var createdAbstract = changes.Created
-            .Where(m => CreateClass(m)?.Word == ObjectClass.AbstractMethod && m.Properties.Class is null)
+            .Where(m => CreateClass(m) == ObjectClass.AbstractMethod && PropertyKeyRegistry.ClassOf(m.Properties) is null)
             .Select(m => m with { Declaration = "" })
             .ToList();
         if (changes.Renamed.Count == 0 && createdAbstract.Count == 0) return live;
@@ -1722,7 +1759,7 @@ public static class PushService
     /// because a member absent from the list means "leave it alone", never "delete it" - removal is
     /// <see cref="ReconcileMembers"/>'s job and has already happened. A member the reconciler just CREATED is
     /// not in the snapshot, so it is correctly seen as changed and written.</para></summary>
-    private static ItemContent OnlyChanged(ItemContent live, ItemContent pushed)
+    private static Content OnlyChanged(Content live, Content pushed)
     {
         // THE ITEM'S OWN BODY GETS THE SAME RULE ITS MEMBERS DO. A needless whole-body write is not free: TwinCAT
         // regenerates a POU's `<LineIds>` — its per-line identity for breakpoints and ONLINE CHANGE — on any whole-body
@@ -1737,7 +1774,7 @@ public static class PushService
 
         if (pushed.Members.Count == 0) return pushed;
 
-        var byName = new Dictionary<string, Member>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, ContentMember>(StringComparer.OrdinalIgnoreCase);
         foreach (var m in live.Members) byName[m.Name] = m;
 
         // …AND EVERY MEMBER AND ACCESSOR BODY TOO (openspec abstract-member-parity): an unchanged body of a member whose
@@ -1753,14 +1790,14 @@ public static class PushService
 
     /// <summary><paramref name="pushed"/> with each body that equals <paramref name="live"/>'s dropped (null). Both
     /// sides non-null, as for the item's own body: a live null is "not read", never "empty".</summary>
-    private static Member WithoutUnchangedBodies(Member live, Member pushed)
+    private static ContentMember WithoutUnchangedBodies(ContentMember live, ContentMember pushed)
     {
         if (live.Body is not null && pushed.Body is not null && Text(live.Body) == Text(pushed.Body))
             pushed = pushed with { Body = null };
-        if (live.Getter?.Body is not null && pushed.Getter?.Body is not null && Text(live.Getter.Body) == Text(pushed.Getter.Body))
-            pushed = pushed with { Getter = pushed.Getter with { Body = null } };
-        if (live.Setter?.Body is not null && pushed.Setter?.Body is not null && Text(live.Setter.Body) == Text(pushed.Setter.Body))
-            pushed = pushed with { Setter = pushed.Setter with { Body = null } };
+        if (live.Get?.Body is not null && pushed.Get?.Body is not null && Text(live.Get.Body) == Text(pushed.Get.Body))
+            pushed = pushed with { Get = pushed.Get with { Body = null } };
+        if (live.Set?.Body is not null && pushed.Set?.Body is not null && Text(live.Set.Body) == Text(pushed.Set.Body))
+            pushed = pushed with { Set = pushed.Set with { Body = null } };
         return pushed;
     }
 
@@ -1768,15 +1805,15 @@ public static class PushService
     /// two accessors, and the FOLDER.
     /// <para>The folder included: a member whose text is identical but whose folder moved must still be written and
     /// re-placed (`Every_foldered_child_arrives_with_its_folder`). Anything that differs at all is written.</para></summary>
-    private static bool Same(Member a, Member b) =>
+    private static bool Same(ContentMember a, ContentMember b) =>
         Text(a.Declaration) == Text(b.Declaration)
         && Equals(a.Properties, b.Properties)   // a properties-only edit is a change (openspec bridge-one-to-one §3)
         && Text(a.Body) == Text(b.Body)
         && string.Equals(a.Folder ?? "", b.Folder ?? "", StringComparison.Ordinal)
-        && Same(a.Getter, b.Getter)
-        && Same(a.Setter, b.Setter);
+        && Same(a.Get, b.Get)
+        && Same(a.Set, b.Set);
 
-    private static bool Same(Accessor? a, Accessor? b) =>
+    private static bool Same(ContentAccessor? a, ContentAccessor? b) =>
         a is null ? b is null
         : b is not null && Text(a.Declaration) == Text(b.Declaration) && Text(a.Body) == Text(b.Body);
 
@@ -1785,6 +1822,10 @@ public static class PushService
     /// a change like any other. A change-detector laxer than the writer it gates can only fail one way: by deciding an
     /// edit is not an edit.</summary>
     private static string Text(string? s) => s ?? "";
+
+    /// <summary>A body as it is compared: its form, its language and its code — never why a hidden body is hidden, which
+    /// the file does not carry.</summary>
+    private static string Text(BodyText? b) => b is null ? "" : $"{b.Form}\n{b.Language}\n{b.Code}";
 
     /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
     /// project lacks, remove what the project has and the source dropped.
@@ -1797,21 +1838,21 @@ public static class PushService
     /// not a member — no reader models one, so it can never appear in a pushed source — and reconciling against
     /// the wider "inlined in a POU" set would delete every transition of an SFC POU on its first write, silently.</para></summary>
     /// <returns><c>true</c> when the project was mutated, so the caller knows its handles may be stale.</returns>
-    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, string path, ItemContent live, ItemContent pushed,
+    private static bool ReconcileMembers(HostLink link, ItemRef pou, string path, Content live, Content pushed,
                                          MemberChanges changes, Func<string?> landed)
     {
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
 
         var mutated = false;
-        var name = ide.Name(pou);
+        var name = link.Driver.Name(pou);
 
         // Re-resolving the POU costs a FULL PROJECT WALK, so it is paid only where a create actually invalidates the
         // handle — the driver states which case it is (`HandlesSurviveStructureChange`, DIALECT D4d/D4j).
         ItemRef Owner()
         {
-            if (!mutated || ide.HandlesSurviveStructureChange) return pou;
-            return pou = ItemLookup.Find(ide, path) ?? pou;
+            if (!mutated || link.Driver.HandlesSurviveStructureChange) return pou;
+            return pou = TreeLookup.Find(link, path) ?? pou;
         }
 
         // `have`/`want` are keyed on NAME alone, so a member whose KIND changed would be neither created nor deleted.
@@ -1824,11 +1865,11 @@ public static class PushService
         // (no pairing is guessed); the text carries every spelled member, so only the unspelled GUID differs then.
         foreach (var (from, to) in RenamePairs(live, pushed))
         {
-            var site = TreeNav.FindFolder(ide, Owner(), from.Folder) ?? Owner();
-            var member = TreeNav.FindChild(ide, site, from.Name)
+            var site = TreeNav.FindFolder(link, Owner(), from.Folder) ?? Owner();
+            var member = TreeNav.FindChild(link, site, from.Name)
                 ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{name}': its {from.Kind.Replace('_', ' ')} '{from.Name}' cannot be found to rename it '{to.Name}'");
-            ide.Rename(member, to.Name);
+            link.Driver.Rename(member, to.Name);
             changes.Renamed.Add((from, to.Name));
             mutated = true;
             have.Remove(from.Name);
@@ -1841,8 +1882,8 @@ public static class PushService
         {
             if (want.Contains(m.Name) || changes.Renamed.Any(r => ReferenceEquals(r.From, m))) continue;
             // Delete it WHERE IT LIVES: a driver's delete scans direct children only.
-            var site = TreeNav.FindFolder(ide, Owner(), m.Folder) ?? Owner();
-            ide.Delete(site, m.Name);
+            var site = TreeNav.FindFolder(link, Owner(), m.Folder) ?? Owner();
+            link.Driver.Delete(site, m.Name);
             changes.Deleted.Add(m);
             mutated = true;
         }
@@ -1850,14 +1891,14 @@ public static class PushService
         foreach (var m in pushed.Members)
         {
             if (have.Contains(m.Name)) continue;
-            var site = TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders);
+            var site = TreeNav.ResolveFolder(link, Owner(), m.Folder, changes.Folders);
             // A MEMBER THE IDE WILL NOT TAKE IS REFUSED BY NAME, with the IDE's own reason (openspec
             // `push-without-header-check` 5.Q.4). Which members a POU accepts follows its TEXT (DIALECT C2k: FUNCTION
             // text refuses every member kind; text that declares nothing refuses a method and a property), and the
             // declaration has already been shown to the IDE. ONLY the vendor's own refusal, which the driver recognises
             // (ChildRefusedException): any other failure — a stale handle, a transport fault — is not the text's doing
             // and propagates as the fault it is, the create still rolled back by the filter above.
-            try { ide.CreateChild(site, m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m), CreateClass(m)); }
+            try { link.Driver.CreateChild(site, m.Name, m.Kind, CreateArgsOf(link, m) with { Class = CreateClass(m) }); }
             catch (ChildRefusedException ex)
             {
                 // The declaration hint only where it is TRUE: a refused KIND follows the declaration (C2k); a refused NAME
@@ -1886,13 +1927,13 @@ public static class PushService
             if (!liveFolder.TryGetValue(m.Name, out var was)) continue;
             if (string.Equals(was, m.Folder ?? "", StringComparison.Ordinal)) continue;
 
-            var from = TreeNav.FindFolder(ide, Owner(), was);
-            var member = from is null ? null : TreeNav.FindChild(ide, from.Value, m.Name);
+            var from = TreeNav.FindFolder(link, Owner(), was);
+            var member = from is null ? null : TreeNav.FindChild(link, from.Value, m.Name);
             if (member is null)
                 throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': cannot be found at '{(was.Length == 0 ? "<the POU root>" : was)}' to move it");
 
-            ide.Move(member.Value, TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders));
+            link.Driver.Move(member.Value, TreeNav.ResolveFolder(link, Owner(), m.Folder, changes.Folders));
             changes.Moved.Add((m, m.Folder ?? ""));
             mutated = true;
         }
@@ -1901,34 +1942,32 @@ public static class PushService
         // and "Set", and doing it here states the INTERFACE rule once.
         foreach (var m in pushed.Members)
         {
-            var accessors = ItemKind.ShapeOf(m.Kind).Accessors;
+            var accessors = ShapeOf(link, m.Kind).Accessors;
             if (accessors == AccessorShape.None) continue;
-            var isInterface = accessors == AccessorShape.DeclarationsOnly;
+            var signatures = accessors == AccessorShape.DeclarationsOnly;
             // FIND, never find-or-create: a lookup must not make an empty folder inside the engineer's POU, and a
             // property it cannot find is refused, never skipped (a dropped SET would stay live).
-            var propParent = TreeNav.FindFolder(ide, Owner(), m.Folder);
-            var prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
+            var propParent = TreeNav.FindFolder(link, Owner(), m.Folder);
+            var prop = propParent is null ? null : TreeNav.FindChild(link, propParent.Value, m.Name);
             if (prop is null)
                 throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the property is in the pushed source but cannot be found in the project" +
                     (string.IsNullOrEmpty(m.Folder) ? "" : $" under '{m.Folder}'") +
                     " — refusing to report the push applied when its accessors were never reconciled");
 
-            mutated |= ReconcileAccessor(ide, prop.Value, m.Name, "Get",
-                                         isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter, changes);
+            mutated |= ReconcileAccessor(link, prop.Value, m.Name, BodySite.Get, m.Kind + "_get", signatures, m.Get, changes);
 
             // Re-find the PROPERTY only where the accessor create just invalidated it.
-            if (mutated && !ide.HandlesSurviveStructureChange)
+            if (mutated && !link.Driver.HandlesSurviveStructureChange)
             {
-                propParent = TreeNav.FindFolder(ide, Owner(), m.Folder);
-                prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
+                propParent = TreeNav.FindFolder(link, Owner(), m.Folder);
+                prop = propParent is null ? null : TreeNav.FindChild(link, propParent.Value, m.Name);
             }
             if (prop is null)
                 throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the property vanished while its accessors were being reconciled");
 
-            mutated |= ReconcileAccessor(ide, prop.Value, m.Name, "Set",
-                                         isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter, changes);
+            mutated |= ReconcileAccessor(link, prop.Value, m.Name, BodySite.Set, m.Kind + "_set", signatures, m.Set, changes);
         }
 
         return mutated;
@@ -1936,11 +1975,11 @@ public static class PushService
 
     /// <summary>The members a push RENAMES (task 3.4): per member kind, the one live member the text dropped paired with
     /// the one it added — and none for a kind with more than one on either side (no pairing is guessed).</summary>
-    private static List<(Member From, Member To)> RenamePairs(ItemContent live, ItemContent pushed)
+    private static List<(ContentMember From, ContentMember To)> RenamePairs(Content live, Content pushed)
     {
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
-        var pairs = new List<(Member, Member)>();
+        var pairs = new List<(ContentMember, ContentMember)>();
         foreach (var kind in live.Members.Select(m => m.Kind).Distinct())
         {
             var dropped = live.Members.Where(m => m.Kind == kind && !want.Contains(m.Name)).ToList();
@@ -1955,29 +1994,29 @@ public static class PushService
         }
         return pairs;
 
-        static (bool, bool, bool) Slots(Member m) => (IsNone(m.Stated), IsNone(m.Getter?.Stated), IsNone(m.Setter?.Stated));
-        static bool IsNone(StatedLanguage? s) => s?.IsNone == true;
+        static (bool, bool, bool) Slots(ContentMember m) => (IsNone(m.Body), IsNone(m.Get?.Body), IsNone(m.Set?.Body));
+        static bool IsNone(BodyText? b) => b?.Form == BodyForm.Abstract;
     }
 
     /// <summary>The CLASS a member is created as: the one its <c>%CLASS</c> line spells, else — for a METHOD stated
     /// <c>IMPLEMENTATION NONE</c> (an ABSTRACT method with no code, after <see cref="AbstractMemberFold"/>) — the vendor's
     /// abstract method class, which the text states without a line (design §1.1 <c>AbstractPOUMethodObject</c>: "a create of
     /// METHOD ABSTRACT with no code makes the vendor's abstract class").</summary>
-    private static ObjectClass? CreateClass(Member m) =>
-        m.Properties.Class
-        ?? (m.Kind == ItemKind.Kinds.Method && m.Stated?.IsNone == true ? ObjectClass.AbstractMethodClass : null);
+    private static string? CreateClass(ContentMember m) =>
+        PropertyKeyRegistry.ClassOf(m.Properties)
+        ?? (m.Kind == ItemKind.Kinds.Method && m.Body?.Form == BodyForm.Abstract ? ObjectClass.AbstractMethod : null);
 
     /// <summary>Find the item at <paramref name="path"/> (its wire path: folder, bare name and kind) again after a step that may have
     /// replaced its handle, or refuse with IDE_LOST_ITEM and <paramref name="lost"/>: the step reported success, so the
     /// item MUST be there.</summary>
-    private static ItemRef Refind(IIdeDriver ide, string path, string lost) =>
-        ItemLookup.Find(ide, path) ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, lost);
+    private static ItemRef Refind(HostLink link, string path, string lost) =>
+        TreeLookup.Find(link, path) ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, lost);
 
     /// <summary>A member whose KIND changed under its name, or whose CLASS changed — in place or across a rename — is
     /// refused by name before anything of the update is written (task 3.4, DIALECT C2l): a kind is a class, and a class
     /// never changes in place, so a delete + create would lose the object's identity and class. The remedy is stated:
     /// drop the member in one push and add it as the new kind in the next.</summary>
-    private static void RefuseMemberRetypes(string name, ItemContent live, ItemContent pushed)
+    private static void RefuseMemberRetypes(string name, Content live, Content pushed)
     {
         var liveMember = live.Members.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -1990,21 +2029,22 @@ public static class PushService
                     "kind is its class in the IDE, and a class never changes in place (DIALECT C2l): to make it another kind, " +
                     "push the item without the member, then push it again with the new one — two pushes, which discards the " +
                     "member's identity, so it is not done for you.");
-            RefuseClassChange($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", was.Properties.Class, m.Properties.Class);
+            RefuseClassChange($"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}'", PropertyKeyRegistry.ClassOf(was.Properties),
+                              PropertyKeyRegistry.ClassOf(m.Properties));
         }
         foreach (var (from, to) in RenamePairs(live, pushed))
             RefuseClassChange($"'{name}': its {from.Kind.Replace('_', ' ')} '{from.Name}' (renamed '{to.Name}')",
-                              from.Properties.Class, to.Properties.Class);
+                              PropertyKeyRegistry.ClassOf(from.Properties), PropertyKeyRegistry.ClassOf(to.Properties));
     }
 
     /// <summary>A pushed <c>%CLASS</c> that differs from the class the IDE holds — another class, a class on a plain object,
     /// or none on an object that has one — refused by name (DIALECT C2l: a class never changes in place). The remedy is
     /// stated: delete the object and create it again, two pushes, which discards its identity, so it is not done for
     /// you.</summary>
-    private static void RefuseClassChange(string what, ObjectClass? held, ObjectClass? pushed)
+    private static void RefuseClassChange(string what, string? held, string? pushed)
     {
-        if (Equals(held, pushed)) return;
-        static string Said(ObjectClass? c) => c is null ? "the plain class (no %CLASS line)" : $"'%CLASS {c}'";
+        if (held == pushed) return;
+        static string Said(string? c) => c is null ? "the plain class (no %CLASS line)" : $"'%CLASS {c}'";
         throw new BridgeException(BridgeErrorCodes.Unsupported,
             $"{what} is {Said(held)} in the IDE, and this push states {Said(pushed)}. A class never changes in place " +
             "(DIALECT C2l): to make it another class, delete it and create it again — two pushes, since one push names an " +
@@ -2017,60 +2057,53 @@ public static class PushService
     /// <para>Creating one is what TwinCAT needs: it makes a property with no accessors. CODESYS makes both with the
     /// property and exposes no call to add one later, so its driver refuses that create by name — a documented
     /// divergence, not a fallback.</para></summary>
-    private static bool ReconcileAccessor(IIdeDriver ide, ItemRef property, string propertyName, string name, int kindCode,
-                                          Accessor? accessor, MemberChanges changes)
+    private static bool ReconcileAccessor(HostLink link, ItemRef property, string propertyName, string name, string kind,
+                                          bool signatures, ContentAccessor? accessor, MemberChanges changes)
     {
-        // Ask the DRIVER whether it is there, never walk for it: enumerating an interface property's accessor
-        // children can hard-crash TcXaeShell, which is exactly why InterfacePropertyAccessors is a per-vendor
-        // call rather than a tree walk this could do itself.
-        var isItf = kindCode is ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet;
-        bool exists;
-        if (isItf)
-        {
-            var (get, set) = ide.InterfacePropertyAccessors(property);
-            exists = kindCode == ItemKind.PlcItfPropGet ? get : set;
-        }
-        else exists = TreeNav.FindChild(ide, property, name) is not null;
+        // A SIGNATURE property's accessors (an interface's) are counted off the CLASS of its children, as each host
+        // counts them (DIALECT C5: a host classifies a child it lists); a property with bodies is asked for the accessor
+        // by its name — both vendors name them Get and Set.
+        var exists = signatures
+            ? link.Driver.Children(property).Any(c => link.Driver.Classify(c) is { Role: NodeRole.Member } cls && IsAccessor(cls.Kind, name))
+            : TreeNav.FindChild(link, property, name) is not null;
 
         if (accessor is null)
         {
             if (!exists) return false;
-            ide.Delete(property, name);
+            link.Driver.Delete(property, name);
             changes.AccessorsDeleted.Add((propertyName, name));
             return true;
         }
         if (exists) return false;
-        ide.CreateChild(property, name, kindCode, null, null);   // an accessor: no class of its own
+        link.Driver.CreateChild(property, name, kind, CreateArgs.None);   // an accessor: no class of its own
         changes.AccessorsCreated.Add((propertyName, name));
         return true;
     }
 
-    /// <summary>The one value a vendor wants when CREATING this member: the declared TYPE for an interface
-    /// member, the body LANGUAGE for everything else.
+    /// <summary>Is a member of <paramref name="kind"/> a property's <paramref name="accessor"/> (Get or Set)? A host may
+    /// classify an interface property's accessor as either property's accessor kind (CODESYS answers the POU one).</summary>
+    private static bool IsAccessor(string? kind, string accessor) =>
+        accessor == BodySite.Get
+            ? kind is ItemKind.Kinds.PropertyGet or ItemKind.Kinds.InterfacePropertyGet
+            : kind is ItemKind.Kinds.PropertySet or ItemKind.Kinds.InterfacePropertySet;
+
+    /// <summary>What a vendor is told when CREATING this member: the declared TYPE of a signature member (an interface's),
+    /// the body LANGUAGE of every other.
     ///
-    /// <para>The read side of <see cref="Member.ReturnType"/> and <see cref="Member.DataType"/>: TwinCAT creates an
-    /// interface member with its type, and answers "Object reference not set to an instance of an object" for none.
-    /// An interface member has no body, so the two halves never compete.</para></summary>
-    private static string? CreateSeed(Member m) =>
-        ItemKind.ShapeOf(m.Kind).Signature
-            ? m.ReturnType ?? m.DataType
+    /// <para>TwinCAT creates an interface member with its type, and answers "Object reference not set to an instance of an
+    /// object" for none. A signature member has no body, so the two never compete.</para></summary>
+    private static CreateArgs CreateArgsOf(HostLink link, ContentMember m) =>
+        ShapeOf(link, m.Kind).Signature
+            ? new CreateArgs(Signature: m.Signature)
             // A PROPERTY HAS NO BODY OF ITS OWN — its ACCESSORS carry the code, and with it the language: an accessor
             // created as ST is an `STImplementationObject`, which has no `NetworkList` for a graphical body.
-            : NetworkText.LanguageOf(m.Body)
-              ?? NetworkText.LanguageOf(m.Getter?.Code)
-              ?? NetworkText.LanguageOf(m.Setter?.Code);
+            : new CreateArgs(Language: CreateLanguage(link, m.Body, m.Get?.Body, m.Set?.Body));
 
-    internal static int PouKindToCode(string kind) => kind switch
+    /// <summary>The language a create is made in: the first SHOWN body whose language is no plain text (a body the host
+    /// must create as its own kind of object), else the first shown body's — a text body creates as the host's default.</summary>
+    private static string? CreateLanguage(HostLink link, params BodyText?[] bodies)
     {
-        // ONE seed per kind (design 5.Qa, S1): every POU is created as a function block whatever its text, as every DUT
-        // is created as a struct — the vendor takes the kind the TEXT declares (DIALECT C2f/C2g; TwinCAT's compiler too,
-        // C2h), and a function block accepts every member kind until the declaration says otherwise (C2k).
-        ItemKind.Kinds.Pou => ItemKind.PlcPou,
-        ItemKind.Kinds.Dut => ItemKind.PlcDut, ItemKind.Kinds.Gvl => ItemKind.PlcGvl, ItemKind.Kinds.Interface => ItemKind.PlcItf,
-        // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program — and it is
-        // coded as Volt's bug (openspec bridge-refusal-review 2.17), not as the client's malformed request. A kind a
-        // new-contract vendor declared travels under its admitted code (`SeamAdmission`, until step 5), and any other
-        // kind is refused there, coded the same.
-        _ => SeamAdmission.CodeOf(kind),
-    };
+        var shown = bodies.Where(b => b is { Form: BodyForm.Shown }).Select(b => b!.Language).ToList();
+        return shown.FirstOrDefault(l => link.Catalog.Languages.Reader(l) is not PlainTextReader) ?? shown.FirstOrDefault();
+    }
 }

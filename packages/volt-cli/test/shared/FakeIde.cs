@@ -10,6 +10,7 @@ using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Host;
 using Volt.Engine.Item;
+using Volt.Engine.Sync;
 
 namespace Volt.Tests.Shared;
 
@@ -1510,18 +1511,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 /// missing-binding refusal call <c>PushService</c>/<c>BuildService</c> directly.</summary>
 public static class BoundWrite
 {
-    public static PushResponse Push(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null) =>
-        Volt.Engine.Sync.PushService.Handle(ide, Bind(ide, request), onProgress);
+    public static PushResponse Push(HostLink link, PushRequest request, Action<ProgressFrame>? onProgress = null) =>
+        Volt.Engine.Sync.PushService.Handle(link, Bind(link, request), onProgress);
 
-    public static BuildResponse Build(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null) =>
-        Volt.Engine.Sync.BuildService.Handle(ide, Bind(ide, request), onProgress);
+    public static BuildResponse Build(HostLink link, BuildRequest request, Action<ProgressFrame>? onProgress = null) =>
+        Volt.Engine.Sync.BuildService.Handle(link, Bind(link, request), onProgress);
 
-    private static T Bind<T>(IIdeDriver ide, T request) where T : BoundRequest
+    private static T Bind<T>(HostLink link, T request) where T : BoundRequest
     {
         if (request.ExpectedPlatform is null && request.ExpectedProjectName is null)
         {
-            request.ExpectedPlatform = ide.Vendor;
-            request.ExpectedProjectName = ide.ServedProjectName;
+            request.ExpectedPlatform = link.Driver.Vendor;
+            request.ExpectedProjectName = link.Driver.ServedProjectName;
         }
         return request;
     }

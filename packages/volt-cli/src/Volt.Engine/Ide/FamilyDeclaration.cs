@@ -39,7 +39,7 @@ public static class FamilyDeclaration
     private static readonly IReadOnlyList<KindRow> Kinds =
         ItemKind.SourceKindExtensions.Select(x => KindRow.Source(x.Kind, x.Ext, ItemKind.ShapeOf(x.Kind), IecFormat.Instance))
             .Concat(ItemKind.ReferenceKindExtensions.Select(x =>
-                KindRow.Descriptor(x.Kind, x.Ext, writable: ItemKind.WritableReferenceKinds.Contains(x.Kind))))
+                KindRow.Descriptor(x.Kind, x.Ext, writable: !ItemKind.IsReadOnlyKind(x.Kind))))
             .Concat(new[]
             {
                 ItemKind.Kinds.Method, ItemKind.Kinds.Action, ItemKind.Kinds.Property, ItemKind.Kinds.InterfaceMethod,

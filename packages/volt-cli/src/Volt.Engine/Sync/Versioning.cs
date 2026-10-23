@@ -24,13 +24,21 @@ public static class Versioning
     /// it: its kind, the folder it was walked in and its bare IDE name. The one place an item's path is minted — every
     /// version map, <c>items</c> and <c>unreadable</c> key on it, so an item that cannot be read is named exactly as it
     /// is while it reads (a verbatim-named kind once, a library in its own folder).</summary>
+    public static string PathOf(Seam.KindRegistry kinds, string kind, string walkedFolder, string bareName) =>
+        Mint(kind, walkedFolder, bareName, Materializer.FullWireName(bareName, kind, kinds));
+
+    /// <summary><see cref="PathOf(Seam.KindRegistry, string, string, string)"/> by the CODESYS family's own kind table, for
+    /// an old-contract host naming one of its items (until volt-cli-rework step 6 gives each host its declaration).</summary>
     public static string PathOf(string kind, string walkedFolder, string bareName) =>
-        ItemPath.Of(FolderOf(kind, walkedFolder, bareName), Materializer.FullWireName(bareName, kind));
+        Mint(kind, walkedFolder, bareName, Materializer.FullWireName(bareName, kind));
+
+    private static string Mint(string kind, string walkedFolder, string bareName, string fullName) =>
+        ItemPath.Of(FolderOf(kind, walkedFolder, bareName), fullName);
 
     public static (string Version, WorkspaceItem Item) Materialize(
-        IIdeDriver ide, string name, string kind, ItemRef item, string folder)
+        HostLink link, string name, string kind, ItemRef item, string folder)
     {
-        var mat = Materializer.Materialize(ide, name, kind, item);
+        var mat = Materializer.Materialize(link, name, kind, item);
         return (Hasher.ComputeItemVersion(FolderOf(kind, folder, name), mat.Text), mat);
     }
 
@@ -50,16 +58,28 @@ public static class Versioning
     /// wire name, so the push's <c>ifVersion</c> gate cannot resolve an op onto one (an op that may land on an object of
     /// unknown kind is refused as unreadable by <c>PushConflicts</c>, by name).</para></summary>
     public static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
-        CountUnclassifiable(WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions)
+        CountUnclassifiable(Seam.HostWalk walk, System.Collections.Generic.IDictionary<string, string> versions,
+                            Seam.KindRegistry kinds) =>
+        CountUnclassifiable(walk.Unreadable, versions, (kind, folder, name) => PathOf(kinds, kind, folder, name));
+
+    /// <summary>The same count over an old-contract host's walk, its items named by the family's own kind table.</summary>
+    public static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
+        CountUnclassifiable(WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions) =>
+        CountUnclassifiable(walk.UnreadableObjects, versions, PathOf);
+
+    private static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
+        CountUnclassifiable(System.Collections.Generic.IReadOnlyList<UnreadableObject> unread,
+                            System.Collections.Generic.IDictionary<string, string> versions,
+                            System.Func<string, string, string, string> pathOf)
     {
         var items = new System.Collections.Generic.List<UnreadableItem>();
         var nodes = new System.Collections.Generic.List<UnreadableNode>();
         var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
-        foreach (var o in walk.UnreadableObjects)
+        foreach (var o in unread)
         {
             if (o.Kind is { } kind && kind != ItemKind.Kinds.Folder)
             {
-                var path = PathOf(kind, o.Folder, o.Name);
+                var path = pathOf(kind, o.Folder, o.Name);
                 versions[path] = Unreadable;
                 items.Add(new UnreadableItem(path, o.Reason));
                 continue;
@@ -84,15 +104,16 @@ public static class Versioning
     /// spare seam for "single-item paths where the failure must surface" — the header claimed one and there
     /// has never been such a path. It is split out so the catch is visible as a choice rather than buried in
     /// the walk.</para></summary>
-    public static VersionedItem SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string folder)
+    public static VersionedItem SafeVersion(HostLink link, string name, string kind, ItemRef item, string folder)
     {
+        var kinds = link.Catalog.Kinds;
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug): a silent catch hides a real materialize bug.
-        try { var (v, m) = Materialize(ide, name, kind, item, folder); return new VersionedItem(v, m, kind, folder, name, null); }
+        try { var (v, m) = Materialize(link, name, kind, item, folder); return new VersionedItem(v, m, kind, folder, name, null, kinds); }
         catch (System.Exception ex)
         {
-            VoltLog.Warn($"materialize failed name='{PathOf(kind, folder, name)}' — body skipped from pull: {ex.Message}");
-            return new VersionedItem(Unreadable, null, kind, folder, name, ex.Message);
+            VoltLog.Warn($"materialize failed name='{PathOf(kinds, kind, folder, name)}' — body skipped from pull: {ex.Message}");
+            return new VersionedItem(Unreadable, null, kind, folder, name, ex.Message, kinds);
         }
     }
 }
@@ -120,12 +141,12 @@ public static class Versioning
 public sealed class VersionedItem
 {
     internal VersionedItem(string version, WorkspaceItem? materialized, string kind, string walkedFolder, string bareName,
-                           string? reason)
+                           string? reason, Seam.KindRegistry kinds)
     {
         Version = version;
         Materialized = materialized;
         Folder = Versioning.FolderOf(kind, walkedFolder, bareName);
-        Identity = Versioning.PathOf(kind, walkedFolder, bareName);
+        Identity = Versioning.PathOf(kinds, kind, walkedFolder, bareName);
         Unread = reason is null ? null : new UnreadableItem(Identity, reason);
     }
 

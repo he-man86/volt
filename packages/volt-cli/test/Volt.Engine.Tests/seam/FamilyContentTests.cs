@@ -28,10 +28,16 @@ public class FamilyContentTests
             sb.Append($" body={m.Body ?? "<null>"} why={m.Unsupported} stated={m.Stated}\n props={string.Join("|", PropertyLines.Write(m.Properties))}\n");
             foreach (var (name, a) in new[] { ("get", m.Getter), ("set", m.Setter) })
                 sb.Append(a is null ? $" {name}=<none>\n"
-                    : $" {name} decl={a.Declaration ?? "<null>"} body={a.Body ?? "<null>"} why={a.Unsupported} stated={a.Stated}\n");
+                    : $" {name} decl={a.Declaration ?? "<null>"} body={AccessorBody(a)} why={a.Unsupported} stated={a.Stated}\n");
         }
         return sb.ToString();
     }
+
+    /// <summary>A SIGNATURE accessor (no stated language, no code) is one fact the old record spells two ways — <c>""</c> from
+    /// the IEC reader, <c>null</c> from a host's read, both "no body to write" (<c>Accessor.Code</c>) — and Content has
+    /// one spelling for it, so it is described as one.</summary>
+    private static string AccessorBody(Accessor a) =>
+        a.Stated is null && string.IsNullOrEmpty(a.Body) ? "<signature>" : a.Body ?? "<null>";
 
     public static IEnumerable<object[]> CorpusProjectsWithSources() =>
         Directory.GetDirectories(CorpusProjects.CorpusRoot()).Select(d => new object[] { Path.GetFileName(d) });

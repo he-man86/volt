@@ -9,6 +9,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Library;
+using Volt.Engine.Seam;
 
 namespace Volt.Engine.Sync;
 
@@ -37,9 +38,9 @@ public static class GrepService
 
     private sealed record Candidate(string Path, string Version, string Text);
 
-    public static GrepResponse Handle(IIdeDriver ide, GrepRequest request, Action<ProgressFrame>? onProgress = null)
+    public static GrepResponse Handle(HostLink link, GrepRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        OpGuard.RequireBoundProject(ide, request.ExpectedPlatform, request.ExpectedProjectName);
+        OpGuard.RequireBoundProject(link, request.ExpectedPlatform, request.ExpectedProjectName);
 
         // Everything the request can get wrong is refused here, before the walk: nothing is searched for it.
         var limit = request.Limit ?? DefaultLimit;
@@ -52,14 +53,14 @@ public static class GrepService
         var sw = Stopwatch.StartNew();
         var candidates = new List<Candidate>();
         var notSearched = new List<NotSearchedItem>();
-        void OnItem(ProjectItem it, string kind, string folder, VersionedItem v)
+        void OnItem(WalkedItem it, string folder, VersionedItem v)
         {
-            if (kind == ItemKind.Kinds.Library || v.Materialized is not { } mat || !InScope(v.Identity)) return;
+            if (it.Kind == ItemKind.Kinds.Library || v.Materialized is not { } mat || !InScope(v.Identity)) return;
             candidates.Add(new Candidate(v.Identity, v.Version, mat.Text));
             if (mat.Hidden.Count > 0)
                 notSearched.Add(new NotSearchedItem(v.Identity, string.Join("; ", mat.Hidden.Select(Hidden))));
         }
-        var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Grep, phase: "searching", onItem: OnItem);
+        var snap = ProjectSnapshot.Walk(link, onProgress, Ops.Grep, phase: "searching", onItem: OnItem);
         // The items fetch ships no text for, as refs names them — every one the walk saw, of known kind or not.
         notSearched.AddRange(snap.Unreadable
             .Where(u => InScope(u.Name) && !u.Name.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase))

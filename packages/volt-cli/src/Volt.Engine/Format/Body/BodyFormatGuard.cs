@@ -31,18 +31,19 @@ public static class BodyFormatGuard
     ///
     /// <para>Without this a create writes the line as if it were source and the item lands with an EMPTY body while the
     /// push reports success — the corpus-migration gate measured it dropping every CFC/SFC POU of a real project.</para></summary>
-    public static void RequireAuthorable(ItemContent pushed)
+    public static void RequireAuthorable(ItemContent pushed, Func<string, KindShape>? shapeOf = null)
     {
-        if (ItemKind.ShapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, null);
-        foreach (var member in pushed.Members) AuthorableMember(member);
+        shapeOf ??= ItemKind.ShapeOf;
+        if (shapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, null);
+        foreach (var member in pushed.Members) AuthorableMember(member, shapeOf);
     }
 
     /// <summary>The create rule for ONE member: every body it carries must be one Volt can author.</summary>
-    private static void AuthorableMember(Member member)
+    private static void AuthorableMember(Member member, Func<string, KindShape> shapeOf)
     {
         // Same split as below, by the kind's row (ItemKind.ShapeOf): a property node's code lives in its accessors, not
         // in a body of its own, and an interface method has neither.
-        var shape = ItemKind.ShapeOf(member.Kind);
+        var shape = shapeOf(member.Kind);
         if (shape.Accessors != AccessorShape.None)
         {
             Authorable($"'{member.Name}' GET", ItemKind.Kinds.PropertyGet, member.Getter?.Body, member.Getter?.Stated,
@@ -82,10 +83,12 @@ public static class BodyFormatGuard
     /// <paramref name="pushed"/> is the source being written. Throws <see cref="BridgeException"/>; returns quietly
     /// when the write is allowed.</summary>
     public static void RequireWritable(ItemContent live, ItemContent pushed,
-                                       Func<string, string, string, string?> refusedLanguageChange)
+                                       Func<string, string, string, string?> refusedLanguageChange,
+                                       Func<string, KindShape>? shapeOf = null)
     {
         if (refusedLanguageChange is null) throw new ArgumentNullException(nameof(refusedLanguageChange));
-        if (ItemKind.ShapeOf(pushed.Kind).Body)
+        shapeOf ??= ItemKind.ShapeOf;
+        if (shapeOf(pushed.Kind).Body)
             Check("the item", pushed.Kind, live.Body, live.Stated, pushed.Body, pushed.Stated, refusedLanguageChange,
                   live.Declaration, pushed.Declaration);
 
@@ -99,14 +102,14 @@ public static class BodyFormatGuard
             // reconciler has already deleted the diagram the line stood for.
             if (!byName.TryGetValue(member.Name, out var current) || current.Kind != member.Kind)
             {
-                AuthorableMember(member);
+                AuthorableMember(member, shapeOf);
                 continue;
             }
 
             // WHAT THE KIND'S ROW SAYS EXISTS (ItemKind.ShapeOf, openspec bridge-refusal-review D11): a PROPERTY node
             // carries no body of its own — its code lives in its GET/SET accessors, which arrive as `Getter`/`Setter` —
             // and an INTERFACE METHOD carries neither a body nor accessors, so nothing of it is checked.
-            var shape = ItemKind.ShapeOf(member.Kind);
+            var shape = shapeOf(member.Kind);
             if (shape.Accessors != AccessorShape.None)
             {
                 // An accessor is abstract by its PROPERTY's ABSTRACT (the abstract `Busy`'s GET, C2n), so the property's

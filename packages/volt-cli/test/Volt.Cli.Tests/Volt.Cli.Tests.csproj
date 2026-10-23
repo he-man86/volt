@@ -23,7 +23,6 @@
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
     <!-- The third test vendor (volt-cli-rework step 4): new contract only, driven through the old engine by a test-only adapter. -->
     <Compile Include="..\shared\Fakeco.cs" Link="Fakeco.cs" />
-    <Compile Include="..\shared\SeamDriverAdapter.cs" Link="SeamDriverAdapter.cs" />
     <!-- The red-first mark (openspec bridge-one-to-one 2): GitEnvironmentTests is red until environment-dependency-audit 2.1. -->
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <!-- Who a bridge pipe admits (environment-dependency-audit 2.2): net10 here, net48 in the CODESYS suite. -->

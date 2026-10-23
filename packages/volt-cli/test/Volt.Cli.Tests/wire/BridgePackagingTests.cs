@@ -194,7 +194,9 @@ public class BridgePackagingTests
         proxyBase.GetField(nameof(HealthOnly.Health))!.SetValue(driver, (Func<object>)(() => Activator.CreateInstance(healthType)!));
 
         var pipe = "volt.test." + Guid.NewGuid().ToString("N");
-        var bridge = (IDisposable)Activator.CreateInstance(host.GetType("Volt.Engine.Host.BridgePipeHost", throwOnError: true)!, driver, pipe)!;
+        // The bundle's own engine puts the old-contract driver on the new contract (HostLink.Of), as its host does.
+        var link = engine.GetType("Volt.Engine.Sync.HostLink", throwOnError: true)!.GetMethod("Of", new[] { driverType })!.Invoke(null, new object[] { driver })!;
+        var bridge = (IDisposable)Activator.CreateInstance(host.GetType("Volt.Engine.Host.BridgePipeHost", throwOnError: true)!, link, pipe)!;
         try
         {
             bridge.GetType().GetMethod("Start")!.Invoke(bridge, null);

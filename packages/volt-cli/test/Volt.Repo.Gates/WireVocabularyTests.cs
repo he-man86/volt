@@ -105,7 +105,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Item/SeamAdmission.cs", 1),   // moved from PushService.PouKindToCode's default arm (volt-cli-rework step 4)
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 6),   // -1 PouKindToCode's default arm, now SeamAdmission.CodeOf
+            ("Volt.Engine/Sync/PushService.cs", 7),   // -1 PouKindToCode's default arm, now SeamAdmission.CodeOf; +1 a kind the host declared with no shape (volt-cli-rework step 5)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 a project-settings read of a node that is no PLC project's settings item (multi-application-tree)
             ("Volt.Relay/RelayTunnel.cs", 1),
@@ -128,7 +128,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 4))),
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
-            ("Volt.Engine/Ide/ItemLookup.cs", 1),
+            ("Volt.Engine/Sync/TreeLookup.cs", 1),   // moved from Ide/ItemLookup (volt-cli-rework step 5)
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
@@ -153,7 +153,8 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 1))),
         new("the push could not read where the item lives", "fix what stops the IDE enumerating that place",
             "ITEM_UNVERIFIED", At(
-            ("Volt.Engine/Ide/ItemLookup.cs", 6),   // +3 the path descent's: a folder's children, a child, a child's name unreadable (multi-application-tree)
+            ("Volt.Engine/Ide/ItemLookup.cs", 3),   // the hosts' walk of every item: a folder's children, a child, a child's name unreadable
+            ("Volt.Engine/Sync/TreeLookup.cs", 3),   // the path descent's, moved from Ide/ItemLookup (volt-cli-rework step 5)
             ("Volt.Engine/Ide/ProjectDeclarations.cs", 1),
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
             // -1 PushService: a forced replace's folder came from the walk; it is the op's path now (multi-application-tree)

@@ -38,7 +38,31 @@ internal static class Removal
         IEnumerable<string> unreadable,
         IReadOnlyList<string> unwalkedFolders,
         IReadOnlyList<string> applications,
-        IReadOnlyList<string>? knownApplications)
+        IReadOnlyList<string>? knownApplications,
+        Seam.KindRegistry kinds) =>
+        Removed(known, walked, unreadable, unwalkedFolders, applications, knownApplications,
+                path => kinds.FindByWireName(path)?.Role == Seam.KindRole.Source);
+
+    /// <summary>The same rule by the CODESYS family's own kind table, for an old-contract host's walk (until
+    /// volt-cli-rework step 6).</summary>
+    public static List<string> Removed(
+        IEnumerable<string> known,
+        ICollection<string> walked,
+        IEnumerable<string> unreadable,
+        IReadOnlyList<string> unwalkedFolders,
+        IReadOnlyList<string> applications,
+        IReadOnlyList<string>? knownApplications) =>
+        Removed(known, walked, unreadable, unwalkedFolders, applications, knownApplications,
+                path => ItemKind.KindForWireName(path) is { } kind && ItemKind.IsSourceKind(kind));
+
+    private static List<string> Removed(
+        IEnumerable<string> known,
+        ICollection<string> walked,
+        IEnumerable<string> unreadable,
+        IReadOnlyList<string> unwalkedFolders,
+        IReadOnlyList<string> applications,
+        IReadOnlyList<string>? knownApplications,
+        System.Func<string, bool> isSourcePath)
     {
         var roots = knownApplications is null ? applications : applications.Concat(knownApplications).ToList();
         var unread = new HashSet<string>(unreadable, System.StringComparer.Ordinal);
@@ -48,7 +72,7 @@ internal static class Removal
         {
             var application = ItemPath.ApplicationOf(path, roots);
             if (application is null && knownPath && knownApplications is null) return null;
-            if (application is null && !(ItemKind.KindForWireName(path) is { } kind && ItemKind.IsSourceKind(kind))) return null;
+            if (application is null && !isSourcePath(path)) return null;
             return (application ?? "") + "\n" + ItemPath.FileOf(path);
         }
         HashSet<string>? walkedNames = null;
