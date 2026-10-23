@@ -582,3 +582,54 @@ vendor-fact home.
     case-variant extensions in the corpora; cheap, so fixed).
 - Numbers: 3 hidden features found; 2 kept (documented + pinned), 1 deleted; gate: 3 review findings fixed, 4 test
   cases added (3 red first), 0 fixtures; wire unchanged for every item the corpora hold.
+
+## Step 2.4: the public-API lens (2026-10-23)
+
+**Target:** every request the schema allows and our CLI never sends answers either its result or the code of its
+situation — never `INTERNAL_ERROR`, never ACCEPTED over a write that did not land as named. Census: a single-use probe
+(deleted) sent 130 such requests over the pipe to the `FakeIde` host — 62 push shapes (no-op sets, `to` across kinds
+and folders, case-only, duplicate and swapped ops, `returnSources`, `force` without versions, empty/`null`/odd names
+and paths, read-only kinds, empty texts), 14 fetch, 4 refs, 5 build, 10 grep and 2 connect shapes, and every op with an
+array/number/string/boolean body. The map's P1–P5 were re-checked: P1 (write without binding) and P2 (discriminator
+order) are closed, P5 has the frame cap (`PipeServer.MaxFrameBytes`); P3 and P4 below.
+
+| Root cause | What answered | Fix (one place, both vendors) |
+|---|---|---|
+| A `null` the schema does not allow: `ops: [null]`, a push op's `name: null`, a grep `paths` entry `null`; `onlyItems` / `knownApplications` / `applications` entries and `knownItems` versions `null` | `INTERNAL_ERROR` (NullReferenceException) for the first three; the others read as if the entry were absent | the strict request reader: `WireJson.Request` honours nullability (`RespectNullableAnnotations`) and refuses a null list/map entry (`NoNullEntries`); `BAD_REQUEST` naming the path, before any walk. Pinned on .NET Framework too (the CODESYS host) |
+| A set's `to` of another kind than its `name` | `P.pou` → `P.gvl` ACCEPTED, nothing changed (same bare name and folder: no rename, no move); `P.pou` → `Q.gvl` renamed the POU to `Q.pou` | the pre-flight, beside the read-only refusal (`PushService.RetypedBy`): `BAD_REQUEST` "cannot re-type an object by its NAME", forced or not; `volt push` sends a rename git paired across kinds as a delete and a create (gate) |
+| A path `refs` could not publish: `/POUs/Z.pou`, `POUs//Z.pou`, `POUs/../Z.pou`, `POUs /Z.pou`, `POUs/.pou`, an escape `refs` never writes (`%2f`, `%41`, a bare `%`) | ACCEPTED; the item landed under another identity (`POUs/%2E%2E/Z.pou`, `POUs%20/Z.pou`, a folder or object with no name), so the next push of the pushed name was a create again | `RequireWireNames`: every folder segment in exactly its minted form (`FolderPath.IsMinted`) and a name before the extension; `BAD_REQUEST` before any read. A name's letter case stays the name's (addressed ignoring case). Read-only descriptors are the read-only refusal's |
+
+Measured on the corpora: all 29173 source files of the six corpora sit in folders in their minted form (0 refused), so the
+CLI's pushes are unchanged; the CLI never writes a null (`WireJson.Write` omits them).
+
+**Recorded, not fixed here:**
+- P3 — `expectedProjectName` / `connect.project` compared `Ordinal` (a case variant is `WRONG_PROJECT` / `PLC_DISCONNECTED`)
+  while `expectedPlatform` and every addressed path ignore case. Whether a case variant names the same project is a
+  vendor fact (a CODESYS project is a file; a TwinCAT PLC project's name in its solution is unmeasured), so it goes with
+  3.1's "the path comparer in ONE place", not a call-site comparer here.
+- P4 — the request envelope carries no protocol; the protocol-2 release's.
+- `WRONG_PROJECT`'s message renders an expectation the request left out as empty (`bound to /X`): wording only.
+- Behaviour that answers right and is documented: a `set` with neither `to` nor `sourceText` is a version-checked no-op;
+  a `deleteItem` without `ifVersion` deletes what is there (wire.html, deleteItem row); a directed fetch of a path that
+  names nothing answers it absent from `items`; a `to` equal to `name` is a no-op; empty `ifVersion` /
+  `expectedProjectVersion` are versions that do not match.
+
+**Tests (red first):** `Volt.Contracts.Tests/RequestNullTests` (12 refusals red, 5 optional-member controls),
+`Volt.Cli.Tests/wire/RequestNullFrameTests` (7, over the pipe: nothing walked, written or built),
+`Volt.Ide.Codesys.Tests/CodesysRequestNullTests` (5, net48), `Volt.Engine.Tests/sync/PushPathIsAWirePathTests` (16:
+the re-type and non-minted shapes as create, `to` and delete, forced and not; 3 minted-form controls). Gates: the
+BAD_REQUEST census for `PushService.cs` 9 (the re-type refusal +1, the dead `ops: null` throw −1 at the gate); the path-comparer ratchet unchanged (109).
+Docs: `wire.html` identity section and BAD_REQUEST row. Wire: unchanged for every request the CLI sends.
+
+**Gate (2026-10-23), 3 review findings fixed red-first:**
+- The CLI sent a rename git paired across KINDS (`P.pou` → `Q.gvl`: git pairs by content and ignores the extension) as one
+  `set` with a `to` of another kind, which the new pre-flight refuses — failing the whole push. `volt push` now splits such
+  a rename into a `deleteItem` and a create, as it splits one across applications (`Commands.Push`, `Extensions.KindOf`;
+  `PushCommandTests.A_rename_that_git_paired_across_two_kinds_pushes_a_delete_and_a_create`). The refusal's remedy no
+  longer says "two pushes" (a different name is one push; the same name meets `ITEM_EXISTS`, the IDE's name scope).
+- `NoNullEntries` read each list entry with a nested deserialize, so a refusal inside an entry lost its index
+  (`$.ops[1].bogus` reported as `$.bogus`). It is now a type-info modifier that checks a list or map as the serializer
+  stores it, so the serializer reads every entry itself and keeps the full path; a null entry is named `ops[1]` at
+  `$.ops` (`RequestNullTests.A_refusal_inside_a_list_entry_names_the_entry`, 3 cases).
+- `PushService.Handle`'s `ops: null` throw was dead (the strict reader refuses a null `ops` first): deleted, and the
+  BAD_REQUEST census for `PushService.cs` stays 9 (+1 the re-type refusal, −1 that throw).

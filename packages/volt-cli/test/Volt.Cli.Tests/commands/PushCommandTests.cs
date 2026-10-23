@@ -576,6 +576,38 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A RENAME GIT PAIRED ACROSS TWO KINDS IS A DELETE AND A CREATE (volt-cli-rework 2.4). Git pairs a rename by
+    /// content similarity and ignores the extension, so <c>POUs/P.pou</c> rewritten as <c>POUs/Q.gvl</c> with the same
+    /// variables is one <c>Rename</c> row. A set's <c>to</c> of another kind is refused by the bridge — no apply step
+    /// re-types an object by its name — so sent as one set it failed the whole push with a remedy (two pushes) a
+    /// <c>volt push</c> of one commit cannot follow. By path it is two items: <c>P.pou</c> deleted, <c>Q.gvl</c> created.</summary>
+    [Fact]
+    public void A_rename_that_git_paired_across_two_kinds_pushes_a_delete_and_a_create()
+    {
+        var vars = string.Concat(Enumerable.Range(1, 12).Select(i => $"\tnVariable{i:D2} : DINT;\n"));
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("P", "FUNCTION_BLOCK P\nVAR\n" + vars + "END_VAR", ";", "POUs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var dir = Path.Combine(root, "src", "POUs");
+            File.Delete(Path.Combine(dir, "P.pou"));
+            File.WriteAllText(Path.Combine(dir, "Q.gvl"), "VAR_GLOBAL\n" + vars + "END_VAR\n");
+            Git.CommitAll(root, "re-type P as a GVL");
+            Assert.Equal(DiffKinds.Rename, Assert.Single(Git.DiffRefs(root, "HEAD~1", "HEAD", "src")).Kind);   // git paired them
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains(ide.Recorded, x => x == "delete:P");
+            Assert.Contains(ide.Recorded, x => x == "create:Q");
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("rename:") || x.StartsWith("move:"));
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A POU WHOSE TEXT CHANGES KIND IS ONE FILE THROUGHOUT (openspec <c>push-without-header-check</c> 5.Q). The
     /// text is written as sent, and CODESYS takes a POU's kind from it (DIALECT C2f) — but the wire names the object by
     /// its CLASS, so <c>X.pou</c> whose text now says <c>PROGRAM</c> is still <c>X.pou</c>: a plain content update, with

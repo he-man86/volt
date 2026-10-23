@@ -62,7 +62,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/FetchService.cs", 1),
             ("Volt.Engine/Sync/GrepService.cs", 4),   // grep-item-sources: a limit out of range, an empty pattern, one that does not compile, one that times out on a line
             ("Volt.Engine/Sync/OpGuard.cs", 1),   // push-requires-project-identity: a write without its project's identity
-            ("Volt.Engine/Sync/PushService.cs", 9),   // +1 `ops: null` (the contract suite's finding, volt-cli-rework 5.5); +1 a move into another application; +1 a task moved out of its container (multi-application-tree); -2 the base-type op dispatch: PushOp is abstract, an op with no discriminator is refused by the strict body read (refuse-unknown-request-members)
+            ("Volt.Engine/Sync/PushService.cs", 9),   // +1 a set's `to` of another kind (volt-cli-rework 2.4); `ops: null` is the strict body read's (WireJson.Request, volt-cli-rework 2.4), no longer PushService's; +1 a move into another application; +1 a task moved out of its container (multi-application-tree); -2 the base-type op dispatch: PushOp is abstract, an op with no discriminator is refused by the strict body read (refuse-unknown-request-members)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)

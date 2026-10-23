@@ -288,8 +288,11 @@ public sealed class BridgePipeHost : IDisposable
         try { return JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Request) ?? new T(); }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
+            // The member a refusal is about: the serializer's own messages carry its path, a refusal the request reader
+            // raises itself (a null list entry) carries it only on the exception.
+            var at = ex is JsonException { Path: { } path } && !ex.Message.Contains(path) ? $" (at {path})" : "";
             throw new BridgeException(BridgeErrorCodes.BadRequest,
-                $"the body of `{req.Op}` is not a valid {typeof(T).Name}: {ex.Message}");
+                $"the body of `{req.Op}` is not a valid {typeof(T).Name}: {ex.Message}{at}");
         }
     }
 }

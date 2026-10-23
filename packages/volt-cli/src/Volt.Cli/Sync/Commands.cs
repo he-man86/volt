@@ -498,14 +498,17 @@ public static class Commands
         // Git's rename pairing is by SIMILARITY, not by item, so it can pair two DIFFERENT items: delete `A`, move and
         // rewrite `X` to resemble `A`, and git reports `Rename A → X` + `Delete X` — sent as is, `X` in two ops. A rename
         // whose items another row ALSO names is therefore split back into its delete and its add, and so is a rename
-        // across applications (no move, design §5), before the pairing below reads the batch by item.
+        // across applications (no move, design §5) and a rename across KINDS (git pairs by content and ignores the
+        // extension; a set's `to` names the kind its `name` does, so `P.pou` → `Q.gvl` is two items), before the
+        // pairing below reads the batch by item.
         IEnumerable<string> KeysOf(DiffRow r) => (r.Kind == DiffKinds.Rename ? new[] { PathAt(r.OldPath), PathAt(r.NewPath) }
                 : new[] { PathAt(r.Path) }).OfType<string>().Select(MoveKey).Distinct(StringComparer.OrdinalIgnoreCase);
         var rowsNaming = rows.SelectMany(KeysOf).GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         rows = rows.SelectMany(r => r.Kind == DiffKinds.Rename
                 && (KeysOf(r).Any(n => rowsNaming[n] > 1)
-                    || (PathAt(r.OldPath) is { } from && PathAt(r.NewPath) is { } to && !SameApplication(from, to)))
+                    || (PathAt(r.OldPath) is { } from && PathAt(r.NewPath) is { } to
+                        && (!SameApplication(from, to) || Extensions.KindOf(from) != Extensions.KindOf(to))))
             ? new[] { new DiffRow(DiffKinds.Delete, Path: r.OldPath), new DiffRow(DiffKinds.Add, Path: r.NewPath) }
             : new[] { r }).ToList();
 

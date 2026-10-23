@@ -54,6 +54,14 @@ public static class FolderPath
         return sb.ToString();
     }
 
+    /// <summary>Is <paramref name="path"/> an encoded folder path as <see cref="Append"/> mints one — every segment a
+    /// non-empty name in exactly its encoded form (an escape in the upper-case hex <see cref="Encode"/> writes, and only
+    /// where it writes one)? <c>""</c>, the tree root, is. A push names only such folders: <c>a//b</c>, <c>../x</c> or
+    /// <c>x </c> would land under a folder <c>refs</c> spells otherwise, or under one with no name. A name's own letter
+    /// case is the name's, so a case variant is still minted.</summary>
+    public static bool IsMinted(string path) =>
+        path.Length == 0 || path.Split('/').All(s => s.Length > 0 && Encode(Decode(s)) == s);
+
     /// <summary>Inverse of <see cref="Encode"/> — restore the exact original segment name.</summary>
     // Private: the encoded form is a Volt file-layout detail, and nothing outside this file needs to decode one.
     private static string Decode(string token)

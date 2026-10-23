@@ -159,8 +159,22 @@ standing practice:
       added. Numbers: C# 5120 pass / 0 fail / 1 skip (Engine 3133+1 skip, Cli 357, Connector 153, Twincat 709, Codesys 471,
       Contracts 42, Repo.Gates 255); TS unit 201/0; typecheck + `bun run check` green; path-comparer ratchet 108 → 107
       (TreeLookup 3 → 2). Offline gate: no live IDE run (wire unchanged for every corpus item).
-- [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
+- [x] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
+      Done 2026-10-23 (design.md "Step 2.4"): 130 requests probed; 3 root causes FIXED red-first — a null the schema
+      does not allow (3 INTERNAL_ERROR, 5 read as absent) refused by the strict reader; a `to` of another kind (accepted,
+      write lost) refused in the pre-flight; a path `refs` could not publish (6 shapes accepted under another identity)
+      refused by `RequireWireNames`. RECORDED: P3 (project-name comparer → 3.1), P4 (protocol 2), a WRONG_PROJECT
+      wording. 45 test cases added (4 files), 0 fixtures; C# Engine 3149+1 skip, Cli 364, Contracts 59, Codesys 476,
+      Twincat 709, Connector 153, Relay 72, Repo.Gates 255; TS unit 201. Offline: no live IDE run (the fixes sit above
+      the vendor seam; wire unchanged for every CLI request).
+      GATE 2026-10-23 (design.md "Step 2.4" Gate): 3 review findings fixed red-first — `volt push` splits a rename git
+      paired across KINDS into a delete and a create (it was one `set` the new re-type refusal failed, whole batch);
+      the null-entry check is a type-info modifier, so a refusal inside a list entry keeps its index (`$.ops[1].bogus`,
+      was `$.bogus`); the dead `ops: null` throw in `PushService.Handle` deleted (census stays 9). 4 test cases added.
+      Numbers: C# 5241 pass / 0 fail / 1 skip (Engine 3149+1 skip, Cli 365, Contracts 62, Codesys 476, Twincat 709,
+      Connector 153, Relay 72, Repo.Gates 255); TS unit 201/0; typecheck, lint, `bun run check` green; 0 fixtures (no
+      LSP/transpiler change, so no fixture map or LSP suite run).
 
 ## 3. Rework (project by project, test-first)
 

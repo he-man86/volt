@@ -32,10 +32,6 @@ public static class PushService
 
     public static PushResponse Handle(HostLink link, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        // `ops: null` is the request's error, not a push of nothing (that is `[]`) and not Volt's bug.
-        if (request.Ops is null)
-            throw new BridgeException(BridgeErrorCodes.BadRequest,
-                "push: `ops` is null — a push names its ops (an empty list for none); nothing was done");
         // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
         // the version gate) still can't clobber the wrong IDE.
         OpGuard.RequireBinding(link, Ops.Push, request.ExpectedPlatform, request.ExpectedProjectName);
@@ -253,6 +249,12 @@ public static class PushService
                 preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
                     $"'{readOnly.Name}' is read-only: a {readOnly.Kind} descriptor is rendered from the IDE and is never " +
                     "pushed. Change it in the IDE and pull.")));
+                continue;
+            }
+
+            if (RetypedBy(kinds, op) is { } retype)
+            {
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest, retype)));
                 continue;
             }
 
@@ -878,22 +880,40 @@ public static class PushService
         }
     }
 
-    /// <summary>EVERY PATH A PUSH OP CARRIES — its <c>name</c> and a set's <c>to</c> — IS A WIRE PATH: its file name's
-    /// extension names an item kind, as every path <c>refs</c>/<c>fetch</c> publish does. Anything else is refused
-    /// <c>BAD_REQUEST</c> before a read or a write, forced or not.
+    /// <summary>EVERY PATH A PUSH OP CARRIES — its <c>name</c> and a set's <c>to</c> — IS A PATH <c>refs</c> COULD PUBLISH:
+    /// its file name's extension names an item kind, it has a name before that extension, and each folder of it is
+    /// spelled as the walk mints one (<see cref="FolderPath.IsMinted"/>). Anything else is refused <c>BAD_REQUEST</c>
+    /// before a read or a write, forced or not (a set's <c>to</c> of another kind is the pre-flight's, beside the
+    /// read-only refusal: <see cref="RetypedBy"/>).
     ///
-    /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its whole path, kind
-    /// included, so <c>X.foo</c> names no object and no kind to hold the text to: there is nothing it could mean. Force
-    /// drops a version gate; it never makes a name mean something.</para></summary>
+    /// <para><b>Why such a path cannot just be tried.</b> The apply resolves an op by its whole path, kind included, so
+    /// <c>X.foo</c> names no object and no kind to hold the text to. A folder not in the minted form (<c>a//b</c>,
+    /// <c>../x</c>, <c>x </c>) is created under a name <c>refs</c> spells otherwise, so the item lands under an identity
+    /// the client did not push. Force drops a version gate; it never makes a name mean something.</para>
+    ///
+    /// <para>A read-only descriptor (<c>.library</c>, <c>.device</c>, …) is never written, so its folder's form is not
+    /// this check's question: <see cref="ReadOnlyKindOf"/> refuses it by name.</para></summary>
     private static void RequireWireNames(KindRegistry kinds, IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)
+        {
             foreach (var name in new[] { op.Name, (op as SetItemOp)?.To })
-                if (name is not null && kinds.FindByWireName(name) is null)
+            {
+                if (name is null) continue;
+                if (kinds.FindByWireName(name) is not { } row)
                     throw new PushRefusal(op.Name,
                         $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
                         "exactly as refs/fetch published it, so this op could only be " +
                         "applied by guessing which item it means. Pull, and push the names the workspace holds.");
+                if (row.Role != KindRole.Descriptor
+                    && (!FolderPath.IsMinted(ItemPath.FolderOf(name)) || ItemPath.FileOf(name).Length == row.Extension!.Length + 1))
+                    throw new PushRefusal(op.Name,
+                        $"'{name}' is not a path refs publishes: each folder in it is a name spelled as refs spells it " +
+                        "(no empty segment, `%XX` for a character a path cannot hold or a space or dot at either end), and " +
+                        "the item has a name before its extension. The IDE would hold it under another path, so the " +
+                        "next push of this name would not find it. Pull, and push the names the workspace holds.");
+            }
+        }
     }
 
     /// <summary>ONE OP PER WIRE IDENTITY (openspec <c>push-without-header-check</c> 5.Q.6, design 5.Qb Q2). The identities
@@ -1122,6 +1142,19 @@ public static class PushService
                 return (name, row.Kind);
         return null;
     }
+
+    /// <summary>A SET'S <c>to</c> NAMES THE KIND ITS <c>name</c> DOES, or the refusal saying so. A <c>to</c> of another kind
+    /// is a re-type by NAME, which no apply step performs: <c>P.pou</c> → <c>P.gvl</c> keeps the bare name and the folder,
+    /// so the apply saw no rename and no move and answered accepted with nothing changed, and <c>P.pou</c> →
+    /// <c>Q.gvl</c> renamed the POU to <c>Q.pou</c> (volt-cli-rework 2.4). Re-typing discards the object's identity —
+    /// the engineer's call, as for the two-op route (<see cref="RequireOneOpPerItem"/>).</summary>
+    private static string? RetypedBy(KindRegistry kinds, PushOp op) =>
+        op is SetItemOp { To: { } to } set
+        && kinds.FindByWireName(to)!.Kind != kinds.FindByWireName(set.Name)!.Kind
+            ? $"'{set.Name}' cannot become '{to}': a push cannot re-type an object by its NAME, so a set's `to` names " +
+              "the kind its `name` does. Delete it and create the new item if that is what you mean (`volt push` " +
+              "sends a re-typed file so) — that discards the object's identity, so it is not done for you."
+            : null;
 
     /// <summary>An item a push can address by its path: a source item, or the one descriptor a push writes.</summary>
     private static bool IsAddressable(KindRegistry kinds, string kind) =>

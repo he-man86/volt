@@ -47,6 +47,10 @@ public static class Extensions
         return GetByExt(baseName.Substring(dot)) == null ? null : baseName;
     }
 
+    /// <summary>The item kind a path's extension names (<c>"pou"</c>, <c>"gvl"</c>), or null for a path no extension
+    /// names.</summary>
+    public static string? KindOf(string relPath) => GetByPath(relPath)?.Ext;
+
     public static bool IsTrackedPath(string relPath)
     {
         if (relPath == ".gitattributes") return true;
