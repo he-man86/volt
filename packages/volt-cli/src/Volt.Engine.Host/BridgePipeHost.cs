@@ -123,6 +123,7 @@ public sealed class BridgePipeHost : IDisposable
                 // plus every control-plane /status); marshalling it (as the old `instances` op did) queued it behind a
                 // long fetch/push/build on the single IDE thread, stalling the connector's refresh so a busy IDE read
                 // as a LOST CONNECTION. BuildHealthResponse kicks the off-request single-flight refresh itself.
+                Body<NoMembers>(req);   // it takes none: a member is the request's error, as on every op
                 var h = _ide.BuildHealthResponse();
                 // One host-owned fact stamped onto the rows: while paused (disconnect) the bridge serves nothing, so
                 // force every row to `idle` — the list stays (it is how the user reconnects), and serving/Connected
@@ -194,6 +195,8 @@ public sealed class BridgePipeHost : IDisposable
                 // wrapped in RunOp(): it neither touches the IDE nor waits for the STA thread, so it answers even
                 // while a push is running — and that push, already past the gate, RUNS TO COMPLETION. Disconnecting
                 // mid-write must not leave the IDE half-updated; the gate stops the NEXT op, not the current one.
+                // A refused disconnect pauses nothing: the body is read before the gate is set.
+                Body<NoMembers>(req);
                 _paused = true;
                 return new { ok = true };
             case Ops.Refs:
@@ -280,6 +283,10 @@ public sealed class BridgePipeHost : IDisposable
     /// (<c>knownFolders</c>, <c>buildType</c>) is told so instead of being answered as if it had sent nothing. A push op
     /// with no <c>op</c> discriminator is refused by the same read: <see cref="PushOp"/> is abstract, and the
     /// serializer's <c>NotSupportedException</c> for it is the caller's fault like any other.</para></summary>
+    /// <summary>The body of an op that takes no member (<c>health</c>, <c>disconnect</c>): read strictly all the same, so a
+    /// member it does not have is BAD_REQUEST as on every op.</summary>
+    private sealed class NoMembers { }
+
     private static T Body<T>(PipeRequest req) where T : new()
     {
         if (!req.Body.HasValue || req.Body.Value.ValueKind == JsonValueKind.Null) return new T();

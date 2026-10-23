@@ -5,7 +5,10 @@ namespace Volt.Contracts;
 
 public class PushRequest : BoundRequest
 {
+    /// <summary>REQUIRED on the wire: a body without it is the request's error, never an empty push (<c>[]</c> is the push
+    /// of nothing). <c>null</c> is refused by the push, by name.</summary>
     [JsonPropertyName("ops")]
+    [JsonRequired]
     public List<PushOp> Ops { get; set; } = new();
 
     [JsonPropertyName("expectedProjectVersion")]

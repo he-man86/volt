@@ -32,6 +32,10 @@ public static class PushService
 
     public static PushResponse Handle(HostLink link, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
+        // `ops: null` is the request's error, not a push of nothing (that is `[]`) and not Volt's bug.
+        if (request.Ops is null)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                "push: `ops` is null — a push names its ops (an empty list for none); nothing was done");
         // Connected + right-project guard BEFORE any apply, regardless of Force — so `push --force` (which nulls
         // the version gate) still can't clobber the wrong IDE.
         OpGuard.RequireBinding(link, Ops.Push, request.ExpectedPlatform, request.ExpectedProjectName);

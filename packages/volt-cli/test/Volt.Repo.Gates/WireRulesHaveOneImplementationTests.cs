@@ -120,8 +120,8 @@ public class WireRulesHaveOneImplementationTests
     /// <summary>
     /// EVERY OP READS ITS BODY THROUGH THE STRICT READER. wire.html promises BAD_REQUEST for "a body member the op does
     /// not have" on every op; an arm of <c>BridgePipeHost.Dispatch</c> that never calls <c>Body&lt;T&gt;</c> skips that
-    /// rule for its op. Today: <c>health</c> and <c>disconnect</c> (the contract suite's finding: a member they do not
-    /// have is answered, not refused). Pinned as <c>BridgePipeHost.cs#&lt;op&gt;</c>.
+    /// rule for its op. Every arm reads it (an op that takes no member reads an empty one); a new arm that does not is
+    /// pinned as <c>BridgePipeHost.cs#&lt;op&gt;</c>.
     /// </summary>
     [Fact]
     public void Every_op_arm_reads_its_body_strictly_ratchet()
@@ -290,8 +290,6 @@ public class WireRulesHaveOneImplementationTests
     /// <summary><c>health</c> and <c>disconnect</c> answer a body they never read (the contract suite's finding).</summary>
     private static readonly Dictionary<string, int> UnreadBodyPins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine.Host/BridgePipeHost.cs#Disconnect"] = 1,
-        ["Volt.Engine.Host/BridgePipeHost.cs#Health"] = 1,
     };
 
     private static readonly Dictionary<string, int> ProtocolSeamPins = new(StringComparer.Ordinal)

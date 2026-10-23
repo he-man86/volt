@@ -341,8 +341,11 @@ public class PipeTransportTests
             new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthConnected = false }, pipe);
         host.Start();
 
-        // Each op's own body: `knownItems` is a member of `refs` and `fetch` only, and a body is read strictly.
-        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() } : new { expectedPlatform = "codesys", expectedProjectName = "FakeProject" };
+        // Each op's own body: `knownItems` is a member of `refs` and `fetch` only, a push names its (required) `ops`, and
+        // a body is read strictly.
+        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() }
+            : op == "push" ? new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() }
+            : new { expectedPlatform = "codesys", expectedProjectName = "FakeProject" };
         var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, body));
         Assert.Equal("PLC_DISCONNECTED", ex.Code);
     }
@@ -413,6 +416,10 @@ public class PipeTransportTests
     [InlineData("push", @"{""ops"":[{""name"":""P.pou""}]}", "push")]
     [InlineData("push", @"{""ops"":[{""name"":""P.pou"",""x"":1,""op"":""set""}]}", "x")]
     [InlineData("push", @"{""ops"":[{""name"":""P.pou"",""Op"":""set""}]}", "push")]
+    // The contract suite's finding (volt-cli-rework 1.3): the two ops whose arm never read its body answered a member
+    // they do not have as if it were absent — `disconnect` even paused the bridge.
+    [InlineData("health", @"{""x"":1}", "x")]
+    [InlineData("disconnect", @"{""x"":1}", "x")]
     public void A_request_body_member_the_op_does_not_have_is_a_BAD_REQUEST_naming_the_op_and_the_member(
         string op, string body, string member)
     {
@@ -456,6 +463,41 @@ public class PipeTransportTests
         var built = RawTerminal(pipe, $@"{{""op"":""build"",""body"":{{{bound},""applications"":[""{app}""]}}}}");
         Assert.True(built.GetProperty("result").GetProperty("success").GetBoolean());
         Assert.Equal(new[] { app }, Assert.Single(ide.BuiltApplications));
+    }
+
+    /// <summary>A refused <c>disconnect</c> leaves the bridge serving: the request was refused, so nothing of it happened.</summary>
+    [Fact]
+    public void A_disconnect_refused_for_an_unknown_member_does_not_pause_the_bridge()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"));
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""disconnect"",""body"":{""x"":1}}"));
+
+        Assert.True(new PipeClient(pipe).Call("refs").TryGetProperty("items", out _));
+    }
+
+    /// <summary>A PUSH NAMES ITS OPS (the contract suite's findings, volt-cli-rework 1.3): a body without the required
+    /// <c>ops</c> read as an empty push and was accepted, and <c>ops: null</c> reached the push as a null list —
+    /// INTERNAL_ERROR, a request answered as a Volt bug. Both are the request's: BAD_REQUEST naming <c>ops</c>, nothing
+    /// written. (<c>ops: []</c> stays the push of nothing.)</summary>
+    [Theory]
+    [InlineData(@"{""expectedPlatform"":""codesys"",""expectedProjectName"":""Demo""}")]
+    [InlineData(@"{""expectedPlatform"":""codesys"",""expectedProjectName"":""Demo"",""ops"":null}")]
+    public void A_push_without_its_ops_is_a_BAD_REQUEST_naming_them(string body)
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")) { HealthProjectName = "Demo" };
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(ide, pipe);
+        host.Start();
+
+        var error = RawError(pipe, $@"{{""op"":""push"",""body"":{body}}}");
+
+        Assert.Equal("BAD_REQUEST", error.Code);
+        Assert.Contains("ops", error.Message);
+        Assert.Empty(ide.Recorded);
     }
 
     /// <summary>A WRITE NAMES ITS PROJECT ON THE WIRE (openspec <c>push-requires-project-identity</c> 1.4): a <c>push</c>

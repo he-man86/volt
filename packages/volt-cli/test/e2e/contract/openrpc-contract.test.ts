@@ -42,17 +42,8 @@ const REPORT = process.env.VOLT_CONTRACT_REPORT
  * listed here must STILL show the defect (the assertion is inverted); when it is fixed the case fails and its entry goes.
  */
 const FINDINGS: Record<string, string> = {
-	// Found 2026-10-22 on CODESYS 3.5.21.40 and TwinCAT MultiProject (both vendors: the cause is shared Core).
-	"health/unknown-member":
-		"answered as if the member were absent: BridgePipeHost's `health` arm never reads its body, so the strict reader " +
-		"never sees it (pinned in Volt.Repo.Gates WireRulesHaveOneImplementationTests.UnreadBodyPins)",
-	"disconnect/unknown-member":
-		"answered ok — and the bridge paused — as if the member were absent: the `disconnect` arm never reads its body",
-	"push/missing:ops":
-		"accepted:true with no conflict: a push without its required `ops` reads as an empty list (the strict reader " +
-		"refuses unknown members, not missing required ones)",
-	"push/null:ops":
-		"INTERNAL_ERROR (NullReferenceException): `ops: null` reaches PushService as a null list — a request answered as a Volt bug",
+	// Found 2026-10-22 on CODESYS 3.5.21.40 and TwinCAT MultiProject (both vendors: the cause is shared Core). The other
+	// four findings of that run (health/disconnect unknown members, push missing or null `ops`) are fixed (volt-cli-rework 5.5).
 	"unknown/delete":
 		"accepted:true with no conflict: a deleteItem quoting a version for a path that names nothing is answered as done, " +
 		"where wire.html promises ITEM_MISSING (\"you quoted a version for an item that is gone\")",
