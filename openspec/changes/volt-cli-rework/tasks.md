@@ -311,7 +311,7 @@ standing practice:
             Connector 154, Relay 72, Repo.Gates 255); TS unit 226/0; typecheck, lint, `bun run check` 16/0 green;
             LSP full suite (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo. 0 fixtures (comments and one test; no LSP or transpiler change), fixture map unchanged.
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
-- [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
+- [x] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
       codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
       to 1.3's recording (a 1.2 wire deletion re-records it once, in its own change, before the rework).
       - [x] small matrix on 2b162e8569 (after 3.1b, 2026-10-23): C# 5208 pass / 0 fail / 1 skip (Engine 3114+1 skip,
@@ -349,7 +349,11 @@ standing practice:
             GREEN 534/81 skip, transcript identical (first attempt, no dialog); vendor-parity GREEN 80 pass / 1 skip (the
             stub-manifest case: neither fixture serves a visualization or a text list); contract suite 208 answers per
             cell. Fixture map unchanged (no fixture or transpiler change).
-      - [ ] the FULL release matrix, once before 4.1.
+      - [x] the FULL release matrix, once before 4.1: `bun run release:matrix` on `7ca0a68a44` (after 3.1c, clean
+            checkout, `runs.jsonl` + `result.json` name the commit), 2026-10-24, ALL GREEN: codesys-3.5.18.30-64,
+            codesys-3.5.21.40-64, codesys-3.5.21.60-32, codesys-3.5.22.40-64 each 534 pass / 79 skip, transcript
+            byte-identical; twincat-32 534 pass / 81 skip, transcript identical; vendor-parity 80 pass / 1 skip;
+            mixed-version GREEN both ways (protocol 1).
 - [x] 3.4 The new-vendor gate from 1.3 green; the third test vendor still passes.
       WHAT "GREEN" MEANS HERE (stated 2026-10-23, gate review): the gate's tests pass — `Seam/` (the contract a new
       vendor implements) at its EXACT ZERO, and every ratchet holding (a ratchet fails when its count rises AND when it
@@ -382,7 +386,7 @@ standing practice:
 - [x] 4.0a `ARCHITECTURE.md` gains "Adding a vendor": exactly what a host implements (the `Ide/` contract), and the
       registration points above the wire a vendor still needs — the connector's launch, the installer payload, the LSP
       dialect — which are the front-of-wire phase's work, not this change's.
-- [ ] 4.0c QUALITY RATING again after 2.x and the rest of 3.1, into `input/rating-after.md` (before → potential → after).
+- [x] 4.0c QUALITY RATING again after 2.x and the rest of 3.1, into `input/rating-after.md` (before → potential → after).
       MEASURED 2026-10-23 on a6f543b665 (after 2.x, 3.1a, 3.1b), `input/rating-after.md` "4.0c", by `input/rating-measure.sh`
       + `input/rating-pins.sh` (they reproduce 4.0b's numbers on 08167c8bfc, except 4.0b's low `IsAbstract` count — 3
       definitions then, not 2; every table row is now the scripts' output, gate review 2026-10-23): Engine 5 → ~8 → 6.5 → 7, Codesys 6.5 → ~8 →
@@ -393,4 +397,13 @@ standing practice:
       Gate review 2026-10-24: `rating-measure.sh` now counts DEFINITIONS for `IsAbstract` (`static bool …IsAbstract(string`:
       3 on 08167c8bfc → 1 now; it printed 0 before) and `OutputSlots` (2 → 2; it counted calls too, 4); both rows in the
       table now match the script's output on both commits.
-- [ ] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.
+      After 3.1c (2026-10-24, `7ca0a68a44`, both scripts re-run): history Engine / Codesys / Twincat 34 / 18 / 21 → 29 / 3 /
+      16 (the 29 Engine hits are domain words), every ratchet unchanged; legacy Engine 7 → 7.5, Codesys 7.5 → 8, Twincat
+      7 → 7.5; overall Engine 7 (6.9), Codesys 7.5 (7.4), Twincat 7 (6.9), Contracts + Wire 6.5 (6.4). T4 decided, kept.
+- [x] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.
+      2026-10-24: no doc names a type this change deleted (`DriverBase`, `IIdeDriver`, `ICodeStore`, `IProjectTree`,
+      `LegacyDriver`, `SeamAdmission`, `AdmittedFormats`, `ImportedPinName`, `KnownOn`); the four e2e comments that did now
+      name `IVendorStore`/`IVendorTree`/`VendorDriverBase` (3.1c); ARCHITECTURE's Beckhoff content row matches T4's
+      decision (edit in place, build a changed network); `docs/` regenerated data unchanged (DocDataTests green).
+      Placement: what stays is listed in `input/rating-after.md` "What still keeps now below potential" (E1, E3/D1–D3,
+      E5/T1, C2/C3, W1/W2, P3/P4) — owner decisions, protocol 2 and the front-of-wire phase, not this change.

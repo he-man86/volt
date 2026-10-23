@@ -84,8 +84,14 @@ Measured offline at `a6f543b665` (2026-10-23: after 2.1–2.4, 3.1a, 3.1b, 3.3),
 Every row below is the scripts' output on the two commits except T4's file lengths (`wc -l`) and the named sites in parentheses. One 4.0b number was low: it counted 2
 `IsAbstract` copies, but `08167c8bfc` had 3 definitions — `StReader.MemberHeaderIsAbstract` was the third, and the
 survivor (the script's regex now matches any `static bool …IsAbstract(string`, so it is counted on both commits).
-**Not yet after "the rest of 3.1"**: the Engine history lines, `FamilyContent.cs:104`'s refusal text and T4 are still
-open (3.1, unticked); re-run both scripts when they land.
+**After "the rest of 3.1"** (3.1c, `7ca0a68a44`, both scripts re-run 2026-10-24): history comments Engine / Codesys /
+Twincat / Contracts / Wire **29 / 3 / 16 / 7 / 2** (from 34 / 18 / 21 / 7 / 2: the narratives rewritten, every deleted
+probe's citation reduced to its `git show`; the 29 Engine hits left are domain words — "gone from the IDE", a rename's
+"old name"); Engine+Host comment lines 5,284 → 5,275, Twincat 3,240 → 3,234; every other row and every ratchet
+unchanged (`rating-pins.sh`: path comparer 37, exception→code 10, vendor symbols 33, family codes 1, minter up-reach 1).
+`FamilyContent.cs:104` reads "reached the contract" (pinned by a test). T4 is DECIDED, not merged (design.md "Step 3.1,
+the rest": two jobs over one serializer and one bit rule). The scores below already counted these as the open rest; they
+move as stated in the table.
 
 | count | 4.0b `08167c8bfc` | now `a6f543b665` |
 |---|---|---|
@@ -118,16 +124,16 @@ design puts in the engine (F5, `HostLink`); the `PathOf` call is the E5 up-reach
 | placement | 6 → 8 → 7 → **7**: E1 (host kit in `Ide/`: `InterfaceAccessorGuard`, `MeasuredNames`, `ExcludedFolder`, `BothVendorsRefusedNames`, `DIALECT.md`), E3 and E5 (the 1 `PathOf` up-reach) open | 7 → 8 → 8 → **8**: C2, C3 open | 6 → 8 → 7 → **7.5**: T2 fixed (3.1b: no production branch for the doubles' shape; "offline doubles" 5 → 1 mention); T1 open (the `PathOf` call) | 6 → 8 → 6 → **6**: W1, W2 open |
 | duplication | 6 → 8 → 6 → **7.5**: one `IsAbstract`, one `RejectAll` walk, ONE path comparer (`ItemPath.SameItem`/`SameSpelling`, ratchet 108 → 37, the rest compare no wire path), exception→code 15 → 10 | 5 → 7 → 5 → **6**: C1 fixed (one `Modify`); D1–D3 untouched (no family layer) | 4 → 7 → 4 → **5**: T3 fixed (one `Bits`); T4 open (two writers, 1,803 lines); D1–D3 | 8 → 8 → 8 → **8** |
 | vendor-neutrality above the contract | 3 → 7–8 → 6 → **6**: unchanged — 25 code lines name NWL (E3), the new-vendor ratchet still 33 + 1, `ItemKind`'s IEC/TREEITEMTYPE table in the Engine (E2) | 9 → 9 → 9 → **9** | 8 → 9 → 9 → **8.5**: T1 is not fixed (correction above) | 5 → 7–8 → 5 → **5**: `Vendors` (11 pinned symbols), per-vendor `PipeNames` minters (W1) |
-| legacy | 6 → 8 → 6 → **7**: history 83 → 34, PLCopen 7 → 3, ARCH FOLLOW-UP 1 → 0, the network-text v1 detector deleted, `IsVerbatimKind` pinned; 34 proxy lines and `FamilyContent.cs:104` left (the rest of 3.1) | 6 → 8 → 6 → **7.5**: history 70 → 18, PLCopen 5 → 3, `KnownOn` deleted; C3 scraper still there | 5 → 8 → 5 → **7**: history 84 → 21, PLCopen 17 → 3, `ImportedPinName` deleted | 6 → 7 → 6 → **7.5**: history 25 → 9 (W4 mostly done) |
+| legacy | 6 → 8 → 6 → **7.5**: history 83 → 34 → 29 (the rest domain words), PLCopen 7 → 3, ARCH FOLLOW-UP 1 → 0, the network-text v1 detector deleted, `IsVerbatimKind` pinned, `FamilyContent.cs:104` pinned | 6 → 8 → 6 → **8**: history 70 → 18 → 3, PLCopen 5 → 3, `KnownOn` deleted; C3 scraper still there | 5 → 8 → 5 → **7.5**: history 84 → 21 → 16, PLCopen 17 → 3, `ImportedPinName` deleted | 6 → 7 → 6 → **7.5**: history 25 → 9 (W4 mostly done) |
 | test strength | 7 → 8 → 8 → **8**: 1,354 facts (−10: the v1 tests went with the detector; `FallbackRefusalTests` added); contract suite, transcripts, vendor-parity cell | 7 → 8 → 7 → **8**: C5 each red-first (`CodesysLibraryRefReadTests`, `CodesysTaskCallListRefusalTests`, `CodesysContainerRefusalTests`, `CodesysLibrarySignatureVarsTests`); 318 facts | 6 → 7 → 6.5 → **7.5**: the doubles answer `ProduceXml` and no longer shape the product (T2); T5 measured live; 463 facts; `ide-restart` live | 4 → 7–8 → 4 → **5.5**: 20 facts in 6 files, `RequestNullTests` on the strict reader; still none on `PushOp` polymorphism/DTO shapes from the OpenRPC document |
 | public-API robustness | 5 → 7 → 7 → **7.5**: 2.4's three root causes refused (schema null, a `to` of another kind, a path `refs` cannot publish); P3 (`OpGuard.cs:55`, `BridgePipeHost.cs:179` compare the project name `Ordinal`), P4 open | 6 → 7 → 6 → **7**: C5 refused by name (a library reference with no identity, a facet without `pous`, a folder with no object manager) | 6 → 7 → 6 → **7**: T5 (unparseable device XML refused; binder miss measured correct, D35); the untyped library pin refused; `servedDirty ?? false` recorded for protocol 2 | 5 → 7–8 → 6 → **6.5**: a null entry's refusal keeps its index (`$.ops[1].bogus`); P4 open |
 | size | 5 → 6–7 → 5 → **5**: 10,393 code (−73 since 4.0b); `PushService.cs` 2,143 lines | 6 → 6 → 6 → **6**: 3,848 | 5 → 5 → 5 → **5**: 5,827 | 6 → 6 → 6 → **6** |
-| **overall** (mean of the seven) | 5 → ~8 → 6.5 → **7** (6.9) | 6.5 → ~8 → 6.5 → **7.5** (7.4) | 5.5 → ~7.5 → 6 → **7** (6.8) | 6 → ~8 → 6 → **6.5** (6.4) |
+| **overall** (mean of the seven) | 5 → ~8 → 6.5 → **7** (6.9) | 6.5 → ~8 → 6.5 → **7.5** (7.4) | 5.5 → ~7.5 → 6 → **7** (6.9) | 6 → ~8 → 6 → **6.5** (6.4) |
 
 ### What still keeps "now" below "potential"
 
-- **The rest of 3.1** (offline): 34 Engine history lines by the proxy, `FamilyContent.cs:104`'s refusal text, T4 (one
-  TwinCAT network writer).
+- **T4**, decided and kept (3.1c): one TwinCAT network writer would need a carry-over pass proved byte-identical on
+  the corpora first (owner's call).
 - **Not on any list yet**: E5/T1 — the one `Versioning.PathOf` up-reach (`BeckhoffDriver.Tree.cs:597`, pinned 1); E1
   (the host kit in `Engine/Ide/`); C2 (typed diagnostic record) and C3 (`ParseLine`/`ParseColumn` filed in
   `Libraries.cs`); 37 path-comparer and 10 exception→code sites still pinned; `PushService.cs` grew to 2,143 lines.
