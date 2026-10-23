@@ -6,7 +6,7 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Ide;
 
 /// <summary>A node's children (<c>IVendorTree.Children</c>) for a host that reads them by count and index: each child
-/// is read only when the engine indexes it, as the old engine read <c>ChildCount</c> and then <c>ChildAt</c>, so a child
+/// is read only when the engine indexes it, so a child
 /// the host names but must not open throws its <see cref="UnreadableItemException"/> at its index, and a fault reading one
 /// child is that child's.</summary>
 public sealed class IndexedChildren : IReadOnlyList<ItemRef>

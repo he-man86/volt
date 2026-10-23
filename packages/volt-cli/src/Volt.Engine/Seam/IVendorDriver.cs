@@ -12,7 +12,6 @@ namespace Volt.Engine.Seam;
 /// THE contract a vendor host implements (openspec <c>volt-cli-rework</c>, design "New Ide/ contract"): session + tree +
 /// store, in vendor-neutral words only. Kinds are strings its <see cref="IVendorSession.Declaration"/> registers, bodies
 /// are keyed by language, object properties are declared keys, and nothing here is a number or a CODESYS-family model.
-/// Written beside the old <c>Ide/</c> contract; the Engine moves onto it in step 5.
 /// </summary>
 public interface IVendorDriver : IVendorSession, IVendorTree, IVendorStore
 {

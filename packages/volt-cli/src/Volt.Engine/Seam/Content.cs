@@ -26,7 +26,7 @@ public sealed record BodyText(string Language, string Code, BodyForm Form, strin
     public static readonly BodyText Abstract = new(LanguageRegistry.NoneWord, "", BodyForm.Abstract);
 }
 
-/// <summary>ONE model for an item's content, both directions, as the new contract speaks it: what a host's
+/// <summary>ONE model for an item's content, both directions, as the contract speaks it: what a host's
 /// <c>Read</c> builds, a kind's <see cref="IItemFormat"/> renders and parses, and a host's <c>Write</c> applies.
 /// <see cref="Body"/> is null where the kind has no body (<c>KindShape.Body</c> false); <see cref="Properties"/> is
 /// required, so a host that has not read them cannot build the content.</summary>

@@ -8,7 +8,7 @@ using Volt.Engine.Seam;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// Navigate and shape the served host's tree for a push, on the new contract (openspec <c>volt-cli-rework</c> step 5):
+/// Navigate and shape the served host's tree for a push:
 /// resolve a folder path (creating what is missing, recorded), find a child or a folder, judge a move target, and prune
 /// the folders a push emptied. The roles are the host's (<see cref="NodeClass"/>): a path segment is any node that is no
 /// SOURCE item, a user folder is a <see cref="NodeRole.Folder"/>, and a node an item may be moved into is a folder or a

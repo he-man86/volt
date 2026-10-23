@@ -8,15 +8,14 @@ using Volt.Engine.Seam;
 namespace Volt.Engine.Sync;
 
 /// <summary>
-/// Find an item by its WIRE PATH (<c>&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c>) in the served host's tree, on the new
-/// contract (openspec <c>volt-cli-rework</c> step 5): the folder the path names is descended segment by segment, and the
-/// item is the child of the path's bare name AND of the kind its extension states — so <c>X.dut</c> never lands on an
-/// object <c>X</c> of another kind. Names compare case-insensitively (IEC identifiers are), and every read fault is
-/// refused <c>ITEM_UNVERIFIED</c> naming where it happened, never reported as absence.
+/// Find an item by its WIRE PATH (<c>&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c>) in the served host's tree: the folder
+/// the path names is descended segment by segment, and the item is the child of the path's bare name AND of the kind its
+/// extension states — so <c>X.dut</c> never lands on an object <c>X</c> of another kind. Names compare
+/// case-insensitively (IEC identifiers are), and every read fault is refused <c>ITEM_UNVERIFIED</c> naming where it
+/// happened, never reported as absence.
 ///
-/// <para>The rules the old lookup (<see cref="ItemLookup"/>, the hosts' own until step 6) read off codes, over roles: a
-/// segment is any child that is no SOURCE item; an item is an ADDRESSABLE one (a source item, or the descriptor a push
-/// writes). A child the host names but must not open throws its <see cref="UnreadableItemException"/> where it is read,
+/// <para>The rules are over roles: a segment is any child that is no SOURCE item; an item is an ADDRESSABLE one (a
+/// source item, or the descriptor a push writes). A child the host names but must not open throws its <see cref="UnreadableItemException"/> where it is read,
 /// and is the answer only when it is the very item asked for (<see cref="ItemLookup.Untouchable"/>).</para>
 /// </summary>
 internal static class TreeLookup

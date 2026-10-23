@@ -1,14 +1,13 @@
 namespace Volt.Engine.Item;
 
-/// <summary>The IEC tables' codes on the new contract: what a node of a code IS (<see cref="ClassOf"/>) and the one code
+/// <summary>The IEC tables' codes as the contract's words: what a node of a code IS (<see cref="ClassOf"/>) and the one code
 /// each kind is created as (<see cref="CreateCode"/>), the conversions a host whose tree answers these codes calls.</summary>
 public static partial class ItemKind
 {
-    /// <summary>What a node of this code IS on the new contract (<see cref="Seam.NodeClass"/>), for a host whose tree
+    /// <summary>What a node of this code IS (<see cref="Seam.NodeClass"/>), for a host whose tree
     /// answers these codes: a user folder; an application (an item can be placed in it); the Task Configuration (it takes
     /// tasks); a source item; a member or accessor of one; a task or a descriptor; a transient node; and every other node
-    /// a container the walk descends by name. Every code the old engine's predicates read maps to the role they decided
-    /// by, so the engine's rules over roles decide what they decided over codes.</summary>
+    /// a container the walk descends by name.</summary>
     public static Seam.NodeClass ClassOf(int code) => code switch
     {
         PlcFolder => Seam.NodeClass.Folder,

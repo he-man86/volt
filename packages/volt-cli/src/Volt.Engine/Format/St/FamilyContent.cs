@@ -11,7 +11,7 @@ namespace Volt.Engine.Format.St;
 
 /// <summary>
 /// The IEC layout's own record (<see cref="ItemContent"/>, what <see cref="StReader"/> and <see cref="StWriter"/> speak and
-/// what a host whose record is the IEC layout reads and writes) as the new contract's <see cref="Content"/>, both directions, losing
+/// what a host whose record is the IEC layout reads and writes) as the contract's <see cref="Content"/>, both directions, losing
 /// nothing: <c>ToItemContent(ToContent(x))</c> is <c>x</c> (<c>FamilyContentTests</c>, over the whole corpus).
 ///
 /// <para><b>A body</b>: its language is the <see cref="StatedLanguage"/> fact, its code the text under its line
@@ -42,15 +42,15 @@ public static class FamilyContent
             ToPropertySet(c.Properties));
     }
 
-    /// <summary>A host's read of the old record, FOLDED as every engine read of it is (<see cref="AbstractMemberFold"/>).</summary>
+    /// <summary>A host's read of the IEC record, FOLDED as every engine read of it is (<see cref="AbstractMemberFold"/>).</summary>
     public static Content Folded(ItemContent c) => ToContent(AbstractMemberFold.Apply(c));
 
-    /// <summary>The ONE value the old create takes: a signature member's declared type, else the body language — null
+    /// <summary>The ONE value a family host's create takes: a signature member's declared type, else the body language — null
     /// for ST, which the family hosts create by default.</summary>
     public static string? SeedOf(CreateArgs args) =>
         args.Signature ?? (args.Language == Volt.Engine.Format.Body.Languages.St ? null : args.Language);
 
-    /// <summary>The vendor class a create's text states (<c>%CLASS name [qualifier]</c>), as the old record.</summary>
+    /// <summary>The vendor class a create's text states (<c>%CLASS name [qualifier]</c>), as the IEC record.</summary>
     public static ObjectClass? ClassOf(string? spelled)
     {
         if (spelled is null) return null;
@@ -60,7 +60,7 @@ public static class FamilyContent
 
     public static ItemContent ToItemContent(Content c) => ToItemContent(c, ToObjectProperties);
 
-    /// <summary>The bodies and declarations of <paramref name="c"/> as the old record, its object properties left out
+    /// <summary>The bodies and declarations of <paramref name="c"/> as the IEC record, its object properties left out
     /// (<see cref="ObjectProperties.None"/>): for a rule that reads bodies alone (<c>BodyFormatGuard</c>), whatever keys
     /// the host declares.</summary>
     public static ItemContent BodiesOf(Content c) => ToItemContent(c, _ => ObjectProperties.None);
@@ -92,7 +92,7 @@ public static class FamilyContent
 
     /// <summary>An accessor's body. A SIGNATURE accessor (an interface property's, or a bare <c>GET</c> line) states no
     /// language and has no code — the IEC reader spells it <c>""</c>, a host's read <c>null</c> — and is a null body here,
-    /// as it is back in the old record: no body to write (<c>Accessor.Code</c> reads both as one).</summary>
+    /// as it is back in the IEC record: no body to write (<c>Accessor.Code</c> reads both as one).</summary>
     private static BodyText? AccessorBody(Accessor a, string what) =>
         a.Stated is null && string.IsNullOrEmpty(a.Body) ? null : NewBody(a.Body, a.Stated, a.Unsupported, what);
 
@@ -115,7 +115,7 @@ public static class FamilyContent
     private static (string? Body, StatedLanguage? Stated, string? Why) OldBody(BodyText? b) => b switch
     {
         null => (null, null, null),
-        // A network body opens with its line in the old record; every other shown body is its code alone.
+        // A network body opens with its line in the IEC record; every other shown body is its code alone.
         { Form: BodyForm.Shown } => (Languages.IsNetwork(b.Language) ? ImplementationMarker.Join(ImplementationMarker.For(b.Language), b.Code) : b.Code,
                                      StatedLanguage.Shown(b.Language), null),
         { Form: BodyForm.Hidden } => (ImplementationMarker.Unsupported(b.Language), StatedLanguage.HiddenIn(b.Language), b.Why),

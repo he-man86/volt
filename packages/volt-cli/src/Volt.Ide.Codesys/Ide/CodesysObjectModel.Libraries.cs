@@ -16,7 +16,7 @@ namespace Volt.Ide.Codesys
         /// <summary>The top-level library references managed by a Library Manager
         /// object. These are NOT tree <c>IObject</c>s (no handle/guid/source) — they
         /// live in the <c>ILibManObject</c> collection — so each is surfaced as a
-        /// synthetic <see cref="LibRefNode"/> the adapter emits as a `library` item,
+        /// synthetic <see cref="LibRefNode"/> the driver's walk emits as a `library` item,
         /// matching TwinCAT's flat library refs. Read-only (no push target).
         /// <para>…and what the manager holds that no manifest spells, its reasons joined into ONE for the pull report
         /// (<paramref name="unspelled"/>, null when there is none — one node, one entry: openspec

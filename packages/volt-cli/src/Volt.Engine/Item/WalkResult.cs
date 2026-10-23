@@ -65,7 +65,7 @@ public sealed class WalkResult
     /// <summary>True when the walk saw the whole tree, so absence from <see cref="Items"/> is meaningful.</summary>
     public bool Complete => UnwalkedFolders.Count == 0;
 
-    /// <summary>This walk on the new contract, its kinds as strings. An unmapped code and a container manager (a library,
+    /// <summary>This walk in the contract's words, its kinds as strings. An unmapped code and a container manager (a library,
     /// recipe or visualization manager: a folder, never an item) become no <see cref="Seam.WalkedItem"/>; unwalked,
     /// unreadable and applications unchanged.</summary>
     public Seam.HostWalk ToHostWalk()
