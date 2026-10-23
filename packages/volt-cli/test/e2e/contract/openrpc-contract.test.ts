@@ -41,13 +41,7 @@ const REPORT = process.env.VOLT_CONTRACT_REPORT
  * The defects this suite found, by case id, with what the bridge answers instead of what wire.html promises. A case
  * listed here must STILL show the defect (the assertion is inverted); when it is fixed the case fails and its entry goes.
  */
-const FINDINGS: Record<string, string> = {
-	// Found 2026-10-22 on CODESYS 3.5.21.40 and TwinCAT MultiProject (both vendors: the cause is shared Core). The other
-	// four findings of that run (health/disconnect unknown members, push missing or null `ops`) are fixed (volt-cli-rework 5.5).
-	"unknown/delete":
-		"accepted:true with no conflict: a deleteItem quoting a version for a path that names nothing is answered as done, " +
-		"where wire.html promises ITEM_MISSING (\"you quoted a version for an item that is gone\")",
-}
+const FINDINGS: Record<string, string> = {}
 
 // ── one answer, judged ───────────────────────────────────────────────────────────────────────────────────────────────
 

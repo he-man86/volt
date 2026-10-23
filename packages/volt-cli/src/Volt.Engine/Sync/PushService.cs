@@ -833,7 +833,7 @@ public static class PushService
                 link.Driver.Delete(link.Driver.Parent(del), link.Driver.Name(del));
                 return "deleted";
             case DeleteItemOp:
-                return "no-op";  // idempotent delete of an item that isn't there — the legitimate case
+                return "no-op";  // a delete quoting no version of an item that isn't there (a quoted one: the gate refused it)
 
             default:
                 // PushOp is abstract: an op with no discriminator is refused when the body is read (BridgePipeHost.Body).

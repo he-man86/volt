@@ -143,15 +143,10 @@ public class PushConflictCodeTests
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
     }
 
-    /// <summary>DELETING SOMETHING THAT IS NOT THERE IS ACCEPTED, and that is deliberate — `PushService`
-    /// answers "no-op" for it in so many words.
-    ///
-    /// <para>Written down because it is the obvious way to reach for a not-found code (ITEM_MISSING) and it is not one: a delete
-    /// is idempotent, so a client replaying a push, or two clients racing to remove the same item, both
-    /// succeed. Asserting it here stops the next reader "fixing" the absence of a code by making the delete
-    /// throw.</para></summary>
+    /// <summary>A DELETE THAT QUOTES NO VERSION OF SOMETHING THAT IS NOT THERE IS ACCEPTED: the delete is idempotent, so a
+    /// client that only wants the item gone, replaying or racing another, succeeds.</summary>
     [Fact]
-    public void Deleting_an_absent_item_is_a_no_op_not_a_refusal()
+    public void Deleting_an_absent_item_with_no_version_is_a_no_op_not_a_refusal()
     {
         var ide = new FakeIde();
 
@@ -159,6 +154,25 @@ public class PushConflictCodeTests
 
         Assert.True(res.Accepted);
         Assert.Null(res.Conflicts);
+    }
+
+    /// <summary>A QUOTED VERSION MUST HOLD, on a delete as on every other op (owner decision 2026-10-23): a delete quoting
+    /// the version the client last saw, of an item the IDE no longer holds, is refused ITEM_MISSING — the client's view of
+    /// the IDE is stale, and a success would hide that. Nothing is written.</summary>
+    [Fact]
+    public void Deleting_an_absent_item_that_quotes_a_version_is_ITEM_MISSING()
+    {
+        var ide = new FakeIde();
+
+        var res = Push(ide, new DeleteItemOp { Name = "NeverExisted.pou", IfVersion = "0123456789abcdef" });
+
+        Assert.False(res.Accepted);
+        var conflict = Assert.Single(res.Conflicts!);
+        Assert.Equal(ConflictCodes.ItemMissing, conflict.Code);
+        Assert.Equal("NeverExisted.pou", conflict.Name);
+        Assert.Equal("0123456789abcdef", conflict.YourVersion);
+        Assert.Null(conflict.CurrentVersion);
+        Assert.Empty(ide.Recorded);
     }
 
     /// <summary>EVERY CODED REFUSAL, one shape per code the push path can raise — so the mapping is asserted
@@ -169,8 +183,8 @@ public class PushConflictCodeTests
         var ide = new FakeIde();
         Push(ide, new SetItemOp { Name = "Real.pou", SourceText = Prg("Real"), IfVersion = null });
 
-        // A delete is NOT in this list: deleting an absent item is an accepted no-op by design (see the test
-        // above), so it refuses nothing and has nothing to carry.
+        // A delete with no version is NOT in this list: deleting an absent item is an accepted no-op by design (see the
+        // tests above), so it refuses nothing and has nothing to carry.
         var refusals = new (string What, PushOp Op)[]
         {
             ("a body the reader refuses", new SetItemOp { Name = "X.pou", SourceText = "nonsense", IfVersion = null }),

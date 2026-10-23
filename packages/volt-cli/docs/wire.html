@@ -154,7 +154,9 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
       inside one application; a <code>to</code> in another application is refused <code>BAD_REQUEST</code> naming both
       (moving there is a delete and a create).</td>
   </tr>
-  <tr><td class="name">deleteItem</td><td>Remove the item.</td></tr>
+  <tr><td class="name">deleteItem</td><td>Remove the item. With an <code>ifVersion</code> it is guarded like an
+    update: the item must be there at that version (<code>STALE_ITEM_VERSION</code>, <code>ITEM_MISSING</code>). With
+    none, a path that names nothing is already the goal: accepted, nothing written.</td></tr>
 </table>
 <div class="note">
   <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a

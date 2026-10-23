@@ -115,22 +115,11 @@ internal static class PushConflicts
             }
             else                                      // DeleteItemOp
             {
-                // Delete is idempotent: if the item is already gone (currentVersion == null) the goal state
-                // already holds, so it's a no-op success — never a conflict, whatever the ifVersion guard. This
-                // also covers the UNREADABLE-sentinel force-delete of an accepted-but-unenumerable item (absent
-                // from /refs → currentVersion null here, but Apply still finds and removes it via ide.Lookup).
-                // Only a version MISMATCH on a still-PRESENT item is a real conflict.
-                //
-                // …AND ALL OF THAT DEPENDS ON THE WALK HAVING SEEN EVERYTHING. From a PARTIAL walk, absence is
-                // not "already gone", and this rule turns it into one: the item falls through as a no-op
-                // success, so the `ifVersion` guard never runs — and `Apply` then finds the item anyway through
-                // `ItemLookup.Find` and destroys it. The one op that cannot be undone, carried out without the
-                // check that exists to stop exactly that, on an item nobody could read. A client that supplied
-                // a version asked to be guarded; when the guard cannot run, the answer is no.
-                if (currentVersion == null && !walkComplete && clientVersion != null
-                    && clientVersion != Versioning.Unreadable)
-                    conflicts.Add(VersionMismatch(name, clientVersion, null, walkComplete));
-                else if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
+                // A QUOTED VERSION MUST HOLD (owner decision 2026-10-23): a delete that quotes one is guarded like an
+                // update — refused when the item changed, and refused when it is not there (ITEM_MISSING; from a partial
+                // walk ITEM_UNVERIFIED, since absence there is not gone). A delete that quotes NONE asks only for the
+                // goal state, so an absent item is the idempotent no-op success.
+                if (clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(VersionMismatch(name, clientVersion, currentVersion, walkComplete));
                 else pending.Remove(key);
             }
