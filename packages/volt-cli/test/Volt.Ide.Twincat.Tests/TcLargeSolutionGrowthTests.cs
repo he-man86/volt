@@ -136,8 +136,8 @@ public class TcLargeSolutionGrowthTests
         var one = new Solution(1);
         var many = new Solution(n);
 
-        var perProject = one.Counted(() => RefsService.Handle(one.Driver));
-        var counted = many.Counted(() => RefsService.Handle(many.Driver));
+        var perProject = one.Counted(() => RefsService.Handle(Volt.Engine.Sync.HostLink.Of(one.Driver)));
+        var counted = many.Counted(() => RefsService.Handle(Volt.Engine.Sync.HostLink.Of(many.Driver)));
 
         Assert.Equal(perProject.ToDictionary(kv => kv.Key, kv => kv.Value * n), counted);
     }
@@ -149,8 +149,8 @@ public class TcLargeSolutionGrowthTests
         var one = new Solution(1);
         var many = new Solution(n);
 
-        var perProject = one.Counted(() => FetchService.Handle(one.Driver, new FetchRequest { Init = true }));
-        var counted = many.Counted(() => FetchService.Handle(many.Driver, new FetchRequest { Init = true }));
+        var perProject = one.Counted(() => FetchService.Handle(Volt.Engine.Sync.HostLink.Of(one.Driver), new FetchRequest { Init = true }));
+        var counted = many.Counted(() => FetchService.Handle(Volt.Engine.Sync.HostLink.Of(many.Driver), new FetchRequest { Init = true }));
 
         Assert.Equal(perProject.ToDictionary(kv => kv.Key, kv => kv.Value * n), counted);
     }
@@ -162,8 +162,8 @@ public class TcLargeSolutionGrowthTests
         var one = new Solution(1);
         var many = new Solution(1, plcsEach: n);
 
-        var perProject = one.Counted(() => RefsService.Handle(one.Driver));
-        var counted = many.Counted(() => RefsService.Handle(many.Driver));
+        var perProject = one.Counted(() => RefsService.Handle(Volt.Engine.Sync.HostLink.Of(one.Driver)));
+        var counted = many.Counted(() => RefsService.Handle(Volt.Engine.Sync.HostLink.Of(many.Driver)));
 
         // One Solution Explorer read covers every PLC project of a system project.
         perProject["Solution Explorer reads"] = 0;
@@ -178,8 +178,8 @@ public class TcLargeSolutionGrowthTests
         var one = new Solution(1);
         var many = new Solution(1, plcsEach: n);
 
-        var perProject = one.Counted(() => FetchService.Handle(one.Driver, new FetchRequest { Init = true }));
-        var counted = many.Counted(() => FetchService.Handle(many.Driver, new FetchRequest { Init = true }));
+        var perProject = one.Counted(() => FetchService.Handle(Volt.Engine.Sync.HostLink.Of(one.Driver), new FetchRequest { Init = true }));
+        var counted = many.Counted(() => FetchService.Handle(Volt.Engine.Sync.HostLink.Of(many.Driver), new FetchRequest { Init = true }));
 
         perProject["Solution Explorer reads"] = 0;
         counted["Solution Explorer reads"] = counted["Solution Explorer reads"] == 1 ? 0 : counted["Solution Explorer reads"];
@@ -206,7 +206,7 @@ public class TcLargeSolutionGrowthTests
         var solution = new Solution(18);
         var frames = new List<ProgressFrame>();
 
-        RefsService.Handle(solution.Driver, onProgress: frames.Add);
+        RefsService.Handle(Volt.Engine.Sync.HostLink.Of(solution.Driver), onProgress: frames.Add);
 
         var walking = frames.TakeWhile(f => f.Phase == ProgressFrame.WalkingPhase).ToList();
         Assert.Equal(Enumerable.Range(1, 18), walking.Select(f => f.Done));

@@ -29,7 +29,7 @@ public class TcUnsavedSolutionTests
     {
         var driver = Unsaved();
 
-        var ex = Assert.Throws<BridgeException>(() => RefsService.Handle(driver));
+        var ex = Assert.Throws<BridgeException>(() => RefsService.Handle(Volt.Engine.Sync.HostLink.Of(driver)));
 
         Assert.Equal(BridgeErrorCodes.PlcDisconnected, ex.ErrorCode);
         Assert.Contains("solution is not saved", ex.Message);
@@ -39,6 +39,8 @@ public class TcUnsavedSolutionTests
     [Fact]
     public void The_window_has_no_health_row()
     {
-        Assert.Empty(Unsaved().BuildHealthResponse().Projects);
+        var link = Volt.Engine.Sync.HostLink.Of(Unsaved());
+        link.RefreshHealth();   // what the worker's start does right after its connect
+        Assert.Empty(link.Session.BuildHealthResponse().Projects);
     }
 }

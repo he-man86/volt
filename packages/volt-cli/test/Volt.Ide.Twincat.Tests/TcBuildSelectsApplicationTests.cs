@@ -69,7 +69,7 @@ public class TcBuildSelectsApplicationTests
             @"1>C:\p\TwinCAT Project14\Untitled2\MAIN.TcPOU(3,1) : error : Identifier 'b' not defined" + "\r\n");
         LastWindow.Solution.SolutionBuild = build;
 
-        var r = BoundWrite.Build(driver, new BuildRequest { Applications = new() { App } });
+        var r = BoundWrite.Build(Volt.Engine.Sync.HostLink.Of(driver), new BuildRequest { Applications = new() { App } });
 
         Assert.Equal(new[] { @"BuildProject(Release|TwinCAT RT (x64), TwinCAT Project14\Untitled2\Untitled2.plcproj)" }, build.Calls);
         Assert.False(r.Success);
@@ -93,7 +93,7 @@ public class TcBuildSelectsApplicationTests
         pane.Text = "1>Untitled1 : error : a line of another build\r\n";
 
         Assert.Equal(new[] { "the named build's own line" },
-            driver.GetBuildDiagnostics(() => driver.WalkItems()).Select(x => x.Message));
+            driver.GetBuildDiagnostics(() => driver.Walk()).Select(x => x.Message));
     }
 
     /// <summary>Absent, every application is built, as before: the whole solution's <c>Build</c> (2.3).</summary>
@@ -106,7 +106,7 @@ public class TcBuildSelectsApplicationTests
         var build = new RecordingSolutionBuild(pane, "");
         LastWindow.Solution.SolutionBuild = build;
 
-        BoundWrite.Build(driver, new BuildRequest());
+        BoundWrite.Build(Volt.Engine.Sync.HostLink.Of(driver), new BuildRequest());
 
         Assert.Equal(new[] { "Build" }, build.Calls);
     }

@@ -44,11 +44,15 @@ public static class ItemLookup
     public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string path) =>
         Volt.Engine.Sync.TreeLookup.Locate(LinkOf(tree), path);
 
-    /// <summary>An old-contract host's tree on the new contract, where the one lookup lives (<c>Sync/TreeLookup</c>) —
-    /// until volt-cli-rework step 6 moves the hosts that still ask here onto it.</summary>
-    private static Volt.Engine.Sync.HostLink LinkOf(IProjectTree tree) =>
-        Volt.Engine.Sync.HostLink.Of(tree as IIdeDriver ?? throw new System.ArgumentException(
-            $"{tree?.GetType().Name ?? "null"} is no old-contract host (IIdeDriver)", nameof(tree)));
+    /// <summary>A host's tree on the new contract, where the one lookup lives (<c>Sync/TreeLookup</c>): a host that
+    /// implements it (both shipped hosts), or an old-contract one through the adapter — until volt-cli-rework step 7
+    /// moves the callers onto <c>TreeLookup</c> itself.</summary>
+    private static Volt.Engine.Sync.HostLink LinkOf(IProjectTree tree) => tree switch
+    {
+        Seam.IVendorDriver host => Volt.Engine.Sync.HostLink.Of(host),
+        IIdeDriver old => Volt.Engine.Sync.HostLink.Of(old),
+        _ => throw new System.ArgumentException($"{tree?.GetType().Name ?? "null"} is no host", nameof(tree)),
+    };
 
     /// <summary>Every top-level item in the whole tree — its handle, name and tree kind — in ONE walk. For a caller asking
     /// about many names (the declarations index, <see cref="ProjectDeclarations"/>), where a <see cref="Find"/> per name

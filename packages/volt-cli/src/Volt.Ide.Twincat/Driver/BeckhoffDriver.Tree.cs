@@ -444,10 +444,12 @@ public sealed partial class BeckhoffDriver
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
-    /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
+    /// <summary>The push pre-flight's NAME refusal (<c>IVendorStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word TwinCAT was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="TcRefusedNames"/>, the
-    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
-    public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
+    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked. A GVL, DUT or
+    /// interface name is never answered here: the measurements were taken on the other kinds.</summary>
+    public override string? RefusedName(string kind, string name) =>
+        kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut or ItemKind.Kinds.Interface ? null : NameRefusal(kind, name);
 
     /// <summary>Whether TwinCAT refuses <paramref name="name"/> as a POU's name (<see cref="NameRefusal"/>, measured).
     /// Network scope asks it of a variable's declared type: a word no POU can be named is no function block a body
@@ -467,7 +469,7 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>The push pre-flight's create-argument refusal (<c>ICodeStore.RefusedMemberCreate</c>): an interface
     /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
-    public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
+    public string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         UntypedInterfaceMember(memberKind, name, seed);
 
     /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): what TwinCAT's PLC task cannot hold

@@ -195,7 +195,7 @@ public sealed partial class BeckhoffDriver
     /// <c>%LINK_ALWAYS</c>, <c>%EXTERNAL</c> and <c>%COMPILER_DEFINES</c> are the item's or member's live build properties,
     /// written by <see cref="WriteBuildProperties"/> (DIALECT C39, C40); TwinCAT has no measured member for any other
     /// <c>%</c>-key (design §1.1), so a text carrying one is refused by name — never dropped.</summary>
-    public override void ValidateProperties(string what, ObjectProperties pushed, bool create)
+    public void ValidateProperties(string what, ObjectProperties pushed, bool create)
     {
         var lines = Volt.Engine.Format.St.PropertyLines.Write(pushed with
         {
@@ -212,7 +212,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): ANY
     /// declaration or body, since <c>ReadMember</c> builds an interface accessor as <c>new Accessor(null, null)</c> and
     /// writing one can crash TcXaeShell (DIALECT D21). The write refuses by this same call.</summary>
-    public override void ValidateInterfaceAccessor(Accessor pushed) =>
+    public void ValidateInterfaceAccessor(Accessor pushed) =>
         InterfaceAccessorGuard.RefuseIfChanged(null, null, pushed.Declaration, pushed.Body);
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
@@ -228,7 +228,7 @@ public sealed partial class BeckhoffDriver
     /// would CREATE - every body of a new item (<paramref name="existing"/> null), and in an existing item each body whose
     /// live implementation <see cref="CreatesBody"/> sends to the builder, the one rule <see cref="ResolveBody"/> writes
     /// by. A body the write EDITS in place is judged network by network there.</para></summary>
-    public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
+    public void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
     {
         Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members = null;
         foreach (var body in bodies)

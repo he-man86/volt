@@ -47,6 +47,7 @@ public class TcIdentityTests
         var model = new TcObjectModel { BindWindow = _ => window, ReadXaeVendor = vendor ?? (_ => "Beckhoff") };
         var driver = new BeckhoffDriver(model);
         driver.Connect(xaePid: pid);
+        Volt.Engine.Sync.HostLink.Of(driver).RefreshHealth();   // the worker's start: its health refresh right after the connect
         return driver;
     }
 
@@ -60,7 +61,7 @@ public class TcIdentityTests
         Assert.Equal("Beckhoff", driver.ProductVendor);
         Assert.Equal("3.1.4024.74", driver.IdeVersion);
         // each row carries the platform version too — the tray's multi-instance label reads it
-        Assert.All(driver.BuildHealthResponse().Projects, p => Assert.Equal("3.1.4024.74", p.Version));
+        Assert.All(Started(driver).Session.BuildHealthResponse().Projects, p => Assert.Equal("3.1.4024.74", p.Version));
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public class TcIdentityTests
         var driver = Attached(window);
         window.Remote.Version = "3.1.4024.50";
 
-        driver.SelectProject(new Volt.Contracts.ConnectRequest { Project = "P" });
+        Volt.Engine.Sync.HostLink.Of(driver).Session.SelectProject(new Volt.Contracts.ConnectRequest { Project = "P" });
 
         Assert.Equal("3.1.4024.50", driver.IdeVersion);
     }
@@ -174,10 +175,18 @@ public class TcIdentityTests
         Assert.All(noneRows, p => Assert.False(p.TryGetProperty("version", out _), $"row version is {p}"));
     }
 
+    /// <summary>The driver served as the worker serves it: its link, refreshed right after its connect.</summary>
+    private static Volt.Engine.Sync.HostLink Started(BeckhoffDriver driver)
+    {
+        var link = Volt.Engine.Sync.HostLink.Of(driver);
+        link.RefreshHealth();
+        return link;
+    }
+
     private static System.Text.Json.JsonElement HealthOverPipe(BeckhoffDriver driver)
     {
         var pipe = "volt.test." + Guid.NewGuid().ToString("N");
-        using var host = new Volt.Engine.Host.BridgePipeHost(driver, pipe);
+        using var host = new Volt.Engine.Host.BridgePipeHost(Started(driver), pipe);
         host.Start();
         return new Volt.Wire.PipeClient(pipe).Call("health");
     }

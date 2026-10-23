@@ -67,7 +67,7 @@ public class TcBuildDiagnosticNamingTests
         var driver = new BeckhoffDriver(model);
         driver.Connect(xaePid: 1);
 
-        var diagnostics = driver.GetBuildDiagnostics(() => driver.WalkItems());
+        var diagnostics = driver.GetBuildDiagnostics(() => driver.Walk());
 
         Assert.Equal(new[] { "Identifier 'a' not defined", "Identifier 'b' not defined" }, diagnostics.Select(d => d.Message));
         Assert.All(diagnostics, d => Assert.Equal("MAIN", d.Name));

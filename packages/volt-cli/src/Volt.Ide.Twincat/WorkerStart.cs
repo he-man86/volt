@@ -8,6 +8,7 @@ using System.Threading;
 using Volt.Contracts;
 using Volt.Engine.Host;
 using Volt.Engine.Ide;
+using Volt.Engine.Sync;
 using Volt.Wire;
 
 namespace Volt.Ide.Twincat;
@@ -28,8 +29,8 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal sealed class WorkerStart
 {
-    /// <summary>An XAE window attached to: the driver to serve, and the detach that ends its STA loop.</summary>
-    internal sealed record Attached(IIdeDriver Driver, Action Detach);
+    /// <summary>An XAE window attached to: the host to serve, and the detach that ends its STA loop.</summary>
+    internal sealed record Attached(HostLink Link, Action Detach);
 
     /// <summary>The wait for a requested stop; disposing it says the teardown is done.</summary>
     internal interface IStop : IDisposable
@@ -147,7 +148,7 @@ internal sealed class WorkerStart
             var attached = _p.Attach(pid);
             try
             {
-                using var host = new BridgePipeHost(attached.Driver, claim);
+                using var host = new BridgePipeHost(attached.Link, claim);
                 host.Start();
                 _p.Log(VoltLogLevel.Info, $"twincat bridge serving on pipe {pipe} (xae pid {pid}), bridge {BridgePipeHost.Release ?? "(release unreadable)"}");
                 // Only what is true once the pipe is up, whatever the attach did: the attach's own lines say what it serves.
@@ -216,12 +217,13 @@ internal sealed class WorkerStart
     private static Attached AttachSta(int pid)
     {
         var driver = new BeckhoffDriver();
+        var link = HostLink.Of(driver);
         var cts = new CancellationTokenSource();
         var sta = new Thread(() =>
         {
             ComMessageFilter.Register(); // must run on the STA thread that makes the COM calls
-            try { driver.Connect(pid); }
-            catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE pid {pid} ({ex.Message})"); }
+            try { driver.Connect(pid); link.RefreshHealth(); }
+            catch (Exception ex) { link.Session.MarkDegraded($"waiting for TwinCAT XAE pid {pid} ({ex.Message})"); }
             // Can XAE's Solution Explorer be read from here at all (DIALECT C2t)? Asked once, so health says it before
             // any op. A check that cannot RUN is no verdict: the first read decides then, with the same sentence.
             try
@@ -235,7 +237,7 @@ internal sealed class WorkerStart
         { IsBackground = true };
         sta.SetApartmentState(ApartmentState.STA);
         sta.Start();
-        return new Attached(driver, cts.Cancel);
+        return new Attached(link, cts.Cancel);
     }
 
     /// <summary>The three ways a served worker stops: the connector kills it (no managed code runs; the relay sees

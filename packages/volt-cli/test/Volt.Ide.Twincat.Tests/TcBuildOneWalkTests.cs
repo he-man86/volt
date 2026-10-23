@@ -27,7 +27,7 @@ public class TcBuildOneWalkTests
         LastWindow.Solution.SolutionBuild = new TcSilentFallbackTests.SolutionBuild();
         xae.TypeReads.Clear();
 
-        var build = BoundWrite.Build(driver, new BuildRequest());
+        var build = BoundWrite.Build(Volt.Engine.Sync.HostLink.Of(driver), new BuildRequest());
 
         Assert.Equal(App + "/MAIN.pou", Assert.Single(build.Diagnostics).Name);
         Assert.Equal(1, xae.TypeReads["MAIN"]);   // one walk classifies it once
