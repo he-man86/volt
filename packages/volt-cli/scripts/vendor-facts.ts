@@ -998,6 +998,8 @@ async function main(): Promise<number> {
   // A VOLT_PIPE the instance does not own is refused BEFORE anything starts (spec: "a pipe the instance does not own").
   if (process.env.VOLT_PIPE) scriptPipe(vendor, process.env.VOLT_PIPE, INSTANCE)
 
+  // Closed on every exit: `finally` below, and a signal here (openspec shared-ide-machine-rules).
+  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(sig, () => { try { ide("down", vendor) } finally { process.exit(130) } })
   ide("up", vendor)
   let stopCore = () => {}
   try {

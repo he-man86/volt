@@ -568,6 +568,8 @@ async function main(): Promise<number> {
   if (missing.length)
     console.log(`[completeness] cache entries citing no vendor-facts row (each fails where met): ${missing.join(", ")}`)
 
+  // Closed on every exit: `finally` below, and a signal here (openspec shared-ide-machine-rules).
+  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(sig, () => { try { ide("down", vendor) } finally { process.exit(130) } })
   ide("up", vendor, "CodesysOneToOne")
   let stopCore = () => {}
   const findings: Finding[] = []

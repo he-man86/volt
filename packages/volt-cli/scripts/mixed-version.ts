@@ -164,6 +164,12 @@ if (import.meta.main) {
 	const previous = arg("--previous") ?? previousRelease()
 	const out = resolve(arg("--out") ?? join(REPO, "dist", "mixed-version"))
 	const prefix = arg("--instance-prefix") ?? "mixed-version"
+	// Its two instances are one ide.ps1 RUN (openspec shared-ide-machine-rules): the matrix's when it runs this cell (its
+	// prefix is under `release-matrix`), else the prefix's own. A signal closes both, through the current tree's ide.ps1.
+	process.env.VOLT_IDE_RUN ??= prefix
+	const sweep = () => spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), "sweep",
+		"-Vendor", "codesys", "-Instance", prefix, "-Run", prefix], { encoding: "utf8", stdio: "inherit" })
+	for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(sig, () => { sweep(); process.exit(130) })
 	const codesys = { version: arg("--codesys-version") ?? "3.5.21.40", bits: arg("--bits") ?? "64" }
 	mkdirSync(out, { recursive: true })
 	console.log(`mixed-version: current ${git("rev-parse", "--short", "HEAD")} <-> previous ${previous}`)

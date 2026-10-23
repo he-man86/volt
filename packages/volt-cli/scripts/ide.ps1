@@ -80,6 +80,11 @@
                     is x86; TwinCAT 3.1.4026 can install the x64 TcXaeShell64). Without it the 32-bit shell is preferred
                     (the committed fixtures are 4024 projects); with it a bitness no registered shell has is refused.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
+.PARAMETER Run      The run this instance belongs to (default: $VOLT_IDE_RUN, else the instance alone). A run owns the
+                    instance its tag names and every `<tag>-...` one. `up` refuses to start while any CODESYS, TcXaeShell or
+                    VoltBridgeTwincat runs that no instance of the run recorded, naming each by pid and command line;
+                    `check` gives that answer without starting anything (exit 1 when it would refuse); `sweep` runs
+                    `down` for every instance of the run that has a record.
 .PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
                     IDE is launched, which is minutes before it serves — and every caller then reinvents the
@@ -91,10 +96,11 @@
   pwsh scripts/ide.ps1 down -Vendor twincat
 #>
 param(
-    [ValidateSet("up", "down", "logs", "pipe")] [string]$Action = "up",
+    [ValidateSet("up", "down", "logs", "pipe", "check", "sweep")] [string]$Action = "up",
     [Parameter(Mandatory = $true)] [ValidateSet("codesys", "twincat")] [string]$Vendor,
     [string]$Fixture = "",
     [string]$Instance = "",
+    [string]$Run = "",
     [switch]$InPlace,
     [switch]$Production,
     [string]$RunScript = "",
@@ -120,6 +126,12 @@ $pidFile  = Join-Path $work "$Vendor-ide$sfx.pids"
 # prove a pipe is a fixture COPY's before it touches it (test/e2e/lib/fixture-ide.ts): it refuses any pipe whose
 # instance did not open a project under %TEMP%\volt-ide-<vendor>[-<Instance>]\ — an -InPlace run included.
 $projFile = Join-Path $work "$Vendor-ide$sfx.projects"
+
+# THE RUN this instance is in (openspec shared-ide-machine-rules): -Run, else $VOLT_IDE_RUN, else the instance alone. A
+# run owns its tag's instance and every `<tag>-...` one; `up` starts only when every running IDE is one of those
+# instances' (ide-run.ps1 holds the rule, tested offline).
+. (Join-Path $PSScriptRoot "ide-run.ps1")
+$RunTag = Resolve-RunTag $PSBoundParameters.ContainsKey("Run") $Run $env:VOLT_IDE_RUN $Instance
 
 # The SDK that can target what the solution targets. "Has an SDK" is not enough — this machine carries several
 # dotnet installs and the .NET 8 one fails net10.0 with NETSDK1045 (see build-cli.ps1, same trap).
@@ -320,9 +332,9 @@ $XAE_SHELLS = @("TcXaeShell", "TcXaeShell64")
 
 # The XAEs holding this instance's copy, by COMMAND LINE — how a Restart-Manager relaunch is found, since no record
 # names it. Exact per instance (Get-CopyRoot ends in a separator), so another instance's window is never matched.
-function Get-CopyHolders([string]$vendor) {
+function Get-CopyHolders([string]$vendor, [string]$inst = $Instance) {
     if ($vendor -ne "twincat") { return @() }   # CODESYS's command line carries no project path (it travels in env)
-    $root = Get-CopyRoot $vendor
+    $root = Get-CopyRoot $vendor $inst
     @(Get-CimInstance Win32_Process -Filter "Name='TcXaeShell.exe' OR Name='TcXaeShell64.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
         ForEach-Object { [int]$_.ProcessId })
@@ -331,11 +343,15 @@ function Get-CopyHolders([string]$vendor) {
 # Every running process of THIS instance, split into what to close and what is left alone. Ours: what Test-Ours
 # names (the record), what holds this instance's copy (Get-CopyHolders), and a TwinCAT worker attached to an XAE of
 # ours — including one whose XAE is gone, which serves PLC_DISCONNECTED forever and is the commonest leftover. A
-# worker spawned by an `up` that was itself killed before it wrote the worker down is found that way too.
-function Get-OurProcesses([string]$vendor) {
-    $records = @(Read-Records $pidFile)
-    $holders = @(Get-CopyHolders $vendor)
-    $candidates = @(Get-ServingPids $vendor) + @($records | ForEach-Object { $_.Pid }) + $holders
+# worker spawned by an `up` that was itself killed before it wrote the worker down is found that way too. Every running
+# IDE of the vendor is a candidate as well, so the IDE CODESYS re-execs into counts before it serves its pipe. $inst asks
+# the same of another instance (the run's siblings, Get-RunOwnPids).
+function Get-OurProcesses([string]$vendor, [string]$inst = $Instance) {
+    $records = @(Read-Records (Join-Path $work "$vendor-ide$(Get-Sfx $inst).pids"))
+    $holders = @(Get-CopyHolders $vendor $inst)
+    $images = if ($vendor -eq "codesys") { "Name='CODESYS.exe'" } else { "Name='TcXaeShell.exe' OR Name='TcXaeShell64.exe'" }
+    $ides = @(Get-CimInstance Win32_Process -Filter $images -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.ProcessId })
+    $candidates = @(Get-ServingPids $vendor) + @($records | ForEach-Object { $_.Pid }) + $holders + $ides
     $workers = @()
     if ($vendor -eq "twincat") {
         $workers = @(Get-CimInstance Win32_Process -Filter "Name='VoltBridgeTwincat.exe'" -ErrorAction SilentlyContinue)
@@ -356,6 +372,42 @@ function Get-OurProcesses([string]$vendor) {
     }
     [pscustomobject]@{ Ours = $ours; Others = @($candidates | Where-Object { $ours -notcontains $_ }) }
 }
+
+# THE RUN'S OWN processes: what every instance of $RunTag counts as ours (Get-OurProcesses), both vendors, found
+# through the pid records in $work. A record of another run is never read; a record that cannot be read names nothing,
+# so what it would have named is foreign (zero fallback).
+function Get-RunOwnPids {
+    $own = @()
+    foreach ($f in @(Get-ChildItem $work -Filter "*-ide*.pids" -File -ErrorAction SilentlyContinue)) {
+        $r = Get-RecordInstance $f.Name
+        if ($null -eq $r -or -not (Test-RunOwns $RunTag $r.Instance)) { continue }
+        $own += @((Get-OurProcesses $r.Vendor $r.Instance).Ours)
+    }
+    @($own | Select-Object -Unique)
+}
+
+# Every running process of the IDE images (ide-run.ps1's $IDE_IMAGES), with the command line that says whose it is.
+function Get-IdeProcesses {
+    $filter = ($IDE_IMAGES | ForEach-Object { "Name='$_'" }) -join " OR "
+    @(Get-CimInstance Win32_Process -Filter $filter -ErrorAction SilentlyContinue |
+        ForEach-Object { [pscustomobject]@{ Pid = [int]$_.ProcessId; Name = $_.Name; CommandLine = $_.CommandLine } })
+}
+
+function Get-ForeignIdes { @(Select-Foreign (Get-IdeProcesses) (Get-RunOwnPids)) }
+
+# THE CHECK AND THE LAUNCH ARE ONE STEP. Two cells of one run start together; between a sibling's Start-Process and its
+# Save-Pids its IDE runs unrecorded, and a check in that gap would call it foreign. So `up` takes this machine-wide lock
+# before its check and releases it once its IDE is recorded (Up-Codesys / Up-Twincat); Windows releases it when the
+# process ends however it ends. A wait that long is a hung launch, said by name.
+$script:launchLock = $null
+function Enter-LaunchLock {
+    $m = New-Object System.Threading.Mutex($false, "Local\volt-ide-launch")
+    $held = $false
+    try { $held = $m.WaitOne([TimeSpan]::FromMinutes(10)) } catch [System.Threading.AbandonedMutexException] { $held = $true }
+    if (-not $held) { throw "another ide.ps1 has held the launch lock (Local\volt-ide-launch) for 10 minutes - a launch that hangs; close it, then start again" }
+    $script:launchLock = $m
+}
+function Exit-LaunchLock { if ($script:launchLock) { $script:launchLock.ReleaseMutex(); $script:launchLock = $null } }
 
 # The DTE close, run in a CHILD process: a modal dialog in the XAE blocks a COM call forever, and that must cost a
 # timeout, not hang ide.ps1. Close the solution WITHOUT saving (the copy is thrown away; saving would only write a
@@ -633,8 +685,10 @@ is refreshed on every `up`, so it is the committed fixture every time — a stal
 # the second `up` deletes the solution tree the first one's IDE has OPEN (a partial delete, then a copy into
 # the wreckage) — or overwrites the .project file it is holding. The pipe is already per-pid; so is this.
 # Returned WITH its trailing separator, so `volt-ide-twincat\` never matches inside `volt-ide-twincat-e2e\`.
-function Get-CopyRoot([string]$vendor) {
-    (Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-$vendor$sfx") + "\"
+function Get-Sfx([string]$inst) { if ($inst) { "-$inst" } else { "" } }
+
+function Get-CopyRoot([string]$vendor, [string]$inst = $Instance) {
+    (Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-$vendor$(Get-Sfx $inst)") + "\"
 }
 
 function Copy-FixtureOut([string]$path, [string]$vendor) {
@@ -741,6 +795,7 @@ function Up-Codesys {
     Write-Host "Project: $($env:VOLT_FIXTURE_PROJECT)"
     $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Normal
     Save-Pids $pidFile @($proc)
+    Exit-LaunchLock
     Write-Host "CODESYS launched (pid $($proc.Id))."
 }
 
@@ -860,6 +915,7 @@ function Up-Twincat {
         Write-Host "opened $([System.IO.Path]::GetFileNameWithoutExtension($sln)) (TcXaeShell pid $($p.Id))"
     }
     Save-Pids $pidFile $launchedProcs
+    Exit-LaunchLock
 
     # WHEN is the XAE ready for a worker? Not when the process exists, and — measured — not when it appears in
     # the COM ROT either: `--list-xae-pids` answers within a second of launch, while the PLC project is still
@@ -917,6 +973,23 @@ switch ($Action) {
         $p = @(Get-BridgePipes $Vendor | Where-Object { Test-Ours ([int](($_ -split '\.')[-1])) $records })
         if ($p.Count -gt 0) { $p } else { Write-Error "no pipe of instance $(if ($Instance) { $Instance } else { '(default)' }) for $Vendor - start it with: ide.ps1 up -Vendor $Vendor$(if ($Instance) { " -Instance $Instance" }) -Wait" }
     }
+    "sweep" {
+        # `down` for EVERY instance of the run that has a record, both vendors: what a run does at its start (a previous
+        # run of it killed outright ran no exit hook) and from its signal handler. Each `down` is its own process, so it
+        # takes that instance's lock and closes, empties and removes exactly as `down` does.
+        foreach ($f in @(Get-ChildItem $work -Filter "*-ide*.pids" -File -ErrorAction SilentlyContinue)) {
+            $r = Get-RecordInstance $f.Name
+            if ($null -eq $r -or -not (Test-RunOwns $RunTag $r.Instance)) { continue }
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath down -Vendor $r.Vendor -Instance $r.Instance -Run $RunTag
+            if ($LASTEXITCODE -ne 0) { throw "sweep: down of $($r.Vendor) instance $($r.Instance) failed (exit $LASTEXITCODE)" }
+        }
+    }
+    "check" {
+        # What `up` would refuse, without starting anything (the matrix asks once, before any cell). Exit 1 names them.
+        $foreign = Get-ForeignIdes
+        if ($foreign.Count -gt 0) { Write-Host (Format-ForeignRefusal $RunTag $foreign); exit 1 }
+        Write-Host "run '$RunTag': no IDE it does not own is running"
+    }
     "logs" {
         $log = if ($Vendor -eq "codesys") { Join-Path $work "bridge-launcher.log" }
                else { Join-Path $env:LOCALAPPDATA "Volt\logs\twincat-$(Get-Date -Format yyyy-MM-dd).log" }
@@ -955,6 +1028,12 @@ switch ($Action) {
         # copy file by file — under a run still driving it (two agents of one workflow share an -Instance; the copy was
         # found gutted, its .plcproj listing files already deleted, ld-fbd-coverage gate 2R.3). An IDE of this instance
         # still running is now refused by name; `down` is the one verb that ends an instance.
+        # NEVER BESIDE AN IDE THIS RUN DOES NOT OWN (openspec shared-ide-machine-rules): an engineer's IDE, another
+        # session's run, the connector's worker. Checked under the launch lock, so a sibling cell's launch is either not
+        # started or already recorded. Volt neither drives nor closes a foreign IDE: the user decides.
+        Enter-LaunchLock
+        $foreign = Get-ForeignIdes
+        if ($foreign.Count -gt 0) { throw (Format-ForeignRefusal $RunTag $foreign) }
         $live = @((Get-OurProcesses $Vendor).Ours | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -ne "VoltBridgeTwincat" })
         if ($live.Count -gt 0) {
             throw "instance $(if ($Instance) { $Instance } else { '(default)' }) of $Vendor is UP (pid $($live -join ', ')) - another run may be driving it. If it is a leftover: ide.ps1 down -Vendor $Vendor$(if ($Instance) { " -Instance $Instance" }); else use another -Instance."

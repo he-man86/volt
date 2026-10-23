@@ -153,7 +153,17 @@ function run(cmd: string, args: string[], opts: { cwd?: string; env?: NodeJS.Pro
 }
 
 /** Each cell its own ide.ps1 instance, so cells running at once never share an IDE, a fixture copy or a pipe. */
-const instanceOf = (cell: Cell): string => `release-matrix-${cell.id}`
+const instanceOf = (cell: Cell): string => `${RUN}-${cell.id}`
+
+/** THE RUN every cell's instance is in (openspec shared-ide-machine-rules): `ide.ps1` owns instance `release-matrix` and
+ *  every `release-matrix-…` one for it, the mixed-version cell's included, and its `up` refuses to start beside any other
+ *  IDE. `sweep` downs every instance of the run that has a record; `check` names what `up` would refuse. */
+const RUN = "release-matrix"
+function ideRun(verb: "sweep" | "check"): { status: number | null; text: string } {
+	const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), verb,
+		"-Vendor", "codesys", "-Instance", RUN, "-Run", RUN], { encoding: "utf8" })
+	return { status: r.status, text: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() }
+}
 
 async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<boolean> {
 	const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), action,
@@ -271,6 +281,16 @@ if (import.meta.main) {
 	mkdirSync(OUT, { recursive: true })
 	const jobs = Number(arg("--jobs") ?? 3)
 	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
+	// THE MACHINE FIRST: every IDE of this run a killed earlier run left is closed (no exit hook ran for it), then the run
+	// starts only beside no IDE it does not own — refused once, by name, instead of red cell by cell. Every exit from here
+	// closes the run's IDEs again: a signal through its handler, a normal end through the sweep after the pool.
+	process.env.VOLT_IDE_RUN = RUN
+	for (const step of ["sweep", "check"] as const) {
+		const r = ideRun(step)
+		if (r.status !== 0) { console.error(r.text); process.exit(1) }
+	}
+	for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
+		process.once(sig, () => { console.error(`\n${sig}: closing this run's IDEs`); console.error(ideRun("sweep").text); process.exit(130) })
 	buildBridges(cells)
 	const currentCli = cells.some((c) => c.mixed && !c.refusal) ? buildCurrentCli() : ""
 	// A pool of `jobs` workers over the cell list; verdicts keep the cells' order for the matrix.
@@ -285,6 +305,9 @@ if (import.meta.main) {
 			verdicts[i] = v
 		}
 	}))
+	// A cell whose own `down` failed (or was cut by its timeout) leaves nothing behind either.
+	const swept = ideRun("sweep")
+	if (swept.status !== 0) console.error(`closing this run's IDEs failed:\n${swept.text}`)
 	console.log("\n" + renderMatrix(verdicts))
 	const green = verdicts.length > 0 && verdicts.every((v) => v.green)
 	if (partial) {

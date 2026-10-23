@@ -183,7 +183,17 @@ function codesysInstall(): string {
  * finding from a real run is worse than no run. The resolver accepts only the pipe of an IDE this instance's `up`
  * recorded, open on a copy under its own root, and refuses anything else naming it.</p>
  */
+let signalHooked = false
+let upVendor: "codesys" | "twincat" = "codesys"
 function up(vendor: "codesys" | "twincat", args: string[]): string {
+	// Closed on a signal too, not only by the corpus's close() (openspec shared-ide-machine-rules). The instance that is
+	// up is the one to close: one corpus at a time, each brought up here.
+	upVendor = vendor
+	if (!signalHooked) {
+		signalHooked = true
+		for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
+			process.once(sig, () => { try { ps(LAUNCHER, ["-Action", "down", "-Vendor", upVendor, "-Instance", INSTANCE]) } finally { process.exit(130) } })
+	}
 	ps(LAUNCHER, ["-Action", "up", "-Vendor", vendor, "-Instance", INSTANCE, ...args, "-Wait"])
 	return scriptPipe(vendor, "", INSTANCE)
 }
