@@ -528,3 +528,33 @@ and the vendor enum from the vendor table are deferred to a protocol-2 release c
   a comment.
 - 4.0, 4.0a, 4.0b: `input/rating-after.md`. The history-comment proxy is unchanged (83 Engine lines): the systematic
   sweep is 2.x work, not step 8's.
+
+## Step 2.3: hidden features (2026-10-23, owner default: decided here, reversible)
+
+**Target:** no behaviour that only the code knows. Each hidden feature is either load-bearing — then a doc states it
+and a test pins it — or nothing reads it — then it is deleted. Census: the 2026-10-16 reviews (`input/engine.md` row 41,
+`input/cli-bridges.md` A24), the map (C4, P2) and the step-7 leftovers; nothing else names a behaviour no doc states.
+
+| Feature | Read by | Choice | Why |
+|---|---|---|---|
+| `Materializer.IsVerbatimKind`: an IDE name already ending in `.<ext>` is the wire name as is | TwinCAT's module description (`Untitled2.tmc`, measured), a library ref spelled `Foo.library` | **KEEP, document** | load-bearing: without it the wire says `Untitled2.tmc.tmc`, a name the IDE tree does not hold. Already pinned (`WireIdentityTests`: `.tmc`, `.library`; `UnreadableItemPathTests`); unstated in `items.html` |
+| `CodesysPlatform.Capability.KnownOn`: the platforms each start capability was measured on | nothing (0 readers; `All` already deleted in 7.3) | **DELETE** | the measurement record lives in DIALECT V2 and `test/e2e/lib/platform.ts`; a second copy in a string field drifts |
+| A push op's `"op"` discriminator in any member position (P2) | every foreign client (STJ refused it out of order) | **KEEP** (already fixed: `AllowOutOfOrderMetadataProperties`) | pinned by `MalformedPushOpTests` and the contract suite; `wire.html` states no order, which is now true |
+
+Rejected: deleting `IsVerbatimKind` (engine.md row 41's proposal: always `name.ext`) — the `.tmc` measurement shows the
+IDE itself spells the extension, so the doubled name would be an identity the tree does not hold (CLAUDE.local.md:
+an item's path is its place in the IDE's own tree). Rejected: a refusal for a name ending in its own extension — it
+refuses a real TwinCAT item. Rejected: keeping `KnownOn` as "the measurement record" — no reader, and DIALECT is the
+vendor-fact home.
+
+**Stays refused by name:** nothing new; a bare name that ends in ANOTHER kind's extension (`X.gvl` as a POU) is still
+`X.gvl.pou` — the rule is the item's own kind only, and `Bare()` strips exactly one extension.
+
+**Migration (3.1, test-first):**
+- `docs/items.html` gains one line: an IDE name already ending in its kind's extension is not extended again
+  (`Untitled2.tmc`); `WireIdentityTests` gains the other-kind case (`X.gvl` as a POU → `X.gvl.pou`) red-first if it
+  fails.
+- `CodesysPlatform.Capability` drops `KnownOn` and its constructor argument; DIALECT V2 stops citing the deleted
+  `CodesysPlatform.All` (names the three capabilities as fields of `CodesysPlatform`). `bun run check` and the
+  Codesys suite green.
+- Wire: none; transcripts byte-identical.
