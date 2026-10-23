@@ -135,8 +135,22 @@ standing practice:
 
 ## 2. Find (parallel per project, each finding adversarially verified)
 
-- [ ] 2.1 Legacy: code/comments/docs of removed designs and old formats.
-- [ ] 2.2 Hidden bugs: masking fallbacks, silent defaults, untested branches — a failing test per bug.
+- [x] 2.1 Legacy: code/comments/docs of removed designs and old formats. Done 2026-10-23 (offline, behind the wire): the
+      history-comment sweep — the 1.0a proxy 82/70/84/25 → 35/18/21/9 (Engine+Host / Codesys / Twincat / Contracts+Wire;
+      what is left matches "is gone" in the IDE sense, not history), PLCopen mentions 7/5/17 → 3/3/5 (each a vendor fact:
+      TwinCAT's own PLCopen import, CODESYS's export as a measurement), the stale `codesys-pipe.ps1` reference and the ARCH
+      FOLLOW-UP note restated; comments only, no code moved. Legacy CODE found, for 3.1 (no users, no backward compat):
+      the network-text v1 detector (`NetworkText.V1Constructs`/`HoldsV1`/`FileHoldsV1`/`IsV1Header`/`V1Refusal`, the
+      reader's v1 branch, the CLI's `V1Note`, `NetworkTextV1DetectionTests`) and `TcNetworkWriter.ImportedPinName` (echoes
+      the pin names the deleted PLCopen lowering gave boxes Volt created).
+- [x] 2.2 Hidden bugs: masking fallbacks, silent defaults, untested branches — a failing test per bug. Done 2026-10-23
+      (offline scan of every `?? ""`, `?? false`, bare `catch` in Engine, hosts, Contracts, Wire): FIXED — a TwinCAT
+      device whose `ProduceXml` does not parse was read as the empty manifest (T5/B6), now refused by name
+      (`TcDeviceDescriptorTests.A_document_that_does_not_parse_is_refused_by_name`); HELD RED until 3.1 — a TwinCAT library
+      pin with a name and no `DataType` is dropped silently where CODESYS refuses it (`TcLibraryUntypedPinTests`; a refusal
+      fails the whole fetch, so it waits for the live dump); RECORDED — `BeckhoffDriver.BuildProjects` reports an
+      unreadable `Solution.Saved` as `dirty: false` (`servedDirty ?? false`), a wire fact (a nullable `dirty`) for the
+      protocol-2 release. C5 and the rest of T5 stay in 3.1 (need a live IDE).
 - [ ] 2.3 Hidden features: behaviour no doc or test states — owner decides document+test or delete.
 - [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
@@ -172,6 +186,8 @@ standing practice:
               platform facts);
             - the behind-the-wire inputs since 2026-10-18 above: unsaved CFC/SFC on a TwinCAT move (`CarryLive`), the
               e2e redundant-read cut, `ide-restart` on the one-worker-per-XAE model.
+            - from 2.1/2.2: delete the network-text v1 detector and `ImportedPinName`; the untyped TwinCAT library pin
+              (`TcLibraryUntypedPinTests`, held red): measure the full live dump, then refuse by name.
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
       codesys-3.5.22.40-64,twincat-32 --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical

@@ -40,15 +40,20 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal static class TcDeviceDescriptor
 {
-    /// <summary>Render the descriptor. Returns null when the document is not a readable <c>TreeItem</c>, so the
-    /// caller can fall back to the canonical empty manifest for the kind rather than emit a half-built file.</summary>
+    /// <summary>Render the descriptor. Returns null when there is no document, so the caller emits the canonical empty
+    /// manifest for the kind rather than a half-built file. A document that does not parse is refused by name — read as
+    /// null, every broken device would hash the same and pull as an empty descriptor (volt-cli-rework 2.2).</summary>
     public static string? From(string? produceXml)
     {
         if (string.IsNullOrWhiteSpace(produceXml)) return null;
 
         XElement root;
         try { root = XElement.Parse(produceXml); }
-        catch (System.Xml.XmlException) { return null; }
+        catch (System.Xml.XmlException ex)
+        {
+            throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unreadable,
+                $"twincat: a device's ProduceXml is not XML ({ex.Message}) — refused rather than read as a device with no identity.");
+        }
 
         // Padding 14 is the DEVICE descriptor's width, shared with CODESYS's renderer. It is a hashed byte, so
         // it is passed explicitly rather than left to the auto-width rule (see Descriptor's own note).

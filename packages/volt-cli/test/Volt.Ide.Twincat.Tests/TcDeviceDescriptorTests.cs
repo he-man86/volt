@@ -81,16 +81,25 @@ public class TcDeviceDescriptorTests
         Assert.DoesNotContain("VendorId", text);
     }
 
-    /// <summary>A document that is not a readable TreeItem yields null, so the caller emits the canonical empty
-    /// manifest for the kind instead of a half-built file. Null and empty are not errors here — an item that
-    /// produces no XML is a real state.</summary>
+    /// <summary>No document yields null, so the caller emits the canonical empty manifest for the kind instead of a
+    /// half-built file — an item that produces no XML is a real state.</summary>
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("not xml at all")]
-    public void An_unreadable_document_yields_null(string? input)
+    public void No_document_yields_null(string? input)
     {
         Assert.Null(TcDeviceDescriptor.From(input));
+    }
+
+    /// <summary>A document that does not PARSE is no device without an identity: read as null it would become the empty
+    /// manifest, so every broken device would hash the same and pull as a clean, empty descriptor (volt-cli-rework 2.2,
+    /// review B6). It is refused by name, so the walk reports the item unreadable instead.</summary>
+    [Fact]
+    public void A_document_that_does_not_parse_is_refused_by_name()
+    {
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => TcDeviceDescriptor.From("not xml at all"));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unreadable, ex.ErrorCode);
+        Assert.Contains("ProduceXml", ex.Message);
     }
 }

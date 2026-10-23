@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using Volt.Engine.Library;
+using Volt.Tests.Shared;
 using Xunit;
 
 namespace Volt.Ide.Twincat.Tests;
@@ -220,4 +221,27 @@ public class TcLibraryInferredEnumTests
 
         Assert.Equal(expected, tally.InferredEnums);
     }
+}
+
+/// <summary>
+/// A PIN THE PARSE CANNOT TYPE (volt-cli-rework 2.2). A library variable with a name and no <c>DataType</c> is dropped
+/// without a word here, while CODESYS refuses the same fact by name (<c>CodesysObjectModel.Libraries</c>: "has no readable
+/// Type") — so on TwinCAT an FB would render with a pin missing, and every call naming it reads as the engineer's error.
+/// Held red until 3.1 measures the full live signature dump: a refusal fails the whole fetch, so it lands only once no
+/// real library is known to carry such a pin.
+/// </summary>
+public class TcLibraryUntypedPinTests
+{
+    private const string Lib = "<Library><LibraryName>Tc2_Standard</LibraryName><Version>3.4.5.0</Version>" +
+                               "<Distributor>Beckhoff Automation GmbH</Distributor><TypeSignatures>{0}</TypeSignatures></Library>";
+
+    [Fact]
+    public void A_pin_with_a_name_and_no_data_type_is_refused_by_name() =>
+        ExpectRed.Until("3.1", "an untyped library pin is dropped silently on TwinCAT (CODESYS refuses it)", () =>
+        {
+            var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
+                                         "<Inputs><Input><Name>bOpen</Name></Input></Inputs></TypeSignature>");
+            var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+            Assert.Contains("bOpen", ex.Message);
+        });
 }

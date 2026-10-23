@@ -130,6 +130,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
+            ("Volt.Ide.Twincat/Ide/TcDeviceDescriptor.cs", 1),   // a device whose ProduceXml does not parse (volt-cli-rework 2.2, review B6)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // -1 the member declaration (MemberSites, volt-cli-rework step 6); +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 12),   // +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null
