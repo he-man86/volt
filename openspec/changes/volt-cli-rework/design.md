@@ -326,3 +326,63 @@ codes. What changes is Fakeco's (a test vendor): `.pou` on its bridge is `BAD_RE
 - 5.5 not fixed, for the owner: a `deleteItem` quoting a version for a path that names nothing is the documented,
   pinned idempotent no-op (`PushConflictCodeTests`), where wire.html promises `ITEM_MISSING`. Changing it changes what a
   replaying client sees.
+
+## Step 6 plan: the hosts onto the new contract (2026-10-23)
+
+Measured before writing it: the two drivers are 3.8k lines (`CodesysDriver` 1.4k in three partials, `BeckhoffDriver`
+2.0k in four); their own offline suites call the old members ~190 times (`ReadContent`, `WriteContent`, `WalkItems`,
+`ValidateSource`, …) and assert the IEC record (`ItemContent`) they return; `FakeIde` (1.5k lines) is an old-contract
+host behind ~460 Engine and CLI test call sites.
+
+### What each host becomes
+
+`CodesysDriver` and `BeckhoffDriver` implement `IVendorDriver` and nothing of the old contract: no `DriverBase`, no
+`IIdeDriver`. Refactored in place, in each host's own new partial (`*.Seam.cs`):
+
+- **Declaration**: each host states its own: its vendor row, its six languages with ITS network reader (its own
+  `NetworkScopeFor`), the property keys it holds. The kind rows are read off the IEC-family tables the Engine already
+  holds (`ItemKind`), the same tables the push and the format read: a hand copy per host would be a third spelling of 30
+  rows that the registry compares only within one process.
+- **Tree and store**: the host answers in the new words over its own object-model code. Its IEC record stays its read
+  model below the contract (`ItemContent`, the IEC format's model); the conversions are the IEC tables' own functions,
+  moved out of the adapter beside the tables they read, so both hosts call ONE spelling of each: code → `NodeClass` and
+  kind → the one code each kind is created as (`Item/ItemKind`), and the read fold, the network bodies a host's writer
+  takes and a create's seed and class (`Format/St/FamilyContent`). The old members a host test calls stay as the host's
+  own methods (no interface), so those ~190 assertions stay the oracle unchanged.
+- **Session**: primitives only (F5). `MarshalToIdeThread` (public), `HealthProbeFloorMs` (CODESYS the engine's default
+  1000 ms, TwinCAT 5000 ms, as today) and one probe, `ProbeProjects()`, which answers a `ProjectProbe(Rows, Bound,
+  NotAnswering)` instead of publishing: the rows; whether the served binding is live (the engine then clears degraded,
+  as each host's snapshot did: CODESYS when a project is open, TwinCAT when a selection is connected and the XAE
+  answered); and, on TwinCAT, why the XAE did not answer (the ambient probe then fails with `PLC_DISCONNECTED` after the
+  rows are published, as `BeckhoffDriver.TriggerAsyncProbe` did). The contract's `ProjectRows()` becomes this probe.
+- **The composition** is the engine's alone (`Sync/ComposedSession` over `DriverBase`'s machinery): degraded state,
+  IDE-thread bracketing, the throttle, the single-flight probe, the health response, the library-signature cache. A
+  `select` refreshes the rows after the host's own select, and a `disconnect` clears degraded with the host's own, as
+  both hosts did. The startup refresh is the host's start calling `HostLink.RefreshHealth()` on its IDE thread right
+  after its connect, where each host's `Connect` called `SnapshotHealth` (no marshal from the primary thread into
+  itself).
+- **Helpers**: `MemberDeclaration` (map D5, identical in both hosts apart from the read) goes up into the Engine
+  (`Ide/MemberSites`); `Clean`/`Trimmed` (D4) stay each host's own (the comment read beside them differs, DIALECT N42f;
+  two one-line bodies are no rule).
+
+### What stays for step 7, by name
+
+`FakeIde` stays an old-contract host: moving it is moving the oracle of ~460 call sites, done with the old interfaces
+in step 7. So the adapter (`LegacyDriver`), the old-host declaration (`FamilyDeclaration`), `HostLink`'s old-host door
+and its implicit conversion leave `src/` for `test/shared/` (they serve the test double alone); the old `Ide/`
+interfaces (`IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`) and `DriverBase` (the composition
+`ComposedSession` and the double both stand on) stay in the Engine until step 7.
+
+### Sub-steps (each committed alone, every C# suite and `test/unit` green)
+
+1. **6.1 CODESYS**: the engine prep (the probe record, `ComposedSession` taking the session over, the conversions moved
+   to the tables, `MemberDeclaration` up), then `CodesysDriver` on `IVendorDriver`; `PipeHost` serves a `HostLink`.
+2. **6.2 TwinCAT**: the same; `WorkerStart` hands the pipe host a `HostLink`; the host's own lookups (`ItemLookup.Find`
+   / `All` over `this`) ask the Engine's one lookup through the new contract.
+3. **6.3 the adapter leaves `src/`**: `LegacyDriver`, `FamilyDeclaration`, `HostLink.Of(IIdeDriver)` and the implicit
+   conversion move to `test/shared/` beside `FakeIde`; `BridgePipeHost(IIdeDriver, …)` goes. Ratchets re-pinned down.
+
+### Wire
+
+Nothing changes on the wire: same walks, reads, texts, codes and health rows, by the same functions; the live matrix's
+transcript comparison is the proof on the merged result.
