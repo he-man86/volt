@@ -30,7 +30,7 @@ namespace Volt.Ide.Codesys.Tests
                 var item = new ItemRef(node);
 
                 Assert.Equal(ItemKind.PlcDut, driver.KindCode(item));
-                var read = Materializer.Materialize(driver, "SER_Mode", ItemKind.Kinds.Dut, item);
+                var read = Materializer.Materialize(Volt.Engine.Sync.HostLink.Of(driver), "SER_Mode", ItemKind.Kinds.Dut, item);
                 Assert.Equal("SER_Mode.dut", read.FullName);
                 // Its CLASS is spelled (openspec bridge-one-to-one §1.1 "Classes"): a plain DUT pulled from the same text
                 // would be re-created plain, and the class's own text list with it lost.

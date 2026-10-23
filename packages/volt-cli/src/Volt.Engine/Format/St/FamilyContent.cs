@@ -42,6 +42,22 @@ public static class FamilyContent
             ToPropertySet(c.Properties));
     }
 
+    /// <summary>A host's read of the old record, FOLDED as every engine read of it is (<see cref="AbstractMemberFold"/>).</summary>
+    public static Content Folded(ItemContent c) => ToContent(AbstractMemberFold.Apply(c));
+
+    /// <summary>The ONE value the old create takes: a signature member's declared type, else the body language — null
+    /// for ST, which the family hosts create by default.</summary>
+    public static string? SeedOf(CreateArgs args) =>
+        args.Signature ?? (args.Language == Volt.Engine.Format.Body.Languages.St ? null : args.Language);
+
+    /// <summary>The vendor class a create's text states (<c>%CLASS name [qualifier]</c>), as the old record.</summary>
+    public static ObjectClass? ClassOf(string? spelled)
+    {
+        if (spelled is null) return null;
+        var sp = spelled.IndexOf(' ');
+        return sp < 0 ? new ObjectClass(spelled, null) : new ObjectClass(spelled.Substring(0, sp), spelled.Substring(sp + 1));
+    }
+
     public static ItemContent ToItemContent(Content c) => ToItemContent(c, ToObjectProperties);
 
     /// <summary>The bodies and declarations of <paramref name="c"/> as the old record, its object properties left out

@@ -112,7 +112,7 @@ public sealed partial class CodesysDriver
     /// which a CODESYS interface accessor has no Implementation aspect to hold (DIALECT D41). Its declaration is written.
     /// (The ST reader takes an interface accessor's whole text as its declaration — it has no boundary line — so a push
     /// never carries a body here; this keeps the driver's own write from taking one handed to it directly.)</summary>
-    public override void ValidateInterfaceAccessor(Accessor pushed) => InterfaceAccessorGuard.RefuseBody(pushed.Body);
+    public void ValidateInterfaceAccessor(Accessor pushed) => InterfaceAccessorGuard.RefuseBody(pushed.Body);
 
     /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>) for a CREATE: a list that
     /// sends network variables (<c>%NETVAR</c> without <c>%CLASS NVL</c>) and a parameter list (<c>%PARAMETER_LIST</c>) are
@@ -121,7 +121,7 @@ public sealed partial class CodesysDriver
     /// review of step 3, finding 7c: it made a plain GVL, refused the write as "a %NETVAR change" and rolled back). Niche:
     /// accepted loss — 1 sender and 0 parameter lists in the corpora. An update is the write's to judge
     /// (<c>CodesysObjectModel.RefuseUnwritablePropertyChange</c>).</summary>
-    public override void ValidateProperties(string what, ObjectProperties pushed, bool create)
+    public void ValidateProperties(string what, ObjectProperties pushed, bool create)
     {
         if (!create) return;
         // The two classes `CreateClass` cannot make are refused HERE, before any write (second review of step 3, finding
@@ -335,23 +335,8 @@ public sealed partial class CodesysDriver
         return new Accessor(declaration, body, unsupported, stated);
     }
 
-    /// <summary>A member's declaration, from the member's OWN declaration aspect.
-    /// <para><b>An ACTION is the one member with no declaration to read</b>, in any IDE: IEC gives an action a
-    /// name and a body and nothing else. Its header is COMPOSED here rather than read — that is not a fallback
-    /// for a missing value, it is the whole of what an action's header is.</para></summary>
-    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site)
-    {
-        if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
-
-        var decl = ReadDeclarationText(site.Ref);
-        // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. It was
-        // INTERNAL_ERROR, a Volt bug, for a broken item in the project (openspec bridge-refusal-review V.1).
-        if (string.IsNullOrWhiteSpace(decl))
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
-                "transport gap");
-        return decl;   // verbatim (bridge-one-to-one §1.1, every character)
-    }
+    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site) =>
+        Volt.Engine.Ide.MemberSites.Declaration(site, ReadDeclarationText);
 
     private string ReadDeclarationText(ItemRef item) =>
         item.Native is LibRefNode lib ? lib.Manifest : _om.ReadDeclaration(item.Native);

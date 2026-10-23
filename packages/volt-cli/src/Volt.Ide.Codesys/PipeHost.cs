@@ -18,6 +18,7 @@ public static class PipeHost
     private static BridgePipeHost? _host;
     private static Volt.Relay.RelayTunnel? _tunnel;
     private static CodesysDriver? _driver;
+    private static Volt.Engine.Sync.HostLink? _link;
     private static string _pipeName = PipeNames.Codesys;
     private static readonly object _gate = new();
 
@@ -54,15 +55,17 @@ public static class PipeHost
             // The identity health reports, as read — so the first OEM log is the evidence (DIALECT V1/V4): the exe's
             // own product name sits beside OEMCustomization's, to show whether the two part (design B2).
             VoltLog.Info(_driver.IdentityLine());
-            _driver.Connect(); // snapshot on the primary thread (we are on it now)
+            var link = _link = Volt.Engine.Sync.HostLink.Of(_driver);
+            link.RefreshHealth(); // the rows at once, read on the primary thread (we are on it now)
 
-            _host = new BridgePipeHost(_driver, _pipeName);
+            _host = new BridgePipeHost(link, _pipeName);
             try { _host.Start(); }
             catch (Exception ex)
             {
                 VoltLog.Error($"in-proc bridge start failed: {ex.Message}");
                 _host = null;
                 _driver = null;
+                _link = null;
                 return "Volt bridge FAILED to start: " + ex.Message;
             }
 
@@ -149,12 +152,13 @@ public static class PipeHost
             _host.Stop();
             // The in-proc detach. It clears the degraded flag and nothing else — there is nothing to release:
             // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager, contrary to what
-            // this comment used to claim. Kept because this is the ONE production caller of IIdeSession.Disconnect():
+            // this comment used to claim. Kept because this is the ONE production caller of the session's Disconnect():
             // the in-proc host is stopped by an IronPython script and must detach, while the TwinCAT worker dies with
             // its process — that asymmetric reachability IS the InIdeLoad/ExternalAttach lifecycle difference.
-            _driver?.Disconnect();
+            _link?.Session.Disconnect();
             _host = null;
             _driver = null;
+            _link = null;
             return "Volt bridge stopped";
         }
     }

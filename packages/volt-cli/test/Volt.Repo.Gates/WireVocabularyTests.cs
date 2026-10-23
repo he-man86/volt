@@ -40,6 +40,7 @@ public class WireVocabularyTests
         // ── the frame codes ────────────────────────────────────────────────────────────────────────────────────
         new("no IDE project is served", "no project bound, or the bridge paused: send connect", "PLC_DISCONNECTED", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1),
+            ("Volt.Engine/Sync/HostLink.cs", 1),   // the ambient probe of a host whose IDE did not answer (volt-cli-rework step 6: BeckhoffDriver's, composed once)
             ("Volt.Engine/BridgeException.cs", 2),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.cs", 1),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1),   // -1 the save Volt no longer makes (D45)
@@ -125,12 +126,12 @@ public class WireVocabularyTests
             ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 4))),
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
+            ("Volt.Engine/Ide/MemberSites.cs", 1),   // a member with no declaration (volt-cli-rework step 6: both drivers' MemberDeclaration, one)
             ("Volt.Engine/Sync/TreeLookup.cs", 1),   // moved from Ide/ItemLookup (volt-cli-rework step 5)
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
-            ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // -1 the member declaration (MemberSites, volt-cli-rework step 6); +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 12),   // +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 1))),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
@@ -363,7 +364,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
         ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
         ("Volt.Engine/Seam/VendorRegistry.cs", 3),
-        ("Volt.Engine/Sync/HostLink.cs", 1),   // volt-cli-rework step 5: an old-contract member asked of a new-contract host's composed session — Volt's own invariant
+        ("Volt.Engine/Sync/HostLink.cs", 2),   // volt-cli-rework step 5: an old-contract member asked of a new-contract host's composed session; step 6: a health refresh asked of an old-contract host — Volt's own invariants
         ("Volt.Engine/Sync/Materializer.cs", 1),
         ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)

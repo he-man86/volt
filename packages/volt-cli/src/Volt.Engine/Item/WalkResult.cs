@@ -65,6 +65,24 @@ public sealed class WalkResult
     /// <summary>True when the walk saw the whole tree, so absence from <see cref="Items"/> is meaningful.</summary>
     public bool Complete => UnwalkedFolders.Count == 0;
 
+    /// <summary>This walk on the new contract, its kinds as strings. An unmapped code and a container manager (a library,
+    /// recipe or visualization manager: a folder, never an item) become no <see cref="Seam.WalkedItem"/>; unwalked,
+    /// unreadable and applications unchanged.</summary>
+    public Seam.HostWalk ToHostWalk()
+    {
+        var items = new List<Seam.WalkedItem>(Items.Count);
+        foreach (var it in Items)
+        {
+            if (ItemKind.Map(it.KindCode) is not { } kind)
+            {
+                Volt.Contracts.VoltLog.Debug($"walk skip: unmapped-kind '{it.Name}' (kindCode={it.KindCode})");
+                continue;
+            }
+            if (ItemKind.IsContainerManager(it.KindCode)) continue;
+            items.Add(new Seam.WalkedItem(it.Name, it.Item, kind, it.Folder));
+        }
+        return new Seam.HostWalk(items, UnwalkedFolders, UnreadableObjects, Applications);
+    }
 }
 
 /// <summary>An object the walk found at <paramref name="Folder"/> and did not read, and why.

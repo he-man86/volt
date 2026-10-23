@@ -47,9 +47,10 @@ public interface IVendorSession
     /// <summary>Run a unit of IDE work on the thread the vendor requires. Called only through the engine's bracketing.</summary>
     T MarshalToIdeThread<T>(Func<T> fn);
 
-    /// <summary>The connectable project rows, read on the IDE thread for the ambient health probe. Throwing IS the probe
-    /// failing (a cross-process IDE that stopped answering).</summary>
-    IReadOnlyList<ProjectEntry> ProjectRows();
+    /// <summary>The connectable project rows and the binding's liveness, read on the IDE thread — by the ambient health
+    /// probe and right after a connect or a select. Never throws for an IDE that stopped answering: that is
+    /// <see cref="ProjectProbe.NotAnswering"/>, so the rows are still published (a request-path refresh must not fail).</summary>
+    ProjectProbe ProbeProjects();
 
     /// <summary>The floor on ambient probing for this vendor, in ms: what one row snapshot costs it.</summary>
     long HealthProbeFloorMs { get; }
@@ -66,6 +67,11 @@ public interface IVendorSession
     /// <summary>Every referenced library element's signature; a vendor with no library manager answers none.</summary>
     IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 }
+
+/// <summary>One health probe's answer. <see cref="Bound"/>: the served binding is live (the engine clears a degraded
+/// session). <see cref="NotAnswering"/>: why a cross-process IDE did not answer, or null — the ambient probe then fails
+/// with <c>PLC_DISCONNECTED</c> after the rows are published.</summary>
+public sealed record ProjectProbe(IReadOnlyList<ProjectEntry> Rows, bool Bound, string? NotAnswering = null);
 
 /// <summary>What a node of the vendor's tree IS to the engine.</summary>
 public enum NodeRole

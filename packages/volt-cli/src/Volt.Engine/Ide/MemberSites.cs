@@ -70,4 +70,22 @@ public static class MemberSites
             yield return new Site(string.IsNullOrEmpty(basePath) ? null : basePath, child, name, code);
         }
     }
+
+    /// <summary>A member's declaration, from the member's OWN declaration aspect (<paramref name="read"/>, the vendor's).
+    /// <para><b>An ACTION is the one member with no declaration to read</b>, in any IDE: IEC gives an action a name and a
+    /// body and nothing else. Its header is COMPOSED here rather than read — that is not a fallback for a missing value,
+    /// it is the whole of what an action's header is.</para></summary>
+    public static string Declaration(Site site, Func<ItemRef, string?> read)
+    {
+        if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
+
+        var decl = read(site.Ref);
+        // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. It was
+        // INTERNAL_ERROR, a Volt bug, for a broken item in the project (openspec bridge-refusal-review V.1).
+        if (string.IsNullOrWhiteSpace(decl))
+            throw new BridgeException(Volt.Contracts.BridgeErrorCodes.Unreadable,
+                $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
+                "transport gap");
+        return decl!;   // verbatim (bridge-one-to-one §1.1, every character)
+    }
 }

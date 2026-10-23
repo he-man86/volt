@@ -107,7 +107,7 @@ public sealed class Fakeco : VendorDriverBase, IVendorDriver
     public bool ShouldMarkDegraded(Exception ex) => false;
     public void Recover() { }
     public T MarshalToIdeThread<T>(Func<T> fn) { lock (_ide) return fn(); }
-    public IReadOnlyList<ProjectEntry> ProjectRows() => new[] { new ProjectEntry(Id, "1.0", "Plant", HealthStatus.Healthy, false) };
+    public ProjectProbe ProbeProjects() => new(new[] { new ProjectEntry(Id, "1.0", "Plant", HealthStatus.Healthy, false) }, Bound: true);
     public long HealthProbeFloorMs => 1000;
     public void SelectProject(ConnectRequest sel) { }
 

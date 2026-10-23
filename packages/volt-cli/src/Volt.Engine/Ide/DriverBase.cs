@@ -222,7 +222,7 @@ public abstract class DriverBase : IIdeSession
     /// OwnSolution across a COM apartment boundary, downstream of the hosting asymmetry ARCHITECTURE.md marks
     /// irreducible. One 5000 for both would put CODESYS's <c>IsConnected</c> — which only this probe writes — behind a
     /// window that aliases against the 4s poll to ~8s (Conventions #3).</para></summary>
-    internal const long DefaultProbeThrottleMs = 1000;
+    public const long DefaultProbeThrottleMs = 1000;
     protected virtual long ProbeThrottleMs => DefaultProbeThrottleMs;
 
     /// <summary>The ambient poll response, composed ONCE for both vendors: serve the cached row list, kick the
@@ -263,7 +263,7 @@ public abstract class DriverBase : IIdeSession
     /// is NOT frozen here — it is overlaid LIVE by <see cref="OverlayLiveHealth"/> at /health time, so a cached row
     /// can never report "healthy" over a channel that dropped after the snapshot. "Is it serving" derives from the
     /// wire status at the edge (status != idle), so there is no separate serving flag.</summary>
-    protected string RowStatus(bool serving) => serving ? HealthStatus.Healthy : HealthStatus.Idle;
+    public static string RowStatus(bool serving) => serving ? HealthStatus.Healthy : HealthStatus.Idle;
 
     /// <summary>The LIVE verdict for the one served row, derived from the current link signals — the pure decision,
     /// unit-tested without an IDE. An op holding the thread is a live link (busy → healthy); a recent transient is

@@ -109,6 +109,16 @@ namespace Volt.Engine.Ide
     /// writer resolves the boxes against the same declarations the reader did, and the driver builds none of its own.</summary>
     public sealed record PushedNetworkBody(BodySite Site, NetworkBody Model, NetworkScope Scope)
     {
+        /// <summary>The network bodies among a push's shown bodies (<see cref="PushedBody"/>), each with the model and the
+        /// scope its reader (<see cref="NetworkBodyReader"/>) made — what a family host's writer and pre-flight take.</summary>
+        public static IReadOnlyList<PushedNetworkBody> Of(IReadOnlyList<PushedBody> bodies)
+        {
+            var network = new List<PushedNetworkBody>();
+            foreach (var b in bodies)
+                if (b.Model is NetworkRead read) network.Add(new PushedNetworkBody(b.Site, read.Model, read.Scope));
+            return network;
+        }
+
         /// <summary>The validated body at <paramref name="site"/> whose text is <paramref name="body"/> — or null when that
         /// body is no network text (ST, a hidden body, none). A network-text body with NO entry is Volt's bug: every one
         /// the push writes passed the pre-flight (<see cref="SourceScopes.Validated"/>), so a write handed one without its

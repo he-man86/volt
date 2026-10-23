@@ -7,20 +7,20 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Library;
+using Volt.Engine.Seam;
 
 namespace Volt.Ide.Codesys;
 
 /// <summary>
-/// The CODESYS IDE driver: implements the Core <see cref="IIdeDriver"/> over the live project reached
+/// The CODESYS IDE driver: implements the Engine's <see cref="IVendorDriver"/> over the live project reached
 /// in-process through the .NET object model (<see cref="CodesysObjectModel"/>, reflection-only — no
 /// CODESYS assembly references). Object-model touches are marshalled onto the CODESYS primary thread via
-/// <see cref="RunOnStaThread{T}"/>: Core's <c>Wire/BridgePipeHost</c> wraps every project-touching op in it
-/// (its <c>RunOp</c>/<c>RunRead</c>). The two exceptions are <see cref="Connect"/> and
-/// <see cref="SelectProject"/>, which call <see cref="SnapshotHealth"/> directly because they already run ON
-/// that thread. Split across partial
-/// files by interface facet: this file is the session; <c>.Tree</c> and <c>.Code</c> are the others.
+/// <see cref="MarshalToIdeThread{T}"/>, which the engine's session composition brackets around every
+/// project-touching op. Its own IEC tree facet (<see cref="IProjectTree"/>) is what the Engine's family helpers walk
+/// (<c>MemberSites</c>, <c>ProjectDeclarations</c>). Split across partial files by facet: this file is the session;
+/// <c>.Tree</c>, <c>.Content</c> and <c>.Seam</c> (the contract's tree and store words) are the others.
 /// </summary>
-public sealed partial class CodesysDriver : DriverBase, IIdeDriver
+public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IProjectTree
 {
     private readonly CodesysObjectModel _om;
     private readonly CodesysDispatcher? _dispatcher;
@@ -83,7 +83,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
 
     /// <summary>The product name as the IDE states it (<c>OEMCustomization.ProductName</c>, <c>health.productName</c>)
     /// — `CODESYS` included; null when the platform has no such member or states nothing.</summary>
-    public override string? ProductName { get; }
+    public string? ProductName { get; }
 
     /// <summary>The product name exactly as <c>OEMCustomization.ProductName</c> answered, unfiltered — logged at start
     /// (an empty or whitespace answer differs from a platform with no such member) and the input to
@@ -91,10 +91,10 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public string? ProductNameAsRead { get; }
 
     /// <summary>The IDE exe's own <c>ProductVersion</c>, verbatim (<c>health.productVersion</c>, DIALECT V4).</summary>
-    public override string? ProductVersion { get; }
+    public string? ProductVersion { get; }
 
     /// <summary>The IDE exe's <c>CompanyName</c> (<c>health.productVendor</c>, DIALECT V4).</summary>
-    public override string? ProductVendor { get; }
+    public string? ProductVendor { get; }
 
     /// <summary>The IDE exe's own <c>ProductName</c> — logged only, beside <see cref="ProductName"/> (design B2).</summary>
     public string? ExeProductName { get; }
@@ -121,51 +121,50 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <summary>The OEM product this CODESYS platform is (WAGO, Lenze, …), or null for plain CODESYS.</summary>
     public string? OemProduct { get; }
 
-    public override string? Unsupported => _unsupported;
+    public string? Unsupported => _unsupported;
+    public string? NotServedBecause => null;
 
     // Keyed on whether a project is actually OPEN (cached _hasProject), not just the persistent projects
     // collection — otherwise a closed project still reports "connected" with a null project name.
     // A reopen recovers on its own: the live PrimaryProject lookup makes the next probe flip _hasProject back.
-    public override bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
-    public override string Vendor => Vendors.Codesys;
+    public bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
+    public string Vendor => Vendors.Codesys;
     // LIVE, not the cached row: reads the primary project's path off the object model, so it must only be called on
     // the primary thread — which is where the in-op guard runs. Same value BuildProjects() snapshots.
-    public override string? ServedProjectName => IsConnected ? _om.ProjectName : null;
+    public string? ServedProjectName => IsConnected ? _om.ProjectName : null;
     // The PLATFORM version, pure (`3.5.21.40`) — a client may parse it. Was the constant "3.5", so nothing — bridge
     // or client — knew which CODESYS it was in (openspec codesys-minimum-version). An OEM product's name is a separate
     // fact (OemProduct): the start log and the message-window line carry it, never this field.
-    public override string? IdeVersion => _platformVersion;
+    public string? IdeVersion => _platformVersion;
 
-    /// <summary>CODESYS startup attach: snapshot health on the primary thread (called by its own PipeHost, not Core).</summary>
-    public void Connect() => SnapshotHealth();
-    public override void Disconnect() { ClearDegraded(); }
+    /// <summary>The in-proc detach: nothing to release (the engine's session clears its degraded flag around it).</summary>
+    public void Disconnect() { }
 
-    /// <summary>Refresh the cached health snapshot from the in-proc object model's TOP-LEVEL state (project
-    /// name/dirty/open + the one-project instances list) — no tree walk. MUST run on the primary thread:
-    /// <see cref="Connect"/> / <see cref="SelectProject"/> call it directly (already on it), the async probe via
-    /// <see cref="RunOnStaThread{T}"/>. So a new binding shows in health at once. Parallels the TwinCAT driver's
-    /// SnapshotHealth. Cheap here (the one in-proc primary project), so the instances list rides along with health;
-    /// on TwinCAT the same snapshot carries the heavier ROT walk.</summary>
-    protected override void SnapshotHealth()
+    /// <summary>Read the in-proc object model's TOP-LEVEL state (project name/dirty/open, the one-project row) — no tree
+    /// walk. MUST run on the primary thread: <c>PipeHost</c>'s start refreshes right after its connect (already on it),
+    /// the engine's select refresh and ambient probe through <see cref="MarshalToIdeThread{T}"/>. Cheap here (the one
+    /// in-proc primary project). A project open is a live binding (<see cref="ProjectProbe.Bound"/>: the engine clears
+    /// degraded); an in-proc IDE always answers.</summary>
+    public ProjectProbe ProbeProjects()
     {
         bool has = _om.HasPrimaryProject;
         // `serving` must reflect THIS snapshot's freshly-read state, not the cached _hasProject (still the old value
-        // until the publication below). Reading IsConnected inside BuildProjects would lag one cycle on the
-        // project-open transition — reporting serving=false for ~4s after Connect and bouncing a pull/push with
-        // PLC_DISCONNECTED.
+        // until the write below). Reading IsConnected inside BuildProjects would lag one cycle on the project-open
+        // transition — reporting serving=false for ~4s after the start and bouncing a pull/push with PLC_DISCONNECTED.
         bool connected = _dispatcher != null && has && _om.HasObjectManager;
         var projects = BuildProjects(connected);
-        // _hasProject FIRST, THEN the rows. The row cache lives in DriverBase now, so these are two publication
-        // instants where they used to be one lock scope — and the order is not free. Publishing rows first opens
-        // exactly the window the comment above records: a row visible as `serving` while IsConnected still reads
-        // false, i.e. OpGuard bouncing a pull/push with PLC_DISCONNECTED. This order can only make IsConnected
-        // early, never late. (_hasProject is volatile, so the write is its own release.)
+        // _hasProject FIRST, THEN the rows: the engine publishes them when this returns, and the order is not free.
+        // Publishing rows first would open exactly the window the comment above records: a row visible as `serving`
+        // while IsConnected still reads false, i.e. OpGuard bouncing a pull/push with PLC_DISCONNECTED. This order can
+        // only make IsConnected early, never late. (_hasProject is volatile, so the write is its own release.)
         _hasProject = has;
-        PublishRows(projects);
-        if (has && IsDegraded) ClearDegraded();
+        return new ProjectProbe(projects, Bound: has);
     }
 
-    protected override T MarshalToIdeThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
+    public T MarshalToIdeThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
+
+    /// <summary>The engine's default floor (<see cref="DriverBase.DefaultProbeThrottleMs"/>): see the note below.</summary>
+    public long HealthProbeFloorMs => DriverBase.DefaultProbeThrottleMs;
 
     /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single project row (CODESYS has
     /// no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's multi-instance ROT
@@ -173,39 +172,39 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// two running CODESYS on the same-named project reach the same wire identity (the per-pid PIPE, not a row field,
     /// is what still routes each). The one project is always `serving` when connected (the in-proc host is bound to
     /// it). CODESYS never AUTO-degrades from an op exception (<see cref="ShouldMarkDegraded"/> is always false), but a
-/// failing ambient probe still marks it degraded — <c>DriverBase.OnProbeFailed</c> calls <c>MarkDegraded</c> for
-/// every vendor, and a degraded row IS wire-visible. That is why <see cref="Disconnect"/> and
-/// <see cref="SnapshotHealth"/> still call <c>ClearDegraded()</c>.</summary>
+    /// failing ambient probe still marks it degraded (the engine's session does so for every vendor), and a degraded row
+    /// IS wire-visible: a probe with a project open clears it, as a disconnect does.</summary>
     private List<ProjectEntry> BuildProjects(bool serving)
     {
         var name = _om.ProjectName;
         if (string.IsNullOrEmpty(name)) return new List<ProjectEntry>();
         return new List<ProjectEntry>
         {
-            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, RowStatus(serving), _om.ProjectDirty),
+            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, DriverBase.RowStatus(serving), _om.ProjectDirty),
         };
     }
 
     /// <summary>The in-proc host can only serve the primary project of the CODESYS it was loaded into (it can't
-    /// switch to another process's project), so `select` confirms/refreshes that binding rather than switching —
-    /// and the connector only ever offers this one CODESYS project. Selecting anything else is a no-op refresh.</summary>
-    public override void SelectProject(ConnectRequest sel) => SnapshotHealth();   // confirm/refresh the one primary project
+    /// switch to another process's project), so `select` confirms that binding rather than switching — and the
+    /// connector only ever offers this one CODESYS project. Nothing to do here: the engine refreshes the rows after
+    /// every select.</summary>
+    public void SelectProject(ConnectRequest sel) { }
 
     // In-process: no transport that can die mid-call, so never auto-degrade.
-    public override bool ShouldMarkDegraded(Exception ex) => false;
+    public bool ShouldMarkDegraded(Exception ex) => false;
+    public void Recover() { }
 
-    // No BuildHealthResponse/TriggerAsyncProbe/ProbeThrottleMs here: DriverBase composes the response and owns the
-    // probe, and this driver takes Core's default floor (DriverBase.DefaultProbeThrottleMs) instead of overriding it.
-    // The in-proc snapshot is cheap, but it still runs on the engineer's PRIMARY thread, and it used to run once per
-    // poll per frontend — tray + every VS Code workspace + the desktop window, each on its own 4s clock. NB the floor
-    // is well BELOW that 4s: _hasProject (the OpGuard precondition, written by SnapshotHealth — the ambient probe plus
-    // the on-thread Connect/SelectProject refreshes) is refreshed by every client poll exactly as before, so its
-    // staleness stays bounded by the slowest client's poll, not by the floor — which is why the number is 1000 and not
-    // TwinCAT's 5000. Cached list, live verdict: CODESYS never AUTO-degrades from an op (ShouldMarkDegraded => false),
-    // and a CLOSED project makes the next probe publish an empty row list. A HUNG primary thread is NOT demoted today:
-    // the probe marshals through RunOnStaThread too, so it pins DriverBase._opInFlight above 0 and DeriveServedStatus
-    // keeps answering "healthy" — that is DriverBase's open _opInFlight ARCH FOLLOW-UP, not a guarantee this driver
-    // gets. See DriverBase.OverlayLiveHealth.
+    // No health composition here: the engine's session composes the response and owns the probe, and this driver takes
+    // the engine's default floor (DriverBase.DefaultProbeThrottleMs). The in-proc snapshot is cheap, but it still runs
+    // on the engineer's PRIMARY thread, and it used to run once per poll per frontend — tray + every VS Code workspace +
+    // the desktop window, each on its own 4s clock. NB the floor is well BELOW that 4s: _hasProject (the OpGuard
+    // precondition, written by ProbeProjects — the ambient probe plus the start and select refreshes) is refreshed by
+    // every client poll exactly as before, so its staleness stays bounded by the slowest client's poll, not by the floor
+    // — which is why the number is 1000 and not TwinCAT's 5000. Cached list, live verdict: CODESYS never AUTO-degrades
+    // from an op (ShouldMarkDegraded => false), and a CLOSED project makes the next probe publish an empty row list. A
+    // HUNG primary thread is NOT demoted today: the probe marshals through the same bracketing, so it pins the session's
+    // in-flight count above 0 and DeriveServedStatus keeps answering "healthy" — DriverBase's open _opInFlight ARCH
+    // FOLLOW-UP, not a guarantee this driver gets. See DriverBase.OverlayLiveHealth.
 
 
     /// <summary>EVERY APPLICATION IS BUILT (openspec multi-application-tree, design §6) — it was only the first one
@@ -215,7 +214,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <see cref="GetBuildDiagnostics"/>. The build succeeds when every application's does.</para>
     /// <para>A build that names applications (openspec <c>build-selects-application</c>) builds those alone, so the message
     /// view holds only their messages.</para></summary>
-    public override bool Build(IReadOnlyCollection<string>? applications)
+    public bool Build(IReadOnlyCollection<string>? applications)
     {
         var all = Applications();
         if (all.Count == 0) throw new InvalidOperationException("CODESYS: no Application to build");
@@ -241,7 +240,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <summary>The precompile + read — FetchService calls this only when a .library version changed. ONCE PER
     /// APPLICATION (design §6): each has its own Library Manager, and its signatures land beside ITS `.library` files —
     /// each signature carries the root of the application it was extracted for.</summary>
-    public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
+    public IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures()
     {
         var applications = Applications();
         if (applications.Count == 0)
@@ -277,7 +276,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         return found;
     }
 
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk)
+    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<HostWalk> walk)
     {
         var raw = FoldAcrossBuilds(_lastBuilds
                                    ?? new() { _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList() });
@@ -356,8 +355,8 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <para>Children are read only for a guid the top-level walk did not place, so a build whose errors are all in
     /// item bodies opens no POU. The descent is structural - names, guids and folder flags, no object reads - and is
     /// limited to the kinds that HOLD members (<see cref="ItemKind.HoldsMembers"/>).</para></summary>
-    /// <param name="walk">The build's one walk of the tree (<c>IIdeSession.GetBuildDiagnostics</c>).</param>
-    private Dictionary<Guid, Placement> NamesFor(List<Dictionary<string, object?>> raw, Func<WalkResult> walk)
+    /// <param name="walk">The build's one walk of the tree (<c>IVendorSession.GetBuildDiagnostics</c>).</param>
+    private Dictionary<Guid, Placement> NamesFor(List<Dictionary<string, object?>> raw, Func<HostWalk> walk)
     {
         var wanted = new HashSet<Guid>(raw.Select(m => m.TryGetValue("objectGuid", out var g) ? g as Guid? : null)
                                           .Where(g => g is not null).Select(g => g!.Value));
@@ -377,7 +376,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         }
         foreach (var pi in items)
         {
-            if (!ItemKind.HoldsMembers(pi.KindCode)) continue;
+            if (!ItemKind.HoldsMembers(pi.Kind)) continue;
             foreach (var child in _om.GetChildren(pi.Item.Native))
             {
                 if (PlaceUnder(child, ItemPath.Of(pi.Folder, pi.Name), wanted, names) && names.Count == wanted.Count) return names;

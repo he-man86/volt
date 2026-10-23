@@ -104,8 +104,8 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var pipe = "volt.test." + Guid.NewGuid().ToString("N");
-                using var host = new BridgePipeHost(new CodesysDriver(null,
-                    () => new CodesysPlatform.HostExe("PLC Designer", "4.1.0.37740", "Lenze Automation GmbH")), pipe);
+                using var host = new BridgePipeHost(Volt.Engine.Sync.HostLink.Of(new CodesysDriver(null,
+                    () => new CodesysPlatform.HostExe("PLC Designer", "4.1.0.37740", "Lenze Automation GmbH"))), pipe);
                 host.Start();
                 var h = new PipeClient(pipe).Call("health");
 

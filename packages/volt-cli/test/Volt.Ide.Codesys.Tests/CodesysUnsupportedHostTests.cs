@@ -27,7 +27,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var pipe = "volt.test." + Guid.NewGuid().ToString("N");
-                using var host = new BridgePipeHost(new CodesysDriver(projects: null), pipe);
+                using var host = new BridgePipeHost(Volt.Engine.Sync.HostLink.Of(new CodesysDriver(projects: null)), pipe);
                 host.Start();
                 run(new PipeClient(pipe));
             }

@@ -46,7 +46,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var driver = new CodesysDriver(new Projects(new GuidNode("<project>", null, node)));
-                var text = Materializer.Materialize(driver, "SER_Mode", ItemKind.Kinds.Dut, new ItemRef(node)).Text;
+                var text = Materializer.Materialize(Volt.Engine.Sync.HostLink.Of(driver), "SER_Mode", ItemKind.Kinds.Dut, new ItemRef(node)).Text;
                 Assert.Equal(decl + "\n%CLASS TEXTLIST_ENUM\n", text.Replace("\r\n", "\n"));
             }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }

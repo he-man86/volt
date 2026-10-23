@@ -683,23 +683,10 @@ public sealed partial class BeckhoffDriver
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);
 
-    /// <summary><b>An ACTION is the one member with no declaration to read</b>: IEC gives an action a name and
-    /// a body and nothing else, and Beckhoff's own object model says so — <c>_ITcPlcImplementation</c> exposes
-    /// <c>ImplementationText</c> and no <c>DeclarationText</c>. Its header is COMPOSED here rather than read;
-    /// that is not a fallback for a missing value, it is the whole of what an action's header is.</summary>
-    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site)
-    {
-        if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
-
-        var decl = _om.ReadDeclaration(Com(site.Ref));
-        // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. It was
-        // INTERNAL_ERROR, a Volt bug, for a broken item in the project (openspec bridge-refusal-review V.1).
-        if (string.IsNullOrWhiteSpace(decl))
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
-                "transport gap");
-        return decl;   // verbatim (bridge-one-to-one §1.1, every character)
-    }
+    /// <summary>Beckhoff's object model agrees an action has no declaration: <c>_ITcPlcImplementation</c> exposes
+    /// <c>ImplementationText</c> and no <c>DeclarationText</c> (<see cref="Volt.Engine.Ide.MemberSites.Declaration"/>).</summary>
+    private string MemberDeclaration(Volt.Engine.Ide.MemberSites.Site site) =>
+        Volt.Engine.Ide.MemberSites.Declaration(site, item => _om.ReadDeclaration(Com(item)));
 
 
     /// <summary>Write a property's GET or SET. The accessor EXISTS by the time this runs - creating and deleting

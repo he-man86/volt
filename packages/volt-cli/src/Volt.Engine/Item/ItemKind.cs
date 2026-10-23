@@ -23,7 +23,7 @@ using System.Linq;
 /// 628/629/631/632/633/657 are observed live with no published name. Full coverage map + per-kind live status:
 /// docs/items.html.
 /// </summary>
-public static class ItemKind
+public static partial class ItemKind
 {
     // ── [both] source POU / DUT kinds (full ST text); each named after its official TREEITEMTYPE ──
     public const int PlcFolder = 601;
@@ -334,6 +334,12 @@ public static class ItemKind
     /// items a CODESYS build diagnostic on a CHILD object is placed under (<c>CodesysDriver.NamesFor</c>), and the only
     /// items a diagnostic that carries a member can be named for (<c>BuildService.PromoteNames</c>).</summary>
     public static bool HoldsMembers(int code) => code is PlcPou or PlcPouProg or PlcPouFunc or PlcItf;
+
+    /// <summary><see cref="HoldsMembers(int)"/> for a walked item's kind: a POU or an interface.</summary>
+    public static bool HoldsMembers(string kind) => kind is Kinds.Pou or Kinds.Interface;
+
+    /// <summary><see cref="IsAddressableItem(int)"/> for a walked item's kind: a source kind or a writable descriptor.</summary>
+    public static bool IsAddressableItem(string kind) => IsSourceKind(kind) || WritableReferenceSet.Contains(kind);
 
     public static bool IsInlinedInPou(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp

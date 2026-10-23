@@ -120,7 +120,7 @@ namespace Volt.Ide.Codesys.Tests
         private static string Pulled(Node pou, params Node[] nodes)
         {
             var read = new CodesysDriver(projects: null);
-            return Materializer.Materialize(read, pou.get_name(false), ItemKind.Kinds.Pou, new ItemRef(pou)).Text.Replace("\r\n", "\n");
+            return Materializer.Materialize(Volt.Engine.Sync.HostLink.Of(read), pou.get_name(false), ItemKind.Kinds.Pou, new ItemRef(pou)).Text.Replace("\r\n", "\n");
         }
 
         private static T With<T>(PropManager mgr, Func<T> body)

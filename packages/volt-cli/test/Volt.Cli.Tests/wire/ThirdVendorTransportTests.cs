@@ -29,7 +29,9 @@ public class ThirdVendorTransportTests
     {
         var ide = new Fakeco();
         var pipe = Pipe();
-        var host = new BridgePipeHost(HostLink.Of(ide), pipe);
+        var link = HostLink.Of(ide);
+        link.RefreshHealth();   // what a host's start does, on its IDE thread right after its connect
+        var host = new BridgePipeHost(link, pipe);
         host.Start();
         return (ide, host, new PipeClient(pipe));
     }

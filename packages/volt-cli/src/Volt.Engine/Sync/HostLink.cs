@@ -46,6 +46,12 @@ public sealed class HostLink
         return new HostLink(() => host, new ComposedSession(host));
     }
 
+    /// <summary>The host's start, on its IDE thread right after its connect: the rows show in <c>health</c> at once
+    /// (<see cref="ComposedSession.Refresh"/>).</summary>
+    public void RefreshHealth() =>
+        (Session as ComposedSession ?? throw new InvalidOperationException("an old-contract host refreshes its own session"))
+            .Refresh();
+
     public static HostLink Of(IIdeDriver old) =>
         new(() => new LegacyDriver(old), old ?? throw new ArgumentNullException(nameof(old)));
 
@@ -54,17 +60,28 @@ public sealed class HostLink
 }
 
 /// <summary>The session composition (<see cref="DriverBase"/>) over the PRIMITIVES a new-contract host supplies (F5):
-/// its marshal, its project rows, its probe floor. Everything else is the host's, forwarded. The one member only an
+/// its marshal, its probe, its probe floor. Everything else is the host's, forwarded. What each host's own session did
+/// around its snapshot is done here once: a live binding clears degraded, an ambient probe whose IDE did not answer fails,
+/// a <c>select</c> refreshes the rows after the host's own, a <c>disconnect</c> clears degraded. The one member only an
 /// old-contract driver is asked through its session (its walk-based build diagnostics) is never asked here: the engine
 /// asks the host itself.</summary>
 public sealed class ComposedSession : DriverBase
 {
     private readonly IVendorDriver _host;
 
-    public ComposedSession(IVendorDriver host)
+    public ComposedSession(IVendorDriver host) => _host = host;
+
+    /// <summary>The rows, read NOW on the calling thread: the host's start, already on its IDE thread right after its
+    /// connect, so the rows show at once. The liveness verdict is not acted on — a request-path refresh never fails.</summary>
+    public void Refresh() => Probe();
+
+    /// <summary>One probe: a live binding clears degraded (as each host's own snapshot did), then the rows are published.</summary>
+    private ProjectProbe Probe()
     {
-        _host = host;
-        RunOnStaThread(() => { SnapshotHealth(); return 0; });   // what a host's connect does: the rows show at once
+        var probe = _host.ProbeProjects();
+        if (probe.Bound && IsDegraded) ClearDegraded();
+        PublishRows(probe.Rows.ToList());
+        return probe;
     }
 
     public override bool IsConnected => _host.IsConnected;
@@ -76,13 +93,24 @@ public sealed class ComposedSession : DriverBase
     public override string? ProductVendor => _host.ProductVendor;
     public override string? Unsupported => _host.Unsupported;
     public override string? NotServedBecause => _host.NotServedBecause;
-    public override void Disconnect() => _host.Disconnect();
+    public override void Disconnect() { _host.Disconnect(); ClearDegraded(); }
     public override bool ShouldMarkDegraded(Exception ex) => _host.ShouldMarkDegraded(ex);
     public override void Recover() => _host.Recover();
     protected override T MarshalToIdeThread<T>(Func<T> fn) => _host.MarshalToIdeThread(fn);
     protected override long ProbeThrottleMs => _host.HealthProbeFloorMs;
-    protected override void SnapshotHealth() => PublishRows(_host.ProjectRows().ToList());
-    public override void SelectProject(ConnectRequest sel) => _host.SelectProject(sel);
+    protected override void SnapshotHealth() => Probe();
+
+    /// <summary>The ambient probe FAILS when the host's IDE did not answer — inside the marshalled closure, so the
+    /// freshness clock is not restamped, and the failure is logged and marks the session degraded.</summary>
+    public override void TriggerAsyncProbe() =>
+        RunProbeOnce(() => RunOnStaThread(() =>
+        {
+            if (Probe().NotAnswering is { } why) throw new BridgeException(BridgeErrorCodes.PlcDisconnected, why);
+            return 0;
+        }));
+
+    /// <summary>The host's select, then its rows at once (both hosts refreshed on select).</summary>
+    public override void SelectProject(ConnectRequest sel) { _host.SelectProject(sel); Probe(); }
     public override bool Build(IReadOnlyCollection<string>? applications) => _host.Build(applications);
     public override IReadOnlyList<LibSignature> ExtractLibrarySignatures() => _host.ExtractLibrarySignatures();
     public override string? RefusedLanguageChange(string site, string from, string to) => _host.RefusedLanguageChange(site, from, to);

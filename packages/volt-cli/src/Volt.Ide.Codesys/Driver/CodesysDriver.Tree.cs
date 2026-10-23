@@ -226,10 +226,12 @@ public sealed partial class CodesysDriver
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
-    /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
+    /// <summary>The push pre-flight's NAME refusal (<c>IVendorStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word CODESYS was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="CodesysRefusedNames"/>, the
-    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
-    public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
+    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked. A GVL, DUT or
+    /// interface name is never answered here: the measurements were taken on the other kinds.</summary>
+    public override string? RefusedName(string kind, string name) =>
+        kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut or ItemKind.Kinds.Interface ? null : NameRefusal(kind, name);
 
     /// <summary>Whether CODESYS refuses <paramref name="name"/> as a POU's name (<see cref="NameRefusal"/>, measured).
     /// Network scope asks it of a variable's declared type: a word no POU can be named is no function block a body
