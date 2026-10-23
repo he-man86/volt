@@ -333,7 +333,27 @@ standing practice:
             stub-manifest case: neither fixture serves a visualization or a text list); contract suite 208 answers per
             cell. Fixture map unchanged (no fixture or transpiler change).
       - [ ] the FULL release matrix, once before 4.1.
-- [ ] 3.4 The new-vendor gate from 1.3 green; the third test vendor still passes.
+- [x] 3.4 The new-vendor gate from 1.3 green; the third test vendor still passes.
+      WHAT "GREEN" MEANS HERE (stated 2026-10-23, gate review): the gate's tests pass — `Seam/` (the contract a new
+      vendor implements) at its EXACT ZERO, and every ratchet holding (a ratchet fails when its count rises AND when it
+      falls without the pin being lowered). It does NOT mean the ratchets are at zero: 1.3 set them as the work list,
+      and design.md ("Ratchets only go down") never made zero this change's target. What stays, and where its work is:
+      `Vendors.cs` 11 → W1 (protocol 2); `Format/Network` 17 → E3 (owner: no family layer); the CLI 5 and `PushedText`'s
+      family code → the front-of-wire phase; the minter up-reach 1 → E5/T1, still open. The tick records the
+      gate, not the goal; the goal's remainder is these 33 + 1 + 1, re-measured by `input/rating-pins.sh`.
+      Done 2026-10-23 on a6f543b665, offline, no code change: `NewVendorGateTests` 4/4 green — the ratchet holds EXACTLY
+      (vendor symbols above `Ide/` 33 over 8 files, family codes in `Ide/I*.cs`+`Sync/` 1, `PushedText.cs`; 1.3 landed at
+      33 and 38) and `Seam/` at its exact zero; `Volt.Repo.Gates` 255/0. The third vendor: `ThirdVendorTransportTests` +
+      `ThirdVendorContractTests` 19/0 (Fakeco over the pipe), `SeamRegistryTests` 33/0. GREEN AS A RATCHET, NOT AT ZERO:
+      the 33 are `Vendors.cs` 11 (W1, protocol 2), `Format/Network` 17 (`NwlMembers`, `"NWL"`: E3, owner — no family
+      layer), the CLI 5 and `PushedText`'s code (front-of-wire). Also measured: the minter up-reach ratchet still holds 1
+      (`BeckhoffDriver.Tree.cs:597` calls `Volt.Engine.Sync.Versioning.PathOf`) — E5/T1 is NOT fixed, contrary to 4.0b
+      (corrected in `input/rating-after.md` 4.0c).
+      Gate 2026-10-24 (3.4+4.0c, docs-only: no `src/`/test/fixture change, fixture map unchanged): C# 5208 pass / 0 fail /
+      1 skip (Engine 3114+1, Cli 352, Contracts 62, Codesys 485, Twincat 714, Connector 154, Relay 72, Repo.Gates 255);
+      TS unit 226/0; LSP full suite (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) 10386 pass / 0 fail / 34 skip / 428 todo
+      (a first run beside the C# suite timed out `scripts/check-size.test.ts` at 5 s under CPU contention; 2.2 s alone,
+      green on the solo rerun); typecheck, lint, `bun run check` 16/0 green.
 
 ## 4. Close
 
