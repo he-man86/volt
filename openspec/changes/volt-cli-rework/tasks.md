@@ -295,8 +295,44 @@ standing practice:
             unchanged (no fixture or transpiler change).
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
-      codesys-3.5.22.40-64,twincat-32 --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
+      codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
       to 1.3's recording (a 1.2 wire deletion re-records it once, in its own change, before the rework).
+      - [x] small matrix on 2b162e8569 (after 3.1b, 2026-10-23): C# 5208 pass / 0 fail / 1 skip (Engine 3114+1 skip,
+            Cli 352, Contracts 62, Codesys 485, Twincat 714, Connector 154, Relay 72, Repo.Gates 255); TS unit 210/0;
+            codesys-3.5.22.40-64 GREEN 534 pass / 79 skip / 0 fail, transcript byte-identical; twincat-32 GREEN 534 pass /
+            81 skip / 0 fail, transcript byte-identical; the contract suite in both cells (208 answers each). The first
+            twincat-32 attempt was red before any test: the XAE showed an unanswered `TcXaeShell` OK dialog and exited
+            before a worker attached (no suite ran); the cell's rerun was green. 0 fixtures (no LSP or transpiler change).
+      - [x] Gate review findings, fixed first (each test-first):
+            - The matrix never compared the vendors WITH EACH OTHER: every cell serves one vendor, so
+              `vendor-parity.test.ts` and the cross-vendor half (d) of `refusals/` SKIPPED in all of them. New cell
+              `vendor-parity` (`vendorParityCell`/`judgeParity`, `release-matrix-cells.ts`): the newest runnable 64-bit
+              CODESYS + the 32-bit XAE on `TwinCAT Project14` (one PLC project) under ONE instance, only those suites, red
+              when either prints its one-vendor skip; in the small matrix from now on. Its first live run (both IDEs under
+              `-Instance volt-cli-rework`) was RED, 9 fail: every path-quoting refusal differed by `<root>/X.pou` against
+              `X.pou` — `refusals/table.ts` `normalize` masked TwinCAT's root prefix as `<root>/` and CODESYS's root is ""
+              (no prefix), so the mask itself made the vendors differ (unseen since multi-application-tree moved TwinCAT
+              items under their PLC project, because no run had both vendors up). The prefix is now DROPPED (both read
+              relative to the root they created in) and 4.31 masks the library-manager path before `normalize`. A test
+              premise defect, not a wire divergence: the answers are identical below the root. Then 80 pass / 1 skip / 0 fail.
+            - A red cell's cause was lost: `ide.ps1` logged an unanswered XAE dialog's title + buttons only, waited a dead
+              XAE out for 10 attach tries, and a rerun overwrote the cell log. `scripts/ide-dialogs.ps1`
+              (`Format-XaeDialog` with the dialog's MESSAGE, `Format-XaeExit`; `test/unit/ide-dialogs.test.ts`, 5): `up`
+              fails at once when its XAE exits, naming every dialog it showed; the matrix quotes those lines as the cell's
+              verdict (`upFailure`).
+            - No artifact tied a run to a commit: EVERY run (partial too) appends `runRecord` — commit, changed paths,
+              why partial, every cell's verdict — to `dist/release-matrix/runs.jsonl`, and every cell log opens with the
+              commit line; the checkout is read before AND after the run (HEAD moving during it is recorded). Only a full
+              run writes `result.json` (unchanged rule).
+            Gate numbers (2026-10-23): C# 5208 pass / 0 fail / 1 skip (Engine 3114+1 skip, Cli 352, Contracts 62, Codesys
+            485, Twincat 714, Connector 154, Relay 72, Repo.Gates 255); TS unit 226/0 (+16: release-matrix 36, ide-dialogs
+            5); LSP full suite (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo; typecheck, lint, `bun run
+            check` (16/0) green; live small matrix on 2b162e8569 + this step's test/script changes (no `src/` change;
+            `runs.jsonl` names the 10 paths): codesys-3.5.22.40-64 GREEN 534/79 skip, transcript identical; twincat-32
+            GREEN 534/81 skip, transcript identical (first attempt, no dialog); vendor-parity GREEN 80 pass / 1 skip (the
+            stub-manifest case: neither fixture serves a visualization or a text list); contract suite 208 answers per
+            cell. Fixture map unchanged (no fixture or transpiler change).
+      - [ ] the FULL release matrix, once before 4.1.
 - [ ] 3.4 The new-vendor gate from 1.3 green; the third test vendor still passes.
 
 ## 4. Close

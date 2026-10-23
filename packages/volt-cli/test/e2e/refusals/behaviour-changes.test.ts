@@ -184,9 +184,8 @@ const ROWS: Row[] = [
 			// The target path is each vendor's own tree (CODESYS `…/Application/Library Manager`, TwinCAT `References`) —
 			// the representation asymmetry ARCHITECTURE.md keeps; the answer around it must match.
 			const node = target.slice(target.lastIndexOf("/") + 1)
-			return JSON.parse(
-				JSON.stringify(normalize(r, b)).split(target).join("<library manager>").split(`'${node}'`).join("'<library manager>'"),
-			)
+			// Masked BEFORE normalize, which drops the root prefix the full target path is spelled with.
+			return normalize(JSON.parse(JSON.stringify(r).split(target).join("<library manager>").split(`'${node}'`).join("'<library manager>'")), b)
 		},
 	},
 	{

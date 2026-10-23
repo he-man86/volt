@@ -6,7 +6,7 @@
 export type Vendor = "codesys" | "twincat"
 /** A cell; `bits` is absent only on a vendor's `-none` cell, which is red by its refusal and never runs. `fixture` is
  *  relative to `test/fixtures`: a CODESYS `.project`, or the TwinCAT `.sln` (`TWINCAT_FIXTURE`). */
-export type Cell = { id: string; vendor: Vendor; version?: string; bits?: 32 | 64; fixture?: string; refusal?: string; mixed?: true }
+export type Cell = { id: string; vendor: Vendor; version?: string; bits?: 32 | 64; fixture?: string; refusal?: string; mixed?: true; parity?: { codesys: Cell; twincat: Cell } }
 export type Outcome = { pass: number; fail: number; skip: number; exit: number | null }
 export type Report = { vendor: string; bits: number; ideVersion: string | null; project: string }
 export type Verdict = { cell: Cell; green: boolean; why: string; outcome?: Outcome }
@@ -83,6 +83,55 @@ export function mixedVersionCell(codesys: Cell[]): Cell {
 	}
 }
 
+/**
+ * THE VENDOR-PARITY CELL (gate 3.3 review): every other cell serves ONE vendor, so `test/e2e/vendor-parity.test.ts` and
+ * the cross-vendor half (d) of `test/e2e/refusals` skip in all of them, and the matrix never compared CODESYS with
+ * TwinCAT — the byte-identical wire the rework promises. This cell serves both under one instance: the newest runnable
+ * CODESYS (64-bit first) on its own fixture, and the 32-bit XAE first on {@link PARITY_TWINCAT_FIXTURE}. Red by name where
+ * either vendor has no runnable cell.
+ */
+export const PARITY_TWINCAT_FIXTURE = "TwinCAT Project14/TwinCAT Project14.sln"
+/** The suites that compare the two vendors, and nothing else: the parity cell runs exactly these. */
+export const PARITY_TESTS = ["test/e2e/vendor-parity.test.ts", "test/e2e/refusals"]
+
+const versionKey = (v: string) => v.split(".").map((n) => n.padStart(6, "0")).join(".")
+
+export function vendorParityCell(codesys: Cell[], twincat: Cell[]): Cell {
+	const cs = codesys.filter((c) => !c.refusal && c.version && c.bits)
+		.sort((a, b) => (b.bits! - a.bits!) || (versionKey(b.version!) < versionKey(a.version!) ? -1 : versionKey(b.version!) > versionKey(a.version!) ? 1 : 0))[0]
+	const tc = twincat.filter((c) => !c.refusal && c.bits).sort((a, b) => a.bits! - b.bits!)[0]
+	const missing = [cs ? "" : "no runnable CODESYS cell", tc ? "" : "no runnable TwinCAT cell"].filter(Boolean)
+	return {
+		id: "vendor-parity", vendor: "codesys",
+		parity: cs && tc ? { codesys: cs, twincat: { ...tc, fixture: PARITY_TWINCAT_FIXTURE } } : undefined,
+		refusal: missing.length ? `the vendor-parity cell serves both vendors at once, and this machine has ${missing.join(" and ")}` : undefined,
+	}
+}
+
+/** What the two-vendor suites print when they ran against one vendor only — each a reason the parity cell is red. */
+const ONE_VENDOR_ONLY = [/^vendor-parity: SKIPPED — needs both bridges.*$/m, /^refusals: only \w+ is up — the vendor-parity half \(d\) is SKIPPED$/m, /^refusals: SKIPPED — .*$/m]
+
+/** The parity cell's verdict: its suites ran to the end with no failure, and neither compared one vendor with nothing. */
+export function judgeParity(cell: Cell, outcome: Outcome | undefined, text: string): Verdict {
+	if (cell.refusal) return { cell, green: false, why: cell.refusal }
+	if (!outcome) return { cell, green: false, why: "the suite printed no summary (it did not run to the end)" }
+	const skipped = ONE_VENDOR_ONLY.map((re) => re.exec(text)?.[0]).filter((l): l is string => l !== undefined)
+	if (skipped.length > 0) return { cell, green: false, why: `the vendors were not compared: ${skipped.join(" | ")}`, outcome }
+	if (outcome.fail > 0 || outcome.exit !== 0) return { cell, green: false, why: `${outcome.fail} failed (exit ${outcome.exit})`, outcome }
+	return { cell, green: true, why: `${outcome.pass} pass, ${outcome.skip} skip`, outcome }
+}
+
+/** Why `ide.ps1 up` failed, in its own words: the modal dialogs it saw and an IDE that exited, so a red cell names the
+ *  fault and a green rerun cannot hide it (gate 3.3 review: a TcXaeShell OK-only dialog was lost that way). */
+export function upFailure(text: string): string {
+	// From the pid on: PowerShell prefixes a warning with `WARNING: ` and a thrown error with the script's name.
+	const said = text.split(/\r?\n/).map((l) => /(XAE \d+ (?:shows a modal dialog|exited before a worker attached).*)$/.exec(l.trim())?.[1])
+		.filter((l): l is string => l !== undefined)
+		// The exit line quotes the dialogs it showed: a dialog line it already holds is said once.
+		.filter((l, i, all) => all.indexOf(l) === i && !all.some((o) => o !== l && o.includes(l)))
+	return said.length ? `the IDE did not come up: ${said.join(" | ")}` : "the IDE did not come up (see the cell log)"
+}
+
 /** One bridge build the cells serve: a project, and for the TwinCAT worker the RID of a cell's shell bitness. */
 export type BridgeBuild = { project: "Volt.Ide.Codesys" | "Volt.Ide.Twincat"; rid?: "win-x86" | "win-x64" }
 
@@ -93,7 +142,7 @@ export type BridgeBuild = { project: "Volt.Ide.Codesys" | "Volt.Ide.Twincat"; ri
  * which is where `ide.ps1` spawns it from.
  */
 export function bridgeBuilds(cells: Cell[]): BridgeBuild[] {
-	const runnable = cells.filter((c) => !c.refusal)
+	const runnable = cells.filter((c) => !c.refusal).flatMap((c) => (c.parity ? [c.parity.codesys, c.parity.twincat] : [c]))
 	const builds: BridgeBuild[] = []
 	if (runnable.some((c) => c.vendor === "codesys")) builds.push({ project: "Volt.Ide.Codesys" })
 	for (const bits of [32, 64] as const)
@@ -176,6 +225,19 @@ export function dirtyPaths(porcelain: string): string[] {
 		const arrow = path.indexOf(" -> ")
 		return (arrow >= 0 ? path.slice(arrow + 4) : path).replace(/^"|"$/g, "")
 	}).filter((p) => !p.startsWith("openspec/"))
+}
+
+/**
+ * One run's record, appended to `dist/release-matrix/runs.jsonl` by EVERY run (partial too) and written as `result.json`
+ * by a full one (gate 3.3 review: a partial run wrote nothing, so a small matrix's result was tied to its commit by no
+ * record, and a red attempt was overwritten by its green rerun). Green only when every cell is and the checkout is HEAD.
+ */
+export function runRecord(commit: string, changed: string[], at: string, partial: string | null, verdicts: Verdict[]) {
+	const dirty = changed.length > 0
+	return {
+		commit, dirty, changed, partial, at, green: verdicts.length > 0 && verdicts.every((v) => v.green) && !dirty,
+		cells: verdicts.map((v) => ({ id: v.cell.id, green: v.green, why: v.why })),
+	}
 }
 
 /** `dist/release-matrix/result.json`, as `scripts/release-matrix.ts` writes it. */

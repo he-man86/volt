@@ -28,8 +28,16 @@
  * with the cell's committed reference `packages/volt-cli/test/transcripts/<cell>.jsonl` (`<cell>.transcript.jsonl`,
  * `<cell>.transcript.diff`; openspec volt-cli-rework 1.3). A transcript that differs, or a cell with no reference, is red
  * by name. One more cell, `mixed-version`, pairs the current CLI with the previous release's bridge and the reverse
- * (`packages/volt-cli/scripts/mixed-version.ts`, on CODESYS 3.5.21.40 64-bit; red by name where that cannot run). No step is interactive and every result is a file in `dist/release-matrix/`, so a self-hosted runner can run
- * this unchanged.</p>
+ * (`packages/volt-cli/scripts/mixed-version.ts`, on CODESYS 3.5.21.40 64-bit; red by name where that cannot run). And
+ * `vendor-parity` compares the two vendors with EACH OTHER — every other cell serves one, so `vendor-parity.test.ts` and
+ * the cross-vendor half of `refusals/` skip there: it serves a CODESYS and a TwinCAT cell's IDE under one instance, runs
+ * those suites alone, and is red when either skipped (`judgeParity`). No step is interactive and every result is a file
+ * in `dist/release-matrix/`, so a self-hosted runner can run this unchanged.</p>
+ *
+ * <p>EVERY run, partial too, appends its record to `runs.jsonl` — the commit it tested, the paths that differed, why it
+ * was partial, each cell's verdict — and every cell log opens with that commit, so a small matrix names its commit and
+ * a red attempt stays on file beside its green rerun. A red cell whose IDE did not come up quotes `ide.ps1 up`'s own
+ * words (an XAE's unanswered dialog with its message, an XAE that exited before a worker attached).</p>
  *
  * <p>A result is written only for a full run on a checkout that IS its HEAD (modified or untracked files outside
  * `openspec/` record it NOT green). `release.ts` attaches it to the release as `release-matrix.json`, and
@@ -49,12 +57,12 @@
  * machine enough to push the latency test past its floors. Windows only.
  */
 import { spawn, spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 import {
-	bridgeBuilds, codesysCells, dirtyPaths, judge, mixedVersionCell, parseSummary, proofRefusal, renderMatrix, transcriptReference, twincatCells,
-	withTranscript, type Cell, type Outcome, type Report, type TranscriptOutcome, type Verdict,
+	bridgeBuilds, codesysCells, dirtyPaths, judge, judgeParity, mixedVersionCell, PARITY_TESTS, parseSummary, proofRefusal, renderMatrix, runRecord,
+	transcriptReference, twincatCells, upFailure, vendorParityCell, withTranscript, type Cell, type Outcome, type Report, type TranscriptOutcome, type Verdict,
 } from "../packages/volt-cli/scripts/release-matrix-cells.js"
 
 const REPO = resolve(import.meta.dir, "..")
@@ -113,7 +121,8 @@ function vsProxy64Registered(): boolean {
 export function machineCells(): Cell[] {
 	const fixtures = readdirSync(FIXTURES)
 	const codesys = codesysCells(listDir(programFiles("ProgramW6432")), listDir(programFiles("ProgramFiles(x86)")), fixtures)
-	return [...codesys, ...twincatCells(xaeShellBits(), vsProxy64Registered()), mixedVersionCell(codesys)]
+	const twincat = twincatCells(xaeShellBits(), vsProxy64Registered())
+	return [...codesys, ...twincat, vendorParityCell(codesys, twincat), mixedVersionCell(codesys)]
 }
 
 /** The current CLI, built ONCE before the pool when the mixed-version cell runs: the e2e cells run `volt.exe` from the
@@ -133,7 +142,7 @@ async function runMixedCell(cell: Cell, currentCli: string): Promise<Verdict> {
 	const out = join(OUT, "mixed-version")
 	const r = await run("bun", [join("scripts", "mixed-version.ts"), "--instance-prefix", instanceOf(cell), "--out", out,
 		"--codesys-version", cell.version!, "--bits", String(cell.bits), "--current-cli", currentCli, "--no-build-current"], { cwd: CLI, timeout: 2 * 3600_000 })
-	writeFileSync(join(OUT, `${cell.id}.log`), r.text)
+	writeFileSync(join(OUT, `${cell.id}.log`), `${HEADER}\n${r.text}`)
 	const lines = r.text.split(/\r?\n/).filter((l) => /^(GREEN|RED)\s|^what the protocol check/.test(l))
 	return { cell, green: r.status === 0, why: lines.length ? lines.join(" | ") : `mixed-version.ts exited ${r.status} (see the cell log)` }
 }
@@ -165,17 +174,18 @@ function ideRun(verb: "sweep" | "check"): { status: number | null; text: string 
 	return { status: r.status, text: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() }
 }
 
-async function ide(action: "up" | "down", cell: Cell, log: string[]): Promise<boolean> {
+/** `ide.ps1 up|down` of `host` (a vendor cell) under `instance`; on a failed `up`, why - in ide.ps1's own words. */
+async function ide(action: "up" | "down", host: Cell, instance: string, log: string[]): Promise<string | undefined> {
 	const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), action,
-		"-Vendor", cell.vendor, "-Instance", instanceOf(cell)]
+		"-Vendor", host.vendor, "-Instance", instance]
 	if (action === "up") {
-		if (cell.vendor === "codesys") args.push("-CodesysVersion", cell.version!, "-CodesysBitness", String(cell.bits), "-Fixture", join(FIXTURES, cell.fixture!))
-		else args.push("-Fixture", join(FIXTURES, cell.fixture!), "-XaeBitness", String(cell.bits))
+		if (host.vendor === "codesys") args.push("-CodesysVersion", host.version!, "-CodesysBitness", String(host.bits), "-Fixture", join(FIXTURES, host.fixture!))
+		else args.push("-Fixture", join(FIXTURES, host.fixture!), "-XaeBitness", String(host.bits))
 		args.push("-Wait", "-NoBuild")   // built once, before the pool (buildBridges): cells at once share one bin\
 	}
 	const r = await run("powershell", args, { timeout: action === "up" ? 20 * 60_000 : 10 * 60_000 })
-	log.push(`── ide.ps1 ${action} (exit ${r.status})`, r.text)
-	return r.status === 0
+	log.push(`── ide.ps1 ${action} ${host.vendor} (exit ${r.status})`, r.text)
+	return r.status === 0 ? undefined : upFailure(r.text)
 }
 
 /** The bridges every cell serves (`bridgeBuilds`), built ONCE before the cells start: each `ide.ps1 up` used to rebuild
@@ -214,17 +224,44 @@ async function transcript(cell: Cell, env: NodeJS.ProcessEnv, record: boolean, l
 	return { kind: "failed", why: `the comparer exited ${cmp.status}` }
 }
 
+/** The vendor-parity cell: CODESYS and TwinCAT up under ONE instance, and only the suites that compare them
+ *  ({@link PARITY_TESTS}) - red when either compared one vendor with nothing (judgeParity). */
+async function runParityCell(cell: Cell): Promise<Verdict> {
+	const log: string[] = [HEADER]
+	const hosts = [cell.parity!.codesys, cell.parity!.twincat]
+	let outcome: Outcome | undefined
+	let text = ""
+	try {
+		for (const host of hosts) {
+			const down = await ide("up", host, instanceOf(cell), log)
+			if (down) return { cell, green: false, why: `${host.vendor}: ${down}` }
+		}
+		const env = { ...process.env, VOLT_E2E_INSTANCE: instanceOf(cell) }
+		for (const k of ["VOLT_PIPE", "VOLT_VENDOR", "VOLT_PIPE_CODESYS", "VOLT_PIPE_TWINCAT"]) delete (env as Record<string, string | undefined>)[k]
+		const r = await run("bun", ["test", ...PARITY_TESTS], { cwd: CLI, env, timeout: 2 * 3600_000 })
+		log.push(`── bun test ${PARITY_TESTS.join(" ")} (exit ${r.status})`, r.text)
+		text = r.text
+		outcome = parseSummary(r.text, r.status)
+	} finally {
+		for (const host of [...hosts].reverse()) await ide("down", host, instanceOf(cell), log)
+		writeFileSync(join(OUT, `${cell.id}.log`), log.join("\n"))
+	}
+	return judgeParity(cell, outcome, text)
+}
+
 async function runCell(cell: Cell, tests: string, recordTranscripts: boolean, currentCli: () => string): Promise<Verdict> {
 	if (cell.refusal) return judge(cell, undefined, [])
 	if (cell.mixed) return runMixedCell(cell, currentCli())
-	const log: string[] = []
+	if (cell.parity) return runParityCell(cell)
+	const log: string[] = [HEADER]
 	const reportFile = join(OUT, `${cell.id}.report.jsonl`)
 	const contractFile = join(OUT, `${cell.id}.contract.jsonl`)
 	for (const f of [reportFile, contractFile, join(OUT, `${cell.id}.transcript.jsonl`), join(OUT, `${cell.id}.transcript.diff`)]) rmSync(f, { force: true })
 	let outcome: Outcome | undefined
 	let wire: TranscriptOutcome | undefined
 	try {
-		if (!(await ide("up", cell, log))) return { cell, green: false, why: "the IDE did not come up (see the cell log)" }
+		const down = await ide("up", cell, instanceOf(cell), log)
+		if (down) return { cell, green: false, why: down }
 		const env = { ...process.env, VOLT_E2E_INSTANCE: instanceOf(cell), VOLT_VENDOR: cell.vendor, VOLT_GRAPHICAL: "1", VOLT_E2E_REPORT: reportFile, VOLT_CONTRACT_REPORT: contractFile }
 		delete (env as Record<string, string | undefined>).VOLT_PIPE
 		wire = await transcript(cell, env, recordTranscripts, log)
@@ -233,13 +270,24 @@ async function runCell(cell: Cell, tests: string, recordTranscripts: boolean, cu
 		log.push(`── bun test ${tests} (exit ${r.status})`, r.text)
 		outcome = parseSummary(r.text, r.status)
 	} finally {
-		await ide("down", cell, log)
+		await ide("down", cell, instanceOf(cell), log)
 		writeFileSync(join(OUT, `${cell.id}.log`), log.join("\n"))
 	}
 	const reports = existsSync(reportFile)
 		? readFileSync(reportFile, "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l) as Report)
 		: []
 	return withTranscript(judge(cell, outcome, reports), wire)
+}
+
+/** What every cell log starts with: the commit the run tested, and whether the checkout was that commit (`runs.jsonl`
+ *  holds the same, per run). Set once, before the pool. */
+let HEADER = ""
+function checkout(): { commit: string; changed: string[] } {
+	const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).stdout.trim()
+	// Untracked files count: an untracked source file is built into what ran, and HEAD does not hold it (dirtyPaths).
+	const status = spawnSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: REPO, encoding: "utf8" })
+	if (status.status !== 0 || !commit) throw new Error(`git rev-parse/status failed: ${status.stderr}`)
+	return { commit, changed: dirtyPaths(status.stdout) }
 }
 
 function arg(name: string): string | undefined {
@@ -266,7 +314,7 @@ if (import.meta.main) {
 	}
 	let cells = machineCells()
 	if (process.argv.includes("--list")) {
-		for (const c of cells) console.log(`${c.id.padEnd(24)} ${c.refusal ? `RED before running: ${c.refusal}` : c.fixture}`)
+		for (const c of cells) console.log(`${c.id.padEnd(24)} ${c.refusal ? `RED before running: ${c.refusal}` : c.parity ? `${c.parity.codesys.id} + ${c.parity.twincat.id} on one instance (${c.parity.codesys.fixture}, ${c.parity.twincat.fixture})` : c.fixture}`)
 		process.exit(0)
 	}
 	const only = arg("--only")?.split(",")
@@ -278,7 +326,14 @@ if (import.meta.main) {
 	const tests = arg("--tests") ?? "test/e2e"
 	const recordTranscripts = process.argv.includes("--record-transcripts")
 	const partial = tests !== "test/e2e" || only !== undefined || recordTranscripts
+	const partialWhy = partial
+		? [only ? `--only ${only.join(",")}` : "", tests !== "test/e2e" ? `--tests ${tests}` : "", recordTranscripts ? "--record-transcripts" : ""].filter(Boolean).join(", ")
+		: null
 	mkdirSync(OUT, { recursive: true })
+	// The checkout BEFORE anything is built: what every cell log names, and what the run's record says it tested.
+	const tested = checkout()
+	const startedAt = new Date().toISOString()
+	HEADER = `release matrix run of ${tested.commit}${tested.changed.length ? ` with ${tested.changed.length} changed path(s) (${tested.changed.slice(0, 10).join(", ")})` : ""}, started ${startedAt}${partialWhy ? ` - PARTIAL (${partialWhy})` : ""}`
 	const jobs = Number(arg("--jobs") ?? 3)
 	if (!Number.isInteger(jobs) || jobs < 1) { console.error(`--jobs must be a whole number >= 1, not ${arg("--jobs")}`); process.exit(1) }
 	// THE MACHINE FIRST: every IDE of this run a killed earlier run left is closed (no exit hook ran for it), then the run
@@ -310,21 +365,19 @@ if (import.meta.main) {
 	if (swept.status !== 0) console.error(`closing this run's IDEs failed:\n${swept.text}`)
 	console.log("\n" + renderMatrix(verdicts))
 	const green = verdicts.length > 0 && verdicts.every((v) => v.green)
+	// The checkout again at the END: a commit or an edit during the run means it tested neither state.
+	const after = checkout()
+	const changed = after.commit === tested.commit
+		? [...new Set([...tested.changed, ...after.changed])]
+		: [...tested.changed, `HEAD moved to ${after.commit} during the run`]
+	const record = runRecord(tested.commit, changed, startedAt, partialWhy, verdicts)
+	// EVERY run, partial or not, red or green, appends its record: a red attempt stays on file beside its green rerun.
+	appendFileSync(join(OUT, "runs.jsonl"), JSON.stringify(record) + "\n")
 	if (partial) {
-		const why = [only ? "--only" : "", tests !== "test/e2e" ? `--tests ${tests}` : "", recordTranscripts ? "--record-transcripts" : ""].filter(Boolean).join(", ")
-		console.log(`\nPARTIAL (${why}) - not a release result; result.json untouched`)
+		console.log(`\nPARTIAL (${partialWhy}) - not a release result; result.json untouched; recorded in runs.jsonl for ${tested.commit}`)
 		process.exit(green ? 0 : 1)
 	}
-	const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).stdout.trim()
-	// Untracked files count: an untracked source file is built into what ran, and HEAD does not hold it (dirtyPaths).
-	const status = spawnSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: REPO, encoding: "utf8" })
-	if (status.status !== 0) throw new Error(`git status failed: ${status.stderr}`)
-	const changed = dirtyPaths(status.stdout)
-	const dirty = changed.length > 0
-	writeFileSync(join(OUT, "result.json"), JSON.stringify({
-		commit, dirty, green: green && !dirty, at: new Date().toISOString(),
-		cells: verdicts.map((v) => ({ id: v.cell.id, green: v.green, why: v.why })),
-	}, null, 2))
-	if (dirty) console.log(`\nthe checkout differs from HEAD (${changed.slice(0, 10).join(", ")}${changed.length > 10 ? ", …" : ""}) - the result is recorded as NOT green (it tested no commit)`)
-	process.exit(green && !dirty ? 0 : 1)
+	writeFileSync(join(OUT, "result.json"), JSON.stringify(record, null, 2))
+	if (record.dirty) console.log(`\nthe checkout differs from HEAD (${changed.slice(0, 10).join(", ")}${changed.length > 10 ? ", …" : ""}) - the result is recorded as NOT green (it tested no commit)`)
+	process.exit(record.green ? 0 : 1)
 }

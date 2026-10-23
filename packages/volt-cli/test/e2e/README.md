@@ -271,6 +271,8 @@ diffs what comes back, which is the invariant `ARCHITECTURE.md` opens with and w
 line, a reordered VAR block — which passes twice and is invisible. Run both launchers, then either vendor's
 command; the suite resolves the other vendor's pipe from the SAME instance (`VOLT_PIPE_CODESYS` / `VOLT_PIPE_TWINCAT`
 name one exactly, verified the same way). A vendor with no fixture IDE of ours is a skip that prints what it refused.
+The release matrix runs both suites in its own `vendor-parity` cell, both vendors under one instance, and that cell is
+red when either prints such a skip.
 
 ```bash
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys

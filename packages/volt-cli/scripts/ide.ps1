@@ -136,6 +136,8 @@ $projFile = Join-Path $work "$Vendor-ide$sfx.projects"
 # run owns its tag's instance and every `<tag>-...` one; `up` starts only when every running IDE is one of those
 # instances' (ide-run.ps1 holds the rule, tested offline).
 . (Join-Path $PSScriptRoot "ide-run.ps1")
+# What `up` says about an XAE dialog it does not answer and an XAE that exits before an attach (tested offline).
+. (Join-Path $PSScriptRoot "ide-dialogs.ps1")
 $RunTag = Resolve-RunTag $PSBoundParameters.ContainsKey("Run") $Run $env:VOLT_IDE_RUN $Instance
 
 # The SDK that can target what the solution targets. "Has an SDK" is not enough — this machine carries several
@@ -544,7 +546,8 @@ function Clear-InstanceLeftovers([string]$vendor) {
 # blocks in COM until `up` gives up. So while `up` waits for the attach it also watches this instance's XAE windows,
 # and answers exactly THAT dialog with "&Do Not Recover" — the copy is thrown away on the next `up`, there is nothing
 # in it to recover — logging the instance, the pid and the files it listed. Nothing else is ever clicked: any other
-# modal dialog on those windows is logged (title + buttons) once, and `up` keeps waiting and times out as before.
+# modal dialog on those windows is logged once with its title, MESSAGE and buttons (Format-XaeDialog), and kept per XAE,
+# so an XAE that then exits fails `up` naming what it showed (Format-XaeExit) instead of being waited out.
 # Only windows OWNED by this instance's XAE pids are looked at; another instance's IDE is never touched.
 $XAE_RECOVERY_TITLE  = "TcXaeShell Recovered Files"
 $XAE_RECOVERY_BUTTON = "&Do Not Recover"
@@ -640,6 +643,8 @@ function Get-RecoveredFiles([IntPtr]$dlg, $kids) {
     @([VoltXaeDialogs]::ListRows($lv.H, $cols) | Where-Object { $_ })
 }
 $script:dialogsSeen = @{}
+# The unanswered dialogs, per XAE pid: what `up` names when that XAE exits or never gets a worker.
+$script:dialogLines = @{}
 
 # One look at this instance's XAE windows (the pids `up` launched, plus any XAE holding this instance's copy — a
 # Restart-Manager relaunch adopted as ours). Cheap enough to run every second of the attach wait.
@@ -674,7 +679,9 @@ function Watch-XaeDialogs([int[]]$xaePids) {
             }
             if ($script:dialogsSeen.ContainsKey([string]$dlg)) { continue }
             $script:dialogsSeen[[string]$dlg] = $true
-            Write-Warning "XAE $xae shows a modal dialog '$title' (buttons: $(($buttons | ForEach-Object { $_.Text }) -join ', ')) - not one ide.ps1 answers; left as is"
+            $line = Format-XaeDialog $xae $title $kids
+            $script:dialogLines[$xae] = @($script:dialogLines[$xae]) + $line | Where-Object { $_ }
+            Write-Warning $line
         }
     }
 }
@@ -948,11 +955,19 @@ function Up-Twincat {
                 # Recovered Files dialog (see Watch-XaeDialogs) — the window is the same 60 s as before.
                 for ($s = 0; $s -lt 5; $s++) { Start-Sleep -Seconds 1; Watch-XaeDialogs $launched }
                 if (Test-TwincatAttached $procId $w $spawnedAt) { $ready = $true; break }
+                # The XAE itself is gone: no worker will ever attach, and what it showed is why.
+                if (-not (Get-Process -Id $procId -ErrorAction SilentlyContinue)) {
+                    Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue
+                    throw (Format-XaeExit $procId @($script:dialogLines[$procId]))
+                }
                 if ($w.HasExited) { break }   # died outright (no XAE, name collision) — respawn rather than wait out the window
             }
             if (-not $ready) { Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue }
         }
-        if (-not $ready) { throw "no worker could ATTACH to XAE $procId after 10 tries - is the PLC project actually opening? (ide.ps1 logs -Vendor twincat)" }
+        if (-not $ready) {
+            $shown = @($script:dialogLines[$procId] | Where-Object { $_ })
+            throw "no worker could ATTACH to XAE $procId after 10 tries - is the PLC project actually opening? (ide.ps1 logs -Vendor twincat)$(if ($shown.Count) { "; it showed: $($shown -join ' | ')" })"
+        }
         Save-Pids $pidFile @($w)   # the worker is ours too — its parent is this shell, not a recorded IDE
         Write-Host "worker attached to XAE $procId -> $pipe"
     }

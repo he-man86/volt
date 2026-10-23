@@ -102,7 +102,15 @@ red, by name, when its version has no native fixture project (`CodesysTestProjec
 them only 3.5.21.40 and 3.5.18.30 have one — owner: a project opened from another version's file is not native), when
 a TwinCAT cell would run where Visual Studio's 64-bit msenvp proxy is registered (DIALECT C2t — not the customer's
 machine), when the IDE does not come up, when any test fails, or when the harness's own report (`VOLT_E2E_REPORT`: the
-version and bitness the run drove, from `health` and the IDE process) names another IDE than the cell's.
+version and bitness the run drove, from `health` and the IDE process) names another IDE than the cell's. One cell,
+`vendor-parity`, compares the two vendors WITH EACH OTHER: it serves the newest runnable 64-bit CODESYS and the 32-bit
+XAE (on `TwinCAT Project14`, one PLC project) under one instance and runs only `vendor-parity.test.ts` and `refusals/`
+— every other cell serves one vendor, where both skip — and is red when either prints that it skipped for want of the
+other vendor. A cell whose IDE did not come up quotes what `ide.ps1 up` said (an XAE's unanswered dialog, with its
+message; an XAE that exited before a worker attached). Every run, `--only` and `--tests` runs included, appends its
+record — the commit it tested, the paths that differed from it, why it was partial, every cell's verdict — to
+`dist/release-matrix/runs.jsonl`, and every cell log starts with the same commit line, so a small matrix is tied to its
+commit and a red attempt stays on file beside its green rerun; only a full run writes `result.json`.
 `--list` prints the cells; `--only <id,id>` and `--tests <path>` run a subset, printed as PARTIAL and never written as a
 result. Per-cell logs land in `dist/release-matrix/<cell>.log`. Long (the sum of full e2e runs); Windows only.
 

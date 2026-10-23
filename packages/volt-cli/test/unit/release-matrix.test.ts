@@ -4,7 +4,7 @@
  * suite per cell) is the matrix itself.
  */
 import { describe, expect, it } from "bun:test"
-import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, mixedVersionCell, parseSummary, proofRefusal, transcriptReference, twincatCells, TWINCAT_FIXTURE, withTranscript, type Cell, type Verdict } from "../../scripts/release-matrix-cells"
+import { bridgeBuilds, codesysCells, codesysFixture, dirtyPaths, judge, judgeParity, mixedVersionCell, PARITY_TWINCAT_FIXTURE, parseSummary, proofRefusal, runRecord, transcriptReference, twincatCells, TWINCAT_FIXTURE, upFailure, vendorParityCell, withTranscript, type Cell, type Verdict } from "../../scripts/release-matrix-cells"
 
 const FIXTURES = ["CodesysTestProject.project", "CodesysOneToOne.project", "CodesysTestProject.3.5.18.30.project", "CodesysTestProject.3.5.22.40.project"]
 
@@ -186,5 +186,80 @@ describe("the mixed-version cell (volt-cli-rework 1.3)", () => {
 
 	it("needs the CODESYS bridge built like any CODESYS cell", () => {
 		expect(bridgeBuilds([mixedVersionCell(codesysCells(["CODESYS 3.5.21.40"], [], ["CodesysTestProject.3.5.21.40.project"]))])).toEqual([{ project: "Volt.Ide.Codesys" }])
+	})
+})
+/** THE TWO VENDORS COMPARED WITH EACH OTHER (gate 3.3 review): every other cell serves ONE vendor, so
+ *  `test/e2e/vendor-parity.test.ts` and the cross-vendor half of `test/e2e/refusals` skipped in every cell and the matrix
+ *  never compared CODESYS with TwinCAT. This cell serves both under one instance and is red when either half skips. */
+describe("the vendor-parity cell", () => {
+	const codesys = codesysCells(["CODESYS 3.5.18.30", "CODESYS 3.5.21.40", "CODESYS 3.5.22.40"], ["CODESYS 3.5.22.40"], [...FIXTURES, "CodesysTestProject.3.5.21.40.project"])
+	it("serves the newest runnable 64-bit CODESYS and the 32-bit XAE on its one-PLC-project solution", () => {
+		const cell = vendorParityCell(codesys, twincatCells([32, 64], false))
+		expect(cell.id).toBe("vendor-parity")
+		expect(cell.refusal).toBeUndefined()
+		expect(cell.parity!.codesys.id).toBe("codesys-3.5.22.40-64")
+		expect(cell.parity!.twincat).toMatchObject({ id: "twincat-32", bits: 32, fixture: PARITY_TWINCAT_FIXTURE })
+	})
+	it("is red by name where either vendor has no runnable cell", () => {
+		expect(vendorParityCell(codesys, twincatCells([], false)).refusal).toContain("no runnable TwinCAT cell")
+		expect(vendorParityCell(codesys, twincatCells([32], true)).refusal).toContain("no runnable TwinCAT cell")
+		expect(vendorParityCell(codesysCells([], [], []), twincatCells([32], false)).refusal).toContain("no runnable CODESYS cell")
+	})
+	it("needs both bridges built", () => {
+		expect(bridgeBuilds([vendorParityCell(codesys, twincatCells([32], false))])).toEqual([{ project: "Volt.Ide.Codesys" }, { project: "Volt.Ide.Twincat", rid: "win-x86" }])
+	})
+	const cell = vendorParityCell(codesys, twincatCells([32], false))
+	const ran = { pass: 80, fail: 0, skip: 1, exit: 0 }
+	it("is green only when both halves ran", () => {
+		expect(judgeParity(cell, ran, "vendor-parity: the stub-manifest case SKIPPED — neither fixture serves a visualization or a text list\n").green).toBe(true)
+	})
+	it("is red when either half skipped for want of a second vendor", () => {
+		for (const said of [
+			"vendor-parity: SKIPPED — needs both bridges up (codesys: volt.bridge.codesys.1, twincat: down). Start both",
+			"refusals: only codesys is up — the vendor-parity half (d) is SKIPPED",
+			"refusals: SKIPPED — no fixture IDE of ours is up on either vendor",
+		]) {
+			const v = judgeParity(cell, ran, `x\n${said}\ny`)
+			expect(v.green).toBe(false)
+			expect(v.why).toContain(said)
+		}
+	})
+	it("is red on a failed or unfinished run", () => {
+		expect(judgeParity(cell, { ...ran, fail: 9, exit: 1 }, "").why).toBe("9 failed (exit 1)")
+		expect(judgeParity(cell, undefined, "").green).toBe(false)
+	})
+})
+
+/** WHY AN IDE DID NOT COME UP (gate 3.3 review): a twincat-32 attempt went red on a TcXaeShell OK-only dialog whose
+ *  text nothing kept, and a rerun went green over it. The cell's verdict now quotes what `ide.ps1 up` said about it. */
+describe("an IDE that did not come up", () => {
+	it("is named by the dialogs and the exit ide.ps1 reported", () => {
+		const text = "attaching a worker to XAE 15572 (attempt 1)...\nWARNING: XAE 15572 shows a modal dialog 'TcXaeShell': Something failed. (buttons: OK) - not one ide.ps1 answers; left as is\nXAE 15572 exited before a worker attached\n"
+		expect(upFailure(text)).toBe("the IDE did not come up: XAE 15572 shows a modal dialog 'TcXaeShell': Something failed. (buttons: OK) - not one ide.ps1 answers; left as is | XAE 15572 exited before a worker attached")
+	})
+	it("says a dialog once when the exit line quotes it", () => {
+		const d = "XAE 9 shows a modal dialog 'TcXaeShell': x (buttons: OK) - not one ide.ps1 answers; left as is"
+		expect(upFailure(`WARNING: ${d}\nException: XAE 9 exited before a worker attached; it showed: ${d}\n`)).toBe(`the IDE did not come up: XAE 9 exited before a worker attached; it showed: ${d}`)
+	})
+	it("points at the log when ide.ps1 named nothing", () => {
+		expect(upFailure("whatever\n")).toBe("the IDE did not come up (see the cell log)")
+	})
+})
+
+/** WHICH COMMIT A RUN TESTED (gate 3.3 review): a partial run wrote nothing, so a small matrix's result was tied to its
+ *  commit by nobody's record. Every run, partial or full, appends one of these to `runs.jsonl`. */
+describe("a run's record", () => {
+	const v: Verdict = { cell: { id: "twincat-32", vendor: "twincat", bits: 32 }, green: false, why: "the IDE did not come up" }
+	it("names the commit, whether the checkout was dirty, why it was partial, and every cell's verdict", () => {
+		expect(runRecord("abc", ["src/x.cs"], "2026-10-23T00:00:00.000Z", "--only", [v])).toEqual({
+			commit: "abc", dirty: true, changed: ["src/x.cs"], partial: "--only", at: "2026-10-23T00:00:00.000Z", green: false,
+			cells: [{ id: "twincat-32", green: false, why: "the IDE did not come up" }],
+		})
+	})
+	it("is green only when every cell is and the checkout is HEAD", () => {
+		const g: Verdict = { ...v, green: true }
+		expect(runRecord("abc", [], "t", null, [g]).green).toBe(true)
+		expect(runRecord("abc", ["a"], "t", null, [g]).green).toBe(false)
+		expect(runRecord("abc", [], "t", null, []).green).toBe(false)
 	})
 })

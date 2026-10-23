@@ -44,7 +44,8 @@ export type Bridge = {
 	/** The served project's name, as `health` reports it — the one string WRONG_PROJECT and the masks need. */
 	project: string
 	/** Where a row creates its items: the project's own root — CODESYS's tree root (`""`), TwinCAT's driven PLC project
-	 *  (its tree root holds system projects). The one path prefix the vendors' answers differ by, masked as `<root>/`. */
+	 *  (its tree root holds system projects). The one path prefix the vendors' answers differ by: {@link normalize} drops
+	 *  it, so both vendors' paths read relative to the root they created in. */
 	root: string
 	/** The path of a row item `<bare>.pou` in {@link root}. */
 	at: (bare: string) => string
@@ -141,7 +142,9 @@ export function conflictOf(a: Answer, name: string): any {
  */
 export function normalize(a: Answer, b: Bridge): unknown {
 	const text = (s: string) => {
-		let t = b.root === "" ? s : s.split(`${b.root}/`).join("<root>/")
+		// The root prefix is DROPPED, not masked: CODESYS's root is "" and its paths carry no prefix to mask, so a mask
+		// written on TwinCAT alone (`<root>/X.pou` against `X.pou`) made every path-quoting answer differ.
+		let t = b.root === "" ? s : s.split(`${b.root}/`).join("")
 		t = t.split(b.project).join("<project>").replace(new RegExp(`\\b${b.vendor}\\b`, "gi"), "<vendor>")
 		for (const [said, as] of IDE_WORDS) t = t.replace(said, as)
 		return t
