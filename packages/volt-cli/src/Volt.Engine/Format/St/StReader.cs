@@ -100,8 +100,6 @@ public static class StReader
 	{
 		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
 		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
-		// A kind a new-contract vendor declared is read by ITS format, not the IEC layout (AdmittedFormats, until step 5).
-		if (AdmittedFormats.For(kind) is { } admitted) return AdmittedFormats.Read(admitted, sourceText, kind, name);
 
 		// 1. A kind that is not composite (a DUT, a GVL: ItemKind.ShapeOf) is ONE declaration, written as sent. Nothing in
 		// it is Volt's to judge. It has no body slot, so it carries NO body — null, not "" (openspec bridge-refusal-review
@@ -142,7 +140,6 @@ public static class StReader
 	/// is not the splitter's question (network text has its own round-trip gate).</para></summary>
 	internal static IReadOnlyList<Member> SplitMembers(string sourceText, string kind, string name)
 	{
-		if (AdmittedFormats.For(kind) is { } admitted) return AdmittedFormats.Read(admitted, sourceText, kind, name).Members;
 		if (!ItemShape(kind).Composite) return Array.Empty<Member>();
 		return ReadStructureOf(sourceText, NormalizeLines(sourceText), kind, $"'{name}'", splitOnly: true).Members;
 	}
@@ -227,7 +224,7 @@ public static class StReader
 	{
 		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
 		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
-		if (AdmittedFormats.For(kind) is not null || !ItemShape(kind).Composite) return null;
+		if (!ItemShape(kind).Composite) return null;
 		var original = NormalizeLines(sourceText);
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var lines = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;

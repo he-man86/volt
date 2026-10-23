@@ -163,7 +163,7 @@ public sealed class LegacyDriver : VendorDriverBase, IVendorDriver
     /// <summary>The one code each kind is created as (design 5.Qa, S1): every POU as a function block and every DUT as a
     /// struct — the vendor takes the kind the TEXT declares (DIALECT C2f/C2g, C2h), and a function block accepts every
     /// member kind until the declaration says otherwise (C2k).</summary>
-    internal static int CodeOf(string kind) => kind switch
+    private static int CodeOf(string kind) => kind switch
     {
         ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Dut => ItemKind.PlcDut,

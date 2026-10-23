@@ -19,8 +19,6 @@ public static class StWriter
 {
     public static string Write(ItemContent item)
     {
-        // A kind a new-contract vendor declared is written by ITS format, not the IEC layout (AdmittedFormats, until step 5).
-        if (AdmittedFormats.For(item.Kind) is { } admitted) return AdmittedFormats.Write(admitted, item);
         var shape = ItemKind.ShapeOf(item.Kind);
         var layout = IecLayout.Of(item.Kind);
         // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its IMPLEMENTATION line where it has
