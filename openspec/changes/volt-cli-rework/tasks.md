@@ -49,6 +49,11 @@ standing practice:
 
 ## Inputs since 2026-10-18 (known items, placed by the map)
 
+- OWNER DECISION 2026-10-23 (step 7.2): a push `deleteItem` that quotes `ifVersion` for a path that names nothing is refused
+  `ITEM_MISSING` — one rule: a quoted version must hold, or the push is refused. A delete with no `ifVersion` stays the
+  idempotent no-op. Protocol stays 1 (the code is already on the wire); PLC Assist gets a one-line note in their next
+  update.
+
 - Fix (behind the wire): TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from
   the saved `.plcproj` (the save lag DIALECT C39 measured for exclusion); read them from the live `ProduceXml`
   VSProperties as `Exclude` is.

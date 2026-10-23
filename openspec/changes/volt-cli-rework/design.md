@@ -422,3 +422,46 @@ transcript comparison is the proof on the merged result.
   ~25 Engine tests that ask `ItemLookup.Find`/`Locate` of a `FakeIde` (the lookup reaches `TreeLookup` through the
   adapter). Moving them to `test/shared/` needs a public door on `HostLink` for a foreign session that only tests would
   call; moving `FakeIde` onto `IVendorDriver` removes all of it at once, with the old interfaces, in step 7.
+
+## Step 7 plan: the old contract goes (2026-10-23)
+
+Measured before writing it: the old contract is `Ide/IIdeDriver`, `IIdeSession` (124 lines), `IProjectTree` (86),
+`ICodeStore` (159) and `DriverBase` (293), plus the step-5 adapter (`LegacyDriver` 141, `FamilyDeclaration` 30). After
+step 6 only three things stand on them: the test double `FakeIde` (1.5k lines, an old-contract host behind ~460 Engine and
+CLI test call sites), the session type the pipe host and the services hold (`HostLink.Session : IIdeSession`), and the
+IEC helpers both hosts call with their own tree (`MemberSites.Of`, `ProjectDeclarations`, `ItemLookup.All`/`Find`).
+
+### What replaces each
+
+| Old | Becomes | Why |
+|---|---|---|
+| `DriverBase` + `IIdeSession` | `Sync/ComposedSession`, one class: the degraded state, the IDE-thread bracketing, the single-flight probe, the health response and the library-signature cache, over a host's primitives. `HostLink.Session` and every service and the pipe host hold it | the composition is the engine's (F5); a second type naming it is the old contract by another name |
+| `FakeIde : DriverBase, IIdeDriver` | `FakeIde : VendorDriverBase, IVendorDriver`, the shape both hosts took in step 6: its IEC record answers through `FamilyContent`, its codes through `ItemKind.ClassOf`/`CreateCode`. Its session is a `ComposedSession` that serves its health knobs, as its `BuildHealthResponse` override did; an implicit `FakeIde → HostLink` (test code) keeps every call site | the oracle stays: no assertion changes; the double is the third host on the contract |
+| `IProjectTree` (the hosts' facet) | nothing on the contract. The IEC helpers read the codes a host's tree answers through a narrow `Item/IIecTree` (`ChildCount`, `ChildAt`, `Name`, `KindCode`), beside the tables they read | `MemberSites` hands a host each member WITH its code, and both hosts dispatch on it (`MemberKind(site.Code, …)`, `PlcAction`, `PlcProp`/`PlcItfProp`). Through `IVendorTree.Classify` the code is gone, and a host would re-ask it per member: a second COM call per member on TwinCAT |
+| `ICodeStore` | nothing: each host's `ReadContent`/`WriteContent` and old pre-flight overloads are its own methods since step 6 | |
+| `ItemLookup.Find`/`Locate(IProjectTree, …)` | `(IVendorDriver, …)`, the engine's one lookup (`TreeLookup`) | the adapter door was their only reason |
+| `LegacyDriver`, `FamilyDeclaration`, `HostLink.Of(IIdeDriver)`, the implicit `DriverBase` conversion, `BridgePipeHost(IIdeDriver, …)`, `LegacyDriverTests` | deleted | nothing old is left to adapt |
+
+**Each host's kind rows and property keys stay the IEC format's table (`IecFormat.KindRows`/`PropertyKeys`), not a copy per
+host.** The table is family-only, but it is the IEC FORMAT's, which step 5 made the Engine's `IItemFormat` (the file
+layout the pull writes and the push reads). Below the contract it would be either one shared CODESYS-family package (owner:
+no) or two hand copies of 30 rows that no registry compares (a `Catalog` holds one host per process), so they could drift
+in silence. What each host states for itself it already states: its vendor row, its languages with its own network reader.
+
+### Sub-steps (each committed alone, every C# suite and `test/unit` green)
+
+1. **7.1a the session is one class**: `DriverBase` folds into `ComposedSession`; `IIdeSession` goes; the double's session is
+   a `ComposedSession` until 7.1b.
+2. **7.1b the double on the contract**: `FakeIde` implements `IVendorDriver`; `ItemLookup.Find`/`Locate` take the new
+   contract; the IEC helpers take `IIecTree`; the hosts drop `IProjectTree`; the adapter and the four old interfaces go.
+3. **7.2 a quoted version must hold** (owner decision, 2026-10-23): a delete quoting `ifVersion` for a path that names
+   nothing is `ITEM_MISSING` (from a partial walk `ITEM_UNVERIFIED`, as an update's is); a delete with no `ifVersion`
+   stays the idempotent no-op. Red test first, offline and in the contract suite. Protocol stays 1: no new code, no new
+   shape.
+4. **7.3 the 2.x finds**: legacy (comments and docs naming the deleted contract or designs), the open silent fallbacks,
+   the hidden features (listed for the owner, not decided), and the low-risk inputs since 2026-10-18 behind the wire, each
+   with an identity test. Anything only a live IDE can verify is listed, not done.
+
+### Wire
+
+Nothing changes for the two shipped vendors except 7.2's decided refusal. Ratchets only go down.
