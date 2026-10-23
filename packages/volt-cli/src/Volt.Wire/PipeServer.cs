@@ -216,10 +216,9 @@ public sealed class PipeServer : IDisposable
             {
                 var line = ReadLine(server, out oversize);
                 if (line == null) return;
-                // A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT. This used to let the JsonException reach
-                // the catch below, which stamps anything uncoded as INTERNAL_ERROR — so a client that sent a
-                // truncated line, or a stray blank one, was told the BRIDGE had broken and went looking at the
-                // IDE. BAD_REQUEST points at the frame that was actually wrong.
+                // A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT. A JsonException reaching the catch below
+                // would be stamped INTERNAL_ERROR, telling a client that sent a truncated line, or a stray blank one,
+                // that the BRIDGE had broken. BAD_REQUEST points at the frame that was actually wrong.
                 PipeRequest req;
                 try { req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Read) ?? new PipeRequest(); }
                 catch (JsonException ex)

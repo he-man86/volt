@@ -34,7 +34,7 @@ internal static class TcSystemManager
     /// <para>The split is between the member being ABSENT and the member REFUSING: a binder failure means this
     /// object has no <c>LookupTreeItem</c> at all — not a system manager — while a COM fault means it has one
     /// and turned down the path, which is the answer. Deliberately NOT keyed on the measured HRESULT, so a
-    /// vendor that changes its not-found code degrades to the old adopt-anyway behaviour rather than to a
+    /// vendor that changes its not-found code degrades to adopting the object rather than to a
     /// refusal to connect.</para></summary>
     public static bool Is(dynamic? obj)
     {

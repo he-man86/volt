@@ -471,8 +471,7 @@ internal sealed partial class TcObjectModel
         // with `DutType.Structure`), and it is measured to work here for all four shapes: the compiler takes the
         // DECLARED shape (an enum body in the 606 seed is an enum to it). One seed, no per-subtype dispatch.
         // The TREE CODE does not follow: a DUT created this way reads 606 whatever its body in the live session
-        // (DIALECT C2e, which corrects C2b — C2b's "an enum declaration becomes 605" was measured on the deleted
-        // PLCopen import path; what a reload does to a CREATED DUT's code is unmeasured). Volt reads no subtype
+        // (DIALECT C2e; what a reload does to a CREATED DUT's code is unmeasured). Volt reads no subtype
         // at all: every DUT is `X.dut` (openspec `push-without-header-check` 5.P).
         if (kindCode == ItemKind.PlcDut) kindCode = ItemKind.PlcDutStruct;
 
@@ -483,8 +482,7 @@ internal sealed partial class TcObjectModel
         // A POU is created as the FUNCTION_BLOCK (604) whatever its text — ONE seed, as the DUT's is the struct
         // (openspec `push-without-header-check` 5.Q, design S1): the declaration written next is what the compiler
         // takes (a 604 holding PROGRAM text builds clean as a program, DIALECT C2f), and a reload re-derives the tree
-        // code from it (C2h). Nothing in Volt reads which of 602/603/604 a POU is. (The FUNCTION arm's
-        // `Type.Missing` vInfo went with the per-kind POU extensions.)
+        // code from it (C2h). Nothing in Volt reads which of 602/603/604 a POU is.
         object? vInfo = kindCode switch
         {
             ItemKind.PlcDutStruct or ItemKind.PlcDutEnum or ItemKind.PlcDutUnion => System.Type.Missing,
@@ -739,13 +737,12 @@ internal sealed partial class TcObjectModel
         // declaration slot at all (an action) — don't touch DeclarationText, which a TwinCAT action's COM
         // object doesn't even expose. NULL implementation means the same (no impl slot — interface). An
         // EMPTY-STRING implementation is a REAL body value ("") and MUST be written to CLEAR the existing
-        // body — skipping it (the old `!IsNullOrEmpty` guard) left a stale body when a POU was emptied,
-        // diverging from CODESYS's `WriteSourceText` (which writes on `implementation != null`).
+        // body — skipping it would leave a stale body when a POU is emptied, diverging from CODESYS's
+        // `WriteSourceText` (which writes on `implementation != null`).
         //
         // Every slot a text is sent at is asked of the OBJECT first (openspec bridge-refusal-review D26): a member the
-        // COM object does not expose is refused by name before either slot is written, so no half of the write lands.
-        // It was a kind table (`HasBodySlot`) in the driver — a kind it called bodiless had its body DROPPED and the push
-        // said "updated" — and a raw binder throw (INTERNAL_ERROR) for an object of a body kind that lacked the member.
+        // COM object does not expose is refused by name before either slot is written, so no half of the write lands —
+        // never a body DROPPED with the push saying "updated", nor a raw binder throw (INTERNAL_ERROR).
         dynamic n = node;
         if (declaration != null) RequireSlot(node, "DeclarationText", "declaration");
         if (implementation != null) RequireSlot(node, "ImplementationText", "body");
@@ -787,11 +784,10 @@ internal sealed partial class TcObjectModel
     /// <summary>Resolve a tree item by its full path, or null when IT IS NOT THERE. Used where
     /// a held handle cannot be trusted (a task's system item, a reload).
     ///
-    /// <para><b>Only a genuine not-found becomes null.</b> This caught EVERY <see cref="COMException"/>, so an
-    /// RPC drop mid-push came back as "absent" — a wrong diagnosis for a channel fault. Worse, the HRESULT is the only thing
-    /// <c>BeckhoffDriver.ShouldMarkDegraded</c> can classify, so the session never degraded and <c>Recover()</c>
-    /// never ran while health stayed green. That is verbatim the fallback removed from <c>PlcRoot()</c> with a
-    /// DO-NOT record 250 lines above; this was the same shape one call lower.</para></summary>
+    /// <para><b>Only a genuine not-found becomes null.</b> Catching EVERY <see cref="COMException"/> would turn an
+    /// RPC drop mid-push into "absent" — a wrong diagnosis for a channel fault. Worse, the HRESULT is the only thing
+    /// <c>BeckhoffDriver.ShouldMarkDegraded</c> can classify, so the session would never degrade and <c>Recover()</c>
+    /// never run while health stayed green (the same rule as <c>PlcRoot()</c>'s DO-NOT record).</para></summary>
     private object? LookupPath(string path)
     {
         try { return (object)_sysManager!.LookupTreeItem(path); }

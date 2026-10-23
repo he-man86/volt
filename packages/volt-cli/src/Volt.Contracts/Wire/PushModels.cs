@@ -99,18 +99,10 @@ public class PushConflict
     /// TwinCAT's hierarchy cannot vouch for the PLC project itself and the walk stops before anything is read
     /// (DIALECT C2i; openspec <c>bridge-refusal-review</c> 7.1).</para>
     ///
-    /// <para>This used to carry the network-text code and nothing else, so every coded refusal a push raised —
-    /// IDE_LOST_ITEM (then NOT_FOUND), UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted once a push
-    /// stopped reading a top-level item's header) — arrived as a
-    /// message with no code. Since a push answers refusals as CONFLICTS rather than error frames, those six
-    /// were unobservable anywhere on the wire, and callers matched the English instead: the e2e suite asserted
-    /// on an exact sentence and the CLI printed the prose unbranched.</para>
-    ///
-    /// <para>The GATE family is the second half of that. Its four outcomes were all `code: null`, told apart
-    /// only by which version field happened to be null and by a synthetic item named <c>&lt;project&gt;</c> —
-    /// so "your lease is stale, pull and retry", "that name is taken, pick another" and "the item you hold a
-    /// version for is gone, there is nothing to merge with" were one undifferentiated answer. They are three
-    /// different next steps for the engineer.</para>
+    /// <para>Every coded refusal carries its code here, so a client branches on the code, never on the English: a
+    /// push answers refusals as CONFLICTS rather than error frames, and this is the only place their codes appear.
+    /// The GATE codes tell apart three different next steps — "your lease is stale, pull and retry", "that name is
+    /// taken, pick another" and "the item you hold a version for is gone, there is nothing to merge with".</para>
     ///
     /// <para>The property stays nullable because deserializing an older bridge's response must not throw; a
     /// client reading null is talking to a bridge that predates this.</para></summary>
@@ -162,10 +154,10 @@ public class PushResponse
 
     /// <summary>Folders the RECEIPT walk could not enumerate — normally empty, same meaning as on a read.
     ///
-    /// <para>The receipt is a full re-walk, so it can be short for exactly the reasons a read can. Without this
-    /// the client had no way to know: it replaced its baseline item map with <see cref="NewItems"/>, so every
-    /// item under an unenumerable folder left the sidecar — undoing, in one push, the overlay the pull path
-    /// installs for precisely this case. The damage lands on the NEXT push: an edit to such a file has no known
+    /// <para>The receipt is a full re-walk, so it can be short for exactly the reasons a read can. A client that
+    /// replaces its baseline item map with <see cref="NewItems"/> must keep every item under these folders — else
+    /// it undoes, in one push, the overlay the pull path installs for precisely this case. The damage would land on
+    /// the NEXT push: an edit to such a file has no known
     /// version and goes up as a create (ITEM_EXISTS), a delete is skipped and reported as "nothing to push", and
     /// a rename throws "has no known IDE version".</para></summary>
     [JsonPropertyName("unwalkedFolders")]

@@ -82,8 +82,8 @@ internal static class TcSolutionExplorer
     /// <summary>Activates XAE's proxy manifest on this thread until disposed. A manifest that is there but that Windows
     /// will not activate is not a failed read: the read goes on with the proxy COM has registered (null is returned,
     /// <paramref name="refused"/> says why, as a prefix for any message about the proxy that follows) — and if that is
-    /// absent too, the reader's caller names both (IDE_UNSUPPORTED). Without it the activation failure was a plain
-    /// COMException, read as ITEM_UNVERIFIED: "a folder could not be read".</summary>
+    /// absent too, the reader's caller names both (IDE_UNSUPPORTED) — never a plain COMException, read as
+    /// ITEM_UNVERIFIED: "a folder could not be read".</summary>
     private static IDisposable? Activate(string ideDir, out string refused)
     {
         refused = "";

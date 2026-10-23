@@ -30,11 +30,10 @@ namespace Volt.Ide.Codesys
         public List<LibRefNode> GetLibraryRefs(object libManNode, out string? unspelled,
                                                out List<(string Name, string Reason)> refused)
         {
-            // NO EMPTY-LIST ESCAPES. Every early return here used to answer "this project references no
-            // libraries", which is a LIE for all three conditions and an expensive one: `fetch` reports the
-            // empty set with `librariesRefreshed` true, and `IdeTree.DroppedLibraryFile` then removes EVERY
-            // `.library` file the client holds — taking with them every qualified namespace the LSP resolves
-            // against. A version rename of one method would have deleted the engineer's whole library set.
+            // NO EMPTY-LIST ESCAPES. An early return answering "this project references no libraries" is a LIE for
+            // all three conditions and an expensive one: `fetch` reports the empty set with `librariesRefreshed`
+            // true, and `IdeTree.DroppedLibraryFile` then removes EVERY `.library` file the client holds — taking
+            // with them every qualified namespace the LSP resolves against.
             //
             // The missing-interface guard below is unreachable today (this is only called after `KindCodeOf` classified
             // the node by `Has(ifaces, "ILibManObject")`); it is kept as a throw because a caller could change, and a
@@ -199,8 +198,8 @@ namespace Volt.Ide.Codesys
         {
             var ns = LibMember(item, "Namespace") as string ?? throw LibUnreadable(item, "Namespace");
             // Every flag of the reference dialog, each spelled by its own manifest line where true. Optional,
-            // HideWhenReferencedAsDependency and PublishSymbolsInContainer (false on all 264 corpus references) used to
-            // have no line and refused the reference — the default live fixture holds two of them, on four references.
+            // HideWhenReferencedAsDependency and PublishSymbolsInContainer are false on all 264 corpus references, and
+            // the default live fixture holds two of them, on four references.
             var system = LibFlag(item, "SystemLibrary");
             var linkAll = LibFlag(item, "LinkAllContent");
             var qualifiedOnly = LibFlag(item, "QualifiedOnly");
@@ -302,8 +301,8 @@ namespace Volt.Ide.Codesys
                 {
                     if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
                     var init = GetMember(v, "Initial")?.ToString();
-                    // NOT `?? "BOOL"`. An unreadable Type used to be fabricated as BOOL and shipped to the LSP as
-                    // ground truth — a wrong type is worse than no library, because it resolves and then lies.
+                    // NOT `?? "BOOL"`. An unreadable Type is never fabricated and shipped to the LSP as ground
+                    // truth — a wrong type is worse than no library, because it resolves and then lies.
                     // IsNullOrEmpty, not null: GetMember can hand back a present-but-empty value.
                     var type = GetMember(v, "Type")?.ToString();
                     if (string.IsNullOrEmpty(type))
@@ -383,12 +382,9 @@ namespace Volt.Ide.Codesys
 
         /// <summary>A POU, with its body LANGUAGE applied at creation — <c>create_pou(name, type?, language?, return_type?,
         /// base_type?, interfaces?)</c>, enumerated off the live scripting container (DIALECT C2d).
-        /// <para><b>The language used to be ignored here, and that was correct until it was not.</b> CODESYS
-        /// took the language from the imported body element, so a POU created as ST became FBD the moment the
-        /// document landed — the old comment said as much. Nothing imports a document now: a graphical body is
-        /// written into the item's typed objects, and an item created as ST has an
-        /// <c>STImplementationObject</c> with no <c>NetworkList</c> to write into. The first live graphical
-        /// create failed exactly there, with that message.</para></summary>
+        /// <para><b>The language is created with the POU.</b> A graphical body is written into the item's typed
+        /// objects, and an item created as ST has an <c>STImplementationObject</c> with no <c>NetworkList</c> to
+        /// write into.</para></summary>
         private object CreatePou(object container, string name, string pouType, string? language) =>
             CreateNamed(container, "create_pou",
                 ("name", name), ("type", EnumValue("PouType", pouType)), ("language", LanguageArg(language)));
@@ -471,7 +467,7 @@ namespace Volt.Ide.Codesys
                 // a FUNCTION_BLOCK whatever its text, and the declaration written next decides what it is — CODESYS
                 // does not retain the creation PouType (DIALECT C2g) and takes the kind from the text (C2f). A
                 // function block needs no seed return type, and accepts every member kind until its text says
-                // otherwise (C2k). (The Program and Function arms went with the per-kind POU extensions.)
+                // otherwise (C2k).
                 case ItemKind.PlcPou: return CreatePou(c, name, "FunctionBlock", language);
                 // A DUT is one kind: create a neutral Structure skeleton, then WriteSourceText writes the real
                 // TYPE…END_TYPE declaration and CODESYS re-derives the actual subtype (struct/enum/union/alias)
@@ -532,9 +528,8 @@ namespace Volt.Ide.Codesys
             foreach (var child in GetChildren(parent))
                 if (string.Equals(GetName(child), name, StringComparison.Ordinal))
                 { InvokeMethod(child, "remove"); return; }
-            // A miss is LOUD. It used to return silently, so a delete that matched nothing reported success while
-            // the object stayed in the project — and it reported success on CODESYS while the same wire name made
-            // TwinCAT raise a raw COM error, which is the actual parity break. Delete-idempotency is NOT weakened:
+            // A miss is LOUD: a silent return would report success while the object stayed in the project, where the
+            // same wire name makes TwinCAT raise. Delete-idempotency is NOT weakened:
             // it lives one level up in PushService.ApplyOp, which answers "no-op" when the item is absent and
             // never calls here at all.
             throw new InvalidOperationException($"CODESYS: no child named '{name}' under '{GetName(parent)}'");
@@ -555,8 +550,8 @@ namespace Volt.Ide.Codesys
             // THE PROJECT ROOT CANNOT BE A MOVE TARGET, and saying so beats a raw type error. `move` takes an
             // `IExtendedObject<IScriptObject>`, and the project is not an `IScriptObject` at all - it implements
             // `IScriptProject`/`IScriptTreeObject` and nothing else (measured, probe-project-container.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-project-container.py)).
-            // So the vendor exposes no way to move an existing object INTO the POU pool, and the attempt used to
-            // surface as "Object of type 'ScriptProject' cannot be converted to type '...IScriptObject'".
+            // So the vendor exposes no way to move an existing object INTO the POU pool (the attempt surfaces as
+            // "Object of type 'ScriptProject' cannot be converted to type '...IScriptObject'"), so it is refused by name.
             // CREATING there works (a separate container exists for it - see CodesysObjectModel.IecContainer);
             // only relocating an existing item does not.
             if (IsScriptProject(Unwrap(target)))

@@ -15,11 +15,8 @@ namespace Volt.Contracts;
 /// </list>
 ///
 /// <para><b>Why the NETWORK family lives here and not in the Engine that raises it.</b> Clients observe these
-/// strings today and had nowhere to read them: they were literals inside <c>NetworkTextReader</c>, absent
-/// from Contracts and from the generated docs, and <c>NetworkTextException</c>'s constructor even defaulted
-/// to one as a magic string. That absence has already produced a phantom: a DTO comment cited
-/// <c>NETWORK_NESTED_EXPR</c>, a code that exists nowhere in the repo, and it was the only place in Contracts
-/// that named the family at all — so it was exactly what a client author would have read.</para>
+/// strings, so they belong to the contract a client reads (and the generated docs), not to literals inside
+/// <c>NetworkTextReader</c>.</para>
 ///
 /// <para>Contracts holds no Engine reference, so the Engine cannot import these — the gate in
 /// <c>DocDataTests</c> checks the other way instead: every <c>NETWORK_*</c> literal the Engine raises must be
@@ -37,9 +34,7 @@ public static class ConflictCodes
     /// <summary>A <c>NETWORK</c> block with no <c>END_NETWORK</c>.</summary>
     public const string NetworkNotClosed = "NETWORK_NOT_CLOSED";
 
-    /// <summary>A wire declared or defined twice in one network, or named like a name in scope (case-insensitively).
-    /// (<c>NETWORK_DUPLICATE_NETWORK</c>, one v1 network index used twice, went with the order number: network
-    /// text v2 headers carry none.)</summary>
+    /// <summary>A wire declared or defined twice in one network, or named like a name in scope (case-insensitively).</summary>
     public const string NetworkDuplicateName = "NETWORK_DUPLICATE_NAME";
 
     /// <summary>A malformed operator group — partial parens, mixed operators in one group, or an operator
@@ -103,13 +98,13 @@ public static class ConflictCodes
     /// for. Two children of one name in such a folder (DIALECT D34) is a project fact with the same remedy, and the same
     /// code. A hierarchy that cannot vouch for the PLC project ITSELF stops the walk before anything is read, so it
     /// reaches <c>refs</c>/<c>fetch</c>/<c>push</c> as an error frame with this code — the one place a
-    /// <see cref="ConflictCodes"/> value is a frame (openspec <c>bridge-refusal-review</c> 7.1). It was
-    /// <c>INTERNAL_ERROR</c>, which blamed Volt for an IDE state.</para>
+    /// <see cref="ConflictCodes"/> value is a frame (openspec <c>bridge-refusal-review</c> 7.1) — an IDE state, never
+    /// <c>INTERNAL_ERROR</c>.</para>
     ///
     /// <para><b>A read the IDE refused.</b> The push's lookup of an item, and its recreate of an item it must not open,
     /// meet the same situation without a C2i guard: the IDE refuses a child count, a child or a name read (a raw COM
     /// fault), or the walk skipped the folder a forced replace would recreate the item in. Same code, the message naming
-    /// the item and the IDE's words (openspec <c>bridge-refusal-review</c> V.1; they were <c>INTERNAL_ERROR</c>).</para>
+    /// the item and the IDE's words (openspec <c>bridge-refusal-review</c> V.1).</para>
     ///
     /// <para><b>On an op whose own item was read.</b> Resolving a body's names reads every declaration of the project,
     /// so such a folder ANYWHERE refuses that op too — with this code (the remedy is the folder's) and a message that
@@ -129,7 +124,7 @@ public static class ConflictCodes
     /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
     /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
     ///
-    /// <para>A constant because it was a bare literal in two files. Nothing branches on the NAME — the CLI
+    /// <para>Nothing branches on the NAME — the CLI
     /// tells a stale lease apart by its CODE (`Commands.cs`, `c.Code == StaleProjectVersion`).</para></summary>
     public const string ProjectName = "<project>";
 
@@ -141,8 +136,7 @@ public static class ConflictCodes
 
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an
     /// error frame, because the push catches them. Listing them is what makes the enum honest: without this,
-    /// six of the ten codes are published by no op and look unreachable. <c>INVALID_CODE_HEADER</c> is gone from the
-    /// vocabulary: a push no longer reads a top-level item's header (openspec <c>push-without-header-check</c>).
+    /// six of the ten codes are published by no op and look unreachable.
     ///
     /// <para><c>INTERNAL_ERROR</c> is one of them: <c>PushService.ConflictFor</c> answers every refusal nobody coded with
     /// it, and since <c>push-keeps-what-landed</c> every apply-time stop is a conflict, so a client DOES receive it here

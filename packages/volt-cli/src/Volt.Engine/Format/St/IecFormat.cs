@@ -141,7 +141,7 @@ public sealed class IecFormat : IItemFormat
     }
 
     /// <summary>A POU whose declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION has no END line to mirror
-    /// (<see cref="StWriter.NoHeader"/>) and is refused BY NAME — it used to close with an invented
+    /// (<see cref="StWriter.NoHeader"/>) and is refused BY NAME, never closed with an invented
     /// <c>END_FUNCTION_BLOCK</c> (openspec <c>bridge-one-to-one</c> task 3.5).</summary>
     private static void RefuseHeaderless(string name, ItemContent content)
     {

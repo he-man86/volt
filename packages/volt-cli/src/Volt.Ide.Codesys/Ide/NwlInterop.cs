@@ -112,8 +112,7 @@ namespace Volt.Ide.Codesys
         /// <summary>Invoke a method that may legitimately run off the end of a collection, returning null
         /// instead of throwing.
         /// <para><c>INetwork</c> exposes <c>GetSplitPoint(i)</c> with NO count to bound the loop, and the vendor
-        /// THROWS past the end rather than returning null — which surfaced as a bare "Index was out of range"
-        /// on the first live graphical push, from a read the caller believed was a probe.</para></summary>
+        /// THROWS past the end rather than returning null (a bare "Index was out of range").</para></summary>
         public static object? TryCall(object o, string method, params object?[] args)
         {
             try { return Call(o, method, args); }

@@ -12,13 +12,9 @@ namespace Volt.Ide.Twincat;
 /// <see cref="LibSignature"/>s — the referenced-library declarations the LSP resolves a <c>TON</c> or a
 /// <c>CONCAT</c> against.
 ///
-/// <para><b>This closes a capability gap, not a test gap.</b> TwinCAT users got NO library signatures at all:
-/// <c>BeckhoffDriver</c> inherited the old shared driver base's empty <c>ExtractLibrarySignatures</c>, so completion,
-/// hover and go-to-definition on every library FB silently did nothing on one vendor and worked on the other.
-/// The reason recorded for that — "TwinCAT has no equivalent surface" — was already known to be wrong: DIALECT
-/// C2c measured this exact call returning 181,179 chars out-of-process. Only the FORMAT was missing, and no
-/// fixture recorded it; a single-use worker probe captured it from the live IDE (DIALECT D27; the probe is deleted —
-/// <c>git show 56fa8e6418:packages/volt-cli/src/Volt.Ide.Twincat/Program.cs</c>).</para>
+/// <para>Completion, hover and go-to-definition on every library FB depend on these. DIALECT C2c measured this call
+/// returning 181,179 chars out-of-process; the FORMAT was captured from the live IDE by a single-use worker probe
+/// (DIALECT D27; <c>git show 56fa8e6418:packages/volt-cli/src/Volt.Ide.Twincat/Program.cs</c>).</para>
 ///
 /// <para><b>The format, measured.</b> Not one document: the call returns the libraries' XML CONCATENATED, so
 /// three referenced libraries come back as three <c>&lt;Library&gt;</c> roots in sequence, which no XML parser

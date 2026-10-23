@@ -78,8 +78,8 @@ public sealed class ProjectDeclarations
     /// 2R.4b). Read at most once per instance, and only when a pushed box names a callee nothing in the project names: on
     /// CODESYS the read precompiles (a build), so a push with no such box never pays for it.</param>
     /// <param name="items">Every top-level item of the tree, as <see cref="ItemLookup.All"/> lists them and in its order —
-    /// from a walk the operation already made, when the driver has one that still describes the tree (TwinCAT: openspec
-    /// <c>twincat-large-solution-refs</c>, the index was a second full walk of the solution); null (or a null answer)
+    /// from a walk the operation already made, when the driver has one that still describes the tree (TwinCAT: a second
+    /// full walk of a large solution costs minutes, openspec <c>twincat-large-solution-refs</c>); null (or a null answer)
     /// walks the tree for it.</param>
     public ProjectDeclarations(IIecTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
                                Func<IReadOnlyList<Library.LibSignature>> librarySignatures,

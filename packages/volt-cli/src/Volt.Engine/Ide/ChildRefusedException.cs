@@ -22,9 +22,9 @@ public enum ChildRefusalCause
 /// else.
 ///
 /// <para>Which members a POU accepts follows its TEXT on both vendors (DIALECT C2k): FUNCTION text refuses a method,
-/// and the push reports that by name as a fact about the declaration (<c>PushService.ReconcileMembers</c>). It used to
-/// word EVERY failure of a member create that way, so a stale handle ("Unbound tree item") or a transport fault was
-/// sent to the engineer as a declaration to fix. Only the driver can tell the vendor's refusal from a fault — it knows
+/// and the push reports that by name as a fact about the declaration (<c>PushService.ReconcileMembers</c>). Any other
+/// failure of a member create — a stale handle ("Unbound tree item"), a transport fault — is no declaration to fix.
+/// Only the driver can tell the vendor's refusal from a fault — it knows
 /// the vendor's wording — so it says which one it is by throwing this, and WHY (<see cref="Cause"/>); anything else
 /// stays an unclassified fault.</para>
 ///

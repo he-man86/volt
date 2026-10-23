@@ -20,14 +20,9 @@ namespace Volt.Ide.Twincat;
 /// Beckhoff driver — the content facet (its IEC record: <c>ReadContent</c>/<c>WriteContent</c>). Declarations and bodies travel the COM object model
 /// (<c>DeclarationText</c> / <c>ImplementationText</c>); a graphical body is the IDE's OWN
 /// <c>&lt;NWL&gt;</c> archive — built natively where the item has none (<see cref="TcArchiveBuilder"/>), edited in place
-/// where it has one. No PLCopen is written or read on this vendor (openspec twincat-inproc-host).
-///
-/// <para>This replaces <c>BeckhoffDriver.Code.cs</c> and the PLCopen round trip it drove — an export to a temp
-/// file, an import back, and the item MOVE that only existed because the import relocated everything to the
-/// project root. All seven checklist rows PLCopen failed on this vendor go with it: the declaration and member
-/// declarations it did not carry (the export emits no <c>InterfaceAsPlainText</c> at all on this install),
-/// the network metadata it dropped, the disabled network it OMITTED outright, the in-place replace it could
-/// not do, and the normalization that turned <c>x : INT;</c> into <c>x: INT;</c> on a round trip with no edit.</para>
+/// where it has one. No PLCopen is written or read on this vendor (openspec twincat-inproc-host): TwinCAT's PLCopen
+/// export carries no <c>InterfaceAsPlainText</c>, drops network metadata and disabled networks, cannot replace in
+/// place and reformats declarations on a round trip with no edit.
 /// </summary>
 public sealed partial class BeckhoffDriver
 {
@@ -56,7 +51,7 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>An interface accessor's STORED declaration is read from the saved <c>.TcIO</c> and held to the measured
     /// constant (design §1.1 interface accessor declaration, gate 1; gate review of step 3, finding 5): any other text is
-    /// refused BY NAME — it used to be read by nothing, so a stored <c>VAR x : INT; END_VAR</c> pulled as the empty
+    /// refused BY NAME — unread, a stored <c>VAR x : INT; END_VAR</c> would pull as the empty
     /// declaration. An accessor the saved file does not hold is an unsaved edit, and its stored text is unknown: refused by
     /// name too, with the remedy.</summary>
     private static void RequireMeasuredAccessorDeclarations(Func<string> itf, TcSavedFacts facts, IReadOnlyList<Member> members)
@@ -307,15 +302,11 @@ public sealed partial class BeckhoffDriver
         if (content.Members.Count == 0)
         { WriteOne(item, content.Kind, content.Declaration, content.Body, bodies, BodySite.Item); return item; }
 
-        // ONE walk, and ORDINAL-IGNORE-CASE — the CODESYS fix from earlier today, reaching its TwinCAT twin.
-        //
-        // This resolved each member by re-walking the whole POU per member (every step a live COM round trip),
-        // and compared names with `StringComparer.Ordinal` — the last Ordinal IDENTITY compare left on the wire.
-        // Every layer above it is OrdinalIgnoreCase (`ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`,
-        // `ItemLookup`, `TreeNav.NameIs`), and IEC identifiers are case-insensitive in both IDEs. So a case-only
-        // rename — `METHOD Calc` to `METHOD calc` — passed every gate, the POU's own declaration and body were
-        // already written on the line above, and THEN this threw NOT_FOUND (now IDE_LOST_ITEM) claiming the member is not in the
-        // project. False, and half-applied.
+        // ONE walk (not a re-walk of the POU per member, each step a live COM round trip), and ORDINAL-IGNORE-CASE
+        // like every layer above it (`ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`, `ItemLookup`,
+        // `TreeNav.NameIs`): IEC identifiers are case-insensitive in both IDEs, so an Ordinal compare here would
+        // refuse a case-only rename — `METHOD Calc` to `METHOD calc` — after the POU's own declaration and body were
+        // already written on the line above.
         // A MEMBER'S GRAPHICAL BODY GOES IN FIRST, THROUGH THE POU'S OWN ARCHIVE — and the ORDER is the whole
         // difference between this working and not.
         //
@@ -393,10 +384,9 @@ public sealed partial class BeckhoffDriver
     /// <summary>Resolve one graphical member body and note it for the archive write — or note NOTHING, when
     /// the member's live archive already says exactly this.
     ///
-    /// <para>THE DROP IS THE POINT. Every graphical member body used to take the CREATE route unconditionally, which
-    /// rebuilt the ids, <c>Fixed</c> flags, <c>ILLines</c> and every unmodelled member of networks nobody touched on
-    /// each push — and a push that changed only a DECLARATION still paid for the archive round trip, which deletes the
-    /// POU and imports it back, a window in which the item is not in the project at all.</para>
+    /// <para>THE DROP IS THE POINT. The CREATE route rebuilds the ids, <c>Fixed</c> flags, <c>ILLines</c> and every
+    /// unmodelled member of networks nobody touched, and the archive round trip deletes the POU and imports it back, a
+    /// window in which the item is not in the project at all — so an unchanged body never takes it.</para>
     ///
     /// <para>So the selection is <see cref="ResolveBody"/>, the SAME one <see cref="WriteOne"/> makes for a POU,
     /// against the member's own live implementation. A null verdict means no change, and a body with no change
@@ -695,9 +685,8 @@ public sealed partial class BeckhoffDriver
     ///
     /// <para><b>An INTERFACE property accessor is a bodiless stub and must never be written to.</b> It declares
     /// that a getter/setter exists and nothing more. TwinCAT COM rejects a declaration/implementation write on
-    /// one and can HARD-CRASH the IDE (RPC 0x800706BE - DIALECT D21), on read as well as write - measured, and the reason the
-    /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
-    /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
+    /// one and can HARD-CRASH the IDE (RPC 0x800706BE - DIALECT D21), on read as well as write - measured. So they are
+    /// created as bodiless "ST" stubs and nothing is written to them.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor,
                                IReadOnlyList<PushedNetworkBody> bodies, BodySite site)
@@ -740,12 +729,11 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>The item's KIND, from the TREE — never from its text.
     ///
-    /// <para>It used to fall back to parsing the declaration's header when the tree code did not map. That arm
-    /// was unreachable and load-bearing-looking, which is the worst combination: every route into
+    /// <para>No fallback to parsing the declaration's header when the tree code does not map: every route into
     /// <c>ReadContent</c> is already gated on <c>ItemKind.Map</c> answering (<c>ProjectSnapshot</c>,
-    /// <c>FetchService</c>, <c>PushService</c>, <c>ItemLookup</c>), so the fallback could only ever fire if one
-    /// of those gates broke — and then it would answer with a GUESS instead of failing, putting a kind on the
-    /// wire that the tree does not agree with.</para>
+    /// <c>FetchService</c>, <c>PushService</c>, <c>ItemLookup</c>), so a fallback could only fire if one of those
+    /// gates broke — and would then answer with a GUESS, putting a kind on the wire the tree does not agree
+    /// with.</para>
     ///
     /// <para>Failing loud costs nothing here: <c>Versioning.SafeVersion</c> turns the throw into one logged
     /// "unreadable" item rather than a dead walk.</para></summary>
@@ -795,10 +783,9 @@ public sealed partial class BeckhoffDriver
         // fieldbus tweak. CODESYS answers with a short identity block; so does this. See TcDeviceDescriptor.
         if (kind == ItemKind.Kinds.Device) return TcDeviceDescriptor.From(xml) ?? ItemKind.EmptyManifest(kind);
 
-        // A `.task` → the SHARED scheduling descriptor, the same six labels CODESYS writes. It used to render as
-        // `Name=` / `linked-task=`, which described Volt's difficulty rather than the task: `TIRT^PlcTask` is a
-        // tree path, and the cycle time and POU calls an engineer actually wants were nowhere in the file.
-        // Assembling it means reading the linked system task too — see TcTaskSchedule.
+        // A `.task` → the SHARED scheduling descriptor, the same six labels CODESYS writes: the cycle time and POU
+        // calls an engineer wants, not a tree path. Assembling it means reading the linked system task too — see
+        // TcTaskSchedule.
         return TaskDescriptorFormat.Write(_om.ReadTask(Com(item)));
     }
 

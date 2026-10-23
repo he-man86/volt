@@ -69,8 +69,8 @@ internal static class TcItemArchive
     /// member carries <c>FolderPath="Helpers\Inner\"</c> — the full path, backslash-separated, trailing
     /// separator — and the folders themselves are <c>&lt;Folder Name="Helpers" Id="{guid}"&gt;</c> elements that
     /// NEST by element rather than by path. Every member kind uses the same attribute: <c>&lt;Method&gt;</c>,
-    /// <c>&lt;Action&gt;</c> and <c>&lt;Property&gt;</c> alike. So a placement Beckhoff's PLCopen import discards
-    /// is expressible, exactly, in Beckhoff's own storage format.</para>
+    /// <c>&lt;Action&gt;</c> and <c>&lt;Property&gt;</c> alike. So a member's placement is expressible, exactly, in
+    /// Beckhoff's own storage format.</para>
     ///
     /// <para>An empty <paramref name="folderPath"/> moves the member back to the POU root.</para></summary>
     public static void MoveMember(dynamic pouParent, string pouName, IReadOnlyList<LiveText> live, Action? discard,
@@ -157,9 +157,8 @@ internal static class TcItemArchive
                 catch (Exception restore)
                 {
                     // The item is gone from the source and never arrived at the destination: this archive is all
-                    // that is left of it. The `finally` below used to delete it anyway — so the one instruction
-                    // that could recover the engineer's work pointed at a path that no longer existed by the time
-                    // they read it. A recovery route that deletes its own evidence is worse than no message.
+                    // that is left of it, so the `finally` below must not delete it: the message's recovery
+                    // instruction points at it. A recovery route that deletes its own evidence is worse than no message.
                     archiveIsLastCopy = true;
                     throw new InvalidOperationException(
                         $"move of '{name}' failed AND could not be undone — the item is in the archive at {zip}, " +
@@ -470,12 +469,10 @@ internal static class TcItemArchive
 
         // ORDINAL-IGNORE-CASE, like every other layer that matches a member by name. The `step` values are
         // the PUSHED spellings, taken from the engineer's signature line, and IEC identifiers are
-        // case-insensitive in both IDEs — so `METHOD Calc` renamed to `METHOD calc` sails through
+        // case-insensitive in both IDEs — so `METHOD Calc` renamed to `METHOD calc` passes
         // `ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard` and the driver's own `byName` map (all
-        // OrdinalIgnoreCase) and then missed HERE, and the push failed with "'calc' is not in the POU's
-        // archive" — false, and it sends the engineer looking inside a vendor file. `BeckhoffDriver`'s own
-        // comment calls the compare it replaced "the last Ordinal IDENTITY compare left on the wire"; this
-        // was a new one, a layer lower.
+        // OrdinalIgnoreCase), and an Ordinal compare HERE would refuse it with "'calc' is not in the POU's
+        // archive" — false, and it sends the engineer looking inside a vendor file.
         XElement? member = doc.Root;
         foreach (var step in path)
         {
@@ -538,10 +535,9 @@ internal static class TcItemArchive
     /// <summary>Serialize WITH the XML declaration, AS UTF-8, WITHOUT re-indenting and WITHOUT touching a line
     /// ending — the counterpart of <see cref="ParseVerbatim"/>.
     ///
-    /// <para>A plain StringWriter once declared <c>encoding="utf-16"</c> over UTF-8 bytes, which a reader refuses
+    /// <para>A plain StringWriter declares <c>encoding="utf-16"</c> over UTF-8 bytes, which a reader refuses
     /// ("There is no Unicode byte order mark. Cannot switch to Unicode") — and <c>RoundTrip</c> DELETES the item
-    /// before importing this text, so for that window it is the ONLY copy, and the undo re-imports the same bytes.
-    /// That is the class of failure that once made twenty .TcPOU files unopenable.</para></summary>
+    /// before importing this text, so for that window it is the ONLY copy, and the undo re-imports the same bytes.</para></summary>
     private static string SaveVerbatim(XDocument doc)
     {
         var sw = new Utf8StringWriter();

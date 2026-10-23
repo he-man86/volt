@@ -8,12 +8,11 @@ namespace Volt.Ide.Codesys
     /// WHICH CODESYS HAS WHICH ARCHIVED MEMBER — measured, keyed by the platform version (DIALECT V1), the vendor-fact
     /// record being DIALECT V7 (openspec <c>environment-dependency-audit</c> 2.0).
     ///
-    /// <para><b>Two facts used to be one throw.</b> A member the version's object model does not HAVE and a member that is
-    /// there but whose read failed both refused — and the first, on the library manager's <c>ParameterTable</c> (absent on
-    /// 3.5.18.30), failed every op that walks (212 of 218 failures of the 2026-10-13 SP18 e2e matrix). Now: absent on a
-    /// platform the census measured WITHOUT it, the MEMBER does not exist there — and the reading site states where its
+    /// <para><b>Two facts, two answers.</b> A member the version's object model does not HAVE is not a member whose read
+    /// failed: the library manager's <c>ParameterTable</c> is absent on 3.5.18.30, and refusing it would fail every op
+    /// that walks there. Absent on a platform the census measured WITHOUT it, the MEMBER does not exist there — and the reading site states where its
     /// fact lives instead, or that it has none: the stack settings have none on 3.5.18.30; the library parameter values
-    /// live on each reference's own archived <c>Params</c> (gate 2a review — read as "none", they were silently dropped).
+    /// live on each reference's own archived <c>Params</c> (gate 2a review — read as "none", they would be silently dropped).
     /// Absent anywhere else (a platform the census measured WITH it, or one it never measured, where an
     /// absence may be a rename) is no version fact: that ITEM is unreadable with its reason, never the op.</para>
     ///

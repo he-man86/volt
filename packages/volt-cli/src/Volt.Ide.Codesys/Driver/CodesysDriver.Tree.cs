@@ -322,7 +322,7 @@ public sealed partial class CodesysDriver
         if (_om.IsFolder(node)) return ItemKind.PlcFolder;
         var iobj = _om.ReadObject(node);
         // The CLASS decides, and no aspect is read: a POU is `X.pou` whatever its text says (openspec
-        // `push-without-header-check` 5.Q), so the walk no longer opens a POU's declaration to name it.
+        // `push-without-header-check` 5.Q), so the walk never opens a POU's declaration to name it.
         return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), _om.GetName(node), iobj);
     }
 }

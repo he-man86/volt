@@ -85,8 +85,8 @@ public class ComposedSession
                                      // well — and neither dispatcher can time out. A probe that never returns (wedged
                                      // IDE thread) therefore pins this >0 forever, and DeriveServedStatus keeps
                                      // answering "healthy": the probe meant to DETECT the hang is what masks it.
-                                     // ARCH FOLLOW-UP: count only real client ops here (or bound the probe's age and
-                                     // treat an over-stale in-flight probe as degraded).
+                                     // (Open: count only real client ops here, or bound the probe's age and treat an
+                                     // over-stale in-flight probe as degraded — volt-cli-rework 3.1.)
     private const long StaleMs = 12_000; // ~3 poll intervals with no confirmed IDE response ⇒ the link is suspect.
 
     // The one ambient-poll refresher. `health` (liveness + the instances list) is refreshed off the request path,

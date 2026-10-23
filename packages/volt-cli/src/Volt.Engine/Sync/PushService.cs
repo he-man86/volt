@@ -884,9 +884,7 @@ public static class PushService
     ///
     /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its whole path, kind
     /// included, so <c>X.foo</c> names no object and no kind to hold the text to: there is nothing it could mean. Force
-    /// drops a version gate; it never makes a name mean something. The retired
-    /// per-subtype names are such names: a DUT is <c>X.dut</c>, a POU <c>X.pou</c> (openspec
-    /// <c>push-without-header-check</c> 5.P, 5.Q).</para></summary>
+    /// drops a version gate; it never makes a name mean something.</para></summary>
     private static void RequireWireNames(KindRegistry kinds, IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)
@@ -2065,7 +2063,8 @@ public static class PushService
                                           bool signatures, ContentAccessor? accessor, MemberChanges changes)
     {
         // A SIGNATURE property's accessors (an interface's) are counted off the CLASS of its children, as each host
-        // counts them (DIALECT C5: a host classifies a child it lists); a property with bodies is asked for the accessor
+        // counts them (a host classifies every child it lists; TwinCAT answers an interface's accessors without opening
+        // them, DIALECT D21); a property with bodies is asked for the accessor
         // by its name — both vendors name them Get and Set.
         var exists = signatures
             ? link.Driver.Children(property).Any(c => link.Driver.Classify(c) is { Role: NodeRole.Member } cls && IsAccessor(cls.Kind, name))

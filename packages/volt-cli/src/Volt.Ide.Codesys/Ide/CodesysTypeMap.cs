@@ -48,10 +48,9 @@ namespace Volt.Ide.Codesys
 
             // Top-level source. A POU is ONE kind, `X.pou`, by its class (`POUObject`, `POUObjectCheckFunction` — both
             // `IPOUObject`): CODESYS takes whether it is a program, a function block or a function from its TEXT (DIALECT
-            // C2f/C2g), and nothing in Volt reads that. This used to read the Interface aspect of every POU on every walk
-            // (272 reads on Pro2193) to refine the kind from the declaration's first keyword, falling back to
-            // FUNCTION_BLOCK when it found none — and turned a POUObject holding INTERFACE text into an interface, a kind
-            // its class does not have. An `InterfaceObject` implements `IInterfaceObject` alone, below.
+            // C2f/C2g), and nothing in Volt reads that: no aspect is read per POU per walk, and a POUObject holding
+            // INTERFACE text stays a POU — its class has no other kind. An `InterfaceObject` implements
+            // `IInterfaceObject` alone, below.
             if (Has(ifaces, "IPOUObject")) return ItemKind.PlcPou;
             if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
             // IDUTObject is the usual struct/enum/union/alias. ITextListEnumerationObject is a text-list-backed
@@ -157,8 +156,8 @@ namespace Volt.Ide.Codesys
 
         /// <summary>A property accessor's GET or SET is the vendor's own <c>IsGetAccessor</c> — declared by every accessor class
         /// (<c>AbstractPropertyAccessorObject</c>, the base of the FB, interface and abstract-FB accessors; archived as <c>IsGet</c>, census §0.1 finding 4: 340 + 112
-        /// accessors, true 270 + 96 / false 70 + 16) — never its NAME, which this used to read (<c>"Set"</c> → SET, anything
-        /// else → GET: openspec <c>bridge-one-to-one</c> finding 8, task 3.5). An accessor that does not answer it is
+        /// accessors, true 270 + 96 / false 70 + 16) — never its NAME (openspec <c>bridge-one-to-one</c> finding 8, task
+        /// 3.5). An accessor that does not answer it is
         /// refused by name rather than guessed a GET.</summary>
         private static int AccessorCode(object? iobj, string? name) =>
             (iobj is not null && NwlInterop.Has(iobj, "IsGetAccessor") ? NwlInterop.Get(iobj, "IsGetAccessor") : null) switch

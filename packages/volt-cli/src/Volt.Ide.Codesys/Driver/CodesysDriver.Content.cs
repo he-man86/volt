@@ -91,10 +91,8 @@ public sealed partial class CodesysDriver
         }
         else
         {
-            // Declaration first and body second is safe here in a way it never was on the document transport:
-            // nothing re-imports the item, so nothing can regenerate the declaration behind the write. (The
-            // ordering rule that used to live in PushService was about TwinCAT's IMPORTER, and there is no
-            // import on this path at all.)
+            // Declaration first and body second is safe here: nothing re-imports the item, so nothing can
+            // regenerate the declaration behind the write.
             var aspect = NewBodyAspect(item.Native, KindOf(item), content.Body, content.Stated);
             _om.WriteSourceText(item.Native, content.Declaration, null);
             WriteGraph(item.Native, graph.Model, graph.Scope, aspect);
@@ -170,7 +168,7 @@ public sealed partial class CodesysDriver
     /// <c>IMPLEMENTATION NONE</c>. Measured (<c>vendor-facts</c> <c>merged-classes</c>, <c>implementation-declared.*</c>
     /// and <c>implementation.*</c>): pro2193's 10 <c>AbstractPOUMethodObject</c>s and the abstract property's
     /// <c>InterfacePropertyAccessorObject</c> GET all declare the member and hold null; every object with a body holds an
-    /// aspect, an empty ST body included. Two other facts used to fold into the same null and are refused by name
+    /// aspect, an empty ST body included. Two other facts would fold into the same null and are refused by name
     /// instead: no object read at all (a driver bug — the site's kind came from that object), and a type that does not declare the member
     /// (measured on no object — another or unpinned assembly, <see cref="NwlInterop.Declared"/>). An empty ST body stays
     /// null (<see cref="BodyText"/>): only the missing slot is NONE.</para></param>
@@ -206,14 +204,12 @@ public sealed partial class CodesysDriver
             case "NWLImplementationObject":
             {
                 // IL is a VIEW of this same aspect, not a separate one, so an IL body arrives HERE and not in
-                // the UNSUPPORTED arm below. the view read used to THROW for it, and the cost of that throw was total:
-                // Versioning.SafeVersion swallows it to UNREADABLE, and FetchService then drops the item from
-                // `changed`, `items` AND `folders` — so one IL-view method inside an ordinary ST function block
-                // removed the ENTIRE POU, declaration and every sibling method with it, from refs and fetch, on
-                // every pull, with only a log warning. IL is unsupported, which is exactly what the UNSUPPORTED line
-                // is for: `IMPLEMENTATION IL UNSUPPORTED`. A view Volt has never seen, or none, is the same loss and the
-                // same answer under its own name (`IMPLEMENTATION <VIEW> UNSUPPORTED`, `IMPLEMENTATION NWL UNSUPPORTED`:
-                // NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23) — it threw here too.
+                // the UNSUPPORTED arm below. The view read must not THROW for it: Versioning.SafeVersion would swallow
+                // the throw to UNREADABLE, and one IL-view method inside an ordinary ST function block would take the
+                // ENTIRE POU, declaration and every sibling method with it, out of refs and fetch. IL is unsupported,
+                // which is exactly what the UNSUPPORTED line is for: `IMPLEMENTATION IL UNSUPPORTED`. A view Volt has
+                // never seen, or none, gets the same answer under its own name (`IMPLEMENTATION <VIEW> UNSUPPORTED`,
+                // `IMPLEMENTATION NWL UNSUPPORTED`: NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23).
                 var stated = NetworkText.ViewLanguage(ViewModeText(impl));
                 if (NetworkText.LanguageNamed(stated) is not { } view)
                     return (ImplementationMarker.Unsupported(stated), null, StatedLanguage.HiddenIn(stated));
@@ -231,11 +227,9 @@ public sealed partial class CodesysDriver
                 // and every sibling method with it. That is the identical failure the IL arm above exists to
                 // stop, one arm lower down.
                 //
-                // TwinCAT never had the hole: its driver pre-empted the same refusal with an archive pre-scan and
-                // returned the UNSUPPORTED line, while the SAME body gave a CODESYS engineer no POU at all. The two now
-                // answer identically, which is the byte-identical-response rule the wire exists to hold — and since
-                // ld-fbd-coverage 1b.4 both readers show a refusal met in one network as that network's UNSUPPORTED line
-                // (`CodesysNetworkReader.ReadShown`, `TcNetworkReader.ReadShown`); the pre-scan is gone.
+                // Both vendors answer identically, which is the byte-identical-response rule the wire exists to hold:
+                // both readers show a refusal met in one network as that network's UNSUPPORTED line
+                // (`CodesysNetworkReader.ReadShown`, `TcNetworkReader.ReadShown`, ld-fbd-coverage 1b.4).
                 //
                 // A fact the text has no spelling for makes the body UNSUPPORTED, never a body without it — a flag on a
                 // split, an edge on an empty slot, a connection by an output slot the text cannot name. The writer
@@ -270,7 +264,7 @@ public sealed partial class CodesysDriver
     /// <summary>The language of a body aspect Volt does not read, as its UNSUPPORTED line states it: the aspect's class
     /// name without <c>ImplementationObject</c> — <c>CFCImplementationObject</c> to <c>CFC</c>, <c>SFCImplementationObject</c>
     /// to <c>SFC</c>, and an aspect Volt has never seen to the vendor's own name for it (D27, openspec bridge-refusal-review
-    /// 2.24). That was a refusal, and a refusal on the read path took the whole POU out of refs and fetch.</summary>
+    /// 2.24). Never a refusal: a refusal on the read path would take the whole POU out of refs and fetch.</summary>
     private static string UnreadLanguage(string aspectTypeName)
     {
         var name = aspectTypeName.EndsWith("ImplementationObject", StringComparison.Ordinal)
@@ -351,10 +345,8 @@ public sealed partial class CodesysDriver
     /// `Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(...)` walks a GVL, then a struct, then reaches the timer.
     /// Each hop is one more item's declaration, and only the driver can ask the IDE for it.</para>
     ///
-    /// <para>This driver had a push PRE-FLIGHT override (<c>ValidateSource</c>) whose one job was resolving an FB
-    /// call's type from the declarations before the write, for v1's text-derived <c>Box(Type: instance)</c>. The v2
-    /// reader resolves the type from this same scope, so the engine's pre-flight (which reads every body against
-    /// <see cref="NetworkScopeFor"/>) covers it, and the override went with the resolver.</para></summary>
+    /// <para>The network-text reader resolves an FB call's type from this same scope, so the engine's pre-flight (which
+    /// reads every body against <see cref="NetworkScopeFor"/>) needs no driver override.</para></summary>
     private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName, ExtractLibrarySignatures);
     private ProjectDeclarations? _declarations;
 
@@ -428,12 +420,11 @@ public sealed partial class CodesysDriver
 
     /// <summary>The item's KIND, from the TREE — never from its text.
     ///
-    /// <para>It used to fall back to parsing the declaration's header when the tree code did not map. That arm
-    /// was unreachable and load-bearing-looking, which is the worst combination: every route into
+    /// <para>No fallback to parsing the declaration's header when the tree code does not map: every route into
     /// <c>ReadContent</c> is already gated on <c>ItemKind.Map</c> answering (<c>ProjectSnapshot</c>,
-    /// <c>FetchService</c>, <c>PushService</c>, <c>ItemLookup</c>), so the fallback could only ever fire if one
-    /// of those gates broke — and then it would answer with a GUESS instead of failing, putting a kind on the
-    /// wire that the tree does not agree with.</para>
+    /// <c>FetchService</c>, <c>PushService</c>, <c>ItemLookup</c>), so a fallback could only fire if one of those
+    /// gates broke — and would then answer with a GUESS, putting a kind on the wire the tree does not agree
+    /// with.</para>
     ///
     /// <para>Failing loud costs nothing here: <c>Versioning.SafeVersion</c> turns the throw into one logged
     /// "unreadable" item rather than a dead walk.</para></summary>
@@ -451,9 +442,9 @@ public sealed partial class CodesysDriver
     {
         if (members.Count == 0) return;
 
-        // ONE walk for the whole write. FindChildByName used to re-run MemberSites per member, and MemberSites
-        // CLASSIFIES every child it passes - a ReadObject plus an interface-name query each. For a POU with 20
-        // members that is 20 walks and ~400 classifications to write 20 bodies. The tree does not change during
+        // ONE walk for the whole write. MemberSites CLASSIFIES every child it passes - a ReadObject plus an
+        // interface-name query each - so a walk per member would cost ~400 classifications to write the 20 bodies
+        // of a 20-member POU. The tree does not change during
         // this loop: the member set was reconciled before it, and CODESYS handles survive a child write.
         // ORDINAL-IGNORE-CASE, like every other name comparison on this wire. IEC identifiers are
         // case-insensitive and both IDEs treat them so; `ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`,
@@ -494,14 +485,12 @@ public sealed partial class CodesysDriver
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
             // interface-ness is carried SEPARATELY, as a flag off the owner.
             //
-            // It used to pass `PlcItfPropGet/Set` (654/655) for an interface property, on the reasoning that the
-            // accessor's kind follows its owner. It does not, here: `CodesysTypeMap.RefineAccessor` hands back
-            // only 613/614 for BOTH `IPropertyAccessorObject` and `IInterfacePropertyAccessorObject` — a
-            // measured fact recorded on `ItemKind.PlcPropGet` itself ("CODESYS maps its interface accessors here
-            // too"). So `FindAccessor(property, 654)` could never match, `live` was always null, and the guard
-            // below fell through to a bare `return` — the exact silent discard its own comment says it was
-            // written to fix. An engineer's edit to a `GET … END_GET` in a `.itf` was accepted and dropped, and
-            // `volt status` then reported in sync.
+            // Not `PlcItfPropGet/Set` (654/655) for an interface property: an accessor's kind does NOT follow its
+            // owner here. `CodesysTypeMap.RefineAccessor` hands back only 613/614 for BOTH
+            // `IPropertyAccessorObject` and `IInterfacePropertyAccessorObject` — a measured fact recorded on
+            // `ItemKind.PlcPropGet` itself ("CODESYS maps its interface accessors here too") — so
+            // `FindAccessor(property, 654)` would never match, and an engineer's edit to a `GET … END_GET` in a
+            // `.itf` would be dropped silently.
             var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
             WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface,
                           new BodySite(m.Name, m.Kind, BodySite.Get), bodies);
@@ -516,9 +505,8 @@ public sealed partial class CodesysDriver
     ///
     /// <para><b>An INTERFACE property accessor is a bodiless stub and must never be written to.</b> It declares
     /// that a getter/setter exists and nothing more. TwinCAT COM rejects a declaration/implementation write on
-    /// one and can HARD-CRASH the IDE (RPC 0x800706BE - DIALECT D21), on read as well as write - measured, and the reason the
-    /// original fix created these as bodiless "ST" stubs and wrote nothing. The rule was lost with the PLCopen
-    /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
+    /// one and can HARD-CRASH the IDE (RPC 0x800706BE - DIALECT D21), on read as well as write - measured. One rule on
+    /// both vendors: such an accessor is created as a bodiless "ST" stub and nothing is written to it.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface,
                                BodySite site, IReadOnlyList<PushedNetworkBody> bodies)

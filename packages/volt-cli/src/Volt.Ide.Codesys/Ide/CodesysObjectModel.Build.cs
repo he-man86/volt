@@ -45,11 +45,10 @@ namespace Volt.Ide.Codesys
             return BuildMessages(categories, cat => InvokeMethod(store, "GetMessages", cat) as IEnumerable);
         }
 
-        // THE BUILD'S OWN CATEGORIES, not the whole message view (openspec codesys-build-own-messages-only). This
-        // read used to take every category of MessageStorage, and the store is the IDE's whole message window: a
-        // script's stdout AND stderr land in it too ("Script Messages"), so one stderr line from any script made
-        // every later build of a clean project answer success: false, and the bridge's own start lines came back
-        // as build diagnostics. Measured on CODESYS 3.5.21.40 (CodesysTestProject, `get_message_categories`):
+        // THE BUILD'S OWN CATEGORIES, not the whole message view (openspec codesys-build-own-messages-only). The
+        // store is the IDE's whole message window: a script's stdout AND stderr land in it too ("Script Messages"),
+        // so read whole, one stderr line from any script would make every later build of a clean project answer
+        // success: false. Measured on CODESYS 3.5.21.40 (CodesysTestProject, `get_message_categories`):
         //   97f48d64-…  "Build"                   — "Build started", compile errors, "Compile complete -- N errors";
         //                                           a build REPLACES this category's content, so no stale messages
         //   220493a1-…  "Additional code checks"  — the static checks the build runs after the compile
@@ -87,17 +86,16 @@ namespace Volt.Ide.Codesys
                     var text = GetMember(m, "Text") as string ?? "";
                     // THE IDENTITY IS ON THE MESSAGE, not in its prose. `IMessage` carries `ObjectGuid` (the
                     // object the diagnostic is about) and `IMessage4.Number` (the C-number, e.g. 32 for C0032);
-                    // this used to read neither, and scraped `Line `/`Column ` out of `Text` instead. CODESYS
-                    // does not put a position in the text: EVERY diagnostic in the recorded conformance corpus
+                    // the text is never scraped for a position. CODESYS does not put one in the text: EVERY
+                    // diagnostic in the recorded conformance corpus
                     // (packages/volt-lsp-iec/test/conformance/recordings/codesys.build.json) carries `line: 0`,
-                    // while the TwinCAT recording of the same corpus carries real lines. So the client got a
-                    // diagnostic anchored to nothing and could not place it in a file, let alone on a line.
+                    // while the TwinCAT recording of the same corpus carries real lines.
                     //
                     // Members measured against the shipped assembly, not assumed — MessageStorage.dll,
                     // `_3S.CoDeSys.Core.Messages.IMessage` {ProjectHandle, ObjectGuid, Position, PositionOffset,
                     // Length, Text, Severity} and `IMessage4` {Icon, Number, Prefix}, CODESYS 3.5.21.40.
-                    // `Position`/`PositionOffset` are deliberately NOT read here, and that is now MEASURED rather
-                    // than cautious (DIALECT C27): `PositionOffset` is the 0-based column, but `Position` is an
+                    // `Position`/`PositionOffset` are deliberately NOT read here, MEASURED (DIALECT C27):
+                    // `PositionOffset` is the 0-based column, but `Position` is an
                     // opaque id, not a line or an offset, and a column without a line places nothing. A wrong line
                     // number is worse than none. The guid lets a client open the right file - and, for an error
                     // inside a method/property/action, name the member (`CodesysDriver.NamesFor`).

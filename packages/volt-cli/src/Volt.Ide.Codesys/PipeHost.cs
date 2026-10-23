@@ -151,8 +151,8 @@ public static class PipeHost
             try { Interlocked.Exchange(ref _tunnel, null)?.Dispose(); } catch (Exception ex) { VoltLog.Warn("relay: stop failed: " + ex.Message); }
             _host.Stop();
             // The in-proc detach. It clears the degraded flag and nothing else — there is nothing to release:
-            // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager, contrary to what
-            // this comment used to claim. Kept because this is the ONE production caller of the session's Disconnect():
+            // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager. Kept because this
+            // is the ONE production caller of the session's Disconnect():
             // the in-proc host is stopped by an IronPython script and must detach, while the TwinCAT worker dies with
             // its process — that asymmetric reachability IS the InIdeLoad/ExternalAttach lifecycle difference.
             _link?.Session.Disconnect();

@@ -109,9 +109,9 @@ internal static class TcTaskSchedule
     /// <summary>The `<c>&lt;TaskDef&gt;</c>` patch that applies <paramref name="t"/> to the system task, or throws
     /// <see cref="BridgeException"/> naming the field TwinCAT cannot express.
     ///
-    /// <para>UNSUPPORTED for a setting this VENDOR cannot hold, BAD_REQUEST for a value nobody could read. Every
-    /// refusal here used to be BAD_REQUEST, which told an engineer who had pulled a freewheeling CODESYS task
-    /// that their file was malformed — it is not, and no edit to it can make TwinCAT schedule that task.</para></summary>
+    /// <para>UNSUPPORTED for a setting this VENDOR cannot hold, BAD_REQUEST for a value nobody could read: an engineer
+    /// who pulled a freewheeling CODESYS task has no malformed file, and no edit to it can make TwinCAT schedule that
+    /// task.</para></summary>
     public static string SysTaskPatch(TaskSettings t)
     {
         // Case-EXACT, as every label of the descriptor is and as CODESYS looks up its `KindOfTask` names: `Type: cyclic`

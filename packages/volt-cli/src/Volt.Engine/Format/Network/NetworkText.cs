@@ -77,8 +77,8 @@ public static class NetworkText
     /// network text; <c>IL</c>, a view Volt does not author; and a view Volt has never seen under the vendor's own name
     /// (<see cref="ImplementationMarker.VendorLanguage"/>), or <see cref="UnviewedNetwork"/> when the body states none.
     /// The last three are the body's UNSUPPORTED line. ONE answer for both vendors, so the same body is the same line on
-    /// each (D27, openspec bridge-refusal-review 2.23, 2.29): an unknown or missing view used to be a throw outside
-    /// <see cref="Pulled"/>, which took the whole POU out of refs and fetch.</summary>
+    /// each (D27, openspec bridge-refusal-review 2.23, 2.29). An unknown or missing view never throws: a throw outside
+    /// <see cref="Pulled"/> would take the whole POU out of refs and fetch.</summary>
     public static string ViewLanguage(string? viewMode)
     {
         if (string.IsNullOrWhiteSpace(viewMode)) return UnviewedNetwork;

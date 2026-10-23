@@ -26,8 +26,8 @@ public static class StWriter
         var props = PropertyLines.Write(item.Properties);
         // EVERY TEXT VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): both vendors
         // keep a declaration's and a body's trailing newlines across a reload, so the file spells them — the text, then
-        // the layout's own separator, which is all the reader strips (`StReader.StripSeparator`). Every TrimEnd('\n') that
-        // folded them is gone; `…END_VAR\n\n\n` and `…END_VAR` pulled identically, and a push wrote the vendor's away.
+        // the layout's own separator, which is all the reader strips (`StReader.StripSeparator`). Nothing trims them:
+        // `…END_VAR\n\n\n` and `…END_VAR` would pull identically, and a push would write the vendor's away.
         if (!layout.Composite)
             return item.Declaration + "\n" + string.Concat(props.Select(l => l + "\n"));
 

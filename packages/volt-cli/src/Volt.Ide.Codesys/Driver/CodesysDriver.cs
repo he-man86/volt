@@ -196,8 +196,8 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
 
     // No health composition here: the engine's session composes the response and owns the probe, and this driver takes
     // the engine's default floor (ComposedSession.DefaultProbeThrottleMs). The in-proc snapshot is cheap, but it still runs
-    // on the engineer's PRIMARY thread, and it used to run once per poll per frontend — tray + every VS Code workspace +
-    // the desktop window, each on its own 4s clock. NB the floor is well BELOW that 4s: _hasProject (the OpGuard
+    // on the engineer's PRIMARY thread, and without the floor it would run once per poll per frontend — tray + every VS
+    // Code workspace + the desktop window, each on its own 4s clock. NB the floor is well BELOW that 4s: _hasProject (the OpGuard
     // precondition, written by ProbeProjects — the ambient probe plus the start and select refreshes) is refreshed by
     // every client poll exactly as before, so its staleness stays bounded by the slowest client's poll, not by the floor
     // — which is why the number is 1000 and not TwinCAT's 5000. Cached list, live verdict: CODESYS never AUTO-degrades

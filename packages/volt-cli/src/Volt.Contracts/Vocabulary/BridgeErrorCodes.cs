@@ -14,12 +14,11 @@ public static class BridgeErrorCodes
     /// and does not list. Never "the request names nothing": that is <see cref="ConflictCodes.ItemMissing"/>, answered
     /// by the gate before anything is written. Raised only during a push, so it reaches a client as a conflict, and
     /// since <c>push-keeps-what-landed</c> the earlier ops are written. Remedy: <c>volt pull</c> to see what landed,
-    /// then push again. It was <c>NOT_FOUND</c>, a name a client could not tell from <c>ITEM_MISSING</c>
-    /// (openspec <c>bridge-refusal-review</c> 7.2).</summary>
+    /// then push again (openspec <c>bridge-refusal-review</c> 7.2).</summary>
     public const string IdeLostItem = "IDE_LOST_ITEM";
     /// <summary>The request breaks the wire's OWN rules — a frame that is no JSON, an unknown op, a body that does not
     /// deserialize, a push op the engine cannot route, a malformed <c>.task</c>, a write of a read-only descriptor, a
-    /// move of an item that is no source item, a <c>fetch</c> with no baseline (it was <c>NO_SIDECAR</c>). Remedy:
+    /// move of an item that is no source item, a <c>fetch</c> with no baseline. Remedy:
     /// change the REQUEST. One situation, whichever phase meets it (openspec <c>bridge-refusal-review</c> V.1, V.3).</summary>
     public const string BadRequest = "BAD_REQUEST";
     /// <summary>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent — a shape the vendor

@@ -42,14 +42,11 @@ public sealed record ItemContent(
 /// Volt shows it (<see cref="Hidden"/>: the body is its <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line).
 ///
 /// <para><b>Why a record and not the text (D6).</b> The driver knows a body's language as a vendor fact — CODESYS from
-/// the aspect class and its view mode, TwinCAT from its archive — and encoded it into the text (no line for ST, the
-/// keyword line for network text, the UNSUPPORTED line for a hidden body), and the push's guard decoded it back. That
-/// held only while every reader kept the encoding lossless, in three places; one that forgot made the guard misjudge
-/// silently. The fact travels as a fact now.</para>
+/// the aspect class and its view mode, TwinCAT from its archive. Encoded into the text and decoded back by the push's
+/// guard, it would hold only while every reader kept the encoding lossless; so the fact travels as a fact.</para>
 /// <para><b><see cref="IsNone"/></b> is no language: the NONE line, an abstract member with no code (<c>IMPLEMENTATION
-/// NONE</c>, openspec <c>abstract-member-push</c> / <c>abstract-member-parity</c>). It was <c>NoSlot</c> while only a
-/// CODESYS object with no body slot read so; since the engine folds every ABSTRACT member with no code into it
-/// (<c>AbstractMemberFold</c>) it says nothing about a slot. It is a value of its own — not <c>HiddenIn("NONE")</c>, the
+/// NONE</c>, openspec <c>abstract-member-push</c> / <c>abstract-member-parity</c>). The engine folds every ABSTRACT
+/// member with no code into it (<c>AbstractMemberFold</c>), so it says nothing about a body slot. It is a value of its own — not <c>HiddenIn("NONE")</c>, the
 /// hidden body of a vendor language spelled NONE (<c>IMPLEMENTATION NONE UNSUPPORTED</c>) — and the guard reads it
 /// before any language rule.</para>
 /// </summary>
@@ -96,9 +93,7 @@ public sealed record Member(
     StatedLanguage? Stated = null);
 
 /// <summary>A property's GET or SET. <b>Presence is the object</b> — null means the property has no such accessor,
-/// and a push of that REMOVES it. That used to be a two-field convention on the read side (a getter existed if
-/// either its code or its declaration was non-null), which is a rule every reader of the record had to know and
-/// apply identically. A bodiless accessor — the interface case, where an accessor declares that a getter exists
+/// and a push of that REMOVES it — no reader infers presence from its fields. A bodiless accessor — the interface case, where an accessor declares that a getter exists
 /// and nothing more — is an Accessor with an empty <see cref="Body"/>, NOT a null one.
 /// <para>Its declaration travels VERBATIM (openspec <c>bridge-one-to-one</c> §1.1), a bare <c>VAR</c>/<c>END_VAR</c>,
 /// an empty one and a leading newline included: the writer puts the text and then its own separator, and the reader
@@ -108,8 +103,7 @@ public sealed record Accessor(string? Declaration, string? Body, string? Unsuppo
     /// <summary>The code to WRITE for this accessor — never null, because the accessor exists.
     /// <para>This exists to keep one hazard closed. On the write path a null body means "remove the accessor",
     /// while the read path can legitimately produce an accessor whose body is null (a getter declared with no
-    /// code). Passing <c>Body</c> straight through would silently DELETE such a getter on the next push — the
-    /// exact bug the old two-field spelling had, arriving from the other direction. Absence is the null
-    /// Accessor; an empty body is <c>""</c>.</para></summary>
+    /// code). Passing <c>Body</c> straight through would silently DELETE such a getter on the next push. Absence is
+    /// the null Accessor; an empty body is <c>""</c>.</para></summary>
     public string Code => Body ?? "";
 }

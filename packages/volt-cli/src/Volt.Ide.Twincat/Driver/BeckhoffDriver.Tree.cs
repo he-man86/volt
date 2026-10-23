@@ -64,8 +64,8 @@ public sealed partial class BeckhoffDriver
     private int _walkIndexAt;
 
     /// <summary>THE DECLARATIONS INDEX FROM THE OPERATION'S OWN WALK (openspec <c>twincat-large-solution-refs</c>): every
-    /// top-level item, as <see cref="ItemLookup.All"/> would list them — it was a second full walk of the solution, with a
-    /// COM round trip per node, in every operation that read a graphical body. Only while the walk still describes the
+    /// top-level item, as <see cref="ItemLookup.All"/> would list them — not a second full walk of the solution, with a
+    /// COM round trip per node, in every operation that reads a graphical body. Only while the walk still describes the
     /// tree: a walk that did not read every folder (<see cref="WalkResult.Complete"/>) or a structural write since it
     /// (<see cref="TcObjectModel.StructureWrites"/> — a create, delete, rename, move or member placement, whose import
     /// also kills every handle in the POU) leaves the index to its own walk of the tree, as before. Null then.</summary>
@@ -156,7 +156,7 @@ public sealed partial class BeckhoffDriver
                 continue;
             }
             // Classification faults where every other read in this loop does - and is recorded the same way, so
-            // absence under this folder stops meaning "deleted". It used to be swallowed one layer down.
+            // absence under this folder stops meaning "deleted".
             int itemType;
             try { itemType = ClassifiedKind(child); }
             catch (Exception ex)
@@ -223,9 +223,9 @@ public sealed partial class BeckhoffDriver
             if (itemType > 0 && ItemKind.Map(itemType) is null)
                 WarnUnmappedTcCode(itemType, name);
 
-            // NOT `catch { childCount = 0; }`. A COM fault here used to read as "this node has no children", so
-            // isHybrid went false and the whole SUBTREE was skipped — every item under it silently absent from
-            // refs/fetch, and absent means DELETED to a pull. One unreadable node must not break the walk (the
+            // NOT `catch { childCount = 0; }`. A COM fault read as "this node has no children" would skip the whole
+            // SUBTREE — every item under it silently absent from refs/fetch, and absent means DELETED to a pull.
+            // One unreadable node must not break the walk (the
             // WarnUnmappedTcCode line above is the established policy), but it must be SAID.
             int childCount;
             try { childCount = _om.ChildCount(child, itemType); }
@@ -259,12 +259,10 @@ public sealed partial class BeckhoffDriver
     /// <summary>A system project's I/O devices (<c>TIID</c>), walked where the solution tree shows them: <c>I/O</c> → <c>Devices</c> under the system project's
     /// path (<paramref name="systemFolder"/>) — each system project has its own <c>TIID</c>.
     ///
-    /// <para><b>It takes <paramref name="unwalked"/> for the same reason <see cref="WalkInner"/> does.</b> Every
-    /// catch here used to answer <c>return</c> or <c>continue</c> and record NOTHING, so a COM fault on the TIID
-    /// node left <c>WalkResult.Complete</c> TRUE — and <c>Complete</c> is the one signal that stops <c>fetch</c>
-    /// deriving DELETIONS from absence. A transient fault therefore reads as "these devices are gone" and takes
-    /// the engineer's descriptors with it. That is the identical failure the four catches in <c>WalkInner</c>
-    /// each carry a comment about; this method was written without them.</para>
+    /// <para><b>It takes <paramref name="unwalked"/> for the same reason <see cref="WalkInner"/> does.</b> A catch
+    /// that records NOTHING would leave <c>WalkResult.Complete</c> TRUE after a COM fault on the TIID node — and
+    /// <c>Complete</c> is the one signal that stops <c>fetch</c> deriving DELETIONS from absence, so a transient fault
+    /// would read as "these devices are gone".</para>
     ///
     /// <para>A failure to resolve TIID is reported as unwalked rather than as "this project has no I/O", because
     /// the two are indistinguishable here and only one of them is safe to guess wrong: reporting unwalked
@@ -302,9 +300,8 @@ public sealed partial class BeckhoffDriver
     ///
     /// <para><b>Kind is <see cref="ItemKind.PlcDevice"/>, not the raw TwinCAT tree code.</b> Measured on a live
     /// XAE: an EtherCAT master reports <c>ItemType 2</c> and an EK1100 coupler <c>ItemType 5</c>, both far below
-    /// the 601-657 PLC range <c>ItemKind.Map</c> covers, so every device fell through to unmapped and was dropped
-    /// by <c>fetch</c>, <c>refs</c> and <c>push</c> alike. The walk paid a live COM round trip per device and
-    /// emitted nothing an engineer ever saw. <c>PlcDevice</c> (695) is the kind CODESYS already emits for the
+    /// the 601-657 PLC range <c>ItemKind.Map</c> covers, so mapped raw, every device would be dropped as unmapped
+    /// by <c>fetch</c>, <c>refs</c> and <c>push</c> alike. <c>PlcDevice</c> (695) is the kind CODESYS emits for the
     /// same thing, and its own definition names this case ("a TC bridge would map its I/O tree here").</para>
     ///
     /// <para><b>The folder rule is CODESYS's, deliberately.</b> A device WITH children becomes a folder named
@@ -431,9 +428,8 @@ public sealed partial class BeckhoffDriver
         // takes an interface method's return type / an interface property's data type as its vInfo, and a property
         // created with none fails inside TcXaeShell ("Object reference not set to an instance of an object",
         // IVendorTree.CreateChild). So a property with no type, or a member whose line has nothing after its `:`, is
-        // refused here, by name, before the IDE is touched. The ST reader used to refuse those lines on both vendors —
-        // the build's error everywhere but this one create. An interface METHOD with no colon at all is untyped and is
-        // created with a null vInfo, as it always was.
+        // refused here, by name, before the IDE is touched — the build's error everywhere but this one create. An
+        // interface METHOD with no colon at all is untyped and is created with a null vInfo.
         // The push pre-flight asks the same predicate (RefusedMemberCreate), so a push is refused before anything lands;
         // this is the guard for every other caller.
         var memberKind = kindCode == ItemKind.PlcItfProp ? ItemKind.Kinds.InterfaceProperty
@@ -529,13 +525,11 @@ public sealed partial class BeckhoffDriver
     /// <summary>Which accessors an INTERFACE property has — by ENUMERATING its children, the same way a
     /// non-interface property is read one file over.
     ///
-    /// <para><b>This replaced a read of the property's own metadata XML, which could never have worked.</b>
-    /// That version called <c>ProduceXml(recursive: true)</c> and looked for nested <c>ItemName</c> elements
-    /// named Get/Set. Measured on a live GET-only interface property: <c>ProduceXml(true)</c> returns output
-    /// BYTE-IDENTICAL to <c>ProduceXml(false)</c> — metadata for the property alone, no children at any depth.
-    /// It does carry <c>&lt;ChildCount&gt;1&lt;/ChildCount&gt;</c>, but a count cannot tell a GET-only property
-    /// from a SET-only one. So the detection always answered "no accessors": the pull wrote a bare
-    /// <c>PROPERTY x : T END_PROPERTY</c> and the next push DELETED the accessor the engineer had.</para>
+    /// <para><b>Not the property's own metadata XML, which cannot answer this.</b> Measured on a live GET-only
+    /// interface property: <c>ProduceXml(true)</c> returns output BYTE-IDENTICAL to <c>ProduceXml(false)</c> —
+    /// metadata for the property alone, no children at any depth. It does carry
+    /// <c>&lt;ChildCount&gt;1&lt;/ChildCount&gt;</c>, but a count cannot tell a GET-only property from a SET-only
+    /// one.</para>
     ///
     /// <para><b>And the reason it was written that way does not hold.</b> The comment said enumerating accessor
     /// COM children "can hard-crash TcXaeShell". Measured: walking into the property, reading the child's
@@ -567,8 +561,8 @@ public sealed partial class BeckhoffDriver
     /// its POU's root exactly when the move asked for the root (<paramref name="folder"/> empty). A broken post-condition
     /// — the archive was rewritten and re-imported and the member is not where its FolderPath now says — is the IDE not
     /// holding what Volt just wrote: IDE_LOST_ITEM, the code of every post-condition (openspec bridge-refusal-review 7.2,
-    /// V.1). It was UNSUPPORTED, which told the client the request asked for something TwinCAT cannot do, then
-    /// INTERNAL_ERROR (2.35), which blamed Volt for what the IDE did with the import. Its own function so the code is tested
+    /// V.1) — not UNSUPPORTED (the request asked for nothing TwinCAT cannot do) and not INTERNAL_ERROR (2.35: Volt did
+    /// not fail, the import did). Its own function so the code is tested
     /// without the project walk no double has.</summary>
     private static void RequireMemberLanded(string name, string pouName, string folder, bool atPouRoot)
     {
@@ -581,11 +575,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>Relocate an item, whole. TwinCAT has no <c>Move</c> member on its tree item — the dispatch
     /// surface of <c>ITcSmTreeItem</c> was enumerated off the shipped type library to settle that — but the
     /// export/import pair IS one once the archive's entry paths are flattened (<c>TcItemArchive</c>, DIALECT D4f).
-    /// <para>This used to throw <c>Unsupported</c>, on a note that admitted the COM surface "has not been measured
-    /// for an equivalent". It had not been: the earlier probe looked for a method with a PROPERTY read, which can
-    /// never find one, and the one after it read the archive's path recreation as a vendor limit rather than as a
-    /// zip entry name. Both are measured now, and the refusal was the thing standing between TwinCAT and the
-    /// single-document write.</para>
+    /// <para>Measured: the archive's path recreation is a zip entry name, not a vendor limit.</para>
     /// <para>Unlike <c>PushService</c>'s delete-and-recreate move (the arm a driver without this takes), the item
     /// travels as the IDE's own archive, so a GRAPHICAL body survives — nothing is rebuilt from text.</para></summary>
     public void Move(ItemRef item, ItemRef target)
@@ -650,9 +640,8 @@ public sealed partial class BeckhoffDriver
 
     // TwinCAT has FOUR DUT tree codes, not one: 605/606/607/623 = TREEITEMTYPE_PLCDUTENUM/STRUCT/UNION/ALIAS
     // (DIALECT C2b — 623 is the ALIAS code, not a generic DUT). An IDE-authored DUT carries its subtype's code
-    // (ItemKind.cs, measured two ways). This comment used to claim "EVERY DUT is 623"; those three codes were
-    // unmapped, so every such item was dropped by Core as an unknown kind — invisible to refs and fetch, and
-    // absent means DELETED to a pull.
+    // (ItemKind.cs, measured two ways). All four are mapped: an unmapped code is dropped by Core as an unknown kind —
+    // invisible to refs and fetch, and absent means DELETED to a pull.
     // All four map onto the one internal DUT kind, so we emit the raw code as-is and Core maps it; the wire NAME
     // is `X.dut` for every one of them (`Materializer`). The code says nothing reliable about the shape anyway: a
     // push-create always seeds 606 whatever the body (`TcObjectModel.CreateChild`), and an in-place write of another

@@ -12,10 +12,9 @@ public class BridgeException : CodedException
     /// <summary>The bridge is PAUSED by a `disconnect` — a different situation from "no project is bound",
     /// with the same code because a client's handling is identical: it cannot sync until someone reconnects.
     ///
-    /// <para>The text is the whole point. The pause gate used to answer with <see cref="PlcDisconnected"/>'s
-    /// canned "Bridge is waiting for an IDE project", so a user who had just pressed Disconnect in the tray
-    /// ran `volt pull` and was told to open a project that was already open. The CLI returns these messages
-    /// verbatim, and the remedy appeared nowhere in them.</para></summary>
+    /// <para>The text is the whole point. <see cref="PlcDisconnected"/>'s canned "Bridge is waiting for an IDE
+    /// project" would tell a user who just pressed Disconnect in the tray to open a project that is already open.
+    /// The CLI returns these messages verbatim, so this one names the remedy.</para></summary>
     public static BridgeException Paused() =>
         new(BridgeErrorCodes.PlcDisconnected,
             "the bridge is disconnected — press Reconnect in the Volt Connector (the IDE and its project are "

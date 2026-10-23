@@ -87,9 +87,8 @@ internal sealed partial class TcObjectModel
         {
             dynamic sb = _dte.Solution.SolutionBuild;
 
-            // WAIT FOR A BUILD THE ENGINEER STARTED IN THE IDE, and refuse if one is still running. Starting a
-            // second build over the top of a live one is what the old code did on expiry: the loop simply fell
-            // through and called Build() anyway.
+            // WAIT FOR A BUILD THE ENGINEER STARTED IN THE IDE, and refuse if one is still running — never start a
+            // second build over the top of a live one.
             if (!WaitForIdle(sb)) return false;
 
             // MEASURED SYNCHRONOUS (2026-08-30, live TcXaeShell 15.0): `Build(true)` is EnvDTE's
@@ -97,10 +96,8 @@ internal sealed partial class TcObjectModel
             // 1230ms respectively, with `BuildState` already `vsBuildStateDone`(3) on return and never once
             // observed as `vsBuildStateInProgress`(2). So there is NO poll after this call.
             //
-            // There used to be one, and it was the bug: 100x100ms, and on expiry it did not throw, did not log,
-            // and did not stop — it fell through to `LastBuildInfo`, which then reported the PREVIOUS build's
-            // failed-project count as this build's verdict, on a wire-visible boolean. Ten seconds is also not a
-            // plausible ceiling for a real PLC build, so the fall-through was reachable rather than theoretical.
+            // A bounded poll that falls through on expiry would report the PREVIOUS build's failed-project count
+            // (`LastBuildInfo`) as this build's verdict, on a wire-visible boolean.
             // The file's own rule five lines down says it: "NOT catch { failed = 0; }. That turned 'I could not
             // read the build result' into 'the build passed'." `BuildProject(…, true)` is synchronous the same way
             // (DIALECT D46).
@@ -121,7 +118,7 @@ internal sealed partial class TcObjectModel
         catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex))
         {
             // NOT the RPC family: a real build-time failure whose verdict we could not read. Report FAILURE —
-            // never "it passed" — and say why, because this used to be a bare catch with no log at all.
+            // never "it passed" — and say why.
             VoltLog.Warn($"twincat: the build could not be completed or its result read — reporting FAILURE " +
                          $"rather than assuming success: {ex.Message}");
             return false;
@@ -132,11 +129,11 @@ internal sealed partial class TcObjectModel
     ///
     /// <para><c>false</c> means "a build is still running, or I could not tell" — and the caller reports the
     /// build as FAILED, which is this file's standing rule for an unreadable verdict ("reporting FAILURE rather
-    /// than assuming success"). It is never "assume idle and start another one": that is exactly what the
-    /// expiring loop this replaces did, issuing <c>Build(true)</c> over a build already in flight.</para>
+    /// than assuming success"). It is never "assume idle and start another one", which would issue
+    /// <c>Build(true)</c> over a build already in flight.</para>
     ///
-    /// <para>The state read is NOT swallowed. It used to sit in a bare <c>catch { }</c> with no log, so a COM
-    /// fault on the very first poll looked identical to "idle" and the method carried on. An RPC fault is not caught
+    /// <para>The state read is NOT swallowed: a COM fault on the very first poll must not look identical to "idle".
+    /// An RPC fault is not caught
     /// here at all: answered as "could not tell", a dead XAE read as a failed build and the session never degraded
     /// (cli-bridges review B4).</para></summary>
     private static bool WaitForIdle(dynamic sb)
@@ -215,10 +212,9 @@ internal sealed partial class TcObjectModel
             // `file(line,col) : error|warning|message : text`, which is a compiler's output and not a
             // window's chrome.
             //
-            // It used to select panes by `pane.Name.Contains("Build") || .Contains("TwinCAT")` — a
-            // case-sensitive substring test on the shell's USER-VISIBLE caption. The driver supports full
-            // Visual Studio as well as TcXaeShell, and full VS ships localized UI in Beckhoff's own market;
-            // on such a host nothing matches, and a FAILING build is then reported with zero errors.
+            // No pane is selected by its USER-VISIBLE caption (`pane.Name.Contains("Build")`): the driver supports
+            // full Visual Studio as well as TcXaeShell, and full VS ships localized UI in Beckhoff's own market;
+            // on such a host nothing would match, and a FAILING build would be reported with zero errors.
             // Selecting by pane GUID instead would only trade one magic string for another: the Build pane's
             // GUID is a documented VS SDK constant, but TwinCAT's own pane GUID is documented nowhere and was
             // measured on a single install, so it is exactly the kind of value that quietly stops matching
@@ -226,13 +222,11 @@ internal sealed partial class TcObjectModel
             // AN EMPTY PANE THROWS, and that is its ordinary state — not a fault to abort the sweep for.
             // Measured on live TcXaeShell 15.0 (2026-08-30): of seven panes, `Build`, `TwinCAT` and
             // `Source Control - Git` return text, while `Debug`, `Build Order` and the two other source
-            // control panes each answer `COMException 0x80004005` (E_FAIL) from `TextDocument`. Letting that
-            // reach the outer catch aborted the WHOLE parse on the first empty pane, so the build reported
-            // one synthetic "could not finish reading" error and nothing else.
+            // control panes each answer `COMException 0x80004005` (E_FAIL) from `TextDocument`. Reaching the outer
+            // catch, that would abort the WHOLE parse on the first empty pane.
             //
             // Skipping here does NOT hide a failing build: the verdict comes from `LastBuildInfo` in
-            // `Build()`, never from this list, so the worst case is a failure reported without its detail —
-            // and this now reads every pane, where the previous name-matching version read at most two.
+            // `Build()`, never from this list, so the worst case is a failure reported without its detail.
             string text;
             try
             {
@@ -392,11 +386,9 @@ internal sealed partial class TcObjectModel
         if (arrow > 0 && s.Substring(0, arrow).All(char.IsDigit)) s = s.Substring(arrow + 1).Trim();
 
         // A PATH IS WHAT A COMPILER NAMES AN ITEM WITH, and requiring one is a POSITIVE test: the field has to
-        // look like a file before anything is read out of it. The test used to be the ABSENCE of a space, on the
-        // grounds that an IEC identifier cannot contain one — which rejects `1>TwinCAT Project1 : error : ...`
-        // and lets through every project whose name happens to have none (`1>Untitled1`, `1>PLC`). Those came
-        // back as item names, and the engine resolves a name against the tree, so a project-level error landed
-        // on whatever POU happened to share the caption and pointed an editor at the wrong file.
+        // look like a file before anything is read out of it. The ABSENCE of a space is no such test: it lets
+        // through every project whose name has none (`1>Untitled1`, `1>PLC`) as an item name, and the engine
+        // resolves a name against the tree, so a project-level error would land on whatever POU shares the caption.
         var slash = s.LastIndexOfAny(new[] { '\\', '/' });
         if (slash < 0) return null;
         s = s.Substring(slash + 1);

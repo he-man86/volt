@@ -30,9 +30,8 @@ namespace Volt.Engine.Format.Body
     public class UnrepresentableBodyException : System.NotSupportedException
     {
         /// <summary>The fact network text has no spelling for, in a few words — e.g. <c>a vendor split point</c>. It is
-        /// what the pull message names for the body (it used to be written into the file, as
-        /// the old marker comment); the <see cref="System.Exception.Message"/> is the long
-        /// explanation.</summary>
+        /// what the pull message names for the body (the file holds no reason); the
+        /// <see cref="System.Exception.Message"/> is the long explanation.</summary>
         public string Reason { get; }
 
         public UnrepresentableBodyException(string reason, string message) : base(message) => Reason = reason;

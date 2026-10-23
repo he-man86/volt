@@ -13,11 +13,8 @@ namespace Volt.Ide.Codesys
     /// Writes a <see cref="NetworkBody"/> back as LIVE typed objects, inside one
     /// <c>GetObjectToModify</c>/<c>SetObject</c> transaction.
     ///
-    /// <para><b>Nothing is regenerated.</b> The previous transport rebuilt the whole PLCopen body from a
-    /// projection on every write, which is why it needed a carry rule (to keep ids, vendor <c>addData</c> and
-    /// comment boxes on networks the engineer had not touched), a convergence gate (so push→pull→push settled
-    /// instead of oscillating) and a capability guard scoped to what a regeneration would discard. A network
-    /// whose text is unchanged is simply not written here, so none of that machinery has anything to do.</para>
+    /// <para><b>Nothing is regenerated.</b> A network whose text is unchanged is simply not written, so ids, vendor
+    /// data and comment boxes on networks the engineer had not touched stay as the IDE holds them.</para>
     ///
     /// <para>Construction is by PUBLIC constructor — measured, no private-reflection trick — and the vendor
     /// derives what it can: setting <c>BoxType="AND"</c> and appending two inputs produced
@@ -44,8 +41,8 @@ namespace Volt.Ide.Codesys
 
             // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.22, D7). Network text states FBD or LD once, on
             // the body's IMPLEMENTATION line — the sole textual difference between the two — and the view is one
-            // writable string member of the aspect. It was refused as "nothing here writes it", which made a
-            // marker-only edit a refusal on this vendor while TwinCAT writes the same member through its archive.
+            // writable string member of the aspect, as TwinCAT writes the same member through its archive — so a
+            // marker-only edit is written on both vendors.
             // ...but only when there IS one. A body that is not graphical YET — a freshly created accessor, whose
             // Implementation is still an `STImplementationObject` — has no `DefaultViewMode` member at all. There is
             // no view to set when there is no diagram yet.
@@ -317,21 +314,11 @@ namespace Volt.Ide.Codesys
 
                     case Assign a:
                     {
-                        // STORAGE USED TO BE LIFTED OFF THE VALUE HERE, and the two paragraphs that stood
-                        // in this place described that design in the present tense long after it was gone.
-                        // What they recorded is still worth keeping: the write took `a.Value?.Flags` WHOLE and
-                        // applied every bit to each target, so the NOT in `out := NOT a;` landed on the COIL as
-                        // well as the input and the IDE ran `out := NOT NOT a` — the inverse of the committed
-                        // source. Invisible from every direction Volt had: the reader lifted only storage back
-                        // off a target, the text writer rendered no modifier on a target at all, so the next
-                        // pull was byte-identical and the change gate said "unchanged"; and a negated BOOL coil
-                        // COMPILES, so the build oracle was blind too. The format spells storage on the coil
-                        // now, so there is nothing to lift and nothing to strip.
-                        //
                         // STORAGE COMES OFF THE TARGET, because that is where the model carries it and where
-                        // this vendor keeps it. It used to be lifted off the VALUE (`CoilStorage`, deleted) to
-                        // suit the old `out := v SET;` spelling, applied as ONE record to every target — so a
-                        // fan-out whose coils disagreed got the first coil's storage on all of them.
+                        // this vendor keeps it — each target its own, so a fan-out whose coils disagree keeps
+                        // each coil's storage. The value's flags are never copied onto a target: the NOT in
+                        // `out := NOT a;` belongs to the input, and on the coil too the IDE would run
+                        // `out := NOT NOT a` — invisible to a re-pull and to the build (a negated BOOL coil compiles).
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
                         NwlInterop.Set(asg, "RValue", Node(a.Value));
                         // A JUMP RIDES ON THE TARGET OPERAND, exactly like coil storage — and putting it on
@@ -394,9 +381,8 @@ namespace Volt.Ide.Codesys
                     {
                         // AN FB CALL'S TYPE IS NOT ITS INSTANCE NAME. Network text carries ONE name for a call —
                         // `t1(...)` — and its reader takes the TYPE from the declarations (`NetworkScope`: `t1 :
-                        // TON`), so the model arrives with `Type: "TON", Instance: "t1"`, as a pull reads it. (v1's
-                        // reader built `Type: "t1"` and this writer resolved it here from the declaration; that
-                        // resolver went with the v1 text, task 3.9.) An FB call with no instance names no box the IDE
+                        // TON`), so the model arrives with `Type: "TON", Instance: "t1"`, as a pull reads it. An FB
+                        // call with no instance names no box the IDE
                         // can resolve at all, and is refused rather than written with the instance name as its type.
                         // Unreachable from a push: the reader builds every FB call with its instance and its type
                         // from the declarations. A model without one is Volt's bug (openspec bridge-refusal-review 2.20).
@@ -418,9 +404,8 @@ namespace Volt.Ide.Codesys
                         var callee = b.Instance is null && b.StCode is null ? _scope.Callee(b.Type) : null;
                         if (callee is not null) NwlInterop.SetEnum(box, "CallType", callee.CallType);
 
-                        // Everything else the READER models on a box had no counterpart here and was dropped in
-                        // silence: an FB call lost its instance, an embedded output vanished, an EN pin was
-                        // forgotten. Each is set through the member the reader reads, so the two cannot drift -
+                        // Everything else the READER models on a box — an FB call's instance, an embedded output,
+                        // an EN pin — is set through the member the reader reads, so the two cannot drift -
                         // and NwlInterop fails loud (naming the observed assembly version) if a member is not
                         // there, which is the whole reason this vendor's typed model is safer than an archive.
                         // AN INSTANCE IS WRITTEN, AND SO IS THE ABSENCE OF ONE.
@@ -480,12 +465,9 @@ namespace Volt.Ide.Codesys
                         // THE ENABLE IS INPUT SLOT 0 — appended first, and named `EN` in the param list below,
                         // which is exactly how the reader finds it again (`Box.HasEnableSlot`).
                         //
-                        // This used to REFUSE a wired enable outright: "the vendor's `En` member is a nullable
-                        // BOOLEAN, not a wired expression, so there is nowhere to put the enable's tree." The
-                        // first half was measured and true; the conclusion was not. `En` is the "EN/ENO is
-                        // shown on this box" flag, and the enable's EXPRESSION is an ordinary input item — 220
-                        // of 220 boxes with one, in a real project. So there was somewhere to put it after all,
-                        // and every push carrying an enable was refused for want of looking one slot over.
+                        // The vendor's `En` member is a nullable BOOLEAN — the "EN/ENO is shown on this box"
+                        // flag — and the enable's EXPRESSION is an ordinary input item, slot 0 (220 of 220 boxes
+                        // with one, in a real project).
                         var eno = NetworkText.HasEnoOutput(b, consumed);
                         if (b.Enable is { } en)
                         {
@@ -504,8 +486,8 @@ namespace Volt.Ide.Codesys
 
                         // FORMAL PIN NAMES, where the model has them. `AppendInputItem` supplies only the value
                         // WIRED to a pin, never the pin's name, and `InputParams` is where the reader looks for
-                        // it - so a call written without this came back with none: the next pull rendered
-                        // `t1( := a,  := pt)`, which no longer parses, and the POU could never be pushed again.
+                        // it - so a call written without this would come back with none: the next pull would render
+                        // `t1( := a,  := pt)`, which does not parse, and the POU could never be pushed again.
                         //
                         // An OPERATOR has no formal names (its pins are positional) and must not be given any.
                         // The TYPE is left empty on purpose: it is the IDE's to resolve from the box type, and
@@ -610,17 +592,11 @@ namespace Volt.Ide.Codesys
 
                     // THE WIRE ID IS WRITTEN AS THE MODEL CARRIES IT.
                     //
-                    // This used to mint a fresh id from the aspect's own allocator for every wire, so editing
-                    // anything in a network renumbered all of its fan-out. Measured live: changing one operand
-                    // moved `LET g0` to `LET g2`, while the untouched network beside it kept `g1` because the
-                    // change gate spared it. The engineer got wires they never touched renamed in the same
-                    // commit as the edit they did make — noise in a diff, from the one tool whose entire value
-                    // is that the diff is honest.
-                    //
-                    // Minting was there against a collision that does not exist: ids are NETWORK-scoped, not
-                    // body-unique. Measured by pushing the same `g0` in two networks — both came back `g0`,
-                    // each pairing with its own references. And TwinCAT has always written `d.VarId` straight
-                    // through, so the minting was also the divergence, not the reuse.
+                    // A fresh id from the aspect's own allocator per wire would renumber a network's whole
+                    // fan-out on any edit, renaming wires the engineer never touched. There is no collision to
+                    // mint against: ids are NETWORK-scoped, not body-unique (measured by pushing the same `g0` in
+                    // two networks — both came back `g0`, each pairing with its own references), and TwinCAT
+                    // writes `d.VarId` straight through too.
                     case Demux d:
                     {
                         var dm = NwlInterop.New(_net, "BoxTreeDemux");
@@ -629,9 +605,8 @@ namespace Volt.Ide.Codesys
                         // carrying the same id.
                         // B6: the split's type is its feeder's — derived, never written; the text states none.
                         if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(src));
-                        // No flags: the model has none on a Demux, because the IDE stores none (DIALECT N20). This
-                        // used to call Flagged(dm, d.Flags), which set bits on an IFlags the node hands out and never
-                        // keeps — the push reported success and the wire ran un-negated.
+                        // No flags: the model has none on a Demux, because the IDE stores none (DIALECT N20) — bits
+                        // set on the IFlags the node hands out are never kept.
                         return dm;
                     }
 
@@ -845,8 +820,7 @@ namespace Volt.Ide.Codesys
                 // A RESET reaching here has not been through the coil encoding, and this is the wrong place to
                 // do it: `Reset` is a COIL KIND, spelled by the vendor as `Negation + Set` on an assignment
                 // TARGET (`Flags.CoilFromVendor`), and only the assignment arm knows which operands are
-                // targets. This used to refuse outright — "a RESET modifier has no representation in the IDE's
-                // flag set" — which was the belief that made every reset coil in a project pull as a SET coil.
+                // targets.
                 if (f.Reset)
                     throw new InvalidOperationException(
                         "CODESYS: a RESET reached the generic flag write. Coil storage is encoded per TARGET " +

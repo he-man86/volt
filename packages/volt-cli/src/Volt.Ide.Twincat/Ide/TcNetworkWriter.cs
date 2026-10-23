@@ -19,10 +19,9 @@ namespace Volt.Ide.Twincat;
 /// <para>A changed SHAPE is BUILT: the push hands that one network to the native builder (<c>resolve</c>,
 /// <see cref="TcArchiveBuilder.NetworkGraph"/>), which builds it from member lists TwinCAT itself serialized, and it is
 /// spliced in where the live one stood, laid out as TwinCAT lays it out, with ids no other network holds; an INSERTED
-/// network the same way. (Building was refused here once with reason — a version that built elements from a GUESSED
-/// template wrote twenty <c>.TcPOU</c> files TwinCAT could not open, DIALECT N4 — and the shape went through TwinCAT's
-/// PLCopen import instead, until the identity gate and the native corpus made the member contract a measured one,
-/// openspec twincat-inproc-host.) Networks are paired with the pushed ones by text (<see cref="NetworkPairing"/>,
+/// network the same way. The builder writes only the member contract the identity gate and the native corpus measured
+/// (DIALECT N4: elements built from a GUESSED template make a <c>.TcPOU</c> TwinCAT cannot open; openspec
+/// twincat-inproc-host). Networks are paired with the pushed ones by text (<see cref="NetworkPairing"/>,
 /// ld-fbd-coverage 1b.4), so removing one drops exactly the network no pushed text pairs with, and every unchanged
 /// network stays byte for byte (DIALECT N28).</para>
 /// </summary>
@@ -64,7 +63,6 @@ internal static class TcNetworkWriter
         // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.31, D7), as CODESYS writes its aspect's member.
         // Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is the archive's
         // `DefaultViewMode` slot.
-        // It was refused here as "nothing writes it on an update".
         var viewChanged = WriteView(impl, body.Language);
         TcUnmeasured.RefuseEdgeOrder(body);
 
@@ -72,8 +70,7 @@ internal static class TcNetworkWriter
         bool changed = viewChanged;
 
         // AN EDIT PAIRS THE LIVE NETWORKS WITH THE PUSHED ONES BY TEXT, NOT POSITION (ld-fbd-coverage 1b.4,
-        // NetworkPairing) — the content match the count refusal here used to name as "the shape any fix takes": "Volt
-        // cannot tell WHICH network was removed" was true of positions, not of texts. A kept network is not touched; a
+        // NetworkPairing): positions cannot tell WHICH network was removed, texts can. A kept network is not touched; a
         // removed one is the unpaired live network dropped; an inserted one is built and spliced in.
         var shown = networks.Select((n, i) => TcNetworkReader.ReadNetworkShown(n, i)).ToList();
         var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
@@ -161,8 +158,7 @@ internal static class TcNetworkWriter
     /// <summary>
     /// SPLICE A BUILT NETWORK IN PLACE OF <paramref name="live"/> — with Ids no other network of the body holds (gate
     /// 2-2). The builder numbers a network from 2, so the element spliced in as it came would repeat Ids the kept networks
-    /// hold (as the PLCopen import's did: <c>POUexecute</c>'s rebuilt networks 1 and 3 each left Ids 10 and 11 twice in
-    /// the body), and TwinCAT keeps a stored Id across save and reopen (DIALECT N28), so the duplicates would persist.
+    /// hold, and TwinCAT keeps a stored Id across save and reopen (DIALECT N28), so the duplicates would persist.
     /// Every body the corpora hold has each Id once (0 duplicates in 46 bodies, census 1b.1); the Id itself is the IDE's
     /// allocator (vendor-facts <c>nwl-item-id</c>), so which fresh values it takes is no fact the text carries — only
     /// that each is unique in the body.
@@ -396,11 +392,10 @@ internal static class TcNetworkWriter
         // THE CHANGE GATE, FIRST. If the live network already renders to exactly the text being pushed, there is
         // nothing to write and nothing to refuse — return before the structural walk below can do either.
         //
-        // Without it, "unchanged" was decided STRUCTURALLY, item by item, and a shape this writer cannot edit in
-        // place threw `Refuse` even when the body was identical. On the push path that refusal is caught and the
-        // whole network is handed to the IDE to REBUILD (see Apply's `resolve` hatch), which re-mints every id
-        // and every member Volt does not model — for a network nobody touched. A parallel branch was the measured
-        // case: pulled, pushed straight back, and redrawn.
+        // Decided STRUCTURALLY, item by item, a shape this writer cannot edit in place would throw `Refuse` even
+        // when the body is identical. On the push path that refusal is caught and the whole network is handed to the
+        // IDE to REBUILD (see Apply's `resolve` hatch), which re-mints every id and every member Volt does not model —
+        // for a network nobody touched (measured: a parallel branch, pulled, pushed straight back, and redrawn).
         //
         // Compared as TEXT, through the same reader and writer a pull uses, because two bodies are equal exactly
         // when they materialize to the same file. This is the rule CODESYS's writer already follows, so it is
@@ -416,12 +411,9 @@ internal static class TcNetworkWriter
         //
         // Network text v2 spells a multi-output assign (`out1 :=` / `out2 := v;`, ONE item) and a fan-out wire
         // (`VAR_TEMP g1 …; g1 := v; out1 := g1; out2 := g1;`, a Demux and two items) differently, so the model
-        // always says which shape the engineer wrote. A fold (`Unhoist`) used to run here whenever the counts
-        // disagreed, for v1 text, which spelled both shapes as `LET g1`. v1 text is refused before it gets this
-        // far (the network-text reader, `NetworkText.V1Constructs`), and the fold was then only a way to make two DIFFERENT programs agree: an
-        // assign rewritten as a wire folded back into the archive's one assign, found no value change and
-        // returned null — the push reported success and the next pull reverted the file. A count that disagrees
-        // is a shape change, refused so the network goes to the IDE to rebuild.
+        // always says which shape the engineer wrote, and nothing folds one into the other (a fold would make two
+        // DIFFERENT programs agree: an assign rewritten as a wire would find no value change, and the push would write
+        // nothing). A count that disagrees is a shape change, refused so the network goes to the IDE to rebuild.
         var items = TcArchive.List(net, "NetworkItems");
         var trees = model.Trees;
         if (items.Count != trees.Count)
@@ -453,7 +445,7 @@ internal static class TcNetworkWriter
         // found no holder and REFUSED, which became a live failure the moment the reader started surfacing
         // those flags: every negated contact, SET coil and edge contact made its POU unpushable, on a body
         // nobody had edited. The surveyed real project carries 846 negations and 246 sets.
-        // A NEGATED EMPTY SLOT (`x := NOT ;`, 2R.5 #6a) is measured on CODESYS only: written here it was a flagged
+        // A NEGATED EMPTY SLOT (`x := NOT ;`, 2R.5 #6a) is measured on CODESYS only: written here it would be a flagged
         // terminator no TwinCAT edit has stored (gate 2R.5). One the IDE holds is kept; one the push makes is refused.
         if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || Bits(n.Flags) != TcArchive.FlagBits(e)))
             throw TcUnmeasured.InPlace("a negated empty slot");
@@ -487,11 +479,7 @@ internal static class TcNetworkWriter
                 // while TwinCAT's imported return item holds one output slot, so comparing the counts
                 // refused a body the IDE had just built. A JUMP is not that shape — its single target is the
                 // destination label and the archive has one slot for it, so the counts agree and the write
-                // works. Folding the two together was a generalization, not a measurement, and it cost the
-                // edit path: retargeting `JMP Done` to `JMP Other` left RValue unchanged, skipped the
-                // outputs and found no storage change, so `changed` stayed false, `Apply` returned null and
-                // the driver wrote nothing at all. The push reported success, the PLC still jumped to `Done`,
-                // and the next pull reverted the engineer's file.
+                // works — and skipped, retargeting `JMP Done` to `JMP Other` would write nothing at all.
                 // A LONE return keeps D31c's skip of the OPERANDS; a return beside a coil (2R.5, awkward-sweep #10) has
                 // its targets written like any coil's — the return's own target is the vendor's `???`. Its BITS are
                 // written either way (gate 2R.5): skipped, `RETURN S= ;` reported a push and wrote a plain return.
@@ -515,8 +503,7 @@ internal static class TcNetworkWriter
                 // the text's writer accepts them by, `StDeclaration.SameType`. Compared by exact spelling, a body
                 // nobody retyped was refused, and on the push path that refusal discards the network to
                 // `RebuildNetwork`, regenerating the very ids this writer exists to preserve. The spelling is no fact
-                // of the text, so the archive keeps its own. (v1's reader built `Type` from the INSTANCE name, which
-                // this compare also accepted; the v2 reader never does, and that arm went with v1, task 3.9.)
+                // of the text, so the archive keeps its own.
                 var was = TcArchive.Str(e, "BoxType") ?? "";
                 var namesThisBox = Volt.Engine.Format.St.StDeclaration.SameType(was, b.Type);
                 if (!namesThisBox)
@@ -589,25 +576,17 @@ internal static class TcNetworkWriter
                     for (var li = 0; li < want.Length; li++) changed |= SetString(lines[li], "Text", want[li]);
                 }
 
-                // A BOX'S OWN OUTPUT PINS ARE WRITTEN NOW, matched to their SLOTS BY NAME.
-                //
-                // This used to skip them entirely, and the reason was sound at the time: "network text has no
-                // syntax for them at all, so a text-derived model's `Box.Outputs` is ALWAYS empty, and
-                // comparing it against the archive was comparing against information the model can never
-                // carry". The format spells them today (`ET => elapsed`, and the unnamed result pin as the
-                // call's assignment), so the model DOES carry them and skipping is no longer neutral: it makes
-                // an engineer's edit to an output pin a silent no-op, the push reporting success while the
-                // archive keeps the old variable.
+                // A BOX'S OWN OUTPUT PINS ARE WRITTEN, matched to their SLOTS BY NAME. The format spells them
+                // (`ET => elapsed`, and the unnamed result pin as the call's assignment), so skipping them would make
+                // an engineer's edit to an output pin a silent no-op, the archive keeping the old variable.
                 //
                 // The COUNT is still not compared, for the original measured reason: the archive holds one slot
                 // per declared pin whether or not it is wired, plus an ENO slot, and the model carries only the
                 // wired ones. Matching by name is what lets the two disagree in length without either lying.
                 // THE ENABLE IS INPUT SLOT 0, and it is not the `EN` member.
                 //
-                // This wrote `b.Enable` into `EN`, which was the reader's mistake in mirror image: the member
-                // is the "EN/ENO is shown on this box" flag, not the wire. Both halves agreed, so the pair
-                // no-opped together and nothing showed it. With the read corrected, the enable is a real input
-                // item again — and the count check below has to know that, or every ladder box would refuse
+                // The `EN` member is the "EN/ENO is shown on this box" flag, not the wire. The enable is a real input
+                // item — and the count check below has to know that, or every ladder box would refuse
                 // ("changes from 2 to 1 input(s)") on a push that changed nothing.
                 var inputs = TcArchive.List(e, "InputItems");
                 var pinNames = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
@@ -647,14 +626,9 @@ internal static class TcNetworkWriter
 
             case Parallel p when type == "BoxTreeParallel":
             {
-                // `Mode` IS NOT WRITTEN, and must not be. It used to be set to the string "And" or "Or"
-                // from a model field that no longer exists. Measured on the vendor's own contract (SP21
+                // `Mode` IS NOT WRITTEN, and must not be. Measured on the vendor's own contract (SP21
                 // `NWLObject` 4.6.0.0): `IBoxTreeParallel.Mode` is typed `OperationMode`, whose only values are
-                // `Sequential` and `BoxShortCircuit`. "And"/"Or" is outside that member's vocabulary, so the
-                // write put a value into a live ladder's archive the vendor's own deserializer cannot read back
-                // as that enum. Both readers were equally confused — they compared it against "And", which the
-                // enum can never produce — so every parallel has always been read as an OR, which for a ladder
-                // is the right answer reached for the wrong reason. The model now carries the member (census
+                // `Sequential` and `BoxShortCircuit`. The model carries the member (census
                 // 1.3: a Sequential exists) and the reader reads it, so an in-place write leaves the archive's
                 // value alone and REFUSES a model that asks for the other one — this path assigns members the IDE
                 // wrote and cannot be trusted to author an enum scalar it never measured (4.2).
@@ -682,11 +656,8 @@ internal static class TcNetworkWriter
             //         Operand "cond"                         <n n="Input" />
             //
             // Everything else a jump needs is already written in place — `WriteFlags` and `WriteTargetBits` set the control-flow
-            // bit on the item AND on the destination operand. Until this arm existed the swap fell to `default`
-            // below and the network was REBUILT — through TwinCAT's PLCopen import, before the native builder, whose
-            // importer rejected an unconditional jump ("it requires a jump to be wired to a condition"). So the
-            // shape TwinCAT was said to refuse was a shape VOLT's only create door could not state — the IDE
-            // holds it perfectly well, which is what the drawn fixture is.
+            // bit on the item AND on the destination operand. The IDE holds an unconditional jump perfectly well
+            // (the drawn fixture), so the swap is written here rather than rebuilt.
             //
             // <para><b>NO ID IS INVENTED</b>, which is the wall this would otherwise hit (N11: guessing member
             // contracts wrote twenty unopenable .TcPOU files). The terminator REUSES the id of the element it
@@ -824,8 +795,8 @@ internal static class TcNetworkWriter
     /// IDE's box holds. Written into the lists the archive holds, never a list added.
     /// <para>NOT <see cref="NetworkMembers.Buildable"/>: that is the limit of a box Volt CONSTRUCTS (CODESYS, DIALECT N37 —
     /// the function result pin <c>'   '</c>), and an in-place write keeps the box the IDE drew, which holds its own
-    /// names. Applied here, it replaced a spelled <c>'   '</c> and every other name and type of the box with the
-    /// derivation, and no rebuild-loss warning named it (gate 2-3 review).</para></summary>
+    /// names. Applied here, it would replace a spelled <c>'   '</c> and every other name and type of the box with the
+    /// derivation, and no rebuild-loss warning would name it (gate 2-3 review).</para></summary>
     private static bool WriteOutputParam(XElement e, Box b, bool consumed)
     {
         var param = TcArchive.Obj(e, "OutputParam")
@@ -1049,8 +1020,7 @@ internal static class TcNetworkWriter
     /// KIND, spelled <c>Negation + Set</c> on an assignment TARGET (<see cref="Flags.CoilFromVendor"/>), which
     /// <see cref="WriteTargetBits"/> writes — and the reader builds it nowhere else. A Reset here is a model the reader
     /// never produced: an invariant, worded as CODESYS words the same fact (<c>CodesysNetworkWriter.ApplyFlags</c>;
-    /// openspec bridge-refusal-review 2.32, D23). It was a refusal claiming RESET "has no representation in the IDE's
-    /// flag set" — the belief that once made every reset coil pull as a SET coil (Flags.CoilFromVendor).</summary>
+    /// openspec bridge-refusal-review 2.32, D23).</summary>
     private static int Bits(Flags? flags)
     {
         if (flags is not { } f || f.IsNone) return 0;

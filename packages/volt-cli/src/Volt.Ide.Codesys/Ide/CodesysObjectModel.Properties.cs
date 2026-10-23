@@ -204,8 +204,8 @@ namespace Volt.Ide.Codesys
 
         /// <summary>THE MEASURED CONSTANTS of the source classes (design §1.1 "Members of the source classes"; gate review of
         /// step 3, finding 2): a member the census found at ONE value on every occurrence has no text form, so another value
-        /// refuses the item by name — it used to be read by nothing, so an object holding another value pulled as a plain
-        /// one and a create from that text silently made the measured default. Read through the vendor's own archive (the
+        /// refuses the item by name — unread, an object holding another value would pull as a plain one and a create from
+        /// that text would silently make the measured default. Read through the vendor's own archive (the
         /// members the census read), on the classes that archive them.</summary>
         private void RequireMeasuredConstants(object iobj, string type, string what)
         {

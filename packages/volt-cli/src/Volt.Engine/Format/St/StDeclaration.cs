@@ -32,8 +32,8 @@ public static class StDeclaration
     /// <c>bridge-refusal-review</c> D5). Read by STATEMENT — the code up to each <c>;</c> — with every comment and
     /// pragma blanked and every string's text blanked (<see cref="StTrivia"/>, which nests comments as both vendors
     /// do), so a list wrapped over lines (<c>a,</c> / <c>t2 : TON;</c>), a located variable and a one-line block are
-    /// read whole, and a trailing comment is no part of the next statement. The one-line rule this replaced lost all
-    /// three, and a lost name at a call head wrote a FUNCTION box where the text called an instance, without a word.
+    /// read whole, and a trailing comment is no part of the next statement. A one-line rule would lose all three, and a
+    /// lost name at a call head would write a FUNCTION box where the text calls an instance, without a word.
     /// A header (<c>METHOD Run : BOOL</c>, <c>FUNCTION F : INT</c>) declares nothing: two words stand before its
     /// colon.</summary>
     private static IEnumerable<(string[] Names, string Type)> Statements(string? declaration)

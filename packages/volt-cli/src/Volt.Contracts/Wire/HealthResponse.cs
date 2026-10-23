@@ -33,8 +33,8 @@ public class HealthResponse
     /// <summary>Is LD and FBD network text on in this bridge's process (the engine's
     /// <c>NetworkTextSwitch</c>)? Off, every LD and FBD body pulls as its <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> line.
     /// On the wire because the switch lives in the BRIDGE's environment — in CODESYS itself, or the TwinCAT worker —
-    /// which no client can set or see: a corpus refresh through a bridge the connector started (switch off) replaced
-    /// every ladder in the corpus with that line, and the file count it checked still matched. A client that needs
+    /// which no client can set or see: a corpus refresh through a bridge the connector started (switch off) would
+    /// replace every ladder in the corpus with that line, and its file count would still match. A client that needs
     /// network text (<c>refresh:corpus</c>, <c>record:language</c>) asks here first. Absent reads as false: off.</summary>
     [JsonPropertyName("networkText")]
     public bool NetworkText { get; set; }

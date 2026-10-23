@@ -30,8 +30,7 @@ namespace Volt.Ide.Codesys
             // THE NAMED VENDOR MEMBER, one per line (openspec bridge-one-to-one §1.1 "Non-source items"; gate review of step
             // 3, finding 10): the identification is the scripting `IDeviceId` — `type`, `id`, `version` (SP21, ScriptEngine3
             // 4.2.0.0) — and the device info `DeviceInfo`'s `Name` / `Vendor` / `OrderNumber` / `Description`. Each line
-            // used to be asked under several names, the first that yielded anything winning, so another member answering
-            // first was read as the device's own, and one answering none read as an empty line. A member the object does not
+            // is asked under its ONE name, never a first-that-answers list. A member the object does not
             // declare is refused by name; one it holds empty is an empty value.
             string Field(object? o, string name)
             {
@@ -206,11 +205,10 @@ namespace Volt.Ide.Codesys
 
         /// <summary>The vendor's <c>KindOfTask</c> for a `.task` file's <c>Type:</c> line.
         ///
-        /// <para><b>The type was the one scheduling field WriteTask did not write.</b> Every other member was
-        /// set and this one was not, so a task pushed into a project that did not already have it kept the
-        /// vendor's default: `EdgePcTask` migrated out of pro2193 as <c>Freewheeling</c> where the file said
-        /// <c>Cyclic</c> — a task running flat out instead of on a 10 ms cycle, reported by the push as success.
-        /// Found by `scripts/corpus-migration.ts`.</para>
+        /// <para><b>The type is written like every other scheduling field</b>: unwritten, a task pushed into a
+        /// project that did not already have it keeps the vendor's default (<c>Freewheeling</c> where the file says
+        /// <c>Cyclic</c> — a task running flat out instead of on a 10 ms cycle). Found by
+        /// `scripts/corpus-migration.ts`.</para>
         ///
         /// <para>MEASURED (`probe-task-kind.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`), live SP21): the member IS writable, and takes ONLY a
         /// real <c>_3S.CoDeSys.TaskConfig.KindOfTask</c>. A string raises `TypeError: expected KindOfTask, got
@@ -221,10 +219,9 @@ namespace Volt.Ide.Codesys
         /// this lookup cannot drift.</para>
         ///
         /// <para><b>A type the enum does not NAME is the request's fault</b> — BAD_REQUEST, as <c>TcTaskSchedule</c>
-        /// answers a malformed descriptor (openspec bridge-refusal-review 2.25). It was an InvalidOperationException,
-        /// which the push reports as INTERNAL_ERROR, a Volt bug, for a typo in a `.task` file. And the lookup is by NAME
-        /// only: <c>Enum.Parse</c> also takes a number, so <c>Type: 99</c> became an undefined <c>KindOfTask</c> written
-        /// into the task.</para></summary>
+        /// answers a malformed descriptor (openspec bridge-refusal-review 2.25) — never INTERNAL_ERROR, a Volt bug, for a
+        /// typo in a `.task` file. And the lookup is by NAME only: <c>Enum.Parse</c> also takes a number, so
+        /// <c>Type: 99</c> would be an undefined <c>KindOfTask</c> written into the task.</para></summary>
         internal static object TaskKind(string type)
         {
             var kinds = Reflection.FindEnum("KindOfTask")

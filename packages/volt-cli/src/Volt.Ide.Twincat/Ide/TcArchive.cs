@@ -24,8 +24,7 @@ namespace Volt.Ide.Twincat;
 /// <para><b>Why accessors rather than deserialization.</b> Operating on the live <see cref="XElement"/> means
 /// everything Volt does not model — <c>Id</c>, <c>Fixed</c>, <c>Extensible</c>, <c>FBDValid</c>,
 /// <c>ILLines</c>, <c>Address</c> — stays exactly as the IDE wrote it, on every part of the document the
-/// engineer did not edit. A deserialize/reserialize round trip would rewrite all of it, which is precisely the
-/// loss the PLCopen transport was built on.</para>
+/// engineer did not edit. A deserialize/reserialize round trip would rewrite all of it.</para>
 /// </summary>
 internal static class TcArchive
 {
@@ -60,10 +59,10 @@ internal static class TcArchive
     /// NWL archive with an implementation object (<see cref="Root"/>).
     /// <para>Any other XML root is a graphical body Volt has never seen (or an NWL archive with no implementation
     /// object), and its line names the root, upper case — <c>IMPLEMENTATION UML UNSUPPORTED</c> — as CODESYS names an
-    /// unknown aspect (<c>CodesysDriver.UnreadLanguage</c>; <see cref="ImplementationMarker.VendorLanguage"/>). It was a
-    /// refusal, thrown outside <c>NetworkText.Pulled</c>, which took the whole POU out of refs and fetch (D27, openspec
-    /// bridge-refusal-review 2.34); before that it answered null, so the vendor's XML fell through as TEXT and was pulled
-    /// under <c>IMPLEMENTATION ST</c>.</para></summary>
+    /// unknown aspect (<c>CodesysDriver.UnreadLanguage</c>; <see cref="ImplementationMarker.VendorLanguage"/>). Neither
+    /// a refusal (thrown outside <c>NetworkText.Pulled</c>, it would take the whole POU out of refs and fetch — D27,
+    /// openspec bridge-refusal-review 2.34) nor null (the vendor's XML would fall through as TEXT, pulled under
+    /// <c>IMPLEMENTATION ST</c>).</para></summary>
     public static string? UnreadLanguage(string raw)
     {
         XElement el;

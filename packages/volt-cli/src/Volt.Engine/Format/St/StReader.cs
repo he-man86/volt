@@ -639,8 +639,8 @@ public static class StReader
 		// Both halves VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): the vendor
 		// keeps a text's trailing newlines, so the file spells them, and the reader strips only the layout's own separator —
 		// none between a declaration and its boundary line (the line itself separates them), and for a body the one blank
-		// line the writer puts before a POU's END line (<paramref name="bodySeparator"/>). They used to be TrimEnd('\n')'d
-		// on both sides, so `…END_VAR\n\n\n` and `…END_VAR` pulled identically and a push wrote the vendor's newlines away.
+		// line the writer puts before a POU's END line (<paramref name="bodySeparator"/>). Trimming more would pull
+		// `…END_VAR\n\n\n` and `…END_VAR` identically, and a push would write the vendor's newlines away.
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
 		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
 		return (decl, bodySeparator ? StripSeparator(impl) : impl, lines[at], at);
@@ -1063,8 +1063,7 @@ public static class StReader
 			return "which states no language — a body states its language on that line: " +
 			       $"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
 			       $"{ImplementationMarker.For(Languages.Fbd)}.";
-		// A bare CFC, SFC or IL was section 2b's line for a body Volt does not show; 3b gave every such body one word,
-		// UNSUPPORTED, so the bare line states no body — never read as the hidden body it once meant.
+		// A body Volt does not show states UNSUPPORTED after its language, so a bare CFC, SFC or IL line states no body.
 		var word = stated.ToUpperInvariant();
 		if (ImplementationMarker.IsNeverShown(word))
 			return $"but Volt shows no {word} body, so its line is '{ImplementationMarker.Unsupported(word)}', with nothing " +
@@ -1086,8 +1085,8 @@ public static class StReader
 	/// line is the only place its name exists. There is no second source for it to disagree with, which is what
 	/// made the kind dangerous and makes this safe.</para>
 	///
-	/// <para><b>It was two regexes and is now neither</b>, for two reasons that both bite in production:
-	/// <c>\w</c> is UNICODE in .NET, so `METHOD Ünit` matched and `Ünit` became a member name on the wire that
+	/// <para><b>No regex</b>, for two reasons that both bite in production:
+	/// <c>\w</c> is UNICODE in .NET, so `METHOD Ünit` would match and `Ünit` become a member name on the wire that
 	/// CODESYS will not create; and <c>RegexOptions.IgnoreCase</c> without <c>CultureInvariant</c> folds `I`
 	/// against the CURRENT culture, so under tr-TR the keyword `ACTION` stops matching itself. Neither hazard
 	/// has a spelling in a pattern that is still readable. Four words and a colon do not need one.</para></summary>
@@ -1227,8 +1226,8 @@ public static class StReader
 	}
 
 	private static (string name, string? dataType) ParsePropertySignature(string sig, string code, string where) =>
-		// A property with no type is the build's error ("a property must declare a type" was the push's, openspec
-		// bridge-refusal-review 2.6): its declaration is written as sent. A TwinCAT INTERFACE property takes its type as
+		// A property with no type is the build's error, not the push's (openspec bridge-refusal-review 2.6): its
+		// declaration is written as sent. A TwinCAT INTERFACE property takes its type as
 		// the create argument, and that driver refuses one with none, by name.
 		ParseSignature(sig, code, "PROPERTY", where);
 

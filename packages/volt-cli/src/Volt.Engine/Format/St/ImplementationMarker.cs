@@ -15,9 +15,9 @@ namespace Volt.Engine.Format.St
     ///
     /// <para><b>Why a boundary is stated at all.</b> The vendors keep the two halves apart (CODESYS writes them
     /// through separate scripting members; <c>WriteSourceText</c> takes them as two arguments), and a Volt workspace
-    /// keeps one text per item. Something has to divide that text on push, and it used to be INFERRED — the last
-    /// <c>END_VAR</c>, or the end of a wrapped header, then a rule about which trailing comments and pragmas belonged
-    /// to which side. Every one of those rules was written after a bug:</para>
+    /// keeps one text per item. Something has to divide that text on push, and INFERRING it — the last
+    /// <c>END_VAR</c>, or the end of a wrapped header, then a rule about which trailing comments and pragmas belong
+    /// to which side — is wrong on real projects:</para>
     /// <list type="bullet">
     /// <item>trailing comments belong to the declaration — measured on <c>pro2193</c>, whose <c>BitLogic</c> has
     /// fourteen members ending <c>END_VAR</c>, blank, comment, and NOT ONE body starting with a comment. Reading
@@ -44,10 +44,9 @@ namespace Volt.Engine.Format.St
     /// one thing: NO implementation code is shown. The body under the line is empty, a push never writes the IDE's body
     /// (<see cref="Written"/>), and the item's DECLARATION stays editable and is pushed as usual — so a hidden body
     /// blocks neither a pull nor a push, and nothing the IDE holds is overwritten. A bare <c>IMPLEMENTATION CFC</c>
-    /// (2b's spelling) is no line a body can state and is refused by name. The line replaced the old marker comment,
-    /// which carried the REASON in the file; an LD/FBD body's reason now reaches the pull message instead
-    /// (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no <c>(* @volt-… *)</c> comment of any kind is
-    /// written. One in a pushed file is an ordinary comment.</para>
+    /// is no line a body can state and is refused by name. The file carries no REASON for a hidden body; an LD/FBD
+    /// body's reason reaches the pull message (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no
+    /// <c>(* @volt-… *)</c> comment of any kind is written. One in a pushed file is an ordinary comment.</para>
     ///
     /// <para><b>An ABSTRACT member with no code states <c>IMPLEMENTATION NONE</c></b> (openspec <c>abstract-member-push</c>,
     /// <c>abstract-member-parity</c>, DIALECT C2n): the declaration decides it, identically on both vendors whoever made
@@ -64,7 +63,7 @@ namespace Volt.Engine.Format.St
     /// between the file and that.</para>
     ///
     /// <para><b>A file without the line is REFUSED, never guessed</b> — the refusal names the fix, pull the project
-    /// once. The retired comments are not tolerated: there were no users, so there is no translator.</para>
+    /// once.</para>
     /// </summary>
     public static class ImplementationMarker
     {
@@ -98,9 +97,8 @@ namespace Volt.Engine.Format.St
         // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it on the
         // line, when that opens with a word. Read in ONE place: the HINT of the refusal of a region with no boundary line
         // (StReader's Unmarked), which names the first line of this shape and what it lacks — a file that forgot its
-        // language, or kept section 2b's bare `IMPLEMENTATION CFC`. It decides nothing: such a line is code wherever a
-        // boundary line was found (openspec bridge-refusal-review D9). It used to make every such line a boundary
-        // candidate, refused on push and on pull — `Implementation OR b;` in a wrapped expression the IDE compiles.
+        // language, or a bare `IMPLEMENTATION CFC`. It decides nothing: such a line is code wherever a boundary line was
+        // found (openspec bridge-refusal-review D9) — `Implementation OR b;` in a wrapped expression the IDE compiles.
         private static readonly Regex Shape = new(@"^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_].*?))?\s*$",
                                                   RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
@@ -165,7 +163,7 @@ namespace Volt.Engine.Format.St
             if (language == UnsupportedWord) return null;
             if (language == NoneWord && !unsupported) return (NoneWord, false, true);
             // ST is always shown, so UNSUPPORTED after it states nothing; CFC, SFC and IL are never shown, so without it
-            // they state nothing either — section 2b's bare `IMPLEMENTATION CFC` is no longer a line (StReader names it).
+            // they state nothing either — a bare `IMPLEMENTATION CFC` is no line (StReader names it).
             // A language Volt has never seen is a line only as a hidden body: bare, `IMPLEMENTATION COBOL` states nothing.
             if (unsupported ? language == Languages.St : IsNeverShown(language) || !IsKnown(language)) return null;
             return (language, unsupported, false);

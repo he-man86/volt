@@ -116,9 +116,9 @@ public sealed class BridgePipeHost : IDisposable
             {
                 // The one ambient poll: liveness + the connectable-projects list, both from the driver's CACHED
                 // snapshot — NEVER marshalled onto the IDE thread. This is a POLL-PATH op (the connector every ~4s,
-                // plus every control-plane /status); marshalling it (as the old `instances` op did) queued it behind a
-                // long fetch/push/build on the single IDE thread, stalling the connector's refresh so a busy IDE read
-                // as a LOST CONNECTION. BuildHealthResponse kicks the off-request single-flight refresh itself.
+                // plus every control-plane /status); marshalled, it would queue behind a long fetch/push/build on the
+                // single IDE thread, stalling the connector's refresh so a busy IDE reads as a LOST CONNECTION.
+                // BuildHealthResponse kicks the off-request single-flight refresh itself.
                 Body<NoMembers>(req);   // it takes none: a member is the request's error, as on every op
                 var h = _ide.BuildHealthResponse();
                 // One host-owned fact stamped onto the rows: while paused (disconnect) the bridge serves nothing, so
@@ -158,13 +158,12 @@ public sealed class BridgePipeHost : IDisposable
                     // UNIFORM post-condition, enforced ONCE here in Core so BOTH vendors behave identically over the
                     // wire (the parity point): a connect must leave the bridge actually SERVING the asked-for project.
                     // If the driver couldn't attach it — TwinCAT: the project isn't in the bound XAE window; CODESYS:
-                    // the pipe's project no longer matches — the bridge is not connected, so we refuse LOUD with the
+                    // the pipe's project does not match — the bridge is not connected, so we refuse LOUD with the
                     // shared PLC_DISCONNECTED code instead of "succeeding" into a state where the next fetch silently
-                    // returns nothing (the multi-window bug). The drivers no longer each decide this; they just
-                    // attach, Core verifies.
-                    // SERVED-NAME half: reading IsConnected alone was not the post-condition this comment claims —
-                    // CODESYS's select is a no-op refresh of its ONE primary project, so `connect {project:"Typo"}`
-                    // answered ok there while TwinCAT refused: a per-vendor difference a pipe client can OBSERVE.
+                    // returns nothing (the multi-window bug). The drivers only attach; Core verifies.
+                    // SERVED-NAME half: IsConnected alone is not this post-condition — CODESYS's select is a no-op
+                    // refresh of its ONE primary project, so `connect {project:"Typo"}` would answer ok there while
+                    // TwinCAT refuses: a per-vendor difference a pipe client could OBSERVE.
                     // Ordinal, matching OpGuard.RequireBoundProject, so connect and the first project op cannot
                     // disagree about the same pair of strings. An EMPTY/absent `sel.Project` stays allowed, and that
                     // carve-out is load-bearing, not an optimization: it is the soft "serve whatever you have"
@@ -266,17 +265,17 @@ public sealed class BridgePipeHost : IDisposable
 
     /// <summary>The op's typed body, or an empty one when the caller sent none.
     ///
-    /// <para>A BODY THE CALLER MIS-TYPED IS THE CALLER'S FAULT. This used to let the JsonException out, and
-    /// <c>PipeServer</c> stamps anything uncoded as INTERNAL_ERROR — so `push {"ops": "all of them"}` told the
-    /// client the BRIDGE had failed, and the five error codes that exist to describe a bad request described
-    /// nothing. It is also the likeliest error a NEW client makes, which is when a wrong answer costs most.</para>
+    /// <para>A BODY THE CALLER MIS-TYPED IS THE CALLER'S FAULT, so it is BAD_REQUEST. A JsonException let out reaches
+    /// <c>PipeServer</c>, which stamps anything uncoded as INTERNAL_ERROR — `push {"ops": "all of them"}` would tell the
+    /// client the BRIDGE had failed. It is also the likeliest error a NEW client makes, which is when a wrong answer
+    /// costs most.</para>
     ///
     /// <para>The message names the op and the type, because a client holding the OpenRPC document can look the
     /// second one up; the exception's own text says which member was wrong.</para>
     ///
     /// <para>Every body is read STRICTLY (<see cref="WireJson.Request"/>): a member its type does not define, or one
-    /// spelled in another case, is refused here, before any IDE work — so a client still sending a retired member
-    /// (<c>knownFolders</c>, <c>buildType</c>) is told so instead of being answered as if it had sent nothing. A push op
+    /// spelled in another case, is refused here, before any IDE work — so a client sending a member the wire does not
+    /// define is told so instead of being answered as if it had sent nothing. A push op
     /// with no <c>op</c> discriminator is refused by the same read: <see cref="PushOp"/> is abstract, and the
     /// serializer's <c>NotSupportedException</c> for it is the caller's fault like any other.</para></summary>
     /// <summary>The body of an op that takes no member (<c>health</c>, <c>disconnect</c>): read strictly all the same, so a

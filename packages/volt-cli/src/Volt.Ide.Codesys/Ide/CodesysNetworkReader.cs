@@ -77,9 +77,7 @@ namespace Volt.Ide.Codesys
             // The vendor's own per-network SPLIT-POINT list, which is NOT fan-out - fan-out is `Demux`, and
             // this list measured ZERO across all 356 networks of the one real project surveyed. Volt has no
             // text form for it, so a body that does carry one is REFUSED rather than silently rendered without
-            // it. (It had a field on the model for a while, which then collided with the text reader's own
-            // fan-out encoding and produced two incompatible spellings of the same idea; the model now carries
-            // exactly one, the vendor's.)
+            // it. The model has no field for it: fan-out has exactly one spelling, the vendor's Demux.
             // A MARKER, NOT A VANISHING POU. This threw a bare NotSupportedException, and an unguarded throw
             // out of the reader reaches `Versioning.SafeVersion`, which stamps the item Unreadable — `FetchService`
             // then drops it from `changed`, `items` AND `folders`, so the whole POU leaves the workspace and git.
@@ -143,19 +141,14 @@ namespace Volt.Ide.Codesys
                             "CODESYS: an assignment holds no value at all, where an unconnected one holds an empty " +
                             "terminator. No measured project has one, and the model keeps one spelling of it.");
 
-                    // COIL STORAGE STAYS ON THE TARGET, where both vendors keep it, because the FORMAT now
-                    // spells it there too — `out S= v;` / `out R= v;`, ExST's own assignment operators. It used
-                    // to be moved onto the VALUE (`out := v SET;`) and moved back on write, which needed a
-                    // whole translation layer (`CoilStorage`, deleted) whose own doc comments record the two
-                    // bugs it existed to paper over. A modifier that belongs to the coil now lives on the coil.
+                    // COIL STORAGE STAYS ON THE TARGET, where both vendors keep it, because the FORMAT spells
+                    // it there too — `out S= v;` / `out R= v;`, ExST's own assignment operators. A modifier
+                    // that belongs to the coil lives on the coil.
                     // CONTROL FLOW IS READ OFF THE TARGET OPERAND, for the same reason storage is: that is
-                    // where this vendor keeps it. Reading it from the ITEM only ever worked for jumps VOLT
-                    // had written, because Volt was the only thing that put it there — a jump an engineer
-                    // drew in the IDE has the bit on the operand alone, and came back as a plain coil
-                    // assigning to the label, silently turning their control flow into an assignment.
-                    // JUMP AND RETURN TOGETHER, in one call both drivers share: this was fixed for `Jump`
-                    // alone, and `Return` sits in the same bit-field on the same operand, so a RETURN coil
-                    // kept the bug for another release. See `Flags.WithControlFlowFrom`.
+                    // where this vendor keeps it. A jump an engineer drew in the IDE has the bit on the operand
+                    // alone; read from the ITEM, it would come back as a plain coil assigning to the label.
+                    // JUMP AND RETURN TOGETHER, in one call both drivers share (`Flags.WithControlFlowFrom`):
+                    // `Return` sits in the same bit-field on the same operand.
                     UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.CodesysDisplay, flags);
                     return new Assign(value, targets, flags.WithControlFlowFrom(targets));
                 }
@@ -238,12 +231,11 @@ namespace Volt.Ide.Codesys
         /// THE MODIFIERS ON A BOX'S INPUT PINS — the vendor's <c>InputFlags</c>, index-aligned with <c>InputItemList</c>
         /// (the EN slot included) — read into <see cref="Input.Flags"/>, where the model keeps them (task 4.1).
         ///
-        /// <para><b>They used to be dropped.</b> This reader wrote <c>Flags.None</c> for every pin, on the strength of
-        /// a TwinCAT measurement ("InputFlags is always null", <c>TcNetworkReader</c>) that was never taken on
-        /// CODESYS. On CODESYS the member is populated, and a negated FBD input can live there with the operand
-        /// feeding it unflagged — measured 2026-09-26 (<c>probe-nwl-census-v2.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py</c>)): six pins, three in
-        /// Lenze's <c>call_FirstErrorCapture_FB</c>, three in pro2193's <c>SetAlarm</c>. They were pulled as PLAIN
-        /// contacts — inverted logic in git — and a push would have written that back into the PLC.</para>
+        /// <para><b>On CODESYS the member is populated</b> (unlike TwinCAT's "InputFlags is always null",
+        /// <c>TcNetworkReader</c>), and a negated FBD input can live there with the operand feeding it unflagged —
+        /// measured 2026-09-26 (<c>probe-nwl-census-v2.py</c>, <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py</c>):
+        /// six pins in two real projects. Read as <c>Flags.None</c>, they would pull as PLAIN contacts — inverted
+        /// logic in git.</para>
         ///
         /// <para>The model holds the fact and the text spells it on the pin's formal (S6, 2R.5: <c>NOT IN := v</c>,
         /// <c>R_EDGE IN1 := c</c>). The EN slot's flag set is the box's <see cref="Box.EnableFlags"/> (<c>NOT EN c</c>): the
@@ -348,9 +340,7 @@ namespace Volt.Ide.Codesys
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
                 // marker, true on every box in a real project including every plain AND and OR, so keying on it
                 // would wrap the whole project in `IF en THEN … END_IF`. `En` is the "EN/ENO is shown" flag —
-                // a Boolean on 468 boxes, null on 814, a tree on none. Reading the enable from it therefore
-                // never produced one, which is why this used to read `Tree(Get(n, "En"))` and always answer
-                // null: dead code that read as a guarantee.
+                // a Boolean on 468 boxes, null on 814, a tree on none, so it never holds the enable.
                 enable,
                 ReadStCode(n),
                 flags,
@@ -469,7 +459,7 @@ namespace Volt.Ide.Codesys
             // RAW, nulls and all. `NwlInterop.Items` drops nulls — right for a list read for its CONTENT, and
             // wrong here, because the ENO slot IS a null and dropping it shifts every later slot one place
             // against `OutputParams.Names`. The pin names would then belong to the wrong pins. And REQUIRED: a
-            // holder with no list is not a box with no outputs — read as empty, every `=> v` went without a word.
+            // holder with no list is not a box with no outputs — read as empty, every `=> v` would go without a word.
             var holder = NwlInterop.Require(n, "Outputs");
             var slots = (NwlInterop.Get(holder, "List") as IEnumerable
                          ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, type, "Outputs.List")).Cast<object?>().ToList();

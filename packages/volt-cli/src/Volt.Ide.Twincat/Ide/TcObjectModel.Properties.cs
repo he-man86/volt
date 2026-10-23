@@ -154,8 +154,8 @@ internal sealed partial class TcObjectModel
 
     /// <summary>The object's saved facts, read from the file the item publishes as its <c>FullPath</c> (the census read
     /// the same files). An item that publishes no <c>FullPath</c>, or one that is not on disk, is REFUSED BY NAME (gate
-    /// review of step 3, finding 6): it used to read as an object with no properties, so an excluded object whose file
-    /// could not be found pulled as a built one. Null only for a node that answers no automation XML at all — no TwinCAT
+    /// review of step 3, finding 6) — read as an object with no properties, an excluded object whose file cannot be
+    /// found would pull as a built one. Null only for a node that answers no automation XML at all — no TwinCAT
     /// tree item does; it is the offline doubles' shape.</summary>
     /// <param name="what">The item, as a refusal names it — formatted only when one is thrown.</param>
     public TcSavedFacts? SavedFacts(object node, Func<string> what)
@@ -219,8 +219,8 @@ internal sealed partial class TcObjectModel
     /// is found.</para>
     ///
     /// <para><b>Read once per saved project</b> (finding 11): the <c>.plcproj</c> is parsed into a map the first time and
-    /// again only when the file on disk changes (its write time and length) — it was a PLC-node <c>ProduceXml</c> and a
-    /// whole-project <c>XDocument.Load</c> PER ITEM, O(items) project loads per pull.</para></summary>
+    /// again only when the file on disk changes (its write time and length) — not a PLC-node <c>ProduceXml</c> and a
+    /// whole-project <c>XDocument.Load</c> PER ITEM.</para></summary>
     public IReadOnlyList<string> CompileEntry(string file)
     {
         var entries = CompileEntries();

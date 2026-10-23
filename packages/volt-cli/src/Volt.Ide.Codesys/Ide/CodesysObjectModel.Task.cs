@@ -40,9 +40,8 @@ namespace Volt.Ide.Codesys
         /// <summary>A task's settings, as data — the vendor half; the FILE LAYOUT is the engine's
         /// (<see cref="TaskDescriptorFormat"/>).
         ///
-        /// <para><b>The external event is its own member</b> and is read as such: it used to be read as a fallback of
-        /// <c>event</c>, so an external-event task pulled as an event task and a push then MOVED the trigger into
-        /// <c>event</c> (finding 4). <b>A disabled watchdog's values are read too</b> — the vendor keeps them behind the
+        /// <para><b>The external event is its own member</b> and is read as such, never as a fallback of <c>event</c>
+        /// (which would pull an external-event task as an event task, finding 4). <b>A disabled watchdog's values are read too</b> — the vendor keeps them behind the
         /// flag across a reload (<c>watchdog-off-values</c>), so they are content, not stale numbers.</para></summary>
         private TaskSettings ReadTask(object node)
         {
@@ -113,7 +112,7 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>A scripting member that MUST be there — its absence is an object model Volt was not built against,
-        /// refused by name (it used to read as <c>""</c>: a task with no priority, written back as one).</summary>
+        /// refused by name (never read as <c>""</c>: a task with no priority, written back as one).</summary>
         private static object? TaskMember(object o, string member, string what) =>
             NwlInterop.Has(o, member) ? NwlInterop.Get(o, member) : throw TaskUnreadable(what, member);
 
@@ -143,7 +142,7 @@ namespace Volt.Ide.Codesys
         /// trap: <c>kind_of_task</c> takes ONLY the vendor enum (<see cref="TaskKind"/>), <c>priority</c> is a STRING, and
         /// <c>interval</c> / <c>interval_unit</c> are separate, so a TIME literal (`t#4ms`) carries no unit.</para>
         ///
-        /// <para><b>The external event is written to its own member</b> (it used to be written into <c>event</c>), and the
+        /// <para><b>The external event is written to its own member</b> (not into <c>event</c>), and the
         /// watchdog's values are written enabled or not (<c>watchdog-off-values</c>: kept behind the flag). The members the
         /// descriptor states only off their measured value (<see cref="TaskSettings.Members"/>) have no measured write:
         /// a change to one is refused by name (0 of 13 corpus tasks hold one off its value — niche, accepted loss).</para></summary>
@@ -243,7 +242,7 @@ namespace Volt.Ide.Codesys
         /// <summary>The mutation itself, against the WRITEABLE copy: clear, then append in call order, each entry's
         /// <c>Comment</c> the one the descriptor states (<c>Calls: A // comment</c>). An entry's whole persisted contract is
         /// <c>Name</c> and <c>Comment</c> (<c>PouObject.SerializableValueNames</c>, measured on 21 call entries), and the text
-        /// now spells both — the comment used to be carried by NAME from the old list, invisible in the file.</summary>
+        /// spells both — no comment is carried by NAME from the old list, invisible in the file.</summary>
         private static void RebuildCallList(object writeable, object taskFacet, IReadOnlyList<string> calls,
                                             IReadOnlyList<string> comments)
         {

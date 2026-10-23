@@ -13,8 +13,7 @@ namespace Volt.Ide.Twincat;
 /// <summary>
 /// THE NATIVE WRITER'S BUILDER (openspec twincat-inproc-host 3): a <see cref="NetworkBody"/> — the model CODESYS's
 /// <c>CodesysNetworkWriter</c> builds from — as TwinCAT's own <c>&lt;NWL&gt;&lt;XmlArchive&gt;</c> object graph, which
-/// <see cref="TcArchiveWriter"/> turns into the text TwinCAT writes. It replaces the PLCopen import: no scratch POU, no
-/// importer to reshape the body, no PLCopen-only refusals.
+/// <see cref="TcArchiveWriter"/> turns into the text TwinCAT writes: no scratch POU and no importer to reshape the body.
 ///
 /// <para><b>Nothing here is guessed.</b> Every element is built from a member list TwinCAT itself serialized — the native
 /// corpus (<c>test/fixtures/tc-native-corpus</c>, 130 networks TwinCAT built through its importer) and the hand-drawn

@@ -14,10 +14,10 @@ VoltLog.Init(Vendors.Twincat);
 // the always-on tray never holds a COM apartment (the isolation the supervisor design requires). Exit 0 = the
 // enumeration ran AND EVERY live XAE answered (empty output = "no XAE open"); exit 1 = it FAILED **or came back
 // PARTIAL**, so the connector can tell a real "no XAE" (reap workers) from a list it must not trust (leave the fleet
-// alone) — see TwincatXaeProbe. A partial result used to exit 0 with the missing XAE silently dropped, which is a
-// LIE in exactly the shape the reap policy consumes: a busy XAE — pinned by a `volt push` or a full `volt build` for
-// tens of seconds, the normal case on a large project — vanished from the list and its healthy worker was reaped
-// after ~36s, taking the pipe out from under the very push that was holding the IDE.
+// alone) — see TwincatXaeProbe. A partial result reported as exit 0 would be a LIE in exactly the shape the reap
+// policy consumes: a busy XAE — pinned by a `volt push` or a full `volt build` for tens of seconds, the normal case
+// on a large project — would vanish from the list and its healthy worker be reaped, taking the pipe out from under
+// the very push that was holding the IDE.
 //
 // COST, deliberately accepted and monotone in the reap direction only: TrayContext reads a non-zero probe as "leave
 // the fleet as-is" BEFORE the spawn loop as well as the reap loop, so for as long as one XAE stays unreadable a

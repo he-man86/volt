@@ -9,9 +9,9 @@ namespace Volt.Engine.Ide;
 /// Solution Explorer reads).
 ///
 /// <para><b>Why it exists</b> (openspec <c>twincat-large-solution-refs</c>): on an 18-PLC-project TwinCAT solution the
-/// walk took longer than a relay's 60 s budget and said nothing while it ran, so the relay counted no progress and could
-/// not tell a working bridge from a hung one; and nobody could say which part of the 148 s was the walk. The operation
-/// turns each application into a progress frame (<c>phase: "walking"</c>) and every phase into its timing line.</para>
+/// walk takes longer than a relay's 60 s budget, and a walk that says nothing while it runs cannot be told from a hung
+/// bridge, nor its share of the op's time measured. The operation turns each application into a progress frame
+/// (<c>phase: "walking"</c>) and every phase into its timing line.</para>
 ///
 /// <para>Observation only: nothing a driver reports here changes what the walk returns.</para>
 /// </summary>

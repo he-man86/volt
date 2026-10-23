@@ -30,7 +30,7 @@ public sealed record ProjectSettings(
 /// The `Project Settings.projectsettings` FORMAT — one renderer for both drivers, so the rows two vendors share are
 /// byte-identical lines (openspec <c>twincat-project-settings</c>; the wire is the parity boundary).
 ///
-/// <para><b>The layout is INHERITED from the CODESYS driver</b>, whose renderer this replaces: auto-width
+/// <para><b>The layout is the CODESYS one</b>: auto-width
 /// <see cref="Descriptor"/>, these eight labels in this order. The column is the widest DECLARED label ("Max compiler
 /// warnings", 21) + 2 whichever rows hold a value, so a vendor that omits a row keeps the column — these bytes are
 /// hashed into the item's version, and the corpus files pin them (<c>ProjectSettingsFormatTests</c>).</para>

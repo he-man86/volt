@@ -250,12 +250,9 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, II
     /// <summary>The public declarations of every referenced library, for the LSP to resolve a <c>TON</c> or a
     /// <c>CONCAT</c> against.
     ///
-    /// <para>This used to be absent — the driver inherited the old shared driver base's empty implementation, so a
-    /// verbose fetch returned no signatures and completion, hover and go-to-definition on library code silently
-    /// did nothing on this vendor while working on the other. The reason on record was that "TwinCAT has no
-    /// equivalent surface", and DIALECT C2c had already measured that to be false: this very call returns
-    /// 181,179 characters on the fixture. What was missing was the FORMAT, which only the live IDE could
-    /// supply.</para>
+    /// <para>TwinCAT has the surface (DIALECT C2c: this call returns 181,179 characters on the fixture), so a verbose
+    /// fetch returns library signatures on this vendor as on the other — completion, hover and go-to-definition on
+    /// library code depend on them.</para>
     ///
     /// <para>There is still no fingerprint and no signature cache: <c>FetchService</c> reuses the
     /// <c>.library</c> files' own per-file version hashes as the change signal, so extraction runs only when a

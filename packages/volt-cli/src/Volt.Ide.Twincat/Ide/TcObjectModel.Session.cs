@@ -52,9 +52,8 @@ internal sealed partial class TcObjectModel
 
     /// <summary>
     /// THE ATTACH SERVES WHAT THE WINDOW HAS OPEN — its first TwinCAT project — until a client picks another by name,
-    /// as the CODESYS attach serves its primary project. It used to resolve nothing: the bridge answered `idle` and
-    /// refused every sync op until a LOCAL client sent `select`, which a consumer with no local client (the relay) never
-    /// does (openspec <c>twincat-bind-without-a-local-client</c>).
+    /// as the CODESYS attach serves its primary project — a consumer with no local client to send `select` (the relay)
+    /// is served too (openspec <c>twincat-bind-without-a-local-client</c>).
     /// <para>What it takes up becomes the standing selection, so recovery re-establishes it after a DTE drop exactly as
     /// it would a pick — <see cref="ReattachProject"/> recovers only a selection. A pick already standing is never
     /// replaced. The resolve is the one a `select` makes (the project's system manager, never its PLC tree).</para>
@@ -143,7 +142,7 @@ internal sealed partial class TcObjectModel
         }
         _dte = newDte;
         // The product: the running shell's own answer (DIALECT V5) — `TcXaeShell` / `15.0`, the form PLCAssist's
-        // pre-Volt history recorded. It was `_ideVersion`; the platform is the build now (OwnSolution).
+        // pre-Volt history recorded; the platform is the build (OwnSolution).
         _productName = ReadStated(() => (string?)_dte.Name, "DTE.Name");
         _productVersion = ReadStated(() => (string?)_dte.Version, "DTE.Version");
     }

@@ -31,7 +31,7 @@ public static class FetchService
 {
     public static FetchResponse Handle(HostLink link, FetchRequest request, Action<ProgressFrame>? onProgress = null)
     {
-        // Connected + right-project guard (replaces the client's old pre-op health check) — atomic with the walk.
+        // Connected + right-project guard — atomic with the walk.
         var bound = OpGuard.RequireBoundProject(link, request.ExpectedPlatform, request.ExpectedProjectName);
 
         var isInit = request.Init;
@@ -45,8 +45,8 @@ public static class FetchService
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
         // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.
         // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
-        // BAD_REQUEST: the request lacks a field the wire needs. It was NO_SIDECAR, a code named after a cache no client
-        // sees, and its message named a CLI command rather than the fields (openspec bridge-refusal-review V.3).
+        // BAD_REQUEST: the request lacks a field the wire needs; the message names the fields, not a CLI command
+        // (openspec bridge-refusal-review V.3).
         if (!isInit && request.KnownItems == null && request.OnlyItems == null)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 "a fetch needs a baseline: send `knownItems` (or `onlyItems` for a directed read), or `init: true` for a first pull");

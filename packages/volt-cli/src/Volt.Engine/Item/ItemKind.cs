@@ -32,8 +32,8 @@ public static partial class ItemKind
     // FUNCTION_BLOCK or a FUNCTION is decided by its TEXT on both vendors — CODESYS has ONE `POUObject` class whose
     // kind follows the declaration (DIALECT C2f/C2g), and TwinCAT's three tree codes lag an in-place write and are
     // re-derived from the text on a reload (C2h) — so nothing in Volt reads it: the IDE and its build own it, and the
-    // LSP reads it from the text as analysis. (Until 5.Q the wire gave each of the three its own extension, which cost
-    // a header read per POU per walk on CODESYS and a re-type guard for every kind change.)
+    // LSP reads it from the text as analysis. (An extension per POU kind would cost a header read per POU per walk on
+    // CODESYS and a re-type guard for every kind change.)
     //
     // 604 is the one POU code a driver hands up for a POU it classifies by CLASS (CODESYS) and the one a push creates
     // with (the seed on both vendors, as `PlcDut` is the DUT's); 602/603 are TwinCAT tree codes for the same kind.
@@ -166,9 +166,7 @@ public static partial class ItemKind
     /// <summary>WHAT A KIND'S FILE HOLDS, in one row per kind (openspec <c>bridge-refusal-review</c> D11). Every reader,
     /// writer and guard asks this table — the ST reader and writer, <c>ImplementationMarker</c>, <c>NetworkText.CanHold</c>,
     /// <c>BodyFormatGuard</c>, <c>SourceScopes</c>, the push's accessor reconcile and create seed, the CODESYS member read.
-    /// It replaces five spellings of one question that disagreed in three cells, each one word made to carry another
-    /// meaning: <c>AppliesTo(property)</c> was true because a property's ACCESSORS carry the line, <c>HasBody(interface)</c>
-    /// meant "composite", and <c>CarriesAccessors(interface_method)</c> meant "has no body".
+    /// One answer to one question, so no caller asks it in its own words.
     ///
     /// <para>A total switch over the kinds a source file holds — a POU, an interface, a GVL, a DUT, and the members and
     /// accessors inside them. Any other kind is a caller's bug (a descriptor or a folder never reaches the ST layer):

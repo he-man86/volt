@@ -25,8 +25,8 @@ public sealed class PipeClient
 
     /// <summary>Call one op. Progress frames go to <paramref name="onProgress"/>; the terminal result is returned.</summary>
     // connectTimeoutMs caps the wait when no bridge answers. `Connect` POLLS for the pipe to appear, which tolerates
-    // the launch-IDE-then-run race — so keep polling, just cap it at 2s (a `volt status` with the IDE closed used to
-    // hang the old 5s default; 2s is the snappy-but-race-safe middle).
+    // the launch-IDE-then-run race — so keep polling, just cap it at 2s (snappy for a `volt status` with the IDE
+    // closed, still race-safe).
     public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 2000)
     {
         using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
@@ -64,10 +64,8 @@ public sealed class PipeClient
     }
 
     /// <summary>Frames, yielded AS THEY ARRIVE.
-    /// <para>This used to return a <c>List</c>, which meant reading the socket to EOF before the caller saw
-    /// anything — so every progress frame was delivered after the operation had already finished. The server
-    /// streams progress precisely so a long pull can report while it runs; buffering it turned a live bar into a
-    /// replay, and `volt pull` sat silent for the whole fetch and then printed its history at once.</para>
+    /// <para>Not a <c>List</c>: reading the socket to EOF first would deliver every progress frame after the
+    /// operation finished. The server streams progress so a long pull can report while it runs.</para>
     /// <para>Iterator, not a callback: the consuming loop above already distinguishes progress / result / error,
     /// and this keeps that one place in charge of interpreting a frame.</para></summary>
     private static IEnumerable<JsonElement> ReadFrames(Stream s)

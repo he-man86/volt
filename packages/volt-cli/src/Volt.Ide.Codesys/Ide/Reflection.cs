@@ -13,15 +13,13 @@ namespace Volt.Ide.Codesys
         /// <paramref name="args"/> — chosen by the arguments' TYPES, not merely their count — or null when no
         /// method of that name and arity exists (the one answer a caller may treat as "not there").
         ///
-        /// <para><b>Name + arity is not an identity on the vendor's surface.</b> The binders here used to take "the
-        /// first method with this name and this many parameters", on the belief that no CODESYS surface has two of
-        /// the same arity. SP21's <c>IObjectManager</c> has two: <c>GetObjectToRead(int nProjectHandle, int nIndex)</c>
+        /// <para><b>Name + arity is not an identity on the vendor's surface.</b> SP21's <c>IObjectManager</c> has two
+        /// methods of one name and arity: <c>GetObjectToRead(int nProjectHandle, int nIndex)</c>
         /// and <c>GetObjectToRead(int nProjectHandle, Guid objectGuid)</c>, and the same pair for
         /// <c>GetObjectToModify</c> (DIALECT C26). "First" is the runtime's <c>GetMethods()</c> order, which the CLR
         /// does not specify and which CHANGES inside one running IDE — measured on a Pro2193 copy: <c>(Int32, Guid)</c>
-        /// listed first in a fresh session, <c>(Int32, Int32)</c> first after one scripting read. From then on every
-        /// object read passed a Guid as an index and <c>refs</c> failed the whole project with
-        /// <c>Object of type 'System.Guid' cannot be converted to type 'System.Int32'</c>.</para>
+        /// listed first in a fresh session, <c>(Int32, Int32)</c> first after one scripting read — so "the first by name
+        /// and arity" would pass a Guid as an index.</para>
         ///
         /// <para>The choice is the framework's own overload resolution (<see cref="Type.DefaultBinder"/>): a
         /// candidate whose parameters cannot take the arguments is never called, and two that both could are an

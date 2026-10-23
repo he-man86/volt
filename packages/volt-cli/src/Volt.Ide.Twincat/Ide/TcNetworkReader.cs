@@ -115,17 +115,13 @@ internal static class TcNetworkReader
                         "terminator. No measured project has one, and the model keeps one spelling of it.");
 
                 // COIL STORAGE STAYS ON THE TARGET, where this archive keeps it (measured: a coil operand comes
-                // back `Flags=Negation,Set`) and where the format now spells it — `out S= v;` / `out R= v;`.
-                // It used to be moved onto the VALUE to suit `out := v SET;` and moved back on write; the
-                // translation layer that did it (`CoilStorage`) is deleted with the spelling that needed it.
+                // back `Flags=Negation,Set`) and where the format spells it — `out S= v;` / `out R= v;`.
                 // A JUMP IS READ OFF THE TARGET OPERAND TOO, the same rule CODESYS's reader applies.
                 //
-                // TwinCAT writes the bit in BOTH places — a jump built by its own PLCopen importer carries
+                // TwinCAT writes the bit in BOTH places — a jump built by its own importer carries
                 // `Flags = 4` on the output `Operand` AND on the `BoxTreeAssign` — so reading the item alone
-                // has always worked here, which is exactly why this is worth stating rather than leaving to
-                // luck. On CODESYS the operand was the ONLY place the bit appeared for a jump an engineer drew,
-                // and reading the item there turned their control flow into a coil assigning to the label. One
-                // rule on both vendors costs two lines and removes the asymmetry that made that possible.
+                // would work here; on CODESYS the operand is the ONLY place the bit appears for a jump an engineer
+                // drew. One rule on both vendors.
                 //
                 // It covers RETURN as well as JMP, and the rule now lives in `Flags.WithControlFlowFrom` for
                 // that reason: this read lifted `Jump` and stopped, so on CODESYS — where the operand is the
@@ -305,11 +301,8 @@ internal static class TcNetworkReader
     /// <summary>An Execute box's ST, read from the archive.
     ///
     /// <para>An Execute box carries raw ST on the box itself, recorded with <c>ProvidesSTSnippet</c> and
-    /// <c>STSnippet</c> (DIALECT N4). This used to return null unconditionally, so <c>NetworkTextWriter</c>'s
-    /// Execute arm never fired and the box rendered as a bare <c>EXECUTE();</c> — the engineer's ST absent from
-    /// git with no marker, no diagnostic and no unreadable tally, and <c>volt status</c> reporting clean. It then
-    /// REFUSED instead, which was right while the shape was unmeasured: inventing a vendor serialization is what
-    /// made twenty .TcPOU files unopenable once.</para>
+    /// <c>STSnippet</c> (DIALECT N4). Answered null, the box would render as a bare <c>EXECUTE();</c> — the
+    /// engineer's ST absent from git with <c>volt status</c> reporting clean.</para>
     ///
     /// <para><b>MEASURED 2026-09-06</b> from an Execute box drawn by hand in XAE (the fixture
     /// <c>tc-pou/execute-box.TcPOU</c>, since Volt cannot create one on this vendor — the importer accepts the
@@ -325,7 +318,7 @@ internal static class TcNetworkReader
     /// <para>Each line's <c>Text</c> is stored QUOTED — the value includes its own surrounding double quotes —
     /// so they are stripped here. A box whose <c>ProvidesSTSnippet</c> is true but whose document cannot be
     /// walked still REFUSES rather than answering empty: an Execute box with no code is not a thing, and
-    /// answering "" would put the old silent-loss behaviour back.</para></summary>
+    /// answering "" would lose its code silently.</para></summary>
     /// <summary>The Execute box's ST lines AS ARCHIVE ELEMENTS — one per line, in order.
     ///
     /// <para>Shared with <c>TcNetworkWriter</c>, which edits a line's <c>Text</c> in place, so the walk to the
@@ -390,16 +383,13 @@ internal static class TcNetworkReader
         // Slot 0 is the ENABLE when the vendor names it so, and it is not a data pin — `ReadEnable` takes it.
         var skip = Box.HasEnableSlot(names) && items.Count > 0 ? 1 : 0;
 
-        // INDEX-ALIGNED, never length-equal. This used to pair the two lists only when the vendor gave exactly
-        // one name per input ("a partial list is not something to guess at") and otherwise name nothing — but a
-        // shorter `Names` is not a partial list to guess at, it is how an EXTENSIBLE operator says its trailing
-        // pins are positional. Requiring equality split one project's boxes in half on that accident.
-        // A POPULATED `InputFlags` IS REFUSED BY NAME. It was null in all 22 occurrences measured here, and this
-        // used to read every pin as `Flags.None` and say "do not fix this". On CODESYS — the same object model
-        // (DIALECT N1) — the member IS populated, and six pins in two real projects keep their negation there ONLY,
-        // with the operand unflagged (census 2026-09-26, `probe-nwl-census-v2.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py`)); reading them as None
-        // pulled inverted logic. CODESYS now READS its populated list into `Input.Flags` (the text writer then refuses
-        // a pin flag, which has no spelling); this reader cannot, because the populated ARCHIVE spelling has never been
+        // INDEX-ALIGNED, never length-equal: a shorter `Names` is not a partial list to guess at, it is how an
+        // EXTENSIBLE operator says its trailing pins are positional.
+        // A POPULATED `InputFlags` IS REFUSED BY NAME. It was null in all 22 occurrences measured here. On CODESYS —
+        // the same object model (DIALECT N1) — the member IS populated, and six pins in two real projects keep their
+        // negation there ONLY, with the operand unflagged (census 2026-09-26, `probe-nwl-census-v2.py`,
+        // `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py`); reading them as None would pull
+        // inverted logic. CODESYS READS its populated list into `Input.Flags`; this reader cannot, because the populated ARCHIVE spelling has never been
         // observed, so it is not guessed at: anything but `<n n="InputFlags" />` refuses the body here, at the reader.
         // An ABSENT member is refused too: N4 measured it on every `BoxTreeBox`, so a box without one is an archive
         // shape this reader has never seen, not a box whose pins carry nothing.
@@ -423,7 +413,7 @@ internal static class TcNetworkReader
     /// an unconnected pin that way — an empty <c>&lt;inVariable&gt;</c> becomes an empty operand, the spelling the vendor's
     /// own export uses for a pin wired to nothing (<c>importer-unwired.TcPOU</c>, real XAE output of
     /// <c>n := ( * m * 6);</c> and <c>t1(IN := , PT := );</c>) — where CODESYS keeps a <c>BoxTreeTerminator</c>. Read as
-    /// an operand it came back as <c>``</c>, an empty backticked name, over a body Volt had just created; it is the one
+    /// an operand it would come back as <c>``</c>, an empty backticked name; it is the one
     /// "unconnected" the model has (census 1.2), and the in-place writer accepts it over the same operand unchanged.
     /// An empty operand carrying a flag is not that shape and reads as the operand it is.</summary>
     internal static bool IsUnwiredPin(XElement item) =>
@@ -451,10 +441,9 @@ internal static class TcNetworkReader
         var names = Names(e, "OutputParam");
         // SLOTS, NOT ITEMS. `Outputs`/`TcArchive.List` drop a `<n />` slot, and the ENO slot IS one — so
         // indexing the compacted list against `Names` named every later pin one place wrong, or dropped the
-        // only wired pin outright. The CODESYS twin reads raw for the same reason; this used to go through
-        // `Outputs(e)` while its own comment claimed the two vendors shared the rule.
+        // only wired pin outright. The CODESYS twin reads raw for the same reason.
         // And REQUIRED, holder and list, as `Outputs` requires them: `Slots` answers a missing list with an empty
-        // one, which read a box whose outputs this reader cannot find as a box with none — every `=> v` dropped.
+        // one, which would read a box whose outputs this reader cannot find as a box with none — every `=> v` dropped.
         var type = TcArchive.Str(e, "BoxType") ?? "";
         var holder = TcArchive.Obj(e, "OutputItems");
         if (holder is null || !holder.Elements("l2").Any(l => (string?)l.Attribute("n") == "OutputItems"))

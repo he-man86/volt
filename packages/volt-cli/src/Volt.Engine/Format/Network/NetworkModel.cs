@@ -7,14 +7,8 @@ namespace Volt.Engine.Format.Network;
 /// <summary>
 /// Volt's model of a graphical (FBD/LD) body: a list of networks, each holding statement TREES.
 ///
-/// <para><b>Shaped on what the IDEs have, not on a file format.</b> It replaces <c>GraphModel</c>, whose own
-/// summary described it as "a faithful, position-free projection of a PLCopenXML FBD/LD body ... wiring by
-/// <c>localId</c> / <c>refLocalId</c> / <c>formalParameter</c> taken verbatim from the XML". That was PLCopen
-/// with a C# face: node identity WAS the PLCopen attribute, a wire was a <c>refLocalId</c>, the network index
-/// was recovered by dividing a <c>localId</c> by 10^10, and an unmodelled element was carried as a string of raw
-/// XML inside the model. Every one of those is a fact about a document, not about a program.</para>
-///
-/// <para><b>What it is shaped on instead</b> is the 3S NWL object model, which BOTH vendors expose — CODESYS
+/// <para><b>Shaped on what the IDEs have, not on a file format</b>: no node identity, wire id or raw XML of a
+/// document lives in it. It is shaped on the 3S NWL object model, which BOTH vendors expose — CODESYS
 /// hands over live objects, TwinCAT stores the same object graph serialized in its <c>.TcPOU</c>. Measured
 /// 2026-08-28; see <c>openspec/changes/pou-transport-per-vendor/nwl-object-model.md</c>. The vendor's own
 /// visitor, <c>IBoxTreeVisitor</c>, dispatches over a CLOSED SET OF THREE — <c>VisitOperand</c>,
@@ -68,8 +62,8 @@ public abstract record Node(Flags Flags)
     public virtual Flags Flags { get; init; } = Flags;
 
     /// <summary>THE ONE LIST OF THIS NODE'S SUB-TREES, in the order a walk visits them. Abstract so a node kind states
-    /// its own beside its fields: every refusal walk in the drivers used to copy this list by hand, and a child one
-    /// copy missed was a subtree that refusal passed unchecked.</summary>
+    /// its own beside its fields, and every walk (the drivers' refusal walks included) uses this list, so no walk can
+    /// miss a subtree.</summary>
     public abstract IEnumerable<Node> Children();
 
     /// <summary>The <c>init</c> of a node that holds no flag: <see cref="Flags.None"/> is its one value, anything else
@@ -215,11 +209,9 @@ public sealed record Box(
     /// <summary>The formal name of pin <paramref name="slot"/>, or null when it is POSITIONAL.
     ///
     /// <para>The vendor's <c>Names</c> array is INDEX-ALIGNED with the item list and may be SHORTER than it —
-    /// an extensible operator names only the pins it has names for. Both drivers used to require the two
-    /// lengths to be EQUAL and fall back to naming nothing, which split the format down the middle on a
-    /// detail no one chose: 50 boxes in one project happened to match and rendered <c>f(EN := g0, …)</c>,
-    /// leaking the enable pin into the text as a data argument, while the other 169 matched on nothing and
-    /// lost every pin name they had.</para></summary>
+    /// an extensible operator names only the pins it has names for. So a pin is named by its own index, and the
+    /// two lengths are never required to be equal (in one real project 169 of 219 boxes have a shorter
+    /// <c>Names</c>).</para></summary>
     public static string? FormalAt(IReadOnlyList<string?> formals, int slot) =>
         slot < formals.Count && !string.IsNullOrEmpty(formals[slot]) ? formals[slot] : null;
 }
@@ -399,12 +391,9 @@ public sealed record Input(string? Formal, Node Value, Flags Flags);
 /// <c>x := MOVE(v)</c> — while a named pin is <c>f(… , oMeanValue =&gt; x)</c>. That split is IEC's own, not a
 /// Volt convention: a function's return value is assigned and its <c>VAR_OUTPUT</c>s use <c>=&gt;</c>.</para>
 ///
-/// <para><b>This did not exist, and box outputs were simply DROPPED.</b> <c>Box.Outputs</c> was a bare
-/// operand list that <c>NetworkTextWriter</c> only ever consulted for name collection — never rendered — so
-/// every pin an engineer wired straight off a box vanished from the text: <c>MOVE(EN := rung, IN := 0)</c>
-/// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. 208 wired
-/// output pins on 171 boxes across 373 networks (`nwl-census.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`)). The push side knew: it REFUSED any box carrying outputs, because
-/// "network text has no form for them" — which was true, and is what this record exists to end.</para>
+/// <para><b>Every wired output pin is one of these, and the text renders each</b> — a pin wired straight off a box
+/// (<c>MOVE(EN := rung, IN := 0)</c> with its output on <c>TempI</c>) is part of the program: 208 wired output pins
+/// on 171 boxes across 373 networks (`nwl-census.log`, `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`).</para>
 ///
 /// <para><see cref="Slot"/> is the pin's OUTPUT SLOT index (network text v2, review 7.3). The readers drop
 /// unwired and null slots, so a list position is not a slot: positional <c>=&gt; v</c> pins fill the slots that
@@ -416,8 +405,7 @@ public sealed record Output(string? Formal, Operand Value, int? Slot = null);
 /// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.
 /// <para><b>An operand carries its OWN modifiers.</b> Measured in a real ladder project: an assignment target
 /// came back as <c>Operand OperandExpr=… IsLValue=True Flags=Negation,Set</c> — a negated SET coil, with the
-/// modifiers on the TARGET rather than on the assignment. Putting flags only on the tree node (as the first
-/// draft did) would have dropped both.</para></summary>
+/// modifiers on the TARGET rather than on the assignment. Flags on the tree node alone would drop both.</para></summary>
 public sealed record Operand(
     string Text,
     string? Type = null,
@@ -479,12 +467,11 @@ public static class CallKinds
 /// correction. It is tempting to promote them — network text spells them <c>JMP name;</c> and <c>RETURN;</c>,
 /// so they LOOK like statements — but the IDEs model them as modifiers on an item, and the jump target is the
 /// destination network's <see cref="Network.Label"/>. Promoting them would be re-interpreting the vendor's
-/// model to suit a rendering, which is the mistake the previous model made wholesale.</para>
+/// model to suit a rendering.</para>
 ///
-/// <para><b><see cref="Reset"/> has no BIT of its own, and that is the vendor's encoding, not a gap.</b> This
-/// used to read "the one field here with no vendor counterpart … how a reset coil actually reaches the IDE is
-/// UNMEASURED". It is measured now, and the answer is that <c>Negation</c> and <c>Set</c> on an assignment
-/// TARGET are two bits spelling one enum — see <see cref="CoilFromVendor"/>.</para>
+/// <para><b><see cref="Reset"/> has no BIT of its own, and that is the vendor's encoding, not a gap</b> (measured):
+/// <c>Negation</c> and <c>Set</c> on an assignment TARGET are two bits spelling one enum — see
+/// <see cref="CoilFromVendor"/>.</para>
 /// </summary>
 public sealed record Flags(
     bool Negated = false,
@@ -541,15 +528,12 @@ public sealed record Flags(
     /// <para><b>Both vendors keep <see cref="Jump"/> and <see cref="Return"/> on the operand, not on the item</b>
     /// — measured on a live SP21 project: a RETURN coil an engineer drew reads back as
     /// <c>out[0] = '???' type='BOOL' flags=Return</c> on a <c>BoxTreeAssign</c> whose own flags are none. Reading
-    /// them from the item alone only ever worked for control flow VOLT had written, because Volt was the only
-    /// thing that put the bit there.</para>
+    /// them from the item alone sees only control flow Volt wrote itself.</para>
     ///
-    /// <para><b>Jump was fixed here once and Return was left behind</b>, which is why this is one call and not
-    /// two conditions inlined per driver. The cost of the omission is not a missing modifier: a return coil has
-    /// no operand to name, so the vendor writes <c>???</c> in it, and the missed bit turned an engineer's
-    /// <c>RETURN</c> into <c>??? := cond;</c> — a coil assigning to the unresolved-instance marker. That text is
-    /// refused on push, so the POU could be pulled and never pushed back, and the graphical build oracle read it
-    /// as a compile error on a project that builds clean.</para></summary>
+    /// <para><b>One call, not two conditions inlined per driver</b>, so Jump and Return cannot drift apart. A missed
+    /// bit is not a missing modifier: a return coil has no operand to name, so the vendor writes <c>???</c> in it,
+    /// and without the bit an engineer's <c>RETURN</c> reads as <c>??? := cond;</c> — a coil assigning to the
+    /// unresolved-instance marker, which a push refuses.</para></summary>
     public Flags WithControlFlowFrom(IEnumerable<Operand> targets)
     {
         bool jump = Jump, ret = Return;

@@ -151,13 +151,10 @@ namespace Volt.Ide.Codesys
         /// <summary>An aspect's text, or <c>""</c> when the object legitimately has no such text.
         ///
         /// <para><b>A NULL IObject is not an empty item — it means the object could not be obtained at all</b>,
-        /// and it throws. It used to return <c>""</c> like the other two arms, and the consequence ran the whole
-        /// way to disk: <c>ReadDeclaration</c> yielded <c>""</c>, <c>ReadContent</c> used it with no guard, the
-        /// kind still resolved from the tree's type code, and <c>StWriter</c> emitted a file whose entire content
-        /// was <c>END_FUNCTION_BLOCK</c>. An emptied POU was written into the engineer's workspace with no error
-        /// and no log, and the next push wrote that emptiness back into the project. The same file already throws
-        /// <c>InternalError</c> for a blank MEMBER declaration one method away, on the reasoning that "that is a
-        /// broken item, not a transport gap" — this is the same condition one level up.</para>
+        /// and it throws. Answered <c>""</c> like the other two arms, it would reach disk as an emptied POU (the kind
+        /// still resolves from the tree's type code), and the next push would write that emptiness back into the
+        /// project. A blank MEMBER declaration is refused the same way, one level down — "that is a broken item, not
+        /// a transport gap".</para>
         ///
         /// <para>The other two arms genuinely mean "no text here" and still answer <c>""</c>: an object with no
         /// such ASPECT, and an aspect with no <c>TextDocument</c> — the latter measured on a CFC POU, whose
@@ -278,8 +275,8 @@ namespace Volt.Ide.Codesys
         /// <summary>A text is sent at <paramref name="aspectName"/>: the OBJECT must have that slot (openspec
         /// <c>bridge-refusal-review</c> D26). A GVL, a DUT, an interface, a property and an interface member have no
         /// <c>Implementation</c> — their readers send no body (null), so this is never asked for them. A non-null text at a
-        /// missing slot is refused by name: it used to RETURN, so the write landed nothing, the transaction committed and
-        /// the push reported "updated".</summary>
+        /// missing slot is refused by name — returning would land nothing, commit the transaction and report
+        /// "updated".</summary>
         private void RequireSlot(object node, object? iobject, string aspectName)
         {
             if (GetMember(iobject, aspectName) != null) return;
@@ -305,11 +302,7 @@ namespace Volt.Ide.Codesys
         }
 
         // ── structural ─────────────────────────────────────────────────────────
-        // `FindByName` lived here — a name search over the whole project, case-SENSITIVE and matching any
-        // non-transient node. Both of those were wrong (see Engine's Ide/ItemLookup, which replaced it and
-        // TwinCAT's differently-wrong twin with one tested walk), and `IsTransient` went with it: nothing else
-        // asked whether a node was transient.
-
+        // No name search here: an item is found by the Engine's one tested walk (Ide/ItemLookup).
         public object? ParentOf(object node) => GetMember(Unwrap(node), "parent");
 
     }

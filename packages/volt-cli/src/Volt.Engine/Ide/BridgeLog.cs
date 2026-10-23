@@ -6,13 +6,11 @@ namespace Volt.Engine.Ide;
 
 /// <summary>
 /// A bridge diagnostic that has to reach a HUMAN, written to both sinks.
-/// <para><b>Both sinks, and the reason is not obvious</b> — which is why it was spelled out in three separate
-/// doc-comments before this type existed. <c>VoltLog</c> is the only one an engineer can read after the fact: an
-/// IDE bridge is loaded into a GUI process with no console attached, so anything written to stderr there is gone.
-/// stderr is what the headless dev loop (<c>codesys-pipe.ps1</c>) captures, where <c>VoltLog</c>'s file is the
-/// awkward one to reach. Neither covers both situations, so every such message goes to both.</para>
-/// <para>Five call sites wrote the pair by hand, and one of them writing only one sink would have been invisible
-/// exactly when it mattered.</para>
+/// <para><b>Both sinks, and the reason is not obvious.</b> <c>VoltLog</c> is the only one an engineer can read after
+/// the fact: an IDE bridge loaded into a GUI process has no console attached, so anything written to stderr there is
+/// lost. stderr is what a supervising process captures (the connector's worker launch), where <c>VoltLog</c>'s file is
+/// the awkward one to reach. Neither covers both situations, so every such message goes to both, through this one
+/// call.</para>
 /// </summary>
 public static class BridgeLog
 {

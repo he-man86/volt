@@ -69,7 +69,7 @@ public static class RebuildLoss
         new Candidate("OutputParam.Types", "nwl-param-types"),
         new Candidate("InputParam.Names", "nwl-param-types"),
         new Candidate("InputParam.Types", "nwl-param-types"),
-        // The other values design 2R.2 files L until 2R.4 measures them: a stored BoxType spelling the text writes
+        // The other values, filed L (not yet measured): a stored BoxType spelling the text writes
         // otherwise (15: `ton`, `R_Trig`, a namespace), Instance.Type (47 differ from BoxType), a stale Operand.Type,
         // the EN/ENO bools, CallType, and the pin flag list (a zero-only InputFlags).
         new Candidate("BoxType", null),

@@ -11,10 +11,8 @@ namespace Volt.Contracts;
 /// Volt.Wire.PipeClient.Call(…)'</c> — with no exception type and no stack, and the bridge's own log held at most that
 /// same message (the pipe server logged nothing at all). The type name is not OS-localized; the message text is.</para>
 ///
-/// <para>It used to append which copies of Volt's assemblies were loaded at the failure, for exactly that family of
-/// failures (a second copy of a Volt or System.Text.Json assembly in the CODESYS process). The CODESYS bridge now ships
-/// as one assembly with those merged in and internalized (openspec codesys-bridge-single-assembly), so there is no
-/// second copy to name.</para>
+/// <para>It names no loaded assembly copies: the CODESYS bridge ships as one assembly with Volt's and System.Text.Json
+/// merged in and internalized (openspec codesys-bridge-single-assembly), so there is no second copy to name.</para>
 /// </summary>
 public static class CallFailure
 {

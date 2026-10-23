@@ -55,8 +55,7 @@ public static class FolderPath
     }
 
     /// <summary>Inverse of <see cref="Encode"/> — restore the exact original segment name.</summary>
-    // Private: the encoded form is a Volt file-layout detail, and nothing outside this file needs to decode
-    // one. It was public until the transport change removed its last external caller.
+    // Private: the encoded form is a Volt file-layout detail, and nothing outside this file needs to decode one.
     private static string Decode(string token)
     {
         var sb = new StringBuilder(token.Length);

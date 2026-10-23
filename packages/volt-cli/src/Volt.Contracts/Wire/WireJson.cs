@@ -9,14 +9,10 @@ namespace Volt.Contracts;
 /// does not define; the envelope and the responses (<see cref="Read"/>) skip one, which is what lets an added response
 /// member ship without a protocol bump (<c>docs/relay-protocol.md</c>).</para>
 /// <para>It lives in Contracts rather than beside the pipe because the ENCODING is part of the wire contract, not
-/// of the transport that carries it. Before this, one writer config sat <c>internal</c> inside the pipe assembly
-/// and THREE separate reader configs were declared independently — by the bridge host, by the CLI's client and by
-/// the connector's — each spelling the same intent, none able to be asserted by a test in the assembly that
-/// documents the behaviour. A DTO's serialized shape should not depend on which of four option objects happens to
-/// be in scope at the call site.</para>
+/// of the transport that carries it: the bridge host, the CLI's client and the connector all read and write with
+/// these options, so a DTO's serialized shape never depends on the call site.</para>
 /// <para>Every DTO still declares its own <c>[JsonPropertyName]</c>. That is deliberate belt-and-braces: the
-/// naming policy here is what a payload falls back to, and the one DTO that relied on the policy alone
-/// (<c>ConnectRequest</c>) silently changed shape the moment a different options object serialized it.</para></summary>
+/// naming policy here is what a payload falls back to.</para></summary>
 public static class WireJson
 {
     /// <summary>Serializing a request body or a response frame.</summary>
@@ -35,9 +31,9 @@ public static class WireJson
     };
 
     /// <summary>Deserializing a request BODY: exact member names, and a member the op's request type does not define
-    /// is an error — a client still sending a retired member is told so instead of having it dropped. A push op's
-    /// <c>op</c> discriminator may stand anywhere in its object: JSON members are unordered, and the serializer's
-    /// default read it only as the first member.</summary>
+    /// is an error — a client sending a member the wire does not define is told so instead of having it dropped. A
+    /// push op's <c>op</c> discriminator may stand anywhere in its object: JSON members are unordered (the serializer's
+    /// default reads it only as the first member).</summary>
     public static readonly JsonSerializerOptions Request = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

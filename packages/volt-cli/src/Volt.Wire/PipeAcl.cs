@@ -42,8 +42,8 @@ internal static class PipeAcl
     /// failure is the Win32 error, named with the pipe — the bind failure <see cref="PipeServer.Start"/> reports.</summary>
     internal static NamedPipeServerStream CreateServer(string pipeName)
     {
-        // The managed constructor's own name rules, kept: this replaced `new NamedPipeServerStream(name, …)`, which refuses
-        // an empty name and the reserved "anonymous" (the BCL's name for its anonymous pipes) before the OS is asked.
+        // The managed constructor's own name rules (`new NamedPipeServerStream(name, …)` refuses an empty name and the
+        // reserved "anonymous", the BCL's name for its anonymous pipes, before the OS is asked).
         if (string.IsNullOrEmpty(pipeName)) throw new ArgumentException("a pipe name is required", nameof(pipeName));
         if (string.Equals(pipeName, "anonymous", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentOutOfRangeException(nameof(pipeName), "'anonymous' is reserved for anonymous pipes");

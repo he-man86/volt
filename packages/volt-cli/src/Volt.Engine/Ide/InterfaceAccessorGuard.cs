@@ -24,9 +24,8 @@ namespace Volt.Engine.Ide;
 /// <para><b>It lives here because the message is the contract.</b> Both drivers refuse, each detecting the
 /// change its own way — CODESYS reads the live accessor back, TwinCAT knows by construction that
 /// <c>ReadMember</c> built it as <c>new Accessor(null, null)</c> — but the sentence the engineer reads has to be
-/// one sentence. It was written out twice, verbatim, in two assemblies, which is precisely the shape this repo
-/// has already lost data to (the TwinCAT body write diverging from the CODESYS one). The DETECTION stays with
-/// each driver, because it is genuinely vendor work; the DECISION and the wording are here.</para>
+/// one sentence, written once. The DETECTION stays with each driver, because it is genuinely vendor work; the
+/// DECISION and the wording are here.</para>
 /// </summary>
 public static class InterfaceAccessorGuard
 {

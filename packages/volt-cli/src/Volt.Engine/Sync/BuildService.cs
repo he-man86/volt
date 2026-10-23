@@ -34,7 +34,7 @@ public static class BuildService
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
             // ONE kind of build. A clean (CODESYS CleanAll, TwinCAT SolutionBuild.Clean) is reachable but buys nothing:
             // measured on live CODESYS 3.5.21.40, the build after a clean does not recompile (~60 ms vs ~2100 ms cold) —
-            // it discards online-change data, not the language model — so `--full` was deleted rather than wired to it.
+            // it discards online-change data, not the language model — so the wire offers no clean build.
             var success = link.Driver.Build(applications);
             sw.Stop();
             var diagnostics = link.Driver.GetBuildDiagnostics(Walk).ToList();

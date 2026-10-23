@@ -31,10 +31,8 @@ public abstract class BoundRequest
 /// <summary>What both READ ops answer with: the project's version map, its applications, the two "this view is
 /// short" lists, and the identity the bridge actually walked.
 ///
-/// <para><c>RefsResponse</c> and <c>FetchResponse</c> carried these six members as two copies, doc comments
-/// included, and the copies had already diverged: only <c>fetch</c> echoed <see cref="Platform"/>/
-/// <see cref="ProjectName"/>, so a <c>refs</c> caller could confirm nothing about what it had just been handed.
-/// `volt status` walks through <c>refs</c>.</para></summary>
+/// <para>One base, so <c>RefsResponse</c> and <c>FetchResponse</c> cannot diverge: a <c>refs</c> caller (`volt status`)
+/// confirms <see cref="Platform"/>/<see cref="ProjectName"/> exactly as a <c>fetch</c> caller does.</para></summary>
 public abstract class ReadResponse
 {
     /// <summary>Aggregate over every tracked item's PATH and VERSION — the lease a push quotes back as

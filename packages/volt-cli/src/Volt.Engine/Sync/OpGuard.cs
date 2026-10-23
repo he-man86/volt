@@ -16,8 +16,8 @@ internal static class OpGuard
     /// <summary>The guard of a WRITE op — <c>push</c>, and <c>build</c>, which on TwinCAT saves the served solution's
     /// changed documents (DIALECT D45, D46): both identity members are REQUIRED (openspec
     /// <c>push-requires-project-identity</c>). One missing or empty is <c>BAD_REQUEST</c> naming it, whatever the
-    /// bridge's state and before anything is walked; a write that names neither used to write into whatever project the
-    /// bridge served. Then the check every op runs (<see cref="RequireBoundProject"/>).</summary>
+    /// bridge's state and before anything is walked, so a write never lands in whatever project the bridge happens to
+    /// serve. Then the check every op runs (<see cref="RequireBoundProject"/>).</summary>
     public static (string Vendor, string? ProjectName) RequireBinding(
         HostLink link, string op, string? expectedPlatform, string? expectedName)
     {
