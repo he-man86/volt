@@ -38,7 +38,7 @@ public sealed partial class BeckhoffDriver
 
         // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text.
         var facts = _om.SavedFacts(Com(item), () => $"'{Name(item)}'");
-        if (ownerIsInterface && facts is not null) RequireMeasuredAccessorDeclarations(() => Name(item), facts, members);
+        if (ownerIsInterface) RequireMeasuredAccessorDeclarations(() => Name(item), facts, members);
 
         // Every text verbatim, trailing newlines included (openspec bridge-one-to-one §1.1, trailing-newline-cache).
         return new ItemContent(KindOf(item), declaration, body, members, ReadProperties(item, facts), unsupported, stated);
@@ -99,12 +99,9 @@ public sealed partial class BeckhoffDriver
     /// object whose SAVED files hold what the text cannot say is refused by name, never read as a plain one: a
     /// <c>SpecialFunc</c> other than <c>None</c> (the vocabulary is unmeasured, <c>tc-special-classes</c>, DIALECT C2s), an
     /// <c>&lt;ObjectProperties&gt;</c> archive other than the SFC body's (which travels with its unsupported body), or a
-    /// <c>.plcproj</c> build entry that is no copy of a live property (<see cref="SavedCopies"/>).
-    /// <paramref name="facts"/> null: the node answers no automation XML (<see cref="TcObjectModel.SavedFacts"/>) — the
-    /// offline doubles' shape.</summary>
-    private ObjectProperties ReadProperties(ItemRef item, TcSavedFacts? facts)
+    /// <c>.plcproj</c> build entry that is no copy of a live property (<see cref="SavedCopies"/>).</summary>
+    private ObjectProperties ReadProperties(ItemRef item, TcSavedFacts facts)
     {
-        if (facts is null) return ObjectProperties.None;
         string What() => $"'{Name(item)}' ({System.IO.Path.GetFileName(facts.File)})";   // named only when refused
         if (facts.SpecialFunc is { } special && special != "None")
             throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -139,7 +136,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>A member's own build properties (C39, C40). An exclusion that reads as inherited is its POU's, whose own
     /// line says so; TwinCAT shows no member flag of its own under an excluded POU. The others are always its own.</summary>
     private ObjectProperties MemberProperties(ItemRef member, string name) =>
-        _om.Build(Com(member), () => $"'{name}'") is { } build ? Spelled(build) : ObjectProperties.None;
+        Spelled(_om.Build(Com(member), () => $"'{name}'"));
 
     /// <summary>Write each pushed build property that differs from the live one (C39, C40) — the item's and every pushed
     /// member's — AFTER the text, so nothing a text write rewrites can undo it. An item being included goes first and one
@@ -149,7 +146,6 @@ public sealed partial class BeckhoffDriver
     {
         string Item() => $"'{Name(item)}'";
         var live = _om.Build(Com(item), Item);
-        if (live is null) return;   // no automation XML: the offline doubles' shape
         var held = live.Exclusion == TcExclusion.Own;
         var pushed = content.Properties.ExcludeFromBuild;
         if (held && !pushed) _om.WriteExclusion(Com(item), false, Item);
@@ -163,7 +159,7 @@ public sealed partial class BeckhoffDriver
             {
                 if (!sites.TryGetValue(m.Name, out var member)) continue;   // the member write refused it by name
                 string What() => $"'{Name(item)}': its {m.Kind.Replace('_', ' ')} '{m.Name}'";
-                if (_om.Build(Com(member), What) is not { } memberLive) continue;
+                var memberLive = _om.Build(Com(member), What);
                 if (memberLive.Exclusion == TcExclusion.Own != m.Properties.ExcludeFromBuild)
                     _om.WriteExclusion(Com(member), m.Properties.ExcludeFromBuild, What);
                 WriteOwn(Com(member), memberLive, m.Properties, What);

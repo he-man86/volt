@@ -707,7 +707,11 @@ internal sealed partial class TcObjectModel
         ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
             $"twincat: '{GetName(node)}' answers no DeclarationText — refused rather than read as an empty declaration.");
     /// <summary>An item's body text. Only a MISSING implementation slot yields <c>""</c> — an interface, DUT or
-    /// GVL has no body and TwinCAT's COM object does not expose the member for it. Every OTHER failure is
+    /// GVL has no body and TwinCAT's COM object does not expose the member for it. That miss IS the binder's
+    /// <c>RuntimeBinderException</c> on the live object, not a double's shape (T5, measured 2026-10-23 on live TcXaeShell
+    /// 15.0, Project14: a GVL, a DUT, a folder, the task and the library manager answer C# <c>dynamic</c>
+    /// <c>'System.__ComObject' does not contain a definition for 'ImplementationText'</c>; every POU, method and action
+    /// answers a string — a CFC or SFC body its archived element, never null). Every OTHER failure is
     /// rethrown, because this read is FAIL-CLOSED: <c>BodyLanguage</c> is <c>LanguageOf(ReadImplementation(...))</c>,
     /// so a swallowed failure returned <c>""</c> for a body that does exist, which reports as TEXTUAL — and that
     /// is the exact value <c>PushService</c>'s body-format guard uses to refuse a textual push over a live

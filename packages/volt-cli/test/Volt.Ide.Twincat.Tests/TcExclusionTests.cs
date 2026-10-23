@@ -98,7 +98,7 @@ public class TcExclusionTests
         public Folder(Xae x, string name, string? exclude, params Node[] kids) : base(x, name, ItemKind.PlcFolder, false, kids) =>
             Exclude = exclude;
         public string? Exclude;
-        public string ProduceXml(bool recursive) =>
+        public override string ProduceXml(bool recursive) =>
             $"<TreeItem><ItemName>{Name}</ItemName><ItemType>601</ItemType><VSProperties>{Property(Exclude)}</VSProperties></TreeItem>";
     }
 

@@ -57,6 +57,14 @@ public class TcHiddenBodyWriteTests
         public List<Node> Kids { get; }
         public int ChildCount => Kids.Count;
         public Children Child => new(Kids);
+
+        /// <summary>The automation XML every tree item answers (<see cref="TcItemXml"/>): built, no flags, and its saved
+        /// file — an interface's holding each property accessor its children are.</summary>
+        public string ProduceXml(bool recursive) => _xml ??= TcItemXml.Saved(Name, ItemType,
+            Kids.Where(k => k.ItemType == ItemKind.PlcItfProp)
+                .Select(k => (k.Name, k.Kids.Any(a => a.ItemType == ItemKind.PlcItfPropGet),
+                              k.Kids.Any(a => a.ItemType == ItemKind.PlcItfPropSet))));
+        private string? _xml;
     }
 
     /// <summary><c>node.Child[i]</c>, 1-based, as the vendor's collection is.</summary>

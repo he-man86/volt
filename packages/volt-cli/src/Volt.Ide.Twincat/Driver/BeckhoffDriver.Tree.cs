@@ -182,7 +182,7 @@ public sealed partial class BeckhoffDriver
                 // inherited (`readonly`), so nothing below is asked again: the outermost excluded folder names them all.
                 if (itemType == ItemKind.PlcFolder && !underExcluded)
                 {
-                    TcExclusion? exclusion;
+                    TcExclusion exclusion;
                     try { exclusion = _om.Exclusion(child, () => $"'{name}'"); }
                     catch (Exception ex)
                     {

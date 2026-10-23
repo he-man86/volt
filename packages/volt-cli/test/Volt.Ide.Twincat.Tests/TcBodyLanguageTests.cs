@@ -27,7 +27,7 @@ public class TcBodyLanguageTests
 
     /// <summary>The POU as the driver pulls it, over a plain node <c>dynamic</c> binds to as to the COM object.</summary>
     private static ItemContent Read(string implementation) =>
-        new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(
+        TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(
             new TcHiddenBodyWriteTests.Node("FB_Odd", ItemKind.PlcPou, "FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR",
                                             implementation)));
 

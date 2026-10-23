@@ -79,6 +79,10 @@
 .PARAMETER XaeBitness twincat only: 32 | 64 — which registered XAE shell to open, by its exe's PE machine (TcXaeShell 15
                     is x86; TwinCAT 3.1.4026 can install the x64 TcXaeShell64). Without it the 32-bit shell is preferred
                     (the committed fixtures are 4024 projects); with it a bitness no registered shell has is refused.
+.PARAMETER Reopen   twincat, up only: open this instance's project AGAIN, as an engineer does after its XAE closed - the
+                    copy it recorded, exactly as it is on disk (no fresh copy, no recovery entry cleared), in a new XAE,
+                    and attach that XAE's worker as the connector does. For the IDE-restart chaos test, which must serve
+                    the project the engineer had open, not a fresh fixture. Refused while the instance's XAE still runs.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER Run      The run this instance belongs to (default: $VOLT_IDE_RUN, else the instance alone). A run owns the
                     instance its tag names and every `<tag>-...` one. `up` refuses to start while any CODESYS, TcXaeShell or
@@ -111,6 +115,7 @@ param(
     [int]$XaeLanguage = 0,
     [ValidateSet("", "32", "64")] [string]$XaeBitness = "",
     [switch]$NoBuild,
+    [switch]$Reopen,
     [switch]$Wait,
     [switch]$DryRun
 )
@@ -864,6 +869,7 @@ function Up-Twincat {
         "14" = Join-Path $FIXTURES "TwinCAT Project14\TwinCAT Project14.sln"
     }
     $sel = if ($Fixture) { $Fixture } else { "14" }
+    if ($Reopen) { $sel = $script:reopenSln }
     # An explicit .sln replaces the fixture picks entirely: a caller that names one wants THAT open and nothing
     # else, and silently adding the fixtures beside it would give the worker two windows to choose between.
     $open = if ($sel -like "*.sln") {
@@ -883,7 +889,7 @@ function Up-Twincat {
     # user never typed, behind a raw Copy-Item failure.
     foreach ($k in @($open.Keys)) {
         if (-not (Test-Path $open[$k])) { throw "solution missing: $($open[$k])" }
-        $open[$k] = Copy-FixtureOut $open[$k] "twincat"
+        if (-not $Reopen) { $open[$k] = Copy-FixtureOut $open[$k] "twincat" }
     }
     Save-Projects @($open.Values)
 
@@ -1041,9 +1047,18 @@ switch ($Action) {
         # FIRST what this instance left last time: a worker whose XAE is gone (closed as `down` closes it), the XAE
         # recovery entries naming this copy, and the copy itself. Without this, the IDE about to open shows a modal
         # recovery dialog and the worker attaches to nothing.
+        if ($Reopen) {
+            # The project this instance opened, as the engineer left it: its ONE recorded copy, read before the record goes.
+            if ($Vendor -ne "twincat") { throw "-Reopen is TwinCAT only: a CODESYS bridge runs in-proc and dies with its IDE" }
+            $recorded = @(if (Test-Path $projFile) { Get-Content $projFile | Where-Object { $_ } })
+            if ($recorded.Count -ne 1 -or $recorded[0] -notlike "*.sln" -or -not (Test-Path $recorded[0])) {
+                throw "-Reopen: instance $(if ($Instance) { $Instance } else { '(default)' }) recorded $($recorded.Count) project(s) ($($recorded -join ', ')) - it reopens exactly one existing .sln copy"
+            }
+            $script:reopenSln = $recorded[0]
+        }
         [void](Close-Instance $Vendor -Quiet)
         Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue
-        Clear-InstanceLeftovers $Vendor
+        if (-not $Reopen) { Clear-InstanceLeftovers $Vendor }
         $before = Get-ServingPids $Vendor
         if ($Vendor -eq "codesys") { Up-Codesys } else { Up-Twincat }
         Write-Host "Tail the launcher log with: ide.ps1 logs -Vendor $Vendor"

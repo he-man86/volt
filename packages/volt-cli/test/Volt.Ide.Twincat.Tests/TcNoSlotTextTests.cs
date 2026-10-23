@@ -34,6 +34,8 @@ public class TcNoSlotTextTests
         public int ItemType { get; }
         public string DeclarationText { get; set; }
         public int ChildCount => 0;
+        /// <summary>The automation XML every tree item answers (<see cref="TcItemXml"/>).</summary>
+        public string ProduceXml(bool recursive) => TcItemXml.Built(Name);
     }
 
     /// <summary>An object with a body and NO <c>DeclarationText</c> member, as TwinCAT's action is.</summary>
@@ -120,5 +122,26 @@ public class TcNoSlotTextTests
             System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
         Assert.Equal("VAR_GLOBAL\n\tg : INT;\nEND_VAR", node.DeclarationText);
+    }
+
+    /// <summary>A body that answers nothing — the member there, its value null.</summary>
+    public sealed class NullBody
+    {
+        public string Name => "FB_Null";
+        public string? ImplementationText => null;
+    }
+
+    /// <summary>T5 (cli-bridges review): <c>ReadImplementation</c> reads a MISSING slot as no body — the binder miss a live
+    /// GVL, DUT or folder answers (measured 2026-10-23, see its summary) — and a slot that answers null is refused by
+    /// name, never read as the empty body.</summary>
+    [Fact]
+    public void A_missing_body_slot_is_no_body_and_a_null_body_is_refused_by_name()
+    {
+        var model = new TcObjectModel();
+        Assert.Equal("", model.ReadImplementation(new DeclarationOnly("GVL_Main", ItemKind.PlcGvl, "VAR_GLOBAL\nEND_VAR")));
+
+        var ex = Assert.Throws<BridgeException>(() => model.ReadImplementation(new NullBody()));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+        Assert.Contains("'FB_Null'", ex.Message);
     }
 }

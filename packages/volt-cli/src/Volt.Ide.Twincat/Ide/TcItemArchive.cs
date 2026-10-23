@@ -207,7 +207,8 @@ internal static class TcItemArchive
     /// from the archived one replaces it — a declaration as its CDATA, a textual body as its <c>&lt;ST&gt;</c>, a network
     /// body as its <c>&lt;NWL&gt;</c> element, with the body's <c>LineIds</c> removed as <see cref="TrySetBody"/> does
     /// (line bookkeeping for text that is no longer there). A body archived in any other form (CFC, SFC) travels as
-    /// archived. A slot equal to the archive leaves the vendor's bytes untouched.
+    /// archived, so the IDE must hold exactly it: one edited since the save is refused by name. A slot equal to the
+    /// archive leaves the vendor's bytes untouched.
     ///
     /// <para>A live member the archive does not hold (renamed since the save) is refused HERE, before the item is
     /// deleted: the import would drop it. Returns the name the archive carries.</para></summary>
@@ -218,6 +219,8 @@ internal static class TcItemArchive
         string? archived = null;
         var carried = new HashSet<string>(StringComparer.Ordinal);
         var changedAny = false;
+        try
+        {
         using (var src = ZipFile.OpenRead(zip))
         using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
         {
@@ -236,12 +239,19 @@ internal static class TcItemArchive
                         if (Slot(obj, slot.Path) is not { } el) continue;
                         carried.Add(string.Join(".", slot.Path));
                         changed |= CarryDeclaration(el, slot.Declaration);
-                        changed |= CarryImplementation(obj, el, slot.Implementation);
+                        changed |= CarryImplementation(obj, el, slot.Implementation,
+                            () => slot.Path.Length == 0 ? $"'{name}'" : $"'{name}': '{string.Join(".", slot.Path)}'");
                     }
                     if (changed) { text = SaveVerbatim(doc); changedAny = true; }
                 }
                 WriteEntry(dst, entry.FullName, text, bom);
             }
+        }
+        }
+        catch
+        {
+            try { File.Delete(rebuilt); } catch { /* temp */ }
+            throw;
         }
         var lost = live.Select(t => string.Join(".", t.Path)).Where(k => !carried.Contains(k)).ToList();
         if (archived is null || lost.Count > 0)
@@ -283,22 +293,33 @@ internal static class TcItemArchive
         return true;
     }
 
-    private static bool CarryImplementation(XElement obj, XElement el, string? live)
+    private static bool CarryImplementation(XElement obj, XElement el, string? live, Func<string> what)
     {
         if (live is null || el.Elements().FirstOrDefault(e => e.Name.LocalName == "Implementation") is not { } impl)
             return false;
         var form = impl.Elements().FirstOrDefault();
+        if (form is not null && form.Name.LocalName is not ("ST" or "NWL"))
+        {
+            // A body archived in a form Volt does not write (CFC, SFC) travels as archived — so only when the IDE holds
+            // exactly it. XAE answers such a body live as the very element the file saves (measured 2026-10-23 on
+            // VltFixtureCfc / VltFixtureSfc: equal as parsed XML); any other answer is an edit since the save, which the
+            // export does not hold (D45) and the round trip cannot carry. Refused by name, before anything is deleted.
+            if (ParsedOrNull(live) is { } held && XNode.DeepEquals(XElement.Parse(form.ToString(SaveOptions.DisableFormatting)), held))
+                return false;
+            throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
+                $"{what()}: its {form.Name.LocalName} body in the IDE is not the one TwinCAT exports for it (edited since the " +
+                "project was saved) — the round trip would put the saved body back, so nothing was changed. Save the " +
+                "project in the IDE and push again.");
+        }
         if (TcArchive.Root(live) is null)
         {
-            // A textual body is carried into an ST body; a body archived in another form is not text.
-            if (form is not null && form.Name.LocalName != "ST") return false;
+            // A textual body is carried into an ST body.
             if (form is null ? live.Length == 0 : SameText(form.Value, live)) return false;
             impl.ReplaceNodes(new XElement(impl.Name.Namespace + "ST", new XCData(live)));
         }
         else
         {
             var network = XElement.Parse(live);
-            if (form is not null && form.Name.LocalName is not ("ST" or "NWL")) return false;
             if (form is not null && form.Name.LocalName == "NWL"
                 && XNode.DeepEquals(XElement.Parse(form.ToString(SaveOptions.DisableFormatting)), network))
                 return false;
@@ -306,6 +327,13 @@ internal static class TcItemArchive
         }
         RemoveLineIds(obj, el);
         return true;
+    }
+
+    /// <summary>The body as XML, or null for text that is none (an ST body).</summary>
+    private static XElement? ParsedOrNull(string body)
+    {
+        try { return XElement.Parse(body); }
+        catch (System.Xml.XmlException) { return null; }
     }
 
     /// <summary>Text compared line endings aside: the archive stores CRLF.</summary>

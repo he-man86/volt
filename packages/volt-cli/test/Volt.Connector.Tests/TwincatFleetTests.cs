@@ -199,6 +199,33 @@ public class TwincatFleetTests : IDisposable
         Assert.True(WaitUntil(() => !fleet.IsWorkerRunning(WorkerIdFor(5150))), "a sustained absence must reap the worker");
     }
 
+    /// <summary>THE PROJECT OPENED AGAIN (one worker per XAE): an XAE closed and its project opened again is a NEW XAE
+    /// under a new pid, and the connector gives it its own worker — <c>--xae-pid &lt;new pid&gt;</c> — on the very tick it
+    /// first sees it, while the closed XAE's worker is reaped after the debounce. A worker never re-attaches to another
+    /// window, so this spawn is the only way a reopened project is served again; the live half is
+    /// <c>test/e2e/connection/ide-restart.test.ts</c>, whose worker <c>ide.ps1</c> spawns with these same arguments.</summary>
+    [Fact]
+    public async Task A_project_opened_again_in_a_new_XAE_gets_a_new_worker_and_the_closed_one_is_reaped()
+    {
+        if (!OnWindows) return;
+        var probe = new FakeProbe { Answer = new[] { 9500 } };
+        using var fleet = Fleet(probe);
+        var exe = MarkingWorker("x86");
+        var workers = new TwincatWorkers(X86: exe, X64: null);
+
+        await fleet.Tick(workers, TimeSpan.FromSeconds(5));
+        Assert.True(WaitUntil(() => Spawned("x86", 9500) && fleet.IsWorkerRunning(WorkerIdFor(9500))), "the first XAE got no worker");
+
+        probe.Answer = new[] { 9501 };   // closed, and opened again: a new XAE
+        await fleet.Tick(workers, TimeSpan.FromSeconds(5));
+        Assert.True(WaitUntil(() => Spawned("x86", 9501) && fleet.IsWorkerRunning(WorkerIdFor(9501))),
+            "the XAE the project was opened again in got no worker of its own");
+
+        for (var i = 1; i < TwincatSupervisor.ReapAfterMisses; i++) await fleet.Tick(workers, TimeSpan.FromSeconds(5));
+        Assert.True(WaitUntil(() => !fleet.IsWorkerRunning(WorkerIdFor(9500))), "the closed XAE's worker outlived it");
+        Assert.True(fleet.IsWorkerRunning(WorkerIdFor(9501)));
+    }
+
     [Fact]
     public async Task A_FAILING_probe_leaves_the_fleet_alone_it_is_not_no_XAE()
     {

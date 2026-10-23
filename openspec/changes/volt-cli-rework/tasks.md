@@ -232,6 +232,67 @@ standing practice:
             volt-control 145/0; LSP full suite (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo, after its own v1
             parse test was rewritten to the push's phrases (first full run: 1 fail there); typecheck, lint, `bun run check` green; fixture map unchanged (no
             fixture or transpiler change). Live small matrix: at the next push (3.3).
+      - [x] 3.1b (2026-10-23) the live remainder, each measured on an own `ide.ps1 -Instance volt-cli-rework` IDE, then
+            refused by name or proved correct, red first:
+            - C5 (live CODESYS 3.5.21.40 64-bit, CodesysTestProject): 60 library references, every one answers
+              `Namespace` and `Name` (0 unreadable); the walk's de-duplication key now READS them and a reference answering
+              neither is named by its display name (`CodesysLibraryRefReadTests.References_that_answer_no_namespace_and_no_name_are_each_named`),
+              never folded into another's key and read as deleted. Every task facet has `pous` (task-writable e2e, call
+              list pushed and read back); a facet without it is UNSUPPORTED by name (`CodesysTaskCallListRefusalTests`).
+              `ContainerRefusal`'s `_objMgr == null` → "holds none" deleted: a folder with no object manager is named
+              unreadable and its contents unwalked (`CodesysContainerRefusalTests`).
+            - T5: `ReadImplementation`'s binder miss MEASURED correct (live TcXaeShell 15.0, Project14: a GVL, DUT, folder,
+              task and library manager raise `RuntimeBinderException` for `ImplementationText`; every POU/method/action
+              answers a string) — kept, documented (DIALECT D35); the unparseable device XML was fixed in 2.2.
+            - T2: `TcObjectModel.Build`/`Exclusion`/`SavedFacts` lost their "no ProduceXml → nothing to read" branch (no
+              TwinCAT tree item lacks it); the offline doubles answer it (`TcItemXml`), and a node that does not fails loud
+              (`TcSilentFallbackTests.A_node_that_answers_no_automation_XML_is_not_read_as_a_plain_built_object`).
+            - Hidden features: `IsVerbatimKind` kept + pinned, `KnownOn` deleted — done in 2.3.
+            - Inputs since 2026-10-18: `CarryLive` — XAE answers a CFC/SFC `ImplementationText` as the element the
+              `.TcPOU` saves (equal as parsed XML, `VltFixtureCfc`/`VltFixtureSfc`; DIALECT D45), so the round trip moves
+              one held as saved and REFUSES one edited since the save by name before anything is deleted (`TcItemArchiveTests`,
+              3 cases). The e2e redundant-read cut: `applications()` read once, `pushOps`/`updateItem` reuse the `refs` they
+              just read, `fetchItem` of a path asks `fetch` alone; the harness now counts and prints its requests
+              (`test/request-count.ts`). Measured, full CODESYS e2e on the same IDE: `refs` 2918 → 2237 (−681, −23 %),
+              every other op unchanged, 534 pass / 0 fail / 79 skip both runs. `ide-restart` rewritten to the
+              one-worker-per-XAE model (the killed XAE's worker answers `PLC_DISCONNECTED`; the project opened again
+              through the same instance is a new XAE served by a new worker): 2/2 live (VOLT_E2E_IDE_CHAOS=1, Project14).
+            - The untyped TwinCAT library pin: the full live dump (Project14, 3 libraries, 181,179 characters) holds 1,457
+              entries, every one named and typed, so the refusal costs no measured project its signatures;
+              `TcLibraryUntypedPinTests` un-held (green), the pin refused naming it and its signature.
+            Numbers: C# Twincat 712, Codesys 479, Repo.Gates 255 (census: Task.cs 9 → 10, TcItemArchive 1 → 2 and
+            TcLibrarySignatures 1 → 2 throws); TS unit 210/0; typecheck green; live: CODESYS e2e 534/0/79, TwinCAT
+            no-save + folder-preservation + task-writable 23/0, ide-restart 2/0. 0 fixtures (no LSP or transpiler change).
+            Gate review findings, fixed first (each test-first):
+            - `ide-restart` (b) served a FRESH fixture copy (`ide.ps1 up -Fixture` deletes and re-copies), so "the same
+              project" held by construction. `ide.ps1 up -Reopen` (TwinCAT) now opens the instance's OWN recorded copy as
+              it is on disk — no fresh copy, no recovery entry cleared — and the test writes a marker into that copy before
+              the kill and asserts it, and the folder, after. The worker is still spawned by `ide.ps1` with the connector's
+              arguments (the real connector would attach workers to XAE windows this run does not own); the connector's
+              half — a new XAE pid gets its own worker, the closed one's is reaped — is pinned offline
+              (`TwincatFleetTests.A_project_opened_again_in_a_new_XAE_gets_a_new_worker_and_the_closed_one_is_reaped`).
+              Live 2/2 (VOLT_E2E_IDE_CHAOS=1, Project14).
+            - 3.1 and "What keeps 4.0b's after below potential" UNTICKED: not done by 3.1a/3.1b and still open — the
+              history comments in src/ (29 Engine lines match `used to|no longer|is gone|was deleted|WAS:`),
+              `FamilyContent.cs:104`'s refusal text, and T4. They are the rest of 3.1.
+            - A nameless library pin: CODESYS (`CodesysObjectModel.LibraryVars`, split out and pinned by
+              `CodesysLibrarySignatureVarsTests`) now refuses it by name as TwinCAT does; the one nameless variable CODESYS
+              states, an `Alias` signature's base in `AllVariables`, is read as `AliasBase` and skipped by name. TwinCAT's
+              nameless `TypeSignature` (skipped with no tally) is refused naming its library
+              (`TcLibrarySignaturesTests.A_signature_with_no_name_is_refused_naming_its_library`). Measured live: CODESYS
+              libcache + full e2e and TwinCAT libcache extract every signature with the refusals in place.
+            - A plain library reference answering no namespace, no name and no placeholder name has NO identity: the
+              manager is now refused saying so (deliberately, not by `RefDisplayName` throwing inside a catch), nothing
+              under it read as deleted; two unkeyed references with one placeholder name are one identity, named once
+              (`CodesysLibraryRefReadTests`, 2 cases).
+            - `fetchItem` of a path asks `refs` again: every create-then-read keeps checking that `refs` lists what `fetch`
+              serves. Re-measured, full CODESYS e2e: `refs` 2918 → 2871 (−47, −2 %; the −681 above came mostly from that
+              skipped check), 534 pass / 0 fail / 79 skip.
+            Gate numbers: C# 5208 pass / 0 fail / 1 skip (Engine 3114+1 skip, Cli 352, Contracts 62, Codesys 485, Twincat 714,
+            Connector 154, Relay 72, Repo.Gates 255; census: Libraries.cs UNSUPPORTED 1 → 2, uncoded 17 → 18,
+            TcLibrarySignatures 2 → 3); TS unit 210/0; typecheck, lint, `bun run check` green; LSP full suite
+            (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo; live: CODESYS e2e 534/0/79, TwinCAT libcache 2/0, ide-restart 2/0. Fixture map
+            unchanged (no fixture or transpiler change).
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
       codesys-3.5.22.40-64,twincat-32 --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical

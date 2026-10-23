@@ -64,8 +64,13 @@ internal static class TcLibrarySignatures
             foreach (var ts in lib.Element("TypeSignatures")?.Elements("TypeSignature") ?? Enumerable.Empty<XElement>())
             {
                 var kind = (string?)ts.Attribute("type") ?? "";
+                // Every entry is named, or the signatures are refused by name: a nameless one was skipped without a
+                // word or a tally (volt-cli-rework 3.1b review), the silent drop the pins below refuse.
                 var name = Text(ts, "Name");
-                if (name.Length == 0) continue;
+                if (name.Length == 0)
+                    throw new InvalidOperationException(
+                        $"TwinCAT: the library '{path}' lists a {(kind.Length == 0 ? "TypeSignature" : kind)} signature with no " +
+                        "name — Volt refuses the signatures rather than drop it from them.");
 
                 switch (kind)
                 {
@@ -77,15 +82,15 @@ internal static class TcLibrarySignatures
                         // stays null rather than re-implementing the same rule one layer down and risking the
                         // two disagreeing.
                         sigs.Add(Signature(name, path, kind,
-                            Vars(ts.Element("Inputs"), "Input"),
-                            Vars(ts.Element("Outputs"), "Output"),
-                            Vars(ts.Element("InOuts"), "InOut"),
+                            Vars(name, ts.Element("Inputs"), "Input"),
+                            Vars(name, ts.Element("Outputs"), "Output"),
+                            Vars(name, ts.Element("InOuts"), "InOut"),
                             members: Array.Empty<LibVar>()));
                         break;
 
                     case "VarGlobal":
                     {
-                        var constants = Vars(ts.Element("Constants"), "Constant");
+                        var constants = Vars(name, ts.Element("Constants"), "Constant");
                         // A VOLT INFERENCE, not a vendor fact (`InferredEnum`, DIALECT D27): translated HERE into the
                         // `Enum` flag CODESYS sends for the same thing, so the renderer keeps one vendor-neutral rule,
                         // and counted in the tally.
@@ -159,11 +164,20 @@ internal static class TcLibrarySignatures
 
     /// <summary>The <c>Name</c>/<c>DataType</c> pairs under a container (<c>Inputs</c>, <c>Constants</c>, …).
     /// A <c>Comment</c> sits beside them and is dropped: <see cref="LibVar"/> has nowhere to put it and the
-    /// renderer emits declarations, not documentation.</summary>
-    private static IReadOnlyList<LibVar> Vars(XElement? container, string child) =>
+    /// renderer emits declarations, not documentation.
+    ///
+    /// <para>EVERY ENTRY STATES BOTH, OR THE DOCUMENT IS REFUSED BY NAME (cli-bridges review, step 2.2): an entry missing
+    /// either was dropped, so a library FB lost a pin in silence where CODESYS refuses the signature. Measured on the full
+    /// live dump (2026-10-23, TcXaeShell 15.0 on Project14: 3 libraries, 181,179 characters): 1,457 entries, every one
+    /// named and typed — the refusal costs no measured project its signatures.</para></summary>
+    private static IReadOnlyList<LibVar> Vars(string signature, XElement? container, string child) =>
         container?.Elements(child)
             .Select(e => new LibVar(Text(e, "Name"), Text(e, "DataType")))
-            .Where(v => v.Name.Length > 0 && v.Type.Length > 0)
+            .Select(v => v.Name.Length > 0 && v.Type.Length > 0 ? v
+                : throw new InvalidOperationException(
+                    $"TwinCAT: the library signature '{signature}' lists an {child.ToLowerInvariant()} " +
+                    (v.Name.Length == 0 ? $"of type '{v.Type}' with no name" : $"'{v.Name}' with no data type") +
+                    " — Volt refuses the signatures rather than drop the pin from them."))
             .ToList()
         ?? (IReadOnlyList<LibVar>)Array.Empty<LibVar>();
 

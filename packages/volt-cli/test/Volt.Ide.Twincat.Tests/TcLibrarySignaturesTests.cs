@@ -236,12 +236,35 @@ public class TcLibraryUntypedPinTests
                                "<Distributor>Beckhoff Automation GmbH</Distributor><TypeSignatures>{0}</TypeSignatures></Library>";
 
     [Fact]
-    public void A_pin_with_a_name_and_no_data_type_is_refused_by_name() =>
-        ExpectRed.Until("3.1", "an untyped library pin is dropped silently on TwinCAT (CODESYS refuses it)", () =>
-        {
-            var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
-                                         "<Inputs><Input><Name>bOpen</Name></Input></Inputs></TypeSignature>");
-            var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
-            Assert.Contains("bOpen", ex.Message);
-        });
+    public void A_pin_with_a_name_and_no_data_type_is_refused_by_name()
+    {
+        var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
+                                     "<Inputs><Input><Name>bOpen</Name></Input></Inputs></TypeSignature>");
+        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Contains("bOpen", ex.Message);
+        Assert.Contains("FB_Gate", ex.Message);
+    }
+
+    /// <summary>A pin with a type and no name — refused naming its signature, as CODESYS refuses the same pin
+    /// (<c>CodesysLibrarySignatureVarsTests</c>).</summary>
+    [Fact]
+    public void A_pin_with_a_data_type_and_no_name_is_refused_naming_its_signature()
+    {
+        var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
+                                     "<Inputs><Input><DataType>BOOL</DataType></Input></Inputs></TypeSignature>");
+        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Contains("FB_Gate", ex.Message);
+        Assert.Contains("BOOL", ex.Message);
+    }
+
+    /// <summary>A signature with no name was skipped with no tally and no error — refused naming its library.</summary>
+    [Fact]
+    public void A_signature_with_no_name_is_refused_naming_its_library()
+    {
+        var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\">" +
+                                     "<Inputs><Input><Name>bOpen</Name><DataType>BOOL</DataType></Input></Inputs></TypeSignature>");
+        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Contains("Tc2_Standard", ex.Message);
+        Assert.Contains("FunctionBlock", ex.Message);
+    }
 }

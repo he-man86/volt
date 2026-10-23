@@ -58,15 +58,29 @@ public class TcBuildSelectsApplicationTests
 
     private const string PlcProject = @"C:\p\TwinCAT Project14\Untitled2\Untitled2.plcproj";
 
+    /// <summary>A solution saved on disk — <c>TwinCAT Project14.sln</c> beside the PLC project's <c>.plcproj</c> — for a
+    /// build whose diagnostic names an item: naming it materializes the item, which reads its project's build entries.</summary>
+    private static readonly string Saved = WriteSaved();
+    private static string WriteSaved()
+    {
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt-tc-build-selects");
+        var plcproj = System.IO.Path.Combine(root, "TwinCAT Project14", "Untitled2", "Untitled2.plcproj");
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(plcproj)!);
+        System.IO.File.WriteAllText(plcproj, "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup /></Project>");
+        return root;
+    }
+
     [Fact]
     public void A_build_naming_a_plc_project_builds_it_by_BuildProject_and_reports_that_builds_diagnostics()
     {
         var (driver, _, _, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
-            new Node(x, "MAIN", ItemKind.PlcPouProg) { DeclarationText = "PROGRAM MAIN\nVAR\nEND_VAR\n" }), plcproj: PlcProject);
+                new Node(x, "MAIN", ItemKind.PlcPouProg) { DeclarationText = "PROGRAM MAIN\nVAR\nEND_VAR\n" }),
+            plcproj: System.IO.Path.Combine(Saved, "TwinCAT Project14", "Untitled2", "Untitled2.plcproj"));
+        LastWindow!.Solution.Name = System.IO.Path.Combine(Saved, "TwinCAT Project14.sln");
         var pane = new LivePane();
-        LastWindow!.Windows = new LiveWindows(new LiveWindow(new LiveOutput(new LivePanes(pane))));
+        LastWindow.Windows = new LiveWindows(new LiveWindow(new LiveOutput(new LivePanes(pane))));
         var build = new RecordingSolutionBuild(pane,
-            @"1>C:\p\TwinCAT Project14\Untitled2\MAIN.TcPOU(3,1) : error : Identifier 'b' not defined" + "\r\n");
+            $@"1>{Saved}\TwinCAT Project14\Untitled2\MAIN.TcPOU(3,1) : error : Identifier 'b' not defined" + "\r\n");
         LastWindow.Solution.SolutionBuild = build;
 
         var r = BoundWrite.Build(Volt.Engine.Sync.HostLink.Of(driver), new BuildRequest { Applications = new() { App } });

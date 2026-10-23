@@ -68,7 +68,7 @@ public class TcLanguageChangeTests
     }
 
     private static ItemContent Read(string implementation) =>
-        new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(
+        TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(
             new TcHiddenBodyWriteTests.Node("FB_Odd", ItemKind.PlcPou, "FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR",
                                             implementation)));
 

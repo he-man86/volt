@@ -34,14 +34,11 @@ internal sealed partial class TcObjectModel
                           CompilerDefinesProperty = "CompilerDefines", AdditionalAllocationProperty = "AdditionalAllocation";
 
     /// <summary>The node's live build properties (C39, C40), from its <c>ProduceXml</c>, which TwinCAT answers from memory,
-    /// saved or not. Null only for a node that answers no automation XML at all — no TwinCAT tree item does; it is the
-    /// offline doubles' shape.</summary>
+    /// saved or not — every TwinCAT tree item does (T2: the offline doubles answer it too, so no branch is theirs).</summary>
     /// <param name="what">The node, as a refusal names it — formatted only when one is thrown.</param>
-    public TcBuild? Build(object node, Func<string> what)
+    public TcBuild Build(object node, Func<string> what)
     {
-        string? xml;
-        try { xml = ((dynamic)node).ProduceXml(false) as string; }
-        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }   // no automation XML: no tree item
+        var xml = ((dynamic)node).ProduceXml(false) as string;
         if (string.IsNullOrEmpty(xml))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT answers no item XML for it — Volt reads its build properties there, so it is not " +
@@ -107,14 +104,11 @@ internal sealed partial class TcObjectModel
                 $"{what()}: TwinCAT took {name}='{value}' and reads '{now}' back — the write did not land (DIALECT C40).");
     }
     /// <summary>The node's live exclusion (DIALECT C39): its <c>ProduceXml</c>'s <c>Exclude</c> VSProperty, which TwinCAT
-    /// answers from memory, saved or not, and which holds an exclusion inherited from a folder. Null only for a node that
-    /// answers no automation XML at all — no TwinCAT tree item does; it is the offline doubles' shape.</summary>
+    /// answers from memory, saved or not, and which holds an exclusion inherited from a folder.</summary>
     /// <param name="what">The node, as a refusal names it — formatted only when one is thrown.</param>
-    public TcExclusion? Exclusion(object node, Func<string> what)
+    public TcExclusion Exclusion(object node, Func<string> what)
     {
-        string? xml;
-        try { xml = ((dynamic)node).ProduceXml(false) as string; }
-        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }   // no automation XML: no tree item
+        var xml = ((dynamic)node).ProduceXml(false) as string;
         if (string.IsNullOrEmpty(xml))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT answers no item XML for it — Volt reads its Exclude property there, so it is not " +
@@ -155,16 +149,13 @@ internal sealed partial class TcObjectModel
     /// <summary>The object's saved facts, read from the file the item publishes as its <c>FullPath</c> (the census read
     /// the same files). An item that publishes no <c>FullPath</c>, or one that is not on disk, is REFUSED BY NAME (gate
     /// review of step 3, finding 6) — read as an object with no properties, an excluded object whose file cannot be
-    /// found would pull as a built one. Null only for a node that answers no automation XML at all — no TwinCAT
-    /// tree item does; it is the offline doubles' shape.</summary>
+    /// found would pull as a built one.</summary>
     /// <param name="what">The item, as a refusal names it — formatted only when one is thrown.</param>
-    public TcSavedFacts? SavedFacts(object node, Func<string> what)
+    public TcSavedFacts SavedFacts(object node, Func<string> what)
     {
         // The file's own facts are read here; the .plcproj entry only when the caller asks (`CompileEntry`), after the file
         // has been judged — a refusal by the file needs no project read.
-        string? xml;
-        try { xml = ((dynamic)node).ProduceXml(false) as string; }
-        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }   // no automation XML: no tree item
+        var xml = ((dynamic)node).ProduceXml(false) as string;
         if (string.IsNullOrEmpty(xml))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT answers no item XML for it — Volt reads its saved file for what the text cannot say, so " +

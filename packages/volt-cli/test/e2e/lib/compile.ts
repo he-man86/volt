@@ -6,14 +6,8 @@
  */
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
-import { PREFIX, fetchItem, mainProgram, pushOps } from "./workspace"
+import { PREFIX, applications, fetchItem, mainProgram, pushOps } from "./workspace"
 import { drivenDiagnostics } from "./main-program"
-
-/** The applications the served project states, read once: a suite never adds or removes one. */
-let _applications: string[] | undefined
-async function applications(): Promise<string[]> {
-	return (_applications ??= (await bridge.refs()).applications ?? [])
-}
 
 /**
  * `build`, as the application the suite drives sees it: its diagnostics are the driven application's

@@ -67,16 +67,33 @@ namespace Volt.Ide.Codesys
             // library — and its signatures — materialize exactly once. Best-effort per node (read-only metadata).
             var byName = new Dictionary<string, LibRefNode>(StringComparer.OrdinalIgnoreCase);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenUnkeyed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var redirects = Redirections(iobj);
             var redirected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var notMaterialized = new List<(string Name, string Reason)>();
             void Walk(object item)
             {
-                var ns = GetMember(item, "Namespace") as string ?? "";
-                var nm = GetMember(item, "Name") as string ?? "";
-                if (!seen.Add(ns + "|" + nm)) return; // cycle / re-reference guard (logical key, not instance)
+                // The cycle / re-reference guard's logical key (not the instance), READ like every reference member: a
+                // reference answering neither is keyed by its placeholder name — its identity, its file — and named, never
+                // folded into another's key and skipped unseen (C5, cli-bridges review B2): its file would read as deleted.
+                // One with no placeholder name either has NO identity, and none is invented: the manager is refused, so
+                // nothing under it is walked or read as deleted.
+                Exception? unkeyed = null;
+                bool first;
+                try { first = seen.Add((LibMember(item, "Namespace") as string ?? throw LibUnreadable(item, "Namespace")) + "|" +
+                                       (LibMember(item, "Name") as string ?? throw LibUnreadable(item, "Name"))); }
+                catch (Volt.Engine.BridgeException ex)
+                {
+                    unkeyed = ex;
+                    first = seenUnkeyed.Add(PlaceholderNameOf(item) ?? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                        $"CODESYS: a library reference ({item.GetType().Name}) answers no namespace, no name and no placeholder " +
+                        $"name, so it has no identity — no .library file can be named for it ({ex.Message}). The library manager " +
+                        "is not walked, so no library file under it reads as deleted."));
+                }
+                if (!first) return;
                 try
                 {
+                    if (unkeyed != null) throw unkeyed;
                     var r = ToLibRef(item, redirects);
                     byName[r.Name] = r;
                     if (redirects.ContainsKey(r.Name) && IsPlaceholder(item)) redirected.Add(r.Name);
@@ -167,15 +184,13 @@ namespace Volt.Ide.Codesys
 
         /// <summary>The display name of a library ref — the placeholder name for a placeholder, else its Name. Used
         /// for the ref's own name AND its dependency names, so a `DEPENDENCIES` entry matches the flat ref it names.</summary>
-        private static string RefDisplayName(object item)
-        {
-            if (item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem"))
-            {
-                var ph = GetMember(item, "PlaceholderName") as string;
-                if (!string.IsNullOrEmpty(ph)) return ph!;
-            }
-            return LibMember(item, "Name") as string ?? throw LibUnreadable(item, "Name");
-        }
+        private static string RefDisplayName(object item) =>
+            PlaceholderNameOf(item) ?? LibMember(item, "Name") as string ?? throw LibUnreadable(item, "Name");
+
+        /// <summary>A placeholder reference's placeholder name — its identity — or null for a plain reference or one that
+        /// answers none.</summary>
+        private static string? PlaceholderNameOf(object item) =>
+            IsPlaceholder(item) && GetMember(item, "PlaceholderName") is string { Length: > 0 } ph ? ph : null;
 
         /// <summary>A library reference's member, READ — never defaulted (openspec <c>bridge-one-to-one</c> finding 8, task
         /// 3.5): a missing <c>Namespace</c> read as <c>""</c> and a missing <c>SystemLibrary</c> as false, so a reference the
@@ -293,26 +308,7 @@ namespace Volt.Ide.Codesys
             if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs)
                 throw new InvalidOperationException("CODESYS: AllPrecompiledSignatures returned nothing");
 
-            List<Volt.Engine.Library.LibVar> Vars(object? sig, string prop)
-            {
-                var outv = new List<Volt.Engine.Library.LibVar>();
-                if (GetMember(sig, prop) is not IEnumerable coll) return outv;
-                foreach (var v in coll)
-                {
-                    if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
-                    var init = GetMember(v, "Initial")?.ToString();
-                    // NOT `?? "BOOL"`. An unreadable Type is never fabricated and shipped to the LSP as ground
-                    // truth — a wrong type is worse than no library, because it resolves and then lies.
-                    // IsNullOrEmpty, not null: GetMember can hand back a present-but-empty value.
-                    var type = GetMember(v, "Type")?.ToString();
-                    if (string.IsNullOrEmpty(type))
-                        throw new InvalidOperationException(
-                            $"CODESYS: library variable '{n}' in {prop} of '{GetMember(sig, "Name")}' has no " +
-                            "readable Type — object-model version mismatch");
-                    outv.Add(new Volt.Engine.Library.LibVar(n, type!, string.IsNullOrEmpty(init) ? null : init));
-                }
-                return outv;
-            }
+            List<Volt.Engine.Library.LibVar> Vars(object? sig, string prop) => LibraryVars(sig, prop);
 
             // An FB/interface's OWN methods, via `LanguageModelMgr.GetAllMethods(sign)` (the precompiled signatures
             // themselves carry no methods — SubSignatures is always empty). Skip inherited methods (ParentObjectGuid
@@ -343,7 +339,7 @@ namespace Volt.Ide.Codesys
                 var libPath = GetMember(s, "LibraryPath") as string ?? "";
                 var baseName = GetMember(GetMember(s, "BaseSignature"), "Name") as string;
                 // The DUT sub-kind flag ("Alias"/"Union"/…). An alias is one unnamed variable whose Type is the
-                // base; capture it directly (Vars drops empty-name vars). Its Type may be a `__`-system type.
+                // base; capture it directly (LibraryVars skips exactly that one). Its Type may be a `__`-system type.
                 var flags = GetMember(s, "Flags")?.ToString() ?? "";
                 string? aliasBase = null;
                 if (flags.Contains("Alias") && GetMember(s, "AllVariables") is IEnumerable av)
@@ -356,6 +352,40 @@ namespace Volt.Ide.Codesys
                     baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags, methods));
             }
             return result;
+        }
+
+        /// <summary>The variables of one precompiled signature's <paramref name="prop"/> (<c>Inputs</c>, <c>AllVariables</c>, …).
+        ///
+        /// <para>EVERY VARIABLE IS NAMED AND TYPED, OR THE SIGNATURES ARE REFUSED BY NAME — as TwinCAT refuses the same
+        /// entry (<c>TcLibrarySignatures.Vars</c>). The ONE nameless variable the vendor states is an alias's base: an
+        /// <c>Alias</c> signature's <c>AllVariables</c> holds one unnamed variable whose <c>Type</c> is the base, read as
+        /// <c>AliasBase</c> by the caller, so it is not a member.</para>
+        ///
+        /// <para>A <c>Type</c> is never fabricated (<c>?? "BOOL"</c>): a wrong type is worse than no library, because it
+        /// resolves and then lies. IsNullOrEmpty, not null: GetMember can hand back a present-but-empty value.</para></summary>
+        internal static List<Volt.Engine.Library.LibVar> LibraryVars(object? sig, string prop)
+        {
+            var outv = new List<Volt.Engine.Library.LibVar>();
+            if (GetMember(sig, prop) is not IEnumerable coll) return outv;
+            var isAliasBase = prop == "AllVariables" && (GetMember(sig, "Flags")?.ToString() ?? "").Contains("Alias");
+            foreach (var v in coll)
+            {
+                var type = GetMember(v, "Type")?.ToString();
+                if (GetMember(v, "Name") is not string n || n.Length == 0)
+                {
+                    if (isAliasBase) continue;
+                    throw new InvalidOperationException(
+                        $"CODESYS: the library signature '{GetMember(sig, "Name")}' lists a variable in {prop} of type " +
+                        $"'{type}' with no name — Volt refuses the signatures rather than drop the pin from them.");
+                }
+                if (string.IsNullOrEmpty(type))
+                    throw new InvalidOperationException(
+                        $"CODESYS: library variable '{n}' in {prop} of '{GetMember(sig, "Name")}' has no " +
+                        "readable Type — object-model version mismatch");
+                var init = GetMember(v, "Initial")?.ToString();
+                outv.Add(new Volt.Engine.Library.LibVar(n, type!, string.IsNullOrEmpty(init) ? null : init));
+            }
+            return outv;
         }
 
         private static int ParseLine(string text)

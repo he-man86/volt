@@ -50,7 +50,7 @@ public class TcOneToOneRedTests
     // ── finding 8: the fallbacks ────────────────────────────────────────────────────────────────────────────────────
 
     private static ItemContent Read(TcHiddenBodyWriteTests.Node node) =>
-        new BeckhoffDriver(new TcObjectModel()).ReadContent(TcRefs.LooseRef(node));
+        TcUntouchablePouTests.BoundDriver().ReadContent(TcRefs.Ref(node));
 
     /// <summary>A whitespace-only ST body is stored characters: spelled, never read as "no body".</summary>
     [Fact]

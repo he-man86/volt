@@ -176,12 +176,9 @@ namespace Volt.Ide.Codesys
             SetMember(wd, "sensitivity", w.Sensitivity);
             SetMember(wd, "enabled", w.Enabled);
 
-            if (GetMember(f, "pous") is { } pous)
-            {
-                if (t.CallComments is { Count: > 0 } said && said.Count != t.Calls.Count)
-                    throw new InvalidOperationException($"a task's {t.Calls.Count} call(s) carry {said.Count} comment(s)");
-                WriteCallList(f, pous, t.Calls, t.Calls.Select((_, i) => t.CommentOf(i)).ToList());
-            }
+            if (t.CallComments is { Count: > 0 } said && said.Count != t.Calls.Count)
+                throw new InvalidOperationException($"a task's {t.Calls.Count} call(s) carry {said.Count} comment(s)");
+            WriteCallList(f, t.Calls, t.Calls.Select((_, i) => t.CommentOf(i)).ToList());
         }
 
         /// <summary>On CODESYS a task HAS a watchdog member, and its values behind the flag are content (§1.2 "One
@@ -213,9 +210,14 @@ namespace Volt.Ide.Codesys
         /// which takes an <c>Action&lt;T&gt;</c> of a vendor type (built as an expression tree) and hands back the RAW
         /// <c>PouObjectList</c> — an ordinary <see cref="System.Collections.IList"/> of vendor POU objects, a new entry minted
         /// by the task facet's own <c>CreatePouObject(name)</c>.</para></summary>
-        private static void WriteCallList(object taskFacet, object pous, IReadOnlyList<string> calls, IReadOnlyList<string> comments)
+        private static void WriteCallList(object taskFacet, IReadOnlyList<string> calls, IReadOnlyList<string> comments)
         {
-            // Every refusal of the rebuild is UNSUPPORTED: the IDE did not take the write.
+            // Every refusal of the rebuild is UNSUPPORTED: the IDE did not take the write. A facet with no `pous` (C5, review
+            // B9) is one: skipped, the push reported the descriptor written with its call list untouched.
+            var pous = GetMember(taskFacet, "pous")
+                ?? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                    $"CODESYS: the task facet ({taskFacet.GetType().Name}) has no call list (`pous`) — the task's calls " +
+                    "cannot be written, so the push is refused rather than reported with them unchanged.");
             var perform = pous.GetType().GetMethod("PerformWithWriteableCopy", BF)
                 ?? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: no PerformWithWriteableCopy on {pous.GetType().FullName} — a task's call list " +

@@ -162,7 +162,6 @@ namespace Volt.Ide.Codesys
         /// when the object holds none of these.</summary>
         public (string Reason, bool Inside)? ContainerRefusal(object node)
         {
-            if (_objMgr == null) return null;   // no object model (as ReadObject): nothing is read of any object
             var meta = ReadMeta(node);
             var what = $"'{GetName(node)}'";
             var reasons = new List<string>();

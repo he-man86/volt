@@ -143,9 +143,10 @@ export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unkno
 	return r.accepted === true && (r.conflicts == null || r.conflicts.length === 0)
 }
 
-/** Push ops behind a fresh `expectedProjectVersion` guard, and hand back the receipt for the caller to assert on. */
-export async function pushOps(ops: unknown[]): Promise<any> {
-	const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops })
+/** Push ops behind an `expectedProjectVersion` guard — the one a `refs` the caller just read answered, else a fresh
+ *  one — and hand back the receipt for the caller to assert on. */
+export async function pushOps(ops: unknown[], projectVersion?: string): Promise<any> {
+	const r = await bridge.push({ expectedProjectVersion: projectVersion ?? (await bridge.refs()).projectVersion, ops })
 	if (!landedInFull(r))
 		console.warn(r.accepted ? "push landed in part:" : "push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
 	return r
@@ -217,8 +218,7 @@ async function plcRoot(): Promise<string> {
  *  application. Every CodesysTestProject fixture also carries a second device; `multi-application` covers it. A project
  *  stating none is refused by name. */
 export async function applicationRoot(): Promise<string> {
-	const apps: string[] = (await bridge.refs()).applications ?? []
-	const driven = drivenApplication(apps)
+	const driven = drivenApplication(await applications())
 	if (driven === null) throw new Error("the served project states no application — this suite drives one")
 	return driven
 }
@@ -246,6 +246,12 @@ export async function existingOrAtRoot(items: Record<string, unknown>, file: str
 /** The path of `file` in `folder` — the default folder (`POUs` under the PLC-project root) when none is given. */
 export async function at(file: string, folder?: string): Promise<string> {
 	return inFolder(folder === undefined ? await plcFolder(FOLDER) : folder, fileOf(file))
+}
+
+/** The applications the served project states, read once: a suite never adds or removes one. */
+let _applications: string[] | undefined
+export async function applications(): Promise<string[]> {
+	return (_applications ??= (await bridge.refs()).applications ?? [])
 }
 
 /** The path `refs` holds `name` under (a path, or a file name — `pathIn`). Throws when it holds none. */
@@ -324,7 +330,7 @@ export async function updateItem(name: string, src: string, folder?: string): Pr
 	if (path === undefined) throw new Error(`update '${name}': not in refs`)
 	const op: Record<string, unknown> = { op: "set", name: path, sourceText: src, ifVersion: refs.items[path] }
 	if (folder !== undefined) op.to = inFolder(folder, fileOf(path))
-	const r = await pushOps([op])
+	const r = await pushOps([op], refs.projectVersion)
 	expect(r.accepted, `update '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return r
 }
@@ -332,6 +338,8 @@ export async function updateItem(name: string, src: string, folder?: string): Pr
 /** Fetch one item — by path, or by its file name. Throws when it is absent: an item the test just created and cannot
  *  read back is a finding, not an `undefined` to branch on. The answer carries `folder`, its path's folder. */
 export async function fetchItem(name: string): Promise<any> {
+	// `refs` first, for a path too: an item `fetch` serves and `refs` leaves out is one the CLI reads as deleted, and this
+	// is the check every create-then-read in the suite makes of it (volt-cli-rework 3.1b review).
 	const path = await pathOf(name)
 	const f = await bridge.fetch({ knownItems: {}, onlyItems: [path] })
 	const it = f.changed.find((i: any) => i.name === path)

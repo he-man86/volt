@@ -65,6 +65,86 @@ namespace Volt.Ide.Codesys.Tests
             public System.Collections.IEnumerable GetDependencies() => new object[0];
         }
 
+        /// <summary>A placeholder reference whose <c>Namespace</c> and <c>Name</c> answer nothing — named by its
+        /// placeholder name.</summary>
+        public sealed class NamelessItem : IPlaceholderLibManItem
+        {
+            public NamelessItem(string placeholder) => PlaceholderName = placeholder;
+            public string? Name => null;
+            public string? Namespace => null;
+            public string PlaceholderName { get; }
+            public bool SystemLibrary => false;
+            public bool LinkAllContent => false;
+            public bool QualifiedOnly => false;
+            public bool Optional => false;
+            public bool HideWhenReferencedAsDependency => false;
+            public bool PublishSymbolsInContainer => false;
+            public object EffectiveResolution => new CodesysWireParityTests.ManagedLibrary();
+            public System.Collections.IEnumerable GetDependencies() => new object[0];
+        }
+
+        /// <summary>C5 (cli-bridges review B2): the walk's de-duplication key read <c>Namespace</c>/<c>Name</c> as
+        /// <c>?? ""</c>, so two references answering neither shared the key <c>|</c> — the first was refused by name, the
+        /// second skipped unseen, and its <c>.library</c> file read as deleted. Each is named.</summary>
+        [Fact]
+        public void References_that_answer_no_namespace_and_no_name_are_each_named()
+        {
+            var walk = Walk(new LibManObject
+            {
+                ArchivesParameterTable = true,
+                Libraries = new object[] { new NamelessItem("First"), new NamelessItem("Second") },
+            });
+
+            Assert.Empty(walk.Items.Where(i => i.KindCode == ItemKind.PlcLibRef));
+            Assert.Equal(new[] { "First", "Second" }, walk.UnreadableObjects.Select(u => u.Name).OrderBy(n => n));
+            Assert.All(walk.UnreadableObjects, u => Assert.Contains("Namespace", u.Reason));
+        }
+
+        /// <summary>A plain (non-placeholder) reference whose <c>Namespace</c> and <c>Name</c> answer nothing: it has no
+        /// placeholder name either, so nothing names it.</summary>
+        public sealed class NamelessPlainItem
+        {
+            public string? Name => null;
+            public string? Namespace => null;
+            public System.Collections.IEnumerable GetDependencies() => new object[0];
+        }
+
+        /// <summary>A reference the IDE gives no name at all has NO IDENTITY (no <c>.library</c> file could be named for it),
+        /// so no name is invented: the manager is named unreadable — saying why — and nothing under it is walked, so no
+        /// library file reads as deleted. Before, the same outcome came out of a <c>RefDisplayName</c> throwing inside the
+        /// key's catch, with a reason ("so it is not materialized") that described one reference, not the manager.</summary>
+        [Fact]
+        public void A_plain_reference_that_answers_no_name_has_no_identity_so_the_manager_is_refused_saying_so()
+        {
+            var walk = Walk(new LibManObject
+            {
+                ArchivesParameterTable = true,
+                Libraries = new object[] { new ArchivedItem(), new NamelessPlainItem() },
+            });
+
+            Assert.Empty(walk.Items.Where(i => i.KindCode == ItemKind.PlcLibRef));
+            var manager = Assert.Single(walk.UnreadableObjects);
+            Assert.Equal((Manager, ItemKind.Kinds.Folder), (manager.Name, manager.Kind));
+            Assert.Contains("no identity", manager.Reason);
+            Assert.Contains(nameof(NamelessPlainItem), manager.Reason);
+        }
+
+        /// <summary>Two references that answer no key but one placeholder name are ONE identity — one
+        /// <c>&lt;placeholder&gt;.library</c> file — so they are named once, as the keyed guard names a library reached twice
+        /// through dependencies once.</summary>
+        [Fact]
+        public void Unkeyed_references_with_one_placeholder_name_are_one_identity_named_once()
+        {
+            var walk = Walk(new LibManObject
+            {
+                ArchivesParameterTable = true,
+                Libraries = new object[] { new NamelessItem("Same"), new NamelessItem("Same") },
+            });
+
+            var only = Assert.Single(walk.UnreadableObjects);
+            Assert.Equal(("Same", ItemKind.Kinds.Library), (only.Name, only.Kind));
+        }
+
         private static WalkResult Walk(LibManObject libMan)
         {
             var root = new TreeNode("<project>", null, null, new TreeNode(Manager, libMan, null));

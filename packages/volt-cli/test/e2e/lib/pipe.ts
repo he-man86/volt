@@ -187,6 +187,17 @@ export function callRaw(pipe: string, frame: string | Buffer): Promise<RawAnswer
 }
 
 /**
+ * How many requests of each op this process sent, printed once after the last test file (`test/request-count.ts`,
+ * preloaded: bun runs no `exit` handler under `bun test`). A read costs a whole tree walk on TwinCAT (the 2026-10-19
+ * audit: ~1,750 `refs` per run, ~10 min), so what a run asks is a number it reports, not a guess — a helper that reads
+ * again what the call before it already answered shows up here.
+ */
+function countOp(op: string): void {
+	const counts = ((globalThis as any).__voltE2eRequests ??= new Map<string, number>()) as Map<string, number>
+	counts.set(op, (counts.get(op) ?? 0) + 1)
+}
+
+/**
  * One request against an EXPLICITLY NAMED pipe — the same framing as {@link call}, minus the resolution.
  *
  * <p>Exported for the cross-vendor suite, the one thing that drives TWO bridges at once and so cannot use the
@@ -195,6 +206,7 @@ export function callRaw(pipe: string, frame: string | Buffer): Promise<RawAnswer
  * else. (`stability/parallel-instances` did copy it, and the copy is exactly what this export removes.)</p>
  */
 export function callOn(pipe: string, op: string, body?: unknown): Promise<any> {
+	countOp(op)
 	return new Promise((resolve, reject) => {
 		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = ""

@@ -36,10 +36,27 @@ public class CodesysTaskCallListRefusalTests
         public void PerformWithWriteableCopy(Action<object> edit) => throw new InvalidOperationException("the task is locked");
     }
 
+    /// <summary>The task facet: its <c>pous</c> member is the call list (null: a facet that has none).</summary>
+    private sealed class TaskFacet
+    {
+        public TaskFacet(object? calls) => pous = calls;
+        public object? pous { get; }
+    }
+
+    /// <summary>C5 (cli-bridges review B9): a task facet with no <c>pous</c> skipped the call list and the push reported
+    /// the task written with its calls unchanged. Refused by name.</summary>
+    [Fact]
+    public void A_task_facet_with_no_call_list_is_UNSUPPORTED()
+    {
+        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new TaskFacet(null), Calls, Comments));
+        Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
+        Assert.Contains("`pous`", ex.Message);
+    }
+
     [Fact]
     public void A_call_list_with_no_writeable_copy_is_UNSUPPORTED()
     {
-        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new ReadOnlyCallList(), Calls, Comments));
+        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new TaskFacet(new ReadOnlyCallList()), Calls, Comments));
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("PerformWithWriteableCopy", ex.Message);
     }
@@ -47,7 +64,7 @@ public class CodesysTaskCallListRefusalTests
     [Fact]
     public void A_rebuild_the_IDE_refused_is_UNSUPPORTED()
     {
-        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new object(), new RefusingCallList(), Calls, Comments));
+        var ex = Assert.IsType<BridgeException>(Invoke("WriteCallList", new TaskFacet(new RefusingCallList()), Calls, Comments));
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("CODESYS refused a task call-list rebuild", ex.Message);
         Assert.Contains("the task is locked", ex.Message);

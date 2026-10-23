@@ -79,7 +79,22 @@ public class TcUntouchablePouTests
             get { _xae.Alive(); return _declaration; }
             set { _xae.Alive(); _declaration = value; Unparsed = value.TrimStart().StartsWith("(*") && !value.Contains("*)"); }
         }
-        public string ImplementationText { get; set; } = "";
+        /// <summary>The body the IDE holds: one written, else the one in its <see cref="Document"/> — an ST body as its
+        /// text, any other form as the element the file saves, as XAE answers a CFC or SFC body (measured 2026-10-23).</summary>
+        public string ImplementationText
+        {
+            get => _implementation ?? SavedBody();
+            set => _implementation = value;
+        }
+        private string? _implementation;
+        private string SavedBody()
+        {
+            if (Document is null) return "";
+            var obj = System.Xml.Linq.XDocument.Parse(System.Text.Encoding.UTF8.GetString(Document).TrimStart('﻿'))
+                .Root?.Elements().FirstOrDefault();
+            var form = obj?.Elements().FirstOrDefault(e => e.Name.LocalName == "Implementation")?.Elements().FirstOrDefault();
+            return form is null ? "" : form.Name.LocalName == "ST" ? form.Value : form.ToString(System.Xml.Linq.SaveOptions.DisableFormatting);
+        }
         /// <summary>A POU created in this session: a new tree item, appended, as TwinCAT does.</summary>
         public Node CreateChild(string name, int kind, string before, object? vInfo)
         {
@@ -127,6 +142,14 @@ public class TcUntouchablePouTests
             Kids.RemoveAll(k => k._name == name);
         }
         public Node? Parent { get { _xae.Alive(); return Owner; } }
+        /// <summary>The automation XML every tree item answers (<see cref="TcItemXml"/>): built, no flags, and — for an
+        /// object — its saved file. <c>TcExclusionTests.Folder</c> answers its own.</summary>
+        public virtual string ProduceXml(bool recursive)
+        {
+            _xae.Alive();
+            return _xml ??= _type == ItemKind.PlcFolder ? TcItemXml.Built(_name) : TcItemXml.Saved(_name, _type);
+        }
+        private string? _xml;
         /// <summary>The child's own <c>.TcPOU</c> bytes, for the archive round trip (<c>ExportChild</c>).</summary>
         public byte[]? Document;
         public void ExportChild(string name, string zipPath)

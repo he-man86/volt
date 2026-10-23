@@ -97,6 +97,10 @@ public class NoTestOnlyCodeInSrcTests
                           "apart from the SET's identical one (openspec codesys-diagnostic-child-names) - could not be " +
                           "exercised at all. Its production caller is GetBuildDiagnostics, in the same file",
 
+        ["LibraryVars"] = "how a precompiled library signature's variables are read — every one named and typed, the alias " +
+                          "base the one nameless variable — split out so the refusal is pinned offline " +
+                          "(CodesysLibrarySignatureVarsTests): AllPrecompiledSignatures is a live IDE's. Its production caller " +
+                          "is ExtractLibrarySignatures, in the same file",
         ["ParseObject"] = "the identity gate's entry (TcArchiveIdentityTests, openspec twincat-inproc-host 2.1): the gate " +
                           "parses every archive TwinCAT wrote and asks TcArchiveWriter for it back, byte for byte — the " +
                           "proof the writer must pass before it writes. Product code builds and writes; it never parses",

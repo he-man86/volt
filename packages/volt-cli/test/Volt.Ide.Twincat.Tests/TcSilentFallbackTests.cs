@@ -129,4 +129,17 @@ public class TcSilentFallbackTests
     [Fact]
     public void A_build_whose_idle_state_answers_is_reported_by_its_verdict()
         => Assert.True(Attached(new BuildDte(new SolutionBuild())).Model.Build());
+
+    /// <summary>T2 (cli-bridges review B5): the build-property, exclusion and saved-file reads answered "nothing to read"
+    /// for a node with no <c>ProduceXml</c> — a shape no TwinCAT tree item has, kept for the offline doubles — and the
+    /// object pulled as a plain built one. Every double now answers it (<see cref="TcItemXml"/>); a node that does not fails
+    /// loud.</summary>
+    [Fact]
+    public void A_node_that_answers_no_automation_XML_is_not_read_as_a_plain_built_object()
+    {
+        var model = new TcObjectModel();
+        Assert.ThrowsAny<Exception>(() => model.Build(new object(), () => "'X'"));
+        Assert.ThrowsAny<Exception>(() => model.Exclusion(new object(), () => "'X'"));
+        Assert.ThrowsAny<Exception>(() => model.SavedFacts(new object(), () => "'X'"));
+    }
 }

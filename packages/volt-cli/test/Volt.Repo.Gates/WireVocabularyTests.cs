@@ -86,14 +86,14 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 10),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 1),   // -1 a reference flag off its measured value (every flag is a manifest line now, C37b)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 2),   // +1 a reference answering no namespace, no name and no placeholder name has no identity: the manager is refused (volt-cli-rework 3.1b)   // -1 a reference flag off its measured value (every flag is a manifest line now, C37b)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 13),   // bridge-one-to-one §3: a property the bridge cannot read or write, by name; +2 a measured constant off its value, a %NETVAR value the line cannot carry (gate review of step 3, 2 / 8); +2 an archive member absent where it is no version fact, and one read where the platform lacks it with no measured meaning for its absence (environment-dependency-audit 2.0, DIALECT V7) — the item refused by name, as the rest
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 9),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 10),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8); +1 a task facet with no call list (volt-cli-rework 3.1, C5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),
             ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 10),   // +1 a member's %EXCLUDE_FROM_BUILD inside a POU that carries it too (C39); +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
-            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 1),   // a member renamed since the save, which TwinCAT's archive does not carry (D45)
+            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 2),   // a member renamed since the save, and a CFC/SFC body edited since it, which TwinCAT's archive does not carry (D45)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 3),   // an Exclude write the IDE took and did not apply, read back (C39); +1 the same for LinkAlways / External / CompilerDefines (C40); +1 an AdditionalAllocation other than 0, a build property with no line (C40)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
@@ -371,7 +371,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 17),   // -1 no Application: moved to CodesysDriver.cs (multi-application-tree)   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 18),   // +1 a library pin with no name (not an alias base): the signatures are refused, as on TwinCAT (volt-cli-rework 3.1b)   // -1 no Application: moved to CodesysDriver.cs (multi-application-tree)   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 3),   // -2 the checkout/commit: CodesysObjectModel.Modify (volt-cli-rework 3.1, C1)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),
@@ -389,7 +389,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 7),   // -1 the RESET at the flag write: TcArchive.Bits (T3)
         ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 7),   // +2 carrying the live state (D45): an archive with no object element / no source document; +1 an undo restored under its saved name the rename back refused
-        ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
+        ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 3),   // +1 a signature with no name (volt-cli-rework 3.1b)   // +1 a pin with no name or no data type: the whole signature document is refused (volt-cli-rework 3.1)
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 5),   // -1 the RESET at the flag write: TcArchive.Bits (T3); +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),

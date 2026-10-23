@@ -38,6 +38,8 @@ public class TcItemArchiveTests
         public List<string> Deleted { get; } = new();
         public List<string> Imported { get; } = new();
         public List<string> Children { get; } = new();
+        /// <summary>The body the exported document holds — its SAVED one (DIALECT D45); none when null.</summary>
+        public string? SavedBody;
 
         /// <summary>Writes a real zip, because <c>Flatten</c> opens and rewrites it — a stub that wrote nothing
         /// would make the test pass without exercising the archive handling at all.</summary>
@@ -46,7 +48,9 @@ public class TcItemArchiveTests
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
             var entry = zip.CreateEntry($"POUs/{name}.TcPOU");
             using var w = new StreamWriter(entry.Open());
-            w.Write("<TcPlcObject><POU Name=\"" + name + "\" /></TcPlcObject>");
+            w.Write("<TcPlcObject><POU Name=\"" + name + "\"" +
+                    (SavedBody is null ? " />" : $">\r\n    <Implementation>\r\n      {SavedBody}\r\n    </Implementation>\r\n  </POU>") +
+                    "</TcPlcObject>");
         }
 
         public void DeleteChild(string name) { Deleted.Add(name); Children.Remove(name); }
@@ -182,6 +186,53 @@ public class TcItemArchiveTests
         Assert.Equal(new[] { "FB_Moved" }, from.Deleted);
         Assert.Single(to.Imported);
         Assert.False(File.Exists(to.Imported[0]));
+    }
+
+    /// <summary>A CFC body as XAE answers it live and saves it (measured 2026-10-23 on <c>VltFixtureCfc</c>, trimmed).</summary>
+    private static string Cfc(int width) =>
+        "<CFC><XmlArchive><Data><o xml:space=\"preserve\" t=\"CFCImplementationObject\">\n" +
+        $"              <v n=\"CanvasWidth\">{width}</v>\n            </o></Data></XmlArchive></CFC>";
+
+    private static void MoveWithLive(FakeNode from, FakeNode to, string name, string live)
+    {
+        from.Children.Add(name);
+        TcItemArchive.Move(from, to, name, new[] { new TcItemArchive.LiveText(Array.Empty<string>(), null, live) }, null,
+                           new FakeNode(), Names);
+    }
+
+    /// <summary>CarryLive (T7b, DIALECT D45): the round trip carries what the IDE holds into the SAVED document it exports,
+    /// but a CFC or SFC body it cannot carry. Measured 2026-10-23 (live TcXaeShell 15.0, Project14): XAE answers a CFC's and
+    /// an SFC's <c>ImplementationText</c> as the very element the <c>.TcPOU</c> saves (equal as parsed XML on
+    /// <c>VltFixtureCfc</c> and <c>VltFixtureSfc</c>). The same body moves.</summary>
+    [Fact]
+    public void A_CFC_body_the_IDE_holds_as_saved_moves()
+    {
+        var from = new FakeNode { SavedBody = Cfc(0) };
+        var to = new FakeNode();
+
+        MoveWithLive(from, to, "FB_Chart", Cfc(0));
+
+        Assert.Equal(new[] { "FB_Chart" }, from.Deleted);
+        Assert.Single(to.Imported);
+    }
+
+    /// <summary>…and one the IDE holds otherwise — an edit since the last save — is REFUSED BY NAME before anything is
+    /// deleted, never moved back to its saved body.</summary>
+    [Theory]
+    [InlineData(true)]    // an edited chart
+    [InlineData(false)]   // text where the save holds a chart
+    public void A_CFC_body_the_IDE_holds_otherwise_than_saved_is_refused_before_anything_is_deleted(bool chart)
+    {
+        var from = new FakeNode { SavedBody = Cfc(0) };
+        var to = new FakeNode();
+
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => MoveWithLive(from, to, "FB_Chart", chart ? Cfc(100) : "x := 1;"));
+
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
+        Assert.Contains("'FB_Chart'", ex.Message);
+        Assert.Contains("CFC", ex.Message);
+        Assert.Empty(from.Deleted);
+        Assert.Empty(to.Imported);
     }
 
     private static string ArchivePathFrom(string message)

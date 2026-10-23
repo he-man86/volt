@@ -96,6 +96,23 @@ namespace Volt.Ide.Codesys.Tests
         private static TreeNode Type(string name) =>
             new(name, new Dut($"TYPE {name} :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"), null);
 
+        /// <summary>C5 (cli-bridges review B11): with no object manager a folder's properties were answered as "holds none"
+        /// (<c>ContainerRefusal</c> returned null) and the folder walked as a built one. Nothing of it can be read, so it is
+        /// named unreadable, and what is under it is unwalked — never read as deleted.</summary>
+        [Fact]
+        public void A_folder_whose_properties_cannot_be_read_for_want_of_an_object_manager_is_named()
+        {
+            var root = new TreeNode("<project>", null, null, new TreeNode("Sim", null, null, Type("SimType")));
+
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
+            var walk = new CodesysDriver(new Projects(root)).WalkItems();
+
+            var refused = walk.UnreadableObjects.Single(o => o.Name == "Sim");
+            Assert.Contains("ObjectManager", refused.Reason);
+            Assert.Contains("Sim", walk.UnwalkedFolders);
+            Assert.DoesNotContain(walk.Items, i => i.Name == "SimType");
+        }
+
         /// <summary>An EXCLUDED FOLDER is refused by name, and the objects in it are not pulled as built ones — nor read as
         /// deleted: the walk did not read them.</summary>
         [Fact]

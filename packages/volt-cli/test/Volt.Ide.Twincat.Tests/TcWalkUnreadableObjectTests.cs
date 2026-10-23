@@ -48,6 +48,8 @@ public class TcWalkUnreadableObjectTests
         public int ItemType => _type ?? throw new COMException("ItemType unreadable", unchecked((int)0x80004005));
         public int ChildCount { get; }
         public Children Child { get; }
+        /// <summary>The automation XML every tree item answers (<see cref="TcItemXml"/>).</summary>
+        public string ProduceXml(bool recursive) => TcItemXml.Built(Name);
     }
 
     public sealed class Plc { public Plc(Node nested) => NestedProject = nested; public Node NestedProject { get; } public string Name => "Untitled2"; }
