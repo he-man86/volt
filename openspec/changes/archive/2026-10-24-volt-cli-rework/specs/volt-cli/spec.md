@@ -15,23 +15,26 @@ supervision in the connector; wire types in `Volt.Contracts`.
 - **THEN** it stays in its host and is not unified
 
 ### Requirement: a new vendor is one IDE host
-Adding a vendor SHALL require only a new IDE host project implementing the `Volt.Engine/Ide` contract (driver + pipe
-host); `Volt.Engine` above that contract, the wire and the CLI SHALL assume no CODESYS-family fact; a vendor appears above it only as a
-name (the binding's `vendor`, which names the pipe), never as a branch.
+Adding a vendor SHALL require only a new IDE host project that states a `VendorDeclaration` (its vendor row, kinds,
+languages and `%`-keys, registered into one `Catalog`) and implements the `Volt.Engine/Seam` contract (`IVendorDriver` =
+session + tree + store). The contract SHALL name no vendor, no NWL and no CODESYS-family kind code. Every vendor or NWL
+symbol still above it (in the Engine, Contracts and the CLI) SHALL be pinned by a ratchet that fails when the count rises,
+and when it falls without its pin being lowered.
 
 #### Scenario: a vendor outside the CODESYS family
 - **WHEN** a vendor with no NWL and no CODESYS object model is added
-- **THEN** it implements the `Ide/` contract in its own host, and no Engine, wire or CLI code changes to admit it; above
-  the wire it adds one registration each in the connector, the installer and the LSP dialect
+- **THEN** it declares its kinds and languages and implements `IVendorDriver` in its own host, and the Engine serves it
+  over the pipe through the catalog with no Engine, wire or CLI branch for it; above the wire it adds one registration
+  each in the connector, the installer and the LSP dialect
 
 #### Scenario: the claim is tested without a third real vendor
 - **WHEN** the suites run
-- **THEN** a gate shows Engine above `Ide/`, Contracts and Cli name no vendor or NWL symbol, and a minimal test vendor
-  outside the CODESYS family passes the transport suite
+- **THEN** a gate holds `Volt.Engine/Seam/` at exactly zero vendor, NWL and family-code symbols, a ratchet holds the
+  count above it, and a minimal test vendor outside the CODESYS family passes the transport and contract suites
 
 #### Scenario: a CODESYS-family fact above the seam
-- **WHEN** Engine code above the `Ide/` contract depends on a fact only the CODESYS family has (NWL, its object types)
-- **THEN** it moves below the contract, into the hosts
+- **WHEN** Engine code above the contract depends on a fact only the CODESYS family has (NWL, its object types)
+- **THEN** the ratchet counts it; adding one fails the gate, and moving one below the contract lowers the pin
 
 ### Requirement: no legacy code, no hidden behaviour
 `packages/volt-cli` SHALL contain no code, comment or doc that serves a removed design or an old format, and no

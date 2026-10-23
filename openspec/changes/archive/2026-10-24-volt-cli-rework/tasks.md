@@ -407,3 +407,6 @@ standing practice:
       decision (edit in place, build a changed network); `docs/` regenerated data unchanged (DocDataTests green).
       Placement: what stays is listed in `input/rating-after.md` "What still keeps now below potential" (E1, E3/D1–D3,
       E5/T1, C2/C3, W1/W2, P3/P4) — owner decisions, protocol 2 and the front-of-wire phase, not this change.
+      Close: the spec delta's "a new vendor is one IDE host" rewritten to what was BUILT (the `Seam/` contract at exact
+      zero, the symbols above it a ratchet — not "Engine, Contracts and CLI name no vendor"); LSP full suite COLD
+      (VOLT_RUSTC_CACHE=0, VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo; archived.
