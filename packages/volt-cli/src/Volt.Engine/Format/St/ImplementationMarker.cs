@@ -22,15 +22,14 @@ namespace Volt.Engine.Format.St
     /// <item>trailing comments belong to the declaration — measured on <c>pro2193</c>, whose <c>BitLogic</c> has
     /// fourteen members ending <c>END_VAR</c>, blank, comment, and NOT ONE body starting with a comment. Reading
     /// that comment as the body's first line drifted twenty files.</item>
-    /// <item>a wrapped header is one declaration — <c>EXTENDS</c>/<c>IMPLEMENTS</c> on their own lines were being
-    /// written into the BODY, so a derived function block's base class landed in its implementation.</item>
+    /// <item>a wrapped header is one declaration — <c>EXTENDS</c>/<c>IMPLEMENTS</c> on their own lines belong to it;
+    /// written into the BODY, a derived function block's base class would land in its implementation.</item>
     /// <item>a conditional-compile pragma is NOT trivia — <c>{IF defined(X)}</c> opens a block the body closes,
     /// and sweeping the opener into the declaration cut it in half.</item>
     /// </list>
     ///
-    /// <para><b>Why a keyword, and why every body states its language.</b> The boundary was
-    /// a <c>@volt</c>-tagged comment that every engineer had to have explained, and ST was its unstated
-    /// default. A keyword reads like the rest of ST, and a stated language is the ONE signal for how a body is read:
+    /// <para><b>Why a keyword, and why every body states its language.</b> A tagged comment would need explaining to
+    /// every engineer, and an unstated default language would be a guess. A keyword reads like the rest of ST, and a stated language is the ONE signal for how a body is read:
     /// <c>ST</c> goes to the ST path, <c>LD</c>/<c>FBD</c> to network text. A body that contradicts what it states
     /// is refused by name (<see cref="StReader"/>), never re-read as the other language. The price, accepted:
     /// <c>IMPLEMENTATION</c> is not IEC 61131-3, so it is stripped on push and the IDE never sees it. A line is the

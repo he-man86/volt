@@ -19,7 +19,7 @@
  *       pushes two items, and it wrote the first, refused the second, and told the caller the push had failed.
  *       `PushService` validated everything decidable from the source text before touching the IDE and said
  *       plainly that this could not cover a refusal only the vendor raises — but every refusal here comes from
- *       a PURE function of the parsed body, so it was reachable all along. `ICodeStore.ValidateSource` runs the
+ *       a PURE function of the parsed body, so it was reachable all along. `IVendorStore.ValidateSource` runs the
  *       driver's own writer in the pre-flight now, and this is what proves it against a live IDE.</li>
  * </ol>
  *
@@ -237,7 +237,7 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 				// The reason is the whole value of a refusal: a bare rejection tells an engineer to try again.
 				expect(JSON.stringify(r.conflicts ?? []).length, `${shape.what} was refused with no reason`).toBeGreaterThan(40)
 				// …AND NOTHING LANDED. The refusals here are decided by the driver's native builder, which is a pure
-				// function of the parsed body — so `ICodeStore.ValidateSource` runs it in the push PRE-FLIGHT and the
+				// function of the parsed body — so `IVendorStore.ValidateSource` runs it in the push PRE-FLIGHT and the
 				// whole family is refused before the first write. Until that existed, this shape wrote
 				// `VltRefSplit.pou` and then refused `VltRefArrow.pou`: a push the caller was told had failed, with
 				// half of it in the project.

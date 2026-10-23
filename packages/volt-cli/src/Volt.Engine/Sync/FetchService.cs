@@ -174,8 +174,8 @@ public static class FetchService
         // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
         // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
         // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
-        // keep what it has. Without this flag the client cannot tell the cases apart and had to keep them
-        // always — which is why a removed library's signatures were immortal.
+        // keep what it has. Without this flag the client cannot tell the cases apart and would have to keep them
+        // always — a removed library's signatures would never go.
         //
         // A DIRECTED read that names a `.library` returns that library's signatures too (openspec
         // directed-library-signatures): the same extraction — neither vendor has a per-library call (DIALECT C2c) — taken

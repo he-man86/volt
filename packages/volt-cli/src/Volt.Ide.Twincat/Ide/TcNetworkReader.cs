@@ -261,7 +261,7 @@ internal static class TcNetworkReader
     /// <para>The archive serializes no <c>MainOutputIndex</c> (no fixture carries the member; the live CODESYS object
     /// reports one). It does say it another way, the one CODESYS's census recorded beside the index: the slot a
     /// consumer is connected to is the one output slot stored as NULL (<c>&lt;n /&gt;</c>) — nothing is written into
-    /// it because the connection IS the nesting. Measured on CODESYS (<c>nwl-slots.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-slots.log</c>), the slots column:
+    /// it because the connection IS the nesting. Measured on CODESYS (<c>git show b2496efb4b:packages/volt-cli/scripts/nwl-slots.log</c>, the slots column:
     /// <c>MainOutputIndex=1 slots=eneeRe</c>, <c>=0 slots=nRRRR</c>, <c>=0 slots=ne</c> — the null sits at the index
     /// every time), and the hand-drawn TwinCAT fixtures hold the same shape (<c>ladder-demux.TcPOU</c>'s TON read by
     /// its coil: <c>[null, ""]</c>, Q connected, ET unwired). DIALECT N1: one object model, two spellings.</para>

@@ -47,7 +47,7 @@ internal static class TcNetworkWriter
         // No archive to edit means there is nothing to edit IN — and nothing routes one here: the driver's
         // `ResolveBody` sends a blank implementation (a newly created POU or member) and an archive with nothing
         // drawn in it to the CREATE door first. So a blank body here is a broken route, a Volt bug (INTERNAL_ERROR,
-        // openspec bridge-refusal-review 2.30) — it was an UNSUPPORTED worded as if the push asked for something.
+        // openspec bridge-refusal-review 2.30), not an UNSUPPORTED worded as if the push asked for something.
         if (string.IsNullOrWhiteSpace(bodyXml))
             throw new InvalidOperationException(
                 "TwinCAT: a graphical body reached the in-place writer with no archive to edit. A body the IDE does not " +
@@ -701,15 +701,9 @@ internal static class TcNetworkWriter
     /// <para>A leaf's modifiers have a network-text form - <c>NOT b</c>, parsed straight back - so the model
     /// carries them and the writer can put them back. An assignment TARGET's do not:
     /// <c>NetworkTextWriter.Lhs</c> renders a target as its bare text with no modifiers, so the reader hands
-    /// back <c>new Operand(name)</c> with no flags, and writing that erased the vendor's own value.</para>
-    ///
-    /// <para><b>This was mine, made today.</b> The commit that stopped this method writing Type, SymbolComment,
-    /// LValue and IsInstance deliberately KEPT Flags, because a leaf's flags round-trip - and did not notice
-    /// that outputs come through the same function. Measured on a SET coil: <c>Flags: 2 -> 0</c> from a push
-    /// that changed nothing. The coil stops latching, the push reports success, `volt status` says clean.</para>
-    ///
-    /// <para>The real fix is to give a target's modifiers a text form so a SET coil is visible and editable in
-    /// the workspace at all. Until then the archive value is left exactly as the IDE wrote it.</para></summary>
+    /// back <c>new Operand(name)</c> with no flags, and writing that would erase the vendor's own value (measured on a SET
+    /// coil: <c>Flags: 2 -> 0</c> from a push that changed nothing — the coil stops latching, the push reports success).
+    /// A target's bits are <see cref="WriteTargetBits"/>'s, set bit-precisely on the item's slot.</para></summary>
     private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
 
     /// <summary>A box's OUTPUT PINS, written into the slots they belong to.

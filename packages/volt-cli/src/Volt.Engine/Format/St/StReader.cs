@@ -964,7 +964,7 @@ public static class StReader
 				RefuseTextAfter(lines[j], code[j], opens.ToUpperInvariant(), at, j);
 				// A new accessor keyword while one is still OPEN closes the previous one as BARE (bodiless) —
 				// `GET` immediately followed by `SET` is two empty accessors, not one accessor swallowing the
-				// other. Before, the second keyword was simply ignored and that accessor was lost.
+				// other; ignoring the second keyword would lose that accessor.
 				if (currentAccessorStart is not null && currentAccessorKind is not null)
 					accessorBoundaries.Add((currentAccessorStart.Value, currentAccessorStart.Value, currentAccessorKind));
 				currentAccessorStart = j;

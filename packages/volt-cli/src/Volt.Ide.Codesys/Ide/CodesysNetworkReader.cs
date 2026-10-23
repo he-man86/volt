@@ -221,7 +221,7 @@ namespace Volt.Ide.Codesys
 
         /// <summary>THE STORED OUTPUT TYPES — <c>OutputParams.Types</c>, index-aligned with the output slots as the names
         /// are: the compiler's answer the vendor keeps (<c>Names=['ENO', ''] Types=['BOOL', 'INT']</c>,
-        /// <c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>); an AND's list is empty). A wire the box feeds is declared with the type of
+        /// <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>; an AND's list is empty). A wire the box feeds is declared with the type of
         /// its connected slot (spec, "a stored output type"). An empty entry is an unresolved slot — an unknown type,
         /// null, never a default; no array at all is null, not read.</summary>
         private static List<string?>? OutputTypes(object box) =>
@@ -242,7 +242,7 @@ namespace Volt.Ide.Codesys
         /// enable is a <see cref="Node"/>, not an <see cref="Input"/>.</para>
         ///
         /// <para><b>The list is REQUIRED.</b> Census 2026-09-26 found it on every box (~1,300, none null), and the rung
-        /// oracle on every box a push built (<c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>)). A box that answers without one — the
+        /// oracle on every box a push built (<c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>). A box that answers without one — the
         /// member null, absent under this name, or not a list — keeps its pins' modifiers where this reader cannot see
         /// them, and reading that as "no flag on any pin" is the silent default that pulled six negated pins as plain
         /// contacts before 1.13. So it is refused by the same name, and the pull materializes the marker.</para>

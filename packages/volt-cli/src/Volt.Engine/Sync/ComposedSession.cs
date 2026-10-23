@@ -18,7 +18,7 @@ namespace Volt.Engine.Sync;
 /// health response and the library-signature cache. A host supplies rows (<see cref="IVendorSession.ProbeProjects"/>) and
 /// never a <see cref="HealthResponse"/>, so none can skip <see cref="OverlayLiveHealth"/> (health-compose-in-core).
 ///
-/// <para>What each host's own session once did around its snapshot is done here: a live binding clears degraded, an
+/// <para>What every host's session does around its snapshot is done here, once: a live binding clears degraded, an
 /// ambient probe whose cross-process IDE did not answer fails, a <c>select</c> refreshes the rows after the host's own, a
 /// <c>disconnect</c> clears degraded.</para>
 ///

@@ -633,3 +633,22 @@ Docs: `wire.html` identity section and BAD_REQUEST row. Wire: unchanged for ever
   `$.ops` (`RequestNullTests.A_refusal_inside_a_list_entry_names_the_entry`, 3 cases).
 - `PushService.Handle`'s `ops: null` throw was dead (the strict reader refuses a null `ops` first): deleted, and the
   BAD_REQUEST census for `PushService.cs` stays 9 (+1 the re-type refusal, −1 that throw).
+
+## Step 3.1, the rest (2026-10-24)
+
+- **History comments** (Engine): the narratives the proxy and a wider read found (`ItemLookup`, `ComposedSession`,
+  `StReader` accessor close, `ImplementationMarker`, `BoxRefusals`, `NetworkPairing`, the coil-storage note, `NetworkScope`,
+  `WalkResult`, `FetchService`, `BridgeLog`, `Versioning`, and the five "(deleted; git show …)" probe citations, now just
+  the `git show`) say the rule and what it prevents, in the present. The proxy's remaining Engine hits are domain words
+  ("is gone from the IDE", "the old name" of a rename, "no longer under the op's name"), not history.
+- **`FamilyContent.cs:104`**: "reached the new contract" was already "reached the contract" (3.1a); pinned by
+  `FamilyContentTests.A_body_with_no_stated_language_is_refused_as_a_reader_bug_naming_the_contract` (green at once: the
+  text changed before the test).
+- **T4 — DECIDED: two jobs, not two writers of one job; kept.** `TcNetworkWriter` EDITS an archive in place (values only;
+  every id, `Fixed` and unmodelled member survives, an unchanged network byte for byte — DIALECT N28) and hands a changed
+  SHAPE to `TcArchiveBuilder`, which BUILDS one network from nothing; `TcArchiveWriter` is the serializer both share. Their
+  one shared rule, the flag bits, is one (`TcArchive.Bits`, T3); the walks over `Node` target different things (an existing
+  element's members vs. a new element). Merging would mean a network whose VALUES changed (a renamed operand, a negated
+  contact) is rebuilt instead of edited: its ids re-minted and every member the builder does not write lost
+  (`RebuildLoss`) — a behaviour change, measured against nothing. Counter-case for the owner: one builder plus a
+  carry-over pass would remove most of the in-place writer if the carry is first proved byte-identical on the corpora.

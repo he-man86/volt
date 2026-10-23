@@ -3,7 +3,7 @@
  * (openspec `bridge-refusal-review` 4.7, D7; DIALECT N24).
  *
  * One comparison in the engine (`BodyFormatGuard`) decides that a body changes language; the vendor answers whether it
- * can write it (`ICodeStore.RefusedLanguageChange`). Measured: CODESYS puts a freshly constructed body aspect of the other
+ * can write it (`IVendorStore.RefusedLanguageChange`). Measured: CODESYS puts a freshly constructed body aspect of the other
  * language on the SAME object — a POU's, a method's, an action's, a property accessor's — and the body builds and runs;
  * TwinCAT has no in-place route at any site. So on CODESYS the push is accepted and the next pull states the new
  * language; on TwinCAT it is refused UNSUPPORTED, naming both languages and the route that exists, and the item is

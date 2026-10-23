@@ -141,8 +141,7 @@ public static class NetworkPairing
     /// <list type="bullet">
     /// <item>its removal in a push that also INSERTS a network: pairing by text cannot tell a deleted network from one
     /// moved, or one whose <c>UNSUPPORTED</c> line was replaced under the same header, and the inserted network, built
-    /// from the text, would not carry what the live one held (a move was two positional rebuilds before 1b.4, which the
-    /// symbol-comment refusal caught);</item>
+    /// from the text, would not carry what the live one held;</item>
     /// <item>its removal while another live network that stays shows the SAME text: which of the two the engineer
     /// deleted is not in the text, and the equal-cost tie-break would guess.</item>
     /// </list>

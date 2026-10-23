@@ -160,7 +160,7 @@ public sealed record Box(
     /// unconnected pin — see <c>NetworkTextReader.IsEmptyOperand</c>).
     ///
     /// <para><b>Such a box still has a real TYPE, and network text could not carry it.</b> Measured on
-    /// `Lenze_MID-S100`'s `POU.pou` (<c>probe-nwl-dump.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-dump.py</c>)): four boxes, each
+    /// `Lenze_MID-S100`'s `POU.pou` (<c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-dump.py</c>): four boxes, each
     /// <c>BoxType='L_MC1P_AxisBasicControlV2'</c> / <c>'L_TT1P_BasicMotionBase'</c> / … with
     /// <c>Instance='???'</c>. The format names an FB call ONCE — the instance — and the push recovers the type
     /// from the declaration that instance is declared in. <c>???</c> is declared nowhere, so the type was lost
@@ -171,7 +171,7 @@ public sealed record Box(
     /// <summary>Whether the box's input slot 0 is the ENABLE WIRE rather than a data pin.
     ///
     /// <para><b>The enable's expression is an ORDINARY INPUT ITEM, and the <c>En</c> member is not it.</b>
-    /// Measured across 373 real networks (<c>probe-nwl-census.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census.py</c>)): <c>En</c> is a Boolean on 468
+    /// Measured across 373 real networks (<c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census.py</c>): <c>En</c> is a Boolean on 468
     /// boxes and null on 814, and a tree on NONE — it is the "EN/ENO is shown on this box" flag. The wire
     /// itself arrives as <c>InputItemList[0]</c>, and the vendor names that slot <c>"EN"</c> in
     /// <c>InputParams</c> on 220 of 220 boxes that have one. Live CODESYS agrees from the write side, in a
@@ -296,8 +296,8 @@ public static class UnheldFlags
 /// <summary>
 /// THE REFUSALS BOTH VENDOR READERS RAISE FOR ONE BOX SHAPE. The two vendors ship one NWL object model (DIALECT N1) and
 /// differ only in how it is reached — CODESYS's live objects, TwinCAT's archive — so a box shape the text cannot hold
-/// is one shape, refused under one marker with one message. Written once per reader, the markers were string literals
-/// a rename could change on one vendor only, and the parity pair would then refuse the same box under two names.
+/// is one shape, refused under one marker with one message. Written once per reader, the markers would be string
+/// literals a rename could change on one vendor only, and the parity pair would refuse the same box under two names.
 /// </summary>
 public static class BoxRefusals
 {
@@ -432,7 +432,7 @@ public enum CallKind { Operator, Function, FunctionBlock }
 /// latent only because nothing consumes an archive-derived <c>Kind</c> yet.</para>
 ///
 /// <para><b>MEASURED, not inferred.</b> The member set comes from the committed archives (<c>And</c> 8,
-/// <c>Or</c> 6, <c>FunctionBlock</c> 5, <c>None</c> 2) and from <c>nwl-boxoutputs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-boxoutputs.log</c>), which
+/// <c>Or</c> 6, <c>FunctionBlock</c> 5, <c>None</c> 2) and from <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-boxoutputs.log</c>, which
 /// records the live CODESYS side: a freshly constructed box reads <c>Operator.None</c> and the SAME box reads
 /// <c>Operator.Move</c> after the IDE resolves it on reload. So <c>None</c> means "not resolved as an
 /// operator", which is why an instance is what distinguishes the two call kinds under it — the reading
@@ -492,7 +492,7 @@ public sealed record Flags(
     /// <para><b>Measured, by asking the vendor rather than reading the logic around it.</b> CODESYS's own
     /// PLCopen export names coil storage outright, so exporting every POU in a real project that has a
     /// non-plain coil and pairing the two views settles it. All 17 POUs agree, exactly, with no residue
-    /// (<c>probe-nwl-coils.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-coils.py</c>) · <c>nwl-coils.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-coils.log</c>)):</para>
+    /// (<c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-coils.py</c> · <c>…/nwl-coils.log</c>):</para>
     /// <code>
     ///   NWL target flags        CODESYS PLCopen export
     ///   (none)              ->  negated="false" storage="none"
@@ -500,12 +500,10 @@ public sealed record Flags(
     ///   Negation + Set      ->  negated="false" storage="reset"    TrayFiller x54, ServoControl x19, …
     /// </code>
     ///
-    /// <para><b>What it cost to have this wrong.</b> <c>Negation</c> was mapped to <see cref="Negated"/> and
-    /// <c>Set</c> to <see cref="Set"/>, independently — so a RESET coil read as a negated SET coil, the text
-    /// writer renders no modifier on a target, and every reset coil in a project materialized as a plain
-    /// <c>SET</c>. 128 of them in one real project, each one INVERTED: `GeneralProgramFlags` network 0, whose
-    /// comment is "Always Off", pulled as <c>AlwaysOff := AlwaysOff SET;</c>. Pushed back, the flag that must
-    /// stay false latches true. Nothing in git showed it, because the text Volt wrote was self-consistent.</para>
+    /// <para><b>The two bits are read TOGETHER.</b> Mapped independently (<c>Negation</c> to <see cref="Negated"/>,
+    /// <c>Set</c> to <see cref="Set"/>), a RESET coil would read as a negated SET coil and, since the text writer
+    /// renders no modifier on a target, materialize as a plain <c>SET</c> — inverted, and self-consistent in git
+    /// (128 reset coils in one real project).</para>
     ///
     /// <para><c>negated="true"</c> on a coil does not occur anywhere in the surveyed project, so the fourth
     /// combination — <c>Negation</c> WITHOUT <c>Set</c> — is unobserved on a target. It is carried as

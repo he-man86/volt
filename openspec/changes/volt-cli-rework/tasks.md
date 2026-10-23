@@ -178,7 +178,7 @@ standing practice:
 
 ## 3. Rework (project by project, test-first)
 
-- [ ] 3.1 Move misplaced code to its owning project (CODESYS-family code above the contract → down into the hosts;
+- [x] 3.1 Move misplaced code to its owning project (CODESYS-family code above the contract → down into the hosts;
       shared between the hosts only where 1.2 approved it); delete legacy; fix each bug behind its test.
       - [x] design step 3, design first: "New Ide/ contract" in design.md (the interfaces member by member, the
             Siemens/Rockwell probe, the old contract on the new one, what stays below).
@@ -193,7 +193,7 @@ standing practice:
             fifth decided (owner 2026-10-23: a quoted deleteItem version must hold, ITEM_MISSING); docs regenerated
             (protocol stays 1; the wire cleanups are deferred to a protocol-2 release). Pushed e907af268d, small matrix
             green and transcripts identical.
-      - [ ] What keeps 4.0b's "after" below "potential" (`input/rating-after.md`), each test-first:
+      - [x] What keeps 4.0b's "after" below "potential" (`input/rating-after.md`), each test-first:
             - the duplicate rule copies (`IsAbstract`, `RejectAll`), the path comparer in ONE place (ratchet 108 toward
               its floor), the exception-to-code mapping toward one place (15);
             - the remaining history comments in src/ (83 Engine lines) and `FamilyContent.cs:104`'s refusal text;
@@ -293,6 +293,23 @@ standing practice:
             TcLibrarySignatures 2 → 3); TS unit 210/0; typecheck, lint, `bun run check` green; LSP full suite
             (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo; live: CODESYS e2e 534/0/79, TwinCAT libcache 2/0, ide-restart 2/0. Fixture map
             unchanged (no fixture or transpiler change).
+      - [x] 3.1c (2026-10-24) the rest of 3.1 (design.md "Step 3.1, the rest"), offline:
+            - history comments: the Engine narratives rewritten in the present (13 sites, e.g. `ItemLookup`,
+              `WalkResult`, `ImplementationMarker`, the coil-storage note), every "(deleted; git show …)" probe citation
+              in Engine and both hosts reduced to its `git show` (25), and the host narratives `TcNetworkWriter` "This was
+              mine, made today" (stale: target bits are `WriteTargetBits`'s), `TcNetworkWriter.Apply` and
+              `CodesysNetworkWriter.Write` ("it was …"). Proxy (`rating-measure.sh`): Engine 34 → 29; the 29 left are
+              domain words ("gone from the IDE", a rename's "old name", "no longer under the op's name"), not history.
+              The e2e comments name the contract's types (`IVendorStore`, `IVendorTree`, `VendorDriverBase`).
+            - `FamilyContent.cs:104`: already "reached the contract" since 3.1a; pinned by
+              `FamilyContentTests.A_body_with_no_stated_language_is_refused_as_a_reader_bug_naming_the_contract` (green
+              at once — the text changed before the test existed).
+            - T4 DECIDED, kept: an in-place editor and a builder are two jobs over one serializer (`TcArchiveWriter`) and
+              one bit rule (`TcArchive.Bits`); merging means rebuilding a network whose values changed (ids re-minted,
+              `RebuildLoss`) — a behaviour change. Counter-case for the owner recorded in design.md.
+            Numbers: C# 5209 pass / 0 fail / 1 skip (Engine 3115+1 skip, Cli 352, Contracts 62, Codesys 485, Twincat 714,
+            Connector 154, Relay 72, Repo.Gates 255); TS unit 226/0; typecheck, lint, `bun run check` 16/0 green;
+            LSP full suite (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo. 0 fixtures (comments and one test; no LSP or transpiler change), fixture map unchanged.
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
       codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical

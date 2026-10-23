@@ -87,7 +87,7 @@ namespace Volt.Ide.Codesys
         /// break on a CODESYS upgrade. Verified live on SP21 (3.5.21.40).</para>
         ///
         /// <para><b>That singleton is a session service over PER-PROJECT state, and the read is sound</b>
-        /// (DIALECT C24, <c>probe-projectsettings-scope.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-projectsettings-scope.py</c>)). The standing doubt was whether one
+        /// (DIALECT C24, <c>git show b2496efb4b:packages/volt-cli/scripts/probe-projectsettings-scope.py</c>). The standing doubt was whether one
         /// project's descriptor reports what the previously-opened project left behind — a real hazard, because
         /// the service is not a property of the node being described. Measured as a SWITCH rather than a single
         /// read, on a pair disagreeing in two fields: open A → <c>C0371</c>/UTF-8 off, close, open B →
@@ -210,7 +210,7 @@ namespace Volt.Ide.Codesys
         /// <c>Cyclic</c> — a task running flat out instead of on a 10 ms cycle). Found by
         /// `scripts/corpus-migration.ts`.</para>
         ///
-        /// <para>MEASURED (`probe-task-kind.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`), live SP21): the member IS writable, and takes ONLY a
+        /// <para>MEASURED (`git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`, live SP21): the member IS writable, and takes ONLY a
         /// real <c>_3S.CoDeSys.TaskConfig.KindOfTask</c>. A string raises `TypeError: expected KindOfTask, got
         /// str` and an int raises `Cannot convert numeric value 1 to KindOfTask` — the exact inverse of
         /// <c>priority</c>'s trap two lines up, and the reason both are written down rather than inferred. The

@@ -150,9 +150,8 @@ public sealed class NetworkScope
         // 1.12, spec "an FB instance that is an expression": the text cannot say which instance it is.
         //
         // And only a variable whose type can be a FUNCTION BLOCK is an instance (the LSP's `instanceFb`, the other side
-        // of the parity). Any variable's type was taken once: a BOOL named R_EDGE counted as a callable, so every edge
-        // in its POU was refused on push and went to the marker on pull, and `k(x)` with `k : INT` became a box of an
-        // FB named INT that the gate let through.
+        // of the parity). Taking any variable's type, a BOOL named R_EDGE would count as a callable (every edge in its
+        // POU refused on push), and `k(x)` with `k : INT` would become a box of an FB named INT.
         string? InstanceType(string head)
         {
             // S5 (ld-fbd-coverage 2.3): `SUPER^` is the instance a derived FB calls its base through — no name a declaration

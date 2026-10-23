@@ -81,13 +81,13 @@ public static class ItemLookup
     /// generalized.</para>
     ///
     /// <para><b>A CODED refusal passes through with its code.</b> A driver that already said what is wrong — TwinCAT's
-    /// C2i guard refusing a folder the hierarchy does not vouch for (<c>ITEM_UNVERIFIED</c>) — was re-coded
-    /// <c>INTERNAL_ERROR</c> here, so the push's conflict blamed Volt for an IDE state (openspec
+    /// C2i guard refusing a folder the hierarchy does not vouch for (<c>ITEM_UNVERIFIED</c>) — keeps it: re-coded
+    /// <c>INTERNAL_ERROR</c>, the push's conflict would blame Volt for an IDE state (openspec
     /// <c>bridge-refusal-review</c> 7.1). Its message already names the folder.</para>
     ///
     /// <para><b>An UNCODED fault (a raw COM or binder throw) is <c>ITEM_UNVERIFIED</c> too</b> — the same situation met
     /// another way: the IDE refused a read the lookup needed, so the push could not read where the item lives, and the
-    /// remedy is the IDE's, not a Volt bug report (it was <c>INTERNAL_ERROR</c>; openspec <c>bridge-refusal-review</c>
+    /// remedy is the IDE's, not a Volt bug report (not <c>INTERNAL_ERROR</c>; openspec <c>bridge-refusal-review</c>
     /// V.1). The message names the item looked for, the FOLDER whose read the IDE refused (the remedy is that folder's,
     /// and a lookup's folder is never in a walk's <c>unwalkedFolders</c>), and the IDE's own words; the IDE's exception
     /// travels as the inner one, so a vendor that degrades its session on a dead channel (TwinCAT's RPC faults,

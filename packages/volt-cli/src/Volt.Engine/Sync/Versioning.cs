@@ -127,7 +127,7 @@ public static class Versioning
 /// extension), <see cref="Versioning.PathOf"/> — which is what <c>refs</c> and <c>fetch</c> publish and therefore the
 /// only identity a client can ever quote back. The FOLDER is part of it because names are not unique across
 /// applications either: two devices whose applications both hold <c>PLC_PRG</c> are two programs, and keyed by full name
-/// alone one application's code was silently missing from a pull and a push wrote one of each pair (openspec
+/// alone one application's code would be silently missing from a pull and a push would write one of each pair (openspec
 /// <c>multi-application-tree</c>). This is not a "duplicate name" guard and adds none: bare-name lookup below the
 /// vendor seam is untouched, inside the container the path names — that is the IDE's own lookup key.</para>
 ///

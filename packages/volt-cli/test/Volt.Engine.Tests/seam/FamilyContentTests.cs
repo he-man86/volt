@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Volt.Contracts;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
 using Volt.Engine.Seam;
@@ -85,5 +86,18 @@ public class FamilyContentTests
 
         var ex = Assert.Throws<BridgeException>(() => FamilyContent.ToContent(item));
         Assert.Contains("does not spell back", ex.Message);
+    }
+
+    /// <summary>A body with text and no stated language is a reader's bug, named as the contract it reached — the one
+    /// contract there is, not a step of the change that built it.</summary>
+    [Fact]
+    public void A_body_with_no_stated_language_is_refused_as_a_reader_bug_naming_the_contract()
+    {
+        var item = new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P", "x := 1;", new List<Member>(), ObjectProperties.None);
+
+        var ex = Assert.Throws<BridgeException>(() => FamilyContent.ToContent(item));
+        Assert.Equal(BridgeErrorCodes.InternalError, ex.ErrorCode);
+        Assert.Equal("the pou's body reached the contract with no stated language: a body's language is a fact its reader states",
+                     ex.Message);
     }
 }

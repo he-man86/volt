@@ -347,7 +347,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	// skipped test reports nothing: it just keeps describing the world as it was on the day it was written.
 	it("a graphical POU can be MOVED, body intact — it used to be refused outright", async () => {
 		// A move used to be a delete-and-recreate, and a graphical body cannot be rebuilt from text, so a
-		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IProjectTree.Move the
+		// graphical move was REFUSED ("reorganize it in the IDE, then pull"). With a real IVendorTree.Move the
 		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it
 		// byte-identical, which is the whole reason the old path refused rather than tried.
 		const name = id("net_move")

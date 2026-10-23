@@ -380,7 +380,7 @@ public static partial class ItemKind
     ///
     /// <para><b>Writable is not the same as SOURCE.</b> A `.task` is not structured text — the LSP must not parse it and
     /// `volt init` must not colour it as ST — yet its fields are writable on the vendor (interval, priority, watchdog and
-    /// the call list, every one a setter measured live: `probe-task-writable.py`, deleted; `git show
+    /// the call list, every one a setter measured live: `git show
     /// b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`). Keeping it OUT of the source list also leaves the
     /// four SOURCE_EXTENSIONS manifests (`scripts/check-wiring.ts`) untouched.</para>
     ///

@@ -2,10 +2,10 @@
  * A REFUSED PUSH WRITES NOTHING — on both vendors, for a refusal decided from the SOURCE TEXT.
  *
  * <p>`PushService` applies a push item by item, so a refusal raised from INSIDE the write leaves everything
- * before it in the engineer's live project and still reports failure. `ICodeStore.ValidateSource` exists to run
+ * before it in the engineer's live project and still reports failure. `IVendorStore.ValidateSource` exists to run
  * every text-decidable refusal in front of the first write, and TwinCAT has overridden it since it landed.</p>
  *
- * <p><b>CODESYS never did</b>, so `DriverBase` refused nothing and every refusal inside `CodesysNetworkWriter`
+ * <p><b>CODESYS never did</b>, so `VendorDriverBase` refused nothing and every refusal inside `CodesysNetworkWriter`
  * fired mid-write — including the v1 form of the one below, an FB call whose instance has no resolvable type. Found by the
  * vendor differential map on 2026-09-22; the TwinCAT half has been green since the same hole was closed there.</p>
  *

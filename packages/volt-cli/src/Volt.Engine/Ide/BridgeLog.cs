@@ -31,8 +31,8 @@ public static class BridgeLog
     /// <summary>Warn the FIRST time this <paramref name="key"/> is seen, and never again.
     /// <para>For the "something in this project is a shape we do not handle" warnings: they fire from inside a
     /// tree walk, once per node, so an unhandled kind in a large project would otherwise emit thousands of
-    /// identical lines and bury everything else. Both drivers had this — a <c>HashSet</c>, a lock and the same
-    /// double write — keyed by an interface signature on one side and a numeric tree-item type on the other.
+    /// identical lines and bury everything else. Both drivers use it, keyed by an interface signature on one side and
+    /// a numeric tree-item type on the other.
     /// The key is the caller's to choose; the once-ness is not.</para>
     /// <para>The keys are never evicted. That is intended: the set is bounded by the number of DISTINCT unhandled
     /// shapes a project contains, which is small, and forgetting one would make the message reappear.</para></summary>

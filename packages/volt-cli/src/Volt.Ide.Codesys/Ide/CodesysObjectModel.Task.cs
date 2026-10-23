@@ -138,7 +138,7 @@ namespace Volt.Ide.Codesys
         /// <summary>Apply a task's settings to the vendor — the mirror of <see cref="TaskDescriptor"/>, member for member.
         ///
         /// <para>Every field written here is a real setter, MEASURED rather than assumed (<c>probe-task-writable.py</c>
-        /// and <c>probe-task-kind.py</c>, deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/…</c>). Three carry a
+        /// and <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py</c>). Three carry a
         /// trap: <c>kind_of_task</c> takes ONLY the vendor enum (<see cref="TaskKind"/>), <c>priority</c> is a STRING, and
         /// <c>interval</c> / <c>interval_unit</c> are separate, so a TIME literal (`t#4ms`) carries no unit.</para>
         ///

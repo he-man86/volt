@@ -32,8 +32,8 @@ namespace Volt.Ide.Codesys
         internal static void Write(object? iobj, NetworkBody body, NetworkScope scope)
         {
             // An object with no Implementation aspect holds no body: a fact about the target, refused by name as
-            // UNSUPPORTED (openspec bridge-refusal-review 2.21) — it was an InvalidOperationException, which the push
-            // reports as INTERNAL_ERROR, a Volt bug.
+            // UNSUPPORTED (openspec bridge-refusal-review 2.21) — not an InvalidOperationException, which the push
+            // would report as INTERNAL_ERROR, a Volt bug.
             var impl = NwlInterop.Get(iobj, "Implementation")
                 ?? throw new NotSupportedException(
                     "CODESYS: this object has no Implementation aspect, so it holds no body — a graphical body cannot " +
@@ -412,7 +412,7 @@ namespace Volt.Ide.Codesys
                         //
                         // A freshly constructed `BoxTreeBox` does not arrive blank: its `Instance` operand
                         // holds `???`, the vendor's own unresolved-instance marker (measured by dumping a
-                        // created box beside an engineer-drawn one — `probe-nwl-execute-compare.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-execute-compare.py`):
+                        // created box beside an engineer-drawn one — `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-execute-compare.py`:
                         // created `Instance.OperandExpr = '???'`, real `= None`). Leaving it there hands the
                         // compiler an operand that is not an expression, and the build answers `Expression
                         // expected instead of '?'` — on a body that LOADS and round-trips byte-for-byte, so
@@ -425,7 +425,7 @@ namespace Volt.Ide.Codesys
                         else NwlInterop.Set(NwlInterop.Require(box, "Instance"), "OperandExpr", "");
 
                         // AN EXECUTE BOX CARRIES RAW ST ON THE BOX ITSELF, and constructing one IS measured
-                        // now (`probe-nwl-execute-create.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-execute-create.py`), live SP21): `STSnippet` and
+                        // now (`git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-execute-create.py`, live SP21): `STSnippet` and
                         // `STImplementationObject` both have public parameterless constructors, `Snippet` is
                         // settable through `ISTSnippet`, and setting `box.STSnippet` flips `ProvidesSTSnippet`
                         // on its own. Committed, reloaded, read back byte-identical.
@@ -508,14 +508,14 @@ namespace Volt.Ide.Codesys
                         // THE BOX'S OWN OUTPUT PINS, and the `ENO` ECHO IN FRONT OF THEM.
                         //
                         // `Outputs.AppendOutputItem` takes an `Operand` and the result survives save-and-reload
-                        // with `CallType` resolved from `BoxType` by the vendor (`probe-nwl-boxoutputs.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-boxoutputs.py`)).
+                        // with `CallType` resolved from `BoxType` by the vendor (`git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-boxoutputs.py`).
                         // Names go in `OutputParams`, the way input names go in `InputParams`.
                         //
                         // <b>AN ENABLED BOX NEEDS ITS ENO SLOT, and leaving it out compiled to an error.</b> A
                         // box Volt built with an enable and no output slot LOADS and round-trips byte-for-byte,
                         // and the build answers `Expression expected instead of '?'` — the IDE drawing an empty
                         // pin. The vendor's own enabled boxes all carry it: `OutputParams.Names[0] == "ENO"`
-                        // with `Outputs[0]` NULL (measured on 181 boxes, `nwl-census.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`)). So the echo
+                        // with `Outputs[0]` NULL (measured on 181 boxes, `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`). So the echo
                         // is written as the vendor writes it — a named slot holding nothing — and the data pins
                         // follow it, which is also what keeps their names aligned on the way back in.
                         //
