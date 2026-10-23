@@ -53,6 +53,8 @@ standing practice:
   `ITEM_MISSING` — one rule: a quoted version must hold, or the push is refused. A delete with no `ifVersion` stays the
   idempotent no-op. Protocol stays 1 (the code is already on the wire); PLC Assist gets a one-line note in their next
   update.
+- OWNER DEFAULT 2026-10-23 (step 8): protocol stays 1, so step 8 is the documents only. `networkText` → `languages` and
+  the vendor enum from the vendor table wait for a protocol-2 release coordinated with PLC Assist.
 
 - Fix (behind the wire): TwinCAT reads `LinkAlways`, `External`, item `CompilerDefines` and `AdditionalAllocation` from
   the saved `.plcproj` (the save lag DIALECT C39 measured for exclusion); read them from the live `ProduceXml`

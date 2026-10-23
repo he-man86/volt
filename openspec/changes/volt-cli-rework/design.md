@@ -67,6 +67,8 @@ The owner delegated the decision ("review all options in detail and decide"). In
 8. **The contract documents are regenerated** from the schema (closed vocabularies as data, the create/update rule, the
    push baseline, the frame rules, no history) — together with the wire changes the audit implies (`networkText` →
    `languages`, the vendor enum from the vendor table): one change, wire protocol 2, coordinated with PLC Assist.
+   **Narrowed 2026-10-23 (owner: protocol stays 1):** step 8 regenerates the documents only; the wire changes wait for a
+   protocol-2 release coordinated with PLC Assist.
 
 **Runner-ready (owner, 2026-10-20: a self-hosted live-IDE runner comes later).** The safety net of step 2 and every
 live check after it are built so a self-hosted Windows runner can run them unchanged, while they run on the dev machine
@@ -498,3 +500,16 @@ Nothing changes for the two shipped vendors except 7.2's decided refusal. Ratche
   `driver.html`'s vocabulary table still presents the IEC record (`ItemContent`, `ObjectProperties`) where the contract's
   words are `Content`/`PropertySet`; the history-comment sweep; `CodesysPlatform.Capability.KnownOn` (never read: keep
   as the measurement record, or delete — owner's).
+
+## Step 8 plan: the documents follow the code (2026-10-23)
+
+Docs only: protocol stays 1, so no wire change and every transcript stays byte-identical. `networkText` → `languages`
+and the vendor enum from the vendor table are deferred to a protocol-2 release coordinated with PLC Assist.
+
+- 8.1 The contract documents describe the code as it is: `ARCHITECTURE.md` (the layer stack with `Volt.Engine.Seam`:
+  `IVendorDriver` = session + tree + store, the `Catalog` and its four registries, `ComposedSession`, `HostLink`; and
+  "Adding a vendor", task 4.0a: what a host implements and declares), `docs/` (`driver.html` in the contract's words,
+  `wire.html`'s push rules incl. the `ifVersion` rule; `data.js` regenerated, `DocDataTests` green), `DIALECT.md` and
+  the READMEs where they name deleted types, and CLAUDE.md's volt-cli paragraph (`ICodeStore` → the contract's store).
+- 8.2 History comments in `src/` narrating removed designs: comments only, no code change.
+- Then 4.0 / 4.0b offline: LOC after and the quality re-rating against 1.0a, into `input/`. The change is not archived.
