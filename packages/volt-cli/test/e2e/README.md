@@ -36,6 +36,10 @@ disk and IDE disagreeing about the same project, and the next save undoes the re
 after a bridge-clean and an orderly shutdown the fixture came back with **zero modified files**, including the
 `LineIds` churn that had looked unavoidable while restoring under a live IDE.
 
+**`ide.ps1 up` starts only beside IDEs its run owns.** Another session's IDE, an engineer's, or the connector's TwinCAT
+worker makes it refuse, naming each by pid and command line (`ide.ps1 check` asks without starting anything); close it
+or wait. A run's instances are its tag's and every `<tag>-…` one (`-Run` / `VOLT_IDE_RUN`, else the instance alone).
+
 **Pick a vendor with `VOLT_VENDOR`; the harness does the rest — but ONLY against an IDE `ide.ps1` started on a
 fixture copy.** It resolves its pipe from an `ide.ps1` **instance** (`lib/fixture-ide.ts`), never from the pipe
 namespace: `VOLT_E2E_INSTANCE` names the instance (unset = the default one, `ide.ps1 up` with no `-Instance`), and the

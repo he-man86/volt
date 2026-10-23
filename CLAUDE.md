@@ -96,7 +96,11 @@ pwsh scripts/build-cli.ps1                                 # publish volt.exe + 
 
 IDE dev/test loop (Windows/PowerShell), **one script for both vendors**:
 `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat -Instance <name> [-Fixture 13|14] [-Wait]` (plus `down` /
-`pipe` / `logs`). It serves a COPY of a committed **fixture** project (never the engineer's live IDE); then
+`pipe` / `logs` / `check` / `sweep`). **This machine's IDEs are shared** (Volt's runs, PLC Assist's gates, the engineer):
+an instance belongs to a RUN (`-Run`, else `VOLT_IDE_RUN`, else the instance alone; a run owns its tag's instance and every
+`<tag>-…` one), and `up` refuses to start while any CODESYS / TcXaeShell / VoltBridgeTwincat runs that no instance of
+its run recorded, naming each by pid and command line — Volt never drives or closes an IDE it did not start. A run
+closes its own instances on every exit it can hook (`sweep`) and at its start (openspec `shared-ide-machine-rules`). It serves a COPY of a committed **fixture** project (never the engineer's live IDE); then
 `VOLT_E2E_INSTANCE=<name> bun run test:e2e:codesys` or `test:e2e:twincat`. The harness talks ONLY to the pipe of
 that instance's own fixture IDE (`test/e2e/lib/fixture-ide.ts`) and refuses any other — it once wrote into an
 engineer's project by picking the first `volt.bridge.<vendor>.*` pipe it found. `down` closes cleanly; `up` first
