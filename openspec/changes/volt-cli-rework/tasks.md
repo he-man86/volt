@@ -111,7 +111,7 @@ standing practice:
       it, refactor both hosts in place, bugs first, then the 1.3 safety net. Owner review of the map: which projects are refactored, which (if any) reimplemented — with the POTENTIAL
       rating per project after the proposed work (same criteria as 1.0a, each score tied to the findings that move it).
 
-- [ ] 1.3 Safety net before any rework, from the 1.2 decisions:
+- [x] 1.3 Safety net before any rework, from the 1.2 decisions:
       - [x] the OpenRPC-driven contract suite (above): `test/e2e/contract/openrpc-contract.test.ts`, 173 cases, green on
             CODESYS 3.5.21.40 and TwinCAT MultiProject with 5 FINDINGS held red-first (the suite's `FINDINGS`);
       - [x] the wire TRANSCRIPT recorder + comparer (`scripts/wire-transcript.ts`), run per release-matrix cell;
@@ -153,11 +153,28 @@ standing practice:
             Tests: `Volt.Engine.Tests/seam/SeamRegistryTests.cs` (unknown extension refused by name, a duplicate spelling
             refused naming both vendors, the family table expressible and registered twice with the same source set).
       - [x] the new-vendor gate's exact zero over `Volt.Engine/Seam/` (`NewVendorGateTests`).
-      - [ ] design step 5: Sync onto the new contract, the old hosts through the adapter; deletes `SeamAdmission` and
-            `AdmittedFormats` (step-4 door), turns F3 green; `bun run check` then reads the source set from the
-            hosts' declarations (today: `ItemKind.SourceKindExtensions`, proven equal to the registry's).
-- [ ] 3.2 Reimplement only the projects the owner approved in 1.2, behind the same tests.
-- [ ] 3.3 Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
+      - [x] design steps 5–8 (design.md "Step 5/6/7/8 as built"): Sync on the new contract; both hosts implement it;
+            the old contract, the adapter and DriverBase deleted; F2–F4 closed; four contract-suite FINDINGS fixed and the
+            fifth decided (owner 2026-10-23: a quoted deleteItem version must hold, ITEM_MISSING); docs regenerated
+            (protocol stays 1; the wire cleanups are deferred to a protocol-2 release). Pushed e907af268d, small matrix
+            green and transcripts identical.
+      - [ ] What keeps 4.0b's "after" below "potential" (`input/rating-after.md`), each test-first:
+            - the duplicate rule copies (`IsAbstract`, `RejectAll`), the path comparer in ONE place (ratchet 108 toward
+              its floor), the exception-to-code mapping toward one place (15);
+            - the remaining history comments in src/ (83 Engine lines) and `FamilyContent.cs:104`'s refusal text;
+            - C1, T3/T4 (`input/map-and-rating.md`);
+            - the silent fallbacks that need a live IDE (C5: `CodesysObjectModel.Libraries` Namespace/Name ?? "",
+              `.Task` skipping pous, `.Properties` _objMgr == null; T5: `TcDeviceDescriptor` unparseable XML as an
+              empty manifest, `ReadImplementation` binder miss as ""; T2: production branches shaped for the offline
+              doubles): measure on an own ide.ps1 instance, then refuse by name or prove the value correct;
+            - hidden features (default 2026-10-23, the owner may override): `Materializer.IsVerbatimKind` KEPT and
+              pinned by a test; `CodesysPlatform.Capability.KnownOn` DELETED (`test/e2e/lib/platform.ts` holds the
+              platform facts);
+            - the behind-the-wire inputs since 2026-10-18 above: unsaved CFC/SFC on a TwinCAT move (`CarryLive`), the
+              e2e redundant-read cut, `ide-restart` on the one-worker-per-XAE model.
+- [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
+- [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
+      codesys-3.5.22.40-64,twincat-32 --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical
       to 1.3's recording (a 1.2 wire deletion re-records it once, in its own change, before the rework).
 - [ ] 3.4 The new-vendor gate from 1.3 green; the third test vendor still passes.
 
@@ -171,4 +188,5 @@ standing practice:
 - [x] 4.0a `ARCHITECTURE.md` gains "Adding a vendor": exactly what a host implements (the `Ide/` contract), and the
       registration points above the wire a vendor still needs — the connector's launch, the installer payload, the LSP
       dialect — which are the front-of-wire phase's work, not this change's.
+- [ ] 4.0c QUALITY RATING again after 2.x and the rest of 3.1, into `input/rating-after.md` (before → potential → after).
 - [ ] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.
