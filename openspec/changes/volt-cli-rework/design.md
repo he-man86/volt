@@ -386,3 +386,39 @@ interfaces (`IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`) and `Driv
 
 Nothing changes on the wire: same walks, reads, texts, codes and health rows, by the same functions; the live matrix's
 transcript comparison is the proof on the merged result.
+
+### Step 6 as built (2026-10-23)
+
+- 6.1 `fb175d718c` (CODESYS), 6.2 `a4e1fc64be` (TwinCAT); between them `11733469d0` puts the CODESYS rebuild-loss tests
+  in a non-parallel collection, as their TwinCAT twin already was (they capture the process-wide `Console.Error` and failed
+  about one run in three on another class's rebuild warning — the flake step 5 reported).
+- Each host is `VendorDriverBase, IVendorDriver, IProjectTree`: no `DriverBase`, no `IIdeDriver`, no `ICodeStore`, no
+  `IIdeSession`. It KEEPS its old IEC tree facet (`IProjectTree`), because the Engine's family helpers it calls take one
+  (`MemberSites.Of`, `ProjectDeclarations`, `ItemLookup.All`/`Find`); those helpers move onto the new tree in step 7, and
+  the facet goes with them. Its old content members (`ReadContent`, `WriteContent`, the old pre-flight overloads) stay as
+  the host's own methods, so its ~190 host-test assertions are unchanged.
+- The session: the contract's `ProjectRows()` became `ProbeProjects()` → `ProjectProbe(Rows, Bound, NotAnswering)`;
+  `ComposedSession` clears degraded on a bound probe, fails the ambient probe on `NotAnswering`, refreshes after a select
+  and clears degraded on a disconnect; `HostLink.RefreshHealth()` is each host's start (CODESYS `PipeHost` on the primary
+  thread, TwinCAT `WorkerStart` on the STA thread). The TwinCAT liveness verdict and its `PLC_DISCONNECTED` moved from
+  `BeckhoffDriver.TriggerAsyncProbe` into the composition (census: one raise site moved, none added).
+- The conversions moved beside their tables, one spelling for both hosts and the adapter: `ItemKind.ClassOf` /
+  `CreateCode` (`Item/ItemKind.Nodes.cs`), `ItemKind.HoldsMembers(kind)` / `IsAddressableItem(kind)`,
+  `WalkResult.ToHostWalk`, `IecFormat.KindRows` / `PropertyKeys`, `FamilyContent.Folded` / `SeedOf` / `ClassOf`,
+  `PushedNetworkBody.Of`, `Ide/IndexedChildren`. Each host states its declaration (`Declaration` in `*.Seam.cs`): its
+  vendor row, its languages with its own network reader, the IEC format's kinds and keys. `MemberDeclaration` went up into
+  `MemberSites.Declaration` (UNREADABLE census: one site for the two drivers' two).
+- Host tests now reach the services and health through a `HostLink`, as the hosts serve themselves (`HostLink.Of(driver)`
+  where the implicit `DriverBase` conversion did it; a test of a started host calls `RefreshHealth`, as the start does).
+  No assertion changed.
+- Measured differences, none on the shipped wire: a CODESYS build diagnostic is placed through the walk's items as
+  `HostWalk` states them (an unmapped code or a container manager is no item there; neither CODESYS walk emits one); the
+  push asks each host its own `RefusedName` with the adapter's kind filter now in the host (GVL, DUT and interface names
+  are not answered, as before).
+- Ratchets unchanged (new-vendor names 33, family codes 6, path comparer 108, exception mapping 15): step 6 touched no
+  file the first two scan (`Ide/I*.cs`, `Sync/`, the Engine's vendor symbols), and moved no path comparison or mapping.
+- 6.3 NOT done, for step 7: the adapter (`LegacyDriver`, `FamilyDeclaration`), `HostLink.Of(IIdeDriver)`, the implicit
+  `DriverBase` conversion and `BridgePipeHost(IIdeDriver, …)` stay in `src/` because `FakeIde` stands on them, and so do
+  ~25 Engine tests that ask `ItemLookup.Find`/`Locate` of a `FakeIde` (the lookup reaches `TreeLookup` through the
+  adapter). Moving them to `test/shared/` needs a public door on `HostLink` for a foreign session that only tests would
+  call; moving `FakeIde` onto `IVendorDriver` removes all of it at once, with the old interfaces, in step 7.
