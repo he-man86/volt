@@ -41,7 +41,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 *  run otherwise blocks the next create with "already exists", a red that says nothing about the code. */
 	const clean = async (name: string) => {
 		const items = (await bridge.refs()).items ?? {}
-		await pushOps([{ op: "deleteItem", name, ifVersion: items[name] ?? "UNREADABLE000000" }])
+		await pushOps([{ op: "deleteItem", name, ifVersion: items[name] }])
 	}
 
 	/**

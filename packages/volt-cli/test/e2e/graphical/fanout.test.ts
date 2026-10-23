@@ -41,7 +41,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		// red that says nothing about the code under test.
 		const clean = async () => {
 			const items = (await bridge.refs()).items ?? {}
-			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
+			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] }])
 		}
 		await clean()
 
@@ -91,7 +91,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const wire = inFolder(await projectRoot(), fid("fanint", "pou"))
 		const clean = async () => {
 			const items = (await bridge.refs()).items ?? {}
-			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
+			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] }])
 		}
 		await clean()
 		// Counted, not attributed: a build diagnostic names no POU, and a PROGRAM cannot be instantiated to force it
@@ -131,7 +131,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const name = id("fanleaf")
 		const wire = inFolder(await projectRoot(), fid("fanleaf", "pou"))
 		const items = (await bridge.refs()).items ?? {}
-		await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
+		await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] }])
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +

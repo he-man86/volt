@@ -175,12 +175,10 @@ export async function cleanup(): Promise<void> {
 /**
  * Delete ONE item — by path, or by its file name — whether or not it exists.
  *
- * <p>Four files hand-rolled this — `create-shapes`, `unresolved-marker`, `comments` and `fanout` each carried a
- * private `clean()` with the same `items[name] ?? "UNREADABLE000000"` sentinel — because the harness offered only
- * a prefix-wide sweep. The sentinel is load-bearing: an item that was accepted but is NOT enumerable in `refs`
- * (the TwinCAT bug `items/child-roundtrip-parity` exists for) has no readable version, and a delete still has to
- * reach it — at the path `refs.unreadable` names it by (`<folder>/<name>.<kind>`, the path it has while it reads). An
- * item that is neither listed nor unreadable is gone already: nothing is sent.</p>
+ * <p>A listed item is deleted at its version. An item that is held but NOT enumerable in `refs` (the TwinCAT bug
+ * `items/child-roundtrip-parity` exists for) has no readable version, so its delete quotes none — at the path
+ * `refs.unreadable` names it by (`<folder>/<name>.<kind>`). An item that is neither listed nor unreadable is gone
+ * already: nothing is sent.</p>
  */
 export async function removeItem(name: string): Promise<void> {
 	const refs = await bridge.refs()
@@ -195,7 +193,7 @@ export async function removeItem(name: string): Promise<void> {
 	if (path === undefined) return
 	await bridge.push({
 		expectedProjectVersion: refs.projectVersion,
-		ops: [{ op: "deleteItem", name: path, ifVersion: items[path] ?? "UNREADABLE000000" }],
+		ops: [{ op: "deleteItem", name: path, ifVersion: items[path] }],
 	})
 }
 

@@ -37,7 +37,7 @@ async function sentinelClean(names: string[]): Promise<void> {
 	const root = await projectRoot()
 	for (const n of names) {
 		const path = pathIn(items, n) ?? inFolder(root, n)
-		await pushOps([{ op: "deleteItem", name: path, ifVersion: items[path] ?? "UNREADABLE000000" }])
+		await pushOps([{ op: "deleteItem", name: path, ifVersion: items[path] }])
 	}
 }
 

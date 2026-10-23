@@ -28,7 +28,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 	const clean = async (item: string) => {
 		const items = (await bridge.refs()).items ?? {}
-		await pushOps([{ op: "deleteItem", name: item, ifVersion: items[item] ?? "UNREADABLE000000" }])
+		await pushOps([{ op: "deleteItem", name: item, ifVersion: items[item] }])
 	}
 	const pull = async (item: string) =>
 		(await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)

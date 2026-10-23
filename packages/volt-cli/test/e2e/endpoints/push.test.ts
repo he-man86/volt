@@ -53,16 +53,25 @@ describe(`endpoints / push (${BASE})`, () => {
 		expect(typeof stale.currentVersion).toBe("string")
 	})
 
-	it("accepts an idempotent delete of an item that's already gone (any ifVersion)", async () => {
-		// A delete whose target doesn't exist is a no-op success — the goal state (absent) already holds. This is
-		// also the UNREADABLE-sentinel cleanup path (purge an accepted-but-unenumerable item without a real
-		// version). Before the fix this was rejected "expected item to exist but it doesn't".
+	it("accepts a delete without ifVersion of an item that's already gone", async () => {
+		// No quoted version: the goal state (absent) already holds — accepted, nothing written.
 		const gone = await at(fid("p_gone"))   // never created
 		const r = await bridge.push({
 			expectedProjectVersion: (await bridge.refs()).projectVersion,
-			ops: [{ op: "deleteItem", name: gone, ifVersion: "UNREADABLE000000" }],
+			ops: [{ op: "deleteItem", name: gone }],
 		})
 		expect(r.accepted).toBe(true)
+	})
+
+	it("rejects a delete quoting an ifVersion for an item that's gone (ITEM_MISSING)", async () => {
+		// A quoted version must hold: the client's view says the item exists, the IDE says it doesn't.
+		const gone = await at(fid("p_gone"))   // never created
+		const r = await bridge.push({
+			expectedProjectVersion: (await bridge.refs()).projectVersion,
+			ops: [{ op: "deleteItem", name: gone, ifVersion: "0000000000000000" }],
+		})
+		expect(r.accepted).toBe(false)
+		expect(r.conflicts.find((c: any) => c.name === gone)?.code).toBe("ITEM_MISSING")
 	})
 
 	// A MOVE and an EDIT in ONE op, on an item that already exists. `MoveItem` only runs for an existing item

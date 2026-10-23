@@ -58,7 +58,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 
 			const clean = async () => {
 				const items = (await bridge.refs()).items ?? {}
-				await pushOps([{ op: "deleteItem", name: item, ifVersion: items[item] ?? "UNREADABLE000000" }])
+				await pushOps([{ op: "deleteItem", name: item, ifVersion: items[item] }])
 			}
 			await clean()
 			// try/FINALLY, not a trailing `await clean()`. The cleanup used to sit on the SUCCESS path only, so
