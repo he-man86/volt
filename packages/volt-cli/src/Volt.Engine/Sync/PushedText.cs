@@ -23,10 +23,9 @@ public static class PushedText
     /// item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {
-        return !string.Equals(pushedWireName, heldWireName, System.StringComparison.Ordinal)
+        return !ItemPath.SameSpelling(pushedWireName, heldWireName)
                && ItemKind.KindForWireName(pushedWireName) is { } kind && ItemKind.KindForWireName(heldWireName) == kind
-               && string.Equals(ItemPath.BarePathOf(pushedWireName), ItemPath.BarePathOf(heldWireName),
-                                System.StringComparison.OrdinalIgnoreCase);
+               && ItemPath.SameItem(ItemPath.BarePathOf(pushedWireName), ItemPath.BarePathOf(heldWireName));
     }
 
     /// <summary>Whether <paramref name="held"/> — the IDE's text of <paramref name="wireName"/> after a push — is

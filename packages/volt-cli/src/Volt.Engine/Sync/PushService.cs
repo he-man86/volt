@@ -58,16 +58,16 @@ public static class PushService
         // rewrites items no op names (DIALECT C2o, C2p), put back from these texts after the apply
         // (`PutBackWhatTheRenameTouched`). The item CACHE is needed either way; it comes from the walk, not the read.
         var renaming = request.Ops.OfType<SetItemOp>().Any(s => s.To is { } to
-            && !string.Equals(ItemPath.BareOf(to), ItemPath.BareOf(s.Name), StringComparison.Ordinal));
+            && !ItemPath.SameSpelling(ItemPath.BareOf(to), ItemPath.BareOf(s.Name)));
         // A `set` whose `to` is another path (a move or a rename, not a case-only one) needs the version map under force
         // too: the pre-flight refuses a `to` the IDE already holds, and the map is the one place full identities exist.
         var relocating = request.Ops.OfType<SetItemOp>().Any(s => s.To is { } to
-            && !string.Equals(to, s.Name, StringComparison.OrdinalIgnoreCase));
+            && !ItemPath.SameItem(to, s.Name));
         var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true
                            || renaming || relocating;
-        var textsBefore = renaming ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) : null;
+        var textsBefore = renaming ? new Dictionary<string, string>(ItemPath.Addressed) : null;
         var currentVersions = new Dictionary<string, string>();
-        var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
+        var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(ItemPath.Addressed);
         // Held, not just iterated: `Complete` is what makes ABSENCE from this walk meaningful, and the
         // create pre-flight below needs exactly that (see `WillCreate`).
         var walk = link.Driver.Walk();
@@ -89,8 +89,8 @@ public static class PushService
         // Each ITEM the walk names and did not read (a TwinCAT POU it must not open, DIALECT C2i; an item in a CODESYS
         // folder excluded from build), by its path — the name an op on it carries.
         var notOpened = walk.Unreadable.Where(o => o.Kind is { } k && k != ItemKind.Kinds.Folder)
-            .GroupBy(o => Versioning.PathOf(kinds, o.Kind!, o.Folder, o.Name), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(o => Versioning.PathOf(kinds, o.Kind!, o.Folder, o.Name), ItemPath.Addressed)
+            .ToDictionary(g => g.Key, g => g.First(), ItemPath.Addressed);
         // An object the walk could not classify counts here exactly as on refs and fetch, or the gate would refuse
         // every push quoting refs' projectVersion while it stays unreadable.
         if (needVersions) Versioning.CountUnclassifiable(walk, currentVersions, kinds);
@@ -109,10 +109,8 @@ public static class PushService
         }
         catch (PushRefusal refusal)
         {
-            VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({refusal.OpName}: {refusal.Message}) ({sw.ElapsedMilliseconds}ms)");
-            return PushResponse.RejectedResult(
-                new List<PushConflict> { new() { Name = refusal.OpName, Reason = refusal.Message, Code = BridgeErrorCodes.BadRequest } },
-                currentProjectVersion ?? ProjectSnapshot.Walk(link, operation: "push-reject").ProjectVersion);
+            return RejectAll(new List<PushConflict> { new() { Name = refusal.OpName, Reason = refusal.Message, Code = BridgeErrorCodes.BadRequest } },
+                             $"{refusal.OpName}: {refusal.Message}");
         }
 
         var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
@@ -122,10 +120,11 @@ public static class PushService
                                                       // (itemCache), so this does too.
                                                       new HashSet<string>(walk.Unreadable.Where(o => o.Kind is null)
                                                                               .Select(o => ItemPath.Of(o.Folder, o.Name)),
-                                                                          StringComparer.OrdinalIgnoreCase));
-        PushResponse RejectAll(List<PushConflict> refused)
+                                                                          ItemPath.Addressed));
+        PushResponse RejectAll(List<PushConflict> refused, string? why = null)
         {
-            VoltLog.Info($"push {ops.Count} ops — REJECTED ({refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
+            why ??= $"{refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}";
+            VoltLog.Info($"push {ops.Count} ops — REJECTED ({why}) ({sw.ElapsedMilliseconds}ms)");
             // COMPUTED ON DEMAND when the pre-flight skipped it: a rejection always publishes the real hash.
             return PushResponse.RejectedResult(refused,
                 currentProjectVersion ?? ProjectSnapshot.Walk(link, operation: "push-reject").ProjectVersion);
@@ -152,18 +151,18 @@ public static class PushService
         // UNION over every op the gate did not name, in request order, one conflict per op, so a client regenerates
         // exactly the refused items. The batch stays all-or-nothing — items reference each other (a pushed FB using a
         // pushed DUT), so applying the rest lands a project no op-level check can say builds.
-        var refusedByGate = new HashSet<string>(conflicts.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        var refusedByGate = new HashSet<string>(conflicts.Select(c => c.Name), ItemPath.Addressed);
         var preflight = new List<PushConflict>();
         // The paths the IDE holds BEFORE the apply, compared ignoring case as every addressed path is (one-path-comparer).
         // Only the pre-apply walk can hold a `to`: an earlier op of the batch onto it is refused by RequireOneOpPerItem.
-        var heldBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var heldBefore = new Dictionary<string, string>(ItemPath.Addressed);
         if (relocating)
             foreach (var kv in currentVersions)
                 if (!heldBefore.ContainsKey(kv.Key)) heldBefore[kv.Key] = kv.Value;
         // …and the NAMES the walk's items hold in the IDE's name scope (DIALECT C38): both IDEs refuse a create or a
         // rename onto a name an object of the same application holds, in any folder, for each kind measured to share it.
         // From the walk itself (every item it named, read or not), so it holds under force with no versions read.
-        var namesBefore = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var namesBefore = new Dictionary<string, string>(ItemPath.Addressed);
         string? NameScopeKey(string path) =>
             TreeLookup.KindOf(link, path) is { } k && NameScopeKinds.Contains(k)
                 ? $"{ItemPath.ApplicationOf(path, walk.Applications)}/{ItemPath.BareOf(path)}"
@@ -191,7 +190,7 @@ public static class PushService
         }
         // EACH SET OP'S TEXT, READ AND VALIDATED ONCE (openspec bridge-refusal-review D8/D12), by the op's name — one op per
         // wire identity (RequireOneOpPerItem). The apply writes from these: no second read, no second validation.
-        var validated = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
+        var validated = new Dictionary<string, ValidatedSource>(ItemPath.Addressed);
         foreach (var op in ops)
         {
             if (refusedByGate.Contains(op.Name)) continue;   // its text is about to be replaced by the pull its code asks for
@@ -209,7 +208,7 @@ public static class PushService
             // gate's version check says nothing about `to`, and what the IDE then does is its own (a refusal after earlier
             // ops landed, or a clash-rename). ITEM_EXISTS, as a create onto a held path: `currentVersion` is what is there.
             if (op is SetItemOp { To: { } onto } relocated
-                && !string.Equals(onto, relocated.Name, StringComparison.OrdinalIgnoreCase))
+                && !ItemPath.SameItem(onto, relocated.Name))
             {
                 if (heldBefore.TryGetValue(onto, out var there))
                 {
@@ -222,7 +221,7 @@ public static class PushService
                     continue;
                 }
                 // A RENAME (the bare name changes) onto a name its application already holds in another folder or kind.
-                if (!string.Equals(ItemPath.BareOf(onto), ItemPath.BareOf(relocated.Name), StringComparison.OrdinalIgnoreCase)
+                if (!ItemPath.SameItem(ItemPath.BareOf(onto), ItemPath.BareOf(relocated.Name))
                     && NameTaken(op, onto) is { } renamedOnto)
                 {
                     preflight.Add(renamedOnto);
@@ -265,7 +264,7 @@ public static class PushService
             if (op is SetItemOp { To: { } movedTo } mover
                 && itemCache.TryGetValue(mover.Name, out var placed)
                 && ItemPath.FolderOf(movedTo) is var toFolder
-                && !string.Equals(toFolder, placed.Folder, StringComparison.OrdinalIgnoreCase))
+                && !ItemPath.SameItem(toFolder, placed.Folder))
             {
                 if (TreeNav.RefusedMoveTarget(link, toFolder) is { } notAHolder)
                 {
@@ -279,7 +278,7 @@ public static class PushService
                 // Volt's rule, not the IDE refusing.
                 var from = ItemPath.ApplicationOf(mover.Name, walk.Applications);
                 var into = ItemPath.ApplicationOf(movedTo, walk.Applications);
-                if (!string.Equals(from, into, StringComparison.OrdinalIgnoreCase))
+                if (!ItemPath.SameItem(from, into))
                 {
                     preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
                         $"'{mover.Name}' cannot move to '{movedTo}': that is another application " +
@@ -322,8 +321,8 @@ public static class PushService
         {
             // REQUEST ORDER, each op at most once: a client reading the list top-down meets its ops in the order it sent
             // them. The gate names ops by their `name`, exactly as the pre-flight does.
-            var position = ops.Select((op, i) => (op.Name, i)).GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-                              .ToDictionary(g => g.Key, g => g.First().i, StringComparer.OrdinalIgnoreCase);
+            var position = ops.Select((op, i) => (op.Name, i)).GroupBy(x => x.Name, ItemPath.Addressed)
+                              .ToDictionary(g => g.Key, g => g.First().i, ItemPath.Addressed);
             return RejectAll(conflicts.Concat(preflight)
                 .Select((c, k) => (c, k))
                 .OrderBy(x => position.TryGetValue(x.c.Name, out var at) ? at : int.MaxValue, Comparer<int>.Default).ThenBy(x => x.k, Comparer<int>.Default)
@@ -401,7 +400,7 @@ public static class PushService
             var landed = LandedSetNames(appliedOps);
             var refused = new HashSet<string>(
                 (notLanded ?? new List<PushConflict>()).SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(),
-                StringComparer.OrdinalIgnoreCase);
+                ItemPath.Addressed);
             keepText = (name, version) => !refused.Contains(name)
                 && (landed.Contains(name) || !currentVersions.TryGetValue(name, out var before) || before != version);
         }
@@ -457,11 +456,11 @@ public static class PushService
         IReadOnlyList<(int At, PushOp Op)> applied, int lastRenameAt, IReadOnlyCollection<PushConflict>? notLanded,
         PushedDeclarations declarations, IReadOnlyDictionary<string, UnreadableObject> notOpened)
     {
-        var landedAs = new Dictionary<string, SetItemOp>(StringComparer.OrdinalIgnoreCase);
+        var landedAs = new Dictionary<string, SetItemOp>(ItemPath.Addressed);
         foreach (var (_, op) in applied) if (op is SetItemOp s) landedAs[s.To ?? s.Name] = s;
         // An item a conflict names is re-read by the client, never answered — and never put back.
         var refused = new HashSet<string>((notLanded ?? new List<PushConflict>())
-            .SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(), StringComparer.OrdinalIgnoreCase);
+            .SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(), ItemPath.Addressed);
         var now = ProjectSnapshot.Walk(link, operation: "push-rename-scope", keepText: (_, _) => true);
         var writes = new List<SetItemOp>();
         string? Before(string name) => before.TryGetValue(name, out var t) ? t : null;
@@ -474,7 +473,7 @@ public static class PushService
             {
                 if (op.SourceText is not null) continue;   // sent: written again below when a later rename could reach it
                 expected = op.To is { } to && before.TryGetValue(op.Name, out var was)
-                           && !string.Equals(ItemPath.BareOf(to), ItemPath.BareOf(op.Name), StringComparison.Ordinal)
+                           && !ItemPath.SameSpelling(ItemPath.BareOf(to), ItemPath.BareOf(op.Name))
                     ? WithOnlyTheHeaderRenamed(name, was, text, ItemPath.BareOf(op.Name), ItemPath.BareOf(to))
                     : Before(name);
             }
@@ -489,11 +488,11 @@ public static class PushService
 
         foreach (var w in writes)
         {
-            var sources = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
+            var sources = new Dictionary<string, ValidatedSource>(ItemPath.Addressed);
             if (!IsWritableDescriptor(link.Catalog.Kinds, w.Name))
                 sources[w.Name] = ValidateSourceOrThrow(link, w.Name, w.SourceText!, isCreate: false,
                                                         declarations, TreeLookup.KindOf(link, w.Name)!, existing: null);
-            ApplyOp(link, new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase), notOpened,
+            ApplyOp(link, new Dictionary<string, (ItemRef Item, string Folder)>(ItemPath.Addressed), notOpened,
                     w, force: true, sources, new OpOutcome());
         }
         if (writes.Count > 0)
@@ -526,7 +525,7 @@ public static class PushService
     /// — case-insensitive, because the IDE resolves a name that way and the receipt keys it by the IDE's own
     /// spelling.</summary>
     private static HashSet<string> LandedSetNames(IEnumerable<PushOp> appliedOps) =>
-        new(appliedOps.OfType<SetItemOp>().Select(set => set.To ?? set.Name), StringComparer.OrdinalIgnoreCase);
+        new(appliedOps.OfType<SetItemOp>().Select(set => set.To ?? set.Name), ItemPath.Addressed);
 
 
     /// <summary>What a refused op left behind of ITSELF, recorded by the write path as it happens — so the conflict is
@@ -647,7 +646,7 @@ public static class PushService
                     break;
                 // A move, i.e. a set whose `to` names a DIFFERENT folder — the same distinction `ApplySetItem` draws; a
                 // `to` at the tree root is a real destination.
-                case SetItemOp { To: { } to } when !string.Equals(ItemPath.FolderOf(to), cached.Folder, StringComparison.OrdinalIgnoreCase):
+                case SetItemOp { To: { } to } when !ItemPath.SameItem(ItemPath.FolderOf(to), cached.Folder):
                     yield return cached.Folder;
                     break;
             }
@@ -682,8 +681,7 @@ public static class PushService
     private static string? Places(PushOp op, Dictionary<string, (ItemRef Item, string Folder)> itemCache) => op switch
     {
         SetItemOp set when !itemCache.ContainsKey(set.Name) => ItemPath.FolderOf(set.To ?? set.Name),
-        SetItemOp { To: { } to } set when !string.Equals(ItemPath.FolderOf(to), ItemPath.FolderOf(set.Name),
-                                                         StringComparison.OrdinalIgnoreCase) => ItemPath.FolderOf(to),
+        SetItemOp { To: { } to } set when !ItemPath.SameItem(ItemPath.FolderOf(to), ItemPath.FolderOf(set.Name)) => ItemPath.FolderOf(to),
         _ => null,
     };
 
@@ -931,11 +929,11 @@ public static class PushService
     /// and its visualization are two IDE objects, and a set never touches a visualization).</para></summary>
     private static void RequireOneOpPerItem(IEnumerable<PushOp> ops)
     {
-        var touchedBy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var deletedBare = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // bare → wire name
-        var setBare = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var touchedBy = new Dictionary<string, string>(ItemPath.Addressed);
+        var deletedBare = new Dictionary<string, string>(ItemPath.Addressed);   // bare → wire name
+        var setBare = new Dictionary<string, string>(ItemPath.Addressed);
         foreach (var op in ops)
-            foreach (var name in new[] { op.Name, (op as SetItemOp)?.To }.Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var name in new[] { op.Name, (op as SetItemOp)?.To }.Distinct(ItemPath.Addressed))
             {
                 if (name is null) continue;
                 var verb = op is DeleteItemOp ? "deleteItem" : "set";
@@ -987,13 +985,13 @@ public static class PushService
             task = found;
             // A task has no move path (`MoveItem` takes a source item only; a task lives in its task container): a `to`
             // in another folder is refused by name, never ignored.
-            if (op.To is { } movedTo && !string.Equals(ItemPath.FolderOf(movedTo), currentFolder, StringComparison.OrdinalIgnoreCase))
+            if (op.To is { } movedTo && !ItemPath.SameItem(ItemPath.FolderOf(movedTo), currentFolder))
                 throw new BridgeException(BridgeErrorCodes.BadRequest,
                     $"cannot move the task '{name}' to '{movedTo}': a task stays in its task container — delete it and " +
                     "create it there");
             // A renamed `.task` file is a renamed TASK, through the IDE's own rename, and what that rename rewrites
             // beside it is put back after the apply (`PutBackWhatTheRenameTouched`, DIALECT C2p).
-            if (op.To is { } to && !string.Equals(ItemPath.BareOf(to), name, StringComparison.Ordinal))
+            if (op.To is { } to && !ItemPath.SameSpelling(ItemPath.BareOf(to), name))
             {
                 link.Driver.Rename(task, ItemPath.BareOf(to));
                 // Recorded the moment the rename RETURNS, before the re-find: a re-find that misses (a stale tree) does
@@ -1067,10 +1065,10 @@ public static class PushService
         // ORDINAL, because this asks "did the NAME change", not "does it name the same thing": a case-only rename
         // (`Calc` -> `calc`) is a real edit — what the IDE displays and the workspace file is called — and an
         // ignore-case compare would skip it and report accepted. Every IDENTITY compare stays case-insensitive.
-        var moves = toFolder is { } dest && !string.Equals(dest, currentFolder, StringComparison.OrdinalIgnoreCase);
+        var moves = toFolder is { } dest && !ItemPath.SameItem(dest, currentFolder);
         // The last-moment check of a content write — see `WriteItemFromSource` — and FORCE skips it there too.
         var lastMomentVersion = force ? null : op.IfVersion;
-        var renames = toName != null && !string.Equals(toName, currentName, StringComparison.Ordinal);
+        var renames = toName != null && !ItemPath.SameSpelling(toName, currentName);
         // THE LAST-MOMENT CHECK OF AN EDIT THAT ALSO RENAMES OR MOVES RUNS FIRST, before anything of the op lands, against
         // the item and folder the client's version names: the native rename rewrites the item's OWN header, so its
         // version afterwards is never the client's, and a move's write hashes against the DESTINATION folder (openspec
@@ -1101,7 +1099,7 @@ public static class PushService
             // 2026-09-01, CODESYS 3.5.21.40 and TcXaeShell 15.0); this check exists because nothing else would KNOW if an
             // IDE quietly no-opped it.
             var landed = link.Driver.Name(item);
-            if (!string.Equals(landed, currentName, StringComparison.Ordinal))
+            if (!ItemPath.SameSpelling(landed, currentName))
             {
                 outcome.Renamed = null;   // the IDE kept the old spelling: nothing was renamed
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -1206,7 +1204,7 @@ public static class PushService
             {
                 // By name AND kind: a same-named item of another kind (an FB's visualization) is not the one that moved.
                 var stayed = link.Driver.Walk().Items.FirstOrDefault(i =>
-                    string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase) && i.Kind == kind);
+                    ItemPath.SameItem(i.Name, name) && i.Kind == kind);
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"this IDE did not apply the move of '{name}' to '{(newFolder.Length == 0 ? "<the tree root>" : newFolder)}': " +
                     (stayed is null
@@ -1419,7 +1417,7 @@ public static class PushService
             ? ReadLive(link, item, ItemPath.BareOf(path)).Members.ToList() : new List<ContentMember>();
 
     private static bool Holds(List<ContentMember> held, ContentMember m) =>
-        held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind);
+        held.Any(h => ItemPath.SameItem(h.Name, m.Name) && h.Kind == m.Kind);
 
     /// <summary>Does this op CREATE — is there no such item right now?
     ///
@@ -1466,7 +1464,7 @@ public static class PushService
         // source would silently overwrite one. Refused. (Not the top-level name invariant, where real projects repeat
         // names across kinds and a throwing guard is forbidden.)
         var dupChild = split.Members
-            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(c => c.Name, ItemPath.Addressed)
             .FirstOrDefault(g => g.Count() > 1);
         if (dupChild != null)
             throw new BridgeException(BridgeErrorCodes.DuplicateChild,
@@ -1732,7 +1730,7 @@ public static class PushService
     /// <see cref="ReconcileMembers"/> answers by doing it, asked first so the declaration can land before.</summary>
     private static bool CreatesMembers(Content live, Content pushed)
     {
-        var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, StringComparer.OrdinalIgnoreCase);
+        var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, ItemPath.Addressed);
         return pushed.Members.Any(m => !liveKind.TryGetValue(m.Name, out var k) || k != m.Kind);
     }
 
@@ -1809,7 +1807,7 @@ public static class PushService
 
         if (pushed.Members.Count == 0) return pushed;
 
-        var byName = new Dictionary<string, ContentMember>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, ContentMember>(ItemPath.Addressed);
         foreach (var m in live.Members) byName[m.Name] = m;
 
         // …AND EVERY MEMBER AND ACCESSOR BODY TOO (openspec abstract-member-parity): an unchanged body of a member whose
@@ -1844,7 +1842,7 @@ public static class PushService
         Text(a.Declaration) == Text(b.Declaration)
         && Equals(a.Properties, b.Properties)   // a properties-only edit is a change (openspec bridge-one-to-one §3)
         && Text(a.Body) == Text(b.Body)
-        && string.Equals(a.Folder ?? "", b.Folder ?? "", StringComparison.Ordinal)
+        && ItemPath.SameSpelling(a.Folder ?? "", b.Folder ?? "")
         && Same(a.Get, b.Get)
         && Same(a.Set, b.Set);
 
@@ -1876,8 +1874,8 @@ public static class PushService
     private static bool ReconcileMembers(HostLink link, ItemRef pou, string path, Content live, Content pushed,
                                          MemberChanges changes, Func<string?> landed)
     {
-        var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
-        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+        var have = new HashSet<string>(live.Members.Select(m => m.Name), ItemPath.Addressed);
+        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), ItemPath.Addressed);
 
         var mutated = false;
         var name = link.Driver.Name(pou);
@@ -1954,13 +1952,13 @@ public static class PushService
         // PLACEMENT IS STRUCTURE, so it is reconciled here with create and delete rather than in a driver: the drivers
         // resolve a member by bare name across every sub-folder and never read `m.Folder`, so this is the only place a
         // `%FOLDER` edit lands.
-        var liveFolder = live.Members.ToDictionary(m => m.Name, m => m.Folder ?? "", StringComparer.OrdinalIgnoreCase);
+        var liveFolder = live.Members.ToDictionary(m => m.Name, m => m.Folder ?? "", ItemPath.Addressed);
         foreach (var (from, to) in changes.Renamed) liveFolder[to] = from.Folder ?? "";   // a renamed member is where it was
         foreach (var m in pushed.Members)
         {
             // A member the loops above just created is already in the right folder.
             if (!liveFolder.TryGetValue(m.Name, out var was)) continue;
-            if (string.Equals(was, m.Folder ?? "", StringComparison.Ordinal)) continue;
+            if (ItemPath.SameSpelling(was, m.Folder ?? "")) continue;
 
             var from = TreeNav.FindFolder(link, Owner(), was);
             var member = from is null ? null : TreeNav.FindChild(link, from.Value, m.Name);
@@ -2012,8 +2010,8 @@ public static class PushService
     /// the one it added — and none for a kind with more than one on either side (no pairing is guessed).</summary>
     private static List<(ContentMember From, ContentMember To)> RenamePairs(Content live, Content pushed)
     {
-        var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
-        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
+        var have = new HashSet<string>(live.Members.Select(m => m.Name), ItemPath.Addressed);
+        var want = new HashSet<string>(pushed.Members.Select(m => m.Name), ItemPath.Addressed);
         var pairs = new List<(ContentMember, ContentMember)>();
         foreach (var kind in live.Members.Select(m => m.Kind).Distinct())
         {
@@ -2053,8 +2051,8 @@ public static class PushService
     /// drop the member in one push and add it as the new kind in the next.</summary>
     private static void RefuseMemberRetypes(string name, Content live, Content pushed)
     {
-        var liveMember = live.Members.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var liveMember = live.Members.GroupBy(m => m.Name, ItemPath.Addressed)
+            .ToDictionary(g => g.Key, g => g.First(), ItemPath.Addressed);
         foreach (var m in pushed.Members)
         {
             if (!liveMember.TryGetValue(m.Name, out var was)) continue;

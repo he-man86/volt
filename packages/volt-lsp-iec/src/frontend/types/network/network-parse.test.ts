@@ -71,11 +71,14 @@ test("the line states the language and a network has no order number", () => {
   expect(parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD"), STRUCTURE_ONLY, "codesys").language).toBe("FBD")
 })
 
-test("v1 text is refused naming a re-pull, never read", () => {
-  const v1 = parse("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK")
-  expect(v1.networks.flatMap((n) => n.statements)).toEqual([])
-  expect(v1.diagnostics.every((d) => d.code === "NETWORK_PARSE" && d.message.includes("re-pull"))).toBe(true)
-  expect(parse(net("LET g0 := TRUE;")).diagnostics[0]!.message).toContain("re-pull")
+test("a numbered header and a LET are refused as the push refuses them, never read", () => {
+  // The phrases are the shared cases' (`refuse/grammar.cases` header-number, let-statement): one answer on both readers.
+  expect(parse("NETWORK 0 LD\n  out := a;\nEND_NETWORK").diagnostics.map((d) => [d.code, d.message])).toEqual([
+    ["NETWORK_PARSE", `'0' in a NETWORK header: the header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], and it ends at its newline.`],
+  ])
+  const let_ = parse(net("LET g0 := TRUE;"))
+  expect(let_.networks.flatMap((n) => n.statements)).toEqual([])
+  expect(let_.diagnostics.map((d) => [d.code, d.message])).toEqual([["NETWORK_PARSE", "'g0': an item ends with `;`."]])
 })
 
 test("the header carries LABEL, DISABLED and TITLE, exact, IEC's escapes decoded", () => {

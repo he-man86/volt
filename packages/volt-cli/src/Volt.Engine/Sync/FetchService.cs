@@ -40,7 +40,7 @@ public static class FetchService
         // per-item filter and run the full library-signature extraction for a directed preview of nothing.
         // An ADDRESSED path finds the IDE item ignoring case, as push's `name`/`to` do (openspec one-path-comparer); the
         // answer spells the IDE's path. A HELD key (`knownItems`) stays exact: see Removal.
-        var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems, StringComparer.OrdinalIgnoreCase);
+        var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems, ItemPath.Addressed);
 
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
         // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.

@@ -32,9 +32,9 @@ public static class FamilyContent
     public static Content ToContent(ItemContent c)
     {
         if (c is null) throw new ArgumentNullException(nameof(c));
-        return new Content(c.Kind, c.Declaration, NewBody(c.Body, c.Stated, c.Unsupported, $"the {c.Kind}'s body"),
+        return new Content(c.Kind, c.Declaration, ContractBody(c.Body, c.Stated, c.Unsupported, $"the {c.Kind}'s body"),
             c.Members.Select(m => new ContentMember(m.Kind, m.Name, m.Declaration,
-                NewBody(m.Body, m.Stated, m.Unsupported, $"{m.Kind} '{m.Name}'"),
+                ContractBody(m.Body, m.Stated, m.Unsupported, $"{m.Kind} '{m.Name}'"),
                 ToPropertySet(m.Properties), m.Folder,
                 m.Getter is { } g ? new ContentAccessor(g.Declaration, AccessorBody(g, $"'{m.Name}' GET")) : null,
                 m.Setter is { } s ? new ContentAccessor(s.Declaration, AccessorBody(s, $"'{m.Name}' SET")) : null,
@@ -68,14 +68,14 @@ public static class FamilyContent
     private static ItemContent ToItemContent(Content c, Func<PropertySet, ObjectProperties> properties)
     {
         if (c is null) throw new ArgumentNullException(nameof(c));
-        var (body, stated, why) = OldBody(c.Body);
+        var (body, stated, why) = RecordBody(c.Body);
         return new ItemContent(c.Kind, c.Declaration, body,
             c.Members.Select(m => ToMember(m, properties)).ToList(), properties(c.Properties), why, stated);
     }
 
     private static Member ToMember(ContentMember m, Func<PropertySet, ObjectProperties> properties)
     {
-        var (body, stated, why) = OldBody(m.Body);
+        var (body, stated, why) = RecordBody(m.Body);
         var isProperty = m.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty;
         return new Member(m.Kind, m.Name, m.Declaration, body, properties(m.Properties), m.Folder,
             ToAccessor(m.Get), ToAccessor(m.Set),
@@ -86,7 +86,7 @@ public static class FamilyContent
     public static Accessor? ToAccessor(ContentAccessor? a)
     {
         if (a is null) return null;
-        var (body, stated, why) = OldBody(a.Body);
+        var (body, stated, why) = RecordBody(a.Body);
         return new Accessor(a.Declaration, body, why, stated);
     }
 
@@ -94,25 +94,25 @@ public static class FamilyContent
     /// language and has no code — the IEC reader spells it <c>""</c>, a host's read <c>null</c> — and is a null body here,
     /// as it is back in the IEC record: no body to write (<c>Accessor.Code</c> reads both as one).</summary>
     private static BodyText? AccessorBody(Accessor a, string what) =>
-        a.Stated is null && string.IsNullOrEmpty(a.Body) ? null : NewBody(a.Body, a.Stated, a.Unsupported, what);
+        a.Stated is null && string.IsNullOrEmpty(a.Body) ? null : ContractBody(a.Body, a.Stated, a.Unsupported, what);
 
-    private static BodyText? NewBody(string? body, StatedLanguage? stated, string? why, string what)
+    private static BodyText? ContractBody(string? body, StatedLanguage? stated, string? why, string what)
     {
         if (body is null) return null;
         if (stated is null || (why is not null && !stated.Hidden))
             throw new BridgeException(BridgeErrorCodes.InternalError, stated is null
-                ? $"{what} reached the new contract with no stated language: a body's language is a fact its reader states"
+                ? $"{what} reached the contract with no stated language: a body's language is a fact its reader states"
                 : $"{what} is stated '{stated}' and carries the reason '{why}': only a hidden body has one");
         var text = stated.IsNone ? BodyText.Abstract
             : stated.Hidden ? new BodyText(stated.Language, "", BodyForm.Hidden, why)
             : BodyText.Shown(stated.Language, Languages.IsNetwork(stated.Language) ? ImplementationMarker.Split(body).Code : body);
-        if (OldBody(text).Body != body)
+        if (RecordBody(text).Body != body)
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"{what} is '{Shorten(body)}', which its stated language ({stated}) does not spell back");
         return text;
     }
 
-    private static (string? Body, StatedLanguage? Stated, string? Why) OldBody(BodyText? b) => b switch
+    private static (string? Body, StatedLanguage? Stated, string? Why) RecordBody(BodyText? b) => b switch
     {
         null => (null, null, null),
         // A network body opens with its line in the IEC record; every other shown body is its code alone.

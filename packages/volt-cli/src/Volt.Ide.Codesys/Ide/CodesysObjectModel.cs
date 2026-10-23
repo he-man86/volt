@@ -202,13 +202,8 @@ namespace Volt.Ide.Codesys
         /// rolls the swap back with it and the old body stays (openspec <c>bridge-refusal-review</c> D7, DIALECT N24:
         /// <c>IPOUObject.Implementation</c> is writable, and a freshly constructed aspect takes the driver's own text
         /// write). Null swaps nothing.</summary>
-        public void WriteSourceText(object node, string? declaration, string? implementation, string? newBodyAspect)
-        {
-            if (_objMgr == null) throw new InvalidOperationException("CODESYS ObjectManager unavailable");
-            var meta = InvokeMethod(_objMgr, "GetObjectToModify", HandleOf(node), GuidOf(node))
-                       ?? throw new InvalidOperationException("GetObjectToModify returned null");
-            var iobj = GetMember(meta, "Object");
-            try
+        public void WriteSourceText(object node, string? declaration, string? implementation, string? newBodyAspect) =>
+            ModifyObject(node, iobj =>
             {
                 // Every slot a text is sent at is asked of the OBJECT before anything is written (bridge-refusal-review
                 // D26): a missing one refuses the whole write, so no half of it commits. A fresh body aspect is the slot
@@ -218,17 +213,7 @@ namespace Volt.Ide.Codesys
                 if (implementation != null) RequireSlot(node, iobj, "Implementation");
                 if (declaration != null) SetAspectText(iobj, "Interface", declaration);
                 if (implementation != null) SetAspectText(iobj, "Implementation", implementation);
-                InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
-            }
-            catch
-            {
-                // Roll back the checkout (SetObject with success=false). Swallow ITS error on purpose:
-                // we rethrow the ORIGINAL write failure below — that's the diagnostic the caller needs,
-                // not a secondary rollback error that would mask it.
-                try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { }
-                throw;
-            }
-        }
+            });
 
         /// <summary>The body aspect of an ST body — the class CODESYS SP21 holds an ST POU's Implementation in (measured,
         /// <c>scripts/vendor-facts.codesys.json, fact body-language-change</c>).</summary>
@@ -250,19 +235,23 @@ namespace Volt.Ide.Codesys
                       "Implementation", Activator.CreateInstance(type));
         }
 
-        /// <summary>Run a mutation inside ONE <c>GetObjectToModify</c>/<c>SetObject</c> transaction — the same
-        /// checkout/commit pair <see cref="WriteSourceText"/> uses, exposed for callers that mutate the object
-        /// GRAPH rather than an aspect's text (a graphical body).
-        /// <para>A throw rolls the checkout back and the ORIGINAL exception is rethrown: the rollback's own
-        /// error is swallowed on purpose, because it would mask the diagnostic the caller actually needs.</para></summary>
-        public void ModifyObject(object node, Action<object?> mutate)
+        /// <summary>Run a mutation of the checked-out OBJECT inside one <see cref="Modify"/> transaction — an aspect's
+        /// text (<see cref="WriteSourceText"/>) or the object GRAPH (a graphical body).</summary>
+        public void ModifyObject(object node, Action<object?> mutate) =>
+            Modify(node, meta => mutate(GetMember(meta, "Object")));
+
+        /// <summary>THE checkout/commit transaction (same as ScriptDriverProjects internally): <c>GetObjectToModify</c>,
+        /// the mutation of the checked-out META object, <c>SetObject</c>. A throw rolls the checkout back and the ORIGINAL
+        /// exception is rethrown: the rollback's own error is swallowed on purpose, because it would mask the diagnostic
+        /// the caller actually needs.</summary>
+        private void Modify(object node, Action<object> mutate)
         {
             if (_objMgr == null) throw new InvalidOperationException("CODESYS ObjectManager unavailable");
             var meta = InvokeMethod(_objMgr, "GetObjectToModify", HandleOf(node), GuidOf(node))
                        ?? throw new InvalidOperationException("GetObjectToModify returned null");
             try
             {
-                mutate(GetMember(meta, "Object"));
+                mutate(meta);
                 InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
             }
             catch

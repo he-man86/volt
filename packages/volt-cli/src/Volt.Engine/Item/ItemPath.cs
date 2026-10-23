@@ -15,6 +15,20 @@ namespace Volt.Engine.Item;
 /// </summary>
 public static class ItemPath
 {
+    /// <summary>THE PATH COMPARER for an ADDRESSED name (wire.html#identity): a path, a folder or a name inside an item
+    /// (a member) that a request names or an op looks up is compared ignoring case, as the IDE resolves a name.</summary>
+    public static readonly StringComparer Addressed = StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>THE PATH COMPARER for a HELD key: a name's own spelling — the key a version map or the walk holds, and
+    /// the question whether a rename changes the spelling (a case-only rename is a rename) — is exact.</summary>
+    public static readonly StringComparer Exact = StringComparer.Ordinal;
+
+    /// <summary>Do <paramref name="a"/> and <paramref name="b"/> address one item, folder or member (<see cref="Addressed"/>)?</summary>
+    public static bool SameItem(string? a, string? b) => Addressed.Equals(a, b);
+
+    /// <summary>Are <paramref name="a"/> and <paramref name="b"/> spelled alike (<see cref="Exact"/>)?</summary>
+    public static bool SameSpelling(string? a, string? b) => Exact.Equals(a, b);
+
     /// <summary>The path of the item <paramref name="fileName"/> (bare, or with its kind extension) in the encoded
     /// <paramref name="folder"/>.</summary>
     public static string Of(string folder, string fileName)
@@ -66,6 +80,6 @@ public static class ItemPath
     /// resolves a name. The root <c>""</c> holds everything.</summary>
     public static bool IsUnder(string path, string root) =>
         root.Length == 0
-        || string.Equals(path, root, StringComparison.OrdinalIgnoreCase)
+        || SameItem(path, root)
         || path.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase);
 }

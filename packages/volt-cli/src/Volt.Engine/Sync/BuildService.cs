@@ -83,12 +83,12 @@ public static class BuildService
         if (named.Count == 0)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 "build: `applications` is empty — name at least one application root, or omit it to build every application");
-        var unknown = named.Where(n => !held.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList();
+        var unknown = named.Where(n => !held.Contains(n, ItemPath.Addressed)).ToList();
         if (unknown.Count > 0)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
                 $"build: the project holds no application {string.Join(", ", unknown.Select(u => $"'{u}'"))} — "
                 + $"its applications are {string.Join(", ", held.Select(h => $"'{h}'"))}; nothing was built");
-        return held.Where(h => named.Contains(h, StringComparer.OrdinalIgnoreCase)).ToList();
+        return held.Where(h => named.Contains(h, ItemPath.Addressed)).ToList();
     }
 
     /// <summary>Turn each diagnostic's item into its wire PATH, or into null.
@@ -130,15 +130,15 @@ public static class BuildService
 
         var wanted = new HashSet<string>(
             bare.Select(b => b.Name).Where(n => !string.IsNullOrEmpty(n)).Select(n => ItemPath.FileOf(n!)),
-            StringComparer.OrdinalIgnoreCase);
+            ItemPath.Addressed);
         if (wanted.Count == 0) return;
 
         // null value = the name matched more than one item, so it names none of them. Each item is recorded under its
         // bare name AND under its folder + bare name, so a driver that names the folder is answered from it alone.
         // `holders` is the same map over the items that can hold a member, which is where a diagnostic carrying one is
         // looked up.
-        var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        var holders = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var resolved = new Dictionary<string, string?>(ItemPath.Addressed);
+        var holders = new Dictionary<string, string?>(ItemPath.Addressed);
         foreach (var pi in walk().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
@@ -175,7 +175,7 @@ public static class BuildService
     {
         if (map.TryGetValue(bare, out var seen))
         {
-            if (!string.Equals(seen, identity, StringComparison.OrdinalIgnoreCase)) map[bare] = null;
+            if (!ItemPath.SameItem(seen, identity)) map[bare] = null;
         }
         else map[bare] = identity;
     }

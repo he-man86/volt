@@ -372,10 +372,7 @@ namespace Volt.Ide.Codesys
             if (Equals(held, pushed)) return;
             RefuseUnwritablePropertyChange(held, pushed, what);
 
-            var meta = InvokeMethod(_objMgr ?? throw new InvalidOperationException("CODESYS ObjectManager unavailable"),
-                                    "GetObjectToModify", HandleOf(node), GuidOf(node))
-                       ?? throw new InvalidOperationException("GetObjectToModify returned null");
-            try
+            Modify(node, meta =>
             {
                 var props = MetaProperties(meta);
                 if (!SameBuild(held, pushed))
@@ -401,13 +398,7 @@ namespace Volt.Ide.Codesys
                         doc = AddProperty(meta, "_3S.CoDeSys.ObjectCommands.DocumentationProperty");
                     if (doc is not null) SetMember(doc, "Documentation", pushed.Comment ?? "");
                 }
-                InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
-            }
-            catch
-            {
-                try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { }
-                throw;
-            }
+            });
         }
 
         private static bool SameBuild(ObjectProperties a, ObjectProperties b) =>

@@ -69,7 +69,7 @@ public static class Versioning
     {
         var items = new System.Collections.Generic.List<UnreadableItem>();
         var nodes = new System.Collections.Generic.List<UnreadableNode>();
-        var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
+        var seen = new System.Collections.Generic.Dictionary<string, int>(ItemPath.Exact);
         foreach (var o in unread)
         {
             if (o.Kind is { } kind && kind != ItemKind.Kinds.Folder)

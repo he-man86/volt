@@ -190,11 +190,13 @@ test("server: without a manifest, a file whose bodies state no language is told 
   }
 })
 
-test("server: network text v1 under a stated LD line is refused as v1, naming the re-pull — as the push refuses it", async () => {
-  // Not a shape any Volt wrote (v1 files carry the retired comment, above), but one an engineer can: the bridge's
-  // `NetworkText.V1Refusal` meets it wherever the network-text reader reads, and so does the LSP.
+test("server: a numbered NETWORK header under a stated LD line draws the push's own refusal, at the number", async () => {
+  // The shared case `refuse/grammar.cases` header-number pins the phrase on both readers; this pins that the server
+  // reports it for a file, and nothing else in its place.
   const diags = await workspaceDiagnostics({
     "F.pou": V1_BODY.replace("(* @volt-implementation *)", "IMPLEMENTATION LD"),
   })
-  expect((diags.get("F.pou") ?? []).some((d) => d.message.includes("re-pull"))).toBe(true)
+  expect((diags.get("F.pou") ?? []).map((d) => d.message)).toEqual([
+    `'0' in a NETWORK header: the header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], and it ends at its newline.`,
+  ])
 })

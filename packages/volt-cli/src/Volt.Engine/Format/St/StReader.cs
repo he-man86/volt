@@ -347,7 +347,8 @@ public static class StReader
 	/// <c>ABSTRACT</c> is none)? Read by the engine's fold of an abstract member with no code into <c>IMPLEMENTATION
 	/// NONE</c> (<see cref="AbstractMemberFold"/>) and by the push's guard (openspec <c>abstract-member-push</c>,
 	/// <c>abstract-member-parity</c>). It answers true for <c>FUNCTION_BLOCK ABSTRACT</c> too, so a caller picks the member
-	/// site by kind before it asks. Any case.</summary>
+	/// site by kind before it asks. Any case. Every member carries its declaration, so a null one is refused, never read as
+	/// "not abstract".</summary>
 	public static bool MemberHeaderIsAbstract(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));

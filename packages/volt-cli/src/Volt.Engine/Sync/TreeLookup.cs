@@ -67,7 +67,7 @@ internal static class TreeLookup
     /// wire name IS that file name — the lookup inverts the one place a wire name is minted
     /// (<see cref="Versioning.FileOf"/>), so a path finds the item `refs` names at it and no other.</summary>
     private static bool Names(HostLink link, string ideName, string kind, string file) =>
-        string.Equals(Versioning.FileOf(link.Catalog.Kinds, kind, ideName), file, StringComparison.OrdinalIgnoreCase);
+        ItemPath.SameItem(Versioning.FileOf(link.Catalog.Kinds, kind, ideName), file);
 
     private static ItemRef? Descend(HostLink link, string folder, string doing)
     {
@@ -78,7 +78,7 @@ internal static class TreeLookup
             ItemRef? next = null;
             Scan(link, node, doing, (child, childName, cls) =>
             {
-                if (IsSourceItem(link, cls) || !string.Equals(childName, segment, StringComparison.OrdinalIgnoreCase))
+                if (IsSourceItem(link, cls) || !ItemPath.SameItem(childName, segment))
                     return true;
                 next = child;
                 return false;
@@ -94,43 +94,37 @@ internal static class TreeLookup
                              Func<ItemRef, UnreadableItemException, bool> visitUntouchable, int depth = 1)
     {
         var tree = link.Driver;
-        IReadOnlyList<ItemRef> children;
-        try { children = tree.Children(node); }
-        catch (Exception ex) when (ex is not ICodedError)
-        {
-            throw new BridgeException(ConflictCodes.ItemUnverified,
-                $"could not read the children of {Place(tree.Name, node, depth)} while {doing} — the IDE refused the read " +
-                $"({ex.Message}). Refusing to report it as absent.", ex);
-        }
+        var children = Read(() => tree.Children(node), () => $"the children of {Place(tree.Name, node, depth)}", doing);
         for (var i = 1; i <= children.Count; i++)
         {
             ItemRef child;
             NodeClass cls;
             try
             {
-                child = children[i - 1];
-                cls = tree.Classify(child);
+                child = Read(() => children[i - 1], () => $"child {i} of {Place(tree.Name, node, depth)}", doing);
+                cls = Read(() => tree.Classify(child), () => $"child {i} of {Place(tree.Name, node, depth)}", doing);
             }
             catch (UnreadableItemException untouchable)
             {
                 if (!visitUntouchable(node, untouchable)) return;
                 continue;
             }
-            catch (Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read child {i} of {Place(tree.Name, node, depth)} while {doing} — the IDE refused the read " +
-                    $"({ex.Message}). Refusing to report it as absent.", ex);
-            }
-            string name;
-            try { name = tree.Name(child); }
-            catch (Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read the name of child {i} of {Place(tree.Name, node, depth)} while {doing} — the IDE refused " +
-                    $"the read ({ex.Message}). Refusing to report it as absent.", ex);
-            }
+            var name = Read(() => tree.Name(child), () => $"the name of child {i} of {Place(tree.Name, node, depth)}", doing);
             if (!visit(child, name, cls)) return;
+        }
+    }
+
+    /// <summary>THE ONE MAPPING of a lookup's read fault (see <see cref="ItemLookup"/>'s walk): a coded refusal keeps its
+    /// code, and a child the host must not open stays its <see cref="UnreadableItemException"/>; any other fault — a raw
+    /// COM or binder throw — is <c>ITEM_UNVERIFIED</c> naming <paramref name="what"/> could not be read, never absence.
+    /// The IDE's exception travels as the inner one.</summary>
+    internal static T Read<T>(Func<T> read, Func<string> what, string doing)
+    {
+        try { return read(); }
+        catch (Exception ex) when (ex is not ICodedError and not UnreadableItemException)
+        {
+            throw new BridgeException(ConflictCodes.ItemUnverified,
+                $"could not read {what()} while {doing} — the IDE refused the read ({ex.Message}). Refusing to report it as absent.", ex);
         }
     }
 

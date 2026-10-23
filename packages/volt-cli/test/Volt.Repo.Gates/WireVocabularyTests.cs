@@ -151,8 +151,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 1))),
         new("the push could not read where the item lives", "fix what stops the IDE enumerating that place",
             "ITEM_UNVERIFIED", At(
-            ("Volt.Engine/Ide/ItemLookup.cs", 3),   // the hosts' walk of every item: a folder's children, a child, a child's name unreadable
-            ("Volt.Engine/Sync/TreeLookup.cs", 3),   // the path descent's, moved from Ide/ItemLookup (volt-cli-rework step 5)
+            ("Volt.Engine/Sync/TreeLookup.cs", 1),   // TreeLookup.Read: a folder's children, a child, a child's name unreadable — the path descent's and the hosts' walk of every item (Ide/ItemLookup) alike (volt-cli-rework 3.1)
             ("Volt.Engine/Ide/ProjectDeclarations.cs", 1),
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
             // -1 PushService: a forced replace's folder came from the walk; it is the op's path now (multi-application-tree)
@@ -165,7 +164,7 @@ public class WireVocabularyTests
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
             ("Volt.Engine/Format/Network/NetworkLexer.cs", 8),   // 2R.6b: a bad escape in a comment, title or backtick, and text after EXECUTE on its line
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 27))),   // 2R.6b (v2-spec): the old spellings that fail as no parse, each naming the new one
+            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26))),   // 2R.6b (v2-spec): the old spellings that fail as no parse, each naming the new one; -1 the v1 detector (volt-cli-rework 3.1)
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
@@ -373,25 +372,25 @@ public class WireVocabularyTests
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 17),   // -1 no Application: moved to CodesysDriver.cs (multi-application-tree)   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 5),
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 3),   // -2 the checkout/commit: CodesysObjectModel.Modify (volt-cli-rework 3.1, C1)
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),
         ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 3),   // -2 the task object reads (ReadObject's own throw, B1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 13),   // +2 ReadObject refuses no object manager / a checkout with no object (cli-bridges review B1)
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 11),   // -2 one checkout/commit (Modify) for the three transactions (volt-cli-rework 3.1, C1); +2 ReadObject refuses no object manager / a checkout with no object (cli-bridges review B1)
         ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
         ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
         ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7); -2 the import's stamp and splice (twincat-inproc-host)
         ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),
+        ("Volt.Ide.Twincat/Ide/TcArchive.cs", 3),   // +1 the one flag→bit encoding (TcArchive.Bits) moved here from the builder and the writer (volt-cli-rework 3.1, T3)
         // The native writer (twincat-inproc-host): the builder's invariants (an FB call with no instance, a positional
         // output with no slot, a RESET at the generic flag write) and its shape refusals (a slot two pins claim, a named
         // pin the names do not hold, a node with no archive form); the writer's refusals of what TwinCAT never writes.
         // +1 (merge onto 2R): a named ENO pin on a box built with no ENO output, which the reader refuses (P5).
-        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 8),
+        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 7),   // -1 the RESET at the flag write: TcArchive.Bits (T3)
         ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
         ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 7),   // +2 carrying the live state (D45): an archive with no object element / no source document; +1 an undo restored under its saved name the rename back refused
         ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 6),   // +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
+        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 5),   // -1 the RESET at the flag write: TcArchive.Bits (T3); +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // +1 a library manager answering no signatures (cli-bridges review B7)

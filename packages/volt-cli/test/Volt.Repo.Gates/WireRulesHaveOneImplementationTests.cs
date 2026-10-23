@@ -39,12 +39,12 @@ public class WireRulesHaveOneImplementationTests
     // ── the path comparer ────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// THE PATH COMPARER has no one implementation yet (map E6): every comparison in the path layer picks its comparer at
-    /// the call site, so "addressed ignores case, held is exact" is re-decided at each one — the exact shape of PLC Assist's
-    /// "case-insensitive paths on push only". The one implementation (an addressed/held comparer pair in <c>Item/</c>) is
-    /// rework step 3; until then this counts every comparer chosen in the path layer — Engine <c>Sync/</c>, <c>Item/</c>,
-    /// <c>Ide/</c> and the host — and the count only goes down. A proxy: it also counts comparisons of non-path strings
-    /// (kind names, members), which move with the paths.
+    /// THE PATH COMPARER is <c>ItemPath.Addressed</c> / <c>ItemPath.Exact</c> (<c>SameItem</c> / <c>SameSpelling</c>): "an
+    /// addressed path ignores case, a held key is exact" is decided there, not re-decided at each call site — the shape of
+    /// PLC Assist's "case-insensitive paths on push only" (map E6). This counts every comparer still chosen in the path
+    /// layer — Engine <c>Sync/</c>, <c>Item/</c>, <c>Ide/</c> and the host — and the count only goes down. A proxy: it also
+    /// counts comparisons of non-path strings (kind names, extensions, an order, IEC declaration names, the project name
+    /// P3 leaves to a measurement), which are the floor.
     /// </summary>
     [Fact]
     public void Path_comparison_picks_no_new_comparer_at_a_call_site_ratchet()
@@ -54,9 +54,9 @@ public class WireRulesHaveOneImplementationTests
         foreach (var dir in new[] { "Volt.Engine/Sync", "Volt.Engine/Item", "Volt.Engine/Ide", "Volt.Engine.Host" })
             foreach (var (file, count) in SourceScan.CountPerFile(SourceScan.Lines(dir), comparer))
                 actual[file] = count;
-        Ratchet.Hold("A comparer chosen at a call site in the path layer (no one path comparer exists yet).",
+        Ratchet.Hold("A comparer chosen at a call site in the path layer, beside the one path comparer (ItemPath).",
             PathComparerPins, actual,
-            "Compare a wire path through the one comparer (rework step 3), not a StringComparison picked here.");
+            "Compare a wire path through ItemPath.SameItem / SameSpelling (Addressed / Exact), not a StringComparison picked here.");
     }
 
     // ── the wire-name minter ─────────────────────────────────────────────────────────────────────────────────────────
@@ -199,8 +199,8 @@ public class WireRulesHaveOneImplementationTests
     /// <item><c>Sync/PushService.cs</c> — <c>ConflictFor</c> (a conflict's code: it ALSO maps <c>NotSupportedException</c> to
     /// UNSUPPORTED, which the frame mapping does not) and the create guard's UNREADABLE filter;</item>
     /// <item><c>Sync/BuildService.cs</c> — an uncoded build failure becomes a failed build, a coded one a frame;</item>
-    /// <item><c>Sync/TreeLookup.cs</c>, <c>Ide/ItemLookup.cs</c> — an uncoded IDE read failure becomes ITEM_UNVERIFIED (the
-    /// lookup's descent; the hosts' walk of every item);</item>
+    /// <item><c>Sync/TreeLookup.cs</c> — <c>TreeLookup.Read</c>: an uncoded IDE read failure becomes ITEM_UNVERIFIED (the
+    /// lookup's descent and the hosts' walk of every item, <c>Ide/ItemLookup</c>), and <c>Place</c>'s name fallback;</item>
     /// <item><c>Ide/ProjectDeclarations.cs</c> — re-words an ITEM_UNVERIFIED;</item>
     /// <item><c>Volt.Relay/RelayTunnel.cs</c> — every failed relay call is INTERNAL_ERROR.</item>
     /// </list>
@@ -239,9 +239,9 @@ public class WireRulesHaveOneImplementationTests
 
     // ── the pins (2026-10-22). Lower a pin in the commit that removes a site; a file at 0 leaves the table. ─────────────
 
-    /// <summary>Every site is an extra site: the one comparer does not exist yet. <c>Item/ItemPath.cs</c>'s
-    /// <c>IsUnder</c> (segment-wise, ignoring case) is the nearest thing to it; <c>PushService.cs</c> holds half of them
-    /// (bare names <c>Ordinal</c>, the op cache and the one-op-per-item rule <c>OrdinalIgnoreCase</c>, map E6).</summary>
+    /// <summary><c>Item/ItemPath.cs</c> is the one comparer (volt-cli-rework 3.1; 107 sites before it). The rest compare
+    /// no wire path: kinds, extensions, an order, IEC declaration names, a request-body key, and the project name (P3:
+    /// whether a case variant names the same project is an unmeasured vendor fact).</summary>
     private static readonly Dictionary<string, int> PathComparerPins = new(StringComparer.Ordinal)
     {
         ["Volt.Engine.Host/BridgePipeHost.cs"] = 1,
@@ -253,22 +253,16 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Ide/PushedDeclarations.cs"] = 2,
         ["Volt.Engine/Ide/SourceScopes.cs"] = 1,
         ["Volt.Engine/Item/ItemKind.cs"] = 4,
-        ["Volt.Engine/Item/ItemPath.cs"] = 2,
-        ["Volt.Engine/Sync/BuildService.cs"] = 6,
-        ["Volt.Engine/Sync/FetchService.cs"] = 2,
+        ["Volt.Engine/Item/ItemPath.cs"] = 3,   // THE comparer: Addressed and Exact, and IsUnder's prefix (volt-cli-rework 3.1)
+        ["Volt.Engine/Sync/FetchService.cs"] = 1,   // a library's extension, not a path
         ["Volt.Engine/Sync/GrepService.cs"] = 4,
         ["Volt.Engine/Sync/Hasher.cs"] = 1,
         ["Volt.Engine/Sync/Materializer.cs"] = 1,
         ["Volt.Engine/Sync/OpGuard.cs"] = 2,
-        ["Volt.Engine/Sync/ProjectSnapshot.cs"] = 3,
-        ["Volt.Engine/Sync/PushConflicts.cs"] = 2,
-        ["Volt.Engine/Sync/PushService.cs"] = 55,
-        ["Volt.Engine/Sync/PushedText.cs"] = 2,
-        ["Volt.Engine/Sync/Removal.cs"] = 5,
+        ["Volt.Engine/Sync/ProjectSnapshot.cs"] = 2,   // the order of the unreadable list, not an identity
+        ["Volt.Engine/Sync/PushService.cs"] = 6,   // kinds, the receipt's action order, a keyword match, a sentence's full stop — no path
+        ["Volt.Engine/Sync/Removal.cs"] = 2,   // the order of the removed list; the held folder prefix (exact)
         ["Volt.Engine/Sync/SnapshotClock.cs"] = 1,   // per-application timing for the refs log line only; no identity decision
-        ["Volt.Engine/Sync/TreeLookup.cs"] = 2,   // moved from Ide/ItemLookup (volt-cli-rework step 5); -1 2.3: the item name inverts the minter (Versioning.FileOf)
-        ["Volt.Engine/Sync/TreeNav.cs"] = 4,   // moved from Ide/TreeNav (volt-cli-rework step 5)
-        ["Volt.Engine/Sync/Versioning.cs"] = 1,
     };
 
     /// <summary>Where each extra join is: see <see cref="A_wire_path_is_minted_beside_the_minter_nowhere_new_ratchet"/>.</summary>
@@ -301,11 +295,10 @@ public class WireRulesHaveOneImplementationTests
     /// <see cref="An_exception_is_mapped_to_a_wire_code_nowhere_new_ratchet"/>.</summary>
     private static readonly Dictionary<string, int> ErrorMappingPins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine/Ide/ItemLookup.cs"] = 3,   // -4 Find's descent and its fault place, moved to Sync/TreeLookup (volt-cli-rework step 5)
         ["Volt.Engine/Ide/ProjectDeclarations.cs"] = 1,
         ["Volt.Engine/Sync/BuildService.cs"] = 1,
         ["Volt.Engine/Sync/PushService.cs"] = 3,
-        ["Volt.Engine/Sync/TreeLookup.cs"] = 4,   // moved from Ide/ItemLookup (volt-cli-rework step 5)
+        ["Volt.Engine/Sync/TreeLookup.cs"] = 2,   // TreeLookup.Read, the one read-fault mapping of the descent and of Ide/ItemLookup's walk; Place's name fallback (volt-cli-rework 3.1)
         ["Volt.Relay/RelayTunnel.cs"] = 1,
         ["Volt.Wire/PipeServer.cs"] = 2,
     };

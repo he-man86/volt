@@ -104,7 +104,7 @@ public sealed class StatusData
 }
 
 /// <summary>The pull outcome (mirrors the TS client's PullResult / @volt/control's PullOutcome). Nullable fields +
-/// omit-when-null serialize each kind's exact shape: ok{synced,status}, refused{reason}, conflict{paths,status,message?} — the message only when a conflicted file holds network text v1.</summary>
+/// omit-when-null serialize each kind's exact shape: ok{synced,status}, refused{reason}, conflict{paths,status,message?} — the message only when the fetch brought an LD/FBD body UNSUPPORTED.</summary>
 public sealed class PullResult
 {
     public string Kind { get; set; } = "";

@@ -135,8 +135,6 @@ public static class NetworkTextReader
                 if (St.ImplementationMarker.Stated(first) is { } stated)
                     message = $"the body states '{first.Trim()}' — a network-text body opens with IMPLEMENTATION FBD or " +
                               "IMPLEMENTATION LD" + (stated.Length == 0 ? "; this line states no language." : ".");
-                else if (NetworkText.IsV1Header(first))
-                    message = NetworkText.V1Refusal("`NETWORK <n> <LANG>` headers");
                 else
                     message = "a graphical body opens with the line stating its language, IMPLEMENTATION FBD or " +
                               "IMPLEMENTATION LD, on its first line.";
@@ -147,14 +145,6 @@ public static class NetworkTextReader
             var language = NetworkText.LanguageNamed(marked)
                            ?? throw new InvalidOperationException($"the line states '{marked}', which is no body language.");
             _lx = new NetworkLexer(_text, eol);
-
-            var v1 = NetworkText.V1Constructs(_text, eol);
-            if (v1.Count > 0)
-            {
-                foreach (var (at, what) in v1)
-                    Diagnostics.Add(Diag(ConflictCodes.NetworkParse, NetworkText.V1Refusal(what), at.Offset, Math.Max(1, at.Length)));
-                return null;
-            }
 
             _toks = _lx.Tokenize();
             var networks = new List<Network>();

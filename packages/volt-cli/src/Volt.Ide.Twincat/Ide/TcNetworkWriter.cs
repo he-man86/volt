@@ -447,7 +447,7 @@ internal static class TcNetworkWriter
         // nobody had edited. The surveyed real project carries 846 negations and 246 sets.
         // A NEGATED EMPTY SLOT (`x := NOT ;`, 2R.5 #6a) is measured on CODESYS only: written here it would be a flagged
         // terminator no TwinCAT edit has stored (gate 2R.5). One the IDE holds is kept; one the push makes is refused.
-        if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || Bits(n.Flags) != TcArchive.FlagBits(e)))
+        if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || TcArchive.Bits(n.Flags) != TcArchive.FlagBits(e)))
             throw TcUnmeasured.InPlace("a negated empty slot");
 
         var changed = type == "BoxTreeOperand" ? false : WriteFlags(e, n.Flags);
@@ -841,37 +841,23 @@ internal static class TcNetworkWriter
     /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
     /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
     /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
-    /// <summary>The name the deleted PLCopen lowering gave a POSITIONAL box input (0-based <paramref name="i"/>), which
-    /// TwinCAT's import kept: bodies Volt created that way are in engineers' projects, and their names are Volt's own.</summary>
-    private static string ImportedPinName(int i) => "In" + (i + 1);
-
     private static bool WriteFormalNames(XElement e, Box b)
     {
         var list = TcArchive.Obj(e, "InputParam")?.Elements("l2")
             .FirstOrDefault(l => (string?)l.Attribute("n") == "Names");
 
-        // POSITIONAL PINS. An operator drawn in the editor names none, and nothing needs writing. But a box the PLCopen
-        // IMPORT built (before the native writer, openspec twincat-inproc-host) names every pin, because that lowering gave
-        // each wired input a `formalParameter` and a positional one `In1`, `In2` (ImportedPinName) — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
-        // (`importer-max.TcPOU`). Those names are Volt's own, echoed; the text's positional pins are written over them
-        // (an empty name is the vendor's own spelling of an unnamed slot — the `''` after `EN` on every enabled MOVE).
-        // Any OTHER name is the IDE's, and a push that leaves that pin positional says to drop it — which this write
-        // does not do by guessing, so it is refused (the network then goes to the IDE to rebuild), never a no-op.
+        // POSITIONAL PINS. An operator drawn in the editor names none, and nothing needs writing (an empty name is the
+        // vendor's own spelling of an unnamed slot — the `''` after `EN` on every enabled MOVE). A name the IDE holds is
+        // the IDE's, and a push that leaves that pin positional says to drop it — which this write does not do by
+        // guessing, so it is refused (the network then goes to the IDE to rebuild), never a no-op.
         if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)))
         {
             if (list == null) return false;
             var named = list.Elements("v").ToList();
             var first = Box.HasEnableSlot(named.Select(v => (string?)v.Value).ToList()) ? 1 : 0;
-            var blanked = false;
-            for (var i = first; i < named.Count; i++)
-            {
-                if (named[i].Value.Length == 0) continue;
-                if (!string.Equals(named[i].Value, ImportedPinName(i - first), StringComparison.Ordinal))
-                    throw Refuse($"box '{b.Type}' names its pin '{named[i].Value}', which the text leaves positional");
-                named[i].Value = "";
-                blanked = true;
-            }
-            return blanked;
+            if (named.Skip(first).FirstOrDefault(v => v.Value.Length != 0) is { } pin)
+                throw Refuse($"box '{b.Type}' names its pin '{pin.Value}', which the text leaves positional");
+            return false;
         }
 
         if (list == null)
@@ -1009,7 +995,7 @@ internal static class TcNetworkWriter
     /// leaf whose flags changed is refused here rather than growing a member the vendor never writes.</summary>
     private static bool WriteFlags(XElement owner, Flags? flags)
     {
-        var bits = Bits(flags);
+        var bits = TcArchive.Bits(flags);
         var holder = TcArchive.Obj(owner, "Flags");
         if (holder == null)
             return bits == 0 ? false : throw Refuse("a modifier appears on an item that carries none");
@@ -1021,23 +1007,6 @@ internal static class TcNetworkWriter
     /// <see cref="WriteTargetBits"/> writes — and the reader builds it nowhere else. A Reset here is a model the reader
     /// never produced: an invariant, worded as CODESYS words the same fact (<c>CodesysNetworkWriter.ApplyFlags</c>;
     /// openspec bridge-refusal-review 2.32, D23).</summary>
-    private static int Bits(Flags? flags)
-    {
-        if (flags is not { } f || f.IsNone) return 0;
-        if (f.Reset)
-            throw new InvalidOperationException(
-                "TwinCAT: a RESET reached the generic flag write. Coil storage is encoded per TARGET via " +
-                "Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should never have produced.");
-        int bits = 0;
-        if (f.Negated) bits |= TcArchive.FlagNegation;
-        if (f.Set) bits |= TcArchive.FlagSet;
-        if (f.Jump) bits |= TcArchive.FlagJump;
-        if (f.Return) bits |= TcArchive.FlagReturn;
-        if (f.Rising) bits |= TcArchive.FlagRtrig;
-        if (f.Falling) bits |= TcArchive.FlagFtrig;
-        return bits;
-    }
-
     // -- the only mutation in this file --------------------------------------------------------------
 
     /// <summary>Assign to a scalar member THAT EXISTS. Every write in this file goes through here, so "the
@@ -1105,7 +1074,7 @@ internal static class TcNetworkWriter
         // them. A drawn terminator reads 0, which is what this writes when the model says 0.
         e.Add(new XElement("n", new XAttribute("n", "Input")),
               new XElement("o", new XAttribute("n", "Flags"), new XAttribute("t", "Flags"),
-                  new XElement("v", new XAttribute("n", "Flags"), Bits(flags).ToString(CultureInfo.InvariantCulture)),
+                  new XElement("v", new XAttribute("n", "Flags"), TcArchive.Bits(flags).ToString(CultureInfo.InvariantCulture)),
                   new XElement("v", new XAttribute("n", "Fixed"), "false"),
                   new XElement("v", new XAttribute("n", "Extensible"), "false")),
               new XElement("v", new XAttribute("n", "Id"), id + "L"));

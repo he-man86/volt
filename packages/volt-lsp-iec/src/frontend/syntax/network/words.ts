@@ -93,10 +93,6 @@ export const UNSUPPORTED_SHAPE = /^[A-Za-z0-9_]+( [A-Za-z0-9_]+)*$/
 /** The hash an UNSUPPORTED line carries: 8 lower-case hex digits. */
 export const UNSUPPORTED_HASH = /^[0-9a-f]{8}$/
 
-/** The bridge's v1 refusal, one sentence for every place that meets v1 text (`NetworkText.V1Refusal`). */
-export function v1Refusal(what: string): string {
-  return `this is network text v1 (${what}), which Volt no longer reads and does not translate: re-pull the POU to get the current form, and redo the edit on it.`
-}
 
 /** Delimited text's one escape, IEC's (`NetworkSpelling.Unescape`): `$$ $' $" $L $N $R $T`, case-insensitive letters,
  *  `$N` the IDE's line end CR LF. An error for any other escape or a `$` at the end. */

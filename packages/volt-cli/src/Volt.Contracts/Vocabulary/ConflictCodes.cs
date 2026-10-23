@@ -27,8 +27,7 @@ public static class ConflictCodes
     // ── the graphical body format (see docs/network-text.html#diagnostics) ──────────────────────────
 
     /// <summary>Any other structural parse failure: a statement before any network, an unexpected
-    /// <c>END_NETWORK</c>, a statement without its <c>;</c>, and network text v1 (<c>LET</c>,
-    /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>), which is refused with a "re-pull" message.</summary>
+    /// <c>END_NETWORK</c>, a statement without its <c>;</c>.</summary>
     public const string NetworkParse = "NETWORK_PARSE";
 
     /// <summary>A <c>NETWORK</c> block with no <c>END_NETWORK</c>.</summary>

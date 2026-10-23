@@ -58,10 +58,10 @@ public static class AbstractMemberFold
     private static Member Fold(Member m)
     {
         if (m.Kind == ItemKind.Kinds.Method)
-            return IsAbstract(m.Declaration) && HoldsNoCode(m.Body, m.Stated)
+            return StReader.MemberHeaderIsAbstract(m.Declaration) && HoldsNoCode(m.Body, m.Stated)
                 ? m with { Body = ImplementationMarker.NoneLine, Stated = StatedLanguage.None }
                 : m;
-        if (ItemKind.ShapeOf(m.Kind).Accessors != AccessorShape.WithBodies || !IsAbstract(m.Declaration)) return m;
+        if (ItemKind.ShapeOf(m.Kind).Accessors != AccessorShape.WithBodies || !StReader.MemberHeaderIsAbstract(m.Declaration)) return m;
         var getter = Fold(m.Getter);
         var setter = Fold(m.Setter);
         return ReferenceEquals(getter, m.Getter) && ReferenceEquals(setter, m.Setter) ? m : m with { Getter = getter, Setter = setter };
@@ -71,7 +71,4 @@ public static class AbstractMemberFold
         a is not null && HoldsNoCode(a.Body, a.Stated)
             ? a with { Body = ImplementationMarker.NoneLine, Stated = StatedLanguage.None }
             : a;
-
-    private static bool IsAbstract(string? declaration) =>
-        declaration is not null && StReader.MemberHeaderIsAbstract(declaration);
 }

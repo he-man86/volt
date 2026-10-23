@@ -195,14 +195,11 @@ public class TcStructuralEditTests
         Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks.Single().Trees.Single()).Value).ConnectedSlot);
     }
 
-    /// <summary>…AND ITS PINS COME BACK AS THEY WERE PUSHED. Volt's PLCopen lowering must name every input it wires
-    /// (<c>formalParameter</c>), so a positional pin goes out as <c>In1</c>, <c>In2</c> — and the import keeps those names
-    /// (<c>importer-max.TcPOU</c>: <c>InputParam/Names = [In1, In2]</c>), so <c>n := MAX(a, b);</c> came back
-    /// <c>n := MAX(In1 := a, In2 := b);</c> (found live, <c>parity-fixes.test.ts</c>). The stamp after the import writes
-    /// the text's positional pins over them — a value edit of names the import itself took from Volt; a pin the IDE
-    /// names otherwise is not Volt's to blank, and a push leaving it positional is refused, never a silent no-op.</summary>
+    /// <summary>A PIN NAME THE IDE HOLDS IS THE IDE'S, whoever first wrote it. <c>importer-max.TcPOU</c> holds
+    /// <c>InputParam/Names = [In1, In2]</c> on <c>MAX</c>; a push of <c>n := MAX(a, b);</c> leaves those pins positional,
+    /// which says to drop the names — refused by name, never blanked.</summary>
     [Fact]
-    public void Positional_pins_are_written_over_the_names_the_import_took_from_Volt()
+    public void A_positional_push_over_named_pins_is_refused_naming_the_first()
     {
         var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
@@ -210,32 +207,8 @@ public class TcStructuralEditTests
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
-        var written = TcNetworkWriter.Apply(xml, pushed, scope);
-
-        Assert.NotNull(written);
-        var back = TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd);
-        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(back, scope));
-    }
-
-    /// <summary>THE NAMES THE WRITER BLANKS ARE THE NAMES THE DELETED LOWERING GAVE (<c>In1</c>, <c>In2</c>): bodies the
-    /// PLCopen import built for Volt are in engineers' projects, so an edit of one still writes the text's positional
-    /// pins over the names that lowering took from Volt — and only those.</summary>
-    [Fact]
-    public void Positional_pins_are_blanked_under_the_names_the_lowering_gave_them()
-    {
-        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
-        var lowered = new[] { "In1", "In2" };
-
-        var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
-            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting)
-            .Replace("<v>In1</v>", "<v>" + lowered[0] + "</v>").Replace("<v>In2</v>", "<v>" + lowered[1] + "</v>");
-
-        var written = TcNetworkWriter.Apply(xml, pushed, scope);
-
-        Assert.NotNull(written);
-        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd), scope));
+        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
+        Assert.Contains("'In1'", ex.Message);
     }
 
     /// <summary>A CREATED BOX CARRIES THE DERIVED OUTPUT NAMES (gate 2R.3, finding 1). A box read from text states no member
@@ -273,19 +246,6 @@ public class TcStructuralEditTests
 
         Assert.DoesNotContain("<v>Out1</v>", built);
         Assert.Equal(text, NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope));
-    }
-
-    [Fact]
-    public void A_pin_name_the_IDE_holds_is_not_blanked_by_a_positional_push()
-    {
-        var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
-            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>In2</v>", "<v>Limit</v>");
-        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
-                                                  _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
-
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
-        Assert.Contains("Limit", ex.Message);
     }
 
     /// <summary>AN UNWIRED PIN THE IMPORT BUILT READS AS THE EMPTY SLOT IT IS. <c>importer-unwired.TcPOU</c> is real XAE

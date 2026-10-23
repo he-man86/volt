@@ -115,7 +115,7 @@ internal sealed class TcArchiveBuilder
             case Leaf l:
             {
                 var id = Next();
-                var operand = Operand(l.Operand, Bits(Merge(l.Flags, l.Operand.Flags)), isInstance: false, fixedFlags: true);
+                var operand = Operand(l.Operand, TcArchive.Bits(Merge(l.Flags, l.Operand.Flags)), isInstance: false, fixedFlags: true);
                 return ("BoxTreeOperand", new XElement("o", Member("Operand", "Operand", operand), Id(id)));
             }
 
@@ -132,7 +132,7 @@ internal sealed class TcArchiveBuilder
                 {
                     var own = t.Flags ?? Flags.None;
                     var (negation, set) = own.VendorCoilBits();
-                    var bits = Bits(Flags.None with
+                    var bits = TcArchive.Bits(Flags.None with
                     {
                         Negated = negation, Set = set,
                         Jump = perTarget ? own.Jump : a.Flags.Jump,
@@ -143,7 +143,7 @@ internal sealed class TcArchiveBuilder
                 var id = Next();
                 return ("BoxTreeAssign", new XElement("o",
                     Member("OutputItems", "OutputItemList", new XElement("o", List("OutputItems", targets))),
-                    FlagsMember(Bits(Flags.None with { Jump = a.Flags.Jump, Return = a.Flags.Return }), fixedFlags: false),
+                    FlagsMember(TcArchive.Bits(Flags.None with { Jump = a.Flags.Jump, Return = a.Flags.Return }), fixedFlags: false),
                     Member("RValue", value.Type, value.Object),
                     Id(id)));
             }
@@ -172,7 +172,7 @@ internal sealed class TcArchiveBuilder
             case Terminator t:
             {
                 var id = Next();
-                return ("BoxTreeTerminator", new XElement("o", Null("Input"), FlagsMember(Bits(t.Flags), fixedFlags: false), Id(id)));
+                return ("BoxTreeTerminator", new XElement("o", Null("Input"), FlagsMember(TcArchive.Bits(t.Flags), fixedFlags: false), Id(id)));
             }
 
             case Parallel:
@@ -205,7 +205,7 @@ internal sealed class TcArchiveBuilder
 
         // The box's instance operand first, then the box (the importer's order).
         var instance = b.Instance is { } inst
-            ? Operand(inst, Bits(inst.Flags), isInstance: true, fixedFlags: false)
+            ? Operand(inst, TcArchive.Bits(inst.Flags), isInstance: true, fixedFlags: false)
             : Operand(null, 0, isInstance: true, fixedFlags: false);
         var id = Next();
 
@@ -252,7 +252,7 @@ internal sealed class TcArchiveBuilder
             ? ("", Null(null))
             // Every output slot is an l-value, wired or not, as the drawn box stores it (2.3 D: true exactly for an assign
             // target or a box output slot; POUexecute's TON stores it on its unwired ET slot too).
-            : ("Operand", Operand(s with { IsLValue = true }, Bits(s.Flags), isInstance: false, fixedFlags: true))).ToList();
+            : ("Operand", Operand(s with { IsLValue = true }, TcArchive.Bits(s.Flags), isInstance: false, fixedFlags: true))).ToList();
 
         // INPUTS — the enable is slot 0, named EN; an unwired pin is the empty operand TwinCAT's importer writes for one
         // (Vn_ton_unwired), which the reader reads as the empty terminator.
@@ -282,7 +282,7 @@ internal sealed class TcArchiveBuilder
             Str("BoxType", b.Type),
             Member("Instance", "Operand", instance),
             Member("OutputItems", "OutputItemList", new XElement("o", List("OutputItems", outputItems))),
-            FlagsMember(Bits(b.Flags), fixedFlags: false),
+            FlagsMember(TcArchive.Bits(b.Flags), fixedFlags: false),
             Null("InputFlags"),
             List("InputItems", inputs),
             Member("InputParam", "ParamList", Params(inNames, inTypes)),
@@ -441,20 +441,6 @@ internal sealed class TcArchiveBuilder
 
     /// <summary>The vendor's <c>IFlags</c> bit-field (TcArchive's constants). A Reset is a coil kind, encoded on a target
     /// through <see cref="Flags.VendorCoilBits"/> before it gets here.</summary>
-    private static int Bits(Flags? flags)
-    {
-        if (flags is not { } f || f.IsNone) return 0;
-        if (f.Reset) throw new InvalidOperationException("TwinCAT: a RESET reached the generic flag write; it is a coil kind, encoded per target.");
-        var bits = 0;
-        if (f.Negated) bits |= TcArchive.FlagNegation;
-        if (f.Set) bits |= TcArchive.FlagSet;
-        if (f.Jump) bits |= TcArchive.FlagJump;
-        if (f.Return) bits |= TcArchive.FlagReturn;
-        if (f.Rising) bits |= TcArchive.FlagRtrig;
-        if (f.Falling) bits |= TcArchive.FlagFtrig;
-        return bits;
-    }
-
     /// <summary>A shape the builder has no TwinCAT form for: <c>NETWORK_UNSUPPORTED</c>, the code every network the push
     /// cannot write is refused under, before anything is written.</summary>
     private static Volt.Engine.Format.Network.NetworkTextException Unbuildable(string what) =>

@@ -53,7 +53,7 @@ internal static class Removal
         System.Func<string, bool> isSourcePath)
     {
         var roots = knownApplications is null ? applications : applications.Concat(knownApplications).ToList();
-        var unread = new HashSet<string>(unreadable, System.StringComparer.Ordinal);
+        var unread = new HashSet<string>(unreadable, ItemPath.Exact);
         // The scope in which IEC makes a file name unique: the path's application, or the pool for a source item; null
         // where no rule makes it unique, and such a path never pairs.
         string? Key(string path, bool knownPath)
@@ -66,7 +66,7 @@ internal static class Removal
         HashSet<string>? walkedNames = null;
         bool MovedWithinItsApplication(string path) =>
             Key(path, knownPath: true) is { } key
-            && (walkedNames ??= new HashSet<string>(walked.Select(w => Key(w, knownPath: false)).OfType<string>(), System.StringComparer.OrdinalIgnoreCase))
+            && (walkedNames ??= new HashSet<string>(walked.Select(w => Key(w, knownPath: false)).OfType<string>(), ItemPath.Addressed))
                 .Contains(key);
 
         return known.Where(path => !walked.Contains(path)
@@ -86,7 +86,7 @@ internal static class Removal
     {
         foreach (var r in roots)
             if (r.Length == 0
-                || string.Equals(folder, r, System.StringComparison.Ordinal)
+                || ItemPath.SameSpelling(folder, r)
                 || folder.StartsWith(r + "/", System.StringComparison.Ordinal))
                 return true;
         return false;

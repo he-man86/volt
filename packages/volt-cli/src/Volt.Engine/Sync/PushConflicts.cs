@@ -50,7 +50,7 @@ internal static class PushConflicts
             // the op in its folder by bare name and kind ignoring case. The gate must find the item the apply will find, or
             // `e_mode.dut` passes as a create and overwrites the live `E_Mode.dut` unchecked.
             var key = pending.ContainsKey(name) ? name
-                : pending.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase)) ?? name;
+                : pending.Keys.FirstOrDefault(k => ItemPath.SameItem(k, name)) ?? name;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
             // AN OBJECT THE WALK COULD NOT CLASSIFY, under the folder and bare name this op names. Its kind is unknown,
@@ -107,7 +107,7 @@ internal static class PushConflicts
                 {
                     conflicts.Add(VersionMismatch(name, clientVersion, currentVersion, walkComplete));
                 }
-                else if (set.To is { } to && !string.Equals(to, name, StringComparison.OrdinalIgnoreCase))
+                else if (set.To is { } to && !ItemPath.SameItem(to, name))
                 {
                     pending.Remove(key);              // rename or move: the new path exists for later ops
                     pending[to] = "";

@@ -53,7 +53,7 @@ internal sealed class ProjectSnapshot
     /// the one <c>fetch</c> renders (<c>Versioning.SafeVersion</c> → <c>StWriter</c>), so text and version cannot
     /// disagree, and no item is read a second time. An item that did not materialize has no entry here, as it has none
     /// in <see cref="FullVersions"/>.</summary>
-    public Dictionary<string, string> Texts { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Texts { get; } = new(ItemPath.Exact);
 
     /// <summary>How many objects the driver's walk returned, tracked or not — the progress bar's denominator.</summary>
     public int Walked { get; private set; }

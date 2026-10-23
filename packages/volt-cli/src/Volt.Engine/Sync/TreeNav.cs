@@ -102,7 +102,7 @@ internal static class TreeNav
             }
             catch (UnreadableItemException untouchable)
             {
-                if (string.Equals(untouchable.Name, name, StringComparison.OrdinalIgnoreCase)
+                if (ItemPath.SameItem(untouchable.Name, name)
                     && untouchable.Kind == kind) return true;
             }
         }
@@ -120,7 +120,7 @@ internal static class TreeNav
     {
         var tree = link.Driver;
         foreach (var folder in emptiedFolders.Where(f => !string.IsNullOrEmpty(f))
-                                             .Distinct(StringComparer.OrdinalIgnoreCase)
+                                             .Distinct(ItemPath.Addressed)
                                              .OrderByDescending(f => FolderPath.Segments(f).Count(), Comparer<int>.Default))
         {
             var path = folder;
@@ -154,7 +154,7 @@ internal static class TreeNav
         {
             ItemRef child;
             try { child = children[i]; }
-            catch (UnreadableItemException u) when (!string.Equals(u.Name, wanted, StringComparison.OrdinalIgnoreCase))
+            catch (UnreadableItemException u) when (!ItemPath.SameItem(u.Name, wanted))
             {
                 continue;
             }
@@ -166,5 +166,5 @@ internal static class TreeNav
     // Names are matched case-insensitively: IEC identifiers are case-insensitive, so the engine never trusts the IDE's
     // casing.
     private static bool NameIs(HostLink link, ItemRef item, string name) =>
-        string.Equals(link.Driver.Name(item), name, StringComparison.OrdinalIgnoreCase);
+        ItemPath.SameItem(link.Driver.Name(item), name);
 }

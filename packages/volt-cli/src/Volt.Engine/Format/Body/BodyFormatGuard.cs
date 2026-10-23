@@ -57,7 +57,7 @@ public static class BodyFormatGuard
 
     /// <param name="declaration">The declaration that says whether <paramref name="site"/> is ABSTRACT: the member's
     /// own, its property's for an accessor; read only at a member site.</param>
-    private static void Authorable(string what, string site, string? body, StatedLanguage? stated, string? declaration)
+    private static void Authorable(string what, string site, string? body, StatedLanguage? stated, string declaration)
     {
         // `IMPLEMENTATION NONE` ON A CREATE (openspec abstract-member-parity): accepted under an ABSTRACT member — the
         // create makes a member with a slot on both vendors, `""` is written there and the next pull reads NONE by the
@@ -67,10 +67,10 @@ public static class BodyFormatGuard
         if (pushed is { IsNone: true })
         {
             if (!AbstractMemberFold.IsMemberSite(site)) throw NoneOffMemberSite(what);
-            if (!IsAbstract(declaration)) throw NoneWithoutAbstract(what);
+            if (!StReader.MemberHeaderIsAbstract(declaration)) throw NoneWithoutAbstract(what);
             return;
         }
-        if (AbstractMemberFold.IsMemberSite(site) && IsAbstract(declaration) && HoldsStatements(pushed, body))
+        if (AbstractMemberFold.IsMemberSite(site) && StReader.MemberHeaderIsAbstract(declaration) && HoldsStatements(pushed, body))
             throw StatementsUnderAbstract(what);
         if (pushed is not { Hidden: true } hidden) return;
         throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -135,7 +135,7 @@ public static class BodyFormatGuard
     /// <param name="pushedDeclaration">The same declaration as pushed.</param>
     private static void Check(string what, string site, string? liveBody, StatedLanguage? liveStated, string? pushedBody,
                               StatedLanguage? pushedStated, Func<string, string, string, string?> refusedLanguageChange,
-                              string? liveDeclaration, string? pushedDeclaration)
+                              string liveDeclaration, string pushedDeclaration)
     {
         if (pushedBody is null) return;                      // nothing offered for this slot
 
@@ -160,8 +160,8 @@ public static class BodyFormatGuard
         }
         else
         {
-            var d = IsAbstract(pushedDeclaration);
-            var l = IsAbstract(liveDeclaration);
+            var d = StReader.MemberHeaderIsAbstract(pushedDeclaration);
+            var l = StReader.MemberHeaderIsAbstract(liveDeclaration);
             if (pushed.IsNone)
             {
                 if (!d)
@@ -251,9 +251,6 @@ public static class BodyFormatGuard
             $"{what} is {Name(live, liveBody)} in the IDE and pushed as {Name(pushed, pushedBody)}: {why} The route that " +
             "exists: delete it and push it again, which creates the body in the new language.");
     }
-
-    private static bool IsAbstract(string? declaration) =>
-        declaration is not null && StReader.MemberHeaderIsAbstract(declaration);
 
     /// <summary>Does this pushed ST body hold STATEMENTS — any text left once whitespace and comments are taken away
     /// (a pragma counts: unmeasured, "niche: accepted loss (0 occurrences in the corpora)")? A comment is not a statement

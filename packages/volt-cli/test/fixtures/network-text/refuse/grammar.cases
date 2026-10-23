@@ -535,7 +535,7 @@ END_NETWORK
 === refused
 NETWORK_PARSE an unclosed backtick
 
-#### v1-let — v1 text is refused, re-pull
+#### let-statement — `LET` is no statement: the item is the name before `:=`, and `LET g1` leaves it without its `;`
 === text
 IMPLEMENTATION FBD
 NETWORK
@@ -543,4 +543,13 @@ NETWORK
   x := g1;
 END_NETWORK
 === refused
-NETWORK_PARSE network text v1
+NETWORK_PARSE 'g1': an item ends with `;`.
+
+#### header-number — a NETWORK header holds no number: it is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]
+=== text
+IMPLEMENTATION LD
+NETWORK 0 LD
+  x := a;
+END_NETWORK
+=== refused
+NETWORK_PARSE '0' in a NETWORK header: the header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], and it ends at its newline.

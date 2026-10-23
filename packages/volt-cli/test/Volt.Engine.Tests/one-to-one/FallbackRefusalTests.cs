@@ -59,4 +59,10 @@ public class FallbackRefusalTests
         var block = text.Substring(text.IndexOf("METHOD ABSTRACT Run", StringComparison.Ordinal));
         Assert.Equal("IMPLEMENTATION NONE", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
     }
+
+    /// <summary>A member with no declaration is a missing fact, not "not abstract": the abstract rule refuses it loudly
+    /// (every member carries its declaration), so no caller reads a lost declaration as a concrete member.</summary>
+    [Fact]
+    public void The_abstract_rule_refuses_a_missing_declaration_never_answers_not_abstract() =>
+        Assert.Throws<ArgumentNullException>(() => Volt.Engine.Format.St.StReader.MemberHeaderIsAbstract(null!));
 }

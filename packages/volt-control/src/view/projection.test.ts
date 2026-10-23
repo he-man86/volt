@@ -109,14 +109,17 @@ test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refus
   expect(describePull({ kind: "ok", synced: ["A.pou"] }).actions).toEqual([])
 })
 
-test("describePull: a conflict over network text v1 carries the CLI's note on how to resolve it", () => {
-  // MATERIALIZATION 3 can meet an un-pushed v1 edit as a conflict, and keeping our side keeps text no Volt
-  // pushes — so the CLI names those files and the resolution, and the toast must not drop that sentence.
-  const note = "1 conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: A.pou. Take the IDE's side."
-  const v1 = describePull({ kind: "conflict", paths: ["A.pou"], message: note })
-  expect(v1.message).toContain(note)
-  expect(v1.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
-  expect(describePull({ kind: "conflict", paths: ["A.pou"] }).message).not.toContain("network text v1")
+test("describePull: a conflict carries the CLI's UNSUPPORTED note — the bodies to edit in the IDE", () => {
+  // A conflicting pull can also bring bodies the CLI shows as UNSUPPORTED; its note names them and where they are
+  // edited, and the toast must not drop that sentence.
+  const note =
+    "1 body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, each for the reason named below. " +
+    "Their declarations stay editable here and push as usual; the push never writes these bodies. Edit them in the IDE:\n" +
+    "  A.pou (LD): a shape network text does not spell"
+  const conflict = describePull({ kind: "conflict", paths: ["A.pou"], message: note })
+  expect(conflict.message).toContain(note)
+  expect(conflict.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
+  expect(describePull({ kind: "conflict", paths: ["A.pou"] }).message).not.toContain("UNSUPPORTED")
 })
 
 test("describeMerge: done is a clean toast; unresolved keeps the finish/abort affordances", () => {

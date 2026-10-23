@@ -209,6 +209,29 @@ standing practice:
               e2e redundant-read cut, `ide-restart` on the one-worker-per-XAE model.
             - from 2.1/2.2: delete the network-text v1 detector and `ImportedPinName`; the untyped TwinCAT library pin
               (`TcLibraryUntypedPinTests`, held red): measure the full live dump, then refuse by name.
+      - [x] 3.1a (gate, 2026-10-23) of the first half of the list above — DONE: the duplicate rule copies (`IsAbstract` →
+            `StReader.MemberHeaderIsAbstract`, `RejectAll`), the ONE path comparer (`ItemPath.SameItem`/`SameSpelling`;
+            ratchet 107 → 37, the rest compare no wire path), the exception-to-code mapping (15 → 10, `TreeLookup.Read`),
+            C1 (`CodesysObjectModel.Modify`), T3 (`TcArchive.Bits`), the network-text v1 detector and `ImportedPinName`
+            deleted. Not claimed by this gate: the history comments (partly touched), T4, C5/T5/T2 (live), the inputs, the
+            untyped library pin. Review findings fixed first, each test-first:
+            - the shared case set lost `v1-let`: put back as `let-statement` and `header-number` with the bridge's own
+              phrases (red on the LSP), then the LSP's v1 pre-scan (`parser.ts` `v1Constructs`, `words.ts` `v1Refusal`)
+              deleted — both readers now give one answer; the server test that pinned "re-pull" now pins the push's
+              header refusal (its premise, the v1 detector, is deleted by this list).
+            - DIALECT N22 and `parity-fixes.test.ts` no longer describe the deleted stamp.
+            - `StReader.MemberHeaderIsAbstract(null)` refuses again (`FallbackRefusalTests`, red first); the guard's
+              declarations are typed non-null, as `Member`/`ItemContent` already are.
+            - volt-control's conflict-note comment and test describe the note the CLI still sends (UNSUPPORTED), not v1.
+            - FOR THE OWNER (no code change): TwinCAT `MAX(a, b)` over a body holding `In1`/`In2` (the old PLCopen import's
+              names, `importer-max.TcPOU`) was accepted with the names blanked and is now REFUSED naming the pin
+              (`TcStructuralEditTests.A_positional_push_over_named_pins_is_refused_naming_the_first`). Asked for by this
+              list and loud; 0 occurrences in the six corpora. A behaviour flip, not a refactor result.
+            Numbers: C# 5191 pass / 0 fail / 1 skip (Engine 3114+1 skip, Cli 352, Contracts 62, Codesys 476, Twincat 707,
+            Connector 153, Relay 72, Repo.Gates 255; −50 vs 2.4: the v1 tests deleted with the detector); TS unit 201/0;
+            volt-control 145/0; LSP full suite (VOLT_REQUIRE_FULL=1) 10386 pass / 0 fail / 34 skip / 428 todo, after its own v1
+            parse test was rewritten to the push's phrases (first full run: 1 fail there); typecheck, lint, `bun run check` green; fixture map unchanged (no
+            fixture or transpiler change). Live small matrix: at the next push (3.3).
 - [x] 3.2 (option C: the Engine above the contract was rewritten in steps 5–7; nothing else reimplemented) Reimplement only the projects the owner approved in 1.2, behind the same tests.
 - [ ] 3.3 (live check per push, owner 2026-10-23: the SMALL matrix, `bun run release:matrix --only
       codesys-3.5.22.40-64,twincat-32 --jobs 1`; the FULL matrix once before 4.1) Every step: full C# suites + TS e2e on both vendors + the contract suite; the wire transcript byte-identical

@@ -97,14 +97,7 @@ public static class ItemLookup
                              System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable)
     {
         if (depth > MaxDepth) return true;
-        int count;
-        try { count = tree.ChildCount(node); }
-        catch (System.Exception ex) when (ex is not ICodedError)
-        {
-            throw new BridgeException(ConflictCodes.ItemUnverified,
-                $"could not read the children of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
-                $"({ex.Message}). Refusing to report it as absent.", ex);
-        }
+        var count = Read(() => tree.ChildCount(node), () => $"the children of {Place(tree, node, depth)}", doing);
 
         for (var i = 1; i <= count; i++)
         {
@@ -112,8 +105,8 @@ public static class ItemLookup
             int kind;
             try
             {
-                child = tree.ChildAt(node, i);
-                kind = tree.KindCode(child);
+                child = Read(() => tree.ChildAt(node, i), () => $"child {i} of {Place(tree, node, depth)}", doing);
+                kind = Read(() => tree.KindCode(child), () => $"child {i} of {Place(tree, node, depth)}", doing);
             }
             // NOT a read fault: the driver named a child it must not open (DIALECT C2i) and made no call. It is known to
             // exist and to be a top-level item, so the lookup does not refuse over it: it is the answer when it is the
@@ -123,12 +116,6 @@ public static class ItemLookup
                 if (!visitUntouchable(node, untouchable)) return false;
                 continue;
             }
-            catch (System.Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
-                    $"({ex.Message}). Refusing to report it as absent.", ex);
-            }
 
             if (!ItemKind.IsAddressableItem(kind))
             {
@@ -136,14 +123,7 @@ public static class ItemLookup
                 continue;
             }
 
-            string name;
-            try { name = tree.Name(child); }
-            catch (System.Exception ex) when (ex is not ICodedError)
-            {
-                throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read the name of child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused " +
-                    $"the read ({ex.Message}). Refusing to report it as absent.", ex);
-            }
+            var name = Read(() => tree.Name(child), () => $"the name of child {i} of {Place(tree, node, depth)}", doing);
             if (!visit(child, name, kind)) return false;
         }
         return true;
@@ -154,4 +134,7 @@ public static class ItemLookup
     /// refuses too is said to be exactly that, with the IDE's words.</summary>
     private static string Place(IIecTree tree, ItemRef node, int depth) =>
         Volt.Engine.Sync.TreeLookup.Place(tree.Name, node, depth);
+
+    private static T Read<T>(System.Func<T> read, System.Func<string> what, string doing) =>
+        Volt.Engine.Sync.TreeLookup.Read(read, what, doing);
 }

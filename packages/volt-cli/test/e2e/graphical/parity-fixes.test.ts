@@ -105,9 +105,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	})
 
 	/**
-	 * …AND IT COMPILES. On TwinCAT the positional pins come back positional only because the stamp after the import
-	 * writes empty names over the `In1`/`In2` Volt's own PLCopen lowering gave them (task 4.4) — a body whose text is
-	 * right proves nothing about whether the IDE builds it, so the build says so.
+	 * …AND IT COMPILES. A body whose text is right proves nothing about whether the IDE builds it, so the build says so.
 	 */
 	it("a created stateless function call compiles", async () => {
 		const name = id("pf_fnbuild")

@@ -424,33 +424,6 @@ public class PushServiceTests
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") && r.Contains("T1"));
     }
 
-    /// <summary>Spec, "a v1 body is refused, not translated" (task 3.5): a push carrying network text v1 — a
-    /// <c>NETWORK 0 LD</c> header and a <c>LET</c> — under the <c>IMPLEMENTATION LD</c> line it now needs to be read as
-    /// network text at all is refused with <c>NETWORK_PARSE</c>, the message naming a re-pull, before anything is
-    /// written. (Under <c>IMPLEMENTATION ST</c> it is network text contradicting its stated language, refused by name
-    /// before the v1 question arises: <c>ImplementationLanguagePushTests</c>.)</summary>
-    [Fact]
-    public void A_v1_body_is_refused_naming_a_re_pull_and_nothing_is_written()
-    {
-        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", ItemKind.PlcPou, "", true,
-            "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR", "out := TRUE;", "LD", null));
-        var (v, pv) = Ver(ide, "PLC_PRG.pou");
-
-        var resp = Push(ide, pv, new SetItemOp
-        {
-            Name = "PLC_PRG.pou",
-            IfVersion = v,
-            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
-                         "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n\nEND_PROGRAM\n",
-        });
-
-        Assert.False(resp.Accepted);
-        var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal("NETWORK_PARSE", conflict.Code);
-        Assert.Contains("re-pull", conflict.Reason);
-        Assert.Empty(ide.WrittenContent);
-    }
-
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
     /// <c>NetworkScopeFor</c>). B6, P1: a split's name IS its VarId and the pattern is reserved, so a split
     /// <c>split7</c> in a POU of a project whose GVL declares <c>SPLIT7</c> is the split (the global is <c>`SPLIT7`</c>)

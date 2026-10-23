@@ -86,15 +86,6 @@ public class NetworkTextGateTests
     }
 
     [Fact]
-    public void V1_text_is_refused_naming_a_re_pull()
-    {
-        var d = Refused("NETWORK_PARSE", 1, "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n");
-        Assert.Contains("re-pull", d.Message);
-        Assert.Contains("re-pull", Refused("NETWORK_PARSE", 3, Src("LET g0 := TRUE;")).Message);
-        Assert.Contains("re-pull", Refused("NETWORK_PARSE", 2, FbdMarker + "NETWORK 0 FBD\n  out := a;\nEND_NETWORK\n").Message);
-    }
-
-    [Fact]
     public void A_body_without_its_graphical_marker()
     {
         Refused("NETWORK_PARSE", 1, "NETWORK\n  out := a;\nEND_NETWORK\n");

@@ -271,6 +271,26 @@ internal static class TcArchive
     /// <summary>The flag bits of a <c>Flags</c> member — the nested object's own numeric <c>Flags</c> value.</summary>
     public static int FlagBits(XElement? owner) => Int(Obj(owner, "Flags"), "Flags");
 
+    /// <summary>The flag bits of <paramref name="flags"/> — the ONE flag→bit encoding, for the in-place writer and the
+    /// builder alike. Coil storage is encoded per TARGET (<c>Flags.VendorCoilBits()</c>), so a RESET reaching this is a
+    /// modifier the model should never have produced: Volt's own invariant.</summary>
+    public static int Bits(Volt.Engine.Format.Network.Flags? flags)
+    {
+        if (flags is not { } f || f.IsNone) return 0;
+        if (f.Reset)
+            throw new InvalidOperationException(
+                "TwinCAT: a RESET reached the generic flag write. Coil storage is encoded per TARGET via " +
+                "Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should never have produced.");
+        var bits = 0;
+        if (f.Negated) bits |= FlagNegation;
+        if (f.Set) bits |= FlagSet;
+        if (f.Jump) bits |= FlagJump;
+        if (f.Return) bits |= FlagReturn;
+        if (f.Rising) bits |= FlagRtrig;
+        if (f.Falling) bits |= FlagFtrig;
+        return bits;
+    }
+
     /// <summary>There is deliberately NO construction here. <c>TcNetworkWriter</c> assigns to members the IDE
     /// already wrote and never builds an element, so an accessor layer is all this needs to be - see that
     /// file's header for why building an archive element is out of reach.</summary>

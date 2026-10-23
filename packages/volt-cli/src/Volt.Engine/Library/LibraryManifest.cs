@@ -42,7 +42,7 @@ public static class LibraryManifest
     /// knows a library only through its materialization, reports every call to one as undefined. A manifest without
     /// the line is format 1.</item>
     /// <item>3: graphical bodies are network text v2 (<c>docs/network-text.html</c>) — no <c>LET</c>, no numbered
-    /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c> header. A v2 reader refuses format 2's bodies by name ("re-pull").</item>
+    /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c> header.</item>
     /// <item>4: every body states its language on an <c>IMPLEMENTATION ST|LD|FBD</c> line
     /// (openspec <c>implementation-keyword</c>). A format-3 file has no boundary
     /// line and is refused by name ("pull once").</item>

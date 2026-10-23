@@ -398,13 +398,13 @@ public static class Commands
             Sidecar.SavePendingIdeRefs(root, newSidecar);
             var conflicted = outcome.Paths.Select(Files.StripSrcPrefix).ToList();
             return PullResult.Conflict(conflicted, PostStatus(),
-                Notes(V1Note(root, ideFiles, conflicted), UnsupportedNote(fetched.Changed)));
+                UnsupportedNote(fetched.Changed));
         }
 
         Sidecar.SaveIdeRefs(root, newSidecar);
         Sidecar.ClearPendingIdeRefs(root); // a clean pull leaves no merge — drop any stash from a past conflict
         // An ok pull's message REPLACES the "pulled N file(s)" line (CLI and toast alike), so the note carries it.
-        var note = Notes(V1Note(root, ideFiles, Array.Empty<string>()), UnsupportedNote(fetched.Changed));
+        var note = UnsupportedNote(fetched.Changed);
         return PullResult.Ok(synced, PostStatus(), note is null ? null : $"pulled {synced.Count} file(s). {note}");
     }
 
@@ -1066,80 +1066,6 @@ public static class Commands
         return bytes is not null ? (bytes, null, false) : (null, $"{rel} not found at {@ref}", true);
     }
 
-    /// <summary>The note a pull carries when a file the IDE side changed still holds network text v1 after the merge
-    /// — null when none does.
-    ///
-    /// <para>WHY THIS EXISTS. MATERIALIZATION 3 (network text v2) re-materializes every graphical body, so an edit the
-    /// engineer made to v1 text and never pushed meets the new text in the merge — and no Volt reads or pushes v1 any
-    /// more (the push refuses it, "re-pull", and by then a re-pull changes nothing). It meets it in one of two ways,
-    /// and both can leave v1 in the file: as a CONFLICT, where keeping our side (or hand-merging it) keeps v1 text;
-    /// or as a CLEAN merge, when the edit sat next to lines the re-materialization left alone and brought v1
-    /// constructs with it (a whole `NETWORK 3 LD`, a `LET`) — a hybrid body. A clean merge of an edit that brought no
-    /// v1 construct is ordinary v2 and gets no note. The one resolution that works is the IDE's version with the edit
-    /// redone on it, so the pull says that here, where the engineer can still act on it.</para>
-    ///
-    /// <para>WHAT IS LOOKED AT. A conflicted file has markers in the worktree, so its OURS side (the index's stage 2)
-    /// is judged — the text keeping our side would keep; a cleanly merged file is judged as merged. Either way the
-    /// engine's one v1 rule judges only the file's BODIES (<c>NetworkText.FileHoldsV1</c>): a v1 header's spelling
-    /// in a declaration's comment is no v1 text, and the conflict hunk need not hold the header at all — git merges a
-    /// header followed by `//` lines cleanly onto the IDE's bare `NETWORK`.</para>
-    ///
-    /// <para>WHICH FILES. Every file the IDE side changed, and every CONFLICTED file — a modify/delete conflict (our
-    /// v1 edit, the IDE deleted the item) is in the merge's paths and in no materialized file, and keeping our side
-    /// re-creates the POU with its v1 text. A file too malformed to split into declaration and bodies is NAMED as
-    /// unchecked rather than dropped: the push refuses it by name (InvalidSt), and once that is fixed it would refuse
-    /// any v1 in its bodies — when a re-pull no longer helps.</para></summary>
-    private static string? V1Note(string root, IEnumerable<MaterializedFile> ideFiles, IReadOnlyCollection<string> conflicted)
-    {
-        var inConflict = new List<string>();
-        var merged = new List<string>();
-        var unreadable = new List<string>();
-        foreach (var rel in ideFiles.Select(f => f.Path).Concat(conflicted).Distinct(StringComparer.Ordinal))
-        {
-            // Which files can hold network text is the engine's answer, asked by the file's name (== its wire name):
-            // the CLI keeps no kind table of its own. Skipped before reading, so no git show for a file without one.
-            var name = Path.GetFileName(rel);
-            if (!Volt.Engine.Format.Network.NetworkText.CanHold(name)) continue;
-
-            var isConflict = conflicted.Contains(rel);
-            string? text;
-            if (isConflict)
-            {
-                var ours = Git.GitShowBytes(root, ":2", $"{Files.SrcDir}/{rel}");
-                text = ours is null ? null : Encoding.UTF8.GetString(ours);   // null: deleted on our side — nothing kept
-            }
-            else
-            {
-                var p = Path.Combine(root, Files.SrcDir, rel);
-                text = File.Exists(p) ? File.ReadAllText(p) : null;
-            }
-            if (text is null) continue;
-
-            bool v1;
-            try { v1 = Volt.Engine.Format.Network.NetworkText.FileHoldsV1(name, text); }
-            catch (Volt.Engine.BridgeException) { unreadable.Add(rel); continue; }
-            if (v1) (isConflict ? inConflict : merged).Add(rel);
-        }
-
-        var parts = new List<string>();
-        if (inConflict.Count > 0)
-            parts.Add($"{inConflict.Count} conflicted file(s) hold network text v1 on your side, which this Volt neither " +
-                      "reads nor pushes: " + string.Join(", ", inConflict) + ". Take the IDE's side of each " +
-                      "(`volt merge --resolve <path> --use-theirs`, i.e. `git checkout --theirs`), redo the edit on its " +
-                      "network text v2, then `volt merge --continue`.");
-        if (merged.Count > 0)
-            parts.Add($"{merged.Count} file(s) git merged cleanly still hold network text v1 (an un-pushed v1 edit merged " +
-                      "into the IDE's network text v2), which this Volt neither reads nor pushes: " +
-                      string.Join(", ", merged) + ". Take the IDE's version of each (`git checkout volt/ide -- " +
-                      $"{Files.SrcDir}/<path>`), redo the edit on its network text v2, and commit.");
-        if (unreadable.Count > 0)
-            parts.Add($"{unreadable.Count} file(s) no longer split into declaration and bodies after the merge, so " +
-                      "whether they still hold network text v1 was not checked: " + string.Join(", ", unreadable) +
-                      ". The push refuses them as they are; if a body still holds v1 (a numbered `NETWORK <n>` header, " +
-                      "a `LET`), take the IDE's version now: once the push has refused it, a re-pull no longer helps.");
-        return parts.Count == 0 ? null : string.Join(" ", parts);
-    }
-
     /// <summary>Every body the fetch brought in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, by file and member, with
     /// what network text has no spelling for — or null when there is none.
     ///
@@ -1165,13 +1091,6 @@ public static class Commands
         return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, each for the " +
                "reason named below. Their declarations stay editable here and push as usual; the push never writes these " +
                "bodies. Edit them in the IDE:\n" + string.Join("\n", lines);
-    }
-
-    /// <summary>The notes a pull's message carries, in order, or null when there are none.</summary>
-    private static string? Notes(params string?[] notes)
-    {
-        var present = notes.Where(n => n is not null).ToList();
-        return present.Count == 0 ? null : string.Join(" ", present);
     }
 
     /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve.</summary>

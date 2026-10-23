@@ -33,7 +33,7 @@ public class FamilyContentTests
         return sb.ToString();
     }
 
-    /// <summary>A SIGNATURE accessor (no stated language, no code) is one fact the old record spells two ways — <c>""</c> from
+    /// <summary>A SIGNATURE accessor (no stated language, no code) is one fact the IEC record spells two ways — <c>""</c> from
     /// the IEC reader, <c>null</c> from a host's read, both "no body to write" (<c>Accessor.Code</c>) — and Content has
     /// one spelling for it, so it is described as one.</summary>
     private static string AccessorBody(Accessor a) =>

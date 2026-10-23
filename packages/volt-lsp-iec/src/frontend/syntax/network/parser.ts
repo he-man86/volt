@@ -27,7 +27,7 @@ import { EMPTY_SCOPE, ParseError, type NetworkScopeView } from "./cursor.js"
 import { decodeTitle, NetworkLexer, type Tok, isSym, isWord } from "./lexer.js"
 import { type NetworkFinding, validateNetwork } from "./validator.js"
 import { ValueReader } from "./values.js"
-import { IDENTIFIER, SPLIT_PREFIX, UNSUPPORTED_HASH, UNSUPPORTED_SHAPE, v1Refusal } from "./words.js"
+import { IDENTIFIER, SPLIT_PREFIX, UNSUPPORTED_HASH, UNSUPPORTED_SHAPE } from "./words.js"
 
 /**
  * What a caller passes that reads only the networks' extent and headers (folding, the outline, the corpus's structural
@@ -62,11 +62,6 @@ class Parser extends ValueReader {
       return result()
     }
     this.lx = new NetworkLexer(this.text, 0)
-    const v1 = this.v1Constructs()
-    if (v1.length > 0) {
-      for (const { at, what } of v1) this.report(this.err(at, "NETWORK_PARSE", v1Refusal(what)))
-      return result()
-    }
     this.toks = this.lx.tokenize()
     for (;;) {
       try {
@@ -100,28 +95,6 @@ class Parser extends ValueReader {
         ? `a graphical body opens with the line stating its language, ${opens}, on its first line.`
         : `the body states '${line.text}' — a network-text body opens with ${opens}.`
     this.report(new ParseError("NETWORK_PARSE", message, 0, 1))
-  }
-
-  /** The v1 constructs the bridge refuses before it parses (`NetworkText.V1Constructs`): `LET name :=`, and a number at a
-   *  field position of a NETWORK header's line. */
-  private v1Constructs(): { at: Tok; what: string }[] {
-    const found: { at: Tok; what: string }[] = []
-    const toks = new NetworkLexer(this.text, 0).tokenize().filter((t) => t.kind !== "comment" && t.kind !== "error")
-    let headerLine = -1
-    for (let i = 0; i < toks.length; i++) {
-      const t = toks[i]!
-      const prev = toks[i - 1]
-      const before = toks[i - 2]
-      const third = toks[i - 3]
-      if (isWord(t, "NETWORK") && t.atLineStart) headerLine = this.lx.lineOf(t.offset)
-      else if (t.kind === "number" && headerLine >= 0 && this.lx.lineOf(t.offset) === headerLine &&
-               !(prev !== undefined && (isSym(prev, ":") || isWord(prev, "LABEL") || isWord(prev, "TITLE"))))
-        found.push({ at: t, what: "`NETWORK <n> <LANG>` headers" })
-      else if (isSym(t, ":=") && prev?.kind === "word" && before !== undefined && isWord(before, "LET") &&
-               !(third !== undefined && isWord(third, "JMP")) && this.lx.lineOf(before.offset) !== headerLine)
-        found.push({ at: before, what: "`LET` statements" })
-    }
-    return found
   }
 
   /** After an error: skip to the end of the network it is in, so the next one is still read. */
