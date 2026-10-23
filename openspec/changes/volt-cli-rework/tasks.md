@@ -151,7 +151,9 @@ standing practice:
       fails the whole fetch, so it waits for the live dump); RECORDED — `BeckhoffDriver.BuildProjects` reports an
       unreadable `Solution.Saved` as `dirty: false` (`servedDirty ?? false`), a wire fact (a nullable `dirty`) for the
       protocol-2 release. C5 and the rest of T5 stay in 3.1 (need a live IDE).
-- [ ] 2.3 Hidden features: behaviour no doc or test states — owner decides document+test or delete.
+- [ ] 2.3 Hidden features: behaviour no doc or test states. Default (owner 2026-10-23, "continue till fully done"):
+      load-bearing behaviour is documented and pinned by a test; behaviour nothing reads is deleted; each one listed
+      in design.md with the choice made, so the owner can reverse it. Not a stop for the owner.
 - [ ] 2.4 Public-API lens (every project the wire reaches): each request the schema allows but our CLI never sends —
       what the bridge does with it; a wrong code, a lost write or an `INTERNAL_ERROR` for an IDE state is a bug (2.2).
 
