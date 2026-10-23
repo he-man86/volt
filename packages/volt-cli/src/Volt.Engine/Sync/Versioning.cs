@@ -27,11 +27,6 @@ public static class Versioning
     public static string PathOf(Seam.KindRegistry kinds, string kind, string walkedFolder, string bareName) =>
         Mint(kind, walkedFolder, bareName, Materializer.FullWireName(bareName, kind, kinds));
 
-    /// <summary><see cref="PathOf(Seam.KindRegistry, string, string, string)"/> by the CODESYS family's own kind table, for
-    /// an old-contract host naming one of its items (until volt-cli-rework step 6 gives each host its declaration).</summary>
-    public static string PathOf(string kind, string walkedFolder, string bareName) =>
-        Mint(kind, walkedFolder, bareName, Materializer.FullWireName(bareName, kind));
-
     private static string Mint(string kind, string walkedFolder, string bareName, string fullName) =>
         ItemPath.Of(FolderOf(kind, walkedFolder, bareName), fullName);
 
@@ -61,11 +56,6 @@ public static class Versioning
         CountUnclassifiable(Seam.HostWalk walk, System.Collections.Generic.IDictionary<string, string> versions,
                             Seam.KindRegistry kinds) =>
         CountUnclassifiable(walk.Unreadable, versions, (kind, folder, name) => PathOf(kinds, kind, folder, name));
-
-    /// <summary>The same count over an old-contract host's walk, its items named by the family's own kind table.</summary>
-    public static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
-        CountUnclassifiable(WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions) =>
-        CountUnclassifiable(walk.UnreadableObjects, versions, PathOf);
 
     private static (System.Collections.Generic.List<UnreadableItem> Items, System.Collections.Generic.List<UnreadableNode> Nodes)
         CountUnclassifiable(System.Collections.Generic.IReadOnlyList<UnreadableObject> unread,

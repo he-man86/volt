@@ -387,9 +387,7 @@ internal sealed partial class TcObjectModel
         _plcNode = null;
     }
 
-    private dynamic LookupTreeItemDynamic(string path) => _sysManager!.LookupTreeItem(path);
-
-    public object LookupTreeItem(string path) => LookupTreeItemDynamic(path);
+    public object LookupTreeItem(string path) => (object)_sysManager!.LookupTreeItem(path);
 
     /// <summary>A tree item of the system project <paramref name="manager"/> manages (one of <see cref="Systems"/>) — its
     /// I/O tree is its own, whichever PLC project is addressed.</summary>

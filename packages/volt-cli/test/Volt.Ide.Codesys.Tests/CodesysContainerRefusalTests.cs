@@ -82,6 +82,10 @@ namespace Volt.Ide.Codesys.Tests
 
         public sealed class Projects { public Projects(object primary) => this.primary = primary; public object primary { get; } }
 
+        /// <summary>The kinds this host declares, as the engine holds them.</summary>
+        private static readonly Volt.Engine.Seam.KindRegistry Kinds =
+            Volt.Engine.Seam.Catalog.Of(new CodesysDriver(projects: null).Declaration).Kinds;
+
         private static WalkResult Walk(TreeNode root)
         {
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
@@ -134,9 +138,9 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("excluded", inside.Reason);
             Assert.Equal("Sim/Deep", walk.UnreadableObjects.Single(o => o.Name == "DeepType").Folder);
             // A DUT deleted in the IDE beside the excluded folder is reported removed; the excluded one is not.
-            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), Kinds);
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Gone.dut", "Sim/SimType.dut" },
-                new HashSet<string> { "Kept.dut" }, unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
+                new HashSet<string> { "Kept.dut" }, unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications, Kinds);
             Assert.Equal(new[] { "Gone.dut" }, removed);
         }
 
@@ -167,7 +171,7 @@ namespace Volt.Ide.Codesys.Tests
                 new TreeNode("Lib", null, new object[] { linked }, Type("LibType")),
                 new TreeNode("Broken", new Dut("TYPE Broken : INT; END_TYPE"), null) { Faults = true });
 
-            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(Walk(root), new Dictionary<string, string>());
+            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(Walk(root).ToHostWalk(), new Dictionary<string, string>(), Kinds);
 
             Assert.Empty(items);
             Assert.Equal(new[] { "Lib", "Broken" }, nodes.Select(n => n.Name));
@@ -183,9 +187,9 @@ namespace Volt.Ide.Codesys.Tests
                 Type("Kept"));
 
             var walk = Walk(root);
-            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+            var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), Kinds);
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { "Sim/SimType.dut", "Kept.dut" },
-                new HashSet<string> { "Kept.dut" }, items.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
+                new HashSet<string> { "Kept.dut" }, items.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications, Kinds);
 
             Assert.Equal(new[] { "Sim" }, nodes.Select(n => n.Name));
             Assert.Empty(items);

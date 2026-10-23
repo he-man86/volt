@@ -43,18 +43,6 @@ internal static class Removal
         Removed(known, walked, unreadable, unwalkedFolders, applications, knownApplications,
                 path => kinds.FindByWireName(path)?.Role == Seam.KindRole.Source);
 
-    /// <summary>The same rule by the CODESYS family's own kind table, for an old-contract host's walk (until
-    /// volt-cli-rework step 6).</summary>
-    public static List<string> Removed(
-        IEnumerable<string> known,
-        ICollection<string> walked,
-        IEnumerable<string> unreadable,
-        IReadOnlyList<string> unwalkedFolders,
-        IReadOnlyList<string> applications,
-        IReadOnlyList<string>? knownApplications) =>
-        Removed(known, walked, unreadable, unwalkedFolders, applications, knownApplications,
-                path => ItemKind.KindForWireName(path) is { } kind && ItemKind.IsSourceKind(kind));
-
     private static List<string> Removed(
         IEnumerable<string> known,
         ICollection<string> walked,

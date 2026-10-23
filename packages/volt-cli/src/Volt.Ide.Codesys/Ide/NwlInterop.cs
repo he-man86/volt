@@ -67,7 +67,6 @@ namespace Volt.Ide.Codesys
 
         public static bool Flag(object? o, string member) => Get(o, member) is bool b && b;
 
-        public static int Int(object? o, string member) => Get(o, member) is int i ? i : 0;
 
         /// <summary>An int member that MUST be there — the scalar twin of <see cref="Require"/>.
         ///

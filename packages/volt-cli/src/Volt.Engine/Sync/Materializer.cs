@@ -73,10 +73,6 @@ public static class Materializer
     internal static string FullWireName(string bareName, string kind, KindRegistry kinds) =>
         WithExtension(bareName, kinds.ExtensionOf(kind));
 
-    /// <summary><see cref="FullWireName(string, string, KindRegistry)"/> by the CODESYS family's own kind table, for an
-    /// old-contract host naming one of its items (until volt-cli-rework step 6).</summary>
-    internal static string FullWireName(string bareName, string kind) => WithExtension(bareName, ItemKind.ExtFor(kind));
-
     private static string WithExtension(string bareName, string ext) =>
         IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
 

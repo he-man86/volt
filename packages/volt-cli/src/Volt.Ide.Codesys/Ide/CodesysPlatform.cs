@@ -50,8 +50,6 @@ namespace Volt.Ide.Codesys
             "the object manager (SystemInstances.ObjectMgr)",
             "3.5.18.30 (PLCAssist laptop, 2026-09-30), 3.5.21.40 (this repo)");
 
-        public static readonly IReadOnlyList<Capability> All = new[] { Core, Dispatcher, ObjectManager };
-
         /// <summary>The platform version, e.g. <c>3.5.21.40</c>; null when the core type is not loaded (then
         /// <see cref="Core"/> is missing and the refusal says the version could not be read).</summary>
         public static string? ReadVersion() =>

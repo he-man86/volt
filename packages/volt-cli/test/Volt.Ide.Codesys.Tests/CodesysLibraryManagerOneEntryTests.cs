@@ -77,7 +77,8 @@ namespace Volt.Ide.Codesys.Tests
             var walk = WalkUngated(Holding(strays: true, parameters: true));
             var versions = new Dictionary<string, string>();
 
-            var (items, nodes) = Versioning.CountUnclassifiable(walk, versions);
+            var (items, nodes) = Versioning.CountUnclassifiable(walk.ToHostWalk(), versions,
+                Volt.Engine.Seam.Catalog.Of(new CodesysDriver(projects: null).Declaration).Kinds);
 
             Assert.Empty(items);
             Assert.Equal(new[] { Manager }, nodes.Select(n => n.Name));

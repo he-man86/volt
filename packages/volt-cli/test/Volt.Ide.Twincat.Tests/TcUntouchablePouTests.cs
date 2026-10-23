@@ -321,7 +321,8 @@ public class TcUntouchablePouTests
     {
         var (driver, _, _, _) = Project(Census);
 
-        var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(driver.WalkItems().Gated(), new Dictionary<string, string>());
+        var (items, nodes) = Volt.Engine.Sync.Versioning.CountUnclassifiable(driver.WalkItems().Gated().ToHostWalk(), new Dictionary<string, string>(),
+            Volt.Engine.Seam.Catalog.Of(driver.Declaration).Kinds);
 
         Assert.Equal(new[] { App + "/VltCensus/VltX_UCFB.pou" }, items.Select(u => u.Name));
         Assert.Empty(nodes);

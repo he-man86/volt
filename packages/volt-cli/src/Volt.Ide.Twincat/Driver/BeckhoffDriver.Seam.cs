@@ -30,6 +30,10 @@ public sealed partial class BeckhoffDriver
 
     private VendorDeclaration? _declaration;
 
+    /// <summary>This host's own catalog: its declaration alone, as the engine holds it (<c>HostLink.Catalog</c>).</summary>
+    private Catalog Catalog => _catalog ??= Catalog.Of(Declaration);
+    private Catalog? _catalog;
+
     // ── tree ──
     public HostWalk Walk(WalkObserver? observer = null) => WalkItems(observer).ToHostWalk();
     public ItemRef Root => GetTreeRoot();

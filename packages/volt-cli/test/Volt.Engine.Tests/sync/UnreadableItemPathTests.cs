@@ -61,6 +61,10 @@ public class UnreadableItemPathTests
         Assert.Empty(fetch.Removed);
     }
 
+    /// <summary>The IEC format's kinds, as a host whose record is the IEC layout declares them.</summary>
+    private static readonly Volt.Engine.Seam.KindRegistry IecKinds =
+        Volt.Engine.Seam.Catalog.Of(new FakeIde().Declaration).Kinds;
+
     /// <summary>A refused library reference sits in the library's own folder (<c>Versioning.FolderOf</c>), as its
     /// <c>.library</c> does in <c>items</c> — not in the manager's.</summary>
     [Fact]
@@ -70,7 +74,7 @@ public class UnreadableItemPathTests
             new[] { new UnreadableObject("Standard", "Library Manager", "a placeholder no version resolves", ItemKind.Kinds.Library) },
             new List<string>());
 
-        var (items, nodes) = Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+        var (items, nodes) = Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), IecKinds);
 
         Assert.Equal(new[] { "Library Manager/Standard/Standard.library" }, items.Select(u => u.Name));
         Assert.Empty(nodes);
@@ -88,7 +92,7 @@ public class UnreadableItemPathTests
             },
             new List<string>());
 
-        var (items, nodes) = Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+        var (items, nodes) = Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), IecKinds);
 
         Assert.Empty(items);
         Assert.Equal(new[] { "Data/SER_OperationModeType", "Device/Plc Logic/Application/Library Manager" }, nodes.Select(u => u.Name));

@@ -15,29 +15,29 @@
 
 <h1>The driver layer</h1>
 <p class="lede">
-  <code>IIdeDriver</code> is the whole vendor seam: one interface, composed of three, and the only code in the
-  system that knows what a CODESYS or a TwinCAT is. <b>This is the layer to lift into another project</b> if
+  <code>IVendorDriver</code> (<code>Volt.Engine/Seam/</code>) is the whole vendor seam: one interface, composed of three,
+  and the only code in the system that knows what a CODESYS or a TwinCAT is. <b>This is the layer to lift into another project</b> if
   what you want is to drive a PLC IDE from your own program rather than to speak Volt's wire.
 </p>
 
 <h2 id="shape">What it is</h2>
 <div class="mermaid">
 classDiagram
-  class IIdeDriver {
+  class IVendorDriver {
     the one type a vendor implements
   }
-  class IIdeSession {
-    attach · liveness · threading · build
+  class IVendorSession {
+    declaration · attach · threading · probe · build
   }
-  class IProjectTree {
-    walk · create · delete · rename · move
+  class IVendorTree {
+    walk · classify · create · delete · rename · move
   }
-  class ICodeStore {
-    read content · write content · manifests
+  class IVendorStore {
+    read content · write content · manifests · pre-flight
   }
-  IIdeDriver --|> IIdeSession
-  IIdeDriver --|> IProjectTree
-  IIdeDriver --|> ICodeStore
+  IVendorDriver --|> IVendorSession
+  IVendorDriver --|> IVendorTree
+  IVendorDriver --|> IVendorStore
 </div>
 <p>
   The three facets stay separate because they answer different questions and fail differently. A tree walk can
@@ -47,8 +47,8 @@ classDiagram
 
 <h2 id="rule">The one rule that makes it reusable</h2>
 <div class="note">
-  <b><code>ICodeStore</code> speaks <code>ItemContent</code>, and nothing above the seam knows a vendor's own
-  representation.</b> A graphical body crosses as <a href="network-text.html">network text</a>; the driver
+  <b><code>IVendorStore</code> speaks <code>Content</code> (kinds, languages and property keys the host declares), and
+  nothing above the seam knows a vendor's own representation.</b> A graphical body crosses as <a href="network-text.html">network text</a>; the driver
   converts. Get that boundary right and everything above it is vendor-blind for free.
 </div>
 <p>
@@ -108,8 +108,8 @@ string? BodyLanguage(ItemRef item);</pre>
   <tr><td class="name">Member.Getter / Setter</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>An <code>Accessor</code> with an empty body: it exists and has no code (the interface case).</td></tr>
 </table>
 <p>
-  And one place where a default would cost data: <b>the class at the create</b>. <code>IProjectTree.CreateChild</code>
-  takes the <code>ObjectClass</code> as a required argument (null is the kind's plain class) — a CODESYS object's class
+  And one place where a default would cost data: <b>the class at the create</b>. <code>IVendorTree.CreateChild</code>
+  takes the class the text names (<code>CreateArgs.Class</code>; null is the kind's plain class) — a CODESYS object's class
   never changes in place (DIALECT C2l), so a driver that cannot make the named class refuses the create by name
   (<code>ChildRefusedException</code>) rather than making the plain one. <code>ValidateProperties</code> is the
   pre-flight half: a property set this driver has no measured write for is refused before the first op lands.
@@ -118,13 +118,14 @@ string? BodyLanguage(ItemRef item);</pre>
 <h2 id="threading">Threading, and why it is on the interface</h2>
 <p>
   Both IDE automation surfaces are single-threaded-apartment. Every IDE-touching operation is marshalled
-  through <code>RunOnStaThread&lt;T&gt;</code>, and that is load-bearing rather than defensive: touching the
+  through the host's <code>MarshalToIdeThread&lt;T&gt;</code>, bracketed by the session's <code>RunOnStaThread&lt;T&gt;</code>, and that is load-bearing rather than defensive: touching the
   object model off the IDE's own thread is how you get a hang that looks like a network problem.
 </p>
 <p>
-  <code>DriverBase</code> implements the parts that are identical across vendors — the degraded-state machine,
-  the liveness bracketing around the marshal, the single-flight health probe, and the composition of the whole
-  health response. A vendor supplies only the row snapshot. That last part is deliberate: <code>health</code>'s
+  The engine's session (<code>Sync/ComposedSession</code>) implements the parts that are identical across vendors —
+  the degraded-state machine, the liveness bracketing around the marshal, the single-flight health probe, and the
+  composition of the whole health response. A host supplies only primitives: its marshal, its probe
+  (<code>ProbeProjects</code>: the rows, whether its binding is live, whether its IDE answered) and its probe floor. That last part is deliberate: <code>health</code>'s
   wire shape used to be composed once per vendor, which is exactly how two vendors come to answer differently.
 </p>
 <p>
@@ -137,7 +138,7 @@ string? BodyLanguage(ItemRef item);</pre>
 
 <h2 id="preflight">The pre-flight</h2>
 <p>
-  <code>ValidateSource</code> throws exactly what <code>WriteContent</code> would throw, for the reasons this
+  <code>ValidateSource</code> throws exactly what <code>Write</code> would throw, for the reasons this
   driver can decide <b>without touching the IDE</b>. The push calls it for every op before it applies the
   first one.
 </p>
@@ -149,7 +150,7 @@ string? BodyLanguage(ItemRef item);</pre>
   and told the caller it had failed.
 </p>
 <p>
-  <code>DriverBase</code> refuses nothing by default, which is the honest answer for a driver whose refusals
+  <code>VendorDriverBase</code> refuses nothing by default, which is the honest answer for a driver whose refusals
   genuinely need the live objects. A pre-flight that guesses is worse than one that declines to.
 </p>
 
@@ -180,13 +181,13 @@ string? BodyLanguage(ItemRef item);</pre>
 
 <h2 id="lifting">Lifting this into another project</h2>
 <ol>
-  <li><b>Take <code>Volt.Engine/Ide/</code> and <code>Volt.Engine/Item/</code>.</b> The contract, the
-    vocabulary, <code>DriverBase</code>, and the shared navigation helpers (<code>TreeNav</code>,
-    <code>ItemLookup</code>, <code>SourceScopes</code>). No wire, no sync.</li>
+  <li><b>Take <code>Volt.Engine/Seam/</code>, <code>Volt.Engine/Ide/</code> and <code>Volt.Engine/Item/</code>.</b> The
+    contract and its registries, the vocabulary, and the shared helpers (<code>ItemLookup</code>,
+    <code>SourceScopes</code>). No wire, no sync.</li>
   <li><b>Take one driver</b> — <code>Volt.Ide.Codesys</code> or <code>Volt.Ide.Twincat</code> — as the worked
     example of what a vendor implementation costs.</li>
   <li><b>Decide whether you want <code>Format/</code>.</b> If your project wants bodies as text, yes: that is
-    the ST layer and network text. If it only wants structure, <code>IProjectTree</code> alone is coherent.</li>
+    the ST layer and network text. If it only wants structure, <code>IVendorTree</code> alone is coherent.</li>
   <li><b>Leave <code>Sync/</code> and <code>Volt.Wire</code> behind</b> unless you want Volt's versioning and
     push semantics too. They sit above the seam and assume a git-shaped client.</li>
 </ol>

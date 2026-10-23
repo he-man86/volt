@@ -90,10 +90,11 @@ namespace Volt.Ide.Codesys.Tests
             // Its path: its own folder under the manager, as every library's (LibraryLayout).
             var file = ItemPath.Of(Volt.Engine.Library.LibraryLayout.FolderFor(Manager, NichePlaceholder),
                                    NichePlaceholder + "." + ItemKind.Kinds.Library);
-            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk, new Dictionary<string, string>());
+            var kinds = Volt.Engine.Seam.Catalog.Of(new CodesysDriver(projects: null).Declaration).Kinds;
+            var (unreadable, _) = Volt.Engine.Sync.Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), kinds);
             Assert.Equal(new[] { file }, unreadable.Select(u => u.Name));
             var removed = Volt.Engine.Sync.Removal.Removed(new[] { file },
-                new HashSet<string>(), unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications);
+                new HashSet<string>(), unreadable.Select(u => u.Name), walk.UnwalkedFolders, walk.Applications, walk.Applications, kinds);
             Assert.Empty(removed);
         }
 
