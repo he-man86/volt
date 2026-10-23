@@ -8,6 +8,13 @@ using Xunit;
 
 namespace Volt.Ide.Codesys.Tests;
 
+/// <summary>The tests that capture the process-wide <c>Console.Error</c> (a bridge warning), run alone.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class StdErrCollection
+{
+    public const string Name = "captures stderr";
+}
+
 /// <summary>
 /// openspec <c>ld-fbd-coverage</c> 2.2, design "The interim loss window, made visible", on CODESYS: a push that REBUILDS
 /// a changed network (every changed network is torn down and built again from its text) names, in one bridge warning,
@@ -15,8 +22,11 @@ namespace Volt.Ide.Codesys.Tests;
 /// <c>Address</c> archive sentinel — and how many of its stored values each lost; judged against what the rebuild BUILT
 /// (gate 2-2), so a negated contact's <c>Fixed</c>, which the vendor sets with the negation (vendor-facts
 /// <c>nwl-flags-fixed</c>), is no loss. A network whose text did not change is kept and says nothing. Through
-/// <c>CodesysNetworkWriter.Write</c>, the production entry.
+/// <c>CodesysNetworkWriter.Write</c>, the production entry. Alone in its collection: it captures the process-wide
+/// <c>Console.Error</c>, and run beside another test that rebuilds a network it read that test's "is rebuilt from its
+/// text" too (as <c>TcRebuildLossTests</c> found on TwinCAT).
 /// </summary>
+[Collection(StdErrCollection.Name)]
 public class CodesysRebuildLossTests
 {
     sealed class Holder
