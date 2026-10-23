@@ -163,9 +163,12 @@ standing practice:
 
 ## 4. Close
 
-- [ ] 4.0b QUALITY RATING after: the 1.0a criteria re-scored with evidence, before → potential (1.2) → after.
-- [ ] 4.0 LOC after: the 1.0 measurement again, before → after per project (code / comment / blank).
-- [ ] 4.0a `ARCHITECTURE.md` gains "Adding a vendor": exactly what a host implements (the `Ide/` contract), and the
+- [x] 4.0b QUALITY RATING after: the 1.0a criteria re-scored with evidence, before → potential (1.2) → after.
+      Done 2026-10-23 offline: `input/rating-after.md` (Engine 5 → ~8 → 6.5, Codesys 6.5 → ~8 → 6.5, Twincat 5.5 → ~7.5 → 6,
+      Contracts + Wire 6 → ~8 → 6; what keeps "after" below "potential" is listed there).
+- [x] 4.0 LOC after: the 1.0 measurement again, before → after per project (code / comment / blank).
+      Done 2026-10-23: `input/rating-after.md` (baseline, pre-rework `3fab0d5266` and after; the rework added 846 Engine code lines).
+- [x] 4.0a `ARCHITECTURE.md` gains "Adding a vendor": exactly what a host implements (the `Ide/` contract), and the
       registration points above the wire a vendor still needs — the connector's launch, the installer payload, the LSP
       dialect — which are the front-of-wire phase's work, not this change's.
 - [ ] 4.1 ARCHITECTURE.md / DIALECT.md / READMEs match the code; final placement review; archive.

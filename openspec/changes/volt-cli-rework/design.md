@@ -513,3 +513,18 @@ and the vendor enum from the vendor table are deferred to a protocol-2 release c
   the READMEs where they name deleted types, and CLAUDE.md's volt-cli paragraph (`ICodeStore` → the contract's store).
 - 8.2 History comments in `src/` narrating removed designs: comments only, no code change.
 - Then 4.0 / 4.0b offline: LOC after and the quality re-rating against 1.0a, into `input/`. The change is not archived.
+
+### Step 8 as built (2026-10-23)
+
+- 8.1 `c89cfc4868`: `ARCHITECTURE.md` describes the request flow over a `HostLink`, the layer table with `Seam/` as the
+  contract and `Ide/` as what the hosts share below it, and "Adding a vendor" (declare, implement, serve; what the host
+  never does; the registrations above the wire). `driver.html`'s vocabulary is the contract's (`NodeClass`, `WalkedItem`,
+  `HostWalk`, `Content`, `BodyText`, `ContentMember`, `PropertySet`, `PushedBody`); its TwinCAT rows say what the host
+  does today (live build properties, library signatures through `TcLibrarySignatures`). `wire.html`'s `deleteItem` row
+  states the one `ifVersion` rule with `ITEM_UNVERIFIED`. `items.html`, `DIALECT.md`, the e2e README and CLAUDE.md
+  name the contract's types. Regenerating `data.js` and the OpenRPC document changed nothing.
+- 8.2 `08167c8bfc`: the comments that narrated steps 4–7 ("the new contract", "the old record", "until step 6") describe
+  the code as it is. Not touched: one refusal message in `FamilyContent` says "reached the new contract" — a string, not
+  a comment.
+- 4.0, 4.0a, 4.0b: `input/rating-after.md`. The history-comment proxy is unchanged (83 Engine lines): the systematic
+  sweep is 2.x work, not step 8's.
