@@ -155,17 +155,19 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
       (moving there is a delete and a create).</td>
   </tr>
   <tr><td class="name">deleteItem</td><td>Remove the item. With an <code>ifVersion</code> it is guarded like an
-    update: the item must be there at that version (<code>STALE_ITEM_VERSION</code>, <code>ITEM_MISSING</code>). With
-    none, a path that names nothing is already the goal: accepted, nothing written.</td></tr>
+    update: the item must be there at that version (<code>STALE_ITEM_VERSION</code>, <code>ITEM_MISSING</code>, or
+    <code>ITEM_UNVERIFIED</code> when the pre-apply walk skipped its folder). One rule for every op: a quoted version must
+    hold, or the push is refused. With none, a path that names nothing is already the goal: accepted, nothing
+    written.</td></tr>
 </table>
 <div class="note">
   <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a
   <code>set</code>'s <code>to</code>, an addressed path (<a href="#identity">identity</a>). A second op on the same path
   (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a path another op
   sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
-  <code>set</code>; a delete and a create of the same path are two pushes, and so is freeing a path and moving onto it. That batch used to replace the object —
-  and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network settings)
-  — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
+  <code>set</code>; a delete and a create of the same path are two pushes, and so is freeing a path and moving onto it. Applied as one batch, it would replace
+  the object — and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network
+  settings) — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
   (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
   is a re-type in one push, and is refused the same way.
 </div>

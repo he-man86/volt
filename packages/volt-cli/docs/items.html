@@ -138,9 +138,10 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
   object that is not its text is <b>spelled</b>, a <b>measured editor cache</b>, or <b>refused by name</b> — nothing
   folded, guessed or defaulted. The members a declaration and a body cannot hold — the object's class where the text
   cannot tell it, its build properties, its comment, its network-variable settings, its file link — travel as
-  <code>%</code>-lines, the directive form <code>%FOLDER</code> already was. Each is a field of one closed, typed record,
-  <code>ObjectProperties</code>, required on <code>ItemContent</code> and on every <code>Member</code>, so a driver that
-  has not read an object's properties cannot build its content. The examples below are the writer's own output.
+  <code>%</code>-lines, the same directive form as <code>%FOLDER</code>. Each key is one a host declares (its
+  <code>PropertyKey</code>s); the set is closed per process, and an object's keys are its <code>PropertySet</code>,
+  required on every <code>Content</code> and every member, so a driver that has not read an object's properties cannot
+  build its content. The examples below are the writer's own output.
 </p>
 <div data-render="object-properties"></div>
 <ul>

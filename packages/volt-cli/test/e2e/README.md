@@ -346,7 +346,7 @@ round-trips BYTE-IDENTICAL, and a refused push writes NOTHING.
 
 That second one was false when the suite was written - the output-pin case pushed two items, wrote the first
 and refused the second - and it is what made the fix findable. TwinCAT's refusals come from its native builder,
-which is a pure function of the parsed body, so `ICodeStore.ValidateSource` runs it in
+which is a pure function of the parsed body, so `IVendorStore.ValidateSource` runs it in
 `PushService`'s pre-flight and the whole family is refused before the first write. On a CREATE only: an update
 rewrites just the networks that CHANGED, so a body may legitimately carry a shape the whole-body writer refuses
 in a network the edit does not touch.

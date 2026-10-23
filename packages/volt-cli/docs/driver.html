@@ -52,45 +52,32 @@ classDiagram
   converts. Get that boundary right and everything above it is vendor-blind for free.
 </div>
 <p>
-  This is not a style preference — it is the correction of a real design failure. The interface used to demand
-  a PLCopen document:
-</p>
-<pre>string  ReadXml(ItemRef item);              // "export this POU as PLCopen XML"
-void    WriteXml(ItemRef item, string xml);
-string? BodyLanguage(ItemRef item);</pre>
-<p>which made a vendor's <i>file format</i> part of the vendor-neutral contract. Three consequences, all real:</p>
-<ul>
-  <li>An IDE with no PLCopen export <b>could not implement the contract at all</b>. TIA Portal is the concrete
-    case: Openness has its own representation and no PLCopen, so a Siemens driver was impossible for a reason
-    that had nothing to do with Siemens.</li>
-  <li>TwinCAT could not adopt its own better transport, because the engine would not accept it — so PLCopen's
-    failures on TwinCAT became Volt's failures.</li>
-  <li>CODESYS could not hand over the typed objects it actually has, and had to serialize a document instead.</li>
-</ul>
-<p>
-  <code>BodyLanguage</code> is gone for the same reason: the language now arrives <i>inside</i> the content. A
-  second round-trip to ask "what language is this" was the transport leaking upward.
+  A vendor's <i>file format</i> is not part of the contract: an IDE with no PLCopen export (TIA Portal's Openness has
+  its own representation) implements it as readily as CODESYS, which hands over its typed objects, or TwinCAT, which
+  edits its own archive. A body's language arrives <i>inside</i> the content, never as a second question to the IDE.
 </p>
 
 <h2 id="vocabulary">The vocabulary</h2>
-<p>Six types cross the seam. They are Volt's own, and a driver converts its vendor's forms into them.</p>
+<p>These types cross the seam (<code>Volt.Engine.Seam</code>). They are Volt's own, and a driver converts its vendor's forms into them.</p>
 <table>
   <tr><th>type</th><th>is</th></tr>
   <tr><td class="name">ItemRef</td><td>An opaque handle to one node in the IDE's tree — a <code>readonly struct</code> wrapping the vendor's native object. The engine never unwraps it.</td></tr>
-  <tr><td class="name">ProjectItem</td><td>What a walk found: <code>(Name, Item, KindCode, Folder)</code>. <code>Name</code> is the bare name, the IDE's lookup key inside <code>Folder</code>, its path from the tree root. The wire identity is the path <code>Folder/Name.kind</code>, derived in one place (<code>VersionedItem.Identity</code>).</td></tr>
-  <tr><td class="name">WalkResult</td><td><code>Items</code> plus <code>UnwalkedFolders</code> — and <code>Complete</code> — and <code>Applications</code>, the root folder of every application the walk passed (CODESYS: each <code>IApplicationObject</code>; TwinCAT: each PLC project). See below; this is the most easily-missed part of the contract.</td></tr>
-  <tr><td class="name">ItemContent</td><td><code>(Kind, Declaration, Body, Members, Properties)</code>. One record for both directions — a read builds it, the ST writer renders it, the ST reader parses it back, a push applies it.</td></tr>
-  <tr><td class="name">Member</td><td>A method, action or property, with its own declaration, body and <code>Properties</code>, and a property's <code>Getter</code>/<code>Setter</code>.</td></tr>
-  <tr><td class="name">ObjectProperties</td><td>Every member of the vendor object that is neither its text nor a measured editor cache — its class where the text cannot tell it, its build properties, its comment, its network-variable settings, its file link (<a href="items.html#properties">the <code>%</code>-lines</a>). Closed and typed: a vendor member no field names refuses the item by name. <b>Required</b> on <code>ItemContent</code> and <code>Member</code>, with no default, so a driver that has not read an object's properties cannot build its content; <code>ObjectProperties.None</code> is for a kind with no vendor carrier at all (a task, a library reference, a device), never for an object the driver did not read.</td></tr>
+  <tr><td class="name">NodeClass</td><td>What a node IS to the engine (<code>Classify</code>): a folder, a container (a device, an application, a PLC project; <code>Takes</code> names the kinds a dedicated container holds), an item or a member of a declared kind, or a node the walk passes by.</td></tr>
+  <tr><td class="name">WalkedItem</td><td>What a walk found: <code>(Name, Item, Kind, Folder)</code>. <code>Name</code> is the bare name, the IDE's lookup key inside <code>Folder</code>, its path from the tree root; <code>Kind</code> is a kind the host declared. The wire identity is the path <code>Folder/Name.extension</code>, derived in one place (<code>VersionedItem.Identity</code>).</td></tr>
+  <tr><td class="name">HostWalk</td><td><code>Items</code> plus <code>UnwalkedFolders</code>, <code>Unreadable</code> and <code>Applications</code>, the root folder of every application the walk passed (CODESYS: each <code>IApplicationObject</code>; TwinCAT: each PLC project). See below; this is the most easily-missed part of the contract.</td></tr>
+  <tr><td class="name">Content</td><td><code>(Kind, Declaration, Body, Members, Properties)</code>. One record for both directions — a host's <code>Read</code> builds it, the kind's <code>IItemFormat</code> renders it and parses it back, a host's <code>Write</code> applies it.</td></tr>
+  <tr><td class="name">BodyText</td><td>A body as a fact: <code>(Language, Code, Form, Why)</code>. <code>Form</code> is <code>Shown</code> (<code>IMPLEMENTATION &lt;LANG&gt;</code>), <code>Hidden</code> (<code>… UNSUPPORTED</code>, no code, <code>Why</code> says why) or <code>Abstract</code> (<code>IMPLEMENTATION NONE</code>). The code never encodes its language.</td></tr>
+  <tr><td class="name">ContentMember</td><td>A method, action or property, with its own declaration, body and <code>Properties</code>, its <code>Folder</code> inside the item, and a property's <code>Get</code>/<code>Set</code> (<code>ContentAccessor</code>).</td></tr>
+  <tr><td class="name">PropertySet</td><td>Every member of the vendor object that is neither its text nor a measured editor cache — its class where the text cannot tell it, its build properties, its comment, its network-variable settings, its file link (<a href="items.html#properties">the <code>%</code>-lines</a>), as the keys the host declared. Closed: a key no host declared is refused by name. <b>Required</b> on <code>Content</code> and <code>ContentMember</code>, so a driver that has not read an object's properties cannot build its content; <code>PropertySet.Empty</code> is for a kind with no vendor carrier at all, never for an object the driver did not read.</td></tr>
+  <tr><td class="name">PushedBody</td><td>A pushed body, read once by its language's <code>IBodyReader</code>: <code>(Site, Language, Model)</code>, handed to <code>ValidateSource</code> and <code>Write</code> so a host never re-parses the text.</td></tr>
 </table>
 
-<h3 id="walkresult">Why <code>WalkResult</code> carries completeness</h3>
+<h3 id="walkresult">Why <code>HostWalk</code> carries completeness</h3>
 <p>
   Both drivers skip a subtree they cannot enumerate rather than aborting the whole walk, which is right — a
-  transient COM fault on one folder should not fail a pull. What was missing is that they never told the
-  <i>caller</i>. <code>WalkItems()</code> returned a plain list, and the sync layer derives deletions as "known
-  to the client, absent from this walk" — so one faulting folder reported every item beneath it as deleted, and
-  the pull removed the engineer's files for POUs that were still sitting in the IDE.
+  transient COM fault on one folder should not fail a pull. The sync layer derives deletions as "known to the
+  client, absent from this walk", so a walk that does not say what it skipped reports every item beneath a faulting
+  folder as deleted, and the pull removes the engineer's files for POUs still sitting in the IDE.
 </p>
 <p>
   <b>If you implement this interface, populate <code>UnwalkedFolders</code>.</b> An entry means "there may be
@@ -99,13 +86,12 @@ string? BodyLanguage(ItemRef item);</pre>
 
 <h3 id="presence">Presence is the object</h3>
 <p>
-  Two places where <code>null</code> and empty mean different things, each of which cost data before it was
-  spelled out:
+  Two places where <code>null</code> and empty mean different things:
 </p>
 <table>
   <tr><th>value</th><th>null means</th><th>empty means</th></tr>
-  <tr><td class="name">ItemContent.Body</td><td>The item <b>has</b> no body; write nothing.</td><td>Clear the body. TwinCAT skipped empty implementations once, so emptying a body silently kept the old code.</td></tr>
-  <tr><td class="name">Member.Getter / Setter</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>An <code>Accessor</code> with an empty body: it exists and has no code (the interface case).</td></tr>
+  <tr><td class="name">Content.Body</td><td>The item <b>has</b> no body; write nothing.</td><td>A shown body with no code: clear the body, never keep the old code.</td></tr>
+  <tr><td class="name">ContentMember.Get / Set</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>A <code>ContentAccessor</code> with no body: it exists and has no code (the interface case).</td></tr>
 </table>
 <p>
   And one place where a default would cost data: <b>the class at the create</b>. <code>IVendorTree.CreateChild</code>
@@ -125,15 +111,15 @@ string? BodyLanguage(ItemRef item);</pre>
   The engine's session (<code>Sync/ComposedSession</code>) implements the parts that are identical across vendors —
   the degraded-state machine, the liveness bracketing around the marshal, the single-flight health probe, and the
   composition of the whole health response. A host supplies only primitives: its marshal, its probe
-  (<code>ProbeProjects</code>: the rows, whether its binding is live, whether its IDE answered) and its probe floor. That last part is deliberate: <code>health</code>'s
-  wire shape used to be composed once per vendor, which is exactly how two vendors come to answer differently.
+  (<code>ProbeProjects</code>: the rows, whether its binding is live, whether its IDE answered) and its probe floor. No host
+  composes <code>health</code>'s wire shape, so two vendors cannot answer it differently.
 </p>
 <p>
   <code>HandlesSurviveStructureChange</code> is the other threading-adjacent fact worth knowing before you
   write a driver. On CODESYS a handle survives adding a child; on TwinCAT it does not, because a member is not
   a separate file there and placing one is a round trip through the enclosing POU's archive, which
-  <i>replaces</i> the item. The reconciler used to assume the worse case for both — 19 full project walks for a
-  POU with 20 members, on a vendor that never needed one.
+  <i>replaces</i> the item. The push re-finds the item after each member it adds only where the host says handles do
+  not survive.
 </p>
 
 <h2 id="preflight">The pre-flight</h2>
@@ -145,9 +131,9 @@ string? BodyLanguage(ItemRef item);</pre>
 <p>
   The engine's own pre-flight already covers everything decidable from the source text — a malformed document,
   network text that does not parse or is incomplete — and that is vendor-neutral by construction. What it
-  cannot cover is a shape one <i>vendor</i> cannot express. Being pure is the whole point: this was once called
-  from inside the write, so a push whose second item carried such a shape left the first item in the project
-  and told the caller it had failed.
+  cannot cover is a shape one <i>vendor</i> cannot express. Being pure is the whole point: called from inside the
+  write, a push whose second item carried such a shape would leave the first item in the project and tell the caller
+  it had failed.
 </p>
 <p>
   <code>VendorDriverBase</code> refuses nothing by default, which is the honest answer for a driver whose refusals
@@ -167,9 +153,9 @@ string? BodyLanguage(ItemRef item);</pre>
   <tr><td>process</td><td><b>In-process</b> — loaded into the IDE (net48), its own message loop answers the pipe.</td><td><b>Out-of-process</b> — a worker attached to one XAE window by pid, over COM.</td></tr>
   <tr><td>content</td><td>Mutates the live language-model objects.</td><td>Rewrites the item's own archive, and only the networks that changed.</td></tr>
   <tr><td>create door</td><td>The scripting API, per kind; a class the text names (a check function, a text-list enum, an abstract method) through the vendor's own factory or class (DIALECT C2r).</td><td><code>CreateChild</code> with the tree code; a new graphical body is built natively as TwinCAT's own NWL archive (<code>TcArchiveBuilder</code>, DIALECT N42) and stored through <code>ImplementationText</code>. No special class (C2s).</td></tr>
-  <tr><td>object properties</td><td>Read off the object's meta properties (<code>BuildProperty</code>, <code>DocumentationProperty</code>, <code>FileLink</code>) and its class; every key written.</td><td>Read from the saved files (<code>.plcproj</code> build entries, <code>&lt;ObjectProperties&gt;</code>); nothing measured to spell, so any key is refused by name.</td></tr>
+  <tr><td>object properties</td><td>Read off the object's meta properties (<code>BuildProperty</code>, <code>DocumentationProperty</code>, <code>FileLink</code>) and its class; every key written.</td><td>The live build properties (<code>%EXCLUDE_FROM_BUILD</code>, <code>%LINK_ALWAYS</code>, <code>%EXTERNAL</code>, <code>%COMPILER_DEFINES</code>), written where the pushed value differs; an object whose saved files hold anything else (a special function, an <code>&lt;ObjectProperties&gt;</code> archive, another <code>.plcproj</code> entry) is refused by name.</td></tr>
   <tr><td>move</td><td><code>ScriptObject.Move</code>.</td><td><code>ExportChild</code>/<code>ImportChild</code>: the archive is a zip whose entry name carries the source path, so flattening that name is a move.</td></tr>
-  <tr><td>library signatures</td><td>Reflects the resolved compile context.</td><td>None yet — the surface exists (<code>ProduceAllLibrarySignatures</code>, DIALECT C2c); Volt does not read it.</td></tr>
+  <tr><td>library signatures</td><td>Reflects the resolved compile context.</td><td>The library manager's <code>ProduceAllLibrarySignatures</code>, out of process (<code>TcLibrarySignatures</code>, DIALECT C2c).</td></tr>
   <tr><td>writable descriptors</td><td><code>.task</code>, every field a live setter.</td><td><code>.task</code>, assembled from two tree items and <b>read back after every write</b>, because this vendor accepts a schedule it does not apply.</td></tr>
 </table>
 <p>

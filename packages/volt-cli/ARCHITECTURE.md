@@ -67,39 +67,36 @@ net10 standalone TwinCAT exe unchanged.
 ## How a request flows
 
 Every op is the same shape — `Volt.Engine.Host/BridgePipeHost` receives one request per connection, `Sync/*`
-services do the work over the `Ide/IIdeDriver` contract, `Item`/`Format` turn IDE items into
-canonical text:
+services do the work over one `HostLink` (the host, its catalog, its composed session), and the host's declared
+formats turn its items into canonical text:
 
 ```
 volt CLI ──pipe──▶ BridgePipeHost (Volt.Engine.Host)
                      │  reads one {op,body} frame; single error boundary (throws → error frame)
                      ▼
-                   RunOp ── marshals onto the IDE's required thread; threads an onP() progress callback
+                   RunOp ── marshals onto the IDE's required thread (ComposedSession); threads an onP() progress callback
                      ▼
-                   Fetch / Push / Build / Refs  (Sync/)      ── the op logic
+                   Refs / Fetch / Push / Build / Grep  (Sync/)   ── the op logic, over a HostLink
                      │
-     Model/ (one content model) + Text/ (canonical ST) ── item ⇄ canonical workspace text
-        + Document/ (the POU document, codecs keyed by language) + Graph/ (FBD/LD)
+     Catalog (the host's declaration) ── kind → IItemFormat (file layout), language → IBodyReader (body)
                      │
-                   IIdeDriver  (Ide/ contract)               ── the ONE seam a vendor implements
+                   IVendorDriver  (Seam/ contract)               ── the ONE seam a vendor implements
                      ▼
         CodesysDriver / BeckhoffDriver  →  live IDE
 ```
 
-Ops: `health`, `refs`, `fetch`, `push`, `build`, `init`, plus `connect`/`disconnect`. Each connection
-carries one request and its streamed frames. There is **no** events/SSE and no wait-change — change-detection is
-client-polled. (`connect`/`disconnect` are the bridge `select`/`deselect` wire verbs the connector's reconciler drives
-to bind/unbind a project — nothing to do with the removed HTTP connect/disconnect; the control plane is session-only.)
+Ops (`Volt.Contracts/Vocabulary/Ops`): `health`, `refs`, `fetch`, `push`, `build`, `grep`, plus
+`connect`/`disconnect`. Each connection carries one request and its streamed frames. There is **no** events/SSE and no
+wait-change — change-detection is client-polled. `connect`/`disconnect` bind and unbind a project; the connector's
+reconciler drives them.
 
 **`health` is the ONE ambient poll — and it must never marshal onto the IDE thread.** The IDE has exactly ONE work
 thread (CODESYS's primary thread; TwinCAT's STA) and it is genuinely single-threaded — a `fetch`/`push`/`build`
 holds it for the op's whole duration. `health` is what the connector polls every ~4s (plus every control-plane
-`/status`). It is served from a **cached snapshot** refreshed off the request path by the driver's single-flight
-background probe (`TriggerAsyncProbe` → on-thread `SnapshotHealth`). Connections are served concurrently
-(`PipeServer`), so `health` returns immediately even while a long op holds the IDE thread. This once was a *separate*
-`instances` op that **marshalled** onto the IDE thread — so during a long op it queued behind it, the connector's
-refresh stalled, and a busy IDE read as a **lost connection**. Folding discovery into the cache-served `health` fixed
-that by construction. Guarded by `PipeTransportTests.Health_poll_answers_from_cache_while_the_one_IDE_thread_is_busy_with_a_long_op`.
+`/status`). It is served from a **cached snapshot** refreshed off the request path by the session's single-flight
+background probe (`ComposedSession.TriggerAsyncProbe` → on-thread `IVendorSession.ProbeProjects`). Connections are
+served concurrently (`PipeServer`), so `health` returns immediately even while a long op holds the IDE thread: a
+`health` that marshalled would queue behind the op, and a busy IDE would read as a **lost connection**. Guarded by `PipeTransportTests.Health_poll_answers_from_cache_while_the_one_IDE_thread_is_busy_with_a_long_op`.
 
 > **`health` is a FLAT array of self-describing project rows and nothing else** — no nesting, no root fields
 > (`HealthResponse.Projects: ProjectEntry[]`). Each row = one connectable project (a leaf; CODESYS/TwinCAT projects
@@ -116,32 +113,57 @@ that by construction. Guarded by `PipeTransportTests.Health_poll_answers_from_ca
 ## Core — the shared engine (`src/Volt.Engine`)
 
 A strict layer stack; each layer depends only on the ones below it in the dependency order. **Folders are named
-for their SUBJECT, and a body language's implementation lives under the body** — not for the dependency level a
-file happens to sit at, which is what `Vocabulary/` and `Model/` used to mean and why `GraphModel` ended up filed
-away from the only code that uses it.
+for their SUBJECT, and a body language's implementation lives under the body.**
 
 | Folder | Does | Key types |
 |---|---|---|
-| **`Ide/`** | **The contract a vendor bridge implements — and only this.** `IIdeDriver` = `IIdeSession` (attach/health/build) + `IProjectTree` (walk + CRUD + `Move`) + `ICodeStore` (content in and out as `ItemContent`, manifests, task settings, and the driver's pre-flight refusals). `DriverBase` owns the shared degraded-state machine, the single-flight health probe **and the whole health response** — a wire-visible shape, so it is composed once, above the vendor seam. `TreeNav` and `ItemLookup` navigate a driver's tree; they live here, not with `Item/`, because they take an `IIdeDriver`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `TreeNav`, `ItemLookup` |
-| **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the vendor-neutral item-type table (`docs/items.html`); `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. `ItemContent` is the one content record a read builds and a push applies; `ObjectProperties`, required on it and on every `Member`, carries every vendor member the text spells beside the code (the `%`-lines: class, build properties, comment, network-variable settings, file link). | `ItemKind`, `FolderPath`, `ItemRef`, `ProjectItem`, `WalkResult`, `ItemContent`, `ObjectProperties` |
-| **`Format/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. `PropertyLines` is the one spelling of an object's `%`-lines, both directions (the closed key list, canonical order, placement refusals). An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **The owner rule: an INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner — they disagreed once, and every interface with a member materialized as UNREADABLE. | `StWriter`, `StReader`, `PropertyLines`, `Descriptor`, `StTrivia` |
-| **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (see `Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text v2 — one statement per NWL item, a name only where the vendor names a wire (`docs/network-text.html`); both read and write against a `NetworkScope` built from the declarations the body sees (`Ide/ProjectDeclarations`, the one reserved-name set and the FB instance types); `NetworkTextGate` is the token fixed-point gate; `NetworkSpelling` holds the rules writer and reader must agree on; `FbdOperators` is the operator table. v1 text is refused with a "re-pull" message, never translated. **Nothing here knows XML** — a vendor's own representation is the driver's business, which is why deleting the PLCopen transport did not touch this folder. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkTextGate`, `NetworkScope`, `NetworkSpelling`, `FbdOperators` |
-| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `UnrepresentableBodyException` is how a reader says a body has no spelling, answered with the read-only `IMPLEMENTATION LD\|FBD UNSUPPORTED` line rather than by dropping the item. There is no "graphical vs textual" boolean above this layer; that flag was the source of three silent data-loss bugs. | `BodyFormatGuard`, `UnrepresentableBodyException`, `Languages` |
+| **`Seam/`** | **The contract a vendor host implements — and only this** (no vendor or NWL name, no family code: the new-vendor gate pins it at zero). `IVendorDriver` = `IVendorSession` (attach state, identity, `MarshalToIdeThread`, `ProbeProjects`, select, build, diagnostics, library signatures — PRIMITIVES only) + `IVendorTree` (walk as `HostWalk`, `Children`/`Parent`/`Name`/`Classify` → `NodeClass`, create/delete/rename/move) + `IVendorStore` (`Content` in and out, manifests, task settings, the pre-flight refusals). A host also states a `VendorDeclaration`: its vendor row, kinds, languages and `%`-keys, which a `Catalog` registers into four registries that refuse a conflict by name (`VendorRegistry`, `KindRegistry`, `LanguageRegistry`, `PropertyKeyRegistry`). A kind row names its file layout (`IItemFormat`); a shown language names its `IBodyReader`. | `IVendorDriver`, `VendorDeclaration`, `Catalog`, `Content`, `BodyText`, `PropertySet`, `IItemFormat`, `IBodyReader`, `NodeClass`, `HostWalk`, `VendorDriverBase` |
+| **`Ide/`** | **What both hosts share below the contract**, and `DIALECT.md` (the vendor facts). Helpers a host calls over its IEC tree (`Item/IIecTree`): `MemberSites` (where a member's declaration sits), `ProjectDeclarations` (the declarations index network text reads against), `ItemLookup.All`. Shared wording: `ExcludedFolder`, `MeasuredNames`, `BothVendorsRefusedNames`, `InterfaceAccessorGuard`, `ChildRefusedException`, `UnreadableItemException`. `WalkObserver` reports a walk's progress. | `MemberSites`, `ProjectDeclarations`, `ItemLookup`, `WalkObserver`, `UnreadableItemException` |
+| **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the IEC item-type table (`docs/items.html`) the CODESYS-family hosts answer in codes; `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. `ItemContent` is the IEC layout's record; `ObjectProperties`, required on it and on every `Member`, carries every vendor member the text spells beside the code (the `%`-lines). | `ItemKind`, `FolderPath`, `ItemRef`, `WalkResult`, `IIecTree`, `ItemContent`, `ObjectProperties` |
+| **`Format/St/`** | **The IEC layout: the canonical workspace file of a POU, interface, GVL and DUT, both halves together.** `IecFormat` is that layout as the kinds' `IItemFormat`, over `StWriter`/`StReader` and the layout's record (`FamilyContent` converts it to the contract's `Content` and back, losing nothing). `IecLayout` says how each kind's file is laid out (composite, members inside). `Descriptor` renders the canonical text for NON-source items. `PropertyLines` is the one spelling of an object's `%`-lines, both directions. An INVERSE PAIR over one record — `write(read(write(x))) == write(x)`. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **An INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner. | `IecFormat`, `FamilyContent`, `IecLayout`, `StWriter`, `StReader`, `PropertyLines`, `Descriptor` |
+| **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (`Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text — one statement per NWL item, a name only where the vendor names a wire (`docs/network-text.html`); both work against a `NetworkScope` built from the declarations the body sees (`Ide/ProjectDeclarations`); `NetworkBodyReader` is LD's and FBD's `IBodyReader`; `NetworkTextGate` is the token fixed-point gate; `NetworkSpelling` holds the rules writer and reader must agree on; `FbdOperators` is the operator table. **Nothing here knows XML** — a vendor's own representation is the host's business. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkBodyReader`, `NetworkTextGate`, `NetworkScope`, `NetworkSpelling`, `FbdOperators` |
+| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `UnrepresentableBodyException` is how a reader says a body has no spelling, answered with the read-only `IMPLEMENTATION LD\|FBD UNSUPPORTED` line rather than by dropping the item. | `BodyFormatGuard`, `UnrepresentableBodyException`, `Languages` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body and hash basis, shared so the two vendors cannot drift on those bytes), `LibSignatureRenderer`, `LibraryLayout`, `LibraryFetch`, `LibSignature`. | `LibraryManifest`, `LibSignatureRenderer`, `LibSignature` |
-| **`Sync/`** | **One service per op** — `RefsService`, `FetchService` (`fetch` + `init`), `PushService`, `BuildService`. `Materializer` turns a source item into an `ItemContent` (`ICodeStore.ReadContent`) and hands it to `StWriter`; a non-source item is its manifest (`ReadManifest`). The write is the same one call for every source kind (`WriteContent`). `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `Hasher`, `Versioning`, `Materializer` |
+| **`Sync/`** | **One service per op** over a `HostLink` — the ONE host a process serves, the `Catalog` of ITS declaration alone (a kind no host declared is `BAD_REQUEST` before any write), and its `ComposedSession`. `ComposedSession` is composed once over the host's primitives: the degraded-state machine, the IDE-thread bracketing, the single-flight health probe and **the whole health response** — a wire-visible shape, so no host builds one. `RefsService`, `FetchService`, `PushService`, `BuildService`, `GrepService`. `Materializer` reads an item's `Content` and writes it through its kind's format; a non-source item is its manifest (`ReadManifest`). `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `TreeNav`/`TreeLookup` navigate the host's tree by path; `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `HostLink`, `ComposedSession`, `FetchService`, `PushService`, `BuildService`, `RefsService`, `GrepService`, `Materializer`, `Versioning`, `TreeNav` |
 
 `BridgeException` and `Polyfills` sit at the root because their namespace is the root: `BridgeException` is the
 wire's error type and every layer throws it, so it is reachable without a `using` by design.
 
-The stack is acyclic. `Item/` depends on nothing; `Format/` may depend on `Item/`, never the reverse; `Ide/` is
-the vendor contract above the content layers; `Sync/` composes them all. That direction is a property of the
-code, not of the folder names — the names only have to make it legible.
+The stack is acyclic. `Item/` depends on nothing; `Format/` may depend on `Item/`, never the reverse; `Seam/` is
+the vendor contract in vendor-neutral words; `Ide/` is what the hosts share below it; `Sync/` composes them all over
+`Seam/` alone. That direction is a property of the code, not of the folder names — the names only have to make it
+legible. Content never travels as a document: a host's store speaks `Content`, and each host reaches its vendor's own
+representation below the seam.
 
-> **`Source/` and everything under it is GONE**, with the PLCopen transport it existed to serve: `PouReader`,
-> `PouSplice`, `PouDocument`, `ProjectStructure`, `PlcOpenDocument`, `BodyCodec`, `GraphReader`, `GraphWriter`,
-> `NetworkSplice`. Content no longer travels as a document at all — `ICodeStore` speaks `ItemContent`, and each
-> driver reaches its vendor's own representation below the seam. The vendor facts that outlived that layer moved
-> to `Ide/DIALECT.md`, which is where they belong: they are about how the two IDEs behave, not about a transport.
+### Adding a vendor
+
+A new vendor is one IDE host (its own assembly, as `Volt.Ide.Codesys` and `Volt.Ide.Twincat` are) and nothing in the
+Engine. The third test vendor (`test/shared`, "Fakeco": `.blk`/`.typ`/`.stn`, `IMPLEMENTATION FKL`) is the worked
+example; it passes the transport suite over the pipe (`ThirdVendorTransportTests`, `ThirdVendorContractTests`).
+
+1. **Declare** (`IVendorSession.Declaration`, a `VendorDeclaration`):
+   - its `VendorRow` (`Id` names the pipe, `volt.bridge.<id>.<pid>`; `Display` is what a user reads);
+   - its `KindRow`s: each kind with its extension, its role (`Source`, `Descriptor`, `WritableDescriptor`, `Member`),
+     and for a source kind its `KindShape` and its `IItemFormat` (the file layout; the IEC kinds name `IecFormat`);
+   - its `LanguageRow`s: a SHOWN language with its `IBodyReader`, a hidden one without (`IMPLEMENTATION <LANG>
+     UNSUPPORTED`);
+   - its `PropertyKey`s: the `%`-keys its objects hold, each with its grammar.
+   The `Catalog` refuses a malformed or conflicting row by name, before the host serves.
+2. **Implement** `IVendorDriver` (deriving `VendorDriverBase` for the pre-flight defaults):
+   - session primitives: attach state and identity, `MarshalToIdeThread` (the IDE's one work thread), `ProbeProjects`
+     (rows, liveness; never throws for an IDE that stopped answering), `SelectProject`, `Build`,
+     `GetBuildDiagnostics`, `ExtractLibrarySignatures`;
+   - tree: `Walk` → `HostWalk`, `Children`/`Parent`/`Name`, `Classify` → `NodeClass` (folder, container, item of a
+     kind, member, skip), and the structure edits;
+   - store: `Read`/`Write` a `Content`, `ReadManifest`, the task settings, and the pre-flight it has MEASURED
+     (`RefusedName`, `RefusedMemberCreate`, `ValidateSource`, `ValidateAccessor`, `ValidateProperties`,
+     `RefusedLanguageChange` — the one with no default).
+3. **Serve**: start `BridgePipeHost` over `HostLink.Of(host)` on the vendor's pipe, and call `RefreshHealth` on the IDE
+   thread right after connecting.
+
+What the host never does: build a `HealthResponse`, compute a version or a path, parse a workspace file outside its
+declared format, or decide a wire error a shared rule already decides. A vendor fact the host measures gets its row in
+`Ide/DIALECT.md` and a test that pins it.
 
 ### Protocol invariant: the item **path** is the identity
 
@@ -186,22 +208,20 @@ applications, and throwing breaks `refs`.
   driver that has not read an object's properties cannot build its content). `Format/St/PropertyLines` is the one
   spelling (the LSP mirrors it in `frontend/syntax/format/object-properties.ts`); a vendor member no field names
   refuses the ITEM by name on pull. **The class is made at the create, never changed in place**
-  (`IProjectTree.CreateChild(…, ObjectClass?)`, DIALECT C2l/C2r/C2s): a create the vendor cannot make as that class
+  (`IVendorTree.CreateChild(…, CreateArgs.Class)`, DIALECT C2l/C2r/C2s): a create the vendor cannot make as that class
   is refused by name, never made plain and reported ACCEPTED, and an update whose `%CLASS` differs is refused. A
   member renamed in a push keeps its object (the vendor's rename — GUID and class kept) when exactly one member of
   that kind was dropped and one added (`PushService.RenamePairs`); a same-name kind change is refused. A text written
   before the `%`-lines is refused on push ("re-pull: the text predates object properties", the binding's format
   version), because it would push "not excluded" over an excluded object.
-- **CONTENT travels as `ItemContent` over the vendor's own object model; STRUCTURE travels on the tree API.**
-  This bullet used to say "content travels as ONE PLCopen document", and that has been false since the PLCopen
-  transport was deleted: `ICodeStore.ReadContent`/`WriteContent` reach declarations and textual bodies through
-  their aspects and graphical bodies as typed node trees (CODESYS) or TwinCAT's own NWL archive text (N42) —
-  there is no document to splice, no import to re-place items after, and no regeneration carrying unmodelled
-  elements through. What survives from that era is the AXIS, which the deletion did not change: folder
-  membership, rename and move are still not properties of an item's content, so they stay on `IProjectTree`
-  (`TreeNav`), where a rename is the IDE's own (TwinCAT rewrites the call sites, CODESYS does not — DIALECT C2p). A task is the sharp case — it is placed by KIND
-  rather than by folder name, because the vendor names its container in the installation's LANGUAGE
-  (`TreeNav.ResolveTaskParent`, DIALECT C22).
+- **CONTENT travels as `Content` over the vendor's own object model; STRUCTURE travels on the tree.**
+  `IVendorStore.Read`/`Write` reach declarations and textual bodies through the vendor's aspects and graphical bodies
+  as typed node trees (CODESYS) or TwinCAT's own NWL archive text (N42) — there is no document to splice and no
+  import to re-place items after. Folder membership, rename and move are not properties of an item's content, so they
+  stay on `IVendorTree` (`Sync/TreeNav`), where a rename is the IDE's own (TwinCAT rewrites the call sites, CODESYS
+  does not — DIALECT C2p). A task is the sharp case — it is placed by KIND rather than by folder name, because the
+  vendor names its container in the installation's LANGUAGE: the container `Classify` says TAKES the kind
+  (`NodeClass.Takes`, `TreeNav.ResolveDedicatedParent`, DIALECT C22).
 - **A DECLARATION is handed to the vendor VERBATIM — nothing re-emits one from parsed fields.** The path is
   `StReader` → `ItemContent.Declaration` → `PushService` → the driver's declaration aspect, and not one step in
   it reassembles the text — and **a top-level item's header is not even read** (openspec
@@ -212,9 +232,8 @@ applications, and throwing breaks `refs`.
   the IDE build's to report. It is the rule to refuse any future "normalize the header" on sight. **Two exceptions, and they are the whole
   list:** an ACTION's header is SYNTHESIZED (`ACTION <name>`, because IEC gives an action a name and a body and
   nothing else, so there is no declaration to read), and a property's accessors are framed with `GET`/`END_GET`.
-  Trailing NEWLINES are no longer an exception: both vendors store them (DIALECT C35, `trailing-newline-cache`), so
-  the text between boundaries is the vendor text VERBATIM plus exactly one separator newline, which is all the reader
-  strips (openspec `bridge-one-to-one`; they were dropped at every block edge, a fold of stored content).
+  Trailing NEWLINES are kept: both vendors store them (DIALECT C35), so the text between boundaries is the vendor
+  text VERBATIM plus exactly one separator newline, which is all the reader strips.
 - **What a pull writes, a push must send back unchanged:** `StWriter.Write(StReader.Read(x)) == x`, for every
   file, byte for byte. A workspace file IS the writer's output and a push feeds it straight back to the reader,
   so this identity is the whole guarantee that pull-then-push is a no-op — and every byte the pair disagrees on
@@ -275,7 +294,7 @@ applications, and throwing breaks `refs`.
   it true (TwinCAT states no such member, C37). A vendor divergence is a parity defect.
 - **Skipped/errored items are logged, never silently dropped** (`Volt.Contracts/VoltLog`) with `name` + reason.
 - **The wire is a local named pipe, never a network socket** — there is no listening port and no browser-reachable
-  surface, so a web page can't drive `push` (the HTTP-era cross-origin guard is moot).
+  surface, so a web page can't drive `push`.
 
 ## A bridge — three parts (`Codesys` / `Beckhoff`)
 
@@ -284,20 +303,21 @@ state — they delegate every real IDE touch to a single **gateway** and every c
 both in `Ide/`.
 
 ```
-PipeHost.cs / Program.cs   entrypoint   — boots the shared BridgePipeHost on the vendor pipe
-Driver/                    contract     — implements Core's IIdeDriver, split by facet (.Tree / .Code partials)
-Ide/                       vendor glue  — the gateway + dispatcher that talk to the live IDE
+PipeHost.cs / WorkerStart.cs  entrypoint  — serves the host as a HostLink through the shared BridgePipeHost
+Driver/                       contract    — implements Seam's IVendorDriver, split by facet (.Seam / .Tree / .Content)
+Ide/                          vendor glue — the gateway + dispatcher that talk to the live IDE
 ```
 
-Note the deliberate naming: **Core `Ide/` is the contract; a bridge's `Ide/` is the live-IDE access behind it;
-the bridge's `Driver/` is the bridge between them.**
+Note the naming: **Engine `Seam/` is the contract; a bridge's `Ide/` is the live-IDE access behind it; the bridge's
+`Driver/` is the bridge between them.**
 
 | Role | CODESYS | Beckhoff | Notes |
 |---|---|---|---|
-| Entrypoint | `PipeHost.cs` | `Program.cs` | CODESYS: `PipeHost.Start()` called in-proc by the IDE's IronPython script command. Beckhoff: standalone exe; spawns its STA thread, starts degraded, attaches when TwinCAT appears. |
-| Driver — session | `Driver/CodesysDriver.cs` | `Driver/BeckhoffDriver.cs` | facade: connect / health / build. |
+| Entrypoint | `PipeHost.cs` | `Program.cs` + `WorkerStart.cs` | CODESYS: `PipeHost.Start()` called in-proc by the IDE's IronPython script command. Beckhoff: standalone exe; spawns its STA thread, starts degraded, attaches when TwinCAT appears. Both refresh health on the IDE thread right after connecting (`HostLink.RefreshHealth`). |
+| Driver — contract | `Driver/CodesysDriver.Seam.cs` | `Driver/BeckhoffDriver.Seam.cs` | the `VendorDeclaration` and the contract's tree and store words over the host's own IEC tree and record (`FamilyContent`). |
+| Driver — session | `Driver/CodesysDriver.cs` | `Driver/BeckhoffDriver.cs` | facade: connect / probe / build. |
 | Driver — tree | `Driver/CodesysDriver.Tree.cs` | `Driver/BeckhoffDriver.Tree.cs` | walk/lookup/CRUD algorithm. CODESYS classifies by object-model interface names; Beckhoff by native `ItemType`. |
-| Driver — content | `Driver/CodesysDriver.Content.cs` | `Driver/BeckhoffDriver.Content.cs` | `ICodeStore`: declaration, body, members, accessors. CODESYS writes through aspects and builds graphical bodies as typed `NWLObject` trees; Beckhoff writes text, edits the NWL archive in place and BUILDS a changed network (or a new body) as TwinCAT's own archive (`TcArchiveBuilder` + `TcArchiveWriter`, DIALECT N42). Neither writes PLCopen. |
+| Driver — content | `Driver/CodesysDriver.Content.cs` | `Driver/BeckhoffDriver.Content.cs` | the IEC record in and out: declaration, body, members, accessors. CODESYS writes through aspects and builds graphical bodies as typed `NWLObject` trees; Beckhoff writes text, edits the NWL archive in place and BUILDS a changed network (or a new body) as TwinCAT's own archive (`TcArchiveBuilder` + `TcArchiveWriter`, DIALECT N42). Neither writes PLCopen. |
 | Access gateway | `Ide/CodesysObjectModel.*.cs` (+ `CodesysTypeMap.cs`, `Reflection.cs`, `NwlInterop.cs`) | `Ide/TcObjectModel.*.cs` (+ `RotInstances.cs`, `TcArchive.cs`, `TcItemArchive.cs`) | holds ALL vendor state + the only `reflection`/`dynamic` in the bridge. |
 | Graphical body | `Ide/CodesysNetworkReader.cs` / `Writer.cs` | `Ide/TcNetworkReader.cs` / `Writer.cs` | `NetworkModel` ⇄ the vendor's own form. CODESYS: live typed objects through `NwlInterop`. TwinCAT: the `<NWL><XmlArchive>` through `TcArchive`, edited in place and never constructed (DIALECT N4). |
 | Thread dispatcher | `Ide/CodesysDispatcher.cs` | `Ide/StaDispatcher.cs` (+ `ComMessageFilter.cs`) | CODESYS delegates to the IDE's `InvokeInPrimaryThread`; Beckhoff owns + pumps an STA thread via a `BlockingCollection`. |
@@ -363,7 +383,7 @@ supervisor live entirely below `IProjectSource`.
 
 **The rule that separates the two — and it is now enforced, not just intended:** *any per-vendor difference that
 Volt (the CLI/connector) can OBSERVE is a bug.* The load-bearing asymmetries above are strictly about how each IDE
-is REACHED — they live below the `IIdeDriver` seam (and the pipe topology below `IProjectSource`). The wire
+is REACHED — they live below the `IVendorDriver` seam (and the pipe topology below `IProjectSource`). The wire
 behavior and error codes are identical across vendors by construction:
 - **Parity-critical decisions live in Core, once.** A choice a pipe client can observe — a `connect` post-condition,
   the not-connected precondition on project-ops, an error mapping — is decided in `Volt.Engine.Host/BridgePipeHost`, delegating
@@ -376,8 +396,8 @@ behavior and error codes are identical across vendors by construction:
   (`Volt.Engine`). Comments may still explain a vendor's dialect — `Ide/DIALECT.md` is where those live — but no
   `vendor == "twincat"` branch may live above the pipe.
 
-The fuller programme (shrinking `IIdeDriver` to primitives, a conformance suite over both drivers) is tracked in
-`openspec/changes/bridge-vendor-parity-by-construction`.
+A host supplies primitives only (`Seam/IVendorDriver`); the conformance suite over both drivers is
+`test/shared/WireParityCases.cs` offline and the contract suite over the pipe (`test/e2e/contract`).
 
 **Disconnect gates the bridge, it does not shut anything down.** `disconnect` makes `BridgePipeHost` refuse every
 sync op with `PLC_DISCONNECTED` (only `health`/`connect`/`disconnect` keep answering — `health` carries the project
@@ -404,10 +424,10 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
    `string` changes nothing at runtime. If a value is genuinely required, add a runtime guard; otherwise you have
    documented an intention and moved a warning up the call chain.
 3. **One question, one answer.** The not-connected precondition is decided from live driver state
-   (`IIdeSession.IsConnected` + `ServedProjectName`), never from `BuildHealthResponse()` — health is served from a
+   (`ComposedSession.IsConnected` + `ServedProjectName`, the host's live reads), never from `BuildHealthResponse()` — health is served from a
    per-vendor **throttled cache**, and deciding a write against it refused pushes on stale state while reads of the
    same bridge succeeded. If two code paths answer the same question from different sources, that is the bug.
-4. **Never swallow a background failure.** `DriverBase`'s health probe stays best-effort for the *request* (a probe
+4. **Never swallow a background failure.** `ComposedSession`'s health probe stays best-effort for the *request* (a probe
    failure must not fault `health`) but logs and marks degraded. A bare `catch` there once left health repeating a
    stale "nothing serving" indefinitely with no log line to read.
 5. **One error channel, one log path.** Only `BridgeException`/`BridgeErrorCodes` cross the wire — a driver must not
@@ -438,7 +458,7 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     splice, once in the declaration read, and once where a declaration write took the FIRST
     `InterfaceAsPlainText` under an item — which on a POU with declared variables is the copy nested inside the
     typed `<interface>`, so the write was accepted and changed nothing. The document layer that hosted all five
-    is deleted, and the rule outlived it: **address the object, never search under it.** `ICodeStore` now takes an
+    is deleted, and the rule outlived it: **address the object, never search under it.** `IVendorStore` takes an
     `ItemRef` per item and `WriteMembers` resolves each member by NAME from one map.
 12. **A bare name is not a path.** The wire and the workspace key an item by its path (`Folder/Foo.pou`); below the
     seam the IDE's key is the bare name (`Foo`). `IdeTree` once matched a set of NAMES against PATHS, so an item
@@ -566,7 +586,7 @@ that disagrees with the code fails the build. Regenerate with
 |---|---|
 | `docs/index.html` | The two layers, the session shape, how to serve a bridge. |
 | `docs/wire.html` | Transport and framing, identity and versions, the error codes, all eight ops, every schema. |
-| `docs/driver.html` | `IIdeDriver` — the layer to reuse outside Volt. |
+| `docs/driver.html` | `IVendorDriver` — the layer to reuse outside Volt. |
 | `docs/items.html` | The item-kind table (`Item/ItemKind` is the source of truth) and the file-extension registry. |
 | `docs/network-text.html` | The FBD/LD graphical sublanguage: grammar, statement forms, the gate, the diagnostics. |
 | `docs/logs.html` | The durable log, the drop tallies, and diagnosing a live bridge. |
