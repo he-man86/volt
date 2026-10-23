@@ -465,3 +465,36 @@ in silence. What each host states for itself it already states: its vendor row, 
 ### Wire
 
 Nothing changes for the two shipped vendors except 7.2's decided refusal. Ratchets only go down.
+
+### Step 7 as built (2026-10-23)
+
+- 7.2 `ed5a5a24c9` (before 7.1, being independent of it): a delete quoting `ifVersion` is guarded like an update in
+  `PushConflicts`; the contract suite's last FINDING (`unknown/delete`) is gone, so the live case now expects
+  `ITEM_MISSING`; `wire.html`'s `deleteItem` row states the rule. A quoted UNREADABLE sentinel on a partial walk is no
+  longer a no-op either (it is `ITEM_UNVERIFIED`): no `refs`/`fetch` hands the sentinel out.
+- 7.1 `22f12dd659`: 7.1a and 7.1b in one commit — the double stood on `DriverBase`, so the session could not fold
+  without moving it. `ComposedSession` is one class (a public `HostLink.Of(ComposedSession)` keeps one session per host
+  lifetime); its health and ambient probe stay `virtual` for the test double alone, as `DriverBase`'s were. `FakeIde`
+  composes a `FakeSession` serving its knobs and converts to its one `Link`. `HonestHealthTests`' two doubles became
+  hosts on the contract (assertions unchanged); `LegacyDriverTests` became `IecCodesOnTheContractTests` (the same
+  assertions, of the IEC conversions through the double); `SourceScopes.Validated` (test-only since step 5) and its own
+  test went, and the TwinCAT test that used it builds its body with the reader the host declares. The packaging test's
+  proxy is an `IVendorDriver`. The driver page's facets are the new contract's (`data.js` regenerated).
+- 7.3 the 2.x finds done offline: the family-table overloads kept for old-contract hosts (`Versioning.PathOf(kind, …)`,
+  `CountUnclassifiable(WalkResult, …)`, `Removal.Removed` without kinds, `Materializer.FullWireName(name, kind)`) are
+  deleted — the TwinCAT member move names its POU through its own catalog; dead code C4 (`NwlInterop.Int`,
+  `CodesysPlatform.All`); forwarder T6 (`LookupTreeItemDynamic`); every comment naming the deleted contract;
+  `driver.html` / `index.html` name the new one.
+- Ratchets: family codes in `Ide/I*.cs` and Sync 6 → 1 (`PushedText`, front of the wire); `NetworkText.Validate`
+  outside the pre-flight 2 → 1; new-vendor names 33, path comparer 108, exception mapping 15 unchanged; wire census:
+  the `PLC_DISCONNECTED` probe site moved `HostLink` → `ComposedSession`, the adapter's and `HostLink`'s three uncoded
+  throws are gone.
+- NOT done, needs a live IDE to verify (listed, not guessed): the open silent fallbacks C5 (`CodesysObjectModel.Libraries`
+  `Namespace`/`Name ?? ""`, `CodesysObjectModel.Task` skipped `pous`, `CodesysObjectModel.Properties` `_objMgr == null`)
+  and T5 (`TcDeviceDescriptor` unparseable XML → empty manifest, `TcObjectModel.ReadImplementation` binder miss → `""`),
+  T2 (production branches for the offline doubles' shape); the inputs `CarryLive` (unsaved CFC/SFC on a TwinCAT move),
+  the e2e redundant-read cut and `ide-restart`.
+- NOT done, for step 8: `ARCHITECTURE.md` still describes the old contract (`IIdeDriver`, `DriverBase`, `ICodeStore`);
+  `driver.html`'s vocabulary table still presents the IEC record (`ItemContent`, `ObjectProperties`) where the contract's
+  words are `Content`/`PropertySet`; the history-comment sweep; `CodesysPlatform.Capability.KnownOn` (never read: keep
+  as the measurement record, or delete — owner's).
