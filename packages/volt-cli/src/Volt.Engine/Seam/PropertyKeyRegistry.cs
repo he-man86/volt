@@ -49,8 +49,8 @@ public sealed class PropertySet : IEquatable<PropertySet>
 
 /// <summary>
 /// THE <c>%</c>-key set (vendor-neutrality W8/C8): the union of the keys the hosts declare, each with its value grammar.
-/// CLOSED per process — a key no host declared is refused by name, never carried as an opaque bag — but no longer a
-/// record in the Engine: a vendor's own fact (a block number, a routine type) is a key its host declares. Whether THIS
+/// CLOSED per process — a key no host declared is refused by name, never carried as an opaque bag — and not a record
+/// in the Engine: a vendor's own fact (a block number, a routine type) is a key its host declares. Whether THIS
 /// vendor holds a key stays the host's pre-flight answer (<c>ValidateProperties</c>).
 /// </summary>
 public sealed class PropertyKeyRegistry

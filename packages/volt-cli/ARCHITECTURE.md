@@ -165,6 +165,12 @@ What the host never does: build a `HealthResponse`, compute a version or a path,
 declared format, or decide a wire error a shared rule already decides. A vendor fact the host measures gets its row in
 `Ide/DIALECT.md` and a test that pins it.
 
+Above the wire, a vendor still has to be registered where the host cannot reach: the closed vendor list
+(`Volt.Contracts/Vocabulary/Vendors`: its id and display name, which the CLI binding and the connector read), the
+connector's launch of its host (`Volt.Connector.Core`: the CODESYS script command, the TwinCAT worker fleet), the
+installer payload and the bridge bundles, and the LSP's dialect (`volt-lsp-iec`). The kind extensions a host declares
+must also match the writable-source set the other runtimes declare (`bun run check`).
+
 ### Protocol invariant: the item **path** is the identity
 
 The whole wire is keyed by the item's PATH in the IDE's own tree, `<folder>/<name>.<kind>` — `refs`/`fetch` `items`,
