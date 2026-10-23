@@ -18,8 +18,8 @@ namespace Volt.Engine.Ide;
 /// POU's name must not answer.</item>
 /// </list>
 /// <para>Shared rather than per driver, so it runs against <c>FakeIde</c> in the offline suite. <see cref="Find"/> is
-/// the engine's one lookup (<c>Sync/TreeLookup</c>) asked through the adapter; <see cref="All"/> is the hosts' one walk
-/// of every item, for their declarations index.</para>
+/// the engine's one lookup (<c>Sync/TreeLookup</c>) for a host's own code; <see cref="All"/> is the hosts' one walk of
+/// every item over their IEC codes (<see cref="IIecTree"/>), for their declarations index.</para>
 /// </summary>
 public static class ItemLookup
 {
@@ -28,11 +28,12 @@ public static class ItemLookup
 
     /// <summary>The top-level item at <paramref name="path"/> — its wire path, the folder as the walk spells it — or
     /// null.
-    /// <para>Descends from <see cref="IProjectTree.GetTreeRoot"/> — the same origin both driver walks use, and the one
+    /// <para>Descends from the host's root — the same origin both driver walks use, and the one
     /// the push's paths are measured from, so lookup and placement agree about where the tree starts — matching each
     /// container by name as the push's placement does (<c>TreeNav</c>). A folder that is not there holds no item:
     /// null.</para></summary>
-    public static ItemRef? Find(IProjectTree tree, string path) => Volt.Engine.Sync.TreeLookup.Find(LinkOf(tree), path);
+    public static ItemRef? Find(Seam.IVendorDriver host, string path) =>
+        Volt.Engine.Sync.TreeLookup.Find(Volt.Engine.Sync.HostLink.Of(host), path);
 
     /// <summary>A top-level item the driver names but must not open (<see cref="UnreadableItemException"/>), with the
     /// parent it sits under — the one handle through which it can still be deleted, by name, without being touched.</summary>
@@ -41,26 +42,16 @@ public static class ItemLookup
     /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
     /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
     /// allowed past an unreadable item: they delete it through its parent, by name.</summary>
-    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string path) =>
-        Volt.Engine.Sync.TreeLookup.Locate(LinkOf(tree), path);
-
-    /// <summary>A host's tree on the new contract, where the one lookup lives (<c>Sync/TreeLookup</c>): a host that
-    /// implements it (both shipped hosts), or an old-contract one through the adapter — until volt-cli-rework step 7
-    /// moves the callers onto <c>TreeLookup</c> itself.</summary>
-    private static Volt.Engine.Sync.HostLink LinkOf(IProjectTree tree) => tree switch
-    {
-        Seam.IVendorDriver host => Volt.Engine.Sync.HostLink.Of(host),
-        IIdeDriver old => Volt.Engine.Sync.HostLink.Of(old),
-        _ => throw new System.ArgumentException($"{tree?.GetType().Name ?? "null"} is no host", nameof(tree)),
-    };
+    public static (ItemRef? Item, Untouchable? Untouchable) Locate(Seam.IVendorDriver host, string path) =>
+        Volt.Engine.Sync.TreeLookup.Locate(Volt.Engine.Sync.HostLink.Of(host), path);
 
     /// <summary>Every top-level item in the whole tree — its handle, name and tree kind — in ONE walk. For a caller asking
     /// about many names (the declarations index, <see cref="ProjectDeclarations"/>), where a <see cref="Find"/> per name
     /// is a descent per name.</summary>
-    public static IReadOnlyList<(ItemRef Item, string Name, int Kind)> All(IProjectTree tree)
+    public static IReadOnlyList<(ItemRef Item, string Name, int Kind)> All(IIecTree tree)
     {
         var found = new List<(ItemRef, string, int)>();
-        Walk(tree, tree.GetTreeRoot(), "listing the project's items", 0, (item, name, kind) =>
+        Walk(tree, tree.Root, "listing the project's items", 0, (item, name, kind) =>
         {
             found.Add((item, name, kind));
             return true;
@@ -102,7 +93,7 @@ public static class ItemLookup
     /// travels as the inner one, so a vendor that degrades its session on a dead channel (TwinCAT's RPC faults,
     /// <c>BeckhoffDriver.IsRpcFault</c> walks the inner chain) still sees it (review of step V).</para>
     /// </summary>
-    private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit,
+    private static bool Walk(IIecTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit,
                              System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable)
     {
         if (depth > MaxDepth) return true;
@@ -161,6 +152,6 @@ public static class ItemLookup
     /// <summary>The folder a refused read was IN, for the refusal's message. Read only after a read has already failed,
     /// so a lookup that succeeds pays nothing for it. The walk's root is the project root; a folder whose name the IDE
     /// refuses too is said to be exactly that, with the IDE's words.</summary>
-    private static string Place(IProjectTree tree, ItemRef node, int depth) =>
-        Volt.Engine.Sync.TreeLookup.Place(LinkOf(tree).Driver, node, depth);
+    private static string Place(IIecTree tree, ItemRef node, int depth) =>
+        Volt.Engine.Sync.TreeLookup.Place(tree.Name, node, depth);
 }

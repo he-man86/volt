@@ -195,7 +195,7 @@ public class BuildDiagnosticNameTests
 
     /// <summary>The promotion rewrites the diagnostic in place, so a driver MUST hand back a fresh list — else
     /// the second build finds full names where it expects bare ones and resolves every one to null. The contract
-    /// is stated on <c>IIdeSession.GetBuildDiagnostics</c>; this is what enforces it.</summary>
+    /// is stated on <c>IVendorSession.GetBuildDiagnostics</c>; this is what enforces it.</summary>
     [Fact]
     public void Building_twice_gives_the_same_names()
     {

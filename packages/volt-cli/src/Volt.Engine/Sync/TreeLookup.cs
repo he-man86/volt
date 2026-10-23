@@ -98,7 +98,7 @@ internal static class TreeLookup
         catch (Exception ex) when (ex is not ICodedError)
         {
             throw new BridgeException(ConflictCodes.ItemUnverified,
-                $"could not read the children of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                $"could not read the children of {Place(tree.Name, node, depth)} while {doing} — the IDE refused the read " +
                 $"({ex.Message}). Refusing to report it as absent.", ex);
         }
         for (var i = 1; i <= children.Count; i++)
@@ -118,7 +118,7 @@ internal static class TreeLookup
             catch (Exception ex) when (ex is not ICodedError)
             {
                 throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                    $"could not read child {i} of {Place(tree.Name, node, depth)} while {doing} — the IDE refused the read " +
                     $"({ex.Message}). Refusing to report it as absent.", ex);
             }
             string name;
@@ -126,17 +126,17 @@ internal static class TreeLookup
             catch (Exception ex) when (ex is not ICodedError)
             {
                 throw new BridgeException(ConflictCodes.ItemUnverified,
-                    $"could not read the name of child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused " +
+                    $"could not read the name of child {i} of {Place(tree.Name, node, depth)} while {doing} — the IDE refused " +
                     $"the read ({ex.Message}). Refusing to report it as absent.", ex);
             }
             if (!visit(child, name, cls)) return;
         }
     }
 
-    internal static string Place(IVendorTree tree, ItemRef node, int depth)
+    internal static string Place(Func<ItemRef, string> name, ItemRef node, int depth)
     {
         if (depth == 0) return "the project root";
-        try { return $"the folder '{tree.Name(node)}'"; }
+        try { return $"the folder '{name(node)}'"; }
         catch (Exception ex) when (ex is not ICodedError)
         {
             return $"a folder whose name the IDE refused to read too ({ex.Message})";

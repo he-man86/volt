@@ -48,25 +48,6 @@ namespace Volt.Engine.Ide
             }
         }
 
-        /// <summary>EVERY NETWORK-TEXT BODY OF <paramref name="content"/>, VALIDATED ONCE — each against its own scope
-        /// (<paramref name="scopeFor"/>, handed the declarations <see cref="SitesOf"/> pairs it with), with its model, that
-        /// scope and where it sits (openspec <c>bridge-refusal-review</c> D8/D12). The ONE door every network body of a
-        /// push passes through: the push pre-flight calls it, the drivers' writes take what it returns and never read the
-        /// text again, and a test that calls a driver's write directly builds its bodies here, as the push does.
-        /// Throws what <see cref="NetworkText.Validate"/> throws, at the first body that does not read.</summary>
-        public static IReadOnlyList<PushedNetworkBody> Validated(ItemContent content, Func<string?, NetworkScope> scopeFor)
-        {
-            if (scopeFor is null) throw new ArgumentNullException(nameof(scopeFor));
-            var bodies = new List<PushedNetworkBody>();
-            foreach (var (site, body, declaration) in SitesOf(content))
-            {
-                if (body is not { } b || !NetworkText.Is(b)) continue;
-                var scope = scopeFor(declaration);
-                bodies.Add(new PushedNetworkBody(site, NetworkText.Validate(b, scope), scope));
-            }
-            return bodies;
-        }
-
         /// <summary>The declarations a body resolves against: the member's own FIRST, then the owner's.
         ///
         /// <para><b>A stateful FB instance lives in the enclosing POU's VAR block, not in the member's.</b> A

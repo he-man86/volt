@@ -41,7 +41,7 @@ public class SignatureParseTests
     /// identifier", <c>IsIdentifier</c>) on the belief, never measured, that the vendor would not create it. Measured
     /// since: both vendors refuse every such shape themselves with their name refusal, and CODESYS CREATES a
     /// backtick-quoted name the check refused (<c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>, <c>vendor-facts.twincat.json, fact identifier-shapes</c>).
-    /// The pre-flight asks the driver (<c>ICodeStore.RefusedName</c>), so the batch still stops before its first write.
+    /// The pre-flight asks the driver (<c>IVendorStore.RefusedName</c>), so the batch still stops before its first write.
     /// (The premise of the test this replaces — the reader judges the name — was the unmeasured belief.)</summary>
     [Theory]
     [InlineData("METHOD Ünit", "Ünit")]

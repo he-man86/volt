@@ -20,12 +20,12 @@ public class ProjectDeclarationsUnverifiedFolderTests
     private sealed record Node(string Name, int Kind);
 
     /// <summary>Root → folder <c>F</c> (whose child count the driver refuses, coded) and FB <c>X</c>.</summary>
-    private sealed class Tree : IProjectTree
+    private sealed class Tree : IIecTree
     {
         private readonly object _root = new();
         private readonly Node _folder = new("F", ItemKind.PlcFolder);
         private readonly Node _fb = new("X", ItemKind.PlcPou);
-        public ItemRef GetTreeRoot() => new(_root);
+        public ItemRef Root => new(_root);
         public int ChildCount(ItemRef item) =>
             ReferenceEquals(item.Native, _root) ? 2
             : ReferenceEquals(item.Native, _folder)
@@ -34,14 +34,6 @@ public class ProjectDeclarationsUnverifiedFolderTests
         public ItemRef ChildAt(ItemRef parent, int index1Based) => new(index1Based == 1 ? _folder : _fb);
         public string Name(ItemRef item) => ((Node)item.Native).Name;
         public int KindCode(ItemRef item) => ((Node)item.Native).Kind;
-        public WalkResult WalkItems(WalkObserver? observer = null) => throw new NotSupportedException();
-        public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
-        public bool HandlesSurviveStructureChange => true;
-        public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls) => throw new NotSupportedException();
-        public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property) => throw new NotSupportedException();
-        public void Delete(ItemRef parent, string name) => throw new NotSupportedException();
-        public void Rename(ItemRef item, string newName) => throw new NotSupportedException();
-        public void Move(ItemRef item, ItemRef target) => throw new NotSupportedException();
     }
 
     [Fact]

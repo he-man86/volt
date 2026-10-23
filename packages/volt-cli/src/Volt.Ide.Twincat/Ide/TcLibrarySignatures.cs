@@ -13,7 +13,7 @@ namespace Volt.Ide.Twincat;
 /// <c>CONCAT</c> against.
 ///
 /// <para><b>This closes a capability gap, not a test gap.</b> TwinCAT users got NO library signatures at all:
-/// <c>BeckhoffDriver</c> inherited <c>DriverBase</c>'s empty <c>ExtractLibrarySignatures</c>, so completion,
+/// <c>BeckhoffDriver</c> inherited the old shared driver base's empty <c>ExtractLibrarySignatures</c>, so completion,
 /// hover and go-to-definition on every library FB silently did nothing on one vendor and worked on the other.
 /// The reason recorded for that — "TwinCAT has no equivalent surface" — was already known to be wrong: DIALECT
 /// C2c measured this exact call returning 181,179 chars out-of-process. Only the FORMAT was missing, and no

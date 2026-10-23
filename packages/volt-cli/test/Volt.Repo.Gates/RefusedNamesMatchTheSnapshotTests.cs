@@ -14,7 +14,7 @@ namespace Volt.Repo.Gates;
 /// EACH DRIVER REFUSES EXACTLY THE NAMES ITS IDE WAS MEASURED TO REFUSE (openspec <c>push-keeps-what-landed</c> 3.1;
 /// since openspec <c>vendor-fact-probe</c> 4.1 the measurement is the vendor-fact snapshot).
 ///
-/// <para>The push pre-flight asks the driver whether its IDE refuses a POU or member name (<c>ICodeStore.RefusedName</c>),
+/// <para>The push pre-flight asks the driver whether its IDE refuses a POU or member name (<c>IVendorStore.RefusedName</c>),
 /// and each driver answers from a word list. The lists are not a rule: a rule fitted to the measured words reproduces
 /// them, but outside them it is a guess, and a pre-flight that guesses refuses a push the IDE would take. So the lists
 /// are the measurements themselves — every word a live IDE refused in the <c>refused-names</c> fact of

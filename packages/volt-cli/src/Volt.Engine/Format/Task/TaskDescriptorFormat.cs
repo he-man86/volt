@@ -119,7 +119,7 @@ public static class TaskDescriptorFormat
     public const string LabelCpuAffinity = "CPU affinity";
 
     /// <summary>Every member label, CODESYS's then TwinCAT's, in the order the file states them. Which a vendor takes is
-    /// the driver's to say (<c>ICodeStore.ValidateTask</c>).</summary>
+    /// the driver's to say (<c>IVendorStore.ValidateTask</c>).</summary>
     public static readonly IReadOnlyList<string> MemberLabels = new[]
     {
         LabelCore, LabelCore2, LabelTaskGroup, LabelAllowEmpty, LabelImplicit, LabelWithinSpsTimeSlicing, LabelSynchTask,

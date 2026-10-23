@@ -19,7 +19,7 @@ public interface IVendorDriver : IVendorSession, IVendorTree, IVendorStore
 }
 
 /// <summary>The IDE connection: attach state, identity, threading, build — PRIMITIVES only. What is the same for every
-/// vendor is the engine's, composed over these (today <c>DriverBase</c>): the degraded-state machine, the busy/freshness
+/// vendor is the engine's, composed over these (<c>Sync/ComposedSession</c>): the degraded-state machine, the busy/freshness
 /// bracketing around <see cref="MarshalToIdeThread{T}"/>, the single-flight health probe and the whole
 /// <see cref="HealthResponse"/>. A host supplies the rows; it never builds a response.</summary>
 public interface IVendorSession

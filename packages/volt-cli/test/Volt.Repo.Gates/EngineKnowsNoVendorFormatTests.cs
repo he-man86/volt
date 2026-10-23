@@ -11,7 +11,7 @@ namespace Volt.Repo.Gates;
 /// THE ENGINE DOES NOT KNOW WHAT PLCOPEN IS — a gate, not a convention.
 ///
 /// <para>`pou-transport-per-vendor` §2.2 and §3.3 asked for this and it was the last thing that change was
-/// waiting on. The architecture it argued for shipped: <c>ICodeStore</c> speaks <c>ItemContent</c>, each driver
+/// waiting on. The architecture it argued for shipped: the store speaks Volt's own content, each driver
 /// reaches its own vendor's form BELOW the seam, and the engine's PLCopen layer is gone. What was missing is the
 /// thing that keeps it gone.</para>
 ///

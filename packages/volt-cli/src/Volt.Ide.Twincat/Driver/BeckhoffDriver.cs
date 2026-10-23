@@ -18,11 +18,11 @@ namespace Volt.Ide.Twincat;
 /// XAE. A thin facade — all genuine IDE access goes through <see cref="TcObjectModel"/> (the late-bound
 /// COM gateway; <c>dynamic</c> lives there, never here or in Core) and all thread marshalling through
 /// <see cref="StaDispatcher"/> (the COM objects are apartment-bound). Mirrors the CODESYS driver's
-/// facade + object-model + dispatcher split; its own IEC tree facet (<see cref="IProjectTree"/>) is what the Engine's
-/// family helpers walk. Split across partial files by facet: this file is the session (connect / health probe / build /
+/// facade + object-model + dispatcher split; its tree's IEC codes (<see cref="IIecTree"/>) are what the
+/// Engine's IEC helpers walk. Split across partial files by facet: this file is the session (connect / health probe / build /
 /// degraded policy); <c>.Tree</c>, <c>.Content</c>, <c>.Nodes</c> and <c>.Seam</c> are the others.
 /// </summary>
-public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, IProjectTree
+public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, IIecTree
 {
     private readonly TcObjectModel _om;
     private readonly StaDispatcher _dispatcher = new();
@@ -178,7 +178,7 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, IP
         {
             bool serving = i == servingIdx;
             list.Add(new ProjectEntry(Vendors.Twincat, own.Version, own.Projects[i],
-                DriverBase.RowStatus(serving), serving && (servedDirty ?? false)));
+                Volt.Engine.Sync.ComposedSession.RowStatus(serving), serving && (servedDirty ?? false)));
         }
         return list;
     }
@@ -250,7 +250,7 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, IP
     /// <summary>The public declarations of every referenced library, for the LSP to resolve a <c>TON</c> or a
     /// <c>CONCAT</c> against.
     ///
-    /// <para>This used to be absent — the driver inherited <c>DriverBase</c>'s empty implementation, so a
+    /// <para>This used to be absent — the driver inherited the old shared driver base's empty implementation, so a
     /// verbose fetch returned no signatures and completion, hover and go-to-definition on library code silently
     /// did nothing on this vendor while working on the other. The reason on record was that "TwinCAT has no
     /// equivalent surface", and DIALECT C2c had already measured that to be false: this very call returns

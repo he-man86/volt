@@ -155,7 +155,7 @@ public class VendorCapabilityParityTests
     /// member ends at its `;`, a block member at the first line that closes at method indentation.
     ///
     /// <para>Scoped to the vendor's `Driver/` directory ON PURPOSE. That is where each vendor's
-    /// <c>ICodeStore</c>/<c>IProjectTree</c> facets live — the methods the ENGINE actually calls — and it is the
+    /// tree and store facets live — the methods the ENGINE actually calls — and it is the
     /// only place a refusal reaches a user. The object models beside them (<c>TcObjectModel</c>,
     /// <c>CodesysObjectModel</c>) carry same-named helpers that legitimately raise Unsupported for a vendor that
     /// declined a write at runtime, and letting the scan reach those would make this gate's verdict depend on

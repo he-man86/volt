@@ -18,7 +18,7 @@ namespace Volt.Engine.Item;
 /// <para><b>Where it lives:</b> a REQUIRED field of <see cref="ItemContent"/> and <see cref="Member"/> — never defaulted,
 /// so a driver that has not read an object's properties cannot build its content. The driver reads it inside
 /// <c>ReadContent</c> and writes it inside <c>WriteContent</c>; the text spells it as <c>%</c>-lines
-/// (<c>Format/St/PropertyLines</c>); the class is made at the create (<c>IProjectTree.CreateChild</c>), never changed in
+/// (<c>Format/St/PropertyLines</c>); the class is made at the create (<c>IVendorTree.CreateChild</c>), never changed in
 /// place (openspec <c>bridge-one-to-one</c> §3).</para>
 /// </summary>
 public sealed record ObjectProperties(
@@ -73,7 +73,7 @@ public sealed record ObjectClass(string Word, string? Argument)
 
     /// <summary>The vendor's ABSTRACT METHOD class — NEVER SPELLED (no <c>%CLASS</c> line takes it): it is derived from
     /// the TEXT, a <c>METHOD ABSTRACT</c> stated <c>IMPLEMENTATION NONE</c> (design §1.1 <c>AbstractPOUMethodObject</c>,
-    /// <c>abstract-member-equivalence</c>), and passed only to <c>IProjectTree.CreateChild</c>, so the create makes the class
+    /// <c>abstract-member-equivalence</c>), and passed only to <c>IVendorTree.CreateChild</c>, so the create makes the class
     /// the text states (CODESYS: the constructed <c>AbstractPOUMethodObject</c>, C2r; TwinCAT has one method class, C2n —
     /// ABSTRACT is its text alone). The push derives it in one place (<c>PushService.CreateClass</c>).</summary>
     public const string AbstractMethod = "ABSTRACT";

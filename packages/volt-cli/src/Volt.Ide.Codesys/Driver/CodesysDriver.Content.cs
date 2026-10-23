@@ -14,7 +14,7 @@ using Volt.Engine.Seam;
 namespace Volt.Ide.Codesys;
 
 /// <summary>
-/// CODESYS driver — the <see cref="ICodeStore"/> facet. Everything travels the OBJECT MODEL: declarations and
+/// CODESYS driver — the content facet (its IEC record: <c>ReadContent</c>/<c>WriteContent</c>). Everything travels the OBJECT MODEL: declarations and
 /// textual bodies through their aspects, graphical bodies as typed <c>NWLObject</c> trees. <b>Nothing is
 /// serialized in either direction</b>, so there is no document to splice, no import to re-place items after,
 /// and no regeneration to carry unmodelled elements through.
@@ -108,13 +108,13 @@ public sealed partial class CodesysDriver
     private ObjectProperties HeldProperties(object node, string what) =>
         _om.ReadProperties(node, _om.ReadObject(node), what);
 
-    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): a BODY,
+    /// <summary>The push pre-flight's interface-accessor refusal (<c>IVendorStore.ValidateAccessor</c>): a BODY,
     /// which a CODESYS interface accessor has no Implementation aspect to hold (DIALECT D41). Its declaration is written.
     /// (The ST reader takes an interface accessor's whole text as its declaration — it has no boundary line — so a push
     /// never carries a body here; this keeps the driver's own write from taking one handed to it directly.)</summary>
     public void ValidateInterfaceAccessor(Accessor pushed) => InterfaceAccessorGuard.RefuseBody(pushed.Body);
 
-    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>) for a CREATE: a list that
+    /// <summary>The push pre-flight's property refusal (<c>IVendorStore.ValidateProperties</c>) for a CREATE: a list that
     /// sends network variables (<c>%NETVAR</c> without <c>%CLASS NVL</c>) and a parameter list (<c>%PARAMETER_LIST</c>) are
     /// made by their factories (<c>create-each-class</c>), but a sender's settings have no measured write and the push
     /// does not hand the parameter-list factory to the create — so such a create is refused by name, as a create (gate
@@ -403,7 +403,7 @@ public sealed partial class CodesysDriver
         return toSt ? CodesysObjectModel.StBodyAspect : CodesysObjectModel.NetworkBodyAspect;
     }
 
-    /// <summary>The push's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>). Measured (DIALECT N24,
+    /// <summary>The push's language-change answer (<c>IVendorStore.RefusedLanguageChange</c>). Measured (DIALECT N24,
     /// <c>scripts/vendor-facts.codesys.json, fact body-language-change</c>, which re-measures both deleted logs,
     /// <c>body-language-change.log</c> (the POU) and <c>member-language-change.log</c> (its members) —
     /// <c>git show 5312b799fe:packages/volt-cli/scripts/…</c>): a POU's own body, a METHOD's, an

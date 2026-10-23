@@ -40,7 +40,7 @@ public class WireVocabularyTests
         // ── the frame codes ────────────────────────────────────────────────────────────────────────────────────
         new("no IDE project is served", "no project bound, or the bridge paused: send connect", "PLC_DISCONNECTED", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1),
-            ("Volt.Engine/Sync/HostLink.cs", 1),   // the ambient probe of a host whose IDE did not answer (volt-cli-rework step 6: it was BeckhoffDriver's TriggerAsyncProbe)
+            ("Volt.Engine/Sync/ComposedSession.cs", 1),   // the ambient probe of a host whose IDE did not answer (volt-cli-rework step 6: it was BeckhoffDriver's TriggerAsyncProbe)
             ("Volt.Engine/BridgeException.cs", 2),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1),   // -1 the save Volt no longer makes (D45)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),   // a delete with no IDE attached, before its member documents are closed (D45)
@@ -356,14 +356,12 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/St/PropertyLines.cs", 2),
         ("Volt.Engine/Format/St/StReader.cs", 1),
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
-        ("Volt.Engine/Ide/LegacyDriver.cs", 1),   // volt-cli-rework step 5: the build's walk not made by the adapter's own Walk — Volt's own invariant
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         // The new contract's registries (volt-cli-rework step 3): a host's declaration that conflicts with another's or
         // breaks a row's shape is refused at REGISTRATION, when a process starts — Volt's own invariant, before any client.
         ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
         ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
         ("Volt.Engine/Seam/VendorRegistry.cs", 3),
-        ("Volt.Engine/Sync/HostLink.cs", 2),   // volt-cli-rework step 5: an old-contract member asked of a new-contract host's composed session; step 6: a health refresh asked of an old-contract host — Volt's own invariants
         ("Volt.Engine/Sync/Materializer.cs", 1),
         ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)

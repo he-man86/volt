@@ -2,7 +2,7 @@ using System;
 
 namespace Volt.Engine.Ide;
 
-/// <summary>A child a driver NAMES but must not open: <see cref="IProjectTree.ChildAt"/> throws this instead of
+/// <summary>A child a driver NAMES but must not open: <c>IIecTree.ChildAt</c> throws this instead of
 /// touching it, with no call into the vendor.
 ///
 /// <para>The one case today is TwinCAT's (DIALECT C2i): after a solution load, the first touch of the tree item of a

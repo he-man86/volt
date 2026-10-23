@@ -33,7 +33,7 @@ namespace Volt.Engine.Tests;
 ///
 /// <para><b>Why generated.</b> A hand-written table is a second source of truth and the one that drifts is
 /// always the one nobody runs. Every row here is reflected off the type the runtime actually uses —
-/// <see cref="Ops"/>, <see cref="BridgeErrorCodes"/>, <see cref="ItemKind"/>, <see cref="IIdeDriver"/> — so
+/// <see cref="Ops"/>, <see cref="BridgeErrorCodes"/>, <see cref="ItemKind"/>, <see cref="Volt.Engine.Seam.IVendorDriver"/> — so
 /// the doc cannot describe a field the wire does not have or miss a kind the walk emits. The prose around the
 /// tables is hand-written in the HTML; the FACTS are not.</para>
 ///
@@ -241,12 +241,12 @@ public class DocDataTests
             "searched. What could not be searched is named in `notSearched`."),
     };
 
-    /// <summary>The three facets of <see cref="IIdeDriver"/>, in the order the driver page presents them.</summary>
+    /// <summary>The three facets of <see cref="Volt.Engine.Seam.IVendorDriver"/>, in the order the driver page presents them.</summary>
     private static readonly (string Name, Type Type, string Role)[] Facets =
     {
-        ("IIdeSession", typeof(IIdeSession), "Is there an IDE, which project, and the threading rules."),
-        ("IProjectTree", typeof(IProjectTree), "Navigate and mutate structure. No source text."),
-        ("ICodeStore", typeof(ICodeStore), "Content in and out, in Volt's own vocabulary."),
+        ("IVendorSession", typeof(Volt.Engine.Seam.IVendorSession), "Is there an IDE, which project, the threading rule and what the host declares."),
+        ("IVendorTree", typeof(Volt.Engine.Seam.IVendorTree), "Navigate and mutate structure. No source text."),
+        ("IVendorStore", typeof(Volt.Engine.Seam.IVendorStore), "Content in and out, in Volt's own vocabulary."),
     };
 
     private static string DocsDir()
@@ -1097,13 +1097,13 @@ public class DocDataTests
         }
     }
 
-    /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so
+    /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="Volt.Engine.Seam.IVendorDriver"/> is the layer another project reuses, so
     /// a facet it does not inherit from would be a whole surface missing from the page with nothing to notice
     /// it — the reason to assert the composition rather than just walk the three types.</summary>
     [Fact]
-    public void The_driver_page_covers_every_facet_of_IIdeDriver()
+    public void The_driver_page_covers_every_facet_of_IVendorDriver()
     {
-        Assert.Equal(typeof(IIdeDriver).GetInterfaces().OrderBy(t => t.Name).Select(t => t.Name).ToList(),
+        Assert.Equal(typeof(Volt.Engine.Seam.IVendorDriver).GetInterfaces().OrderBy(t => t.Name).Select(t => t.Name).ToList(),
                      Facets.Select(f => f.Name).OrderBy(n => n).ToList());
     }
 

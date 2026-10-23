@@ -20,7 +20,7 @@ namespace Volt.Connector
     /// <summary>
     /// The connection model's SOURCE seam: enumerate the projects that can be connected to, bind one, and report
     /// health. One implementation (<see cref="PerPipeProjectSource"/>) serves BOTH vendors over the discovered
-    /// per-pid pipes — a vendor's attach mechanism lives below the <c>IIdeDriver</c> seam, and the load-bearing
+    /// per-pid pipes — a vendor's attach mechanism lives below the <c>IVendorDriver</c> seam, and the load-bearing
     /// ExternalAttach/InIdeLoad asymmetry is now the connector's worker LIFECYCLE (<see cref="TwincatFleet"/>), not
     /// this interface. Everything above it (the <see cref="ConnectionManager"/>, the tray, the window, the control
     /// plane) is vendor-neutral.

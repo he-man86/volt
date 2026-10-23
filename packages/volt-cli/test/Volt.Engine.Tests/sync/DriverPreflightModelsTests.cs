@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests;
 /// THE DRIVER'S PRE-FLIGHT IS HANDED THE ENGINE'S MODELS, NEVER THE TEXT (openspec <c>bridge-refusal-review</c> 2.27,
 /// D8/D12).
 ///
-/// <para><c>ICodeStore.ValidateSource</c> took the wire name and the source text, and TwinCAT's override read the whole
+/// <para><c>IVendorStore.ValidateSource</c> took the wire name and the source text, and TwinCAT's override read the whole
 /// source again with <c>StReader</c>, re-derived the kind from the wire name and validated every network body a second
 /// time — against scopes it rebuilt itself. The engine's pre-flight had just done all of that. It now hands the driver
 /// what it validated: each network-text body's model, with where it sits.</para>

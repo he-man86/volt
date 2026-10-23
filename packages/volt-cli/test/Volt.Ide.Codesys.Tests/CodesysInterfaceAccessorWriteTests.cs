@@ -75,7 +75,7 @@ namespace Volt.Ide.Codesys.Tests
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
-        /// <summary>The push pre-flight asks the same refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>), from the
+        /// <summary>The push pre-flight asks the same refusal (<c>IVendorStore.ValidateAccessor</c>), from the
         /// text alone: a body refused, a declaration taken.</summary>
         [Fact]
         public void The_pre_flight_refuses_a_body_and_takes_a_declaration()

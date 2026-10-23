@@ -5,7 +5,11 @@ using Volt.Wire;
 using Xunit;
 using Volt.Contracts;
 using Volt.Engine;
+using Volt.Engine.Format.Task;
 using Volt.Engine.Ide;
+using Volt.Engine.Item;
+using Volt.Engine.Seam;
+using Volt.Engine.Sync;
 
 namespace Volt.Engine.Tests;
 
@@ -14,7 +18,7 @@ namespace Volt.Engine.Tests;
 /// live IDE, and can never report a stale "healthy" over a channel that dropped after the last snapshot.</summary>
 public class HonestHealthTests
 {
-    // StaleMs in DriverBase is 12_000; these straddle it well clear of the boundary.
+    // StaleMs in ComposedSession is 12_000; these straddle it well clear of the boundary.
     private const long Fresh = 3_000;
     private const long Stale = 20_000;
 
@@ -33,103 +37,59 @@ public class HonestHealthTests
     [InlineData(false, false, long.MaxValue, HealthStatus.Degraded)]
     public void DeriveServedStatus_reflects_the_live_link(bool degraded, bool opInFlight, long ageMs, string expected)
     {
-        Assert.Equal(expected, DriverBase.DeriveServedStatus(degraded, opInFlight, ageMs));
+        Assert.Equal(expected, ComposedSession.DeriveServedStatus(degraded, opInFlight, ageMs));
     }
 
-    /// <summary>Core throttles the ambient probe for EVERY driver, so a driver that declares no cadence of its own
+    /// <summary>Core throttles the ambient probe for EVERY host, so a host that declares no cadence of its own
     /// (CODESYS) can no longer marshal a snapshot onto the engineer's IDE thread once per poll per frontend. Each poll
-    /// JOINS the probe it may have started before the next goes out — without that, <c>DriverBase.SingleFlight</c>
-    /// would coalesce the polls by itself and this would pass whatever the throttle was.</summary>
+    /// JOINS the probe it may have started before the next goes out — without that, the session's single-flight would
+    /// coalesce the polls by itself and this would pass whatever the throttle was.</summary>
     [Fact]
     public void N_health_polls_inside_one_throttle_window_trigger_exactly_one_probe()
     {
-        // 4 x 100ms = ~0.4s, comfortably inside DriverBase.DefaultProbeThrottleMs (1s). The number is NOT read from
+        // 4 x 100ms = ~0.4s, comfortably inside ComposedSession.DefaultProbeThrottleMs (1s). The number is NOT read from
         // that const on purpose: this test has to COMPILE against the pre-fix tree to be run red first, and the const
         // arrives with the fix. Lower the floor below ~0.5s and shorten this loop with it.
         const int polls = 4, joinMs = 100;
-        var driver = new ProbeCountingDriver();
+        var host = new ProbeCountingHost();
+        var session = new ComposedSession(host);
 
         // The first poll always probes: nothing has been published, so there is no cache to serve.
-        driver.BuildHealthResponse();
-        Assert.True(driver.Probed.Wait(5_000), "the first poll must kick a probe");
+        session.BuildHealthResponse();
+        Assert.True(host.Probed.Wait(5_000), "the first poll must kick a probe");
 
         for (var i = 0; i < polls; i++)
         {
-            driver.Probed.Reset();
-            driver.BuildHealthResponse();
-            driver.Probed.Wait(joinMs);   // let a probe, if one started, finish before the next poll goes out
+            host.Probed.Reset();
+            session.BuildHealthResponse();
+            host.Probed.Wait(joinMs);   // let a probe, if one started, finish before the next poll goes out
         }
 
-        Assert.Equal(1, driver.Probes);
+        Assert.Equal(1, host.Probes);
     }
 
-    /// <summary>The <c>DriverBase</c> contract <c>BeckhoffDriver.TriggerAsyncProbe</c> now leans on: a probe closure
-    /// that FAILS reaches <c>OnProbeFailed</c> (log + degraded) and does NOT stamp the freshness clock on the way,
-    /// because the round-trip that stamps it (<c>StaDispatcher.Run</c>) is the worker's own in-process queue and never
-    /// consults the XAE.
-    /// <para>HONEST LABEL — this is a PIN, not the red-first proof for <c>dead-ide-marks-degraded</c>. It is GREEN
-    /// against the pre-move tree: the base machinery it exercises was already right; what was wrong was the TwinCAT
-    /// driver READING AND DISCARDING its liveness verdict, so this closure could never fail and the one ambient writer
-    /// of <c>_lastOkTick</c> re-stamped it against a dead XAE forever. That driver is reachable from no C# suite (no
-    /// test project references <c>Volt.Ide.Twincat</c>; it is net10.0-windows over live COM), so the only real
-    /// check for the driver half is the e2e against a running XAE. What this test does buy: move the stamp in
-    /// <c>RunOnStaThread</c> ahead of the marshalled call, or re-swallow the probe failure, and the TwinCAT fix dies
-    /// silently — here it goes red.</para></summary>
+    /// <summary>The session contract the TwinCAT host leans on: a probe whose IDE did not answer FAILS — it reaches
+    /// <c>OnProbeFailed</c> (log + degraded) and does NOT stamp the freshness clock on the way, because the round-trip
+    /// that stamps it (<c>StaDispatcher.Run</c>) is the worker's own in-process queue and never consults the XAE.
+    /// <para>HONEST LABEL — this is a PIN, not the red-first proof for <c>dead-ide-marks-degraded</c>: the base machinery
+    /// it exercises was already right. What it buys: move the stamp in <c>RunOnStaThread</c> ahead of the marshalled call,
+    /// or re-swallow the probe failure, and the TwinCAT fix dies silently — here it goes red.</para></summary>
     [Fact]
     public void A_probe_whose_IDE_does_not_answer_demotes_the_served_row_to_degraded_and_does_not_restamp_freshness()
     {
-        var driver = new DeadIdeDriver();
+        var session = new ComposedSession(new DeadIdeHost());
 
-        driver.TriggerAsyncProbe();
-        Assert.True(SpinWait.SpinUntil(() => driver.IsDegraded, 5_000), "a failed probe must mark the session degraded");
-        Assert.Equal(HealthStatus.Degraded, driver.BuildHealthResponse().Status);
+        session.TriggerAsyncProbe();
+        Assert.True(SpinWait.SpinUntil(() => session.IsDegraded, 5_000), "a failed probe must mark the session degraded");
+        Assert.Equal(HealthStatus.Degraded, session.BuildHealthResponse().Status);
 
         // Freshness, observed without a clock seam: clear the flag the probe just set, and the served row must STILL
         // read degraded — no IDE response was ever CONFIRMED, so the staleness branch (age = long.MaxValue) decides.
         // Had the failing round-trip stamped _lastOkTick on its way through, this would read healthy.
-        driver.ClearDegraded();
-        Assert.Equal(HealthStatus.Degraded, driver.BuildHealthResponse().Status);
+        session.ClearDegraded();
+        Assert.Equal(HealthStatus.Degraded, session.BuildHealthResponse().Status);
     }
 
-    /// <summary>A driver whose IDE does not answer, shaped like <c>BeckhoffDriver</c> after the fix: the snapshot
-    /// publishes its rows (stamping the cache + throttle clock) and the probe closure THEN fails with the coded
-    /// error. The throttle is parked far above the test's own duration so only the explicit
-    /// <c>TriggerAsyncProbe</c> ever probes — no second probe can be in flight while the row is read.</summary>
-    private sealed class DeadIdeDriver : DriverBase
-    {
-        protected override long ProbeThrottleMs => 600_000;
-
-        protected override void SnapshotHealth() =>
-            PublishRows(new List<ProjectEntry> { new("fake", "0", "P", HealthStatus.Healthy, false) });
-
-        public override void TriggerAsyncProbe() =>
-            RunProbeOnce(() => RunOnStaThread<int>(() =>
-            {
-                SnapshotHealth();
-                throw new BridgeException(BridgeErrorCodes.PlcDisconnected, "the IDE did not answer the liveness probe");
-            }));
-
-        protected override T MarshalToIdeThread<T>(Func<T> fn) => fn();
-        public override bool IsConnected => true;
-        public override string Vendor => "fake";
-        public override string? ServedProjectName => "P";
-        public override string? IdeVersion => "0";
-        public override string? ProductName => null;
-        public override string? ProductVersion => null;
-        public override string? ProductVendor => null;
-        public override void Disconnect() { }
-        public override bool ShouldMarkDegraded(Exception ex) => false;
-        public override void SelectProject(ConnectRequest sel) { }
-        public override bool Build(IReadOnlyCollection<string>? applications) => true;
-        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
-        public override string? RefusedLanguageChange(string site, string from, string to) =>
-            throw new NotSupportedException("a health double writes no body");
-        public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
-            throw new NotSupportedException("a health double reads no library");
-    }
-
-    /// <summary>The minimum DriverBase subclass: it counts probes and publishes an empty row list (which is what
-    /// stamps the throttle clock). Everything else is inert — no IDE, no marshalling.</summary>
     /// <summary>`health` says whether LD and FBD network text is on in the BRIDGE's process
     /// (<see cref="Volt.Engine.Format.Network.NetworkTextSwitch"/>). The switch is read from the bridge's own
     /// environment, and a client — `refresh:corpus`, `record:language` — cannot set it: a corpus refreshed through a
@@ -138,49 +98,93 @@ public class HonestHealthTests
     [Fact]
     public void Health_says_whether_LD_and_FBD_are_on_in_this_bridge()
     {
-        var driver = new ProbeCountingDriver();
+        var session = new ComposedSession(new ProbeCountingHost());
         var was = Volt.Engine.Format.Network.NetworkTextSwitch.Enabled;
         try
         {
             Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = true;
-            Assert.True(driver.BuildHealthResponse().NetworkText);
+            Assert.True(session.BuildHealthResponse().NetworkText);
             Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = false;
-            Assert.False(driver.BuildHealthResponse().NetworkText);
+            Assert.False(session.BuildHealthResponse().NetworkText);
         }
         finally { Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = was; }
         Assert.Contains("\"networkText\":true",
             System.Text.Json.JsonSerializer.Serialize(new HealthResponse { NetworkText = true }));
     }
 
-    private sealed class ProbeCountingDriver : DriverBase
+    /// <summary>A host whose IDE does not answer, shaped like <c>BeckhoffDriver</c>: its probe states its rows and that the
+    /// IDE did not answer. The floor is parked far above the test's own duration so only the explicit
+    /// <c>TriggerAsyncProbe</c> ever probes — no second probe can be in flight while the row is read.</summary>
+    private sealed class DeadIdeHost : HealthOnlyHost
+    {
+        public override long HealthProbeFloorMs => 600_000;
+        public override string? ServedProjectName => "P";
+
+        public override ProjectProbe ProbeProjects() =>
+            new(new List<ProjectEntry> { new("fake", "0", "P", HealthStatus.Healthy, false) }, Bound: false,
+                NotAnswering: "the IDE did not answer the liveness probe");
+    }
+
+    /// <summary>The minimum host: it counts probes and states an empty row list (which, published, stamps the throttle
+    /// clock). Everything else is inert — no IDE, no marshalling.</summary>
+    private sealed class ProbeCountingHost : HealthOnlyHost
     {
         private int _probes;
         public int Probes => Volatile.Read(ref _probes);
         public ManualResetEventSlim Probed { get; } = new(false);
 
-        protected override void SnapshotHealth()
+        public override ProjectProbe ProbeProjects()
         {
             Interlocked.Increment(ref _probes);
-            PublishRows(new List<ProjectEntry>());
             Probed.Set();
+            return new ProjectProbe(new List<ProjectEntry>(), Bound: false);
         }
+    }
 
-        protected override T MarshalToIdeThread<T>(Func<T> fn) => fn();
-        public override bool IsConnected => true;
-        public override string Vendor => "fake";
-        public override string? ServedProjectName => null;
-        public override string? IdeVersion => "0";
-        public override string? ProductName => null;
-        public override string? ProductVersion => null;
-        public override string? ProductVendor => null;
-        public override void Disconnect() { }
-        public override bool ShouldMarkDegraded(Exception ex) => false;
-        public override void SelectProject(ConnectRequest sel) { }
-        public override bool Build(IReadOnlyCollection<string>? applications) => true;
-        public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<Volt.Engine.Item.WalkResult> walk) => Array.Empty<BridgeDiagnostic>();
+    /// <summary>A host that answers only what the session asks: its tree and store are no part of a health test.</summary>
+    private abstract class HealthOnlyHost : VendorDriverBase, IVendorDriver
+    {
+        public abstract ProjectProbe ProbeProjects();
+        public virtual long HealthProbeFloorMs => ComposedSession.DefaultProbeThrottleMs;
+        public virtual string? ServedProjectName => null;
+
+        public T MarshalToIdeThread<T>(Func<T> fn) => fn();
+        public bool IsConnected => true;
+        public string Vendor => "fake";
+        public string? IdeVersion => "0";
+        public string? ProductName => null;
+        public string? ProductVersion => null;
+        public string? ProductVendor => null;
+        public string? Unsupported => null;
+        public string? NotServedBecause => null;
+        public void Disconnect() { }
+        public bool ShouldMarkDegraded(Exception ex) => false;
+        public void Recover() { }
+        public void SelectProject(ConnectRequest sel) { }
+        public bool Build(IReadOnlyCollection<string>? applications) => true;
+        public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<HostWalk> walk) => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
-        public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+        public IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
             throw new NotSupportedException("a health double reads no library");
+
+        private static NotSupportedException NoTree() => new("a health double has no project");
+        public VendorDeclaration Declaration => throw NoTree();
+        public HostWalk Walk(WalkObserver? observer = null) => throw NoTree();
+        public ItemRef Root => throw NoTree();
+        public IReadOnlyList<ItemRef> Children(ItemRef node) => throw NoTree();
+        public ItemRef Parent(ItemRef node) => throw NoTree();
+        public string Name(ItemRef node) => throw NoTree();
+        public NodeClass Classify(ItemRef node) => throw NoTree();
+        public bool HandlesSurviveStructureChange => throw NoTree();
+        public ItemRef CreateFolder(ItemRef parent, string name) => throw NoTree();
+        public ItemRef CreateChild(ItemRef parent, string name, string kind, CreateArgs args) => throw NoTree();
+        public void Delete(ItemRef parent, string name) => throw NoTree();
+        public void Rename(ItemRef node, string newName) => throw NoTree();
+        public void Move(ItemRef node, ItemRef target) => throw NoTree();
+        public Content Read(ItemRef item) => throw NoTree();
+        public void Write(ItemRef item, Content content, IReadOnlyList<PushedBody> bodies) => throw NoTree();
+        public string ReadManifest(ItemRef item, string kind) => throw NoTree();
+        public void WriteTask(ItemRef task, TaskSettings settings) => throw NoTree();
     }
 }

@@ -145,7 +145,7 @@ public static class PushService
         // (measured on `Lenze_MID-S100`: 157 of 174 items landed before the refusal). Everything decidable from the
         // SOURCE TEXT alone — a malformed ST document, network text that does not parse or is incomplete, a duplicate
         // child — is decided here, and so is what the driver can decide without touching the IDE
-        // (`ICodeStore.ValidateSource`: TwinCAT's archive builder is a pure function of the parsed model). A refusal
+        // (`IVendorStore.ValidateSource`: TwinCAT's archive builder is a pure function of the parsed model). A refusal
         // that needs the LIVE project (a type the driver cannot resolve, a body the IDE rejects on import) stays
         // possible; the apply loop reports it in structure: what landed, the refused op, every op it did not reach.
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
@@ -1133,7 +1133,7 @@ public static class PushService
     private static bool IsWritableDescriptor(KindRegistry kinds, string wireName) =>
         kinds.FindByWireName(wireName)?.Role == KindRole.WritableDescriptor;
 
-    /// <summary>Move an item to another folder — <see cref="IProjectTree.Move"/>, on every driver. The IDE
+    /// <summary>Move an item to another folder — <c>IVendorTree.Move</c>, on every driver. The IDE
     /// relocates the object WHOLE: nothing is read, deleted or rebuilt, there is no window in which the item does
     /// not exist, and a graphical item moves like any other. The NAME is kept, so name-based references survive.
     /// <para>Both vendors have a move (TwinCAT: DIALECT D4f), so there is no delete-and-recreate arm.</para></summary>
@@ -1834,7 +1834,7 @@ public static class PushService
     /// <summary>Bring the member SET into line with the pushed source: create what the source declares and the
     /// project lacks, remove what the project has and the source dropped.
     ///
-    /// <para>It lives here rather than in a driver: creating and deleting a child is <see cref="IProjectTree"/>, which
+    /// <para>It lives here rather than in a driver: creating and deleting a child is the contract's tree (<c>IVendorTree</c>), which
     /// both vendors implement, and keeping it in one place is what keeps the removal rule honest.</para>
     ///
     /// <para><b>The removal rule is the dangerous half.</b> It reconciles against the members the driver

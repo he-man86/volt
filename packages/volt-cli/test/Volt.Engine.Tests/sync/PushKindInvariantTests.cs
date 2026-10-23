@@ -11,14 +11,13 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// A KIND THE CREATE TABLE DOES NOT MAP IS VOLT'S BUG (openspec <c>bridge-refusal-review</c> 2.17/2.18).
 ///
-/// <para>The push creates by the KIND its host declared (a registry string); an old-contract host is handed the one
-/// numeric code each kind is created as by the adapter (<c>LegacyDriver</c>, volt-cli-rework step 5). A kind missing
-/// from that table is a table gap — INTERNAL_ERROR, never BAD_REQUEST, which would tell a client its request was
+/// <para>The push creates by the KIND its host declared (a registry string); a host whose tree answers the IEC codes
+/// creates it as the one code each kind is created as (<c>ItemKind.CreateCode</c>). A kind missing from that table is a table gap — INTERNAL_ERROR, never BAD_REQUEST, which would tell a client its request was
 /// malformed.</para>
 /// </summary>
 public class PushKindInvariantTests
 {
-    /// <summary>The code the old host was asked to create <paramref name="kind"/> as, through the adapter.</summary>
+    /// <summary>The code the double was asked to create <paramref name="kind"/> as, through its contract create.</summary>
     private static int CreatedAs(string kind)
     {
         var codes = new Dictionary<string, int>();

@@ -10,12 +10,15 @@ using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Host;
 using Volt.Engine.Item;
+using Volt.Engine.Format.Network;
+using Volt.Engine.Format.St;
+using Volt.Engine.Seam;
 using Volt.Engine.Sync;
 
 namespace Volt.Tests.Shared;
 
 /// <summary>
-/// The single in-memory <see cref="IIdeDriver"/> test double for the whole toolchain — the service tests
+/// The single in-memory <see cref="IVendorDriver"/> test double for the whole toolchain — the service tests
 /// (RefsService / FetchService / PushService, in Volt.Engine.Tests), the pipe host + command tests (in
 /// Volt.Cli.Tests), and the black-box CLI all drive this one fake. It is compiled into each test assembly via a
 /// linked <c>&lt;Compile&gt;</c> to <c>test/shared/FakeIde.cs</c>, so there is exactly one definition to keep true.
@@ -27,14 +30,16 @@ namespace Volt.Tests.Shared;
 /// <see cref="AddItem"/> / <see cref="RemoveItem"/>, which change the walked state so the recomputed versions
 /// (and thus the projectVersion lease) diverge from the workspace's baseline.
 ///
-/// It derives from <see cref="DriverBase"/> — the same base both shipped drivers derive from — so the shared
-/// machinery a fake used to hand-stub away (the degraded state machine, the IDE-thread liveness bracketing in
-/// <c>RunOnStaThread</c>, and the single-flight ambient probe) actually RUNS under test. The vendor-shaped members
-/// are supplied here: <see cref="MarshalToIdeThread{T}"/> is the fake's one work thread, and
-/// <see cref="TriggerAsyncProbe"/> routes through <c>RunProbeOnce</c> so a probe that throws reaches
-/// <c>OnProbeFailed</c> (log + MarkDegraded) exactly as it would on a real driver.
+/// It is a host on the contract the way both shipped hosts are (<see cref="IVendorDriver"/>, its IEC tree and record
+/// answering through the IEC tables' own conversions), and its session is the engine's own composition
+/// (<see cref="ComposedSession"/>), so the machinery a fake used to hand-stub away (the degraded state machine, the
+/// IDE-thread liveness bracketing in <c>RunOnStaThread</c>, and the single-flight ambient probe) actually RUNS under
+/// test. The vendor-shaped members are supplied here: <see cref="MarshalToIdeThread{T}"/> is the fake's one work
+/// thread, and the session's ambient probe runs <see cref="ProbeAction"/> through <c>RunProbeOnce</c>, so a probe that
+/// throws reaches <c>OnProbeFailed</c> (log + MarkDegraded) exactly as it would on a real host. A test hands the fake
+/// wherever a <see cref="HostLink"/> is asked for: it converts to its ONE link (<see cref="Link"/>).
 /// </summary>
-public sealed class FakeIde : DriverBase, IIdeDriver
+public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
 {
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
@@ -115,7 +120,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public FakeIde(params Item[] items) => _items = items.ToList();
 
     // Opt-in: serialize MarshalToIdeThread onto ONE background worker, modelling the real IDE's single primary/STA
-    // thread (DriverBase.RunOnStaThread brackets every call to it, exactly as it does for a shipped driver).
+    // thread (ComposedSession.RunOnStaThread brackets every call to it, exactly as it does for a shipped driver).
     // With this on, a blocked op (ExtractBlock) HOLDS that thread — so a poll-path op that marshals onto it deadlocks,
     // while one served from cache answers. This is what makes the "poll ops answer while the IDE is busy" test real.
     public FakeIde(bool serializeSta, params Item[] items) : this(items)
@@ -296,7 +301,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public IReadOnlyList<string> FaultingChildReads { get; init; } = System.Array.Empty<string>();
     public IReadOnlyList<string> FaultingNameReads { get; init; } = System.Array.Empty<string>();
 
-    // ── IProjectTree (only the walk + accessors the services use are real) ──
+    // ── the IEC tree (only the walk + accessors the services use are real) ──
 
     /// <summary>How many times the tree was walked — lets a test prove an op that must NOT walk doesn't.</summary>
     public int WalkCalls;
@@ -382,6 +387,45 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     public const string UnopenedReason = "the fake must not open it (DIALECT C2i)";
     public const string UnopenedKind = ItemKind.Kinds.Pou;
+
+    // ── the contract's words over the fake's IEC tree and record, as both shipped hosts answer them ──
+
+    /// <summary>What the fake states about itself: the IEC format's kinds and keys, the six body languages — LD and FBD
+    /// read against the scopes it builds (<see cref="NetworkScopeFor"/>).</summary>
+    public VendorDeclaration Declaration => _declaration ??= new VendorDeclaration(
+        new VendorRow(Vendor, Vendors.Display(Vendor)),
+        IecFormat.KindRows,
+        new[]
+        {
+            LanguageRow.Shown(Languages.St, PlainTextReader.Instance),
+            LanguageRow.Shown(Languages.Ld, new NetworkBodyReader(Languages.Ld, NetworkScopeFor)),
+            LanguageRow.Shown(Languages.Fbd, new NetworkBodyReader(Languages.Fbd, NetworkScopeFor)),
+            LanguageRow.Hidden(Languages.Cfc), LanguageRow.Hidden(Languages.Sfc), LanguageRow.Hidden(Languages.Il),
+        },
+        IecFormat.PropertyKeys);
+
+    private VendorDeclaration? _declaration;
+
+    public HostWalk Walk(WalkObserver? observer = null) => WalkItems(observer).ToHostWalk();
+    public ItemRef Root => GetTreeRoot();
+    public IReadOnlyList<ItemRef> Children(ItemRef node) => new IndexedChildren(ChildCount(node), i => ChildAt(node, i));
+    public NodeClass Classify(ItemRef node) => ItemKind.ClassOf(KindCode(node));
+    public ItemRef CreateFolder(ItemRef parent, string name) => CreateChild(parent, name, ItemKind.PlcFolder, null, null);
+
+    public ItemRef CreateChild(ItemRef parent, string name, string kind, CreateArgs args) =>
+        CreateChild(parent, name, ItemKind.CreateCode(kind), FamilyContent.SeedOf(args), FamilyContent.ClassOf(args.Class));
+
+    public Content Read(ItemRef item) => FamilyContent.Folded(ReadContent(item));
+
+    public void Write(ItemRef item, Content content, IReadOnlyList<PushedBody> bodies) =>
+        WriteContent(item, FamilyContent.ToItemContent(content), Volt.Engine.Ide.PushedNetworkBody.Of(bodies));
+
+    /// <summary>An INTERFACE property's accessors are refused by their text (<see cref="ValidateInterfaceAccessor"/>);
+    /// no other accessor is — as both hosts answer.</summary>
+    public override void ValidateAccessor(string memberKind, ContentAccessor pushed)
+    {
+        if (memberKind == ItemKind.Kinds.InterfaceProperty) ValidateInterfaceAccessor(FamilyContent.ToAccessor(pushed)!);
+    }
 
     // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
     // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
@@ -531,14 +575,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// fault — given the name and kind code. The engine must not word such a failure as a refusal of the text.</summary>
     public Func<string, int, Exception?>? FailCreate { get; init; }
 
-    /// <summary>The driver's measured NAME refusals (<c>ICodeStore.RefusedName</c>), given the kind created and the name:
+    /// <summary>The driver's measured NAME refusals (<c>IVendorStore.RefusedName</c>), given the kind created and the name:
     /// the reason for a refused name, null for one it does not refuse. Unset, the fake refuses no name — as
-    /// <c>DriverBase</c>.</summary>
+    /// <c>VendorDriverBase</c>.</summary>
     public Func<string, string, string?>? RefusesName { get; init; }
 
-    public override string? RefusedName(string kind, string name) => RefusesName?.Invoke(kind, name);
+    /// <summary>A POU's name and a member's are asked, the kinds both hosts' words were measured on; a GVL, a DUT and an
+    /// interface are not (as both hosts answer).</summary>
+    public override string? RefusedName(string kind, string name) =>
+        kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut or ItemKind.Kinds.Interface ? null : RefusesName?.Invoke(kind, name);
 
-    /// <summary>The driver's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>), given the site, the live
+    /// <summary>The driver's language-change answer (<c>IVendorStore.RefusedLanguageChange</c>), given the site, the live
     /// language and the pushed one: the vendor's reason, or null where it writes the change (CODESYS for a POU's own
     /// body, DIALECT N24). Unset, the fake has no in-place route at any site — TwinCAT's answer — so a test that wants
     /// a written change states it.</summary>
@@ -549,29 +596,34 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             ? answer(site, from, to)
             : $"FakeIde: no route to change an existing body's language in place (from {from} to {to}).";
 
-    /// <summary>The driver's create-argument refusals (<c>ICodeStore.RefusedMemberCreate</c>), given the member kind, name
-    /// and seed. <see cref="CreateChild"/> refuses the same creates with a <c>NotSupportedException</c>, as TwinCAT's
-    /// driver does. Unset, the fake refuses none — as <c>DriverBase</c>.</summary>
+    /// <summary>The driver's create-argument refusals (<c>IVendorStore.RefusedMemberCreate</c>), given the member kind, name
+    /// and seed. <c>CreateChild</c> refuses the same creates with a <c>NotSupportedException</c>, as TwinCAT's
+    /// driver does. Unset, the fake refuses none — as <c>VendorDriverBase</c>.</summary>
     public Func<string, string, string?, string?>? RefusesMemberCreate { get; init; }
 
-    public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
+    public string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         RefusesMemberCreate?.Invoke(memberKind, name, seed);
 
-    /// <summary>The driver's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>), handed each pushed
-    /// accessor of an interface property. Every call is recorded; unset, the fake refuses none — as <c>DriverBase</c>.</summary>
+    public override string? RefusedMemberCreate(string memberKind, string name, CreateArgs args) =>
+        RefusedMemberCreate(memberKind, name, FamilyContent.SeedOf(args));
+
+    /// <summary>The driver's interface-accessor refusal, handed each pushed accessor of an interface property (the contract's
+    /// <c>ValidateAccessor</c> for an interface property, as both hosts answer it). Every call is recorded; unset, the fake
+    /// refuses none.</summary>
     public Action<Accessor>? ValidatesInterfaceAccessor { get; init; }
 
     /// <summary>Every <c>ValidateInterfaceAccessor</c> call, in order.</summary>
     public List<Accessor> InterfaceAccessorsValidated { get; } = new();
 
-    public override void ValidateInterfaceAccessor(Accessor pushed)
+    public void ValidateInterfaceAccessor(Accessor pushed)
     {
         InterfaceAccessorsValidated.Add(pushed);
         ValidatesInterfaceAccessor?.Invoke(pushed);
     }
 
-    /// <summary>The driver's own pre-flight (<c>ICodeStore.ValidateSource</c>), handed the bodies the engine validated.
-    /// Every call is recorded; unset, the fake refuses nothing — as <c>DriverBase</c>.</summary>
+    /// <summary>The driver's own pre-flight (<c>IVendorStore.ValidateSource</c>), handed the NETWORK bodies the engine read —
+    /// only when the item carries one, as both hosts' pre-flight reads them. Every call is recorded; unset, the fake refuses
+    /// nothing.</summary>
     public Action<IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody>>? ValidatesSource { get; init; }
 
     /// <summary>Every <c>ValidateSource</c> call, in order: what the engine handed the driver's pre-flight.</summary>
@@ -581,15 +633,21 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <see cref="SourcesValidated"/>.</summary>
     public List<ItemRef?> ExistingValidated { get; } = new();
 
-    public override void ValidateSource(ItemRef? existing, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies)
+    public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedBody> bodies)
+    {
+        var network = Volt.Engine.Ide.PushedNetworkBody.Of(bodies);
+        if (network.Count > 0) ValidateSource(existing, network);
+    }
+
+    public void ValidateSource(ItemRef? existing, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies)
     {
         SourcesValidated.Add(bodies);
         ExistingValidated.Add(existing);
         ValidatesSource?.Invoke(bodies);
     }
 
-    /// <summary>The driver's task pre-flight (<c>ICodeStore.ValidateTask</c>), handed the settings the engine's gate read.
-    /// Every call is recorded; unset, the fake refuses nothing — as <c>DriverBase</c>.</summary>
+    /// <summary>The driver's task pre-flight (<c>IVendorStore.ValidateTask</c>), handed the settings the engine's gate read.
+    /// Every call is recorded; unset, the fake refuses nothing.</summary>
     public Action<TaskSettings>? ValidatesTask { get; init; }
 
     /// <summary>Every <c>ValidateTask</c> call, in order.</summary>
@@ -887,7 +945,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         string.Join("\n", text.Split('\n').Select(line =>
             line.IndexOf("//", StringComparison.Ordinal) is var at and >= 0 ? rewrite(line[..at]) + line[at..] : rewrite(line)));
 
-    // ── ICodeStore ──
+    // ── the IEC record (the host's own read model below the contract) ──
     /// <summary>Emit NO `interfaceasplaintext` addData block, as live TwinCAT now does. `ReadDeclaration`
     /// still answers, because the aspect is the object model rather than a serialisation — which is the whole
     /// reason the declaration must come from there.</summary>
@@ -1354,16 +1412,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string ReadManifest(ItemRef item, string kind) =>
         Find(item) is { UnreadableReason: { } why } ? throw new InvalidOperationException(why) : Find(item).Declaration ?? "";
 
-    // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
+    // ── the session primitives (no-op/sensible defaults); the composition is the engine's (FakeSession) ──
     // The LIVE signals (IsConnected / ServedProjectName / Vendor) and the CACHED health snapshot are SEPARATE
     // sources here, because they are separate on a real driver: TwinCAT serves health from a ~5s-throttled snapshot
     // while IsConnected is a live state read, so the two CAN disagree. This double used to assert they were the same
     // signal, which made the divergence unrepresentable — and hid a real bug. `StaleHealthSnapshot` models it.
-    public override bool IsConnected => HealthConnected && _attached;
-    public override string Vendor => HealthPlatform;
+    public bool IsConnected => HealthConnected && _attached;
+    public string Vendor => HealthPlatform;
     /// <summary>The LIVE served-project name — what the in-op guard reads. Independent of the health snapshot.</summary>
-    public override string? ServedProjectName => IsConnected ? HealthProjectName : null;
-    public override string? IdeVersion => Version;
+    public string? ServedProjectName => IsConnected ? HealthProjectName : null;
+    public string? IdeVersion => Version;
     /// <summary>The IDE version this double reports. "0" unless a test names one.</summary>
     public string? Version { get; init; } = "0";
     /// <summary>The product identity this double's IDE states (<c>health.productName/productVersion/productVendor</c>)
@@ -1371,39 +1429,54 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string? IdeProductName { get; init; }
     public string? IdeProductVersion { get; init; }
     public string? IdeProductVendor { get; init; }
-    public override string? ProductName => IdeProductName;
-    public override string? ProductVersion => IdeProductVersion;
-    public override string? ProductVendor => IdeProductVendor;
+    public string? ProductName => IdeProductName;
+    public string? ProductVersion => IdeProductVersion;
+    public string? ProductVendor => IdeProductVendor;
     /// <summary>What this double's IDE lacks, as the driver's fixed refusal text — null (the default) when it has
-    /// everything the bridge needs. See <c>IIdeSession.Unsupported</c>.</summary>
+    /// everything the bridge needs. See <c>IVendorSession.Unsupported</c>.</summary>
     public string? UnsupportedReason { get; init; }
-    public override string? Unsupported => UnsupportedReason;
-    public override void Disconnect() { }
-    // IsDegraded / MarkDegraded / ClearDegraded / Recover are NOT stubbed here any more: DriverBase's real ones run,
-    // so the degraded state machine is under test. Nothing flips it by default, so today's answers are unchanged.
-    /// <summary>The ambient probe, routed through <c>DriverBase.RunProbeOnce</c> like both shipped drivers — so the
-    /// single-flight skip and the <c>OnProbeFailed</c> path (log + MarkDegraded) are reachable from a test for the
-    /// first time. <see cref="ProbeAction"/> is the probe body; unset, it is an inert successful probe. Nothing calls
-    /// this by default (the fake's <see cref="BuildHealthResponse"/> serves the configured rows directly), so it costs
-    /// the existing suites nothing.</summary>
+    public string? Unsupported => UnsupportedReason;
+    public string? NotServedBecause => null;
+    public void Disconnect() { }
+    public void Recover() { }
+
+    /// <summary>The ambient probe's body, run through the session's <c>RunProbeOnce</c> like both shipped hosts' — so the
+    /// single-flight skip and the <c>OnProbeFailed</c> path (log + MarkDegraded) are reachable from a test. Unset, it is an
+    /// inert successful probe. Nothing calls it by default (the fake's health serves the configured rows directly), so it
+    /// costs the existing suites nothing.</summary>
     public Action? ProbeAction { get; init; }
-    public override void TriggerAsyncProbe() =>
-        RunProbeOnce(() => RunOnStaThread(() => { ProbeAction?.Invoke(); return 0; }));
 
-    /// <summary>Never reached in practice: the fake overrides <see cref="TriggerAsyncProbe"/> (it runs
-    /// <see cref="ProbeAction"/>, not a snapshot) and <see cref="BuildHealthResponse"/> (it serves the live knobs),
-    /// so nothing drives <c>DriverBase</c>'s row cache. Publishes the configured rows anyway, so the base cache is
-    /// truthful the moment anything does.</summary>
-    protected override void SnapshotHealth() => PublishRows(Projects.ToList());
+    /// <summary>The configured rows, never a live binding (a probe does not clear degraded here: nothing in the fake
+    /// reconnects).</summary>
+    public ProjectProbe ProbeProjects() => new(Projects.ToList(), Bound: false);
+    public long HealthProbeFloorMs => ComposedSession.DefaultProbeThrottleMs;
 
-    // This override STAYS after health-compose-in-core, deliberately. DriverBase now composes health from a cache
-    // that only a SnapshotHealth publication fills — and nothing would ever fill the fake's: it has no Connect()
-    // (BridgePipeHost never connects; the two production seeds are CodesysDriver.Connect / BeckhoffDriver.Connect),
-    // and every health knob below is an `init` property assigned AFTER the ctor runs, so a ctor-time snapshot would
-    // cache the defaults for the dozen call sites that set them. Serving the knobs directly keeps every existing
-    // assertion meaning what it meant. The cost, stated rather than hidden: the fake does NOT exercise DriverBase's
-    // composed body — the two shipped drivers do, and only the live e2e sees it.
-    public override HealthResponse BuildHealthResponse()
+    /// <summary>The fake's ONE link, and so its one session: what a test hands wherever a <see cref="HostLink"/> is asked
+    /// for, so the session's state (degraded, the signature cache) lives as long as the fake, as a shipped host's does.</summary>
+    public HostLink Link => _link ??= HostLink.Of(new FakeSession(this));
+    private HostLink? _link;
+
+    public static implicit operator HostLink(FakeIde fake) => fake.Link;
+
+    /// <summary>The session's health, asked of the fake for brevity in a test.</summary>
+    public HealthResponse BuildHealthResponse() => Link.Session.BuildHealthResponse();
+
+    /// <summary>The engine's session over the fake, serving its LIVE health knobs. This override STAYS after
+    /// health-compose-in-core, deliberately: the composition fills its cache only from a probe, and nothing would ever
+    /// seed the fake's — it has no connect (the two production seeds are each host's start), and every health knob is an
+    /// `init` property assigned AFTER the ctor runs, so a ctor-time snapshot would cache the defaults for the dozen call
+    /// sites that set them. Serving the knobs directly keeps every existing assertion meaning what it meant. The cost,
+    /// stated rather than hidden: the fake does NOT exercise the composed health body — the two shipped hosts do, and only
+    /// the live e2e sees it.</summary>
+    private sealed class FakeSession(FakeIde fake) : ComposedSession(fake)
+    {
+        public override void TriggerAsyncProbe() =>
+            RunProbeOnce(() => RunOnStaThread(() => { fake.ProbeAction?.Invoke(); return 0; }));
+
+        public override HealthResponse BuildHealthResponse() => fake.Health();
+    }
+
+    private HealthResponse Health()
     {
         // Each configured row only actually serves (non-idle status) while IsConnected — so a select that fails to
         // attach, or HealthConnected=false, forces every row to `idle`, like a real driver. When no rows are
@@ -1420,14 +1493,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <c>BridgePipeHost.RunRead</c>'s mark-degraded → Recover → retry-once branch. Default false: today's answer, and
     /// CODESYS's in-proc answer. Settable so that branch stops being unreachable under test.</summary>
     public bool TransientErrorsAreDegraded { get; init; }
-    public override bool ShouldMarkDegraded(Exception ex) => TransientErrorsAreDegraded;
+    public bool ShouldMarkDegraded(Exception ex) => TransientErrorsAreDegraded;
     /// <summary>Every call marshalled to the IDE thread throws this instead of running — the shape of a member that
     /// fails to bind at call time (the 3.5.17 <c>MissingMethodException</c>), which surfaces on the call, uncoded
     /// (openspec ide-identity-report 3.1).</summary>
     public Func<Exception>? CallFault { get; set; }
-    /// <summary>The fake's one IDE thread. <c>DriverBase.RunOnStaThread</c> wraps every call to this with the
+    /// <summary>The fake's one IDE thread. The session's <c>RunOnStaThread</c> wraps every call to this with the
     /// in-flight/freshness bracketing, so the fake gets the real liveness signals for free.</summary>
-    protected override T MarshalToIdeThread<T>(Func<T> fn)
+    public T MarshalToIdeThread<T>(Func<T> fn)
     {
         if (CallFault is { } fault) throw fault();
         if (_sta == null) return fn();   // default: inline, no serialization
@@ -1442,7 +1515,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // ── project rows / connect knobs — the flat connectable-projects list rides on the health response ──
     public List<ProjectEntry> Projects { get; set; } = new();
     public ConnectRequest? Selected { get; private set; }
-    public override void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
+    public void SelectProject(ConnectRequest sel) { Selected = sel; if (!SelectConnects) _attached = false; }
 
     /// <summary>The build-side call SEQUENCE, in its own list rather than <see cref="Recorded"/> so the tests
     /// that assert over that list are unaffected.</summary>
@@ -1467,7 +1540,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <summary>The applications each build was asked for — null for every application — in call order.</summary>
     public List<IReadOnlyCollection<string>?> BuiltApplications { get; } = new();
 
-    public override bool Build(IReadOnlyCollection<string>? applications)
+    public bool Build(IReadOnlyCollection<string>? applications)
     {
         BuildSequence.Add("build");
         BuiltApplications.Add(applications);
@@ -1476,10 +1549,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (BuildThrows) throw new InvalidOperationException("the IDE's compiler faulted");
         return BuildSucceeds;
     }
-    /// <summary>A COPY per call, because that is the contract (see <c>IIdeSession.GetBuildDiagnostics</c>): the
+    /// <summary>A COPY per call, because that is the contract (see <c>IVendorSession.GetBuildDiagnostics</c>): the
     /// caller rewrites <c>Name</c> in place, and handing out the test's own list would let one build's promotion
     /// leak into the next — a fake that hid the very aliasing the contract exists to prevent.</summary>
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<WalkResult> walk) =>
+    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<HostWalk> walk) =>
         BuildDiagnostics.Select(d => new BridgeDiagnostic
         {
             Name = d.Name, Member = d.Member, Code = d.Code, Severity = d.Severity, Message = d.Message, Line = d.Line,
@@ -1496,7 +1569,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public ManualResetEventSlim? ExtractBlock { get; init; }
     /// <summary>How many times extraction (the precompile) ran — lets a test prove a directed fetch skips the build.</summary>
     public int ExtractCalls;
-    public override IReadOnlyList<LibSignature> ExtractLibrarySignatures()
+    public IReadOnlyList<LibSignature> ExtractLibrarySignatures()
     {
         ExtractCalls++;
         ExtractEntered?.Set();

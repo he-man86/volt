@@ -113,7 +113,7 @@ public sealed class NetworkScope
     /// <c>interface</c>, …) — the pushed item's own, else the IDE's class — or null when the project holds no item of
     /// that name. Never read off the item's text (openspec <c>bridge-refusal-review</c> D3).</param>
     /// <param name="isRefusedPouName">Whether the VENDOR refuses a word as the name of a POU: its measured name list
-    /// (<c>ICodeStore.RefusedName</c>), below the seam (D4). A word no POU can be named is no function block's type —
+    /// (<c>IVendorStore.RefusedName</c>), below the seam (D4). A word no POU can be named is no function block's type —
     /// <c>INT</c>, <c>STRING</c>, the heads <c>ARRAY</c>, <c>POINTER</c>, <c>REFERENCE</c>; on CODESYS also <c>LDT</c>,
     /// which TwinCAT takes as a name.</param>
     /// <param name="libraryFunction">A referenced LIBRARY's FUNCTION by the bare name a call box names, as the IDE's

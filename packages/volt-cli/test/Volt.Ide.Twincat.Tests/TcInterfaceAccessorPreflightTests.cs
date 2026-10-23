@@ -6,7 +6,7 @@ using Xunit;
 namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
-/// TWINCAT'S INTERFACE-ACCESSOR REFUSAL IS ASKED BY THE PUSH PRE-FLIGHT (<c>ICodeStore.ValidateInterfaceAccessor</c>;
+/// TWINCAT'S INTERFACE-ACCESSOR REFUSAL IS ASKED BY THE PUSH PRE-FLIGHT (<c>IVendorStore.ValidateAccessor</c>;
 /// review of openspec <c>bridge-refusal-review</c> 3a+3b). The write refuses any declaration or body pushed at an
 /// interface property's GET/SET (DIALECT D21: <c>ReadMember</c> builds one as <c>new Accessor(null, null)</c>, so
 /// anything non-blank is a change) — from inside the apply loop, after the batch's earlier ops had landed. The decision

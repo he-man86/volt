@@ -269,7 +269,7 @@ public static partial class ItemKind
 
     /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
     /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this
-    /// (see <c>ICodeStore.ReadManifest</c>): the value is wire-observable twice over (<c>Materializer</c> writes it
+    /// (see <c>IVendorStore.ReadManifest</c>): the value is wire-observable twice over (<c>Materializer</c> writes it
     /// verbatim into the workspace, <c>Hasher</c> takes the content version from it), so it is PARITY-CRITICAL and
     /// must not be able to diverge per vendor — which a literal hand-written in each driver could.</summary>
     public static string EmptyManifest(string kind) => $"{kind}\n";

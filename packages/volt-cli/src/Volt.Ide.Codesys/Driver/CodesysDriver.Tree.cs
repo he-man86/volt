@@ -8,7 +8,7 @@ using Volt.Engine.Item;
 
 namespace Volt.Ide.Codesys;
 
-/// <summary>CODESYS driver — the <see cref="IProjectTree"/> facet: walk the object-model tree and
+/// <summary>CODESYS driver — the tree facet (its IEC tree, <see cref="IIecTree"/>): walk the object-model tree and
 /// classify/CRUD nodes. <see cref="ItemRef"/> wraps a raw object-model node (or a synthetic
 /// <c>LibRefNode</c> for a library reference).</summary>
 public sealed partial class CodesysDriver
@@ -238,7 +238,7 @@ public sealed partial class CodesysDriver
     /// calls (openspec <c>bridge-refusal-review</c> D4) — <c>INT</c>, <c>ARRAY</c>, and on CODESYS <c>LDT</c>.</summary>
     internal static bool RefusedPouName(string name) => NameRefusal(ItemKind.Kinds.Pou, name) is not null;
 
-    /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): a `Type:` the vendor's
+    /// <summary>The push pre-flight's task refusal (<c>IVendorStore.ValidateTask</c>): a `Type:` the vendor's
     /// <c>KindOfTask</c> does not NAME — BAD_REQUEST, by the same lookup the descriptor write makes, so the batch's earlier
     /// ops are not written before the request's own fault is found.</summary>
     public override void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings)

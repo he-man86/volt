@@ -51,7 +51,7 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("Cyclic, Freewheeling, Event, ExternalEvent, Status, ParentSynchron", ex.Message);
         }
 
-        /// <summary>The push PRE-FLIGHT asks the same lookup (<c>ICodeStore.ValidateTask</c>), so the request's own fault is
+        /// <summary>The push PRE-FLIGHT asks the same lookup (<c>IVendorStore.ValidateTask</c>), so the request's own fault is
         /// refused before the batch's first write rather than by the descriptor write after earlier ops landed (review
         /// 2e+2g, low).</summary>
         [Fact]

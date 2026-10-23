@@ -70,7 +70,7 @@ public class OpGuardTests
         ExpectedPlatform = platform, ExpectedProjectName = project,
     };
 
-    /// <summary>REGRESSION — the precondition must come from ONE LIVE signal. `IIdeSession` documents that the
+    /// <summary>REGRESSION — the precondition must come from ONE LIVE signal. The session documents that the
     /// not-connected precondition is decided against `IsConnected`; `RefsService` did that, but `OpGuard` (every
     /// fetch/push/build) read `BuildHealthResponse().Connected` — a throttled CACHED snapshot on TwinCAT. So a WRITE
     /// was refused PLC_DISCONNECTED on stale state while a READ of the same bridge succeeded. Symptom: after an IDE

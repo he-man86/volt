@@ -13,7 +13,7 @@ namespace Volt.Engine.Format.St;
 
 /// <summary>
 /// Splits one canonical workspace source item (ST text) into the vendor-neutral primitives
-/// <c>Sync/PushService</c> writes through the <c>IIdeDriver</c> contract: one outer item + N
+/// <c>Sync/PushService</c> writes through the <c>IVendorDriver</c> contract: one outer item + N
 /// children (methods / actions / properties / property accessors).
 ///
 /// Wire-model: a push carries the item's whole ST text in the pipe's declarative `set` op
@@ -72,7 +72,7 @@ public static class StReader
 
 	/// <summary>
 	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
-	/// push path writes through <c>IIdeDriver</c>.
+	/// push path writes through <c>IVendorDriver</c>.
 	///
 	/// <para><b>A TOP-LEVEL ITEM'S HEADER IS NEVER READ</b> (openspec <c>push-without-header-check</c>). Its kind is
 	/// <paramref name="kind"/> — the wire name's extension — so the header is not parsed, not checked against it, and
@@ -1143,7 +1143,7 @@ public static class StReader
 			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name", where);
 
 		// The name is taken AS WRITTEN. Whether the IDE takes it is the driver's measured answer, asked by the push
-		// pre-flight (`ICodeStore.RefusedName`): both vendors refuse every non-identifier shape themselves, and CODESYS
+		// pre-flight (`IVendorStore.RefusedName`): both vendors refuse every non-identifier shape themselves, and CODESYS
 		// creates a backtick-quoted name — an ASCII check here refused that valid name and judged the rest unmeasured
 		// (openspec bridge-refusal-review 3.1).
 		return (words[words.Length - 1], type);

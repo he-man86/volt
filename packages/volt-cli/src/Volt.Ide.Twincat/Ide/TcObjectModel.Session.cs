@@ -404,7 +404,7 @@ internal sealed partial class TcObjectModel
         // next recovery must re-establish the SAME project when TwinCAT returns. Only an explicit new select changes it.
         // ponytail: on TwinCAT this method is INTERFACE-OBLIGATION ONLY — it has no production caller. The wire
         // `disconnect` op only sets BridgePipeHost._paused (it tears nothing down), and the single production caller
-        // of IIdeSession.Disconnect() is the CODESYS in-proc PipeHost. Kept because BeckhoffDriver must satisfy the
+        // of IVendorSession.Disconnect() is the CODESYS in-proc PipeHost. Kept because BeckhoffDriver must satisfy the
         // abstract override; read the NOTE above as the contract it WOULD honour, not as a live invariant.
     }
 

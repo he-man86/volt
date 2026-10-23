@@ -7,7 +7,7 @@ namespace Volt.Engine.Ide;
 /// <summary>Where a POU's members live in the project tree.
 ///
 /// <para>Shared, not vendor code: it needs only <c>ChildCount</c>, <c>ChildAt</c>, <c>Name</c> and <c>KindCode</c>, all
-/// on <see cref="IProjectTree"/>, and a per-driver copy is how the two drivers drift apart.</para>
+/// on <see cref="IIecTree"/>, and a per-driver copy is how the two drivers drift apart.</para>
 ///
 /// <para>Public rather than internal because both drivers are separate assemblies. <c>TreeNav</c> next door is
 /// internal and stays that way — nothing outside the engine navigates the tree.</para>
@@ -41,7 +41,7 @@ public static class MemberSites
     /// <para>Accessors are NOT members: a property's GET/SET are read with the property. Neither is a transition
     /// — it is inlined in the POU, no reader models one, so it can never appear in a pushed member set, and
     /// yielding it here would put it in the reconciliation where a push would then DELETE it.</para></summary>
-    public static IEnumerable<Site> Of(IProjectTree tree, ItemRef parent, string basePath = "")
+    public static IEnumerable<Site> Of(IIecTree tree, ItemRef parent, string basePath = "")
     {
         int count = tree.ChildCount(parent);
         for (int i = 1; i <= count; i++)

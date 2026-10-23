@@ -9,7 +9,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// AN EXISTING MEMBER IS NEVER REFUSED BY ITS NAME (openspec <c>codesys-existing-unicode-members</c>, PLC Assist chat
-/// be8c6faa). The name pre-flight (<c>ICodeStore.RefusedName</c>) judges what the push would CREATE: a member the IDE
+/// be8c6faa). The name pre-flight (<c>IVendorStore.RefusedName</c>) judges what the push would CREATE: a member the IDE
 /// already holds under the item — same kind, same name — is written through, never created, so its name is the IDE's
 /// own. It asked every member, on an update too, on the premise that "an existing member can not hold a word its IDE
 /// refuses to create"; a Chinese project disproved it — every write to a POU holding a CJK method was refused, though

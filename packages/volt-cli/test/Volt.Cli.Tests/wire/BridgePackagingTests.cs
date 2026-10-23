@@ -172,7 +172,7 @@ public class BridgePackagingTests
             : (outDir, "Volt.Engine.Host.dll");
 
     /// <summary>Serves <c>health</c> from the SHIPPED host (its own load context, its own static release read) over a real
-    /// pipe; the driver is a proxy over the shipped <c>IIdeDriver</c> that answers only what health asks.</summary>
+    /// pipe; the host is a proxy over the shipped <c>IVendorDriver</c> that answers only what health asks of it.</summary>
     private static JsonElement HealthFrom(string bundle, string outDir)
     {
         var (dir, hostFile) = Shipped(bundle, outDir);
@@ -183,18 +183,16 @@ public class BridgePackagingTests
         Assembly Volt(string name) => hostFile == "Volt.Engine.Host.dll" ? alc.LoadFromAssemblyName(new AssemblyName(name)) : host;
         var engine = Volt("Volt.Engine");
         var contracts = Volt("Volt.Contracts");
-        var driverType = engine.GetType("Volt.Engine.Ide.IIdeDriver", throwOnError: true)!;
-        var healthType = contracts.GetType("Volt.Contracts.HealthResponse", throwOnError: true)!;
+        var driverType = engine.GetType("Volt.Engine.Seam.IVendorDriver", throwOnError: true)!;
 
         // The proxy's base type is loaded INTO the bundle's context too: DispatchProxy emits one proxy assembly per load
         // context of the base type, and that assembly binds `Volt.Engine` by name once — so with the base type in the
-        // default context, the second bundle's proxy implemented the FIRST bundle's IIdeDriver (MissingMethodException).
+        // default context, the second bundle's proxy implemented the FIRST bundle's IVendorDriver (MissingMethodException).
         var proxyBase = alc.LoadFromAssemblyPath(typeof(HealthOnly).Assembly.Location).GetType(typeof(HealthOnly).FullName!, throwOnError: true)!;
         var driver = DispatchProxy.Create(driverType, proxyBase);
-        proxyBase.GetField(nameof(HealthOnly.Health))!.SetValue(driver, (Func<object>)(() => Activator.CreateInstance(healthType)!));
 
         var pipe = "volt.test." + Guid.NewGuid().ToString("N");
-        // The bundle's own engine puts the old-contract driver on the new contract (HostLink.Of), as its host does.
+        // The bundle's own engine composes the session over the host (HostLink.Of), as its host does.
         var link = engine.GetType("Volt.Engine.Sync.HostLink", throwOnError: true)!.GetMethod("Of", new[] { driverType })!.Invoke(null, new object[] { driver })!;
         var bridge = (IDisposable)Activator.CreateInstance(host.GetType("Volt.Engine.Host.BridgePipeHost", throwOnError: true)!, link, pipe)!;
         try
@@ -214,16 +212,15 @@ public class BridgePackagingTests
                 : null;
     }
 
-    /// <summary>Answers exactly the members the health op reads; any other call is a test-shape error, said by name.</summary>
+    /// <summary>Answers exactly the members the health op reads of a host; any other call is a test-shape error, said by
+    /// name. The session's first poll kicks its ambient probe off the request path; the probe's marshal is refused here,
+    /// which the session logs and survives (the answer is the empty row list).</summary>
     public class HealthOnly : DispatchProxy
     {
-        public Func<object> Health = () => throw new InvalidOperationException("Health not set");
-
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
         {
-            "BuildHealthResponse" => Health(),
             "get_Unsupported" or "get_IdeVersion" or "get_ProductName" or "get_ProductVersion" or "get_ProductVendor" => null,
-            _ => throw new NotSupportedException($"health asked the driver for {method?.Name}, which this double does not answer"),
+            _ => throw new NotSupportedException($"health asked the host for {method?.Name}, which this double does not answer"),
         };
     }
 

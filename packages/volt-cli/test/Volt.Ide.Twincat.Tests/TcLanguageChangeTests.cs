@@ -29,7 +29,7 @@ public class TcLanguageChangeTests
     private const string Ladder =
         "<NWL><o t=\"NWLImplementationObject\"><v n=\"DefaultViewMode\">\"Ld\"</v><l2 n=\"NetworkList\"/></o></NWL>";
 
-    /// <summary>THE DRIVER'S OWN WRITE ASKS THE SAME PREDICATE (review of 4a; <c>ICodeStore.RefusedLanguageChange</c>):
+    /// <summary>THE DRIVER'S OWN WRITE ASKS THE SAME PREDICATE (review of 4a; <c>IVendorStore.RefusedLanguageChange</c>):
     /// TwinCAT's write never asked it, so a write that skipped the guard had no backstop — ST text set over an archive is
     /// a raw vendor throw, an archive over ST is stored as ST text that does not compile (N24). Both are refused by name
     /// now, before the body is written.</summary>
@@ -55,9 +55,12 @@ public class TcLanguageChangeTests
         var driver = TcUntouchablePouTests.BoundDriver();
         var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
-        // The bodies as the push pre-flight hands them over (D8): validated once, by the engine.
-        var bodies = Volt.Engine.Ide.SourceScopes.Validated(content,
-            d => driver.NetworkScopeFor(d, Volt.Engine.Ide.PushedDeclarations.None));
+        // The bodies as the push pre-flight hands them over (D8): read once, by the language's reader the host declares.
+        var shown = Volt.Engine.Format.St.FamilyContent.Folded(content).Body!;
+        var model = new Volt.Engine.Format.Network.NetworkBodyReader("LD", driver.NetworkScopeFor)
+            .Read(shown.Code, Volt.Engine.Seam.BodyContext.Bare(decl));
+        var bodies = Volt.Engine.Ide.PushedNetworkBody.Of(
+            new[] { new Volt.Engine.Seam.PushedBody(Volt.Engine.Ide.BodySite.Item, "LD", model) });
         var ex = Assert.Throws<Volt.Engine.BridgeException>(() => driver.WriteContent(TcRefs.Ref(pou), content, bodies));
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("(from ST to LD)", ex.Message);

@@ -52,8 +52,8 @@ public class NewVendorGateTests
         @"|\b(PushedNetworkBody|NetworkBody|NetworkScope|NetworkModel|NwlMembers)\b",
         RegexOptions.CultureInvariant);
 
-    /// <summary>The contract's own interfaces (<c>Ide/I&lt;Name&gt;.cs</c>: IIdeDriver, IIdeSession, IProjectTree,
-    /// ICodeStore) and every Sync service.</summary>
+    /// <summary>Any contract interface left in <c>Ide/I&lt;Name&gt;.cs</c> (none since volt-cli-rework step 7: the contract is
+    /// <c>Seam/</c>, pinned at zero by its own gate) and every Sync service.</summary>
     private static bool ContractOrSync(string rel) =>
         rel.StartsWith("Volt.Engine/Sync/", StringComparison.Ordinal)
         || Regex.IsMatch(rel, @"^Volt\.Engine/Ide/I[A-Z]\w*\.cs$", RegexOptions.CultureInvariant);
@@ -115,12 +115,10 @@ public class NewVendorGateTests
         ["Volt.Engine/Format/Network/NetworkTextReader.cs"] = 1,
     };
 
-    /// <summary>Baseline: <c>input/vendor-neutrality.md</c> C1/C6 (the contract's <c>int KindCode</c>/<c>kindCode</c>,
-    /// <c>PushedNetworkBody</c>/<c>NetworkScope</c> in <c>ICodeStore</c>) and the Sync services that branch on codes.</summary>
+    /// <summary>Baseline: <c>input/vendor-neutrality.md</c> C1/C6 (the old contract's <c>int KindCode</c>/<c>kindCode</c>,
+    /// <c>PushedNetworkBody</c>/<c>NetworkScope</c>: gone with it in step 7) and the Sync services that branch on codes.</summary>
     private static readonly Dictionary<string, int> FamilyCodePins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine/Ide/ICodeStore.cs"] = 3,
-        ["Volt.Engine/Ide/IProjectTree.cs"] = 2,
         ["Volt.Engine/Sync/PushedText.cs"] = 1,
     };
 }

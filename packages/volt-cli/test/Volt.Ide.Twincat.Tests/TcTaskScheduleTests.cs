@@ -198,7 +198,7 @@ public class TcTaskScheduleTests
         Assert.True(TcTaskSchedule.Matches(SysTaskXml, want));
     }
 
-    /// <summary>The push PRE-FLIGHT asks the very patch the write builds (<c>ICodeStore.ValidateTask</c>), so a task TwinCAT
+    /// <summary>The push PRE-FLIGHT asks the very patch the write builds (<c>IVendorStore.ValidateTask</c>), so a task TwinCAT
     /// cannot hold is refused before the batch's first write, not after its earlier ops landed (review 2e+2g, low).</summary>
     [Fact]
     public void The_pre_flight_refuses_what_the_write_refuses()

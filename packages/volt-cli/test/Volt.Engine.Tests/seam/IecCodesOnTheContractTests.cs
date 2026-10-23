@@ -10,19 +10,19 @@ using Xunit;
 
 namespace Volt.Engine.Tests.Seam;
 
-/// <summary>The step-5 adapter (openspec <c>volt-cli-rework</c>, design "The adapter: old host to new contract"): an
-/// old-contract host on the new contract decides what it decided over codes, item by item — so the Engine rewritten over
-/// <see cref="NodeClass"/> reads the old hosts exactly as before.</summary>
-public class LegacyDriverTests
+/// <summary>A host whose tree answers the IEC codes, on the contract (the conversions both shipped hosts and the test
+/// double call: <see cref="ItemKind.ClassOf"/>, <c>WalkResult.ToHostWalk</c>, <c>FamilyContent.Folded</c>): it decides
+/// over <see cref="NodeClass"/> what the old engine decided over codes, item by item.</summary>
+public class IecCodesOnTheContractTests
 {
     /// <summary>Every code from the unknown sentinel to the end of the TwinCAT PLC range, each an object in one folder.</summary>
     private static readonly int[] Codes = Enumerable.Range(-2, 803).ToArray();
 
-    private static (LegacyDriver Driver, Catalog Catalog, List<(int Code, NodeClass Class)> Nodes) Classified()
+    private static (IVendorDriver Driver, Catalog Catalog, List<(int Code, NodeClass Class)> Nodes) Classified()
     {
         var ide = new FakeIde(Codes.Select(c => new FakeIde.Item($"I{c + 2}", c, "F", false, null, null, null, null)).ToArray());
         var link = HostLink.Of(ide);
-        var driver = (LegacyDriver)link.Driver;
+        var driver = link.Driver;
         var folder = driver.Children(driver.Root).Single(c => driver.Name(c) == "F");
         var nodes = driver.Children(folder).Select(c => (ide.KindCode(c), driver.Classify(c))).ToList();
         Assert.Equal(Codes.Length, nodes.Count);

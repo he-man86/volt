@@ -1956,9 +1956,14 @@ window.VOLT = {
   ],
   "driver": [
     {
-      "name": "IIdeSession",
-      "role": "Is there an IDE, which project, and the threading rules.",
+      "name": "IVendorSession",
+      "role": "Is there an IDE, which project, the threading rule and what the host declares.",
       "members": [
+        {
+          "name": "Declaration",
+          "kind": "property",
+          "signature": "VendorDeclaration Declaration { get; }"
+        },
         {
           "name": "IsConnected",
           "kind": "property",
@@ -2010,26 +2015,6 @@ window.VOLT = {
           "signature": "void Disconnect()"
         },
         {
-          "name": "IsDegraded",
-          "kind": "property",
-          "signature": "bool IsDegraded { get; }"
-        },
-        {
-          "name": "MarkDegraded",
-          "kind": "method",
-          "signature": "void MarkDegraded(string reason)"
-        },
-        {
-          "name": "ClearDegraded",
-          "kind": "method",
-          "signature": "void ClearDegraded()"
-        },
-        {
-          "name": "BuildHealthResponse",
-          "kind": "method",
-          "signature": "HealthResponse BuildHealthResponse()"
-        },
-        {
           "name": "ShouldMarkDegraded",
           "kind": "method",
           "signature": "bool ShouldMarkDegraded(Exception ex)"
@@ -2040,9 +2025,19 @@ window.VOLT = {
           "signature": "void Recover()"
         },
         {
-          "name": "RunOnStaThread",
+          "name": "MarshalToIdeThread",
           "kind": "method",
-          "signature": "T RunOnStaThread\u003CT\u003E(Func\u003CT\u003E fn)"
+          "signature": "T MarshalToIdeThread\u003CT\u003E(Func\u003CT\u003E fn)"
+        },
+        {
+          "name": "ProbeProjects",
+          "kind": "method",
+          "signature": "ProjectProbe ProbeProjects()"
+        },
+        {
+          "name": "HealthProbeFloorMs",
+          "kind": "property",
+          "signature": "Int64 HealthProbeFloorMs { get; }"
         },
         {
           "name": "SelectProject",
@@ -2057,58 +2052,48 @@ window.VOLT = {
         {
           "name": "GetBuildDiagnostics",
           "kind": "method",
-          "signature": "IReadOnlyList\u003CBridgeDiagnostic\u003E GetBuildDiagnostics(Func\u003CWalkResult\u003E walk)"
+          "signature": "IReadOnlyList\u003CBridgeDiagnostic\u003E GetBuildDiagnostics(Func\u003CHostWalk\u003E walk)"
         },
         {
           "name": "ExtractLibrarySignatures",
           "kind": "method",
           "signature": "IReadOnlyList\u003CLibSignature\u003E ExtractLibrarySignatures()"
-        },
-        {
-          "name": "LibrarySignatureCache",
-          "kind": "property",
-          "signature": "LibrarySignatureCache LibrarySignatureCache { get; }"
         }
       ]
     },
     {
-      "name": "IProjectTree",
+      "name": "IVendorTree",
       "role": "Navigate and mutate structure. No source text.",
       "members": [
         {
-          "name": "WalkItems",
+          "name": "Walk",
           "kind": "method",
-          "signature": "WalkResult WalkItems(WalkObserver? observer = \u2026)"
+          "signature": "HostWalk Walk(WalkObserver? observer = \u2026)"
         },
         {
-          "name": "GetTreeRoot",
-          "kind": "method",
-          "signature": "ItemRef GetTreeRoot()"
+          "name": "Root",
+          "kind": "property",
+          "signature": "ItemRef Root { get; }"
         },
         {
-          "name": "ChildCount",
+          "name": "Children",
           "kind": "method",
-          "signature": "int ChildCount(ItemRef item)"
-        },
-        {
-          "name": "ChildAt",
-          "kind": "method",
-          "signature": "ItemRef ChildAt(ItemRef parent, int index1Based)"
+          "signature": "IReadOnlyList\u003CItemRef\u003E Children(ItemRef node)"
         },
         {
           "name": "Parent",
           "kind": "method",
-          "signature": "ItemRef Parent(ItemRef item)"
+          "signature": "ItemRef Parent(ItemRef node)"
         },
         {
           "name": "Name",
           "kind": "method",
-          "signature": "string Name(ItemRef item)"
+          "signature": "string Name(ItemRef node)"
         },
         {
-          "name": "KindCode",
+          "name": "Classify",
           "kind": "method",
-          "signature": "int KindCode(ItemRef item)"
+          "signature": "NodeClass Classify(ItemRef node)"
         },
         {
           "name": "HandlesSurviveStructureChange",
@@ -2116,14 +2101,14 @@ window.VOLT = {
           "signature": "bool HandlesSurviveStructureChange { get; }"
         },
         {
-          "name": "CreateChild",
+          "name": "CreateFolder",
           "kind": "method",
-          "signature": "ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls)"
+          "signature": "ItemRef CreateFolder(ItemRef parent, string name)"
         },
         {
-          "name": "InterfacePropertyAccessors",
+          "name": "CreateChild",
           "kind": "method",
-          "signature": "(bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)"
+          "signature": "ItemRef CreateChild(ItemRef parent, string name, string kind, CreateArgs args)"
         },
         {
           "name": "Delete",
@@ -2133,28 +2118,28 @@ window.VOLT = {
         {
           "name": "Rename",
           "kind": "method",
-          "signature": "void Rename(ItemRef item, string newName)"
+          "signature": "void Rename(ItemRef node, string newName)"
         },
         {
           "name": "Move",
           "kind": "method",
-          "signature": "void Move(ItemRef item, ItemRef target)"
+          "signature": "void Move(ItemRef node, ItemRef target)"
         }
       ]
     },
     {
-      "name": "ICodeStore",
+      "name": "IVendorStore",
       "role": "Content in and out, in Volt\u0027s own vocabulary.",
       "members": [
         {
-          "name": "ReadContent",
+          "name": "Read",
           "kind": "method",
-          "signature": "ItemContent ReadContent(ItemRef item)"
+          "signature": "Content Read(ItemRef item)"
         },
         {
-          "name": "WriteContent",
+          "name": "Write",
           "kind": "method",
-          "signature": "void WriteContent(ItemRef item, ItemContent content, IReadOnlyList\u003CPushedNetworkBody\u003E bodies)"
+          "signature": "void Write(ItemRef item, Content content, IReadOnlyList\u003CPushedBody\u003E bodies)"
         },
         {
           "name": "ReadManifest",
@@ -2167,9 +2152,14 @@ window.VOLT = {
           "signature": "void WriteTask(ItemRef task, TaskSettings settings)"
         },
         {
+          "name": "ValidateTask",
+          "kind": "method",
+          "signature": "void ValidateTask(TaskSettings settings)"
+        },
+        {
           "name": "ValidateSource",
           "kind": "method",
-          "signature": "void ValidateSource(ItemRef? existing, IReadOnlyList\u003CPushedNetworkBody\u003E bodies)"
+          "signature": "void ValidateSource(ItemRef? existing, IReadOnlyList\u003CPushedBody\u003E bodies)"
         },
         {
           "name": "RefusedName",
@@ -2179,32 +2169,22 @@ window.VOLT = {
         {
           "name": "RefusedMemberCreate",
           "kind": "method",
-          "signature": "string? RefusedMemberCreate(string memberKind, string name, string? seed)"
+          "signature": "string? RefusedMemberCreate(string memberKind, string name, CreateArgs args)"
         },
         {
-          "name": "ValidateInterfaceAccessor",
+          "name": "ValidateAccessor",
           "kind": "method",
-          "signature": "void ValidateInterfaceAccessor(Accessor pushed)"
-        },
-        {
-          "name": "ValidateTask",
-          "kind": "method",
-          "signature": "void ValidateTask(TaskSettings settings)"
+          "signature": "void ValidateAccessor(string memberKind, ContentAccessor pushed)"
         },
         {
           "name": "ValidateProperties",
           "kind": "method",
-          "signature": "void ValidateProperties(string what, ObjectProperties pushed, bool create)"
+          "signature": "void ValidateProperties(string what, PropertySet pushed, bool create)"
         },
         {
           "name": "RefusedLanguageChange",
           "kind": "method",
           "signature": "string? RefusedLanguageChange(string site, string from, string to)"
-        },
-        {
-          "name": "NetworkScopeFor",
-          "kind": "method",
-          "signature": "NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations)"
         }
       ]
     }

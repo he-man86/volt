@@ -227,7 +227,7 @@ public class PouMergeWriteTests
     /// <summary>A move is a MOVE on every driver — with or without the single-document capability, which is a
     /// separate question about the CONTENT write.
     /// <para>This replaces a test that pinned the delete-and-recreate arm for "a driver without a move". There is
-    /// no such driver: <c>IProjectTree.Move</c> is a required member and both vendors implement it (CODESYS's
+    /// no such driver: <c>IVendorTree.Move</c> is a required member and both vendors implement it (CODESYS's
     /// scripting object has one; TwinCAT's is its export/import archive with the entry paths flattened, DIALECT
     /// D4f). The arm it pinned was also strictly worse: it REFUSED a graphical move outright, because a diagram
     /// cannot be rebuilt from text.</para></summary>

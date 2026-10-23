@@ -22,7 +22,7 @@ public sealed class BridgePipeHost : IDisposable
 
 
     private readonly HostLink _link;
-    private readonly IIdeSession _ide;
+    private readonly ComposedSession _ide;
     private readonly PipeServer _server;
 
     // "Disconnected" without tearing anything down. The tray's Disconnect sets this (`disconnect`); the host stays
@@ -66,10 +66,6 @@ public sealed class BridgePipeHost : IDisposable
     }
 
     /// <summary>A host that serves under a pipe-name claim its caller took first (<see cref="PipeServer.TakeName"/>).</summary>
-    /// <summary>An old-contract host, through the adapter (<see cref="HostLink.Of(IIdeDriver)"/>) until volt-cli-rework
-    /// step 6 moves the hosts onto the new contract.</summary>
-    public BridgePipeHost(IIdeDriver ide, PipeNameClaim claim) : this(HostLink.Of(ide), claim) { }
-
     public BridgePipeHost(HostLink link, PipeNameClaim claim)
     {
         _link = link;

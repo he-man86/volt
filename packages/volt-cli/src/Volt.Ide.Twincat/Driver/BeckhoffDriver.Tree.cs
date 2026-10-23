@@ -14,7 +14,7 @@ using Volt.Engine.Item;
 
 namespace Volt.Ide.Twincat;
 
-/// <summary>Beckhoff driver — the <see cref="IProjectTree"/> facet: the walk/lookup/CRUD ALGORITHM over
+/// <summary>Beckhoff driver — the tree facet (its IEC tree, <see cref="IIecTree"/>): the walk/lookup/CRUD ALGORITHM over
 /// the TwinCAT tree. The raw COM moves (child access, name, item-type, create/delete/rename) go through
 /// <see cref="TcObjectModel"/>; <see cref="ItemRef"/> wraps an opaque COM tree item (no <c>dynamic</c>
 /// here). The per-node try/catch is the walk's own defence against a COM node that faults mid-walk.</summary>
@@ -384,7 +384,7 @@ public sealed partial class BeckhoffDriver
         _ => Wrap(_om.ChildAt(Com(parent), index1Based)),
     };
 
-    /// <summary>A node's parent. Called only on an item the walk/lookup already found (<c>IProjectTree.Parent</c>), and a
+    /// <summary>A node's parent. Called only on an item the walk/lookup already found (<c>IVendorTree.Parent</c>), and a
     /// PLC project's root has none Volt hands out: its items' parent is the NestedProject node itself.</summary>
     public ItemRef Parent(ItemRef item) => Wrap(_om.Parent(Com(item)));
 
@@ -430,7 +430,7 @@ public sealed partial class BeckhoffDriver
         // AN INTERFACE MEMBER IS CREATED WITH ITS TYPE (openspec bridge-refusal-review 2.4, 2.6): TwinCAT's CreateChild
         // takes an interface method's return type / an interface property's data type as its vInfo, and a property
         // created with none fails inside TcXaeShell ("Object reference not set to an instance of an object",
-        // IProjectTree.CreateChild). So a property with no type, or a member whose line has nothing after its `:`, is
+        // IVendorTree.CreateChild). So a property with no type, or a member whose line has nothing after its `:`, is
         // refused here, by name, before the IDE is touched. The ST reader used to refuse those lines on both vendors —
         // the build's error everywhere but this one create. An interface METHOD with no colon at all is untyped and is
         // created with a null vInfo, as it always was.
@@ -457,7 +457,7 @@ public sealed partial class BeckhoffDriver
     /// name, so on TwinCAT it can be one.</summary>
     internal static bool RefusedPouName(string name) => NameRefusal(ItemKind.Kinds.Pou, name) is not null;
 
-    /// <summary>The push's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>): TwinCAT has NO in-place
+    /// <summary>The push's language-change answer (<c>IVendorStore.RefusedLanguageChange</c>): TwinCAT has NO in-place
     /// route, at any site (DIALECT N24, measured live on TcXaeShell): ST text assigned over a graphical body is refused
     /// by the IDE, which parses it as the archive; an archive assigned over an ST body is taken and stored as ST TEXT
     /// that does not compile. The one route that changes the language recreates the object (export, rewrite, delete,
@@ -467,12 +467,12 @@ public sealed partial class BeckhoffDriver
         "graphical body is refused by the IDE (\"Data at the root level is invalid\"), and a graphical body over an ST " +
         "body is stored as ST text that does not compile (DIALECT N24).";
 
-    /// <summary>The push pre-flight's create-argument refusal (<c>ICodeStore.RefusedMemberCreate</c>): an interface
+    /// <summary>The push pre-flight's create-argument refusal (<c>IVendorStore.RefusedMemberCreate</c>): an interface
     /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
     public string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         UntypedInterfaceMember(memberKind, name, seed);
 
-    /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): what TwinCAT's PLC task cannot hold
+    /// <summary>The push pre-flight's task refusal (<c>IVendorStore.ValidateTask</c>): what TwinCAT's PLC task cannot hold
     /// (a type other than Cyclic, an event, a watchdog) or nobody could read (a priority that is no number), by the very
     /// patch the write builds (<see cref="TcTaskSchedule.SysTaskPatch"/>, pure), so it refuses before the batch's first
     /// write.</summary>

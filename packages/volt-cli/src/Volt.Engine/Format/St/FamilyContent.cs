@@ -11,7 +11,7 @@ namespace Volt.Engine.Format.St;
 
 /// <summary>
 /// The IEC layout's own record (<see cref="ItemContent"/>, what <see cref="StReader"/> and <see cref="StWriter"/> speak and
-/// what an old-contract host reads and writes) as the new contract's <see cref="Content"/>, both directions, losing
+/// what a host whose record is the IEC layout reads and writes) as the new contract's <see cref="Content"/>, both directions, losing
 /// nothing: <c>ToItemContent(ToContent(x))</c> is <c>x</c> (<c>FamilyContentTests</c>, over the whole corpus).
 ///
 /// <para><b>A body</b>: its language is the <see cref="StatedLanguage"/> fact, its code the text under its line

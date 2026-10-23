@@ -29,7 +29,7 @@ namespace Volt.Engine.Ide;
 /// </summary>
 public sealed class ProjectDeclarations
 {
-    private readonly IProjectTree _tree;
+    private readonly IIecTree _tree;
     private readonly Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? _items;
     private readonly Func<ItemRef, string?> _read;
     private readonly Func<string, bool> _isRefusedPouName;
@@ -71,17 +71,17 @@ public sealed class ProjectDeclarations
     /// <param name="tree">The project tree the items are found in.</param>
     /// <param name="readDeclaration">The vendor's read of one item's declaration text.</param>
     /// <param name="isRefusedPouName">Whether the vendor refuses a word as a POU's name — its measured list
-    /// (<c>ICodeStore.RefusedName</c>): a word no POU can be named is no FB type a body calls (openspec
+    /// (<c>IVendorStore.RefusedName</c>): a word no POU can be named is no FB type a body calls (openspec
     /// <c>bridge-refusal-review</c> D4).</param>
     /// <param name="librarySignatures">The vendor's read of every referenced library's signatures
-    /// (<c>IIdeSession.ExtractLibrarySignatures</c>) — a library FUNCTION's box is built with what it states (ld-fbd-coverage
+    /// (<c>IVendorSession.ExtractLibrarySignatures</c>) — a library FUNCTION's box is built with what it states (ld-fbd-coverage
     /// 2R.4b). Read at most once per instance, and only when a pushed box names a callee nothing in the project names: on
     /// CODESYS the read precompiles (a build), so a push with no such box never pays for it.</param>
     /// <param name="items">Every top-level item of the tree, as <see cref="ItemLookup.All"/> lists them and in its order —
     /// from a walk the operation already made, when the driver has one that still describes the tree (TwinCAT: openspec
     /// <c>twincat-large-solution-refs</c>, the index was a second full walk of the solution); null (or a null answer)
     /// walks the tree for it.</param>
-    public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
+    public ProjectDeclarations(IIecTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
                                Func<IReadOnlyList<Library.LibSignature>> librarySignatures,
                                Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? items = null)
     {

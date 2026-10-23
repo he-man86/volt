@@ -18,7 +18,7 @@ public enum ChildRefusalCause
 }
 
 /// <summary>The IDE REFUSES a child under this parent, in its own words — thrown by a driver's
-/// <see cref="IProjectTree.CreateChild"/> when it recognises one of the vendor's measured refusals, and by nothing
+/// <c>IVendorTree.CreateChild</c> when it recognises one of the vendor's measured refusals, and by nothing
 /// else.
 ///
 /// <para>Which members a POU accepts follows its TEXT on both vendors (DIALECT C2k): FUNCTION text refuses a method,

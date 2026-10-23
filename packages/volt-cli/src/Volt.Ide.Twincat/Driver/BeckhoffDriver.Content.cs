@@ -17,7 +17,7 @@ using Volt.Engine.Library;
 namespace Volt.Ide.Twincat;
 
 /// <summary>
-/// Beckhoff driver — the <see cref="ICodeStore"/> facet. Declarations and bodies travel the COM object model
+/// Beckhoff driver — the content facet (its IEC record: <c>ReadContent</c>/<c>WriteContent</c>). Declarations and bodies travel the COM object model
 /// (<c>DeclarationText</c> / <c>ImplementationText</c>); a graphical body is the IDE's OWN
 /// <c>&lt;NWL&gt;</c> archive — built natively where the item has none (<see cref="TcArchiveBuilder"/>), edited in place
 /// where it has one. No PLCopen is written or read on this vendor (openspec twincat-inproc-host).
@@ -191,7 +191,7 @@ public sealed partial class BeckhoffDriver
             _om.WriteBuildProperty(node, TcObjectModel.CompilerDefinesProperty, pushed.CompilerDefines ?? "", what);
     }
 
-    /// <summary>The push pre-flight's property refusal (<c>ICodeStore.ValidateProperties</c>): <c>%EXCLUDE_FROM_BUILD</c>,
+    /// <summary>The push pre-flight's property refusal (<c>IVendorStore.ValidateProperties</c>): <c>%EXCLUDE_FROM_BUILD</c>,
     /// <c>%LINK_ALWAYS</c>, <c>%EXTERNAL</c> and <c>%COMPILER_DEFINES</c> are the item's or member's live build properties,
     /// written by <see cref="WriteBuildProperties"/> (DIALECT C39, C40); TwinCAT has no measured member for any other
     /// <c>%</c>-key (design §1.1), so a text carrying one is refused by name — never dropped.</summary>
@@ -209,7 +209,7 @@ public sealed partial class BeckhoffDriver
             "property in the IDE.");
     }
 
-    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): ANY
+    /// <summary>The push pre-flight's interface-accessor refusal (<c>IVendorStore.ValidateAccessor</c>): ANY
     /// declaration or body, since <c>ReadMember</c> builds an interface accessor as <c>new Accessor(null, null)</c> and
     /// writing one can crash TcXaeShell (DIALECT D21). The write refuses by this same call.</summary>
     public void ValidateInterfaceAccessor(Accessor pushed) =>
@@ -569,7 +569,7 @@ public sealed partial class BeckhoffDriver
     }
 
     /// <summary>THE WRITE'S OWN LANGUAGE-CHANGE CHECK — the predicate the push's guard asks
-    /// (<see cref="RefusedLanguageChange"/>, <c>ICodeStore.RefusedLanguageChange</c>), asked again where the body is
+    /// (<see cref="RefusedLanguageChange"/>, <c>IVendorStore.RefusedLanguageChange</c>), asked again where the body is
     /// written, so the guard and the write cannot disagree on this vendor either (review of <c>bridge-refusal-review</c>
     /// 4a: only CODESYS's write asked it). TwinCAT refuses every change (N24), and without this a write that skipped the
     /// guard met the IDE instead: ST over an archive is a raw vendor throw, an archive over ST is stored as ST text that

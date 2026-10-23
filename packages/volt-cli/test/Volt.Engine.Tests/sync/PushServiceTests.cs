@@ -63,7 +63,7 @@ public class PushServiceTests
         Assert.DoesNotContain("POUs/PLC_PRG.pou", resp.NewItems!.Keys);
     }
 
-    /// <summary>A move RELOCATES — it does not delete and rebuild. Both drivers have `IProjectTree.Move`, so the
+    /// <summary>A move RELOCATES — it does not delete and rebuild. Both drivers have `IVendorTree.Move`, so the
     /// item never stops existing, and the name is kept so name-based references survive.</summary>
     [Fact]
     public void Set_move_relocates_into_the_new_folder()
@@ -452,7 +452,7 @@ public class PushServiceTests
     }
 
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
-    /// <c>ICodeStore.NetworkScopeFor</c>). B6, P1: a split's name IS its VarId and the pattern is reserved, so a split
+    /// <c>NetworkScopeFor</c>). B6, P1: a split's name IS its VarId and the pattern is reserved, so a split
     /// <c>split7</c> in a POU of a project whose GVL declares <c>SPLIT7</c> is the split (the global is <c>`SPLIT7`</c>)
     /// and the body is written, as it is without the global — both IDEs build the shape clean
     /// (<c>rcc_network_wire_named_like_variable</c>). It was refused by name until the 2R.3 review.</summary>

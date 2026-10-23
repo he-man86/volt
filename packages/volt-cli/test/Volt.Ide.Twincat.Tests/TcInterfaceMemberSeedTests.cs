@@ -11,7 +11,7 @@ namespace Volt.Ide.Twincat.Tests;
 ///
 /// <para><c>CreateChild</c>'s <c>vInfo</c> is the interface method's return type or the interface property's data type
 /// (<c>TcObjectModel.CreateChild</c>, the Beckhoff sample's <c>BuildChildVInfo</c>); a property created with a null
-/// one fails inside TcXaeShell with "Object reference not set to an instance of an object" (<c>IProjectTree</c>). The
+/// one fails inside TcXaeShell with "Object reference not set to an instance of an object". The
 /// ST reader used to refuse every member line with nothing after its <c>:</c> and every property with no type, on both
 /// vendors, for this one TwinCAT create — a check on the code everywhere else, where the IDE's build reports it. The
 /// rule lives where the fact is: this driver, before the IDE is touched, naming the member. An untyped interface METHOD
@@ -37,7 +37,7 @@ public class TcInterfaceMemberSeedTests
         Assert.Contains("type", ex.Message);
     }
 
-    /// <summary>The push pre-flight asks the SAME predicate (<c>ICodeStore.RefusedMemberCreate</c>), so a push carrying such a
+    /// <summary>The push pre-flight asks the SAME predicate (<c>IVendorStore.RefusedMemberCreate</c>), so a push carrying such a
     /// member is refused before its batch's first write instead of from inside the apply loop (1+2d review).</summary>
     [Theory]
     [InlineData(ItemKind.Kinds.InterfaceProperty, null, true)]

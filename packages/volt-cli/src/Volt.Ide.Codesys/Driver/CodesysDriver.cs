@@ -16,11 +16,11 @@ namespace Volt.Ide.Codesys;
 /// in-process through the .NET object model (<see cref="CodesysObjectModel"/>, reflection-only — no
 /// CODESYS assembly references). Object-model touches are marshalled onto the CODESYS primary thread via
 /// <see cref="MarshalToIdeThread{T}"/>, which the engine's session composition brackets around every
-/// project-touching op. Its own IEC tree facet (<see cref="IProjectTree"/>) is what the Engine's family helpers walk
+/// project-touching op. Its tree's IEC codes (<see cref="IIecTree"/>) are what the Engine's IEC helpers walk
 /// (<c>MemberSites</c>, <c>ProjectDeclarations</c>). Split across partial files by facet: this file is the session;
 /// <c>.Tree</c>, <c>.Content</c> and <c>.Seam</c> (the contract's tree and store words) are the others.
 /// </summary>
-public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IProjectTree
+public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIecTree
 {
     private readonly CodesysObjectModel _om;
     private readonly CodesysDispatcher? _dispatcher;
@@ -163,8 +163,8 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IPr
 
     public T MarshalToIdeThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 
-    /// <summary>The engine's default floor (<see cref="DriverBase.DefaultProbeThrottleMs"/>): see the note below.</summary>
-    public long HealthProbeFloorMs => DriverBase.DefaultProbeThrottleMs;
+    /// <summary>The engine's default floor (<see cref="ComposedSession.DefaultProbeThrottleMs"/>): see the note below.</summary>
+    public long HealthProbeFloorMs => Volt.Engine.Sync.ComposedSession.DefaultProbeThrottleMs;
 
     /// <summary>The in-proc host serves ONE CODESYS's PRIMARY project, so it reports a single project row (CODESYS has
     /// no sub-projects); nothing open → an empty list. This is the InIdeLoad analogue of TwinCAT's multi-instance ROT
@@ -180,7 +180,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IPr
         if (string.IsNullOrEmpty(name)) return new List<ProjectEntry>();
         return new List<ProjectEntry>
         {
-            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, DriverBase.RowStatus(serving), _om.ProjectDirty),
+            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, Volt.Engine.Sync.ComposedSession.RowStatus(serving), _om.ProjectDirty),
         };
     }
 
@@ -195,7 +195,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IPr
     public void Recover() { }
 
     // No health composition here: the engine's session composes the response and owns the probe, and this driver takes
-    // the engine's default floor (DriverBase.DefaultProbeThrottleMs). The in-proc snapshot is cheap, but it still runs
+    // the engine's default floor (ComposedSession.DefaultProbeThrottleMs). The in-proc snapshot is cheap, but it still runs
     // on the engineer's PRIMARY thread, and it used to run once per poll per frontend — tray + every VS Code workspace +
     // the desktop window, each on its own 4s clock. NB the floor is well BELOW that 4s: _hasProject (the OpGuard
     // precondition, written by ProbeProjects — the ambient probe plus the start and select refreshes) is refreshed by
@@ -203,8 +203,8 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IPr
     // — which is why the number is 1000 and not TwinCAT's 5000. Cached list, live verdict: CODESYS never AUTO-degrades
     // from an op (ShouldMarkDegraded => false), and a CLOSED project makes the next probe publish an empty row list. A
     // HUNG primary thread is NOT demoted today: the probe marshals through the same bracketing, so it pins the session's
-    // in-flight count above 0 and DeriveServedStatus keeps answering "healthy" — DriverBase's open _opInFlight ARCH
-    // FOLLOW-UP, not a guarantee this driver gets. See DriverBase.OverlayLiveHealth.
+    // in-flight count above 0 and DeriveServedStatus keeps answering "healthy" — ComposedSession's open _opInFlight ARCH
+    // FOLLOW-UP, not a guarantee this driver gets. See ComposedSession.OverlayLiveHealth.
 
 
     /// <summary>EVERY APPLICATION IS BUILT (openspec multi-application-tree, design §6) — it was only the first one

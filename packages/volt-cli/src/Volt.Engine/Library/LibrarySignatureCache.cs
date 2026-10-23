@@ -20,7 +20,7 @@ namespace Volt.Engine.Library;
 /// and counts run fresh on every read. The full fetch never READS it (it extracts iff a library moved, always on init);
 /// its extraction refreshes it. The hole D1 already has stays, and is the only one: a wildcard ref that re-resolves
 /// mid-session WITHOUT any manifest change is missed exactly as the full fetch misses it.</para>
-/// <para>Vendor-neutral and held by the session (<see cref="Ide.DriverBase"/>), so a driver supplies nothing beyond its
+/// <para>Vendor-neutral and held by the session (<see cref="Sync.ComposedSession"/>), so a driver supplies nothing beyond its
 /// <c>ExtractLibrarySignatures</c>.</para></summary>
 public sealed class LibrarySignatureCache
 {

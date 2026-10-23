@@ -10,7 +10,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The parity boundary IS the pipe (ARCHITECTURE.md). Core (<c>Volt.Engine</c>) is vendor-NEUTRAL: it serves both
-/// PLC vendors through the one <c>IIdeDriver</c> seam, so any vendor-specific behavior can only live BELOW that seam
+/// PLC vendors through the one <c>IVendorDriver</c> seam, so any vendor-specific behavior can only live BELOW that seam
 /// (in a bridge's driver). This guard fails the build if a vendor string literal — <c>"twincat"</c>,
 /// <c>"codesys"</c>, <c>"beckhoff"</c> — appears in Core CODE, turning "don't branch on vendor above the pipe" from
 /// a convention a reviewer must remember into a gate the build enforces. Comments are exempt: they legitimately
@@ -56,7 +56,7 @@ public class VendorParityGuardTests
 
         Assert.True(offenders.Count == 0,
             "Core (Volt.Engine) must be vendor-neutral — the parity boundary is the pipe, so vendor-specific behavior " +
-            "belongs BELOW the IIdeDriver seam, not in Core. Vendor literal(s) found in Core code:\n  " +
+            "belongs BELOW the IVendorDriver seam, not in Core. Vendor literal(s) found in Core code:\n  " +
             string.Join("\n  ", offenders));
     }
 

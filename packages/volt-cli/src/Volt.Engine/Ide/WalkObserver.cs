@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Volt.Engine.Ide;
 
 /// <summary>
-/// What a driver says WHILE it walks the project (<see cref="IProjectTree.WalkItems"/>), for the operation that asked:
+/// What a driver says WHILE it walks the project (<c>IVendorTree.Walk</c>), for the operation that asked:
 /// each application as its walk finishes, and the time of a phase of the walk that only the vendor can see (TwinCAT's
 /// Solution Explorer reads).
 ///

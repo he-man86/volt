@@ -90,25 +90,4 @@ public class PushValidatesOnceTests
         Assert.Contains("the item", ex.Message);
         Assert.Contains("no validated model", ex.Message);
     }
-
-    /// <summary>The helper every direct caller of a write uses is the pre-flight's own door: one scope per network body,
-    /// at the site <see cref="SourceScopes.SitesOf"/> names, and nothing for an ST body.</summary>
-    [Fact]
-    public void Validated_hands_each_network_body_its_site_model_and_scope()
-    {
-        var content = new ItemContent(ItemKind.Kinds.Pou, Decl, "q := a;", new List<Member>
-        {
-            new(ItemKind.Kinds.Method, "M", "METHOD M : BOOL", "IMPLEMENTATION LD\nNETWORK\n  M := TRUE;\nEND_NETWORK", ObjectProperties.None),
-            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
-                Getter: new Accessor("", "IMPLEMENTATION FBD\nNETWORK\n  P := TRUE;\nEND_NETWORK")),
-        }, ObjectProperties.None);
-        var asked = new List<string?>();
-        var bodies = SourceScopes.Validated(content, d => { asked.Add(d); return Volt.Engine.Format.Network.NetworkScope.Empty; });
-
-        Assert.Equal(new[] { new BodySite("M", ItemKind.Kinds.Method, null), new BodySite("P", ItemKind.Kinds.Property, BodySite.Get) },
-                     bodies.Select(b => b.Site));
-        Assert.Equal(2, asked.Count);
-        Assert.StartsWith("METHOD M : BOOL", asked[0]);   // the member's own declarations first, then the owner's
-        Assert.Same(Volt.Engine.Format.Network.NetworkScope.Empty, bodies[0].Scope);
-    }
 }

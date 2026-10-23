@@ -684,7 +684,7 @@ public class PushKeepsWhatLandedTests
     // ── Task 3.1: a NAME the IDE refuses is refused before the first write ─────────────────────────────────────────
 
     /// <summary>A driver whose IDE refuses the word <c>Log</c> (any case) as a POU or member name — what both real
-    /// drivers answer from their measured lists (<c>ICodeStore.RefusedName</c>).</summary>
+    /// drivers answer from their measured lists (<c>IVendorStore.RefusedName</c>).</summary>
     private static FakeIde RefusingLog(params FakeIde.Item[] items) => new(items)
     {
         RefusesName = (_, name) => string.Equals(name, "Log", System.StringComparison.OrdinalIgnoreCase)
@@ -795,7 +795,7 @@ public class PushKeepsWhatLandedTests
     }
 
     /// <summary>Review of bridge-refusal-review 3a+3b: an interface property's GET/SET the driver refuses from its text
-    /// (<c>ICodeStore.ValidateInterfaceAccessor</c> — TwinCAT any edit, D21) is refused by the PRE-FLIGHT, so nothing is
+    /// (<c>IVendorStore.ValidateAccessor</c> — TwinCAT any edit, D21) is refused by the PRE-FLIGHT, so nothing is
     /// written: it was refused from inside the write, after the batch's earlier ops had landed. (An interface accessor's
     /// text is all declaration to the reader — it has no boundary line — so this fake refuses a declaration, as
     /// TwinCAT does.)</summary>

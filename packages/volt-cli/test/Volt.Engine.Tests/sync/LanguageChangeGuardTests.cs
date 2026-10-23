@@ -16,7 +16,7 @@ namespace Volt.Engine.Tests;
 /// openspec <c>bridge-refusal-review</c> D6 + D7: the push's body guard compares the bodies' languages as FACTS
 /// (<see cref="StatedLanguage"/>, set by the driver and by the ST reader) and reads no text to learn them; and ONE
 /// comparison decides that a body changes language (ST ⇄ LD/FBD), which the VENDOR answers
-/// (<c>ICodeStore.RefusedLanguageChange</c>; DIALECT N24: CODESYS writes a POU's body in place, TwinCAT has no route).
+/// (<c>IVendorStore.RefusedLanguageChange</c>; DIALECT N24: CODESYS writes a POU's body in place, TwinCAT has no route).
 /// </summary>
 public class LanguageChangeGuardTests
 {

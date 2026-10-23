@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 /// declarations instead. <c>StCallTargetTests</c> covers the walk; this covers what it walks over.</para>
 ///
 /// <para>They reach a body through its SCOPE (openspec <c>bridge-refusal-review</c> D8): the pre-flight builds each
-/// network body's scope once from the push's declarations (<c>ICodeStore.NetworkScopeFor</c>), and the scope travels to the
+/// network body's scope once from the push's declarations (<c>NetworkScopeFor</c>), and the scope travels to the
 /// write with the model. So the caller here has a network body, and what the scope was handed is what is asserted — the
 /// write itself is handed no declarations any more.</para>
 /// </summary>

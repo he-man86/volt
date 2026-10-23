@@ -21,7 +21,7 @@ namespace Volt.Engine.Format.Body;
 /// out of the text would hold only while every reader kept that encoding lossless.</para>
 ///
 /// <para><b>One language-change comparison</b> (D7): a body that changes between ST and LD/FBD is a change the VENDOR
-/// answers (<c>ICodeStore.RefusedLanguageChange</c>, DIALECT N24) — CODESYS writes it in place, TwinCAT has no route —
+/// answers (<c>IVendorStore.RefusedLanguageChange</c>, DIALECT N24) — CODESYS writes it in place, TwinCAT has no route —
 /// and nothing else here refuses one. The policy is vendor-neutral and its tests are offline.</para>
 /// </summary>
 public static class BodyFormatGuard
@@ -80,7 +80,7 @@ public static class BodyFormatGuard
 
     /// <summary>Refuse a push that would overwrite a body Volt cannot author, carries a UNSUPPORTED line over one it
     /// can, or changes a body's language where the vendor cannot (<paramref name="refusedLanguageChange"/>,
-    /// <c>ICodeStore.RefusedLanguageChange</c>). <paramref name="live"/> is the item as the IDE holds it now;
+    /// <c>IVendorStore.RefusedLanguageChange</c>). <paramref name="live"/> is the item as the IDE holds it now;
     /// <paramref name="pushed"/> is the source being written. Throws <see cref="BridgeException"/>; returns quietly
     /// when the write is allowed.</summary>
     public static void RequireWritable(ItemContent live, ItemContent pushed,

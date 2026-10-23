@@ -19,25 +19,17 @@ namespace Volt.Engine.Tests;
 public class ProjectDeclarationsKindTests
 {
     /// <summary>A project root whose children are (name, class) rows, in walk order.</summary>
-    private sealed class FlatTree : IProjectTree
+    private sealed class FlatTree : IIecTree
     {
         private sealed record Row(string Name, int Kind);
         private readonly List<Row> _rows = new();
         private readonly object _root = new();
         public FlatTree(params (string Name, int Kind)[] rows) { foreach (var (n, k) in rows) _rows.Add(new Row(n, k)); }
-        public ItemRef GetTreeRoot() => new(_root);
+        public ItemRef Root => new(_root);
         public int ChildCount(ItemRef item) => ReferenceEquals(item.Native, _root) ? _rows.Count : 0;
         public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_rows[index1Based - 1]);
         public string Name(ItemRef item) => ((Row)item.Native).Name;
         public int KindCode(ItemRef item) => ((Row)item.Native).Kind;
-        public WalkResult WalkItems(WalkObserver? observer = null) => throw new NotSupportedException();
-        public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
-        public bool HandlesSurviveStructureChange => true;
-        public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed, ObjectClass? cls) => throw new NotSupportedException();
-        public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property) => throw new NotSupportedException();
-        public void Delete(ItemRef parent, string name) => throw new NotSupportedException();
-        public void Rename(ItemRef item, string newName) => throw new NotSupportedException();
-        public void Move(ItemRef item, ItemRef target) => throw new NotSupportedException();
     }
 
     private const string Motor = "FUNCTION_BLOCK Motor\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR";

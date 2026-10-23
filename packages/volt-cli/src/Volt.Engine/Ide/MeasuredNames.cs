@@ -5,7 +5,7 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Ide;
 
 /// <summary>
-/// The parts of a driver's measured NAME refusal (<see cref="ICodeStore.RefusedName"/>) that both vendors answered
+/// The parts of a driver's measured NAME refusal (<c>IVendorStore.RefusedName</c>) that both vendors answered
 /// alike. Each driver composes its own answer from these and its own facts (its word list, CODESYS's backtick names).
 /// </summary>
 public static class MeasuredNames
