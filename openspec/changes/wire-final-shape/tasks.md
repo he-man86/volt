@@ -362,7 +362,14 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       Contracts 56, Engine 3151 (+1 skipped), Cli 361, Connector 154, Ide.Twincat 728, Ide.Codesys 505 (net48),
       Repo.Gates 275, Relay 74 — 0 failed; volt-cli `bun test test/unit` 228/228; typecheck 3/3 packages exit 0; lint
       exit 0, 0 errors (2443 warnings); `bun run check` 16 passed, 0 failed. Identical to the gate-3c counts; no product
-      code changed.
+      code changed. Re-run by the 3d gate agent at the same commit: Release build 0 errors (76 warnings); every suite
+      above at the same count, 0 failed; typecheck 5/5 packages exit 0; lint exit 0; `bun run check` 16/16; volt-cli
+      unit 228/228. **For the owner — an intermittent Cli failure:** the first `Volt.Cli.Tests` run in that re-run reported
+      1 failed / 360 passed (6 m 23 s, run while lint, `check` and the bun unit tests ran alongside it). It was not
+      reproduced in two more runs, one alone (361/361, 7 m 5 s) and one under the same load with a TRX logger (361/361,
+      6 m 15 s). Its name was not captured because the first run had no logger. A test that fails once in three runs is
+      a bug (`timeout-is-a-bug`), not noise; it goes to the next Cli step with `--logger trx` on every gate run. No
+      fixture, recording, transpiler or LSP change, so no fixture-map regeneration and no LSP suite (VOLT_REQUIRE_FULL n/a).
 
 ## 4. Live
 
