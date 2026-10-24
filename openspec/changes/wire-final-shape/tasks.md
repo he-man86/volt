@@ -32,6 +32,13 @@ answered its two questions (or let the recommended answers stand).
 - [ ] 3.8 The CLI, `volt-control`, the relay and the VS Code extension read the new shape (their offline suites).
 - [ ] 3.9 OpenRPC generator: enums from the declarations, `ProgressFrame`, `BridgeErrorCode`/`ConflictCode`, the common
       error set, the channel column; `wire.html` rewritten to current behaviour only (no history, no counts).
+- [ ] 3.9a INTERNAL_ERROR only for a Volt bug (owner 2026-10-24: "before this refactor we got a lot of internal errors
+      back .. this is not very clean"). Census every uncoded throw reachable from the wire (`WireVocabularyTests`
+      `UncodedThrow`: 164 before the rework, 177 at 1464605aaf — the refusals the rework added were mostly coded, but each
+      uncoded one is answered INTERNAL_ERROR by PipeServer / ConflictFor). Classify each: a request or an IDE state gets
+      its own code (BAD_REQUEST, UNSUPPORTED, UNREADABLE, PLC_DISCONNECTED, …) behind a test; only an invariant guard (a
+      state Volt itself must never reach) stays INTERNAL_ERROR. The census becomes a ratchet that only goes down, and the
+      contract suite gains a case per reclassified site where a request can reach it. Report before → after.
 - [ ] 3.10 All C# suites, `bun test test/unit`, typecheck, lint, `bun run check` green.
 
 ## 4. Live
