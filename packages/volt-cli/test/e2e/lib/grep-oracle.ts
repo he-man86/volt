@@ -231,7 +231,7 @@ export function derivePatterns(project: Project, health: any, refs: any): Case[]
 	]
 	if (root) cases.push({ label: "glob one application root", req: { pattern: id, paths: [`${root}/**`] } })
 	if (escaped) cases.push({ label: "glob a %2F folder", req: { pattern: id, paths: [`**/${escaped}/**`] } })
-	if (health.networkText) {
+	if (health.languages?.includes("LD") && health.languages?.includes("FBD")) {
 		cases.push({ label: "network text IMPLEMENTATION LD", req: { pattern: "IMPLEMENTATION LD", literal: true, caseSensitive: true } })
 		cases.push({ label: "network text IMPLEMENTATION FBD", req: { pattern: "IMPLEMENTATION FBD", literal: true, caseSensitive: true } })
 	}

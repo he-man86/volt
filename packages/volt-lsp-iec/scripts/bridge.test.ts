@@ -5,8 +5,8 @@
  *
  * WHY: LD and FBD network text is switched on in the BRIDGE's process (`VOLT_GRAPHICAL=1`), which these scripts cannot
  * set. A bridge started by the connector has it off, pulls every LD and FBD body as its UNSUPPORTED line, and a corpus
- * refreshed through it silently lost every ladder. The bridge reports its switch in `health`; these tests serve that
- * answer from a real named pipe, as a bridge does, and hold the guard to it.
+ * refreshed through it silently lost every ladder. The bridge states the languages it shows in `health`; these tests
+ * serve that answer from a real named pipe, as a bridge does, and hold the guard to it.
  */
 import { afterEach, expect, test } from "bun:test"
 import { createServer, type Server } from "node:net"
@@ -32,19 +32,19 @@ async function bridgeAnswering(name: string, result: unknown): Promise<string> {
 const unique = (what: string) => `volt.test.${what}.${process.pid}.${Math.random().toString(36).slice(2)}`
 
 test("a bridge with LD and FBD on passes", async () => {
-  const pipe = await bridgeAnswering(unique("on"), { projects: [], networkText: true })
+  const pipe = await bridgeAnswering(unique("on"), { projects: [], languages: ["FBD", "LD", "ST"] })
   await requireNetworkText(pipe)
 })
 
 test("a bridge with LD and FBD off is refused, naming the switch and how to turn it on", async () => {
-  const pipe = await bridgeAnswering(unique("off"), { projects: [], networkText: false })
+  const pipe = await bridgeAnswering(unique("off"), { projects: [], languages: ["ST"] })
   const err = await requireNetworkText(pipe).then(() => undefined, (e: Error) => e)
   expect(err?.message).toContain("OFF")
   expect(err?.message).toContain("VOLT_GRAPHICAL=1")
   expect(err?.message).toContain("ide.ps1 up")
 })
 
-test("a bridge that does not say is refused: absent is off", async () => {
+test("a bridge that states no languages is refused", async () => {
   const pipe = await bridgeAnswering(unique("silent"), { projects: [] })
   expect(requireNetworkText(pipe)).rejects.toThrow("OFF")
 })
@@ -56,17 +56,17 @@ test("pipeName has no name of its own: the bare `volt.bridge.<vendor>` it used t
   expect(() => pipeName("codesys")).toThrow(FixtureRefusal)
 })
 
-// `landedInFull` — `accepted` alone no longer means "every op is in the IDE" (openspec push-keeps-what-landed): an
-// apply-time refusal after earlier ops landed answers accepted WITH conflicts, and a recorder that reads `accepted`
-// alone records a build of a project missing the refused item.
-test("a push lands in full only when it is accepted with no conflict", () => {
-  expect(landedInFull({ accepted: true })).toBe(true)
-  expect(landedInFull({ accepted: true, conflicts: null })).toBe(true)
-  expect(landedInFull({ accepted: true, conflicts: [] })).toBe(true)
-  expect(landedInFull({ accepted: false, conflicts: [{ name: "A.pou", code: "INVALID_ST" }] })).toBe(false)
+// `landedInFull` — a push names every op that did not land in `conflicts`, and carries `newProjectVersion` exactly when
+// something landed (openspec wire-final-shape): an apply-time refusal after earlier ops landed answers a new version
+// WITH conflicts, and a recorder that read only "something landed" would record a build of a project missing the
+// refused item.
+test("a push lands in full only when it carries a new version and no conflict", () => {
+  expect(landedInFull({ newProjectVersion: "v2", conflicts: [] })).toBe(true)
+  expect(landedInFull({ conflicts: [{ name: "A.pou", code: "INVALID_ST" }] })).toBe(false)
+  expect(landedInFull({ conflicts: [] })).toBe(false)   // nothing landed (a push of no ops)
   expect(
     landedInFull({
-      accepted: true,
+      newProjectVersion: "v2",
       conflicts: [{ name: "PRG_caller.pou", code: "UNSUPPORTED", reason: "the IDE builds that box with no ENO output" }],
     }),
   ).toBe(false)

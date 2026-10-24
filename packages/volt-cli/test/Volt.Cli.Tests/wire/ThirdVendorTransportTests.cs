@@ -69,7 +69,7 @@ public class ThirdVendorTransportTests
         var (_, host, client) = Serve();
         using (host)
         {
-            var fetch = client.Call("fetch", new { knownItems = new Dictionary<string, string>() });
+            var fetch = client.Call("fetch", new { knownItems = new Dictionary<string, string>(), knownApplications = Array.Empty<string>() });
             var texts = fetch.GetProperty("changed").EnumerateArray()
                 .ToDictionary(c => c.GetProperty("name").GetString()!, c => c.GetProperty("sourceText").GetString()!);
 
@@ -93,9 +93,9 @@ public class ThirdVendorTransportTests
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set(MotorPath, Items(refs)[MotorPath], retained)));
 
-            Assert.True(result.GetProperty("accepted").GetBoolean(), result.ToString());
+            Assert.True(result.TryGetProperty("newProjectVersion", out _) && result.GetProperty("conflicts").GetArrayLength() == 0, result.ToString());
             Assert.Equal(new[] { "%RETAIN", "%NOTE 'main drive'" }, ide.At("Station1/Blocks/Motor")!.Properties.Items.Select(p => p.ToString()));
-            var fetch = client.Call("fetch", new { knownItems = new Dictionary<string, string>() });
+            var fetch = client.Call("fetch", new { knownItems = new Dictionary<string, string>(), knownApplications = Array.Empty<string>() });
             Assert.Equal(retained, fetch.GetProperty("changed").EnumerateArray()
                 .Single(c => c.GetProperty("name").GetString() == MotorPath).GetProperty("sourceText").GetString());
         }
@@ -117,19 +117,23 @@ public class ThirdVendorTransportTests
                 Set("Station1/Blocks/Aux/Pump.blk", null, created),
                 new Dictionary<string, object?> { ["op"] = "deleteItem", ["name"] = SpeedPath, ["ifVersion"] = items[SpeedPath] }));
 
-            Assert.True(result.GetProperty("accepted").GetBoolean(), result.ToString());
+            Assert.True(result.TryGetProperty("newProjectVersion", out _) && result.GetProperty("conflicts").GetArrayLength() == 0, result.ToString());
             Assert.Equal("lamp = start AND NOT stop\n", ide.At("Station1/Blocks/Motor")!.Body!.Code);
             Assert.Equal(Fakeco.Fkl, ide.At("Station1/Blocks/Aux/Pump")!.Body!.Language);
             Assert.Equal(NodeRole.Folder, ide.At("Station1/Blocks/Aux")!.Class.Role);
             Assert.Null(ide.At("Station1/Types/Speed"));
 
-            var after = client.Call("fetch", new { knownItems = new Dictionary<string, string>() });
+            var after = client.Call("fetch", new { knownItems = new Dictionary<string, string>(), knownApplications = Array.Empty<string>() });
             var texts = after.GetProperty("changed").EnumerateArray()
                 .ToDictionary(c => c.GetProperty("name").GetString()!, c => c.GetProperty("sourceText").GetString()!);
             Assert.Equal(edited, texts[MotorPath]);
             Assert.Equal(created, texts["Station1/Blocks/Aux/Pump.blk"]);
             Assert.False(texts.ContainsKey(SpeedPath));
-            Assert.Equal(Items(after), result.GetProperty("newItems").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!));
+            // The receipt names what the push did: the two items it wrote at their new versions, the one it deleted.
+            var now = Items(after);
+            Assert.Equal(new[] { MotorPath, "Station1/Blocks/Aux/Pump.blk" }.ToDictionary(p => p, p => now[p]),
+                         result.GetProperty("newItems").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!));
+            Assert.Equal(new[] { SpeedPath }, result.GetProperty("removed").EnumerateArray().Select(r => r.GetString()));
         }
     }
 
@@ -143,7 +147,7 @@ public class ThirdVendorTransportTests
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set(MotorPath, Items(refs)[MotorPath], "BLOCK Motor\nIMPLEMENTATION ST\nlamp := start;\n")));
 
-            Assert.False(result.GetProperty("accepted").GetBoolean());
+            Assert.False(result.TryGetProperty("newProjectVersion", out _), result.ToString());   // nothing landed
             var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
             Assert.Equal("INVALID_ST", conflict.GetProperty("code").GetString());
             Assert.Contains("shows no ST body (it shows FKL)", conflict.GetProperty("reason").GetString());
@@ -161,7 +165,7 @@ public class ThirdVendorTransportTests
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set("Station1/Blocks/Valve.xyz", null, "x")));
 
-            Assert.False(result.GetProperty("accepted").GetBoolean());
+            Assert.False(result.TryGetProperty("newProjectVersion", out _), result.ToString());   // nothing landed
             var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
             Assert.Equal("BAD_REQUEST", conflict.GetProperty("code").GetString());
             Assert.Contains("Valve.xyz", conflict.GetProperty("reason").GetString());

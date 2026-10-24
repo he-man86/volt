@@ -46,7 +46,7 @@ public class LibrariesRefreshedTests
         var ide = Project();
         var known = new Dictionary<string, string>(Fetch(ide, new FetchRequest { Init = true }).Items);
 
-        var again = Fetch(ide, new FetchRequest { KnownItems = known });
+        var again = Fetch(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
 
         Assert.False(again.LibrariesRefreshed);
         Assert.DoesNotContain(again.Changed, c => c.Name.EndsWith(".library"));
@@ -66,7 +66,7 @@ public class LibrariesRefreshedTests
         ide.AddItem(FakeIde.Item.Library(
             "Standard", "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, 2.0.0.0 (System)"));
 
-        Assert.True(Fetch(ide, new FetchRequest { KnownItems = known }).LibrariesRefreshed);
+        Assert.True(Fetch(ide, new FetchRequest { KnownApplications = new(), KnownItems = known }).LibrariesRefreshed);
     }
 
     /// <summary>A TARGETED FETCH NEVER REFRESHES, whatever the library versions say.
@@ -90,7 +90,7 @@ public class LibrariesRefreshedTests
     [Fact]
     public void A_targeted_fetch_with_no_known_items_still_does_not_refresh()
         => Assert.False(Fetch(Project(),
-            new FetchRequest { OnlyItems = new List<string> { "PLC_PRG.pou" }, KnownItems = new() })
+            new FetchRequest { KnownApplications = new(), OnlyItems = new List<string> { "PLC_PRG.pou" }, KnownItems = new() })
             .LibrariesRefreshed);
 
     /// <summary>THE FLAG AND THE PAYLOAD AGREE. Asserting the boolean alone would pass over a service that set
@@ -102,7 +102,7 @@ public class LibrariesRefreshedTests
 
         var init = Fetch(ide, new FetchRequest { Init = true });
         var incremental = Fetch(ide, new FetchRequest
-        { KnownItems = new Dictionary<string, string>(init.Items) });
+        { KnownApplications = new(), KnownItems = new Dictionary<string, string>(init.Items) });
 
         Assert.True(init.LibrariesRefreshed);
         Assert.Contains(init.Changed, c => c.Name.EndsWith(".library"));
@@ -122,7 +122,7 @@ public class LibrariesRefreshedTests
         var known = new Dictionary<string, string>(Fetch(ide, new FetchRequest { Init = true }).Items);
         ide.UnwalkableFolders = new[] { "Library Manager" };
 
-        var resp = Fetch(ide, new FetchRequest { KnownItems = known });
+        var resp = Fetch(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
 
         Assert.False(resp.LibrariesRefreshed);
         Assert.Empty(resp.Removed);
@@ -142,7 +142,7 @@ public class LibrariesRefreshedTests
         ide.UnwalkableFolders = new[] { "Machine" };
         ide.RemoveItem("Standard");
 
-        var resp = Fetch(ide, new FetchRequest { KnownItems = new(init.Items) });
+        var resp = Fetch(ide, new FetchRequest { KnownApplications = new(), KnownItems = new(init.Items) });
 
         Assert.Contains("Library Manager/Standard/Standard.library", resp.Removed);
         Assert.True(resp.LibrariesRefreshed);

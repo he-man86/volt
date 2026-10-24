@@ -96,8 +96,8 @@ public sealed class LanguageRegistry
     public bool IsShown(string language, string vendor) =>
         _shownBy.TryGetValue(language ?? "", out var v) && v.Contains(vendor);
 
-    /// <summary>The languages <paramref name="vendor"/> shows, in ordinal order: what <c>health</c> reports per bridge in
-    /// protocol 2 (<c>languages</c>, instead of the one <c>networkText</c> bool).</summary>
+    /// <summary>The languages <paramref name="vendor"/> declares shown, in ordinal order — what <c>health.languages</c>
+    /// reports as the network-text switch leaves them (<c>NetworkTextSwitch.Shown</c>).</summary>
     public IReadOnlyList<string> ShownBy(string vendor) =>
         _shownBy.Where(kv => kv.Value.Contains(vendor)).Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal).ToList();
 

@@ -44,7 +44,7 @@ public class PushValidatesOnceTests
         var method = "\nMETHOD M : BOOL\n" + FbdEdited.Replace("q := NOT a;", "M := TRUE;") + "\nEND_METHOD\n";
         var resp = Push(ide, _ => new SetItemOp { Name = "FB_N.pou", SourceText = Source(Fbd, method) });
 
-        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.True(resp.Landed(), Reasons(resp));
         Assert.Equal(2, ide.ScopesPushed.Count);   // the POU's body and the method's, once each
         Assert.Equal(2, ide.WrittenBodies["FB_N"].Count);
     }
@@ -55,7 +55,7 @@ public class PushValidatesOnceTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd));
         var resp = Push(ide, refs => new SetItemOp { Name = "FB_N.pou", IfVersion = refs.Items["FB_N.pou"], SourceText = Source(FbdEdited) });
 
-        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.True(resp.Landed(), Reasons(resp));
         Assert.Single(ide.ScopesPushed);
         Assert.Contains("q := NOT a;", ide.StoredImplementation("FB_N"));
     }
@@ -71,7 +71,7 @@ public class PushValidatesOnceTests
             Name = "From/FB_N.pou", To = "To/FB_N.pou", IfVersion = refs.Items["From/FB_N.pou"], SourceText = Source(FbdEdited),
         });
 
-        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.True(resp.Landed(), Reasons(resp));
         Assert.Single(ide.ScopesPushed);
         Assert.Equal(2, ide.Recorded.Count(r => r == "writecontent:FB_N"));
         Assert.Contains("q := NOT a;", ide.StoredImplementation("FB_N"));

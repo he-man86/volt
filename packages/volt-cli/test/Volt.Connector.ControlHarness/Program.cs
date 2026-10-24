@@ -30,8 +30,8 @@ var viewPath = args[0];
 var conn = new ConnectionManager(
     new IProjectSource[]
     {
-        new FileProjectSource(Vendors.Codesys, viewPath),
-        new FileProjectSource(Vendors.Twincat, viewPath),
+        new FileProjectSource(ConnectorVendors.Codesys, viewPath),
+        new FileProjectSource(ConnectorVendors.Twincat, viewPath),
     },
     // Beside the scenario file (the e2e mkdtemps a fresh directory per run) so this NEVER reads or writes the
     // machine's real %LOCALAPPDATA%\Volt\wanted.json — inheriting a live run's desired set is how two unit tests

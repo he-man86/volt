@@ -60,8 +60,8 @@ public class TcIdentityTests
         Assert.Equal("15.0", driver.ProductVersion);
         Assert.Equal("Beckhoff", driver.ProductVendor);
         Assert.Equal("3.1.4024.74", driver.IdeVersion);
-        // each row carries the platform version too — the tray's multi-instance label reads it
-        Assert.All(Started(driver).Session.BuildHealthResponse().Projects, p => Assert.Equal("3.1.4024.74", p.Version));
+        // the platform version is the bridge's, once (health.ideVersion) — the connector stamps it onto each row it shows
+        Assert.Equal("3.1.4024.74", Started(driver).Session.IdeVersion);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class TcIdentityTests
         Assert.Equal("3.1.4024.74", h.GetProperty("ideVersion").GetString());
         var rows = h.GetProperty("projects").EnumerateArray().ToList();
         Assert.NotEmpty(rows);                                                // Assert.All passes on an empty array
-        Assert.All(rows, p => Assert.Equal("3.1.4024.74", p.GetProperty("version").GetString()));
+        Assert.All(rows, p => Assert.False(p.TryGetProperty("version", out _)));   // the IDE's version is the bridge's, once
         Assert.False(string.IsNullOrEmpty(h.GetProperty("bridgeVersion").GetString()));
         Assert.Equal(Volt.Contracts.WireProtocol.Version, h.GetProperty("protocol").GetInt32());
 

@@ -54,6 +54,9 @@ public class WireVocabularyTests
         new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",
             "IDE_BUSY", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
+        new("the request states no protocol, or another than the bridge's", "update the older of client and bridge",
+            "PROTOCOL_MISMATCH", At(
+            ("Volt.Wire/PipeServer.cs", 1))),   // wire-final-shape §1: refused before the body is read
         new("the request breaks the wire's own rules", "change the REQUEST", "BAD_REQUEST", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 2),
             ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
@@ -71,7 +74,9 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 2))),   // +1 a request frame over MaxFrameBytes (volt-cli-rework 1.0 bug b)
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
-            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
+            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),
+            ("Volt.Engine/Ide/ExcludedFolder.cs", 2),   // wire-final-shape §4: an unreadable entry's code — an excluded folder, and each item under it
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 2),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
             ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
@@ -127,6 +132,9 @@ public class WireVocabularyTests
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
             ("Volt.Engine/Ide/MemberSites.cs", 1),   // a member with no declaration (volt-cli-rework step 6: both drivers' MemberDeclaration, one)
             ("Volt.Engine/Sync/TreeLookup.cs", 1),   // moved from Ide/ItemLookup (volt-cli-rework step 5)
+            ("Volt.Engine/Sync/Versioning.cs", 1),   // the code an `unreadable` entry carries when its materialize failed uncoded (wire-final-shape §4)
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 4),   // wire-final-shape §4: an unreadable entry's code — a kind, a folder's properties, the library manager, a library reference the IDE did not answer
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 4),   // wire-final-shape §4: an unreadable entry's code — an item C2i must not open, a kind, a folder's Exclude property, an inherited exclusion
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
@@ -138,8 +146,7 @@ public class WireVocabularyTests
 
         // ── the optimistic gate and the apply loop ─────────────────────────────────────────────────────────────
         new("the lease is stale", "pull, then push again", "STALE_PROJECT_VERSION", At(
-            ("Volt.Engine/Sync/PushConflicts.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 1))),
+            ("Volt.Engine/Sync/PushService.cs", 1))),   // an error frame, the request's (wire-final-shape §5): no conflict row in PushConflicts
         new("the item moved since its version was read", "pull that item, merge, push again", "STALE_ITEM_VERSION", At(
             ("Volt.Engine/Sync/PushConflicts.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 1))),
@@ -158,7 +165,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/ExplorerSnapshot.cs", 2),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 6))),
         new("the push stopped before this op", "re-send it unchanged", "NOT_ATTEMPTED", At(
-            ("Volt.Engine/Sync/PushService.cs", 1))),
+            ("Volt.Engine/Sync/PushService.cs", 2))),   // +1 every op a refusal before the first write did not reach (wire-final-shape §5)
 
         // ── the graphical body format ──────────────────────────────────────────────────────────────────────────
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(

@@ -49,7 +49,7 @@ namespace Volt.Connector
         private static System.Collections.Generic.IReadOnlyList<(int Pid, bool? Elevated)> MachineShells() =>
             Volt.Wire.ProcessElevation.Self()
                 ? Array.Empty<(int, bool?)>()
-                : Volt.Wire.ProcessElevation.Of(Vendors.TwincatShellProcesses);
+                : Volt.Wire.ProcessElevation.Of(ConnectorVendors.TwincatShellProcesses);
 
         /// <summary>The pid probe, the shells and the XAE bitness, as seams. The probe is the part of this loop a test
         /// cannot drive: it spawns a COM-isolated subprocess and reads its stdout, so without this the composition
@@ -73,7 +73,7 @@ namespace Volt.Connector
 
         /// <summary>The worker id for one XAE window — the SAME string across spawn, reap and restart, so it is
         /// spelled exactly once.</summary>
-        private static string WorkerId(int pid) => $"{Vendors.Twincat}.{pid}";
+        private static string WorkerId(int pid) => $"{ConnectorVendors.Twincat}.{pid}";
 
         /// <summary>One reconciliation pass. TwinCAT is per-XAE: probe the live XAE window pids (a COM-isolated
         /// subprocess, off the caller's thread), then keep exactly one worker per XAE — spawn/respawn one for each

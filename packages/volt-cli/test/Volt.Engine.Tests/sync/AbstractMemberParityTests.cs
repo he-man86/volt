@@ -82,11 +82,11 @@ public class AbstractMemberParityTests
     }
 
     private static void AssertAccepted(PushResponse resp) =>
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
 
     private static string Refused(PushResponse resp)
     {
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         return Assert.Single(resp.Conflicts!).Reason;
     }
 
@@ -534,7 +534,7 @@ public class AbstractMemberParityTests
             Ops = new List<PushOp> { new SetItemOp { Name = Name, IfVersion = preVersion, SourceText = edit } },
         });
 
-        Assert.False(stale.Accepted);
+        Assert.False(stale.Landed());
         Assert.Equal(ConflictCodes.StaleItemVersion, Assert.Single(stale.Conflicts!).Code);
         AssertNothingMutated(ide);
 

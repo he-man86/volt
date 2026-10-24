@@ -60,7 +60,7 @@ namespace Volt.Ide.Codesys
             var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
             // A removal that would erase what the text does not show — a moved network's symbol comment, a replaced
             // UNSUPPORTED line, one of two identically shown networks — is refused before anything changes (gate 1b-4).
-            NetworkPairing.RefuseUnseenLoss(Volt.Contracts.Vendors.CodesysDisplay, shown, plan, body.Language, scope);
+            NetworkPairing.RefuseUnseenLoss(CodesysDriver.Row.Display, shown, plan, body.Language, scope);
 
             // Every network to build is judged BEFORE the list changes: a refusal leaves the body as the IDE holds it
             // (the transaction rolls back too, but an offline caller has none).
@@ -109,7 +109,7 @@ namespace Volt.Ide.Codesys
         /// read through a named output whose slot no declaration in reach states (<see cref="NetworkPairing.NamedMainOutputs"/>).</summary>
         private static void RefuseUnbuildable(Network model)
         {
-            NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.CodesysDisplay, model);
+            NetworkPairing.RefuseUnpairedUnsupported(CodesysDriver.Row.Display, model);
             foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
                 throw new NotSupportedException(
                     $"CODESYS: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
@@ -164,7 +164,7 @@ namespace Volt.Ide.Codesys
             // refused), and so a caller with no transaction — the offline tests — sees the live network untouched.
             RefuseUnbuildable(model);
             // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
-            NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.CodesysDisplay, live);
+            NetworkText.RefuseSymbolCommentLoss(CodesysDriver.Row.Display, live);
             // What it resets without a refusal: the stored values of the members the text does not carry yet that the
             // rebuilt items do not hold, named in one warning (ld-fbd-coverage 2.2, the interim loss window) — read before
             // the items go and again once they are built, since the fresh value is the vendor's own (a negated contact's
@@ -178,7 +178,7 @@ namespace Volt.Ide.Codesys
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree, consumed: false));
 
-            if (RebuildLoss.Warning(Volt.Contracts.Vendors.CodesysDisplay, model.Order, held, HeldByItems(net)) is { } loss)
+            if (RebuildLoss.Warning(CodesysDriver.Row.Display, model.Order, held, HeldByItems(net)) is { } loss)
                 Volt.Engine.Ide.BridgeLog.Warn(loss);
         }
 

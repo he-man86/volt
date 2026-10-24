@@ -49,7 +49,7 @@ public class DeclarationBeforeMembersTests
         var resp = Push(ide, "F.pou",
             "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "create:F", "writecontent:F", "create:M", "writecontent:F" }, ide.Recorded.ToArray());
     }
 
@@ -62,7 +62,7 @@ public class DeclarationBeforeMembersTests
         var ide = Codesys();
         var resp = Push(ide, "F.pou", "FUNCTION F : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF := TRUE;\nEND_FUNCTION" + Method);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("refused to create its method 'M'", conflict.Reason);
@@ -83,7 +83,8 @@ public class DeclarationBeforeMembersTests
         var ide = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
         var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" + Method);
 
-        Assert.False(resp.Accepted);
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
+        Assert.Contains("K.pou", resp.NewItems.Keys);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("refused to create its method 'M'", conflict.Reason);
@@ -109,7 +110,7 @@ public class DeclarationBeforeMembersTests
                                       "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n" +
                                       "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n");
 
-        Assert.False(resp.Accepted);
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("refused to create its method 'B'", conflict.Reason);
@@ -129,12 +130,12 @@ public class DeclarationBeforeMembersTests
 
         var withAction = Codesys();
         var ok = Push(withAction, "B.pou", broken + "\n\nACTION Act\nIMPLEMENTATION ST\n;\nEND_ACTION\n");
-        Assert.True(ok.Accepted, ok.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(ok.Landed(), ok.Conflicts?.FirstOrDefault()?.Reason);
         Assert.True(withAction.Exists("Act"));
 
         var withMethod = Codesys();
         var refused = Push(withMethod, "B.pou", broken + Method);
-        Assert.False(refused.Accepted);
+        Assert.False(refused.Landed());
         Assert.Contains("refused to create its method 'M'", refused.Conflicts![0].Reason);
         Assert.False(withMethod.Exists("B"));
     }
@@ -147,13 +148,13 @@ public class DeclarationBeforeMembersTests
         var ide = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
         var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n");
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "writecontent:K" }, ide.Recorded.ToArray());
 
         var unchangedDeclaration = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
         var added = Push(unchangedDeclaration, "K.pou",
             "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
-        Assert.True(added.Accepted, added.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(added.Landed(), added.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "create:M", "writecontent:K" }, unchangedDeclaration.Recorded.ToArray());
     }
 
@@ -172,7 +173,7 @@ public class DeclarationBeforeMembersTests
         var resp = Push(ide, "F.pou",
             "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.InternalError, conflict.Code);
         Assert.Contains("Unbound tree item", conflict.Reason);

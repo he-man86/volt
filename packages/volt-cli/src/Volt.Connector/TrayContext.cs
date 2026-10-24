@@ -363,7 +363,7 @@ namespace Volt.Connector
                     // escape hatch. A serving row can be force-off'd (paused regardless of interest) and a paused row
                     // resumed — those rows are clickable to toggle it. A merely-detected row is status-only (greyed).
                     var tag = p.Unsupported != null ? "   ✕ IDE not supported" : paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
-                    var label = $"{Vendors.Display(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty ? " *" : "")}{tag}";
+                    var label = $"{ConnectorVendors.Display(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty == true ? " *" : "")}{tag}";
                     var actionable = serving || paused;
                     var id = p.Id;
                     var row = new ToolStripMenuItem(label, null, actionable ? async (_, _) => await ToggleForceOff(id, !paused) : null)

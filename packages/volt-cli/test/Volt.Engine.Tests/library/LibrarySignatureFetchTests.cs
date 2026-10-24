@@ -60,7 +60,7 @@ public class LibrarySignatureFetchTests
             FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
             Lib("CmpX", "1.0.0.1"), Lib("CmpY", "2.0.0.0"));
 
-        var res = FetchService.Handle(bumped, new FetchRequest { KnownItems = known });
+        var res = FetchService.Handle(bumped, new FetchRequest { KnownApplications = new(), KnownItems = known });
 
         var names = new HashSet<string>();
         foreach (var c in res.Changed) names.Add(c.File());
@@ -82,9 +82,9 @@ public class LibrarySignatureFetchTests
     public void Unchanged_library_versions_skip_the_precompile()
     {
         var ide = OneLib();
-        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // learn versions (extracts once)
+        var full = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() }).Items; // learn versions (extracts once)
         Assert.Equal(1, ide.ExtractCalls);
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(full) }); // unchanged
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>(full) }); // unchanged
         Assert.Equal(1, ide.ExtractCalls); // NO second precompile
     }
 
@@ -92,9 +92,9 @@ public class LibrarySignatureFetchTests
     public void A_changed_library_version_re_extracts()
     {
         var ide = OneLib();
-        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items;
+        var full = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() }).Items;
         var stale = new Dictionary<string, string>(full) { ["CmpX.library"] = "old-version" };
-        FetchService.Handle(ide, new FetchRequest { KnownItems = stale });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = stale });
         Assert.Equal(2, ide.ExtractCalls);
     }
 
@@ -103,7 +103,7 @@ public class LibrarySignatureFetchTests
     {
         var ide = OneLib();
         // The client knows the POU but has never seen CmpX.library → a library appeared → extract.
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new() { ["PLC_PRG.pou"] = "whatever" } });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() { ["PLC_PRG.pou"] = "whatever" } });
         Assert.Equal(1, ide.ExtractCalls);
     }
 
@@ -111,10 +111,10 @@ public class LibrarySignatureFetchTests
     public void A_removed_library_re_extracts()
     {
         var ide = OneLib();
-        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // extracts once
+        var full = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() }).Items; // extracts once
         // The client also had an Old.library that no longer exists live → removal → extract.
         var known = new Dictionary<string, string>(full) { ["Old.library"] = "v" };
-        FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
         Assert.Equal(2, ide.ExtractCalls);
     }
 
@@ -130,11 +130,11 @@ public class LibrarySignatureFetchTests
     public void Multiple_libraries_one_bumped_re_extracts_the_rest_do_not()
     {
         var ide = TwoLibs();
-        var full = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Items; // extracts once
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(full) }); // both unchanged
+        var full = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() }).Items; // extracts once
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>(full) }); // both unchanged
         Assert.Equal(1, ide.ExtractCalls);
         var stale = new Dictionary<string, string>(full) { ["CmpY.library"] = "old" }; // only CmpY differs
-        FetchService.Handle(ide, new FetchRequest { KnownItems = stale });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = stale });
         Assert.Equal(2, ide.ExtractCalls);
     }
 }

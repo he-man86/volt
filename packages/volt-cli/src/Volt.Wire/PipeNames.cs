@@ -1,27 +1,19 @@
 ﻿namespace Volt.Wire;
 
-/// <summary>Bridge pipe names. BOTH vendors serve ONE pipe PER running IDE, keyed by process id
+/// <summary>Bridge pipe names. Every vendor serves ONE pipe PER running IDE, keyed by process id
 /// (<c>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</c>), and clients find them by enumerating the vendor prefix (see
-/// <c>PipeDiscovery</c>). CODESYS is an in-proc host loaded into each IDE; TwinCAT is an external worker the connector
-/// spawns per XAE window (see <c>TwincatSupervisor</c>). Multiple coexist without colliding. The CLI and connector are
-/// clients.</summary>
+/// <c>PipeDiscovery</c>). The vendor id is the host's own (its declaration's <c>VendorRow</c>); nothing here knows one.</summary>
 public static class PipeNames
 {
-    /// <summary>Base name — NOT served directly; the prefix for per-instance pipes.</summary>
-    public const string Codesys = "volt.bridge.codesys";
-    public const string Twincat = "volt.bridge.twincat";
+    /// <summary>The prefix every bridge pipe starts with: <c>volt.bridge.</c>.</summary>
+    public const string Prefix = "volt.bridge.";
 
-    /// <summary>Discovery prefix for live CODESYS instance pipes: <c>volt.bridge.codesys.</c></summary>
-    public const string CodesysPrefix = Codesys + ".";
-    /// <summary>Discovery prefix for live TwinCAT (per-XAE) instance pipes: <c>volt.bridge.twincat.</c></summary>
-    public const string TwincatPrefix = Twincat + ".";
+    /// <summary>The per-instance pipe discovery prefix for a vendor, <c>volt.bridge.&lt;vendor&gt;.</c>. Clients discover
+    /// live pipes with this prefix — there is no bare per-vendor pipe to connect to.</summary>
+    public static string PrefixForVendor(string vendor) => Prefix + vendor.ToLowerInvariant() + ".";
 
-    /// <summary>The pipe a specific CODESYS in-proc host serves, keyed by its process id.</summary>
-    public static string CodesysInstance(int pid) => CodesysPrefix + pid;
-    /// <summary>The pipe a specific TwinCAT per-XAE worker serves, keyed by the XAE window's process id.</summary>
-    public static string TwincatInstance(int pid) => TwincatPrefix + pid;
-
-    /// <summary>The per-instance pipe discovery prefix for a vendor (both vendors serve one pipe per IDE, keyed by
-    /// pid). Clients discover live pipes with this prefix — there is no bare per-vendor pipe to connect to.</summary>
-    public static string PrefixForVendor(string vendor) => "volt.bridge." + vendor.ToLowerInvariant() + ".";
+    /// <summary>The pipe the bridge of <paramref name="vendor"/> serves for the IDE whose process id is
+    /// <paramref name="pid"/>.</summary>
+    public static string Instance(string vendor, int pid) =>
+        PrefixForVendor(vendor) + pid.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

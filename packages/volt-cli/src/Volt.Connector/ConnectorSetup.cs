@@ -18,8 +18,8 @@ namespace Volt.Connector
         {
             // CODESYS: one in-proc host per running IDE. TwinCAT: one per-XAE worker the supervisor spawns per XAE
             // window (see TrayContext.ReconcileTwincatWorkers) — from here, identical per-pipe discovery + fan-out.
-            new PerPipeProjectSource(Vendors.Twincat, PipeNames.TwincatPrefix),
-            new PerPipeProjectSource(Vendors.Codesys, PipeNames.CodesysPrefix),
+            new PerPipeProjectSource(ConnectorVendors.Twincat, PipeNames.PrefixForVendor(ConnectorVendors.Twincat)),
+            new PerPipeProjectSource(ConnectorVendors.Codesys, PipeNames.PrefixForVendor(ConnectorVendors.Codesys)),
         };
 
         private const string TwincatWorkerExe = "VoltBridgeTwincat.exe";

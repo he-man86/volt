@@ -208,6 +208,41 @@ public class SidecarBaselineTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…NOR OF AN ITEM AN UNREAD DEVICE HIDES (wire-final-shape gate 3a). The `volt/ide` tree a recovery pull
+    /// rebuilds its baseline from does not say where an application begins, so the CLI does not know the applications
+    /// that baseline was read with and states none. With <c>Device_1</c> unread, its application's <c>FB_Util.pou</c> lies
+    /// outside every application the walk states; had the CLI claimed "no applications" (<c>[]</c>), the bridge would have
+    /// placed the path in the pool and paired it with the pool's own <c>FB_Util.pou</c> (CODESYS lets an application hold a
+    /// POU the pool also holds), and the pull deleted a file whose item the IDE still holds.</summary>
+    [Fact]
+    public void A_baseline_less_pull_keeps_the_file_of_an_item_an_unread_device_hides_beside_a_pool_item_of_its_name()
+    {
+        const string appB = "Device_1/Plc Logic/Application";
+        const string decl = "FUNCTION_BLOCK FB_Util\nVAR\nEND_VAR";
+        var ide = ConnectedIde(Prg(),
+            new FakeIde.Item("Device_1", Volt.Engine.Item.ItemKind.PlcDevice, "Device_1", true, "Device: Device_1", null, null, null),
+            FakeIde.Item.TextualPou("FB_Util", decl, "x := 1;", appB),
+            FakeIde.Item.TextualPou("FB_Util", decl, "x := 2;", ""));
+        ide.ContainerKinds["Device_1"] = Volt.Engine.Item.ItemKind.Device;
+        ide.ContainerKinds["Device_1/Plc Logic"] = Volt.Engine.Item.ItemKind.PlcLogic;
+        ide.ContainerKinds[appB] = Volt.Engine.Item.ItemKind.Application;
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var file = Path.Combine(root, "src", "Device_1", "Plc Logic", "Application", "FB_Util.pou");
+            Assert.True(File.Exists(file), "fixture: the first pull wrote the application's FB_Util.pou");
+
+            File.Delete(Config.Paths(root).IdeRefsPath);
+            ide.UnwalkableFolders = new[] { "Device_1" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(file), "a baseline-less pull deleted the file of an item an unread device hides");
+            Assert.Contains($"{appB}/FB_Util.pou", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>…and what it could not see stays IN THE BASELINE, so a later pull can still retire it. The
     /// recovery pull (the sidecar deleted, as the refusal says) over a folder that faults used to write the
     /// partial map as the whole baseline, while the files under that folder were carried forward in `volt/ide`.

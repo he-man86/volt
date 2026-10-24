@@ -52,7 +52,7 @@ internal static class OpGuard
         // could push into a CODESYS bridge. A read supplying NEITHER runs only the connected check (init/discovery); a
         // write cannot get here without both (RequireBinding).
         var wrongName = !string.IsNullOrEmpty(expectedName)
-                        && !string.Equals(served, expectedName, StringComparison.Ordinal);
+                        && !Volt.Engine.Item.ItemPath.SameItem(served, expectedName);
         var wrongVendor = !string.IsNullOrEmpty(expectedPlatform)
                           && !string.Equals(ide.Vendor, expectedPlatform, StringComparison.OrdinalIgnoreCase);
         if (wrongName || wrongVendor)

@@ -119,8 +119,8 @@ async function direction(name: string, cliExe: string, cliPkg: string, bridgePkg
 		log.push(`── ${name}: ide.ps1 up (exit ${up.status})`, up.text)
 		const pipe = /^(volt\.bridge\.codesys\.\d+)\s*$/m.exec(up.text)?.[1]
 		if (up.status !== 0 || !pipe) throw new Error(`${name}: the IDE did not come up (no pipe printed)`)
-		const { callRaw } = await import("../test/e2e/lib/pipe")
-		const h = (await callRaw(pipe, JSON.stringify({ op: "health" }))).frames.at(-1)?.result
+		const { callRaw, WIRE_PROTOCOL } = await import("../test/e2e/lib/pipe")
+		const h = (await callRaw(pipe, JSON.stringify({ op: "health", protocol: WIRE_PROTOCOL }))).frames.at(-1)?.result
 		bridgeProtocol = typeof h?.protocol === "number" ? h.protocol : null
 		bridgeOps = Array.isArray(h?.ops) ? h.ops : null
 		log.push(`── ${name}: health.protocol ${bridgeProtocol}, health.ops ${JSON.stringify(bridgeOps)}, bridgeVersion ${h?.bridgeVersion}`)

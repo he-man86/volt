@@ -20,7 +20,10 @@ describe("openrpc reader", () => {
 	})
 
 	it("accepts a conforming answer and names each way a broken one breaks", () => {
-		const health = { projects: [{ vendor: "codesys", project: "P", status: "healthy", dirty: false }], networkText: true, protocol: 1, ops: ["health"] }
+		const health = {
+			projects: [{ vendor: "codesys", project: "P", status: "healthy", dirty: false }],
+			languages: ["ST"], kinds: [{ extension: "pou", writable: true }], protocol: 1, ops: ["health"],
+		}
 		expect(validate(doc, ref("HealthResponse"), health, { strict: true })).toEqual([])
 		const { protocol: _, ...noProtocol } = health
 		expect(validate(doc, ref("HealthResponse"), noProtocol)).toEqual(["$: lacks the required member 'protocol'"])
@@ -28,7 +31,8 @@ describe("openrpc reader", () => {
 		expect(validate(doc, ref("HealthResponse"), { ...health, status: "healthy" })).toEqual([])
 		expect(validate(doc, ref("HealthResponse"), { ...health, status: "healthy" }, { strict: true }))
 			.toEqual(["$: has the member 'status' the schema does not name"])
-		expect(validate(doc, ref("HealthResponse"), { ...health, projects: [{ vendor: "codesys" }] }).length).toBe(3)
+		// `dirty` is optional (absent when the IDE did not say): a row lacks only its project and status
+		expect(validate(doc, ref("HealthResponse"), { ...health, projects: [{ vendor: "codesys" }] }).length).toBe(2)
 	})
 
 	it("judges a map by its value schema and a request by its closed member set", () => {

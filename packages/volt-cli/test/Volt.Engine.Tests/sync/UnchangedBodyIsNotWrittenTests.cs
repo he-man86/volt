@@ -47,7 +47,7 @@ public class UnchangedBodyIsNotWrittenTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_X.pou", SourceText = source, IfVersion = refs.Items["FB_X.pou"] } },
         });
-        Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
+        Assert.True(res.Landed(), "push refused: " + (res.Conflicts is null
             ? "(none)"
             : string.Join(" | ", res.Conflicts.Select(c => c.Reason))));
 

@@ -203,7 +203,7 @@ public class ComposedSession
             ageMs = (long)unchecked(Environment.TickCount - _publishedAtTick);
         }
         if (!published || ageMs > Host.HealthProbeFloorMs) TriggerAsyncProbe();
-        return new HealthResponse { Projects = OverlayLiveHealth(rows), NetworkText = Format.Network.NetworkTextSwitch.Enabled };
+        return new HealthResponse { Projects = OverlayLiveHealth(rows) };
     }
 
     /// <summary>Kick the ambient refresh — the host's probe on its IDE thread, single-flight, off the request path. The

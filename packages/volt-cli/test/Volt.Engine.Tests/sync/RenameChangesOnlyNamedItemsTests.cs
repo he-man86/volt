@@ -39,7 +39,7 @@ public class RenameChangesOnlyNamedItemsTests
 
     private static string Text(FakeIde ide, string wireName) =>
         FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { wireName },
         }).Changed.Single().SourceText;
@@ -60,11 +60,13 @@ public class RenameChangesOnlyNamedItemsTests
 
         var push = Push(ide, false, Rename(ide, "FB_A.pou", "FB_B.pou"), Rename(ide, "F_A.pou", "F_G.pou"));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(fbBefore.Replace("FUNCTION_BLOCK FB_A", "FUNCTION_BLOCK FB_B"), Text(ide, "FB_B.pou"));
         Assert.Equal(fBefore.Replace("FUNCTION F_A", "FUNCTION F_G"), Text(ide, "F_G.pou"));
         Assert.Equal(callBefore, Text(ide, "P_Call.pou"));
-        Assert.Equal(before["P_Call.pou"], push.NewItems!["P_Call.pou"]);
+        Assert.DoesNotContain("P_Call.pou", push.NewItems.Keys);   // unchanged: not in the receipt
+        Assert.Equal(before["P_Call.pou"], RefsService.Handle(ide).Items["P_Call.pou"]);
+        Assert.Equal(new[] { "FB_A.pou", "F_A.pou" }, push.Removed.OrderBy(k => k, System.StringComparer.Ordinal));
         Assert.Equal(new[] { "FB_B.pou", "F_G.pou" }, push.NewSources!.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
     }
 
@@ -78,7 +80,7 @@ public class RenameChangesOnlyNamedItemsTests
 
         var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "FB_B.pou" });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(callBefore, Text(ide, "P_Call.pou"));
         Assert.Contains("pSelf : POINTER TO FB_A;", Text(ide, "FB_B.pou"));
     }
@@ -95,14 +97,14 @@ public class RenameChangesOnlyNamedItemsTests
         var push = Push(ide, false,
             new SetItemOp { Name = "P_Call.pou", IfVersion = RefsService.Handle(ide).Items["P_Call.pou"], SourceText = renamedCall },
             Rename(ide, "FB_A.pou", "FB_B.pou"));
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(renamedCall, Text(ide, "P_Call.pou"));
 
         var keptOld = call.Replace("ok : BOOL;", "ok : BOOL; // still F_A");
         var second = Push(ide, false,
             new SetItemOp { Name = "P_Call.pou", IfVersion = RefsService.Handle(ide).Items["P_Call.pou"], SourceText = keptOld },
             Rename(ide, "F_A.pou", "F_G.pou"));
-        Assert.True(second.Accepted, second.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(second.Landed(), second.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(keptOld, Text(ide, "P_Call.pou"));
     }
 
@@ -121,8 +123,8 @@ public class RenameChangesOnlyNamedItemsTests
             new SetItemOp { Name = "POUs/P_Call.pou", IfVersion = RefsService.Handle(ide).Items["POUs/P_Call.pou"], SourceText = renamedCall },
             Rename(ide, "POUs/FB_A.pou", "POUs/FB_B.pou"));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.Null(push.Conflicts);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.Empty(push.Conflicts);
         Assert.Equal(renamedCall, Text(ide, "POUs/P_Call.pou"));
         Assert.Equal(new[] { "POUs/FB_B.pou", "POUs/P_Call.pou" }, push.NewSources!.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
     }
@@ -134,7 +136,7 @@ public class RenameChangesOnlyNamedItemsTests
         var codesys = Ide(false);
         var twincat = Ide(true);
         foreach (var ide in new[] { codesys, twincat })
-            Assert.True(Push(ide, false, Rename(ide, "FB_A.pou", "FB_B.pou"), Rename(ide, "F_A.pou", "F_G.pou")).Accepted);
+            Assert.True(Push(ide, false, Rename(ide, "FB_A.pou", "FB_B.pou"), Rename(ide, "F_A.pou", "F_G.pou")).Landed());
 
         Assert.Equal(RefsService.Handle(codesys).Items, RefsService.Handle(twincat).Items);
         foreach (var name in RefsService.Handle(codesys).Items.Keys) Assert.Equal(Text(codesys, name), Text(twincat, name));

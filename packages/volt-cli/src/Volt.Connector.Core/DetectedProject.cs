@@ -12,7 +12,7 @@ namespace Volt.Connector
         string ProjectName,  // what the user sees, what a workspace binding matches on ("MyMachine"), AND what the
                              // owning source binds by — the `connect` op re-resolves it on the live instance
         string Vendor,       // "codesys" | "twincat" — drives the prefix/logo + connect routing
-        bool Dirty,          // unsaved-changes indicator (shown as a dot/asterisk)
+        bool? Dirty,         // unsaved-changes indicator (shown as a dot/asterisk); null when the IDE did not say
         string? Pipe = null, // the bridge pipe that serves this project (per-pid for CODESYS, the worker pipe for
                              // TwinCAT) — the source targets it, and the CLI/shells read it (VOLT_PIPE for init)
         string? IdeVersion = null, // for the label when a vendor has >1 live instance

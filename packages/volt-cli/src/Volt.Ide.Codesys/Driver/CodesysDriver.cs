@@ -128,7 +128,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
     // collection — otherwise a closed project still reports "connected" with a null project name.
     // A reopen recovers on its own: the live PrimaryProject lookup makes the next probe flip _hasProject back.
     public bool IsConnected => _dispatcher != null && _hasProject && _om.HasObjectManager;
-    public string Vendor => Vendors.Codesys;
+    public string Vendor => CodesysDriver.Row.Id;
     // LIVE, not the cached row: reads the primary project's path off the object model, so it must only be called on
     // the primary thread — which is where the in-op guard runs. Same value BuildProjects() snapshots.
     public string? ServedProjectName => IsConnected ? _om.ProjectName : null;
@@ -180,7 +180,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
         if (string.IsNullOrEmpty(name)) return new List<ProjectEntry>();
         return new List<ProjectEntry>
         {
-            new ProjectEntry(Vendors.Codesys, IdeVersion, name!, Volt.Engine.Sync.ComposedSession.RowStatus(serving), _om.ProjectDirty),
+            new ProjectEntry(CodesysDriver.Row.Id, name!, Volt.Engine.Sync.ComposedSession.RowStatus(serving), _om.ProjectDirty),
         };
     }
 

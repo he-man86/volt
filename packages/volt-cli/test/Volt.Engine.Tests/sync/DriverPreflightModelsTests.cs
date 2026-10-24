@@ -51,7 +51,7 @@ public class DriverPreflightModelsTests
 
         var res = Push(ide, "FB_Axis.pou", Fb("FB_Axis"));
 
-        Assert.True(res.Accepted, res.Accepted ? "" : string.Join("; ", res.Conflicts!.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Landed() ? "" : string.Join("; ", res.Conflicts!.Select(c => c.Reason)));
         var bodies = Assert.Single(ide.SourcesValidated);
         Assert.Equal(new[] { "the item", "'Run'", "'Ready' GET" }, bodies.Select(b => b.Site.ToString()));
         Assert.Equal(new[] { BodyLanguage.Fbd, BodyLanguage.Ld, BodyLanguage.Fbd }, bodies.Select(b => b.Model.Language));
@@ -75,7 +75,7 @@ public class DriverPreflightModelsTests
 
         var res = Push(ide, "FB_Axis.pou", Fb("FB_Axis"));
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("cannot create that ladder", conflict.Reason);
@@ -90,7 +90,7 @@ public class DriverPreflightModelsTests
     public void An_update_hands_the_driver_the_existing_item()
     {
         var ide = new FakeIde();
-        Assert.True(Push(ide, "FB_Axis.pou", Plain("FB_Axis")).Accepted);
+        Assert.True(Push(ide, "FB_Axis.pou", Plain("FB_Axis")).Landed());
         ide.SourcesValidated.Clear();
         ide.ExistingValidated.Clear();
         var refs = RefsService.Handle(ide);
@@ -101,7 +101,7 @@ public class DriverPreflightModelsTests
             Ops = new List<PushOp> { new SetItemOp { Name = "FB_Axis.pou", SourceText = Plain("FB_Axis").Replace("out := a;", "out := NOT a;"), IfVersion = refs.Items["FB_Axis.pou"] } },
         });
 
-        Assert.True(res.Accepted, res.Accepted ? "" : string.Join("; ", res.Conflicts!.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Landed() ? "" : string.Join("; ", res.Conflicts!.Select(c => c.Reason)));
         Assert.Single(ide.SourcesValidated);
         Assert.NotNull(ide.ExistingValidated.Single());
     }
@@ -114,7 +114,7 @@ public class DriverPreflightModelsTests
 
         var res = Push(ide, "PRG_Main.pou", "PROGRAM PRG_Main\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n");
 
-        Assert.True(res.Accepted);
+        Assert.True(res.Landed());
         Assert.Empty(ide.SourcesValidated);
     }
 }

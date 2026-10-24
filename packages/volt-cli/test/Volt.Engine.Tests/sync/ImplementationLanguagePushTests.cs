@@ -61,7 +61,7 @@ public class ImplementationLanguagePushTests
 
     private static string Reason(PushResponse resp)
     {
-        Assert.False(resp.Accepted, "the push must be refused");
+        Assert.False(resp.Landed(), "the push must be refused");
         return Assert.Single(resp.Conflicts!).Reason;
     }
 
@@ -84,7 +84,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, Motor("IMPLEMENTATION ST\nDoReset := TRUE;"));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         var written = ide.WrittenContent["FB_Motor"];
         Assert.Equal("out := a;", written.Body);
         Assert.Equal("DoReset := TRUE;", written.Members.Single(m => m.Name == "DoReset").Body);
@@ -100,7 +100,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, Motor($"IMPLEMENTATION {language}\n{Network}"));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("FB_Motor", ide.CreatedItems);
 
         // WHAT reached the IDE, not merely that something did: the method's body is network text in exactly the
@@ -149,7 +149,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, Motor($"IMPLEMENTATION ST\n{Network}"));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "DoReset").Body);
     }
 
@@ -164,7 +164,7 @@ public class ImplementationLanguagePushTests
 
         // The NETWORK READER answers (openspec bridge-refusal-review 2.3): a body stated LD/FBD is read as network text,
         // and ST is no network — NETWORK_PARSE, with the line. The ST reader's own sniffed copy of that rule is gone.
-        Assert.False(resp.Accepted, "the push must be refused");
+        Assert.False(resp.Landed(), "the push must be refused");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, conflict.Code);
         Assert.NotNull(conflict.Line);
@@ -178,7 +178,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, $"{Decl}\nIMPLEMENTATION ST\n{Network}\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Body);
     }
 
@@ -191,7 +191,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, src);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "Running").Getter!.Code);
     }
 
@@ -205,7 +205,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, src);
 
-        Assert.False(resp.Accepted, "the push must be refused");
+        Assert.False(resp.Landed(), "the push must be refused");
         Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, Assert.Single(resp.Conflicts!).Code);
         AssertNothingWritten(ide);
     }
@@ -285,7 +285,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, src);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         var written = ide.WrittenContent["FB_Motor"];
         Assert.Equal($"FUNCTION_BLOCK FB_Motor\nVAR\n\t{name} : INT;\n\tx : INT;\nEND_VAR", written.Declaration);
         Assert.Equal($"{name} := 1;\nx := {name};", written.Body);
@@ -311,7 +311,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, source, op);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         var written = ide.WrittenContent[op.Substring(0, op.IndexOf('.'))];
         if (member is not null) Assert.Contains(written.Members, m => m.Name == member);
     }
@@ -328,7 +328,7 @@ public class ImplementationLanguagePushTests
         var resp = Create(ide,
             "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("\tIMPLEMENTATION\n", ide.WrittenContent["FB_Motor"].Declaration);
     }
 
@@ -362,7 +362,7 @@ public class ImplementationLanguagePushTests
 
         var resp = Create(ide, source + "\n", op);
 
-        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
+        Assert.True(resp.Landed(), resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
         Assert.Equal(source, ide.WrittenContent[op.Substring(0, op.IndexOf('.'))].Declaration);
     }
 
@@ -469,7 +469,7 @@ public class ImplementationLanguagePushTests
         // openspec bridge-refusal-review 2.1: a file that HAS its IMPLEMENTATION line states its boundary, so a
         // `(* @volt-… *)` comment in it states nothing — it is a comment, written as sent. Only a file with no boundary
         // line is a file from before the keyword, and that refusal (Unmarked) names the comment as its hint.
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("(* @volt-implementation *)", FakeIde.AllText(ide.WrittenContent["F"]));
     }
 

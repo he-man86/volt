@@ -7,7 +7,7 @@ window.VOLT = {
     "info": {
       "title": "Volt bridge",
       "version": "1",
-      "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE. One request object per call: \u0060{ \u0022op\u0022: \u0022\u003Cname\u003E\u0022, \u0022body\u0022: { ... } }\u0060, answered with the method\u0027s result or \u0060{ \u0022error\u0022: { \u0022code\u0022: \u0022...\u0022, \u0022message\u0022: \u0022...\u0022 } }\u0060.\n\nGENERATED from the C# contract types by \u0060DocDataTests\u0060; edit those, not this file."
+      "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE. One request object per call: \u0060{ \u0022op\u0022: \u0022\u003Cname\u003E\u0022, \u0022protocol\u0022: 1, \u0022body\u0022: { ... } }\u0060 (a request stating no \u0060protocol\u0060 or another is refused PROTOCOL_MISMATCH before its body is read), answered with the method\u0027s result or \u0060{ \u0022error\u0022: { \u0022code\u0022: \u0022...\u0022, \u0022message\u0022: \u0022...\u0022, \u0022data\u0022: { ... } } }\u0060.\n\nGENERATED from the C# contract types by \u0060DocDataTests\u0060; edit those, not this file."
     },
     "servers": [
       {
@@ -36,6 +36,7 @@ window.VOLT = {
         "paramStructure": "by-name",
         "params": [],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
@@ -66,6 +67,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "INTERNAL_ERROR"
@@ -75,14 +77,9 @@ window.VOLT = {
           "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, so a \u0060disconnect\u0060 racing a connect wins."
         ],
         "result": {
-          "name": "ok",
+          "name": "result",
           "schema": {
-            "type": "object",
-            "properties": {
-              "ok": {
-                "type": "boolean"
-              }
-            }
+            "$ref": "#/components/schemas/EmptyResult"
           }
         }
       },
@@ -92,20 +89,16 @@ window.VOLT = {
         "paramStructure": "by-name",
         "params": [],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED"
         ],
         "x-outcomes": [
           "Fails only with IDE_UNSUPPORTED, as every op but \u0060health\u0060 does on an IDE the bridge cannot serve. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
         ],
         "result": {
-          "name": "ok",
+          "name": "result",
           "schema": {
-            "type": "object",
-            "properties": {
-              "ok": {
-                "type": "boolean"
-              }
-            }
+            "$ref": "#/components/schemas/EmptyResult"
           }
         }
       },
@@ -123,9 +116,11 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "BAD_REQUEST",
           "ITEM_UNVERIFIED",
           "INTERNAL_ERROR"
         ],
@@ -157,6 +152,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
@@ -192,10 +188,12 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "BAD_REQUEST",
+          "STALE_PROJECT_VERSION",
           "ITEM_UNVERIFIED",
           "IDE_BUSY",
           "INTERNAL_ERROR"
@@ -233,6 +231,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
@@ -269,6 +268,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "PROTOCOL_MISMATCH",
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
@@ -301,8 +301,17 @@ window.VOLT = {
                 "$ref": "#/components/schemas/ProjectEntry"
               }
             },
-            "networkText": {
-              "type": "boolean"
+            "languages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kinds": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/HealthKind"
+              }
             },
             "ideVersion": {
               "type": "string"
@@ -334,7 +343,8 @@ window.VOLT = {
           },
           "required": [
             "projects",
-            "networkText",
+            "languages",
+            "kinds",
             "protocol",
             "ops"
           ]
@@ -343,9 +353,6 @@ window.VOLT = {
           "type": "object",
           "properties": {
             "vendor": {
-              "type": "string"
-            },
-            "version": {
               "type": "string"
             },
             "project": {
@@ -361,8 +368,22 @@ window.VOLT = {
           "required": [
             "vendor",
             "project",
-            "status",
-            "dirty"
+            "status"
+          ]
+        },
+        "HealthKind": {
+          "type": "object",
+          "properties": {
+            "extension": {
+              "type": "string"
+            },
+            "writable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "extension",
+            "writable"
           ]
         },
         "ConnectRequest": {
@@ -373,6 +394,10 @@ window.VOLT = {
             }
           },
           "additionalProperties": false
+        },
+        "EmptyResult": {
+          "type": "object",
+          "properties": {}
         },
         "RefsRequest": {
           "type": "object",
@@ -463,12 +488,16 @@ window.VOLT = {
             "name": {
               "type": "string"
             },
+            "code": {
+              "type": "string"
+            },
             "reason": {
               "type": "string"
             }
           },
           "required": [
             "name",
+            "code",
             "reason"
           ]
         },
@@ -478,12 +507,16 @@ window.VOLT = {
             "name": {
               "type": "string"
             },
+            "code": {
+              "type": "string"
+            },
             "reason": {
               "type": "string"
             }
           },
           "required": [
             "name",
+            "code",
             "reason"
           ]
         },
@@ -747,15 +780,18 @@ window.VOLT = {
         "PushResponse": {
           "type": "object",
           "properties": {
-            "accepted": {
-              "type": "boolean"
-            },
             "newProjectVersion": {
               "type": "string"
             },
             "newItems": {
               "type": "object",
               "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "removed": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             },
@@ -771,9 +807,6 @@ window.VOLT = {
                 "$ref": "#/components/schemas/PushConflict"
               }
             },
-            "currentProjectVersion": {
-              "type": "string"
-            },
             "newSources": {
               "type": "object",
               "additionalProperties": {
@@ -782,8 +815,10 @@ window.VOLT = {
             }
           },
           "required": [
-            "accepted",
-            "unwalkedFolders"
+            "newItems",
+            "removed",
+            "unwalkedFolders",
+            "conflicts"
           ]
         },
         "PushConflict": {
@@ -804,6 +839,9 @@ window.VOLT = {
             "code": {
               "type": "string"
             },
+            "existing": {
+              "type": "string"
+            },
             "line": {
               "type": "integer"
             },
@@ -819,7 +857,8 @@ window.VOLT = {
           },
           "required": [
             "name",
-            "reason"
+            "reason",
+            "code"
           ]
         },
         "BuildRequest": {
@@ -1026,6 +1065,8 @@ window.VOLT = {
     "grep"
   ],
   "errors": [
+    "PROTOCOL_MISMATCH",
+    "STALE_PROJECT_VERSION",
     "PLC_DISCONNECTED",
     "WRONG_PROJECT",
     "IDE_LOST_ITEM",
@@ -1040,7 +1081,6 @@ window.VOLT = {
   ],
   "conflictCodes": {
     "gate": [
-      "STALE_PROJECT_VERSION",
       "STALE_ITEM_VERSION",
       "ITEM_EXISTS",
       "ITEM_MISSING",
@@ -1063,7 +1103,6 @@ window.VOLT = {
       "NETWORK_UNKNOWN_OPERATOR",
       "NETWORK_UNSUPPORTED"
     ],
-    "projectRow": "\u003Cproject\u003E",
     "apply": [
       "NOT_ATTEMPTED"
     ]

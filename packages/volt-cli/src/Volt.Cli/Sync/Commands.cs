@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Sync;
@@ -274,8 +275,10 @@ public static class Commands
             fetched = bridge.FetchChanges(new FetchRequest
             {
                 KnownItems = knownItems,
-                // The applications that baseline was read with: they place a known path an unread device hides (none
-                // without a sidecar — the `volt/ide` tree alone does not say where an application begins).
+                // The applications that baseline was read with: they place a known path an unread device hides. A baseline
+                // rebuilt from the `volt/ide` tree does not know them (the tree does not say where an application begins),
+                // so it states none — never `[]`, which claims the read stated no application and lets the bridge place a
+                // path an unread device hides in the pool.
                 KnownApplications = sidecar?.Applications,
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
@@ -607,25 +610,31 @@ public static class Commands
             }, onProgress);
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
-        if (!resp.Accepted)
+        // A STALE LEASE IS THE REQUEST'S REFUSAL, an error frame carrying the IDE's version: nothing was applied.
+        catch (PipeCallException e) when (e.Code == BridgeErrorCodes.StaleProjectVersion)
         {
-            if (resp.Conflicts?.Any(c => c.Code == ConflictCodes.StaleProjectVersion) == true)
-                return PushResult.Rejected(forceWithLease is not null
-                    ? $"--force-with-lease is stale: the IDE is at {resp.CurrentProjectVersion}, not {forceWithLease} — run `volt pull` first"
-                    : "the IDE changed since your last sync — run `volt pull` first (or push --force)");
-            // THE CODE, WHERE THERE IS ONE. A refusal now carries it (`PushConflict.Code`), and printing it is
-            // the difference between "something went wrong" and a line an operator or an agent can act on —
-            // UNSUPPORTED will never succeed on a retry, a version conflict will.
-            var lines = string.Join("\n", (resp.Conflicts ?? new()).Select(c =>
-                $"  {c.Name}: {(c.Code is { Length: > 0 } code ? $"[{code}] " : "")}{c.Reason}"));
+            var current = e.ErrorData is { ValueKind: JsonValueKind.Object } data
+                          && data.TryGetProperty("currentProjectVersion", out var v) ? v.GetString() : null;
+            return PushResult.Rejected(forceWithLease is not null
+                ? $"--force-with-lease is stale: the IDE is at {current}, not {forceWithLease} — run `volt pull` first"
+                : "the IDE changed since your last sync — run `volt pull` first (or push --force)");
+        }
+        if (resp.NewProjectVersion is null)
+        {
+            // NOTHING LANDED. THE CODE, WHERE THERE IS ONE: printing it is the difference between "something went wrong"
+            // and a line an operator or an agent can act on — UNSUPPORTED will never succeed on a retry, a version
+            // conflict will. The ops the refusal stopped (NOT_ATTEMPTED) are not the reason, so they are not listed.
+            var lines = string.Join("\n", resp.Conflicts.Where(c => c.Code != ConflictCodes.NotAttempted).Select(c =>
+                $"  {c.Name}: [{c.Code}] {c.Reason}"));
             return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
         }
 
-        // AN ACCEPTED PUSH MAY NOT HAVE LANDED IN FULL (openspec `push-keeps-what-landed`): the live IDE refused one op
-        // after earlier ops had landed, and the push stopped there. Every op that did not land has ONE conflict — the
-        // refused op with its code, each op after it NOT_ATTEMPTED — and every op no conflict names landed. Everything
-        // below works from the APPLIED ops alone: a refused edit must stay outgoing, never be marked synced.
-        var notLanded = resp.Conflicts ?? new List<PushConflict>();
+        // A PUSH MAY NOT HAVE LANDED IN FULL (openspec `push-keeps-what-landed`): the live IDE refused one op after
+        // earlier ops had landed (or after part of the first one had), and the push stopped there. Every op that did not
+        // land has ONE conflict — the refused op with its code, each op after it NOT_ATTEMPTED — and every op no conflict
+        // names landed. Everything below works from the APPLIED ops alone: a refused edit must stay outgoing, never be
+        // marked synced.
+        var notLanded = resp.Conflicts;
         var refusedOps = new HashSet<string>(notLanded.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
         var landedOps = ops.Where(o => !refusedOps.Contains(o.Name)).ToList();
         // Every name a refused op touches — its own, and a rename's target. None of them takes a receipt version.
@@ -636,25 +645,13 @@ public static class Commands
             if (op is SetItemOp { To: { } to }) conflictedNames.Add(to);
         }
 
-        // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
+        // THE BASELINE MOVES ONLY BY WHAT THIS PUSH DID: `baseline − removed + newItems`. The receipt names exactly the
+        // items the push created, changed or made disappear (wire-final-shape, design §5) — never an item the IDE changed
+        // beside it, which stays incoming for the next pull — so the baseline never claims a version for a file this
+        // workspace does not hold.
         //
-        // The receipt is a fresh FULL snapshot of the project — it has to be, because the IDE can change items that
-        // are not in the op set while the push runs (an engineer's edit; a rename's callers are put back, DIALECT C2p). But adopting it WHOLESALE claims a version for every item
-        // in the IDE, including ones this workspace has never seen and has no file for.
-        //
-        // That is not hypothetical: `push --force` deliberately sends NO lease (see `expectedProjectVersion`
-        // above), so nothing has established that the client's view covered the project. Any item the engineer
-        // added in the IDE since the last pull is in the receipt, goes into the sidecar at its current version,
-        // and from then on `ComputeIncoming` sees baseline == bridge and reports nothing. The file is missing
-        // from the workspace, permanently and silently — the same shape as the unreadable-item bug, arrived at
-        // from the other side.
-        //
-        // Keeping only names the client ALREADY had or JUST pushed is exact. When a lease WAS quoted and matched
-        // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
-        //
-        // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name (an
-        // item the IDE changed outside the op set is pinned below, as on a full push), while a refused item keeps
-        // its old entry. One that PARTLY
+        // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name, while
+        // a refused item keeps its old entry. One that PARTLY
         // landed (an update whose declaration the IDE kept, a create whose removal failed) keeps it ON PURPOSE: the next
         // push is then refused for it and `volt pull` brings the IDE's state in first, instead of a push overwriting
         // state nobody has seen (review R4).
@@ -669,33 +666,14 @@ public static class Commands
         // RECEIPT's casing — and the next `ComputeIncoming`, which is Ordinal, then saw two spellings of one
         // item. The baseline is keyed the way the map that consumes it is keyed.
         var known = sidecar.Items;
-        var adopted = resp.NewItems!.Where(kv => (known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
-                                                 && !conflictedNames.Contains(kv.Key))
-                                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
-        // …EXCEPT AN ITEM THE IDE CHANGED THAT THIS PUSH DID NOT SEND — an edit in the IDE while the push ran. (A rename's
-        // callers no longer reach here: the bridge puts back what a rename touched beyond the items the push names, DIALECT
-        // C2p.) Its new version over the workspace's OLD text would hide the change — the next pull would see nothing, and
-        // the next push of that file would pass its gate and write the old text back (openspec bridge-refusal-review 8.4).
-        // It keeps its old version: it is incoming, and `volt pull` brings the IDE's text in.
-        var changedByIde = adopted.Keys.Where(k => !pushed.Contains(k) && known.TryGetValue(k, out var was) && was != adopted[k])
-                                  .OrderBy(k => k, StringComparer.Ordinal).ToList();
-        foreach (var name in changedByIde) adopted[name] = known[name];
-
-        // …AND THE RECEIPT DOES NOT SHRINK IT. The receipt is a fresh walk and lists only what it SAW and READ: an
-        // item under an unenumerable folder is missing from it, and so is one the walk could not read (an item the
-        // reader cannot place is published under no full name). Adopting the receipt alone
-        // dropped either from the baseline, undoing the overlay the PULL path keeps — and a fetch is asked only
-        // about names the baseline holds, so no later pull could report the old name removed. Deciding what is
-        // GONE is the bridge's, on the next fetch (`Removed`); the baseline keeps the last version it was told.
-        //
-        // Except a path THIS PUSH took out of the IDE: a delete, or the old path of a rename or a move. The receipt lacks it
-        // because it is gone, not because it was unseen. Restored, the old name stayed in the baseline beside the
-        // new one while the IDE and the workspace held only the new; the next change back to the old name then
-        // went up as an UPDATE of an item the IDE no longer has, at a stale version, and was refused.
-        var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var op in landedOps)
-            if (op is DeleteItemOp) retiredByPush.Add(op.Name);
-            else if (op is SetItemOp { To: { } to } && to != op.Name) retiredByPush.Add(op.Name);
+        var adopted = resp.NewItems.Where(kv => (known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
+                                                && !conflictedNames.Contains(kv.Key))
+                                   .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+        // Every other known entry stays — except a path THIS PUSH took out of the IDE (`removed`: a delete, the old path
+        // of a rename or a move). Kept, the old name stayed in the baseline beside the new one while the IDE and the
+        // workspace held only the new; the next change back to the old name then went up as an UPDATE of an item the IDE
+        // no longer has, at a stale version, and was refused. A conflicted name keeps its entry on purpose (above).
+        var retiredByPush = new HashSet<string>(resp.Removed.Where(r => !conflictedNames.Contains(r)), StringComparer.OrdinalIgnoreCase);
         foreach (var kv in known)
             if (!adopted.ContainsKey(kv.Key) && !retiredByPush.Contains(kv.Key)) adopted[kv.Key] = kv.Value;
 
@@ -800,15 +778,13 @@ public static class Commands
             Online = true,
             Detail = $"{cfg.Project.Platform}/{cfg.Project.ProjectName}",
             ProjectMismatch = null,
-            Items = resp.NewItems!,
-            ProjectVersion = resp.NewProjectVersion!,
+            // What this client now knows of the IDE: the baseline just written. The receipt names only what the push did,
+            // so an item the IDE changed beside it is not in it, and `volt status` / the next pull ask the IDE.
+            Items = adopted,
+            ProjectVersion = resp.NewProjectVersion,
             UnwalkedFolders = resp.UnwalkedFolders,
-            // Nothing is reported removed: the receipt is a walk the client sent no baseline to, and the baseline
-            // just written holds only names the receipt has and names restored above as unseen.
         });
         var notes = new List<string>();
-        if (changedByIde.Count > 0)
-            notes.Add("the IDE also changed " + string.Join(", ", changedByIde) + " while the push ran; `volt pull` brings them in");
         if (heldUnder.Count > 0)
             notes.Add("the IDE holds " + string.Join(", ", heldUnder.Select(h => $"{h.Name} as {h.HeldAs}")) +
                       " — the kind its text declares; `volt pull` moves the file to that name");
@@ -847,8 +823,8 @@ public static class Commands
     private static bool PartlyLanded(PushOp op, IReadOnlyDictionary<string, string> known, PushResponse resp)
     {
         if (op is SetItemOp { To: { } to } && to != op.Name
-            && resp.NewItems!.ContainsKey(to) && !resp.NewItems.ContainsKey(op.Name)) return true;
-        if (!resp.NewItems!.TryGetValue(op.Name, out var now)) return false;
+            && resp.NewItems.ContainsKey(to) && resp.Removed.Contains(op.Name, StringComparer.OrdinalIgnoreCase)) return true;
+        if (!resp.NewItems.TryGetValue(op.Name, out var now)) return false;
         return !known.TryGetValue(op.Name, out var was) || was != now;
     }
 
@@ -899,7 +875,7 @@ public static class Commands
         foreach (var o in ops.OfType<SetItemOp>())
         {
             var name = o.To ?? o.Name;
-            if (o.SourceText is null || !resp.NewItems!.TryGetValue(name, out var version)) continue;
+            if (o.SourceText is null || !resp.NewItems.TryGetValue(name, out var version)) continue;
             // The folder a version is hashed over is the path's own (a pushed item is never a library, the one kind
             // reported in a folder of its own).
             var pushedVersion = Volt.Engine.Sync.Hasher.ComputeItemVersion(Volt.Engine.Item.ItemPath.FolderOf(name), o.SourceText);
@@ -909,8 +885,7 @@ public static class Commands
 
         var fetched = bridge.FetchChanges(new FetchRequest
         {
-            // Versions the IDE cannot have, so every item named comes back with its text.
-            KnownItems = differ.Keys.ToDictionary(n => n, _ => "", StringComparer.Ordinal),
+            // A directed read with no baseline: every item named comes back with its text.
             OnlyItems = differ.Keys.ToList(),
             ExpectedPlatform = cfg.Project.Platform,
             ExpectedProjectName = cfg.Project.ProjectName,
@@ -948,7 +923,7 @@ public static class Commands
         foreach (var o in ops.OfType<SetItemOp>())
         {
             var name = o.To ?? o.Name;
-            if (o.SourceText is null || resp.NewItems!.ContainsKey(name)) continue;
+            if (o.SourceText is null || resp.NewItems.ContainsKey(name)) continue;
             var other = resp.NewItems.Keys.Where(k => !known.ContainsKey(k) && !pushed.Contains(k) && PushedText.MayBeHeldAs(name, k))
                                           .ToList();
             if (other.Count != 1) continue;
@@ -1035,7 +1010,7 @@ public static class Commands
             var bound = Config.ConfigExists(root) ? Config.LoadConfig(root).Project : null;
             var resp = bridge.FetchChanges(new FetchRequest
             {
-                KnownItems = new() { [name] = "" },
+                // A directed read with no baseline: the named item comes back with its text.
                 OnlyItems = new() { name },
                 // The pane shows the `.library` file — its manifest. Without this a directed `.library` read also
                 // returns every signature of that library, and an extraction the session cache cannot answer is, on

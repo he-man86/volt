@@ -96,8 +96,7 @@ public static class PushService
         if (needVersions) Versioning.CountUnclassifiable(walk, currentVersions, kinds);
         var walkComplete = walk.UnwalkedFolders.Count == 0;
 
-        // Null when the walk skipped the reads — NOT "": every rejection publishes it as
-        // `PushResponse.currentProjectVersion`, so a rejection computes the real hash on demand instead (`RejectAll`).
+        // Null when the walk skipped the reads, which it does only when no lease was quoted (`needVersions`).
         string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(currentVersions) : null;
 
         // EVERY NAME AN OP CARRIES IS A WIRE NAME, checked before anything reads the ops.
@@ -113,26 +112,31 @@ public static class PushService
                              $"{refusal.OpName}: {refusal.Message}");
         }
 
-        var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
-                                                      currentVersions, currentProjectVersion, walkComplete,
+        var conflicts = PushConflicts.DetectConflicts(ops, request.Force, currentVersions, walkComplete,
                                                       // Only an object whose KIND is unknown may be what an op of any
                                                       // kind lands on. The IDE resolves a name case-insensitively
                                                       // (itemCache), so this does too.
                                                       new HashSet<string>(walk.Unreadable.Where(o => o.Kind is null)
                                                                               .Select(o => ItemPath.Of(o.Folder, o.Name)),
                                                                           ItemPath.Addressed));
+        // A REFUSAL BEFORE THE FIRST WRITE LANDS NOTHING: each refused op with its code, every other op NOT_ATTEMPTED (in
+        // request order), no receipt — `newProjectVersion` is absent exactly when nothing landed.
         PushResponse RejectAll(List<PushConflict> refused, string? why = null)
         {
             why ??= $"{refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}";
             VoltLog.Info($"push {ops.Count} ops — REJECTED ({why}) ({sw.ElapsedMilliseconds}ms)");
-            // COMPUTED ON DEMAND when the pre-flight skipped it: a rejection always publishes the real hash.
-            return PushResponse.RejectedResult(refused,
-                currentProjectVersion ?? ProjectSnapshot.Walk(link, operation: "push-reject").ProjectVersion);
+            return new PushResponse
+            {
+                Conflicts = WithNotAttempted(refused, ops, "not applied: the push was refused before its first write"),
+                UnwalkedFolders = walk.UnwalkedFolders.ToList(),
+            };
         }
 
-        // THE LEASE IS ANSWERED WITHOUT THE PRE-FLIGHT: the project moved since the client read it, so no item's verdict
-        // means anything until it pulls (openspec `push-keeps-what-landed` design D1). The gate's own list goes with it.
-        if (conflicts.Any(c => c.Code == ConflictCodes.StaleProjectVersion)) return RejectAll(conflicts);
+        // THE LEASE IS ANSWERED WITHOUT THE PRE-FLIGHT, and not as a conflict: the project moved since the client read
+        // it, so no item's verdict means anything until it pulls (openspec `push-keeps-what-landed` design D1) — and the
+        // lease is the REQUEST's, not an op's (wire-final-shape, design §5). The error frame carries the IDE's version.
+        if (request.ExpectedProjectVersion is { } lease && lease != currentProjectVersion)
+            throw StaleLease(lease, currentProjectVersion!, ops.Count, sw);
 
         var pushedDeclarations = DeclarationsIn(link, ops);
 
@@ -184,6 +188,7 @@ public static class PushService
             return new PushConflict
             {
                 Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = VersionAt(holder),
+                Existing = ItemPath.SameItem(holder, op.Name) ? null : holder,
                 Reason = $"'{ItemPath.BareOf(landing)}' is taken: the IDE holds '{holder}', and an application holds one " +
                          "object of a name. Pick another name, or free it in an earlier push.",
             };
@@ -215,6 +220,7 @@ public static class PushService
                     preflight.Add(new PushConflict
                     {
                         Name = op.Name, Code = ConflictCodes.ItemExists, CurrentVersion = there,
+                        Existing = heldBefore.Keys.First(k => ItemPath.SameItem(k, onto)),
                         Reason = $"'{onto}' is taken: the IDE holds an item at that path. Pick another `to`, or free it in " +
                                  "an earlier push.",
                     });
@@ -351,17 +357,20 @@ public static class PushService
                 if (outcome.Renamed is not null) lastRenameAt = k;
                 var refused = ConflictFor(op, ex, outcome);
                 VoltLog.Info($"push {opTotal} ops — REFUSED at {op.Name} ({ex.Message}), {applied.Count} already applied ({sw.ElapsedMilliseconds}ms)");
-                // Nothing applied in full → `accepted:false`, exactly as a pre-flight refusal: the one op's partial effect
-                // (an update's declaration, a create whose removal failed) is stated in its reason, not in `accepted`.
-                if (applied.Count == 0) return RejectAll(new List<PushConflict> { refused });
-                // Something landed → `accepted:true` with the receipt and a conflict per op NOT landed, so "each op landed
-                // unless a conflict names it" holds: the refused op, then every op after it in APPLY order.
+                // A conflict per op NOT landed, so "each op landed unless a conflict names it" holds: the refused op, then
+                // every op after it in APPLY order. Nothing of the first op stays and nothing landed before it → no
+                // receipt: `newProjectVersion` is absent exactly when nothing landed.
                 notLanded = new List<PushConflict> { refused };
                 notLanded.AddRange(inApplyOrder.Skip(k + 1).Select(rest => new PushConflict
                 {
                     Name = rest.Name, Code = ConflictCodes.NotAttempted,
                     Reason = $"not applied: the push stopped at '{op.Name}'",
                 }));
+                if (applied.Count == 0 && refused.PartiallyApplied != true)
+                {
+                    VoltLog.Info($"push {opTotal} ops — REJECTED at {op.Name}, nothing landed ({sw.ElapsedMilliseconds}ms)");
+                    return new PushResponse { Conflicts = notLanded, UnwalkedFolders = walk.UnwalkedFolders.ToList() };
+                }
                 break;
             }
             appliedOps.Add(op);
@@ -388,12 +397,10 @@ public static class PushService
         // versions: the IDE can change items outside the op set while the push runs, and the client persists this
         // receipt as its IDE baseline with no follow-up /refs.
         //
-        // WITH `returnSources` THE SAME WALK KEEPS THE TEXT of every item the push CHANGED (openspec
-        // `st-roundtrip-fixed-point`, route A): each item a LANDED `set` left (under the name it landed as), AND each
-        // item whose version differs from the pre-apply walk's — one the IDE changed beside the ops, whose old text the
-        // client would otherwise push back. An item a conflict names (`name`, `renamedTo`) is re-read by the client,
-        // never answered. The text is the walk's own materialization, so it is what a read gives and nothing is read
-        // twice.
+        // WITH `returnSources` THE SAME WALK KEEPS THE TEXT of every item a LANDED `set` left, under the name it landed
+        // as (openspec `st-roundtrip-fixed-point`, route A) — the items `newItems` names, so the answer's delta is the same
+        // in both modes. An item a conflict names (`name`, `renamedTo`) is re-read by the client, never answered. The text
+        // is the walk's own materialization, so it is what a read gives and nothing is read twice.
         Func<string, string, bool>? keepText = null;
         if (request.ReturnSources == true)
         {
@@ -401,47 +408,129 @@ public static class PushService
             var refused = new HashSet<string>(
                 (notLanded ?? new List<PushConflict>()).SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(),
                 ItemPath.Addressed);
-            keepText = (name, version) => !refused.Contains(name)
-                && (landed.Contains(name) || !currentVersions.TryGetValue(name, out var before) || before != version);
+            keepText = (name, _) => !refused.Contains(name) && landed.Contains(name);
         }
         var receipt = ProjectSnapshot.Walk(link, operation: "push-receipt", keepText: keepText);
+        var refusedOp = notLanded is null ? null : inApplyOrder.First(o => ItemPath.SameItem(o.Name, notLanded[0].Name));
+        var (newItems, removed) = Receipt(receipt, appliedOps, notLanded?[0], refusedOp,
+                                          itemCache.Keys.Concat(notOpened.Keys), currentVersions);
         var newSources = keepText is null ? null : receipt.Texts;
 
         // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
         // baseline from it — so it has to be told, exactly as `refs`/`fetch` tell it.
         if (notLanded is not null)
+            VoltLog.Info($"push {ops.Count} ops — landed IN PART [{FormatApplied(applied)}], not landed: " +
+                         $"{string.Join(", ", notLanded.Select(c => $"{c.Name} {c.Code}"))} ({newItems.Count} changed, {removed.Count} removed) ({sw.ElapsedMilliseconds}ms)");
+        else
+            VoltLog.Info($"push {ops.Count} ops — landed [{FormatApplied(applied)}] ({newItems.Count} changed, {removed.Count} removed) ({sw.ElapsedMilliseconds}ms)");
+        return new PushResponse
         {
-            VoltLog.Info($"push {ops.Count} ops — accepted IN PART [{FormatApplied(applied)}], not landed: " +
-                         $"{string.Join(", ", notLanded.Select(c => $"{c.Name} {c.Code}"))} ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-            var partial = PushResponse.PartialResult(receipt.ProjectVersion, receipt.FullVersions,
-                                                     receipt.UnwalkedFolders, notLanded);
-            partial.NewSources = newSources;
-            return partial;
-        }
-        VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        var accepted = PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.UnwalkedFolders);
-        accepted.NewSources = newSources;
-        return accepted;
+            NewProjectVersion = receipt.ProjectVersion,
+            NewItems = newItems,
+            Removed = removed,
+            // Both walks' blind spots: the pre-apply walk's (an op there was ITEM_UNVERIFIED) and the receipt's (an item
+            // there is missing from `newItems` though it may have changed).
+            UnwalkedFolders = walk.UnwalkedFolders.Concat(receipt.UnwalkedFolders).Distinct(ItemPath.Exact).ToList(),
+            Conflicts = notLanded ?? new List<PushConflict>(),
+            NewSources = newSources,
+        };
     }
 
-    /// <summary>A push of no ops: the one walk is the lease's version and the receipt. A stale lease is refused as the
-    /// gate refuses it; otherwise the answer is that walk's (what the receipt walk of a push that applied nothing gave).
-    /// With <c>returnSources</c> there is no changed item to return: nothing landed, and nothing changed between two walks.</summary>
+    /// <summary>The stale-lease refusal: the error frame <c>STALE_PROJECT_VERSION</c>, the IDE's version as its data.</summary>
+    private static BridgeException StaleLease(string lease, string current, int opCount, Stopwatch sw)
+    {
+        VoltLog.Info($"push {opCount} ops — REFUSED (stale lease) ({sw.ElapsedMilliseconds}ms)");
+        return new BridgeException(BridgeErrorCodes.StaleProjectVersion,
+            $"the project moved since the read that produced `expectedProjectVersion` {lease}: the IDE is at {current}; nothing was applied",
+            new StaleProjectVersionData { CurrentProjectVersion = current });
+    }
+
+    /// <summary>One conflict per op: <paramref name="refused"/> as they are, then a <c>NOT_ATTEMPTED</c> for every op
+    /// none of them names, in request order.</summary>
+    private static List<PushConflict> WithNotAttempted(List<PushConflict> refused, IEnumerable<PushOp> ops, string reason)
+    {
+        var named = new HashSet<string>(refused.Select(c => c.Name), ItemPath.Addressed);
+        var all = new List<PushConflict>(refused);
+        all.AddRange(ops.Where(o => !named.Contains(o.Name))
+            .Select(o => new PushConflict { Name = o.Name, Code = ConflictCodes.NotAttempted, Reason = reason }));
+        return all;
+    }
+
+    /// <summary>
+    /// THE RECEIPT A CLIENT UPDATES ITS BASELINE FROM (wire-final-shape, design §5): <c>newItems</c>, the version the
+    /// receipt walk gives every item the push created or changed, and <c>removed</c>, every path it made disappear —
+    /// in the IDE's spelling, read off the walks, for the paths the push NAMED. A push changes exactly the items it names
+    /// (a rename's other edits are put back, <see cref="PutBackWhatTheRenameTouched"/>), so an item the IDE changed beside
+    /// it is not the push's and is not claimed: the client's next read sees it.
+    /// <list type="bullet">
+    /// <item>a landed <c>set</c>: its item where it now is (<c>to</c> ?? <c>name</c>); a landed rename or move, its old path
+    /// removed; a landed delete, its path removed — a removal only when the walks agree (held before, gone after);</item>
+    /// <item>the refused op, when part of it stays (<c>partiallyApplied</c>): each of its paths whose version moved
+    /// (<c>name</c>, <c>to</c>, <c>renamedTo</c>), or that was held and is gone from a folder the receipt walk read.</item>
+    /// </list></summary>
+    private static (Dictionary<string, string> NewItems, List<string> Removed) Receipt(
+        ProjectSnapshot receipt, IReadOnlyList<PushOp> landed, PushConflict? refusedAt, PushOp? refusedOp,
+        IEnumerable<string> held, IReadOnlyDictionary<string, string> before)
+    {
+        // The receipt's own spelling of each path it tracks (unreadable included, for "is it still there"), and the
+        // pre-apply walk's spelling of each path it held.
+        var nowAt = new Dictionary<string, string>(ItemPath.Addressed);
+        foreach (var key in receipt.Versions.Keys) if (!nowAt.ContainsKey(key)) nowAt[key] = key;
+        var heldAt = new Dictionary<string, string>(ItemPath.Addressed);
+        foreach (var key in held) if (!heldAt.ContainsKey(key)) heldAt[key] = key;
+
+        // A held key is EXACT (a case-only rename is a rename): a path is gone when the receipt holds no key spelled as
+        // the pre-apply walk spelled it, so the old spelling of `foo.pou` → `Foo.pou` is removed like any old path.
+        var nowExact = new HashSet<string>(receipt.Versions.Keys, ItemPath.Exact);
+
+        var newItems = new Dictionary<string, string>(ItemPath.Exact);
+        var removed = new List<string>();
+        var removedSeen = new HashSet<string>(ItemPath.Exact);
+        void Changed(string path)
+        {
+            if (nowAt.TryGetValue(path, out var spelled) && receipt.FullVersions.TryGetValue(spelled, out var v))
+                newItems[spelled] = v;
+        }
+        void Gone(string path)
+        {
+            if (heldAt.TryGetValue(path, out var spelled) && !nowExact.Contains(spelled) && removedSeen.Add(spelled))
+                removed.Add(spelled);
+        }
+
+        // A LANDED op is its own evidence: the IDE did what it names, so the path it left is gone.
+        foreach (var op in landed)
+        {
+            if (op is SetItemOp set)
+            {
+                Changed(set.To ?? set.Name);
+                if (set.To is { } to && !ItemPath.SameSpelling(to, set.Name)) Gone(set.Name);
+            }
+            else Gone(op.Name);
+        }
+        // The REFUSED op's evidence is the receipt walk alone: a path it could not see (under its `unwalkedFolders`) is
+        // unseen, never gone.
+        if (refusedAt is { PartiallyApplied: true } && refusedOp is not null)
+        {
+            var paths = new[] { refusedOp.Name, (refusedOp as SetItemOp)?.To, refusedAt.RenamedTo }.OfType<string>();
+            foreach (var path in paths)
+            {
+                if (nowAt.TryGetValue(path, out var spelled) && receipt.FullVersions.TryGetValue(spelled, out var v)
+                    && (!before.TryGetValue(spelled, out var was) || was != v)) newItems[spelled] = v;
+                if (!receipt.UnwalkedFolders.Any(f => ItemPath.IsUnder(ItemPath.FolderOf(path), f))) Gone(path);
+            }
+        }
+        return (newItems, removed);
+    }
+
+    /// <summary>A push of no ops: one walk, for the lease and for <c>unwalkedFolders</c>. A stale lease is refused as on
+    /// any push; otherwise nothing landed, so there is no <c>newProjectVersion</c> and no receipt.</summary>
     private static PushResponse NothingToApply(HostLink link, PushRequest request, Stopwatch sw)
     {
-        var receipt = ProjectSnapshot.Walk(link, operation: "push-receipt");
-        var stale = PushConflicts.DetectConflicts(new List<PushOp>(), request.ExpectedProjectVersion, request.Force,
-                                                  receipt.Versions, receipt.ProjectVersion, receipt.UnwalkedFolders.Count == 0,
-                                                  Array.Empty<string>());
-        if (stale.Count > 0)
-        {
-            VoltLog.Info($"push 0 ops — REJECTED (stale lease) ({sw.ElapsedMilliseconds}ms)");
-            return PushResponse.RejectedResult(stale, receipt.ProjectVersion);
-        }
-        VoltLog.Info($"push 0 ops — accepted [no-op] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        var accepted = PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.UnwalkedFolders);
-        accepted.NewSources = request.ReturnSources == true ? new Dictionary<string, string>() : null;
-        return accepted;
+        var walked = ProjectSnapshot.Walk(link, operation: "push-check");
+        if (request.ExpectedProjectVersion is { } lease && lease != walked.ProjectVersion)
+            throw StaleLease(lease, walked.ProjectVersion, 0, sw);
+        VoltLog.Info($"push 0 ops — nothing to apply ({sw.ElapsedMilliseconds}ms)");
+        return new PushResponse { UnwalkedFolders = walked.UnwalkedFolders };
     }
 
     /// <summary>A PUSH CHANGES EXACTLY THE ITEMS IT NAMES — a rename too (owner, 2026-10-04, openspec bridge-refusal-review

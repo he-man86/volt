@@ -26,7 +26,7 @@ namespace Volt.Connector
     public static class XaeWindows
     {
         /// <summary>The XAE shells' process names: TcXaeShell 15 (32-bit) and TwinCAT 4026's 64-bit TcXaeShell64.</summary>
-        public static readonly string[] ProcessNames = Volt.Contracts.Vendors.TwincatShellProcesses;
+        public static readonly string[] ProcessNames = ConnectorVendors.TwincatShellProcesses;
 
         /// <summary>Every running TwinCAT window, with the top-level windows it currently shows. Never throws:
         /// this runs on the failure path of a probe that is already failing, and a diagnostic that can itself

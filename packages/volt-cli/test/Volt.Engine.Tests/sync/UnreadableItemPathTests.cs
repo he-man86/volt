@@ -53,8 +53,8 @@ public class UnreadableItemPathTests
         var ide = new FakeIde(new FakeIde.Item("Untitled2.tmc", ItemKind.PlcTmcDescription, "Plc", true, null, null, null,
             "the module description cannot be read"));
 
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = new() { ["Plc/Untitled2.tmc"] = "v" } });
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() { ["Plc/Untitled2.tmc"] = "v" } });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = new(), KnownItems = new() { ["Plc/Untitled2.tmc"] = "v" } });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() { ["Plc/Untitled2.tmc"] = "v" } });
 
         Assert.Equal(new[] { "Plc/Untitled2.tmc" }, refs.Unreadable.Select(u => u.Name));
         Assert.Empty(refs.Removed);
@@ -71,7 +71,7 @@ public class UnreadableItemPathTests
     public void A_refused_library_is_named_in_its_own_folder()
     {
         var walk = new WalkResult(new List<ProjectItem>(), new List<string>(),
-            new[] { new UnreadableObject("Standard", "Library Manager", "a placeholder no version resolves", ItemKind.Kinds.Library) },
+            new[] { new UnreadableObject("Standard", "Library Manager", "a placeholder no version resolves", ItemKind.Kinds.Library, Code: BridgeErrorCodes.Unreadable) },
             new List<string>());
 
         var (items, nodes) = Versioning.CountUnclassifiable(walk.ToHostWalk(), new Dictionary<string, string>(), IecKinds);
@@ -87,8 +87,8 @@ public class UnreadableItemPathTests
         var walk = new WalkResult(new List<ProjectItem>(), new List<string>(),
             new[]
             {
-                new UnreadableObject("SER_OperationModeType", "Data", "the kind read failed", Kind: null),
-                new UnreadableObject("Library Manager", "Device/Plc Logic/Application", "holds a setting no text spells", ItemKind.Kinds.Folder),
+                new UnreadableObject("SER_OperationModeType", "Data", "the kind read failed", Kind: null, Code: BridgeErrorCodes.Unreadable),
+                new UnreadableObject("Library Manager", "Device/Plc Logic/Application", "holds a setting no text spells", ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unsupported),
             },
             new List<string>());
 
@@ -151,7 +151,7 @@ public class UnreadableItemPathTests
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/X.dut", SourceText = Dut } },
         });
 
-        Assert.False(push.Accepted);
+        Assert.False(push.Landed());
         Assert.Equal(BridgeErrorCodes.Unreadable, Assert.Single(push.Conflicts!).Code);
     }
 
@@ -166,7 +166,7 @@ public class UnreadableItemPathTests
         ide.UnclassifiableItems = new[] { "U" };
 
         var refs = RefsService.Handle(ide);
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         Assert.Equal(new[] { "A.pou", "Data/B.pou" }, refs.Unreadable.Select(u => u.Name));
         Assert.Equal(new[] { "Data/U" }, refs.UnreadableNodes.Select(u => u.Name));

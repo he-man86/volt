@@ -13,12 +13,13 @@
 ///   NAME (with the vendor); `connect` re-resolves it on whichever live instance has it open (CODESYS: its serving
 ///   pipe; TwinCAT: the running window whose solution holds that project). No instance handle: two projects opened
 ///   under the same name at once are indistinguishable — the same limit the workspace binding already has.</item>
-///   <item><see cref="Version"/> — the IDE version, shown in the row's label.</item>
 ///   <item><see cref="Status"/> — the row's full connection state, the ONE self-describing field: "idle" (detected,
 ///   not served), "healthy" (served, channel OK), "degraded" (served, recent channel errors). "Is it serving"
 ///   derives from this (<c>status != "idle"</c>) — there is no separate serving flag. At most one row per bridge is
 ///   non-idle; all rows are "idle" while the bridge is paused/disconnected. (CODESYS is in-proc → never degrades.)</item>
-///   <item><see cref="Dirty"/> — the project has unsaved changes in the IDE.</item>
+///   <item><see cref="Dirty"/> — the project has unsaved changes in the IDE; absent when the IDE did not answer, which
+///   a client reads as "unknown", never as clean. The IDE's version is the bridge's (<c>HealthResponse.ideVersion</c>),
+///   not a row's.</item>
 /// </list>
 /// Detection is identity-only: the top-level project, never the PLC applications inside it (a content concern the
 /// sync ops resolve lazily).
@@ -27,7 +28,6 @@
 /// Do not "clean up" a downstream null check because the type says non-null.</para></summary>
 public sealed record ProjectEntry(
     string Vendor,
-    string? Version,
     string Project,
     string Status,
-    bool Dirty);
+    bool? Dirty);

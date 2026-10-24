@@ -28,7 +28,7 @@ public class CodesysMultiInstanceTests
         HealthProjectName = project,
         Projects = new List<ProjectEntry>
         {
-            new ProjectEntry("codesys", "3.5", project, "healthy", false),
+            new ProjectEntry("codesys", project, "healthy", false),
         },
     };
 

@@ -29,7 +29,7 @@ public class RequestNullFrameTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var (code, message) = Error(pipe, $@"{{""op"":""{op}"",""body"":{body}}}");
+        var (code, message) = Error(pipe, $@"{{""op"":""{op}"",""protocol"":1,""body"":{body}}}");
 
         Assert.Equal("BAD_REQUEST", code);
         Assert.Contains(member, message);

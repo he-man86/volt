@@ -42,10 +42,10 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 | Before | After | Principle · evidence | Client changes |
 |---|---|---|---|
 | `networkText: boolean` | **`languages: string[]`**: every language this bridge shows as `IMPLEMENTATION <LANG>` (the `LanguageRegistry`'s shown set as `NetworkTextSwitch` leaves it, read in one place: `ST` in the shipped build, `ST`, `LD`, `FBD` with `VOLT_GRAPHICAL=1`; the same on both vendors, task 2.1) | B · `HealthResponse.cs:39`; the flag only fits CODESYS-family graphics (W4/W5) | show a body as editable only if its language is listed |
-| kinds only behind a link to `items.html` (F13) | **`kinds: [{ extension, writable }]`** from this bridge's `KindRegistry` | B · a process's catalog is its host's declaration (rework F3) | read kinds from `health` instead of hard-coding them |
+| kinds only behind a link to `items.html` (F13) | **`kinds: [{ extension, writable }]`** from this bridge's `KindRegistry`: every declared row with an extension, ordinal; `writable` = `Source` or `WritableDescriptor` (built 3a: the declaration verbatim, the three container kinds included — 2.2's owner question, default taken) | B · a process's catalog is its host's declaration (rework F3) | read kinds from `health` instead of hard-coding them |
 | `ProjectEntry.vendor`, `status` bare strings (F3) | enums in the schema, generated from `VendorRegistry` and the status set | B | none |
-| `ProjectEntry.dirty: boolean`, required; an unanswered IDE reads `false` | **`dirty` optional: absent when the IDE does not answer** | C · `CodesysObjectModel.cs:65` (`is bool b && b`), `BeckhoffDriver.cs:169,181` (`servedDirty ?? false`) | treat absent as "unknown", never as clean |
-| `ProjectEntry.version` undefined (F28) | defined in one line (the IDE's version for that row) or deleted if nothing sets it (task 2.3 measures) | F | none, or drop it |
+| `ProjectEntry.dirty: boolean`, required; an unanswered IDE reads `false` | **`dirty` optional: absent when the IDE does not answer** — CODESYS: no `dirty` member; TwinCAT: `Saved` throwing, or a row the worker does not serve (built 3a; TwinCAT's `Saved` kept as its answer — 2.5's owner question, default taken) | C · `CodesysObjectModel.cs:65` (`is bool b && b`), `BeckhoffDriver.cs:169,181` (`servedDirty ?? false`) | treat absent as "unknown", never as clean |
+| `ProjectEntry.version` undefined (F28) | **deleted** (2.3: it was `ideVersion` again); the connector stamps the top-level `ideVersion` onto each row it shows | A, F | read `ideVersion` |
 | `HealthResponse.status` in prose, not in the schema (F4) | **deleted from the prose**: serving = some row's `status` is not `idle` | A · not in `HealthResponse.cs` | none |
 | "a `health` with no `ops` is a bridge from before the list" | deleted | F · no older bridges are supported | none |
 
@@ -64,7 +64,7 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 | `refs.summary`: "its folder, and the aggregate project/structure versions" (F33) | "the path → version map and `projectVersion`" | F · `RefsResponse` has neither field | none |
 | `UnreadableItem { name, reason }`: no code, so a client parses the reason (F24) | **`{ name, code, reason }`**, `code` from the code table (`UNREADABLE`, `UNSUPPORTED`, …) | A, F | match `code` |
 | `UnreadableNode { name, reason }` | `{ name, code, reason }` | A | match `code` |
-| `knownApplications` optional; omitting it beside `knownItems` silently judges unwalked paths differently (F22) | **required when `knownItems` is sent**: else `BAD_REQUEST` naming it | C · a missing baseline fact is not guessed | always send it with `knownItems` |
+| `knownApplications` optional; omitting it beside `knownItems` silently judges unwalked paths differently (F22) | ~~required when `knownItems` is sent~~ **built 3a: optional, its absence defined** — "the client does not know them": a known path under an unread folder outside every application the walk states is never judged removed (see "Built" 4) | C · a missing baseline fact is not guessed | send it with `knownItems` when the baseline's read stated it; a directed read sends no `knownItems` at all |
 | `fetch` combinations unstated (F21) | one combination table in `wire.html` (`init` / `knownItems` / `onlyItems` / `libraryManifestOnly`) and the meaning of `librariesRefreshed` | F | none |
 | `FetchedItem.unsupported[].language` a bare string | enum: the declared languages, shown or hidden | B | none |
 
@@ -74,12 +74,12 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 |---|---|---|---|
 | `accepted: boolean`, plus "every op the conflicts do not name landed", plus `accepted:false` when the first op only partly landed (F8) | **`accepted` deleted.** One rule: every op `conflicts` does not name landed in full; every op after a refused one is `NOT_ATTEMPTED`, on every answer | A · two fields said one thing, and disagreed on a partial first op | landed = sent ops − conflict names |
 | the lease refusal: `accepted:false` with a synthetic conflict row named `<project>` and `currentProjectVersion` | **error frame `STALE_PROJECT_VERSION`**, the IDE's current version in `error.data.currentProjectVersion` (owner 2026-10-24); `PushResponse.currentProjectVersion` deleted | A, E · a conflict names an op, and the lease is no op | pull, then push again (unchanged action) |
-| receipt `newItems` (meaning unstated), no `removed` (F9) | `newItems` = the new version of every path the push created or changed; **`removed` = every path the push made disappear** (deletes, rename and move sources) | E | update the baseline from the receipt; no second `refs` |
+| receipt `newItems` (meaning unstated), no `removed` (F9) | `newItems` = the new version of every path the push created or changed — each landed `set`'s item where it now is, what of a refused op stays, and with `returnSources` every `newSources` path; never an item the IDE changed beside the push (it stays incoming); **`removed` = every path the push made disappear** (deletes, rename and move sources, what a refused op deleted), each only when held before and gone after | E | update the baseline from the receipt (`baseline − removed + newItems`); no second `refs` |
 | `PushConflict.code` optional in the schema, "every conflict carries one" in prose (F6) | **`code` required**, an enum of the conflict codes plus the `NETWORK_` prefix | A, F | drop the `?? fallback` branch |
 | ITEM_EXISTS's conflict may name the OTHER item (F16) | `name` is always the op's `name`; the colliding item in **`existing`** | E | map conflicts to ops by `name` |
 | `ifVersion: null` and `currentVersion is null` in prose; the schema has no null (F7, F23) | absence everywhere; the prose says "no `ifVersion`" | A | send no `ifVersion` for a create |
 | `set` "applied atomically" vs `renamedTo` after a refused set (F19) | wording: "one op, one conflict"; `renamedTo` says where a refused set left the item | F | none |
-| `unwalkedFolders` on a push answer: meaning unstated (F9) | defined: the folders the pre-apply walk could not read (their items answered `ITEM_UNVERIFIED`) | F | none |
+| `unwalkedFolders` on a push answer: meaning unstated (F9) | defined: the folders the push's walks could not read — the pre-apply walk's (their ops answered `ITEM_UNVERIFIED`) and the receipt walk's (an item there may be missing from `newItems`; built 3a: both, see "Built") | F | re-read an item under one |
 | `returnSources` / `newSources`: no prose (F9) | defined: with `returnSources`, `newSources` holds the text a `fetch` would now return for every path in `newItems` (our CLI does not send it; PLC Assist may) | F | none |
 
 ## 6. `build`
@@ -110,7 +110,7 @@ A fresh agent with only sections 1–7, `wire.html` and the OpenRPC document (no
 
 | B | Guess | Resolution |
 |---|---|---|
-| 1 | a new client cannot tell a previous-release bridge (also `protocol: 1`) | that bridge's strict envelope reader refuses the unknown member `protocol` as `BAD_REQUEST` naming it (`WireJson.Read`, `Disallow`) — refused by name, never misread; task 4.3 proves both directions |
+| 1 | a new client cannot tell a previous-release bridge (also `protocol: 1`) | ~~that bridge's strict envelope reader refuses the unknown member `protocol`~~ **measured false in 3a**: the previous release reads the envelope with `WireJson.Read`, which skips an unknown member, so it serves a new client's request and answers in the old shape. This release reads the envelope strictly, so B1 holds from here on; see "Built (step 3a)" item 1 |
 | 2 | ops before a pre-flight refusal: landed or not | one rule per phase, stated in `wire.html`: a pre-flight refusal lands nothing (each refused op its code, every other op `NOT_ATTEMPTED`); an apply-time refusal lands the ops before it; `newProjectVersion` is absent exactly when nothing landed |
 | 3 | which receipt members are always present | `conflicts`, `newItems`, `removed` always present (may be empty); `newProjectVersion` iff something landed; a `partiallyApplied` op's surviving changes are in `newItems`/`removed` |
 | 4 | the fetch combination table's content | the table is written in 3.9 from the code's behaviour per combination (walk scope, `items`, `removed`, `librariesRefreshed`, refusal) |
@@ -129,7 +129,7 @@ A fresh agent with only sections 1–7, `wire.html` and the OpenRPC document (no
 | 17 | `IDE_BUSY` not observable | unchanged: a retry after the running op is the action; reads wait for the IDE (stated). Not added to `health` — no measured need |
 | 18 | identity strings | `connect.project` / `expectedProjectName` take `ProjectEntry.project`; `expectedPlatform` takes `ProjectEntry.vendor`; both compared ordinal ignoring case (after 2.4) |
 | 19 | paused vs nothing to serve | open, 2.5 with `dirty`: measured before a member is added |
-| 20 | `body` required in OpenRPC; empty `knownItems` | `body` optional in the schema; an empty `knownItems` is sent, so `knownApplications` is required; the `wire.html` example is fixed |
+| 20 | `body` required in OpenRPC; empty `knownItems` | `body` optional in the schema; an empty `knownItems` is a baseline like any other (built 3a: `knownApplications` beside it when the client knows them, "Built" 4); the `wire.html` example is fixed |
 | 21 | rows waiting on a measurement | each is settled by its section-2 task before 3.x builds it; until then it is not part of the shape |
 | 22 | lifetime, CR LF, half-close | section 1 (measured, 1.2) |
 | 23 | grep cut detection | `GrepMatch.cut: true` when the text was cut (absent otherwise); the cut's unit is read from the code and stated in 3.7 |
@@ -140,9 +140,48 @@ A fresh agent with only sections 1–7, `wire.html` and the OpenRPC document (no
 
 - `Volt.Contracts/Vocabulary/Vendors.cs` (the closed `Codesys`/`Twincat` list, `Display` throwing on a third vendor,
   `TwincatShellProcesses`) leaves Contracts: the ids and display names come from `VendorRegistry`; the XAE process names
-  belong to the connector and the CLI's elevated-XAE diagnosis (W1).
-- `Wire/PipeNames.cs`: one `Instance(vendor, pid)` minter instead of one per vendor (W1).
+  belong to the connector and the CLI's elevated-XAE diagnosis (W1). Built 3a: each host declares its own `VendorRow`
+  (`CodesysDriver.Row`, `BeckhoffDriver.Row`); the two components that ship WITHOUT the hosts know the vendors they ship
+  beside — the CLI in `Volt.Cli/Sync/ClientVendors.cs` (a `VendorRegistry`, plus each vendor's no-bridge remedy and shell
+  processes as data, so the resolver has no vendor branch) and the connector in `Volt.Connector.Core/ConnectorVendors.cs`.
+  The pipe name is the contract between them. The new-vendor ratchet's CLI and Contracts pins went to 0.
+- `Wire/PipeNames.cs`: one `Instance(vendor, pid)` minter instead of one per vendor (W1). Built: `Prefix`,
+  `PrefixForVendor`, `Instance` — no vendor constant.
 - The OpenRPC generator (`DocDataTests`) reads the enums from the shipped hosts' declarations (W2).
+
+## Built (step 3a, 2026-10-24): where reality differs
+
+1. **The previous release does not refuse our `protocol` member (B1 measured false).** Its `PipeServer` read the envelope
+   with `WireJson.Read`, which skips an unknown member, so a client of this release is SERVED by a previous-release
+   bridge (an IDE that kept the old in-proc bridge after an update) and reads its old answer: `newItems` the full map,
+   no `removed`. The CLI's own `health.protocol` check could not tell them apart either (both 1) and is deleted: the
+   bridge now refuses another protocol itself, and from this release the envelope is read strictly (an unknown envelope
+   member is `BAD_REQUEST`). So 4.3's "our client is refused by the previous bridge by name" will fail against the
+   previous release; it holds from this release on. **For the owner:** accept it (no users; PLC Assist and the bridge
+   update together), or make this release protocol 2 after all. Default taken: protocol stays 1; 4.3 measures it.
+2. **`unwalkedFolders` is both push walks' blind spots**, not the pre-apply walk's alone: with `newItems` now the
+   delta, a changed item the receipt walk could not reach is simply absent from it, and only the receipt's unwalked
+   folders tell a client so.
+3. **A push of no ops lands nothing**, so it answers no `newProjectVersion` (one rule); it still walks once, for the lease
+   and its `unwalkedFolders`. A first op that partly landed (F8) is a landing: the answer carries `newProjectVersion` and
+   what of the op stays in `newItems`/`removed`; a first op of which nothing stays lands nothing, and no receipt is walked.
+4. **`knownApplications` is NOT required with `knownItems` (gate 3a reversed the F22 row; for the owner).** Required, it
+   forced the one client that does not know them to lie: the CLI's baseline rebuilt from the `volt/ide` tree (a pull with
+   no sidecar) cannot tell where an application begins, and sending `[]` claims "the read stated no application" — so a
+   path an unread device hides was placed in the pool and paired with a pool POU of its name, and the pull deleted a
+   file whose item the IDE still holds. Absent now says "the client does not know them", and the bridge does not guess:
+   a known path under an unread folder outside every application the walk states is never judged removed. A client that
+   knows them sends them (the CLI from its sidecar). Tests: `SidecarBaselineTests` (the recovery pull keeps the file),
+   `MultiApplicationTreeTests` (both forms), `WireFinalShapeTests.A_baseline_without_its_applications_is_served`.
+   **For the owner:** the F22 concern (a client that forgets it is judged by another rule) is answered by that rule being
+   the conservative one — a forgotten field keeps a file, never deletes one.
+5. **The protocol test seam is gone** (`BridgePipeHost(…, int? protocol)`): a client of another release is its frame,
+   written by the test; a bridge of another release is a server answering what it answers. The ratchet is 0.
+6. **`volt push` no longer says "the IDE also changed X while the push ran"**: the receipt names only what the push did,
+   so the CLI cannot see such an item; it stays incoming (its old version kept), which is the safety property.
+7. **Unreadable codes, per producer**: `UNREADABLE` — a kind, property, library-manager or materialize read that failed
+   (a coded read failure keeps its own code), an item TwinCAT must not open (C2i), an inherited exclusion the walk cannot
+   place; `UNSUPPORTED` — a container holding what no text spells, an excluded folder and every item under it.
 
 ## Deleted
 

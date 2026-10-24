@@ -57,10 +57,10 @@ public class MoveAfterWriteTests
             },
         });
 
-        _out.WriteLine($"accepted={res.Accepted} conflicts={string.Join("; ", (res.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason))}");
+        _out.WriteLine($"accepted={res.Landed()} conflicts={string.Join("; ", (res.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason))}");
         _out.WriteLine($"recorded: {string.Join(", ", ide.Recorded)}");
 
-        Assert.True(res.Accepted,
+        Assert.True(res.Landed(),
             "the content write invalidated the handle, and the move then used it — a move+edit is unpushable on " +
             "this vendor, and retrying cannot help because the same push always writes before it moves");
     }
@@ -82,7 +82,7 @@ public class MoveAfterWriteTests
             },
         });
 
-        Assert.True(res.Accepted);
+        Assert.True(res.Landed());
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:", System.StringComparison.Ordinal));
     }
 }

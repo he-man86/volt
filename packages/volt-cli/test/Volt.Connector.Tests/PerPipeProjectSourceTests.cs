@@ -237,9 +237,9 @@ public class PerPipeProjectSourceTests
         // serving=true with its degraded status, and a listed-but-not-served row serving=false.
         var rows = WireProjects.Flatten(Health(
             """
-            { "projects": [
-                { "vendor": "codesys", "version": "3.5", "project": "Other",  "status": "idle",     "dirty": false },
-                { "vendor": "codesys", "version": "3.5", "project": "MyProj", "status": "degraded", "dirty": true } ] }
+            { "ideVersion": "3.5", "projects": [
+                { "vendor": "codesys", "project": "Other",  "status": "idle",     "dirty": false },
+                { "vendor": "codesys", "project": "MyProj", "status": "degraded", "dirty": true } ] }
             """), "codesys", "volt.bridge.codesys");
 
         var other = Assert.Single(rows, r => r.ProjectName == "Other");
@@ -248,7 +248,7 @@ public class PerPipeProjectSourceTests
         Assert.True(served.Serving);
         Assert.Equal("degraded", served.Status);
         Assert.True(served.Dirty);
-        Assert.Equal("3.5", served.IdeVersion); // the row's version rides onto the label
+        Assert.Equal("3.5", served.IdeVersion); // the bridge's IDE version rides onto every row, for the label
     }
 
     [Theory]

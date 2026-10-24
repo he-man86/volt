@@ -82,7 +82,7 @@ public class AbstractMemberNoSlotTests
 
         var resp = Push(ide, edited);
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
         var written = Assert.Single(ide.WrittenContent[Bare].Members, m => m.Name == "TakePicture");
         Assert.Contains("// edited", written.Declaration);
         Assert.Null(ImplementationMarker.Written(written.Body));                          // no body at the missing slot
@@ -100,7 +100,7 @@ public class AbstractMemberNoSlotTests
 
         var resp = Push(ide, stale);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'TakePicture'", reason);
         Assert.Contains("must not contain any statements", reason);
@@ -152,7 +152,7 @@ public class AbstractMemberNoSlotTests
 
         var resp = Push(ide, added);
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
         Assert.Equal("AbstractPOUMethodObject", ide.ClassOf("Pick"));
         Assert.Null(ide.StoredImplementation("Pick"));
         Assert.Contains("METHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide).Replace("\r\n", "\n"));
@@ -168,7 +168,7 @@ public class AbstractMemberNoSlotTests
 
         var resp = Push(ide, renamed);
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
         Assert.Contains("METHOD ABSTRACT TakeImage : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide).Replace("\r\n", "\n"));
     }
 
@@ -184,7 +184,7 @@ public class AbstractMemberNoSlotTests
 
         var resp = Push(ide, concrete);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'TakePicture'", reason);
         Assert.Contains("ABSTRACT", reason);

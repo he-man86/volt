@@ -56,7 +56,7 @@ public class PushConflictCodeTests
         var stale = Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = "not-the-version" });
 
         var conflict = Assert.Single(stale.Conflicts!);
-        Assert.False(stale.Accepted);
+        Assert.False(stale.Landed());
         Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
         Assert.NotNull(conflict.CurrentVersion);      // still structured — the code is in ADDITION, not instead
     }
@@ -71,7 +71,7 @@ public class PushConflictCodeTests
 
         var collide = Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
 
-        Assert.False(collide.Accepted);
+        Assert.False(collide.Landed());
         Assert.Equal(ConflictCodes.ItemExists, Assert.Single(collide.Conflicts!).Code);
     }
 
@@ -84,7 +84,7 @@ public class PushConflictCodeTests
 
         var gone = Push(ide, new SetItemOp { Name = "Ghost.pou", SourceText = Prg("Ghost"), IfVersion = "some-version" });
 
-        Assert.False(gone.Accepted);
+        Assert.False(gone.Landed());
         var conflict = Assert.Single(gone.Conflicts!);
         Assert.Equal(ConflictCodes.ItemMissing, conflict.Code);
         Assert.Null(conflict.CurrentVersion);
@@ -93,20 +93,20 @@ public class PushConflictCodeTests
     /// <summary>The LEASE — the project moved under the push. It is reported on a synthetic row whose name is
     /// pinned in the vocabulary, because the CLI branches on this one to tell the user to pull.</summary>
     [Fact]
-    public void A_stale_lease_says_so_on_the_project_row()
+    public void A_stale_lease_is_the_error_frame_STALE_PROJECT_VERSION_carrying_the_IDEs_version()
     {
         var ide = new FakeIde();
 
-        var stale = BoundWrite.Push(ide, new PushRequest
+        var stale = Assert.Throws<BridgeException>(() => BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
             Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
-        });
+        }));
 
-        Assert.False(stale.Accepted);
-        var conflict = Assert.Single(stale.Conflicts!);
-        Assert.Equal(ConflictCodes.StaleProjectVersion, conflict.Code);
-        Assert.Equal(ConflictCodes.ProjectName, conflict.Name);
+        Assert.Equal(BridgeErrorCodes.StaleProjectVersion, stale.ErrorCode);
+        Assert.Equal(RefsService.Handle(ide).ProjectVersion,
+            Assert.IsType<StaleProjectVersionData>(stale.ErrorData).CurrentProjectVersion);
+        Assert.False(ide.Exists("A"));
     }
 
     /// <summary>A body the ST reader cannot read is INVALID_ST — raised as a `BridgeException` inside the
@@ -123,7 +123,7 @@ public class PushConflictCodeTests
             IfVersion = null,
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.False(string.IsNullOrEmpty(conflict.Code));
         Assert.Equal(BridgeErrorCodes.InvalidSt, conflict.Code);
@@ -138,7 +138,7 @@ public class PushConflictCodeTests
 
         var res = Push(ide, new SetItemOp { Name = "Ghost.pou", SourceText = null, IfVersion = null });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
     }
@@ -152,8 +152,9 @@ public class PushConflictCodeTests
 
         var res = Push(ide, new DeleteItemOp { Name = "NeverExisted.pou", IfVersion = null });
 
-        Assert.True(res.Accepted);
-        Assert.Null(res.Conflicts);
+        Assert.True(res.Landed());
+        Assert.Empty(res.Conflicts);
+        Assert.Empty(res.Removed);   // it was not there, so the push made nothing disappear
     }
 
     /// <summary>A QUOTED VERSION MUST HOLD, on a delete as on every other op (owner decision 2026-10-23): a delete quoting
@@ -166,7 +167,7 @@ public class PushConflictCodeTests
 
         var res = Push(ide, new DeleteItemOp { Name = "NeverExisted.pou", IfVersion = "0123456789abcdef" });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(ConflictCodes.ItemMissing, conflict.Code);
         Assert.Equal("NeverExisted.pou", conflict.Name);
@@ -195,7 +196,7 @@ public class PushConflictCodeTests
         foreach (var (what, op) in refusals)
         {
             var res = Push(ide, op);
-            Assert.False(res.Accepted, what);
+            Assert.False(res.Landed(), what);
             var conflict = Assert.Single(res.Conflicts!);
             Assert.False(string.IsNullOrEmpty(conflict.Code),
                 $"{what}: refused with a message and no code — a caller can only match the English");
@@ -229,7 +230,7 @@ public class PushConflictCodeTests
             },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Equal(BridgeErrorCodes.Unsupported, Assert.Single(res.Conflicts!).Code);
     }
 
@@ -260,7 +261,7 @@ public class PushConflictCodeTests
 
         var res = Push(ide, new SetItemOp { Name = "Shape.pou", SourceText = Prg("Shape"), IfVersion = null });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Equal(code, Assert.Single(res.Conflicts!).Code);
     }
 }

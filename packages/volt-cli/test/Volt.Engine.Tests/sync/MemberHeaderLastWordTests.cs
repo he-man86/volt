@@ -47,7 +47,7 @@ public class MemberHeaderLastWordTests
             },
         });
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("rename:Run->Walk", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
         Assert.False(ide.Exists("Run"));

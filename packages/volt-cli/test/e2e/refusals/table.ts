@@ -19,6 +19,7 @@
  * row's `divergence` opens with `divergence: { vendor: "<v>", answers: "<CODE>"` — the gate pins each one, so a new
  * divergence fails until the owner lists it (8.4).</p>
  */
+import { connect } from "node:net"
 import { callBound } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { reopenTwinCatSolution } from "../lib/tc-reopen"
@@ -65,6 +66,29 @@ export async function answer(b: Bridge, op: string, body?: unknown): Promise<Ans
 		if (colon < 0) throw e // a socket error, not an error frame
 		return { kind: "frame", code: text.slice(0, colon), message: text.slice(colon + 2) }
 	}
+}
+
+/** One raw request line — a client of another release, whose frame no Volt client writes — answered as {@link answer}
+ *  answers: the terminal error frame as data. */
+export function rawAnswer(pipe: string, line: string): Promise<Answer> {
+	return new Promise((resolve, reject) => {
+		const sock = connect(`\\\\.\\pipe\\${pipe}`)
+		let buf = ""
+		sock.on("connect", () => sock.write(line + "\n"))
+		sock.on("data", (d: Buffer) => {
+			buf += d.toString("utf8")
+			let nl: number
+			while ((nl = buf.indexOf("\n")) >= 0) {
+				const frame = JSON.parse(buf.slice(0, nl))
+				buf = buf.slice(nl + 1)
+				if (frame.progress) continue
+				sock.end()
+				if (frame.error) resolve({ kind: "frame", code: frame.error.code, message: frame.error.message })
+				else resolve({ kind: "ok", result: frame.result })
+			}
+		})
+		sock.on("error", reject)
+	})
 }
 
 export async function refsOf(b: Bridge): Promise<any> {
@@ -238,6 +262,13 @@ export const ROWS: Row[] = [
 		},
 	},
 	{
+		code: "PROTOCOL_MISMATCH",
+		live: true,
+		trigger: "a request that states no `protocol` — the previous release's client (openspec wire-final-shape §1)",
+		after: "unchanged",
+		run: async (b) => ({ answer: await rawAnswer(b.pipe, JSON.stringify({ op: "refs" })), names: ["wire protocol", "states none"] }),
+	},
+	{
 		code: "BAD_REQUEST",
 		live: true,
 		trigger: "a `fetch` with no baseline (no `knownItems`, no `onlyItems`, no `init`)",
@@ -341,7 +372,7 @@ export const ROWS: Row[] = [
 	{
 		code: "STALE_PROJECT_VERSION",
 		live: true,
-		trigger: "a push carrying a project lease that is not the current one",
+		trigger: "a push carrying a project lease that is not the current one — the error frame, the lease being the request's",
 		after: "unchanged",
 		run: async (b, n) => {
 			const name = b.at(n("stalep"))
@@ -349,7 +380,7 @@ export const ROWS: Row[] = [
 				expectedProjectVersion: "deadbeef",
 				ops: [{ op: "set", name, sourceText: fb(n("stalep")), ifVersion: null }],
 			})
-			return { answer: a, names: [], item: "<project>" }
+			return { answer: a, names: ["expectedProjectVersion", "nothing was applied"] }
 		},
 	},
 	{

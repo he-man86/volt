@@ -58,20 +58,13 @@ public static class ConflictCodes
 
     // ── the optimistic-concurrency gate ────────────────────────────────────────────────────────────
 
-    /// <summary>The push's LEASE is stale: the project moved between the fetch that produced
-    /// <c>expectedProjectVersion</c> and this push. Nothing was applied. Carried on the synthetic
-    /// <see cref="ProjectName"/> row.
-    ///
-    /// <para>Remedy: pull, then push again.</para></summary>
-    public const string StaleProjectVersion = "STALE_PROJECT_VERSION";
-
     /// <summary>The item moved since the client read its version — the ordinary edit-collision. Remedy: pull
     /// that item, merge, push again.</summary>
     public const string StaleItemVersion = "STALE_ITEM_VERSION";
 
-    /// <summary>A <c>set</c> landed on a path the IDE already holds: a CREATE (<c>ifVersion: null</c>; the gate, so a
+    /// <summary>A <c>set</c> landed on a path the IDE already holds: a CREATE (no <c>ifVersion</c>; the gate, so a
     /// forced create overwrites) or a rename or move's <c>to</c> (the pre-flight, force or not). <c>currentVersion</c> is
-    /// the version of the item there. Remedy: for a create, fetch the item's version and push it as an update, or pick
+    /// the version of the item there, and <c>existing</c> its path when it is not the op's own. Remedy: for a create, fetch the item's version and push it as an update, or pick
     /// another name; for a <c>to</c>, pick another one or free it in an earlier push — NOT "pull and retry", which is
     /// what the stale-version codes mean and what a caller reading only the prose could not tell this apart from.</summary>
     public const string ItemExists = "ITEM_EXISTS";
@@ -112,25 +105,17 @@ public static class ConflictCodes
 
     // ── the apply loop's outcome ───────────────────────────────────────────────────────────────────
 
-    /// <summary>The op was NOT APPLIED because the push stopped before reaching it: the live IDE refused an earlier op
-    /// (in apply order) after other ops had landed. Appears only on an ACCEPTED push — the one whose conflicts name
-    /// every op that did not land (openspec <c>push-keeps-what-landed</c>): the refused op with its own code, and each
-    /// op after it with this one. Nothing of this op was written, so re-sending it unchanged is the remedy.
+    /// <summary>The op was NOT APPLIED because the push stopped before reaching it: a refusal decided before the first
+    /// write (every op but the refused ones), or the live IDE refusing an earlier op in apply order (every op after it).
+    /// Nothing of this op was written, so re-sending it unchanged is the remedy.
     ///
     /// <para>Not a gate code and never an error frame: it says what the push did, not what was wrong with the op.</para></summary>
     public const string NotAttempted = "NOT_ATTEMPTED";
 
-    /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
-    /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
-    ///
-    /// <para>Nothing branches on the NAME — the CLI
-    /// tells a stale lease apart by its CODE (`Commands.cs`, `c.Code == StaleProjectVersion`).</para></summary>
-    public const string ProjectName = "<project>";
-
     /// <summary>The gate family, for a client that wants "is this the optimistic gate" without listing them.</summary>
     public static readonly string[] Gate =
     {
-        StaleProjectVersion, StaleItemVersion, ItemExists, ItemMissing, ItemUnverified,
+        StaleItemVersion, ItemExists, ItemMissing, ItemUnverified,
     };
 
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an

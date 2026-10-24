@@ -25,7 +25,9 @@ Protocol 2 replaces protocol 1 in one step. A bridge answers a request without `
 ## `refs` / `fetch`
 
 - `unreadable[]` and `unreadableNodes[]` entries carry `code`. Match it, not the reason.
-- Sending `knownItems` without `knownApplications` is `BAD_REQUEST`.
+- Send `knownApplications` with `knownItems`: the `applications` the read that produced your baseline stated. Sent
+  without it (you do not know them), a known path under an unread folder outside every application the walk states is
+  never reported removed.
 
 ## `push`
 

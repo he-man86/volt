@@ -37,7 +37,7 @@ public class PushWithoutHeaderCheckTests
 
     private static void AssertWrittenAsSent(FakeIde ide, PushResponse resp, string bare, string declaration)
     {
-        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.True(resp.Landed(), Reasons(resp));
         Assert.Contains($"writecontent:{bare}", ide.Recorded);
         Assert.Equal(declaration, ide.WrittenContent[bare].Declaration);
     }
@@ -169,7 +169,7 @@ public class PushWithoutHeaderCheckTests
         var ide = Project();
         var resp = Create(ide, "FB_A.pou", text);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.InvalidSt, conflict.Code);
         Assert.Contains("'FB_A'", conflict.Reason);
@@ -187,7 +187,7 @@ public class PushWithoutHeaderCheckTests
         var ide = Project();
         var resp = Create(ide, "FB_B.pou", text);
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.InvalidSt, conflict.Code);
         Assert.Contains("'FB_B'", conflict.Reason);

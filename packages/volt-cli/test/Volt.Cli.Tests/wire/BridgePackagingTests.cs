@@ -220,8 +220,21 @@ public class BridgePackagingTests
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name switch
         {
             "get_Unsupported" or "get_IdeVersion" or "get_ProductName" or "get_ProductVersion" or "get_ProductVendor" => null,
+            // health states the host's catalog (wire-final-shape §2): a vendor that declares nothing, in the bundle's own
+            // types (the declaration's ctor takes the vendor row, then lists the bundle's engine defines).
+            "get_Vendor" => "fake",
+            "get_Declaration" => EmptyDeclaration(method.ReturnType),
             _ => throw new NotSupportedException($"health asked the host for {method?.Name}, which this double does not answer"),
         };
+
+        private static object EmptyDeclaration(Type declaration)
+        {
+            var ctor = declaration.GetConstructors().Single(c => c.GetParameters().Length == 4);
+            var args = ctor.GetParameters().Select((p, i) => i == 0
+                ? Activator.CreateInstance(p.ParameterType, "fake", "Fake")!
+                : (object)Array.CreateInstance(p.ParameterType.GetGenericArguments()[0], 0)).ToArray();
+            return ctor.Invoke(args);
+        }
     }
 
     private static string? BridgeVersion(JsonElement h) =>

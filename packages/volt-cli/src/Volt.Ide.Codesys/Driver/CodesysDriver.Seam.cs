@@ -14,10 +14,15 @@ namespace Volt.Ide.Codesys;
 /// (<see cref="ItemKind.ClassOf"/>, <see cref="ItemKind.CreateCode"/>), its record through <see cref="FamilyContent"/>.</summary>
 public sealed partial class CodesysDriver
 {
+    /// <summary>This host's vendor as the wire names it — the id its pipe and the binding carry
+    /// (<c>volt.bridge.codesys.&lt;pid&gt;</c>) and the name a person reads. The host's own fact: nothing above it names
+    /// a vendor.</summary>
+    public static readonly VendorRow Row = new("codesys", "CODESYS");
+
     /// <summary>What CODESYS states about itself: the IEC format's kinds and keys, the six body languages — LD and FBD
     /// read against the scopes this host builds (<see cref="NetworkScopeFor"/>).</summary>
     public VendorDeclaration Declaration => _declaration ??= new VendorDeclaration(
-        new VendorRow(Vendors.Codesys, Vendors.Display(Vendors.Codesys)),
+        Row,
         IecFormat.KindRows,
         new[]
         {

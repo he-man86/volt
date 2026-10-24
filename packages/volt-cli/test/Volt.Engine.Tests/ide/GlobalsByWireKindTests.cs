@@ -88,7 +88,7 @@ public class GlobalsByWireKindTests
                 new SetItemOp { Name = "NotAList.pou", SourceText = "FUNCTION_BLOCK NotAList\n" + GlobalText + "\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
 
         var globals = Assert.Single(ide.ScopesPushed).Globals.ToList();
         Assert.Contains(globals, g => g.Contains("VAR_CONFIG"));

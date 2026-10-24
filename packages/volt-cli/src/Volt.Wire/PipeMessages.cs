@@ -4,11 +4,18 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Wire;
 
-/// <summary>A request on the pipe wire: an op name (see <see cref="Ops"/>) + an optional raw JSON body the host
-/// deserializes to the matching DTO — one framed line (newline-delimited JSON).</summary>
+/// <summary>A request on the pipe wire: an op name (see <see cref="Ops"/>), the protocol the client speaks
+/// (<see cref="WireProtocol"/>) and an optional raw JSON body the host deserializes to the matching DTO — one framed
+/// line (newline-delimited JSON). Read strictly (<see cref="WireJson.Request"/>): a member it does not define is
+/// <c>BAD_REQUEST</c>.</summary>
 public sealed class PipeRequest
 {
     [JsonPropertyName("op")] public string Op { get; set; } = "";
+
+    /// <summary>The wire protocol the client speaks. Absent or another number than the bridge's is refused
+    /// <c>PROTOCOL_MISMATCH</c> before the body is read.</summary>
+    [JsonPropertyName("protocol")] public int? Protocol { get; set; }
+
     [JsonPropertyName("body")] public JsonElement? Body { get; set; }
 }
 
@@ -26,11 +33,21 @@ internal sealed class PipeError
 {
     [JsonPropertyName("code")] public string Code { get; set; } = "";
     [JsonPropertyName("message")] public string Message { get; set; } = "";
+    /// <summary>The refusal's facts, for a code that has them (<see cref="ICodedError.ErrorData"/>); absent otherwise.</summary>
+    [JsonPropertyName("data")] public object? Data { get; set; }
 }
 
 /// <summary>Thrown by <see cref="PipeClient"/> when the server returns a terminal <c>error</c> frame.</summary>
 public sealed class PipeCallException : System.Exception
 {
     public string Code { get; }
-    public PipeCallException(string code, string message) : base(message) => Code = code;
+
+    /// <summary>The frame's <c>data</c>, or null when it carried none.</summary>
+    public JsonElement? ErrorData { get; }
+
+    public PipeCallException(string code, string message, JsonElement? data = null) : base(message)
+    {
+        Code = code;
+        ErrorData = data;
+    }
 }

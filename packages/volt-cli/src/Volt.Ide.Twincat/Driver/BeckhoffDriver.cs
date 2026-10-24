@@ -34,7 +34,7 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, II
 
     public bool IsConnected => _om.IsConnected;
 
-    public string Vendor => Vendors.Twincat;
+    public string Vendor => BeckhoffDriver.Row.Id;
     // LIVE, not the cached row: `_om.ProjectName` is the bound name held in the object model (a plain field), so this
     // never lags the ~5s health snapshot. Same value BuildProjects() reads for its `served` row.
     public string? ServedProjectName => IsConnected ? _om.ProjectName : null;
@@ -177,8 +177,10 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, II
         for (int i = 0; i < own.Projects.Count; i++)
         {
             bool serving = i == servingIdx;
-            list.Add(new ProjectEntry(Vendors.Twincat, own.Version, own.Projects[i],
-                Volt.Engine.Sync.ComposedSession.RowStatus(serving), serving && (servedDirty ?? false)));
+            // `dirty` only where the IDE answered for THIS row: the served project's solution, when `Saved` read. A row not
+            // served is never asked, and a read that threw said nothing — both carry no `dirty`, never a guessed false.
+            list.Add(new ProjectEntry(BeckhoffDriver.Row.Id, own.Projects[i],
+                Volt.Engine.Sync.ComposedSession.RowStatus(serving), serving ? servedDirty : null));
         }
         return list;
     }

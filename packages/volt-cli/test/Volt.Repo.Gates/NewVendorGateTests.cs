@@ -102,11 +102,6 @@ public class NewVendorGateTests
     /// these are the same spellings counted per occurrence at this commit.</summary>
     private static readonly Dictionary<string, int> VendorSymbolPins = new(StringComparer.Ordinal)
     {
-        // CLI vendor branches (vendor-neutrality D): the vendor list for `--vendor`, the elevated-XAE diagnosis.
-        ["Volt.Cli/Interface/ConsoleServer.cs"] = 2,
-        ["Volt.Cli/Sync/BridgeResolver.cs"] = 3,
-        // The closed vendor list (W10): Codesys/Twincat ids, display names, TwincatShellProcesses.
-        ["Volt.Contracts/Vocabulary/Vendors.cs"] = 11,
         // The NWL-shaped network model (E3): NwlMembers, the "NWL" view word.
         ["Volt.Engine/Format/Network/NetworkDerivation.cs"] = 1,
         ["Volt.Engine/Format/Network/NetworkMembers.cs"] = 13,

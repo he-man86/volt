@@ -24,7 +24,7 @@ public class PushRequest : BoundRequest
     [JsonPropertyName("force")]
     public bool Force { get; set; }
 
-    /// <summary>Opt-in: <c>true</c> asks an ACCEPTED push to answer <see cref="PushResponse.NewSources"/> — the stored
+    /// <summary>Opt-in: <c>true</c> asks a push that landed to answer <see cref="PushResponse.NewSources"/> — the stored
     /// text of every item the push changed, exactly as a fetch returns it (openspec
     /// <c>st-roundtrip-fixed-point</c>, route A). A client that patches its own text then holds what a read would give
     /// (volt's canonical form: one blank line before the END line, members METHOD, ACTION, PROPERTY then by name) without
@@ -82,32 +82,21 @@ public class PushConflict
     [JsonPropertyName("reason")]
     public string Reason { get; set; } = "";
 
-    /// <summary>The stable code for this conflict. <b>Never null</b> — every conflict the push can produce
-    /// carries one, so a caller branches on the code and never on the prose.
-    ///
-    /// <para><b>Three vocabularies share this field, and that is deliberate.</b></para>
-    /// <list type="bullet">
-    /// <item><see cref="ConflictCodes.Gate"/> — the optimistic-concurrency gate: a stale lease, a stale item
-    /// version, a create that collided, a version quoted for an item that is gone.</item>
-    /// <item><see cref="ConflictCodes.Network"/> — a graphical body the FBD/LD format refuses. These carry a
-    /// <see cref="Line"/> too.</item>
-    /// <item><see cref="ConflictCodes.FromBridge"/> — everything else the push itself refuses.</item>
-    /// </list>
-    /// <para>They cannot collide: the network-text exception carries its own code and is NOT an
-    /// <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never escape into an error FRAME, whose
-    /// vocabulary is documented as BridgeErrorCodes plus ONE gate code: <see cref="ConflictCodes.ItemUnverified"/>, when
-    /// TwinCAT's hierarchy cannot vouch for the PLC project itself and the walk stops before anything is read
-    /// (DIALECT C2i; openspec <c>bridge-refusal-review</c> 7.1).</para>
-    ///
-    /// <para>Every coded refusal carries its code here, so a client branches on the code, never on the English: a
-    /// push answers refusals as CONFLICTS rather than error frames, and this is the only place their codes appear.
-    /// The GATE codes tell apart three different next steps — "your lease is stale, pull and retry", "that name is
-    /// taken, pick another" and "the item you hold a version for is gone, there is nothing to merge with".</para>
-    ///
-    /// <para>The property stays nullable because deserializing an older bridge's response must not throw; a
-    /// client reading null is talking to a bridge that predates this.</para></summary>
+    /// <summary>The stable code for this conflict, always present, so a caller branches on the code and never on the
+    /// prose. Three vocabularies share it and cannot collide: the optimistic-concurrency gate
+    /// (<see cref="ConflictCodes.Gate"/>), a graphical body the FBD/LD format refuses (<see cref="ConflictCodes.Network"/>,
+    /// with a <see cref="Line"/>), and everything else the push refuses (<see cref="ConflictCodes.FromBridge"/>) — plus
+    /// <see cref="ConflictCodes.NotAttempted"/> for an op the push did not reach.</summary>
     [JsonPropertyName("code")]
-    public string? Code { get; set; }
+    public string Code { get; set; } = "";
+
+    /// <summary>On <see cref="ConflictCodes.ItemExists"/>: the path of the item the IDE already holds, when it is not
+    /// <see cref="Name"/> — the item a rename or move's <c>to</c> lands on, or the item of another folder or kind that
+    /// holds the name in the application. Absent when the colliding item is the one <see cref="Name"/> names;
+    /// <see cref="CurrentVersion"/> is the version of the colliding item.</summary>
+    [JsonPropertyName("existing")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Existing { get; set; }
 
     /// <summary>1-based source line within the pushed body, when the diagnostic knows it.</summary>
     [JsonPropertyName("line")]
@@ -120,7 +109,8 @@ public class PushConflict
     /// item before retrying exactly when this is set; re-sending the op unchanged is wrong then (its name may be gone,
     /// its version is stale). <see cref="Reason"/> says WHAT stays, in words (openspec <c>push-keeps-what-landed</c>);
     /// this is the same fact as a field, so a caller never parses the prose (openspec
-    /// <c>push-partially-applied-flag</c>). Additive: an older bridge never sends it.</summary>
+    /// <c>push-partially-applied-flag</c>). What of the op stays is in the receipt (<see cref="PushResponse.NewItems"/>,
+    /// <see cref="PushResponse.Removed"/>).</summary>
     [JsonPropertyName("partiallyApplied")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PartiallyApplied { get; set; }
@@ -141,71 +131,59 @@ public class PushConflict
     public bool? Remains { get; set; }
 }
 
+/// <summary>
+/// The answer to a push: what did not land, and the receipt of what did — enough to update a baseline without a
+/// second <c>refs</c>.
+/// <para><b>One rule.</b> Every op <see cref="Conflicts"/> does not name landed in full. A refusal decided before the
+/// first write lands nothing: each refused op has its code, every other op <see cref="ConflictCodes.NotAttempted"/>. A
+/// refusal by the live IDE lands the ops before it: the refused op has its code, every op after it
+/// <see cref="ConflictCodes.NotAttempted"/>. A stale <c>expectedProjectVersion</c> is no conflict: it is the error frame
+/// <see cref="BridgeErrorCodes.StaleProjectVersion"/>.</para>
+/// </summary>
 public class PushResponse
 {
-    [JsonPropertyName("accepted")]
-    public bool Accepted { get; set; }
-
+    /// <summary>The project's version after the push — the lease the next push quotes. Absent exactly when nothing
+    /// landed.</summary>
     [JsonPropertyName("newProjectVersion")]
     public string? NewProjectVersion { get; set; }
 
+    /// <summary>Path → new version of every item the push created or changed: each landed <c>set</c> op's item (under the
+    /// path the IDE holds it at, in the IDE's spelling), what of a refused op stays (its <c>renamedTo</c>, a created item
+    /// that <c>remains</c>, an item it <c>partiallyApplied</c>), and with <c>returnSources</c> every item whose text
+    /// <see cref="NewSources"/> carries. Always present; empty when nothing landed.</summary>
     [JsonPropertyName("newItems")]
-    public Dictionary<string, string>? NewItems { get; set; }
+    public Dictionary<string, string> NewItems { get; set; } = new();
 
-    /// <summary>Folders the RECEIPT walk could not enumerate — normally empty, same meaning as on a read.
-    ///
-    /// <para>The receipt is a full re-walk, so it can be short for exactly the reasons a read can. A client that
-    /// replaces its baseline item map with <see cref="NewItems"/> must keep every item under these folders — else
-    /// it undoes, in one push, the overlay the pull path installs for precisely this case. The damage would land on
-    /// the NEXT push: an edit to such a file has no known
-    /// version and goes up as a create (ITEM_EXISTS), a delete is skipped and reported as "nothing to push", and
-    /// a rename throws "has no known IDE version".</para></summary>
+    /// <summary>Every path the push made disappear: a landed delete, the old path of a landed rename or move, and what of
+    /// a refused op is gone (the old path of a rename that stays, an item a forced replace deleted). Always present.
+    /// A baseline updated as <c>baseline − removed + newItems</c> is the IDE's state for every item the push named.</summary>
+    [JsonPropertyName("removed")]
+    public List<string> Removed { get; set; } = new();
+
+    /// <summary>The folders the push's walks could not enumerate — normally empty: the walk before the apply (an op on an
+    /// item under one is refused <see cref="ConflictCodes.ItemUnverified"/>: absence from a partial walk is not proof the
+    /// item is gone) and the receipt walk after it (an item under one is missing from <see cref="NewItems"/> though the
+    /// push may have changed it; a client re-reads it).</summary>
     [JsonPropertyName("unwalkedFolders")]
     public List<string> UnwalkedFolders { get; set; } = new();
 
-    /// <summary>On a REJECTED push (<c>accepted:false</c>): every op refused, and nothing of the batch was applied in
-    /// full — a refusal decided before the first write names EVERY refused op; a refusal by the live IDE of the first op
-    /// applied states in its reason whatever of that op the IDE kept.
-    ///
-    /// <para>On an ACCEPTED push it may be non-empty too (openspec <c>push-keeps-what-landed</c>): the live IDE refused
-    /// an op after earlier ops had landed, the push stopped there, and each op that did NOT land has one conflict — the
-    /// refused op with its own code, every op after it in apply order with <see cref="ConflictCodes.NotAttempted"/>.
-    /// Every op this list does not name landed, and the receipt (<see cref="NewItems"/>) is the project as it now is.</para></summary>
+    /// <summary>One conflict per op that did not land, in request order for a refusal before the first write and in
+    /// apply order for a refusal by the IDE, each named by its op's <c>name</c>. Empty when every op landed.</summary>
     [JsonPropertyName("conflicts")]
-    public List<PushConflict>? Conflicts { get; set; }
+    public List<PushConflict> Conflicts { get; set; } = new();
 
-    [JsonPropertyName("currentProjectVersion")]
-    public string? CurrentProjectVersion { get; set; }
-
-    /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and the push was ACCEPTED: item path
+    /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and something landed: item path
     /// (the <see cref="NewItems"/> key, in the IDE's spelling — a renamed item under its NEW path,
     /// an op named in another case under the IDE's case) → that item's stored text exactly as a fetch returns it, for
-    /// every item the push changed: each item a landed <c>set</c> op left in the project, and each item whose version the
-    /// push changed though no op names it (the call sites a native rename rewrote — TwinCAT does, CODESYS does not). The text is the receipt walk's own
-    /// materialization, so it is the text <see cref="NewItems"/>' version hashes.
+    /// each item a landed <c>set</c> op left in the project. An item the IDE changed beside the push is the next read's, in
+    /// this mode as without it. The text is the receipt walk's own materialization, so it is the text
+    /// <see cref="NewItems"/>' version hashes.
     ///
     /// <para>No entry, by name, for: a <c>delete</c>; an op in <see cref="Conflicts"/> (refused or
     /// <c>NOT_ATTEMPTED</c> — a <c>partiallyApplied</c> one is re-read); a changed item the receipt could not
-    /// materialize (it is equally absent from <see cref="NewItems"/>: these keys are always a subset of those). Absent on a
-    /// rejected push and when the flag was not set. A client missing a pushed name re-reads it.</para></summary>
+    /// materialize (it is equally absent from <see cref="NewItems"/>: these keys are always a subset of those). Absent when
+    /// nothing landed and when the flag was not set. A client missing a pushed name re-reads it.</para></summary>
     [JsonPropertyName("newSources")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, string>? NewSources { get; set; }
-
-    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems };
-
-    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems,
-                                              List<string> unwalkedFolders) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems,
-                UnwalkedFolders = unwalkedFolders };
-
-    /// <summary>An accepted push that did not land in full: the receipt, plus one conflict per op that did not land.</summary>
-    public static PushResponse PartialResult(string newProjectVersion, Dictionary<string, string> newItems,
-                                             List<string> unwalkedFolders, List<PushConflict> notLanded) =>
-        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems,
-                UnwalkedFolders = unwalkedFolders, Conflicts = notLanded };
-
-    public static PushResponse RejectedResult(List<PushConflict> conflicts, string currentProjectVersion) =>
-        new() { Accepted = false, Conflicts = conflicts, CurrentProjectVersion = currentProjectVersion };
 }

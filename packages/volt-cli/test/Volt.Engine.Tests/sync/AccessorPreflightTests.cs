@@ -66,7 +66,7 @@ public class AccessorPreflightTests
 
         var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", Fb("FB_Axis", NonCanonical)));
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Empty(ide.CreatedItems);
         Assert.Empty(ide.WrittenContent);
     }
@@ -80,7 +80,7 @@ public class AccessorPreflightTests
 
         var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", Fb("FB_Axis", Canonical)));
 
-        Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
+        Assert.True(res.Landed(), "push refused: " + (res.Conflicts is null
             ? "(none)"
             : string.Join(" | ", res.Conflicts.Select(c => c.Reason))));
         Assert.Contains("FB_Axis", ide.CreatedItems);
@@ -96,7 +96,7 @@ public class AccessorPreflightTests
 
         var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", src));
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Empty(ide.CreatedItems);
     }
     /// <summary>A CREATE WHOSE BODY IS A MARKER IS REFUSED BEFORE THE FIRST WRITE TOO — the same defect one
@@ -119,7 +119,7 @@ public class AccessorPreflightTests
         var res = Push(ide, Set("First.pou", Prg("First")),
                             Set("FB_Cfc.pou", Cfc));
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Empty(ide.CreatedItems);
         Assert.Empty(ide.WrittenContent);
     }
@@ -151,7 +151,7 @@ public class AccessorPreflightTests
             },
         });
 
-        Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
+        Assert.True(res.Landed(), "push refused: " + (res.Conflicts is null
             ? "(none)"
             : string.Join(" | ", res.Conflicts.Select(c => c.Reason))));
     }

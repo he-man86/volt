@@ -14,7 +14,8 @@ namespace Volt.Contracts;
 /// long op holds the single IDE thread, so a poll that marshalled onto it would stall the connector and read as a
 /// lost connection. Per-op results (refs/fetch/push/build) come back from those ops, not here.
 /// <para>The wire carries <see cref="Projects"/> and the facts about the bridge PROCESS itself — not a project's, so
-/// not a row's: <see cref="NetworkText"/>, <see cref="Unsupported"/>, and the identity (<see cref="ProductName"/>,
+/// not a row's: its catalog (<see cref="Languages"/>, <see cref="Kinds"/>, <see cref="Ops"/>), <see cref="Unsupported"/>,
+/// and the identity (<see cref="ProductName"/>,
 /// <see cref="ProductVersion"/>, <see cref="ProductVendor"/>, <see cref="IdeVersion"/>, <see cref="BridgeVersion"/>).
 /// A process fact sits at top level so a frame with no rows (no project open, an unsupported IDE) still carries it —
 /// exactly when a support case needs it. The connector stamps <see cref="Unsupported"/> and the identity onto every
@@ -30,20 +31,25 @@ public class HealthResponse
     [JsonPropertyName("projects")]
     public List<ProjectEntry> Projects { get; set; } = new();
 
-    /// <summary>Is LD and FBD network text on in this bridge's process (the engine's
-    /// <c>NetworkTextSwitch</c>)? Off, every LD and FBD body pulls as its <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> line.
-    /// On the wire because the switch lives in the BRIDGE's environment — in CODESYS itself, or the TwinCAT worker —
-    /// which no client can set or see: a corpus refresh through a bridge the connector started (switch off) would
-    /// replace every ladder in the corpus with that line, and its file count would still match. A client that needs
-    /// network text (<c>refresh:corpus</c>, <c>record:language</c>) asks here first. Absent reads as false: off.</summary>
-    [JsonPropertyName("networkText")]
-    public bool NetworkText { get; set; }
+    /// <summary>Every body language this bridge SHOWS — writes as <c>IMPLEMENTATION &lt;LANG&gt;</c> and reads back on a
+    /// push — in ordinal order: its host's declared shown set as this process's network-text switch leaves it (<c>ST</c>
+    /// in the shipped build; <c>FBD</c>, <c>LD</c>, <c>ST</c> with network text switched on). A body of any other language
+    /// is its <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line: read-only. A client shows a body as editable only if its
+    /// language is listed.</summary>
+    [JsonPropertyName("languages")]
+    public List<string> Languages { get; set; } = new();
+
+    /// <summary>Every item kind this bridge's host declares with a file extension, in ordinal order: the extension
+    /// (without the dot) a path ends in, and whether a push writes it. A push op on a kind that is not writable is a
+    /// <c>BAD_REQUEST</c> conflict.</summary>
+    [JsonPropertyName("kinds")]
+    public List<HealthKind> Kinds { get; set; } = new();
 
     /// <summary>The PLATFORM version under the product — CODESYS: the framework's own version (`3.5.21.40`, DIALECT V1;
     /// an OEM product's name or number is never in it); TwinCAT: the build the open solution's remote manager states
     /// (`3.1.4024.74`, DIALECT V5). A pure version a client may parse, shown before any call — in particular beside
     /// <see cref="Unsupported"/>. Null when its source does not answer — never derived from
-    /// <see cref="ProductVersion"/>. Each row carries the same value as its <c>version</c>.</summary>
+    /// <see cref="ProductVersion"/>.</summary>
     [JsonPropertyName("ideVersion")]
     public string? IdeVersion { get; set; }
 
@@ -63,24 +69,20 @@ public class HealthResponse
     public string? ProductVendor { get; set; }
 
     /// <summary>The bridge's release (<see cref="BridgeRelease"/>): the stamped file version of a release build
-    /// (`0.1.17258`, what <c>volt --version</c> prints), or <c>(dev) &lt;commit&gt;</c> for an unstamped one. A new
-    /// bridge always sends it when its own file is readable, so a frame without it is an older bridge.</summary>
+    /// (`0.1.17258`, what <c>volt --version</c> prints), or <c>(dev) &lt;commit&gt;</c> for an unstamped one. Absent only
+    /// when the bridge's own file cannot be read.</summary>
     [JsonPropertyName("bridgeVersion")]
     public string? BridgeVersion { get; set; }
 
-    /// <summary>The wire protocol this bridge speaks, <see cref="WireProtocol.Version"/>. Every bridge writes it (the
-    /// schema requires it); it is <c>int?</c> here only because a bridge from before it sends none, and a reader of
-    /// <c>health</c> — the connector — still has to read that bridge. The CLI refuses one whose number is not its own,
-    /// absent included (<c>BRIDGE_PROTOCOL</c>).</summary>
+    /// <summary>The wire protocol this bridge speaks, <see cref="WireProtocol.Version"/> — the number every request
+    /// states (<c>PipeRequest.protocol</c>); a request stating another is refused <c>PROTOCOL_MISMATCH</c>.</summary>
     [JsonPropertyName("protocol")]
-    public int? Protocol { get; set; }
+    public int Protocol { get; set; }
 
     /// <summary>Every op this bridge answers (<c>health</c>, <c>refs</c>, <c>grep</c>, …), from its own dispatch table —
-    /// how a client tells what it can ask for (a bridge without <c>grep</c> cannot search). Every bridge writes it; it is
-    /// nullable here only because a bridge from before it sends none, which is how a client recognises an older
-    /// bridge.</summary>
+    /// how a client tells what it can ask for.</summary>
     [JsonPropertyName("ops")]
-    public List<string>? Ops { get; set; }
+    public List<string> Ops { get; set; } = new();
 
     /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the
     /// bridge can serve. While it is set, every row is <c>idle</c>.</summary>
@@ -107,4 +109,16 @@ public class HealthResponse
     /// <summary>The bridge's overall liveness word: the served row's status, or "unavailable" when nothing serves.</summary>
     [JsonIgnore]
     public string Status => ServingProject?.Status ?? HealthStatus.Unavailable;
+}
+
+/// <summary>One item kind a bridge's host declares (<see cref="HealthResponse.Kinds"/>).</summary>
+public sealed class HealthKind
+{
+    /// <summary>The extension a path of this kind ends in, without the dot (<c>pou</c>).</summary>
+    [JsonPropertyName("extension")]
+    public string Extension { get; set; } = "";
+
+    /// <summary>True when a push writes an item of this kind; false when every push op on one is refused.</summary>
+    [JsonPropertyName("writable")]
+    public bool Writable { get; set; }
 }

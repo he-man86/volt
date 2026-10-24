@@ -90,15 +90,13 @@ public class OpGuardTests
     {
         var ide = StaleSnapshot("twincat", "PLC_A");
 
-        // ASSERT THE VERDICTS, not merely that nothing threw. This test had NO assertion at all: it called
-        // both services and passed if neither raised. But a push signals refusal by returning
-        // `Accepted: false` — it does not throw — so the exact regression the test above it guards (a write
-        // refused over a stale snapshot) would have slipped through here in silence.
+        // ASSERT THE VERDICTS, not merely that nothing threw: a push can refuse in its answer (a conflict) as well as by a
+        // frame, so the regression the test above it guards (a write refused over a stale snapshot) is checked on both.
         var read = RefsService.Handle(ide);
         Assert.NotNull(read);                                     // the live-signal path proceeded
 
         var write = PushService.Handle(ide, Empty("twincat", "PLC_A"));
-        Assert.True(write.Accepted,
+        Assert.True(write.Conflicts.Count == 0,
             "a write must reach the same verdict as a read: the read proceeded, so the write cannot refuse");
     }
 

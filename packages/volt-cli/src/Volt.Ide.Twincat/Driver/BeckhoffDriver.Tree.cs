@@ -137,7 +137,7 @@ public sealed partial class BeckhoffDriver
                 // NAMED, never opened: a POU the IDE does not read as a POU, whose tree item crashes XAE after a load
                 // (DIALECT C2i). Its kind is known, so it is no container and this folder still counts as walked.
                 VoltLog.Warn($"walk: '{untouchable.Name}' at folder='{folderPath}' is not opened: {untouchable.Reason}");
-                unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kind));
+                unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kind, Code: BridgeErrorCodes.Unreadable));
                 continue;
             }
             catch (Exception ex)
@@ -165,7 +165,7 @@ public sealed partial class BeckhoffDriver
                 // `unreadableNodes` (WalkResult derives the folder) — the same answer the CODESYS walk gives (openspec
                 // codesys-refs-guid-int32; the parity boundary is the wire).
                 VoltLog.Warn($"walk: kind unreadable for '{name}' at folder='{folderPath}': {ex.Message}");
-                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null));
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null, Code: BridgeErrorCodes.Unreadable));
                 continue;
             }
 
@@ -189,7 +189,7 @@ public sealed partial class BeckhoffDriver
                         // Its kind is KNOWN (a folder): the folder it sits in was walked whole. Whether it is built was not
                         // read, so its own subtree is unwalked — nothing under it is read as deleted.
                         VoltLog.Warn($"walk: the Exclude property of folder '{name}' at folder='{folderPath}' is unreadable (named unreadable): {ex.Message}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
+                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                         unwalked.Add(nested);
                         continue;
                     }
@@ -198,7 +198,7 @@ public sealed partial class BeckhoffDriver
                         var why = $"'{name}': TwinCAT reads it as excluded by a folder above it, and the walk found no " +
                                   "excluded folder there (DIALECT C39), so what it holds is not read.";
                         VoltLog.Warn($"walk: {why}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, why, ItemKind.Kinds.Folder));
+                        unreadable.Add(new UnreadableObject(name, folderPath, why, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                         unwalked.Add(nested);
                         continue;
                     }

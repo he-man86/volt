@@ -28,6 +28,6 @@ public class MalformedPushOpTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_AlreadyGone.pou", IfVersion = null } },
         });
 
-        Assert.True(res.Accepted);
+        Assert.True(res.Landed());
     }
 }

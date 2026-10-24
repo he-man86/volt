@@ -101,7 +101,7 @@ public class MultiApplicationTreeTests
             },
         });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
         var back = FetchService.Handle(ide, new FetchRequest { Init = true }).Changed.ToDictionary(c => c.Name, c => c.SourceText);
         Assert.Contains("a := 10;", back[$"{AppA}/PLC_PRG.pou"]);
         Assert.DoesNotContain("b := 20;", back[$"{AppA}/PLC_PRG.pou"]);
@@ -120,7 +120,7 @@ public class MultiApplicationTreeTests
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppB}/PLC_PRG.pou", SourceText = Prg("b := 3;"), IfVersion = refs.Items[$"{AppA}/PLC_PRG.pou"] } },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal($"{AppB}/PLC_PRG.pou", conflict.Name);
         Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
@@ -139,9 +139,10 @@ public class MultiApplicationTreeTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = $"{AppA}/POUs/FB_Shared.pou", IfVersion = refs.Items[$"{AppA}/POUs/FB_Shared.pou"] } },
         });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
-        Assert.DoesNotContain($"{AppA}/POUs/FB_Shared.pou", res.NewItems!.Keys);
-        Assert.Contains($"{AppB}/POUs/FB_Shared.pou", res.NewItems!.Keys);
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
+        Assert.Equal(new[] { $"{AppA}/POUs/FB_Shared.pou" }, res.Removed);
+        Assert.Empty(res.NewItems);
+        Assert.Contains($"{AppB}/POUs/FB_Shared.pou", RefsService.Handle(ide).Items.Keys);   // its twin stays
     }
 
     [Fact]
@@ -156,7 +157,7 @@ public class MultiApplicationTreeTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppA}/POUs/FB_New.pou", SourceText = fb } },
         });
-        Assert.True(first.Accepted, string.Join("; ", (first.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
+        Assert.True(first.Landed(), string.Join("; ", (first.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
 
         // The same name in the OTHER application is a create too, not a collision with the first.
         var second = BoundWrite.Push(ide, new PushRequest
@@ -164,9 +165,9 @@ public class MultiApplicationTreeTests
             ExpectedProjectVersion = first.NewProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = $"{AppB}/POUs/FB_New.pou", SourceText = fb } },
         });
-        Assert.True(second.Accepted, string.Join("; ", (second.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Code} {c.Reason}")));
-        Assert.Contains($"{AppA}/POUs/FB_New.pou", second.NewItems!.Keys);
-        Assert.Contains($"{AppB}/POUs/FB_New.pou", second.NewItems!.Keys);
+        Assert.True(second.Landed(), string.Join("; ", (second.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Code} {c.Reason}")));
+        Assert.Equal(new[] { $"{AppB}/POUs/FB_New.pou" }, second.NewItems.Keys);
+        Assert.Contains($"{AppA}/POUs/FB_New.pou", RefsService.Handle(ide).Items.Keys);   // the first create stays
     }
 
     [Fact]
@@ -184,10 +185,10 @@ public class MultiApplicationTreeTests
             },
         });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
-        Assert.Contains($"{AppB}/Lib/FB_Shared.pou", res.NewItems!.Keys);
-        Assert.DoesNotContain($"{AppB}/POUs/FB_Shared.pou", res.NewItems!.Keys);
-        Assert.Contains($"{AppA}/POUs/FB_Shared.pou", res.NewItems!.Keys);
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Name}: {c.Reason}")));
+        Assert.Equal(new[] { $"{AppB}/Lib/FB_Shared.pou" }, res.NewItems.Keys);
+        Assert.Equal(new[] { $"{AppB}/POUs/FB_Shared.pou" }, res.Removed);
+        Assert.Contains($"{AppA}/POUs/FB_Shared.pou", RefsService.Handle(ide).Items.Keys);   // its twin stays
     }
 
     /// <summary>Design §5: a move pairs only within one application; to another it is a delete and a create, which the
@@ -207,7 +208,7 @@ public class MultiApplicationTreeTests
             },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
         Assert.Contains("another application", conflict.Reason);
@@ -227,7 +228,7 @@ public class MultiApplicationTreeTests
             Ops = new List<PushOp> { new SetItemOp { Name = "GVL_Pool.gvl", To = $"{AppA}/GVL_Pool.gvl", IfVersion = refs.Items["GVL_Pool.gvl"] } },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.Equal(BridgeErrorCodes.BadRequest, Assert.Single(res.Conflicts!).Code);
     }
 
@@ -235,12 +236,13 @@ public class MultiApplicationTreeTests
     public void An_item_deleted_in_one_application_is_removed_under_its_own_path_only()
     {
         var ide = TwoDevices();
-        var baseline = RefsService.Handle(ide).Items;
+        var read = RefsService.Handle(ide);
+        var baseline = read.Items;
         ide.RemoveItem("FB_Shared", AppB + "/POUs");
 
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = read.Applications, KnownItems = baseline });
         Assert.Equal(new[] { $"{AppB}/POUs/FB_Shared.pou" }, refs.Removed);
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = read.Applications, KnownItems = baseline });
         Assert.Equal(new[] { $"{AppB}/POUs/FB_Shared.pou" }, fetch.Removed);
     }
 
@@ -255,12 +257,13 @@ public class MultiApplicationTreeTests
         var ide = TwoDevices();
         ide.AddItem(new FakeIde.Item("EtherCAT_Master", ItemKind.PlcDevice, "Device/EtherCAT_Master", true, "Device: EtherCAT_Master", null, null, null));
         ide.AddItem(new FakeIde.Item("EtherCAT_Master", ItemKind.PlcDevice, "Device_1/EtherCAT_Master", true, "Device: EtherCAT_Master", null, null, null));
-        var baseline = RefsService.Handle(ide).Items;
+        var read = RefsService.Handle(ide);
+        var baseline = read.Items;
         Assert.Contains("Device/EtherCAT_Master/EtherCAT_Master.device", baseline.Keys);
         ide.UnwalkableFolders = new[] { "Device/EtherCAT_Master" };
 
-        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = baseline }).Removed);
-        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = baseline }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownApplications = read.Applications, KnownItems = baseline }).Removed);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownApplications = read.Applications, KnownItems = baseline }).Removed);
     }
 
     /// <summary>…while inside one application an item found at another path of the SAME application is the known one,
@@ -269,20 +272,21 @@ public class MultiApplicationTreeTests
     public void An_item_moved_within_its_application_out_of_an_unread_folder_is_retired_from_its_old_path()
     {
         var ide = TwoDevices();
-        var baseline = RefsService.Handle(ide).Items;
+        var read = RefsService.Handle(ide);
         ide.RemoveItem("FB_Shared", AppB + "/POUs");
         ide.AddItem(FakeIde.Item.TextualPou("FB_Shared", "FUNCTION_BLOCK FB_Shared\nVAR\nEND_VAR", "x := 2;", AppB + "/Lib"));
         ide.UnwalkableFolders = new[] { AppB + "/POUs" };
 
-        Assert.Equal(new[] { $"{AppB}/POUs/FB_Shared.pou" }, FetchService.Handle(ide, new FetchRequest { KnownItems = baseline }).Removed);
+        Assert.Equal(new[] { $"{AppB}/POUs/FB_Shared.pou" },
+            FetchService.Handle(ide, new FetchRequest { KnownApplications = read.Applications, KnownItems = read.Items }).Removed);
     }
 
-    /// <summary>AN UNREAD DEVICE HIDES ITS APPLICATION (gate review of step 3a, finding 2). With <c>Device_1</c> unread
-    /// the walk never states <c>Device_1/Plc Logic/Application</c>, so the partial walk alone would put the known
-    /// <c>FB_Util.pou</c> there in the pool namespace — and a pool POU of the name (CODESYS lets an application hold a POU
-    /// the pool also holds; the application's copy wins) paired with it and retired an item the IDE still holds. The
-    /// application of a known path is the one the client's baseline was read with (<c>knownApplications</c>); a client
-    /// that states none cannot tell the pool from an unread application, and nothing under an unread folder outside
+    /// <summary>AN UNREAD DEVICE HIDES ITS APPLICATION. With <c>Device_1</c> unread the walk never states
+    /// <c>Device_1/Plc Logic/Application</c>, so the partial walk alone would put the known <c>FB_Util.pou</c> there in the
+    /// pool namespace — and a pool POU of the name (CODESYS lets an application hold a POU the pool also holds; the
+    /// application's copy wins) paired with it and retired an item the IDE still holds. The application of a known path is
+    /// the one the client's baseline was read with (<c>knownApplications</c>); a client that does not know them states none
+    /// (the CLI's baseline rebuilt from `volt/ide`, wire-final-shape gate 3a), and nothing under an unread folder outside
     /// every application is retired for it.</summary>
     [Theory]
     [InlineData(true)]

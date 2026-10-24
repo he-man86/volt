@@ -23,6 +23,10 @@ public class BridgeException : CodedException
     public BridgeException(string errorCode, string message, Exception? inner = null)
         : base(errorCode, message, inner) { }
 
+    /// <summary>A refusal whose facts a client acts on: <paramref name="errorData"/> is the error frame's <c>data</c>.</summary>
+    public BridgeException(string errorCode, string message, object errorData)
+        : base(errorCode, message, errorData) { }
+
     /// <summary>The bridge is up but no IDE project is loaded — every project-touching op rejects with this until
     /// a project is attached. The tray's deliberate PAUSE shares the code and has its own text; see
     /// <see cref="Paused"/>.</summary>

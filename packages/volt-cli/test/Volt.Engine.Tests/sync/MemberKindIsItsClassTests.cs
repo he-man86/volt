@@ -121,7 +121,7 @@ public class MemberKindIsItsClassTests
             Ops = new List<PushOp> { new SetItemOp { Name = "K.pou", SourceText = text, IfVersion = refs.Items["K.pou"] } },
         });
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:"));
     }
 }

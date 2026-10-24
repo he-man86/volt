@@ -5,33 +5,20 @@ using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 
-/// <summary>Optimistic-concurrency conflict detection for a push: the project-level lease check and the
-/// per-item <c>ifVersion</c> gate, simulated forward over the batch so in-batch dependencies validate.
+/// <summary>Optimistic-concurrency conflict detection for a push: the per-item <c>ifVersion</c> gate, simulated forward over the batch so in-batch dependencies validate.
 /// <para>PURE — no driver, no IDE, no IO. It takes the pre-apply version map and the ops and returns the
 /// conflicts. That is worth its own file because it is the one part of the push that can be reasoned about, and
 /// tested, without a project at all.</para></summary>
 internal static class PushConflicts
 {
     internal static List<PushConflict> DetectConflicts(
-        List<PushOp> ops, string? expectedProjectVersion, bool force,
-        Dictionary<string, string> currentVersions, string? currentProjectVersion, bool walkComplete,
+        List<PushOp> ops, bool force, Dictionary<string, string> currentVersions, bool walkComplete,
         IReadOnlyCollection<string> unclassifiable)
     {
         var conflicts = new List<PushConflict>();
 
-        // The project-level gate runs regardless of force — it IS the --force-with-lease check. A null
-        // `currentProjectVersion` means the pre-flight skipped the reads that compute it, which it only does
-        // when no lease was quoted — so this branch cannot see one.
-        if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
-            conflicts.Add(new PushConflict
-            {
-                Name = ConflictCodes.ProjectName, YourVersion = expectedProjectVersion,
-                CurrentVersion = currentProjectVersion,
-                Code = ConflictCodes.StaleProjectVersion,
-                Reason = "expected project version does not match current project version",
-            });
-
-        // Force skips the per-item ifVersion checks entirely (apply unconditionally); the project gate above still ran.
+        // Force skips the per-item ifVersion checks entirely (apply unconditionally). The project-level lease is not
+        // here: it is the request's, refused before this runs (`PushService`, STALE_PROJECT_VERSION).
         if (force) return conflicts;
 
         // Forward simulation: path → version, mutated per op so in-batch dependencies validate. Every op

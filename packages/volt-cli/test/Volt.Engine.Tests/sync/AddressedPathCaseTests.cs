@@ -31,7 +31,7 @@ public class AddressedPathCaseTests
         var ide = new FakeIde(Fb("FB_Motor"));
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { "device/plc logic/application/fb_motor.pou" },
         });
@@ -51,11 +51,11 @@ public class AddressedPathCaseTests
         ide.RemoveItem("Calc", Folder);
         ide.AddItem(Fb("calc"));
 
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = new(), KnownItems = known });
         Assert.Equal(new[] { $"{Folder}/Calc.pou" }, refs.Removed);
         Assert.Equal(new[] { $"{Folder}/calc.pou" }, refs.Items.Keys.ToArray());
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
         Assert.Equal(new[] { $"{Folder}/Calc.pou" }, fetch.Removed);
         Assert.Equal(new[] { $"{Folder}/calc.pou" }, fetch.Items.Keys.ToArray());
     }

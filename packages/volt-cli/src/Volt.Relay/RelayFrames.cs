@@ -26,6 +26,9 @@ namespace Volt.Relay
         /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Request"/>.</summary>
         public string? Op { get; set; }
         public JsonElement? Body { get; set; }
+        /// <summary>The wire protocol the remote client stated (<c>protocol</c>), null when it stated none or not as an
+        /// integer. Forwarded as stated, so the bridge refuses a client of another protocol itself.</summary>
+        public int? Protocol { get; set; }
         /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Malformed"/>.</summary>
         public string? Reason { get; set; }
     }
@@ -89,9 +92,11 @@ namespace Volt.Relay
         public static string Result(string id, JsonElement result) =>
             "{\"id\":" + JsonEncode(id) + ",\"result\":" + result.GetRawText() + "}";
 
-        public static string Error(string id, string code, string message) =>
+        /// <summary>A terminal error frame; <paramref name="data"/> is the pipe frame's own <c>data</c>, forwarded
+        /// verbatim when it carried one.</summary>
+        public static string Error(string id, string code, string message, JsonElement? data = null) =>
             "{\"id\":" + JsonEncode(id) + ",\"error\":{\"code\":" + JsonEncode(code) +
-            ",\"message\":" + JsonEncode(message) + "}}";
+            ",\"message\":" + JsonEncode(message) + (data is { } d ? ",\"data\":" + d.GetRawText() : "") + "}}";
 
         private static string JsonEncode(string value) =>
             JsonSerializer.Serialize(value ?? "");
@@ -143,6 +148,8 @@ namespace Volt.Relay
 
                 JsonElement body;
                 var hasBody = root.TryGetProperty("body", out body);
+                int? protocol = root.TryGetProperty("protocol", out var p) && p.ValueKind == JsonValueKind.Number
+                                && p.TryGetInt32(out var stated) ? stated : (int?)null;
 
                 return new RelayInbound
                 {
@@ -153,6 +160,7 @@ namespace Volt.Relay
                     // Cloned: the JsonDocument is disposed on the way out of this method, and a body that
                     // outlives its document reads freed memory.
                     Body = hasBody ? body.Clone() : (JsonElement?)null,
+                    Protocol = protocol,
                 };
             }
         }

@@ -27,7 +27,7 @@ public static class ExcludedFolder
     /// <summary>The entry of a folder excluded by its build property alone.</summary>
     public static UnreadableObject Folder(string name, string parentFolder) =>
         new(name, parentFolder, Reason($"'{name}'", new[] { BuildProperty(new[] { ExcludeFromBuild }) }, inside: false),
-            ItemKind.Kinds.Folder);
+            ItemKind.Kinds.Folder, Volt.Contracts.BridgeErrorCodes.Unsupported);
 
     /// <summary>Name every item the walk found under the excluded folder <paramref name="folder"/> (its path) in
     /// <paramref name="into"/>, by its kind; an item of no wire kind is no file, and is not named.</summary>
@@ -37,6 +37,6 @@ public static class ExcludedFolder
             if (ItemKind.Map(it.KindCode) is { } kind)
                 into.Add(new UnreadableObject(it.Name, it.Folder,
                     $"'{it.Name}' sits in the excluded folder '{folder}' — it is not built, so it is not pulled as a built one",
-                    kind));
+                    kind, Volt.Contracts.BridgeErrorCodes.Unsupported));
     }
 }

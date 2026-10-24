@@ -44,21 +44,21 @@ export async function record(vendor: "codesys" | "twincat", instance: string): P
 	// The e2e pipe layer reads both at import: the vendor it resolves, and the instance whose fixture pipe alone it drives.
 	process.env.VOLT_VENDOR = vendor
 	process.env.VOLT_E2E_INSTANCE = instance
-	const { callRaw, currentPipe } = await import("../test/e2e/lib/pipe")
+	const { callRaw, currentPipe, WIRE_PROTOCOL } = await import("../test/e2e/lib/pipe")
 	const { drivenApplication, inFolder, fileOf, mainProgram } = await import("../test/e2e/lib/main-program")
 	const n: Normaliser = { tempDir: tmpdir() }
 	const steps: Step[] = []
 
 	/** One raw call; the terminal frame's `result` (or throws with the error frame) for the scenario to go on with. */
 	const call = async (op: string, body?: unknown): Promise<any> => {
-		const a = await callRaw(currentPipe(), JSON.stringify(body === undefined ? { op } : { op, body }))
+		const a = await callRaw(currentPipe(), JSON.stringify(body === undefined ? { op, protocol: WIRE_PROTOCOL } : { op, protocol: WIRE_PROTOCOL, body }))
 		const last = a.frames[a.frames.length - 1]
 		if (!last || !("result" in last)) throw new Error(`${op}: ${JSON.stringify(last)}`)
 		return last.result
 	}
 	/** One recorded step: the request as sent, every frame as answered, both normalised. */
 	const step = async (name: string, op: string, body?: unknown): Promise<any> => {
-		const frame = JSON.stringify(body === undefined ? { op } : { op, body })
+		const frame = JSON.stringify(body === undefined ? { op, protocol: WIRE_PROTOCOL } : { op, protocol: WIRE_PROTOCOL, body })
 		const a = await callRaw(currentPipe(), frame)
 		steps.push({ step: name, request: normaliseString(frame, n), response: a.frames.map((f) => normaliseValue(f, n)) })
 		const last = a.frames[a.frames.length - 1]
@@ -72,7 +72,7 @@ export async function record(vendor: "codesys" | "twincat", instance: string): P
 		const h = await call("health")
 		if (h.projects.some((p: any) => p.status !== "idle")) break
 		if (Date.now() - t0 > 120_000) throw new Error(`no project became served within 2 min: ${JSON.stringify(h.projects)}`)
-		if (h.projects[0]?.project) await callRaw(currentPipe(), JSON.stringify({ op: "connect", body: { project: h.projects[0].project } }))
+		if (h.projects[0]?.project) await callRaw(currentPipe(), JSON.stringify({ op: "connect", protocol: WIRE_PROTOCOL, body: { project: h.projects[0].project } }))
 		await new Promise((r) => setTimeout(r, 1500))
 	}
 	const refs0 = await call("refs", {})

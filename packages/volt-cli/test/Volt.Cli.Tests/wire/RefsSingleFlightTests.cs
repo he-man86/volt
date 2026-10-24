@@ -86,7 +86,7 @@ public class RefsSingleFlightTests
         var first = Task.Run(() => new PipeClient(pipe).Call("refs"));
         Assert.True(entered.Wait(15_000), "the first refs never reached its walk");
         // Another baseline is another question: its `removed` is its own, so it is not answered from the first walk.
-        var other = new PipeClient(pipe).Call("refs", new { knownItems = new { } });
+        var other = new PipeClient(pipe).Call("refs", new { knownItems = new { }, knownApplications = new string[0] });
         Assert.Equal(2, ide.WalkCalls);
         release.Set();
         Assert.True(first.Wait(15_000), "the first refs did not answer");

@@ -88,7 +88,7 @@ public class DirectedLibraryReadTests
     private static FetchResponse Full(FakeIde ide) => FetchService.Handle(ide, new FetchRequest { Init = true });
 
     private static FetchResponse Directed(FakeIde ide, params string[] names) =>
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
 
     private static string FolderOf(FetchResponse res, string fullName) =>
         res.Changed.Single(c => c.Name == fullName).Folder();
@@ -575,7 +575,7 @@ public class DirectedLibraryReadTests
         var ide = Project();
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(), OnlyItems = new() { Standard }, LibraryManifestOnly = true,
         });
 

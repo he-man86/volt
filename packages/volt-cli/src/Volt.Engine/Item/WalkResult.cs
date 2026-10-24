@@ -85,5 +85,8 @@ public sealed class WalkResult
 /// <para><paramref name="Kind"/> is what the object IS, as the IDE's tree states it: an item's kind (<see cref="ItemKind.Kinds"/>),
 /// whose path is then <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c> like every item's; <see cref="ItemKind.Kinds.Folder"/>
 /// for a container node, which has no file; or null when the IDE failed to answer what its own object is — then nothing
-/// is known of it (it may even be a container) and its folder and subtree count as unwalked.</para></summary>
-public sealed record UnreadableObject(string Name, string Folder, string Reason, string? Kind);
+/// is known of it (it may even be a container) and its folder and subtree count as unwalked.</para>
+/// <para><paramref name="Code"/> is why, as the wire's code (<c>BridgeErrorCodes</c>): <c>UNREADABLE</c> when the IDE did
+/// not give what Volt asked of the object, <c>UNSUPPORTED</c> when it holds what Volt's text has no spelling for or sits
+/// where Volt does not read — stated by the walk that met it, which alone knows which.</para></summary>
+public sealed record UnreadableObject(string Name, string Folder, string Reason, string? Kind, string Code);

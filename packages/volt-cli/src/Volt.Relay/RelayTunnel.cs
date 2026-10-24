@@ -349,8 +349,11 @@ namespace Volt.Relay
                     // twincat-large-solution-refs; RelayTunnelTests.Pings_keep_their_cadence…). The pipe server does the
                     // same for the same reason (PipeServer.AcceptLoop).
                     var client = new PipeClient(_pipeName);
-                    var result = await Task.Factory.StartNew(() => client.Call(
+                    // FORWARDED with the remote client's own `protocol`: the bridge refuses a client of another protocol
+                    // by name, exactly as on the pipe — the relay never answers for a client it cannot speak to.
+                    var result = await Task.Factory.StartNew(() => client.Forward(
                         op,
+                        request.Protocol,
                         request.Body,
                         progress =>
                         {
@@ -368,7 +371,7 @@ namespace Volt.Relay
                 // A coded bridge error crosses as its code, unchanged. This is the ordinary path for
                 // PLC_DISCONNECTED, WRONG_PROJECT and friends.
                 outcome = "error " + ex.Code;
-                frame = RelayFrames.Error(id, ex.Code, ex.Message);
+                frame = RelayFrames.Error(id, ex.Code, ex.Message, ex.ErrorData);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -412,11 +415,12 @@ namespace Volt.Relay
         private static string PushVerdict(string op, JsonElement result)
         {
             if (op != Ops.Push) return "";
-            var accepted = result.TryGetProperty("accepted", out var a) && a.ValueKind == JsonValueKind.True;
-            var version = result.TryGetProperty("newProjectVersion", out var v) && v.ValueKind == JsonValueKind.String
-                ? " newProjectVersion=" + v.GetString()
-                : "";
-            return (accepted ? " accepted" : " rejected") + version;
+            // Landed exactly when the answer carries a new project version; the conflicts name every op that did not.
+            var landed = result.TryGetProperty("newProjectVersion", out var v) && v.ValueKind == JsonValueKind.String;
+            var notLanded = result.TryGetProperty("conflicts", out var c) && c.ValueKind == JsonValueKind.Array ? c.GetArrayLength() : 0;
+            if (landed)
+                return (notLanded == 0 ? " landed" : " landed in part, " + notLanded + " not") + " newProjectVersion=" + v.GetString();
+            return notLanded == 0 ? " nothing to apply" : " rejected";
         }
 
         private async Task PingLoopAsync(CancellationToken token)

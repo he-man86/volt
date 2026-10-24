@@ -61,8 +61,8 @@ public class UnclassifiableObjectTests
         var baseline = RefsService.Handle(ide);
         ide.UnclassifiableItems = new[] { "SER_OperationModeType" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Equal(new[] { "Data/SER_OperationModeType" }, fetch.UnreadableNodes.Select(u => u.Name));
         Assert.Empty(fetch.Removed);
@@ -86,7 +86,7 @@ public class UnclassifiableObjectTests
         ide.UnclassifiableItems = new[] { "Zeta", "Alpha" };
 
         var refs = RefsService.Handle(ide).UnreadableNodes.Select(u => u.Name).ToList();
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).UnreadableNodes.Select(u => u.Name).ToList();
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() }).UnreadableNodes.Select(u => u.Name).ToList();
 
         Assert.Equal(new[] { "Data/Alpha", "Zeta" }, fetch);
         Assert.Equal(fetch, refs);
@@ -108,7 +108,7 @@ public class UnclassifiableObjectTests
 
         Assert.NotEqual(without, refs.ProjectVersion);
         Assert.Equal(refs.ProjectVersion, fetch.ProjectVersion);
-        Assert.True(push.Accepted, $"an empty push quoting refs' projectVersion was refused (current {push.CurrentProjectVersion})");
+        Assert.Empty(push.Conflicts);   // the lease held: a stale one is the STALE_PROJECT_VERSION frame
     }
 
     /// <summary>A ROOT-LEVEL object the walk cannot classify protects everything beneath it. In CODESYS the root
@@ -126,8 +126,8 @@ public class UnclassifiableObjectTests
         Assert.Contains("Device/Plc Logic/Application/Main.pou", baseline.Items.Keys);
         ide.UnclassifiableItems = new[] { "Device" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Empty(fetch.Removed);
         Assert.Empty(refs.Removed);
@@ -143,7 +143,7 @@ public class UnclassifiableObjectTests
         var baseline = RefsService.Handle(ide);
         ide.UnwalkableFolders = new[] { "" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Empty(fetch.Removed);
     }
@@ -191,7 +191,7 @@ public class UnclassifiableObjectTests
             },
         });
 
-        Assert.False(push.Accepted);
+        Assert.False(push.Landed());
         var c = Assert.Single(push.Conflicts!);
         Assert.Equal(("Data/SER_OperationModeType.pou", BridgeErrorCodes.Unreadable, (string?)null),
                      (c.Name, c.Code, c.CurrentVersion));
@@ -214,7 +214,7 @@ public class UnclassifiableObjectTests
             },
         });
 
-        Assert.False(push.Accepted);
+        Assert.False(push.Landed());
         var c = Assert.Single(push.Conflicts!);
         Assert.Equal((BridgeErrorCodes.Unreadable, (string?)null), (c.Code, c.CurrentVersion));
         Assert.Contains("SER_OperationModeType", c.Reason);

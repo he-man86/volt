@@ -76,19 +76,29 @@ public class EndpointParityTests
             fetch.Items.OrderBy(kv => kv.Key, System.StringComparer.Ordinal)); // same keys AND versions
     }
 
+    /// <summary>The receipt is the walk <c>/refs</c> makes: the project version, and the version of each item the push
+    /// changed — here the FB of a bare-name pair, whose visualization twin the push did not touch and the receipt does not
+    /// name (wire-final-shape §5: the receipt names what the push created or changed).</summary>
     [Fact]
     public void Push_receipt_matches_refs()
     {
         var ide = Mixed();
         var refs = RefsService.Handle(ide);
-        // An empty push still returns a fresh receipt (a cold re-walk) — it must equal /refs.
-        var receipt = BoundWrite.Push(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
+        const string fb = "CMs/CM_Carrier/CM_Carrier.pou";
+        var receipt = BoundWrite.Push(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new() { new SetItemOp { Name = fb, IfVersion = refs.Items[fb], SourceText =
+                "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\nIMPLEMENTATION ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n" } },
+        });
 
-        Assert.True(receipt.Accepted);
-        Assert.Equal(refs.ProjectVersion, receipt.NewProjectVersion);
-        Assert.Equal(
-            refs.Items.OrderBy(kv => kv.Key, System.StringComparer.Ordinal),
-            receipt.NewItems!.OrderBy(kv => kv.Key, System.StringComparer.Ordinal));
+        var after = RefsService.Handle(ide);
+        Assert.True(receipt.Landed());
+        Assert.Equal(after.ProjectVersion, receipt.NewProjectVersion);
+        Assert.Equal(new[] { fb }, receipt.NewItems.Keys);
+        Assert.Equal(after.Items[fb], receipt.NewItems[fb]);
+        Assert.NotEqual(refs.Items[fb], receipt.NewItems[fb]);
+        Assert.Empty(receipt.Removed);
     }
 
     /// <summary>A referenced library must be reported in the SAME folder by every endpoint — and it must be the
@@ -105,13 +115,10 @@ public class EndpointParityTests
         var ide = Mixed();
         var refs = RefsService.Handle(ide);
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
-        var receipt = BoundWrite.Push(ide, new PushRequest { Ops = new(), ExpectedProjectVersion = refs.ProjectVersion });
-
         var lib = fetch.Changed.Single(c => c.Name.EndsWith(".library", System.StringComparison.Ordinal));
         Assert.Equal("Library Manager/CmpX", lib.Folder());        // where the file is WRITTEN
 
         Assert.Contains(lib.Name, fetch.Items.Keys);               // ...and the path /fetch keys it by
         Assert.Contains(lib.Name, refs.Items.Keys);                // ...and /refs
-        Assert.Contains(lib.Name, receipt.NewItems!.Keys);         // ...and the push receipt
     }
 }

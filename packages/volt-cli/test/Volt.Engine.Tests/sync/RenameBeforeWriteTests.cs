@@ -63,11 +63,11 @@ public class RenameBeforeWriteTests
             },
         });
 
-        _out.WriteLine($"accepted={res.Accepted}");
+        _out.WriteLine($"accepted={res.Landed()}");
         _out.WriteLine($"recorded: {string.Join(", ", ide.Recorded)}");
 
         // The push was refused…
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         // …so nothing may have been renamed. A native rename on TwinCAT rewrites every call site in the project; leaving one
         // behind after a rejected push is a half-applied change nothing puts back.
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", System.StringComparison.Ordinal));
@@ -98,7 +98,7 @@ public class RenameBeforeWriteTests
             },
         });
 
-        Assert.True(res.Accepted, "a rename+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(res.Landed(), "a rename+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains(ide.Recorded, r => r.StartsWith("rename:", System.StringComparison.Ordinal));
         Assert.Contains("FB_New.pou", RefsService.Handle(ide).Items.Keys);
     }
@@ -130,8 +130,10 @@ public class RenameBeforeWriteTests
             },
         });
 
-        Assert.True(res.Accepted, "a rename+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.Null(res.Conflicts);
+        Assert.True(res.Landed(), "a rename+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.Empty(res.Conflicts);
+        Assert.Contains("FB_New.pou", res.NewItems.Keys);
+        Assert.Equal(new[] { "FB_Old.pou" }, res.Removed);
         var after = RefsService.Handle(ide).Items;
         Assert.Contains("FB_New.pou", after.Keys);
         Assert.DoesNotContain("FB_Old.pou", after.Keys);
@@ -168,7 +170,7 @@ public class RenameBeforeWriteTests
             },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
         Assert.Null(conflict.PartiallyApplied);
@@ -212,7 +214,7 @@ public class RenameBeforeWriteTests
             },
         });
 
-        Assert.False(res.Accepted, "a move+edit overwrote an edit made in the IDE meanwhile");
+        Assert.False(res.Landed(), "a move+edit overwrote an edit made in the IDE meanwhile");
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
         Assert.Null(conflict.PartiallyApplied);
@@ -250,7 +252,7 @@ public class RenameBeforeWriteTests
             },
         });
 
-        Assert.True(res.Accepted, "a move+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(res.Landed(), "a move+edit was refused: " + res.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains($"{toFolder}/{toName ?? "FB_Old.pou"}", RefsService.Handle(ide).Items.Keys);
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:", System.StringComparison.Ordinal));
     }

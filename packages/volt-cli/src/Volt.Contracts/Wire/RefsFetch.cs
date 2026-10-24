@@ -17,7 +17,9 @@ public class RefsRequest : BoundRequest
     /// <summary>The applications the read that produced <see cref="KnownItems"/> stated (its
     /// <see cref="ReadResponse.Applications"/>). It places a known path the walk could not reach: under an unread device the
     /// walk states no application, and only the baseline says whether the path lay in an application or in the pool.
-    /// Absent: nothing under an unread folder outside every application the walk states is judged removed.</summary>
+    /// Absent when the client does not know them (a baseline not produced by a read): then a known path under an unread
+    /// folder outside every application the walk states is never judged removed — the bridge does not guess where it
+    /// lay.</summary>
     [JsonPropertyName("knownApplications")]
     public List<string>? KnownApplications { get; set; }
 }
@@ -39,7 +41,9 @@ public class FetchRequest : BoundRequest
     /// <summary>The applications the read that produced <see cref="KnownItems"/> stated (its
     /// <see cref="ReadResponse.Applications"/>). It places a known path the walk could not reach: under an unread device the
     /// walk states no application, and only the baseline says whether the path lay in an application or in the pool.
-    /// Absent: nothing under an unread folder outside every application the walk states is judged removed.</summary>
+    /// Absent when the client does not know them (a baseline not produced by a read): then a known path under an unread
+    /// folder outside every application the walk states is never judged removed — the bridge does not guess where it
+    /// lay.</summary>
     [JsonPropertyName("knownApplications")]
     public List<string>? KnownApplications { get; set; }
 

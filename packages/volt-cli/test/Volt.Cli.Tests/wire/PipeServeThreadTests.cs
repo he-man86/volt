@@ -64,7 +64,7 @@ public class PipeServeThreadTests
                     using var c = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
                     c.Connect(5000);
                     Thread.Sleep(500);
-                    var req = System.Text.Encoding.UTF8.GetBytes("{\"op\":\"health\"}\n");
+                    var req = System.Text.Encoding.UTF8.GetBytes("{\"op\":\"health\",\"protocol\":1}\n");
                     c.Write(req, 0, req.Length);
                     c.Flush();
                     var buf = new byte[65536];
@@ -108,7 +108,7 @@ public class PipeServeThreadTests
                     var h = CreateFileW(@"\\.\pipe\" + pipe, 0xC0000000, 0, IntPtr.Zero, 3, 0, IntPtr.Zero);
                     if (h == new IntPtr(-1)) { if (Marshal.GetLastWin32Error() == 2) Interlocked.Increment(ref gone); continue; }
                     using var s = new System.IO.FileStream(new Microsoft.Win32.SafeHandles.SafeFileHandle(h, true), System.IO.FileAccess.ReadWrite);
-                    var req = System.Text.Encoding.UTF8.GetBytes("{\"op\":\"health\"}\n");
+                    var req = System.Text.Encoding.UTF8.GetBytes("{\"op\":\"health\",\"protocol\":1}\n");
                     s.Write(req, 0, req.Length);
                     s.Flush();
                     var buf = new byte[4096];

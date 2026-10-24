@@ -68,7 +68,7 @@ public class PushKeepsWhatLandedTests
         Assert.False(ide.Exists("M"));
 
         // What the RESPONSE says about it — the change.
-        Assert.True(resp.Accepted, "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("F.pou", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
@@ -100,10 +100,11 @@ public class PushKeepsWhatLandedTests
             Create("Bad2.pou", "not a POU either"),
             Create("Good2.pou", "PROGRAM Good2\nIMPLEMENTATION ST\nEND_PROGRAM\n"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // all-or-nothing before the first write — unchanged
-        Assert.Equal(new[] { "Bad.pou", "Bad2.pou" }, resp.Conflicts!.Select(c => c.Name).OrderBy(n => n).ToArray());
-        Assert.All(resp.Conflicts!, c => Assert.Equal(BridgeErrorCodes.InvalidSt, c.Code));
+        Assert.Equal(new[] { "Bad.pou", "Bad2.pou" }, resp.Refused().Select(c => c.Name).OrderBy(n => n).ToArray());
+        Assert.All(resp.Refused(), c => Assert.Equal(BridgeErrorCodes.InvalidSt, c.Code));
+        Assert.Equal(new[] { "Good1.pou", "Good2.pou" }, resp.NotAttempted().OrderBy(n => n).ToArray());   // every other op: not reached
         Assert.All(resp.Conflicts!, c => Assert.False(string.IsNullOrEmpty(c.Reason)));
     }
     /// <summary>Gate step 1 review: the REAL PLCAssist path, offline. The live <c>METHOD Log</c> refusal is an exception
@@ -124,7 +125,7 @@ public class PushKeepsWhatLandedTests
         Assert.True(ide.Exists("ST_B"));
         Assert.False(ide.Exists("F"), "a failed create left its shell in the project");
 
-        Assert.True(resp.Accepted, "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("F.pou", conflict.Name);
         Assert.Contains("The name 'M' is not valid for this object.", conflict.Reason);
@@ -151,7 +152,7 @@ public class PushKeepsWhatLandedTests
         var resp = Push(ide, Create("E_A.dut", Enum), Create("ST_B.dut", Struct), Create("F.pou", FbWithMethod));
 
         Assert.True(ide.Exists("F"), "premise: the rollback delete failed, so the shell is in the project");
-        Assert.True(resp.Accepted, "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("F.pou", conflict.Name);
         Assert.Contains("'F' remains", conflict.Reason);
@@ -176,7 +177,7 @@ public class PushKeepsWhatLandedTests
         var resp = Push(ide, Create("E_A.dut", Enum), Create("ST_B.dut", Struct), Create("F.pou", FunctionWithMethod));
 
         Assert.True(ide.Exists("F"), "premise: the rollback delete failed, so the shell is in the project");
-        Assert.True(resp.Accepted, "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "two items landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("'F' remains", conflict.Reason);
@@ -203,7 +204,7 @@ public class PushKeepsWhatLandedTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);
         Assert.Equal(new[] { ("A.pou", ConflictCodes.StaleItemVersion), ("B.pou", BridgeErrorCodes.InvalidSt) },
                      resp.Conflicts!.Select(c => (c.Name, c.Code)).ToArray());
@@ -216,15 +217,14 @@ public class PushKeepsWhatLandedTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"));
 
-        var resp = BoundWrite.Push(ide, new PushRequest
+        var refused = Assert.Throws<BridgeException>(() => BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = "not-the-lease",
             Ops = new List<PushOp> { Create("B.pou", "not a POU at all") },
-        });
+        }));
 
-        Assert.False(resp.Accepted);
-        var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal(ConflictCodes.StaleProjectVersion, conflict.Code);
+        // The lease alone: not the pre-flight's INVALID_ST for B.
+        Assert.Equal(BridgeErrorCodes.StaleProjectVersion, refused.ErrorCode);
     }
 
     /// <summary>Task 2.4: every op after the refused one in APPLY order (<c>InFolderDepthOrder</c>, deepest folder first
@@ -245,7 +245,7 @@ public class PushKeepsWhatLandedTests
         Assert.False(ide.Exists("F"));
         Assert.False(ide.Exists("ST_B"), "an op after the refusal was applied — the push must stop at the refused op");
 
-        Assert.True(resp.Accepted, "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { ("F.pou", BridgeErrorCodes.Unsupported), ("ST_B.dut", ConflictCodes.NotAttempted) },
                      resp.Conflicts!.Select(c => (c.Name, c.Code)).ToArray());
         Assert.Equal("not applied: the push stopped at 'F.pou'", resp.Conflicts![1].Reason);
@@ -254,21 +254,24 @@ public class PushKeepsWhatLandedTests
         Assert.Equal(RefsService.Handle(ide).ProjectVersion, resp.NewProjectVersion);
     }
 
-    /// <summary>Task 2.4: nothing applied in full → <c>accepted:false</c> as today, and no NOTE.</summary>
+    /// <summary>Task 2.4: nothing landed → no <c>newProjectVersion</c>, no receipt, and no NOTE; the op after the refused
+    /// one is NOT_ATTEMPTED, as on every answer (wire-final-shape §5).</summary>
     [Fact]
-    public void A_refusal_of_the_first_op_is_rejected_without_a_note_and_names_the_rest_not()
+    public void A_refusal_of_the_first_op_lands_nothing_without_a_note_and_names_the_rest_not_attempted()
     {
         var ide = new FakeIde { RefusesMembersByText = true };
 
         var resp = Push(ide, Create("F.pou", FunctionWithMethod), Create("ST_B.dut", Struct));
 
-        Assert.False(resp.Accepted);
-        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.False(resp.Landed());
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("F.pou", conflict.Name);
         Assert.Contains("'F' is not created (the create is rolled back)", conflict.Reason);
         foreach (var advice in ClientAdvice) Assert.DoesNotContain(advice, conflict.Reason);
+        Assert.Equal(new[] { "ST_B.dut" }, resp.NotAttempted());
         Assert.False(ide.Exists("ST_B"));
-        Assert.Null(resp.NewItems);
+        Assert.Empty(resp.NewItems);
+        Assert.Empty(resp.Removed);
     }
 
     /// <summary>Task 2.5 (review R2): a refusal raised INSIDE the apply loop can now arrive on an accepted push, so its
@@ -297,7 +300,7 @@ public class PushKeepsWhatLandedTests
             },
         });
 
-        Assert.True(resp.Accepted, "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("B.pou", conflict.Name);
         Assert.Contains("changed in the IDE while this push was being applied", conflict.Reason);
@@ -335,8 +338,10 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.Contains("n : INT;", ide.WrittenContent["K"].Declaration);   // premise: the declaration landed
-        Assert.False(resp.Accepted);   // nothing applied IN FULL (step 0 R1)
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
+        Assert.Contains("K.pou", resp.NewItems.Keys);   // what of it stays, in the receipt
         var conflict = Assert.Single(resp.Conflicts!);
+        Assert.True(conflict.PartiallyApplied);
         Assert.Contains("The name 'M' is not valid for this object.", conflict.Reason);
         Assert.Contains("the declaration of 'K' was written before it and stays", conflict.Reason);
     }
@@ -359,7 +364,7 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Equal("the IDE refused to create 'LOG': The name 'LOG' is not valid for this object.", conflict.Reason);
@@ -386,7 +391,7 @@ public class PushKeepsWhatLandedTests
             },
         });
 
-        Assert.True(resp.Accepted, "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "E_A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("B.pou", conflict.Name);
         foreach (var advice in ClientAdvice.Append("pull first"))
@@ -423,7 +428,7 @@ public class PushKeepsWhatLandedTests
 
         Assert.True(ide.Exists("Y"), "premise: the native rename ran before the refused write");
         Assert.False(ide.Exists("X"));
-        Assert.True(resp.Accepted, "A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "A landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("X.pou", conflict.Name);
         Assert.Contains("'X' was renamed to 'Y'", conflict.Reason);
@@ -458,7 +463,7 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.True(ide.Exists("M"), "premise: the member create ran before the refused write");
-        Assert.False(resp.Accepted);   // nothing applied IN FULL (step 0 R1)
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("the IDE could not write 'K'", conflict.Reason);
         Assert.Contains("its method 'M' was created before it and stays", conflict.Reason);
@@ -490,7 +495,8 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.False(ide.Exists("Broken"), "premise: the replace deleted the original before its create failed");
-        Assert.False(resp.Accepted);
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
+        Assert.Equal(new[] { "Data/Broken.pou" }, resp.Removed);   // the original is gone
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("the IDE could not create 'Broken'", conflict.Reason);
         Assert.Contains("the IDE's 'Broken' was deleted before it", conflict.Reason);
@@ -544,7 +550,7 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.False(ide.Exists("Get"), "premise: the GET was deleted before the SET was refused");
-        Assert.True(resp.Accepted, "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("FB_X.pou", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
@@ -575,7 +581,7 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.Contains(ide.Recorded, r => r == "create:Set");   // premise
-        Assert.False(resp.Accepted);   // nothing applied IN FULL (step 0 R1)
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("the IDE could not write 'FB_X'", conflict.Reason);
         Assert.Contains("the Set accessor of property 'P' was created before it and stays", conflict.Reason);
@@ -609,7 +615,7 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:DoIt->", System.StringComparison.Ordinal));   // premise
-        Assert.True(resp.Accepted, "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("FB_Test.pou", conflict.Name);
         Assert.Contains("the folder 'Helpers' was created in 'FB_Test' before it and stays", conflict.Reason);
@@ -641,7 +647,7 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.Contains("n := 2;", FakeIde.AllText(ide.WrittenContent["FB_M"]));   // premise: the text landed
-        Assert.True(resp.Accepted, "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), "ST_B landed, but the push answered accepted:false: " + resp.Conflicts?.FirstOrDefault()?.Reason);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("A/FB_M.pou", conflict.Name);
         Assert.Contains("the IDE could not move 'FB_M'", conflict.Reason);
@@ -674,7 +680,9 @@ public class PushKeepsWhatLandedTests
         });
 
         Assert.Contains(ide.Recorded, r => r.StartsWith("move:FB_M->", System.StringComparison.Ordinal));   // premise
-        Assert.False(resp.Accepted);
+        Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
+        Assert.Contains("B/FB_M.pou", resp.NewItems.Keys);   // the move stays: its new path in, its old path out
+        Assert.Equal(new[] { "A/FB_M.pou" }, resp.Removed);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("the IDE could not write 'FB_M' again", conflict.Reason);
         Assert.Contains("the pushed text of 'FB_M' was written before it and stays", conflict.Reason);
@@ -701,9 +709,9 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("E_A.dut", Enum), Create("F.pou", FbWithMethod.Replace("METHOD M", "METHOD log").Replace("M := TRUE", "log := TRUE")));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("F.pou", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("method 'log'", conflict.Reason);
@@ -729,9 +737,9 @@ public class PushKeepsWhatLandedTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("K.pou", conflict.Name);
         Assert.Contains("action 'Log'", conflict.Reason);
     }
@@ -744,9 +752,9 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("E_A.dut", Enum), Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("LOG.pou", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("the IDE does not take the name 'LOG'", conflict.Reason);
@@ -761,7 +769,7 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("E_A.dut", Enum), Create("F.pou", FbWithMethod));
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.True(ide.Exists("F"));
     }
 
@@ -784,9 +792,9 @@ public class PushKeepsWhatLandedTests
         var resp = Push(ide, Create("E_A.dut", Enum),
             Create("I_X.itf", "INTERFACE I_X\nMETHOD Fine : BOOL\nEND_METHOD\nPROPERTY My-Name : INT\nEND_PROPERTY\nEND_INTERFACE"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("I_X.itf", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("interface_property 'My-Name'", conflict.Reason);
@@ -814,9 +822,9 @@ public class PushKeepsWhatLandedTests
         var resp = Push(ide, Create("E_A.dut", Enum),
             Create("I_X.itf", "INTERFACE I_X\nPROPERTY P : INT\nGET\nVAR\n\tscratch : INT;\nEND_VAR\nEND_GET\nEND_PROPERTY\nEND_INTERFACE"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("I_X.itf", conflict.Name);
         Assert.True(conflict.Code == BridgeErrorCodes.Unsupported, conflict.Reason);
         Assert.Contains("not writable", conflict.Reason);
@@ -833,7 +841,7 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("F.pou", FbWithMethod));
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains((ItemKind.Kinds.Pou, "F"), asked);
         Assert.Contains((ItemKind.Kinds.Method, "M"), asked);
     }
@@ -862,9 +870,9 @@ public class PushKeepsWhatLandedTests
 
         var resp = Push(ide, Create("E_A.dut", Enum), Create("I_X.itf", ItfUntyped));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("I_X.itf", conflict.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.Contains("interface property 'P'", conflict.Reason);
@@ -878,7 +886,7 @@ public class PushKeepsWhatLandedTests
     public void An_update_is_refused_only_for_the_untyped_member_it_would_create()
     {
         var ide = RefusingUntypedInterfaceMembers();
-        Assert.True(Push(ide, Create("I_X.itf", ItfTyped)).Accepted);   // premise: P exists, typed
+        Assert.True(Push(ide, Create("I_X.itf", ItfTyped)).Landed());   // premise: P exists, typed
         ide.Recorded.Clear();
 
         var held = RefsService.Handle(ide);
@@ -892,15 +900,15 @@ public class PushKeepsWhatLandedTests
                                 SourceText = ItfTyped.Replace("END_INTERFACE", "PROPERTY Q\nEND_PROPERTY\nEND_INTERFACE") },
             },
         });
-        Assert.False(adding.Accepted);
+        Assert.False(adding.Landed());
         Assert.Empty(ide.Recorded);
-        Assert.Contains("interface property 'Q'", Assert.Single(adding.Conflicts!).Reason);
+        Assert.Contains("interface property 'Q'", Assert.Single(adding.Refused()).Reason);
 
         var rewriting = BoundWrite.Push(ide, new PushRequest
         {
             ExpectedProjectVersion = held.ProjectVersion,
             Ops = new List<PushOp> { new SetItemOp { Name = "I_X.itf", IfVersion = held.Items["I_X.itf"], SourceText = ItfUntyped } },
         });
-        Assert.True(rewriting.Accepted, string.Join("; ", (rewriting.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(rewriting.Landed(), string.Join("; ", (rewriting.Conflicts ?? new()).Select(c => c.Reason)));
     }
 }

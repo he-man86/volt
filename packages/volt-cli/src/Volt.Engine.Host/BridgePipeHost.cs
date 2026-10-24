@@ -52,16 +52,10 @@ public sealed class BridgePipeHost : IDisposable
         return r;
     });
 
-    public BridgePipeHost(HostLink link, string pipeName) : this(link, pipeName, WireProtocol.Version) { }
-
-    /// <param name="protocol">The wire protocol <c>health</c> states — <see cref="WireProtocol.Version"/>, what every
-    /// shipped host states (the two-argument constructor). A test states another (or null, a bridge from before the
-    /// member) to stand for a peer of another release.</param>
-    public BridgePipeHost(HostLink link, string pipeName, int? protocol)
+    public BridgePipeHost(HostLink link, string pipeName)
     {
         _link = link;
         _ide = link.Session;
-        _protocol = protocol;
         _server = new PipeServer(pipeName, Dispatch);
     }
 
@@ -70,11 +64,9 @@ public sealed class BridgePipeHost : IDisposable
     {
         _link = link;
         _ide = link.Session;
-        _protocol = WireProtocol.Version;
         _server = new PipeServer(claim, Dispatch);
     }
 
-    private readonly int? _protocol;
 
     public void Start() => _server.Start();
     public void Stop() => _server.Stop();
@@ -136,8 +128,19 @@ public sealed class BridgePipeHost : IDisposable
                 h.ProductVersion = _ide.ProductVersion;
                 h.ProductVendor = _ide.ProductVendor;
                 h.BridgeVersion = Release;
-                h.Protocol = _protocol;
+                h.Protocol = WireProtocol.Version;
                 h.Ops = Served.ToList();
+                // The bridge's CATALOG, from its host's declaration (wire-final-shape, design §2): the languages it shows
+                // as the network-text switch leaves them, and every kind with a file.
+                var catalog = _link.Catalog;
+                h.Languages = Volt.Engine.Format.Network.NetworkTextSwitch.Shown(catalog.Languages.ShownBy(_ide.Vendor));
+                h.Kinds = catalog.Kinds.Rows.Where(r => r.Extension is not null)
+                    .OrderBy(r => r.Extension, StringComparer.Ordinal)
+                    .Select(r => new HealthKind
+                    {
+                        Extension = r.Extension!,
+                        Writable = r.Role is Volt.Engine.Seam.KindRole.Source or Volt.Engine.Seam.KindRole.WritableDescriptor,
+                    }).ToList();
                 h.Unsupported = unsupported;
                 return h;
             }
@@ -164,8 +167,9 @@ public sealed class BridgePipeHost : IDisposable
                     // SERVED-NAME half: IsConnected alone is not this post-condition — CODESYS's select is a no-op
                     // refresh of its ONE primary project, so `connect {project:"Typo"}` would answer ok there while
                     // TwinCAT refuses: a per-vendor difference a pipe client could OBSERVE.
-                    // Ordinal, matching OpGuard.RequireBoundProject, so connect and the first project op cannot
-                    // disagree about the same pair of strings. An EMPTY/absent `sel.Project` stays allowed, and that
+                    // Compared like a path (ignoring case: a project name is a file or folder name on both vendors,
+                    // measured — wire-final-shape 2.4), matching OpGuard.RequireBoundProject, so connect and the first
+                    // project op cannot disagree about the same pair of strings. An EMPTY/absent `sel.Project` stays allowed, and that
                     // carve-out is load-bearing, not an optimization: it is the soft "serve whatever you have"
                     // select the e2e harness, the VOLT_PIPE paths and the way back from `disconnect` all send.
                     // Both reads are plain driver state — no COM round-trip — and this whole body already runs on the
@@ -176,13 +180,13 @@ public sealed class BridgePipeHost : IDisposable
                     // PipeTransportTests.A_refused_connect_still_resumes_the_bridge_the_pause_gate_is_not_restored.
                     if (!_ide.IsConnected ||
                         (!string.IsNullOrEmpty(sel.Project) &&
-                         !string.Equals(_ide.ServedProjectName, sel.Project, StringComparison.Ordinal)))
+                         !Volt.Engine.Item.ItemPath.SameItem(_ide.ServedProjectName, sel.Project)))
                         throw new BridgeException(BridgeErrorCodes.PlcDisconnected,
                             !_ide.IsConnected && _ide.NotServedBecause is { } why ? why
                             : string.IsNullOrEmpty(sel.Project)
                                 ? "the bridge could not attach an IDE project"
                                 : $"could not attach “{sel.Project}” — the IDE has no such project open (with more than one IDE window open, make sure it's in the one being served).");
-                    return (object)new { ok = true };
+                    return (object)new EmptyResult();
                 });
             }
             case Ops.Disconnect:
@@ -193,7 +197,7 @@ public sealed class BridgePipeHost : IDisposable
                 // A refused disconnect pauses nothing: the body is read before the gate is set.
                 Body<NoMembers>(req);
                 _paused = true;
-                return new { ok = true };
+                return new EmptyResult();
             case Ops.Refs:
             {
                 var body = Body<RefsRequest>(req);

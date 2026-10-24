@@ -78,7 +78,7 @@ public class AccessorReconcileTests
     {
         var ide = WithProperty("Get", "Set");
 
-        Assert.True(Push(ide, Source(get: true, set: false)).Accepted);
+        Assert.True(Push(ide, Source(get: true, set: false)).Landed());
 
         Assert.Contains("delete:Set", ide.Recorded);
         Assert.DoesNotContain("delete:Get", ide.Recorded);
@@ -93,7 +93,7 @@ public class AccessorReconcileTests
     {
         var ide = WithProperty("Get");
 
-        Assert.True(Push(ide, Source(get: true, set: true)).Accepted);
+        Assert.True(Push(ide, Source(get: true, set: true)).Landed());
 
         Assert.Contains("create:Set", ide.Recorded);
         Assert.Equal(ItemKind.PlcPropSet, ide.CreatedKinds["Set"]);
@@ -107,7 +107,7 @@ public class AccessorReconcileTests
     {
         var ide = WithProperty("Get", "Set");
 
-        Assert.True(Push(ide, Source(get: true, set: true)).Accepted);
+        Assert.True(Push(ide, Source(get: true, set: true)).Landed());
 
         Assert.DoesNotContain(ide.Recorded, r => r is "create:Get" or "create:Set"
                                                    or "delete:Get" or "delete:Set");
@@ -126,7 +126,7 @@ public class AccessorReconcileTests
         var ide = WithProperty();               // a property with NO accessors — TwinCAT's create shape
         Assert.False(ide.HandlesSurviveStructureChange);
 
-        Assert.True(Push(ide, Source(get: true, set: true)).Accepted);
+        Assert.True(Push(ide, Source(get: true, set: true)).Landed());
 
         Assert.Contains("create:Get", ide.Recorded);
         Assert.Contains("create:Set", ide.Recorded);
@@ -150,7 +150,7 @@ public class AccessorReconcileTests
         var ide = new FakeIde(
             new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, Decl, "", null, null));
 
-        Assert.True(Push(ide, Source(get: true, set: true)).Accepted);
+        Assert.True(Push(ide, Source(get: true, set: true)).Landed());
 
         Assert.Contains("create:Val", ide.Recorded);
         Assert.Equal(ItemKind.PlcProp, ide.CreatedKinds["Val"]);

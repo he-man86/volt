@@ -30,7 +30,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "MOTOR.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // refs preserved, not recreated
     }
@@ -43,7 +43,7 @@ public class PushServiceTests
         var ide = OneProgram(folder: "POUs");
         var (v, pv) = Ver(ide, "POUs/PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "POUs/PLC_PRG.pou", IfVersion = v, To = "POUs/MOTOR.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
 
         var refs = RefsService.Handle(ide);
         Assert.Equal(refs.ProjectVersion, resp.NewProjectVersion);
@@ -58,7 +58,7 @@ public class PushServiceTests
         var ide = OneProgram(folder: "POUs");
         var (v, pv) = Ver(ide, "POUs/PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "POUs/PLC_PRG.pou", IfVersion = v, To = "POUs/MOTOR.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("POUs/MOTOR.pou", resp.NewItems!.Keys);
         Assert.DoesNotContain("POUs/PLC_PRG.pou", resp.NewItems!.Keys);
     }
@@ -71,7 +71,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "Sub/PLC_PRG.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("move:PLC_PRG->Sub", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
     }
@@ -83,7 +83,7 @@ public class PushServiceTests
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         // The wire folder is the ENCODED form volt-git sends for a folder literally named "Interfaces / Data".
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = FolderPath.Encode("Interfaces / Data") + "/PLC_PRG.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("create:Interfaces / Data", ide.Recorded);   // ONE folder, decoded to its real name
         Assert.DoesNotContain(ide.Recorded, r => r is "create:Interfaces " or "create: Data"); // NOT split on the name's '/'
     }
@@ -102,7 +102,7 @@ public class PushServiceTests
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "App/New.pou", IfVersion = null, SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("create:New", ide.Recorded);
         Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
     }
@@ -121,7 +121,7 @@ public class PushServiceTests
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "Pool.gvl", IfVersion = null, SourceText = "VAR_GLOBAL\nEND_VAR\n" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Equal("<root>", ide.CreatedParents["Pool"]);
     }
 
@@ -134,7 +134,7 @@ public class PushServiceTests
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
     }
@@ -149,7 +149,7 @@ public class PushServiceTests
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = "PLC_PRG.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("move:PLC_PRG-><root>", ide.Recorded);   // the TREE root, not the Application
     }
 
@@ -166,7 +166,7 @@ public class PushServiceTests
             new SetItemOp { Name = "Good.pou", IfVersion = null, SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
             new SetItemOp { Name = "Bad.pou", IfVersion = null, SourceText = "not a POU at all" });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.DoesNotContain("create:Good", ide.Recorded);   // the VALID op ahead of the bad one never ran
         Assert.Empty(ide.Recorded);
     }
@@ -178,7 +178,7 @@ public class PushServiceTests
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_PROGRAM\n";
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "MOTOR.pou", SourceText = src });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("writecontent:MOTOR", ide.Recorded); // content written onto the renamed identity
     }
@@ -189,7 +189,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "Sub/MOTOR.pou" });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("move:MOTOR->Sub", ide.Recorded);   // moved by its NEW name
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
@@ -201,7 +201,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", To = "X.pou" });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);
     }
 
@@ -211,7 +211,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
 
@@ -230,7 +230,7 @@ public class PushServiceTests
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var src = "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
         var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = src });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("create:ST_Foo", ide.Recorded);
         Assert.Equal(new[] { "ST_Foo.dut" }, RefsService.Handle(ide).Items.Keys.ToArray());
     }
@@ -248,7 +248,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = $"{name}.dut", IfVersion = null, SourceText = src });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Equal(ItemKind.PlcDut, ide.CreatedKinds[name]);
         Assert.Equal(new[] { $"{name}.dut" }, RefsService.Handle(ide).Items.Keys.ToArray());
     }
@@ -262,7 +262,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "Foo.pou", IfVersion = null, SourceText = "   " });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // rejected up front — nothing created/written
     }
 
@@ -272,7 +272,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = null });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("needs sourceText"));
         Assert.Empty(ide.Recorded);
     }
@@ -287,7 +287,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "Junk.pou", IfVersion = null, SourceText = "this is not structured text at all" });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.InvalidSt, Assert.Single(resp.Conflicts!).Code);
         Assert.Empty(ide.Recorded);
     }
@@ -306,7 +306,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.pou", IfVersion = null, SourceText = TwoSameNameMethods });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Name == "FB_Math.pou" && c.Reason.Contains("more than one child named 'Calc'"));
         Assert.Empty(ide.Recorded); // guard throws before any CreateChild/WriteText — no half-written FB
     }
@@ -318,7 +318,7 @@ public class PushServiceTests
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var twoDistinct = TwoSameNameMethods.Replace("METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;", "METHOD Calc2 : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;");
         var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.pou", IfVersion = null, SourceText = twoDistinct });
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
     }
 
     // ── conflict REASON strings: the wire text a client turns into its message (pinned once, here) ──
@@ -329,19 +329,20 @@ public class PushServiceTests
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 5;" });
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Name == "PLC_PRG.pou" && c.Reason == "item changed since you fetched its version");
         Assert.Empty(ide.Recorded);
     }
 
     [Fact]
-    public void Wrong_expected_project_version_carries_the_project_conflict_reason()
+    public void A_wrong_expected_project_version_is_the_stale_lease_frame()
     {
         var ide = OneProgram();
         var (v, _) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" });
-        Assert.False(resp.Accepted);
-        Assert.Contains(resp.Conflicts!, c => c.Name == ConflictCodes.ProjectName && c.Code == ConflictCodes.StaleProjectVersion);
+        var refused = Assert.Throws<BridgeException>(() =>
+            Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" }));
+        Assert.Equal(BridgeErrorCodes.StaleProjectVersion, refused.ErrorCode);
+        Assert.Contains("expectedProjectVersion", refused.Message);
     }
 
     // ── multi-op batch atomicity at the service layer (was only proven in the e2e wire suite) ──
@@ -354,7 +355,7 @@ public class PushServiceTests
             FakeIde.Item.TextualPou("FB_Old", "FUNCTION_BLOCK FB_Old\nVAR\nEND_VAR", "", "POUs"));
         var refs = RefsService.Handle(ide);
         // Derive the update's SourceText from a real fetch so it round-trips in the canonical POU form.
-        var prgSrc = FetchService.Handle(ide, new FetchRequest { KnownItems = new() })
+        var prgSrc = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() })
             .Changed.First(c => c.Name == "PLC_PRG.pou").SourceText.Replace("n := 1;", "n := 2;");
 
         var resp = Push(ide, refs.ProjectVersion!,
@@ -362,7 +363,7 @@ public class PushServiceTests
             new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = prgSrc },
             new DeleteItemOp { Name = "POUs/FB_Old.pou", IfVersion = refs.Items["POUs/FB_Old.pou"] });
 
-        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
+        Assert.True(resp.Landed(), resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
         Assert.Contains(ide.Recorded, r => r.StartsWith("writecontent:PLC_PRG"));
         Assert.Contains(ide.Recorded, r => r.StartsWith("delete:FB_Old"));
@@ -379,7 +380,7 @@ public class PushServiceTests
             new SetItemOp { Name = "A.pou", IfVersion = refs.Items["A.pou"], SourceText = "PROGRAM A\nVAR\nEND_VAR\nx := 2;" }, // valid
             new SetItemOp { Name = "B.pou", IfVersion = "stale", SourceText = "PROGRAM B\nVAR\nEND_VAR\ny := 2;" });          // conflicts
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Name == "B.pou");
         Assert.Empty(ide.Recorded); // the valid op A was NOT applied — atomic rollback
     }
@@ -419,7 +420,7 @@ public class PushServiceTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("T1", Assert.Single(resp.Conflicts!).Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") && r.Contains("T1"));
     }
@@ -451,7 +452,7 @@ public class PushServiceTests
                          "NETWORK\n  split7 := TRUE;\n  out := split7;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
-        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+        Assert.True(resp.Landed(), string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
     }
 
     /// <summary>A move+edit whose CONTENT is refused must leave the item where it was — the refusal has to be
@@ -474,7 +475,7 @@ public class PushServiceTests
             SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("move:"));   // never relocated
     }
 
@@ -497,7 +498,7 @@ public class PushServiceTests
 
         var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, To = "calc.pou" });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("rename:Calc->calc", ide.Recorded);
         Assert.Contains("calc.pou", resp.NewItems!.Keys);
     }
@@ -523,7 +524,7 @@ public class PushServiceTests
 
         // A per-op refusal comes back as a REJECTION carrying the reason, not as a throw — `PushService`
         // catches per op so one bad op names itself instead of failing the whole batch anonymously.
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("did not apply the rename", Assert.Single(resp.Conflicts!).Reason);
         Assert.Contains("rename:Calc->calc", ide.Recorded);   // it was asked for, and did not take
     }

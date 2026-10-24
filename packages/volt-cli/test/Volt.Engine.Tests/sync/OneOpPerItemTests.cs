@@ -43,8 +43,8 @@ public class OneOpPerItemTests
 
     private static void AssertRefusedNamingIt(FakeIde ide, PushResponse resp, string name, string ops)
     {
-        Assert.False(resp.Accepted, "a batch naming one item in two ops was accepted");
-        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.False(resp.Landed(), "a batch naming one item in two ops was accepted");
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
         Assert.Contains($"'{name}' is named by two ops in this push ({ops})", conflict.Reason);
         Assert.Contains("One op per item", conflict.Reason);
@@ -131,8 +131,8 @@ public class OneOpPerItemTests
             return deleteFirst ? new List<PushOp> { del, set } : new List<PushOp> { set, del };
         });
 
-        Assert.False(resp.Accepted, "a delete and a set of one bare name in two kinds was accepted");
-        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.False(resp.Landed(), "a delete and a set of one bare name in two kinds was accepted");
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
         Assert.Contains("one IDE object", conflict.Reason);
         Assert.Empty(ide.Recorded);
@@ -156,7 +156,7 @@ public class OneOpPerItemTests
             return deleteFirst ? new List<PushOp> { del, set } : new List<PushOp> { set, del };
         });
 
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Contains("A re-type in one push is not written: commit the deletion of 'A.pou' and `volt push`, then commit " +
                         "'A.dut' and `volt push`.", conflict.Reason);
     }
@@ -173,6 +173,6 @@ public class OneOpPerItemTests
             new DeleteItemOp { Name = "GVLs/B.gvl", IfVersion = refs.Items["GVLs/B.gvl"] },
         });
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
     }
 }

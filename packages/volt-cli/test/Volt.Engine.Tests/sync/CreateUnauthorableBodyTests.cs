@@ -62,7 +62,7 @@ public class CreateUnauthorableBodyTests
 
         var resp = Create(ide, $"{Decl}\n{Marker(language)}\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts ?? [], c => c.Reason.Contains(language) && c.Reason.Contains("cannot author"));
         AssertNothingMutated(ide);
     }
@@ -77,7 +77,7 @@ public class CreateUnauthorableBodyTests
         var resp = Create(ide,
             $"{Decl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{Marker("CFC")}\nEND_METHOD\n");
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts ?? [], c => c.Reason.Contains("'M'") && c.Reason.Contains("CFC"));
         AssertNothingMutated(ide);
     }
@@ -91,7 +91,7 @@ public class CreateUnauthorableBodyTests
         var resp = Create(ide, $"{Decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n");
 
         // `Conflicts` is null on an accepted push, so the message has to survive that to be readable when it isn't.
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:"));
     }
 }

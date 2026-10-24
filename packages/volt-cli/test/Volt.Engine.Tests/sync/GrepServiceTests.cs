@@ -20,9 +20,9 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class GrepServiceTests
 {
-    public static TheoryData<string> Vendors => new() { Contracts.Vendors.Codesys, Contracts.Vendors.Twincat };
+    public static TheoryData<string> Vendors => new() { "codesys", "twincat" };
 
-    private static string App(string vendor) => vendor == Contracts.Vendors.Twincat
+    private static string App(string vendor) => vendor == "twincat"
         ? "TwinCAT Project1/PLC/Line/Line Project"
         : "Device/Plc Logic/Application";
 
@@ -93,7 +93,7 @@ public class GrepServiceTests
     [Fact]
     public void Matches_are_in_path_order_then_line_order()
     {
-        var r = Grep(Project(Contracts.Vendors.Codesys), "x");
+        var r = Grep(Project("codesys"), "x");
 
         var keys = r.Matches.Select(m => (m.Path, m.Line)).ToList();
         Assert.Equal(keys.OrderBy(k => k.Path, StringComparer.Ordinal).ThenBy(k => k.Line), keys);
@@ -134,7 +134,7 @@ public class GrepServiceTests
     [Fact]
     public void A_literal_with_regex_metacharacters_matches_as_text()
     {
-        var r = Grep(Project(Contracts.Vendors.Codesys), "fbMotor(", q => q.Literal = true);
+        var r = Grep(Project("codesys"), "fbMotor(", q => q.Literal = true);
 
         Assert.Equal(new[] { "fbMotor();" }, r.Matches.Select(m => m.Text));
     }
@@ -142,7 +142,7 @@ public class GrepServiceTests
     [Fact]
     public void An_invalid_regular_expression_is_a_BAD_REQUEST_naming_it_and_nothing_is_walked()
     {
-        var ide = Project(Contracts.Vendors.Codesys);
+        var ide = Project("codesys");
 
         var ex = Refused(() => Grep(ide, "fbMotor("));
 
@@ -170,7 +170,7 @@ public class GrepServiceTests
     [InlineData(null)]
     public void An_empty_pattern_is_a_BAD_REQUEST(string? pattern)
     {
-        var ide = Project(Contracts.Vendors.Codesys);
+        var ide = Project("codesys");
 
         var ex = Refused(() => GrepService.Handle(ide, new GrepRequest { Pattern = pattern! }));
 
@@ -225,7 +225,7 @@ public class GrepServiceTests
     [Fact]
     public void A_kind_glob_searches_only_that_kind()
     {
-        var r = Grep(Project(Contracts.Vendors.Codesys), "x", q => q.Paths = new List<string> { "**/*.gvl" });
+        var r = Grep(Project("codesys"), "x", q => q.Paths = new List<string> { "**/*.gvl" });
 
         Assert.Equal(1, r.Searched);
         Assert.All(r.Matches, m => Assert.EndsWith(".gvl", m.Path));
@@ -260,7 +260,7 @@ public class GrepServiceTests
     [Fact]
     public void A_glob_matching_nothing_searches_nothing_and_is_no_error()
     {
-        var r = Grep(Project(Contracts.Vendors.Codesys), "x", q => q.Paths = new List<string> { "**/*.nothing" });
+        var r = Grep(Project("codesys"), "x", q => q.Paths = new List<string> { "**/*.nothing" });
 
         Assert.Equal(0, r.Searched);
         Assert.Empty(r.Matches);
@@ -270,7 +270,7 @@ public class GrepServiceTests
     [Fact]
     public void A_star_stays_within_one_segment()
     {
-        var r = Grep(Project(Contracts.Vendors.Codesys), "x", q => q.Paths = new List<string> { "Device/*/FB_Motor.pou" });
+        var r = Grep(Project("codesys"), "x", q => q.Paths = new List<string> { "Device/*/FB_Motor.pou" });
 
         Assert.Equal(0, r.Searched);
     }
@@ -280,7 +280,7 @@ public class GrepServiceTests
     [Fact]
     public void A_network_text_body_is_searched_as_fetch_ships_it()
     {
-        var ide = Project(Contracts.Vendors.Codesys,
+        var ide = Project("codesys",
             new FakeIde.Item("PRG_Lamp", ItemKind.PlcPou, "POUs", true, "PROGRAM PRG_Lamp\nVAR\n\tlamp : BOOL;\nEND_VAR",
                              "lamp := start;", "FBD", null));
         var text = Fetched(ide)["POUs/PRG_Lamp.pou"];
@@ -296,7 +296,7 @@ public class GrepServiceTests
     [Fact]
     public void A_CFC_body_is_named_not_searched_while_the_declaration_still_matches()
     {
-        var ide = Project(Contracts.Vendors.Codesys,
+        var ide = Project("codesys",
             new FakeIde.Item("PRG_Conveyor", ItemKind.PlcPou, "POUs", true, "PROGRAM PRG_Conveyor\nVAR\n\tbelt : BOOL;\nEND_VAR",
                              "belt", "CFC", null));
 
@@ -345,7 +345,7 @@ public class GrepServiceTests
     [Fact]
     public void An_unreadable_item_is_named_with_the_reason_refs_gives()
     {
-        var ide = Project(Contracts.Vendors.Codesys, FakeIde.Item.MalformedGraphical("FB_Broken", "POUs"));
+        var ide = Project("codesys", FakeIde.Item.MalformedGraphical("FB_Broken", "POUs"));
         var unread = RefsService.Handle(ide).Unreadable.Single();
 
         var r = Grep(ide, "x");
@@ -357,7 +357,7 @@ public class GrepServiceTests
     [Fact]
     public void An_unreadable_item_out_of_scope_is_not_named()
     {
-        var ide = Project(Contracts.Vendors.Codesys, FakeIde.Item.MalformedGraphical("FB_Broken", "POUs"));
+        var ide = Project("codesys", FakeIde.Item.MalformedGraphical("FB_Broken", "POUs"));
 
         Assert.Empty(Grep(ide, "x", q => q.Paths = new List<string> { "**/*.gvl" }).NotSearched);
     }
@@ -365,7 +365,7 @@ public class GrepServiceTests
     [Fact]
     public void Libraries_are_out_of_scope_and_unlisted()
     {
-        var ide = Project(Contracts.Vendors.Codesys);
+        var ide = Project("codesys");
         Assert.Contains(Fetched(ide), f => f.Key.EndsWith(".library", StringComparison.Ordinal) && f.Value.Contains("RESOLUTION bRunning"));
 
         var r = Grep(ide, "RESOLUTION");
@@ -377,7 +377,7 @@ public class GrepServiceTests
     [Fact]
     public void Unwalked_folders_are_passed_through_as_refs_answers_them()
     {
-        var ide = Project(Contracts.Vendors.Codesys);
+        var ide = Project("codesys");
         ide.UnwalkableFolders = new[] { "Device/Plc Logic/Application/POUs" };
 
         var r = Grep(ide, "bRunning");
@@ -441,9 +441,9 @@ public class GrepServiceTests
     [Fact]
     public void A_grep_bound_to_another_project_is_WRONG_PROJECT()
     {
-        var ide = Project(Contracts.Vendors.Codesys);
+        var ide = Project("codesys");
 
-        var ex = Refused(() => Grep(ide, "x", q => { q.ExpectedPlatform = Contracts.Vendors.Codesys; q.ExpectedProjectName = "Other"; }));
+        var ex = Refused(() => Grep(ide, "x", q => { q.ExpectedPlatform = "codesys"; q.ExpectedProjectName = "Other"; }));
 
         Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
     }

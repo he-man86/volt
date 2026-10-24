@@ -73,8 +73,8 @@ public class MoveIntoNonFolderTests
         var res = Move(ide, Gvl, toFolder,
                        (Application + "/02 Processes/FB_Proc.pou", Application));
 
-        Assert.False(res.Accepted);
-        var refused = Assert.Single(res.Conflicts!);
+        Assert.False(res.Landed());
+        var refused = Assert.Single(res.Refused());
         Assert.Equal(Gvl, refused.Name);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains($"'PersistentVars' cannot move into '{toFolder}'", refused.Reason);
@@ -96,7 +96,7 @@ public class MoveIntoNonFolderTests
 
         var res = Move(ide, Gvl, toFolder);
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.Contains(ItemPath.Of(toFolder, "PersistentVars.gvl"), RefsService.Handle(ide).Items.Keys);
     }
 
@@ -108,7 +108,7 @@ public class MoveIntoNonFolderTests
 
         var res = Move(ide, Gvl, Application + "/02 Processes");
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var refused = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains("did not apply the move", refused.Reason);
@@ -131,7 +131,7 @@ public class MoveIntoNonFolderTests
 
         var res = Move(ide, "GVLs/GVL_PackML.gvl", "References");
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var refused = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains("'GVL_PackML' cannot move into 'References'", refused.Reason);
@@ -156,7 +156,7 @@ public class MoveIntoNonFolderTests
 
         var res = Move(ide, "A/CM_Carrier.pou", "B");
 
-        Assert.False(res.Accepted, "the visualization in 'B' answered for the FB that never left 'A'");
+        Assert.False(res.Landed(), "the visualization in 'B' answered for the FB that never left 'A'");
         var refused = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains("did not apply the move", refused.Reason);
@@ -174,7 +174,7 @@ public class MoveIntoNonFolderTests
 
         var res = Move(ide, Gvl, Application + "/02 Processes");
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var refused = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
         Assert.Contains("did not apply the move", refused.Reason);

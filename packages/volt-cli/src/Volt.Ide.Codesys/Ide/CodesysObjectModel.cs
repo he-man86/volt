@@ -60,9 +60,12 @@ namespace Volt.Ide.Codesys
         {
             get { var path = ProjectPath; return string.IsNullOrEmpty(path) ? null : System.IO.Path.GetFileNameWithoutExtension(path); }
         }
-        public bool ProjectDirty
+        /// <summary>Whether the primary project has unsaved changes, as <c>ScriptProject.dirty</c> answers — null when there
+        /// is no primary project or the object has no such member: the IDE did not say, so the row carries no
+        /// <c>dirty</c> (never a guessed <c>false</c>).</summary>
+        public bool? ProjectDirty
         {
-            get { var p = PrimaryProject; return p != null && GetMember(p, "dirty") is bool b && b; }
+            get { var p = PrimaryProject; return p != null && GetMember(p, "dirty") is bool b ? b : null; }
         }
 
         public IReadOnlyList<object> GetChildren(object node)

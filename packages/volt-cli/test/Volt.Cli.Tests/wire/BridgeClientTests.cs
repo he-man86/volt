@@ -26,7 +26,7 @@ public class BridgeClientTests
         host.Start();
 
         var frames = 0;
-        var resp = new BridgeClient(pipe).FetchChanges(new FetchRequest { KnownItems = new Dictionary<string, string>() }, _ => frames++);
+        var resp = new BridgeClient(pipe).FetchChanges(new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>() }, _ => frames++);
 
         Assert.True(resp.Items.Count >= 60);                        // full version map (typed)
         Assert.Contains(resp.Changed, c => c.Name == "P0.pou");     // materialized wire name
@@ -43,7 +43,7 @@ public class BridgeClientTests
         var h = new BridgeClient(pipe).GetHealth();
         Assert.NotNull(h); // a typed HealthResponse, no wire-version handshake needed
         // The suites run with LD and FBD on (test.runsettings), and the bridge says so over the wire.
-        Assert.True(h.NetworkText);
+        Assert.Equal(new[] { "FBD", "LD", "ST" }, h.Languages);
     }
 
     [Fact]
@@ -53,10 +53,8 @@ public class BridgeClientTests
         // (e.g. the old bare `volt.bridge.twincat`) would send the CLI to a pipe nothing serves.
         Assert.Equal("volt.bridge.twincat.", PipeNames.PrefixForVendor("twincat"));
         Assert.Equal("volt.bridge.codesys.", PipeNames.PrefixForVendor("codesys"));
-        Assert.Equal(PipeNames.TwincatPrefix, PipeNames.PrefixForVendor("twincat"));
-        Assert.Equal(PipeNames.CodesysPrefix, PipeNames.PrefixForVendor("codesys"));
         // A worker's actual served pipe is the prefix + its pid — never the bare base.
-        Assert.Equal("volt.bridge.twincat.17844", PipeNames.TwincatInstance(17844));
+        Assert.Equal("volt.bridge.twincat.17844", PipeNames.Instance("twincat", 17844));
     }
 
     // ── push + refs over the pipe (fetch/init/health were covered; the push/refs framing was not) ──
@@ -90,7 +88,7 @@ public class BridgeClientTests
             var client = new BridgeClient(pipe);
             var refs = client.GetRefs();
             // Derive the edit from a real fetch so the SourceText round-trips in the canonical POU form.
-            var src = client.FetchChanges(new FetchRequest { KnownItems = new Dictionary<string, string>() })
+            var src = client.FetchChanges(new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>() })
                 .Changed.First(c => c.Name == "PLC_PRG.pou").SourceText.Replace("x := 1", "x := 2");
             var resp = client.PushBatch(new PushRequest
             {
@@ -99,28 +97,28 @@ public class BridgeClientTests
                 ExpectedProjectVersion = refs.ProjectVersion,
                 Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = src } },
             });
-            Assert.True(resp.Accepted);
+            Assert.True(resp.Landed());
             Assert.False(string.IsNullOrEmpty(resp.NewProjectVersion));
         }
     }
 
     [Fact]
-    public void PushBatch_over_the_pipe_reports_a_project_conflict()
+    public void PushBatch_over_the_pipe_refuses_a_stale_lease_with_the_error_frame_and_the_IDEs_version()
     {
         var (pipe, host) = OneProgramHost();
         using (host)
         {
             var client = new BridgeClient(pipe);
             var refs = client.GetRefs();
-            var resp = client.PushBatch(new PushRequest
+            var ex = Assert.Throws<PipeCallException>(() => client.PushBatch(new PushRequest
             {
                 ExpectedPlatform = refs.Platform,
                 ExpectedProjectName = refs.ProjectName,
                 ExpectedProjectVersion = "stale-pv",
                 Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nx := 2;" } },
-            });
-            Assert.False(resp.Accepted);
-            Assert.Contains(resp.Conflicts!, c => c.Name == "<project>");
+            }));
+            Assert.Equal(BridgeErrorCodes.StaleProjectVersion, ex.Code);
+            Assert.Equal(refs.ProjectVersion, ex.ErrorData!.Value.GetProperty("currentProjectVersion").GetString());
         }
     }
 }

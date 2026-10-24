@@ -47,7 +47,7 @@ public class PushDeclarationTransportTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = name, IfVersion = refs.Items[name], SourceText = src } },
         });
-        Assert.True(resp.Accepted,
+        Assert.True(resp.Landed(),
             "push rejected: " + string.Join("; ", resp.Conflicts?.ConvertAll(c => $"{c.Name}: {c.Reason}")
                                                  ?? new List<string> { "<none>" }));
     }

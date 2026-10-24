@@ -61,7 +61,7 @@ public class PushSiblingDeclarationsTests
     {
         var ide = TwoItems();
         var resp = PushBoth(ide);
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
 
         var seen = Assert.Single(ide.ScopesPushed).ByName;
         Assert.True(seen.ContainsKey("Mach1_AuxData"),

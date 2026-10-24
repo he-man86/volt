@@ -59,7 +59,7 @@ public class PushReturnsSourcesTests
 
     private static FetchedItem Fetch(FakeIde ide, string wireName) =>
         FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { wireName },
         }).Changed.Single();
@@ -83,7 +83,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("FB_Motor.pou", W1));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "FB_Motor.pou");
         Assert.NotEqual(W1, push.NewSources!["FB_Motor.pou"]);
         Assert.True(push.NewSources["FB_Motor.pou"].IndexOf("ACTION Stop") < push.NewSources["FB_Motor.pou"].IndexOf("PROPERTY Running"));
@@ -97,7 +97,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("GVL_Drive.gvl", Gvl), Create("ST_Drive.dut", Struct), Create("E_Mode.dut", Enum));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "GVL_Drive.gvl");
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
         HoldsWhatAFetchGives(ide, push, "E_Mode.dut");
@@ -117,7 +117,7 @@ public class PushReturnsSourcesTests
             SourceText = W1.Replace("xRunning := FALSE;", "xRunning := NOT xEnable;"),
         });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "FB_Motor.pou");
         Assert.Contains("xRunning := NOT xEnable;", push.NewSources!["FB_Motor.pou"]);
     }
@@ -132,10 +132,10 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("ST_Drive.dut", Struct));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.NotNull(push.NewSources);
         Assert.Equal(new[] { "ST_Drive.dut" }, push.NewSources!.Keys.ToArray());
-        Assert.Contains("GVL_Drive.gvl", push.NewItems!.Keys);
+        Assert.Equal(new[] { "ST_Drive.dut" }, push.NewItems.Keys.ToArray());   // the receipt, too, names only what changed
     }
 
     /// <summary>A rename+edit is answered under the NEW name — the <c>newItems</c> key — and the old name has none.</summary>
@@ -151,7 +151,7 @@ public class PushReturnsSourcesTests
             SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
         });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "FB_New.pou");
         Assert.False(push.NewSources!.ContainsKey("FB_Old.pou"));
     }
@@ -167,7 +167,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, new SetItemOp { Name = "FB_Old.pou", To = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"] });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("FUNCTION_BLOCK FB_New", Fetch(ide, "FB_New.pou").SourceText);   // premise: the rename rewrote it
         HoldsWhatAFetchGives(ide, push, "FB_New.pou");
         Assert.Contains("FUNCTION_BLOCK FB_New", push.NewSources!["FB_New.pou"]);
@@ -188,7 +188,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, new SetItemOp { Name = "F_Old.pou", To = "F_New.pou", IfVersion = refs.Items["F_Old.pou"] });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("F_Old := TRUE;", Fetch(ide, "F_New.pou").SourceText);
         HoldsWhatAFetchGives(ide, push, "F_New.pou");
         Assert.Contains("FUNCTION F_New", push.NewSources!["F_New.pou"]);
@@ -210,9 +210,10 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("rename:FB_A->FB_B", ide.Recorded);
-        Assert.Equal(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);
+        Assert.DoesNotContain("PLC_PRG.pou", push.NewItems.Keys);   // put back: unchanged, so not in the receipt
+        Assert.Equal(refs.Items["PLC_PRG.pou"], RefsService.Handle(ide).Items["PLC_PRG.pou"]);
         Assert.Contains("fb : FB_A;", Fetch(ide, "PLC_PRG.pou").SourceText);
         HoldsWhatAFetchGives(ide, push, "FB_B.pou");
         Assert.Equal(new[] { "FB_B.pou" }, push.NewSources!.Keys.ToArray());
@@ -244,11 +245,14 @@ public class PushReturnsSourcesTests
                              "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
             });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         var c = Assert.Single(push.Conflicts!);
         Assert.Equal("Y.pou", c.RenamedTo);                                                   // premise: stays renamed
         Assert.Contains("fb : X;", Fetch(ide, "PLC_PRG.pou").SourceText);
-        Assert.Equal(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);
+        Assert.DoesNotContain("PLC_PRG.pou", push.NewItems.Keys);   // put back: unchanged, so not in the receipt
+        Assert.Equal(refs.Items["PLC_PRG.pou"], RefsService.Handle(ide).Items["PLC_PRG.pou"]);
+        Assert.Contains("Y.pou", push.NewItems.Keys);               // what of the refused op stays: its rename
+        Assert.Contains("X.pou", push.Removed);
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
         Assert.False(push.NewSources!.ContainsKey("PLC_PRG.pou"));
         Assert.False(push.NewSources!.ContainsKey("Y.pou"));
@@ -271,7 +275,7 @@ public class PushReturnsSourcesTests
             SourceText = W1.Replace("xRunning := FALSE;", "xRunning := NOT xEnable;"),
         });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "FB_Motor.pou");
         Assert.False(push.NewSources!.ContainsKey("fb_motor.pou"));
         Assert.Contains("FB_Motor.pou", push.NewItems!.Keys);
@@ -286,7 +290,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", To = "Sub/FB_A.pou", IfVersion = refs.Items["FB_A.pou"] });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "Sub/FB_A.pou");
     }
 
@@ -308,7 +312,7 @@ public class PushReturnsSourcesTests
                              "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
             });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         var c = Assert.Single(push.Conflicts!);
         Assert.Equal("K.pou", c.Name);
         Assert.True(c.PartiallyApplied, "premise: the refused update left its declaration");
@@ -317,10 +321,10 @@ public class PushReturnsSourcesTests
         Assert.False(push.NewSources!.ContainsKey("K.pou"));
     }
 
-    /// <summary>A refused UPDATE under which NOTHING was written: the item is unchanged and in <c>newItems</c>, the op is
-    /// in <c>conflicts</c> — no entry.</summary>
+    /// <summary>A refused UPDATE under which NOTHING was written: the item is unchanged, so it is in neither
+    /// <c>newItems</c> nor <c>newSources</c>; the op is in <c>conflicts</c>.</summary>
     [Fact]
-    public void A_refused_update_that_wrote_nothing_is_not_answered_though_it_is_in_the_receipt()
+    public void A_refused_update_that_wrote_nothing_is_not_answered_and_not_in_the_receipt()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("K", "FUNCTION K : BOOL\nVAR\nEND_VAR", "K := TRUE;")) { RefusesMembersByText = true };
         var version = RefsService.Handle(ide).Items["K.pou"];
@@ -334,9 +338,9 @@ public class PushReturnsSourcesTests
                              "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
             });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal("K.pou", Assert.Single(push.Conflicts!).Name);
-        Assert.Contains("K.pou", push.NewItems!.Keys);
+        Assert.DoesNotContain("K.pou", push.NewItems.Keys);
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
         Assert.False(push.NewSources!.ContainsKey("K.pou"));
     }
@@ -353,7 +357,7 @@ public class PushReturnsSourcesTests
             new DeleteItemOp { Name = "GVL_Drive.gvl", IfVersion = refs.Items["GVL_Drive.gvl"] },
             Create("ST_Drive.dut", Struct));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
         Assert.False(push.NewSources!.ContainsKey("GVL_Drive.gvl"));
     }
@@ -370,7 +374,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("E_Mode.dut", Enum), Create("ST_Drive.dut", Struct), Create("F.pou", functionWithMethod));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal("F.pou", Assert.Single(push.Conflicts!).Name);
         HoldsWhatAFetchGives(ide, push, "E_Mode.dut");
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
@@ -392,7 +396,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("GVL_Drive.gvl", Gvl), Create("ST_Drive.dut", Struct));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.DoesNotContain("ST_Drive.dut", push.NewItems!.Keys);
         Assert.NotNull(push.NewSources);
         Assert.False(push.NewSources!.ContainsKey("ST_Drive.dut"));
@@ -415,7 +419,7 @@ public class PushReturnsSourcesTests
         var push = Push(ide, true, Create("GVL_Drive.gvl", Gvl),
             new SetItemOp { Name = "Types/ST_Drive.dut", IfVersion = null, SourceText = Struct });
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains("Types", push.UnwalkedFolders);
         Assert.DoesNotContain("Types/ST_Drive.dut", push.NewItems!.Keys);
         Assert.NotNull(push.NewSources);
@@ -433,7 +437,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, flag, Create("FB_Motor.pou", W1));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Null(push.NewSources);
         Assert.DoesNotContain("newSources", System.Text.Json.JsonSerializer.Serialize(push));
     }
@@ -446,7 +450,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("Good.pou", "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n"), Create("Bad.pou", "not a POU at all"));
 
-        Assert.False(push.Accepted);
+        Assert.False(push.Landed());
         Assert.Null(push.NewSources);
     }
 
@@ -458,7 +462,7 @@ public class PushReturnsSourcesTests
 
         var push = Push(ide, true, Create("FB_Motor.pou", W1), Create("GVL_Drive.gvl", Gvl), Create("ST_Drive.dut", Struct));
 
-        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
         Assert.NotNull(push.NewSources);
         Assert.Equal(3, push.NewSources!.Count);
         Assert.All(push.NewSources.Keys, k => Assert.Contains(k, push.NewItems!.Keys));

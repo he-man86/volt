@@ -34,7 +34,7 @@ public class ContainerManagerTests
             FakeIde.Item.TextualPou("Good", "PROGRAM Good\nVAR\nEND_VAR", "x := 1;"),
             new FakeIde.Item("Library Manager", ItemKind.PlcLibMan, "App", false, "library_manager", null, null, null));
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         Assert.DoesNotContain(fetch.Items.Keys, k => k.Contains("library_manager"));
         Assert.DoesNotContain(fetch.Changed, c => c.Name.Contains("library_manager"));
@@ -64,7 +64,7 @@ public class ContainerManagerTests
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "A", false, "text_list", null, null, null),
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "B", false, "text_list", null, null, null));
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         Assert.Equal(new[] { "A/Dup.text_list", "B/Dup.text_list" }, fetch.Items.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
         Assert.Equal(fetch.Items.Keys.OrderBy(k => k, System.StringComparer.Ordinal),

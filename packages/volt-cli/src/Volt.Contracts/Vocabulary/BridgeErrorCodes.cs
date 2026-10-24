@@ -7,6 +7,18 @@
 /// string).</summary>
 public static class BridgeErrorCodes
 {
+    /// <summary>The request states no <c>protocol</c>, or one this bridge does not speak: refused before its body is
+    /// read, nothing done. <c>error.data.bridgeProtocol</c> (<see cref="ProtocolMismatchData"/>) is the number this
+    /// bridge speaks. Remedy: the client and the bridge are of two releases — update the older one (an IDE that loaded the
+    /// previous bridge is restarted).</summary>
+    public const string ProtocolMismatch = "PROTOCOL_MISMATCH";
+
+    /// <summary>A push's LEASE is stale: the project moved between the read that produced <c>expectedProjectVersion</c>
+    /// and this push. Nothing was applied. An error frame, never a conflict — the lease is the request's, not an op's;
+    /// <c>error.data.currentProjectVersion</c> (<see cref="StaleProjectVersionData"/>) is the version the IDE holds.
+    /// Remedy: pull, then push again.</summary>
+    public const string StaleProjectVersion = "STALE_PROJECT_VERSION";
+
     public const string PlcDisconnected = "PLC_DISCONNECTED";
     public const string WrongProject = "WRONG_PROJECT";
     /// <summary>A POST-CONDITION of the apply: the IDE no longer holds what Volt just wrote or read — a member it

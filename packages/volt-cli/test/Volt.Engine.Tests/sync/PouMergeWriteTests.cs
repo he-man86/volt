@@ -41,7 +41,7 @@ public class PouMergeWriteTests
             Ops = new() { new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], SourceText = src } },
         });
         // A rejection here is a test-setup bug 9 times in 10 — surface WHY instead of a bare "expected True".
-        Assert.True(resp.Accepted,
+        Assert.True(resp.Landed(),
             "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         return resp;
     }
@@ -104,7 +104,7 @@ public class PouMergeWriteTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Two.pou", IfVersion = refs.Items["FB_Two.pou"], SourceText = src } },
         });
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
 
         var members = ide.WrittenContent["FB_Two"].Members;
         Assert.Equal("Helpers", Assert.Single(members, m => m.Name == "One").Folder);
@@ -127,7 +127,7 @@ public class PouMergeWriteTests
     {
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
-        Assert.True(resp.Accepted,
+        Assert.True(resp.Landed(),
             "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         return resp;
     }
@@ -270,7 +270,7 @@ public class PouMergeWriteTests
             Ops = new() { new SetItemOp { Name = "FB_K.pou", IfVersion = refs.Items["FB_K.pou"], SourceText = src } },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("'Ready'", Assert.Single(resp.Conflicts!).Reason);
         Assert.Empty(ide.Recorded);
     }
@@ -295,7 +295,7 @@ public class PouMergeWriteTests
             Ops = new() { new SetItemOp { Name = "FB_D.pou", IfVersion = refs.Items["FB_D.pou"], SourceText = src } },
         });
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.True(ide.Recorded.IndexOf("delete:Gone") < ide.Recorded.IndexOf("create:Fresh"));
     }
 }

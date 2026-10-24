@@ -90,28 +90,6 @@ public class HonestHealthTests
         Assert.Equal(HealthStatus.Degraded, session.BuildHealthResponse().Status);
     }
 
-    /// <summary>`health` says whether LD and FBD network text is on in the BRIDGE's process
-    /// (<see cref="Volt.Engine.Format.Network.NetworkTextSwitch"/>). The switch is read from the bridge's own
-    /// environment, and a client — `refresh:corpus`, `record:language` — cannot set it: a corpus refreshed through a
-    /// bridge started without it (by the connector) swapped every ladder for its UNSUPPORTED line and nothing noticed.
-    /// This is how a client can.</summary>
-    [Fact]
-    public void Health_says_whether_LD_and_FBD_are_on_in_this_bridge()
-    {
-        var session = new ComposedSession(new ProbeCountingHost());
-        var was = Volt.Engine.Format.Network.NetworkTextSwitch.Enabled;
-        try
-        {
-            Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = true;
-            Assert.True(session.BuildHealthResponse().NetworkText);
-            Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = false;
-            Assert.False(session.BuildHealthResponse().NetworkText);
-        }
-        finally { Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = was; }
-        Assert.Contains("\"networkText\":true",
-            System.Text.Json.JsonSerializer.Serialize(new HealthResponse { NetworkText = true }));
-    }
-
     /// <summary>A host whose IDE does not answer, shaped like <c>BeckhoffDriver</c>: its probe states its rows and that the
     /// IDE did not answer. The floor is parked far above the test's own duration so only the explicit
     /// <c>TriggerAsyncProbe</c> ever probes — no second probe can be in flight while the row is read.</summary>
@@ -121,7 +99,7 @@ public class HonestHealthTests
         public override string? ServedProjectName => "P";
 
         public override ProjectProbe ProbeProjects() =>
-            new(new List<ProjectEntry> { new("fake", "0", "P", HealthStatus.Healthy, false) }, Bound: false,
+            new(new List<ProjectEntry> { new("fake", "P", HealthStatus.Healthy, false) }, Bound: false,
                 NotAnswering: "the IDE did not answer the liveness probe");
     }
 

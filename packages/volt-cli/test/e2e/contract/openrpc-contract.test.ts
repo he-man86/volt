@@ -27,7 +27,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { appendFileSync } from "node:fs"
-import { callRaw, currentPipe, BASE, VENDOR, type RawAnswer } from "../lib/pipe"
+import { callRaw, currentPipe, BASE, VENDOR, WIRE_PROTOCOL, type RawAnswer } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
 import { cleanup, plcFolder, requireHealthy, folderOf, inFolder } from "../lib/workspace"
 import { drivenApplication } from "../lib/main-program"
@@ -54,7 +54,7 @@ type Answer = {
 }
 
 function frameOf(op: string | undefined, body: unknown, bodyKey = true): string {
-	const env: Record<string, unknown> = { op }
+	const env: Record<string, unknown> = { op, protocol: WIRE_PROTOCOL }
 	if (bodyKey && body !== undefined) env.body = body
 	return JSON.stringify(env)
 }
@@ -274,7 +274,7 @@ describe(`contract / the bridge against its OpenRPC document (${BASE})`, () => {
 			guarded(`${op}: its members in another order answer the same`, async () => {
 				const base = await contractCase(`${op}/base-for-order`, op, () => callRaw(currentPipe(), frameOf(op, baseBody(op))), observed)
 				await contractCase(`${op}/members-reordered`, op, () => callRaw(currentPipe(), frameOf(op, reversed(baseBody(op)))), observed, (a) => sameAnswer(base, a))
-				await contractCase(`${op}/envelope-reordered`, op, () => callRaw(currentPipe(), JSON.stringify({ body: baseBody(op), op })), observed, (a) => sameAnswer(base, a))
+				await contractCase(`${op}/envelope-reordered`, op, () => callRaw(currentPipe(), JSON.stringify({ body: baseBody(op), protocol: WIRE_PROTOCOL, op })), observed, (a) => sameAnswer(base, a))
 			})
 			guarded(`${op}: a body that is no object is BAD_REQUEST`, async () => {
 				await contractCase(`${op}/body-array`, op, send(op, []), refusedWith("BAD_REQUEST"))
@@ -300,10 +300,10 @@ describe(`contract / the bridge against its OpenRPC document (${BASE})`, () => {
 			await contractCase("frame/unknown-op", undefined, send("frobnicate", {}), refusedWith("BAD_REQUEST"))
 		})
 		it("an envelope with its `op` in another case names no op: BAD_REQUEST", async () => {
-			await contractCase("frame/envelope-op-other-case", undefined, sendRaw(JSON.stringify({ OP: "refs", body: {} })), refusedWith("BAD_REQUEST"))
+			await contractCase("frame/envelope-op-other-case", undefined, sendRaw(JSON.stringify({ OP: "refs", protocol: WIRE_PROTOCOL, body: {} })), refusedWith("BAD_REQUEST"))
 		})
 		it("an envelope member beside op and body (observation)", async () => {
-			await contractCase("frame/envelope-unknown-member", "refs", sendRaw(JSON.stringify({ op: "refs", body: {}, zz: 1 })), observed)
+			await contractCase("frame/envelope-unknown-member", "refs", sendRaw(JSON.stringify({ op: "refs", protocol: WIRE_PROTOCOL, body: {}, zz: 1 })), observed)
 		})
 		it("a frame over the 64 MiB cap is BAD_REQUEST, unread", async () => {
 			const over = Buffer.alloc(64 * 1024 * 1024 + 1, 0x20)

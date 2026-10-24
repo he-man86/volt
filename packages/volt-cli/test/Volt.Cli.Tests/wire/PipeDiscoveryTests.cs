@@ -53,7 +53,7 @@ public class PipeDiscoveryTests
     public void Enumerating_the_whole_namespace_never_throws()
     {
         // The real namespace holds system pipes with names illegal as file paths — the native walk must not throw.
-        var ex = Record.Exception(() => PipeDiscovery.List(PipeNames.CodesysPrefix));
+        var ex = Record.Exception(() => PipeDiscovery.List(PipeNames.PrefixForVendor("codesys")));
         Assert.Null(ex);
     }
 }

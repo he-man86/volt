@@ -333,10 +333,10 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
             .Select(i => new ProjectItem(i.Name, RefTo(i), i.KindCode, i.Folder))
             .ToList();
         var unreadable = walked.Where(i => UnclassifiableItems.Contains(i.Name))
-            .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it", Kind: null))
+            .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it", Kind: null, Code: BridgeErrorCodes.Unreadable))
             .ToList();
         unreadable.AddRange(walked.Where(i => UnopenedItems.Contains(i.Name))
-            .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKind)));
+            .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKind, Code: BridgeErrorCodes.Unreadable)));
         // An application under a folder the walk could not enter is never stated: a real walk cannot see it.
         var applications = ContainerKinds.Where(kv => kv.Value == ItemKind.Application).Select(kv => kv.Key)
             .Where(a => !UnwalkableFolders.Any(f => Under(a, f)) && !unclassifiedSubtrees.Any(s => Under(a, s)))
@@ -393,7 +393,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     /// <summary>What the fake states about itself: the IEC format's kinds and keys, the six body languages — LD and FBD
     /// read against the scopes it builds (<see cref="NetworkScopeFor"/>).</summary>
     public VendorDeclaration Declaration => _declaration ??= new VendorDeclaration(
-        new VendorRow(Vendor, Vendors.Display(Vendor)),
+        new VendorRow(Vendor, Vendor == "twincat" ? "TwinCAT" : "CODESYS"),
         IecFormat.KindRows,
         new[]
         {
@@ -1486,8 +1486,8 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
         var serving = IsConnected && !StaleHealthSnapshot;
         var rows = Projects.Select(p => p with { Status = serving ? p.Status : HealthStatus.Idle }).ToList();
         if (rows.Count == 0 && serving && !string.IsNullOrEmpty(HealthSnapshotProjectName))
-            rows.Add(new ProjectEntry(HealthPlatform, "0", HealthSnapshotProjectName!, HealthStatus.Healthy, false));
-        return new HealthResponse { Projects = rows, NetworkText = Volt.Engine.Format.Network.NetworkTextSwitch.Enabled };
+            rows.Add(new ProjectEntry(HealthPlatform, HealthSnapshotProjectName!, HealthStatus.Healthy, false));
+        return new HealthResponse { Projects = rows };
     }
     /// <summary>Whether an op exception counts as a transient the host should self-heal — the filter on
     /// <c>BridgePipeHost.RunRead</c>'s mark-degraded → Recover → retry-once branch. Default false: today's answer, and
@@ -1607,4 +1607,22 @@ public static class WirePaths
 {
     public static string File(this FetchedItem item) => ItemPath.FileOf(item.Name);
     public static string Folder(this FetchedItem item) => ItemPath.FolderOf(item.Name);
+}
+
+/// <summary>A test's word for "this push landed something": the wire says it by <c>newProjectVersion</c>, present
+/// exactly when something landed (wire-final-shape, design §5 — there is no <c>accepted</c> flag).</summary>
+public static class PushLanded
+{
+    public static bool Landed(this PushResponse response) => response.NewProjectVersion is not null;
+}
+
+/// <summary>The conflicts that REFUSED an op, without the <c>NOT_ATTEMPTED</c> rows of the ops the push did not reach
+/// (wire-final-shape §5: every op a refusal stopped has one).</summary>
+public static class PushRefused
+{
+    public static List<PushConflict> Refused(this PushResponse response) =>
+        response.Conflicts.Where(c => c.Code != ConflictCodes.NotAttempted).ToList();
+
+    public static List<string> NotAttempted(this PushResponse response) =>
+        response.Conflicts.Where(c => c.Code == ConflictCodes.NotAttempted).Select(c => c.Name).ToList();
 }

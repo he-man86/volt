@@ -63,7 +63,7 @@ public class ItemKindIsNotRewritableTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("cannot re-type an object by its NAME", resp.Conflicts![0].Reason);
         // NOTHING was written: a refusal that lands half the change is worse than one that lands none.
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
@@ -79,7 +79,7 @@ public class ItemKindIsNotRewritableTests
         var ide = WithFunctionBlock();
         var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n");
 
-        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : resp.Conflicts[0].Reason);
+        Assert.True(resp.Landed(), string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
         Assert.Equal("PROGRAM K\nVAR\n\tx : INT;\nEND_VAR", ide.WrittenContent["K"].Declaration);
     }
 
@@ -91,7 +91,7 @@ public class ItemKindIsNotRewritableTests
         var ide = WithFunctionBlock();
         var resp = Push(ide, "K.pou", "TYPE K :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n");
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.InvalidSt, resp.Conflicts![0].Code);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
@@ -103,7 +103,7 @@ public class ItemKindIsNotRewritableTests
         var ide = WithFunctionBlock();
         var resp = Push(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
 }

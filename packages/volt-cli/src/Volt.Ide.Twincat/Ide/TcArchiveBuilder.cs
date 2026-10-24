@@ -81,7 +81,7 @@ internal sealed class TcArchiveBuilder
         // A pushed UNSUPPORTED line has nothing to build from, and an FB read through a named output whose slot no
         // declaration in reach states is no box Volt builds: the slot is the null's position (v2-measurements #12), never
         // a guess.
-        NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.TwincatDisplay, n);
+        NetworkPairing.RefuseUnpairedUnsupported(BeckhoffDriver.Row.Display, n);
         TcUnmeasured.RefuseUnbuilt(n);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(n))
             throw new NotSupportedException(
@@ -121,7 +121,7 @@ internal sealed class TcArchiveBuilder
 
             case Assign a:
             {
-                UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.TwincatDisplay, a.Flags);
+                UnheldFlags.RefuseOnAssignItem(BeckhoffDriver.Row.Display, a.Flags);
                 var value = Node(a.Value, consumed: true);
                 // Coil storage is the TARGET's (Flags.VendorCoilBits); a jump or return bit rides the target AND the item,
                 // as TwinCAT's own importer writes them (corpus Vn_jump_*, Vn_return_*).

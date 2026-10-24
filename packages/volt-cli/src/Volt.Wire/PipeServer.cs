@@ -18,6 +18,8 @@ public delegate object PipeDispatch(PipeRequest request, Action<object> emitProg
 /// A newline-delimited-JSON RPC server over a Windows named pipe.
 /// One request per connection: the client writes a <see cref="PipeRequest"/> line; the server streams zero or
 /// more <c>{"progress":…}</c> frames then exactly one <c>{"result":…}</c> or <c>{"error":…}</c>, and closes.
+/// A request that states no <c>protocol</c>, or another than this server's, is refused
+/// <see cref="BridgeErrorCodes.ProtocolMismatch"/> before anything is dispatched.
 /// Connections are served CONCURRENTLY (a fresh pipe instance is armed the moment one is accepted), so a health
 /// call is never blocked behind a long fetch — the property the cache-served ambient poll relies on.
 /// </summary>
@@ -219,14 +221,25 @@ public sealed class PipeServer : IDisposable
                 // A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT. A JsonException reaching the catch below
                 // would be stamped INTERNAL_ERROR, telling a client that sent a truncated line, or a stray blank one,
                 // that the BRIDGE had broken. BAD_REQUEST points at the frame that was actually wrong.
+                // The envelope is read STRICTLY, like every body: a member it does not define is the request's error.
                 PipeRequest req;
-                try { req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Read) ?? new PipeRequest(); }
+                try { req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Request) ?? new PipeRequest(); }
                 catch (JsonException ex)
                 {
                     throw new CodedException(BridgeErrorCodes.BadRequest,
-                        $"the request frame is not valid JSON ({ex.Message}). A request is ONE line of " +
-                        "`{\"op\":…,\"body\":…}` — check for an unescaped newline in a string.");
+                        $"the request frame is not a valid request ({ex.Message}). A request is ONE line of " +
+                        "`{\"op\":…,\"protocol\":…,\"body\":…}` — check for an unescaped newline in a string.");
                 }
+                // A CLIENT OF ANOTHER PROTOCOL IS REFUSED BEFORE ITS BODY IS READ: it would read this wire with another
+                // meaning, so nothing of the op runs.
+                if (req.Protocol != WireProtocol.Version)
+                    throw new CodedException(BridgeErrorCodes.ProtocolMismatch,
+                        $"this bridge speaks wire protocol {WireProtocol.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)}, " +
+                        (req.Protocol is { } theirs
+                            ? $"the request states {theirs.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                            : "the request states none") +
+                        "; nothing was done.",
+                        new ProtocolMismatchData { BridgeProtocol = WireProtocol.Version });
                 // Per-connection frames are written strictly in order (progress on the op thread, then the result
                 // after the op returns) — no concurrent writer on this stream, so no lock is needed.
                 op = req.Op;
@@ -243,14 +256,15 @@ public sealed class PipeServer : IDisposable
                 // gets the exception's TYPE beside its message: the message is OS-localized (the 3.5.17 one was), the
                 // type name is not. A coded refusal is the caller's ordinary answer: unchanged, and not logged here.
                 string code, message;
-                if (ex is ICodedError coded) { code = coded.ErrorCode; message = ex.Message; }
+                object? data = null;
+                if (ex is ICodedError coded) { code = coded.ErrorCode; message = ex.Message; data = coded.ErrorData; }
                 else
                 {
                     code = BridgeErrorCodes.InternalError;
                     message = CallFailure.Message(ex);
                     VoltLog.Error($"pipe {_pipeName}: '{op ?? "(no op read)"}' failed — " + CallFailure.LogText(ex));
                 }
-                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = message } }); }
+                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = message, Data = data } }); }
                 catch (Exception writeEx)
                 {
                     // Client gone (ordinary), or the frame itself cannot be written — said, for the second.

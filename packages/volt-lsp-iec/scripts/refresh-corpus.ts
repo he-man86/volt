@@ -12,7 +12,7 @@
  * (`VOLT_GRAPHICAL=1`, which `ide.ps1` gives the IDE it launches), never in this script's; a connector-launched bridge
  * has it off and pulls every LD and FBD body as its `IMPLEMENTATION LD|FBD UNSUPPORTED` line. A corpus refreshed through
  * one loses every ladder, the file count below still matches, and the LSP gate stays green (that line draws nothing).
- * So the script asks the bridge (`health.networkText`) before it pulls, and `volt init` is pointed at that same pipe.
+ * So the script asks the bridge (`health.languages`) before it pulls, and `volt init` is pointed at that same pipe.
  *
  * The recorded build oracle (expected-build.<vendor>.json) is captured SEPARATELY (record-corpus-build.ts)
  * and preserved across the swap. Re-record it when a project's source changes.

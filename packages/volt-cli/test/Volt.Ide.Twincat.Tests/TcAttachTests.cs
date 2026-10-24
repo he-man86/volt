@@ -51,7 +51,9 @@ public class TcAttachTests
         public bool Unsaved { get; set; }
         public string FullName => Unsaved ? "" : Name ?? (Projects.Count > 0 ? $@"C:\p\{Projects.Items[0].Name}.sln" : "");
         public int Count => Projects.Count;
-        public bool Saved => true;
+        /// <summary>What <c>Solution.Saved</c> answers: saved, unless a test states another answer (or a fault).</summary>
+        public System.Func<bool>? SavedRead { get; set; }
+        public bool Saved => SavedRead?.Invoke() ?? true;
         /// <summary>The build object a build drives; none unless a test sets one.</summary>
         public object? SolutionBuild { get; set; }
     }

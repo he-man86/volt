@@ -128,7 +128,7 @@ internal static class TcNetworkReader
                 // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
-                UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.TwincatDisplay, flags);
+                UnheldFlags.RefuseOnAssignItem(BeckhoffDriver.Row.Display, flags);
                 return new Assign(value, targets, flags.WithControlFlowFrom(targets));
             }
 
@@ -175,7 +175,7 @@ internal static class TcNetworkReader
             case "BoxTreeDemux":
                 // DIALECT N20: the archive serializes no flag on a wire or a Parallel (`BoxTreeParallel` carries only
                 // Trees, Input, Mode and Id); one found anyway is refused by name, the rule CODESYS's reader shares.
-                UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.TwincatDisplay, "a wire", flags);
+                UnheldFlags.RefuseOnNode(BeckhoffDriver.Row.Display, "a wire", flags);
                 return new Demux(
                     TcArchive.Int(e, "VarId"),
                     TcArchive.Obj(e, "Input") is { } di ? ReadNode(di, consumed: true) : null);
@@ -190,7 +190,7 @@ internal static class TcNetworkReader
                         "a Parallel fed by the empty terminator",
                         "TwinCAT: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
                         "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
-                UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.TwincatDisplay, "a Parallel", flags);
+                UnheldFlags.RefuseOnNode(BeckhoffDriver.Row.Display, "a Parallel", flags);
                 // `Mode` is an enum scalar, written by member name like `CallType` — read, never defaulted (census
                 // 1.3 found a Sequential); no committed archive holds a Parallel, so an absent or unknown value is
                 // the marker, not a guess.
@@ -227,7 +227,7 @@ internal static class TcNetworkReader
     private static IReadOnlyList<string> Names(XElement box, string param) =>
         TcArchive.Obj(box, param) is { } p && p.Elements("l2").Any(l => (string?)l.Attribute("n") == "Names")
             ? TcArchive.Strings(p, "Names")
-            : throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, TcArchive.Str(box, "BoxType") ?? "", param + "/Names");
+            : throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "", param + "/Names");
 
     /// <summary>A box's INPUT SLOTS — with their holes, REQUIRED, and refused where one is a hole. The slots are
     /// index-aligned with <c>InputParam/Names</c>, and <c>TcArchive.List</c> drops a <c>&lt;n /&gt;</c>: a null slot
@@ -238,10 +238,10 @@ internal static class TcNetworkReader
     {
         var type = TcArchive.Str(box, "BoxType") ?? "";
         if (!box.Elements("l2").Any(l => (string?)l.Attribute("n") == "InputItems"))
-            throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, type, "InputItems");
+            throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, type, "InputItems");
         var slots = TcArchive.Slots(box, "InputItems");
         for (var i = 0; i < slots.Count; i++)
-            if (slots[i] is null) throw BoxRefusals.NullInputSlot(Volt.Contracts.Vendors.TwincatDisplay, type, i);
+            if (slots[i] is null) throw BoxRefusals.NullInputSlot(BeckhoffDriver.Row.Display, type, i);
         return slots.Select(x => x!).ToList();
     }
 
@@ -395,7 +395,7 @@ internal static class TcNetworkReader
         // shape this reader has never seen, not a box whose pins carry nothing.
         var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
         if (pinFlags is null)
-            throw BoxRefusals.NoPinFlags(Volt.Contracts.Vendors.TwincatDisplay, TcArchive.Str(e, "BoxType") ?? "");
+            throw BoxRefusals.NoPinFlags(BeckhoffDriver.Row.Display, TcArchive.Str(e, "BoxType") ?? "");
         if (pinFlags.Name.LocalName != "n")
             throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.PinFlagMarker,
                 $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries a populated InputFlags — a modifier on a PIN, " +
@@ -447,7 +447,7 @@ internal static class TcNetworkReader
         var type = TcArchive.Str(e, "BoxType") ?? "";
         var holder = TcArchive.Obj(e, "OutputItems");
         if (holder is null || !holder.Elements("l2").Any(l => (string?)l.Attribute("n") == "OutputItems"))
-            throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, type, "OutputItems");
+            throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, type, "OutputItems");
         var slots = TcArchive.Slots(holder, "OutputItems");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
         var outputs = new List<Output>();

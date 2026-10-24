@@ -75,7 +75,7 @@ public sealed partial class CodesysDriver
             catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
             {
                 BridgeLog.Warn($"could not read the kind of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null));
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null, Code: BridgeErrorCodes.Unreadable));
                 continue;
             }
 
@@ -108,7 +108,7 @@ public sealed partial class CodesysDriver
                     // Its kind is KNOWN (a container): its folder was walked whole. What it holds was not read, so its
                     // own subtree is unwalked — nothing under it is read as deleted.
                     BridgeLog.Warn($"could not read the properties of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                    unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
+                    unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                     unwalked.Add(sub);
                     continue;
                 }
@@ -121,7 +121,7 @@ public sealed partial class CodesysDriver
                     // Its kind is KNOWN (a container), so it is no object of unknown kind: the folder it sits in was
                     // walked whole, and absence beside it still means deleted (gate review of step 3, finding 1 — recorded
                     // with no kind, it put its PARENT into UnwalkedFolders, at the root the whole project).
-                    unreadable.Add(new UnreadableObject(name, folderPath, refusal.Reason, ItemKind.Kinds.Folder));
+                    unreadable.Add(new UnreadableObject(name, folderPath, refusal.Reason, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unsupported));
                     if (!refusal.Inside)
                     {
                         // An EXCLUDED folder's objects are not built, so none is pulled as a built one — but each is
@@ -168,21 +168,21 @@ public sealed partial class CodesysDriver
                     catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
                     {
                         BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder));
+                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                         unwalked.Add(managerFolder);
                         continue;
                     }
                     foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                     foreach (var (lib, why) in refused)
-                        unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, ItemKind.Kinds.Library));
+                        unreadable.Add(new UnreadableObject(FolderPath.Encode(lib), managerFolder, why, ItemKind.Kinds.Library, Code: BridgeErrorCodes.Unreadable));
                     // What the manager holds that no manifest spells is named in the pull report (openspec
                     // bridge-one-to-one §1.1 library manager; gate review of step 3, finding 4) — its references walked.
                     // ONE entry: the manager is one node (openspec library-manager-one-node-entry).
                     if (unspelled is { } reason)
                     {
                         BridgeLog.Warn($"pull: '{name}' {reason}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {reason}.", ItemKind.Kinds.Folder));
+                        unreadable.Add(new UnreadableObject(name, folderPath, $"'{name}' {reason}.", ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unsupported));
                     }
                 }
                 else

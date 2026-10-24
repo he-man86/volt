@@ -39,14 +39,14 @@ public class TcDirectedLibraryReadTests
             Ref("Tc2_Standard", "3.4.5.0"),
             Ref("Tc2_System", "3.10.1.0"))
         {
-            HealthPlatform = Vendors.Twincat,
+            HealthPlatform = BeckhoffDriver.Row.Id,
             LibSignatures = TcLibrarySignatures.Parse(Fixtures.Pou("library-signatures.xml")),
         };
 
     private static FetchResponse Full(FakeIde ide) => FetchService.Handle(ide, new FetchRequest { Init = true });
 
     private static FetchResponse Directed(FakeIde ide, params string[] names) =>
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>(), OnlyItems = names.ToList() });
 
     private static string Describe(FetchedItem c) => $"{c.Name}|{c.Version}|{c.SourceText}";
 

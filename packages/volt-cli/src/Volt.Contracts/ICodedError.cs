@@ -8,6 +8,10 @@
     public interface ICodedError
     {
         string ErrorCode { get; }
+
+        /// <summary>The facts of the refusal a client acts on without parsing the message — the error frame's
+        /// <c>data</c> (<see cref="ProtocolMismatchData"/>, <see cref="StaleProjectVersionData"/>) — or null.</summary>
+        object? ErrorData { get; }
     }
 
     /// <summary>The one coded exception. <c>Volt.Engine</c>'s <c>BridgeException</c> IS one of these (it adds the
@@ -22,6 +26,11 @@
         public CodedException(string errorCode, string message, System.Exception? inner = null)
             : base(message, inner) => ErrorCode = errorCode;
 
+        public CodedException(string errorCode, string message, object errorData)
+            : base(message) { ErrorCode = errorCode; ErrorData = errorData; }
+
         public string ErrorCode { get; }
+
+        public object? ErrorData { get; }
     }
 }

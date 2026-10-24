@@ -23,6 +23,10 @@ export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codes
 // may since have gone (an IDE restarted with a new pid).
 const EXPLICIT_PIPE = process.env.VOLT_PIPE || undefined
 
+/** The wire protocol every request states (`WireProtocol.Version` in Volt.Contracts); a bridge of another refuses the
+ *  request `PROTOCOL_MISMATCH` before its body is read. */
+export const WIRE_PROTOCOL = 1
+
 /**
  * Is this pipe in the namespace right now? Not "is its IDE alive": a TwinCAT worker deliberately OUTLIVES its XAE
  * (~15s until reaped) and must answer PLC_DISCONNECTED from that window — a product behaviour the chaos tier asserts.
@@ -211,7 +215,7 @@ export function callOn(pipe: string, op: string, body?: unknown): Promise<any> {
 		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = ""
 		let result: unknown
-		sock.on("connect", () => sock.write(JSON.stringify({ op, body: body ?? undefined }) + "\n"))
+		sock.on("connect", () => sock.write(JSON.stringify({ op, protocol: WIRE_PROTOCOL, body: body ?? undefined }) + "\n"))
 		sock.on("data", (d: Buffer) => {
 			buf += d.toString("utf8")
 			let nl: number

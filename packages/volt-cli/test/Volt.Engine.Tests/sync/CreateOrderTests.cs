@@ -50,7 +50,7 @@ public class CreateOrderTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = ops.Cast<PushOp>().ToList(),
         });
-        Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
+        Assert.True(res.Landed(), "push refused: " + (res.Conflicts is null
             ? "(none)"
             : string.Join(" | ", res.Conflicts.Select(c => c.Reason))));
     }

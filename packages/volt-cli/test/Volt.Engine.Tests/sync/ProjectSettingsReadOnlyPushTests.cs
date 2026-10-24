@@ -32,7 +32,7 @@ public class ProjectSettingsReadOnlyPushTests
             Ops = new List<PushOp> { new SetItemOp { Name = "Project Settings.projectsettings", SourceText = Descriptor } },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var refused = Assert.Single(resp.Conflicts!);
         Assert.Equal("Project Settings.projectsettings", refused.Name);
         Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
@@ -56,7 +56,7 @@ public class ProjectSettingsReadOnlyPushTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("'Project Settings.projectsettings' is read-only", Assert.Single(resp.Conflicts!).Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:"));
     }
@@ -90,7 +90,7 @@ public class ProjectSettingsReadOnlyPushTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var refused = Assert.Single(resp.Conflicts!, c => c.Name == wireName);
         Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
         Assert.Contains($"'{wireName}' is read-only", refused.Reason);

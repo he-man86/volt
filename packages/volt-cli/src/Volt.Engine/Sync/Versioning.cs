@@ -76,13 +76,13 @@ public static class Versioning
             {
                 var path = pathOf(kind, o.Folder, o.Name);
                 versions[path] = Unreadable;
-                items.Add(new UnreadableItem(path, o.Reason));
+                items.Add(new UnreadableItem(path, o.Code, o.Reason));
                 continue;
             }
             var node = FolderPath.Append(o.Folder, o.Name);
             seen[node] = seen.TryGetValue(node, out var n) ? n + 1 : 0;
             versions[UnclassifiableKey(node, seen[node])] = Unreadable;
-            nodes.Add(new UnreadableNode(ItemPath.Of(o.Folder, o.Name), o.Reason));
+            nodes.Add(new UnreadableNode(ItemPath.Of(o.Folder, o.Name), o.Code, o.Reason));
         }
         return (items, nodes);
     }
@@ -108,7 +108,9 @@ public static class Versioning
         catch (System.Exception ex)
         {
             VoltLog.Warn($"materialize failed name='{PathOf(kinds, kind, folder, name)}' — body skipped from pull: {ex.Message}");
-            return new VersionedItem(Unreadable, null, kind, folder, name, ex.Message, kinds);
+            // The code the read raised, when it raised one; otherwise the IDE did not give the text: UNREADABLE.
+            var code = (ex as ICodedError)?.ErrorCode ?? BridgeErrorCodes.Unreadable;
+            return new VersionedItem(Unreadable, null, kind, folder, name, (code, ex.Message), kinds);
         }
     }
 }
@@ -136,13 +138,13 @@ public static class Versioning
 public sealed class VersionedItem
 {
     internal VersionedItem(string version, WorkspaceItem? materialized, string kind, string walkedFolder, string bareName,
-                           string? reason, Seam.KindRegistry kinds)
+                           (string Code, string Reason)? unread, Seam.KindRegistry kinds)
     {
         Version = version;
         Materialized = materialized;
         Folder = Versioning.FolderOf(kind, walkedFolder, bareName);
         Identity = Versioning.PathOf(kinds, kind, walkedFolder, bareName);
-        Unread = reason is null ? null : new UnreadableItem(Identity, reason);
+        Unread = unread is { } u ? new UnreadableItem(Identity, u.Code, u.Reason) : null;
     }
 
     /// <summary>The folder the item is REPORTED in (<see cref="Versioning.FolderOf"/>: a library sits in its own) — the

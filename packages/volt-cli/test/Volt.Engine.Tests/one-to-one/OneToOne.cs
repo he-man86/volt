@@ -58,12 +58,12 @@ internal static class OneToOneSteps
     /// <summary>The push was REFUSED, and its reason names every one of <paramref name="names"/> — a refusal by name.</summary>
     public static void RefusedNaming(PushResponse r, params string[] names)
     {
-        Assert.False(r.Accepted, "the push was accepted; it must be refused by name");
+        Assert.True(r.Refused().Count > 0, "the push was accepted; it must be refused by name");
         var why = Why(r);
         foreach (var n in names) Assert.Contains(n, why);
     }
 
-    public static void AcceptedOk(PushResponse r) => Assert.True(r.Accepted, Why(r));
+    public static void AcceptedOk(PushResponse r) => Assert.True(r.Landed(), Why(r));
 
     /// <summary>The lines of <paramref name="text"/>, one per <c>\n</c>.</summary>
     public static string[] Lines(string text) => text.Replace("\r", "").Split('\n');

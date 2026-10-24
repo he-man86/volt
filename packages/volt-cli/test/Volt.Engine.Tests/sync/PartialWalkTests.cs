@@ -61,7 +61,7 @@ public class PartialWalkTests
         var baseline = RefsService.Handle(ide).Items.ToDictionary(x => x.Key, x => x.Value);
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        var res = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline });
+        var res = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = baseline });
 
         Assert.Equal(new[] { "Machine" }, res.UnwalkedFolders);
         Assert.Empty(res.Removed);
@@ -79,8 +79,8 @@ public class PartialWalkTests
         ide.RemoveItem("B");
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Equal(new[] { "B.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
@@ -96,8 +96,8 @@ public class PartialWalkTests
         ide.RemoveItem("Deep");
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items }).Removed);
-        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items }).Removed);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items }).Removed);
     }
 
     /// <summary>…and the unreadable exemption on a partial walk is the SAME kind-aware one a complete walk uses:
@@ -111,8 +111,8 @@ public class PartialWalkTests
         ide.AddItem(FakeIde.Item.MalformedGraphical("X", "POUs"));
         ide.UnwalkableFolders = new[] { "Machine" };
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = new(), KnownItems = known });
 
         Assert.Equal(new[] { "DUTs/X.dut" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
@@ -127,8 +127,8 @@ public class PartialWalkTests
         ide.UnwalkableFolders = new[] { "Old" };
         var known = new Dictionary<string, string> { ["Old/X.dut"] = "v" };
 
-        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = known }).Removed);
-        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = known }).Removed);
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownApplications = new(), KnownItems = known }).Removed);
     }
 
     /// <summary>`refs` answers the complete walk's removals too, so `volt status` and `volt pull` read the one
@@ -140,8 +140,8 @@ public class PartialWalkTests
         var baseline = RefsService.Handle(ide);
         ide.RemoveItem("Deep");
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Equal(new[] { "Machine/Deep.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);

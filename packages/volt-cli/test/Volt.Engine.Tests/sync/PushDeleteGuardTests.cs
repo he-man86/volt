@@ -63,7 +63,7 @@ public class PushDeleteGuardTests
 
         var res = Delete(ide, "Gone.pou", refs.Items["Gone.pou"], refs.ProjectVersion);
 
-        Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.DoesNotContain("Gone.pou", RefsService.Handle(ide).Items.Keys);
     }
 
@@ -93,7 +93,7 @@ public class PushDeleteGuardTests
 
         var res = Delete(ide, "Racy.pou", refs.Items["Racy.pou"], refs.ProjectVersion);
 
-        Assert.False(res.Accepted, "the delete destroyed an edit made while the push was running");
+        Assert.False(res.Landed(), "the delete destroyed an edit made while the push was running");
         var conflict = Assert.Single(res.Conflicts!);
         // A stale item version, coded as one (openspec bridge-refusal-review 2.15) — it answered BAD_REQUEST, which
         // told the client its REQUEST was malformed.
@@ -115,7 +115,7 @@ public class PushDeleteGuardTests
 
         var res = Delete(ide, "Forced.pou", "a-version-that-is-long-gone", lease, force: true);
 
-        Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.DoesNotContain("Forced.pou", RefsService.Handle(ide).Items.Keys);
     }
 
@@ -146,7 +146,7 @@ public class PushDeleteGuardTests
 
         // Refused is right — a partial walk cannot verify anything. What must NOT happen is the delete guard
         // inventing a hash mismatch and reporting a concurrent edit.
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(ConflictCodes.ItemUnverified, conflict.Code);
         Assert.DoesNotContain("while this push was being applied", conflict.Reason);

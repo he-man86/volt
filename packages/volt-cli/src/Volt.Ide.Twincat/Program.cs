@@ -7,7 +7,7 @@ using Volt.Contracts;
 // Per-XAE headless worker: the connector spawns one per running XAE window with `--xae-pid <pid>` (CODESYS-symmetric:
 // one host per IDE, one pipe each). ExternalAttach — it does NOT crash if the XAE isn't attachable yet: it starts
 // DEGRADED and the driver re-attaches to its window, so the worker is stable across a DTE re-registration.
-VoltLog.Init(Vendors.Twincat);
+VoltLog.Init(BeckhoffDriver.Row.Id);
 
 // `--list-xae-pids`: one-shot XAE discovery for the connector's supervisor — print each running XAE window's
 // process id (one per line) and exit. The COM ROT walk runs in THIS short-lived process so a hang dies with it and

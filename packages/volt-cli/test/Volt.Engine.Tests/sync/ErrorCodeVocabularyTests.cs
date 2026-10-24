@@ -166,7 +166,7 @@ public class ErrorCodeVocabularyTests
             },
         });
 
-        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
         Assert.Contains("delete:FB_Broken", ide.Recorded);
         Assert.Equal("Hidden", ide.CreatedParents["FB_Broken"]);
     }
@@ -208,9 +208,9 @@ public class ErrorCodeVocabularyTests
         Assert.Contains("deleteItem", refused.Reason);                   // …delete, then create, is
 
         var deleted = BoundWrite.Push(ide, new PushRequest { Force = true, Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_A.pou" } } });
-        Assert.True(deleted.Accepted, string.Join("; ", (deleted.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(deleted.Landed(), string.Join("; ", (deleted.Conflicts ?? new()).Select(c => c.Reason)));
         var created = BoundWrite.Push(ide, new PushRequest { Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } } });
-        Assert.True(created.Accepted, string.Join("; ", (created.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(created.Landed(), string.Join("; ", (created.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.Contains("FB_A.pou", RefsService.Handle(ide).Items.Keys);
     }
 }

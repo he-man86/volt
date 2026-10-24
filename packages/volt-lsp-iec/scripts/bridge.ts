@@ -34,24 +34,26 @@ export const target = (): string => `pipe ${pipeName()}`
 /**
  * Did a push land IN FULL — every op of it in the IDE?
  *
- * <p>`accepted` alone does not say so (openspec `push-keeps-what-landed`): when the live IDE refuses an op after
- * earlier ops landed, the push stops there and answers `accepted: true` with the receipt PLUS one conflict per op
- * that did not land (the refused op, then each later op as `NOT_ATTEMPTED`). A script that reads `accepted` alone
- * then builds a project missing the refused item and writes that build down as the fixture's — a clean build on
- * something that is not there. A full push carries no `conflicts` (the wire omits it), so absent or empty is "none".</p>
+ * <p>The answer names every op that did not land in `conflicts` (the refused op, then each op it stopped as
+ * `NOT_ATTEMPTED`), and carries `newProjectVersion` exactly when something landed (openspec `wire-final-shape`). A
+ * push landed in full when it carries a new version and no conflict.</p>
  */
-export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unknown[] | null }): boolean {
-  return r.accepted === true && (r.conflicts == null || r.conflicts.length === 0)
+export function landedInFull(r: { newProjectVersion?: string; conflicts?: readonly unknown[] }): boolean {
+  return typeof r.newProjectVersion === "string" && (r.conflicts ?? []).length === 0
 }
 
-/** One request per connection (mirrors the CLI's PipeClient): write `{op,body}\n`, drain newline-JSON frames,
+/** The wire protocol every request states (volt-cli's `WireProtocol.Version`); a bridge of another refuses it
+ *  `PROTOCOL_MISMATCH` before anything runs. */
+const WIRE_PROTOCOL = 1
+
+/** One request per connection (mirrors the CLI's PipeClient): write `{op,protocol,body}\n`, drain newline-JSON frames,
  *  resolve the terminal result (an error frame rejects; progress frames are ignored). */
 export function call(op: string, body?: unknown, pipe: string = pipeName()): Promise<any> {
   return new Promise((resolve, reject) => {
     const sock = connect(`\\\\.\\pipe\\${pipe}`)
     let buf = ""
     let result: unknown
-    sock.on("connect", () => sock.write(JSON.stringify({ op, body: body ?? undefined }) + "\n"))
+    sock.on("connect", () => sock.write(JSON.stringify({ op, protocol: WIRE_PROTOCOL, body: body ?? undefined }) + "\n"))
     sock.on("data", (d: Buffer) => {
       buf += d.toString("utf8")
       let nl: number
@@ -77,12 +79,13 @@ export function call(op: string, body?: unknown, pipe: string = pipeName()): Pro
  * CODESYS, or in the TwinCAT worker — never from this script's, so setting it here does nothing. A bridge the connector
  * started has it off and pulls every LD and FBD body as its `IMPLEMENTATION LD|FBD UNSUPPORTED` line: a corpus
  * refreshed through one lost every ladder while the file count it checks still matched, and the LSP gate stayed green
- * (an UNSUPPORTED line draws nothing). The bridge reports its switch in `health` (`networkText`); ask before anything
- * is pulled or pushed. Absent is off — a bridge from before the field cannot say it is on.
+ * (an UNSUPPORTED line draws nothing). The bridge states the languages it shows in `health` (`languages`); ask before
+ * anything is pulled or pushed.
  */
 export async function requireNetworkText(pipe: string = pipeName()): Promise<void> {
   const health = await call("health", undefined, pipe)
-  if (health?.networkText === true) return
+  const shown: unknown = health?.languages
+  if (Array.isArray(shown) && shown.includes("LD") && shown.includes("FBD")) return
   throw new Error(
     `LD and FBD network text is OFF in the bridge on pipe ${pipe}, so every LD and FBD body would come back as its ` +
       "`IMPLEMENTATION LD|FBD UNSUPPORTED` line. The switch is the BRIDGE's environment (VOLT_GRAPHICAL=1), not this " +

@@ -7,7 +7,7 @@ namespace Volt.Wire;
 /// <summary>
 /// Discovers live bridge pipes by enumerating the Windows named-pipe namespace (<c>\\.\pipe\</c>). Every running
 /// CODESYS in-proc host serves its own <c>volt.bridge.codesys.&lt;pid&gt;</c>, so a client finds them ALL by listing
-/// the namespace for the <see cref="PipeNames.CodesysPrefix"/> — no registry, no coordination file, and the entries
+/// the namespace for the vendor's prefix (<see cref="PipeNames.PrefixForVendor"/>) — no registry, no coordination file, and the entries
 /// vanish with their process (self-cleaning).
 ///
 /// Uses native FindFirstFile/FindNextFile, NOT <c>Directory.GetFiles(@"\\.\pipe\")</c>: the managed API validates

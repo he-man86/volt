@@ -42,13 +42,13 @@ public class FakeAccessorWriteTests
 
     private static string Fetch(FakeIde ide, string wireName) =>
         FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { wireName },
         }).Changed.Single().SourceText;
 
     private static string Why(PushResponse r) =>
-        r.Accepted ? "" : string.Join("; ", r.Conflicts!.Select(c => c.Reason));
+        r.Landed() ? "" : string.Join("; ", r.Conflicts!.Select(c => c.Reason));
 
     /// <summary>A null body is "leave it alone", as both drivers write it (openspec <c>abstract-member-parity</c>); an
     /// EMPTY one empties the GET, never leaving it holding the code it had.</summary>
@@ -57,7 +57,7 @@ public class FakeAccessorWriteTests
     {
         var ide = new FakeIde();
         var created = Create(ide, "FB_P.pou", Fb("IMPLEMENTATION ST\nP := TRUE;"));
-        Assert.True(created.Accepted, Why(created));
+        Assert.True(created.Landed(), Why(created));
         Assert.Contains("P := TRUE;", Fetch(ide, "FB_P.pou"));
 
         var item = ItemLookup.Find(ide, "FB_P.pou")!.Value;
@@ -82,7 +82,7 @@ public class FakeAccessorWriteTests
         var ide = new FakeIde { RematerializeAs = held => held + "\n(* vendor *)" };
 
         var created = Create(ide, "FB_P.pou", Fb("IMPLEMENTATION FBD\nNETWORK\n  out  :=   a;\nEND_NETWORK"));
-        Assert.True(created.Accepted, Why(created));
+        Assert.True(created.Landed(), Why(created));
 
         var fetched = Fetch(ide, "FB_P.pou");
         Assert.Contains("NETWORK\n  out := a;\nEND_NETWORK\n(* vendor *)\nEND_GET", fetched);
@@ -99,7 +99,7 @@ public class FakeAccessorWriteTests
     {
         var ide = new FakeIde();
         var created = Create(ide, "I_P.itf", Itf);
-        Assert.True(created.Accepted, Why(created));
+        Assert.True(created.Landed(), Why(created));
         Assert.Contains("GET\nVAR\n\tx : INT;\nEND_VAR\nEND_GET", Fetch(ide, "I_P.itf"));
 
         var item = ItemLookup.Find(ide, "I_P.itf")!.Value;
@@ -124,7 +124,7 @@ public class FakeAccessorWriteTests
 
         var refused = Create(ide, "I_P.itf", Itf);
 
-        Assert.False(refused.Accepted);
+        Assert.False(refused.Landed());
         Assert.DoesNotContain("writecontent:I_P", ide.Recorded);
     }
 }

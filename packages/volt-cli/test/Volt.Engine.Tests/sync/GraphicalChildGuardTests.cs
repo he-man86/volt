@@ -84,7 +84,7 @@ public class GraphicalChildGuardTests
 
         var resp = Push(ide, Marker(lang));
 
-        Assert.True(resp.Accepted, "a POU containing an unsupported child must remain editable");
+        Assert.True(resp.Landed(), "a POU containing an unsupported child must remain editable");
         Assert.Contains("writecontent:" + Bare, ide.Recorded);                  // the root's own edit landed…
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:")); // …and the child was not dropped as an orphan
 

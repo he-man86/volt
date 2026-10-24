@@ -38,7 +38,7 @@ public class DutOneNameTests
             Ops = new List<PushOp> { new SetItemOp { Name = "DUTs/X.dut", IfVersion = refs.Items["DUTs/X.dut"], SourceText = Enum } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new string[0]));
+        Assert.True(push.Landed(), string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new string[0]));
         Assert.Equal(new[] { "writecontent:X" }, ide.Recorded);
         Assert.Equal(new[] { "DUTs/X.dut" }, push.NewItems!.Keys.ToArray());
         var after = RefsService.Handle(ide);
@@ -62,7 +62,7 @@ public class DutOneNameTests
             Ops = new List<PushOp> { new SetItemOp { Name = name, IfVersion = refs.Items["DUTs/X.dut"], SourceText = Enum } },
         });
 
-        Assert.False(push.Accepted);
+        Assert.False(push.Landed());
         var conflict = Assert.Single(push.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
         Assert.Equal(name, conflict.Name);
@@ -96,7 +96,7 @@ public class DutOneNameTests
         var dutPush = Delete(dut, "DUTs/X.dut");
         var pouPush = Delete(pou, "DUTs/X.pou");
 
-        Assert.Equal(pouPush.Accepted, dutPush.Accepted);
+        Assert.Equal(pouPush.Landed(), dutPush.Landed());
         Assert.Equal(pouPush.Conflicts?.Select(c => c.Code), dutPush.Conflicts?.Select(c => c.Code));
         Assert.Equal(pou.Recorded, dut.Recorded);
         Assert.Equal(deleted, !dut.Exists("X"));

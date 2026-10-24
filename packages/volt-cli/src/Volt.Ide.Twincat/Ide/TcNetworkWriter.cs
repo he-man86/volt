@@ -76,7 +76,7 @@ internal static class TcNetworkWriter
         var plan = NetworkPairing.Plan(shown, body.Networks, body.Language, scope);
         // A removal that would erase what the text does not show — a moved network's symbol comment, a replaced
         // UNSUPPORTED line, one of two identically shown networks — is refused before anything changes (gate 1b-4).
-        NetworkPairing.RefuseUnseenLoss(Volt.Contracts.Vendors.TwincatDisplay, shown, plan, body.Language, scope);
+        NetworkPairing.RefuseUnseenLoss(BeckhoffDriver.Row.Display, shown, plan, body.Language, scope);
 
         XElement? last = null;   // the network the next insertion goes after, in the final order
         var structural = false;  // a network removed, rebuilt or inserted: the TypeList may have to follow
@@ -112,14 +112,14 @@ internal static class TcNetworkWriter
                         // Fall through: this network's SHAPE changed, so it is built.
                     }
                     // What a rebuild would ERASE: a symbol comment, which the text does not carry (the shared rule).
-                    NetworkText.RefuseSymbolCommentLoss(Volt.Contracts.Vendors.TwincatDisplay, TcNetworkReader.ReadNetworkShown(net, model.Order));
+                    NetworkText.RefuseSymbolCommentLoss(BeckhoffDriver.Row.Display, TcNetworkReader.ReadNetworkShown(net, model.Order));
                     var held = Held(net).ToList();
                     var rebuilt = Splice(impl, net, Built(model, scope, resolve!));
                     WriteNetwork(rebuilt, model, scope);      // the change gate: the built network already says it
                     // What it resets without a refusal: the element is replaced whole, so a stored value of a member the
                     // text does not carry yet that the build does not write goes with it — named in one warning
                     // (ld-fbd-coverage 2.2, the loss window), measured against what the builder made.
-                    if (RebuildLoss.Warning(Volt.Contracts.Vendors.TwincatDisplay, model.Order, held, Held(rebuilt)) is { } loss)
+                    if (RebuildLoss.Warning(BeckhoffDriver.Row.Display, model.Order, held, Held(rebuilt)) is { } loss)
                         Volt.Engine.Ide.BridgeLog.Warn(loss);
                     last = rebuilt;
                     changed = structural = true;
@@ -315,7 +315,7 @@ internal static class TcNetworkWriter
     /// (<see cref="TcArchiveBuilder"/> refuses it too).</summary>
     internal static void RefuseUnbuildable(Network model)
     {
-        NetworkPairing.RefuseUnpairedUnsupported(Volt.Contracts.Vendors.TwincatDisplay, model);
+        NetworkPairing.RefuseUnpairedUnsupported(BeckhoffDriver.Row.Display, model);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
             throw new NotSupportedException(
                 $"TwinCAT: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +

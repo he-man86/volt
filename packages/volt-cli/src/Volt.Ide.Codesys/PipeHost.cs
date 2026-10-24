@@ -19,7 +19,7 @@ public static class PipeHost
     private static Volt.Relay.RelayTunnel? _tunnel;
     private static CodesysDriver? _driver;
     private static Volt.Engine.Sync.HostLink? _link;
-    private static string _pipeName = PipeNames.Codesys;
+    private static string _pipeName = PipeNames.PrefixForVendor(CodesysDriver.Row.Id);
     private static readonly object _gate = new();
 
     public static bool IsRunning => _host is not null;
@@ -41,10 +41,10 @@ public static class PipeHost
             // overrides (the headless dev loop + e2e pin a fixed name); otherwise it's volt.bridge.codesys.<pid>.
             var overridePipe = Environment.GetEnvironmentVariable("VOLT_PIPE");
             _pipeName = string.IsNullOrEmpty(overridePipe)
-                ? PipeNames.CodesysInstance(Process.GetCurrentProcess().Id)
+                ? PipeNames.Instance(CodesysDriver.Row.Id, Process.GetCurrentProcess().Id)
                 : overridePipe!;
 
-            VoltLog.Init(Vendors.Codesys, logDir);
+            VoltLog.Init(CodesysDriver.Row.Id, logDir);
             // Info, and with the pid: every CODESYS process appends to the SAME daily codesys log, so this header is
             // what separates one session's start block from another's in a field log. And the file this session loaded
             // the bridge from (the staged copy, or the bundle itself when staging failed): the bridge is ONE assembly
@@ -111,7 +111,7 @@ public static class PipeHost
         _tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
             relayDir,
             _pipeName,
-            Vendors.Codesys,
+            CodesysDriver.Row.Id,
             BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
             m => VoltLog.Info(m),
             m => VoltLog.Error(m),

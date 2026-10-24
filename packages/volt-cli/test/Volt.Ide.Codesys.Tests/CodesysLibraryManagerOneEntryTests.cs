@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 using Volt.Tests.Shared;
@@ -34,7 +35,7 @@ namespace Volt.Ide.Codesys.Tests
         public void The_gate_refuses_a_node_listed_twice()
         {
             WalkResult Of(params UnreadableObject[] o) => new(new List<ProjectItem>(), new List<string>(), o, new List<string>());
-            var once = new UnreadableObject(Manager, "", "x", ItemKind.Kinds.Folder);
+            var once = new UnreadableObject(Manager, "", "x", ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unsupported);
 
             Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Of(once, once with { Reason = "y" }).Gated());
             Of(once).Gated();

@@ -37,7 +37,7 @@ public class PushPathIsAWirePathTests
 
     private static void AssertRefusedUntouched(FakeIde ide, PushResponse res, string named, string because)
     {
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var c = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, c.Code);
         Assert.Contains(named, c.Reason);
@@ -99,7 +99,7 @@ public class PushPathIsAWirePathTests
 
                 var res = Push(ide, force, op);
 
-                Assert.False(res.Accepted, $"{label} of '{path}' (force {force}) was accepted");
+                Assert.False(res.Landed(), $"{label} of '{path}' (force {force}) was accepted");
                 AssertRefusedUntouched(ide, res, path, "refs");
             }
     }
@@ -116,7 +116,7 @@ public class PushPathIsAWirePathTests
 
         var res = Push(ide, false, new SetItemOp { Name = pushed, SourceText = string.Format(Prg, "Z") });
 
-        Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.Contains(published, RefsService.Handle(ide).Items.Keys);
     }
 }

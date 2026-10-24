@@ -149,7 +149,7 @@ namespace Volt.Ide.Codesys
                     // alone; read from the ITEM, it would come back as a plain coil assigning to the label.
                     // JUMP AND RETURN TOGETHER, in one call both drivers share (`Flags.WithControlFlowFrom`):
                     // `Return` sits in the same bit-field on the same operand.
-                    UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.CodesysDisplay, flags);
+                    UnheldFlags.RefuseOnAssignItem(CodesysDriver.Row.Display, flags);
                     return new Assign(value, targets, flags.WithControlFlowFrom(targets));
                 }
 
@@ -159,7 +159,7 @@ namespace Volt.Ide.Codesys
                 // Fan-out. With an Input this DEFINES the wire; without one it REFERENCES the definition
                 // carrying the same VarId. 573 of these in the surveyed project, against zero split points.
                 case "BoxTreeDemux":
-                    UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a wire", flags);
+                    UnheldFlags.RefuseOnNode(CodesysDriver.Row.Display, "a wire", flags);
                     return new Demux(
                         NwlInterop.RequireInt(n, "VarId"),
                         Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di, consumed: true) : null);
@@ -175,7 +175,7 @@ namespace Volt.Ide.Codesys
                             "a Parallel fed by the empty terminator",
                             "CODESYS: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
                             "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
-                    UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a Parallel", flags);
+                    UnheldFlags.RefuseOnNode(CodesysDriver.Row.Display, "a Parallel", flags);
                     return new Parallel(
                         feed,
                         NwlInterop.RequireItems(n, "Trees", listMember: "").Select(t => ReadNode(t, consumed: true)).ToList(),
@@ -210,7 +210,7 @@ namespace Volt.Ide.Codesys
         /// <c>MOVE(en1, a)</c>. An operator's EMPTY array is a real answer (<c>Names=[]</c>, measured).</summary>
         private static List<string?> Names(object box, string paramList) =>
             Strings(NwlInterop.Get(box, paramList), "Names")
-            ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, NwlInterop.Text(box, "BoxType") ?? "", paramList + ".Names");
+            ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, NwlInterop.Text(box, "BoxType") ?? "", paramList + ".Names");
 
         /// <summary>One of an <c>IParamList</c>'s two string arrays (<c>Names</c>, <c>Types</c>), or null when the list or
         /// the array is absent.</summary>
@@ -250,7 +250,7 @@ namespace Volt.Ide.Codesys
         private static List<Flags> PinFlags(object box) =>
             NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
                 ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
-                : throw BoxRefusals.NoPinFlags(Volt.Contracts.Vendors.CodesysDisplay, NwlInterop.Text(box, "BoxType") ?? "");
+                : throw BoxRefusals.NoPinFlags(CodesysDriver.Row.Display, NwlInterop.Text(box, "BoxType") ?? "");
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagsMisaligned(object box, int flags, int pins) =>
             new(BoxRefusals.PinFlagMarker,
@@ -267,8 +267,8 @@ namespace Volt.Ide.Codesys
             // (an unwired pin is a terminator here), so it is refused under its own name, before the flag check would
             // refuse it as a misaligned "flag on a box input pin".
             var items = (NwlInterop.Require(n, "InputItemList") as IEnumerable
-                         ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, type, "InputItemList")).Cast<object?>().ToList();
-            if (items.IndexOf(null) is var hole && hole >= 0) throw BoxRefusals.NullInputSlot(Volt.Contracts.Vendors.CodesysDisplay, type, hole);
+                         ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "InputItemList")).Cast<object?>().ToList();
+            if (items.IndexOf(null) is var hole && hole >= 0) throw BoxRefusals.NullInputSlot(CodesysDriver.Row.Display, type, hole);
 
             // Formal pin names, where the vendor supplies them. Operator boxes are positional; an FB call names
             // its pins, and network text needs those names to write `inst(IN := x, PT := y)`.
@@ -462,7 +462,7 @@ namespace Volt.Ide.Codesys
             // holder with no list is not a box with no outputs — read as empty, every `=> v` would go without a word.
             var holder = NwlInterop.Require(n, "Outputs");
             var slots = (NwlInterop.Get(holder, "List") as IEnumerable
-                         ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, type, "Outputs.List")).Cast<object?>().ToList();
+                         ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "Outputs.List")).Cast<object?>().ToList();
             var eno = Box.HasEnoSlot(names) ? 1 : 0;
             var outputs = new List<Output>();
             // 2R.5 (#23): a variable stored on the ENO slot is the named ENO pin, `ENO => lamp` (P5) — it stores and builds.

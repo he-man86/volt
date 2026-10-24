@@ -27,7 +27,16 @@ public sealed class PipeClient
     // connectTimeoutMs caps the wait when no bridge answers. `Connect` POLLS for the pipe to appear, which tolerates
     // the launch-IDE-then-run race — so keep polling, just cap it at 2s (snappy for a `volt status` with the IDE
     // closed, still race-safe).
-    public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 2000)
+    public JsonElement Call(string op, object? body = null, Action<JsonElement>? onProgress = null, int connectTimeoutMs = 2000) =>
+        Send(op, WireProtocol.Version, body, onProgress, connectTimeoutMs);
+
+    /// <summary>Call one op FOR ANOTHER CLIENT (the relay): the request states the protocol THAT client stated
+    /// (<paramref name="protocol"/>, null when it stated none), never this build's, so the bridge itself refuses a client of
+    /// another protocol <c>PROTOCOL_MISMATCH</c> — the one place that rule lives.</summary>
+    public JsonElement Forward(string op, int? protocol, object? body, Action<JsonElement>? onProgress = null) =>
+        Send(op, protocol, body, onProgress, 2000);
+
+    private JsonElement Send(string op, int? protocol, object? body, Action<JsonElement>? onProgress, int connectTimeoutMs)
     {
         using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
         try { client.Connect(connectTimeoutMs); }
@@ -36,6 +45,7 @@ public sealed class PipeClient
         var reqBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new PipeRequest
         {
             Op = op,
+            Protocol = protocol,
             Body = body is null ? (JsonElement?)null : JsonSerializer.SerializeToElement(body, WireJson.Write),
         }, WireJson.Write) + "\n");
         client.Write(reqBytes, 0, reqBytes.Length);
@@ -56,7 +66,7 @@ public sealed class PipeClient
                     // Carry the raw frame: if this ever fires, the operator needs the server's actual text, not a
                     // summary of its absence.
                     throw new PipeCallException(MalformedError, $"op '{op}' returned a malformed error frame: {e.GetRawText()}");
-                throw new PipeCallException(code, message);
+                throw new PipeCallException(code, message, e.TryGetProperty("data", out var d) ? d.Clone() : null);
             }
         }
         if (result is null) throw new PipeCallException(NoResult, $"op '{op}' produced no result frame");

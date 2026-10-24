@@ -66,8 +66,8 @@ public abstract class ReadResponse
     /// (a client that read it before keeps its last file, held and stale). That happened to a real project: one box whose <c>En</c> pin
     /// read as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para>
     ///
-    /// <para>Each entry carries its REASON: an object in a folder excluded from build, one holding a vendor member no
-    /// text spells, a read that failed.</para></summary>
+    /// <para>Each entry carries its CODE and its REASON: an object in a folder excluded from build, one holding a vendor
+    /// member no text spells, a read that failed.</para></summary>
     [JsonPropertyName("unreadable")]
     public List<UnreadableItem> Unreadable { get; set; } = new();
 
@@ -113,10 +113,16 @@ public sealed record UnreadableItem
 {
     public UnreadableItem() { }
 
-    public UnreadableItem(string name, string reason) { Name = name; Reason = reason; }
+    public UnreadableItem(string name, string code, string reason) { Name = name; Code = code; Reason = reason; }
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
+
+    /// <summary>Why, as a code a client matches (<see cref="BridgeErrorCodes"/>): <c>UNREADABLE</c> — the IDE did not
+    /// give what Volt asked of the object; <c>UNSUPPORTED</c> — the object holds what Volt's text has no spelling for, or
+    /// sits where Volt does not read (a folder excluded from build); another code when the read that failed raised one.</summary>
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = "";
 
     [JsonPropertyName("reason")]
     public string Reason { get; init; } = "";
@@ -130,10 +136,16 @@ public sealed record UnreadableNode
 {
     public UnreadableNode() { }
 
-    public UnreadableNode(string name, string reason) { Name = name; Reason = reason; }
+    public UnreadableNode(string name, string code, string reason) { Name = name; Code = code; Reason = reason; }
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
+
+    /// <summary>Why, as a code a client matches (<see cref="BridgeErrorCodes"/>): <c>UNREADABLE</c> — the IDE did not
+    /// give what Volt asked of the object; <c>UNSUPPORTED</c> — the object holds what Volt's text has no spelling for, or
+    /// sits where Volt does not read (a folder excluded from build); another code when the read that failed raised one.</summary>
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = "";
 
     [JsonPropertyName("reason")]
     public string Reason { get; init; } = "";

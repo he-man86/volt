@@ -71,7 +71,7 @@ public class CreateRollbackTests
         var ide = Refusing();
 
         var res = Push(ide, "FB_New.pou", Source, null);
-        Assert.False(res.Accepted, "the push must be refused");
+        Assert.False(res.Landed(), "the push must be refused");
 
         Assert.False(ide.Exists("FB_New"),
             "the create was rolled back — an item refused on its content must not survive as an empty shell");
@@ -88,7 +88,7 @@ public class CreateRollbackTests
         // many ops can report which one failed and why rather than losing the batch to a stack trace.
         var res = Push(ide, "FB_New.pou", Source, null);
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var reason = Reasons(res);
         Assert.Contains("the number of networks changes", reason);
     }
@@ -103,7 +103,7 @@ public class CreateRollbackTests
         var refs = RefsService.Handle(ide);
         var res = Push(ide, "FB_New.pou", Source, refs.Items["FB_New.pou"]);
 
-        Assert.False(res.Accepted, "the write was refused");
+        Assert.False(res.Landed(), "the write was refused");
         Assert.True(ide.Exists("FB_New"), "a refused UPDATE must leave the engineer's item alone");
     }
 
@@ -116,7 +116,7 @@ public class CreateRollbackTests
 
         var res = Push(ide, "FB_New.pou", Source, null);
 
-        Assert.True(res.Accepted);
+        Assert.True(res.Landed());
         Assert.True(ide.Exists("FB_New"));
     }
 
@@ -154,7 +154,7 @@ public class CreateRollbackTests
 
         var res = Push(ide, "RecipeTask.task", TaskSource, null);
 
-        Assert.False(res.Accepted, "the task push must be refused");
+        Assert.False(res.Landed(), "the task push must be refused");
         Assert.False(ide.Exists("RecipeTask"),
             "the task create was rolled back — a task with no schedule must not survive its own refusal");
     }
@@ -169,7 +169,7 @@ public class CreateRollbackTests
         var refs = RefsService.Handle(ide);
         var res = Push(ide, "RecipeTask.task", TaskSource, refs.Items["RecipeTask.task"]);
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         Assert.True(ide.Exists("RecipeTask"), "a refused UPDATE must leave the engineer's task alone");
     }
 
@@ -187,7 +187,7 @@ public class CreateRollbackTests
 
         // `Conflicts` is NULL on an accepted push, and an assertion message is built EAGERLY in C# — so
         // dereferencing it here throws on the very path this is asserting works.
-        Assert.True(res.Accepted,
+        Assert.True(res.Landed(),
             "a task push with nothing refusing it must be accepted — " + Reasons(res));
         Assert.True(ide.Exists("RecipeTask"), "a successful task create must be visible to Exists()");
     }

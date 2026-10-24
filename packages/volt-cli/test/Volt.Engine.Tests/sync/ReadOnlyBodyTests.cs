@@ -60,7 +60,7 @@ public class ReadOnlyBodyTests
 
     private static string Reason(PushResponse resp)
     {
-        Assert.False(resp.Accepted, "the push must be refused");
+        Assert.False(resp.Landed(), "the push must be refused");
         return Assert.Single(resp.Conflicts!).Reason;
     }
 
@@ -140,7 +140,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, text);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("delete:"));
         var after = ide.ReadContent(new ItemRef("FB_Chart"));
         Assert.Equal(before.Body, after.Body);
@@ -161,7 +161,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, $"{Decl}\n{typed}\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(Line(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
         Assert.Equal(Held(language), ide.StoredImplementation("FB_Chart"));
     }
@@ -184,7 +184,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, edited);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("bStart : BOOL;", ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
         Assert.Equal(Held(language), ide.StoredImplementation("FB_Chart"));
         Assert.Equal(edited, Pulled(ide));
@@ -201,7 +201,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, edited);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("bStart : BOOL;", ide.ReadContent(new ItemRef("FB_Chart")).Members.Single().Declaration);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("delete:"));
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));
@@ -221,7 +221,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, edited);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal("x := 1;", ide.ReadContent(new ItemRef("FB_Chart")).Body);
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));
     }
@@ -268,7 +268,7 @@ public class ReadOnlyBodyTests
             },
         });
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         var pou = renamed ? "FB_Moved" : "FB_Chart";
         Assert.Contains($"move:{pou}->Sub", ide.Recorded);                       // the move happened…
         Assert.Contains($"Sub/{pou}.pou", RefsService.Handle(ide).Items.Keys);
@@ -384,7 +384,7 @@ public class ReadOnlyBodyTests
         Assert.Equal(line, step.Body);
 
         var resp = Update(ide, text);
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(text, Pulled(ide));
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));
     }
@@ -465,7 +465,7 @@ public class ReadOnlyBodyTests
 
         var resp = Update(ide, source);
 
-        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
+        Assert.True(resp.Landed(), resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains("@volt-", FakeIde.AllText(ide.WrittenContent["FB_Chart"]));
     }
 
@@ -617,7 +617,7 @@ public class ReadOnlyBodyTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = "FB_Chart.pou", IfVersion = refs.Items["FB_Chart.pou"], SourceText = text.Replace("x := a", "x := b") } },
         });
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(body.Replace("x := a", "x := b"), ide.StoredImplementation("FB_Chart"));
     }
 

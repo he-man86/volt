@@ -64,7 +64,7 @@ public class PartiallyAppliedFieldsTests
         var ide = new FakeIde();
         var resp = Push(ide, Create("Bad.pou", "not a POU at all"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);
         AssertNothingKept(Assert.Single(resp.Conflicts!));
     }
@@ -119,7 +119,7 @@ public class PartiallyAppliedFieldsTests
             Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method),
             Create("ST_C.dut", Struct.Replace("ST_B", "ST_C")));
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         var notAttempted = resp.Conflicts!.Single(c => c.Code == ConflictCodes.NotAttempted);
         AssertNothingKept(notAttempted);
     }

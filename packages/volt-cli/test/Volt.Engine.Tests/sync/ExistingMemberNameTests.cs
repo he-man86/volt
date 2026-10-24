@@ -55,7 +55,7 @@ public class ExistingMemberNameTests
 
         var resp = Update(ide, version, Text("计数 := 计数 + 2;"));
 
-        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
+        Assert.True(resp.Landed(), string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.Empty(resp.Conflicts ?? new());
         var after = Assert.Single(FetchService.Handle(ide, new FetchRequest { Init = true }).Changed, c => c.Name == "命令队列管理.pou").SourceText;
         Assert.Contains("计数 := 计数 + 2;", after);
@@ -81,9 +81,9 @@ public class ExistingMemberNameTests
             },
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
-        var conflict = Assert.Single(resp.Conflicts!);
+        var conflict = Assert.Single(resp.Refused());
         Assert.Equal("命令队列管理.pou", conflict.Name);
         Assert.Contains("method 'Log'", conflict.Reason);
         Assert.DoesNotContain("区域可占用", conflict.Reason);
@@ -98,7 +98,7 @@ public class ExistingMemberNameTests
 
         var resp = Update(ide, version, Text(";", "\nACTION 区域可占用\nIMPLEMENTATION ST\n;\nEND_ACTION\n"));
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("action '区域可占用'", Assert.Single(resp.Conflicts!).Reason);
     }
 }

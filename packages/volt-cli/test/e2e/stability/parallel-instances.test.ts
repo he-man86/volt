@@ -17,6 +17,7 @@
 import { test, expect, describe, beforeAll } from "bun:test"
 import { connect } from "node:net"
 import { fixturePipesFor } from "../lib/fixture-ide"
+import { WIRE_PROTOCOL } from "../lib/pipe"
 
 const SLOW = process.env.VOLT_PIPE_SLOW // the large project's pipe
 const FAST = process.env.VOLT_PIPE_FAST // a normal project's pipe
@@ -29,7 +30,7 @@ function call(pipe: string, op: string, body?: unknown): Promise<any> {
 	return new Promise((resolve, reject) => {
 		const sock = connect(`\\\\.\\pipe\\${pipe}`)
 		let buf = "", result: unknown
-		sock.on("connect", () => sock.write(JSON.stringify({ op, body: body ?? undefined }) + "\n"))
+		sock.on("connect", () => sock.write(JSON.stringify({ op, protocol: WIRE_PROTOCOL, body: body ?? undefined }) + "\n"))
 		sock.on("data", (d: Buffer) => {
 			buf += d.toString("utf8")
 			let nl: number

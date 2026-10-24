@@ -126,13 +126,68 @@ Ide.Twincat 714, Ide.Codesys 485, Repo.Gates 255; volt-cli `bun test test/unit` 
 
 ## 3. Build, test-first (offline)
 
-- [ ] 3.1 Contract types (`Volt.Contracts/Wire`) to the new shape; `Vendors.cs` and the per-vendor pipe minters out of
+- [x] 3.1 Contract types (`Volt.Contracts/Wire`) to the new shape; `Vendors.cs` and the per-vendor pipe minters out of
       Contracts (vendor ids from `VendorRegistry`); every change red first in `Volt.Contracts.Tests`.
-- [ ] 3.2 Envelope: `protocol` required, `PROTOCOL_MISMATCH` before the body is read (`PipeServer`), protocol 1.
-- [ ] 3.3 `health`: `languages`, `kinds`, optional `dirty` (both hosts, no fallback), status enum.
-- [ ] 3.4 `refs`/`fetch`: `code` on unreadable entries; `knownApplications` required with `knownItems`.
-- [ ] 3.5 `push`: `accepted` and `currentProjectVersion` deleted; lease as an error frame; `removed` in the receipt;
+      **Built (3a):** `PipeRequest.protocol`, `PipeError.data` (`ProtocolMismatchData`, `StaleProjectVersionData`,
+      `ICodedError.ErrorData`), `HealthResponse.languages`/`kinds` (`HealthKind`), `protocol`/`ops` non-null, `networkText`
+      gone; `ProjectEntry` without `version`, `dirty` optional; `EmptyResult` for connect/disconnect; `UnreadableItem`/
+      `UnreadableNode` `code`; `PushResponse` without `accepted`/`currentProjectVersion`, with `removed`, `conflicts`/
+      `newItems` always present, `PushConflict.code` non-null and `existing`; `STALE_PROJECT_VERSION` moved to
+      `BridgeErrorCodes` beside the new `PROTOCOL_MISMATCH`, `ConflictCodes.ProjectName` deleted. `Vendors.cs` deleted:
+      hosts declare `CodesysDriver.Row` / `BeckhoffDriver.Row`; the CLI (`ClientVendors`, a `VendorRegistry`) and the
+      connector (`ConnectorVendors`) know the vendors they ship beside; `PipeNames.Instance(vendor, pid)` is the one
+      minter. Red first: `Volt.Contracts.Tests/WireFinalShapeTests` (10). New-vendor ratchet: CLI 5 → 0, Contracts 11 → 0.
+- [x] 3.2 Envelope: `protocol` required, `PROTOCOL_MISMATCH` before the body is read (`PipeServer`), protocol 1.
+      **Built (3a):** `PipeServer` reads the envelope strictly (`WireJson.Request`) and refuses a missing/other protocol
+      with `data.bridgeProtocol`; `PipeClient`, the e2e `pipe.ts` and the LSP `bridge.ts` state it; the CLI's own
+      `health.protocol` pre-check (`BRIDGE_PROTOCOL`) is deleted and maps `PROTOCOL_MISMATCH` to its remedy; the protocol
+      test seam (`BridgePipeHost(…, int? protocol)`) is deleted (ratchet 1 → 0); the relay forwards `error.data`. B1 is
+      measured false for the PREVIOUS release (design "Built" 1). Tests: `BridgeProtocolTests` (rewritten, 10 cases).
+- [x] 3.3 `health`: `languages`, `kinds`, optional `dirty` (both hosts, no fallback), status enum.
+      **Built (3a):** `languages` = `NetworkTextSwitch.Shown(catalog.Languages.ShownBy(vendor))` (one place), `kinds` = the
+      declared rows with an extension (verbatim, 2.2 default); `dirty` absent for a CODESYS project with no `dirty` member,
+      a TwinCAT `Saved` that throws, a TwinCAT row not served (`CodesysDirtyTests` 3, `TcDirtyTests` 4); the connector
+      stamps `ideVersion` onto its rows. Status enum: schema generation is 3.9.
+- [x] 3.4 `refs`/`fetch`: `code` on unreadable entries; `knownApplications` required with `knownItems`.
+      **Built (3a):** `UnreadableObject.Code` stated by each producer (design "Built" 7); `OpGuard.RequireKnownApplications`
+      refused a baseline without it before any walk — reversed at gate 3a (finding 2: optional, absence defined); the CLI
+      sends the sidecar's applications (none for a baseline rebuilt from `volt/ide`, design "Built" 4) and sends no fake `knownItems` on its two directed reads.
+- [x] 3.5 `push`: `accepted` and `currentProjectVersion` deleted; lease as an error frame; `removed` in the receipt;
       `existing` on ITEM_EXISTS; `code` required.
+      **Built (3a):** the lease throws `STALE_PROJECT_VERSION` with `data.currentProjectVersion` (0-op push too, which lands
+      nothing); a refusal before the first write answers every other op `NOT_ATTEMPTED` and no receipt; a first op of which
+      nothing stays lands nothing, one of which something stays is a landing (F8); `newItems`/`removed` are the push's own
+      delta (`PushService.Receipt`), `unwalkedFolders` both walks' (design "Built" 2); the CLI updates its baseline as
+      `baseline − removed + newItems`. Tests: `Volt.Engine.Tests/sync/WireFinalShapeTests` (14, over the pipe) and every
+      push test re-read for the new answer (`Landed()` = `newProjectVersion` present, `Refused()` without NOT_ATTEMPTED).
+Gate 3a (2026-10-24): the six review findings, each with a test; tests written beside the fix (not run red first).
+1. **A case-only rename now retires the old spelling** (`PushService.Receipt`): the rename is decided by `SameSpelling`
+   and "gone" by an exact-spelling lookup of the pre-apply key in the receipt. Test `WireFinalShapeTests.
+   A_case_only_rename_answers_the_old_spelling_in_removed` (`baseline − removed + newItems` = the IDE's refs, ordinal).
+2. **`knownApplications` is optional again, its absence defined** ("the client does not know them": nothing under an
+   unread folder outside the walk's applications is judged removed); `OpGuard.RequireKnownApplications` deleted; the CLI's
+   recovery pull sends none instead of `[]`. Reverses the F22 row — design "Built" 4, **for the owner**. Tests:
+   `SidecarBaselineTests.A_baseline_less_pull_keeps_the_file_of_an_item_an_unread_device_hides_beside_a_pool_item_of_its_name`
+   (CLI), `MultiApplicationTreeTests` (both forms), `WireFinalShapeTests.A_baseline_without_its_applications_is_served`.
+   Census `WireVocabularyTests` BAD_REQUEST in OpGuard 2 → 1.
+3. **Every raw TS client states `protocol`**: `stability/parallel-instances.test.ts`, `scripts/wire-transcript.ts` (the
+   recorded request frames change: 4.2 re-records), `scripts/mixed-version.ts`'s health probe, `contract/openrpc-contract.
+   test.ts` `frameOf` and its three hand-written envelopes. Live suites not run here (4.1 owns the contract run).
+4. **`newItems` no longer depends on `returnSources`**: `newSources` keeps only the text of items a landed `set` left (the
+   items `newItems` names); the receipt no longer adds `newSources` keys. Test `An_item_the_IDE_changed_beside_the_push_is_in_newItems_in_neither_mode`
+   (both modes). `PushResponse.NewSources` doc no longer promises IDE-side rewrites.
+5. **A partly-landed first op's path under a folder the receipt could not read is not `removed`**: the refused op's
+   paths are judged by the receipt walk, which says nothing under its `unwalkedFolders`. Test
+   `A_partly_landed_op_under_a_folder_the_receipt_could_not_read_is_not_removed`.
+6. **The relay forwards the remote client's `protocol`** (`RelayInbound.Protocol` → `PipeClient.Forward`), so the bridge
+   refuses a remote client of another protocol or none `PROTOCOL_MISMATCH` itself. Tests `RelayTunnelTests.
+   A_remote_request_of_another_protocol_is_refused_PROTOCOL_MISMATCH` (none, 2); the protocol-seam ratchet pins those
+   three sites (RelayFrames 1, PipeClient 2) as the relay's forwarding, nothing else.
+Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 68, Engine 3132 (+1 skipped), Cli 359, Connector
+154, Ide.Twincat 718, Ide.Codesys 488, Repo.Gates 255, Relay 74; volt-cli `bun test test/unit` 228; volt-lsp-iec
+`scripts/bridge.test.ts` 5. No fixture, recording or transpiler change, so no fixture-map regeneration; the LSP suites
+are not this change's (no LSP source changed).
+
 - [ ] 3.6 `build`: severity absent when unmapped; positions optional and 1-based; `durationMs`. The CODESYS word table
       reads `IMessage.Severity` as its numeric value (2.7); first measure on live 3.5.22.40 which values a build gives
       (a suppressed warning included), raw values logged, before the table is written. TwinCAT keeps the `,col` group

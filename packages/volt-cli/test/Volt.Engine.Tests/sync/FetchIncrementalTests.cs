@@ -17,7 +17,7 @@ public class FetchIncrementalTests
         FakeIde.Item.TextualPou("FB_Motor", "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "y := 2;", "POUs"));
 
     private static FetchResponse Fetch(FakeIde ide, Dictionary<string, string> known) =>
-        FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
 
     [Fact]
     public void An_unchanged_item_is_excluded_from_changed_but_kept_in_items()

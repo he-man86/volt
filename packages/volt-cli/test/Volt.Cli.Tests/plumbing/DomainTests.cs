@@ -65,9 +65,9 @@ public class DomainTests
             Assert.Equal("codesys", Config.ConfiguredVendor(root));
 
             // Binding checks against a health payload.
-            var ok = new HealthResponse { Projects = { new ProjectEntry("codesys", "3.5", "Demo", HealthStatus.Healthy, false) } };
+            var ok = new HealthResponse { Projects = { new ProjectEntry("codesys", "Demo", HealthStatus.Healthy, false) } };
             Assert.Null(Config.ProjectMismatch(loaded, ok));
-            var wrong = new HealthResponse { Projects = { new ProjectEntry("codesys", "3.5", "Other", HealthStatus.Healthy, false) } };
+            var wrong = new HealthResponse { Projects = { new ProjectEntry("codesys", "Other", HealthStatus.Healthy, false) } };
             Assert.NotNull(Config.ProjectMismatch(loaded, wrong));
         }
         finally { TestUtil.ForceDelete(root); }

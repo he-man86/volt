@@ -57,7 +57,7 @@ public class MergedClassKeptTests
 
     private static void AssertKeptInPlace(FakeIde ide, PushResponse resp, string name, string label)
     {
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(label, ide.ClassOf(name));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal));
         Assert.DoesNotContain(ide.Recorded, r => r == $"create:{name}");
@@ -121,7 +121,7 @@ public class MergedClassKeptTests
             Name = "FBs/Base.pou",
             SourceText = text.Replace("METHOD ABSTRACT TakePicture : BOOL", "METHOD ABSTRACT TakePicture : BOOL\n// edited"),
         });
-        Assert.True(update.Accepted, update.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(update.Landed(), update.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Contains(ide.Recorded, r => r == "writecontent:Base");
         Assert.Equal(label, ide.ClassOf("TakePicture"));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:", System.StringComparison.Ordinal) || r == "create:TakePicture");

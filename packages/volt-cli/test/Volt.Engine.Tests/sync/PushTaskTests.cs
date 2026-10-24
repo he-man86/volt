@@ -60,7 +60,7 @@ public class PushTaskTests
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("writetask:MainTask", ide.Recorded);
         // The engine parsed and gated it, so the driver never sees the file layout.
         var written = ide.WrittenTasks["MainTask"];
@@ -92,7 +92,7 @@ public class PushTaskTests
             new SetItemOp { Name = "PRG_A.pou", IfVersion = null, SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
             new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body.Replace("Cyclic", "Cyclicc") });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         var refused = Assert.Single(resp.Conflicts!, c => c.Name == "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
         Assert.Equal("Cyclicc", Assert.Single(ide.TasksValidated).Type);
@@ -123,7 +123,7 @@ public class PushTaskTests
             SourceText = Body,
         });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("create:FastTask", ide.Recorded);
         Assert.Equal(ItemKind.PlcTask, ide.CreatedKinds["FastTask"]);
         Assert.Contains("writetask:FastTask", ide.Recorded);
@@ -151,7 +151,7 @@ public class PushTaskTests
             SourceText = Body,
         });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Equal(ItemKind.PlcTask, ide.CreatedKinds["FastTask"]);
         // The REAL container, resolved by kind…
         Assert.Equal("Device/Plc Logic/Application/Taskkonfiguration", ide.CreatedParents["FastTask"]);
@@ -169,7 +169,7 @@ public class PushTaskTests
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
         var resp = Push(ide, pv, new DeleteItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         Assert.Contains("delete:MainTask", ide.Recorded);
     }
 
@@ -186,7 +186,7 @@ public class PushTaskTests
             SourceText = Body,
         });
 
-        Assert.True(resp.Accepted);
+        Assert.True(resp.Landed());
         // The IDE's own rename, so whatever references the task follows it.
         Assert.Contains("rename:MainTask->SlowTask", ide.Recorded);
         Assert.Contains("writetask:SlowTask", ide.Recorded);
@@ -207,7 +207,7 @@ public class PushTaskTests
             SourceText = "Type: Cyclic\nPriority: 5\nWatchdog: off\n",
         });
 
-        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+        Assert.True(resp.Landed(), string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
         Assert.Contains("writetask:MainTask", ide.Recorded);
     }
 
@@ -223,7 +223,7 @@ public class PushTaskTests
             SourceText = Body.TrimEnd('\n') + "\nCoreBinding: 2\n",
         });
 
-        Assert.False(resp.Accepted);
+        Assert.False(resp.Landed());
         Assert.Contains("CoreBinding", resp.Conflicts![0].Reason);
         // The request's grammar, not Volt's broken invariant: BAD_REQUEST on the wire, never the INTERNAL_ERROR
         // default an uncoded exception falls to (openspec bridge-refusal-review D14).

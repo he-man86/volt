@@ -162,7 +162,7 @@ public class LanguageChangeGuardTests
 
         var resp = PushSt(ide, "q := NOT a;");
 
-        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Empty(resp.Conflicts ?? new List<PushConflict>());
         var held = ide.ReadContent(new ItemRef("P"));
         Assert.Equal((StatedLanguage.St, "q := NOT a;"), (held.Stated, held.Body));

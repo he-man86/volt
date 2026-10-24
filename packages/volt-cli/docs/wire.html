@@ -128,7 +128,8 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   (<code>A/App</code> holds <code>A/App/X.pou</code>, not <code>A/App2/X.pou</code>); an item under none belongs to
   the pool. A client never parses a vendor segment. A client that sends <code>knownItems</code> also sends the
   <code>applications</code> its baseline was read with, as <code>knownApplications</code>: a known path under a folder
-  the walk could not read is then judged by the application it was in. <code>build</code> takes the same roots as
+  the walk could not read is then judged by the application it was in. A client that does not know them sends none,
+  and such a path outside every application the walk states is then never judged removed. <code>build</code> takes the same roots as
   <code>applications</code> to compile those alone; without it every application is built.
 </p>
 <table>
@@ -228,6 +229,8 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
 <p data-render="errors"></p>
 <table>
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
+  <tr><td class="name">PROTOCOL_MISMATCH</td><td>The request states no <code>protocol</code>, or one this bridge does not speak. Refused before the body is read; nothing ran. <code>error.data.bridgeProtocol</code> is the number the bridge speaks.</td><td>The client and the bridge are of two releases: update the older one (an IDE that loaded the previous bridge is restarted).</td></tr>
+  <tr><td class="name">STALE_PROJECT_VERSION</td><td>A push&rsquo;s <code>expectedProjectVersion</code> is not the project&rsquo;s version: the project moved since the read that produced it. Nothing was applied. <code>error.data.currentProjectVersion</code> is the version the IDE holds.</td><td>Pull, then push again.</td></tr>
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>. When a project is open and cannot be served (a TwinCAT window whose solution has no file), the message says why.</td><td>Send <code>connect</code>, or do what the message says.</td></tr>
   <tr><td class="name">IDE_UNSUPPORTED</td><td>The IDE the bridge runs in lacks something the bridge needs, so it serves nothing: every op but <code>health</code> answers with it. The message is fixed English naming the platform version and what is missing — <code>CODESYS 3.5.17.0 is not supported: it lacks …</code> — and <code>health</code> carries the same sentence as <code>unsupported</code>, beside <code>ideVersion</code>. Refused by capability, never by version number.</td><td>Show the message; do not retry. The IDE has to change, not the call.</td></tr>
   <tr><td class="name">IDE_BUSY</td><td>A <code>push</code> or <code>build</code> arrived while another push or build held the IDE. Refused at once, before the IDE is touched: nothing was applied and nothing compiled. Both vendors answer it alike; reads (<code>refs</code>, <code>fetch</code>) and <code>health</code> are never refused with it. An error <i>frame</i>.</td><td>Wait for the running build or push to answer, then try once. Never retry in a loop.</td></tr>
@@ -267,7 +270,6 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
 </p>
 <table>
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
-  <tr><td class="name">STALE_PROJECT_VERSION</td><td>The lease: the project moved between the fetch that produced <code>expectedProjectVersion</code> and this push. Reported on a synthetic row named <code>&lt;project&gt;</code>, which is not an item and cannot collide with one.</td><td>Pull, then push again.</td></tr>
   <tr><td class="name">STALE_ITEM_VERSION</td><td>That item moved since you read its version — the ordinary edit collision. <code>yourVersion</code> and <code>currentVersion</code> are both set.</td><td>Pull that item, merge, push again.</td></tr>
   <tr><td class="name">ITEM_EXISTS</td><td>A <code>set</code> lands on a path the IDE holds: a create (<code>ifVersion: null</code>, gate only, so a forced create overwrites), or a rename or move's <code>to</code> (pre-flight, force or not) &mdash; and a create or a rename onto a name a POU, DUT or GVL of the same application holds in another folder or kind, since the IDE holds one object of a name per application (the conflict names that item). <code>currentVersion</code> is the version of the item there.</td><td>A create: fetch its version and push an update, or pick another name. A <code>to</code>: pick another <code>to</code>, or free it in an earlier push. <b>Not</b> pull-and-retry.</td></tr>
   <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>

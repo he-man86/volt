@@ -159,7 +159,7 @@ internal sealed class WorkerStart
                 var tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
                     Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(BridgePipeHost)),
                     pipe,
-                    Vendors.Twincat,
+                    BeckhoffDriver.Row.Id,
                     BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
                     m => _p.Log(VoltLogLevel.Info, m),
                     m => _p.Log(VoltLogLevel.Error, m),
@@ -178,7 +178,7 @@ internal sealed class WorkerStart
     internal static Parts Production() => new()
     {
         Pids = ScanRot,
-        PipeName = PipeNames.TwincatInstance,
+        PipeName = pid => PipeNames.Instance(BeckhoffDriver.Row.Id, pid),
         Claim = PipeServer.TakeName,
         Caption = CaptionOf,
         Attach = AttachSta,

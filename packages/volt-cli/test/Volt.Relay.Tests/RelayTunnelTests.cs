@@ -39,7 +39,7 @@ public class RelayTunnelTests : IDisposable
     {
         ide ??= new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
         {
-            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+            Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
         };
 
         var pipe = PipeName();
@@ -124,9 +124,9 @@ public class RelayTunnelTests : IDisposable
         var (relay, _, _) = Start();
         await relay.AwaitHello();
 
-        relay.Send("{\"id\":\"plain\",\"op\":\"push\",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]}}");
+        relay.Send("{\"id\":\"plain\",\"op\":\"push\",\"protocol\":" + WireProtocol.Version + ",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]}}");
         var plain = await relay.AwaitFrame("plain", "result");
-        relay.Send("{\"id\":\"budget\",\"op\":\"push\",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]},\"budgetMs\":0}");
+        relay.Send("{\"id\":\"budget\",\"op\":\"push\",\"protocol\":" + WireProtocol.Version + ",\"body\":{\"expectedPlatform\":\"codesys\",\"expectedProjectName\":\"FakeProject\",\"ops\":[]},\"budgetMs\":0}");
         var budget = await relay.AwaitFrame("budget", "result");
 
         Assert.Equal(plain.GetRawText(), budget.GetRawText());
@@ -145,6 +145,24 @@ public class RelayTunnelTests : IDisposable
         var result = await relay.AwaitFrame("r1", "result");
         Assert.True(result.TryGetProperty("projects", out var projects));
         Assert.Equal(1, projects.GetArrayLength());
+    }
+
+    /// <summary>A REMOTE CLIENT OF ANOTHER PROTOCOL IS REFUSED BY NAME, never served (wire-final-shape gate 3a): the relay
+    /// forwards the protocol the remote request stated — none, or another number — so the bridge answers it
+    /// <c>PROTOCOL_MISMATCH</c> with its own protocol as data, exactly as on the pipe, instead of serving a wire that client
+    /// would misread under this build's number.</summary>
+    [Theory]
+    [InlineData("{\"id\":\"r1\",\"op\":\"refs\",\"body\":{}}")]
+    [InlineData("{\"id\":\"r1\",\"op\":\"refs\",\"protocol\":2,\"body\":{}}")]
+    public async Task A_remote_request_of_another_protocol_is_refused_PROTOCOL_MISMATCH(string frame)
+    {
+        var (relay, _, _) = Start();
+        await relay.AwaitHello();
+
+        relay.Send(frame);
+        var error = await relay.AwaitFrame("r1", "error");
+        Assert.Equal(BridgeErrorCodes.ProtocolMismatch, error.GetProperty("code").GetString());
+        Assert.Equal(WireProtocol.Version, error.GetProperty("data").GetProperty("bridgeProtocol").GetInt32());
     }
 
     /// <summary>`grep` is tunnelled (openspec <c>grep-item-sources</c>): the op PLC Assist's AI searches with is in the
@@ -203,7 +221,7 @@ public class RelayTunnelTests : IDisposable
         {
             ExtractEntered = entered,
             ExtractBlock = release,
-            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+            Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
         };
 
         var (relay, _, _) = Start(ide);
@@ -232,7 +250,7 @@ public class RelayTunnelTests : IDisposable
         var release = new ManualResetEventSlim(false);
         var ide = new FakeIde(serializeSta: true, FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
         {
-            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+            Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
         };
         ide.OnWalkItems = () => { entered.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
         var (relay, _, _) = Start(out _, ide, pingEvery: TimeSpan.FromMilliseconds(100));
@@ -558,10 +576,10 @@ public class RelayTunnelTests : IDisposable
         await relay.AwaitHello();
 
         relay.FailSendWhen = frame => frame.StartsWith("{\"id\":\"r1\",\"result\"");
-        relay.SendRequest("r1", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() });
+        relay.SendRequest("r1", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n" } } });
 
         var line = await AwaitTerminalLine(log, "r1");
-        Assert.Matches(@"^relay: -> push \(r1\) ok accepted newProjectVersion=\S+ \d+ms delivered=no \(WebSocketException: .+\)$", line);
+        Assert.Matches(@"^relay: -> push \(r1\) ok landed newProjectVersion=\S+ \d+ms delivered=no \(WebSocketException: .+\)$", line);
         Assert.Empty(log.At(VoltLogLevel.Error));
         // And no second terminal frame: the op succeeded, there is nothing to answer as an error.
         Assert.DoesNotContain(relay.Received, f => f.StartsWith("{\"id\":\"r1\",\"error\""));
@@ -578,7 +596,7 @@ public class RelayTunnelTests : IDisposable
         {
             ExtractEntered = entered,
             ExtractBlock = release,
-            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+            Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
         };
         var log = new LogCapture();
         var delay = new FakeDelay();
@@ -613,7 +631,7 @@ public class RelayTunnelTests : IDisposable
         // Hold the push IN FLIGHT at its walk (armed after the hello, so nothing before the push is held).
         ide.OnWalkItems = () => { entered.Set(); release.Wait(); };
 
-        relay.SendRequest("r5", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() });
+        relay.SendRequest("r5", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n" } } });
         Assert.True(entered.Wait(15_000), "the push never reached the blocking step");
         relay.DieWithoutClose();
         await delay.NextWait();
@@ -624,8 +642,10 @@ public class RelayTunnelTests : IDisposable
 
         release.Set();
         var line = await AwaitTerminalLine(log, "r5");
-        Assert.Matches(@"^relay: -> push \(r5\) abandoned ok accepted newProjectVersion=\S+ \d+ms delivered=no$", line);
-        Assert.DoesNotContain(relay.Received, f => f.Contains("\"r5\""));
+        Assert.Matches(@"^relay: -> push \(r5\) abandoned ok landed newProjectVersion=\S+ \d+ms delivered=no$", line);
+        // The redialled connection carries nothing for the id (its progress before the drop went on the first one).
+        var redialled = relay.Received.SkipWhile(f => !f.Contains("\"hello\"")).Skip(1).SkipWhile(f => !f.Contains("\"hello\""));
+        Assert.DoesNotContain(redialled, f => f.Contains("\"r5\""));
     }
 
     // ── "connected" means accepted (openspec bridge-console-says-what-it-serves) ──────────────
@@ -706,7 +726,7 @@ public class RelayTunnelTests : IDisposable
         {
             ExtractEntered = entered,
             ExtractBlock = release,
-            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+            Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
         };
         var log = new LogCapture();
         var delay = new FakeDelay();

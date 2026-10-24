@@ -60,8 +60,8 @@ public class UnopenedItemTests
         var (ide, baseline) = Project();
         ide.RemoveItem("B");
 
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items });
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = baseline.Applications, KnownItems = baseline.Items });
 
         Assert.Equal(new[] { "Data/B.pou" }, refs.Removed);
         Assert.Equal(new[] { "Data/B.pou" }, fetch.Removed);
@@ -98,9 +98,9 @@ public class UnopenedItemTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
         });
 
-        Assert.False(set.Accepted);
+        Assert.False(set.Landed());
         Assert.Equal(BridgeErrorCodes.Unreadable, Assert.Single(set.Conflicts!).Code);
-        Assert.False(delete.Accepted);
+        Assert.False(delete.Landed());
         Assert.Equal(BridgeErrorCodes.Unreadable, Assert.Single(delete.Conflicts!).Code);
         Assert.Contains("'Broken'", delete.Conflicts![0].Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.Contains("Broken"));
@@ -126,8 +126,8 @@ public class UnopenedItemTests
             },
         });
 
-        Assert.False(push.Accepted);
-        var conflict = Assert.Single(push.Conflicts!);
+        Assert.False(push.Landed());
+        var conflict = Assert.Single(push.Refused());
         Assert.Equal(BridgeErrorCodes.Unreadable, conflict.Code);
         Assert.Equal("Data/Broken.pou", conflict.Name);
         Assert.DoesNotContain("already written", conflict.Reason);
@@ -146,7 +146,7 @@ public class UnopenedItemTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.pou" } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
+        Assert.True(push.Landed(), string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
         Assert.Equal(new[] { "delete:Broken" }, ide.Recorded.Where(r => r.Contains("Broken")).ToArray());
         Assert.False(ide.Exists("Broken"));
         Assert.Empty(ide.OpenedUnopened);
@@ -165,7 +165,7 @@ public class UnopenedItemTests
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText = Fb("Broken") } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
+        Assert.True(push.Landed(), string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
         var touched = ide.Recorded.Where(r => r.EndsWith(":Broken")).ToArray();
         Assert.Equal("delete:Broken", touched[0]);
         Assert.Equal("create:Broken", touched[1]);
@@ -189,7 +189,7 @@ public class UnopenedItemTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "Data/Broken.dut" } },
         });
 
-        Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(push.Landed(), string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Code}: {c.Reason}")));
         Assert.True(ide.Exists("Broken"));
         Assert.DoesNotContain("delete:Broken", ide.Recorded);
         Assert.Empty(ide.OpenedUnopened);

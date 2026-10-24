@@ -15,7 +15,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// The rot-guard for the single-source-wire-vocabularies refactor. Each closed wire/domain vocabulary is defined
-/// ONCE (item kinds in <c>ItemKind.Kinds</c>, op codes in <c>Ops</c>, vendor ids in <c>Vendors</c>, health words in
+/// ONCE (item kinds in <c>ItemKind.Kinds</c>, op codes in <c>Ops</c>, vendor ids in each host's <c>VendorRow</c>, health words in
 /// <c>HealthStatus</c>, error codes in <c>BridgeErrorCodes</c>). This test fails the build if one of those literal
 /// VALUES is re-spelled in <c>src</c> code outside the small set of files that legitimately hold it for a DIFFERENT
 /// reason (its own definition, or a genuinely distinct vocabulary that shares the word) — so the cleanup can't
@@ -56,7 +56,10 @@ public class WireVocabularyGuardTests
             // OEM product name (IEngine3.OEMCustomization.ProductName), which plain CODESYS answers as "CODESYS".
             // VoltEnv names the INSTALL folder `{app}\codesys` — the payload layout build-installer.ts and Volt.iss
             // lay down, not the wire's vendor id; tying a disk path to the wire constant would move the folder with it.
-            new HashSet<string> { "Vendors.cs", "TcObjectModel.cs", "CodesysPlatform.cs", "VoltEnv.cs" }),
+            // The ids are DECLARED by each host (its seam's VendorRow) and known by the two clients that ship without the
+            // hosts: the connector (ConnectorVendors) and the CLI (ClientVendors) — wire-final-shape, design "Below the wire".
+            new HashSet<string> { "CodesysDriver.cs", "BeckhoffDriver.cs", "ConnectorVendors.cs", "ClientVendors.cs",
+                                  "TcObjectModel.cs", "CodesysPlatform.cs", "VoltEnv.cs" }),
 
         ("health status (HealthStatus)",
             // `idle` was absent — the DEFAULT row state and the pivot of the whole serving rule (`status != idle`),
@@ -145,7 +148,7 @@ public class WireVocabularyGuardTests
 
         Assert.True(offenders.Count == 0,
             "A closed wire/domain vocabulary is defined once and referenced everywhere else. A raw literal below " +
-            "re-spells one instead of using its constant (ItemKind.Kinds / Ops / Vendors / HealthStatus / " +
+            "re-spells one instead of using its constant (ItemKind.Kinds / Ops / a host's VendorRow / HealthStatus / " +
             "BridgeErrorCodes). Use the constant, or — if it is genuinely a different vocabulary — add the file to " +
             "that vocabulary's allowlist in this test:\n  " + string.Join("\n  ", offenders));
     }

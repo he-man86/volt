@@ -21,7 +21,7 @@ public class FetchExclusionTests
     {
         var ide = new FakeIde(Pou("Live"), Pou("Dead"));
 
-        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Live"));
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Dead"));
     }
@@ -34,7 +34,7 @@ public class FetchExclusionTests
         var manifest = "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, 3.5.18.0 (System)\nPLACEHOLDER true\nSYSTEM false\n";
         var ide = new FakeIde(FakeIde.Item.Library("Standard", manifest));
 
-        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         var stub = resp.Changed.Single(c => c.File() == "Standard.library");
         Assert.Equal("Library Manager/Standard", stub.Folder());
@@ -54,7 +54,7 @@ public class FetchExclusionTests
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { handle } };
 
-        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         var handles = resp.Changed.Where(c => c.File() == "HANDLE.dut").Select(c => c.Folder()).ToList();
         Assert.Equal(new[] { "Library Manager/CAA Types" }, handles); // once, beside its stub
@@ -75,7 +75,7 @@ public class FetchExclusionTests
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { orphan } };
 
-        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         var placed = resp.Changed.Where(c => c.File() == "SOMEFB.pou").Select(c => c.Folder()).ToList();
         Assert.Single(placed);

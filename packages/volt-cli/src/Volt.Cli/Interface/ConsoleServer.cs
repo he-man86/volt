@@ -232,9 +232,7 @@ public sealed class ConsoleServer : IDisposable
     /// and the honest answer is to name them and ask which, not to pick.</para></summary>
     private static (string? Pipe, string? Ambiguity) FirstPipe()
     {
-        var found = new[] { Vendors.Codesys, Vendors.Twincat }
-            .SelectMany(v => PipeDiscovery.List(PipeNames.PrefixForVendor(v)))
-            .ToList();
+        var found = PipeDiscovery.List(PipeNames.Prefix).ToList();
         if (found.Count == 1) return (found[0], null);
         if (found.Count == 0) return (null, null);
         return (null, "several bridges are live (" + string.Join(", ", found)

@@ -38,7 +38,7 @@ public class CaseVariantNameGateTests
             Ops = new List<PushOp> { new SetItemOp { Name = name, IfVersion = null, SourceText = text } },
         });
 
-        Assert.False(push.Accepted, "a create under a case variant of a live item was accepted");
+        Assert.False(push.Landed(), "a create under a case variant of a live item was accepted");
         var conflict = Assert.Single(push.Conflicts!);
         Assert.True(conflict.Code == ConflictCodes.ItemExists, $"{conflict.Code}: {conflict.Reason}");
         Assert.Equal(name, conflict.Name);
@@ -60,7 +60,7 @@ public class CaseVariantNameGateTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = name, IfVersion = "0123456789abcdef" } },
         });
 
-        Assert.False(push.Accepted, "a guarded delete under a case variant ran without its version check");
+        Assert.False(push.Landed(), "a guarded delete under a case variant ran without its version check");
         var conflict = Assert.Single(push.Conflicts!);
         Assert.True(conflict.Code == ConflictCodes.StaleItemVersion, $"{conflict.Code}: {conflict.Reason}");
         Assert.Empty(ide.Recorded);

@@ -48,7 +48,7 @@ public class FetchDirectedTests
         var ide = Project();
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = Baseline(ide),
             OnlyItems = new List<string> { "A.pou" },
         });
@@ -69,7 +69,7 @@ public class FetchDirectedTests
             Ops = new List<PushOp> { new DeleteItemOp { Name = "B.pou", IfVersion = before["B.pou"] } },
         });
 
-        var res = FetchService.Handle(ide, new FetchRequest { KnownItems = before });
+        var res = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = before });
 
         Assert.Equal(new[] { "B.pou" }, res.Removed);
     }
@@ -86,7 +86,7 @@ public class FetchDirectedTests
         var ide = Project();
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string>(),
         });
@@ -102,7 +102,7 @@ public class FetchDirectedTests
         var ide = Project();
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { "A.pou", "C.pou" },
         });

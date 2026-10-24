@@ -89,7 +89,7 @@ public class DocDataTests
 
     private static readonly Dictionary<string, (string[] Errors, string[] Outcomes)> Outcomes = new()
     {
-        [Ops.Health] = (new[] { BridgeErrorCodes.InternalError }, new[]
+        [Ops.Health] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.InternalError }, new[]
         {
             "Never gated by `disconnect` — while paused every row is forced to `idle`, because the list is how "
             + "the user reconnects.",
@@ -106,21 +106,21 @@ public class DocDataTests
             "`ops` names every op this bridge answers, from its own dispatch table: a client asks it before an op an "
             + "older bridge may lack (`grep`). A frame without `ops` is a bridge from before it.",
         }),
-        [Ops.Connect] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Connect] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
         {
             "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something "
             + "other than the project named. Enforced once in shared code, so both vendors refuse identically.",
             "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, "
             + "so a `disconnect` racing a connect wins.",
         }),
-        [Ops.Disconnect] = (new[] { BridgeErrorCodes.IdeUnsupported }, new[]
+        [Ops.Disconnect] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported }, new[]
         {
             "Fails only with IDE_UNSUPPORTED, as every op but `health` does on an IDE the bridge cannot serve. "
             + "Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so "
             + "it answers even while a push is running — and that push runs to completion. The gate stops the "
             + "NEXT op, never the current one.",
         }),
-        [Ops.Refs] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Refs] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.BadRequest,
                               ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
@@ -133,7 +133,7 @@ public class DocDataTests
             + "then on and the same terminal frame, result or error. Nothing is kept once it answers: the next `refs` walks "
             + "again.",
         }),
-        [Ops.Fetch] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Fetch] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                                BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
@@ -145,8 +145,8 @@ public class DocDataTests
             "Items that would not materialize are named in `unreadable`, not raised.",
             WalkFrames,
         }),
-        [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy,
+        [Ops.Push] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                              BridgeErrorCodes.BadRequest, BridgeErrorCodes.StaleProjectVersion, ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy,
                               BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
@@ -171,7 +171,7 @@ public class DocDataTests
             + "full name after a native rename that ran first, `remains: true` for a create whose rollback failed. "
             + "Each is ABSENT when it does not apply — never false.",
         }),
-        [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Build] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                                BridgeErrorCodes.BadRequest, BridgeErrorCodes.IdeBusy }, new[]
         {
             BusyFrame,
@@ -188,7 +188,7 @@ public class DocDataTests
             "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
             + "TwinCAT reads the IDE's own count of failed projects.",
         }),
-        [Ops.Grep] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Grep] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                               BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
@@ -203,17 +203,17 @@ public class DocDataTests
         }),
     };
 
-    private static readonly (string Op, Type? Param, Type? Result, string Summary)[] Methods =
+    private static readonly (string Op, Type? Param, Type Result, string Summary)[] Methods =
     {
         (Ops.Health, null, typeof(HealthResponse),
             "Liveness plus the connectable projects, from the driver's CACHED snapshot — never marshalled onto " +
             "the IDE thread. This is the poll path (the connector every few seconds), so it answers while a push " +
             "or build is running. While paused every row reads idle."),
-        (Ops.Connect, typeof(ConnectRequest), null,
+        (Ops.Connect, typeof(ConnectRequest), typeof(EmptyResult),
             "Bind a project and resume service. An absent or empty `project` means \"serve whatever you have\". " +
             "Refuses with PLC_DISCONNECTED unless the bridge ends up actually serving the named project — the " +
             "post-condition is enforced in shared code, so both vendors answer identically."),
-        (Ops.Disconnect, null, null,
+        (Ops.Disconnect, null, typeof(EmptyResult),
             "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push " +
             "is running, and that push RUNS TO COMPLETION — the gate stops the NEXT op, never the current one."),
         (Ops.Refs, typeof(RefsRequest), typeof(RefsResponse),
@@ -290,14 +290,7 @@ public class DocDataTests
             var (errs, outs) = Outcomes[op];
             m["x-errorCodes"] = new JsonArray(errs.Select(e => (JsonNode?)e).ToArray());
             m["x-outcomes"] = new JsonArray(outs.Select(o => (JsonNode?)o).ToArray());
-            m["result"] = result is null
-                // `connect` and `disconnect` answer `{ok:true}` — a literal, not a contract type.
-                ? new JsonObject { ["name"] = "ok", ["schema"] = new JsonObject
-                    {
-                        ["type"] = "object",
-                        ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" } },
-                    } }
-                : new JsonObject { ["name"] = "result", ["schema"] = Reference(result, schemas, isRequest: false) };
+            m["result"] = new JsonObject { ["name"] = "result", ["schema"] = Reference(result, schemas, isRequest: false) };
             methods.Add(m);
         }
 
@@ -311,8 +304,9 @@ public class DocDataTests
                 ["version"] = WireProtocol.Version.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["description"] =
                     "The wire a Volt bridge serves over a Windows NAMED PIPE — `volt.bridge.<vendor>.<pid>`, one "
-                    + "per live IDE. One request object per call: `{ \"op\": \"<name>\", \"body\": { ... } }`, "
-                    + "answered with the method's result or `{ \"error\": { \"code\": \"...\", \"message\": \"...\" } }`.\n\n"
+                    + "per live IDE. One request object per call: `{ \"op\": \"<name>\", \"protocol\": 1, \"body\": { ... } }` "
+                    + "(a request stating no `protocol` or another is refused PROTOCOL_MISMATCH before its body is read), "
+                    + "answered with the method's result or `{ \"error\": { \"code\": \"...\", \"message\": \"...\", \"data\": { ... } } }`.\n\n"
                     + "GENERATED from the C# contract types by `DocDataTests`; edit those, not this file.",
             },
             ["servers"] = new JsonArray(new JsonObject
@@ -739,11 +733,11 @@ public class DocDataTests
             ["gate"] = new JsonArray(ConflictCodes.Gate.Select(c => (JsonNode?)c).ToArray()),
             ["fromBridge"] = new JsonArray(ConflictCodes.FromBridge.Select(c => (JsonNode?)c).ToArray()),
             ["network"] = new JsonArray(ConflictCodes.Network.Select(c => (JsonNode?)c).ToArray()),
-            ["projectRow"] = ConflictCodes.ProjectName,
             ["apply"] = new JsonArray(ConflictCodes.NotAttempted),
         },
-        // The wire VALUES only — `Vendors` also carries the display spellings, which are a UI concern.
-        ["vendors"] = new JsonArray(Vendors.Codesys, Vendors.Twincat),
+        // The wire VALUES only: the ids the shipped hosts declare (`VendorRow.Id`). This assembly holds no host, so they
+        // are spelled here until the generator reads the hosts' declarations (wire-final-shape 3.9).
+        ["vendors"] = new JsonArray("codesys", "twincat"),
         ["statuses"] = new JsonArray(Consts(typeof(HealthStatus)).Select(c => (JsonNode?)c).ToArray()),
         ["severities"] = new JsonArray(Consts(typeof(Severity)).Select(c => (JsonNode?)c).ToArray()),
         ["kinds"] = BuildKinds(),
@@ -824,7 +818,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "daa5db5909296cbec20a8b528d029588d51bae052a1d2c7a4063672b0948a24c";
+    private const string PinnedWireShape = "abc2959bbeda7f0622b8ee3e5d1c0ba363975b009a48f0889a0fb73be266eab8";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

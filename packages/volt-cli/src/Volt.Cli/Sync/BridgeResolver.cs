@@ -32,10 +32,11 @@ public static class BridgeResolver
         var pipes = PipeDiscovery.List(PipeNames.PrefixForVendor(vendor));
         // No TwinCAT pipe while an XAE runs: before "start the connector", ask whether that XAE is one an unelevated
         // worker cannot see (environment-dependency-audit 2.2). Only then: a healthy machine pays no token read.
-        if (pipes.Count == 0 && string.Equals(vendor, Vendors.Twincat, StringComparison.OrdinalIgnoreCase)
-            && UnreachableXae(ProcessElevation.Of(Vendors.TwincatShellProcesses), ProcessElevation.Self()) is { } why)
+        var shells = ClientVendors.ReachOf(vendor).ShellProcesses;
+        if (pipes.Count == 0 && shells.Count > 0
+            && UnreachableXae(ProcessElevation.Of(shells.ToArray()), ProcessElevation.Self()) is { } why)
             throw new BridgeError(BridgeErrorCodes.PlcDisconnected, why);
-        var pipe = ChooseBridgePipe(pipes, bound, isInit, ProjectNamesOf, Vendors.Display(vendor.ToLowerInvariant()));
+        var pipe = ChooseBridgePipe(pipes, bound, isInit, ProjectNamesOf, vendor);
         return new BridgeClient(pipe);
     }
 
@@ -46,21 +47,14 @@ public static class BridgeResolver
     /// hold several projects — so "does this IDE HAVE the bound project open" is the right question, not "is it
     /// currently serving it". For CODESYS (one project per pipe, always serving) this is the same decision as before.</para></summary>
     public static string ChooseBridgePipe(IReadOnlyList<string> pipes, string? boundName, bool isInit,
-        Func<string, IReadOnlyList<string>> projectsOf, string vendorLabel)
+        Func<string, IReadOnlyList<string>> projectsOf, string vendor)
     {
-        // THE REMEDY IS PER-VENDOR, because the two are not the same product. A CODESYS bridge loads IN-PROC
-        // from a script the user runs, so "open the project" is the whole answer and the tray can offer to do
-        // it. A TwinCAT bridge is a separate `VoltBridgeTwincat` worker that ONLY the connector spawns — with
-        // the tray stopped there is no amount of opening projects that helps. The one message named the remedy
-        // for the vendor that does not need the connector and nothing for the one that cannot work without it,
-        // so a TwinCAT user was told to do the thing they had already done.
+        var vendorLabel = ClientVendors.Display(vendor);
+        // THE REMEDY IS PER-VENDOR, because the two are not the same product (ClientVendors): a TwinCAT user told to
+        // "open the project" was told to do the thing they had already done.
         if (pipes.Count == 0)
             throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
-                string.Equals(vendorLabel, Vendors.TwincatDisplay, StringComparison.OrdinalIgnoreCase)
-                    ? $"no {vendorLabel} bridge is running — start the Volt Connector (it runs the {vendorLabel} "
-                      + "worker; opening the project alone is not enough), then retry."
-                    : $"no {vendorLabel} bridge is running — open the project in {vendorLabel} "
-                      + "(tray → “Activate in CODESYS…”), then retry.");
+                $"no {vendorLabel} bridge is running — {ClientVendors.ReachOf(vendor).NoBridgeRemedy}");
         if (pipes.Count == 1) return pipes[0];
 
         if (isInit)

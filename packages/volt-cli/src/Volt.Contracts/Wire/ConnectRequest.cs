@@ -12,3 +12,9 @@ public sealed class ConnectRequest
     [JsonPropertyName("project")]
     public string? Project { get; set; }
 }
+
+/// <summary>The result of an op that answers nothing but its success — <c>connect</c> and <c>disconnect</c>: <c>{}</c>.
+/// A refusal is an error frame, so there is no flag to read.</summary>
+public sealed class EmptyResult
+{
+}

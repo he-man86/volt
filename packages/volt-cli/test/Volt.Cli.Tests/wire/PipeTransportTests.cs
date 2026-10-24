@@ -34,7 +34,7 @@ public class PipeTransportTests
 
         var progress = new List<JsonElement>();
         var result = new PipeClient(pipe).Call("fetch",
-            new { knownItems = new Dictionary<string, string>() },
+            new { knownItems = new Dictionary<string, string>(), knownApplications = Array.Empty<string>() },
             onProgress: f => progress.Add(f.Clone()));
 
         Assert.NotEmpty(progress);                            // ≥1 progress frame
@@ -138,7 +138,7 @@ public class PipeTransportTests
             ExtractBlock = release,
             Projects = new List<ProjectEntry>
             {
-                new ProjectEntry("codesys", "0", "Proj", "healthy", false),
+                new ProjectEntry("codesys", "Proj", "healthy", false),
             },
         };
         var pipe = Pipe();
@@ -179,12 +179,12 @@ public class PipeTransportTests
         {
             ExtractEntered = entered,
             ExtractBlock = release,
-            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "0", "BigProject", "healthy", false) },
+            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "BigProject", "healthy", false) },
         };
         var idle = new FakeIde(serializeSta: true,
             FakeIde.Item.TextualPou("Q", "PROGRAM Q\nVAR\nEND_VAR", "y := 2;"))
         {
-            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "0", "SmallProject", "healthy", false) },
+            Projects = new List<ProjectEntry> { new ProjectEntry("codesys", "SmallProject", "healthy", false) },
         };
 
         var pBusy = Pipe();
@@ -268,7 +268,7 @@ public class PipeTransportTests
     }
 
     [Fact]
-    public void Connect_that_attaches_the_project_returns_ok()
+    public void Connect_that_attaches_the_project_answers_an_empty_result()
     {
         var pipe = Pipe();
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
@@ -277,7 +277,8 @@ public class PipeTransportTests
         // The asked-for name is the PROJECT the fake serves (`HealthProjectName`, default "FakeProject") — this
         // used to pass "P", which is the POU ITEM's name, and only passed because nothing compared the two.
         var r = new PipeClient(pipe).Call("connect", new { project = "FakeProject" });
-        Assert.True(r.GetProperty("ok").GetBoolean());
+        Assert.Equal(JsonValueKind.Object, r.ValueKind);
+        Assert.Empty(r.EnumerateObject());   // `{}`: a refusal is an error frame, so there is no flag to read
     }
 
     /// <summary>The other half of that same post-condition, and the parity point: a connect for a project the bridge
@@ -343,7 +344,7 @@ public class PipeTransportTests
 
         // Each op's own body: `knownItems` is a member of `refs` and `fetch` only, a push names its (required) `ops`, and
         // a body is read strictly.
-        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>() }
+        object body = op is "refs" or "fetch" ? new { knownItems = new Dictionary<string, string>(), knownApplications = Array.Empty<string>() }
             : op == "push" ? new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = Array.Empty<object>() }
             : new { expectedPlatform = "codesys", expectedProjectName = "FakeProject" };
         var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, body));
@@ -378,8 +379,8 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
         host.Start();
 
-        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""refs"",""body"":"));
-        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""push"",""body"":{""ops"":4}}"));
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""refs"",""protocol"":1,""body"":"));
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""push"",""protocol"":1,""body"":{""ops"":4}}"));
     }
 
     /// <summary>A PUSH OP IN A RETIRED SPELLING IS REFUSED BY NAME (openspec <c>multi-application-tree</c>, gate review of
@@ -428,7 +429,7 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var error = RawError(pipe, $@"{{""op"":""{op}"",""body"":{body}}}");
+        var error = RawError(pipe, $@"{{""op"":""{op}"",""protocol"":1,""body"":{body}}}");
 
         Assert.Equal("BAD_REQUEST", error.Code);
         Assert.Contains($"`{op}`", error.Message);
@@ -455,12 +456,12 @@ public class PipeTransportTests
         host.Start();
         const string bound = @"""expectedPlatform"":""codesys"",""expectedProjectName"":""Demo""";
 
-        var error = RawError(pipe, $@"{{""op"":""build"",""body"":{{{bound},""applications"":[""Device_1/Plc Logic/Application""]}}}}");
+        var error = RawError(pipe, $@"{{""op"":""build"",""protocol"":1,""body"":{{{bound},""applications"":[""Device_1/Plc Logic/Application""]}}}}");
         Assert.Equal("BAD_REQUEST", error.Code);
         Assert.Contains("'Device_1/Plc Logic/Application'", error.Message);
         Assert.Empty(ide.BuildSequence);
 
-        var built = RawTerminal(pipe, $@"{{""op"":""build"",""body"":{{{bound},""applications"":[""{app}""]}}}}");
+        var built = RawTerminal(pipe, $@"{{""op"":""build"",""protocol"":1,""body"":{{{bound},""applications"":[""{app}""]}}}}");
         Assert.True(built.GetProperty("result").GetProperty("success").GetBoolean());
         Assert.Equal(new[] { app }, Assert.Single(ide.BuiltApplications));
     }
@@ -474,7 +475,7 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""disconnect"",""body"":{""x"":1}}"));
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""disconnect"",""protocol"":1,""body"":{""x"":1}}"));
 
         Assert.True(new PipeClient(pipe).Call("refs").TryGetProperty("items", out _));
     }
@@ -493,7 +494,7 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var error = RawError(pipe, $@"{{""op"":""push"",""body"":{body}}}");
+        var error = RawError(pipe, $@"{{""op"":""push"",""protocol"":1,""body"":{body}}}");
 
         Assert.Equal("BAD_REQUEST", error.Code);
         Assert.Contains("ops", error.Message);
@@ -513,9 +514,9 @@ public class PipeTransportTests
 
         foreach (var line in new[]
         {
-            @"{""op"":""push"",""body"":{""ops"":[{""op"":""deleteItem"",""name"":""P.pou"",""ifVersion"":null}],""force"":true}}",
-            @"{""op"":""push""}",
-            @"{""op"":""build"",""body"":{""expectedPlatform"":""codesys""}}",
+            @"{""op"":""push"",""protocol"":1,""body"":{""ops"":[{""op"":""deleteItem"",""name"":""P.pou"",""ifVersion"":null}],""force"":true}}",
+            @"{""op"":""push"",""protocol"":1}",
+            @"{""op"":""build"",""protocol"":1,""body"":{""expectedPlatform"":""codesys""}}",
         })
         {
             var error = RawError(pipe, line);
@@ -610,11 +611,12 @@ public class PipeTransportTests
         host.Start();
 
         var frame = RawTerminal(pipe,
-            @"{""op"":""push"",""body"":{""expectedPlatform"":""codesys"",""expectedProjectName"":""FakeProject"",""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
+            @"{""op"":""push"",""protocol"":1,""body"":{""expectedPlatform"":""codesys"",""expectedProjectName"":""FakeProject"",""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
             @"""sourceText"":""PROGRAM Q\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n"",""op"":""set""}]}}");
 
         Assert.True(frame.TryGetProperty("result", out var result), "expected a result frame, got: " + frame);
-        Assert.True(result.GetProperty("accepted").GetBoolean(), "the push was not accepted: " + result);
+        Assert.True(result.TryGetProperty("newProjectVersion", out _) && result.GetProperty("conflicts").GetArrayLength() == 0,
+            "the push did not land: " + result);
         Assert.Contains(ide.CreatedItems, i => i.Contains('Q'));
     }
 

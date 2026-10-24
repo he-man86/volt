@@ -79,7 +79,7 @@ public class WriteRequiresBindingTests
     {
         var ide = Ide();
 
-        Assert.True(PushService.Handle(ide, Push("codesys", "Demo")).Accepted);
+        Assert.True(PushService.Handle(ide, Push("codesys", "Demo")).Landed());
         Assert.True(BuildService.Handle(ide, new BuildRequest { ExpectedPlatform = "codesys", ExpectedProjectName = "Demo" }).Success);
     }
 

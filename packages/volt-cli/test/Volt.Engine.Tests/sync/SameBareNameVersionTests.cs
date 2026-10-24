@@ -69,10 +69,10 @@ public class SameBareNameVersionTests
             },
         });
 
-        _out.WriteLine($"accepted={res.Accepted} conflicts=" +
+        _out.WriteLine($"accepted={res.Landed()} conflicts=" +
             string.Join("; ", (res.Conflicts ?? new List<PushConflict>()).Select(c => $"{c.Name} yours={c.YourVersion} current={c.CurrentVersion} ({c.Reason})")));
 
-        Assert.True(res.Accepted,
+        Assert.True(res.Landed(),
             "the push compared the FB's ifVersion against the version map's BARE key, where the visualization " +
             "overwrote it — so a control module with its own visu can be pulled and never pushed");
     }
@@ -99,7 +99,7 @@ public class SameBareNameVersionTests
             },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal("02_ControlModules/CM_Carrier/CM_Carrier.pou", conflict.Name);
         // …and it quotes the FB's OWN current version, not its neighbour's.
@@ -123,7 +123,7 @@ public class SameBareNameVersionTests
             },
         });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal("02_ControlModules/CM_Carrier/CM_Carrier.visualization", conflict.Name);
         Assert.Equal(refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.visualization"], conflict.CurrentVersion);

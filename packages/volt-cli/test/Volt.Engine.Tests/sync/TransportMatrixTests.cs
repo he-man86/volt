@@ -107,7 +107,7 @@ public class TransportMatrixTests
     {
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new() { op } });
-        Assert.True(resp.Accepted,
+        Assert.True(resp.Landed(),
             "push rejected: " + string.Join("; ", resp.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         return ide.Recorded;
     }
@@ -260,7 +260,7 @@ public class TransportMatrixTests
             Ops = new() { new SetItemOp { Name = $"K.{ext}", IfVersion = refs.Items.GetValueOrDefault($"K.{ext}"), SourceText = "MANIFEST" } },
         });
 
-        Assert.False(resp.Accepted, "a read-only reference kind must be refused, not written");
+        Assert.False(resp.Landed(), "a read-only reference kind must be refused, not written");
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write"));
     }
 
@@ -322,7 +322,7 @@ public class TransportMatrixTests
             } },
         });
 
-        Assert.False(resp.Accepted, "a read-only CFC child must refuse the push");
+        Assert.False(resp.Landed(), "a read-only CFC child must refuse the push");
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("write") || r.StartsWith("delete:"));
     }
 
@@ -366,7 +366,7 @@ public class TransportMatrixTests
         var refs = RefsService.Handle(ide);
         names.AddRange(refs.Items.Keys);
 
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
         names.AddRange(fetch.Items.Keys);
         names.AddRange(fetch.Changed.Select(c => c.Name));
         names.AddRange(fetch.Removed);
@@ -383,12 +383,12 @@ public class TransportMatrixTests
                                 SourceText = "TYPE N :\n(\n\tX := 0\n);\nEND_TYPE\n" },
             },
         });
-        Assert.True(push.Accepted,
+        Assert.True(push.Landed(),
             "push rejected: " + string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
         names.AddRange(push.NewItems!.Keys);
 
-        Assert.Equal(new[] { "DUTs/A.dut", "DUTs/E.dut", "DUTs/N.dut", "DUTs/S.dut", "DUTs/U.dut" },
-                     push.NewItems!.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
+        Assert.Equal(new[] { "DUTs/N.dut", "DUTs/S.dut" },   // the receipt names what the push created or changed
+                     push.NewItems.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
         Assert.All(names.Where(n => n.Contains('.')), n => Assert.EndsWith(".dut", n, System.StringComparison.Ordinal));
     }
 

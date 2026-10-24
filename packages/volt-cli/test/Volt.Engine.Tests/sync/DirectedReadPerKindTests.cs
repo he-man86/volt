@@ -52,7 +52,7 @@ public class DirectedReadPerKindTests
 
     private static string Base(Vendor v) => v == Vendor.Codesys ? "Device/Plc Logic/Application" : "";
     private static string LibFolder(Vendor v) => v == Vendor.Codesys ? "Device/Plc Logic/Application/Library Manager" : "References";
-    private static string Platform(Vendor v) => v == Vendor.Codesys ? Vendors.Codesys : Vendors.Twincat;
+    private static string Platform(Vendor v) => v == Vendor.Codesys ? "codesys" : "twincat";
 
     private static FakeIde Ide(Vendor v, params FakeIde.Item[] items) =>
         new FakeIde(items.Prepend(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;", Base(v))).ToArray())
@@ -265,7 +265,7 @@ public class DirectedReadPerKindTests
     private static FetchResponse Full(FakeIde ide) => FetchService.Handle(ide, new FetchRequest { Init = true });
 
     private static FetchResponse Directed(FakeIde ide, string name) =>
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new Dictionary<string, string>(), OnlyItems = new() { name } });
+        FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new Dictionary<string, string>(), OnlyItems = new() { name } });
 
     /// <summary>A kind with a file of its own: the directed read answers exactly what the full fetch writes for it — and
     /// for a library, everything the full fetch writes in the library's folder (its signatures).</summary>

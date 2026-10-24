@@ -83,7 +83,7 @@ public class ClassOnCreateTests
         var c = Cases[key];
         var ide = new FakeIde();
         var resp = Create(ide, $"{c.Name}.{c.Ext}", Spelled(c), "Checks");
-        if (c.CreateRefused || (c.CreateOrRefuse && !resp.Accepted))
+        if (c.CreateRefused || (c.CreateOrRefuse && resp.Refused().Count > 0))
         {
             RefusedNaming(resp, c.Name, c.Lines[0].Split(' ')[0]);
             Assert.False(ide.Exists(c.Name), "a refused create leaves nothing behind");

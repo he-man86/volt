@@ -18,9 +18,9 @@ namespace Volt.Engine.Format.Network;
 /// the pull and the push of one body would hand back a file the next push reads differently. This is the ONE place
 /// the C# runtime reads the variable, and a repo gate holds that. The LSP has its own twin
 /// (<c>NETWORK_TEXT_ENABLED</c>), read in the EDITOR's process: two processes, so they can differ, and neither claims
-/// the other's answer — the bridge reports its own in <c>health</c> (<c>HealthResponse.NetworkText</c>) for a client that
-/// needs network text (the corpus refresh, the language recorder), which setting the variable in its OWN process would
-/// not turn on.</para>
+/// the other's answer — the bridge reports what it shows in <c>health</c> (<c>HealthResponse.Languages</c>,
+/// <see cref="Shown"/>) for a client that needs network text (the corpus refresh, the language recorder), which setting
+/// the variable in its OWN process would not turn on.</para>
 ///
 /// <para><b>Off never blocks a push.</b> A workspace pulled while this was off states its ladders
 /// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>; pushed at a bridge with it on, that line over the same ladder is the same
@@ -38,4 +38,12 @@ public static class NetworkTextSwitch
     /// and turn it off around a test that proves the production build — there is no other way to have both in one
     /// process.</summary>
     public static bool Enabled { get; internal set; } = System.Environment.GetEnvironmentVariable(Variable) == "1";
+
+    /// <summary>The languages a bridge SHOWS, from the ones its host declares shown (<paramref name="declared"/>): all of
+    /// them while the switch is on, and without LD and FBD while it is off — the one place the switch meets the declared
+    /// set, so <c>health.languages</c> never claims a language a pull hides (<see cref="NetworkText.Pulled"/> asks the
+    /// same switch).</summary>
+    public static System.Collections.Generic.List<string> Shown(System.Collections.Generic.IEnumerable<string> declared) =>
+        System.Linq.Enumerable.ToList(System.Linq.Enumerable.Where(declared,
+            l => Enabled || (l != Body.Languages.Ld && l != Body.Languages.Fbd)));
 }

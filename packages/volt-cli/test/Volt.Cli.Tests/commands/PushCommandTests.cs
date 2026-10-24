@@ -463,7 +463,8 @@ public class PushCommandTests
     /// bridge-refusal-review 8.4). <c>W_User</c> is edited in the IDE during a push that does not send it. Adopting its new
     /// version over the workspace's OLD text would hide the edit: the next pull would see nothing, and the next push of
     /// <c>W_User</c> would pass its <c>ifVersion</c> gate and write the old text back over it. Its old version stays in the
-    /// baseline instead, so status shows it incoming, the push says so, and a pull brings it in. (A rename's callers no
+    /// baseline instead, so status shows it incoming and a pull brings it in — the push's receipt names only what the push
+    /// changed (wire-final-shape §5), so the bridge never hands the client a version for it. (A rename's callers no
     /// longer reach this: the push puts back what a rename touched beyond what it names — <c>RenameChangesOnlyNamedItemsTests</c>.)</summary>
     [Fact]
     public void An_item_the_IDE_changed_during_the_push_is_incoming_and_a_pull_brings_it_in()
@@ -492,7 +493,6 @@ public class PushCommandTests
             var r = Commands.Push(root, client);
 
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
-            Assert.Contains("W_User.pou", r.Message ?? "");                                   // the push says so
             Assert.Equal(before["W_User.pou"], Sidecar.LoadIdeRefs(root)!.Items["W_User.pou"]);
             Assert.Contains("W_User.pou", Commands.Status(root, client).Incoming.Modified);
             Assert.Equal("ok", Commands.Pull(root, client).Kind);

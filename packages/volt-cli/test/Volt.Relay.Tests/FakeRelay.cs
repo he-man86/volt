@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Volt.Contracts;
 using Volt.Relay;
 
 namespace Volt.Relay.Tests;
@@ -77,7 +78,7 @@ public sealed class FakeRelay
     public void SendRequest(string id, string op, object? body = null)
     {
         var json = body == null ? "{}" : JsonSerializer.Serialize(body);
-        Send("{\"id\":\"" + id + "\",\"op\":\"" + op + "\",\"body\":" + json + "}");
+        Send("{\"id\":\"" + id + "\",\"op\":\"" + op + "\",\"protocol\":" + WireProtocol.Version + ",\"body\":" + json + "}");
     }
 
     /// <summary>Wait for a frame carrying <paramref name="id"/> with the given key, and return it parsed.</summary>

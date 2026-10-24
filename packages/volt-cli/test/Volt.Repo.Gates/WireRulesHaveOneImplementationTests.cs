@@ -101,14 +101,16 @@ public class WireRulesHaveOneImplementationTests
     // ── the strict request reader ────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>A request body is read in ONE place, <c>BridgePipeHost.Body&lt;T&gt;</c>, with <c>WireJson.Request</c>
-    /// (strict members, exact case, the push discriminator anywhere). No other code reads a request type or the strict
-    /// options — a second reader is how "strict members on push only" happened.</summary>
+    /// (strict members, exact case, the push discriminator anywhere); the envelope around it in one other,
+    /// <c>PipeServer.Handle</c>, with the same options (wire-final-shape §1: a member the envelope does not define is
+    /// refused too). No other code reads a request type or the strict options — a second reader is how "strict members
+    /// on push only" happened.</summary>
     [Fact]
     public void A_request_body_is_read_only_by_the_host_strict_reader()
     {
         var strict = AllSource().Where(l => Regex.IsMatch(l.Code, @"\bWireJson\.Request\b", RegexOptions.CultureInvariant))
             .Select(l => l.File).Distinct().ToList();
-        Assert.Equal(new[] { "Volt.Engine.Host/BridgePipeHost.cs" }, strict);
+        Assert.Equal(new[] { "Volt.Engine.Host/BridgePipeHost.cs", "Volt.Wire/PipeServer.cs" }, strict.OrderBy(f => f, StringComparer.Ordinal));
 
         var readers = AllSource()
             .Where(l => Regex.IsMatch(l.Code, @"Deserialize<(?!PipeRequest\b)\w*Request>", RegexOptions.CultureInvariant))
@@ -177,13 +179,13 @@ public class WireRulesHaveOneImplementationTests
         Assert.Contains(dd, l => l.Contains("WireProtocol.Version == PinnedProtocol && hash == PinnedWireShape", StringComparison.Ordinal));
     }
 
-    /// <summary>A protocol a bridge states that does NOT come from <c>WireProtocol.Version</c>: the test seam
-    /// <c>BridgePipeHost(ide, pipe, int? protocol)</c>, which lets a test stand for a peer of another release. One site
-    /// today; the mixed-version cell replaces what it stands for with a real previous release.</summary>
+    /// <summary>A protocol a bridge states that does NOT come from <c>WireProtocol.Version</c>. None: the bridge refuses a
+    /// request of another protocol itself (wire-final-shape 3.2), so a test of a client of another release writes that
+    /// client's frame, and the mixed-version cell stands for a real previous release.</summary>
     [Fact]
     public void No_new_way_to_state_a_protocol_number_ratchet()
     {
-        var seam = new Regex(@"\bint\?\s+protocol\b", RegexOptions.CultureInvariant);
+        var seam = new Regex(@"\bint\??\s+protocol\b", RegexOptions.CultureInvariant);
         Ratchet.Hold("A protocol number a bridge can state other than WireProtocol.Version.", ProtocolSeamPins,
             SourceScan.CountPerFile(AllSource(), seam),
             "State WireProtocol.Version; a peer of another release is the mixed-version cell's job, not a constructor argument.");
@@ -258,7 +260,7 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Sync/GrepService.cs"] = 4,
         ["Volt.Engine/Sync/Hasher.cs"] = 1,
         ["Volt.Engine/Sync/Materializer.cs"] = 1,
-        ["Volt.Engine/Sync/OpGuard.cs"] = 2,
+        ["Volt.Engine/Sync/OpGuard.cs"] = 1,
         ["Volt.Engine/Sync/ProjectSnapshot.cs"] = 2,   // the order of the unreadable list, not an identity
         ["Volt.Engine/Sync/PushService.cs"] = 6,   // kinds, the receipt's action order, a keyword match, a sentence's full stop — no path
         ["Volt.Engine/Sync/Removal.cs"] = 2,   // the order of the removed list; the held folder prefix (exact)
@@ -286,9 +288,13 @@ public class WireRulesHaveOneImplementationTests
     {
     };
 
+    /// <summary>The relay alone: it forwards the protocol a REMOTE client stated (<c>RelayInbound.Protocol</c>,
+    /// <c>PipeClient.Forward</c>), so the bridge refuses a client of another protocol itself instead of the relay stamping
+    /// this build's number on its behalf (wire-final-shape gate 3a). Nothing states a number of its own.</summary>
     private static readonly Dictionary<string, int> ProtocolSeamPins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine.Host/BridgePipeHost.cs"] = 1,
+        ["Volt.Relay/RelayFrames.cs"] = 1,
+        ["Volt.Wire/PipeClient.cs"] = 2,
     };
 
     /// <summary><c>Volt.Wire/PipeServer.cs</c>'s 2 are the one implementation; the rest are the extra sites listed on
@@ -298,6 +304,7 @@ public class WireRulesHaveOneImplementationTests
         ["Volt.Engine/Ide/ProjectDeclarations.cs"] = 1,
         ["Volt.Engine/Sync/BuildService.cs"] = 1,
         ["Volt.Engine/Sync/PushService.cs"] = 3,
+        ["Volt.Engine/Sync/Versioning.cs"] = 1,   // the code an UNREADABLE entry carries (wire-final-shape §4): a read's own code, else UNREADABLE — the unreadable channel's one mapping, never a frame
         ["Volt.Engine/Sync/TreeLookup.cs"] = 2,   // TreeLookup.Read, the one read-fault mapping of the descent and of Ide/ItemLookup's walk; Place's name fallback (volt-cli-rework 3.1)
         ["Volt.Relay/RelayTunnel.cs"] = 1,
         ["Volt.Wire/PipeServer.cs"] = 2,

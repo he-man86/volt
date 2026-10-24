@@ -61,7 +61,7 @@ public class PushPreflightCostTests
             Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
-        Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.Equal(0, reads);
     }
 
@@ -80,7 +80,7 @@ public class PushPreflightCostTests
             Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
-        Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
+        Assert.True(res.Landed(), res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.True(reads > 0, "the lease was checked against a project version nobody computed");
     }
 
@@ -89,15 +89,14 @@ public class PushPreflightCostTests
     [Fact]
     public void A_forced_push_with_a_stale_lease_is_still_refused()
     {
-        var res = BoundWrite.Push(Project(), new PushRequest
+        var refused = Assert.Throws<BridgeException>(() => BoundWrite.Push(Project(), new PushRequest
         {
             Force = true,
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
             Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
-        });
+        }));
 
-        Assert.False(res.Accepted);
-        Assert.Equal(ConflictCodes.StaleProjectVersion, Assert.Single(res.Conflicts!).Code);
+        Assert.Equal(BridgeErrorCodes.StaleProjectVersion, refused.ErrorCode);
     }
 
     /// <summary>THE PRE-FLIGHT ANNOUNCES ITSELF. It is the slow half of a push and it used to run in silence,
@@ -117,10 +116,10 @@ public class PushPreflightCostTests
     }
 
     /// <summary>A PUSH OF NO OPS IS ONE READ (e2e `stability/latency`: "a no-op push is not more expensive than a read";
-    /// TwinCAT MultiProject measured it at about twice a refs). Nothing is applied, so the lease check and the receipt are
-    /// the same walk: the project is walked once, and the answer is the one that walk gives.</summary>
+    /// TwinCAT MultiProject measured it at about twice a refs): the project is walked once, for the lease. Nothing landed,
+    /// so the answer has no <c>newProjectVersion</c> and an empty receipt (wire-final-shape, design §5).</summary>
     [Fact]
-    public void A_push_of_no_ops_walks_the_project_once_and_answers_its_receipt()
+    public void A_push_of_no_ops_walks_the_project_once_and_lands_nothing()
     {
         var ide = Project();
         var refs = RefsService.Handle(ide);
@@ -129,9 +128,10 @@ public class PushPreflightCostTests
         var res = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = refs.ProjectVersion, Ops = new List<PushOp>() });
 
         Assert.Equal(1, ide.WalkCalls - before);
-        Assert.True(res.Accepted);
-        Assert.Equal(refs.ProjectVersion, res.NewProjectVersion);
-        Assert.Equal(refs.Items.OrderBy(x => x.Key).ToList(), res.NewItems!.OrderBy(x => x.Key).ToList());
+        Assert.Null(res.NewProjectVersion);
+        Assert.Empty(res.NewItems);
+        Assert.Empty(res.Removed);
+        Assert.Empty(res.Conflicts);
     }
 
     /// <summary>…and a stale lease is still STALE_PROJECT_VERSION, from that one walk.</summary>
@@ -140,10 +140,11 @@ public class PushPreflightCostTests
     {
         var ide = Project();
 
-        var res = BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = "0000000000000000", Ops = new List<PushOp>() });
+        var refused = Assert.Throws<BridgeException>(() =>
+            BoundWrite.Push(ide, new PushRequest { ExpectedProjectVersion = "0000000000000000", Ops = new List<PushOp>() }));
 
-        Assert.False(res.Accepted);
-        Assert.Equal(ConflictCodes.StaleProjectVersion, Assert.Single(res.Conflicts!).Code);
-        Assert.Equal(RefsService.Handle(ide).ProjectVersion, res.CurrentProjectVersion);
+        Assert.Equal(BridgeErrorCodes.StaleProjectVersion, refused.ErrorCode);
+        Assert.Equal(RefsService.Handle(ide).ProjectVersion,
+            Assert.IsType<StaleProjectVersionData>(refused.ErrorData).CurrentProjectVersion);
     }
 }

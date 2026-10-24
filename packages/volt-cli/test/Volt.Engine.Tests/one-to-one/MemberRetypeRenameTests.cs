@@ -66,7 +66,7 @@ public class MemberRetypeRenameTests
         var resp = Update(ide, "FBs/FB_Owner.pou", text.Replace("TakePicture", "TakePhoto"));
 
         Assert.False(Replaced(ide), string.Join(", ", ide.Recorded));
-        if (!resp.Accepted) { RefusedNaming(resp, "TakePicture"); return; }
+        if (!resp.Landed()) { RefusedNaming(resp, "TakePicture"); return; }
         Assert.Contains("rename:TakePicture->TakePhoto", ide.Recorded);
         Assert.Equal("AbstractPOUMethodObject", ide.ClassOf("TakePhoto"));
         Assert.Equal(props, ide.PropertiesOf("TakePhoto"));
@@ -85,7 +85,7 @@ public class MemberRetypeRenameTests
         var resp = Update(ide, "FBs/FB_Owner.pou", text.Replace("Calc", "Compute"));
 
         Assert.False(Replaced(ide), string.Join(", ", ide.Recorded));
-        if (!resp.Accepted) { RefusedNaming(resp, "Calc"); return; }
+        if (!resp.Landed()) { RefusedNaming(resp, "Calc"); return; }
         Assert.Equal(props, ide.PropertiesOf("Compute"));
     }
 

@@ -78,7 +78,7 @@ public class PushThenFetchShapeTests
 
     private static FetchedItem Fetch(FakeIde ide) =>
         FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string>(),
             OnlyItems = new List<string> { "FB_Motor.pou" },
         }).Changed.Single();
@@ -89,7 +89,7 @@ public class PushThenFetchShapeTests
         var ide = new FakeIde();
 
         var push = Set(ide, W1, null);
-        Assert.True(push.Accepted);
+        Assert.True(push.Landed());
         var fetched = Fetch(ide);
 
         Assert.Equal(Canonical, fetched.SourceText);
@@ -127,7 +127,7 @@ public class PushThenFetchShapeTests
         var created = Writes();
 
         var restated = Set(ide, first.SourceText, first.Version);
-        Assert.True(restated.Accepted);
+        Assert.True(restated.Landed());
         var restatedWrites = Writes();
         Assert.True(restatedWrites > created, "the restatement was not written, so its fetch proves nothing about the write");
         Assert.Equal(first.SourceText, Fetch(ide).SourceText);
@@ -135,7 +135,7 @@ public class PushThenFetchShapeTests
         var edited = first.SourceText.Replace("xRunning := FALSE;", "xRunning := NOT xEnable;");
         Assert.NotEqual(first.SourceText, edited);
         var push = Set(ide, edited, Fetch(ide).Version);
-        Assert.True(push.Accepted);
+        Assert.True(push.Landed());
         Assert.True(Writes() > restatedWrites, "the canonical edit was not written");
 
         Assert.Equal(edited, Fetch(ide).SourceText);

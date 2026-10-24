@@ -27,7 +27,7 @@ namespace Volt.Ide.Codesys.Tests
         private static string Platform =>
             typeof(_3S.CoDeSys.Core.SystemInstances).Assembly.GetName().Version!.ToString();
 
-        private static string Pipe => PipeNames.CodesysInstance(Process.GetCurrentProcess().Id);
+        private static string Pipe => PipeNames.Instance(CodesysDriver.Row.Id, Process.GetCurrentProcess().Id);
 
         private static CodesysDriver Lenze(object? projects) =>
             new CodesysDriver(projects, () => new CodesysPlatform.HostExe("PLC Designer", "4.1.0.37740", "Lenze Automation GmbH"));

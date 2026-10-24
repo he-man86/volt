@@ -14,10 +14,15 @@ namespace Volt.Ide.Twincat;
 /// (<see cref="ItemKind.ClassOf"/>, <see cref="ItemKind.CreateCode"/>), its record through <see cref="FamilyContent"/>.</summary>
 public sealed partial class BeckhoffDriver
 {
+    /// <summary>This host's vendor as the wire names it — the id its pipe and the binding carry
+    /// (<c>volt.bridge.twincat.&lt;pid&gt;</c>) and the name a person reads. The host's own fact: nothing above it names
+    /// a vendor.</summary>
+    public static readonly VendorRow Row = new("twincat", "TwinCAT");
+
     /// <summary>What TwinCAT states about itself: the IEC format's kinds and keys, the six body languages — LD and FBD
     /// read against the scopes this host builds (<see cref="NetworkScopeFor"/>).</summary>
     public VendorDeclaration Declaration => _declaration ??= new VendorDeclaration(
-        new VendorRow(Vendors.Twincat, Vendors.Display(Vendors.Twincat)),
+        Row,
         IecFormat.KindRows,
         new[]
         {

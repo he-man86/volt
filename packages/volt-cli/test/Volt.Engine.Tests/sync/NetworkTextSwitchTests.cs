@@ -122,7 +122,7 @@ public class NetworkTextSwitchTests
 
         var resp = Off(() => Update(ide, edited));
 
-        Assert.False(resp.Accepted, "a production bridge must refuse network text");
+        Assert.False(resp.Landed(), "a production bridge must refuse network text");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("FB_Mix.pou", conflict.Name);
         Assert.Contains("LD and FBD are not enabled in this build", conflict.Reason);
@@ -148,7 +148,7 @@ public class NetworkTextSwitchTests
 
         var resp = Off(() => Update(ide, edited));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal("x := 2;", ide.StoredImplementation("FB_Mix"));
         Assert.Contains("bStart : BOOL;",
             ide.ReadContent(new ItemRef("FB_Mix")).Members.Single(m => m.Name == "Rung").Declaration);
@@ -167,7 +167,7 @@ public class NetworkTextSwitchTests
 
         var resp = Off(() => Update(ide, text));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(held, new[] { "FB_Mix", "Rung", "Box" }.Select(ide.StoredImplementation));
         Assert.Equal(text, Off(() => Pulled(ide)));
     }
@@ -192,7 +192,7 @@ public class NetworkTextSwitchTests
 
         var resp = Update(ide, edited);                             // the switch is on: a development bridge
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal("x := 2;", ide.StoredImplementation("FB_Mix"));
         Assert.Contains("bStart : BOOL;",
             ide.ReadContent(new ItemRef("FB_Mix")).Members.Single(m => m.Name == "Rung").Declaration);
@@ -211,7 +211,7 @@ public class NetworkTextSwitchTests
 
         var resp = Update(ide, text);
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Equal(held, new[] { "FB_Mix", "Rung", "Box" }.Select(ide.StoredImplementation));
     }
 
@@ -229,7 +229,7 @@ public class NetworkTextSwitchTests
 
         var resp = Update(ide, text);
 
-        Assert.False(resp.Accepted, "a hidden line must state the language the IDE holds");
+        Assert.False(resp.Landed(), "a hidden line must state the language the IDE holds");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("'Rung'", conflict.Reason);
         Assert.Contains("IMPLEMENTATION FBD UNSUPPORTED", conflict.Reason);

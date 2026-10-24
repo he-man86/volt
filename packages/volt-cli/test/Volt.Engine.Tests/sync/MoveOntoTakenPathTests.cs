@@ -48,8 +48,8 @@ public class MoveOntoTakenPathTests
             new SetItemOp { Name = "POUs/FB_C.pou", SourceText = Src("FB_C"), IfVersion = v["POUs/FB_C.pou"] },
             new SetItemOp { Name = "POUs/FB_A.pou", To = "POUs/FB_B.pou", IfVersion = v["POUs/FB_A.pou"] });
 
-        Assert.False(res.Accepted);
-        var c = Assert.Single(res.Conflicts!);
+        Assert.False(res.Landed());
+        var c = Assert.Single(res.Refused());
         Assert.Equal("POUs/FB_A.pou", c.Name);
         Assert.Equal(ConflictCodes.ItemExists, c.Code);
         Assert.Contains("POUs/FB_B.pou", c.Reason);
@@ -84,7 +84,7 @@ public class MoveOntoTakenPathTests
 
         var res = Push(ide, true, new SetItemOp { Name = name, To = to });
 
-        Assert.False(res.Accepted);
+        Assert.False(res.Landed());
         var c = Assert.Single(res.Conflicts!);
         Assert.Equal(ConflictCodes.ItemExists, c.Code);
         Assert.Equal(v[taken], c.CurrentVersion);
@@ -166,7 +166,7 @@ public class MoveOntoTakenPathTests
 
         var res = Push(ide, false, new SetItemOp { Name = "Dev2/Plc Logic/App/FB_X.pou", SourceText = Src("FB_X"), IfVersion = null });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
     }
 
     /// <summary>The scope is the APPLICATION: the same name in another application is another namespace.</summary>
@@ -183,7 +183,7 @@ public class MoveOntoTakenPathTests
             Name = "Dev2/Plc Logic/App/FB_Z.pou", To = "Dev2/Plc Logic/App/FB_X.pou", IfVersion = v["Dev2/Plc Logic/App/FB_Z.pou"],
         });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
     }
 
     /// <summary>A kind whose scope is not measured is not judged: an FB beside its visualization of one name is a real
@@ -197,7 +197,7 @@ public class MoveOntoTakenPathTests
 
         var res = Push(ide, false, new SetItemOp { Name = "POUs/FB_Z.pou", To = "POUs/CM_Carrier.pou", IfVersion = v["POUs/FB_Z.pou"] });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
     }
 
     // ── 2.5 pins ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ public class MoveOntoTakenPathTests
 
         var res = Push(ide, false, new SetItemOp { Name = "POUs/FB_A.pou", To = "POUs/Fb_a.pou", IfVersion = v["POUs/FB_A.pou"] });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class MoveOntoTakenPathTests
 
         var res = Push(ide, false, new SetItemOp { Name = "POUs/CM_Carrier.pou", To = "Visu/CM_Carrier.pou", IfVersion = v["POUs/CM_Carrier.pou"] });
 
-        Assert.True(res.Accepted, string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
+        Assert.True(res.Landed(), string.Join("; ", (res.Conflicts ?? new()).Select(c => $"{c.Code}: {c.Reason}")));
         Assert.Contains("Visu/CM_Carrier.pou", RefsService.Handle(ide).Items.Keys);
     }
 
@@ -246,6 +246,6 @@ public class MoveOntoTakenPathTests
             new DeleteItemOp { Name = "POUs/FB_B.pou", IfVersion = v["POUs/FB_B.pou"] },
             new SetItemOp { Name = "POUs/FB_A.pou", To = "POUs/FB_B.pou", IfVersion = v["POUs/FB_A.pou"] });
 
-        Assert.Equal(BridgeErrorCodes.BadRequest, Assert.Single(res.Conflicts!).Code);
+        Assert.Equal(BridgeErrorCodes.BadRequest, Assert.Single(res.Refused()).Code);
     }
 }

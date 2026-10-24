@@ -139,8 +139,13 @@ export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
  * refusal by `accepted` alone reads such a push as "the vendor took it". A full push carries no `conflicts` (the
  * wire omits it), so absent or empty is "none".</p>
  */
-export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unknown[] | null }): boolean {
-	return r.accepted === true && (r.conflicts == null || r.conflicts.length === 0)
+export function landedInFull(r: { newProjectVersion?: string; conflicts?: readonly unknown[] }): boolean {
+	return typeof r.newProjectVersion === "string" && (r.conflicts ?? []).length === 0
+}
+
+/** Did anything of a push land? `newProjectVersion` is present exactly then (openspec `wire-final-shape`). */
+export function landed(r: { newProjectVersion?: string }): boolean {
+	return typeof r.newProjectVersion === "string"
 }
 
 /** Push ops behind an `expectedProjectVersion` guard — the one a `refs` the caller just read answered, else a fresh
@@ -148,7 +153,7 @@ export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unkno
 export async function pushOps(ops: unknown[], projectVersion?: string): Promise<any> {
 	const r = await bridge.push({ expectedProjectVersion: projectVersion ?? (await bridge.refs()).projectVersion, ops })
 	if (!landedInFull(r))
-		console.warn(r.accepted ? "push landed in part:" : "push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+		console.warn(landed(r) ? "push landed in part:" : "push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
 	return r
 }
 
@@ -319,7 +324,7 @@ export async function mainProgram(): Promise<string | null> {
 export async function createItem(name: string, src: string, folder?: string): Promise<any> {
 	const path = folder === undefined && name.includes("/") ? name : await at(name, folder)
 	const r = await pushOps([{ op: "set", name: path, sourceText: src, ifVersion: null }])
-	expect(r.accepted, `create '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `create '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return r
 }
 
@@ -331,7 +336,7 @@ export async function updateItem(name: string, src: string, folder?: string): Pr
 	const op: Record<string, unknown> = { op: "set", name: path, sourceText: src, ifVersion: refs.items[path] }
 	if (folder !== undefined) op.to = inFolder(folder, fileOf(path))
 	const r = await pushOps([op], refs.projectVersion)
-	expect(r.accepted, `update '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `update '${path}' refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return r
 }
 

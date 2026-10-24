@@ -34,7 +34,7 @@ namespace Volt.Connector
     /// product's own number), <c>ProductVendor</c> (its maker) and <c>BridgeVersion</c> (the bridge release, or
     /// `(dev) &lt;commit&gt;`), and <c>IdeVersion</c> as the platform, it is what a client shows as the IDE line. Each is
     /// null when the bridge could not read it (or is too old to send it).</param>
-    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null, string? Unsupported = null,
+    public sealed record ProjectView(string Id, string Vendor, bool? Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null, string? Unsupported = null,
         string? ProductName = null, string? ProductVersion = null, string? ProductVendor = null, string? BridgeVersion = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected

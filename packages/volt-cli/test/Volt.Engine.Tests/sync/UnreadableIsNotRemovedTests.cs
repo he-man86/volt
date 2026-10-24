@@ -45,7 +45,7 @@ public class UnreadableIsNotRemovedTests
             ["FB_Broken.pou"] = "whatever-it-hashed-to",
         };
 
-        var res = FetchService.Handle(ide, new FetchRequest { KnownItems = known });
+        var res = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = known });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
 
         Assert.DoesNotContain("FB_Broken.pou", res.Removed);
@@ -65,7 +65,7 @@ public class UnreadableIsNotRemovedTests
             null, null, "LD", "the graphical body cannot be read"));
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string> { ["CM_Carrier.pou"] = "v", ["CM_Carrier.visualization"] = "v" },
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}] unreadable: [{string.Join(", ", res.Unreadable)}]");
@@ -90,7 +90,7 @@ public class UnreadableIsNotRemovedTests
             null, null, "LD", "the graphical body cannot be read"));
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string> { ["X.pou"] = "v", [other] = "v" },
         });
 
@@ -106,7 +106,7 @@ public class UnreadableIsNotRemovedTests
         var ide = new FakeIde(FakeIde.Item.MalformedGraphical("FB_Broken"));
 
         var refs = RefsService.Handle(ide);
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownApplications = new(), KnownItems = new() });
 
         Assert.Empty(refs.Items);
         Assert.Empty(fetch.Items);
@@ -136,7 +136,7 @@ public class UnreadableIsNotRemovedTests
         };
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["POUs/FB_Hidden.pou"] = "v" },
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
@@ -154,7 +154,7 @@ public class UnreadableIsNotRemovedTests
             FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["POUs/FB_Hidden.pou"] = "v" },
         });
 
@@ -170,7 +170,7 @@ public class UnreadableIsNotRemovedTests
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
 
         var res = FetchService.Handle(ide, new FetchRequest
-        {
+        { KnownApplications = new(),
             KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Deleted.pou"] = "v" },
         });
 

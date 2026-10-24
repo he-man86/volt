@@ -55,7 +55,7 @@ public class CallFailureRelayTests : IDisposable
 
     private static FakeIde Ide() => new(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
     {
-        Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+        Projects = new List<ProjectEntry> { new("codesys", "Proj", "healthy", false) },
     };
 
     /// <summary>The bridge side: a member missing at call time crosses the relay as INTERNAL_ERROR with its type and the
@@ -95,6 +95,6 @@ public class CallFailureRelayTests : IDisposable
         Assert.StartsWith("TimeoutException: ", error.GetProperty("message").GetString());
         var logged = Assert.Single(log.At(VoltLogLevel.Error), l => l.StartsWith($"relay: 'health' failed on pipe {pipe} — "));
         Assert.Contains("System.TimeoutException", logged);
-        Assert.Contains("   at Volt.Wire.PipeClient.Call", logged);   // the stack names the call
+        Assert.Contains("   at Volt.Wire.PipeClient.", logged);   // the stack names the pipe client
     }
 }
