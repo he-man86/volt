@@ -374,6 +374,39 @@ misread.
 **Migration.** None for Volt (no users). PLC Assist: one bullet in `plcassist-note.md` under `health` — read `health`
 first and refuse a bridge whose answer lacks `languages` or `kinds`.
 
+## 4.3d The canonical layout is part of the wire
+
+**Target.** A client can predict, from `wire.html` alone, the text a `fetch` returns for what it pushed. Today the
+writer's layout is stated nowhere, so PLC Assist read one inserted blank line (4.3b a) as 80 changed lines. PLC Assist's
+client runs in Docker, outside .NET, so the contract is a stated rule a client can implement, not a function to call.
+
+**Choice.** One table, `#layout` in `wire.html`, rendered by `doc.js` from `data.js` like `items.html`'s kinds. Its rows
+are `StWriter`'s rules, one made-up example each (`a`, `b`, `x`):
+LF only, the file ends in one `\n` · a GVL/DUT is its declaration, then its `%`-lines · a POU is its declaration, the
+`IMPLEMENTATION` line, its `%`-lines, its code · one blank line, then the `END_…` line mirroring the header · each member
+after one blank line, below the END line (inside the block for an interface) · member order METHOD, ACTION, PROPERTY,
+then name, ordinal · a member is declaration, `IMPLEMENTATION` line, `%`-lines, code, `END_METHOD`/`END_ACTION` · a
+property is declaration, `%`-lines, `GET` then `SET`, `END_PROPERTY` · every other character verbatim (inner blank lines,
+trailing whitespace, a body's own trailing newline). The rows live in `test/Volt.Engine.Tests/format/st/StLayoutRules.cs`:
+`(id, sentence, ItemContent example, Func<string,bool> holds)`. Two tests: `DocDataTests` generates each row's example as
+`StWriter.Write(example)` into `data.js` (the existing gate: the doc cannot drift from the writer), and
+`StLayoutRulesTests` asserts `holds` on that output AND fails on a hand-made non-canonical variant of it (the rule bites).
+A writer change that breaks a rule turns red there; a new rule without a row is caught by review, not a census (the
+writer has no rule list to count — named, not hidden).
+
+**Rejected.** Write a minimal separator so text round-trips byte-identical: a canonical-file change — every pulled POU
+file, 114 C# and 40 TS test texts and the six corpora's workspace files (measured in 4.3b); owner kept the layout.
+Hand-written prose rows: drift, nothing pins them. A canonicalize op or a push answer echoing stored text: a wire
+addition for what `fetch onlyItems` already answers. A shared normalizer library: PLC Assist is not .NET.
+
+**Stays refused by name.** A `sourceText` starting with U+FEFF (`BAD_REQUEST`, 4.3b c). A POU whose declaration opens
+with no PROGRAM / FUNCTION_BLOCK / FUNCTION has no END line to mirror (pull: `unreadable`, `UNSUPPORTED`). Non-canonical
+text (CRLF, no blank line, any member order) stays ACCEPTED: the fetched text is its canonical form, and the table says so.
+
+**Migration.** None for Volt: the writer does not change, no file moves. 4.3b is ticked against this rule ((a) and (b)
+are rows). `plcassist-note.md`: one bullet under `fetch` — compare a pushed text against the fetched one, or against
+the `#layout` rules, never byte-for-byte against what was sent.
+
 ## Deleted
 
 `health.networkText` · `HealthResponse.status` (prose) · `connect`/`disconnect` `ok` · `push.accepted` ·
