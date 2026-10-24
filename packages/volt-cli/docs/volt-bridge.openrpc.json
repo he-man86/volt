@@ -3,7 +3,7 @@
   "info": {
     "title": "Volt bridge",
     "version": "1",
-    "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE. One request object per call: \u0060{ \u0022op\u0022: \u0022\u003Cname\u003E\u0022, \u0022protocol\u0022: 1, \u0022body\u0022: { ... } }\u0060 (a request stating no \u0060protocol\u0060 or another is refused PROTOCOL_MISMATCH before its body is read), answered with the method\u0027s result or \u0060{ \u0022error\u0022: { \u0022code\u0022: \u0022...\u0022, \u0022message\u0022: \u0022...\u0022, \u0022data\u0022: { ... } } }\u0060.\n\nGENERATED from the C# contract types by \u0060DocDataTests\u0060; edit those, not this file."
+    "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE; a client discovers the pipes by prefix. ONE REQUEST PER CONNECTION: the client writes one request and reads the answer; the bridge closes the connection after the terminal frame. Concurrent requests use separate connections.\n\nENCODING: UTF-8 without a BOM. Every frame is one JSON object on one line ending in \u0060\\n\u0060. A request may end in \u0060\\r\\n\u0060; a request that starts with a BOM is BAD_REQUEST; a request with no \u0060\\n\u0060 is answered once the client closes its side. A request is at most 64 MiB, the newline excluded.\n\nREQUEST: \u0060{ \u0022op\u0022: \u0022\u003Cmethod\u003E\u0022, \u0022protocol\u0022: 1, \u0022body\u0022: { ... } }\u0060 (schema \u0060Request\u0060). \u0060protocol\u0060 is a JSON integer; a request that states none or another is refused PROTOCOL_MISMATCH before its body is read. \u0060body\u0060 absent is \u0060{}\u0060; a \u0060null\u0060 body, a member the method does not have, or an unknown envelope member is BAD_REQUEST.\n\nANSWER: zero or more \u0060{\u0022progress\u0022: ProgressFrame}\u0060, then exactly one \u0060{\u0022result\u0022: \u003Cthe method\u0027s result\u003E}\u0060 or \u0060{\u0022error\u0022: {\u0022code\u0022, \u0022message\u0022, \u0022data\u0022?}}\u0060 (schema \u0060ErrorFrame\u0060). A value a bridge does not list in its \u0060health\u0060 catalog (\u0060ops\u0060, \u0060languages\u0060, \u0060kinds\u0060) is one it never sends.\n\nGENERATED from the C# contract types and the hosts\u0027 declarations by \u0060DocDataTests\u0060; edit those, not this file."
   },
   "servers": [
     {
@@ -28,19 +28,20 @@
   "methods": [
     {
       "name": "health",
-      "summary": "Liveness plus the connectable projects, from the driver\u0027s CACHED snapshot \u2014 never marshalled onto the IDE thread. This is the poll path (the connector every few seconds), so it answers while a push or build is running. While paused every row reads idle.",
+      "summary": "Liveness, the bridge\u0027s catalog and the connectable projects, from the bridge\u0027s cached snapshot \u2014 never on the IDE thread, so it answers while a push or build runs. While paused every row reads idle.",
       "paramStructure": "by-name",
       "params": [],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "INTERNAL_ERROR"
       ],
       "x-outcomes": [
-        "Never gated by \u0060disconnect\u0060 \u2014 while paused every row is forced to \u0060idle\u0060, because the list is how the user reconnects.",
-        "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead.",
-        "Answers even when the IDE lacks what the bridge needs: \u0060unsupported\u0060 then carries the fixed reason every other op answers with as IDE_UNSUPPORTED, \u0060ideVersion\u0060 the IDE version, and every row is idle. Never a version floor \u2014 an IDE is refused for what it lacks, not for its number.",
-        "Always states the bridge identity at top level, rows or not, refused or not: \u0060productName\u0060, \u0060productVersion\u0060 and \u0060productVendor\u0060 (what the user runs, its own number and its maker), \u0060ideVersion\u0060 (the platform under it \u2014 the CODESYS framework version, or the TwinCAT build) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060 for an unstamped build). Each is absent when its source does not answer, never filled from another, and none of them decides whether the bridge serves.",
-        "\u0060ops\u0060 names every op this bridge answers, from its own dispatch table: a client asks it before an op an older bridge may lack (\u0060grep\u0060). A frame without \u0060ops\u0060 is a bridge from before it."
+        "Answers from the bridge\u0027s cached snapshot, never on the IDE thread: it answers while a push or build runs, never reports PLC_DISCONNECTED, and is not gated by \u0060disconnect\u0060 \u2014 while paused every row is \u0060idle\u0060.",
+        "Answers on an IDE the bridge cannot serve: \u0060unsupported\u0060 carries the sentence every other op answers IDE_UNSUPPORTED with, and every row is idle. An IDE is refused for what it lacks, never for its version number.",
+        "States the bridge identity at top level, rows or not: \u0060productName\u0060, \u0060productVersion\u0060, \u0060productVendor\u0060, \u0060ideVersion\u0060 (the platform under the product) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060). Each is absent when its source does not answer, never filled from another.",
+        "States the bridge\u0027s catalog, from its own declarations: \u0060ops\u0060 (every op it answers), \u0060languages\u0060 (every language it writes as \u0060IMPLEMENTATION \u003CLANG\u003E\u0060) and \u0060kinds\u0060 (every item kind, by extension, and whether a push writes it). A value the bridge does not list there is one it never sends.",
+        "A row\u0027s \u0060dirty\u0060 is absent when the IDE did not answer whether the project is saved: unknown, never clean."
       ],
       "result": {
         "name": "result",
@@ -51,12 +52,12 @@
     },
     {
       "name": "connect",
-      "summary": "Bind a project and resume service. An absent or empty \u0060project\u0060 means \u0022serve whatever you have\u0022. Refuses with PLC_DISCONNECTED unless the bridge ends up actually serving the named project \u2014 the post-condition is enforced in shared code, so both vendors answer identically.",
+      "summary": "Bind a project and resume service. An absent or empty \u0060project\u0060 means \u0022serve whatever you have\u0022. Refuses with PLC_DISCONNECTED unless the bridge ends up serving the named project.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/ConnectRequest"
           }
@@ -64,13 +65,14 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
-        "PLC_DISCONNECTED",
-        "INTERNAL_ERROR"
+        "INTERNAL_ERROR",
+        "PLC_DISCONNECTED"
       ],
       "x-outcomes": [
-        "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something other than the project named. Enforced once in shared code, so both vendors refuse identically.",
-        "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, so a \u0060disconnect\u0060 racing a connect wins."
+        "PLC_DISCONNECTED when the bridge does not end up serving the named project: it attached nothing, or something other than the project named. \u0060project\u0060 is compared like a path, ignoring case.",
+        "A refused connect still leaves the bridge resumed: a \u0060disconnect\u0060 racing a connect wins."
       ],
       "result": {
         "name": "result",
@@ -81,15 +83,17 @@
     },
     {
       "name": "disconnect",
-      "summary": "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push is running, and that push RUNS TO COMPLETION \u2014 the gate stops the NEXT op, never the current one.",
+      "summary": "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push is running, and that push runs to completion.",
       "paramStructure": "by-name",
       "params": [],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
-        "IDE_UNSUPPORTED"
+        "BAD_REQUEST",
+        "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR"
       ],
       "x-outcomes": [
-        "Fails only with IDE_UNSUPPORTED, as every op but \u0060health\u0060 does on an IDE the bridge cannot serve. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
+        "Sets a flag and answers, without the IDE thread: it answers while a push runs, and that push runs to completion. The flag stops the next op, never the current one."
       ],
       "result": {
         "name": "result",
@@ -100,12 +104,12 @@
     },
     {
       "name": "refs",
-      "summary": "The version map without any content: every tracked item\u0027s version, its folder, and the aggregate project/structure versions. This is what a client compares against to decide what to fetch.",
+      "summary": "The version map without any content: the path \u2192 version map and \u0060projectVersion\u0060. This is what a client compares against to decide what to fetch.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/RefsRequest"
           }
@@ -113,19 +117,19 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "BAD_REQUEST",
-        "ITEM_UNVERIFIED",
-        "INTERNAL_ERROR"
+        "ITEM_UNVERIFIED"
       ],
       "x-outcomes": [
-        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
-        "An item whose body will not materialize is NOT an error: it is named in \u0060unreadable\u0060, keeps a stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
-        "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The session is marked degraded meanwhile, which \u0060health\u0060 reports.",
-        "Progress frames start with the WALK: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: \u0060phase: \u0022reading\u0022\u0060 with \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last.",
-        "A \u0060refs\u0060 that arrives while one with the same body runs JOINS it: it receives that one\u0027s progress frames from then on and the same terminal frame, result or error. Nothing is kept once it answers: the next \u0060refs\u0060 walks again."
+        "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+        "An item whose body will not materialize is no error: it is in \u0060unreadable\u0060 with its code, and keeps a stable version so a pull does not read it as deleted.",
+        "A read is retried once through a transient IDE failure; \u0060health\u0060 reports the session degraded meanwhile.",
+        "Progress frames start with the walk: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: the first with its phase and \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last.",
+        "A \u0060refs\u0060 that arrives while one with the same body runs joins it: it receives that one\u0027s progress frames from then on and the same terminal frame. Nothing is kept once it answers: the next \u0060refs\u0060 walks again."
       ],
       "result": {
         "name": "result",
@@ -136,12 +140,12 @@
     },
     {
       "name": "fetch",
-      "summary": "Item CONTENT. \u0060knownItems\u0060 narrows the answer to what changed; \u0060onlyItems\u0060 restricts the walk to a named subset. Naming a \u0060.library\u0060 returns its manifest and every signature of that library, in the folder and with the bytes a full fetch writes; the first such read of a session pays the vendor\u0027s extraction (on CODESYS a build of the application, which writes the IDE\u0027s message view), later ones with no library change reuse it, and \u0060libraryManifestOnly\u0060 answers the manifest alone. A directed read never sets \u0060librariesRefreshed\u0060. Graphical bodies arrive as network text \u2014 the bridge materializes them, so a client never sees a vendor\u0027s own form.",
+      "summary": "Item CONTENT. \u0060knownItems\u0060 narrows the answer to what changed; \u0060onlyItems\u0060 restricts it to a named subset. Naming a \u0060.library\u0060 returns its manifest and every signature of that library, in the folder and with the bytes a full fetch writes; \u0060libraryManifestOnly\u0060 answers the manifest alone. Graphical bodies arrive as network text.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/FetchRequest"
           }
@@ -149,19 +153,19 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "BAD_REQUEST",
-        "ITEM_UNVERIFIED",
-        "INTERNAL_ERROR"
+        "ITEM_UNVERIFIED"
       ],
       "x-outcomes": [
-        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
-        "BAD_REQUEST for a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 nor \u0060init: true\u0060: it is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
-        "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a known path absent from a folder it did read (the path\u0027s own prefix) is still in \u0060removed\u0060.",
-        "Items that would not materialize are named in \u0060unreadable\u0060, not raised.",
-        "Progress frames start with the WALK: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: \u0060phase: \u0022reading\u0022\u0060 with \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last."
+        "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+        "BAD_REQUEST for a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 nor \u0060init: true\u0060.",
+        "A known path under a folder the walk could not read is never in \u0060removed\u0060; one absent from a folder it did read is.",
+        "Items that would not materialize are in \u0060unreadable\u0060, not raised.",
+        "Progress frames start with the walk: one per application as the walk finishes it, \u0060phase: \u0022walking\u0022\u0060, \u0060done\u0060 applications of \u0060total\u0060 (a TwinCAT PLC project is an application; CODESYS states no \u0060total\u0060). The item frames follow: the first with its phase and \u0060done\u0060 0 of \u0060total\u0060 items, then one every 25 items and one at the last."
       ],
       "result": {
         "name": "result",
@@ -172,12 +176,12 @@
     },
     {
       "name": "push",
-      "summary": "Apply ops to the IDE. Every text-decidable refusal runs in a PRE-FLIGHT before the first write, so a push that cannot land in full lands nothing. \u0060expectedProjectVersion\u0060 is the lease; per-item \u0060ifVersion\u0060 is the optimistic guard.",
+      "summary": "Apply ops to the IDE. Every text-decidable refusal runs in a pre-flight before the first write. \u0060expectedProjectVersion\u0060 is the lease; per-item \u0060ifVersion\u0060 is the optimistic guard.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/PushRequest"
           }
@@ -185,26 +189,26 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "BAD_REQUEST",
         "STALE_PROJECT_VERSION",
         "ITEM_UNVERIFIED",
-        "IDE_BUSY",
-        "INTERNAL_ERROR"
+        "IDE_BUSY"
       ],
       "x-outcomes": [
-        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
-        "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
-        "BAD_REQUEST as an error FRAME when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
-        "A push writes into the open project and saves nothing, on both vendors: the engineer saves.",
-        "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as a conflict. A client MUST check \u0060accepted\u0060 AND \u0060conflicts\u0060.",
-        "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody coded. Match the code, never the message.",
-        "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item.",
-        "A refusal decidable before the first write writes nothing and names EVERY refused op \u2014 the gate\u0027s per-item conflicts and the pre-flight\u0027s, one conflict per op.",
-        "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is \u0060accepted:true\u0060 with the receipt and a conflict per op NOT landed \u2014 the refused op with its code, every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
-        "What of the REFUSED op itself the IDE kept is in fields as well as in \u0060reason\u0060: \u0060partiallyApplied: true\u0060 whenever any of it stays (re-read the item before retrying it), \u0060renamedTo\u0060 with the item\u0027s current full name after a native rename that ran first, \u0060remains: true\u0060 for a create whose rollback failed. Each is ABSENT when it does not apply \u2014 never false."
+        "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+        "IDE_BUSY when another push or build holds the IDE: refused at once, before the IDE is touched, so nothing is applied or compiled. Reads and \u0060health\u0060 are never refused with it. Wait for the running op, then try once.",
+        "BAD_REQUEST when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
+        "STALE_PROJECT_VERSION when \u0060expectedProjectVersion\u0060 is not the project\u0027s version: nothing is applied, and \u0060error.data.currentProjectVersion\u0060 is the version the IDE holds.",
+        "Writes into the open project and saves nothing: the engineer saves.",
+        "A refused op is no error frame: it is a conflict in the result, named by the op\u0027s \u0060name\u0060, with its code. Every op \u0060conflicts\u0060 does not name landed in full.",
+        "A refusal decidable before the first write lands nothing: each refused op answers its code, every other op NOT_ATTEMPTED.",
+        "A refusal during the apply lands the ops before it and stops: the refused op answers its code, every later op NOT_ATTEMPTED.",
+        "\u0060newProjectVersion\u0060 is present exactly when something landed; \u0060newItems\u0060 and \u0060removed\u0060 are what the push changed, so \u0060baseline \u2212 removed \u002B newItems\u0060 is the IDE after it.",
+        "What of a refused op the IDE kept is stated on its conflict: \u0060partiallyApplied\u0060, \u0060renamedTo\u0060, \u0060remains\u0060 \u2014 each absent when it does not apply."
       ],
       "result": {
         "name": "result",
@@ -215,12 +219,12 @@
     },
     {
       "name": "build",
-      "summary": "Compile the bound project and return the IDE\u0027s own diagnostics. This is the oracle a client uses to tell its own analysis from the vendor\u0027s.",
+      "summary": "Compile the bound project and return the IDE\u0027s own diagnostics.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/BuildRequest"
           }
@@ -228,20 +232,21 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "BAD_REQUEST",
         "IDE_BUSY"
       ],
       "x-outcomes": [
-        "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
-        "BAD_REQUEST as an error FRAME when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
-        "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold (named), or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
-        "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
-        "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
-        "The build compiles what the IDE holds in memory, and Volt calls no save. On TwinCAT a build saves changed documents, as XAE\u0027s Build does (DIALECT D45).",
-        "\u0060success\u0060 comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, TwinCAT reads the IDE\u0027s own count of failed projects."
+        "IDE_BUSY when another push or build holds the IDE: refused at once, before the IDE is touched, so nothing is applied or compiled. Reads and \u0060health\u0060 are never refused with it. Wait for the running op, then try once.",
+        "BAD_REQUEST when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
+        "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold, or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
+        "A project that does not compile is \u0060success: false\u0060 with its diagnostics, never an error frame; a compile that throws answers \u0060success: false\u0060 with the reason as an error diagnostic.",
+        "\u0060success\u0060 is each vendor\u0027s own signal: CODESYS has it from its diagnostics, TwinCAT from the IDE\u0027s count of failed projects. A failed build always carries an error diagnostic: when the IDE wrote none Volt could read, one says so, with no position.",
+        "\u0060severity\u0060 is absent when the vendor\u0027s value is not in its host\u0027s declared table. \u0060line\u0060 and \u0060column\u0060 are 1-based and absent when the vendor stated none: CODESYS states no position, TwinCAT a line and no column.",
+        "Compiles what the IDE holds in memory; Volt calls no save. On TwinCAT a build saves changed documents, as XAE\u0027s own Build does."
       ],
       "result": {
         "name": "result",
@@ -252,12 +257,12 @@
     },
     {
       "name": "grep",
-      "summary": "Search the text \u0060fetch\u0060 ships for each item, line by line, and answer the matching LINES \u2014 path, 1-based line, the line as fetched \u2014 with each matched item\u0027s \u0060refs\u0060 version, never whole sources. A regular expression or \u0060literal\u0060 text, ignoring case unless \u0060caseSensitive\u0060; \u0060paths\u0060 globs limit what is searched. What could not be searched is named in \u0060notSearched\u0060.",
+      "summary": "Search the text \u0060fetch\u0060 ships for each item, line by line, and answer the matching LINES \u2014 path, 1-based line, the line as fetched \u2014 with each matched item\u0027s \u0060refs\u0060 version, never whole sources. A regular expression or \u0060literal\u0060 text, ignoring case unless \u0060caseSensitive\u0060; \u0060paths\u0060 globs limit what is searched. What could not be searched is in \u0060notSearched\u0060.",
       "paramStructure": "by-name",
       "params": [
         {
           "name": "body",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/GrepRequest"
           }
@@ -265,18 +270,18 @@
       ],
       "x-errorCodes": [
         "PROTOCOL_MISMATCH",
+        "BAD_REQUEST",
         "IDE_UNSUPPORTED",
+        "INTERNAL_ERROR",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "BAD_REQUEST",
-        "ITEM_UNVERIFIED",
-        "INTERNAL_ERROR"
+        "ITEM_UNVERIFIED"
       ],
       "x-outcomes": [
-        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+        "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
         "BAD_REQUEST, before the walk, for an empty \u0060pattern\u0060, a regular expression that does not compile (the parse error named) or a \u0060limit\u0060 outside 1\u20131000; and, with no partial answer, for a pattern that takes longer than 100 ms on one line.",
-        "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number, byte for byte. An \u0060unreadable\u0060 item, and a body that reads \u0060IMPLEMENTATION \u003CLANG\u003E UNSUPPORTED\u0060, are named in \u0060notSearched\u0060 instead; libraries are out of scope and unlisted.",
-        "The answer is bounded: at most \u0060limit\u0060 matches, counted up to 10000 in \u0060totalMatches\u0060; \u0060truncated\u0060 when more were found than answered."
+        "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number. An \u0060unreadable\u0060 item, and a body that reads \u0060IMPLEMENTATION \u003CLANG\u003E UNSUPPORTED\u0060, are in \u0060notSearched\u0060 with a code; libraries are not searched and not listed.",
+        "The answer is bounded: at most \u0060limit\u0060 matches, counted up to 10000 in \u0060totalMatches\u0060; \u0060truncated\u0060 when more were found than answered. A line longer than 500 UTF-16 code units is cut, ends in \u0060\u2026\u0060 and carries \u0060cut: true\u0060."
       ],
       "result": {
         "name": "result",
@@ -288,98 +293,130 @@
   ],
   "components": {
     "schemas": {
-      "HealthResponse": {
+      "BridgeDiagnostic": {
         "type": "object",
         "properties": {
-          "projects": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProjectEntry"
-            }
-          },
-          "languages": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "kinds": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HealthKind"
-            }
-          },
-          "ideVersion": {
+          "name": {
             "type": "string"
           },
-          "productName": {
+          "member": {
             "type": "string"
           },
-          "productVersion": {
+          "code": {
             "type": "string"
           },
-          "productVendor": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "message": {
             "type": "string"
           },
-          "bridgeVersion": {
-            "type": "string"
-          },
-          "protocol": {
+          "line": {
             "type": "integer"
           },
-          "ops": {
+          "column": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "BridgeErrorCode": {
+        "type": "string",
+        "description": "A Volt code: why an op was refused (error frame), why an op of a push did not land (conflict), or why an object was not read (unreadable). The channels each arrives on are in the code table.",
+        "enum": [
+          "PROTOCOL_MISMATCH",
+          "STALE_PROJECT_VERSION",
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "IDE_LOST_ITEM",
+          "BAD_REQUEST",
+          "UNSUPPORTED",
+          "DUPLICATE_CHILD",
+          "INVALID_ST",
+          "UNREADABLE",
+          "IDE_UNSUPPORTED",
+          "IDE_BUSY",
+          "INTERNAL_ERROR",
+          "ITEM_UNVERIFIED"
+        ]
+      },
+      "BuildRequest": {
+        "type": "object",
+        "properties": {
+          "applications": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "unsupported": {
+          "expectedPlatform": {
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
+          },
+          "expectedProjectName": {
             "type": "string"
           }
         },
         "required": [
-          "projects",
-          "languages",
-          "kinds",
-          "protocol",
-          "ops"
-        ]
+          "expectedPlatform",
+          "expectedProjectName"
+        ],
+        "additionalProperties": false
       },
-      "ProjectEntry": {
+      "BuildResponse": {
         "type": "object",
         "properties": {
-          "vendor": {
-            "type": "string"
-          },
-          "project": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "dirty": {
+          "success": {
             "type": "boolean"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BridgeDiagnostic"
+            }
           }
         },
         "required": [
-          "vendor",
-          "project",
-          "status"
+          "success",
+          "durationMs",
+          "diagnostics"
         ]
       },
-      "HealthKind": {
-        "type": "object",
-        "properties": {
-          "extension": {
-            "type": "string"
-          },
-          "writable": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "extension",
-          "writable"
+      "ConflictCode": {
+        "type": "string",
+        "description": "The code of a push conflict: the gate\u0027s, a bridge refusal of the op, NOT_ATTEMPTED, or a network-text refusal of the body (every NETWORK_ code, and only one, comes with the conflict\u0027s \u0060line\u0060).",
+        "enum": [
+          "STALE_ITEM_VERSION",
+          "ITEM_EXISTS",
+          "ITEM_MISSING",
+          "ITEM_UNVERIFIED",
+          "IDE_LOST_ITEM",
+          "UNSUPPORTED",
+          "DUPLICATE_CHILD",
+          "BAD_REQUEST",
+          "INVALID_ST",
+          "UNREADABLE",
+          "INTERNAL_ERROR",
+          "NOT_ATTEMPTED",
+          "NETWORK_PARSE",
+          "NETWORK_NOT_CLOSED",
+          "NETWORK_DUPLICATE_NAME",
+          "NETWORK_BAD_EXPRESSION",
+          "NETWORK_UNKNOWN_OPERATOR",
+          "NETWORK_UNSUPPORTED"
         ]
       },
       "ConnectRequest": {
@@ -391,129 +428,61 @@
         },
         "additionalProperties": false
       },
+      "DeleteItemOp": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ifVersion": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string",
+            "const": "deleteItem"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "EmptyResult": {
         "type": "object",
         "properties": {}
       },
-      "RefsRequest": {
+      "ErrorFrame": {
         "type": "object",
+        "description": "The terminal frame of a refused op. \u0060data\u0060 is present for the codes that carry facts: PROTOCOL_MISMATCH (\u0060ProtocolMismatchData\u0060) and STALE_PROJECT_VERSION (\u0060StaleProjectVersionData\u0060).",
         "properties": {
-          "knownItems": {
+          "error": {
             "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "knownApplications": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "expectedPlatform": {
-            "type": "string"
-          },
-          "expectedProjectName": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "RefsResponse": {
-        "type": "object",
-        "properties": {
-          "projectVersion": {
-            "type": "string"
-          },
-          "items": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "applications": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "unreadable": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UnreadableItem"
-            }
-          },
-          "unreadableNodes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UnreadableNode"
-            }
-          },
-          "removed": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "unwalkedFolders": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "platform": {
-            "type": "string"
-          },
-          "projectName": {
-            "type": "string"
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/BridgeErrorCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ProtocolMismatchData"
+                  },
+                  {
+                    "$ref": "#/components/schemas/StaleProjectVersionData"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
           }
         },
         "required": [
-          "projectVersion",
-          "items",
-          "applications",
-          "unreadable",
-          "unreadableNodes",
-          "removed",
-          "unwalkedFolders"
-        ]
-      },
-      "UnreadableItem": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "code",
-          "reason"
-        ]
-      },
-      "UnreadableNode": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "code",
-          "reason"
+          "error"
         ]
       },
       "FetchRequest": {
@@ -544,7 +513,11 @@
             "type": "boolean"
           },
           "expectedPlatform": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
           },
           "expectedProjectName": {
             "type": "string"
@@ -604,7 +577,11 @@
             }
           },
           "platform": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
           },
           "projectName": {
             "type": "string"
@@ -647,290 +624,26 @@
           "version"
         ]
       },
-      "UnsupportedBody": {
-        "type": "object",
-        "properties": {
-          "member": {
-            "type": "string"
-          },
-          "language": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "language",
-          "reason"
-        ]
-      },
-      "PushRequest": {
-        "type": "object",
-        "properties": {
-          "ops": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PushOp"
-            }
-          },
-          "expectedProjectVersion": {
-            "type": "string"
-          },
-          "force": {
-            "type": "boolean"
-          },
-          "returnSources": {
-            "type": "boolean"
-          },
-          "expectedPlatform": {
-            "type": "string"
-          },
-          "expectedProjectName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "ops",
-          "expectedPlatform",
-          "expectedProjectName"
-        ],
-        "additionalProperties": false
-      },
-      "PushOp": {
+      "GrepMatch": {
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
-          },
-          "ifVersion": {
-            "type": "string"
-          },
-          "op": {
-            "type": "string",
-            "enum": [
-              "set",
-              "deleteItem"
-            ],
-            "description": "Selects which member of the union this object is."
-          }
-        },
-        "required": [
-          "name",
-          "op"
-        ],
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/SetItemOp"
-          },
-          {
-            "$ref": "#/components/schemas/DeleteItemOp"
-          }
-        ],
-        "description": "A discriminated union: \u0060op\u0060 selects \u0060set\u0060 or \u0060deleteItem\u0060."
-      },
-      "SetItemOp": {
-        "type": "object",
-        "properties": {
-          "to": {
-            "type": "string"
-          },
-          "sourceText": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "ifVersion": {
-            "type": "string"
-          },
-          "op": {
-            "type": "string",
-            "const": "set"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "additionalProperties": false
-      },
-      "DeleteItemOp": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "ifVersion": {
-            "type": "string"
-          },
-          "op": {
-            "type": "string",
-            "const": "deleteItem"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "additionalProperties": false
-      },
-      "PushResponse": {
-        "type": "object",
-        "properties": {
-          "newProjectVersion": {
-            "type": "string"
-          },
-          "newItems": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "removed": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "unwalkedFolders": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "conflicts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PushConflict"
-            }
-          },
-          "newSources": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "newItems",
-          "removed",
-          "unwalkedFolders",
-          "conflicts"
-        ]
-      },
-      "PushConflict": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "yourVersion": {
-            "type": "string"
-          },
-          "currentVersion": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "existing": {
             "type": "string"
           },
           "line": {
             "type": "integer"
           },
-          "partiallyApplied": {
-            "type": "boolean"
-          },
-          "renamedTo": {
+          "text": {
             "type": "string"
           },
-          "remains": {
+          "cut": {
             "type": "boolean"
           }
         },
         "required": [
           "name",
-          "reason",
-          "code"
-        ]
-      },
-      "BuildRequest": {
-        "type": "object",
-        "properties": {
-          "applications": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "expectedPlatform": {
-            "type": "string"
-          },
-          "expectedProjectName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "expectedPlatform",
-          "expectedProjectName"
-        ],
-        "additionalProperties": false
-      },
-      "BuildResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "duration": {
-            "type": "number"
-          },
-          "diagnostics": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BridgeDiagnostic"
-            }
-          }
-        },
-        "required": [
-          "success",
-          "duration",
-          "diagnostics"
-        ]
-      },
-      "BridgeDiagnostic": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "member": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "severity": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "line": {
-            "type": "integer"
-          },
-          "column": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "severity",
-          "message",
           "line",
-          "column"
+          "text"
         ]
       },
       "GrepRequest": {
@@ -955,7 +668,11 @@
             "type": "integer"
           },
           "expectedPlatform": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
           },
           "expectedProjectName": {
             "type": "string"
@@ -1013,23 +730,105 @@
           "unwalkedFolders"
         ]
       },
-      "GrepMatch": {
+      "HealthKind": {
         "type": "object",
         "properties": {
-          "path": {
+          "extension": {
+            "type": "string",
+            "enum": [
+              "class_diagram",
+              "device",
+              "dut",
+              "external_types",
+              "gvl",
+              "image_pool",
+              "itf",
+              "library",
+              "library_manager",
+              "parameter_list",
+              "pou",
+              "projectinfo",
+              "projectsettings",
+              "recipe",
+              "recipe_manager",
+              "symbols",
+              "task",
+              "text_list",
+              "tmc",
+              "trace",
+              "visualization",
+              "visualization_manager"
+            ]
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "extension",
+          "writable"
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectEntry"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "FBD",
+                "LD",
+                "ST"
+              ]
+            }
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HealthKind"
+            }
+          },
+          "ideVersion": {
             "type": "string"
           },
-          "line": {
+          "productName": {
+            "type": "string"
+          },
+          "productVersion": {
+            "type": "string"
+          },
+          "productVendor": {
+            "type": "string"
+          },
+          "bridgeVersion": {
+            "type": "string"
+          },
+          "protocol": {
             "type": "integer"
           },
-          "text": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsupported": {
             "type": "string"
           }
         },
         "required": [
-          "path",
-          "line",
-          "text"
+          "projects",
+          "languages",
+          "kinds",
+          "protocol",
+          "ops"
         ]
       },
       "NotSearchedItem": {
@@ -1038,12 +837,480 @@
           "name": {
             "type": "string"
           },
+          "code": {
+            "$ref": "#/components/schemas/BridgeErrorCode"
+          },
           "reason": {
             "type": "string"
           }
         },
         "required": [
           "name",
+          "code",
+          "reason"
+        ]
+      },
+      "ProgressFrame": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "health",
+              "connect",
+              "disconnect",
+              "refs",
+              "fetch",
+              "push",
+              "build",
+              "grep"
+            ]
+          },
+          "done": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "walking",
+              "reading",
+              "searching",
+              "building",
+              "checking",
+              "applying"
+            ]
+          },
+          "phaseIndex": {
+            "type": "integer",
+            "description": "Never sent by a bridge: the \u0060volt\u0060 CLI sets it on the frames it re-emits to its own clients."
+          },
+          "phaseCount": {
+            "type": "integer",
+            "description": "Never sent by a bridge: the \u0060volt\u0060 CLI sets it on the frames it re-emits to its own clients."
+          }
+        },
+        "required": [
+          "operation",
+          "done"
+        ]
+      },
+      "ProjectEntry": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
+          },
+          "project": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "healthy",
+              "degraded"
+            ]
+          },
+          "dirty": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vendor",
+          "project",
+          "status"
+        ]
+      },
+      "ProtocolMismatchData": {
+        "type": "object",
+        "properties": {
+          "bridgeProtocol": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bridgeProtocol"
+        ]
+      },
+      "PushConflict": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "yourVersion": {
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ConflictCode"
+          },
+          "existing": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "partiallyApplied": {
+            "type": "boolean"
+          },
+          "renamedTo": {
+            "type": "string"
+          },
+          "remains": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "reason",
+          "code"
+        ]
+      },
+      "PushOp": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ifVersion": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "set",
+              "deleteItem"
+            ],
+            "description": "Selects which member of the union this object is."
+          }
+        },
+        "required": [
+          "name",
+          "op"
+        ],
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SetItemOp"
+          },
+          {
+            "$ref": "#/components/schemas/DeleteItemOp"
+          }
+        ],
+        "description": "A discriminated union: \u0060op\u0060 selects \u0060set\u0060 or \u0060deleteItem\u0060."
+      },
+      "PushRequest": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PushOp"
+            }
+          },
+          "expectedProjectVersion": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "returnSources": {
+            "type": "boolean"
+          },
+          "expectedPlatform": {
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ops",
+          "expectedPlatform",
+          "expectedProjectName"
+        ],
+        "additionalProperties": false
+      },
+      "PushResponse": {
+        "type": "object",
+        "properties": {
+          "newProjectVersion": {
+            "type": "string"
+          },
+          "newItems": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unwalkedFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PushConflict"
+            }
+          },
+          "newSources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "newItems",
+          "removed",
+          "unwalkedFolders",
+          "conflicts"
+        ]
+      },
+      "RefsRequest": {
+        "type": "object",
+        "properties": {
+          "knownItems": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "knownApplications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expectedPlatform": {
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RefsResponse": {
+        "type": "object",
+        "properties": {
+          "projectVersion": {
+            "type": "string"
+          },
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unreadable": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnreadableItem"
+            }
+          },
+          "unreadableNodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnreadableNode"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unwalkedFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "codesys",
+              "twincat"
+            ]
+          },
+          "projectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectVersion",
+          "items",
+          "applications",
+          "unreadable",
+          "unreadableNodes",
+          "removed",
+          "unwalkedFolders"
+        ]
+      },
+      "Request": {
+        "type": "object",
+        "description": "The request envelope: one per connection.",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "health",
+              "connect",
+              "disconnect",
+              "refs",
+              "fetch",
+              "push",
+              "build",
+              "grep"
+            ]
+          },
+          "protocol": {
+            "type": "integer",
+            "const": 1
+          },
+          "body": {
+            "type": "object",
+            "description": "The method\u0027s params; absent is \u0060{}\u0060."
+          }
+        },
+        "required": [
+          "op",
+          "protocol"
+        ],
+        "additionalProperties": false
+      },
+      "SetItemOp": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "sourceText": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ifVersion": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string",
+            "const": "set"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "StaleProjectVersionData": {
+        "type": "object",
+        "properties": {
+          "currentProjectVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "currentProjectVersion"
+        ]
+      },
+      "UnreadableItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/components/schemas/BridgeErrorCode"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "code",
+          "reason"
+        ]
+      },
+      "UnreadableNode": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/components/schemas/BridgeErrorCode"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "code",
+          "reason"
+        ]
+      },
+      "UnsupportedBody": {
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "CFC",
+              "FBD",
+              "IL",
+              "LD",
+              "SFC",
+              "ST"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
           "reason"
         ]
       }

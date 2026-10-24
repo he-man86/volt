@@ -32,7 +32,7 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 | a client of another protocol is served | error frame **`PROTOCOL_MISMATCH`**, naming both numbers, before the body is read | D | upgrade, no retry |
 | `body` absent / `{}` / `null` unstated (F2) | `body` absent ≡ `{}`; `null` is `BAD_REQUEST` (already true for members) | A | none |
 | connection lifetime unstated (F2, B22) | stated: **one request per connection**; the bridge closes it after the terminal frame (`result` or `error`, whatever the code); concurrent requests use separate connections | F · `PipeServer.Handle` reads one line, answers, disposes | none (states current behaviour) |
-| `ProgressFrame` not in the OpenRPC; `phase` only in prose (F29, **R**) | `ProgressFrame` schema in the document: `phase` enum `walking`/`reading`, `phaseIndex` 0-based, `total` absent = indeterminate | F | none |
+| `ProgressFrame` not in the OpenRPC; `phase` only in prose (F29, **R**) | `ProgressFrame` schema in the document: `phase` enum of the six declared phases (built 3b, see "Built (step 3b)" 1), `phaseIndex`/`phaseCount` never sent by a bridge, `total` absent = indeterminate | F | none |
 | encoding unstated (F26) | stated: **UTF-8 without BOM; every frame is one line ending in `\n`** (no `\r`). A request may end in `\r\n` (the `\r` is JSON whitespace); a request starting with a BOM is `BAD_REQUEST`; a request with no `\n` is not answered until the client closes (measured, task 1.2) | F | write no BOM; end each request with `\n` |
 | `info.version` `"1"` vs `protocol` integer (F15, B24) | `protocol` is a JSON integer (`"1"` is `BAD_REQUEST`); `info.version` is OpenRPC's string `"1"`, documentation only | A | send the integer |
 | the terminal frame's wrapper said two ways (B5) | stated once, generated into `info.description`: `{"progress":…}`*, then exactly one `{"result":…}` or `{"error":{code, message, data?}}` | A, F | none |
@@ -182,6 +182,45 @@ A fresh agent with only sections 1–7, `wire.html` and the OpenRPC document (no
 7. **Unreadable codes, per producer**: `UNREADABLE` — a kind, property, library-manager or materialize read that failed
    (a coded read failure keeps its own code), an item TwinCAT must not open (C2i), an inherited exclusion the walk cannot
    place; `UNSUPPORTED` — a container holding what no text spells, an excluded folder and every item under it.
+
+## Built (step 3b, 2026-10-24): where reality differs
+
+1. **Progress phases are six, not two.** The bridge states `walking`, `reading`, `searching` (grep), `building`,
+   `checking` and `applying` (push); section 1's row named the first two only. They are now constants
+   (`ProgressFrame.Phases`), the schema's enum is generated from them, and a gate refuses a phase spelled as a literal.
+   `phaseIndex`/`phaseCount` are never sent by a bridge (the CLI sets them on the frames it re-emits), so B6's "together
+   or absent" is "always absent on the bridge wire"; the schema says so on both members.
+2. **`ConflictCode` is one closed enum, not enum ∪ pattern (B13).** `ConflictCodes.Network` is a closed list in the code,
+   so the enum names every `NETWORK_` code exactly; the prefix rule and "`line` iff `NETWORK_`" are in its description.
+3. **The `channel` table's `unreadable` set is `UNREADABLE` and `UNSUPPORTED`** — the codes the walk's producers state
+   ("Built (step 3a)" 7). A read that failed with a code of its own keeps it, so `UnreadableItem.code` is typed
+   `BridgeErrorCode`, not a narrower enum.
+4. **The vendor enums are read from the hosts' source.** The CODESYS host is net48 and the TwinCAT host net10-windows,
+   so the generator (`DocDataTests`, net10) cannot load them: it reads every `Volt.Ide.*/**/*.Seam.cs` declaration
+   (`VendorRow Row`, `LanguageRow.Shown/Hidden`, `IecFormat.KindRows`) and fails by name on one it cannot read — the same
+   route the items page already takes for the CODESYS property refusals.
+5. **CODESYS severity, measured live on 3.5.22.40 (3.6).** A warning silenced with `{warning disable C0196}` puts no
+   message into the build's categories at all; three builds (a warning; the suppressed warning; warning + suppressed
+   warning + two errors) gave only single declared bits, every message classified, no combined value. The table is the
+   five declared bits; `SuppressedWarning`/`SuppressedInformation` are no rows (owner question 2.7, default taken).
+   The enum is `[Flags]`, so the error bits decide (gate 3b): a value carrying `FatalError` or `Error` is an error
+   whatever else it carries, and a value that is no number or carries a bit no installed version declares cannot be
+   ruled out as one, so its build does not answer success (an unknown fact is never a clean build). Only a value of
+   declared non-error bits that is no single row (a suppressed warning) is unclassified and fails no build.
+6. **A failed build names an error in `BuildService`, for both vendors**, besides TwinCAT's parser carrying an unshaped
+   `… error: …` line: a vendor can count a failure and write nothing Volt reads, and the answer then states that, as an
+   error with no position. The unshaped line is carried only from the pane of a build `LastBuildInfo` counts as failed
+   (in a successful build's pane `error:` states no failure), and it is no boundary: a quoted continuation that holds
+   `error:` stays in its message (gate 3b). It is English-only — a German XAE's `Interner Fehler:` reaches only
+   `BuildService`'s generic error. The CODESYS position scrape (`ParseLine`/`ParseColumn` over the message text, never a match
+   on 6446 recorded diagnostics) is deleted: CODESYS states no position.
+7. **`WRONG_PROJECT` keeps its remedy clause** (`— open the named project in the IDE, or reconnect`): the CLI prints the
+   message as the refusal, and it was the user's only next step. The expectation it names is now only what the request
+   stated (§7).
+8. **The CLI's own `--json` build result is `durationMs` too**, and its human output prints an unclassified severity as
+   `[unclassified]`; volt-control reads `durationMs`, an optional `severity`, and a `dirty` that may be unknown: an
+   unknown `dirty` makes no "IDE changed" edge (it read as clean before), and it keeps the last STATED value as the
+   baseline (`healthStep`), so clean → unknown → dirty still signals the edit (gate 3b).
 
 ## Deleted
 

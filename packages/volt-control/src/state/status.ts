@@ -82,17 +82,31 @@ export async function disconnectWorkspace(st: VoltStatus): Promise<OutcomeView> 
 	return describeDisconnect(r);
 }
 
-/** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition, or a switch between
+/** An IDE-edit edge from two consecutive health reads: a projectDirty false→true transition (both STATED — an absent
+ *  `dirty` is the IDE not answering, neither clean nor dirty, so it makes no edge), or a switch between
  *  two DIFFERENT live projects. The name check requires BOTH names defined — an `undefined ↔ name` transition is a
  *  disconnect/reconnect (the bridge dropping and coming back), NOT an edit, and flagging it "IDE changed — Refresh"
  *  on every reconnect was a false positive. `seen` gates the very first read (start()'s explicit refresh covers the
  *  initial state). Pure so the branching is unit-tested without a live bridge. */
 export function isIdeChangeEdge(
-	prev: { seen: boolean; dirty: boolean; name: string | undefined },
-	next: { dirty: boolean; name: string | undefined },
+	prev: { seen: boolean; dirty: boolean | undefined; name: string | undefined },
+	next: { dirty: boolean | undefined; name: string | undefined },
 ): boolean {
 	const switched = prev.name !== undefined && next.name !== undefined && next.name !== prev.name;
-	return prev.seen && ((next.dirty && !prev.dirty) || switched);
+	return prev.seen && ((next.dirty === true && prev.dirty === false) || switched);
+}
+
+/** One health read applied to the edge baseline: whether it is an IDE-edit edge, and the baseline the next read is
+ *  judged against. An unknown `dirty` (the IDE did not answer) keeps the last STATED value — unknown is neither clean
+ *  nor dirty, so it must not erase what was stated, or clean → unknown → dirty would never signal the edit. */
+export function healthStep(
+	prev: { seen: boolean; dirty: boolean | undefined; name: string | undefined },
+	next: { dirty: boolean | undefined; name: string | undefined },
+): { edge: boolean; baseline: { seen: true; dirty: boolean | undefined; name: string | undefined } } {
+	return {
+		edge: isIdeChangeEdge(prev, next),
+		baseline: { seen: true, dirty: next.dirty ?? prev.dirty, name: next.name },
+	};
 }
 
 export class VoltStatus {
@@ -118,7 +132,7 @@ export class VoltStatus {
 	private bridgeVendor: Vendor | undefined;
 	// Change-detection baselines: a health read fires a refresh on a projectDirty false→true edge or a
 	// projectName change. `seenHealth` gates the first probe (start()'s explicit refresh covers the initial state).
-	private lastDirty = false;
+	private lastDirty: boolean | undefined = undefined;
 	private lastProjectName: string | undefined;
 	private seenHealth = false;
 	private pendingForce = false; // a forced refresh requested while one was in flight — run it after, don't drop it
@@ -271,12 +285,15 @@ export class VoltStatus {
 		// switch. Raise the HINT rather than auto-running `/refs` — that walk freezes the IDE (~9s on a big project);
 		// the user refreshes when they choose to, and a full refresh clears the hint by recomputing incoming.
 		const h = healthOf(this.health);
-		const dirty = h?.projectDirty ?? false;
+		const dirty = h?.projectDirty ?? undefined;
 		const name = h?.projectName ?? undefined;
-		const edge = isIdeChangeEdge({ seen: this.seenHealth, dirty: this.lastDirty, name: this.lastProjectName }, { dirty, name });
-		this.lastDirty = dirty;
-		this.lastProjectName = name;
-		this.seenHealth = true;
+		const { edge, baseline } = healthStep(
+			{ seen: this.seenHealth, dirty: this.lastDirty, name: this.lastProjectName },
+			{ dirty, name },
+		);
+		this.lastDirty = baseline.dirty;
+		this.lastProjectName = baseline.name;
+		this.seenHealth = baseline.seen;
 		if (edge) this.ideChanged = true;
 
 		this.onDidChange.fire();

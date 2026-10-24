@@ -80,7 +80,7 @@ export async function record(vendor: "codesys" | "twincat", instance: string): P
 	const leftovers = Object.keys(refs0.items).filter((p) => fileOf(p).startsWith(PREFIX))
 	if (leftovers.length > 0) {
 		const r = await call("push", { ...identity, ops: leftovers.map((p) => ({ op: "deleteItem", name: p, ifVersion: refs0.items[p] })) })
-		if (!r.accepted || r.conflicts?.length) throw new Error(`could not delete a previous run's ${leftovers.join(", ")}: ${JSON.stringify(r.conflicts)}`)
+		if (r.newProjectVersion === undefined || r.conflicts.length > 0) throw new Error(`could not delete a previous run's ${leftovers.join(", ")}: ${JSON.stringify(r.conflicts)}`)
 	}
 	const app = drivenApplication(refs0.applications)
 	const main = mainProgram(refs0)
@@ -97,7 +97,7 @@ export async function record(vendor: "codesys" | "twincat", instance: string): P
 		{ op: "set", name: a, sourceText: fb(`${PREFIX}A`) },
 		{ op: "set", name: t, sourceText: dut(`${PREFIX}T`) },
 	] })
-	if (!created?.accepted) throw new Error(`the scenario's create was refused: ${JSON.stringify(created)}`)
+	if (created?.newProjectVersion === undefined || created.conflicts.length > 0) throw new Error(`the scenario's create was refused: ${JSON.stringify(created)}`)
 	const fetched = await step("fetch-created", "fetch", { ...identity, onlyItems: [a, t] })
 	const va = fetched.changed.find((c: any) => c.name === a).version
 	const updated = await step("push-update", "push", { ...identity, ops: [{ op: "set", name: a, ifVersion: va, sourceText: fb(`${PREFIX}A`, "x := x + 2;") }] })

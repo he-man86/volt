@@ -281,12 +281,12 @@ internal static class Program
         // preconditions. It used to print `Build FAILED (0ms)` over a fabricated compiler diagnostic and exit 2,
         // so "the wrong project is open" was indistinguishable from "your code does not compile".
         if (r.Kind == ResultKinds.Refused) { Console.Error.WriteLine(r.Reason); return 1; }
-        Console.WriteLine($"Build {(r.Success ? "succeeded" : "FAILED")} ({r.Duration}ms)");
+        Console.WriteLine($"Build {(r.Success ? "succeeded" : "FAILED")} ({r.DurationMs}ms)");
         // NAME FIRST, the way a compiler prints: the item is the only thing that makes a line number usable, and
         // `volt build` printed neither it nor the vendor's code -- the engineer got prose and a bare line number
         // that could have belonged to any file in the project.
         foreach (var d in r.Diagnostics)
-            Console.WriteLine($"  [{d.Severity}] {Where(d)}{(d.Code is { Length: > 0 } c ? c + ": " : "")}{d.Message}");
+            Console.WriteLine($"  [{d.Severity ?? "unclassified"}] {Where(d)}{(d.Code is { Length: > 0 } c ? c + ": " : "")}{d.Message}");
         return r.Success ? 0 : 2;
     }
 
@@ -304,7 +304,7 @@ internal static class Program
     {
         if (d.Name is not { Length: > 0 } item) return "";
         var name = d.Member is { Length: > 0 } member ? $"{item}({member})" : item;
-        var at = d.Line > 0 ? $"{name}:{d.Line}" + (d.Column > 0 ? $":{d.Column}" : "") : name;
+        var at = d.Line is { } line ? $"{name}:{line}" + (d.Column is { } column ? $":{column}" : "") : name;
         return at + " ";
     }
 
@@ -341,7 +341,7 @@ internal static class Program
         });
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 1; }
         if (r.Kind != ResultKinds.Ok) { Console.Error.WriteLine(r.Reason); return 1; }
-        foreach (var m in r.Matches) Console.WriteLine($"src/{m.Path}:{m.Line}:{m.Text}");
+        foreach (var m in r.Matches) Console.WriteLine($"src/{m.Name}:{m.Line}:{m.Text}");
         if (r.Truncated)
             Console.Error.WriteLine($"note: {r.Matches.Count} of {(r.TotalMatches >= Volt.Engine.Sync.GrepService.CountCap ? "at least " : "")}" +
                                     $"{r.TotalMatches} matches shown — narrow the pattern or --path, or raise --limit (at most 1000)");

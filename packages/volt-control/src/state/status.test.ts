@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { VoltStatus, isIdeChangeEdge, settleOutcome } from "./status.js";
+import { VoltStatus, healthStep, isIdeChangeEdge, settleOutcome } from "./status.js";
 import type { StatusJson } from "../view/types.js";
 
 /** Poll until `cond()` is true or `ms` elapses — fs.watch delivers events + the handler debounces, so a fixed
@@ -22,6 +22,31 @@ test("isIdeChangeEdge: fires on a projectDirty false→true edge, not on the fir
 	expect(isIdeChangeEdge({ seen: true, dirty: true, name: "P" }, { dirty: true, name: "P" })).toBe(false);
 	// dirty → clean (a save): not an edge either.
 	expect(isIdeChangeEdge({ seen: true, dirty: true, name: "P" }, { dirty: false, name: "P" })).toBe(false);
+});
+
+// `dirty` is absent when the IDE did not answer (wire-final-shape §2): unknown is neither clean nor dirty, so a read
+// with it on either side is no edge — it used to be read as `false`, so unknown→dirty fired as an edit.
+test("isIdeChangeEdge: an unknown dirty state (the IDE did not answer) is no edge either way", () => {
+	expect(isIdeChangeEdge({ seen: true, dirty: undefined, name: "P" }, { dirty: true, name: "P" })).toBe(false);
+	expect(isIdeChangeEdge({ seen: true, dirty: false, name: "P" }, { dirty: undefined, name: "P" })).toBe(false);
+	expect(isIdeChangeEdge({ seen: true, dirty: undefined, name: "P" }, { dirty: undefined, name: "P" })).toBe(false);
+});
+
+// An unknown read must not ERASE the last stated value (gate 3b): clean → unknown → dirty is an IDE edit. Erasing it
+// left the baseline unknown, the dirty read made no edge, and the project then stayed dirty — the edit never signalled.
+test("healthStep: an unknown read keeps the last STATED dirty, so clean → unknown → dirty is an edge", () => {
+	let baseline = { seen: false, dirty: undefined as boolean | undefined, name: undefined as string | undefined };
+	const edges: boolean[] = [];
+	for (const next of [
+		{ dirty: false, name: "P" },
+		{ dirty: undefined, name: "P" },
+		{ dirty: true, name: "P" },
+	]) {
+		const step = healthStep(baseline, next);
+		edges.push(step.edge);
+		baseline = step.baseline;
+	}
+	expect(edges).toEqual([false, false, true]);
 });
 
 test("isIdeChangeEdge: fires on a project switch (rebind)", () => {

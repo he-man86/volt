@@ -131,4 +131,38 @@ public class WireFinalShapeTests
         Assert.Null(typeof(ConflictCodes).GetField("ProjectName"));
         Assert.DoesNotContain(BridgeErrorCodes.StaleProjectVersion, ConflictCodes.Gate);
     }
+
+    // ── section 6: build ──
+
+    [Fact]
+    public void A_diagnostic_carries_no_severity_or_position_the_vendor_did_not_state()
+    {
+        Assert.Equal(new[] { "message" }, Members(new BridgeDiagnostic { Message = "m" }));
+        var placed = Json(new BridgeDiagnostic { Severity = Severity.Warning, Message = "m", Line = 3, Column = 1 });
+        Assert.Equal(("warning", 3, 1),
+            (placed.GetProperty("severity").GetString(), placed.GetProperty("line").GetInt32(), placed.GetProperty("column").GetInt32()));
+    }
+
+    [Fact]
+    public void A_build_states_its_duration_in_milliseconds()
+    {
+        Assert.Equal(new[] { "success", "durationMs", "diagnostics" }, Members(new BuildResponse { DurationMs = 12 }));
+    }
+
+    [Fact]
+    public void The_severity_vocabulary_is_three_words_and_no_mapping()
+    {
+        Assert.Equal(new[] { "error", "warning", "info" }, new[] { Severity.Error, Severity.Warning, Severity.Info });
+        Assert.Null(typeof(Severity).GetMethod("Of"));
+    }
+
+    // ── section 7: grep ──
+
+    [Fact]
+    public void A_grep_match_names_its_item_like_every_other_path_and_says_when_it_was_cut()
+    {
+        Assert.Equal(new[] { "name", "line", "text" }, Members(new GrepMatch { Name = "A/B.pou", Line = 1, Text = "x" }));
+        Assert.Equal(new[] { "name", "line", "text", "cut" }, Members(new GrepMatch { Name = "A/B.pou", Line = 1, Text = "x", Cut = true }));
+        Assert.Equal(new[] { "name", "code", "reason" }, Members(new NotSearchedItem("A/B.pou", BridgeErrorCodes.Unsupported, "r")));
+    }
 }

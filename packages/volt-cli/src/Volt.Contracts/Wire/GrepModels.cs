@@ -72,28 +72,37 @@ public class GrepResponse
 public class GrepMatch
 {
     /// <summary>The item's path, <c>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</c>.</summary>
-    [JsonPropertyName("path")]
-    public string Path { get; set; } = "";
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
 
     /// <summary>The 1-based line number in the item's fetched <c>sourceText</c>.</summary>
     [JsonPropertyName("line")]
     public int Line { get; set; }
 
-    /// <summary>The whole line, without its line ending, byte for byte as fetched — cut to 500 characters with
-    /// <c>…</c>.</summary>
+    /// <summary>The whole line, without its line ending, byte for byte as fetched — or, when <see cref="Cut"/>, its first
+    /// 500 UTF-16 code units (499 when the 500th would split a surrogate pair) followed by <c>…</c>.</summary>
     [JsonPropertyName("text")]
     public string Text { get; set; } = "";
+
+    /// <summary>True when <see cref="Text"/> was cut; absent when it is the whole line.</summary>
+    [JsonPropertyName("cut")]
+    public bool? Cut { get; set; }
 }
 
-/// <summary>An item in scope whose text, or part of it, was not searched: its path and why.</summary>
+/// <summary>An item in scope whose text, or part of it, was not searched: its path, why as a code, and why in words.</summary>
 public sealed record NotSearchedItem
 {
     public NotSearchedItem() { }
 
-    public NotSearchedItem(string name, string reason) { Name = name; Reason = reason; }
+    public NotSearchedItem(string name, string code, string reason) { Name = name; Code = code; Reason = reason; }
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
+
+    /// <summary>The code a client matches (<see cref="BridgeErrorCodes"/>): an unreadable item's own code, as <c>refs</c>
+    /// gives it; <c>UNSUPPORTED</c> for a body that reads <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>.</summary>
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = "";
 
     [JsonPropertyName("reason")]
     public string Reason { get; init; } = "";

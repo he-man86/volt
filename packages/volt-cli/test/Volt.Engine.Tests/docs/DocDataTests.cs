@@ -42,203 +42,167 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class DocDataTests
 {
-    /// <summary>Every op, with the type the host deserializes its body into and the type it answers with.
-    ///
-    /// <para>Taken from <c>BridgePipeHost</c>'s dispatch, and it is the ONE thing here that is hand-maintained —
-    /// the mapping op → types lives in a switch, not in a type. <see cref="Every_op_constant_is_described"/>
-    /// is the guard: add an op to <see cref="Ops"/> without a row here and the build says so.</para></summary>
-    /// <summary>The coded errors an op can answer with as an ERROR FRAME, and the ways it can fail WITHOUT
-    /// one. Traced through <c>BridgePipeHost</c>'s dispatch, <c>OpGuard</c> and each service's own catch arms —
-    /// which is the only way to get it right, because the interesting cases are the ones where a failure is
-    /// DELIBERATELY not an error frame:
-    /// <list type="bullet">
-    /// <item><c>push</c> catches every exception from its pre-flight AND its apply loop and returns a REJECTION
-    /// (<c>accepted:false</c> + <c>conflicts</c>). A caller therefore never sees <c>UNSUPPORTED</c> or
-    /// <c>INVALID_ST</c> as an error CODE from a push — it arrives as a conflict's <c>reason</c>.</item>
-    /// <item><c>build</c> catches everything after the guard and answers <c>success:false</c> with the failure
-    /// as an error-severity diagnostic.</item>
-    /// <item><c>refs</c>/<c>fetch</c>/<c>init</c> version items through <c>Versioning.SafeVersion</c>, which
-    /// isolates a body that will not materialize into the <c>unreadable</c> list rather than failing the walk.</item>
-    /// </list>
-    /// <para>Anything that is not an <c>ICodedError</c> reaches the client as <c>INTERNAL_ERROR</c>
-    /// (<c>PipeServer</c>), which is why every op that runs vendor code lists it.</para></summary>
-    /// <summary>The one GATE code that is also an error frame (openspec <c>bridge-refusal-review</c> 7.1, DIALECT C2i):
-    /// declared on every op whose walk can meet it, so a client built from the openrpc schema is told it can arrive.</summary>
+    /// <summary>The coded errors an op can answer with as an ERROR FRAME beyond the <see cref="CommonFrameCodes"/>, and how
+    /// else it can fail. Traced through <c>BridgePipeHost</c>'s dispatch, <c>OpGuard</c> and each service's own catch arms.
+    /// A push catches every refusal of an op and answers it as a CONFLICT; a build catches everything after its guard and
+    /// answers <c>success:false</c>; the reads isolate a body that will not materialize into <c>unreadable</c>.</summary>
     private const string UnverifiedProjectFrame =
-        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project "
-        + "ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.";
+        "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the "
+        + "walk stops before anything is read. Fix what stops the IDE enumerating it.";
 
     private const string WriteNamesItsProject =
-        "BAD_REQUEST as an error FRAME when `expectedPlatform` or `expectedProjectName` is absent or empty, naming each "
-        + "missing member, before anything is walked: a write names the project it writes. The reads keep both optional.";
+        "BAD_REQUEST when `expectedPlatform` or `expectedProjectName` is absent or empty, naming each missing member, before "
+        + "anything is walked: a write names the project it writes. The reads keep both optional.";
 
     private const string BusyFrame =
-        "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is "
-        + "marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS "
-        + "used to run the op nested inside the running build). Reads and `health` are not gated. Wait for the "
-        + "running op, then try once.";
+        "IDE_BUSY when another push or build holds the IDE: refused at once, before the IDE is touched, so nothing is "
+        + "applied or compiled. Reads and `health` are never refused with it. Wait for the running op, then try once.";
 
     /// <summary>The frame codes beyond <see cref="BridgeErrorCodes"/>: exactly the one gate code a walk can stop on.</summary>
     private static readonly string[] GateCodesAsFrames = { ConflictCodes.ItemUnverified };
 
-    /// <summary>The progress a read op sends while it walks (openspec <c>twincat-large-solution-refs</c>).</summary>
+    /// <summary>The error frames EVERY op may answer: the envelope's (<c>PROTOCOL_MISMATCH</c>, <c>BAD_REQUEST</c>), the IDE
+    /// the bridge cannot serve (<c>IDE_UNSUPPORTED</c> — never on <c>health</c>, which reports it), and Volt's own broken
+    /// invariant (<c>INTERNAL_ERROR</c>). Each op's own codes follow them in its <c>x-errorCodes</c>.</summary>
+    private static readonly string[] CommonFrameCodes =
+        { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.BadRequest, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.InternalError };
+
+    /// <summary>The error frames <paramref name="op"/> can answer with: the common set, then the op's own.</summary>
+    private static IEnumerable<string> FrameCodesOf(string op) =>
+        CommonFrameCodes.Where(c => !(op == Ops.Health && c == BridgeErrorCodes.IdeUnsupported)).Concat(Outcomes[op].Errors);
+
+    /// <summary>The progress a read op sends while it walks.</summary>
     private const string WalkFrames =
-        "Progress frames start with the WALK: one per application as the walk finishes it, `phase: \"walking\"`, `done` "
+        "Progress frames start with the walk: one per application as the walk finishes it, `phase: \"walking\"`, `done` "
         + "applications of `total` (a TwinCAT PLC project is an application; CODESYS states no `total`). The item frames "
-        + "follow: `phase: \"reading\"` with `done` 0 of `total` items, then one every 25 items and one at the last.";
+        + "follow: the first with its phase and `done` 0 of `total` items, then one every 25 items and one at the last.";
 
     private static readonly Dictionary<string, (string[] Errors, string[] Outcomes)> Outcomes = new()
     {
-        [Ops.Health] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Health] = (Array.Empty<string>(), new[]
         {
-            "Never gated by `disconnect` — while paused every row is forced to `idle`, because the list is how "
-            + "the user reconnects.",
-            "Answers from the driver's cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving "
-            + "nothing is the aggregate status `unavailable` instead.",
-            "Answers even when the IDE lacks what the bridge needs: `unsupported` then carries the fixed reason "
-            + "every other op answers with as IDE_UNSUPPORTED, `ideVersion` the IDE version, and every row is idle. "
-            + "Never a version floor — an IDE is refused for what it lacks, not for its number.",
-            "Always states the bridge identity at top level, rows or not, refused or not: `productName`, "
-            + "`productVersion` and `productVendor` (what the user runs, its own number and its maker), `ideVersion` "
-            + "(the platform under it — the CODESYS framework version, or the TwinCAT build) and `bridgeVersion` (the "
-            + "stamped release, or `(dev) <commit>` for an unstamped build). Each is absent when its source does not "
-            + "answer, never filled from another, and none of them decides whether the bridge serves.",
-            "`ops` names every op this bridge answers, from its own dispatch table: a client asks it before an op an "
-            + "older bridge may lack (`grep`). A frame without `ops` is a bridge from before it.",
+            "Answers from the bridge's cached snapshot, never on the IDE thread: it answers while a push or build runs, "
+            + "never reports PLC_DISCONNECTED, and is not gated by `disconnect` — while paused every row is `idle`.",
+            "Answers on an IDE the bridge cannot serve: `unsupported` carries the sentence every other op answers "
+            + "IDE_UNSUPPORTED with, and every row is idle. An IDE is refused for what it lacks, never for its version number.",
+            "States the bridge identity at top level, rows or not: `productName`, `productVersion`, `productVendor`, "
+            + "`ideVersion` (the platform under the product) and `bridgeVersion` (the stamped release, or `(dev) <commit>`). "
+            + "Each is absent when its source does not answer, never filled from another.",
+            "States the bridge's catalog, from its own declarations: `ops` (every op it answers), `languages` (every language "
+            + "it writes as `IMPLEMENTATION <LANG>`) and `kinds` (every item kind, by extension, and whether a push writes it). "
+            + "A value the bridge does not list there is one it never sends.",
+            "A row's `dirty` is absent when the IDE did not answer whether the project is saved: unknown, never clean.",
         }),
-        [Ops.Connect] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Connect] = (new[] { BridgeErrorCodes.PlcDisconnected }, new[]
         {
-            "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something "
-            + "other than the project named. Enforced once in shared code, so both vendors refuse identically.",
-            "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, "
-            + "so a `disconnect` racing a connect wins.",
+            "PLC_DISCONNECTED when the bridge does not end up serving the named project: it attached nothing, or "
+            + "something other than the project named. `project` is compared like a path, ignoring case.",
+            "A refused connect still leaves the bridge resumed: a `disconnect` racing a connect wins.",
         }),
-        [Ops.Disconnect] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported }, new[]
+        [Ops.Disconnect] = (Array.Empty<string>(), new[]
         {
-            "Fails only with IDE_UNSUPPORTED, as every op but `health` does on an IDE the bridge cannot serve. "
-            + "Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so "
-            + "it answers even while a push is running — and that push runs to completion. The gate stops the "
-            + "NEXT op, never the current one.",
+            "Sets a flag and answers, without the IDE thread: it answers while a push runs, and that push runs to "
+            + "completion. The flag stops the next op, never the current one.",
         }),
-        [Ops.Refs] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.BadRequest,
-                              ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Refs] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, ConflictCodes.ItemUnverified }, new[]
         {
             UnverifiedProjectFrame,
-            "An item whose body will not materialize is NOT an error: it is named in `unreadable`, keeps a "
-            + "stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
-            "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The "
-            + "session is marked degraded meanwhile, which `health` reports.",
+            "An item whose body will not materialize is no error: it is in `unreadable` with its code, and keeps a stable "
+            + "version so a pull does not read it as deleted.",
+            "A read is retried once through a transient IDE failure; `health` reports the session degraded meanwhile.",
             WalkFrames,
-            "A `refs` that arrives while one with the same body runs JOINS it: it receives that one's progress frames from "
-            + "then on and the same terminal frame, result or error. Nothing is kept once it answers: the next `refs` walks "
-            + "again.",
+            "A `refs` that arrives while one with the same body runs joins it: it receives that one's progress frames from "
+            + "then on and the same terminal frame. Nothing is kept once it answers: the next `refs` walks again.",
         }),
-        [Ops.Fetch] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Fetch] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, ConflictCodes.ItemUnverified }, new[]
         {
             UnverifiedProjectFrame,
-            "BAD_REQUEST for a fetch with neither `knownItems` nor `onlyItems` nor `init: true`: it is ambiguous "
-            + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
-            + "first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
-            "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a "
-            + "known path absent from a folder it did read (the path's own prefix) is still in `removed`.",
-            "Items that would not materialize are named in `unreadable`, not raised.",
+            "BAD_REQUEST for a fetch with neither `knownItems` nor `onlyItems` nor `init: true`.",
+            "A known path under a folder the walk could not read is never in `removed`; one absent from a folder it did "
+            + "read is.",
+            "Items that would not materialize are in `unreadable`, not raised.",
             WalkFrames,
         }),
-        [Ops.Push] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.BadRequest, BridgeErrorCodes.StaleProjectVersion, ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy,
-                              BridgeErrorCodes.InternalError }, new[]
+        [Ops.Push] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.StaleProjectVersion,
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy }, new[]
         {
             UnverifiedProjectFrame,
             BusyFrame,
             WriteNamesItsProject,
-            "A push writes into the open project and saves nothing, on both vendors: the engineer saves.",
-            "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
-            + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
-            "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
-            + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
-            + "IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody "
-            + "coded. Match the code, "
-            + "never the message.",
-            "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
-            "A refusal decidable before the first write writes nothing and names EVERY refused op — the gate's "
-            + "per-item conflicts and the pre-flight's, one conflict per op.",
-            "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is "
-            + "`accepted:true` with the receipt and a conflict per op NOT landed — the refused op with its code, "
-            + "every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
-            "What of the REFUSED op itself the IDE kept is in fields as well as in `reason`: `partiallyApplied: true` "
-            + "whenever any of it stays (re-read the item before retrying it), `renamedTo` with the item's current "
-            + "full name after a native rename that ran first, `remains: true` for a create whose rollback failed. "
-            + "Each is ABSENT when it does not apply — never false.",
+            "STALE_PROJECT_VERSION when `expectedProjectVersion` is not the project's version: nothing is applied, and "
+            + "`error.data.currentProjectVersion` is the version the IDE holds.",
+            "Writes into the open project and saves nothing: the engineer saves.",
+            "A refused op is no error frame: it is a conflict in the result, named by the op's `name`, with its code. "
+            + "Every op `conflicts` does not name landed in full.",
+            "A refusal decidable before the first write lands nothing: each refused op answers its code, every other op "
+            + "NOT_ATTEMPTED.",
+            "A refusal during the apply lands the ops before it and stops: the refused op answers its code, every later op "
+            + "NOT_ATTEMPTED.",
+            "`newProjectVersion` is present exactly when something landed; `newItems` and `removed` are what the push "
+            + "changed, so `baseline − removed + newItems` is the IDE after it.",
+            "What of a refused op the IDE kept is stated on its conflict: `partiallyApplied`, `renamedTo`, `remains` — each "
+            + "absent when it does not apply.",
         }),
-        [Ops.Build] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.BadRequest, BridgeErrorCodes.IdeBusy }, new[]
+        [Ops.Build] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.IdeBusy }, new[]
         {
             BusyFrame,
             WriteNamesItsProject,
-            "BAD_REQUEST for an `applications` root the project does not hold (named), or an empty list, before "
-            + "anything is built. Named roots build those applications alone and report only their diagnostics; "
-            + "absent, every application is built.",
-            "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
-            + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",
-            "Everything after it IS caught: a thrown build answers `success:false` with the message as one "
-            + "error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
-            "The build compiles what the IDE holds in memory, and Volt calls no save. On TwinCAT a build saves changed "
-            + "documents, as XAE's Build does (DIALECT D45).",
-            "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
-            + "TwinCAT reads the IDE's own count of failed projects.",
+            "BAD_REQUEST for an `applications` root the project does not hold, or an empty list, before anything is built. "
+            + "Named roots build those applications alone and report only their diagnostics; absent, every application is "
+            + "built.",
+            "A project that does not compile is `success: false` with its diagnostics, never an error frame; a compile "
+            + "that throws answers `success: false` with the reason as an error diagnostic.",
+            "`success` is each vendor's own signal: CODESYS has it from its diagnostics, TwinCAT from the IDE's count of "
+            + "failed projects. A failed build always carries an error diagnostic: when the IDE wrote none Volt could read, "
+            + "one says so, with no position.",
+            "`severity` is absent when the vendor's value is not in its host's declared table. `line` and `column` are "
+            + "1-based and absent when the vendor stated none: CODESYS states no position, TwinCAT a line and no column.",
+            "Compiles what the IDE holds in memory; Volt calls no save. On TwinCAT a build saves changed documents, as "
+            + "XAE's own Build does.",
         }),
-        [Ops.Grep] = (new[] { BridgeErrorCodes.ProtocolMismatch, BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Grep] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, ConflictCodes.ItemUnverified }, new[]
         {
             UnverifiedProjectFrame,
-            "BAD_REQUEST, before the walk, for an empty `pattern`, a regular expression that does not compile (the "
-            + "parse error named) or a `limit` outside 1–1000; and, with no partial answer, for a pattern that takes "
-            + "longer than 100 ms on one line.",
-            "What it searches is what `fetch` ships as text, from the same walk: a matched line is the fetched line at "
-            + "that number, byte for byte. An `unreadable` item, and a body that reads `IMPLEMENTATION <LANG> "
-            + "UNSUPPORTED`, are named in `notSearched` instead; libraries are out of scope and unlisted.",
-            "The answer is bounded: at most `limit` matches, counted up to 10000 in `totalMatches`; `truncated` when "
-            + "more were found than answered.",
+            "BAD_REQUEST, before the walk, for an empty `pattern`, a regular expression that does not compile (the parse "
+            + "error named) or a `limit` outside 1–1000; and, with no partial answer, for a pattern that takes longer than "
+            + "100 ms on one line.",
+            "What it searches is what `fetch` ships as text, from the same walk: a matched line is the fetched line at that "
+            + "number. An `unreadable` item, and a body that reads `IMPLEMENTATION <LANG> UNSUPPORTED`, are in `notSearched` "
+            + "with a code; libraries are not searched and not listed.",
+            "The answer is bounded: at most `limit` matches, counted up to 10000 in `totalMatches`; `truncated` when more "
+            + "were found than answered. A line longer than 500 UTF-16 code units is cut, ends in `…` and carries `cut: true`.",
         }),
     };
 
     private static readonly (string Op, Type? Param, Type Result, string Summary)[] Methods =
     {
         (Ops.Health, null, typeof(HealthResponse),
-            "Liveness plus the connectable projects, from the driver's CACHED snapshot — never marshalled onto " +
-            "the IDE thread. This is the poll path (the connector every few seconds), so it answers while a push " +
-            "or build is running. While paused every row reads idle."),
+            "Liveness, the bridge's catalog and the connectable projects, from the bridge's cached snapshot — never on the " +
+            "IDE thread, so it answers while a push or build runs. While paused every row reads idle."),
         (Ops.Connect, typeof(ConnectRequest), typeof(EmptyResult),
             "Bind a project and resume service. An absent or empty `project` means \"serve whatever you have\". " +
-            "Refuses with PLC_DISCONNECTED unless the bridge ends up actually serving the named project — the " +
-            "post-condition is enforced in shared code, so both vendors answer identically."),
+            "Refuses with PLC_DISCONNECTED unless the bridge ends up serving the named project."),
         (Ops.Disconnect, null, typeof(EmptyResult),
             "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push " +
-            "is running, and that push RUNS TO COMPLETION — the gate stops the NEXT op, never the current one."),
+            "is running, and that push runs to completion."),
         (Ops.Refs, typeof(RefsRequest), typeof(RefsResponse),
-            "The version map without any content: every tracked item's version, its folder, and the aggregate " +
-            "project/structure versions. This is what a client compares against to decide what to fetch."),
+            "The version map without any content: the path → version map and `projectVersion`. This is what a client " +
+            "compares against to decide what to fetch."),
         (Ops.Fetch, typeof(FetchRequest), typeof(FetchResponse),
-            "Item CONTENT. `knownItems` narrows the answer to what changed; `onlyItems` restricts the walk to a " +
-            "named subset. Naming a `.library` returns its manifest and every signature of that library, in the " +
-            "folder and with the bytes a full fetch writes; the first such read of a session pays the vendor's " +
-            "extraction (on CODESYS a build of the application, which writes the IDE's message view), later ones " +
-            "with no library change reuse it, and `libraryManifestOnly` answers the manifest alone. A directed read " +
-            "never sets `librariesRefreshed`. Graphical bodies arrive as network text — the bridge materializes " +
-            "them, so a client never sees a vendor's own form."),
+            "Item CONTENT. `knownItems` narrows the answer to what changed; `onlyItems` restricts it to a named subset. " +
+            "Naming a `.library` returns its manifest and every signature of that library, in the folder and with the " +
+            "bytes a full fetch writes; `libraryManifestOnly` answers the manifest alone. Graphical bodies arrive as " +
+            "network text."),
         (Ops.Push, typeof(PushRequest), typeof(PushResponse),
-            "Apply ops to the IDE. Every text-decidable refusal runs in a PRE-FLIGHT before the first write, so " +
-            "a push that cannot land in full lands nothing. `expectedProjectVersion` is the lease; per-item " +
-            "`ifVersion` is the optimistic guard."),
+            "Apply ops to the IDE. Every text-decidable refusal runs in a pre-flight before the first write. " +
+            "`expectedProjectVersion` is the lease; per-item `ifVersion` is the optimistic guard."),
         (Ops.Build, typeof(BuildRequest), typeof(BuildResponse),
-            "Compile the bound project and return the IDE's own diagnostics. This is the oracle a client uses " +
-            "to tell its own analysis from the vendor's."),
+            "Compile the bound project and return the IDE's own diagnostics."),
         (Ops.Grep, typeof(GrepRequest), typeof(GrepResponse),
             "Search the text `fetch` ships for each item, line by line, and answer the matching LINES — path, " +
             "1-based line, the line as fetched — with each matched item's `refs` version, never whole sources. A " +
             "regular expression or `literal` text, ignoring case unless `caseSensitive`; `paths` globs limit what is " +
-            "searched. What could not be searched is named in `notSearched`."),
+            "searched. What could not be searched is in `notSearched`."),
     };
 
     /// <summary>The three facets of <see cref="Volt.Engine.Seam.IVendorDriver"/>, in the order the driver page presents them.</summary>
@@ -259,7 +223,110 @@ public class DocDataTests
 
     private const string Regenerate = "Regenerate with VOLT_WRITE_DOCS=1 dotnet test test/Volt.Engine.Tests";
 
+    // ── the shipped hosts' declarations ─────────────────────────────────────────────────────────────
+
+    /// <summary>One shipped host's declaration, as its own source states it: the vendor row (<c>VendorRow Row = new(id,
+    /// name)</c>), the languages it declares shown and hidden, and that its kinds are the IEC table.
+    ///
+    /// <para>READ FROM THE HOSTS' SOURCE, not referenced: the CODESYS host is net48 and the TwinCAT host net10-windows,
+    /// neither loadable here. Every <c>*.Seam.cs</c> under a <c>Volt.Ide.*</c> project is a host, so a third host is in
+    /// the document the day its declaration is written, and a host whose declaration this cannot read fails the
+    /// generation by name rather than dropping out of it.</para></summary>
+    private sealed record HostDeclaration(string File, string Vendor, string Display, string[] Shown, string[] Hidden);
+
+    private static IReadOnlyList<HostDeclaration> HostDeclarations()
+    {
+        var src = Path.Combine(RepoPaths.RepoDir()!.FullName, "packages", "volt-cli", "src");
+        var hosts = Directory.EnumerateDirectories(src, "Volt.Ide.*")
+            .SelectMany(d => Directory.EnumerateFiles(d, "*.Seam.cs", SearchOption.AllDirectories))
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                     && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .Select(f =>
+            {
+                var text = File.ReadAllText(f);
+                var row = System.Text.RegularExpressions.Regex.Match(text, @"VendorRow Row = new\(""([a-z]+)"", ""([^""]+)""\)");
+                if (!row.Success) throw new InvalidOperationException($"{f} declares no `VendorRow Row = new(\"<id>\", \"<name>\")`");
+                if (!text.Contains("IecFormat.KindRows", StringComparison.Ordinal))
+                    throw new InvalidOperationException($"{f} declares kinds other than IecFormat.KindRows; teach the generator its rows");
+                string[] Langs(string how) => System.Text.RegularExpressions.Regex
+                    .Matches(text, @"LanguageRow\." + how + @"\(Languages\.(\w+)")
+                    .Select(m => (string)typeof(Volt.Engine.Format.Body.Languages).GetField(m.Groups[1].Value)!.GetRawConstantValue()!)
+                    .ToArray();
+                return new HostDeclaration(Path.GetFileName(f), row.Groups[1].Value, row.Groups[2].Value, Langs("Shown"), Langs("Hidden"));
+            })
+            .ToList();
+        if (hosts.Count == 0) throw new InvalidOperationException($"no host declaration (*.Seam.cs) under {src}\\Volt.Ide.*");
+        return hosts;
+    }
+
+    private static string[] Vendors() => HostDeclarations().Select(h => h.Vendor).Distinct().OrderBy(v => v, StringComparer.Ordinal).ToArray();
+    private static string[] ShownLanguages() => HostDeclarations().SelectMany(h => h.Shown).Distinct().OrderBy(l => l, StringComparer.Ordinal).ToArray();
+    private static string[] DeclaredLanguages() =>
+        HostDeclarations().SelectMany(h => h.Shown.Concat(h.Hidden)).Distinct().OrderBy(l => l, StringComparer.Ordinal).ToArray();
+    private static string[] KindExtensions() =>
+        Volt.Engine.Format.St.IecFormat.KindRows.Where(r => r.Extension is not null).Select(r => r.Extension!)
+            .Distinct().OrderBy(e => e, StringComparer.Ordinal).ToArray();
+
+    /// <summary>A row's status: the three words a <c>ProjectEntry.status</c> carries.</summary>
+    private static readonly string[] RowStatuses = { HealthStatus.Idle, HealthStatus.Healthy, HealthStatus.Degraded };
+
+    /// <summary>Every error-frame code: the bridge's vocabulary plus the one gate code a walk stops on.</summary>
+    private static string[] FrameCodeVocabulary() => Consts(typeof(BridgeErrorCodes)).Concat(GateCodesAsFrames).ToArray();
+
+    /// <summary>Every code a conflict carries: the gate's, the bridge's the push catches, NOT_ATTEMPTED and the
+    /// network-text ones.</summary>
+    private static string[] ConflictCodeVocabulary() =>
+        ConflictCodes.Gate.Concat(ConflictCodes.FromBridge).Append(ConflictCodes.NotAttempted).Concat(ConflictCodes.Network).ToArray();
+
+    /// <summary>The codes an <c>unreadable</c>, <c>unreadableNodes</c> or <c>notSearched</c> entry carries as the walk's own:
+    /// the object the IDE did not give (<c>UNREADABLE</c>) and the one Volt's text has no spelling for, or that sits where
+    /// Volt does not read (<c>UNSUPPORTED</c>). A read that failed with a code of its own keeps that code.</summary>
+    private static readonly string[] UnreadableCodes = { BridgeErrorCodes.Unreadable, BridgeErrorCodes.Unsupported };
+
+    /// <summary>Which channel(s) each code arrives on: an error <c>frame</c> (some op declares it), a push
+    /// <c>conflict</c>, an <c>unreadable</c> entry.</summary>
+    private static JsonArray BuildCodeChannels()
+    {
+        var frames = Ops_().ToDictionary(o => o, o => FrameCodesOf(o).ToHashSet(StringComparer.Ordinal));
+        var conflicts = ConflictCodeVocabulary().ToHashSet(StringComparer.Ordinal);
+        return new JsonArray(FrameCodeVocabulary().Concat(ConflictCodeVocabulary()).Distinct()
+            .Select(code =>
+            {
+                var channels = new List<string>();
+                var ops = frames.Where(f => f.Value.Contains(code)).Select(f => f.Key).ToList();
+                if (ops.Count > 0) channels.Add("frame");
+                if (conflicts.Contains(code)) channels.Add("conflict");
+                if (UnreadableCodes.Contains(code)) channels.Add("unreadable");
+                return (JsonNode?)new JsonObject
+                {
+                    ["code"] = code,
+                    ["channels"] = new JsonArray(channels.Select(c => (JsonNode?)c).ToArray()),
+                    ["frameOn"] = new JsonArray(ops.Select(o => (JsonNode?)o).ToArray()),
+                };
+            }).ToArray());
+    }
+
+    private static IEnumerable<string> Ops_() => Methods.Select(m => m.Op);
+
     // ── the OpenRPC document ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The frame, stated once (design B5) and generated into <c>info.description</c>.</summary>
+    private const string FramingDescription =
+        "The wire a Volt bridge serves over a Windows NAMED PIPE — `volt.bridge.<vendor>.<pid>`, one per live IDE; a "
+        + "client discovers the pipes by prefix. ONE REQUEST PER CONNECTION: the client writes one request and reads the "
+        + "answer; the bridge closes the connection after the terminal frame. Concurrent requests use separate connections.\n\n"
+        + "ENCODING: UTF-8 without a BOM. Every frame is one JSON object on one line ending in `\\n`. A request may end in "
+        + "`\\r\\n`; a request that starts with a BOM is BAD_REQUEST; a request with no `\\n` is answered once the client "
+        + "closes its side. A request is at most 64 MiB, the newline excluded.\n\n"
+        + "REQUEST: `{ \"op\": \"<method>\", \"protocol\": 1, \"body\": { ... } }` (schema `Request`). `protocol` is a JSON "
+        + "integer; a request that states none or another is refused PROTOCOL_MISMATCH before its body is read. `body` "
+        + "absent is `{}`; a `null` body, a member the method does not have, or an unknown envelope member is "
+        + "BAD_REQUEST.\n\n"
+        + "ANSWER: zero or more `{\"progress\": ProgressFrame}`, then exactly one `{\"result\": <the method's result>}` or "
+        + "`{\"error\": {\"code\", \"message\", \"data\"?}}` (schema `ErrorFrame`). A value a bridge does not list in its "
+        + "`health` catalog (`ops`, `languages`, `kinds`) is one it never sends.\n\n"
+        + "GENERATED from the C# contract types and the hosts' declarations by `DocDataTests`; edit those, not this file.";
 
     private static JsonObject BuildSpec()
     {
@@ -275,39 +342,90 @@ public class DocDataTests
                 ["summary"] = summary,
                 // NAMED, not positional: the wire carries ONE object body, so the single param is by-name.
                 ["paramStructure"] = "by-name",
+                // OPTIONAL: an absent body is `{}` (design section 1).
                 ["params"] = param is null
                     ? new JsonArray()
                     : new JsonArray(new JsonObject
                     {
                         ["name"] = "body",
-                        ["required"] = true,
+                        ["required"] = false,
                         ["schema"] = Reference(param, schemas, isRequest: true),
                     }),
             };
             // A specification EXTENSION (`x-`), not OpenRPC's own `errors` field: that one wants JSON-RPC
             // INTEGER codes and these are strings. Inventing numbers to fit the shape would put a value in the
             // artefact that no part of this wire ever sends.
-            var (errs, outs) = Outcomes[op];
-            m["x-errorCodes"] = new JsonArray(errs.Select(e => (JsonNode?)e).ToArray());
-            m["x-outcomes"] = new JsonArray(outs.Select(o => (JsonNode?)o).ToArray());
+            m["x-errorCodes"] = new JsonArray(FrameCodesOf(op).Select(e => (JsonNode?)e).ToArray());
+            m["x-outcomes"] = new JsonArray(Outcomes[op].Outcomes.Select(o => (JsonNode?)o).ToArray());
             m["result"] = new JsonObject { ["name"] = "result", ["schema"] = Reference(result, schemas, isRequest: false) };
             methods.Add(m);
         }
 
+        // The frame around every method: the request envelope, the progress and the error frame, and the code vocabularies.
+        schemas["Request"] = new JsonObject
+        {
+            ["type"] = "object",
+            ["description"] = "The request envelope: one per connection.",
+            ["properties"] = new JsonObject
+            {
+                ["op"] = new JsonObject { ["type"] = "string", ["enum"] = Strings(Ops_()) },
+                ["protocol"] = new JsonObject { ["type"] = "integer", ["const"] = WireProtocol.Version },
+                ["body"] = new JsonObject { ["type"] = "object", ["description"] = "The method's params; absent is `{}`." },
+            },
+            ["required"] = new JsonArray("op", "protocol"),
+            ["additionalProperties"] = false,
+        };
+        Reference(typeof(ProgressFrame), schemas, isRequest: false);
+        schemas["BridgeErrorCode"] = new JsonObject
+        {
+            ["type"] = "string",
+            ["description"] = "A Volt code: why an op was refused (error frame), why an op of a push did not land (conflict), "
+                + "or why an object was not read (unreadable). The channels each arrives on are in the code table.",
+            ["enum"] = Strings(FrameCodeVocabulary()),
+        };
+        schemas["ConflictCode"] = new JsonObject
+        {
+            ["type"] = "string",
+            ["description"] = "The code of a push conflict: the gate's, a bridge refusal of the op, NOT_ATTEMPTED, or a "
+                + "network-text refusal of the body (every NETWORK_ code, and only one, comes with the conflict's `line`).",
+            ["enum"] = Strings(ConflictCodeVocabulary()),
+        };
+        schemas["ErrorFrame"] = new JsonObject
+        {
+            ["type"] = "object",
+            ["description"] = "The terminal frame of a refused op. `data` is present for the codes that carry facts: "
+                + "PROTOCOL_MISMATCH (`ProtocolMismatchData`) and STALE_PROJECT_VERSION (`StaleProjectVersionData`).",
+            ["properties"] = new JsonObject
+            {
+                ["error"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["code"] = Ref("BridgeErrorCode"),
+                        ["message"] = new JsonObject { ["type"] = "string" },
+                        ["data"] = new JsonObject
+                        {
+                            ["oneOf"] = new JsonArray(Reference(typeof(ProtocolMismatchData), schemas, isRequest: false),
+                                                      Reference(typeof(StaleProjectVersionData), schemas, isRequest: false)),
+                        },
+                    },
+                    ["required"] = new JsonArray("code", "message"),
+                },
+            },
+            ["required"] = new JsonArray("error"),
+        };
+
+        var vendors = Vendors();
         return new JsonObject
         {
             ["openrpc"] = "1.2.6",
             ["info"] = new JsonObject
             {
                 ["title"] = "Volt bridge",
-                // The wire protocol the document describes — the one number `hello` and `health` carry.
+                // The wire protocol the document describes; every request states it.
                 ["version"] = WireProtocol.Version.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["description"] =
-                    "The wire a Volt bridge serves over a Windows NAMED PIPE — `volt.bridge.<vendor>.<pid>`, one "
-                    + "per live IDE. One request object per call: `{ \"op\": \"<name>\", \"protocol\": 1, \"body\": { ... } }` "
-                    + "(a request stating no `protocol` or another is refused PROTOCOL_MISMATCH before its body is read), "
-                    + "answered with the method's result or `{ \"error\": { \"code\": \"...\", \"message\": \"...\", \"data\": { ... } } }`.\n\n"
-                    + "GENERATED from the C# contract types by `DocDataTests`; edit those, not this file.",
+                ["description"] = FramingDescription,
             },
             ["servers"] = new JsonArray(new JsonObject
             {
@@ -316,14 +434,54 @@ public class DocDataTests
                 ["summary"] = "One pipe per live IDE. Discover by PREFIX — the pid suffix changes when the IDE restarts.",
                 ["variables"] = new JsonObject
                 {
-                    ["vendor"] = new JsonObject { ["default"] = "codesys", ["enum"] = new JsonArray("codesys", "twincat") },
+                    ["vendor"] = new JsonObject { ["default"] = vendors[0], ["enum"] = Strings(vendors) },
                     ["pid"] = new JsonObject { ["default"] = "0", ["description"] = "The IDE process id the bridge is attached to." },
                 },
             }),
             ["methods"] = methods,
-            ["components"] = new JsonObject { ["schemas"] = schemas },
+            ["components"] = new JsonObject { ["schemas"] = Sorted(schemas) },
         };
     }
+
+    private static JsonArray Strings(IEnumerable<string> values) => new(values.Select(v => (JsonNode?)v).ToArray());
+    private static JsonObject Ref(string schema) => new() { ["$ref"] = "#/components/schemas/" + schema };
+
+    /// <summary>The schemas in name order, so the document does not depend on the order they were first reached in.</summary>
+    private static JsonObject Sorted(JsonObject schemas)
+    {
+        var sorted = new JsonObject();
+        foreach (var name in schemas.Select(kv => kv.Key).OrderBy(k => k, StringComparer.Ordinal).ToList())
+        {
+            var node = schemas[name];
+            schemas.Remove(name);
+            sorted[name] = node;
+        }
+        return sorted;
+    }
+
+    /// <summary>The members whose values are a closed vocabulary or a fact a C# type cannot state: the vocabulary from
+    /// its declaration (principle B), or the meaning of a member a bridge never sends.</summary>
+    private static JsonNode? Override(Type declaring, string property) => (declaring.Name, property) switch
+    {
+        (nameof(ProjectEntry), nameof(ProjectEntry.Vendor)) => EnumOf(Vendors()),
+        (nameof(ProjectEntry), nameof(ProjectEntry.Status)) => EnumOf(RowStatuses),
+        (nameof(BoundRequest), nameof(BoundRequest.ExpectedPlatform)) => EnumOf(Vendors()),
+        (nameof(ReadResponse), nameof(ReadResponse.Platform)) => EnumOf(Vendors()),
+        (nameof(HealthResponse), nameof(HealthResponse.Languages)) => new JsonObject { ["type"] = "array", ["items"] = EnumOf(ShownLanguages()) },
+        (nameof(HealthKind), nameof(HealthKind.Extension)) => EnumOf(KindExtensions()),
+        (nameof(UnsupportedBody), nameof(UnsupportedBody.Language)) => EnumOf(DeclaredLanguages()),
+        (nameof(BridgeDiagnostic), nameof(BridgeDiagnostic.Severity)) => EnumOf(Consts(typeof(Severity))),
+        (nameof(ProgressFrame), nameof(ProgressFrame.Operation)) => EnumOf(Ops_()),
+        (nameof(ProgressFrame), nameof(ProgressFrame.Phase)) => EnumOf(ProgressFrame.Phases),
+        (nameof(ProgressFrame), nameof(ProgressFrame.PhaseIndex)) or (nameof(ProgressFrame), nameof(ProgressFrame.PhaseCount)) =>
+            new JsonObject { ["type"] = "integer", ["description"] = "Never sent by a bridge: the `volt` CLI sets it on the frames it re-emits to its own clients." },
+        (nameof(PushConflict), nameof(PushConflict.Code)) => Ref("ConflictCode"),
+        (nameof(UnreadableItem), nameof(UnreadableItem.Code)) or (nameof(UnreadableNode), nameof(UnreadableNode.Code))
+            or (nameof(NotSearchedItem), nameof(NotSearchedItem.Code)) => Ref("BridgeErrorCode"),
+        _ => null,
+    };
+
+    private static JsonObject EnumOf(IEnumerable<string> values) => new() { ["type"] = "string", ["enum"] = Strings(values) };
 
     /// <summary>A `$ref` to the type's schema, generating it into <paramref name="schemas"/> on first sight.
     ///
@@ -369,7 +527,7 @@ public class DocDataTests
         {
             var wireName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                            ?? JsonNamingPolicy.CamelCase.ConvertName(p.Name);
-            props[wireName] = TypeSchema(p.PropertyType, schemas, isRequest);
+            props[wireName] = Override(p.DeclaringType!, p.Name) ?? TypeSchema(p.PropertyType, schemas, isRequest);
             if (!IsOptional(p, isRequest) || SchemaRequired.Contains((t, p.Name))) required.Add(wireName);
         }
 
@@ -735,11 +893,16 @@ public class DocDataTests
             ["network"] = new JsonArray(ConflictCodes.Network.Select(c => (JsonNode?)c).ToArray()),
             ["apply"] = new JsonArray(ConflictCodes.NotAttempted),
         },
-        // The wire VALUES only: the ids the shipped hosts declare (`VendorRow.Id`). This assembly holds no host, so they
-        // are spelled here until the generator reads the hosts' declarations (wire-final-shape 3.9).
-        ["vendors"] = new JsonArray("codesys", "twincat"),
-        ["statuses"] = new JsonArray(Consts(typeof(HealthStatus)).Select(c => (JsonNode?)c).ToArray()),
-        ["severities"] = new JsonArray(Consts(typeof(Severity)).Select(c => (JsonNode?)c).ToArray()),
+        // The ids the shipped hosts declare (`VendorRow Row`), read from their declarations.
+        ["vendors"] = Strings(Vendors()),
+        ["statuses"] = Strings(RowStatuses),
+        ["severities"] = Strings(Consts(typeof(Severity))),
+        ["languages"] = Strings(DeclaredLanguages()),
+        ["shownLanguages"] = Strings(ShownLanguages()),
+        ["phases"] = Strings(ProgressFrame.Phases),
+        // Each code with the channel(s) it arrives on and the ops that answer it as a frame (design section 7).
+        ["codes"] = BuildCodeChannels(),
+        ["commonFrameCodes"] = Strings(CommonFrameCodes),
         ["kinds"] = BuildKinds(),
         ["extensions"] = BuildExtensions(),
         ["objectProperties"] = BuildObjectProperties(),
@@ -818,7 +981,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "abc2959bbeda7f0622b8ee3e5d1c0ba363975b009a48f0889a0fb73be266eab8";
+    private const string PinnedWireShape = "3231658c20c5ed48d450d9683df1b6172d81f5d3c53a2a8f65bb2a3774034221";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge
@@ -875,7 +1038,7 @@ public class DocDataTests
     [Fact]
     public void Every_error_code_is_reachable_as_a_frame_or_a_conflict()
     {
-        var asFrame = Outcomes.Values.SelectMany(o => o.Errors).ToHashSet(StringComparer.Ordinal);
+        var asFrame = Ops_().SelectMany(FrameCodesOf).ToHashSet(StringComparer.Ordinal);
         var asConflict = ConflictCodes.FromBridge.ToHashSet(StringComparer.Ordinal);
 
         foreach (var code in Consts(typeof(BridgeErrorCodes)))
@@ -965,13 +1128,82 @@ public class DocDataTests
         var root = RepoPaths.RepoDir();
         var page = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", "wire.html"));
 
-        foreach (var code in Consts(typeof(BridgeErrorCodes)).Concat(ConflictCodes.Gate))
+        foreach (var code in Consts(typeof(BridgeErrorCodes)).Concat(ConflictCodes.Gate).Append(ConflictCodes.NotAttempted))
             Assert.True(page.Contains($"class=\"name\">{code}<", StringComparison.Ordinal),
                 $"'{code}' has no row in docs/wire.html — a code a client can observe and cannot look up.");
+        // The channel each code arrives on is the generated table's, not a sentence's.
+        Assert.Contains("data-render=\"codes\"", page, StringComparison.Ordinal);
+    }
 
-        // The count in the prose is the other half: a sentence that says "five" over seven rows is worse than
-        // no sentence, because it reads as a closed list and the reader stops looking.
-        Assert.Contains($"{Spell(ConflictCodes.FromBridge.Length)} of these codes", page, StringComparison.Ordinal);
+    /// <summary>THE CONTRACT CARRIES CURRENT BEHAVIOUR ONLY (design principle F, F34/F36): no history, no internal names
+    /// a client cannot see, no prose count of a closed list (the tables are the count) — on the page and in the generated
+    /// document alike.</summary>
+    [Fact]
+    public void The_contract_states_current_behaviour_only()
+    {
+        var page = File.ReadAllText(Path.Combine(DocsDir(), "wire.html"));
+        var spec = RenderJson(BuildSpec());
+        var stale = new System.Text.RegularExpressions.Regex(
+            @"\(It was |Until 20\d\d|used to |PipeServer|ConflictFor|WireProtocol\.Version|DIALECT|accepted:|`accepted`|"
+            + @"BRIDGE_PROTOCOL|unavailable|Only on an accepted push|MUST check|retired|"
+            + @"(Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten) (ops|of these|more|bridge codes|gate codes)|These (four|five|six|seven)");
+        foreach (var (where, text) in new[] { ("docs/wire.html", page), ("volt-bridge.openrpc.json", spec) })
+        {
+            var found = stale.Matches(text).Select(m => m.Value).Distinct().ToList();
+            Assert.True(found.Count == 0, $"{where} still says: {string.Join(" | ", found)}");
+        }
+    }
+
+    /// <summary>THE VOCABULARIES COME FROM THE HOSTS' DECLARATIONS (design principle B, W2): the vendors and languages
+    /// from each shipped host's own declaration, the kinds from the IEC table both declare — not from a list here.</summary>
+    [Fact]
+    public void The_vocabularies_come_from_the_hosts_declarations()
+    {
+        var hosts = HostDeclarations();
+        Assert.Equal(new[] { "BeckhoffDriver.Seam.cs", "CodesysDriver.Seam.cs" }, hosts.Select(h => h.File).OrderBy(f => f, StringComparer.Ordinal));
+        Assert.All(hosts, h => Assert.NotEmpty(h.Shown));
+
+        var schemas = BuildSpec()["components"]!["schemas"]!;
+        string[] EnumAt(JsonNode? n) => n!["enum"]!.AsArray().Select(v => v!.GetValue<string>()).ToArray();
+        Assert.Equal(hosts.Select(h => h.Vendor).OrderBy(v => v, StringComparer.Ordinal), EnumAt(schemas["ProjectEntry"]!["properties"]!["vendor"]));
+        Assert.Equal(ShownLanguages(), EnumAt(schemas["HealthResponse"]!["properties"]!["languages"]!["items"]));
+        Assert.Equal(KindExtensions(), EnumAt(schemas["HealthKind"]!["properties"]!["extension"]));
+        Assert.Equal(ProgressFrame.Phases, EnumAt(schemas["ProgressFrame"]!["properties"]!["phase"]));
+    }
+
+    /// <summary>THE FRAME IS IN THE DOCUMENT (design section 1, 7): the request envelope, the progress and error frames,
+    /// the code vocabularies, and every op's error set opens with the common set.</summary>
+    [Fact]
+    public void The_frame_and_the_code_vocabularies_are_in_the_document()
+    {
+        var spec = BuildSpec();
+        var schemas = spec["components"]!["schemas"]!.AsObject();
+        foreach (var name in new[] { "Request", "ProgressFrame", "ErrorFrame", "BridgeErrorCode", "ConflictCode" })
+            Assert.True(schemas.ContainsKey(name), $"no {name} schema");
+        Assert.Equal("#/components/schemas/ConflictCode", schemas["PushConflict"]!["properties"]!["code"]!["$ref"]!.GetValue<string>());
+        Assert.Equal("#/components/schemas/BridgeErrorCode", schemas["UnreadableItem"]!["properties"]!["code"]!["$ref"]!.GetValue<string>());
+        foreach (var m in spec["methods"]!.AsArray())
+        {
+            var codes = m!["x-errorCodes"]!.AsArray().Select(c => c!.GetValue<string>()).ToList();
+            var common = CommonFrameCodes.Where(c => !(m["name"]!.GetValue<string>() == Ops.Health && c == BridgeErrorCodes.IdeUnsupported));
+            Assert.Equal(common, codes.Take(common.Count()));
+            Assert.False(m["params"]!.AsArray().Any(p => p!["required"]!.GetValue<bool>()), "a body is optional: absent is {}");
+        }
+    }
+
+    /// <summary>EVERY PHASE A BRIDGE STATES IS DECLARED: the Engine names a phase only by its <see cref="ProgressFrame"/>
+    /// constant, so the schema's enum is every phase there is.</summary>
+    [Fact]
+    public void Every_progress_phase_is_a_declared_constant()
+    {
+        var engine = Path.Combine(RepoPaths.RepoDir()!.FullName, "packages", "volt-cli", "src", "Volt.Engine");
+        var literals = Directory.EnumerateFiles(engine, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .SelectMany(f => File.ReadAllLines(f).Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal))
+                .SelectMany(l => System.Text.RegularExpressions.Regex.Matches(l, @"(Phase = |phase: )""[^""]*""").Select(m => m.Value))
+                .Select(v => $"{Path.GetFileName(f)}: {v}"))
+            .ToList();
+        Assert.True(literals.Count == 0, "a progress phase spelled as a literal:\n" + string.Join("\n", literals));
     }
 
     private static string Spell(int n) => n switch
@@ -984,7 +1216,6 @@ public class DocDataTests
     /// a number in a sentence is the last thing anyone updates when an op is added or removed — deleting `init`
     /// left "Eight ops" on the page that exists to describe them.</summary>
     [Theory]
-    [InlineData("wire.html")]
     [InlineData("index.html")]
     public void The_op_count_on_the_page_is_the_op_count_on_the_wire(string page)
     {

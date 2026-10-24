@@ -74,8 +74,10 @@ public class WireVocabularyGuardTests
             // Allowlisted for a DIFFERENT vocabulary that shares the word: `ResultKinds.Error` is the CLI's result
             // discriminator (ok/error/refused/rejected/conflict/clean), not a diagnostic severity; LogWindow lists
             // LOG levels ("warn", not "warning"); and the pipe frame has an `error` FIELD, which is not a value.
+            // TcObjectModel.Build.cs (keyed as TcObjectModel.cs, a partial) holds TwinCAT's own Output-pane TOKENS (`error`/`warning`/`message`), the KEYS of its
+            // declared severity table (wire-final-shape 3.6) — the vendor's words, mapped onto these constants there.
             new[] { "error", "warning", "info" },
-            new HashSet<string> { "BuildModels.cs", "Types.cs", "LogWindow.cs", "PipeClient.cs", "PipeMessages.cs" }),
+            new HashSet<string> { "BuildModels.cs", "Types.cs", "LogWindow.cs", "PipeClient.cs", "PipeMessages.cs", "TcObjectModel.cs" }),
 
         ("item kinds (ItemKind.Kinds)",
             new[] { "pou", "dut", "gvl", "interface", "action", "method",

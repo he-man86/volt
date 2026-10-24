@@ -181,7 +181,7 @@ public sealed class BuildResult
 {
     public string Kind { get; set; } = ResultKinds.Ok;
     public bool Success { get; set; }
-    public double Duration { get; set; }
+    public long DurationMs { get; set; }
     public List<Volt.Contracts.BridgeDiagnostic> Diagnostics { get; set; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
 

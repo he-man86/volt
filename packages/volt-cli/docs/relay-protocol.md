@@ -78,8 +78,11 @@ the end of the message before parsing.
 **Request** (relay → bridge):
 
 ```json
-{ "id": "<opaque>", "op": "fetch", "body": { "onlyItems": ["Device/Plc Logic/Application/FB_Motor.pou"] } }
+{ "id": "<opaque>", "op": "fetch", "protocol": 1, "body": { "onlyItems": ["Device/Plc Logic/Application/FB_Motor.pou"] } }
 ```
+
+`protocol` is the remote client's wire protocol, forwarded to the pipe as stated: a request without it, or of another
+number, is answered `PROTOCOL_MISMATCH` by the bridge itself, before its body is read (`wire.html`).
 
 `id` is the relay's own, a JSON string; the bridge treats it as opaque and echoes it. Uniqueness is the relay's
 problem: a relay that reuses an id while the first is in flight gets two answers it cannot tell apart.
@@ -258,9 +261,9 @@ measured against a live deployment**:
 - **A request is never dropped.** Every request the bridge accepts gets exactly one terminal frame, or the
   socket closes and the relay fails it. There is no third outcome.
 
-A rejected `push` is **not** an error frame. It is a normal `result` with `accepted:false` and a `conflicts`
-list, because a version conflict is an expected outcome rather than a failure. A relay that treats
-`accepted:false` as an error will report every ordinary edit collision as a bridge fault.
+A refused `push` op is **not** an error frame. It is a normal `result` whose `conflicts` name every op that did not
+land, because a version conflict is an expected outcome rather than a failure. A relay that treats a non-empty
+`conflicts` as an error will report every ordinary edit collision as a bridge fault.
 
 ## The bridge log
 
@@ -268,12 +271,13 @@ Local only (see the operational notes); the token is never in it. Per relayed re
 
 - `relay: <- <op> (<id>)` when the request is read;
 - ONE terminal line, whatever ended it: `relay: -> <op> (<id>) <outcome> <N>ms [delivered=no]`, where `<outcome>` is
-  - `ok` — for a `push`, `ok accepted newProjectVersion=<v>` or `ok rejected`;
+  - `ok` — for a `push`, `ok landed newProjectVersion=<v>`, `ok landed in part, <N> not newProjectVersion=<v>`,
+    `ok rejected` (nothing landed) or `ok nothing to apply`;
   - `error <CODE>` — the coded error the pipe answered (`PLC_DISCONNECTED`, `WRONG_PROJECT`, `IDE_BUSY`, …), or
     `INTERNAL_ERROR` for a call that threw (that case also logs the whole exception at Error);
   - `refused BAD_REQUEST` — an op not on the allowlist, refused before the pipe;
   - `abandoned [<outcome>]` — the connection went before the terminal frame was sent; the op's own outcome follows
-    when it had completed (a push that landed reads `abandoned ok accepted newProjectVersion=<v>`).
+    when it had completed (a push that landed reads `abandoned ok landed newProjectVersion=<v>`).
 
   `<N>ms` is the total time from read to terminal line; the wait for the IDE thread is not split out (the tunnel is
   a pipe client and cannot see it). `delivered=no` is the op's frame not reaching the socket. A send that fails on a
@@ -333,14 +337,14 @@ readable by every process on the machine.
 B→R (upgrade)  Authorization: Bearer abc…
 B→R {"hello":{"protocol":1,"volt":"0.0.1.842","vendor":"codesys","pipe":"volt.bridge.codesys.9112"}}
 
-R→B {"id":"r1","op":"refs","body":{}}
+R→B {"id":"r1","op":"refs","protocol":1,"body":{}}
 B→R {"id":"r1","progress":{"operation":"refs","done":60,"total":138}}
 B→R {"id":"r1","result":{"projectVersion":"9f3c…","items":{…},"applications":[…],"platform":"codesys","projectName":"AWA_Palletizer"}}
 
-R→B {"id":"r2","op":"push","body":{"ops":[…],"expectedProjectVersion":"9f3c…"}}
-R→B {"id":"r3","op":"health"}              a second request, in flight at the same time
+R→B {"id":"r2","op":"push","protocol":1,"body":{"ops":[…],"expectedProjectVersion":"9f3c…"}}
+R→B {"id":"r3","op":"health","protocol":1}  a second request, in flight at the same time
 B→R {"id":"r3","result":{"projects":[…]}}  answers immediately; r2 still holds the IDE
-B→R {"id":"r2","result":{"accepted":false,"conflicts":[{"name":"Device/Plc Logic/Application/FB_Motor.pou","code":"STALE_ITEM_VERSION",…}]}}
+B→R {"id":"r2","result":{"conflicts":[{"name":"Device/Plc Logic/Application/FB_Motor.pou","code":"STALE_ITEM_VERSION",…}],"newItems":{},"removed":[]}}
 
 B→R {"volt":"ping"}
 R→B {"volt":"pong"}

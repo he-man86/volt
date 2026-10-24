@@ -31,7 +31,7 @@ public static class BuildService
         try
         {
             // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
-            onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = "building" });
+            onProgress?.Invoke(new ProgressFrame { Operation = Ops.Build, Phase = ProgressFrame.BuildingPhase });
             // ONE kind of build. A clean (CODESYS CleanAll, TwinCAT SolutionBuild.Clean) is reachable but buys nothing:
             // measured on live CODESYS 3.5.21.40, the build after a clean does not recompile (~60 ms vs ~2100 ms cold) —
             // it discards online-change data, not the language model — so the wire offers no clean build.
@@ -45,6 +45,15 @@ public static class BuildService
             // diagnostic the engineer actually needs. Nameless diagnostics beat no diagnostics.
             try { PromoteNames(link, Walk, diagnostics); }
             catch (Exception ex) { VoltLog.Warn($"build: could not name the diagnostics ({ex.Message}) — reporting them without item names"); }
+            // A FAILED BUILD NAMES AN ERROR. A vendor can count a failure and write no error line Volt can read (TwinCAT's
+            // compiler crashing, wire-final-shape 2.6): the answer then says exactly that, as an error with no position,
+            // so `success:false` never arrives with nothing to act on.
+            if (!success && !diagnostics.Any(d => d.Severity == Severity.Error))
+                diagnostics.Add(new BridgeDiagnostic
+                {
+                    Severity = Severity.Error,
+                    Message = "the IDE reports this build failed and stated no error Volt could read — check the IDE's own build output",
+                });
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
             // Info, not Debug (openspec relay-outcome-ledger 2.1): the one record a default log keeps that a build ran,
@@ -53,7 +62,7 @@ public static class BuildService
             return new BuildResponse
             {
                 Success = success,
-                Duration = sw.ElapsedMilliseconds,
+                DurationMs = sw.ElapsedMilliseconds,
                 Diagnostics = diagnostics,
             };
         }
@@ -69,7 +78,7 @@ public static class BuildService
             return new BuildResponse
             {
                 Success = false,
-                Duration = sw.ElapsedMilliseconds,
+                DurationMs = sw.ElapsedMilliseconds,
                 Diagnostics = new List<BridgeDiagnostic> { new() { Severity = Severity.Error, Message = "Build failed: " + ex.Message } },
             };
         }

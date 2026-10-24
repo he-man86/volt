@@ -151,7 +151,7 @@ public class BlackBoxTests
             using var j = JsonDocument.Parse(only.Out.Trim());
             Assert.Equal("ok", j.RootElement.GetProperty("kind").GetString());
             Assert.Equal(1, j.RootElement.GetProperty("searched").GetInt32());
-            Assert.Equal("GVL.gvl", j.RootElement.GetProperty("matches")[0].GetProperty("path").GetString());
+            Assert.Equal("GVL.gvl", j.RootElement.GetProperty("matches")[0].GetProperty("name").GetString());
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

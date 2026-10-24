@@ -36,7 +36,14 @@ public class BridgeException : CodedException
     /// <summary>The bridge is serving a different project than the workspace is bound to — the op refuses rather
     /// than touch the wrong IDE. The client matches on the CODE alone (<c>Sync/Commands</c>); this text is what the
     /// user reads.</summary>
-    public static BridgeException WrongProject(string? bridgePlatform, string? bridgeName, string? boundPlatform, string? boundName) =>
-        new(BridgeErrorCodes.WrongProject,
-            $"the bridge is serving {bridgePlatform}/{bridgeName}, but this workspace is bound to {boundPlatform}/{boundName} — open the bound project in the IDE (or Reconnect)");
+    /// <summary>The message names only what the request stated: a platform alone, a project alone, or both as one
+    /// identity — never an empty half (wire-final-shape §7).</summary>
+    public static BridgeException WrongProject(string? bridgePlatform, string? bridgeName, string? expectedPlatform, string? expectedName)
+    {
+        var stated = string.IsNullOrEmpty(expectedName) ? $"the platform '{expectedPlatform}'"
+            : string.IsNullOrEmpty(expectedPlatform) ? $"the project '{expectedName}'"
+            : $"{expectedPlatform}/{expectedName}";
+        return new(BridgeErrorCodes.WrongProject,
+            $"the bridge is serving {bridgePlatform}/{bridgeName}, but the request names {stated} — open the named project in the IDE, or reconnect");
+    }
 }

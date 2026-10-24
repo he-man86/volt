@@ -78,8 +78,8 @@ public class GrepServiceTests
         var r = Grep(ide, "bRunning");
 
         // Ordinal path order: `PLC_PRG.pou` sorts before `POUs/`.
-        Assert.Equal(new[] { prg, prg, motor }, r.Matches.Select(m => m.Path));
-        Assert.All(r.Matches, m => Assert.Equal(FetchedLine(fetched[m.Path], m.Line), m.Text));
+        Assert.Equal(new[] { prg, prg, motor }, r.Matches.Select(m => m.Name));
+        Assert.All(r.Matches, m => Assert.Equal(FetchedLine(fetched[m.Name], m.Line), m.Text));
         Assert.Equal(new[] { "IF fbMotor.bRunning THEN", "\tlamp := fbMotor.bRunning;", "\tbRunning : BOOL;" },
                      r.Matches.Select(m => m.Text));
         Assert.Equal(new Dictionary<string, string> { [motor] = refs.Items[motor], [prg] = refs.Items[prg] }, r.Items);
@@ -95,8 +95,8 @@ public class GrepServiceTests
     {
         var r = Grep(Project("codesys"), "x");
 
-        var keys = r.Matches.Select(m => (m.Path, m.Line)).ToList();
-        Assert.Equal(keys.OrderBy(k => k.Path, StringComparer.Ordinal).ThenBy(k => k.Line), keys);
+        var keys = r.Matches.Select(m => (m.Name, m.Line)).ToList();
+        Assert.Equal(keys.OrderBy(k => k.Name, StringComparer.Ordinal).ThenBy(k => k.Line), keys);
     }
 
     // ── 2.2 case ──────────────────────────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ public class GrepServiceTests
 
         var hit = Grep(ide, "Start := NOT", q => q.Literal = true).Matches.Single();
 
-        Assert.Equal(motor, hit.Path);
+        Assert.Equal(motor, hit.Name);
         Assert.Equal(lines[hit.Line - 1], hit.Text);
         Assert.True(hit.Line - 1 > Array.IndexOf(lines, "END_FUNCTION_BLOCK"), "the method's line is after END_FUNCTION_BLOCK");
     }
@@ -214,10 +214,24 @@ public class GrepServiceTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("GVL_Long", "VAR_GLOBAL\n\tx : INT; (*" + new string('y', 900) + "*)\nEND_VAR", ""));
 
-        var text = Grep(ide, "x : INT").Matches.Single().Text;
+        var match = Grep(ide, "x : INT").Matches.Single();
 
-        Assert.Equal(GrepService.TextCap + 1, text.Length);
-        Assert.EndsWith("…", text);
+        Assert.Equal(GrepService.TextCap + 1, match.Text.Length);
+        Assert.EndsWith("…", match.Text);
+        Assert.True(match.Cut);
+    }
+
+    /// <summary>A whole line says so by having no <c>cut</c> (design B23): a client tells a cut text from one that ends
+    /// in <c>…</c> by the flag, not by the character.</summary>
+    [Fact]
+    public void A_whole_line_ending_in_an_ellipsis_is_not_cut()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("GVL_Dots", "VAR_GLOBAL\n\tx : INT; (* wait *)…\nEND_VAR", ""));
+
+        var match = Grep(ide, "x : INT").Matches.Single();
+
+        Assert.Equal("\tx : INT; (* wait *)…", match.Text);
+        Assert.Null(match.Cut);
     }
 
     // ── 2.5 path globs ────────────────────────────────────────────────────────────────────────────
@@ -228,7 +242,7 @@ public class GrepServiceTests
         var r = Grep(Project("codesys"), "x", q => q.Paths = new List<string> { "**/*.gvl" });
 
         Assert.Equal(1, r.Searched);
-        Assert.All(r.Matches, m => Assert.EndsWith(".gvl", m.Path));
+        Assert.All(r.Matches, m => Assert.EndsWith(".gvl", m.Name));
         Assert.NotEmpty(r.Matches);
     }
 
@@ -242,7 +256,7 @@ public class GrepServiceTests
 
         var r = Grep(ide, "xEnable", q => q.Paths = new List<string> { "Line1/**" });
 
-        Assert.Equal(new[] { $"{line1}/PLC_PRG.pou" }, r.Matches.Select(m => m.Path));
+        Assert.Equal(new[] { $"{line1}/PLC_PRG.pou" }, r.Matches.Select(m => m.Name));
         Assert.Equal(1, r.Searched);
     }
 
@@ -254,7 +268,7 @@ public class GrepServiceTests
 
         var r = Grep(ide, "xEnable", q => q.Paths = new List<string> { "pous/a%2fb.POU" });
 
-        Assert.Equal(new[] { "POUs/A%2FB.pou" }, r.Matches.Select(m => m.Path));
+        Assert.Equal(new[] { "POUs/A%2FB.pou" }, r.Matches.Select(m => m.Name));
     }
 
     [Fact]
@@ -306,6 +320,7 @@ public class GrepServiceTests
         var entry = r.NotSearched.Single();
         Assert.Equal("POUs/PRG_Conveyor.pou", entry.Name);
         Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", entry.Reason);
+        Assert.Equal(BridgeErrorCodes.Unsupported, entry.Code);
     }
 
     [Fact]
@@ -350,8 +365,9 @@ public class GrepServiceTests
 
         var r = Grep(ide, "x");
 
-        Assert.Equal(new NotSearchedItem(unread.Name, unread.Reason), r.NotSearched.Single());
-        Assert.DoesNotContain(r.Matches, m => m.Path == unread.Name);
+        Assert.Equal(new NotSearchedItem(unread.Name, unread.Code, unread.Reason), r.NotSearched.Single());
+        Assert.Equal(BridgeErrorCodes.Unreadable, r.NotSearched.Single().Code);
+        Assert.DoesNotContain(r.Matches, m => m.Name == unread.Name);
     }
 
     [Fact]
@@ -384,7 +400,7 @@ public class GrepServiceTests
 
         Assert.Equal(RefsService.Handle(ide).UnwalkedFolders, r.UnwalkedFolders);
         Assert.Equal(new[] { "Device/Plc Logic/Application/POUs" }, r.UnwalkedFolders);
-        Assert.DoesNotContain(r.Matches, m => m.Path.Contains("FB_Motor"));
+        Assert.DoesNotContain(r.Matches, m => m.Name.Contains("FB_Motor"));
     }
 
     // ── 2.7 bounds ────────────────────────────────────────────────────────────────────────────────

@@ -38,7 +38,9 @@ internal sealed partial class TcObjectModel
     {
         _builtPanes = null;
         _paneFault = null;
-        return Compile(sb => sb.Build(true));
+        var success = Compile(sb => sb.Build(true));
+        _solutionBuildFailed = !success;
+        return success;
     }
 
     /// <summary>Build <paramref name="plcs"/> alone, each by its own <c>SolutionBuild.BuildProject</c> with the active
@@ -51,14 +53,15 @@ internal sealed partial class TcObjectModel
         if (_dte == null) throw Disconnected();
         _paneFault = null;
         var solutionDirectory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath((string)_dte.Solution.FullName))!;
-        var panes = new List<string>();
+        var panes = new List<(string Text, bool Failed)>();
         var success = true;
         foreach (var plc in plcs)
         {
             var uniqueName = System.IO.Path.GetRelativePath(solutionDirectory, System.IO.Path.GetFullPath(PlcProjectFile(plc)));
-            success &= Compile(sb =>
+            var built = Compile(sb =>
                 sb.BuildProject($"{sb.ActiveConfiguration.Name}|{sb.ActiveConfiguration.PlatformName}", uniqueName, true));
-            try { panes.AddRange(PaneTexts()); }
+            success &= built;
+            try { panes.AddRange(PaneTexts().Select(t => (t, !built))); }
             catch (Exception ex) when (!BeckhoffDriver.IsRpcFault(ex)) { _paneFault = ex; }
         }
         _builtPanes = panes;
@@ -66,8 +69,13 @@ internal sealed partial class TcObjectModel
     }
 
     /// <summary>The Output panes' texts read right after each build of a <see cref="Build(IReadOnlyList{TcPlc})"/> of named
-    /// PLC projects, in build order — null after a whole-solution build, whose diagnostics are read from the live panes.</summary>
-    private List<string>? _builtPanes;
+    /// PLC projects, in build order, each with whether the build that wrote it failed — null after a whole-solution build,
+    /// whose diagnostics are read from the live panes.</summary>
+    private List<(string Text, bool Failed)>? _builtPanes;
+
+    /// <summary>Whether this session's last whole-solution <see cref="Build()"/> failed; false before any — a pane this
+    /// session did not see a build write states no failure, so its unshaped lines are not carried (<see cref="ParseLines"/>).</summary>
+    private bool _solutionBuildFailed;
 
     /// <summary>Why a read of the panes after one of those builds failed — reported by <see cref="GetBuildDiagnostics"/>
     /// as an incomplete list, as a failing read of the live panes is.</summary>
@@ -170,7 +178,8 @@ internal sealed partial class TcObjectModel
         if (_dte == null) return result;
         try
         {
-            foreach (var text in _builtPanes ?? PaneTexts()) CollectPane(text, seen, result, LastDiagnosticFiles);
+            foreach (var (text, failed) in _builtPanes ?? PaneTexts().Select(t => (t, _solutionBuildFailed)).ToList())
+                CollectPane(text, failed, seen, result, LastDiagnosticFiles);
             if (_builtPanes is not null && _paneFault is { } fault) throw fault;
         }
         catch (Exception ex)
@@ -189,8 +198,6 @@ internal sealed partial class TcObjectModel
                 Message = $"volt could not finish reading the build output after {result.Count} diagnostic(s) " +
                           $"({ex.Message}) — this list is INCOMPLETE and the build result is unknown, not clean. " +
                           "Check the IDE's own error list.",
-                Line = 0,
-                Column = 0,
             });
         }
         return result;
@@ -255,10 +262,10 @@ internal sealed partial class TcObjectModel
     /// merged a GET's error into the SET's identical one - a real IDE diagnostic lost, while CODESYS returned both
     /// (openspec <c>codesys-diagnostic-child-names</c>). The MSBuild `N&gt;` prefix the Build pane adds is not in the
     /// key, which is what lets the two panes' copies of one error meet.</para></summary>
-    internal static void CollectPane(string text, HashSet<string> seen, List<BridgeDiagnostic> into,
+    internal static void CollectPane(string text, bool buildFailed, HashSet<string> seen, List<BridgeDiagnostic> into,
                                      Dictionary<BridgeDiagnostic, string>? files = null)
     {
-        foreach (var (diagnostic, key, file) in ParseLines(text))
+        foreach (var (diagnostic, key, file) in ParseLines(text, buildFailed))
         {
             if (!seen.Add(key)) continue;
             into.Add(diagnostic);
@@ -278,17 +285,14 @@ internal sealed partial class TcObjectModel
     /// rather than by "the next line is not a diagnostic": the pane is full of build chrome, and appending that to
     /// the previous message would corrupt far more than the break does.
     /// </remarks>
-    private static List<(BridgeDiagnostic Diagnostic, string Key, string? File)> ParseLines(string text)
+    private static List<(BridgeDiagnostic Diagnostic, string Key, string? File)> ParseLines(string text, bool buildFailed)
     {
-        var parsed = new List<(BridgeDiagnostic, string, string?)>();
-        var regex = new Regex(
-            @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
-            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        foreach (Match m in regex.Matches(text))
+        var parsed = new List<(int At, BridgeDiagnostic Diagnostic, string Key, string? File)>();
+        var spans = new List<(int Start, int End)>();
+        foreach (Match m in Shaped.Matches(text))
         {
-            int lineNum = 0, colNum = 0;
-            if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out lineNum);
-            if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colNum);
+            int? lineNum = m.Groups[2].Success ? int.Parse(m.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture) : null;
+            int? colNum = m.Groups[3].Success ? int.Parse(m.Groups[3].Value, NumberStyles.Integer, CultureInfo.InvariantCulture) : null;
             var captured = m.Groups[1].Value;
             // The BARE name -- BuildService promotes it to the wire's full `name.kind`. Group 1 is the file the
             // compiler named, and it was captured and DROPPED: the diagnostic kept a line number with nothing to
@@ -296,11 +300,12 @@ internal sealed partial class TcObjectModel
             var file = BareNameOf(FileOf(captured));
             var obj = ObjectOf(captured);
             var (name, member) = obj is null ? (file, null) : ChildOf(file, obj);
+            var (message, end) = WithContinuation(text, m);
+            spans.Add((m.Index, end));
             var diagnostic = new BridgeDiagnostic
             {
-                // "message" is TwinCAT's word for informational; Severity.Of maps it.
-                Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
-                Message = WithContinuation(text, m).Trim(),
+                Severity = SeverityOf(m.Groups[4].Value),
+                Message = message.Trim(),
                 Line = lineNum,
                 Column = colNum,
                 Name = name,
@@ -312,12 +317,47 @@ internal sealed partial class TcObjectModel
             // naming no file is keyed by the caption it names (its PLC project): each PLC project's own line is kept.
             var path = PathOf(FileOf(captured));
             var where = file is null ? path : System.IO.Path.GetFullPath(path);
-            parsed.Add((diagnostic,
+            parsed.Add((m.Index, diagnostic,
                 $"{where.ToUpperInvariant()}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}",
                 file is null ? null : path));
         }
-        return parsed;
+        // A COMPILER ERROR LINE WITH NO `file(line)` SHAPE IS STILL AN ERROR (wire-final-shape 3.6). TwinCAT's compiler
+        // crashing writes `Internal error:System.ArgumentOutOfRangeException: …` (measured live, task 2.6), which the
+        // shaped regex cannot place, while `LastBuildInfo` counts the failure: the answer was `success:false` with an
+        // empty list. Such a line — the `error` token followed by a colon, outside every shaped message and its
+        // continuation — is carried as it was written, with no item and no position. ONLY in the pane of a build whose
+        // verdict (`LastBuildInfo`) is failure: there the line is the failure's own words; in a successful build's pane the
+        // word `error:` states no failure (a tool's `Note: last error: none`), and carrying it put an error beside
+        // `success:true` (gate 3b).
+        foreach (var u in buildFailed ? (IEnumerable<Match>)Unshaped.Matches(text) : Enumerable.Empty<Match>())
+        {
+            if (spans.Any(s => u.Index >= s.Start && u.Index < s.End)) continue;
+            var message = u.Groups[1].Value.TrimEnd('\r').Trim();
+            parsed.Add((u.Index, new BridgeDiagnostic { Severity = Volt.Contracts.Severity.Error, Message = message },
+                $"\u0001UNSHAPED\u0001{message}", null));
+        }
+        return parsed.OrderBy(p => p.At, Comparer<int>.Default).Select(p => (p.Diagnostic, p.Key, p.File)).ToList();
     }
+
+    /// <summary>The compiler's own shape: `file(line[,col]) : error|warning|message : text`, the position optional.</summary>
+    private static readonly Regex Shaped = new(
+        @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+    /// <summary>A line stating an error without the shape: the word <c>error</c>, then a colon, anywhere in it (after
+    /// MSBuild's optional `N&gt;`). Group 1 is the line as written.</summary>
+    private static readonly Regex Unshaped = new(
+        @"^(?:\d+>)?(.*?\berror\s*:.*)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+    /// <summary>TwinCAT's declared severity table: the pane token → the wire's word, ignoring case. The shaped regex admits
+    /// these three tokens only, so every shaped diagnostic is classified.</summary>
+    private static string? SeverityOf(string token) => token.ToLowerInvariant() switch
+    {
+        "error" => Volt.Contracts.Severity.Error,
+        "warning" => Volt.Contracts.Severity.Warning,
+        "message" => Volt.Contracts.Severity.Info,
+        _ => null,
+    };
 
     /// <summary>The FILE half of what the compiler named — `C:\p\FB.TcPOU;FB.Execute` → `C:\p\FB.TcPOU`.
     ///
@@ -403,7 +443,7 @@ internal sealed partial class TcObjectModel
     /// The matched message plus the lines its unterminated quote continues onto, with the BREAKS AS THE PANE WROTE
     /// THEM — the compiler is quoting source text, and `The code '.size;&lt;CRLF&gt;'` is what it means to say.
     /// </summary>
-    private static string WithContinuation(string text, Match m)
+    private static (string Message, int End) WithContinuation(string text, Match m)
     {
         // `$` matches before the `\n`, so the capture keeps the `\r` of a CRLF pane; the real break is re-read below.
         var message = m.Groups[5].Value.TrimEnd('\r');
@@ -436,7 +476,7 @@ internal sealed partial class TcObjectModel
             message += text.Substring(lineStart, at - lineStart) + text.Substring(at, end - at);
             at = end;
         }
-        return message;
+        return (message, at);
     }
 
     /// <summary>Is the line starting at <paramref name="at"/> something a message can never continue INTO

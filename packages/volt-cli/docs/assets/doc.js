@@ -185,7 +185,7 @@ function renderOps(el) {
           ${panel(
             `op-${m.name}`,
             `Call ${m.name}`,
-            JSON.stringify({ op: m.name, body: param ? {} : undefined }, null, 2),
+            JSON.stringify({ op: m.name, protocol: Number(doc.info.version), body: param ? {} : undefined }, null, 2),
           )}
         </div>
       </section>`
@@ -271,6 +271,17 @@ function renderDriver(el) {
       </section>`,
     )
     .join("")
+}
+
+/** Every code with the channel(s) it arrives on — an error frame (and on which ops), a push conflict, an unreadable
+ *  entry — generated from the code (DocDataTests.BuildCodeChannels). */
+function renderCodes(el) {
+  const rows = window.VOLT.codes
+    .map((c) => `<tr><td class="name"><code>${esc(c.code)}</code></td>
+        <td>${c.channels.map((ch) => `<code>${esc(ch)}</code>`).join(" ")}</td>
+        <td>${c.frameOn.length ? c.frameOn.map((o) => `<a href="#op-${o}">${esc(o)}</a>`).join(" ") : "—"}</td></tr>`)
+    .join("")
+  el.innerHTML = `<table><tr><th>code</th><th>channel</th><th>an error frame on</th></tr>${rows}</table>`
 }
 
 function renderList(el, values) {
@@ -392,6 +403,10 @@ const RENDERERS = {
   errors: (el) => renderList(el, window.VOLT.errors),
   statuses: (el) => renderList(el, window.VOLT.statuses),
   severities: (el) => renderList(el, window.VOLT.severities),
+  codes: renderCodes,
+  "common-codes": (el) => renderList(el, window.VOLT.commonFrameCodes),
+  languages: (el) => renderList(el, window.VOLT.languages),
+  phases: (el) => renderList(el, window.VOLT.phases),
   "op-names": (el) => renderList(el, window.VOLT.ops),
   vendors: (el) => renderList(el, window.VOLT.vendors),
 }

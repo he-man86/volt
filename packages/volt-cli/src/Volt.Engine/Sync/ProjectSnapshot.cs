@@ -98,7 +98,7 @@ internal sealed class ProjectSnapshot
     /// that takes minutes on a large TwinCAT solution. <paramref name="clock"/>, when given, records where the time went
     /// (<see cref="SnapshotClock"/>).</para></summary>
     public static ProjectSnapshot Walk(HostLink link, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs,
-                                       Func<string, string, bool>? keepText = null, string? phase = "reading",
+                                       Func<string, string, bool>? keepText = null, string? phase = ProgressFrame.ReadingPhase,
                                        Action<WalkedItem, string, VersionedItem>? onItem = null,
                                        SnapshotClock? clock = null)
     {

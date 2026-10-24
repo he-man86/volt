@@ -21,8 +21,8 @@ describe("wire transcript normaliser", () => {
 	})
 
 	it("replaces a build's duration and the bridge's release by member, not every number or version", () => {
-		expect(normaliseValue({ result: { success: true, duration: 1234, diagnostics: [] } }, n)).toEqual({ result: { success: true, duration: 0, diagnostics: [] } })
-		expect(normaliseValue({ duration: 1234 }, n)).toEqual({ duration: 1234 })
+		expect(normaliseValue({ result: { success: true, durationMs: 1234, diagnostics: [] } }, n)).toEqual({ result: { success: true, durationMs: 0, diagnostics: [] } })
+		expect(normaliseValue({ durationMs: 1234 }, n)).toEqual({ durationMs: 1234 })
 		expect(normaliseValue({ result: { bridgeVersion: "0.1.17931", productVersion: "3.5.21.40" } }, n))
 			.toEqual({ result: { bridgeVersion: "<bridgeVersion>", productVersion: "3.5.21.40" } })
 	})

@@ -388,28 +388,6 @@ namespace Volt.Ide.Codesys
             return outv;
         }
 
-        private static int ParseLine(string text)
-        {
-            var i = text.IndexOf("Line ", StringComparison.OrdinalIgnoreCase);
-            if (i < 0) return 0;
-            i += 5; int n = 0; bool any = false;
-            while (i < text.Length && char.IsDigit(text[i])) { n = n * 10 + (text[i] - '0'); i++; any = true; }
-            return any ? n : 0;
-        }
-
-        private static int ParseColumn(string text)
-        {
-            foreach (var prefix in new[] { "Column ", "Col ", "Pos ", "Position " })
-            {
-                var i = text.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
-                if (i < 0) continue;
-                i += prefix.Length; int n = 0; bool any = false;
-                while (i < text.Length && char.IsDigit(text[i])) { n = n * 10 + (text[i] - '0'); i++; any = true; }
-                if (any) return n;
-            }
-            return 0;
-        }
-
         /// <summary>A POU, with its body LANGUAGE applied at creation — <c>create_pou(name, type?, language?, return_type?,
         /// base_type?, interfaces?)</c>, enumerated off the live scripting container (DIALECT C2d).
         /// <para><b>The language is created with the POU.</b> A graphical body is written into the item's typed

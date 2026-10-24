@@ -146,7 +146,24 @@ public class OpGuardTests
             new FetchRequest { Init = true, ExpectedPlatform = "twincat" }));
 
         Assert.Equal(BridgeErrorCodes.WrongProject, ex.ErrorCode);
+        // The message names only what the request stated (wire-final-shape §7): no empty project after the platform.
+        Assert.Equal("the bridge is serving codesys/Demo, but the request names the platform 'twincat'" + Remedy, ex.Message);
     }
+
+    /// <summary>And a name alone is named alone, both together as one identity.</summary>
+    [Fact]
+    public void The_wrong_project_message_names_what_the_request_stated()
+    {
+        var name = Assert.Throws<BridgeException>(() => FetchService.Handle(Ide("codesys", "Demo"),
+            new FetchRequest { Init = true, ExpectedProjectName = "Other" }));
+        var both = Assert.Throws<BridgeException>(() => FetchService.Handle(Ide("codesys", "Demo"),
+            new FetchRequest { Init = true, ExpectedPlatform = "twincat", ExpectedProjectName = "Other" }));
+
+        Assert.Equal("the bridge is serving codesys/Demo, but the request names the project 'Other'" + Remedy, name.Message);
+        Assert.Equal("the bridge is serving codesys/Demo, but the request names twincat/Other" + Remedy, both.Message);
+    }
+
+    private const string Remedy = " — open the named project in the IDE, or reconnect";
 
     /// <summary>And the matching platform alone still proceeds — the fix narrows nothing that worked.</summary>
     [Fact]

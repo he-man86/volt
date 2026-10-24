@@ -21,6 +21,74 @@ public class TcBuildOutputTests
         Assert.Equal(4, one.Column);
     }
 
+    /// <summary>A POSITION IS WHAT THE PANE STATES (wire-final-shape 3.6): TwinCAT 4024 writes <c>(line)</c> with no column,
+    /// so the column is absent, never 0; a line naming no position has neither.</summary>
+    [Fact]
+    public void AColumnOrLineThePaneDoesNotStateIsAbsent()
+    {
+        var parsed = Collect(
+            "C:\\p\\MAIN.TcPOU(5) : error: Identifier 'undefinedThing' not defined\r\n" +
+            "1>TwinCAT Project1 : error : the configuration could not be activated\r\n");
+        Assert.Equal(((int?)5, (int?)null), (parsed[0].Line, parsed[0].Column));
+        Assert.Equal(((int?)null, (int?)null), (parsed[1].Line, parsed[1].Column));
+    }
+
+    /// <summary>The declared token table: <c>error</c>, <c>warning</c>, <c>message</c> → error, warning, info, any case.</summary>
+    [Theory]
+    [InlineData("error", "error")]
+    [InlineData("Warning", "warning")]
+    [InlineData("MESSAGE", "info")]
+    public void ThePaneTokenMapsThroughTheDeclaredTable(string token, string wire)
+    {
+        Assert.Equal(wire, Assert.Single(Collect($"C:\\p\\MAIN.TcPOU(1) : {token}: x\r\n")).Severity);
+    }
+
+    /// <summary>A FAILED BUILD'S UNSHAPED ERROR LINE IS CARRIED (wire-final-shape 3.6, owner: zero fallback). TwinCAT's
+    /// compiler CRASHES on some sources and says so in a line with no <c>file(line) : error:</c> shape — measured live
+    /// (task 2.6): `s2 : STRING(2) := 'abcdef'` answers <c>LastBuildInfo</c> failed and this Build pane, which parsed to an
+    /// EMPTY list. The line is the error: it is carried with its text, severity error, and no item or position.</summary>
+    [Fact]
+    public void AnUnshapedCompilerErrorLineIsCarriedWithItsTextAndNoPosition()
+    {
+        var parsed = Collect(
+            "1>------ Build started: Project: TwinCAT Project14, Configuration: Debug TwinCAT CE7 (ARMV7) ------\r\n" +
+            "1>Internal error:System.ArgumentOutOfRangeException: Length cannot be less than zero.\r\n" +
+            "1>   at TypeChecker.CheckStringLiteralLength(Int32 length)\r\n" +
+            "1>Compile complete -- 1 errors, 0 warnings\r\n");
+        var one = Assert.Single(parsed);
+        Assert.Equal("error", one.Severity);
+        Assert.Equal("Internal error:System.ArgumentOutOfRangeException: Length cannot be less than zero.", one.Message);
+        Assert.Equal(((string?)null, (int?)null, (int?)null), (one.Name, one.Line, one.Column));
+    }
+
+    /// <summary>The same unshaped line in the Build pane and TwinCAT's own is one diagnostic, like a shaped one.</summary>
+    [Fact]
+    public void TheSameUnshapedErrorInTwoPanesIsOneDiagnostic()
+    {
+        var line = "Internal error:System.ArgumentOutOfRangeException: Length cannot be less than zero.";
+        Assert.Single(Collect("1>" + line + "\r\n", line + "\r\n"));
+    }
+
+    /// <summary>AN UNSHAPED LINE IS AN ERROR ONLY IN A FAILED BUILD'S PANE (gate 3b, finding 3): the word <c>error:</c> in a
+    /// successful build's tool line states no failure, and carried it put an error beside <c>success:true</c>.</summary>
+    [Fact]
+    public void AnUnshapedErrorWordInASuccessfulBuildsPaneIsNoDiagnostic()
+    {
+        Assert.Empty(CollectAfter(buildFailed: false,
+            "1>Note: last error: none\r\n" +
+            "1>Build complete -- 0 errors, 0 warnings : ready for download!\r\n"));
+    }
+
+    /// <summary>A QUOTED CONTINUATION IS PART OF ITS MESSAGE even when the source it quotes holds <c>error:</c> (gate 3b,
+    /// finding 3): the compiler is quoting text, so the line is not a boundary and is not a second error.</summary>
+    [Fact]
+    public void AnErrorWordInsideAQuotedContinuationStaysInItsMessage()
+    {
+        var one = Assert.Single(Collect(
+            "C:\\p\\FB.TcPOU(3) : error : The code 'x := 1; (*\r\n  error: see manual *)' is invalid\r\n"));
+        Assert.Equal("The code 'x := 1; (*\r\n  error: see manual *)' is invalid", one.Message);
+    }
+
     [Fact]
     public void KeepsAMessageThatSPANSLines()
     {
@@ -322,11 +390,14 @@ public class TcBuildOutputTests
         Assert.Equal("Identifier 'zz' not defined", one.Message);
     }
 
-    private static List<Volt.Contracts.BridgeDiagnostic> Collect(params string[] panes)
+    /// <summary>The panes of a FAILED build — the case every unshaped-line rule is about.</summary>
+    private static List<Volt.Contracts.BridgeDiagnostic> Collect(params string[] panes) => CollectAfter(buildFailed: true, panes);
+
+    private static List<Volt.Contracts.BridgeDiagnostic> CollectAfter(bool buildFailed, params string[] panes)
     {
         var seen = new HashSet<string>(System.StringComparer.Ordinal);
         var kept = new List<Volt.Contracts.BridgeDiagnostic>();
-        foreach (var pane in panes) TcObjectModel.CollectPane(pane, seen, kept);
+        foreach (var pane in panes) TcObjectModel.CollectPane(pane, buildFailed, seen, kept);
         return kept;
     }
 

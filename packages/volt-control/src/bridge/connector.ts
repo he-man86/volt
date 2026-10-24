@@ -25,7 +25,8 @@ export function controlBase(): string {
 export interface DetectedProject {
   id: string
   vendor: Vendor
-  dirty: boolean
+  /** Unsaved changes in the IDE — null/absent when the IDE did not answer (unknown, never "clean"). */
+  dirty?: boolean | null
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
   /** The PLATFORM version under the product — CODESYS's framework version (`3.5.21.40`) or the TwinCAT build

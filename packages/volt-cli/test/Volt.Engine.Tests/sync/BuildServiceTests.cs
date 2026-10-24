@@ -126,6 +126,33 @@ public class BuildServiceTests
         var only = Assert.Single(resp.Diagnostics!);
         Assert.Equal(Severity.Error, only.Severity);
         Assert.Contains("the IDE's compiler faulted", only.Message);
+        Assert.Null(only.Line);
     }
 
+    /// <summary>A FAILED BUILD ALWAYS NAMES AN ERROR (wire-final-shape 3.6, owner: zero fallback). TwinCAT's
+    /// <c>LastBuildInfo</c> can count a failed project while no line of its Output pane is an error Volt can read (its
+    /// compiler crashing, task 2.6): that answer was <c>success:false</c> with an EMPTY list. The bridge now says so
+    /// in the list, as an error with no position — never an empty answer to a failed build.</summary>
+    [Fact]
+    public void A_failed_build_with_no_error_diagnostic_names_that_the_IDE_stated_none()
+    {
+        var warning = new BridgeDiagnostic { Severity = Severity.Warning, Message = "C0195: implicit conversion" };
+
+        var resp = BuildService.Handle(Ide(succeeds: false, diagnostics: warning), Bound());
+
+        Assert.False(resp.Success);
+        Assert.Equal(2, resp.Diagnostics.Count);
+        var error = Assert.Single(resp.Diagnostics, d => d.Severity == Severity.Error);
+        Assert.Contains("stated no error", error.Message);
+        Assert.Equal(((string?)null, (int?)null, (int?)null), (error.Name, error.Line, error.Column));
+    }
+
+    /// <summary>The duration is milliseconds and says so (<c>durationMs</c>).</summary>
+    [Fact]
+    public void A_build_states_its_duration_in_milliseconds()
+    {
+        var resp = BuildService.Handle(Ide(), Bound());
+
+        Assert.InRange(resp.DurationMs, 0, 60_000);
+    }
 }

@@ -33,7 +33,7 @@
   <tr><td class="name">connector-YYYY-MM-DD.log</td><td>The connector / supervisor. A supervised worker's stdout rides in here too, tagged with its own source.</td></tr>
 </table>
 <p>Every line is <code>[timestamp][source][level] message</code>:</p>
-<pre>[2026-09-23 11:04:18.221][twincat][info] push 3 ops — accepted [created: FooFB.pou] (139 items) (215ms)</pre>
+<pre>[2026-09-23 11:04:18.221][twincat][info] push 1 ops — landed [created: FooFB.pou] (1 changed, 0 removed) (215ms)</pre>
 <p>To collect a session, zip that folder.</p>
 
 <h2 id="levels">Levels, and what is on by default</h2>
@@ -52,14 +52,15 @@
 
 <h2 id="lines">The lines worth knowing</h2>
 <h3 id="push-receipt">The push receipt — Info</h3>
-<pre>push 3 ops — accepted [created: FooFB.pou; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
+<pre>push 3 ops — landed [created: FooFB.pou; updated: Bar.gvl; deleted: Gone.st] (2 changed, 1 removed) (215ms)
 push 2 ops — REJECTED (2 conflicts: Bar.gvl, Baz.pou) (12ms)
+push 2 ops — REFUSED (stale lease) (9ms)
 push 3 ops — REFUSED at FB_Logger.pou (The name 'Log' is not valid for this object.), 2 already applied (40ms)
-push 3 ops — accepted IN PART [created: E_Mode.dut, ST_Data.dut], not landed: FB_Logger.pou UNSUPPORTED (141 items) (310ms)</pre>
+push 3 ops — landed IN PART [created: E_Mode.dut, ST_Data.dut], not landed: FB_Logger.pou UNSUPPORTED (2 changed, 0 removed) (310ms)</pre>
 <p>
-  An accepted push <b>names exactly what it wrote</b>, grouped by action. A rejected one names every refused op —
+  A push that landed <b>names exactly what it wrote</b>, grouped by action. A rejected one names every refused op —
   nothing was written. When the live IDE refuses an op after others landed, the <code>REFUSED at</code> line says
-  how many had already been applied, and the receipt line that follows says <code>accepted IN PART</code> and names
+  how many had already been applied, and the receipt line that follows says <code>landed IN PART</code> and names
   each op that did not land (the refused one with its code, every later one <code>NOT_ATTEMPTED</code>) — the line to
   check first when a push half-landed.
 </p>

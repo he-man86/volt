@@ -17,7 +17,8 @@ namespace Volt.Ide.Codesys
 
         /// <summary>Compile the application by executing the IDE's "build active
         /// application" command (same as the scripting <c>app.build()</c>), then
-        /// report success from the diagnostics (no error-severity messages).</summary>
+        /// report success from the diagnostics: no message that is, or cannot be ruled out as, an error
+        /// (<see cref="CodesysSeverity.MayBeError"/>).</summary>
         public bool Build(object applicationNode)
         {
             var cmdMgr = GetStaticMember("_3S.CoDeSys.ScriptDriverProjects.Common", "CommandManager")
@@ -26,7 +27,9 @@ namespace Volt.Ide.Codesys
             InvokeMethod(cmdMgr, "ExecuteCommand", BuildActiveApplication,
                 new[] { "--applicationGuid=" + appGuid.ToString() });
             foreach (var d in GetBuildDiagnostics())
-                if (d is Dictionary<string, object?> dict && (dict["severity"] as string) == Volt.Contracts.Severity.Error) return false;
+                if (d is Dictionary<string, object?> dict
+                    && ((dict["severity"] as string) == Volt.Contracts.Severity.Error
+                        || (dict.TryGetValue(MayBeErrorKey, out var unknown) && unknown is true))) return false;
             return true;
         }
 
@@ -65,6 +68,9 @@ namespace Volt.Ide.Codesys
         // "Build" and "Additional code checks" hold new message objects after every build; every other category keeps
         // the same ones.
         private static readonly Guid BuildCategory = new Guid("97f48d64-a2a3-4856-b640-75c046e37ea9");
+        /// <summary>Whether a message's severity cannot be ruled out as an error (<see cref="CodesysSeverity.MayBeError"/>):
+        /// read by <see cref="Build"/>, never put on the wire.</summary>
+        private const string MayBeErrorKey = "mayBeError";
         private static readonly Guid AdditionalCodeChecksCategory = new Guid("220493a1-f49b-4416-9a3f-a545db707cbe");
 
         /// <summary>The diagnostics of the build's own message categories (<see cref="BuildCategory"/>,
@@ -86,10 +92,8 @@ namespace Volt.Ide.Codesys
                     var text = GetMember(m, "Text") as string ?? "";
                     // THE IDENTITY IS ON THE MESSAGE, not in its prose. `IMessage` carries `ObjectGuid` (the
                     // object the diagnostic is about) and `IMessage4.Number` (the C-number, e.g. 32 for C0032);
-                    // the text is never scraped for a position. CODESYS does not put one in the text: EVERY
-                    // diagnostic in the recorded conformance corpus
-                    // (packages/volt-lsp-iec/test/conformance/recordings/codesys.build.json) carries `line: 0`,
-                    // while the TwinCAT recording of the same corpus carries real lines.
+                    // the text is never scraped for a position, and a CODESYS diagnostic carries none: line 0 on all
+                    // 6446 recorded ones (wire-final-shape 2.6), so `line`/`column` are absent on this vendor.
                     //
                     // Members measured against the shipped assembly, not assumed — MessageStorage.dll,
                     // `_3S.CoDeSys.Core.Messages.IMessage` {ProjectHandle, ObjectGuid, Position, PositionOffset,
@@ -100,12 +104,12 @@ namespace Volt.Ide.Codesys
                     // number is worse than none. The guid lets a client open the right file - and, for an error
                     // inside a method/property/action, name the member (`CodesysDriver.NamesFor`).
                     var guid = GetMember(m, "ObjectGuid") is Guid g && g != Guid.Empty ? g : (Guid?)null;
+                    var severity = GetMember(m, "Severity");
                     outv.Add(new Dictionary<string, object?>
                     {
-                        ["severity"] = Volt.Contracts.Severity.Of(GetMember(m, "Severity")?.ToString()),
+                        ["severity"] = CodesysSeverity.Of(severity),
+                        [MayBeErrorKey] = CodesysSeverity.MayBeError(severity),
                         ["message"] = text,
-                        ["line"] = ParseLine(text),
-                        ["column"] = ParseColumn(text),
                         ["objectGuid"] = guid,
                         ["code"] = MessageCode(m),
                     });
@@ -157,8 +161,6 @@ namespace Volt.Ide.Codesys
                 ["severity"] = Volt.Contracts.Severity.Error,
                 ["message"] = $"volt could not read the build diagnostics ({why}) — the build result is UNKNOWN, " +
                               "not clean. Check the IDE's own message view.",
-                ["line"] = 0,
-                ["column"] = 0,
             },
         };
     }

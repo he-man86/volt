@@ -58,7 +58,7 @@ public class PipeTransportTests
         var result = client.Call("grep", new { pattern = "bRunning" });
 
         var match = Assert.Single(result.GetProperty("matches").EnumerateArray().ToList());
-        Assert.Equal("POUs/PLC_PRG.pou", match.GetProperty("path").GetString());
+        Assert.Equal("POUs/PLC_PRG.pou", match.GetProperty("name").GetString());
         Assert.Equal("x := fbMotor.bRunning;", match.GetProperty("text").GetString());
         Assert.Equal(version, result.GetProperty("items").GetProperty("POUs/PLC_PRG.pou").GetString());
         Assert.Equal(2, result.GetProperty("searched").GetInt32());

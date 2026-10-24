@@ -30,12 +30,21 @@ namespace Volt.Ide.Codesys.Tests
     [TypeGuid("194b48a9-ab51-43ae-b9a9-51d3edaaddf3")] public sealed class ScriptMessagesCategory { public string Text => "Script Messages"; }
     [TypeGuid("05581bd1-66d3-4251-aff2-047cc8e9adf7")] public sealed class OfflineHelpCategory { public string Text => "Offline Help"; }
 
+    /// <summary>`_3S.CoDeSys.Core.Messages.Severity` as the shipped assemblies declare it (`[Flags]`, wire-final-shape 2.7):
+    /// 3.5.18.30–3.5.21.60 the first five bits, 3.5.22.40 the two suppressed ones as well.</summary>
+    [Flags]
+    public enum VendorSeverity
+    {
+        FatalError = 1, Error = 2, Warning = 4, Information = 8, Text = 16, SuppressedWarning = 32, SuppressedInformation = 64,
+    }
+
     /// <summary>A message as the bridge reads it: <c>Text</c>, <c>Severity</c>, <c>ObjectGuid</c>.</summary>
     public sealed class CategoryMessage
     {
-        public CategoryMessage(string severity, string text) { Severity = severity; Text = text; }
+        public CategoryMessage(string severity, string text) : this((VendorSeverity)Enum.Parse(typeof(VendorSeverity), severity), text) { }
+        public CategoryMessage(VendorSeverity severity, string text) { Severity = severity; Text = text; }
         public Guid ObjectGuid => Guid.Empty;
-        public string Severity { get; }
+        public VendorSeverity Severity { get; }
         public string Text { get; }
     }
 
@@ -155,6 +164,70 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(Volt.Contracts.Severity.Error, d.Severity);
             Assert.Contains("97f48d64-a2a3-4856-b640-75c046e37ea9", d.Message);
             Assert.Contains("UNKNOWN", d.Message);
+        }
+
+        /// <summary>THE DECLARED TABLE (wire-final-shape 3.6): each single declared bit is one row, keyed on the NUMERIC
+        /// value, and a CODESYS diagnostic states no position — `line`/`column` absent, never 0.</summary>
+        [Theory]
+        [InlineData(VendorSeverity.FatalError, "error")]
+        [InlineData(VendorSeverity.Error, "error")]
+        [InlineData(VendorSeverity.Warning, "warning")]
+        [InlineData(VendorSeverity.Information, "info")]
+        [InlineData(VendorSeverity.Text, "info")]
+        public void A_declared_severity_maps_by_its_numeric_value_and_carries_no_position(VendorSeverity vendor, string wire)
+        {
+            var (_, diagnostics) = BuildWith(new CategorizedMessageStore(
+                (new BuildCategory(), Msgs(new CategoryMessage(vendor, "a message")))));
+
+            var d = Assert.Single(diagnostics);
+            Assert.Equal(wire, d.Severity);
+            Assert.Equal(((int?)null, (int?)null), (d.Line, d.Column));
+        }
+
+        /// <summary>A value of declared bits that is not exactly one row and carries no error bit — a suppressed warning
+        /// (3.5.22.40), a warning combined with its suppression — is NOT classified: no severity, never a substring match
+        /// (`Warning, SuppressedWarning` read as a warning) and never a default. Every bit is declared and none is an
+        /// error, so such a message fails no build.</summary>
+        [Theory]
+        [InlineData(VendorSeverity.SuppressedWarning)]
+        [InlineData(VendorSeverity.SuppressedInformation)]
+        [InlineData(VendorSeverity.Warning | VendorSeverity.SuppressedWarning)]
+        public void A_value_of_declared_non_error_bits_that_is_no_single_row_has_no_severity(VendorSeverity vendor)
+        {
+            var (success, diagnostics) = BuildWith(new CategorizedMessageStore(
+                (new BuildCategory(), Msgs(new CategoryMessage(vendor, "a message")))));
+
+            Assert.True(success);
+            Assert.Null(Assert.Single(diagnostics).Severity);
+        }
+
+        /// <summary>THE ERROR BITS DECIDE (gate 3b, finding 1): the enum is `[Flags]`, so a value carrying `FatalError` or
+        /// `Error` IS an error by the IDE's own declaration, whatever else it carries — a combined error is never a clean
+        /// build.</summary>
+        [Theory]
+        [InlineData(VendorSeverity.Error | VendorSeverity.SuppressedWarning)]
+        [InlineData(VendorSeverity.FatalError | VendorSeverity.Error)]
+        [InlineData(VendorSeverity.Error | (VendorSeverity)128)]
+        public void A_value_carrying_an_error_bit_is_an_error_and_fails_the_build(VendorSeverity vendor)
+        {
+            var (success, diagnostics) = BuildWith(new CategorizedMessageStore(
+                (new BuildCategory(), Msgs(new CategoryMessage(vendor, "a message")))));
+
+            Assert.False(success);
+            Assert.Equal(Volt.Contracts.Severity.Error, Assert.Single(diagnostics).Severity);
+        }
+
+        /// <summary>AN UNKNOWN FACT IS NEVER A CLEAN BUILD (gate 3b, finding 1): a value with a bit no installed version
+        /// declares, and no error bit, cannot be ruled out as an error. It carries no severity (nothing is guessed) and the
+        /// build does not answer success.</summary>
+        [Fact]
+        public void A_value_with_an_undeclared_bit_has_no_severity_and_is_not_a_clean_build()
+        {
+            var (success, diagnostics) = BuildWith(new CategorizedMessageStore(
+                (new BuildCategory(), Msgs(new CategoryMessage((VendorSeverity)128, "a message")))));
+
+            Assert.False(success);
+            Assert.Null(Assert.Single(diagnostics).Severity);
         }
 
         /// <summary>Task 2.3 (guard kept) - an unreachable store is still the Unreadable error.</summary>

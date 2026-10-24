@@ -51,7 +51,7 @@ public static class PushService
         // PROJECT-level lease version MUST hash the same gated set /refs/fetch/receipt use (ProjectSnapshot.IsTracked),
         // or every push wrongly reports "pull first".
         // The walk MATERIALIZES each item, so it is the slow half of a push: it gets its own progress phase.
-        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Phase = "checking" });
+        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Phase = ProgressFrame.CheckingPhase });
 
         // The READS are skipped when nothing consumes them: `--force` skips every per-item check, leaving the lease
         // (only when quoted), `returnSources` (needs pre-apply versions) and a RENAME — TwinCAT's native rename
@@ -334,7 +334,7 @@ public static class PushService
                 .OrderBy(x => position.TryGetValue(x.c.Name, out var at) ? at : int.MaxValue, Comparer<int>.Default).ThenBy(x => x.k, Comparer<int>.Default)
                 .Select(x => x.c).ToList());
         }
-        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
+        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = ProgressFrame.ApplyingPhase });
         var inApplyOrder = InFolderDepthOrder(ops, itemCache).ToList();
         var appliedOps = new List<PushOp>();
         var appliedAt = new List<(int At, PushOp Op)>();

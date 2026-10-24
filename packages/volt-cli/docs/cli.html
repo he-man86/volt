@@ -48,11 +48,10 @@
   there too, deliberately — from a caller's side they are the same condition.
 </p>
 <p>
-  <b><code>BRIDGE_PROTOCOL</code></b>: before its first <code>refs</code>/<code>fetch</code>/<code>push</code>/<code>build</code>
-  the CLI reads <code>health.protocol</code> once and sends nothing to a bridge whose number is not its own
-  (<a href="wire.html#identity">the wire protocol</a>), and exits 1 naming both numbers — an absent one as
-  <code>none</code>. A lower or absent number is the previous bridge still loaded: <i>restart the IDE to load the
-  updated bridge</i>. A higher one: <i>update Volt</i>.
+  <b><code>PROTOCOL_MISMATCH</code></b>: every request states the CLI's wire protocol, and a bridge of another number
+  refuses it before anything runs (<a href="wire.html#framing">the wire</a>). The CLI exits 1 naming both numbers: a
+  lower bridge number is the previous bridge still loaded — <i>restart the IDE to load the updated bridge</i>; a higher
+  one — <i>update Volt</i>.
 </p>
 
 <h2 id="verbs">The verbs</h2>

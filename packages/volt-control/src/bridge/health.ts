@@ -14,7 +14,8 @@ import { join, resolve } from "node:path"
 // fields beside it — lives on each `DetectedProject` row, rendered as one line by `view/identity.ts`.)
 export interface BridgeHealth {
   projectName?: string | null
-  projectDirty?: boolean
+  /** Absent/null when the IDE did not answer whether its project is saved: unknown, never clean. */
+  projectDirty?: boolean | null
 }
 
 export type HealthState =

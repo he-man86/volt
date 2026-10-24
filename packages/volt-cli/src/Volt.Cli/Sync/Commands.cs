@@ -956,7 +956,7 @@ public static class Commands
         {
             return BuildResult.Refuse(e.Message);
         }
-        return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
+        return new BuildResult { Success = r.Success, DurationMs = r.DurationMs, Diagnostics = r.Diagnostics };
     }
 
     /// <summary>volt grep — search the IDE's text for a pattern (the bridge's <c>grep</c>, openspec

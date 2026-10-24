@@ -414,13 +414,13 @@ describe("the pipe side", () => {
       if (op === "connect") return opts.connect ? opts.connect() : {}
       if (op === "refs") return { projectVersion: "v", items, folders: {}, platform: "codesys", projectName: "P" }
       if (op === "push") {
-        const a = opts.push ? opts.push(body) : { accepted: true, conflicts: [] }
-        if (a.accepted && body.ops[0].op === "set" && body.ops[0].sourceText !== undefined)
+        const a = opts.push ? opts.push(body) : { newProjectVersion: "v2", conflicts: [], newItems: {}, removed: [] }
+        if (a.newProjectVersion !== undefined && body.ops[0].op === "set" && body.ops[0].sourceText !== undefined)
           items = { ...items, [body.ops[0].name]: "1" }
         return a
       }
       if (op === "fetch") return { changed: [{ name: body.onlyItems[0], sourceText: "TEXT\n" }] }
-      if (op === "build") return { success: true, duration: 1, diagnostics: [] }
+      if (op === "build") return { success: true, durationMs: 1, diagnostics: [] }
       throw new Error(`unexpected ${op}`)
     }
     return { call, calls, setItems: (i: Record<string, string>) => (items = i) }
@@ -434,7 +434,7 @@ describe("the pipe side", () => {
   it("a refused create leaves no handle, so cleanup never deletes the object that already had the name", async () => {
     const b = bridge({
       items: { "PLC_PRG.pou": "7" },
-      push: () => ({ accepted: false, conflicts: [{ code: "NAME_TAKEN", reason: "create collided" }] }),
+      push: () => ({ conflicts: [{ code: "NAME_TAKEN", reason: "create collided" }], newItems: {}, removed: [] }),
     })
     const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
     const ctx = ctxOf()
@@ -455,7 +455,7 @@ describe("the pipe side", () => {
 
   it("a refused create whose object REMAINS is cleaned up, and the outcome says so", async () => {
     const b = bridge({
-      push: () => ({ accepted: false, conflicts: [{ code: "UNSUPPORTED", reason: "rollback failed", remains: true }] }),
+      push: () => ({ conflicts: [{ code: "UNSUPPORTED", reason: "rollback failed", remains: true }], newItems: {}, removed: [] }),
     })
     const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
     const ctx = ctxOf()
@@ -558,7 +558,7 @@ describe("the pipe side", () => {
   it("the build answers its success with its diagnostics", async () => {
     const b = bridge({})
     const call = async (op: string, body?: any) =>
-      op === "build" ? { success: false, duration: 1, diagnostics: [{ name: null }] } : b.call(op, body)
+      op === "build" ? { success: false, durationMs: 1, diagnostics: [{ name: null }] } : b.call(op, body)
     const wire = wireSide("pipe", { call, sleep: async () => {} })
     expect(await wire.build(ctxOf())).toEqual({ success: false, diagnostics: [{ name: null }] })
   })

@@ -80,7 +80,7 @@ namespace Volt.Ide.Codesys.Tests
             public uint? Number { get; }
             public string Prefix => "C";
             public string Text { get; }
-            public string Severity => "Error";
+            public VendorSeverity Severity => VendorSeverity.Error;
         }
 
         public sealed class MessageStore

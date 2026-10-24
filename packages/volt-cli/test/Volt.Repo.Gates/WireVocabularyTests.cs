@@ -88,6 +88,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/MemberSites.cs", 1),   // bridge-one-to-one §3: a transition, refused by name
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
+            ("Volt.Engine/Sync/GrepService.cs", 1),   // wire-final-shape 3.7: a notSearched entry's code — a body that reads IMPLEMENTATION <LANG> UNSUPPORTED
             ("Volt.Engine/Sync/PushService.cs", 10),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)

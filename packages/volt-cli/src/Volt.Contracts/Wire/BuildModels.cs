@@ -14,37 +14,18 @@ public class BuildRequest : BoundRequest
     public List<string>? Applications { get; set; }
 }
 
-/// <summary>The wire's diagnostic severity vocabulary — <c>error</c> / <c>warning</c> / <c>info</c>, and the one
-/// mapping from whatever a vendor calls it.
-/// <para>Both drivers did this themselves and neither was tested: CODESYS matched substrings of a .NET enum name
-/// (<c>Error</c>/<c>Fatal</c>/<c>Exception</c> → error), TwinCAT special-cased the single word its output-window
-/// regex could produce (<c>message</c> → info). One function covers both inputs, and it matters that it is one:
-/// <c>BuildService</c> COUNTS on these exact strings to report "N errors, M warnings", so a vendor whose word
-/// fell through to a different spelling would be silently counted as info.</para>
+/// <summary>The wire's diagnostic severity vocabulary — <c>error</c> / <c>warning</c> / <c>info</c>.
+/// <para>Each host maps its vendor's own value onto these words through a table it declares (CODESYS: the numeric
+/// <c>IMessage.Severity</c>; TwinCAT: the Output-pane token). A value a host's table does not hold is no word here: the
+/// diagnostic carries no <c>severity</c>, never a guessed one. <c>BuildService</c> counts on these exact strings.</para>
 /// <para>What is NOT unified is where a build's success comes from. CODESYS derives it from the diagnostics
 /// (no error-severity message); TwinCAT reads <c>SolutionBuild.LastBuildInfo</c>, the IDE's own count of failed
-/// projects. Those are two different vendor SIGNALS, not two copies of one rule, and picking one would either
-/// discard TwinCAT's authoritative answer or change CODESYS's.</para></summary>
+/// projects. Those are two different vendor SIGNALS, not two copies of one rule.</para></summary>
 public static class Severity
 {
     public const string Error = "error";
     public const string Warning = "warning";
     public const string Info = "info";
-
-    /// <summary>A vendor's severity word (an enum name, an output-window token) → the wire's vocabulary.
-    /// Substring-matched and case-insensitive because the inputs are not a closed set: CODESYS's enum has
-    /// spellings this has never seen, and anything unrecognised is INFO — the safe direction, since inventing an
-    /// error would fail a build that passed.</summary>
-    public static string Of(string? vendorSeverity)
-    {
-        var s = vendorSeverity ?? "";
-        if (Has(s, "Error") || Has(s, "Fatal") || Has(s, "Exception")) return Error;
-        if (Has(s, "Warning")) return Warning;
-        return Info;
-    }
-
-    private static bool Has(string haystack, string needle) =>
-        haystack.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0;
 }
 
 public class BridgeDiagnostic
@@ -96,22 +77,26 @@ public class BridgeDiagnostic
     [JsonPropertyName("code")]
     public string? Code { get; set; }
 
+    /// <summary>The vendor's severity in the wire's words (<see cref="Volt.Contracts.Severity"/>) — absent when the vendor's
+    /// value is not in its host's declared table: not classified, never guessed.</summary>
     [JsonPropertyName("severity")]
-    public string Severity { get; set; } = Volt.Contracts.Severity.Info;
+    public string? Severity { get; set; }
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
 
-    /// <summary>The vendor's line, as the IDE gave it - 0 when it gave none (every CODESYS diagnostic: its position
-    /// is an opaque id, DIALECT C27).
+    /// <summary>The vendor's line, 1-based, as the IDE gave it — absent when it gave none (every CODESYS diagnostic: its
+    /// position is an opaque id, DIALECT C27; a TwinCAT line with no <c>file(line)</c> shape).
     ///
     /// <para>Counted in the VENDOR'S object, not in the wire file: when <see cref="Member"/> is set it is a line of
     /// that member (TwinCAT, DIALECT D36), so it is only a position together with the member.</para></summary>
     [JsonPropertyName("line")]
-    public int Line { get; set; }
+    public int? Line { get; set; }
 
+    /// <summary>The vendor's column, 1-based — absent when it gave none (CODESYS never; TwinCAT 3.1.4024 writes
+    /// <c>(line)</c> without one).</summary>
     [JsonPropertyName("column")]
-    public int Column { get; set; }
+    public int? Column { get; set; }
 }
 
 public class BuildResponse
@@ -119,8 +104,9 @@ public class BuildResponse
     [JsonPropertyName("success")]
     public bool Success { get; set; }
 
-    [JsonPropertyName("duration")]
-    public double Duration { get; set; }
+    /// <summary>How long the build took, in milliseconds of wall-clock time on the bridge.</summary>
+    [JsonPropertyName("durationMs")]
+    public long DurationMs { get; set; }
 
     [JsonPropertyName("diagnostics")]
     public List<BridgeDiagnostic> Diagnostics { get; set; } = new();

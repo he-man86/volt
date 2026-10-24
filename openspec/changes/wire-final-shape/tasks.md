@@ -188,7 +188,7 @@ Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 68, Engin
 `scripts/bridge.test.ts` 5. No fixture, recording or transpiler change, so no fixture-map regeneration; the LSP suites
 are not this change's (no LSP source changed).
 
-- [ ] 3.6 `build`: severity absent when unmapped; positions optional and 1-based; `durationMs`. The CODESYS word table
+- [x] 3.6 `build`: severity absent when unmapped; positions optional and 1-based; `durationMs`. The CODESYS word table
       reads `IMessage.Severity` as its numeric value (2.7); first measure on live 3.5.22.40 which values a build gives
       (a suppressed warning included), raw values logged, before the table is written. TwinCAT keeps the `,col` group
       and serves a column only where a pane states one (2.6: 4024 states none).
@@ -197,10 +197,76 @@ are not this change's (no LSP source changed).
       file(line) shape) is carried as a diagnostic with its text and NO position — positions are optional in this shape,
       so nothing is invented. Red test first: a failed build with an unparseable error line answers that line, never an
       empty list.
-- [ ] 3.7 `grep`: `name`.
-- [ ] 3.8 The CLI, `volt-control`, the relay and the VS Code extension read the new shape (their offline suites).
-- [ ] 3.9 OpenRPC generator: enums from the declarations, `ProgressFrame`, `BridgeErrorCode`/`ConflictCode`, the common
+      **Built (3b):** `BridgeDiagnostic.severity` `string?`, `line`/`column` `int?`, `BuildResponse.durationMs` (`long`);
+      `Severity.Of` (substring match, `info` fallback) deleted with its test file. CODESYS: `CodesysSeverity` keyed on the
+      numeric `IMessage.Severity` (1, 2 → error; 4 → warning; 8, 16 → info; anything else absent and logged at Warn); the
+      position scrape over the message text deleted (CODESYS states none). TwinCAT: the pane-token table
+      (`SeverityOf`), the line/column only where the pane states them, and an unshaped line with the `error` token and a
+      colon carried as an error with no item and no position (deduped across panes, never inside a shaped message's
+      continuation). `BuildService`: a failed build with no error diagnostic gets one saying the IDE stated none Volt could
+      read. **Live, CODESYS 3.5.22.40** (instance `wire-final-shape`, fixture copy, closed cleanly; probe single-use,
+      deleted): build 1 (a C0196 warning) → 1 warning, 10 info; build 2 (the same, under `{warning disable C0196}`) → no
+      message from the POU at all; build 3 (warning + suppressed + an undefined identifier) → 1 warning, 2 errors
+      (C0046, C0018), `success:false`. Every message a single declared bit: 0 unclassified, 0 combined values. Run red
+      first: `TcBuildOutputTests` (6 new; compile-red before the parser), Contracts `WireFinalShapeTests` (4, compile-red);
+      written beside the fix: `BuildServiceTests` (2), `CodesysBuildOwnMessagesTests` (9 cases). design "Built (step 3b)" 5–6.
+- [x] 3.7 `grep`: `name`.
+      **Built (3b):** `GrepMatch.name` (was `path`), `cut: true` only on a cut line (B23: 500 UTF-16 code units, 499 when
+      the 500th would split a surrogate pair, then `…`), `NotSearchedItem { name, code, reason }` (B16: an unreadable
+      item's own code, `UNSUPPORTED` for a hidden body). Census `WireVocabularyTests` UNSUPPORTED +1 (GrepService). Also
+      §7's `WRONG_PROJECT` message now names only what the request stated (`OpGuardTests`, 2 red first; design "Built
+      (step 3b)" 7). Tests: `GrepServiceTests` (+1, 3 re-read), the CLI's two grep tests read `name`.
+- [x] 3.8 The CLI, `volt-control`, the relay and the VS Code extension read the new shape (their offline suites).
+      **Built (3b):** CLI — `BuildResult.durationMs`, `[unclassified]` for an absent severity, a position only when
+      stated, grep prints `name`. volt-control — `BuildOutcome.durationMs`, `severity?`, `dirty?: boolean | null` on rows
+      and health; `isIdeChangeEdge` makes no edge from an unknown `dirty` (red first, `status.test.ts`). VS Code — prints
+      `durationMs` and `[unclassified]`. Relay — code already read the new receipt (3a); `relay-protocol.md` now says
+      `protocol` on the relay request and the new push verdicts. Also offline scripts: `wire-transcript-lib` normalises
+      `durationMs`, `wire-transcript.ts` reads a landing from `newProjectVersion`, the `vendor-facts` unit fakes answer the
+      new push shape. **Not done here (4.1):** the live e2e suite still reads `accepted` in 52 files (196 reads) — it is
+      4.1's to update with the contract suite.
+- [x] 3.9 OpenRPC generator: enums from the declarations, `ProgressFrame`, `BridgeErrorCode`/`ConflictCode`, the common
       error set, the channel column; `wire.html` rewritten to current behaviour only (no history, no counts).
+      **Built (3b):** `DocDataTests` reads the hosts' declarations (`*.Seam.cs`: vendors, shown/hidden languages, the IEC
+      kind rows) for every vendor/language/kind enum; row statuses, severities, phases (`ProgressFrame.Phases`, new
+      constants) as enums; `Request`, `ProgressFrame`, `ErrorFrame` (+ `ProtocolMismatchData`, `StaleProjectVersionData`),
+      `BridgeErrorCode`, `ConflictCode` schemas; `body` optional; `x-errorCodes` = the common set (`PROTOCOL_MISMATCH`,
+      `BAD_REQUEST`, `IDE_UNSUPPORTED` — not on `health` — `INTERNAL_ERROR`) then the op's own; `data.js` gains `codes`
+      (each code's channels and the ops answering it as a frame), `languages`, `phases`, `commonFrameCodes`; framing,
+      encoding and lifetime generated into `info.description`; every `x-outcomes` line rewritten to current behaviour.
+      `wire.html` rewritten: framing table, progress, the `health` catalog, identity, the fetch combination table (B4),
+      the gate table `ifVersion` × arm × force (B8, B9), the push answer and its phases (B2, B3), build, grep, the codes
+      with the generated channel table; no history, no internal names, no counts. `cli.html`, `index.html`, `logs.html`
+      lose `BRIDGE_PROTOCOL`/`accepted`. New gates: `The_contract_states_current_behaviour_only`,
+      `The_vocabularies_come_from_the_hosts_declarations`, `The_frame_and_the_code_vocabularies_are_in_the_document`,
+      `Every_progress_phase_is_a_declared_constant`; the wire.html op-count and "N of these codes" assertions are gone
+      (F36: the tables are the count; index.html keeps its count). Wire shape re-pinned at protocol 1:
+      `3231658c20c5ed48d450d9683df1b6172d81f5d3c53a2a8f65bb2a3774034221`.
+Gate 3b (2026-10-24): the four review findings, each fixed; findings 1 and 2 run red first, finding 3's tests written
+beside the fix.
+1. **An unknown CODESYS severity is never a clean build** (`CodesysSeverity`): the enum is `[Flags]`, so a value carrying
+   `FatalError`/`Error` IS an error whatever else it carries (`Error|SuppressedWarning`, `FatalError|Error`), and a value
+   that is no number or carries a bit no installed version declares (`MayBeError`) makes `Build()` answer false (no
+   severity guessed; `BuildService` then adds its "stated no error Volt could read"). A value of declared non-error bits
+   that is no single row (a suppressed warning) stays unclassified and fails no build. Tests `CodesysBuildOwnMessagesTests`
+   `A_value_carrying_an_error_bit_is_an_error_and_fails_the_build` (3, red), `A_value_with_an_undeclared_bit_has_no_severity_and_is_not_a_clean_build`
+   (red; replaces the `128` row of the old theory, whose premise "fails no build" was the finding).
+2. **An unknown `dirty` keeps the last STATED value** (`healthStep`, volt-control): clean → unknown → dirty raises the
+   IDE-changed hint. Test `status.test.ts` `healthStep: an unknown read keeps the last STATED dirty…` (red).
+3. **TwinCAT's unshaped `error:` line is carried only from a FAILED build's pane, and is no boundary**: `CollectPane`
+   takes the pane's build verdict (`LastBuildInfo`, per PLC project on a named build; false for panes this session did
+   not see a build write), and a quoted continuation holding `error:` stays in its message. Tests `TcBuildOutputTests`
+   `AnUnshapedErrorWordInASuccessfulBuildsPaneIsNoDiagnostic`, `AnErrorWordInsideAQuotedContinuationStaysInItsMessage`.
+   **For the owner:** the unshaped match is English (`error:`); a German XAE's `Interner Fehler:` reaches only
+   `BuildService`'s generic error — not measured live, left as is.
+4. **BOMs removed** from the seven files the step had given one (GrepModels, GrepService, PushService, CodesysDriver,
+   GrepServiceTests, CodesysBuildOwnMessagesTests, WireVocabularyTests).
+Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 56 (−16 `SeverityTests` deleted, +4), Engine 3139
+(+1 skipped), Cli 359, Connector 154, Ide.Twincat 726 (+8: 6 from 3.6, 2 gate), Ide.Codesys 500 (+12), Repo.Gates 255,
+Relay 74; volt-cli `bun test test/unit` 228, volt-control 147, volt-vscode 39, volt-desktop 33; volt-lsp-iec
+`scripts/bridge.test.ts` 5. No fixture, recording or transpiler change, so no fixture-map regeneration; no LSP source
+changed, so the LSP suites are not this step's.
+
 - [ ] 3.9a INTERNAL_ERROR only for a Volt bug (owner 2026-10-24: "before this refactor we got a lot of internal errors
       back .. this is not very clean"). Census every uncoded throw reachable from the wire (`WireVocabularyTests`
       `UncodedThrow`: 164 before the rework, 177 at 1464605aaf — the refusals the rework added were mostly coded, but each
@@ -222,5 +288,9 @@ are not this change's (no LSP source changed).
 
 ## 5. Close
 
+- [ ] 5.0 QUALITY RATING after (owner 2026-10-24): re-run the archived rework's scripts
+      (`openspec/changes/archive/2026-10-24-volt-cli-rework/input/rating-measure.sh`, `rating-pins.sh`), same criteria and
+      scale, into this change's `input/rating-after.md`: Engine, Ide.Codesys, Ide.Twincat, Contracts + Wire, before (the
+      rework's 7 / 7.5 / 7 / 6.5) → after, each move tied to its evidence.
 - [ ] 5.1 `plcassist-note.md` final, sent to PLC Assist with the release.
 - [ ] 5.2 The full release matrix once, green; docs match the code; archive.

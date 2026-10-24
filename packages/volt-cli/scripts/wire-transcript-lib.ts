@@ -7,7 +7,7 @@
  * different between two runs of the same build on the same fixture, and nothing else:</p>
  * <ul>
  *   <li>`health.bridgeVersion` — the stamped release (or the dev commit) of the build under test;</li>
- *   <li>`build.duration` — wall-clock milliseconds;</li>
+ *   <li>`build.durationMs` — wall-clock milliseconds;</li>
  *   <li>a path inside the instance's fixture COPY (`%TEMP%\volt-ide-<vendor>-<instance>\…`) and the temp dir itself — where
  *       `ide.ps1` put this run's copy;</li>
  *   <li>the pid in a pipe name (`volt.bridge.<vendor>.<pid>`);</li>
@@ -52,7 +52,7 @@ export function normaliseValue(v: unknown, n: Normaliser, key?: string, parent?:
 		if (key === "bridgeVersion") return "<bridgeVersion>"
 		return normaliseString(v, n)
 	}
-	if (typeof v === "number" && key === "duration" && parent && typeof parent === "object" && "success" in parent) return 0
+	if (typeof v === "number" && key === "durationMs" && parent && typeof parent === "object" && "success" in parent) return 0
 	if (Array.isArray(v)) return v.map((x) => normaliseValue(x, n, undefined, v))
 	if (v && typeof v === "object")
 		return Object.fromEntries(Object.entries(v).map(([k, x]) => [normaliseString(k, n), normaliseValue(x, n, k, v)]))

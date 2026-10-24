@@ -286,10 +286,8 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
             var placed = m.TryGetValue("objectGuid", out var g) && g is Guid guid && names.TryGetValue(guid, out var p) ? p : null;
             return new BridgeDiagnostic
             {
-                Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
+                Severity = m.TryGetValue("severity", out var s) ? s as string : null,
                 Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
-                Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
-                Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
                 Code = m.TryGetValue("code", out var code) ? code as string : null,
                 // The item's folder and BARE name — BuildService promotes it to the wire path. See its PromoteNames.
                 Name = placed?.Name,
@@ -315,7 +313,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
             foreach (var m in build)
             {
                 if (!(m.TryGetValue("objectGuid", out var o) && o is Guid)) { outv.Add(m); continue; }
-                var key = string.Join("\u0001", new[] { "severity", "message", "line", "column", "objectGuid", "code" }
+                var key = string.Join("\u0001", new[] { "severity", "message", "objectGuid", "code" }
                     .Select(k => m.TryGetValue(k, out var v) ? v?.ToString() ?? "" : ""));
                 var n = inThisBuild[key] = (inThisBuild.TryGetValue(key, out var c) ? c : 0) + 1;
                 if (n <= (most.TryGetValue(key, out var earlier) ? earlier : 0)) continue;

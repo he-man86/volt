@@ -313,9 +313,9 @@ async function doBuild(workspaceRoot: string): Promise<void> {
 		return
 	}
 	for (const d of r.diagnostics) {
-		output().appendLine(`[${d.severity}] ${describeBuildDiagnostic(d)}`)
+		output().appendLine(`[${d.severity ?? "unclassified"}] ${describeBuildDiagnostic(d)}`)
 	}
-	output().appendLine(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`)
+	output().appendLine(`Build ${r.success ? "succeeded" : "FAILED"} (${r.durationMs}ms)`)
 	output().show()
 	if (!r.success) vscode.window.showWarningMessage("Build reported errors — see the Volt output.")
 }

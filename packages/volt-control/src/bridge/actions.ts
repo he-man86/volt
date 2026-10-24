@@ -130,12 +130,13 @@ export function push(workspaceRoot: string, opts: { force?: boolean } & Progress
 /** The build outcome, mirroring the CLI's `--json` shape. A REFUSAL (no binding, wrong project, no bridge) is
  *  its own kind — it is not a project that failed to compile, and the CLI stopped conflating the two. */
 export type BuildOutcome =
-  | { kind: "ok"; success: boolean; duration: number; diagnostics: BuildDiagnostic[] }
+  | { kind: "ok"; success: boolean; durationMs: number; diagnostics: BuildDiagnostic[] }
   | { kind: "refused"; reason: string }
   | { kind: "error"; message: string }
 
 export interface BuildDiagnostic {
-  severity: "error" | "warning" | "info"
+  /** Absent when the vendor's value is not in its host's declared table — not classified, never guessed. */
+  severity?: "error" | "warning" | "info"
   message: string
   /** Full wire name of the item (`FB_Motor.pou`), or absent for a project-level message. */
   name?: string
@@ -145,7 +146,9 @@ export interface BuildDiagnostic {
   member?: string
   /** The vendor's own diagnostic number as the IDE renders it (`C0032`). */
   code?: string
+  /** 1-based; absent when the vendor stated no position (every CODESYS diagnostic). */
   line?: number
+  /** 1-based; absent when the vendor stated none. */
   column?: number
 }
 

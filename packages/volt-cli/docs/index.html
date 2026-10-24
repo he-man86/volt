@@ -87,7 +87,7 @@ sequenceDiagram
   C->>B: push { expectedProjectVersion, ops }
   B->>B: PRE-FLIGHT — every text-decidable refusal
   B->>I: apply, stopping at an op the IDE refuses
-  B-->>C: accepted (+ a conflict per op not landed), or conflicts with nothing written
+  B-->>C: the receipt (newItems, removed) + a conflict per op not landed
 </div>
 <p>
   Two rules from that run are worth carrying into every page. <b>A push that cannot land in full lands

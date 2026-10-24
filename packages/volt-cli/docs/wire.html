@@ -15,9 +15,9 @@
 
 <h1>The wire</h1>
 <p class="lede">
-  Eight ops over a Windows named pipe. This is the parity boundary — the same object answers with the same text
-  on both vendors, and what one vendor cannot hold it refuses by name (<a href="items.html#one-sided">items</a>) — and
-  it is the thing to build a client against.
+  The ops a Volt bridge serves over a Windows named pipe. This is the parity boundary — the same object answers with the
+  same text on both vendors, and what one vendor cannot hold it refuses by name (<a href="items.html#one-sided">items</a>)
+  — and it is the thing to build a client against.
 </p>
 <p>Ops: <span data-render="op-names"></span></p>
 
@@ -26,41 +26,43 @@
   One pipe per live IDE: <code>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</code>, the suffix being the IDE's process
   id. <b>Clients discover by prefix</b>, because the pid changes on every IDE restart.
 </p>
-<p>
-  The stream is <b>newline-delimited JSON</b> in both directions. A request is one object:
-</p>
-<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["Device/Plc Logic/Application/FB_Motor.pou"] } }</pre>
-<p>
-  A request frame is at most <b>64 MiB</b> (67108864 bytes, newline excluded; <code>PipeServer.MaxFrameBytes</code>).
-  A longer one is answered <code>BAD_REQUEST</code> without being parsed, and the connection is closed.
-</p>
-<p>
-  A response is a run of frames on the same connection: zero or more <code>progress</code> frames, then exactly
-  one terminal <code>result</code> or <code>error</code>. Each frame carries a single key.
-</p>
+<table>
+  <tr><th>rule</th><th>the wire</th></tr>
+  <tr><td class="name">connection</td><td>One request per connection. The client writes one request; the bridge answers and closes the connection after the terminal frame, whatever it is. Concurrent requests use separate connections.</td></tr>
+  <tr><td class="name">encoding</td><td>UTF-8 without a BOM. Every frame is one JSON object on one line ending in <code>\n</code>. A request may end in <code>\r\n</code>. A request that starts with a BOM is <code>BAD_REQUEST</code>; a request with no <code>\n</code> is answered once the client closes its side.</td></tr>
+  <tr><td class="name">size</td><td>A request is at most 64 MiB (67108864 bytes), the newline excluded. A longer one is answered <code>BAD_REQUEST</code> without being parsed.</td></tr>
+  <tr><td class="name">request</td><td><code>{ "op", "protocol", "body"? }</code>. <code>protocol</code> is the JSON integer <code>1</code>. <code>body</code> absent is <code>{}</code>; a <code>null</code> body, a body member the op does not have, or an envelope member other than these three is <code>BAD_REQUEST</code>.</td></tr>
+  <tr><td class="name">answer</td><td>Zero or more <code>{"progress":…}</code> frames, then exactly one <code>{"result":…}</code> or <code>{"error":{"code","message","data"?}}</code>.</td></tr>
+</table>
+<pre>{"op":"fetch","protocol":1,"body":{"onlyItems":["Device/Plc Logic/Application/FB_Motor.pou"]}}</pre>
 <div class="cols">
   <div><div class="lbl res">success</div>
-<pre>{"progress":{"operation":"fetch","done":40,"total":138}}
+<pre>{"progress":{"operation":"fetch","done":0,"total":138,"phase":"reading"}}
 {"progress":{"operation":"fetch","done":138,"total":138}}
 {"result":{"projectVersion":"…","changed":[…],"items":{…}}}</pre></div>
   <div><div class="lbl req">failure</div>
-<pre>{"error":{"code":"PLC_DISCONNECTED","message":"…"}}</pre></div>
+<pre>{"error":{"code":"PLC_DISCONNECTED","message":"…"}}
+{"error":{"code":"PROTOCOL_MISMATCH","message":"…","data":{"bridgeProtocol":1}}}</pre></div>
 </div>
 <p>
-  <code>ProgressFrame</code> carries <code>operation</code>, <code>done</code> and an optional
-  <code>total</code> (absent means indeterminate — a build). A multi-phase operation also sets
-  <code>phaseIndex</code>/<code>phaseCount</code>, so a frontend folds the per-phase fraction into one
-  monotonic bar: <code>(phaseIndex + done/total) / phaseCount</code>.
+  A request that states no <code>protocol</code>, or another number, is refused <code>PROTOCOL_MISMATCH</code> before its
+  body is read; <code>error.data.bridgeProtocol</code> is the number the bridge speaks. There is no negotiation: the
+  client and the bridge are of the same release, or the older one is updated.
 </p>
+
+<h3 id="progress">Progress</h3>
 <p>
-  <code>refs</code> and <code>fetch</code> report their <b>walk</b> first: one frame per application as the walk
-  finishes it, with <code>phase</code> <code>"walking"</code>, <code>done</code> applications walked and
-  <code>total</code> applications (TwinCAT: its PLC projects; CODESYS learns its applications as it walks and sends no
-  <code>total</code>). Then the item frames: the first with <code>phase</code> <code>"reading"</code>,
-  <code>done</code> 0 and <code>total</code> items, then one every 25 items and one at the last.
+  A <code>ProgressFrame</code> carries <code>operation</code> (the request's <code>op</code>), <code>done</code>, a
+  <code>total</code> when the amount of work is known (absent = indeterminate) and a <code>phase</code>; a frame without
+  a phase continues the phase before it. Phases: <span data-render="phases"></span>.
 </p>
+<table>
+  <tr><th>op</th><th>its frames</th></tr>
+  <tr><td class="name">refs, fetch, grep</td><td>The walk first: one <code>walking</code> frame per application as the walk finishes it, <code>done</code> applications of <code>total</code> (TwinCAT: its PLC projects; CODESYS learns its applications as it walks and states no <code>total</code>). Then the item frames: <code>reading</code> (<code>searching</code> for grep) with <code>done</code> 0 of <code>total</code> items, then one every 25 items and one at the last.</td></tr>
+  <tr><td class="name">push</td><td><code>checking</code> while it walks and runs the pre-flight, then <code>applying</code> with <code>done</code> ops of <code>total</code>.</td></tr>
+  <tr><td class="name">build</td><td>One <code>building</code> frame, no <code>total</code>.</td></tr>
+</table>
 <pre>{"progress":{"operation":"refs","done":1,"total":18,"phase":"walking"}}
-…
 {"progress":{"operation":"refs","done":18,"total":18,"phase":"walking"}}
 {"progress":{"operation":"refs","done":0,"total":630,"phase":"reading"}}
 {"progress":{"operation":"refs","done":25,"total":630}}</pre>
@@ -70,31 +72,40 @@
   again.
 </p>
 <div class="note">
-  <b><code>health</code> never blocks.</b> It answers from a cached snapshot and is never marshalled onto the
-  IDE thread, so it is the one op that is safe to poll while a push or a build is running. Everything else
-  takes the IDE.
+  <b><code>health</code> never blocks.</b> It answers from a cached snapshot and never takes the IDE thread, so it is
+  the one op that is safe to poll while a push or a build is running. Everything else takes the IDE.
 </div>
+
+<h2 id="catalog">What a bridge states about itself</h2>
 <p>
-  <code>health.protocol</code> is the wire protocol the bridge speaks, <code>WireProtocol.Version</code> &mdash; the
-  number the relay <code>hello</code> and this document's <code>info.version</code> carry. It changes when an old peer
-  would read the new wire without refusing it and take a different meaning. The CLI sends no op to a bridge of another
-  number, absent included (<code>BRIDGE_PROTOCOL</code>, <a href="cli.html#binding">cli</a>).
+  <code>health</code> carries the bridge's catalog, from its host's own declarations. A value the bridge does not list
+  there is one it never sends, so a client reads them instead of hard-coding them.
 </p>
+<table>
+  <tr><th>member</th><th>means</th></tr>
+  <tr><td class="name">protocol</td><td>The wire protocol, <code>1</code>.</td></tr>
+  <tr><td class="name">ops</td><td>Every op the bridge answers. A bridge that lists no <code>grep</code> cannot search.</td></tr>
+  <tr><td class="name">languages</td><td>Every language the bridge writes as <code>IMPLEMENTATION &lt;LANG&gt;</code> — show a body as editable only when its language is listed. Declared by the hosts: <span data-render="languages"></span>.</td></tr>
+  <tr><td class="name">kinds</td><td><code>{ extension, writable }</code> per item kind: the extension without its dot, and whether a push may write an item of it. Every push op on a kind that is not <code>writable</code> is a conflict <code>BAD_REQUEST</code>.</td></tr>
+  <tr><td class="name">projects[]</td><td>One row per connectable project: <code>vendor</code>, <code>project</code>, <code>status</code> and <code>dirty</code>. A bridge serves when some row's <code>status</code> is not <code>idle</code>. <code>dirty</code> is absent when the IDE did not answer whether the project is saved — unknown, never clean.</td></tr>
+  <tr><td class="name">ideVersion, product…, bridgeVersion</td><td>The IDE and bridge identity, each absent when its source does not answer.</td></tr>
+  <tr><td class="name">unsupported</td><td>Present when the IDE lacks what the bridge needs: the sentence every other op answers <code>IDE_UNSUPPORTED</code> with.</td></tr>
+</table>
 
 <h2 id="identity">Identity, versions and the two gates</h2>
 <p>
   <b>The item's PATH is its identity</b>: its folder in the IDE's own tree and its file name with the kind,
   <code>&lt;folder&gt;/&lt;name&gt;.&lt;kind&gt;</code>. <code>refs</code>, <code>fetch</code>'s <code>knownItems</code>
-  and <code>onlyItems</code>, every push op and its conflicts, a build diagnostic and the workspace layout are all
-  keyed by it, so two <code>PLC_PRG.pou</code> in two applications are two items, and so are
-  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in one folder. Below the vendor seam the item
-  is looked up by its <b>bare</b> name and its kind inside the container its path names, never across the whole tree:
-  <code>X.dut</code> never resolves to an object <code>X</code> of another kind.
+  and <code>onlyItems</code>, every push op and its conflicts, a build diagnostic, a grep match and the workspace layout
+  are all keyed by it and all call it <code>name</code>, so two <code>PLC_PRG.pou</code> in two applications are two
+  items, and so are <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in one folder.
 </p>
 <p>
   <b>A path you address</b> (<code>onlyItems</code>, a push op's <code>name</code> and <code>to</code>) finds the IDE
   item ignoring case, and every answer spells it as the IDE does. <b>A key you hold</b> (<code>knownItems</code>) is
   exact: a case-only rename in the IDE is the old key in <code>removed</code> and the new one in <code>items</code>.
+  <b>A project name</b> (<code>connect.project</code>, <code>expectedProjectName</code>) is compared like a path, ignoring
+  case; <code>expectedPlatform</code> takes a row's <code>vendor</code>.
 </p>
 <p>
   <b>A path a push names is one <code>refs</code> could publish</b>: its extension names a kind and a name comes before
@@ -106,12 +117,14 @@
 </p>
 <p>
   Every item path on the wire has this form, readable or not. <code>unreadable</code> lists the items the walk found
-  and did not read, each <code>{ name, reason }</code> with <code>name</code> the path the item has in
+  and did not read, each <code>{ name, code, reason }</code> with <code>name</code> the path the item has in
   <code>items</code> while it reads &mdash; the name a forced <code>deleteItem</code> addresses it by.
-  <code>unreadableNodes</code> lists the tree nodes with no file the walk did not read, each <code>{ name, reason }</code>
+  <code>unreadableNodes</code> lists the tree nodes with no file the walk did not read, each <code>{ name, code, reason }</code>
   with <code>name</code> the node path <code>&lt;folder&gt;/&lt;name&gt;</code>: a container holding a setting no text
   spells, or an object whose kind the IDE could not state (its folder and subtree are then in
-  <code>unwalkedFolders</code>).
+  <code>unwalkedFolders</code>). <code>code</code> is <code>UNREADABLE</code> (the IDE did not give what Volt asked of the
+  object), <code>UNSUPPORTED</code> (the object holds what Volt's text has no spelling for, or sits in a folder excluded
+  from the build), or the code of the read that failed.
 </p>
 <pre>Device/Plc Logic/Application/CM_Carrier.pou       unreadable: an FB whose body could not be read
 Device/Plc Logic/Application/Library Manager      unreadableNodes: a manager holding a setting no text spells
@@ -132,6 +145,22 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   and such a path outside every application the walk states is then never judged removed. <code>build</code> takes the same roots as
   <code>applications</code> to compile those alone; without it every application is built.
 </p>
+
+<h3 id="fetch-combinations">What a fetch answers</h3>
+<table>
+  <tr><th>request</th><th>changed</th><th>items</th><th>removed</th><th>librariesRefreshed</th></tr>
+  <tr><td class="name">none of <code>init</code>, <code>knownItems</code>, <code>onlyItems</code></td><td colspan="4"><code>BAD_REQUEST</code>: a fetch needs a baseline.</td></tr>
+  <tr><td class="name">init: true</td><td>Every readable item, and every library's signatures.</td><td>Every readable item.</td><td>empty</td><td>true</td></tr>
+  <tr><td class="name">knownItems</td><td>Every readable item whose version is not the one known; when a <code>.library</code> version moved, every library's signatures and every <code>.library</code> item.</td><td>Every readable item.</td><td>Every known path absent from a folder the walk read.</td><td>true when a <code>.library</code> version moved and every known library was seen</td></tr>
+  <tr><td class="name">onlyItems (with or without knownItems, init)</td><td>The named items (without <code>init</code>, minus those at their known version), and the signatures of each named <code>.library</code> unless <code>libraryManifestOnly</code>.</td><td>The named items.</td><td>empty</td><td>false</td></tr>
+</table>
+<p>
+  <code>librariesRefreshed: true</code> says <code>changed</code> holds the complete set of library signatures: a
+  signature file the client holds that is not in it is gone. <code>false</code> says <code>changed</code> holds no
+  signature it was not asked for, so the client keeps what it has.
+</p>
+
+<h3 id="gates">The two gates</h3>
 <table>
   <tr><th>version</th><th>covers</th><th>used by</th></tr>
   <tr><td class="name">projectVersion</td><td>Every tracked item's content, aggregated.</td><td>The push lease — <code>expectedProjectVersion</code>.</td></tr>
@@ -139,13 +168,35 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
 </table>
 <p>
   A push therefore has two independent gates. <code>expectedProjectVersion</code> is the lease over the whole
-  project (what <code>--force-with-lease</code> means); per-item <code>ifVersion</code> is the optimistic check
-  that the item has not moved under you. <code>force</code> drops the per-item checks and keeps the lease.
-  Separately, <code>expectedProjectName</code>/<code>expectedPlatform</code> are an <b>identity</b> check —
-  they refuse with <code>WRONG_PROJECT</code> regardless of <code>force</code>, so a forced push still cannot
-  clobber the wrong IDE. A write — <code>push</code> and <code>build</code> — must send both: one absent or empty is
-  <code>BAD_REQUEST</code> naming it, before anything is done. On <code>refs</code> and <code>fetch</code> they are
-  optional, and the answer echoes the <code>platform</code>/<code>projectName</code> it walked.
+  project: when it is not the project's version the push is refused <code>STALE_PROJECT_VERSION</code> and nothing is
+  applied. Per-item <code>ifVersion</code> is the check that the item has not moved under you; <code>force</code> skips
+  every per-item check and keeps the lease. <code>expectedProjectName</code>/<code>expectedPlatform</code> are an
+  <b>identity</b> check — they refuse with <code>WRONG_PROJECT</code> regardless of <code>force</code>. A write —
+  <code>push</code> and <code>build</code> — must send both: one absent or empty is <code>BAD_REQUEST</code> naming it.
+  On <code>refs</code>, <code>fetch</code> and <code>grep</code> they are optional, and a read answers the
+  <code>platform</code>/<code>projectName</code> it walked.
+</p>
+<p>A quoted version must hold; without one, a <code>set</code> creates and a <code>deleteItem</code> asks only for the goal:</p>
+<table>
+  <tr><th>op</th><th><code>ifVersion</code></th><th>the IDE holds</th><th>answer</th></tr>
+  <tr><td class="name">set</td><td>none</td><td>nothing at the path</td><td>a create</td></tr>
+  <tr><td class="name">set</td><td>none</td><td>an item at the path</td><td><code>ITEM_EXISTS</code>, <code>currentVersion</code> its version</td></tr>
+  <tr><td class="name">set</td><td>none</td><td>an unreadable item at the path, or an object of that name whose kind it could not state</td><td><code>UNREADABLE</code></td></tr>
+  <tr><td class="name">set, deleteItem</td><td><code>v</code></td><td>the item at <code>v</code></td><td>applied</td></tr>
+  <tr><td class="name">set, deleteItem</td><td><code>v</code></td><td>the item at another version</td><td><code>STALE_ITEM_VERSION</code>, <code>yourVersion</code> and <code>currentVersion</code> set</td></tr>
+  <tr><td class="name">set, deleteItem</td><td><code>v</code></td><td>nothing, and the walk read its folder</td><td><code>ITEM_MISSING</code></td></tr>
+  <tr><td class="name">set, deleteItem</td><td><code>v</code></td><td>nothing the walk could see: its folder was not read</td><td><code>ITEM_UNVERIFIED</code></td></tr>
+  <tr><td class="name">deleteItem</td><td>none</td><td>nothing at the path</td><td>nothing to do: no conflict, nothing written</td></tr>
+  <tr><td class="name">deleteItem</td><td>none</td><td>an item at the path</td><td>a delete</td></tr>
+</table>
+<p>
+  With <code>force</code>, no row's conflict is answered: each op is applied to what the IDE holds. The gate runs over the
+  batch in order, so an op sees what the ops before it did (a create makes the path exist for a later op). A
+  <code>set</code> whose <code>to</code> lands on a path the IDE holds is <code>ITEM_EXISTS</code> from the pre-flight,
+  forced or not, and so is a create or a rename onto a name a POU, DUT or GVL of the same application holds in another
+  folder or kind (the IDE holds one object of a name per application): <code>name</code> is the op's,
+  <code>existing</code> the path of the item there when it is another one, and <code>currentVersion</code> that item's
+  version.
 </p>
 
 <h2 id="push-ops">The push op union</h2>
@@ -159,43 +210,37 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
     <td class="name">set</td>
     <td>The item at path <code>name</code> should end up at <code>to ?? name</code>, with
       <code>sourceText ?? (what it has now)</code>. A path that names no item is a create there. One op
-      expresses <b>create, update, rename, move</b> and any combination of them, applied atomically. A move stays
-      inside one application; a <code>to</code> in another application is refused <code>BAD_REQUEST</code> naming both
-      (moving there is a delete and a create).</td>
+      expresses <b>create, update, rename, move</b> and any combination of them, and it is one op: it answers one
+      conflict or none. A move stays inside one application; a <code>to</code> in another application is refused
+      <code>BAD_REQUEST</code> naming both (moving there is a delete and a create).</td>
   </tr>
-  <tr><td class="name">deleteItem</td><td>Remove the item. With an <code>ifVersion</code> it is guarded like an
-    update: the item must be there at that version (<code>STALE_ITEM_VERSION</code>, <code>ITEM_MISSING</code>, or
-    <code>ITEM_UNVERIFIED</code> when the pre-apply walk skipped its folder). One rule for every op: a quoted version must
-    hold, or the push is refused. With none, a path that names nothing is already the goal: accepted, nothing
-    written.</td></tr>
+  <tr><td class="name">deleteItem</td><td>Remove the item, guarded by its <code>ifVersion</code> as the table above
+    says.</td></tr>
 </table>
 <div class="note">
   <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a
   <code>set</code>'s <code>to</code>, an addressed path (<a href="#identity">identity</a>). A second op on the same path
   (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a path another op
   sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
-  <code>set</code>; a delete and a create of the same path are two pushes, and so is freeing a path and moving onto it. Applied as one batch, it would replace
-  the object — and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network
-  settings) — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
-  (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
-  is a re-type in one push, and is refused the same way.
+  <code>set</code>; a delete and a create of the same path are two pushes, and so is freeing a path and moving onto it.
+  <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name (the IDE names an object without its
+  kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other is a re-type in one push, and is refused
+  the same way.
 </div>
 <div class="note">
   <b>The text carries the object's properties.</b> A <code>sourceText</code> spells, besides its declaration and body,
   every object property the vendor holds as <a href="items.html#properties"><code>%</code>-lines</a>
   (<code>%CLASS</code>, <code>%EXCLUDE_FROM_BUILD</code>, …) — so a <code>set</code> whose lines differ from the IDE's is
-  a change even when its code is not, and a create makes the class its <code>%CLASS</code> line names or is refused
-  <code>UNSUPPORTED</code> by name, never created as the plain class and reported ACCEPTED; an update whose
-  <code>%CLASS</code> differs from the IDE's is refused the same way (a class never changes in place — delete and create
-  it, two pushes). The same holds inside a
-  POU: a member renamed in one push keeps its IDE object when exactly one member of its kind was dropped and one
-  added; a member whose kind changes under the same name is refused.
+  a change even when its code is not. A create makes the class its <code>%CLASS</code> line names, or is refused
+  <code>UNSUPPORTED</code> by name; an update whose <code>%CLASS</code> differs from the IDE's is refused the same way (a
+  class never changes in place — delete and create it, two pushes). Inside a POU, a member renamed in one push keeps its
+  IDE object when exactly one member of its kind was dropped and one added; a member whose kind changes under the same
+  name is refused.
 </div>
 <p>
-  <b>Folders are not entities.</b> There is no folder op, because Volt models structure the way git does: a
-  folder is the path an item lives in, created on demand from an item's path, and a push
-  <b>prunes the folders it empties</b> — the way git removes a directory once its last file goes. Only folders
-  <i>that push</i> emptied, recursively up the chain, and never a vendor container.
+  <b>Folders are not entities.</b> There is no folder op: a folder is the path an item lives in, created on demand from
+  an item's path, and a push <b>prunes the folders it empties</b>, recursively up the chain — only folders <i>that
+  push</i> emptied, and never a vendor container.
 </p>
 
 <h3 id="pou">A POU is <code>X.pou</code></h3>
@@ -205,171 +250,164 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   update of <code>X.pou</code>, gated by its <code>ifVersion</code> like any update. The text is written as sent and
   never read for a kind. A create seeds a function block and writes the declaration before it creates the members, so
   a member the IDE will not take under that text (a METHOD under FUNCTION text) is refused <code>UNSUPPORTED</code> with
-  the IDE's own message — a create leaves nothing behind, an update says its declaration landed. The retired names
-  <code>X.prg</code> / <code>X.fb</code> / <code>X.fun</code> name no kind and are refused <code>BAD_REQUEST</code>.
+  the IDE's own message. <code>X.prg</code>, <code>X.fb</code> and <code>X.fun</code> name no kind and are refused
+  <code>BAD_REQUEST</code>.
 </p>
 
 <h3 id="dut">A DUT is <code>X.dut</code></h3>
 <p>
   Every DUT travels as <code>X.dut</code>, whatever its shape (<a href="items.html#dut">items</a>), so a push that
   changes a DUT's subtype — a struct rewritten as an enum — is an ordinary content update of <code>X.dut</code>,
-  gated by its <code>ifVersion</code> like any update. A DUT op's body is <b>not</b> checked against anything: the
-  text is written as sent and the IDE's build reports what is wrong with it. A <code>delete</code> names one wire item
-  by its kind: <code>delete X.dut</code> never deletes an <code>X</code> that is a POU, forced or not. An
-  op under a name with no kind extension — <code>X</code>, <code>X.foo</code>, and the retired split names
-  <code>X.struct</code> / <code>X.enum</code> / <code>X.union</code> / <code>X.alias</code> — is refused
-  <code>BAD_REQUEST</code> before anything is read.
+  gated by its <code>ifVersion</code> like any update. The text is written as sent and the IDE's build reports what is
+  wrong with it. A delete names one item by its kind: <code>deleteItem X.dut</code> never deletes an <code>X</code> that
+  is a POU, forced or not. A name with no kind extension is refused <code>BAD_REQUEST</code> before anything is read:
+  <code>X</code>, <code>X.foo</code>, <code>X.struct</code>, <code>X.enum</code>, <code>X.union</code>, <code>X.alias</code>.
 </p>
 
-<h2 id="errors">Error codes</h2>
-<p>
-  Every failure is a coded error, not a message a client has to pattern-match. The codes are plain strings —
-  nothing in the product branches on them, so a client that wants to react matches the string.
-</p>
-<p data-render="errors"></p>
+<h3 id="push-answer">The push answer</h3>
+<pre>{ "newProjectVersion": "5c1d…",
+  "newItems": { "POUs/FB_Pump.pou": "9a0e…" },
+  "removed":  [ "POUs/FB_Old.pou" ],
+  "conflicts": [ { "name": "POUs/FB_Valve.pou", "code": "STALE_ITEM_VERSION", "reason": "…",
+                   "yourVersion": "11aa…", "currentVersion": "22bb…" } ],
+  "unwalkedFolders": [] }</pre>
 <table>
-  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
-  <tr><td class="name">PROTOCOL_MISMATCH</td><td>The request states no <code>protocol</code>, or one this bridge does not speak. Refused before the body is read; nothing ran. <code>error.data.bridgeProtocol</code> is the number the bridge speaks.</td><td>The client and the bridge are of two releases: update the older one (an IDE that loaded the previous bridge is restarted).</td></tr>
-  <tr><td class="name">STALE_PROJECT_VERSION</td><td>A push&rsquo;s <code>expectedProjectVersion</code> is not the project&rsquo;s version: the project moved since the read that produced it. Nothing was applied. <code>error.data.currentProjectVersion</code> is the version the IDE holds.</td><td>Pull, then push again.</td></tr>
-  <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>. When a project is open and cannot be served (a TwinCAT window whose solution has no file), the message says why.</td><td>Send <code>connect</code>, or do what the message says.</td></tr>
-  <tr><td class="name">IDE_UNSUPPORTED</td><td>The IDE the bridge runs in lacks something the bridge needs, so it serves nothing: every op but <code>health</code> answers with it. The message is fixed English naming the platform version and what is missing — <code>CODESYS 3.5.17.0 is not supported: it lacks …</code> — and <code>health</code> carries the same sentence as <code>unsupported</code>, beside <code>ideVersion</code>. Refused by capability, never by version number.</td><td>Show the message; do not retry. The IDE has to change, not the call.</td></tr>
-  <tr><td class="name">IDE_BUSY</td><td>A <code>push</code> or <code>build</code> arrived while another push or build held the IDE. Refused at once, before the IDE is touched: nothing was applied and nothing compiled. Both vendors answer it alike; reads (<code>refs</code>, <code>fetch</code>) and <code>health</code> are never refused with it. An error <i>frame</i>.</td><td>Wait for the running build or push to answer, then try once. Never retry in a loop.</td></tr>
-  <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>The request breaks the wire&rsquo;s own rules, whichever phase meets it. A request frame that is not valid JSON or is over the <a href="#framing">frame cap</a>, a body that does not deserialize, a body member the op does not have (member names match exactly), a <code>null</code> for a member the schema types as a value or as a list or map entry (<code>null</code> is &ldquo;absent&rdquo; only for an optional member), an unknown <code>op</code>, a <code>fetch</code> with neither <code>knownItems</code> nor <code>onlyItems</code> nor <code>init: true</code>, a malformed <code>.task</code> descriptor, a push of a read-only descriptor, a move of an item that is no source item, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, a name with no kind extension, a path <code>refs</code> could not publish or a <code>to</code> of another kind (<a href="#identity">identity</a>, <a href="#pou">a POU is <code>X.pou</code></a>, <a href="#dut">a DUT <code>X.dut</code></a>).</td><td>Fix the caller. The message names the op and the body type.</td></tr>
-  <tr><td class="name">IDE_LOST_ITEM</td><td>A post-condition of a push: the IDE no longer holds what Volt just wrote or read during the apply &mdash; a member it created and cannot find again, a node not where the move put it, a task it acknowledged and does not list. Never &ldquo;the request names nothing&rdquo; &mdash; that is the gate&rsquo;s <a href="#gate-codes"><code>ITEM_MISSING</code></a>, answered before anything is written. (It was <code>NOT_FOUND</code>.)</td><td><code>volt pull</code> to see what landed, then push again; if it repeats, collect the <a href="logs.html">log</a>.</td></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent &mdash; never Volt&rsquo;s own rule about a request (<code>BAD_REQUEST</code>) and never a Volt bug (<code>INTERNAL_ERROR</code>). A shape this vendor cannot write, a create, import or task call-list rebuild the IDE refused, a member kind with no mapping, a descriptor field the vendor has no counterpart for, a <code>%</code>-line this vendor has no measured member for, a class it cannot create (a <code>%CLASS</code> create), or a member re-typed under the same name. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, an item whose kind has no canonical text form, or an object holding a vendor member no text spells (the item is listed <code>unreadable</code> naming the member, never pulled without it).</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
-  <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read, or a <code>%</code>-line out of place, out of order, repeated, or with a value it does not take &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
-  <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized (or a member of it has no declaration), so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>, by its path.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it. An item the IDE does not return at all (a member it holds no declaration for) cannot be updated in place, forced or not &mdash; the refusal says so: fix it in the IDE, or replace it &mdash; push its <code>deleteItem</code>, then push it again as a create.</td></tr>
-  <tr><td class="name">INTERNAL_ERROR</td><td>Volt&rsquo;s own broken invariant, and nothing else: a state Volt&rsquo;s code guarantees cannot happen, or an exception nobody coded (the fallback of <code>PipeServer</code> and of the push&rsquo;s conflicts). An IDE state is never this &mdash; an unreadable folder is <code>ITEM_UNVERIFIED</code>, an IDE refusal <code>UNSUPPORTED</code>, a broken post-condition <code>IDE_LOST_ITEM</code>, a member the IDE holds no declaration for <code>UNREADABLE</code>.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
-</table>
-
-<h3 id="not-a-code">Where a code arrives as a conflict, not a frame</h3>
-<p>
-  Seven of these codes are raised in places whose exceptions the push <b>catches on purpose</b>. They are not
-  lost — they arrive on the conflict — but they never appear as an error <i>frame</i>, which is the single
-  most useful thing to know when a failure does not look like what you expected:
-</p>
-<table>
-  <tr><th>code</th><th>raised in</th><th>reaches you as</th></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A conflict on <code>conflicts[].code</code> — on a push <b>rejection</b> (<code>accepted:false</code>), or, raised by the live IDE after earlier ops landed, on an accepted push (<a href="#partial-push">below</a>).</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same.</td></tr>
-  <tr><td class="name">IDE_LOST_ITEM</td><td>The push's apply loop, and both drivers' writes.</td><td>Same, from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
-  <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>The push's op routing.</td><td>Same.</td></tr>
-  <tr><td class="name">UNREADABLE</td><td>The push's create guard.</td><td>Same.</td></tr>
-  <tr><td class="name">INTERNAL_ERROR</td><td>The push&rsquo;s conflict for a refusal nobody coded (<code>ConflictFor</code>&rsquo;s fallback).</td><td>Same &mdash; and since an apply-time stop is a conflict on an accepted push, a client does receive it there.</td></tr>
-</table>
-
-<h3 id="gate-codes">The optimistic gate's own codes</h3>
-<p>
-  A rejected push is not an error frame — it is a normal <code>result</code> with <code>accepted:false</code>
-  and a <code>conflicts</code> list, because a version conflict is an expected outcome rather than a failure.
-  Nothing was applied. These five are the gate's own answers, and they are five because the engineer's next
-  step is different for each. <code>ITEM_EXISTS</code> also comes from the pre-flight, for a <code>to</code>:
-</p>
-<table>
-  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
-  <tr><td class="name">STALE_ITEM_VERSION</td><td>That item moved since you read its version — the ordinary edit collision. <code>yourVersion</code> and <code>currentVersion</code> are both set.</td><td>Pull that item, merge, push again.</td></tr>
-  <tr><td class="name">ITEM_EXISTS</td><td>A <code>set</code> lands on a path the IDE holds: a create (<code>ifVersion: null</code>, gate only, so a forced create overwrites), or a rename or move's <code>to</code> (pre-flight, force or not) &mdash; and a create or a rename onto a name a POU, DUT or GVL of the same application holds in another folder or kind, since the IDE holds one object of a name per application (the conflict names that item). <code>currentVersion</code> is the version of the item there.</td><td>A create: fetch its version and push an update, or pick another name. A <code>to</code>: pick another <code>to</code>, or free it in an earlier push. <b>Not</b> pull-and-retry.</td></tr>
-  <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
-  <tr><td class="name">ITEM_UNVERIFIED</td><td>The push could not READ the item — the pre-apply walk skipped the folder it lives in, so absence proves nothing. The opposite news to <code>ITEM_MISSING</code>: the item is almost certainly still there and the <i>bridge</i> is what is impaired. The same code when the apply meets it: TwinCAT reads a folder only when its Solution Explorer hierarchy vouches for every child (DIALECT C2i), and a push&rsquo;s apply-time lookup through a folder it does not vouch for &mdash; or one holding two children of one name (D34) &mdash; answers this, naming the folder. So does a lookup whose child count, child or name read the IDE refuses outright, and a forced replace of an item the walk named but whose folder it did not read. A hierarchy that cannot vouch for the PLC project <i>itself</i> stops the walk before anything is read: <code>refs</code>, <code>fetch</code> and <code>push</code> then answer it as an error <i>frame</i> with this code &mdash; the one gate code that can arrive as a frame. Resolving a body&rsquo;s names reads every declaration of the project, so such a folder <i>anywhere</i> refuses that op too, the message saying the refusal is the folder&rsquo;s, not the item&rsquo;s. (It was <code>INTERNAL_ERROR</code>.)</td><td>Fix what stops the IDE enumerating that folder &mdash; the message names it; a <code>refs</code>/<code>fetch</code> walk lists the folders it skipped in <code>unwalkedFolders</code>. Do not recreate the item.</td></tr>
+  <tr><th>member</th><th>present</th><th>means</th></tr>
+  <tr><td class="name">conflicts</td><td>always</td><td>One per op that did not land in full, named by the op's own <code>name</code>, with its code. <b>Every op the list does not name landed in full.</b></td></tr>
+  <tr><td class="name">newItems</td><td>always</td><td>Path → new version of every item the push created or changed: each landed <code>set</code>'s item where it now is, and what of a refused op stays. An item the IDE changed beside the push is not in it.</td></tr>
+  <tr><td class="name">removed</td><td>always</td><td>Every path the push made disappear: deletes, rename and move sources, what a refused op deleted — each only when it was there before and is gone after.</td></tr>
+  <tr><td class="name">newProjectVersion</td><td>exactly when something landed</td><td>The project's version after the push: the lease the next push quotes.</td></tr>
+  <tr><td class="name">unwalkedFolders</td><td>always</td><td>The folders the push's walks could not read: an op on an item under one answers <code>ITEM_UNVERIFIED</code>, and an item there that the push changed may be missing from <code>newItems</code> — re-read it.</td></tr>
+  <tr><td class="name">newSources</td><td>with <code>returnSources</code></td><td>Path → the text a <code>fetch</code> would now return, for every path in <code>newItems</code>.</td></tr>
 </table>
 <p>
-  A push refused before its first write names <b>every</b> refused op in the one answer — the gate's per-item
-  conflicts and the pre-flight's, in request order, one conflict per op — so a client regenerates exactly those and
-  re-sends the rest. A stale lease (<code>STALE_PROJECT_VERSION</code>) is answered without the pre-flight, and a
-  malformed request (<code>BAD_REQUEST</code> for the ops' own shape) at its first offending op.
-</p>
-
-<h3 id="partial-push">An accepted push that did not land in full</h3>
-<p>
-  Only the live IDE can refuse an op that the pre-flight passed — a member name it will not take, a body its
-  importer rejects. When it does after earlier ops landed, the push <b>stops</b> there (the earlier ops are not
-  rolled back, the later ones are not applied) and answers <code>accepted:true</code> with the usual receipt
-  (<code>newItems</code>, <code>newProjectVersion</code>) <b>and</b> a conflict for every op
-  that did not land: the refused op with its own code, and each op after it in apply order with
-  <code>NOT_ATTEMPTED</code>. <b>Every op the list does not name landed.</b> When the refused op was the first one
-  applied, nothing landed in full and the answer is <code>accepted:false</code>; whatever of that op the IDE kept (an
-  update's declaration, a member it deleted, a create it could not remove) is stated in its reason. A reason
-  describes the refusal and carries no client instruction — the CLI adds its own advice from the code.
+  A client updates its baseline from the answer alone: <code>baseline − removed + newItems</code>.
 </p>
 <table>
-  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
-  <tr><td class="name">NOT_ATTEMPTED</td><td>The op was not applied: the push stopped at an earlier op the IDE refused. Only on an accepted push.</td><td>Re-send it unchanged.</td></tr>
+  <tr><th>when the push stops</th><th>what landed</th><th>conflicts</th></tr>
+  <tr><td class="name">the lease</td><td>nothing</td><td>none: the answer is the error frame <code>STALE_PROJECT_VERSION</code>, the IDE's version in <code>error.data.currentProjectVersion</code>.</td></tr>
+  <tr><td class="name">the gate or the pre-flight</td><td>nothing</td><td>Every refused op with its code, in request order; every other op <code>NOT_ATTEMPTED</code>. No <code>newProjectVersion</code>.</td></tr>
+  <tr><td class="name">the apply</td><td>every op before the refused one; of the refused op, what its conflict states</td><td>The refused op with its code; every later op <code>NOT_ATTEMPTED</code>.</td></tr>
 </table>
-<div class="note">
-  <b>Match <code>conflicts[].code</code>, never the message.</b> Four vocabularies share that field and they
-  cannot collide: the five gate codes above, a <code>NETWORK_*</code> diagnostic with a <code>line</code> for a
-  graphical body the format refuses, the seven bridge codes in the table before it, and
-  <code>NOT_ATTEMPTED</code>. Every conflict carries one.
-  <br><br>
-  Until 2026-09 this field held the network-text code and nothing else, so the bridge codes arrived as prose;
-  the gate's four kept arriving as prose after that, all four as <code>code: null</code>, told apart only by
-  which version field happened to be null. The callers did what callers do — the e2e suite asserted on exact
-  English sentences and the CLI printed the message with no branch. If you are reading an older client, that
-  is what you are looking at.
-</div>
-
-<h2 id="vocab">The other closed vocabularies</h2>
 <p>
-  Three more sets of strings travel on this wire. Like the error codes they are plain strings, defined once,
-  and a client matches them rather than branching on a type.
+  Only the live IDE can refuse an op the pre-flight passed — a member name it will not take, a body its importer
+  rejects. The earlier ops are not rolled back. What of the refused op the IDE kept is stated on its conflict:
+  <code>partiallyApplied: true</code> when any of it stays (re-read the item before retrying it), <code>renamedTo</code>
+  with the item's current path after a rename that ran before the refusal, <code>remains: true</code> for a create whose
+  rollback failed — each absent when it does not apply. A reason describes the refusal and carries no client
+  instruction.
+</p>
+
+<h2 id="build">Building</h2>
+<pre>{ "success": false, "durationMs": 2140,
+  "diagnostics": [ { "name": "Device/Plc Logic/Application/FB_Motor.pou", "member": "Execute", "code": "C0046",
+                     "severity": "error", "message": "Identifier 'x' not defined" } ] }</pre>
+<p>
+  <code>success</code> is each vendor's own signal: CODESYS has it from its diagnostics, TwinCAT from the IDE's count
+  of failed projects. A failed build always carries at least one <code>error</code> diagnostic: when the IDE wrote none
+  Volt could read, one diagnostic says so, with no item and no position. Never derive success from the diagnostics.
 </p>
 <table>
-  <tr><th>field</th><th>values</th><th>meaning</th></tr>
-  <tr>
-    <td class="name">ProjectEntry.status</td><td data-render="statuses"></td>
-    <td>The ROW's full connection state, and the one self-describing field — "is it serving" derives from it
-      (<code>status != idle</code>), so there is no separate flag. <code>idle</code> = detected but not the
-      served one; <code>healthy</code>/<code>degraded</code> = served, channel fine / had recent errors.</td>
-  </tr>
-  <tr>
-    <td class="name">HealthResponse.status</td><td><code>unavailable</code> + the above</td>
-    <td>The BRIDGE-level aggregate. <code>unavailable</code> is a bridge word, never a row value.</td>
-  </tr>
-  <tr>
-    <td class="name">BridgeDiagnostic.severity</td><td data-render="severities"></td>
-    <td>Mapped from the vendor's own severity word by substring, case-insensitively — the inputs are not a
-      closed set. <b>Anything unrecognised becomes <code>info</code></b>, which is the safe direction: inventing
-      an <code>error</code> would fail a build that passed.</td>
-  </tr>
-  <tr>
-    <td class="name">vendor / expectedPlatform</td><td data-render="vendors"></td>
-    <td>The only vendor fact above the seam.</td>
-  </tr>
+  <tr><th>member</th><th>means</th></tr>
+  <tr><td class="name">name</td><td>The item's path, absent when the vendor named none or one Volt could not resolve to exactly one item.</td></tr>
+  <tr><td class="name">member</td><td>The method, property or action of <code>name</code> the diagnostic is inside; never without <code>name</code>.</td></tr>
+  <tr><td class="name">code</td><td>The vendor's own number as the IDE renders it (<code>C0046</code>), absent when it has none.</td></tr>
+  <tr><td class="name">severity</td><td><span data-render="severities"></span>, from the host's declared table of the vendor's values; absent when the vendor's value is not in it — not classified.</td></tr>
+  <tr><td class="name">line, column</td><td>1-based, counted in the vendor's object (inside <code>member</code> when it is set); absent when the vendor stated none. CODESYS states no position; TwinCAT states a line and no column.</td></tr>
+  <tr><td class="name">durationMs</td><td>How long the build took, in milliseconds.</td></tr>
 </table>
 
 <h2 id="grep">Searching: grep</h2>
 <p>
   <code>grep</code> searches the text <code>fetch</code> ships, line by line, and answers lines — never sources:
 </p>
-<pre>{ "op": "grep", "body": { "pattern": "lamp", "paths": ["**/*.pou"] } }
+<pre>{ "op": "grep", "protocol": 1, "body": { "pattern": "lamp", "paths": ["**/*.pou"] } }
 
-{ "matches": [ { "path": "POUs/PRG_A.pou", "line": 7, "text": "\tlamp := start AND NOT stop;" } ],
+{ "matches": [ { "name": "POUs/PRG_A.pou", "line": 7, "text": "\tlamp := start AND NOT stop;" } ],
   "items": { "POUs/PRG_A.pou": "3f2a9c01d4e5b6a7" },
   "searched": 12, "totalMatches": 1, "truncated": false,
-  "notSearched": [ { "name": "POUs/PRG_B.pou", "reason": "its body reads IMPLEMENTATION CFC UNSUPPORTED" } ],
+  "notSearched": [ { "name": "POUs/PRG_B.pou", "code": "UNSUPPORTED", "reason": "its body reads IMPLEMENTATION CFC UNSUPPORTED" } ],
   "unwalkedFolders": [] }</pre>
 <p>
   Line <code>7</code> is line 7 of that item's fetched <code>sourceText</code>, and <code>text</code> is that line byte for
-  byte (cut at 500 characters with <code>…</code>), so it can be quoted back in a push. <code>items</code> holds each
-  matched item's <code>refs</code> version. <code>pattern</code> is a .NET regular expression, or plain text with
-  <code>literal: true</code>; case is ignored unless <code>caseSensitive: true</code>. In <code>paths</code>,
-  <code>*</code> stays within a segment, <code>**</code> crosses segments and <code>?</code> is one character. At most
-  <code>limit</code> matches (default 200, 1–1000) are answered; <code>totalMatches</code> counts to 10000.
-  <code>.library</code> items and library signatures are not searched.
+  byte, so it can be quoted back in a push. A line longer than 500 UTF-16 code units is cut to its first 500 (499 when the
+  500th would split a surrogate pair), followed by <code>…</code>, and the match carries <code>cut: true</code>; a whole
+  line has no <code>cut</code>. <code>items</code> holds each matched item's <code>refs</code> version.
+  <code>pattern</code> is a .NET regular expression, or plain text with <code>literal: true</code>; case is ignored unless
+  <code>caseSensitive: true</code>. In <code>paths</code>, <code>*</code> stays within a segment, <code>**</code> crosses
+  segments and <code>?</code> is one character. At most <code>limit</code> matches (default 200, 1–1000) are answered;
+  <code>totalMatches</code> counts to 10000. <code>.library</code> items and library signatures are not searched.
 </p>
+
+<h2 id="errors">Codes</h2>
 <p>
-  Before asking, a client reads <code>health.ops</code>: every op the bridge answers, from its own dispatch table. A
-  bridge that lists no <code>grep</code> cannot search, and a <code>health</code> with no <code>ops</code> at all is a
-  bridge from before the list.
+  Every failure is a coded error, not a message a client has to pattern-match. A code arrives on one or more
+  channels: an error <code>frame</code> (the op answers nothing else), a push <code>conflict</code> (on
+  <code>conflicts[].code</code>, beside the ops that landed), or an <code>unreadable</code> entry. Every op may answer
+  <span data-render="common-codes"></span> as a frame (<code>health</code> never <code>IDE_UNSUPPORTED</code>); each op's
+  own frames are on its card below.
 </p>
+<div data-render="codes"></div>
+<table>
+  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
+  <tr><td class="name">PROTOCOL_MISMATCH</td><td>The request states no <code>protocol</code>, or one this bridge does not speak. Refused before the body is read; nothing ran. <code>error.data.bridgeProtocol</code> is the number the bridge speaks.</td><td>The client and the bridge are of two releases: update the older one (an IDE that loaded the previous bridge is restarted).</td></tr>
+  <tr><td class="name">STALE_PROJECT_VERSION</td><td>A push&rsquo;s <code>expectedProjectVersion</code> is not the project&rsquo;s version: the project moved since the read that produced it. Nothing was applied. <code>error.data.currentProjectVersion</code> is the version the IDE holds.</td><td>Pull, then push again.</td></tr>
+  <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>. When a project is open and cannot be served (a TwinCAT window whose solution has no file), the message says why.</td><td>Send <code>connect</code>, or do what the message says.</td></tr>
+  <tr><td class="name">IDE_UNSUPPORTED</td><td>The IDE the bridge runs in lacks something the bridge needs, so it serves nothing: every op but <code>health</code> answers with it. The message is fixed English naming the platform version and what is missing — <code>CODESYS 3.5.17.0 is not supported: it lacks …</code> — and <code>health</code> carries the same sentence as <code>unsupported</code>, beside <code>ideVersion</code>. Refused by capability, never by version number.</td><td>Show the message; do not retry. The IDE has to change, not the call.</td></tr>
+  <tr><td class="name">IDE_BUSY</td><td>A <code>push</code> or <code>build</code> arrived while another push or build held the IDE. Refused at once, before the IDE is touched: nothing was applied and nothing compiled. Reads and <code>health</code> are never refused with it; they wait for the IDE.</td><td>Wait for the running build or push to answer, then try once. Never retry in a loop.</td></tr>
+  <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named. The message names what the request stated and what the bridge serves.</td><td>Rebind, or refuse — never merge.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>The request breaks the wire&rsquo;s own rules, whichever phase meets it: a request that is not valid JSON, is over the <a href="#framing">size limit</a> or starts with a BOM; an unknown envelope member or <code>op</code>; a body that does not deserialize, a body member the op does not have (member names match exactly), a <code>null</code> for a member the schema types as a value or as a list or map entry (<code>null</code> is &ldquo;absent&rdquo; only for an optional member); a <code>fetch</code> with neither <code>knownItems</code> nor <code>onlyItems</code> nor <code>init: true</code>; a malformed <code>.task</code> descriptor, a push of a kind that is not <code>writable</code>, a move of an item that is no source item, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, a name with no kind extension, a path <code>refs</code> could not publish or a <code>to</code> of another kind (<a href="#identity">identity</a>, <a href="#pou">a POU is <code>X.pou</code></a>, <a href="#dut">a DUT <code>X.dut</code></a>).</td><td>Fix the caller. The message names the op and the member.</td></tr>
+  <tr><td class="name">IDE_LOST_ITEM</td><td>A post-condition of a push: the IDE no longer holds what Volt just wrote or read during the apply &mdash; a member it created and cannot find again, a node not where the move put it, a task it acknowledged and does not list. Never &ldquo;the request names nothing&rdquo; &mdash; that is the gate&rsquo;s <code>ITEM_MISSING</code>, answered before anything is written.</td><td>Pull to see what landed, then push again; if it repeats, collect the <a href="logs.html">log</a>.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent &mdash; never Volt&rsquo;s own rule about a request (<code>BAD_REQUEST</code>) and never a Volt bug (<code>INTERNAL_ERROR</code>). A shape this vendor cannot write, a create, import or task call-list rebuild the IDE refused, a member kind with no mapping, a descriptor field the vendor has no counterpart for, a <code>%</code>-line this vendor has no measured member for, a class it cannot create, or a member re-typed under the same name. The message says what. On a read: an object holding what no text spells, or an item in a folder excluded from the build (listed <code>unreadable</code>, never pulled without it), and a body that reads <code>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</code> in grep's <code>notSearched</code>.</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
+  <tr><td class="name">DUPLICATE_CHILD</td><td>A collision below the item: a member the push creates where the IDE already holds one of that name.</td><td>Rename the member, or update instead of create.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read, or a <code>%</code>-line out of place, out of order, repeated, or with a value it does not take &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them.</td><td>Fix the body.</td></tr>
+  <tr><td class="name">UNREADABLE</td><td>The IDE holds the object but did not give what Volt asked of it (its body, its kind, its properties), so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code> or <code>unreadableNodes</code>; a push op that would land on it is refused with it.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it. An item the IDE does not return at all (a member it holds no declaration for) cannot be updated in place, forced or not &mdash; the refusal says so: push its <code>deleteItem</code>, then push it again as a create.</td></tr>
+  <tr><td class="name">INTERNAL_ERROR</td><td>Volt&rsquo;s own broken invariant: a state Volt&rsquo;s code guarantees cannot happen, or an exception nobody coded. An IDE state is never this &mdash; an unreadable folder is <code>ITEM_UNVERIFIED</code>, an IDE refusal <code>UNSUPPORTED</code>, a broken post-condition <code>IDE_LOST_ITEM</code>, a member the IDE holds no declaration for <code>UNREADABLE</code>.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
+</table>
+
+<h3 id="gate-codes">The gate's codes</h3>
+<p>
+  The per-item gate answers on the conflict, and its codes differ because the engineer's next step does
+  (<a href="#gates">the gate table</a>):
+</p>
+<table>
+  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
+  <tr><td class="name">STALE_ITEM_VERSION</td><td>That item moved since you read its version — the ordinary edit collision. <code>yourVersion</code> and <code>currentVersion</code> are both set.</td><td>Pull that item, merge, push again.</td></tr>
+  <tr><td class="name">ITEM_EXISTS</td><td>A <code>set</code> lands on a path, or a name, the IDE holds. <code>existing</code> is that item's path when it is not the op's <code>name</code>; <code>currentVersion</code> is its version.</td><td>A create: fetch its version and push an update, or pick another name. A <code>to</code>: pick another <code>to</code>, or free it in an earlier push. <b>Not</b> pull-and-retry.</td></tr>
+  <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. No <code>currentVersion</code>. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
+  <tr><td class="name">ITEM_UNVERIFIED</td><td>The push could not READ the item — the walk skipped the folder it lives in, so absence proves nothing: the item is almost certainly still there and the <i>bridge</i> is what is impaired. The same code when the apply meets it: TwinCAT reads a folder only when its Solution Explorer hierarchy vouches for every child, and an apply-time lookup through a folder it does not vouch for, or one holding two children of one name, or one whose child count, child or name read the IDE refuses, answers this, naming the folder. A hierarchy that cannot vouch for the PLC project <i>itself</i> stops the walk before anything is read: <code>refs</code>, <code>fetch</code>, <code>grep</code> and <code>push</code> then answer it as an error <i>frame</i>. Resolving a body&rsquo;s names reads every declaration of the project, so such a folder <i>anywhere</i> refuses that op too, the message saying the refusal is the folder&rsquo;s, not the item&rsquo;s.</td><td>Fix what stops the IDE enumerating that folder &mdash; the message names it; a <code>refs</code>/<code>fetch</code> walk lists the folders it skipped in <code>unwalkedFolders</code>. Do not recreate the item.</td></tr>
+  <tr><td class="name">NOT_ATTEMPTED</td><td>The op was not applied: the push stopped at another op.</td><td>Re-send it unchanged.</td></tr>
+</table>
+<div class="note">
+  <b>Match <code>conflicts[].code</code>, never the message.</b> Every conflict carries one: a gate code above, a
+  <code>NETWORK_*</code> refusal of a graphical body (<a href="network-text.html#diagnostics">network text</a>) — the one
+  kind of conflict that also carries a <code>line</code> — a bridge code from the table before it, or
+  <code>NOT_ATTEMPTED</code>.
+</div>
+
+<h2 id="vocab">The other closed vocabularies</h2>
+<p>
+  Each is closed per bridge: a value the bridge's <code>health</code> does not list, or the schema does not name, is a
+  bridge bug.
+</p>
+<table>
+  <tr><th>field</th><th>values</th><th>meaning</th></tr>
+  <tr>
+    <td class="name">ProjectEntry.status</td><td data-render="statuses"></td>
+    <td>The row's full connection state. <code>idle</code> = detected but not the served one;
+      <code>healthy</code>/<code>degraded</code> = served, channel fine / had recent errors. A bridge serves when some
+      row is not <code>idle</code>.</td>
+  </tr>
+  <tr>
+    <td class="name">vendor / expectedPlatform / platform</td><td data-render="vendors"></td>
+    <td>The vendors the shipped hosts declare: the only vendor fact above the seam.</td>
+  </tr>
+</table>
 
 <h2 id="ops">The ops</h2>
 <p class="lede">
-  Each card carries the <b>closed set of error frames</b> that op can answer with, and the ways it fails
-  without one — the list to have in front of you when a client gets an answer it did not expect.
+  Each card carries the error frames that op can answer with — the common set first — and the ways it fails
+  without one: the list to have in front of you when a client gets an answer it did not expect.
 </p>
 <div data-render="ops"></div>
 
@@ -385,9 +423,9 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
 <pre>npx @open-rpc/generator                      # a typed client
 https://inspector.open-rpc.org               # browse it interactively</pre>
 <p>
-  What the document does <b>not</b> carry is the framing — newline-delimited <code>{op, body}</code> with a
-  leading progress stream — and the per-op error sets above, which ride as <code>x-errorCodes</code>. Generated
-  clients hand you the method signatures; the transport and the failure handling are yours.
+  The framing is in the document's <code>info.description</code> and its <code>Request</code>,
+  <code>ProgressFrame</code> and <code>ErrorFrame</code> schemas; each op's error frames ride as
+  <code>x-errorCodes</code>. Generated clients hand you the method signatures; the transport is yours.
 </p>
 
 </main>

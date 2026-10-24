@@ -58,13 +58,13 @@ public static class GrepService
             if (it.Kind == ItemKind.Kinds.Library || v.Materialized is not { } mat || !InScope(v.Identity)) return;
             candidates.Add(new Candidate(v.Identity, v.Version, mat.Text));
             if (mat.Hidden.Count > 0)
-                notSearched.Add(new NotSearchedItem(v.Identity, string.Join("; ", mat.Hidden.Select(Hidden))));
+                notSearched.Add(new NotSearchedItem(v.Identity, BridgeErrorCodes.Unsupported, string.Join("; ", mat.Hidden.Select(Hidden))));
         }
-        var snap = ProjectSnapshot.Walk(link, onProgress, Ops.Grep, phase: "searching", onItem: OnItem);
+        var snap = ProjectSnapshot.Walk(link, onProgress, Ops.Grep, phase: ProgressFrame.SearchingPhase, onItem: OnItem);
         // The items fetch ships no text for, as refs names them — every one the walk saw, of known kind or not.
         notSearched.AddRange(snap.Unreadable
             .Where(u => InScope(u.Name) && !u.Name.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase))
-            .Select(u => new NotSearchedItem(u.Name, u.Reason)));
+            .Select(u => new NotSearchedItem(u.Name, u.Code, u.Reason)));
 
         var response = new GrepResponse
         {
@@ -83,7 +83,7 @@ public static class GrepService
                 response.TotalMatches++;
                 if (response.Matches.Count < limit)
                 {
-                    response.Matches.Add(new GrepMatch { Path = c.Path, Line = number, Text = Cut(text) });
+                    response.Matches.Add(Match(c.Path, number, text));
                     response.Items[c.Path] = c.Version;
                 }
                 if (response.TotalMatches >= CountCap) break;
@@ -155,11 +155,13 @@ public static class GrepService
             yield return lines[i].EndsWith("\r", StringComparison.Ordinal) ? lines[i].Substring(0, lines[i].Length - 1) : lines[i];
     }
 
-    private static string Cut(string text)
+    /// <summary>One matching line: the whole line, or — longer than <see cref="TextCap"/> UTF-16 code units — its first
+    /// <see cref="TextCap"/> (one fewer when the last would split a surrogate pair) followed by <c>…</c>, marked <c>cut</c>.</summary>
+    private static GrepMatch Match(string path, int number, string text)
     {
-        if (text.Length <= TextCap) return text;
+        if (text.Length <= TextCap) return new GrepMatch { Name = path, Line = number, Text = text };
         var keep = char.IsHighSurrogate(text[TextCap - 1]) ? TextCap - 1 : TextCap;
-        return text.Substring(0, keep) + "…";
+        return new GrepMatch { Name = path, Line = number, Text = text.Substring(0, keep) + "…", Cut = true };
     }
 
     private static string Hidden(HiddenBody h) =>
