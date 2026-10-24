@@ -118,11 +118,13 @@ public sealed class Fakeco : VendorDriverBase, IVendorDriver
         {
             var code = N(item.Item).Body?.Code ?? "";
             var lines = code.Split('\n');
+            // A line counts in the object as the seam states (IVendorSession.GetBuildDiagnostics): its declaration, then its code.
+            var declared = N(item.Item).Declaration.Split('\n').Length;
             for (var i = 0; i < lines.Length; i++)
                 if (lines[i].Contains("??"))
                     LastDiagnostics.Add(new BridgeDiagnostic
                     {
-                        Name = item.Name, Code = "FK1", Severity = Severity.Error, Message = "'??' is no FKL expression", Line = i + 1, Column = 1,
+                        Name = item.Name, Code = "FK1", Severity = Severity.Error, Message = "'??' is no FKL expression", Line = declared + i + 1, Column = 1,
                     });
         }
         return LastDiagnostics.Count == 0;
@@ -254,6 +256,21 @@ public sealed class Fakeco : VendorDriverBase, IVendorDriver
 public sealed class FakecoFormat : IItemFormat
 {
     public string Name => "fakeco";
+
+    /// <summary>Its layout: property lines, the declaration, the <c>IMPLEMENTATION</c> line, the code. An object line counts
+    /// the declaration's lines, then the code's; Fakeco has no members.</summary>
+    public int? LineOf(string text, string kind, string name, string? member, int objectLine)
+    {
+        if (member is not null || objectLine < 1) return null;
+        var lines = text.Split('\n');
+        var props = lines.TakeWhile(l => l.StartsWith("%", StringComparison.Ordinal)).Count();
+        var marker = Array.FindIndex(lines, props, ImplementationLine.Is);
+        var declared = (marker < 0 ? lines.Length - 1 : marker) - props;
+        if (objectLine <= declared) return props + objectLine;
+        if (marker < 0) return null;
+        var at = marker + 1 + (objectLine - declared);
+        return at <= lines.Length ? at : null;
+    }
 
     public string Write(Content content, string name)
     {

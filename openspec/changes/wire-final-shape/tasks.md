@@ -348,7 +348,7 @@ declare in `src/` outside Contracts and the CLI: 0, plus 8 pinned below the wire
 (`3d6beb32…`); no fixture, recording, transpiler or LSP change, so no fixture-map regeneration.
 Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 56, Engine 3151 (+1 skipped), Cli 361,
 Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-cli `bun test test/unit` 228.
-- [ ] 3.6b ONE coordinate system for every line on the wire (owner principle, PLC Assist report 2026-10-24): a build
+- [x] 3.6b ONE coordinate system for every line on the wire (owner principle, PLC Assist report 2026-10-24): a build
       diagnostic's `line` is the 1-based line in the item's FETCHED `sourceText` — the coordinates `grep` and network-text
       refusals already use — never the vendor's own count. Measured live (TwinCAT 3.1.4024.74, PLC Assist read/edit suite):
       an error on fetched line 51 inside a METHOD whose header is line 45 is reported `6` (member-relative); 2.6 also found
@@ -357,6 +357,17 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       to the item's fetched text line; where it cannot map with certainty, `line` is ABSENT. Red e2e test first on both
       vendors: an error at a known fetched line in the item body and in a METHOD body answers exactly that line. The
       schema states the coordinate system in `line's` description.
+      **Built 2026-10-24** (design "Built (3.6b and step 4)" 1): the driver states the vendor's line in the object it
+      names (seam: declaration lines, then code lines); `BuildService.Place` places it through the kind's
+      `IItemFormat.LineOf` (`IecFormat`: the text read back must write itself, then `StWriter.Lines`), else no `line` and
+      no `column`. Not placed: a property accessor's line (the wire names no accessor), a network or hidden body, a line
+      past the object, a diagnostic naming no item. Tests: `BuildDiagnosticLineTests` (9), `StWriterLinesTests` (2),
+      `ThirdVendorTransportTests` (Fakeco states its line by the seam and places it), the premise "the vendor's position
+      is untouched" removed from `BuildDiagnosticNameTests` (overturned by this task). Live: `build-diagnostics.test.ts`
+      "a line is the fetched text's line holding the fault, in the body and in a METHOD" green on TwinCAT 3.1.4024 (the
+      exact fetched lines) and CODESYS 3.5.21.40 (absent: CODESYS states none); written beside the fix, not run red
+      first. OpenRPC `BridgeDiagnostic.line`/`column` carry the description; `wire.html`, DIALECT D36, the CLI's and
+      volt-control's printing (`name:line[:column] (member)`) follow. Wire shape re-pinned (`45202c77…`, protocol 1).
 - [x] 3.10 All C# suites, `bun test test/unit`, typecheck, lint, `bun run check` green.
       Step 3d re-measured at `5b03b13771` (2026-10-24, clean tree, `dotnet build Volt.sln` 0 errors, then `--no-build`):
       Contracts 56, Engine 3151 (+1 skipped), Cli 361, Connector 154, Ide.Twincat 728, Ide.Codesys 505 (net48),

@@ -8,8 +8,14 @@
  * evidence of anything.</p>
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE, at, drivenBuild } from "../harness"
+import { id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE, VENDOR, at, drivenBuild, fetchSource } from "../harness"
 import { fb, METHOD, ACTION, MARK } from "../fixtures"
+
+/** A position is 1-based and absent where the vendor stated none: CODESYS states none (DIALECT C27), TwinCAT a line. */
+const expectPosition = (hit: any) => {
+	if (VENDOR === "codesys") expect([hit.line, hit.column]).toEqual([undefined, undefined])
+	else expect(hit.line).toBeGreaterThanOrEqual(1)
+}
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -44,8 +50,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 			d.message.toLowerCase().includes("y") &&
 			(d.message.toLowerCase().includes("not defined") || d.message.toLowerCase().includes("undefined") || d.message.toLowerCase().includes("unknown")))
 		expect(hit).toBeDefined()
-		expect(hit.line).toBeGreaterThanOrEqual(0)
-		expect(hit.column).toBeGreaterThanOrEqual(0)
+		expectPosition(hit)
 	})
 
 	it("detects duplicate variable declaration", async () => {
@@ -64,8 +69,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 			d.message.toLowerCase().includes("x") &&
 			(d.message.toLowerCase().includes("duplicate") || d.message.toLowerCase().includes("already") || d.message.toLowerCase().includes("redeclared") || d.message.toLowerCase().includes("ambiguous")))
 		expect(hit).toBeDefined()
-		expect(hit.line).toBeGreaterThanOrEqual(0)
-		expect(hit.column).toBeGreaterThanOrEqual(0)
+		expectPosition(hit)
 	})
 
 	it("detects type mismatch", async () => {
@@ -88,8 +92,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 			d.message.toLowerCase().includes("bool") ||
 			d.message.toLowerCase().includes("implicit"))
 		expect(hit).toBeDefined()
-		expect(hit.line).toBeGreaterThanOrEqual(0)
-		expect(hit.column).toBeGreaterThanOrEqual(0)
+		expectPosition(hit)
 	})
 
 	// A DIAGNOSTIC INSIDE A CHILD OBJECT NAMES THE ITEM AND THE CHILD (openspec codesys-diagnostic-child-names). A method,
@@ -161,7 +164,9 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 			.toEqual([{ name: wire, member: undefined }])
 	})
 
-	it("every diagnostic has a column field (may be 0 if IDE omits it)", async () => {
+	// A position the vendor did not state is ABSENT, never 0 (wire-final-shape 3b): no diagnostic carries a 0, and a
+	// column never comes without a line.
+	it("no diagnostic carries a 0 position, nor a column without a line", async () => {
 		const name = id("b_col")
 		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\ny := 1;\nEND_FUNCTION_BLOCK\n`
 		await createItem(fid("b_col"), src)
@@ -169,7 +174,27 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 		const r = await drivenBuild()
 		expect(r.success).toBe(false)
-		for (const d of r.diagnostics)
-			expect(typeof d.column).toBe("number")
+		for (const d of r.diagnostics) {
+			expect(d.line === undefined || d.line >= 1, JSON.stringify(d)).toBe(true)
+			expect(d.column === undefined || (d.column >= 1 && d.line !== undefined), JSON.stringify(d)).toBe(true)
+		}
+	})
+
+	// ONE COORDINATE SYSTEM FOR EVERY LINE ON THE WIRE (wire-final-shape 3.6b): a diagnostic's `line` is the line of the
+	// item's FETCHED text that holds the fault — in the item's own body and in a METHOD's — never the vendor's count inside
+	// its object (TwinCAT counts the object's declaration and code, no IMPLEMENTATION line: DIALECT D36). CODESYS states
+	// no position at all (DIALECT C27), so there the line is absent.
+	it("a line is the fetched text's line holding the fault, in the body and in a METHOD", async () => {
+		const name = id("b_line"), wire = await at(fid("b_line"))
+		await createItem(wire, fb(name, { body: "x := 1;\nzzSelf := 1;", children: METHOD("Compute", "Compute := d;\nzzChild := 1;") }))
+		await instantiateInPlcPrg(name)
+
+		const r = await drivenBuild()
+		const lines = (await fetchSource(wire)).replace(/\r\n/g, "\n").split("\n")
+		const lineOf = (token: string) => lines.findIndex((l) => l.includes(token)) + 1
+		const self = undefinedIn(r, "zzSelf"), child = zz(r)
+		expect([self.length, child.length], JSON.stringify(r.diagnostics)).toEqual([1, 1])
+		const want = (token: string) => (VENDOR === "codesys" ? undefined : lineOf(token))
+		expect([self[0].line, child[0].line], JSON.stringify(r.diagnostics)).toEqual([want("zzSelf"), want("zzChild")])
 	})
 })

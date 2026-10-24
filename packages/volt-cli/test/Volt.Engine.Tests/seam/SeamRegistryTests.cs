@@ -19,6 +19,7 @@ public class SeamRegistryTests
         public string Name { get; }
         public string Write(Content content, string name) => throw new NotSupportedException();
         public Content Read(string text, string kind, string name, Catalog catalog, string vendor) => throw new NotSupportedException();
+        public int? LineOf(string text, string kind, string name, string? member, int objectLine) => throw new NotSupportedException();
     }
 
     private sealed class OtherReader : IBodyReader

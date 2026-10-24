@@ -41,14 +41,13 @@ public class BuildDiagnosticNameTests
             BuildSucceeds = false,
             BuildDiagnostics = new List<BridgeDiagnostic>
             {
-                new() { Name = "Boiler", Severity = Severity.Error, Message = "C0032: cannot convert", Line = 12 },
+                new() { Name = "Boiler", Severity = Severity.Error, Message = "C0032: cannot convert" },
             },
         };
 
         var diagnostic = Assert.Single(Build(ide).Diagnostics);
 
         Assert.Equal(expected, diagnostic.Name);
-        Assert.Equal(12, diagnostic.Line);   // the position the vendor gave is untouched
     }
 
     /// <summary>A DUT'S DIAGNOSTIC IS NAMED <c>X.dut</c>, WHATEVER ITS SHAPE. The build response is a wire message

@@ -204,7 +204,9 @@ public class ThirdVendorTransportTests
             Assert.False(build.GetProperty("success").GetBoolean());
             var d = Assert.Single(build.GetProperty("diagnostics").EnumerateArray().ToList());
             Assert.Equal(MotorPath, d.GetProperty("name").GetString());
-            Assert.Equal(2, d.GetProperty("line").GetInt32());
+            // The line of the item's fetched text that holds the fault (wire-final-shape 3.6b), not the vendor's count.
+            var text = client.Call("fetch", new { onlyItems = new[] { MotorPath } }).GetProperty("changed")[0].GetProperty("sourceText").GetString()!;
+            Assert.Equal(Array.IndexOf(text.Split('\n'), "lamp = ??") + 1, d.GetProperty("line").GetInt32());
         }
     }
 

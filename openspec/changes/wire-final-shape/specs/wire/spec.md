@@ -31,3 +31,11 @@ version of every path it created or changed (`newItems`) and every path it made 
 #### Scenario: a rename
 - **WHEN** a push renames `A.pou` to `B.pou`
 - **THEN** `newItems` holds `B.pou` and `removed` holds `A.pou`
+
+### Requirement: every line on the wire is a line of the item's fetched text
+A build diagnostic's `line` SHALL be the 1-based line of its item's fetched `sourceText` that holds the vendor's
+position, and SHALL be absent when the bridge cannot place it there with certainty.
+
+#### Scenario: an error inside a method
+- **WHEN** the IDE reports an error on line 6 of a METHOD whose declaration has 4 lines
+- **THEN** the diagnostic's `line` is the line of the fetched text holding that method's second code line

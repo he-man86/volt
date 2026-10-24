@@ -324,8 +324,8 @@ public class BlackBoxTests
     }
 
     /// <summary>An error inside a METHOD names the item's file AND the method (openspec
-    /// <c>codesys-diagnostic-child-names</c>): `--json` carries <c>member</c>, and the printed location puts it between
-    /// the file and the line, because the vendor counts that line inside the method (DIALECT D36).</summary>
+    /// <c>codesys-diagnostic-child-names</c>): `--json` carries <c>member</c>, and the printed location names it after
+    /// the file and its line (a line of the file, wire-final-shape 3.6b).</summary>
     [Fact]
     public void Build_prints_and_emits_the_member_a_diagnostic_is_inside()
     {
@@ -333,7 +333,7 @@ public class BlackBoxTests
         {
             HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
             BuildSucceeds = false,
-            BuildDiagnostics = new[] { new BridgeDiagnostic { Name = "PLC_PRG", Member = "Step", Severity = "error", Code = "C0578", Message = "Unexpected statement", Line = 6 } },
+            BuildDiagnostics = new[] { new BridgeDiagnostic { Name = "PLC_PRG", Member = "Step", Severity = "error", Code = "C0578", Message = "Unexpected statement" } },
         };
         var (root, host, pipe) = Boot(ide);
         try
@@ -345,7 +345,7 @@ public class BlackBoxTests
                 var d = doc.RootElement.GetProperty("diagnostics")[0];
                 Assert.Equal(("PLC_PRG.pou", "Step"), (d.GetProperty("name").GetString(), d.GetProperty("member").GetString()));
             }
-            Assert.Contains("PLC_PRG.pou(Step):6 C0578: Unexpected statement", RunVolt(root, pipe, "build").Out);
+            Assert.Contains("PLC_PRG.pou (Step) C0578: Unexpected statement", RunVolt(root, pipe, "build").Out);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

@@ -60,7 +60,8 @@ public interface IVendorSession
     bool Build(IReadOnlyCollection<string>? applications);
 
     /// <summary>The last build's diagnostics as fresh objects, each named by the BARE name the vendor gave; the engine
-    /// promotes them to paths through <paramref name="walk"/>.</summary>
+    /// promotes them to paths through <paramref name="walk"/>. A line is the vendor's, counted in the object it names
+    /// (the declaration's lines, then the code's); the engine places it in the item's fetched text.</summary>
     IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics(Func<HostWalk> walk);
 
     /// <summary>Every referenced library element's signature; a vendor with no library manager answers none.</summary>

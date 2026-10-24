@@ -70,6 +70,20 @@ public sealed class IecFormat : IItemFormat
     public Content Read(string text, string kind, string name, Catalog catalog, string vendor) =>
         FamilyContent.ToContent(AbstractMemberFold.Apply(StReader.Read(text, kind, name)));
 
+    /// <summary>Through <see cref="StWriter.Lines"/> over the text read back, and only when that content writes this very
+    /// text — anything else is no certain place.</summary>
+    public int? LineOf(string text, string kind, string name, string? member, int objectLine)
+    {
+        ItemContent item;
+        try { item = StReader.Read(text, kind, name); }
+        catch (BridgeException) { return null; }
+        if (!string.Equals(StWriter.Write(item), text, StringComparison.Ordinal)) return null;
+        var found = StWriter.Lines(item).Where(o => member is null
+            ? o.Member is null
+            : string.Equals(o.Member, member, StringComparison.OrdinalIgnoreCase)).ToList();
+        return found.Count == 1 ? found[0].LineOf(objectLine) : null;
+    }
+
     public string Write(Content content, string name)
     {
         var item = FamilyContent.ToItemContent(content);

@@ -141,12 +141,12 @@ export interface BuildDiagnostic {
   /** Full wire name of the item (`FB_Motor.pou`), or absent for a project-level message. */
   name?: string
   /** The CHILD of `name` the diagnostic is inside — a method, action or property (`Execute`) — absent when it is about
-   *  the item itself. Never present without `name`. It is the frame of `line`: on TwinCAT a child's line counts inside
-   *  the child (DIALECT D36), so a position is `name(member):line` (`describeBuildDiagnostic`). */
+   *  the item itself. Never present without `name`. */
   member?: string
   /** The vendor's own diagnostic number as the IDE renders it (`C0032`). */
   code?: string
-  /** 1-based; absent when the vendor stated no position (every CODESYS diagnostic). */
+  /** 1-based line of the item's fetched text (wire-final-shape 3.6b); absent when the vendor stated none (every CODESYS
+   *  diagnostic) or the bridge cannot place it there. */
   line?: number
   /** 1-based; absent when the vendor stated none. */
   column?: number

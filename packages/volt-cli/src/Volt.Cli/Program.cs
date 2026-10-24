@@ -297,15 +297,13 @@ internal static class Program
     /// colon-prefixed number that reads as a truncated path. Column only alongside a line, because a column
     /// without one points nowhere.</para>
     ///
-    /// <para>The MEMBER rides between them - `FB_Motor.pou(Execute):6` - because an error inside a method is in the
-    /// FB's file but the vendor counts its line inside the METHOD (DIALECT D36): printed bare, `FB_Motor.pou:6` would
-    /// send the engineer to the wrong line of the right file.</para></summary>
+    /// <para>The line is a line of the item's file (wire-final-shape 3.6b), so `FB_Motor.pou:51` is the position a
+    /// compiler prints; the MEMBER follows it - `FB_Motor.pou:51 (Execute)` - naming the child the error is in.</para></summary>
     private static string Where(Volt.Contracts.BridgeDiagnostic d)
     {
         if (d.Name is not { Length: > 0 } item) return "";
-        var name = d.Member is { Length: > 0 } member ? $"{item}({member})" : item;
-        var at = d.Line is { } line ? $"{name}:{line}" + (d.Column is { } column ? $":{column}" : "") : name;
-        return at + " ";
+        var at = d.Line is { } line ? $"{item}:{line}" + (d.Column is { } column ? $":{column}" : "") : item;
+        return d.Member is { Length: > 0 } member ? $"{at} ({member}) " : at + " ";
     }
 
     /// <summary>`volt grep <pattern>` — the IDE's matching lines, as a compiler or grep prints them:

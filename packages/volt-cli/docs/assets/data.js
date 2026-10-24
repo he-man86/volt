@@ -251,7 +251,7 @@ window.VOLT = {
           "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold, or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
           "A project that does not compile is \u0060success: false\u0060 with its diagnostics, never an error frame; a compile that throws answers \u0060success: false\u0060 with the reason as an error diagnostic.",
           "\u0060success\u0060 is each vendor\u0027s own signal: CODESYS has it from its diagnostics, TwinCAT from the IDE\u0027s count of failed projects. A failed build always carries an error diagnostic: when the IDE wrote none Volt could read, one says so, with no position.",
-          "\u0060severity\u0060 is absent when the vendor\u0027s value is not in its host\u0027s declared table. \u0060line\u0060 and \u0060column\u0060 are 1-based and absent when the vendor stated none: CODESYS states no position, TwinCAT a line and no column.",
+          "\u0060severity\u0060 is absent when the vendor\u0027s value is not in its host\u0027s declared table. \u0060line\u0060 and \u0060column\u0060 are 1-based lines and columns of the item\u0027s fetched \u0060sourceText\u0060, absent when the vendor stated none or the bridge cannot place one there: CODESYS states no position, TwinCAT a line and no column.",
           "Compiles what the IDE holds in memory; Volt calls no save. On TwinCAT a build saves changed documents, as XAE\u0027s own Build does."
         ],
         "result": {
@@ -323,10 +323,12 @@ window.VOLT = {
               "type": "string"
             },
             "line": {
-              "type": "integer"
+              "type": "integer",
+              "description": "1-based line of the item\u0027s FETCHED \u0060sourceText\u0060 (the coordinates of \u0060grep\u0060 and of a network-text conflict\u0027s \u0060line\u0060), never the vendor\u0027s own count. Absent when the vendor stated none or the bridge cannot place it in that text with certainty (a property accessor\u0027s line, a network or hidden body)."
             },
             "column": {
-              "type": "integer"
+              "type": "integer",
+              "description": "1-based column on \u0060line\u0060, as the vendor stated it; absent when it stated none, and always without \u0060line\u0060."
             }
           },
           "required": [

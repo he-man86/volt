@@ -134,8 +134,10 @@ public static class BuildService
         // FULL or null — so between those two instants the only safe value is null. If the walk below throws
         // (the caller catches it: naming is decoration, not the build) the diagnostics keep the nulls rather
         // than escaping with the vendor's spelling still on them - and the member, a child of that name, with it.
-        var bare = diagnostics.Select(d => (Name: d.Name, Member: d.Member)).ToList();
-        foreach (var d in diagnostics) { d.Name = null; d.Member = null; }
+        var bare = diagnostics.Select(d => (Name: d.Name, Member: d.Member, Line: d.Line, Column: d.Column)).ToList();
+        // The POSITION goes with the name, cleared the same way (wire-final-shape 3.6b): a vendor line is placed in the
+        // named item's fetched text below, and a line nothing places has no coordinates a client can use.
+        foreach (var d in diagnostics) { d.Name = null; d.Member = null; d.Line = null; d.Column = null; }
 
         var wanted = new HashSet<string>(
             bare.Select(b => b.Name).Where(n => !string.IsNullOrEmpty(n)).Select(n => ItemPath.FileOf(n!)),
@@ -148,6 +150,8 @@ public static class BuildService
         // looked up.
         var resolved = new Dictionary<string, string?>(ItemPath.Addressed);
         var holders = new Dictionary<string, string?>(ItemPath.Addressed);
+        // The fetched text of every resolved item, which a vendor line is placed in.
+        var texts = new Dictionary<string, (string Text, string Kind, string Bare)>(ItemPath.Addressed);
         foreach (var pi in walk().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
@@ -158,6 +162,7 @@ public static class BuildService
             var v = Versioning.SafeVersion(link, pi.Name, kind, pi.Item, pi.Folder);
             if (v.Materialized is null) continue;
             var identity = v.Identity;
+            texts[identity] = (v.Materialized.Text, kind, pi.Name);
             var barePath = ItemPath.Of(pi.Folder, pi.Name);
             Record(resolved, pi.Name, identity);
             Record(resolved, barePath, identity);
@@ -176,8 +181,33 @@ public static class BuildService
             if (diagnostics[i].Name is null)
                 VoltLog.Debug($"build: a diagnostic named '{name}', which resolves to no single readable item — "
                               + "reporting it without a name rather than pointing at the wrong file");
-            else diagnostics[i].Member = bare[i].Member;
+            else
+            {
+                diagnostics[i].Member = bare[i].Member;
+                Place(link, diagnostics[i], texts[diagnostics[i].Name!], bare[i].Line, bare[i].Column);
+            }
         }
+    }
+
+    /// <summary>ONE COORDINATE SYSTEM for every line on the wire (wire-final-shape 3.6b): a diagnostic's <c>line</c> is the
+    /// 1-based line of its item's FETCHED text — the coordinates <c>grep</c> and a network-text refusal use — never the
+    /// vendor's own count. A vendor counts a line inside the object it names (the item's own, or a member's: DIALECT D36),
+    /// and the item's format places that line in the text (<see cref="IItemFormat.LineOf"/>). Where it cannot place it
+    /// with certainty — a property accessor, a network or hidden body, a line past the object — the diagnostic carries no
+    /// line and no column, never the vendor's number in the wrong coordinates. A column counts in the vendor's line, which
+    /// is the fetched line verbatim, so it travels with a placed line only.</summary>
+    private static void Place(HostLink link, BridgeDiagnostic d, (string Text, string Kind, string Bare) item, int? line, int? column)
+    {
+        if (line is not { } vendorLine) return;
+        if (link.Catalog.Kinds.Find(item.Kind)?.Format is not { } format) return;
+        if (format.LineOf(item.Text, item.Kind, item.Bare, d.Member, vendorLine) is not { } placed)
+        {
+            VoltLog.Debug($"build: line {vendorLine} of {(d.Member is null ? "" : $"'{d.Member}' in ")}'{d.Name}' has no certain " +
+                          "place in its fetched text — reporting the diagnostic without a position");
+            return;
+        }
+        d.Line = placed;
+        d.Column = column;
     }
 
     private static void Record(Dictionary<string, string?> map, string bare, string identity)

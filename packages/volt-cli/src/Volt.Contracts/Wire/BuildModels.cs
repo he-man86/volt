@@ -61,10 +61,9 @@ public class BridgeDiagnostic
     /// without <see cref="Name"/>: a name that resolves to nothing takes the member with it, because a child of
     /// nothing tells a client nothing.</para>
     ///
-    /// <para><b>It is also the frame of <see cref="Line"/>.</b> A vendor counts a child's line inside the CHILD
-    /// object (TwinCAT, DIALECT D36), not in the wire file, so `name:line` alone points at the wrong line of the right
-    /// file. A client that prints a position prints the member with it - `FB_Motor.pou(Execute):6`, as `volt build`
-    /// does.</para></summary>
+    /// <para><b>It does not frame <see cref="Line"/>.</b> A vendor counts a child's line inside the CHILD object (TwinCAT,
+    /// DIALECT D36); the bridge places that line in the item's fetched text (wire-final-shape 3.6b), so <c>name:line</c>
+    /// is the position, and the member says which child it is in.</para></summary>
     [JsonPropertyName("member")]
     public string? Member { get; set; }
 
@@ -85,16 +84,17 @@ public class BridgeDiagnostic
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
 
-    /// <summary>The vendor's line, 1-based, as the IDE gave it — absent when it gave none (every CODESYS diagnostic: its
-    /// position is an opaque id, DIALECT C27; a TwinCAT line with no <c>file(line)</c> shape).
-    ///
-    /// <para>Counted in the VENDOR'S object, not in the wire file: when <see cref="Member"/> is set it is a line of
-    /// that member (TwinCAT, DIALECT D36), so it is only a position together with the member.</para></summary>
+    /// <summary>A line of the ITEM'S FETCHED TEXT, 1-based — the coordinates <c>grep</c> and a network-text conflict use,
+    /// never the vendor's own count (wire-final-shape 3.6b). A vendor counts its line inside the object it names (TwinCAT:
+    /// the declaration's lines, then the code's, inside the member when there is one, DIALECT D36), and the bridge places
+    /// it in the text. Absent when the vendor gave none (every CODESYS diagnostic: its position is an opaque id, DIALECT
+    /// C27; a TwinCAT line with no <c>file(line)</c> shape) or when the bridge cannot place it with certainty (a property
+    /// accessor's line, a network or hidden body, a diagnostic naming no item).</summary>
     [JsonPropertyName("line")]
     public int? Line { get; set; }
 
-    /// <summary>The vendor's column, 1-based — absent when it gave none (CODESYS never; TwinCAT 3.1.4024 writes
-    /// <c>(line)</c> without one).</summary>
+    /// <summary>The vendor's column on <see cref="Line"/>, 1-based — absent when it gave none (CODESYS never; TwinCAT
+    /// 3.1.4024 writes <c>(line)</c> without one), and whenever <see cref="Line"/> is.</summary>
     [JsonPropertyName("column")]
     public int? Column { get; set; }
 }

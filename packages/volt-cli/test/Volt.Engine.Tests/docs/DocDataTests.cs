@@ -158,7 +158,8 @@ public class DocDataTests
             + "failed projects. A failed build always carries an error diagnostic: when the IDE wrote none Volt could read, "
             + "one says so, with no position.",
             "`severity` is absent when the vendor's value is not in its host's declared table. `line` and `column` are "
-            + "1-based and absent when the vendor stated none: CODESYS states no position, TwinCAT a line and no column.",
+            + "1-based lines and columns of the item's fetched `sourceText`, absent when the vendor stated none or the "
+            + "bridge cannot place one there: CODESYS states no position, TwinCAT a line and no column.",
             "Compiles what the IDE holds in memory; Volt calls no save. On TwinCAT a build saves changed documents, as "
             + "XAE's own Build does.",
         }),
@@ -474,6 +475,18 @@ public class DocDataTests
         (nameof(HealthKind), nameof(HealthKind.Extension)) => EnumOf(KindExtensions()),
         (nameof(UnsupportedBody), nameof(UnsupportedBody.Language)) => EnumOf(DeclaredLanguages()),
         (nameof(BridgeDiagnostic), nameof(BridgeDiagnostic.Severity)) => EnumOf(Consts(typeof(Severity))),
+        (nameof(BridgeDiagnostic), nameof(BridgeDiagnostic.Line)) => new JsonObject
+        {
+            ["type"] = "integer",
+            ["description"] = "1-based line of the item's FETCHED `sourceText` (the coordinates of `grep` and of a network-text "
+                + "conflict's `line`), never the vendor's own count. Absent when the vendor stated none or the bridge cannot "
+                + "place it in that text with certainty (a property accessor's line, a network or hidden body).",
+        },
+        (nameof(BridgeDiagnostic), nameof(BridgeDiagnostic.Column)) => new JsonObject
+        {
+            ["type"] = "integer",
+            ["description"] = "1-based column on `line`, as the vendor stated it; absent when it stated none, and always without `line`.",
+        },
         (nameof(ProgressFrame), nameof(ProgressFrame.Operation)) => EnumOf(Ops_()),
         (nameof(ProgressFrame), nameof(ProgressFrame.Phase)) => EnumOf(ProgressFrame.Phases),
         (nameof(ProgressFrame), nameof(ProgressFrame.PhaseIndex)) or (nameof(ProgressFrame), nameof(ProgressFrame.PhaseCount)) =>
@@ -984,7 +997,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "3d6beb32f772370bb701140ef99ceb8bbf57a25267e88289ba8ddc3288aad591";
+    private const string PinnedWireShape = "45202c778688352d003ced18f1146c405d3d9c4f2212230fb1c99cfbef06c0b3";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

@@ -22,6 +22,13 @@ public interface IItemFormat
     /// name the path gives), as <paramref name="vendor"/> shows its languages. A text that does not read is the client's:
     /// a coded refusal naming the line.</summary>
     Content Read(string text, string kind, string name, Catalog catalog, string vendor);
+
+    /// <summary>The line of <paramref name="text"/>, this format's file of an item of <paramref name="kind"/> named
+    /// <paramref name="name"/>, that holds line <paramref name="objectLine"/> of the vendor object a build diagnostic names
+    /// — the item's own (<paramref name="member"/> null) or a member's — counted as a vendor counts it: the object's
+    /// declaration lines, then its code lines. Null when the format cannot place it with certainty; the diagnostic then
+    /// carries no line (wire-final-shape 3.6b: every line on the wire is a line of the fetched text).</summary>
+    int? LineOf(string text, string kind, string name, string? member, int objectLine);
 }
 
 /// <summary>THE <c>IMPLEMENTATION</c> line: one grammar for every format and every vendor (vendor-neutrality S2). Which

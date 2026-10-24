@@ -73,6 +73,49 @@ public static class StWriter
         return sb.ToString();
     }
 
+    /// <summary>Where each vendor OBJECT of <paramref name="item"/> stands in <see cref="Write"/>'s text (wire-final-shape
+    /// 3.6b): the item's own declaration and ST code, and each METHOD's and ACTION's. A vendor that states a build line
+    /// counts it in its object — the declaration's lines, then the code's, no <c>IMPLEMENTATION</c> line, no
+    /// <c>%</c>-line (DIALECT D36) — and an action has no declaration object. A property is no entry: the vendor counts
+    /// inside an accessor the wire does not name. Code that is not ST (network text, a hidden body) is no entry's code.
+    /// <c>StWriterLinesTests</c> pins every entry against the written text.</summary>
+    public static IReadOnlyList<ObjectLines> Lines(ItemContent item)
+    {
+        var shape = ItemKind.ShapeOf(item.Kind);
+        var layout = IecLayout.Of(item.Kind);
+        var declared = Count(item.Declaration);
+        if (!layout.Composite) return new[] { new ObjectLines(null, 1, declared, 0, 0) };
+
+        var found = new List<ObjectLines>();
+        var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
+        var last = declared + (shape.Body ? 1 : 0) + PropertyLines.Write(item.Properties).Count;
+        var st = shape.Body && impl.Length > 0 && boundary == ImplementationMarker.For(Languages.St);
+        found.Add(new ObjectLines(null, 1, declared, st ? last + 1 : 0, st ? Count(impl) : 0));
+        if (impl.Length > 0) last += Count(impl);
+
+        var children = item.Members
+            .OrderBy(c => KindOrder(c.Kind), Comparer<int>.Default)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+        if (!layout.MembersInside) last += 2;   // the blank line and the END line
+        foreach (var c in children)
+        {
+            var start = last + 2;   // after the blank line
+            last = start - 1 + Count(AssembleChild(c, layout));
+            if (layout.MembersInside || c.Kind is not (ItemKind.Kinds.Method or ItemKind.Kinds.Action)) continue;
+            var (line, code) = ImplementationMarker.Split(c.Body ?? "");
+            var decl = Count(c.Declaration);
+            var codeStart = start + decl + 1 + PropertyLines.Write(c.Properties, c.Folder).Count;
+            var shown = code.Length > 0 && line == ImplementationMarker.For(Languages.St);
+            found.Add(c.Kind == ItemKind.Kinds.Action
+                ? new ObjectLines(c.Name, start, 0, shown ? codeStart : 0, shown ? Count(code) : 0)
+                : new ObjectLines(c.Name, start, decl, shown ? codeStart : 0, shown ? Count(code) : 0));
+        }
+        return found;
+
+        static int Count(string text) => text.Split('\n').Length;
+    }
+
     // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.
     // The kind comes from the IDE's tree, and a kind with no END line (`method`/`property`/`action` handed up as
     // an item) fails loud here, exactly like the sibling ItemKind.ExtFor. A PULL-side refusal: the item is listed
@@ -173,5 +216,22 @@ public static class StWriter
         if (lines.Count == 0) return impl;
         var head = string.Join("\n", lines);
         return impl.Length == 0 ? head : $"{head}\n{impl}";
+    }
+}
+
+/// <summary>One vendor object in an item's written text (<see cref="StWriter.Lines"/>), lines 1-based: <see cref="Member"/>
+/// null for the item itself; <see cref="DeclarationLines"/> the lines the vendor counts as its declaration, from
+/// <see cref="DeclarationStart"/> (0 for an action, which has none); <see cref="CodeStart"/> 0 when the object has no ST
+/// code in the text.</summary>
+public sealed record ObjectLines(string? Member, int DeclarationStart, int DeclarationLines, int CodeStart, int CodeLines)
+{
+    /// <summary>The text's line holding the vendor's line <paramref name="objectLine"/> of this object, or null when the
+    /// object has no such line in the text.</summary>
+    public int? LineOf(int objectLine)
+    {
+        if (objectLine < 1) return null;
+        if (objectLine <= DeclarationLines) return DeclarationStart + objectLine - 1;
+        var code = objectLine - DeclarationLines;
+        return CodeStart > 0 && code <= CodeLines ? CodeStart + code - 1 : null;
     }
 }
