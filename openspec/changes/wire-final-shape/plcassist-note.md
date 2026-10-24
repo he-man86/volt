@@ -1,7 +1,6 @@
 # Volt bridge wire, protocol 1 (final shape) — what changes for PLC Assist
 
-DRAFT (2026-10-24). Final when `wire-final-shape` is built. Both owner decisions are made (2026-10-24): `accepted` is
-deleted, and the lease is the error frame `STALE_PROJECT_VERSION` with `error.data.currentProjectVersion`.
+Final (2026-10-24), as built on Volt dev by `wire-final-shape`.
 
 The protocol number stays **1**: this shape IS protocol 1. A bridge answers a request without `"protocol": 1` (or with
 another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at once.
@@ -50,8 +49,7 @@ another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at 
   item is in `existing`.
 - "No version" is an absent `ifVersion`, never `null`.
 - A `sourceText` that starts with U+FEFF (a byte-order mark) is refused `BAD_REQUEST` for that op, and nothing of the push
-  lands: the text is UTF-8 text, so strip the mark your file reader keeps. Line ends come back as `
-`.
+  lands: the text is UTF-8 text, so strip the mark your file reader keeps. Line ends come back as LF.
 
 ## `build`
 

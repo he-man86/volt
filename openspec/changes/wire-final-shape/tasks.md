@@ -609,5 +609,6 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       rework's 7 / 7.5 / 7 / 6.5) → after, each move tied to its evidence.
       **Done 2026-10-24:** `input/rating-after.md` — Engine 7 → 7, Ide.Codesys 7.5 → 7.5, Ide.Twincat 7 → 7, Contracts +
       Wire 6.5 → 7.5 (W1/W2, P3/P4 fixed; vendor symbols 33 → 17; uncoded throws 151 → 0).
-- [ ] 5.1 `plcassist-note.md` final, sent to PLC Assist with the release.
+- [x] 5.1 `plcassist-note.md` final, sent to PLC Assist with the release. Final 2026-10-24 (main session, reviewed against
+      the built shape); sent with the release-ready message after 5.2.
 - [ ] 5.2 The full release matrix once, green; docs match the code; archive.
