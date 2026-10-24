@@ -393,11 +393,22 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       `languages`, `GrepMatch.name`, a failed build's unshaped line): TwinCAT 541 + the re-run files green (the first
       run's 26 reds were 18 stale reads and 8 caused by a parallel CODESYS run driving the TwinCAT pipe through
       `vendor-parity` — never run two vendors' suites at once), CODESYS 600/600.
-- [ ] 4.2 The wire transcripts re-recorded ONCE for the new shape (`release:matrix --record-transcripts`), then compared
+- [x] 4.2 The wire transcripts re-recorded ONCE for the new shape (`release:matrix --record-transcripts`), then compared
       identical on a second run.
+      **Done 2026-10-24:** recorded once at `c1504433c3` (`--record-transcripts`, the five transcript cells), committed
+      `ac162d8b6d`; the compare run at `ac162d8b6d` answered "transcript identical" on all five (codesys-3.5.18.30-64,
+      3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64, twincat-32, each 539 pass).
 - [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.
+      **Measured 2026-10-24 (mixed-version cell, previous release `0.1.17931`), half holds — left open for the owner:**
+      the previous release's CLI against this bridge is refused by name before any op ("this bridge speaks wire protocol
+      1, the request states none; nothing was done.") — held. This CLI against the previous bridge is SERVED (`init`,
+      `status`, `build`, push create/delete all ran): that bridge reads the envelope leniently and skips our `protocol`
+      member, exactly as "Built (step 3a)" 1 predicted; the cell lists the 10 shape differences one protocol number
+      cannot refuse. From this release on the envelope is strict, so the pair refuses itself; the previous bridge cannot
+      be made to. Owner's choice (unchanged since 3a): accept (PLC Assist and the bridge update together) or make this
+      release protocol 2. The cell is RED by its own rule until then.
 - [x] 4.3a PLC Assist report 2026-10-24 (bridge 0.1.17931, CODESYS SP21, intermittent, twice): a push that CREATED an
       item answered landed, yet the next refs had no entry for it in `items` — both items had a deliberate compile error
       (an FB with a type error; a PROGRAM referencing an uncreated DUT). Treat as a bridge bug until disproved: live
@@ -442,7 +453,12 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       the six corpora's workspace files (oracle data) with it. Not built here (no format change without the owner);
       the alternative is to state the canonical text in `wire.html` ("a text that differs only in these comes back in
       the canonical layout") and keep it.
-- [ ] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
+- [x] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
+      **Done 2026-10-24** at `ac162d8b6d`, in the compare run of 4.2 (`--jobs 3`, not 1: the cells share no instance):
+      codesys-3.5.22.40-64 539 pass, twincat-32 539 pass, vendor-parity 83 pass — green. The first record run's
+      twincat-32 was red (58): TwinCAT MultiProject's failed whole build closes with a line naming no item (carried since
+      3.6), which the suite's driven-application filter could not place; the suite now builds the application it drives
+      (`drivenBuild`, the behaviour rows: `applications`) and the multi-application cell pins that line.
 
 ## 5. Close
 
