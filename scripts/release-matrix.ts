@@ -143,7 +143,7 @@ async function runMixedCell(cell: Cell, currentCli: string): Promise<Verdict> {
 	const r = await run("bun", [join("scripts", "mixed-version.ts"), "--instance-prefix", instanceOf(cell), "--out", out,
 		"--codesys-version", cell.version!, "--bits", String(cell.bits), "--current-cli", currentCli, "--no-build-current"], { cwd: CLI, timeout: 2 * 3600_000 })
 	writeFileSync(join(OUT, `${cell.id}.log`), `${HEADER}\n${r.text}`)
-	const lines = r.text.split(/\r?\n/).filter((l) => /^(GREEN|RED)\s|^what the protocol check/.test(l))
+	const lines = r.text.split(/\r?\n/).filter((l) => /^(GREEN|RED)\s|^what the pair's difference meant/.test(l))
 	return { cell, green: r.status === 0, why: lines.length ? lines.join(" | ") : `mixed-version.ts exited ${r.status} (see the cell log)` }
 }
 

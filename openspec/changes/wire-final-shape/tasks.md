@@ -432,7 +432,7 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       Volt.Repo.Gates 275/275, DocDataTests 27/27, volt-control `src` 134/134 + `test/e2e` 11/11, typecheck clean, lint
       0 errors. No fixture, recording, transpiler or LSP change: no fixture-map regeneration, no LSP suite
       (VOLT_REQUIRE_FULL n/a).
-- [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
+- [x] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.
       **Measured 2026-10-24 (mixed-version cell, previous release `0.1.17931`), half holds — left open for the owner:**
@@ -443,6 +443,45 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       cannot refuse. From this release on the envelope is strict, so the pair refuses itself; the previous bridge cannot
       be made to. Owner's choice (unchanged since 3a): accept (PLC Assist and the bridge update together) or make this
       release protocol 2. The cell is RED by its own rule until then.
+      **Re-run after 4.3c, 2026-10-24 (at `f15228b6a3` against `0.1.17931`, CODESYS 3.5.21.40 64-bit, own instances
+      `wire-final-shape-{cur,prev}-cli`): GREEN, both directions refused by name before any op, nothing misread.**
+      This CLI → previous bridge: `init` exit 1, "this bridge predates this wire: update it … states
+      no `languages`, `kinds` in its health". Previous CLI → this bridge: `init` exit 1, "this bridge speaks wire protocol
+      1, the request states none; nothing was done." The cell's judgement was stale (`mixed-version-lib.ts` still read
+      "same protocol ⇒ must work", the pre-3a rule, so it would have judged this pair red for refusing): it now follows
+      this task's rule — a pair whose wires differ (another number, OR one number over two shapes: the two OpenRPC
+      documents differ) must be refused by name in EACH direction (PROTOCOL_MISMATCH | BRIDGE_PREDATES_WIRE |
+      BRIDGE_PROTOCOL), and a pair of one wire must work. Red first: `test/unit/mixed-version.test.ts` 11 tests, 4 red
+      before the change (a served verb across one number over two shapes was green). The 10 shape differences the cell
+      lists: health +`languages` +`kinds` −`networkText`; connect/disconnect −`ok`; push +`removed` −`accepted`
+      −`currentProjectVersion`; build +`durationMs` −`duration`. Seen, not changed: the previous bridge reports
+      `bridgeVersion` "(dev) f15228b6a3…" — the tree extracted under `dist/` builds unstamped and takes the commit of the
+      outer repo's HEAD, so the cell's log mislabels which build answered (the refusal itself proves the old code:
+      the current bridge states both members). volt-cli `test/unit` 232/232. No fixture, recording, transpiler or LSP
+      change: no fixture-map regeneration, no LSP suite.
+      **Gate 2026-10-24, review findings fixed red first (`test/unit/mixed-version.test.ts` 20 tests, 9 red before):**
+      (1) the cell judged `init` only — a refused `init` returned early, so the op-path guard (`RequireShape`) was
+      invisible. Now both bridges are served at once (`<prefix>-bridge-previous` / `-bridge-current`); when `init` on
+      the other bridge is refused, the CLI binds a workspace on its own release's bridge (not judged) and `status`,
+      `build` and both pushes then meet the other bridge (the delete push removes a pulled POU when the create was
+      refused, so it has an op to send); `judgeDirection` is red when a `REQUIRED_VERBS` verb never ran. Proven live: a
+      CLI built with `RequireShape` emptied turns the cell RED — "`build` (exit 0), `push (create)` (exit 0),
+      `push (delete)` (exit 0) was not refused by name". The re-run also MEASURED: the previous CLI's `status` folds the
+      bridge's refusal into "IDE state unknown — this bridge speaks wire protocol 1, the request states none; nothing was
+      done.", exit 0 (the behaviour 4.3c fixed in this CLI; a released CLI cannot change) — the bridge served nothing, so
+      the verdict counts the printed refusal and names the exit-0 verb. (2) the refusal is matched as the CLI PRINTS it
+      — whole sentences, no codes (`Program.cs` prints a `BridgeError`'s message only); test inputs are the measured
+      strings; a failure merely mentioning "wire protocol" or a bare code no longer counts. (3) `capabilityGap` is deep:
+      `$ref`s resolved, nested members, array elements, map values, `oneOf` arms, enum values, required-ness, type and
+      const, and the envelope (`Request`/`ProgressFrame`/`ErrorFrame`) — an enum value dropped, a nested member renamed
+      or a member made optional/nullable is a gap (tests); against 0.1.17931 it lists 77 differences (was 10, top-level
+      only). (4) the previous tree is built stamped with its tag (`Version`/`FileVersion`, as `build-cli.ps1` does) and
+      each direction asserts the answering bridge's `bridgeVersion`: previous `0.1.17931`, current
+      `(dev) f15228b6a3…` (or `VOLT_VERSION`) — both matched. Live cell at `f15228b6a3` + this tree against `0.1.17931`,
+      CODESYS 3.5.21.40 64-bit, instances `wire-final-shape-bridge-{previous,current}`: GREEN, every verb refused by name
+      in both directions, both IDEs closed cleanly. `release-matrix.ts` reads the cell's renamed summary line. Numbers:
+      volt-cli `test/unit` 241/241, typecheck clean (3 packages), lint 0 errors. No C#, fixture, recording, transpiler
+      or LSP change: no C# suite re-run, no fixture-map regeneration, no LSP suite (VOLT_REQUIRE_FULL n/a).
 - [x] 4.3a PLC Assist report 2026-10-24 (bridge 0.1.17931, CODESYS SP21, intermittent, twice): a push that CREATED an
       item answered landed, yet the next refs had no entry for it in `items` — both items had a deliberate compile error
       (an FB with a type error; a PROGRAM referencing an uncreated DUT). Treat as a bridge bug until disproved: live
