@@ -4,8 +4,8 @@
 A bridge SHALL refuse any request whose `protocol` is absent or is not the protocol it speaks, with the error frame
 `PROTOCOL_MISMATCH` naming both numbers, before its body is read.
 
-#### Scenario: a protocol-1 client
-- **WHEN** a request arrives without `protocol`, or with `protocol: 1`
+#### Scenario: a client that states no protocol, or another one
+- **WHEN** a request arrives without `protocol`, or with a number other than 1
 - **THEN** the answer is `PROTOCOL_MISMATCH` and no op runs
 
 ### Requirement: the bridge states its own catalog

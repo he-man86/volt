@@ -13,7 +13,7 @@ this wire; it should code against its final form once.
 
 ## What Changes
 
-- **Protocol 2**, carried on every request; a request of another number is refused before its body is read.
+- **Protocol stays 1** (owner 2026-10-24), carried on every request; a request without it or of another number is refused before its body is read.
 - **The bridge states its own catalog** in `health`: `languages` (replaces `networkText`) and `kinds`, beside `ops`.
   The schema's enums for vendors, kinds, languages, codes, statuses and severities are generated from the hosts'
   declarations, not from `Volt.Contracts`.

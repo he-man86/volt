@@ -1,4 +1,4 @@
-# Volt bridge wire, protocol 2 — what changes for PLC Assist
+# Volt bridge wire, protocol 1 (final shape) — what changes for PLC Assist
 
 DRAFT (2026-10-24). Final when `wire-final-shape` is built; the owner may still change the two open points in
 `design.md` (deleting `accepted`, the lease as an error frame).
@@ -8,7 +8,7 @@ Protocol 2 replaces protocol 1 in one step. A bridge answers a request without `
 
 ## Every request
 
-- Send `{ "op": "...", "protocol": 2, "body": { ... } }`. `body` may be omitted for `health` and `disconnect`.
+- Send `{ "op": "...", "protocol": 1, "body": { ... } }`. `body` may be omitted for `health` and `disconnect`.
 
 ## `health`
 

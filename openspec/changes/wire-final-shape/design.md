@@ -14,8 +14,11 @@ changes. Nothing here is built until the owner has read it.
 | **E** | **An answer is enough to act on.** A push receipt updates a baseline; a conflict names its op. | F9, F16. |
 | **F** | **The schema carries every promise the prose makes; the prose carries current behaviour only.** | F3–F6, F24, F34. |
 
-**Protocol: 2.** One bump. There is no negotiation and no compatibility path: a request without `protocol: 2` is
-refused, and PLC Assist moves to protocol 2 in one step.
+**Protocol: stays 1** (owner 2026-10-24: "protocol stays at 1 during this complete refactor … we are still finetuning
+protocol 1"). This shape IS protocol 1; the number does not move. Every request still states it (`protocol: 1`, principle
+D), so a client that sends none, or another number, is refused by name before the body is read; the previous release's
+client sends none and is refused that way. There is no negotiation and no compatibility path: PLC Assist moves to this
+shape in one step.
 
 The foreign-client review was re-run for this design on 2026-10-24 against `wire.html` and the OpenRPC document at
 `060bdfb0ee`. It was NOT blind (the reviewer had repo context; a fork cannot spawn a sub-agent), so task 1.1 runs it
@@ -26,13 +29,13 @@ blind once more against the drafted shape. Its new findings are marked **R**; th
 
 | Before | After | Principle · evidence | Client changes |
 |---|---|---|---|
-| `{op, body}`; the protocol only on `health` | `{op, protocol, body}`, `protocol` required | D · P4: `health.protocol` is the only carrier; the mixed-version refusal is client-side only | send `"protocol": 2` on every request |
+| `{op, body}`; the protocol only on `health` | `{op, protocol, body}`, `protocol` required | D · P4: `health.protocol` is the only carrier; the mixed-version refusal is client-side only | send `"protocol": 1` on every request |
 | a client of another protocol is served | error frame **`PROTOCOL_MISMATCH`**, naming both numbers, before the body is read | D | upgrade, no retry |
 | `body` absent / `{}` / `null` unstated (F2) | `body` absent ≡ `{}`; `null` is `BAD_REQUEST` (already true for members) | A | none |
 | connection lifetime unstated (F2) | stated: requests on one connection are sequential; a new one only after the terminal frame; concurrent requests use separate connections | F | none (states current behaviour) |
 | `ProgressFrame` not in the OpenRPC; `phase` only in prose (F29, **R**) | `ProgressFrame` schema in the document: `phase` enum `walking`/`reading`, `phaseIndex` 0-based, `total` absent = indeterminate | F | none |
 | encoding unstated (F26) | stated: UTF-8 without BOM, frames end in `\n` (task 1.2 measures it first) | F | none |
-| `info.version` `"1"` vs `protocol` integer (F15) | both `2` | A | none |
+| `info.version` `"1"` vs `protocol` integer (F15) | both `1`, one type | A | none |
 
 ## 2. `health`
 
@@ -123,7 +126,13 @@ quoted-version rule (a quoted version must hold); `unreadable` / `unreadableNode
 `applications`; the frame cap; `refs` joining; `IDE_BUSY`; `grep`'s semantics; case-insensitive addressing with answers
 in the IDE's spelling.
 
-## Questions for the owner
+## Owner decisions (2026-10-24)
+
+Both answered YES: `accepted` is deleted, and the lease is the error frame `STALE_PROJECT_VERSION` — with the IDE's
+current version as a FIELD of the frame (`error.data.currentProjectVersion`), not only in the message, so a client can act
+on it without parsing text.
+
+## Questions for the owner (answered above)
 
 1. **Delete `accepted`?** Recommended: yes. It says nothing the conflict list does not, and today it disagrees with it
    when a first op lands only partly. Against: every client's first branch is `if (!accepted)`; they rewrite it as

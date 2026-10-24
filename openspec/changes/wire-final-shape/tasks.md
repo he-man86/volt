@@ -22,7 +22,7 @@ answered its two questions (or let the recommended answers stand).
 
 - [ ] 3.1 Contract types (`Volt.Contracts/Wire`) to the new shape; `Vendors.cs` and the per-vendor pipe minters out of
       Contracts (vendor ids from `VendorRegistry`); every change red first in `Volt.Contracts.Tests`.
-- [ ] 3.2 Envelope: `protocol` required, `PROTOCOL_MISMATCH` before the body is read (`PipeServer`), protocol 2.
+- [ ] 3.2 Envelope: `protocol` required, `PROTOCOL_MISMATCH` before the body is read (`PipeServer`), protocol 1.
 - [ ] 3.3 `health`: `languages`, `kinds`, optional `dirty` (both hosts, no fallback), status enum.
 - [ ] 3.4 `refs`/`fetch`: `code` on unreadable entries; `knownApplications` required with `knownItems`.
 - [ ] 3.5 `push`: `accepted` and `currentProjectVersion` deleted; lease as an error frame; `removed` in the receipt;
@@ -39,7 +39,9 @@ answered its two questions (or let the recommended answers stand).
 - [ ] 4.1 The OpenRPC contract suite updated to the new shape and green on both vendors.
 - [ ] 4.2 The wire transcripts re-recorded ONCE for the new shape (`release:matrix --record-transcripts`), then compared
       identical on a second run.
-- [ ] 4.3 The mixed-version cell: a protocol-1 client is refused `PROTOCOL_MISMATCH` before any op, both directions.
+- [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
+      `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
+      name. Both directions refused by name, never misread.
 - [ ] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
 
 ## 5. Close
