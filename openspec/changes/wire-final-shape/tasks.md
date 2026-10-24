@@ -379,6 +379,16 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       after 1 s), with VOLT_LOG_DEBUG=1. Classify: unreadable / unwalkedFolders / a silent skip (the 0.1.17931
       "unmapped kind" Debug-only skip, ProjectSnapshot) / the object not yet in the IDE tree. Fix at the root behind a
       red e2e test; a receipt naming an item refs then omits is never acceptable (zero-fallback).
+- [ ] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
+      2,451-line FB (`C:UsersmarceAppDataLocalplcassist-parkolt-fidelityVltRwBig.pou.txt`, also `.lines.json`, and
+      `VltRwCrlf.pou.txt` (CRLF+BOM) / `VltRwLf.pou.txt`) pushed as one `set` create, then `fetch onlyItems`: 80 of 2,451
+      lines differ BY INDEX on BOTH vendors (same count, so likely Volt's materializer, not an IDE). Lines 2373–2451 are
+      the members (8 METHODs, then a PROPERTY with GET) — hypothesis: member ORDER or layout (blank lines, accessor
+      shape) differs, shifting every member line. Push it live on our own instance on both vendors, diff line by line,
+      and classify each difference: the IDE's own (stated in DIALECT with a measurement) or Volt's (fixed behind a red
+      e2e test before the release). Also: a BOM pushed in `sourceText` came back kept — decide whether a BOM may live
+      in `sourceText` at all (principle: the item text is UTF-8 text; a leading U+FEFF is either refused BAD_REQUEST or
+      stripped and stated, never silently stored into the IDE).
 - [ ] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
 
 ## 5. Close
