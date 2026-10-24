@@ -903,6 +903,10 @@ public class DocDataTests
             ["id"] = r.Id,
             ["rule"] = r.Rule,
             ["example"] = Volt.Engine.Format.St.StWriter.Write(r.Example),
+            // The example's file extension and the variant that breaks the row: the live e2e suite pushes both on each
+            // vendor and holds the fetch to `push` (test/e2e/endpoints/layout-rows.test.ts).
+            ["ext"] = ItemKind.ExtFor(r.Example.Kind),
+            ["variant"] = r.Break(Volt.Engine.Format.St.StWriter.Write(r.Example)),
             ["push"] = r.Push switch
             {
                 StLayoutRules.PushOutcome.Canonical => "canonical",

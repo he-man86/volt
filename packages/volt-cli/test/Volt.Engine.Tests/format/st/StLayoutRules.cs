@@ -154,11 +154,13 @@ public static class StLayoutRules
                 new()
                 {
                     new Member(ItemKind.Kinds.InterfaceMethod, "m", "METHOD m : BOOL", "", Excluded),
+                    // An empty accessor declaration, the one both vendors take (TwinCAT refuses a non-empty one,
+                    // DIALECT D21): every example is a text a client can push to either (layout-rows.test.ts).
                     new Member(ItemKind.Kinds.InterfaceProperty, "p", "PROPERTY p : INT", null, ObjectProperties.None,
-                        Getter: new Accessor("VAR\nEND_VAR", "")),
+                        Getter: new Accessor("", "")),
                 },
                 ObjectProperties.None),
-            t => t == "INTERFACE I\n\nMETHOD m : BOOL\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nVAR\nEND_VAR\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+            t => t == "INTERFACE I\n\nMETHOD m : BOOL\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
             t => t.Replace("METHOD m : BOOL\n", "METHOD m : BOOL\nIMPLEMENTATION ST\n"),
             Push: PushOutcome.Refused),
 

@@ -536,7 +536,7 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       `doc.js` `layoutText` + `.ws`. Volt.Engine.Tests 3221 pass (1 skip), Volt.Repo.Gates 275, Volt.Contracts.Tests 56,
       Volt.Connector.Tests 156, Volt.Ide.Twincat.Tests 728, Volt.Ide.Codesys.Tests 505, Volt.Cli.Tests 377, volt-cli
       `test/unit` 241; typecheck green.
-- [ ] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
+- [x] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
       2,451-line FB (`C:UsersmarceAppDataLocalplcassist-parkolt-fidelityVltRwBig.pou.txt`, also `.lines.json`, and
       `VltRwCrlf.pou.txt` (CRLF+BOM) / `VltRwLf.pou.txt`) pushed as one `set` create, then `fetch onlyItems`: 80 of 2,451
       lines differ BY INDEX on BOTH vendors (same count, so likely Volt's materializer, not an IDE). Lines 2373–2451 are
@@ -563,6 +563,37 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       the six corpora's workspace files (oracle data) with it. Not built here (no format change without the owner);
       the alternative is to state the canonical text in `wire.html` ("a text that differs only in these comes back in
       the canonical layout") and keep it.
+      **Re-checked live against 4.3d's rule, 2026-10-24 (owner kept the layout; it is `wire.html#layout`):** own instances
+      `wire-final-shape`, CODESYS 3.5.21.40 64-bit, 3.5.22.40 64-bit and TwinCAT 3.1.4024.74 (32-bit shell, fixture 14).
+      (1) PLC Assist's three shapes — `round-trip-layout.test.ts`, their generator ported (output byte-identical to
+      `VltRwBig`/`VltRwLf` and to `VltRwCrlf` without its BOM): each pushed as a create, the fetch EQUALS the pushed text
+      with the `lf` and `end-line` rows applied, byte for byte (`VltRwBig` 2,451 → 2,452 lines: the one blank line
+      before `END_FUNCTION_BLOCK`; members, member order, the GET-only property, trailing whitespace, the 2,100-character
+      line and the Unicode comment unchanged), and re-pushing it is a fixed point: 3/3 on each of the three IDEs. The BOM
+      shape stays refused BAD_REQUEST (`push.test.ts`, 10/10 on each). (2) Every row, rule by rule —
+      `layout-rows.test.ts` walks `data.js`'s `layout` (now with each row's `ext` and breaking `variant`, from
+      `StLayoutRules`): the example pushed as a create comes back byte for byte, and the variant pushed over it does what
+      the row's column says (5 canonical, 2 kept, 4 refused INVALID_ST with the example still standing): 11/11 rows on
+      each of the three IDEs. **One finding, fixed:** the `interface-member` example's interface-property GET held a
+      declaration (`VAR`/`END_VAR`), a text TwinCAT refuses UNSUPPORTED on push (DIALECT D21; CODESYS takes it, D41), so
+      the page showed an example a client cannot push to one vendor; the example's accessor declaration is now empty
+      (the one both vendors take), red first on TwinCAT. Volt.Engine.Tests 3221 pass (1 skip), Volt.Repo.Gates 275,
+      volt-cli `test/unit` 241, typecheck clean. No reader/writer change, no fixture or recording (CLI area: the live IDE
+      is the oracle here, no LSP recorder applies).
+      **Gate review fixes, 2026-10-24** (own instances `wire-final-shape`: CODESYS 3.5.21.40 64-bit, TwinCAT 3.1.4024.74
+      32-bit shell, fixture 14): (1) the interface-accessor DECLARATION divergence is stated and pinned, not dodged:
+      `layout-rows.test.ts` pushes the old example (`GET`/`VAR`/`END_VAR`/`END_GET`) — CODESYS lands it and fetches it
+      back BYTE FOR BYTE (measured, was unmeasured), TwinCAT refuses it `UNSUPPORTED` with nothing landing; listed for the
+      owner in design.md 4.3d "Open, for the owner (a vendor divergence…)" with the two ways out — not documented as an
+      edge case on the page. (2) the `lf` row's "wherever it stands" is held live: a lone CR between lines, a CR in a
+      comment, a CR in a string literal (.gvl) each come back with the CR as LF and are a fixed point — both vendors
+      took all three. (3) every `canonical`/`kept` row's fetch is re-pushed and comes back unchanged (fixed point); the
+      `JSON.parse` version of the file ran live. Numbers: `layout-rows.test.ts` 16/16 on CODESYS and on TwinCAT (11 rows
+      + the page check + 3 CR + 1 accessor declaration), `round-trip-layout.test.ts` 3/3 on both, `push.test.ts` 10/10 on
+      CODESYS. Offline, unchanged: Volt.Engine.Tests 3221 pass (1 skip), Volt.Repo.Gates 275, Volt.Contracts.Tests 56,
+      Volt.Connector.Tests 156, Volt.Ide.Twincat.Tests 728, Volt.Ide.Codesys.Tests 505, Volt.Cli.Tests 377, volt-cli
+      `test/unit` 241; `bun run typecheck` green. No product code, fixture or transpiler change (no fixture-map or LSP
+      run applies). Every finding was red-free on first run: each measured the IDEs as the page states, no product fix.
 - [x] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
       **Done 2026-10-24** at `ac162d8b6d`, in the compare run of 4.2 (`--jobs 3`, not 1: the cells share no instance):
       codesys-3.5.22.40-64 539 pass, twincat-32 539 pass, vendor-parity 83 pass — green. The first record run's

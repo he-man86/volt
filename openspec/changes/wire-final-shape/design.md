@@ -429,6 +429,15 @@ line is dropped. With code present (`b;`, two blank lines, END) the same lines s
 tell zero lines from one empty line, and the writer joins an empty body with no newline. Removing it changes the
 canonical text of every empty body (the 4.3b minimal-separator option would too).
 
+**Open, for the owner (a vendor divergence the `interface-member` row cannot state).** The row gives an interface
+PROPERTY's GET/SET a declaration slot. A NON-EMPTY declaration there is written on CODESYS and fetched back byte for
+byte (DIALECT D41; measured live 2026-10-24, 3.5.21.40) but refused `UNSUPPORTED` on TwinCAT, nothing landing
+(D21: writing it can crash TcXaeShell, and TwinCAT stores one constant declaration Volt spells empty). So a client
+cannot predict the answer from `wire.html#layout` alone, only from the vendor. Both answers are pinned live
+(`layout-rows.test.ts`, "interface-member: a non-empty interface-accessor declaration…"); the row's example keeps the
+empty declaration both take. Ways out, each the owner's: refuse a non-empty one on CODESYS too (the vendors then
+agree, and the slot is always empty — the row loses it); or keep it and name the TwinCAT refusal on the page.
+
 **Migration.** None for Volt: no file moves (no workspace file holds a CR: 0 in the corpora); the reader now reads a CR
 in a GVL or DUT as a line end (as it did in a POU), and the writer writes a CR the IDE holds as LF. 4.3b is ticked against this rule ((a) and (b)
 are rows). `plcassist-note.md`: one bullet under `fetch` — compare a pushed text against the fetched one, or against
