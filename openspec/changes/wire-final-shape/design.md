@@ -41,7 +41,7 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 
 | Before | After | Principle · evidence | Client changes |
 |---|---|---|---|
-| `networkText: boolean` | **`languages: string[]`**: every language this bridge shows as `IMPLEMENTATION <LANG>` (the `LanguageRegistry`'s shown set; today `ST`, `LD`, `FBD` on both) | B · `HealthResponse.cs:39`; the flag only fits CODESYS-family graphics (W4/W5) | show a body as editable only if its language is listed |
+| `networkText: boolean` | **`languages: string[]`**: every language this bridge shows as `IMPLEMENTATION <LANG>` (the `LanguageRegistry`'s shown set as `NetworkTextSwitch` leaves it, read in one place: `ST` in the shipped build, `ST`, `LD`, `FBD` with `VOLT_GRAPHICAL=1`; the same on both vendors, task 2.1) | B · `HealthResponse.cs:39`; the flag only fits CODESYS-family graphics (W4/W5) | show a body as editable only if its language is listed |
 | kinds only behind a link to `items.html` (F13) | **`kinds: [{ extension, writable }]`** from this bridge's `KindRegistry` | B · a process's catalog is its host's declaration (rework F3) | read kinds from `health` instead of hard-coding them |
 | `ProjectEntry.vendor`, `status` bare strings (F3) | enums in the schema, generated from `VendorRegistry` and the status set | B | none |
 | `ProjectEntry.dirty: boolean`, required; an unanswered IDE reads `false` | **`dirty` optional: absent when the IDE does not answer** | C · `CodesysObjectModel.cs:65` (`is bool b && b`), `BeckhoffDriver.cs:169,181` (`servedDirty ?? false`) | treat absent as "unknown", never as clean |

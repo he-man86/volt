@@ -11,11 +11,67 @@ answered its two questions (or let the recommended answers stand).
 
 ## 2. Measurements the design depends on
 
-- [ ] 2.1 `languages`: the shown set per bridge from its `LanguageRegistry` (expected `ST`, `LD`, `FBD` on both).
-- [ ] 2.2 `kinds`: each bridge's `KindRegistry` rows with their writable flag; equal to `items.html`'s table.
-- [ ] 2.3 `ProjectEntry.version`: who sets it, on which vendor; define it or delete it.
-- [ ] 2.4 Project-name case on TwinCAT: can one solution hold two PLC projects differing only by case? (CODESYS: no.)
-- [ ] 2.5 `dirty`: when each IDE fails to answer (both hosts), so the absent case has a test of its own.
+Measured 2026-10-24 (step 2a = 2.1–2.5, step 2b = 2.6–2.7). The probes were single-use, outside the repo, and are
+deleted; the live runs used this change's own `ide.ps1` instance `wire-final-shape` (CODESYS 3.5.21.40 fixture copy;
+TwinCAT 3.1.4024.74 / TcXaeShell 15.0, Project14 copy), both closed cleanly. No product code changed.
+
+Gate 2a+2b (2026-10-24): review findings folded (2.1 into `design.md`, 2.6 capture loss + column measured live, 2.7
+keyed on the numeric value); no product code, fixture or recording changed, so no fixture-map regeneration. Green:
+typecheck, lint (0 errors), `bun run check` (16/16), C# Contracts 62, Engine 3115 (+1 skipped), Cli 352, Connector 154,
+Ide.Twincat 714, Ide.Codesys 485, Repo.Gates 255; volt-cli `bun test test/unit` 228 pass, 0 fail.
+
+**Step 2a**
+
+- [x] 2.1 `languages`: the shown set per bridge from its `LanguageRegistry` (expected `ST`, `LD`, `FBD` on both).
+      **Measured:** both declarations are the same rows (`CodesysDriver.Seam.cs:19`, `BeckhoffDriver.Seam.cs:19`): shown
+      `ST`, `LD`, `FBD`; hidden `CFC`, `SFC`, `IL`. `ShownBy(vendor)` = `["FBD","LD","ST"]` (ordinal) on both. **But the
+      registry is not what a bridge shows:** `NetworkTextSwitch` (`VOLT_GRAPHICAL=1`, read once per process) hides LD and
+      FBD in the shipped build (`NetworkText.cs:61`). Shown = `["ST"]` in production, `["FBD","LD","ST"]` with the switch
+      on (`ide.ps1`, the suites; all 5 committed transcripts carry `networkText: true`). **For 3.3:** `languages` is the
+      registry's shown set as the switch leaves it, read in one place — or a production `health` claims LD and FBD.
+      (Gate 2a+2b: `design.md` section 2's `languages` row said "today `ST`, `LD`, `FBD` on both"; corrected to this.)
+- [x] 2.2 `kinds`: each bridge's `KindRegistry` rows with their writable flag; equal to `items.html`'s table.
+      **Measured:** both hosts declare `IecFormat.KindRows`: 33 rows, 22 with an extension, 11 members without one.
+      Writable (`Source` or `WritableDescriptor`): `dut`, `gvl`, `itf`, `pou`, `task`; the other 17 read-only. Equal row
+      for row and flag for flag to `items.html`'s generated extension table (`docs/assets/data.js` `extensions`): no
+      difference. The table is the SHARED IEC one, not each vendor's: in the transcripts and corpora `tmc` and
+      `external_types` occur only on TwinCAT; `image_pool`, `projectinfo`, `recipe`, `symbols`, `text_list`, `trace`,
+      `visualization` only on CODESYS; `class_diagram`, `parameter_list` on neither. Three rows are containers that
+      `items.html` says are never an item (`library_manager`, `recipe_manager`, `visualization_manager`: recursed like a
+      folder, no file). **For the owner (3.3):** `health.kinds` copied from the declaration lists three extensions no
+      item carries — list only the kinds that name an item, or the declaration verbatim.
+- [x] 2.3 `ProjectEntry.version`: who sets it, on which vendor; define it or delete it.
+      **Measured:** both drivers set it from the very value top-level `health.ideVersion` reads — CODESYS `IdeVersion`
+      (`CodesysDriver.cs:183`, `:138`); TwinCAT `OwnSolution().Version`, which is where `_ideVersion` is assigned
+      (`BeckhoffDriver.cs:180`, `TcObjectModel.Session.cs:162`, `TcObjectModel.cs:59`). Equal in all 5 transcripts
+      (`3.5.18.30`, `3.5.21.40`, `3.5.21.60`, `3.5.22.40`, `3.1.4024.74`). One reader: the connector
+      (`PerPipeProjectSource.cs:130` → `DetectedProject.IdeVersion`). **Delete it** (principle A: one fact, two
+      spellings); the connector stamps `ideVersion` onto each row, as it already does `unsupported` and the identity.
+- [x] 2.4 Project-name case on TwinCAT: can one solution hold two PLC projects differing only by case? (CODESYS: no.)
+      **Measured live, COM on the `TIPC` node: no.** Creating PLC project `UNTITLED2` beside `Untitled2` is refused by
+      the IDE ("Project file '…\UNTITLED2\UNTITLED2.plcproj' already exist") — a PLC project is a folder of its name and
+      the file system ignores case. Renaming another PLC project to `untitled2` throws nothing and changes nothing (the
+      same node renamed to a fresh name does rename). `LookupChild("untitled2")` answers `Untitled2`. Besides: the wire's
+      TwinCAT `project` is the SOLUTION's name (`OwnSolution`: at most one row per worker), so within one bridge a name
+      comparison never has two candidates; PLC project names are path segments, already compared ignoring case.
+      Comparing `connect.project` / `expectedProjectName` ignoring case is safe on both vendors.
+- [x] 2.5 `dirty`: when each IDE fails to answer (both hosts), so the absent case has a test of its own.
+      **CODESYS** (`ScriptProject.dirty` by reflection, `CodesysObjectModel.cs:65`), live 3.5.21.40: `false` at start;
+      after an unsaved push `false` at +0 s and +3 s, `true` at +8 s, still `true` after the delete. It answers; `health`
+      serves the PREVIOUS background probe's snapshot (`ComposedSession`), so a change shows one probe later — which is
+      also why every transcript's `health-after` reads `false`. No answer: no primary project → no row at all; the member
+      missing on the object (`GetMember` null) → today `false`, to become absent; the getter throwing → the whole probe
+      fails, the stale row is kept and the session marked degraded (`ComposedSession.cs:146`) — no `dirty` path of its
+      own. Other CODESYS versions not probed. **TwinCAT** (`!DTE.Solution.Saved`, `TcObjectModel.cs:84`; a throw → null →
+      `false`, `BeckhoffDriver.cs:169,181`; a row not served is never asked → `false`), live: after an unsaved push create
+      and delete `Saved` stays `True` (`dirty` `false` at +0/+3/+8 s), reconfirming DIALECT D45 — yet it went `False` once
+      a PLC project was created through the tree (2.4). So TwinCAT answers, but not about the PLC item edits a push
+      makes. **Absent cases, each its own test in 3.3:** CODESYS member missing; TwinCAT `Saved` throwing; a TwinCAT row
+      not served. **For the owner:** is TwinCAT's `Saved` the fact `dirty` names? By principle C a value that never
+      follows PLC edits is not it: `dirty` absent on TwinCAT always, or kept as "the solution's structure changed".
+
+**Step 2b**
+
 - [ ] 2.6 `build.success` vs "no `error` diagnostic" on both vendors over the e2e build cases: one rule if they agree.
 - [ ] 2.7 Each vendor's severity words seen in the corpora and recordings: the host's declared word table.
 
