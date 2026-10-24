@@ -331,6 +331,49 @@ Counts are in tasks 3.9a. Where the build departs from the text above:
 2. **A `null` request frame is BAD_REQUEST**, not PROTOCOL_MISMATCH: it is no envelope (contract suite `frame/null`).
 3. **A `sourceText` starting with U+FEFF is refused BAD_REQUEST** in the pre-flight (4.3b's principle, refuse rather than
    strip-and-state: the same rule as a request frame with a BOM; the CLI strips one at its file boundary).
+## 4.3c The client checks the bridge's shape
+
+**Target.** A client of this wire meets a bridge whose `health` has no `languages` or no `kinds` (it predates this wire,
+e.g. `0.1.17931`, which reads our envelope leniently and serves it) and refuses it by name before any other op:
+"this bridge predates this wire: update it". Protocol stays 1; with this the mixed-version cell (4.3) refuses in both
+directions.
+
+**Who checks** (measured by reading every pipe client on dev, `01d26f787a`):
+- **the CLI** (`BridgeClient`) — `init` and `status` read `health` first; `pull`/`push`/`build`/`grep`/`show` do not.
+- **the connector** (`PerPipeProjectSource.ScanAsync`) — reads `health` on every poll, before any `connect`.
+- **volt-control** has no pipe client (it reaches bridges only through the CLI and the connector's `:8550`), so it checks
+  nothing itself; it SHOWS the refusal both of them name.
+- **`Volt.Relay`** is not a client: it ships inside the bridge and forwards to its own pipe, so it can never meet an older
+  one. The relay's client side is PLC Assist's own client (it runs in Docker, outside the pipe's reach, and comes in over
+  the relay), so PLC Assist makes the same check; the note to them carries it.
+
+**Choice.** One function in `Volt.Wire`, `WireShape.Require(JsonElement health)`, checks the PRESENCE of both members in
+the raw `health` result (not the DTO: `HealthResponse`'s `= new()` defaults would turn an absent member into an empty one,
+principle C). An empty list is a fact and passes. Two callers:
+- `BridgeClient`: the first call of any op on an instance is `health`, checked, cached for that instance (one CLI process,
+  one check); `GetHealth` returns the cached answer, so `init`/`status` cost nothing extra and the rest pay one
+  `health` round-trip, which the bridge answers from its snapshot, never on the IDE thread. Refused as the CLI-local code
+  **`BRIDGE_PREDATES_WIRE`** (like `BRIDGE_ACCESS_DENIED`), naming the pipe and the bridge's `bridgeVersion` if stated.
+- the connector: a pipe whose `health` fails the check gives no project rows and one `RefusedBridge` row with that
+  message, so the connection view names the IDE and why, and nothing ever `connect`s to it.
+
+**Rejected.** Required members in the `HealthResponse` reader: catches only commands that read `health`, and fails as a
+JSON error, not by name. A health inside `PipeClient.Send` before every op: doubles every call, and the relay's `Forward`
+would pay it for a bridge of its own build. Protocol 2: owner, 2026-10-24 (stays 1). A bridge-side check: the old bridge
+is already shipped.
+
+**Stays refused by name.** A request without `protocol` (`PROTOCOL_MISMATCH`, bridge side, unchanged); a `health`
+without `languages` or `kinds` (`BRIDGE_PREDATES_WIRE`, client side). Nothing is read from such a bridge, so nothing is
+misread.
+
+**Red tests first.** `Volt.Cli.Tests`: a fake pipe answering a `health` without `languages` (and one without `kinds`) —
+`volt pull` and `volt push` exit refused `BRIDGE_PREDATES_WIRE` and the fake saw no op but `health`. `Volt.Connector.Tests`
+(`PerPipeProjectSourceTests`): the same `health` gives one `RefusedBridge` row and no project. The mixed-version cell's
+"this CLI against the previous bridge" turns from served to refused.
+
+**Migration.** None for Volt (no users). PLC Assist: one bullet in `plcassist-note.md` under `health` — read `health`
+first and refuse a bridge whose answer lacks `languages` or `kinds`.
+
 ## Deleted
 
 `health.networkText` · `HealthResponse.status` (prose) · `connect`/`disconnect` `ok` · `push.accepted` ·
