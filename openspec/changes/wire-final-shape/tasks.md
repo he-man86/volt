@@ -348,7 +348,21 @@ declare in `src/` outside Contracts and the CLI: 0, plus 8 pinned below the wire
 (`3d6beb32…`); no fixture, recording, transpiler or LSP change, so no fixture-map regeneration.
 Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 56, Engine 3151 (+1 skipped), Cli 361,
 Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-cli `bun test test/unit` 228.
+- [ ] 3.6b ONE coordinate system for every line on the wire (owner principle, PLC Assist report 2026-10-24): a build
+      diagnostic's `line` is the 1-based line in the item's FETCHED `sourceText` — the coordinates `grep` and network-text
+      refusals already use — never the vendor's own count. Measured live (TwinCAT 3.1.4024.74, PLC Assist read/edit suite):
+      an error on fetched line 51 inside a METHOD whose header is line 45 is reported `6` (member-relative); 2.6 also found
+      TwinCAT counts declaration + body without the `IMPLEMENTATION` line. 3b passes the vendor's number through: a value in
+      the wrong coordinates, as bad as an invented one (zero-fallback). The host maps the vendor's (object, member, line)
+      to the item's fetched text line; where it cannot map with certainty, `line` is ABSENT. Red e2e test first on both
+      vendors: an error at a known fetched line in the item body and in a METHOD body answers exactly that line. The
+      schema states the coordinate system in `line's` description.
 - [x] 3.10 All C# suites, `bun test test/unit`, typecheck, lint, `bun run check` green.
+      Step 3d re-measured at `5b03b13771` (2026-10-24, clean tree, `dotnet build Volt.sln` 0 errors, then `--no-build`):
+      Contracts 56, Engine 3151 (+1 skipped), Cli 361, Connector 154, Ide.Twincat 728, Ide.Codesys 505 (net48),
+      Repo.Gates 275, Relay 74 — 0 failed; volt-cli `bun test test/unit` 228/228; typecheck 3/3 packages exit 0; lint
+      exit 0, 0 errors (2443 warnings); `bun run check` 16 passed, 0 failed. Identical to the gate-3c counts; no product
+      code changed.
 
 ## 4. Live
 
