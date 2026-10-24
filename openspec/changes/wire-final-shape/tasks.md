@@ -3,9 +3,9 @@ answered its two questions (or let the recommended answers stand).
 
 ## 1. Before any code
 
-- [ ] 1.1 Blind foreign-client review of the DRAFTED shape: an agent given only `design.md` sections 1–7 and the current
+- [x] 1.1 Blind foreign-client review of the DRAFTED shape: an agent given only `design.md` sections 1–7 and the current
       `wire.html`/OpenRPC (no repo), writing a client on paper; fold its findings into `design.md`.
-- [ ] 1.2 Measure the frame encoding (BOM, `\n` vs `\r\n` on both bridges' writers and readers) and state it.
+- [x] 1.2 Measure the frame encoding (BOM, `\n` vs `\r\n` on both bridges' writers and readers) and state it.
 - [ ] 1.3 Owner review of `design.md`; record the answers to its two questions.
 
 ## 2. Measurements the design depends on
