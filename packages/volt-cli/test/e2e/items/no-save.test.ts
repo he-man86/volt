@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * VOLT NEVER SAVES THE PROJECT (owner, 2026-10-18; DIALECT D45). A push or a build is an edit in the engineer's open IDE,
  * as on CODESYS; the engineer saves. Every operation the bridge performs is driven here with no save anywhere, each
@@ -39,12 +40,12 @@ describe(`no save: every operation lands in the open IDE (${BASE})`, () => {
 		const op: Record<string, unknown> = { op: "set", name: at, to: inFolder(folder ?? folderOf(at), fid(to)), ifVersion: await versionOf(at) }
 		if (source !== undefined) op.sourceText = source
 		const r = await pushOps([op])
-		expect(r.accepted && !(r.conflicts ?? []).length, JSON.stringify(r.conflicts)).toBe(true)
+		expect(landed(r) && !(r.conflicts ?? []).length, JSON.stringify(r.conflicts)).toBe(true)
 	}
 	const remove = async (s: string) => {
 		const at = await pathOf(fid(s))
 		const r = await pushOps([{ op: "deleteItem", name: at, ifVersion: await versionOf(at) }])
-		expect(r.accepted && !(r.conflicts ?? []).length, JSON.stringify(r.conflicts)).toBe(true)
+		expect(landed(r) && !(r.conflicts ?? []).length, JSON.stringify(r.conflicts)).toBe(true)
 		expect(await versionOf(at)).toBeNull()
 	}
 	const holds = async (s: string, body: string, folder?: string) => {

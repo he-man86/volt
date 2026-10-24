@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * `???` — THE VENDOR'S MARKER, THROUGH A LIVE IDE, IN EVERY POSITION IT CAN OCCUPY.
  *
@@ -70,12 +71,12 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		// build them (an output pin, a result pin); one remains, for a measured reason of TwinCAT's own compiler (below).
 		// Asserting the refusal is what stops a silent DROP passing here again.
 		if (tcCannotCreate !== undefined && VENDOR === "twincat") {
-			expect(created.accepted, "TwinCAT accepted a shape it does not build").toBe(false)
+			expect(landed(created), "TwinCAT accepted a shape it does not build").toBe(false)
 			expect(JSON.stringify(created.conflicts)).toContain(tcCannotCreate)
 			return
 		}
 
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const back = (await fetchItem(item)).sourceText
 		expect(back).toBe(src)

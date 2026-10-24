@@ -320,6 +320,17 @@ Counts are in tasks 3.9a. Where the build departs from the text above:
    the text above rules out. Left as it is: changing it changes `build`'s documented outcome, and no measured failure
    reaches it.
 
+## Built (3.6b and step 4, 2026-10-24)
+
+1. **A build line is placed by the item's format.** A driver states the vendor's line in the object it names (the seam:
+   declaration lines, then code lines; an action has no declaration, DIALECT D36); `BuildService.Place` asks the kind's
+   `IItemFormat.LineOf`, which reads the fetched text back, checks it writes that very text, and places the line with
+   `StWriter.Lines` (pinned against the writer's text). No certain place — a property accessor (the wire names no
+   accessor), a network or hidden body, a line past the object, a diagnostic naming no item — is no `line` and no
+   `column`. `volt build` and volt-control print `name:line[:column] (member)`.
+2. **A `null` request frame is BAD_REQUEST**, not PROTOCOL_MISMATCH: it is no envelope (contract suite `frame/null`).
+3. **A `sourceText` starting with U+FEFF is refused BAD_REQUEST** in the pre-flight (4.3b's principle, refuse rather than
+   strip-and-state: the same rule as a request frame with a BOM; the CLI strips one at its file boundary).
 ## Deleted
 
 `health.networkText` · `HealthResponse.status` (prose) · `connect`/`disconnect` `ok` · `push.accepted` ·

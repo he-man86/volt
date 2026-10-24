@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A PUSH THAT EMPTIES A FOLDER STILL WORKS — the live half of the folder prune.
  *
@@ -54,7 +55,7 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const created = await pushOps([
 			{ op: "set", name, sourceText: fb(id(key)), ifVersion: null },
 		])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		expect(await inhabited(folder), "the item did not land in the folder under test").toBe(true)
 
 		const refs = await bridge.refs()
@@ -64,7 +65,7 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 				: [{ op: "set", name, to: inFolder(await plcFolder(), fid(key)), ifVersion: refs.items[name] }]
 
 		const r = await pushOps(away)
-		expect(r.accepted, `${how} refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `${how} refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		return folder
 	}
 
@@ -81,10 +82,10 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const deep = await plcFolder("VltPruneChain/Mid/Leaf")
 		const name = inFolder(deep, fid("pr_chain"))
 
-		expect((await pushOps([{ op: "set", name, sourceText: fb(id("pr_chain")), ifVersion: null }])).accepted).toBe(true)
+		expect(landed(await pushOps([{ op: "set", name, sourceText: fb(id("pr_chain")), ifVersion: null }]))).toBe(true)
 
 		const refs = await bridge.refs()
-		expect((await pushOps([{ op: "deleteItem", name, ifVersion: refs.items[name] }])).accepted).toBe(true)
+		expect(landed((await pushOps([{ op: "deleteItem", name, ifVersion: refs.items[name] }])))).toBe(true)
 		expect(await inhabited(await plcFolder("VltPruneChain"))).toBe(false)
 	})
 
@@ -98,13 +99,13 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const stays = inFolder(parent, fid("pr_stay"))
 		const leaves = inFolder(goes, fid("pr_leave"))
 
-		expect((await pushOps([
+		expect(landed(await pushOps([
 			{ op: "set", name: stays, sourceText: fb(id("pr_stay")), ifVersion: null },
 			{ op: "set", name: leaves, sourceText: fb(id("pr_leave")), ifVersion: null },
-		])).accepted).toBe(true)
+		]))).toBe(true)
 
 		const refs = await bridge.refs()
-		expect((await pushOps([{ op: "deleteItem", name: leaves, ifVersion: refs.items[leaves] }])).accepted).toBe(true)
+		expect(landed((await pushOps([{ op: "deleteItem", name: leaves, ifVersion: refs.items[leaves] }])))).toBe(true)
 
 		expect(await inhabited(goes), "the emptied child folder still holds an item").toBe(false)
 		expect(await inhabited(parent), "the sibling was removed along with its neighbour").toBe(true)

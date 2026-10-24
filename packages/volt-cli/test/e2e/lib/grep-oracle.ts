@@ -12,7 +12,7 @@ const COUNT_CAP = 10_000
 const TEXT_CAP = 500
 
 export type Req = { pattern: string; literal?: boolean; caseSensitive?: boolean; paths?: string[]; limit?: number }
-export type Match = { path: string; line: number; text: string }
+export type Match = { name: string; line: number; text: string }
 export type Item = { path: string; version: string; text: string; unsupported: any[] | null }
 export type Project = {
 	items: Item[] // every non-library item refs names, with its fetched text, in no particular order
@@ -91,7 +91,7 @@ export function oracle(project: Project, req: Req) {
 			if (!re.test(ls[n])) continue
 			totalMatches++
 			if (matches.length < limit) {
-				matches.push({ path: it.path, line: n + 1, text: cut(ls[n]) })
+				matches.push({ name: it.path, line: n + 1, text: cut(ls[n]) })
 				items[it.path] = it.version
 			}
 			if (totalMatches >= COUNT_CAP) break outer
@@ -116,11 +116,11 @@ export const isLibrary = (path: string) => path.toLowerCase().endsWith(".library
 /** Every difference between the bridge's answer and the oracle's, as lines a reader can act on. */
 export function differences(got: any, want: ReturnType<typeof oracle>): string[] {
 	const d: string[] = []
-	const key = (m: Match) => `${m.path}:${m.line}`
+	const key = (m: Match) => `${m.name}:${m.line}`
 	const gm: Match[] = got.matches ?? []
 	for (let i = 0; i < Math.max(gm.length, want.matches.length); i++) {
 		const a = gm[i], b = want.matches[i]
-		if (a && b && a.path === b.path && a.line === b.line && a.text === b.text) continue
+		if (a && b && a.name === b.name && a.line === b.line && a.text === b.text) continue
 		d.push(`match #${i}: bridge ${a ? `${key(a)} ${JSON.stringify(a.text)}` : "(none)"} | oracle ${b ? `${key(b)} ${JSON.stringify(b.text)}` : "(none)"}`)
 	}
 	for (const f of ["searched", "totalMatches", "truncated"] as const)

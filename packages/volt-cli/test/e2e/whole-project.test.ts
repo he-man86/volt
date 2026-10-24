@@ -1,3 +1,4 @@
+import { landed } from "./harness"
 /**
  * THE WHOLE-PROJECT SWEEP — every item in whatever project the bridge has open, not a shape Volt authored.
  *
@@ -118,7 +119,7 @@ describe(`whole project (${BASE})`, () => {
 		})
 		// The interesting failure: Volt produced text it will not take back.
 		expect(
-			pushed.accepted,
+			landed(pushed),
 			`the project's own text was REFUSED: ${JSON.stringify(pushed.conflicts)?.slice(0, 2000)}`,
 		).toBe(true)
 

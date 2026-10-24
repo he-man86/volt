@@ -222,14 +222,17 @@ public sealed class PipeServer : IDisposable
                 // would be stamped INTERNAL_ERROR, telling a client that sent a truncated line, or a stray blank one,
                 // that the BRIDGE had broken. BAD_REQUEST points at the frame that was actually wrong.
                 // The envelope is read STRICTLY, like every body: a member it does not define is the request's error.
-                PipeRequest req;
-                try { req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Request) ?? new PipeRequest(); }
+                PipeRequest? read;
+                try { read = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Request); }
                 catch (JsonException ex)
                 {
                     throw new CodedException(BridgeErrorCodes.BadRequest,
                         $"the request frame is not a valid request ({ex.Message}). A request is ONE line of " +
                         "`{\"op\":…,\"protocol\":…,\"body\":…}` — check for an unescaped newline in a string.");
                 }
+                // A `null` frame is no envelope, so it states no protocol because it is no request at all.
+                var req = read ?? throw new CodedException(BridgeErrorCodes.BadRequest,
+                    "the request frame is JSON null, not a request. A request is ONE line of `{\"op\":…,\"protocol\":…,\"body\":…}`.");
                 // A CLIENT OF ANOTHER PROTOCOL IS REFUSED BEFORE ITS BODY IS READ: it would read this wire with another
                 // meaning, so nothing of the op runs.
                 if (req.Protocol != WireProtocol.Version)

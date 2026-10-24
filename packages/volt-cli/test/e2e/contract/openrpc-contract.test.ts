@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE CONTRACT SUITE (openspec `volt-cli-rework` 1.3): the bridge judged as a PUBLIC API. PLC Assist ships the bridge
  * bundles and drives the pipe itself, so every request the schema allows is a request the bridge must answer as
@@ -102,18 +103,20 @@ function judge(raw: RawAnswer, m: Method | undefined): Answer {
 	return answer
 }
 
-/** The code an answer refused with — the error frame's, or (a push) the first conflict's on `accepted:false`. */
+/** The code an answer refused with — the error frame's, or (a push) its first conflict's that is no NOT_ATTEMPTED: every
+ *  op the conflicts do not name landed, and an op after a refused one is NOT_ATTEMPTED (wire.html, push). */
 function refusal(a: Answer): string | undefined {
 	if (a.error) return a.error.code
-	if (a.result?.accepted === false) return a.result.conflicts?.[0]?.code ?? "(accepted:false without a conflict)"
+	const conflicts: any[] = a.result?.conflicts ?? []
+	if (conflicts.length) return conflicts.find((c) => c.code !== "NOT_ATTEMPTED")?.code ?? "(only NOT_ATTEMPTED conflicts)"
 	return undefined
 }
 
 function summary(a: Answer): unknown {
 	if (a.error) return { error: a.error.code, message: a.error.message.slice(0, 300) }
 	const r = a.result
-	if (r && typeof r === "object" && "accepted" in r)
-		return { accepted: r.accepted, conflicts: (r.conflicts ?? []).map((c: any) => ({ name: c.name, code: c.code, reason: String(c.reason).slice(0, 200) })) }
+	if (r && typeof r === "object" && "conflicts" in r)
+		return { landed: landed(r), conflicts: (r.conflicts ?? []).map((c: any) => ({ name: c.name, code: c.code, reason: String(c.reason).slice(0, 200) })) }
 	return { result: Object.keys(r ?? {}) }
 }
 
@@ -124,7 +127,7 @@ type Promise_ = (a: Answer) => string | null
 
 const refusedWith = (code: string): Promise_ => (a) =>
 	refusal(a) === code ? null : `wire.html promises ${code}; the bridge answered ${JSON.stringify(summary(a))}`
-const answered: Promise_ = (a) => (a.error || a.result?.accepted === false ? `expected an answer; got ${JSON.stringify(summary(a))}` : null)
+const answered: Promise_ = (a) => (a.error || a.result?.conflicts?.length ? `expected an answer; got ${JSON.stringify(summary(a))}` : null)
 /** No promise beyond the general rules: the case is an observation. */
 const observed: Promise_ = () => null
 
@@ -176,8 +179,8 @@ function baseBody(op: string): Record<string, unknown> {
 
 /** What a reordered request must answer identically to: the code, or the result as JSON (reads), or the verdict. */
 function sameAnswer(x: Answer, y: Answer): string | null {
-	const key = (a: Answer) => a.error ? `error ${a.error.code}` : JSON.stringify(a.result?.accepted !== undefined || a.result?.success !== undefined
-		? { accepted: a.result.accepted, success: a.result.success, codes: (a.result.conflicts ?? []).map((c: any) => c.code) }
+	const key = (a: Answer) => a.error ? `error ${a.error.code}` : JSON.stringify(a.result?.conflicts !== undefined || a.result?.success !== undefined
+		? { landed: landed(a.result), success: a.result.success, codes: (a.result.conflicts ?? []).map((c: any) => c.code) }
 		: a.result)
 	return key(x) === key(y) ? null : `members in another order answered differently: ${key(x).slice(0, 200)} vs ${key(y).slice(0, 200)}`
 }
@@ -200,7 +203,7 @@ describe(`contract / the bridge against its OpenRPC document (${BASE})`, () => {
 			...ctx.identity, expectedProjectVersion: refs.projectVersion,
 			ops: [{ op: "set", name: ctx.a, sourceText: fb(A) }, { op: "set", name: ctx.b, sourceText: fb(B) }],
 		})
-		expect(created.accepted && !created.conflicts?.length, `the contract suite's test items: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created) && !created.conflicts?.length, `the contract suite's test items: ${JSON.stringify(created.conflicts)}`).toBe(true)
 	})
 
 	afterAll(async () => {
@@ -354,7 +357,7 @@ describe(`contract / the bridge against its OpenRPC document (${BASE})`, () => {
 		it("the `op` discriminator after the other members is the same op", async () => {
 			const refs = await bridge.refs()
 			await contractCase("push/discriminator-last", "push", sendRaw(
-				`{"op":"push","body":{"expectedPlatform":${JSON.stringify(ctx.identity.expectedPlatform)},"expectedProjectName":${JSON.stringify(ctx.identity.expectedProjectName)},` +
+				`{"op":"push","protocol":${WIRE_PROTOCOL},"body":{"expectedPlatform":${JSON.stringify(ctx.identity.expectedPlatform)},"expectedProjectName":${JSON.stringify(ctx.identity.expectedProjectName)},` +
 				`"ops":[{"name":${JSON.stringify(ctx.a)},"ifVersion":${JSON.stringify(refs.items[ctx.a])},"sourceText":${JSON.stringify(fb(A, { body: "x := x + 4;" }))},"op":"set"}]}}`), answered)
 		})
 		it("an op with no discriminator is BAD_REQUEST", async () => {

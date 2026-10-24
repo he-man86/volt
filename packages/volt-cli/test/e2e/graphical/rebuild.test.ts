@@ -1,4 +1,5 @@
-﻿/**
+import { landed } from "../harness"
+/**
  * WHAT AN EDIT COSTS — the destroy-and-rebuild question, asked of the IDE instead of argued about.
  *
  * `CodesysNetworkWriter` writes a changed network by removing every item and re-appending it from the pushed
@@ -81,7 +82,7 @@ END_FUNCTION_BLOCK
 
 		const refs = await bridge.refs()
 		const r = await pushOps([{ op: "set", name: full, sourceText: edited, ifVersion: refs.items[full] }])
-		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		// The edit landed, and the body still resolves. If the rebuild had dropped the operands' types and
 		// l-value markers without the IDE re-deriving them, this build would not be clean.
@@ -145,7 +146,7 @@ END_FUNCTION_BLOCK
 
 		const refs = await bridge.refs()
 		const r = await pushOps([{ op: "set", name: full, sourceText: edited, ifVersion: refs.items[full] }])
-		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		const after = (await fetchItem(full)).sourceText
 		expect(after).toBe(edited)
@@ -209,7 +210,7 @@ END_FUNCTION_BLOCK
 
 		const refs = await bridge.refs()
 		const r = await pushOps([{ op: "set", name: full, sourceText: edited, ifVersion: refs.items[full] }])
-		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		const after = (await fetchItem(full)).sourceText
 		expect(after, "the network metadata did not survive the rebuild").toBe(edited)

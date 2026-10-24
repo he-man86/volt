@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A WORKSPACE PULLED FROM A PRODUCTION BRIDGE, PUSHED TO A DEVELOPMENT ONE: the ladder is hidden, never written.
  *
@@ -73,13 +74,13 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const health = await bridge.health()
 		// This suite needs the IDE's ladder READABLE, i.e. network text on in the bridge; a production bridge would pull
 		// the "before" as the UNSUPPORTED line too and the comparison would prove nothing.
-		if (health.networkText !== true)
+		if (!["LD", "FBD"].every((l) => health.languages.includes(l)))
 			throw new Error("LD and FBD network text is OFF in this bridge — serve it with `ide.ps1 up` (not -Production)")
 		project = servedProject(health)
 		for (const lang of LANGS) {
 			await clean(itemOf(lang))
 			const r = await pushOps([{ op: "set", name: itemOf(lang), sourceText: created(lang), ifVersion: null }])
-			expect(r.accepted, `create refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `create refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			await settle(lang)
 		}
 	})
@@ -100,7 +101,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const header = `PROGRAM ${bareOf(lang)}\n`
 		for (const text of [pulled.replace(header, `${header}VAR_INPUT\n\tbSettle : BOOL;\nEND_VAR\n`), pulled]) {
 			const r = await set(name, text)
-			expect(r.accepted, `settling push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `settling push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		}
 		expect((await fetchItem(name)).sourceText).toBe(pulled)
 	}
@@ -118,7 +119,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 
 			// The production file pushed back unchanged: the ordinary no-op.
 			const hidden = asProductionPull(before, lang)
-			expect((await set(name, hidden)).accepted).toBe(true)
+			expect(landed((await set(name, hidden)))).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(before)
 			expect(await heldBytes(lang)).toEqual(bytes)
 
@@ -126,7 +127,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 			const edited = hidden.replace(`PROGRAM ${bareOf(lang)}\n`, `PROGRAM ${bareOf(lang)}\n${ADDED}`)
 			expect(edited).not.toBe(hidden)
 			const r = await set(name, edited)
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const after = (await fetchItem(name)).sourceText as string
 			expect(after).toBe(before.replace(`PROGRAM ${bareOf(lang)}\n`, `PROGRAM ${bareOf(lang)}\n${ADDED}`))
 			expect(await heldBytes(lang)).toEqual(bytes)                        // not one byte of the ladder moved…
@@ -143,7 +144,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const before = await fetchItem(name)
 		const bytes = await heldBytes("LD")
 		const r = await set(name, asProductionPull(before.sourceText, "FBD"))
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		const reason = JSON.stringify(r.conflicts ?? r)
 		expect(reason).toContain("IMPLEMENTATION FBD UNSUPPORTED")
 		expect(reason).toContain("IMPLEMENTATION LD")
@@ -163,11 +164,11 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const rewired = before.replace("out := a AND b;", "out := a OR b;")
 		expect(rewired).not.toBe(before)
 		try {
-			expect((await set(name, rewired)).accepted).toBe(true)
+			expect(landed((await set(name, rewired)))).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(rewired)
 			expect(await heldBytes("LD")).not.toEqual(bytes)
 		} finally {
-			expect((await set(name, before)).accepted).toBe(true)
+			expect(landed((await set(name, before)))).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(before)
 		}
 	})

@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * AN EXISTING BODY CHANGES LANGUAGE (ST ⇄ LD/FBD) WHERE THE VENDOR WRITES IT, AND IS REFUSED BY NAME WHERE IT CANNOT
  * (openspec `bridge-refusal-review` 4.7, D7; DIALECT N24).
@@ -28,7 +29,7 @@ async function pushOver(full: string, sourceText: string): Promise<any> {
 /** On TwinCAT: the push is refused UNSUPPORTED by name — both languages, the vendor's reason, the route — and the item
  * is exactly what it was. */
 async function expectRefusedUntouched(full: string, before: any, r: any, from: string, to: string): Promise<void> {
-	expect(r.accepted, `a TwinCAT language change was accepted: ${JSON.stringify(r)}`).toBe(false)
+	expect(landed(r), `a TwinCAT language change was accepted: ${JSON.stringify(r)}`).toBe(false)
 	const conflict = (r.conflicts ?? []).find((c: any) => c.name === full)
 	expect(conflict?.code, JSON.stringify(r.conflicts)).toBe("UNSUPPORTED")
 	expect(conflict.reason).toContain(`is ${from} in the IDE and pushed as ${to}`)
@@ -66,12 +67,12 @@ END_FUNCTION_BLOCK
 		const toLd = await pushOver(full, ld)
 		if (VENDOR === "twincat") return expectRefusedUntouched(full, before, toLd, "ST", "LD")
 
-		expect(toLd.accepted, `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
+		expect(landed(toLd), `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(ld)
 		await ensureCompiles(name)
 
 		const back = await pushOver(full, pulledSt)
-		expect(back.accepted, `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
+		expect(landed(back), `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(pulledSt)
 		await ensureCompiles(name)
 	})
@@ -107,12 +108,12 @@ END_METHOD
 		const toFbd = await pushOver(full, fbd)
 		if (VENDOR === "twincat") return expectRefusedUntouched(full, before, toFbd, "ST", "FBD")
 
-		expect(toFbd.accepted, `push refused: ${JSON.stringify(toFbd.conflicts)}`).toBe(true)
+		expect(landed(toFbd), `push refused: ${JSON.stringify(toFbd.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(fbd)
 		await ensureCompiles(name)
 
 		const back = await pushOver(full, pulledSt)
-		expect(back.accepted, `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
+		expect(landed(back), `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(pulledSt)
 		await ensureCompiles(name)
 	})
@@ -149,12 +150,12 @@ END_ACTION
 		const toLd = await pushOver(full, ld)
 		if (VENDOR === "twincat") return expectRefusedUntouched(full, before, toLd, "ST", "LD")
 
-		expect(toLd.accepted, `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
+		expect(landed(toLd), `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(ld)
 		await ensureCompiles(name)
 
 		const back = await pushOver(full, pulledSt)
-		expect(back.accepted, `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
+		expect(landed(back), `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(pulledSt)
 		await ensureCompiles(name)
 	})
@@ -196,12 +197,12 @@ END_PROPERTY
 		const toLd = await pushOver(full, ld)
 		if (VENDOR === "twincat") return expectRefusedUntouched(full, before, toLd, "ST", "LD")
 
-		expect(toLd.accepted, `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
+		expect(landed(toLd), `push refused: ${JSON.stringify(toLd.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(ld)
 		await ensureCompiles(name)
 
 		const back = await pushOver(full, pulledSt)
-		expect(back.accepted, `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
+		expect(landed(back), `push refused: ${JSON.stringify(back.conflicts)}`).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(pulledSt)
 		await ensureCompiles(name)
 	})

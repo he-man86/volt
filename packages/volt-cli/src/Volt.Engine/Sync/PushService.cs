@@ -295,6 +295,16 @@ public static class PushService
             }
 
             if (op is not SetItemOp { SourceText: { } text } set) continue;
+            // AN ITEM'S TEXT IS UTF-8 TEXT, AND A BYTE-ORDER MARK IS NONE OF IT (wire-final-shape 4.3b): a leading U+FEFF is
+            // the client's file encoding, and it was stored into the IDE as the declaration's first character. Refused,
+            // as a request frame that starts with one is; the client strips it (the CLI does, at its file boundary).
+            if (text.Length > 0 && text[0] == '﻿')
+            {
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
+                    $"set '{op.Name}': the sourceText starts with U+FEFF, a byte-order mark — the text is UTF-8 text, and a " +
+                    "mark is the file's encoding, not its content. Strip it and push again.")));
+                continue;
+            }
             // A `.task` is a DESCRIPTOR, not assembled ST, so it is gated by its own format. Routing it
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
             try

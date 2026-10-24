@@ -9,6 +9,7 @@ another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at 
 ## Every request
 
 - Send `{ "op": "...", "protocol": 1, "body": { ... } }`. `body` may be omitted for `health` and `disconnect`.
+- A frame that is no JSON object (`null`, an array) is `BAD_REQUEST`.
 
 ## `health`
 
@@ -39,11 +40,17 @@ another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at 
 - `conflicts[].code` is always present. `conflicts[].name` is always your op's `name`; on `ITEM_EXISTS` the colliding
   item is in `existing`.
 - "No version" is an absent `ifVersion`, never `null`.
+- A `sourceText` that starts with U+FEFF (a byte-order mark) is refused `BAD_REQUEST` for that op, and nothing of the push
+  lands: the text is UTF-8 text, so strip the mark your file reader keeps. Line ends come back as `
+`.
 
 ## `build`
 
 - `duration` is now `durationMs`.
-- `diagnostics[].line` / `column` are 1-based and absent when the IDE states no position (no more `0`).
+- `diagnostics[].line` is a line of the item's FETCHED `sourceText` (the coordinates of `grep`), 1-based — never the
+  IDE's own count inside a method or the body. It is absent when the IDE states no position (CODESYS never does) or
+  Volt cannot place it in that text with certainty (a property accessor's line, an LD/FBD or hidden body). `column`
+  comes only with `line`. No more `0`.
 - `diagnostics[].severity` is absent when the IDE's own word is not one Volt maps.
 
 ## Error codes

@@ -384,19 +384,37 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
 
 ## 4. Live
 
-- [ ] 4.1 The OpenRPC contract suite updated to the new shape and green on both vendors.
+- [x] 4.1 The OpenRPC contract suite updated to the new shape and green on both vendors.
+      **Done 2026-10-24.** The contract suite reads the new answer (a push's refusal is its first conflict that is no
+      NOT_ATTEMPTED; `conflicts` always present), one raw frame gained `protocol`; it found one bridge defect, fixed red
+      first: a `null` frame answered PROTOCOL_MISMATCH, now BAD_REQUEST (`PipeServer`, `PipeTransportTests`). 173/173 on
+      TwinCAT 3.1.4024, all green on CODESYS 3.5.21.40. The whole live suite moved to the new shape with it (`landed()`
+      for `accepted` ×186, the lease frame, `removed`/delta receipts, NOT_ATTEMPTED on a pre-flight refusal, `durationMs`,
+      `languages`, `GrepMatch.name`, a failed build's unshaped line): TwinCAT 541 + the re-run files green (the first
+      run's 26 reds were 18 stale reads and 8 caused by a parallel CODESYS run driving the TwinCAT pipe through
+      `vendor-parity` — never run two vendors' suites at once), CODESYS 600/600.
 - [ ] 4.2 The wire transcripts re-recorded ONCE for the new shape (`release:matrix --record-transcripts`), then compared
       identical on a second run.
 - [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.
-- [ ] 4.3a PLC Assist report 2026-10-24 (bridge 0.1.17931, CODESYS SP21, intermittent, twice): a push that CREATED an
+- [x] 4.3a PLC Assist report 2026-10-24 (bridge 0.1.17931, CODESYS SP21, intermittent, twice): a push that CREATED an
       item answered landed, yet the next refs had no entry for it in `items` — both items had a deliberate compile error
       (an FB with a type error; a PROGRAM referencing an uncreated DUT). Treat as a bridge bug until disproved: live
       repro on 3.5.22.40 and 3.5.21.x on an own instance (create such an item, refs at once, N≥50 rounds, plus a refs
       after 1 s), with VOLT_LOG_DEBUG=1. Classify: unreadable / unwalkedFolders / a silent skip (the 0.1.17931
       "unmapped kind" Debug-only skip, ProjectSnapshot) / the object not yet in the IDE tree. Fix at the root behind a
       red e2e test; a receipt naming an item refs then omits is never acceptable (zero-fallback).
+      **Measured 2026-10-24, not reproduced:** `VOLT_LOG_DEBUG=1`, own instances, both reported shapes (an FB with a type
+      error; a PROGRAM naming an uncreated DUT), create → refs at once → (on a miss) refs after 1 s → delete: CODESYS
+      3.5.22.40 64-bit 100 rounds, 3.5.21.40 64-bit 100 rounds and 50 more with a `build` between the create and the refs
+      — 0 misses. Classification: of the four classes only the 0.1.17931 silent skip could answer "landed" and omit the
+      item from refs with no trace (`ProjectSnapshot`'s Debug-only "unmapped kind" skip); the rework removed it — an
+      object whose type the IDE does not state now puts its folder in `unwalkedFolders`, on the receipt and on refs
+      alike, never silently. Regression test (green on both vendors, 5 rounds per shape):
+      `test/e2e/endpoints/create-then-refs.test.ts` — the receipt names the create and refs at once holds it at that
+      version. No root fix without a reproduction; PLC Assist's next report on this release names the class
+      (`unwalkedFolders`/`unreadable`) if it recurs.
 - [ ] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
       2,451-line FB (`C:UsersmarceAppDataLocalplcassist-parkolt-fidelityVltRwBig.pou.txt`, also `.lines.json`, and
       `VltRwCrlf.pou.txt` (CRLF+BOM) / `VltRwLf.pou.txt`) pushed as one `set` create, then `fetch onlyItems`: 80 of 2,451
@@ -407,13 +425,32 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       e2e test before the release). Also: a BOM pushed in `sourceText` came back kept — decide whether a BOM may live
       in `sourceText` at all (principle: the item text is UTF-8 text; a leading U+FEFF is either refused BAD_REQUEST or
       stripped and stated, never silently stored into the IDE).
+      **Measured 2026-10-24, our instances (CODESYS 3.5.22.40 64-bit, TwinCAT 3.1.4024.74, `VltRwBig`/`VltRwLf`/`VltRwCrlf`
+      pushed as one create each, fetched back, diffed by index), identical on both vendors, so all Volt's:**
+      (a) **the 80 lines are ONE inserted line**: the fetched text has a blank line before `END_FUNCTION_BLOCK` (the
+      `StWriter` layout separator: body, blank line, END line) where the pushed text had none, so every later line moves
+      by one (`VltRwBig` 2452 → 2453 lines, first difference at 2372; `VltRwLf` 9 → 10). With that one line inserted the
+      texts are equal — members, order, accessors, trailing whitespace, the 2,000-character line and the Unicode comment
+      all round-trip. The IDE holds the same body either way (the reader strips the separator when present): the text,
+      not the content, differs. (b) `\r\n` comes back `\n`. (c) a leading U+FEFF was stored into the IDE as the
+      declaration's first character (both vendors). **Fixed: (c)** — refused BAD_REQUEST in the pre-flight, nothing
+      lands (`PushSourceTextBomTests` red first, 2; e2e `push.test.ts` "refuses a sourceText that starts with a byte-order
+      mark" green on both vendors; `wire.html`'s BAD_REQUEST row; census +1). **Open, for the owner — this task stays
+      unticked:** (a) and (b) are Volt's canonical layout, not the IDE's. Making a client's text come back byte-identical
+      means the writer's separator before an END line becomes the minimum (`\n`, the body keeping a blank line as its own
+      trailing newline) — a change of the canonical file: every pulled POU file changes, 114 C# and 40 TS test texts and
+      the six corpora's workspace files (oracle data) with it. Not built here (no format change without the owner);
+      the alternative is to state the canonical text in `wire.html` ("a text that differs only in these comes back in
+      the canonical layout") and keep it.
 - [ ] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
 
 ## 5. Close
 
-- [ ] 5.0 QUALITY RATING after (owner 2026-10-24): re-run the archived rework's scripts
+- [x] 5.0 QUALITY RATING after (owner 2026-10-24): re-run the archived rework's scripts
       (`openspec/changes/archive/2026-10-24-volt-cli-rework/input/rating-measure.sh`, `rating-pins.sh`), same criteria and
       scale, into this change's `input/rating-after.md`: Engine, Ide.Codesys, Ide.Twincat, Contracts + Wire, before (the
       rework's 7 / 7.5 / 7 / 6.5) → after, each move tied to its evidence.
+      **Done 2026-10-24:** `input/rating-after.md` — Engine 7 → 7, Ide.Codesys 7.5 → 7.5, Ide.Twincat 7 → 7, Contracts +
+      Wire 6.5 → 7.5 (W1/W2, P3/P4 fixed; vendor symbols 33 → 17; uncoded throws 151 → 0).
 - [ ] 5.1 `plcassist-note.md` final, sent to PLC Assist with the release.
 - [ ] 5.2 The full release matrix once, green; docs match the code; archive.

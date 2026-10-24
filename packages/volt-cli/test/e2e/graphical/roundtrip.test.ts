@@ -1,4 +1,5 @@
-﻿﻿/**
+import { landed } from "../harness"
+﻿/**
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
  * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
@@ -200,7 +201,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: src, ifVersion: null }] })
-			expect(r.accepted).toBe(true)
+			expect(landed(r)).toBe(true)
 
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
@@ -231,7 +232,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			// Round-trip: push the same source back, should be accepted and unchanged
 			const refs2 = await bridge.refs()
 			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
-			expect(r2.accepted).toBe(true)
+			expect(landed(r2)).toBe(true)
 			const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after2.sourceText).toBe(after.sourceText)
 		})
@@ -246,7 +247,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		// TwinCAT refused this while its PLCopen import was the create door (the importer returned a plain box named
 		// EXECUTE with the ST gone); the native writer builds the box from the drawn one's members (twincat-inproc-host).
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after).toBeDefined()
@@ -264,7 +265,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// Device/Plc Logic/Application.
 		const refs2 = await bridge.refs()
 		const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
-		expect(r2.accepted).toBe(true)
+		expect(landed(r2)).toBe(true)
 		const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after2.sourceText).toBe(after.sourceText)
 	})
@@ -278,7 +279,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: emptyExecuteProgram(name), ifVersion: null }] })
 
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after).toBeDefined()
@@ -288,7 +289,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// A fixed point, which is the half the bug actually broke: the pulled text pushes back unchanged.
 		const refs2 = await bridge.refs()
 		const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
-		expect(r2.accepted).toBe(true)
+		expect(landed(r2)).toBe(true)
 		const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after2.sourceText).toBe(after.sourceText)
 	})
@@ -307,7 +308,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const fullName = inFolder(await projectRoot(), fid(`net_ld_${label}`, "pou"))
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: buildSrc(name), ifVersion: null }] })
-			expect(r.accepted).toBe(true)
+			expect(landed(r)).toBe(true)
 
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 			expect(v1).toBeDefined()
@@ -321,7 +322,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			// Fixed point: pushing the fetched network text back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
 			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
-			expect(r2.accepted).toBe(true)
+			expect(landed(r2)).toBe(true)
 			const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === v1.name)
 			expect(v2.sourceText).toBe(v1.sourceText)
 		})
@@ -365,7 +366,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expectedProjectVersion: refs.projectVersion,
 			ops: [{ op: "set", name: fullName, to: inFolder(target, fileOf(fullName)), ifVersion: refs.items[fullName] }],
 		})
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 
 		const after = await fetchItem(inFolder(target, fileOf(fullName)))
 		expect(after.sourceText).toBe(before)                     // the graphical body is untouched
@@ -381,7 +382,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("net_existing")
 		const fullName = inFolder(await projectRoot(), fid("net_existing", "pou"))
 		const refs0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect(landed((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })))).toBe(true)
 
 		const g = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 		expect(g).toBeDefined()
@@ -391,7 +392,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: s1, ifVersion: refs.items[g.name] }] })
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === g.name)
 		expect(after.sourceText).toBe(s1)
 	})
@@ -405,7 +406,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("net_guard_st")
 		const fullName = inFolder(await projectRoot(), fid("net_guard_st", "pou"))
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect(landed((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })))).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 		expect(before.name.endsWith(".pou")).toBe(true)                 // .pou file holding an FBD body
 		expect(before.sourceText).toContain("IMPLEMENTATION FBD")
@@ -414,12 +415,12 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		if (VENDOR === "codesys") {
-			expect(r.accepted, `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const st = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(st.sourceText).toContain("IMPLEMENTATION ST\nx := TRUE;")
 			return
 		}
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		// Clear, actionable reason — and it names BOTH languages. It used to assert the word "graphical", which
 		// was a proxy for "the refusal explains itself"; the refusal now comes from the body codec, which knows
 		// the two concrete languages instead of one boolean, so "has a FBD body … carries ST" is what it can say.
@@ -436,13 +437,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("net_guard_malformed")
 		const fullName = inFolder(await projectRoot(), fid("net_guard_malformed", "pou"))
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect(landed((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })))).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 
 		const r1 = await bridge.refs()
 		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: malformed, ifVersion: r1.items[before.name] }] })
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))

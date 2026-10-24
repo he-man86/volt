@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE GRAPHICAL SHAPES ONE DRIVER REFUSES AND THE OTHER TAKES — a ratchet that may only shrink.
  *
@@ -330,7 +331,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 
 			// The NEAR-MISS must be legal on every vendor — if this fails the case is testing the wrong thing.
 			const created = await pushOps([{ op: "set", name: inFolder(await projectRoot(), item), sourceText: prg(id(c.key), c.vars, c.nets), ifVersion: null }])
-			expect(created.accepted, `the near-miss body was refused, so the edit proves nothing: ${JSON.stringify(created.conflicts)}`).toBe(true)
+			expect(landed(created), `the near-miss body was refused, so the edit proves nothing: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 			const v1 = await fetchItem(item)
 			const edited = v1.sourceText.replace(c.from, c.to)
@@ -338,7 +339,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 
 			const r = await pushOps([{ op: "set", name: inFolder(await projectRoot(), item), sourceText: edited, ifVersion: v1.version }])
 
-			if (!r.accepted) {
+			if (!landed(r)) {
 				// Same ratchet as above: a refusal is only acceptable from a vendor the table already lists, and
 				// only with a reason. The day TwinCAT's edit path learns one of these, this fails.
 				expect(VENDOR, `${c.what} was REFUSED on ${VENDOR}, which the table does not expect`).toBe("twincat")
@@ -383,7 +384,7 @@ target := 0;
 END_FUNCTION_BLOCK
 `
 		const created = await pushOps([{ op: "set", name: owner, sourceText: ownerSrc, ifVersion: null }])
-		expect(created.accepted, `the owner was refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `the owner was refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const v1 = await fetchItem(owner)
 
 		const withMethod = `${v1.sourceText.trimEnd()}

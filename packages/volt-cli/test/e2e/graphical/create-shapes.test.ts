@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * GRAPHICAL CREATE — the two shapes no offline fixture could settle.
  *
@@ -53,7 +54,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`NETWORK\n  out2 := b OR c;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
@@ -67,7 +68,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		// …and the whole thing is a FIXED POINT, which is what proves the ids the IDE minted are consistent.
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)
@@ -94,14 +95,14 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		// TwinCAT took this through its PLCopen importer, which lowered the pin to a separate assignment (DIALECT C20),
 		// so it was refused there. The native writer builds the pin on the box, as the IDE draws it (twincat-inproc-host).
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1.sourceText, "the ET pin did not survive the create").toContain("ET => el")
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)
@@ -117,7 +118,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
@@ -129,7 +130,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)

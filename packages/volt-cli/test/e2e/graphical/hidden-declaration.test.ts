@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A HIDDEN BODY'S DECLARATION IS EDITABLE, AND THE IDE'S BODY IS NEVER WRITTEN (openspec `implementation-keyword` 3b).
  *
@@ -80,14 +81,14 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			// would make whatever that push did the reference, so a push that rewrote the body would compare equal to
 			// itself. The restating push (the ordinary no-op) is then held to the same bytes like every other push.
 			const before = await heldBody(name)
-			expect((await set(name, pulled)).accepted).toBe(true)
+			expect(landed((await set(name, pulled)))).toBe(true)
 			expect(await heldBody(name)).toEqual(before)
 
 			const edited = withProbeInput(pulled, bare)
 			expect(edited).not.toBe(pulled)
 			try {
 				const r = await set(name, edited)
-				expect(r.accepted).toBe(true)                                   // a hidden body blocks no push
+				expect(landed(r)).toBe(true)                                   // a hidden body blocks no push
 
 				const after = (await fetchItem(name)).sourceText as string
 				expect(after).toContain("bVoltHiddenProbe : BOOL;")             // the declaration landed
@@ -102,7 +103,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				})
 			} finally {
 				// Leave the fixture as found — and that restore is itself a declaration push over a hidden body.
-				expect((await set(name, pulled)).accepted).toBe(true)
+				expect(landed((await set(name, pulled)))).toBe(true)
 				expect((await fetchItem(name)).sourceText).toBe(pulled)
 				expect(await heldBody(name)).toEqual(before)
 			}
@@ -129,7 +130,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			async function move(op: Record<string, unknown>) {
 				const refs = await bridge.refs()
 				const r = await pushOps([{ op: "set", name: at, ifVersion: refs.items[at], ...op }])
-				expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)   // a hidden body blocks no move
+				expect(landed(r), JSON.stringify(r.conflicts)).toBe(true)   // a hidden body blocks no move
 				if (typeof op.to === "string") at = op.to
 				return fetchItem(at)
 			}

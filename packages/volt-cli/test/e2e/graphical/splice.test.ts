@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * The SPLICE against a live IDE — the change's central assumption, measured.
  *
@@ -74,7 +75,7 @@ describe(`graphical / splice (${BASE})`, () => {
 			ops: [{ op: "set", name: full, sourceText: pushed, ifVersion: refs.items[full] }],
 		})
 		// THE measurement: a part-vendor, part-Volt document is accepted by a real importer.
-		expect(r.accepted, `spliced push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `spliced push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		const v2 = (await fetchItem(full)).sourceText
 		const nets2 = networks(v2)
@@ -112,10 +113,10 @@ END_FUNCTION_BLOCK
 
 		const pushed = v1.replace(nets1[1], nets1[1].replace("a OR b;", "a AND NOT b;"))
 		const refs = await bridge.refs()
-		expect((await bridge.push({
+		expect(landed((await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
 			ops: [{ op: "set", name: full, sourceText: pushed, ifVersion: refs.items[full] }],
-		})).accepted).toBe(true)
+		})))).toBe(true)
 
 		await ensureCompiles(name)
 	})
@@ -130,14 +131,14 @@ END_FUNCTION_BLOCK
 		const pushed = v1.replace(nets[1], nets[1].replace("a OR b;", "a AND NOT b;"))
 
 		const r1 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r1.projectVersion,
-			ops: [{ op: "set", name: full, sourceText: pushed, ifVersion: r1.items[full] }] })).accepted).toBe(true)
+		expect(landed((await bridge.push({ expectedProjectVersion: r1.projectVersion,
+			ops: [{ op: "set", name: full, sourceText: pushed, ifVersion: r1.items[full] }] })))).toBe(true)
 		const v2 = (await fetchItem(full)).sourceText
 
 		// Push what came back. Nothing changed, so the whole-body no-op should fire and the document is untouched.
 		const r2 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r2.projectVersion,
-			ops: [{ op: "set", name: full, sourceText: v2, ifVersion: r2.items[full] }] })).accepted).toBe(true)
+		expect(landed((await bridge.push({ expectedProjectVersion: r2.projectVersion,
+			ops: [{ op: "set", name: full, sourceText: v2, ifVersion: r2.items[full] }] })))).toBe(true)
 		expect((await fetchItem(full)).sourceText).toBe(v2)
 	})
 })

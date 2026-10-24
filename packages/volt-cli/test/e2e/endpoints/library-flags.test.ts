@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /** THE REFERENCE DIALOG'S FLAGS ARE SPELLED, SO THE REFERENCES THAT SET THEM MATERIALIZE (CODESYS).
  *
  *  The default CODESYS fixture holds four references off the value the 264-reference census measured: `CmpCodeMeter`
@@ -53,7 +54,7 @@ describe.skipIf(VENDOR !== "codesys")(`endpoints / library reference flags (${BA
 			expectedProjectVersion: refs.projectVersion,
 			ops: [{ op: "set", name, sourceText: text.replace(/^OPTIONAL\n/m, ""), ifVersion: refs.items?.[name] }],
 		})
-		expect(pushed.accepted).toBe(false)
+		expect(landed(pushed)).toBe(false)
 		expect(JSON.stringify(pushed.conflicts)).toContain("is read-only")
 
 		expect(find(await manifests(), "CmpCodeMeter").text).toBe(text)

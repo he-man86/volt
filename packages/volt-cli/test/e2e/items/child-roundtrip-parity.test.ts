@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * Child round-trip PARITY: an accepted `set` of a POU that carries a child MUST be enumerable in /refs and
  * fetchable back — on BOTH bridges. This is the strict "accepted ⇒ readable" contract; `accepted:true` for an
@@ -55,7 +56,7 @@ describe(`lifecycle / child round-trip parity (${BASE})`, () => {
 			await sentinelClean([c.wire])
 			const wire = inFolder(await projectRoot(), c.wire)
 			const r = await pushOps([{ op: "set", name: wire, sourceText: c.src, ifVersion: null }])
-			expect(r.accepted, `create '${c.wire}' was rejected: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `create '${c.wire}' was rejected: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 			// The contract: accepted ⇒ readable. These fail on TwinCAT for METHOD/INTERFACE items (the bug).
 			const refs = (await bridge.refs()).items ?? {}

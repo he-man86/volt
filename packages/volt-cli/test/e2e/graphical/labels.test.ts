@@ -1,4 +1,5 @@
-﻿/**
+import { landed } from "../harness"
+/**
  * NETWORK LABELS AND JUMPS — the pair that makes `JMP` mean anything.
  *
  * A jump in FBD/LD leaves its network: each network may carry ONE label, and `JMP name` transfers control to the
@@ -58,7 +59,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`NETWORK LABEL: Done\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
@@ -66,7 +67,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)
@@ -95,7 +96,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`NETWORK LABEL: Done\n  out := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
@@ -104,7 +105,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		// The jump must not have introduced a single new error or warning.
@@ -136,7 +137,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`NETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
@@ -146,7 +147,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// push the body back, so a POU Volt had just created could never be pushed again.
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		// A return has no target operand, so its flag lives on the ITEM — the opposite of a jump. Measured,
@@ -178,7 +179,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`NETWORK\n  RETURN := ;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		if (!created.accepted) {
+		if (!landed(created)) {
 			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional return/i)
 			return
 		}
@@ -202,7 +203,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		if (!created.accepted) {
+		if (!landed(created)) {
 			expect(JSON.stringify(created.conflicts)).toMatch(/unconditional jump/i)
 			return
 		}

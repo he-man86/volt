@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * ROUND-TRIP PROOF for the CODESYS/TwinCAT graphical parity fixes.
  *
@@ -28,7 +29,7 @@ async function roundTrip(fullName: string, src: string): Promise<string> {
 		expectedProjectVersion: refs.projectVersion,
 		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
-	expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return (await fetchItem(fullName)).sourceText
 }
 
@@ -71,7 +72,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 			ops: [{ op: "set", name: fullAt, sourceText: src, ifVersion: refs.items[fullAt] ?? null }],
 		})
 
-		if (!r.accepted) {
+		if (!landed(r)) {
 			// …naming the EN/ENO pair it could not build: TwinCAT's import builds an enabled AND with no ENO output,
 			// so the text's ENO is refused by name (task 4.2, `TcEnoRefusal`).
 			expect(JSON.stringify(r.conflicts)).toMatch(/\bENO?\b/)

@@ -69,7 +69,7 @@ describe(`endpoints / grep oracle (${BASE})`, () => {
 		for (const d of differing.slice(0, 10)) console.log(`  ${d}`)
 		const all = oracle(project, { pattern: "x" }).notSearched
 		console.log(`[grep oracle] fetch marks ${all.unreadable.length} unreadable, ${all.hidden.length} with an UNSUPPORTED body` +
-			` (${[...new Set(all.hidden.flatMap((h) => h.langs))].join(", ")}); networkText ${health.networkText}`)
+			` (${[...new Set(all.hidden.flatMap((h) => h.langs))].join(", ")}); languages ${health.languages.join(", ")}`)
 		expect(differing).toEqual([])
 		expect(project.items.length).toBeGreaterThan(0)
 	})

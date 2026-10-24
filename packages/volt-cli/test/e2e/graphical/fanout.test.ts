@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * FAN-OUT — one wire feeding several consumers, on a live IDE.
  *
@@ -50,7 +51,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v1).toBeDefined()
@@ -71,7 +72,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const again = await pushOps([
 			{ op: "set", name: wire, sourceText: v1.sourceText, ifVersion: refs.items[wire] },
 		])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 
 		const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v2.sourceText).toBe(v1.sourceText)
@@ -104,7 +105,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`IMPLEMENTATION FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		const shape = "  split1 := a ADD b;\n  n := split1;\n  sv := split1;\n"
@@ -112,7 +113,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: wire, sourceText: v1.sourceText, ifVersion: refs.items[wire] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v2.sourceText).toBe(v1.sourceText)
 
@@ -138,7 +139,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 			`IMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const back = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(back.sourceText).toBe(src)
 		const refs = await bridge.refs()

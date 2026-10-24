@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * AN ABSTRACT MEMBER READS AND PUSHES THE SAME ON BOTH VENDORS (openspec `abstract-member-push` 3.2,
  * `abstract-member-parity` 3.3, DIALECT C2n) — live.
@@ -68,7 +69,7 @@ describe(`abstract member migration / ${MIGRATED} (${BASE})`, () => {
 			ops: [{ op: "set", name: await pathOf(MIGRATED), sourceText: withCode, ifVersion: before.version }],
 		})
 
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		const reason = String((r.conflicts ?? [])[0]?.reason ?? "")
 		expect(reason).toContain("'TakePicture'")
 		expect(reason).toContain("must not contain any statements")

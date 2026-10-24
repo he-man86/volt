@@ -381,6 +381,10 @@ public class PipeTransportTests
 
         Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""refs"",""protocol"":1,""body"":"));
         Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""push"",""protocol"":1,""body"":{""ops"":4}}"));
+        // A frame that is no JSON object is no request at all: it states no protocol because it is no envelope, and is the
+        // frame's error, not a client of another protocol (contract suite, frame/null, wire-final-shape 4.1).
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, "null"));
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, "[]"));
     }
 
     /// <summary>A PUSH OP IN A RETIRED SPELLING IS REFUSED BY NAME (openspec <c>multi-application-tree</c>, gate review of

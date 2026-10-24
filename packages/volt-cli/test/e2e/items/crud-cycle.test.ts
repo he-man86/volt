@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE core lifecycle test. For every kind, drive the full endpoint cycle and assert the version/hash
  * matrix at each step — so /refs, /fetch, /push and the three version stamps are all exercised together:
@@ -57,7 +58,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			const newWire = fid(`lc_${k.key}_r`, ext)
 			const at = await pathOf(wire)
 			const rn = await pushOps([{ op: "set", name: at, to: inFolder(folderOf(at), newWire), ifVersion: snapshotItem(s3, wire) }])
-			expect(rn.accepted).toBe(true)
+			expect(landed(rn)).toBe(true)
 			const s4 = await snapshot()
 			expect(snapshotHas(s4, wire)).toBe(false)
 			if (k.nameInSource) expect(snapshotItem(s4, newWire)).not.toBe(snapshotItem(s3, wire))
@@ -71,7 +72,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			// "did the tree shape change" signal that a move does not move is worse than none.
 			const movedFolder = await plcFolder("POUs/Moved")
 			const mv = await pushOps([{ op: "set", name: await pathOf(newWire), to: inFolder(movedFolder, newWire), ifVersion: snapshotItem(s4, newWire) }])
-			expect(mv.accepted).toBe(true)
+			expect(landed(mv)).toBe(true)
 			const s5 = await snapshot()
 			expect(snapshotItem(s5, newWire)).not.toBe(snapshotItem(s4, newWire))
 			expect(s5.project).not.toBe(s4.project)
@@ -79,7 +80,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 8. DELETE
 			const del = await pushOps([{ op: "deleteItem", name: await pathOf(newWire), ifVersion: snapshotItem(s5, newWire) }])
-			expect(del.accepted).toBe(true)
+			expect(landed(del)).toBe(true)
 			const s6 = await snapshot()
 			assertDelta(s5, s6, newWire, { item: "gone", project: true })
 		})

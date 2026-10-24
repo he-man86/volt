@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * ROUND-TRIP PROOF for the shapes a REAL project turned out to contain.
  *
@@ -39,7 +40,7 @@ async function roundTrip(fullName: string, src: string): Promise<string> {
 		expectedProjectVersion: refs.projectVersion,
 		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
-	expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	return (await fetchItem(fullName)).sourceText
 }
 
@@ -55,7 +56,7 @@ async function survivesOrIsRefused(fullName: string, src: string): Promise<"roun
 		ops: [{ op: "set", name: fullNameAt, sourceText: src, ifVersion: refs.items[fullNameAt] ?? null }],
 	})
 
-	if (!r.accepted) {
+	if (!landed(r)) {
 		// A refusal has to be legible: it names what it cannot express and what to do instead.
 		const why = JSON.stringify(r.conflicts)
 		expect(why, `refused without saying why: ${why}`).toMatch(/cannot|unable|refus/i)
@@ -219,12 +220,12 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 			ops: [{ op: "set", name: fullAt, sourceText: src, ifVersion: refs.items[fullAt] ?? null }],
 		})
 		if (VENDOR === "twincat") {
-			expect(r.accepted, "TwinCAT accepted a Parallel its import cannot build").toBe(false)
+			expect(landed(r), "TwinCAT accepted a Parallel its import cannot build").toBe(false)
 			expect(JSON.stringify(r.conflicts)).toContain("NETWORK_UNSUPPORTED")
 			expect(JSON.stringify(r.conflicts)).toContain("BRANCH")
 			return
 		}
-		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		const once = (await fetchItem(full)).sourceText
 		expect(once).toBe(src)
 		expect(await roundTrip(full, once)).toBe(once)

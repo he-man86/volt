@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE LIVE REFUSAL TABLE — one minimal trigger per wire code a client can receive (openspec `bridge-refusal-review` 8.1).
  *
@@ -102,7 +103,7 @@ export async function pushFresh(b: Bridge, ops: unknown[], extra: Record<string,
 
 export async function createFb(b: Bridge, bare: string, text = fb(bare)): Promise<void> {
 	const r = await pushFresh(b, [{ op: "set", name: b.at(bare), sourceText: text, ifVersion: null }])
-	if (r.kind !== "push" || r.response.accepted !== true || (r.response.conflicts ?? []).length)
+	if (r.kind !== "push" || landed(r.response) !== true || (r.response.conflicts ?? []).length)
 		throw new Error(`${b.vendor}: setup create of '${bare}.pou' refused: ${JSON.stringify(r)}`)
 }
 
@@ -117,7 +118,7 @@ export async function sweep(b: Bridge): Promise<void> {
 	]
 	if (ops.length === 0) return
 	const r = await b.call("push", { expectedProjectVersion: refs.projectVersion, force: true, ops })
-	if (!r.accepted || (r.conflicts ?? []).length)
+	if (!landed(r) || (r.conflicts ?? []).length)
 		throw new Error(`${b.vendor}: sweep could not delete ${ops.length} item(s): ${JSON.stringify(r.conflicts).slice(0, 400)}`)
 }
 
@@ -170,6 +171,8 @@ export function normalize(a: Answer, b: Bridge): unknown {
 		// written on TwinCAT alone (`<root>/X.pou` against `X.pou`) made every path-quoting answer differ.
 		let t = b.root === "" ? s : s.split(`${b.root}/`).join("")
 		t = t.split(b.project).join("<project>").replace(new RegExp(`\\b${b.vendor}\\b`, "gi"), "<vendor>")
+		// A version a message quotes is the IDE's hash of its own project (STALE_PROJECT_VERSION's "the IDE is at …").
+		t = t.replace(/\bis at [0-9a-f]{16}\b/g, "is at <v>")
 		for (const [said, as] of IDE_WORDS) t = t.replace(said, as)
 		return t
 	}

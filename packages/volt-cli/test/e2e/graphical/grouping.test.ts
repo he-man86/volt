@@ -1,4 +1,5 @@
-﻿/**
+import { landed } from "../harness"
+/**
  * THE IMPORTER EMITS ONE NETWORK PER CONNECTED COMPONENT — measured live, and now depended upon.
  *
  * PLCopen FBD has no network element, so when TwinCAT's importer is handed a flat list of wired items it has
@@ -71,7 +72,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
 				const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
-				if (!created.accepted) {
+				if (!landed(created)) {
 					report.push(`  ${label.padEnd(24)} REFUSED: ${JSON.stringify(created.conflicts).slice(0, 90)}`)
 					counts.push(-1)
 					continue

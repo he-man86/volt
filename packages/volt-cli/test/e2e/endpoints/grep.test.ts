@@ -62,9 +62,9 @@ describe(`endpoints / grep (${BASE})`, () => {
 
 		const r = await bridge.grep({ pattern: "vltGrepRunning" })
 
-		expect(r.matches.map((m: any) => m.path).sort()).toEqual([pm, pp, pp].sort())
+		expect(r.matches.map((m: any) => m.name).sort()).toEqual([pm, pp, pp].sort())
 		const text = { [pm]: await fetchSource(fid("g_motor")), [pp]: await fetchSource(fid("g_prg")) }
-		for (const m of r.matches) expect(m.text).toBe(lineOf(text[m.path], m.line))
+		for (const m of r.matches) expect(m.text).toBe(lineOf(text[m.name], m.line))
 		const refs = await bridge.refs()
 		expect(r.items).toEqual({ [pm]: refs.items[pm], [pp]: refs.items[pp] })
 		expect(r.totalMatches).toBe(3)
@@ -99,7 +99,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 
 		const r = await bridge.grep({ pattern: header, literal: true, caseSensitive: true, paths: [hidden.name] })
 
-		expect(r.matches).toEqual([{ path: hidden.name, line: 1, text: header }])
+		expect(r.matches).toEqual([{ name: hidden.name, line: 1, text: header }])
 		const entry = r.notSearched.find((n: any) => n.name === hidden.name)
 		expect(entry?.reason).toContain(`IMPLEMENTATION ${HIDDEN.exec(hidden.sourceText)![1]} UNSUPPORTED`)
 	})
@@ -130,7 +130,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const r = await bridge.grep({ pattern: "RESOLUTION" })
 
-		expect(r.matches.filter((m: any) => m.path.endsWith(".library"))).toEqual([])
+		expect(r.matches.filter((m: any) => m.name.endsWith(".library"))).toEqual([])
 		expect(r.notSearched.filter((n: any) => n.name.endsWith(".library"))).toEqual([])
 		for (const u of refs.unreadable.filter((x: any) => !x.name.endsWith(".library")))
 			expect(r.notSearched).toContainEqual({ name: u.name, reason: u.reason })

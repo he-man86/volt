@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE NATIVE WRITER, LIVE (openspec twincat-inproc-host 2.3) — every shape TwinCAT's PLCopen import refused or reshaped,
  * in LD and FBD, now written as TwinCAT's own archive, and held to everything a body the engineer drew holds:
@@ -100,7 +101,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		await clean([...cases.map((c) => c.item), rid("nw_F", "pou")])
 		const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tA : INT;\n\tB : INT;\nEND_VAR\nIMPLEMENTATION ST\n${FN} := A + B;\n\nEND_FUNCTION\n`
 		const made = await pushOps([{ op: "set", name: rid("nw_F", "pou"), sourceText: fn, ifVersion: null }])
-		expect(made.accepted, JSON.stringify(made.conflicts)).toBe(true)
+		expect(landed(made), JSON.stringify(made.conflicts)).toBe(true)
 	})
 
 	afterAll(async () => {
@@ -116,10 +117,10 @@ describe(`graphical / native writer (${BASE})`, () => {
 		const failures: string[] = []
 		for (const c of cases) {
 			const r = await pushOps([{ op: "set", name: c.item, sourceText: c.src, ifVersion: null }])
-			const back = r.accepted ? await pull(c.item) : undefined
-			const ok = r.accepted && back === c.src
-			rows.set(c.key, { stores: ok, note: r.accepted ? undefined : JSON.stringify(r.conflicts).slice(0, 160) })
-			if (!ok) failures.push(`${c.key}: ${r.accepted ? `pulled\n${back}` : JSON.stringify(r.conflicts).slice(0, 300)}`)
+			const back = landed(r) ? await pull(c.item) : undefined
+			const ok = landed(r) && back === c.src
+			rows.set(c.key, { stores: ok, note: landed(r) ? undefined : JSON.stringify(r.conflicts).slice(0, 160) })
+			if (!ok) failures.push(`${c.key}: ${landed(r) ? `pulled\n${back}` : JSON.stringify(r.conflicts).slice(0, 300)}`)
 		}
 		expect(failures, failures.join("\n\n")).toEqual([])
 	})
@@ -174,7 +175,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 			const item = rid(`nw_r_${shape}`, "pou")
 			await clean([item])
 			const r = await pushOps([{ op: "set", name: item, sourceText: fb(bare, "LD", body), ifVersion: null }])
-			expect(r.accepted, `${shape} was accepted`).toBe(false)
+			expect(landed(r), `${shape} was accepted`).toBe(false)
 			expect(r.conflicts?.[0]?.code, JSON.stringify(r.conflicts)).toBe("NETWORK_UNSUPPORTED")
 			expect((await bridge.refs()).items?.[item], `${shape}: the refused create left the item`).toBeUndefined()
 		}
@@ -190,12 +191,12 @@ describe(`graphical / native writer (${BASE})`, () => {
 				.replace(/\bb\b/g, "c")
 				.replace(/\nEND_FUNCTION_BLOCK\n$/, "NETWORK\n  out3 := d OR e;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n")
 			const r = await pushOps([{ op: "set", name: c.item, sourceText: src, ifVersion: refs[c.item] }])
-			const back = r.accepted ? await pull(c.item) : undefined
+			const back = landed(r) ? await pull(c.item) : undefined
 			// The canonical text the pull writes: the pushed text with a blank line before END_FUNCTION_BLOCK, as created.
-			const ok = r.accepted && back === src
+			const ok = landed(r) && back === src
 			rows.get(c.key)!.edit = ok
 			edited.set(c.item, src)
-			if (!ok) failures.push(`${c.key}: ${r.accepted ? `pulled\n${back}\npushed\n${src}` : JSON.stringify(r.conflicts).slice(0, 300)}`)
+			if (!ok) failures.push(`${c.key}: ${landed(r) ? `pulled\n${back}\npushed\n${src}` : JSON.stringify(r.conflicts).slice(0, 300)}`)
 		}
 		if (twincat) {
 			const ms = await reload()

@@ -1,3 +1,4 @@
+import { landed } from "./lib/workspace"
 /**
  * COMPATIBILITY SHIM — the old flat harness surface, re-exported from `lib/`.
  *
@@ -23,6 +24,7 @@ export {
 	requireHealthy,
 	pushOps,
 	landedInFull,
+	landed,
 	cleanup,
 	removeItem,
 	plcFolder,
@@ -93,7 +95,7 @@ export async function restorePlcPrg(): Promise<void> {
 	// The message is built ONLY on failure. `expect(cond, msg)` evaluates `msg` eagerly, and `r.conflicts` is
 	// undefined on an accepted push — so an inline `JSON.stringify(r.conflicts).slice(…)` threw on the happy path
 	// and failed every test that restores the main program.
-	if (!r.accepted)
+	if (!landed(r))
 		throw new Error(
 			`could not restore '${main}' — the fixture's main program is left edited: ` +
 				JSON.stringify(r.conflicts ?? r).slice(0, 300),

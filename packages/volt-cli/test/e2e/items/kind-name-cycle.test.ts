@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * EVERY ITEM KEEPS ITS NAME THROUGH A BROKEN → FIXED → CHANGED CYCLE — openspec `push-without-header-check` 5.G.1,
  * through the real `volt` CLI against a live IDE.
@@ -184,7 +185,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 				.replace(/\nEND_VAR/, `\n\t${decl.join("\n\t")}\nEND_VAR`)
 				.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${body.join("\n")}\n`)
 			const r = await bridge.push({ ops: [{ op: "set", name: main, sourceText: src, ifVersion: m.version }] })
-			expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)
+			expect(landed(r), JSON.stringify(r.conflicts)).toBe(true)
 			const errors = ((await drivenBuild()).diagnostics ?? []).filter((d: any) => d.severity === "error")
 			expect(errors.map((e: any) => `${e.name}: ${e.message}`)).toEqual([])
 		})

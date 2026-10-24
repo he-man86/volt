@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE PUSH ANSWER HOLDS WHAT A FETCH GIVES — live (openspec `st-roundtrip-fixed-point`, task 4.1).
  *
@@ -37,7 +38,7 @@ async function push(ops: unknown[], returnSources: boolean | "omit" = true): Pro
 /** The rule every answer obeys: each entry is what a live fetch gives, under a `newItems` key whose version is the
  *  IDE's current one. Returns the entries for the case's own assertions. */
 async function holdsWhatAFetchGives(r: any): Promise<Record<string, string>> {
-	expect(r.accepted, `push rejected: ${JSON.stringify(r.conflicts ?? r)}`).toBe(true)
+	expect(landed(r), `push rejected: ${JSON.stringify(r.conflicts ?? r)}`).toBe(true)
 	const sources: Record<string, string> = r.newSources ?? {}
 	const refs = (await bridge.refs()).items ?? {}
 	for (const [name, text] of Object.entries(sources)) {
@@ -95,12 +96,12 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	it("an update: answered; no flag → no newSources; false → no newSources", async () => {
 		const bare = id("rs_up"), name = pid("rs_up")
 		const created = await push([{ op: "set", name, sourceText: fb(bare), ifVersion: null }], "omit")
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		expect(created.newSources, "newSources without the flag").toBeUndefined()
 
 		const v1 = (await bridge.refs()).items[name]
 		const off = await push([{ op: "set", name, sourceText: fb(bare, { body: "x := x + 5;" }), ifVersion: v1 }], false)
-		expect(off.accepted).toBe(true)
+		expect(landed(off)).toBe(true)
 		expect(off.newSources, "newSources with returnSources: false").toBeUndefined()
 
 		const v2 = (await bridge.refs()).items[name]
@@ -112,7 +113,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	it("rename+edit: answered under the NEW name, the old one absent", async () => {
 		const from = pid("rs_reA"), to = pid("rs_reB")
 		const created = await push([{ op: "set", name: from, sourceText: fb(id("rs_reA")), ifVersion: null }])
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		const v = (await bridge.refs()).items[from]
 		const r = await push([{ op: "set", name: from, to: to, sourceText: fb(id("rs_reB"), { body: "x := x + 7;" }), ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
@@ -123,7 +124,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	it("rename-only (no text): answered under the new name with the header the IDE rewrote", async () => {
 		const from = pid("rs_roA"), to = pid("rs_roB")
 		const created = await push([{ op: "set", name: from, sourceText: fb(id("rs_roA")), ifVersion: null }])
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		const v = (await bridge.refs()).items[from]
 		const r = await push([{ op: "set", name: from, to: to, ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
@@ -136,7 +137,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	it("rename-only of a FUNCTION: only the header is renamed (DIALECT C2o, both vendors)", async () => {
 		const from = pid("rs_rfA"), to = pid("rs_rfB"), a = id("rs_rfA"), b = id("rs_rfB")
 		const created = await push([{ op: "set", name: from, sourceText: func(a), ifVersion: null }])
-		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
+		expect(landed(created), JSON.stringify(created.conflicts)).toBe(true)
 		const v = (await bridge.refs()).items[from]
 		const r = await push([{ op: "set", name: from, to: to, ifVersion: v }])
 		const s = await holdsWhatAFetchGives(r)
@@ -157,7 +158,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 			{ op: "set", name: pid(`rs_${tag}F`), sourceText: func(names.fnA), ifVersion: null },
 			{ op: "set", name: pid(`rs_${tag}P`), sourceText: `PROGRAM ${names.p}\nVAR\n\tinst : ${names.fbA}; (* an ${names.fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${names.fnA}(a := 1); // calls ${names.fnA}\nEND_PROGRAM\n`, ifVersion: null },
 		])
-		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
+		expect(landed(created), JSON.stringify(created.conflicts)).toBe(true)
 		return names
 	}
 
@@ -202,7 +203,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 	it("move-only: answered", async () => {
 		const name = inFolder(await applicationRoot(), fid("rs_mv")), dest = pid("rs_mv")
 		const created = await push([{ op: "set", name, sourceText: fb(id("rs_mv")), ifVersion: null }])
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		const before = await bridge.refs()
 		expect(name, "premise: the item starts outside the destination").not.toBe(dest)
 		const r = await push([{ op: "set", name, to: dest, ifVersion: before.items[name] }])
@@ -220,7 +221,7 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 			{ op: "set", name: del, sourceText: fb(id("rs_del")), ifVersion: null },
 			{ op: "set", name: keep, sourceText: fb(id("rs_Case")), ifVersion: null },
 		])
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		const refs = (await bridge.refs()).items
 		const r = await push([
 			{ op: "deleteItem", name: del, ifVersion: refs[del] },
@@ -236,13 +237,13 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 		const ok = pid("rs_ok"), bad = pid("rs_bad"), bareBad = id("rs_bad")
 		const refused = `\nMETHOD Vlt__Log : BOOL\n${MARK}\nVlt__Log := TRUE;\nEND_METHOD\n`
 		const created = await push([{ op: "set", name: bad, sourceText: fb(bareBad), ifVersion: null }])
-		expect(created.accepted).toBe(true)
+		expect(landed(created)).toBe(true)
 		const v = (await bridge.refs()).items[bad]
 		const r = await push([
 			{ op: "set", name: ok, sourceText: fb(id("rs_ok")), ifVersion: null },
 			{ op: "set", name: bad, sourceText: fb(bareBad, { children: refused }), ifVersion: v },
 		])
-		console.log("[push-return-sources 4.1] partial:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts, keys: Object.keys(r.newSources ?? {}) }))
+		console.log("[push-return-sources 4.1] partial:", JSON.stringify({ accepted: landed(r), conflicts: r.conflicts, keys: Object.keys(r.newSources ?? {}) }))
 		expect((r.conflicts ?? []).map((c: any) => c.name), "premise: the IDE refuses METHOD Vlt__Log at apply").toEqual([bad])
 		const s = await holdsWhatAFetchGives(r)
 		expect(s[ok], "the landed op has no entry").toBeDefined()

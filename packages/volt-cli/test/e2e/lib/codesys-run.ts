@@ -1,3 +1,4 @@
+import { landed } from "./workspace"
 /**
  * WHETHER PUSHED CODE RUNS, on the served CODESYS — the run probe's client (`scripts/run_pipe_production.py`, which
  * says why it is files and not a pipe op). The probe builds the application, logs in to the simulation, starts it, lets
@@ -66,7 +67,7 @@ export async function runCalled(programs: readonly string[], paths: readonly str
 		if (at === -1) throw new Error(`${main} has no ST body to call ${programs.join(", ")} from`)
 		lines.splice(at + 1, 0, ...programs.map((p) => `${p}();`))
 		const r = await pushOps([{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version }])
-		if (!r.accepted) throw new Error(`could not call ${programs.join(", ")} from ${main}: ${JSON.stringify(r.conflicts)}`)
+		if (!landed(r)) throw new Error(`could not call ${programs.join(", ")} from ${main}: ${JSON.stringify(r.conflicts)}`)
 		return runAndRead(paths)
 	})
 	for (const p of paths) {

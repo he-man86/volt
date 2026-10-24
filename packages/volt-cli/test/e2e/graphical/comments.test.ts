@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * NETWORK TITLES AND COMMENTS — the text an engineer writes ABOUT the logic, which no test covered.
  *
@@ -48,7 +49,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 			`NETWORK\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
@@ -63,7 +64,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)

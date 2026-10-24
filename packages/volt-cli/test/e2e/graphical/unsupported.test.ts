@@ -1,4 +1,5 @@
-﻿/**
+import { landed } from "../harness"
+/**
  * CFC and SFC are UNSUPPORTED — and the only thing that matters is that a push never destroys one.
  *
  * <p>Everything protecting these bodies was offline until now. That is a real gap and not a formality: the guard
@@ -90,7 +91,7 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 				expectedProjectVersion: refs.projectVersion,
 				ops: [{ op: "set", name, sourceText: before.sourceText, ifVersion: refs.items[name] }],
 			})
-			expect(r.accepted).toBe(true)
+			expect(landed(r)).toBe(true)
 
 			const after = await fetchItem(name)
 			expect(after.sourceText).toBe(before.sourceText)
@@ -117,7 +118,7 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 					ifVersion: refs.items[name],
 				}],
 			})
-			expect(r.accepted).toBe(false)
+			expect(landed(r)).toBe(false)
 
 			// The refusal must NAME the language and say Volt does not support it. "Refused" alone leaves an
 			// engineer unable to tell a Volt limitation from a mistake in what they pushed.

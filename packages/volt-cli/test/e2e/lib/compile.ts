@@ -1,3 +1,4 @@
+import { landed } from "./workspace"
 /**
  * COMPILING WHAT A TEST CREATED — instantiating a POU in the main program so the compiler reaches it, and
  * asserting the project builds clean.
@@ -49,7 +50,7 @@ export async function withMainProgramRestored<T>(body: () => Promise<T>): Promis
 			const r = await pushOps([
 				{ op: "set", name: main, sourceText: original, ifVersion: current.version },
 			])
-			if (!r.accepted)
+			if (!landed(r))
 				throw new Error(
 					`could not restore '${main}' — the fixture's main program is left edited: ` +
 						JSON.stringify(r.conflicts).slice(0, 300),
@@ -73,7 +74,7 @@ export async function clearTestInstances(): Promise<void> {
 	const r = await pushOps([
 		{ op: "set", name: main, sourceText: kept.join("\n"), ifVersion: item.version },
 	])
-	if (!r.accepted)
+	if (!landed(r))
 		throw new Error(`could not clear stale test instances from '${main}': ${JSON.stringify(r.conflicts).slice(0, 300)}`)
 }
 
@@ -92,7 +93,7 @@ export async function instantiate(pouName: string): Promise<void> {
 	const r = await pushOps([
 		{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version },
 	])
-	expect(r.accepted, `could not instantiate '${pouName}': ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `could not instantiate '${pouName}': ${JSON.stringify(r.conflicts)}`).toBe(true)
 }
 
 /**

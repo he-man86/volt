@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A FOLDER AND A SIBLING OBJECT OF THE SAME NAME, CREATED IN ONE PUSH — live, on both vendors.
  *
@@ -46,7 +47,7 @@ describe(`lifecycle / folder-vs-object name clash (${BASE})`, () => {
 			{ op: "set", name: inFolder(inside, fid("clash_inner")), sourceText: fb(id("clash_inner")), ifVersion: null },
 		])
 
-		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		// Both landed, and each where it was asked to — the coexistence D34 says is legal.
 		expect((await fetchItem(fid("clash", "dut"))).folder ?? "").toBe(root)

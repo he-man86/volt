@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A PRODUCTION BRIDGE — `VOLT_GRAPHICAL` unset, as every shipped build is — pulled and pushed live (openspec
  * `implementation-keyword` 3c, task 4.1).
@@ -32,7 +33,7 @@ const DISABLED = "LD and FBD are not enabled in this build"
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
 
 const health = await bridge.health()
-const production = health.networkText === false
+const production = !health.languages.includes("LD") && !health.languages.includes("FBD")
 if (!production)
 	console.warn(`[production] skipped: the bridge on ${BASE} has LD and FBD network text ON — serve it with ide.ps1 up -Production`)
 
@@ -79,7 +80,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name, sourceText: src, ifVersion: null }])
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts ?? r)).toContain(DISABLED)
 		expect((await bridge.refs()).items[name]).toBeUndefined()
 	})
@@ -109,7 +110,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const before = await held()
 		try {
 			const r = await set(edited)
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const after = (await fetchItem(name)).sourceText
 			expect(after).toBe(edited)
 			expect(await held()).toEqual(before)
@@ -118,7 +119,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 				codesys: () => undefined,
 			})
 		} finally {
-			expect((await set(pulled)).accepted).toBe(true)
+			expect(landed((await set(pulled)))).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(pulled)
 			expect(await held()).toEqual(before)
 		}

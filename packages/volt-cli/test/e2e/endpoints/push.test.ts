@@ -1,6 +1,7 @@
+import { landed } from "../harness"
 /** /push — the 4 ops' guards, atomic batch, conflict shapes, and receipt==next-/refs. */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE, plcFolder, at, applicationRoot } from "../harness"
+import { bridge, opErrorCode, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE, plcFolder, at, applicationRoot } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / push (${BASE})`, () => {
@@ -15,7 +16,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		// THE CODE, NOT THE SENTENCE. This asserted the exact English, back when the message was the only thing
 		// a caller could match on; the gate's four outcomes now carry four codes, and the versions ride along.
 		const conflict = r.conflicts.find((c: any) => c.name === wire)
@@ -29,14 +30,24 @@ describe(`endpoints / push (${BASE})`, () => {
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, sourceText: fb(name), ifVersion: null }] })
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		expect(r.conflicts.some((c: any) => c.name === wire && c.code === "ITEM_EXISTS")).toBe(true)
 	})
 
-	it("rejects the batch on a wrong expectedProjectVersion (<project> conflict)", async () => {
-		const r = await bridge.push({ expectedProjectVersion: "deadbeef", ops: [] })
-		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === "<project>" && c.code === "STALE_PROJECT_VERSION")).toBe(true)
+	// The lease is the request's, not an op's: a stale one is the error frame STALE_PROJECT_VERSION (wire-final-shape §5).
+	it("refuses the batch on a wrong expectedProjectVersion with the STALE_PROJECT_VERSION frame", async () => {
+		expect(await opErrorCode(() => bridge.push({ expectedProjectVersion: "deadbeef", ops: [] }))).toBe("STALE_PROJECT_VERSION")
+	})
+
+	// An item's text is UTF-8 text; a leading U+FEFF is the client file's encoding, not content (wire-final-shape 4.3b:
+	// both vendors stored it as the declaration's first character). BAD_REQUEST, and nothing lands.
+	it("refuses a sourceText that starts with a byte-order mark, BAD_REQUEST, and writes nothing", async () => {
+		const name = id("p_bom"), wire = await at(fid("p_bom"))
+		const before = (await bridge.refs()).items
+		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, sourceText: "﻿" + fb(name) }] })
+		expect(r.conflicts.map((c: any) => [c.name, c.code])).toEqual([[wire, "BAD_REQUEST"]])
+		expect(landed(r)).toBe(false)
+		expect((await bridge.refs()).items).toEqual(before)
 	})
 
 	it("rejects a delete with a wrong ifVersion", async () => {
@@ -44,7 +55,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: wire, ifVersion: "wrongversion" }] })
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		// Same shape as the stale-set case above, and the same code: a delete guarded by a version the IDE has
 		// moved past is the same situation as a write guarded by one.
 		const stale = r.conflicts.find((c: any) => c.name === wire)
@@ -60,7 +71,7 @@ describe(`endpoints / push (${BASE})`, () => {
 			expectedProjectVersion: (await bridge.refs()).projectVersion,
 			ops: [{ op: "deleteItem", name: gone }],
 		})
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 	})
 
 	it("rejects a delete quoting an ifVersion for an item that's gone (ITEM_MISSING)", async () => {
@@ -70,7 +81,7 @@ describe(`endpoints / push (${BASE})`, () => {
 			expectedProjectVersion: (await bridge.refs()).projectVersion,
 			ops: [{ op: "deleteItem", name: gone, ifVersion: "0000000000000000" }],
 		})
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		expect(r.conflicts.find((c: any) => c.name === gone)?.code).toBe("ITEM_MISSING")
 	})
 
@@ -99,7 +110,7 @@ describe(`endpoints / push (${BASE})`, () => {
 				ifVersion: refs.items[wire],
 			}],
 		})
-		expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true)
+		expect(landed(r), JSON.stringify(r.conflicts)).toBe(true)
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [moved] })).changed.find((i: any) => i.name === moved)
 		expect(after).toBeDefined()
@@ -124,7 +135,7 @@ describe(`endpoints / push (${BASE})`, () => {
 			{ op: "set", name: updKey, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[updKey] },
 			{ op: "deleteItem", name: delKey, ifVersion: refs.items[delKey] },
 		] })
-		expect(r.accepted).toBe(true)
+		expect(landed(r)).toBe(true)
 		// receipt (newItems) must equal the next /refs exactly
 		const after = await bridge.refs()
 		expect(r.newProjectVersion).toBe(after.projectVersion)
@@ -144,7 +155,7 @@ describe(`endpoints / push (${BASE})`, () => {
 			{ op: "set", name: okKey, sourceText: fb(ok), ifVersion: null },      // OK
 			{ op: "deleteItem", name: badKey, ifVersion: "wrongversion" },                              // CONFLICT
 		] })
-		expect(r.accepted).toBe(false)
+		expect(landed(r)).toBe(false)
 		const after = await bridge.refs()
 		expect(after.items[okKey]).toBeUndefined()   // atomic: the OK op was NOT applied
 		expect(after.items[badKey]).toBeDefined()

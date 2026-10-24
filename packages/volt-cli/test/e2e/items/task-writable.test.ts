@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A TASK IS EDITABLE FROM THE WORKSPACE — the first non-source item that is.
  *
@@ -62,7 +63,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		const name = await anyTask()
 		const before = (await fetchItem(name)).sourceText
 		const r = await pushOps([{ op: "set", name, sourceText: before, ifVersion: await versionOf(name) }])
-		expect(r.accepted, `pushing a task its own bytes was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `pushing a task its own bytes was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		expect((await fetchItem(name)).sourceText).toBe(before)
 	})
 
@@ -78,7 +79,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 
 		try {
 			const r = await pushOps([{ op: "set", name, sourceText: edited, ifVersion: await versionOf(name) }])
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 			const back = (await fetchItem(name)).sourceText
 			expect(back).toContain(`Priority:  ${changed}`)
@@ -105,7 +106,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 
 		try {
 			const r = await pushOps([{ op: "set", name, sourceText: withCalls, ifVersion: await versionOf(name) }])
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(withCalls)
 		} finally {
 			await pushOps([{ op: "set", name, sourceText: original, ifVersion: await versionOf(name) }])
@@ -136,7 +137,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		const watchdog = VENDOR === "codesys" ? "off '' ms (sensitivity 1)" : "off"
 		const body = `Type:      Cyclic\nInterval:  100 ms\nPriority:  ${await freePriority()}\nWatchdog:  ${watchdog}\n`
 		const created = await pushOps([{ op: "set", name, sourceText: body, ifVersion: null }])
-		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		// It is a real task the IDE now schedules, not a file on the side: it comes back through `refs` and
 		// materializes with the settings it was given.
@@ -144,7 +145,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		expect((await fetchItem(name)).sourceText).toBe(body)
 
 		const removed = await pushOps([{ op: "deleteItem", name, ifVersion: await versionOf(name) }])
-		expect(removed.accepted, `delete refused: ${JSON.stringify(removed.conflicts)}`).toBe(true)
+		expect(landed(removed), `delete refused: ${JSON.stringify(removed.conflicts)}`).toBe(true)
 		expect(await versionOf(name)).toBeNull()
 	})
 
@@ -165,14 +166,14 @@ describe(`items / a task is writable (${BASE})`, () => {
 		try {
 			const r = await pushOps([{ op: "set", name, sourceText: edited, ifVersion: await versionOf(name) }])
 			if (VENDOR === "twincat") {
-				expect(r.accepted, "TwinCAT accepted a watchdog it cannot schedule").toBe(false)
+				expect(landed(r), "TwinCAT accepted a watchdog it cannot schedule").toBe(false)
 				expect(r.conflicts?.[0]?.code, JSON.stringify(r.conflicts)).toBe("UNSUPPORTED")
 				expect(JSON.stringify(r.conflicts).toLowerCase()).toContain("watchdog")
 				// …and the refusal changed NOTHING. A rejected push that half-applied would be worse than one
 				// that silently dropped the field.
 				expect((await fetchItem(name)).sourceText).toBe(original)
 			} else {
-				expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+				expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 				expect((await fetchItem(name)).sourceText).toBe(edited)
 			}
 		} finally {
@@ -193,7 +194,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 		expect(respaced, "the descriptor has no padded label to re-space").not.toBe(original)
 		try {
 			const r = await pushOps([{ op: "set", name, sourceText: respaced, ifVersion: await versionOf(name) }])
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(original)
 		} finally {
 			if ((await fetchItem(name)).sourceText !== original)

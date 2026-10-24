@@ -1,3 +1,4 @@
+import { landed } from "./workspace"
 /**
  * ROUND-TRIP — the one shape almost every test in this suite is really making, in one place.
  *
@@ -29,7 +30,7 @@ export async function expectRoundTrip(name: string, src: string, folder?: string
 	expect(back, `'${name}' did not come back as authored`).toBe(src)
 
 	const again = await pushOps([{ op: "set", name: await pathOf(name), sourceText: back, ifVersion: await versionOf(name) }])
-	expect(again.accepted, `re-pushing '${name}' its own bytes was refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+	expect(landed(again), `re-pushing '${name}' its own bytes was refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 	expect((await fetchItem(name)).sourceText, `'${name}' drifted on a second push`).toBe(back)
 	return back
 }
@@ -53,7 +54,7 @@ export async function expectRoundTripOrRefusal(
 	await removeItem(name)
 	const created = await pushOps([{ op: "set", name: await at(name, folder ?? (await projectRoot())), sourceText: src, ifVersion: null }])
 
-	if (!created.accepted) {
+	if (!landed(created)) {
 		expect(
 			JSON.stringify(created.conflicts),
 			`'${name}' was refused, but not for the expected reason`,
@@ -70,7 +71,7 @@ export async function expectRoundTripOrRefusal(
 export async function expectStable(name: string): Promise<void> {
 	const before = (await fetchItem(name)).sourceText
 	const r = await pushOps([{ op: "set", name: await pathOf(name), sourceText: before, ifVersion: await versionOf(name) }])
-	expect(r.accepted, `re-pushing '${name}' unchanged was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+	expect(landed(r), `re-pushing '${name}' unchanged was refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 	expect((await fetchItem(name)).sourceText, `'${name}' changed on a no-op push`).toBe(before)
 }
 

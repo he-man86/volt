@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A PUSH CHANGES A BODY'S VIEW BETWEEN LD AND FBD (openspec `bridge-refusal-review` 2.22 / 2.31, measure 3.5).
  *
@@ -49,7 +50,7 @@ END_FUNCTION_BLOCK
 
 			const refs = await bridge.refs()
 			const r = await pushOps([{ op: "set", name: full, sourceText: flipped, ifVersion: refs.items[full] }])
-			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(full)).sourceText).toBe(flipped)
 		}
 	})
@@ -97,7 +98,7 @@ END_FUNCTION_BLOCK
 
 				const refs = await bridge.refs()
 				const r = await pushOps([{ op: "set", name: full, sourceText: flipped, ifVersion: refs.items[full] }])
-				expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+				expect(landed(r), `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 				expect((await fetchItem(full)).sourceText).toBe(flipped)
 				await ensureCompiles(name)
 			}

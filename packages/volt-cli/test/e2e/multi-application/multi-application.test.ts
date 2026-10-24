@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * EVERY APPLICATION OF A PROJECT, EACH UNDER ITS OWN PATH — openspec `multi-application-tree` 2.1, against a live IDE.
  *
@@ -249,7 +250,7 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const to = `${expected.applications.find((a) => !from!.startsWith(`${a}/`) && other!.startsWith(`${a}/`))}/VltE2EMoved.pou`
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: from, to, ifVersion: refs.items[from!] }] })
-		expect(r.accepted, JSON.stringify(r)).toBe(false)
+		expect(landed(r), JSON.stringify(r)).toBe(false)
 		const c = (r.conflicts ?? []).find((x: any) => x.name === from)
 		expect(c?.code, JSON.stringify(r.conflicts)).toBe("BAD_REQUEST")
 		for (const app of expected.applications.filter((a) => from!.startsWith(`${a}/`) || to.startsWith(`${a}/`)))

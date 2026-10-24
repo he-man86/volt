@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * PUSH DOES NOT PARSE A TOP-LEVEL ITEM'S HEADER — openspec `push-without-header-check`, against a live IDE.
  *
@@ -39,7 +40,7 @@ async function sweep(): Promise<void> {
 	]
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, force: true, ops })
-	if (!r.accepted) throw new Error(`sweep could not delete ${ops.length} item(s): ${JSON.stringify(r.conflicts).slice(0, 300)}`)
+	if (!landed(r)) throw new Error(`sweep could not delete ${ops.length} item(s): ${JSON.stringify(r.conflicts).slice(0, 300)}`)
 	const left = await bridge.refs()
 	const stuck = [...Object.keys(left.items ?? {}), ...(left.unreadable ?? []).map((u: { name: string }) => u.name)].filter(mine)
 	if (stuck.length) throw new Error(`sweep left ${JSON.stringify(stuck)} in the project`)
@@ -83,7 +84,7 @@ async function pushReferenceBuild(
 		if (ref.decl) src = src.replace(/\nEND_VAR/, `\n\t${ref.decl}\nEND_VAR`)
 		if (ref.body) src = src.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${ref.body}\n`)
 		const r = await pushOps([{ op: "set", name: main, sourceText: src, ifVersion: m.version }])
-		expect(r.accepted, `could not reference '${wire}' from '${main}': ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `could not reference '${wire}' from '${main}': ${JSON.stringify(r.conflicts)}`).toBe(true)
 		return { push, errors: await errors() }
 	})
 }
@@ -128,8 +129,10 @@ describe(`items / push without header check (${BASE})`, () => {
 			const bare = id(KEY + s.key)
 			const main = await mainProgram()
 			const r = await pushReferenceBuild(`${bare}.${s.ext}`, s.text(bare), s.ref(bare))
-			expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
-			expect(r.errors.map(buildErrorKey).sort()).toEqual(s.errors(bare).map((e) => expectedBuildErrorKey(main!, e, VENDOR === "codesys")).sort())
+			expect(landed(r.push), `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
+			// The compiler's errors on the items; a failed build's unshaped line naming no item (wire-final-shape 3.6) is the
+			// IDE's own words about the build, not about these texts.
+			expect(r.errors.filter((e: any) => e.name !== undefined).map(buildErrorKey).sort()).toEqual(s.errors(bare).map((e) => expectedBuildErrorKey(main!, e, VENDOR === "codesys")).sort())
 			await expectHeld(bare, s.ext, s.text(bare), s.held)
 		})
 	}
@@ -141,7 +144,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		const bare = id(KEY + "st_enum")
 		const text = `TYPE ${bare} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`
 		const r = await pushReferenceBuild(`${bare}.dut`, text, { decl: `v : ${bare};` })
-		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
+		expect(landed(r.push), `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
 		const names = Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))
 		expect(names).toEqual([`${bare}.dut`])
@@ -160,7 +163,7 @@ describe(`items / push without header check (${BASE})`, () => {
 			`PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n`,
 			{ body: `${bare}();` },
 		)
-		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
+		expect(landed(r.push), `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
 		expect(Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
 		expect((await fetchItem(`${bare}.pou`)).sourceText.trimEnd()).toMatch(/\nEND_PROGRAM$/)
@@ -178,13 +181,13 @@ describe(`items / push without header check (${BASE})`, () => {
 		const fbText = (n: number) => `FUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := ${n};\nEND_FUNCTION_BLOCK\n`
 		const folder = await plcFolder("POUs")
 		const heldName = inFolder(folder, `${bare}.pou`)
-		expect((await pushOps([{ op: "set", name: heldName, sourceText: fbText(5), ifVersion: null }])).accepted).toBe(true)
+		expect(landed((await pushOps([{ op: "set", name: heldName, sourceText: fbText(5), ifVersion: null }])))).toBe(true)
 
 		let refs = await bridge.refs()
 		const heldBefore = refs.items[heldName]
 		const prgText = `PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name: heldName, sourceText: prgText, ifVersion: heldBefore }])
-		expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r), `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		refs = await bridge.refs()
 		expect(Object.keys(refs.items).filter((n) => fileOf(n).startsWith(bare))).toEqual([heldName])
 		const held = await fetchItem(heldName)
@@ -195,12 +198,12 @@ describe(`items / push without header check (${BASE})`, () => {
 
 		// Under the original name, at the version held before: refused by the gate, and nothing is written.
 		const stale = await bridge.push({ ops: [{ op: "set", name: heldName, sourceText: fbText(7), ifVersion: heldBefore }] })
-		expect(stale.accepted).toBe(false)
+		expect(landed(stale)).toBe(false)
 		expect(stale.conflicts.map((c: any) => [c.name, c.code])).toEqual([[heldName, "STALE_ITEM_VERSION"]])
 		expect((await bridge.refs()).items[heldName]).toBe(refs.items[heldName])
 
 		const fixed = await pushOps([{ op: "set", name: heldName, sourceText: fbText(7), ifVersion: refs.items[heldName] }])
-		expect(fixed.accepted, `refused: ${JSON.stringify(fixed.conflicts)}`).toBe(true)
+		expect(landed(fixed), `refused: ${JSON.stringify(fixed.conflicts)}`).toBe(true)
 		expect(Object.keys((await bridge.refs()).items).map(fileOf).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
 		const back = await fetchItem(`${bare}.pou`)
 		expect(back.sourceText).toMatch(/^FUNCTION_BLOCK /)
@@ -224,7 +227,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		it(`${s.key} under .${s.ext} is pushed as written`, async () => {
 			const bare = id(KEY + s.key)
 			const r = await pushOps([{ op: "set", name: inFolder(await plcFolder("POUs"), `${bare}.${s.ext}`), sourceText: s.text(bare), ifVersion: null }])
-			expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect(landed(r), `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			await expectHeld(bare, s.ext, s.text(bare), s.held)
 		})
 	}

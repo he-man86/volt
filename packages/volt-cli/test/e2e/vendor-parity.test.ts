@@ -1,3 +1,4 @@
+import { landed } from "./harness"
 /**
  * CROSS-VENDOR PARITY — the same source pushed to CODESYS and to TwinCAT must come back the same.
  *
@@ -68,7 +69,7 @@ async function roundTrip(c: PipeClient, name: string, src: string): Promise<any>
 		expectedProjectVersion: refs.projectVersion,
 		ops: [{ op: "set", name: path, sourceText: src, ifVersion: refs.items[path] ?? null }],
 	})
-	expect(r.accepted).toBe(true)
+	expect(landed(r)).toBe(true)
 	const f = await c.fetch({ knownItems: {}, onlyItems: [path] })
 	const it = f.changed.find((i: any) => i.name === path)
 	if (!it) throw new Error(`${c.pipe}: '${path}' accepted but absent from fetch`)

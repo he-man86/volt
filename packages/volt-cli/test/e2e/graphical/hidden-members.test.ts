@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * HIDDEN MEMBERS BESIDE MEMBERS VOLT WRITES: THE IDE'S HIDDEN BODIES ARE NEVER WRITTEN (openspec `implementation-keyword`
  * 3b.1, spec "nothing in the IDE is overwritten").
@@ -53,7 +54,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 	async function push(sourceText: string, extra: Record<string, unknown> = {}): Promise<void> {
 		const refs = await bridge.refs()
 		const r = await pushOps([{ op: "set", name, sourceText, ifVersion: refs.items[name], ...extra }])
-		expect(r.accepted, JSON.stringify(r.conflicts)).toBe(true) // a hidden member blocks no push
+		expect(landed(r), JSON.stringify(r.conflicts)).toBe(true) // a hidden member blocks no push
 	}
 
 	beforeAll(async () => {

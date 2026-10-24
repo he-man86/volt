@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * WHAT THIS CHANGE MADE THE BRIDGE DO DIFFERENTLY — proven live on both vendors (openspec `bridge-refusal-review` 8.2).
  *
@@ -61,12 +62,12 @@ async function buildReferencing(b: Bridge, ref: { decl?: string; body?: string }
 	if (ref.body) src = src.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${ref.body}\n`)
 	const r = await b.call("push", { ops: [{ op: "set", name: main, sourceText: src, ifVersion: m.version }] })
 	try {
-		expect(r.accepted && !(r.conflicts ?? []).length, `${b.vendor}: could not reference from ${main}: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		expect(landed(r) && !(r.conflicts ?? []).length, `${b.vendor}: could not reference from ${main}: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		return await errors(b)
 	} finally {
 		const now = await fetchOne(b, main)
 		const back = await b.call("push", { ops: [{ op: "set", name: main, sourceText: m.sourceText, ifVersion: now.version }] })
-		if (!back.accepted) throw new Error(`${b.vendor}: could not restore ${main}: ${JSON.stringify(back.conflicts)}`)
+		if (!landed(back)) throw new Error(`${b.vendor}: could not restore ${main}: ${JSON.stringify(back.conflicts)}`)
 	}
 }
 
@@ -255,7 +256,7 @@ const ROWS: Row[] = [
 ]
 
 function accepted(a: Answer): boolean {
-	return a.kind === "push" && a.response.accepted === true && (a.response.conflicts ?? []).length === 0
+	return a.kind === "push" && landed(a.response) === true && (a.response.conflicts ?? []).length === 0
 }
 
 const stateOf = (r: any) => ({ projectVersion: r.projectVersion, items: r.items, unreadable: r.unreadable })

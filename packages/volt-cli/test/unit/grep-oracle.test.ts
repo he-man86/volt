@@ -51,7 +51,7 @@ describe("grep oracle", () => {
 	it("answers matches in ordinal path order then line order, with the matched items' versions", () => {
 		const p = project({ "b/Y.pou": "x\nx", "B/Z.pou": "x", "a/X.pou": "y\nx" })
 		const r = oracle(p, { pattern: "x" })
-		expect(r.matches.map((m) => `${m.path}:${m.line}`)).toEqual(["B/Z.pou:1", "a/X.pou:2", "b/Y.pou:1", "b/Y.pou:2"])
+		expect(r.matches.map((m) => `${m.name}:${m.line}`)).toEqual(["B/Z.pou:1", "a/X.pou:2", "b/Y.pou:1", "b/Y.pou:2"])
 		expect(r.items).toEqual({ "B/Z.pou": "v_B/Z.pou", "a/X.pou": "v_a/X.pou", "b/Y.pou": "v_b/Y.pou" })
 		expect(r.searched).toBe(3)
 	})
@@ -77,7 +77,7 @@ describe("grep oracle", () => {
 			{ unreadable: [{ name: "C.pou", reason: "read failed" }, { name: "L.library", reason: "x" }] },
 		)
 		const want = oracle(p, { pattern: "PROGRAM" })
-		expect(want.matches.map((m) => `${m.path}:${m.line}`)).toEqual(["A.pou:1", "A.pou:3", "B.pou:1"])
+		expect(want.matches.map((m) => `${m.name}:${m.line}`)).toEqual(["A.pou:1", "A.pou:3", "B.pou:1"])
 		expect(want.notSearched.unreadable).toEqual([{ name: "C.pou", reason: "read failed" }])
 		expect(want.notSearched.hidden.map((h) => h.name)).toEqual(["A.pou"])
 		const answer = (notSearched: unknown) => ({ ...want, notSearched })
@@ -90,6 +90,6 @@ describe("grep oracle", () => {
 		const want = oracle(project({ "A.pou": "x" }), { pattern: "x" })
 		const same = { ...want, notSearched: [] }
 		expect(differences(same, want)).toEqual([])
-		expect(differences({ ...same, matches: [{ path: "A.pou", line: 2, text: "x" }] }, want)).toHaveLength(1)
+		expect(differences({ ...same, matches: [{ name: "A.pou", line: 2, text: "x" }] }, want)).toHaveLength(1)
 	})
 })

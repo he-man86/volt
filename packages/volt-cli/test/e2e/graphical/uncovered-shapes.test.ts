@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * THE FIVE CONSTRUCTS NOTHING HAD EVER PUSHED AT A LIVE IDE.
  *
@@ -174,7 +175,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const again = await pushOps([
 			{ op: "set", name: await pathOf(item), sourceText: back, ifVersion: await versionOf(item) },
 		])
-		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
 		expect((await fetchItem(item)).sourceText, "the body drifted on a second push").toBe(back)
 	})
 

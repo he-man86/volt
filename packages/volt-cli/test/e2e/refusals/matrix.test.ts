@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * EVERY WIRE CODE, PROVEN LIVE ON BOTH VENDORS — the negative matrix (openspec `bridge-refusal-review` 8.1, 8.4).
  *
@@ -79,9 +80,13 @@ async function check(b: Bridge, row: LiveRow, before: any, out: Outcome): Promis
 	} else {
 		expect(a.kind).toBe("push")
 		if (a.kind !== "push") return
-		expect(a.response.accepted, `${row.code}: an apply-time stop must answer accepted:true with the receipt`).toBe(true)
+		expect(landed(a.response), `${row.code}: an apply-time stop must answer the receipt of what landed`).toBe(true)
 		expect(a.response.newProjectVersion, `${row.code}: the receipt is not the next refs`).toBe(after.projectVersion)
-		expect(a.response.newItems, `${row.code}: the receipt's items are not the next refs'`).toEqual(after.items)
+		// The receipt updates a baseline (wire-final-shape §5): the items before, less `removed`, plus `newItems`, ARE the
+		// next refs.
+		const baseline: Record<string, string> = { ...(before.items ?? {}) }
+		for (const gone of a.response.removed ?? []) delete baseline[gone]
+		expect({ ...baseline, ...a.response.newItems }, `${row.code}: baseline − removed + newItems is not the next refs`).toEqual(after.items)
 		// The receipt equals refs whatever the bridge did; what the project HOLDS is the proof of where the push stopped.
 		if (!out.landed?.length || !out.absent?.length)
 			throw new Error(`${row.code}: an apply-time row must name what landed and what was never tried`)

@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A PUSH SAYS EXACTLY WHAT LANDED — live (openspec `push-keeps-what-landed`, tasks 1.1 / 1.2 / 4.1).
  *
@@ -72,7 +73,7 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 		// What the response says about it.
 		const conflicts = r.conflicts ?? []
 		expect(conflicts.map((c: any) => c.name), `the IDE took METHOD ${REFUSED_AT_APPLY}, or refused something else: ${JSON.stringify(conflicts)}`).toEqual([fbName])
-		expect(r.accepted, "two items landed, but the push answered accepted:false").toBe(true)
+		expect(landed(r), "two items landed, but the push answered accepted:false").toBe(true)
 		// THE CODE AND WHAT OF THE OP THE IDE KEPT (gate step 1 review). Measured 2026-10-03: INTERNAL_ERROR ("a fault
 		// nobody classified") and no word of the rollback — CodesysDriver.ChildRefusal knew only "is not accepted by
 		// parent object", so "The name 'Log' is not valid for this object." skipped MemberRefusal. A vendor refusing a
@@ -103,15 +104,15 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 			{ op: "set", name: enumName, sourceText: enumDut(id("pk_E2")), ifVersion: null },
 			{ op: "set", name: fbName, sourceText: fb(id("pk_FB2"), { children: logMethod }), ifVersion: null },
 		])
-		console.log("[push-keeps-what-landed 3.1] response:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts }))
+		console.log("[push-keeps-what-landed 3.1] response:", JSON.stringify({ accepted: landed(r), conflicts: r.conflicts }))
 
 		const after = (await bridge.refs()).items ?? {}
 		const added = Object.keys(after).filter((n) => before[n] === undefined)
 		expect(added, `a push refused before the first write wrote ${added.join(", ")} into the project`).toEqual([])
-		expect(r.accepted).toBe(false)
-		const conflicts = r.conflicts ?? []
-		expect(conflicts.map((c: any) => c.name)).toEqual([fbName])
-		expect(conflicts[0].code).toBe("UNSUPPORTED")
+		expect(landed(r)).toBe(false)
+		// A pre-flight refusal lands nothing: the refused op its code, every other op NOT_ATTEMPTED (wire-final-shape §5).
+		expect((r.conflicts ?? []).map((c: any) => [c.name, c.code]).sort()).toEqual([[enumName, "NOT_ATTEMPTED"], [fbName, "UNSUPPORTED"]].sort())
+		const conflicts = (r.conflicts ?? []).filter((c: any) => c.code !== "NOT_ATTEMPTED")
 		expect(conflicts[0].reason).toContain("method 'Log'")
 		// Refused before the first write: nothing stays (openspec `push-partially-applied-flag` 3.1).
 		expect(conflicts[0].partiallyApplied, "a pre-flight refusal claims partiallyApplied").toBeUndefined()
@@ -127,14 +128,16 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 			{ op: "set", name: bad2, sourceText: "not a POU either", ifVersion: null },
 			{ op: "set", name: good2, sourceText: prog(id("pk_good2")), ifVersion: null },
 		])
-		console.log("[push-keeps-what-landed 1.2] response:", JSON.stringify({ accepted: r.accepted, conflicts: r.conflicts }))
+		console.log("[push-keeps-what-landed 1.2] response:", JSON.stringify({ accepted: landed(r), conflicts: r.conflicts }))
 
 		const after = (await bridge.refs()).items ?? {}
 		const added = Object.keys(after).filter((n) => before[n] === undefined)
 		expect(added, `a REFUSED push wrote ${added.join(", ")} into the project`).toEqual([])
-		expect(r.accepted).toBe(false)
-		const named = (r.conflicts ?? []).map((c: any) => c.name).sort()
-		expect(named, "the pre-flight did not name every malformed item").toEqual([bad1, bad2].sort())
-		for (const c of r.conflicts ?? []) expect(c.code).toBe("INVALID_ST")
+		expect(landed(r)).toBe(false)
+		// A pre-flight refusal lands nothing: each refused op its code, every other op NOT_ATTEMPTED (wire-final-shape §5).
+		const coded = (code: string) => (r.conflicts ?? []).filter((c: any) => c.code === code).map((c: any) => c.name).sort()
+		expect(coded("INVALID_ST"), "the pre-flight did not name every malformed item").toEqual([bad1, bad2].sort())
+		expect(coded("NOT_ATTEMPTED")).toEqual([good1, good2].sort())
+		expect((r.conflicts ?? []).length).toBe(4)
 	})
 })

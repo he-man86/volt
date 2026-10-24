@@ -1,4 +1,5 @@
-﻿/**
+import { landed } from "../harness"
+/**
  * FBD and LD on every element that can hold a body — the coverage neither language had.
  *
  * `graphical/roundtrip.test.ts` proves both languages thoroughly, but only ever on a PROGRAM: its featureset
@@ -101,7 +102,7 @@ async function isFixedPoint(fullName: string, fetched: any) {
 		expectedProjectVersion: refs.projectVersion,
 		ops: [{ op: "set", name: fullName, sourceText: fetched.sourceText, ifVersion: refs.items[fullName] }],
 	})
-	expect(r.accepted).toBe(true)
+	expect(landed(r)).toBe(true)
 	expect((await fetchItem(fullName)).sourceText).toBe(fetched.sourceText)
 }
 
@@ -179,11 +180,11 @@ for (const lang of ["FBD", "LD"]) {
 				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],
 			})
 			if (VENDOR === "codesys") {
-				expect(r.accepted, `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
+				expect(landed(r), `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
 				expect(networkLangs((await fetchItem(full)).sourceText)).toEqual([])
 				return
 			}
-			expect(r.accepted).toBe(false)
+			expect(landed(r)).toBe(false)
 			expect(JSON.stringify(r.conflicts ?? r)).toContain(lang)
 			expect((await fetchItem(full)).sourceText).toBe(v1.sourceText)   // and the refusal changed nothing
 		})

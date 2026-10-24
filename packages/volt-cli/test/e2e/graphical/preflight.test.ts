@@ -1,3 +1,4 @@
+import { landed } from "../harness"
 /**
  * A REFUSED PUSH WRITES NOTHING — on both vendors, for a refusal decided from the SOURCE TEXT.
  *
@@ -68,7 +69,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 			{ op: "set", name: second, sourceText: broken(id("pf_bad")), ifVersion: null },
 		])
 
-		expect(r.accepted, "the unbuildable shape was ACCEPTED — update this test").toBe(false)
+		expect(landed(r), "the unbuildable shape was ACCEPTED — update this test").toBe(false)
 		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the shape").toMatch(/an operator box read through its ENO with no output wired/)
 
 		// THE ASSERTION. Not "the push failed" — that was already true while half of it landed.
