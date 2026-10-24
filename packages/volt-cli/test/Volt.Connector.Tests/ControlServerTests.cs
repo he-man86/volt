@@ -131,13 +131,14 @@ public class ControlServerTests : IDisposable
     [Fact]
     public async Task Status_names_a_refused_bridge_with_its_reason()
     {
-        // Gate 2b: the wire shape volt-control reads (`refused: [{ vendor, pipe, reason }]`, always present).
-        var view = new ConnectorView(Array.Empty<ProjectView>(), new[] { new RefusedBridge("codesys", "volt.bridge.codesys.7", "why") });
+        // Gate 2b: the wire shape volt-control reads (`refused: [{ vendor, pipe, code, reason }]`, always present).
+        var view = new ConnectorView(Array.Empty<ProjectView>(), new[] { new RefusedBridge("codesys", "volt.bridge.codesys.7", Volt.Wire.PipeAccessDeniedException.Code, "why") });
         Start(snapshot: () => Task.FromResult(view));
         var root = JsonDocument.Parse(await (await _http.GetAsync(Url("status"))).Content.ReadAsStringAsync()).RootElement;
         var r = Assert.Single(root.GetProperty("refused").EnumerateArray());
         Assert.Equal("codesys", r.GetProperty("vendor").GetString());
         Assert.Equal("volt.bridge.codesys.7", r.GetProperty("pipe").GetString());
+        Assert.Equal("BRIDGE_ACCESS_DENIED", r.GetProperty("code").GetString());
         Assert.Equal("why", r.GetProperty("reason").GetString());
     }
 

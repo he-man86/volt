@@ -9,6 +9,9 @@ namespace Volt.Wire;
 /// else read only).</summary>
 public sealed class PipeAccessDeniedException : UnauthorizedAccessException
 {
+    /// <summary>Client-local (the bridge never sends it): the CLI's refusal code and the connector's refused-row code.</summary>
+    public const string Code = "BRIDGE_ACCESS_DENIED";
+
     public string PipeName { get; }
 
     public PipeAccessDeniedException(string pipeName, Exception inner)

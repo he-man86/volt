@@ -13,6 +13,10 @@ another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at 
 
 ## `health`
 
+- Read `health` FIRST, before any other op, and refuse a bridge whose answer has no `languages` or no `kinds`: it
+  predates this wire (e.g. `0.1.17931`), reads your requests leniently and would serve them. Say so by name ("this
+  bridge predates this wire: update it", with its `bridgeVersion`) and send it nothing else. An empty list passes.
+  Volt's CLI and connector make the same check (`BRIDGE_PREDATES_WIRE`).
 - `networkText` is gone. Read `languages` (e.g. `["ST","LD","FBD"]`): a body is editable only if its
   `IMPLEMENTATION <LANG>` is listed.
 - New: `kinds: [{ extension, writable }]`, this bridge's item kinds.

@@ -99,7 +99,7 @@ public class ConnectionManagerTests
     {
         // Gate 2b (environment-dependency-audit 2.2): a pipe that refused the connector names its IDE in the view.
         var s1 = new FakeProjectSource("codesys");
-        s1.Refused.Add(new RefusedBridge("codesys", "volt.bridge.codesys.7", "refused"));
+        s1.Refused.Add(new RefusedBridge("codesys", "volt.bridge.codesys.7", Volt.Wire.PipeAccessDeniedException.Code, "refused"));
         var s2 = new FakeProjectSource("twincat");
         var mgr = Mgr(s1, s2);
         await mgr.RefreshAsync();

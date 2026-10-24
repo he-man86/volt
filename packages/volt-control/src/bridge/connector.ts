@@ -143,15 +143,18 @@ export function connectSurface(options: ConnectOption[]): ConnectSurface {
 export interface ConnectorView {
   projects: DetectedProject[]
   /** The IDEs whose bridge pipe REFUSED the connector (C# `RefusedBridge`): another Windows user's IDE, or an elevated
-   *  one on an older bridge (environment-dependency-audit 2.2). Their `health` never answered, so they have no project
-   *  name and are not `projects` rows; read them through {@link refusedIdes}. Always present, empty when none. */
+   *  one on an older bridge (environment-dependency-audit 2.2), or one whose `health` predates this wire. They give no
+   *  project name and are not `projects` rows; read them through {@link refusedIdes}. Always present, empty when none. */
   refused: RefusedBridge[]
 }
 
 export interface RefusedBridge {
   vendor: Vendor
   pipe: string
-  /** The refusal's own sentence — names the pipe and the cause (another user / elevated on an older bridge). */
+  /** Which refusal: the pipe refused the connector (another user / elevated on an older bridge), or its `health`
+   *  predates this wire, so the connector refused it (wire-final-shape 4.3c). */
+  code: "BRIDGE_ACCESS_DENIED" | "BRIDGE_PREDATES_WIRE"
+  /** The refusal's own sentence — names the pipe and the cause. */
   reason: string
 }
 
@@ -166,12 +169,20 @@ export interface RefusedIde {
 
 export function refusedIdes(view: ConnectorView | undefined): RefusedIde[] {
   if (view === undefined) return [] // the connector is down: nothing was refused, nothing was asked
-  return view.refused.map((r) => ({
-    key: `refused:${r.pipe}`,
-    label: "An IDE Volt cannot reach",
-    caption: "access denied",
-    reason: r.reason,
-  }))
+  return view.refused.map((r) => ({ key: `refused:${r.pipe}`, ...refusalWords(r), reason: r.reason }))
+}
+
+/** The connector's JSON is not validated: a code this build does not know is refused by name, never a row with no words. */
+function refusalWords(r: RefusedBridge): { label: string; caption: string } {
+  const words = Object.hasOwn(REFUSAL_WORDS, r.code) ? REFUSAL_WORDS[r.code] : undefined
+  if (words === undefined) throw new Error(`refused bridge ${r.pipe} carries refusal code ${String(r.code)}, which this Volt does not know`)
+  return words
+}
+
+/** The row's words per refusal code — a bridge that predates this wire is reachable, so it is never "access denied". */
+const REFUSAL_WORDS: Record<RefusedBridge["code"], { label: string; caption: string }> = {
+  BRIDGE_ACCESS_DENIED: { label: "An IDE Volt cannot reach", caption: "access denied" },
+  BRIDGE_PREDATES_WIRE: { label: "An IDE with an older Volt bridge", caption: "bridge out of date" },
 }
 
 // While the connector feed runs, its sync poll IS the view (declare + renew + read in one call) and nothing else

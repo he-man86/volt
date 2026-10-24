@@ -53,7 +53,7 @@ public class PerPipeProjectSourceTests
     public async Task Enumerate_maps_a_project_with_no_subprojects_to_one_entry()
     {
         var wire = new FakeBridgeWire().On("health",
-            """{ "projects": [ { "project": "MyMachine", "dirty": true } ] }""");
+            """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "MyMachine", "dirty": true } ] }""");
         var src = One("codesys", wire, "volt.bridge.codesys.1");
 
         var projects = (await src.ScanAsync()).Projects;
@@ -72,7 +72,7 @@ public class PerPipeProjectSourceTests
         // it — connecting doesn't reach into content.
         var wire = new FakeBridgeWire().On("health",
             """
-            { "projects": [
+            { "languages": ["ST"], "kinds": [], "projects": [
                 { "project": "TwinCAT Project13" },
                 { "project": "TwinCAT Project14" } ] }
             """);
@@ -86,7 +86,7 @@ public class PerPipeProjectSourceTests
     [Fact]
     public async Task Bind_sends_select_with_the_projects_name_targeting_its_own_pipe()
     {
-        var wire = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "TwinCAT Project1" } ] }""");
+        var wire = new FakeBridgeWire().On("health", """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "TwinCAT Project1" } ] }""");
         var src = One("twincat", wire);
 
         var proj = (await src.ScanAsync()).Projects.Single(); // carries Pipe = the serving pipe
@@ -108,8 +108,8 @@ public class PerPipeProjectSourceTests
     {
         var wires = new Dictionary<string, IBridgeWire>
         {
-            ["volt.bridge.codesys.111"] = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineA" } ] }"""),
-            ["volt.bridge.codesys.222"] = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "MachineB" } ] }"""),
+            ["volt.bridge.codesys.111"] = new FakeBridgeWire().On("health", """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "MachineA" } ] }"""),
+            ["volt.bridge.codesys.222"] = new FakeBridgeWire().On("health", """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "MachineB" } ] }"""),
         };
         var src = new PerPipeProjectSource("codesys", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
@@ -125,7 +125,7 @@ public class PerPipeProjectSourceTests
     public async Task Scan_carries_serving_status_and_dirty_off_the_wire_row()
     {
         var wire = new FakeBridgeWire().On("health",
-            """{ "projects": [ { "project": "MyMachine", "status": "healthy", "dirty": true } ] }""");
+            """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "MyMachine", "status": "healthy", "dirty": true } ] }""");
         var src = One("codesys", wire, "volt.bridge.codesys.1");
 
         var scan = await src.ScanAsync();
@@ -151,7 +151,7 @@ public class PerPipeProjectSourceTests
         var wires = new Dictionary<string, IBridgeWire>();
         for (int i = 1; i <= n; i++)
             wires[$"volt.bridge.codesys.{i}"] = new FakeBridgeWire { Entered = entered, Release = release.Task }
-                .On("health", $$"""{ "projects": [ { "project": "M{{i}}" } ] }""");
+                .On("health", $$"""{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "M{{i}}" } ] }""");
         var src = new PerPipeProjectSource("codesys", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
         var scanTask = src.ScanAsync();
@@ -191,7 +191,7 @@ public class PerPipeProjectSourceTests
     [Fact]
     public async Task A_refusing_pipe_is_carried_as_a_named_refusal_not_dropped()
     {
-        var ok = new FakeBridgeWire().On("health", """{ "projects": [ { "project": "Mine" } ] }""");
+        var ok = new FakeBridgeWire().On("health", """{ "languages": ["ST"], "kinds": [], "projects": [ { "project": "Mine" } ] }""");
         var src = new PerPipeProjectSource("codesys",
             () => new[] { "volt.bridge.codesys.1", "volt.bridge.codesys.2" },
             pipe => pipe == "volt.bridge.codesys.2" ? new RefusingWire(pipe) : ok);
@@ -202,7 +202,28 @@ public class PerPipeProjectSourceTests
         var refused = Assert.Single(scan.Refused);
         Assert.Equal("codesys", refused.Vendor);
         Assert.Equal("volt.bridge.codesys.2", refused.Pipe);
+        Assert.Equal(Volt.Wire.PipeAccessDeniedException.Code, refused.Code);
         Assert.Contains("refused this process", refused.Reason);
+    }
+
+    // wire-final-shape 4.3c: a bridge whose `health` states no `languages` or no `kinds` predates this wire (the previous
+    // release serves our envelope leniently). Nothing is read from it — no project row, so the reconciler never sends it
+    // a `connect` — and it is carried named, so the connection view says why that IDE is missing.
+    [Theory]
+    [InlineData("""{ "kinds": [], "projects": [ { "project": "Old" } ] }""", "languages")]
+    [InlineData("""{ "languages": ["ST"], "projects": [ { "project": "Old" } ] }""", "kinds")]
+    public async Task A_bridge_that_predates_this_wire_gives_no_project_and_one_named_refusal(string health, string missing)
+    {
+        var wire = new FakeBridgeWire().On("health", health);
+        var scan = await One("codesys", wire, "volt.bridge.codesys.3").ScanAsync();
+
+        Assert.Empty(scan.Projects);
+        var refused = Assert.Single(scan.Refused);
+        Assert.Equal("volt.bridge.codesys.3", refused.Pipe);
+        Assert.Equal(Volt.Wire.WireShape.PredatesWireCode, refused.Code);
+        Assert.Contains("predates this wire", refused.Reason);
+        Assert.Contains($"`{missing}`", refused.Reason);
+        Assert.Equal(new[] { "health" }, wire.Calls.Select(c => c.Op));
     }
 
     [Fact]

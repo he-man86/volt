@@ -81,6 +81,12 @@
   <code>health</code> carries the bridge's catalog, from its host's own declarations. A value the bridge does not list
   there is one it never sends, so a client reads them instead of hard-coding them.
 </p>
+<p>
+  <b>A client reads <code>health</code> before any other op</b> and refuses a bridge whose answer has no
+  <code>languages</code> or no <code>kinds</code>: that bridge is of an older wire, and nothing is sent to it. An empty
+  list is a fact and passes. The CLI refuses it <code>BRIDGE_PREDATES_WIRE</code> (a CLI code, never on the wire); the
+  connector lists it under <code>refused</code> with that code and gives it no project row.
+</p>
 <table>
   <tr><th>member</th><th>means</th></tr>
   <tr><td class="name">protocol</td><td>The wire protocol, <code>1</code>.</td></tr>

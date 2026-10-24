@@ -69,6 +69,10 @@ is the contract.
 `hello` is sent once per connection, including after every reconnect. It is **not** re-sent when the served
 project changes; ask `health` for that. One source of truth.
 
+The relay's client (PLC Assist's, which runs in Docker and reaches the pipe only through the relay) sends `health`
+before any other op and refuses a bridge whose answer has no `languages` or no `kinds`: that bridge is of an older wire
+and would serve a request of this one leniently. An empty list is a fact and passes. See `wire.html#catalog`.
+
 ## Frames
 
 Text frames, one JSON object each. There is no binary frame. A frame may be large (a `fetch` or `refs` result on

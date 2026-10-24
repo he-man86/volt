@@ -23,6 +23,11 @@ public static class BridgeResolver
     /// so the two throw-sites and the tests asserting on it share one spelling.</summary>
     public const string AmbiguousBridge = "AMBIGUOUS_BRIDGE";
 
+    /// <summary>CLI-LOCAL: no pipe that answered has the bound project, and the pipes that refused did so for DIFFERENT
+    /// reasons (an access denial beside a bridge that predates this wire) — one code cannot name both, so the message
+    /// names each refusal with its own cause.</summary>
+    public const string BridgesRefused = "BRIDGES_REFUSED";
+
     public static BridgeClient Resolve(string root, string vendor, string? pipeOverride, bool isInit)
     {
         if (!string.IsNullOrEmpty(pipeOverride)) return new BridgeClient(pipeOverride!);
@@ -68,13 +73,16 @@ public static class BridgeResolver
         var matches = pipes.Where(p =>
         {
             try { return projectsOf(p).Contains(boundName); }
-            catch (BridgeError e) when (e.Code == BridgeError.AccessDeniedCode) { refusals.Add(e); return false; }
+            catch (BridgeError e) when (IsRefusal(e)) { refusals.Add(e); return false; }
         }).ToList();
         if (matches.Count == 1) return matches[0];
         if (matches.Count == 0 && refusals.Count > 0)
-            throw new BridgeError(BridgeError.AccessDeniedCode,
-                $"the bound project '{boundName}' isn't open in any {vendorLabel} this process can reach, and "
-                + $"{refusals.Count} of the {pipes.Count} running refused it: " + string.Join(" ", refusals.Select(r => r.Message)));
+        {
+            var codes = refusals.Select(r => r.Code).Distinct().ToList();
+            throw new BridgeError(codes.Count == 1 ? codes[0] : BridgesRefused,
+                $"the bound project '{boundName}' isn't open in any {vendorLabel} that answered, and "
+                + $"{refusals.Count} of the {pipes.Count} running were refused: " + string.Join(" ", refusals.Select(r => r.Message)));
+        }
         if (matches.Count == 0)
             throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
                 $"the bound project '{boundName}' isn't open in any of the {pipes.Count} running {vendorLabel} — open it, then retry.");
@@ -110,6 +118,11 @@ public static class BridgeResolver
         return string.Join(" ", parts);
     }
 
+    /// <summary>A pipe that is THERE and refuses this process: another user's / an elevated IDE, or a bridge that predates
+    /// this wire (wire-final-shape 4.3c). Either may be the IDE holding the bound project, so neither reads as "not open".</summary>
+    private static bool IsRefusal(BridgeError e) =>
+        e.Code == BridgeError.AccessDeniedCode || e.Code == BridgeError.PredatesWireCode;
+
     // The names of every project the pipe's IDE has open (any status) — a per-XAE TwinCAT window can list several.
     private static IReadOnlyList<string> ProjectNamesOf(string pipe)
     {
@@ -117,7 +130,7 @@ public static class BridgeResolver
         // A pipe that REFUSES this process is not one that went away: its IDE may well hold the bound project, and "isn't
         // open in any" would send the engineer to open what is open. It propagates, named, to ChooseBridgePipe, which
         // names it only when no other pipe matches (environment-dependency-audit 2.2, gate 2b).
-        catch (BridgeError e) when (e.Code == BridgeError.AccessDeniedCode) { throw; }
+        catch (BridgeError e) when (IsRefusal(e)) { throw; }
         catch { return Array.Empty<string>(); } // that host went away between discovery and probe — it just won't match
     }
 }

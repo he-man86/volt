@@ -14,7 +14,11 @@ public sealed class BridgeError : Exception
 
     /// <summary>The pipe is there and refused this process — another user's IDE, or an elevated one (openspec
     /// environment-dependency-audit 2.2). CLI-local, like <see cref="UnreachableCode"/>; the message names the cause.</summary>
-    public const string AccessDeniedCode = "BRIDGE_ACCESS_DENIED";
+    public const string AccessDeniedCode = PipeAccessDeniedException.Code;
+
+    /// <summary>The bridge's <c>health</c> lacks a member of this wire (<see cref="WireShape"/>, wire-final-shape 4.3c):
+    /// it is the previous release, which would serve this CLI leniently. CLI-local; refused before any other op.</summary>
+    public const string PredatesWireCode = WireShape.PredatesWireCode;
 
     public string Code { get; }
     public BridgeError(string code, string message) : base(message) => Code = code;
@@ -29,7 +33,12 @@ public sealed class BridgeError : Exception
 /// previous bridge loaded in-proc. That refusal reaches the caller as a <see cref="BridgeError"/> naming both numbers and
 /// the remedy.</para>
 ///
-/// <para>IT GUARDS NOTHING. There used to be a `GuardEmptyItems` here that re-probed the CACHED health snapshot
+/// <para><b>Every op first checks the bridge's shape</b>, once per client (<see cref="WireShape"/>, wire-final-shape
+/// 4.3c): a bridge of the previous release states the same protocol number and serves this CLI's envelope leniently, so
+/// its <c>health</c> lacking <c>languages</c> or <c>kinds</c> is what refuses it — <see cref="BridgeError.PredatesWireCode"/>,
+/// before that op is sent.</para>
+///
+/// <para>IT GUARDS NOTHING ELSE. There used to be a `GuardEmptyItems` here that re-probed the CACHED health snapshot
 /// after a SUCCESSFUL refs or fetch and refused when it showed nothing serving — the staler of two signals
 /// overriding the op's own live guard, and unable to tell an empty project from a walk that skipped a subtree
 /// either way. That case is closed at the line that creates it: `WalkResult.UnwalkedFolders`.</para>
@@ -38,12 +47,37 @@ public sealed class BridgeClient
 {
 
     private readonly PipeClient _pipe;
+    private readonly string _pipeName;
+    /// <summary>This client's bridge has answered a <c>health</c> of this wire's shape. Checked once per client (one
+    /// CLI process): every op asks it first; <see cref="GetHealth"/> IS that check, so <c>init</c> and <c>status</c>,
+    /// which read <c>health</c> first anyway, pay nothing extra.</summary>
+    private bool _shapeChecked;
 
-    public BridgeClient(string pipeName) => _pipe = new PipeClient(pipeName);
+    public BridgeClient(string pipeName)
+    {
+        _pipeName = pipeName;
+        _pipe = new PipeClient(pipeName);
+    }
 
     private static T De<T>(JsonElement e) => JsonSerializer.Deserialize<T>(e.GetRawText(), WireJson.Read)!;
 
-    public HealthResponse GetHealth() => De<HealthResponse>(Call(Ops.Health));
+    /// <summary>The bridge's <c>health</c>, refused <see cref="BridgeError.PredatesWireCode"/> when it lacks a member of
+    /// this wire (<see cref="WireShape"/>). Always read live: the throttled snapshot is the bridge's, not cached here.</summary>
+    public HealthResponse GetHealth()
+    {
+        var health = Call(Ops.Health);
+        try { WireShape.Require(health, _pipeName); }
+        catch (BridgePredatesWireException e) { throw new BridgeError(BridgeError.PredatesWireCode, e.Message); }
+        _shapeChecked = true;
+        return De<HealthResponse>(health);
+    }
+
+    /// <summary>Before any op but <c>health</c>: the bridge's shape, checked once (wire-final-shape 4.3c). A bridge of the
+    /// previous release reads this CLI's envelope leniently and would SERVE the op; refused here, it is sent nothing.</summary>
+    private void RequireShape()
+    {
+        if (!_shapeChecked) GetHealth();
+    }
 
     /// <summary>The bridge refused this CLI's protocol: the remedy follows the comparison — an older bridge is the
     /// previous release still loaded (restart the IDE); a newer one means this CLI is the old peer (update Volt).</summary>
@@ -64,8 +98,11 @@ public sealed class BridgeClient
     /// <summary>The project snapshot. Pass the workspace's bound identity in <paramref name="req"/> so the bridge
     /// guards it IN the op (WRONG_PROJECT) like every other project-touching op; null asks without an identity —
     /// discovery, and callers that only want the shape back.</summary>
-    public RefsResponse GetRefs(RefsRequest? req = null, Action<ProgressFrame>? onProgress = null) =>
-        De<RefsResponse>(Call(Ops.Refs, req, Forward(onProgress)));
+    public RefsResponse GetRefs(RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
+    {
+        RequireShape();
+        return De<RefsResponse>(Call(Ops.Refs, req, Forward(onProgress)));
+    }
 
     /// <summary>`fetch`, which is also how a first pull is taken — <c>init: true</c> asks for every item
     /// regardless of <c>knownItems</c>.
@@ -74,17 +111,29 @@ public sealed class BridgeClient
     /// the host built its own <c>FetchRequest</c>, so an init could not carry <c>expectedPlatform</c>/
     /// <c>expectedProjectName</c> and was the one read on this wire with no identity guard. It also labelled its
     /// own progress frames <c>operation: "fetch"</c>, because underneath it was one.</para></summary>
-    public FetchResponse FetchChanges(FetchRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<FetchResponse>(Call(Ops.Fetch, req, Forward(onProgress)));
+    public FetchResponse FetchChanges(FetchRequest req, Action<ProgressFrame>? onProgress = null)
+    {
+        RequireShape();
+        return De<FetchResponse>(Call(Ops.Fetch, req, Forward(onProgress)));
+    }
 
-    public PushResponse PushBatch(PushRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<PushResponse>(Call(Ops.Push, req, Forward(onProgress)));
+    public PushResponse PushBatch(PushRequest req, Action<ProgressFrame>? onProgress = null)
+    {
+        RequireShape();
+        return De<PushResponse>(Call(Ops.Push, req, Forward(onProgress)));
+    }
 
-    public BuildResponse Build(BuildRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<BuildResponse>(Call(Ops.Build, req, Forward(onProgress)));
+    public BuildResponse Build(BuildRequest req, Action<ProgressFrame>? onProgress = null)
+    {
+        RequireShape();
+        return De<BuildResponse>(Call(Ops.Build, req, Forward(onProgress)));
+    }
 
-    public GrepResponse Grep(GrepRequest req, Action<ProgressFrame>? onProgress = null) =>
-        De<GrepResponse>(Call(Ops.Grep, req, Forward(onProgress)));
+    public GrepResponse Grep(GrepRequest req, Action<ProgressFrame>? onProgress = null)
+    {
+        RequireShape();
+        return De<GrepResponse>(Call(Ops.Grep, req, Forward(onProgress)));
+    }
 
     /// <summary>Every pipe call goes through here, so "the bridge is unreachable" is decided AT THE TRANSPORT
     /// and nowhere else.

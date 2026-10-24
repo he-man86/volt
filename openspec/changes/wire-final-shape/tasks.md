@@ -398,11 +398,40 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       **Done 2026-10-24:** recorded once at `c1504433c3` (`--record-transcripts`, the five transcript cells), committed
       `ac162d8b6d`; the compare run at `ac162d8b6d` answered "transcript identical" on all five (codesys-3.5.18.30-64,
       3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64, twincat-32, each 539 pass).
-- [ ] 4.3c OWNER DECISION 2026-10-24 ("agree with both"): protocol stays 1, and the CLIENT checks the bridge's shape:
+- [x] 4.3c OWNER DECISION 2026-10-24 ("agree with both"): protocol stays 1, and the CLIENT checks the bridge's shape:
       every client of this wire (the CLI, volt-control, the relay's client side) requires `health.languages` and
       `health.kinds` and refuses a bridge whose `health` lacks them by name ("this bridge predates this wire: update it"),
       before any other op — red test first. With it the mixed-version cell refuses by name in BOTH directions; 4.3's rule
       stays unchanged. PLC Assist is told to do the same check.
+      **Done 2026-10-24.** `Volt.Wire.WireShape.Require` (raw `health`, presence of both arrays; an empty list passes)
+      throws `BridgePredatesWireException` naming the pipe, the missing members and `bridgeVersion`. CLI: `BridgeClient`
+      checks once per client before refs/fetch/push/build/grep; `GetHealth` IS the check (read live, not cached — only the
+      verdict is kept, so a reused client never sees a stale health), refused `BRIDGE_PREDATES_WIRE`; `BridgeResolver`
+      treats it like an access denial (a pipe that is THERE, may hold the bound project). Connector: `ScanAsync` checks
+      before `Flatten`, gives no row and one `RefusedBridge` — which now carries `code` (`BRIDGE_ACCESS_DENIED` |
+      `BRIDGE_PREDATES_WIRE`) so volt-control captions it "bridge out of date", not "access denied". Relay: not a client
+      (design); `relay-protocol.md` and `wire.html#catalog` state the client's check, `plcassist-note.md` tells PLC Assist
+      (its client runs in Docker, through the relay). Red first: `BridgeShapeTests` (11, 9 red with the check disabled),
+      `BlackBoxTests` pull+push ×{languages,kinds} (the fake old bridge saw only `health`), `PerPipeProjectSourceTests`
+      ×2, volt-control `refusedIdes` caption. Volt.Cli.Tests 372/372, Volt.Connector.Tests 156/156, Volt.Repo.Gates
+      275/275, DocDataTests 27/27, volt-control 133/133 + connector e2e 9/9, typecheck clean. Connector test healths
+      gained `languages`/`kinds` (a fake of this wire's bridge states them). No fixture, recording or LSP change.
+      **Gate 2026-10-24, review findings fixed red first:** (1) `volt status` folded the refusal into "offline", exit 0
+      — it now lets `BRIDGE_PREDATES_WIRE` through by name (exit 1, the refusal on stderr, no "offline"), pretty,
+      `--porcelain`, `--json`, `--json --local` (`BlackBoxTests.Status_against_a_bridge_that_predates…` ×2, red before).
+      (2) `BridgeResolver`: three tests put a predates refusal through `ChooseBridgePipe` (beside a match; alone; mixed
+      with an access denial) — removing it from `IsRefusal` now turns 3 red; mixed refusals no longer borrow
+      `BRIDGE_ACCESS_DENIED` but state the resolver's own `BRIDGES_REFUSED`, each refusal named; the message says "isn't
+      open in any … that answered … were refused", not "this process can reach". (3) volt-control `refusedIdes` refuses
+      a row whose code it does not know (or none), naming the pipe and the code. (4) `IsPreconditionRefusal`'s comment
+      states where `BridgeError` is raised now. (5) the spec delta gained "a client refuses a bridge that predates this
+      wire" (openspec validate: valid). Seen, not changed (outside the findings): `volt status` against a pipe that
+      refuses this process (`BRIDGE_ACCESS_DENIED`, `--pipe` only — the resolver names it otherwise) still reads
+      "offline"; design.md's 4.3c says `GetHealth` returns a cached health, the build reads it live (the verdict is
+      cached). Numbers: Volt.Cli.Tests 377/377 (5 m 44 s, `--logger trx`), Volt.Connector.Tests 156/156,
+      Volt.Repo.Gates 275/275, DocDataTests 27/27, volt-control `src` 134/134 + `test/e2e` 11/11, typecheck clean, lint
+      0 errors. No fixture, recording, transpiler or LSP change: no fixture-map regeneration, no LSP suite
+      (VOLT_REQUIRE_FULL n/a).
 - [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.

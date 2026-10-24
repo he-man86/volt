@@ -590,4 +590,60 @@ public class BlackBoxTests
         }
         finally { host.Dispose(); }
     }
+    /// <summary>A BRIDGE THAT PREDATES THIS WIRE IS REFUSED BY NAME BEFORE ANY OP (wire-final-shape 4.3c). The previous
+    /// release's bridge reads this CLI's envelope leniently and would serve it, so the CLI reads <c>health</c> first and
+    /// refuses one that states no <c>languages</c> or no <c>kinds</c>: exit 1, the refusal named, and the bridge saw
+    /// nothing but that <c>health</c>.</summary>
+    [Theory]
+    [InlineData("languages")]
+    [InlineData("kinds")]
+    public void Pull_and_push_against_a_bridge_that_predates_this_wire_are_refused_by_name_before_any_op(string missing)
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var first = RunVolt(root, pipe, "pull");
+            Assert.True(first.Code == 0, $"pull exit {first.Code}: {first.Err}");
+            EditPrg(root, "x := 2;");
+
+            foreach (var verb in new[] { "pull", "push" })
+            {
+                using var old = new BridgeShapeTests.OldBridge(ConnectedIde(Prg()), missing);
+                var r = RunVolt(root, old.Pipe, verb);
+                Assert.True(r.Code == 1, $"{verb} exit {r.Code}: {r.Out} {r.Err}");
+                Assert.Contains("predates this wire", r.Err);
+                Assert.Equal(new[] { Ops.Health }, old.Ops.ToArray());
+            }
+        }
+        finally { host.Dispose(); }
+    }
+
+    /// <summary><c>volt status</c> against a bridge that predates this wire is REFUSED by name, like every other verb
+    /// (wire-final-shape 4.3c) — never "offline": that bridge is there and answered, and calling it offline sends the
+    /// engineer to start an IDE that is running. Pretty, <c>--porcelain</c> and <c>--json</c> alike: exit 1, the refusal
+    /// on stderr, the bridge sent nothing but <c>health</c>.</summary>
+    [Theory]
+    [InlineData("languages")]
+    [InlineData("kinds")]
+    public void Status_against_a_bridge_that_predates_this_wire_is_refused_by_name_not_reported_offline(string missing)
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var first = RunVolt(root, pipe, "pull");
+            Assert.True(first.Code == 0, $"pull exit {first.Code}: {first.Err}");
+
+            foreach (var mode in new[] { Array.Empty<string>(), new[] { "--porcelain" }, new[] { "--json" }, new[] { "--json", "--local" } })
+            {
+                using var old = new BridgeShapeTests.OldBridge(ConnectedIde(Prg()), missing);
+                var r = RunVolt(root, old.Pipe, new[] { "status" }.Concat(mode).ToArray());
+                var label = "status " + string.Join(" ", mode);
+                Assert.True(r.Code == 1, $"{label} exit {r.Code}: {r.Out} {r.Err}");
+                Assert.Contains("predates this wire", r.Err);
+                Assert.DoesNotContain("offline", r.Out + r.Err);
+                Assert.Equal(new[] { Ops.Health }, old.Ops.ToArray());
+            }
+        }
+        finally { host.Dispose(); }
+    }
 }

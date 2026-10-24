@@ -215,7 +215,31 @@ test("connectOptions carries each project's IDE identity line, refused rows too"
 // Gate 2b (environment-dependency-audit 2.2): an IDE whose pipe refused the connector has no project name — it is
 // drawn as a no-action row carrying the connector's reason, not dropped; a down connector refused nothing.
 test("refusedIdes names each refused bridge with its reason and no project name", () => {
-  const rows = refusedIdes({ projects: [], refused: [{ vendor: "codesys", pipe: "volt.bridge.codesys.7", reason: "R" }] })
+  const rows = refusedIdes({
+    projects: [],
+    refused: [{ vendor: "codesys", pipe: "volt.bridge.codesys.7", code: "BRIDGE_ACCESS_DENIED", reason: "R" }],
+  })
   expect(rows).toEqual([{ key: "refused:volt.bridge.codesys.7", label: "An IDE Volt cannot reach", caption: "access denied", reason: "R" }])
   expect(refusedIdes(undefined)).toEqual([])
+})
+
+// wire-final-shape 4.3c: the connector refuses a bridge whose `health` predates this wire, and the row says so — it is
+// reachable, so "access denied" would send the engineer after the wrong cause.
+test("refusedIdes captions a bridge that predates this wire as out of date, not as access denied", () => {
+  const rows = refusedIdes({
+    projects: [],
+    refused: [{ vendor: "codesys", pipe: "volt.bridge.codesys.8", code: "BRIDGE_PREDATES_WIRE", reason: "R" }],
+  })
+  expect(rows).toEqual([
+    { key: "refused:volt.bridge.codesys.8", label: "An IDE with an older Volt bridge", caption: "bridge out of date", reason: "R" },
+  ])
+})
+
+// The connector's JSON is not validated, so a refused row whose code this build does not know (or none) would draw a
+// row with no words: refused by name instead, never a silent blank row.
+test("refusedIdes refuses a refused row whose code it does not know, naming it", () => {
+  const missing = { projects: [], refused: [{ vendor: "codesys", pipe: "p", reason: "R" }] } as never
+  expect(() => refusedIdes(missing)).toThrow(/refused bridge p.*undefined/)
+  const unknown = { projects: [], refused: [{ vendor: "codesys", pipe: "q", code: "BRIDGE_NEW", reason: "R" }] } as never
+  expect(() => refusedIdes(unknown)).toThrow(/refused bridge q.*BRIDGE_NEW/)
 })

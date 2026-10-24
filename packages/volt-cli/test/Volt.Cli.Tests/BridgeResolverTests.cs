@@ -168,6 +168,45 @@ public class BridgeResolverTests
         Assert.Contains("'Plant'", ex.Message);
     }
 
+    // ── a pipe whose bridge predates this wire (wire-final-shape 4.3c) ──────────────────────────────────────────
+
+    private static Func<string, IReadOnlyList<string>> RefusingWith(Dictionary<string, string> codes, Dictionary<string, string[]> others) =>
+        p => codes.TryGetValue(p, out var code) ? throw new BridgeError(code, $"refused {p}") : Projects(others)(p);
+
+    [Fact]
+    public void A_bridge_that_predates_this_wire_beside_the_matching_one_does_not_stop_the_resolve()
+    {
+        var pick = BridgeResolver.ChooseBridgePipe(new[] { "p1", "p2" }, "Plant", false,
+            RefusingWith(new() { ["p1"] = BridgeError.PredatesWireCode }, new() { ["p2"] = new[] { "Plant" } }), "codesys");
+        Assert.Equal("p2", pick);
+    }
+
+    /// <summary>Its IDE is THERE and may hold the bound project, so it is named — never "isn't open in any" — and the
+    /// code is its own: a bridge out of date is not an access denial, and is reachable.</summary>
+    [Fact]
+    public void A_bridge_that_predates_this_wire_is_named_by_its_own_code_when_no_pipe_matches()
+    {
+        var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(new[] { "p1", "p2" }, "Plant", false,
+            RefusingWith(new() { ["p1"] = BridgeError.PredatesWireCode }, new() { ["p2"] = new string[0] }), "codesys"));
+        Assert.Equal(BridgeError.PredatesWireCode, ex.Code);
+        Assert.Contains("refused p1", ex.Message);
+        Assert.Contains("'Plant'", ex.Message);
+        Assert.DoesNotContain("can reach", ex.Message);
+    }
+
+    /// <summary>Refusals of two kinds have no one code to borrow: the resolver states that several pipes refused, and
+    /// the message names each with its own cause.</summary>
+    [Fact]
+    public void Refusals_of_two_kinds_are_each_named_under_the_resolvers_own_code()
+    {
+        var ex = Assert.Throws<BridgeError>(() => BridgeResolver.ChooseBridgePipe(new[] { "p1", "p2", "p3" }, "Plant", false,
+            RefusingWith(new() { ["p1"] = BridgeError.AccessDeniedCode, ["p2"] = BridgeError.PredatesWireCode },
+                new() { ["p3"] = new string[0] }), "codesys"));
+        Assert.Equal(BridgeResolver.BridgesRefused, ex.Code);
+        Assert.Contains("refused p1", ex.Message);
+        Assert.Contains("refused p2", ex.Message);
+    }
+
     [Fact]
     public void An_XAE_whose_token_cannot_be_read_is_named_as_another_users()
     {

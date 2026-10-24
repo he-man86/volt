@@ -13,14 +13,13 @@ public static class Commands
     /// <summary>An op's in-op precondition failure (the bridge guarding "connected + right project") — mapped by
     /// each command to its own clean refusal result instead of a thrown error. Uses the code the wire now carries.
     /// <para>It takes the bare CODE rather than an exception type because it is a statement about the code space,
-    /// not about a carrier. Today the only carrier that reaches a command is <see cref="PipeCallException"/>: the
-    /// bridge refused the op. There was a second — <see cref="BridgeError"/>, raised by the client's own
-    /// `GuardEmptyItems` — and when that guard was deleted the three `catch (BridgeError)` arms beside these
-    /// became unreachable and went with it. <see cref="BridgeError"/> survives because
-    /// <see cref="BridgeResolver"/> still raises it, and that one is thrown while <c>Bridge()</c> is evaluated as
-    /// an ARGUMENT in Program's dispatch switch, so it can never reach a catch inside a command — the same reason
-    /// <see cref="BridgeResolver.AmbiguousBridge"/> is deliberately not a member here: listing it would be a test
-    /// that cannot fire.</para></summary>
+    /// not about a carrier. The only carrier it is asked about is <see cref="PipeCallException"/>: the bridge refused
+    /// the op. <see cref="BridgeError"/> is the CLIENT's refusal, and none is a precondition a command turns into a
+    /// result: <see cref="BridgeResolver"/> raises it while <c>Bridge()</c> is evaluated as an ARGUMENT in Program's
+    /// dispatch switch, before any command runs; <see cref="BridgeClient"/> raises it INSIDE a command (unreachable,
+    /// access denied, and <see cref="BridgeError.PredatesWireCode"/> from its shape check before the first op), and it
+    /// propagates to Program's dispatch, which prints it and exits 1. A command that catches broadly (<c>Status</c>)
+    /// lets <see cref="BridgeError.PredatesWireCode"/> through by name.</para></summary>
     private static bool IsPreconditionRefusal(string code) =>
         code == BridgeErrorCodes.WrongProject || code == BridgeErrorCodes.PlcDisconnected;
 
@@ -220,6 +219,9 @@ public static class Commands
                 }
             }
         }
+        // A bridge that predates this wire is THERE and answered: refused by name like every other verb (wire-final-shape
+        // 4.3c), never folded into "offline" below — that would send the engineer to start an IDE that is running.
+        catch (BridgeError e) when (e.Code == BridgeError.PredatesWireCode) { throw; }
         catch (Exception ex)
         {
             snap = new BridgeSnapshot { Online = false, Detail = ex.Message };

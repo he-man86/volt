@@ -47,13 +47,27 @@ namespace Volt.Connector
             var refused = new System.Collections.Concurrent.ConcurrentBag<RefusedBridge>();
             var perPipe = await Task.WhenAll(pipes.Select(async pipe =>
             {
-                try { return WireProjects.Flatten(await _wireFor(pipe).CallAsync(Ops.Health), Vendor, pipe); }
+                try
+                {
+                    var health = await _wireFor(pipe).CallAsync(Ops.Health);
+                    // The bridge's shape before anything is read from it (wire-final-shape 4.3c): no row from a bridge
+                    // that predates this wire, so the reconciler never sends it a `connect`.
+                    WireShape.Require(health, pipe);
+                    return WireProjects.Flatten(health, Vendor, pipe);
+                }
                 catch (PipeAccessDeniedException e)
                 {
                     // Not a host that went away: an IDE that is THERE and refuses us. It has no rows to give, so it is
                     // carried named — the connection view says why that IDE is missing (environment-dependency-audit 2.2).
                     VoltLog.Warn($"health on {pipe} refused: {e.Message}");
-                    refused.Add(new RefusedBridge(Vendor, pipe, e.Message));
+                    refused.Add(new RefusedBridge(Vendor, pipe, PipeAccessDeniedException.Code, e.Message));
+                    return new List<DetectedProject>();
+                }
+                catch (BridgePredatesWireException e)
+                {
+                    // An IDE that is THERE with a bridge of the previous release: named the same way, with its own code.
+                    VoltLog.Warn($"health on {pipe} refused: {e.Message}");
+                    refused.Add(new RefusedBridge(Vendor, pipe, WireShape.PredatesWireCode, e.Message));
                     return new List<DetectedProject>();
                 }
                 catch (Exception e)

@@ -16,6 +16,14 @@ declaration.
 - **WHEN** a client reads `health`
 - **THEN** `languages` lists every language the bridge writes as `IMPLEMENTATION <LANG>` and no other
 
+### Requirement: a client refuses a bridge that predates this wire
+Every client of this wire SHALL read `health` first and refuse, by name (`BRIDGE_PREDATES_WIRE`, client-side), a bridge
+whose `health` lacks `languages` or `kinds`, before it sends that bridge any other op. An empty list is a fact and passes.
+
+#### Scenario: a bridge of the previous release
+- **WHEN** a client's first `health` from a bridge states no `kinds`
+- **THEN** the client refuses it `BRIDGE_PREDATES_WIRE`, naming the pipe and what is missing, and sends it no other op
+
 ### Requirement: a fact the IDE does not state is absent
 A wire value the IDE did not state SHALL be absent, never filled with a default: `dirty`, a diagnostic's `severity`,
 `line` and `column`.
