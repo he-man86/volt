@@ -137,6 +137,11 @@ Ide.Twincat 714, Ide.Codesys 485, Repo.Gates 255; volt-cli `bun test test/unit` 
       reads `IMessage.Severity` as its numeric value (2.7); first measure on live 3.5.22.40 which values a build gives
       (a suppressed warning included), raw values logged, before the table is written. TwinCAT keeps the `,col` group
       and serves a column only where a pane states one (2.6: 4024 states none).
+      ZERO-FALLBACK (owner policy, overrides 2.6's "niche: accepted loss"): a build whose `success` is false MUST carry at
+      least one error diagnostic. A compiler line the parser cannot place (TwinCAT's "Internal error: …" with no
+      file(line) shape) is carried as a diagnostic with its text and NO position — positions are optional in this shape,
+      so nothing is invented. Red test first: a failed build with an unparseable error line answers that line, never an
+      empty list.
 - [ ] 3.7 `grep`: `name`.
 - [ ] 3.8 The CLI, `volt-control`, the relay and the VS Code extension read the new shape (their offline suites).
 - [ ] 3.9 OpenRPC generator: enums from the declarations, `ProgressFrame`, `BridgeErrorCode`/`ConflictCode`, the common
