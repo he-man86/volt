@@ -398,6 +398,11 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       **Done 2026-10-24:** recorded once at `c1504433c3` (`--record-transcripts`, the five transcript cells), committed
       `ac162d8b6d`; the compare run at `ac162d8b6d` answered "transcript identical" on all five (codesys-3.5.18.30-64,
       3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64, twincat-32, each 539 pass).
+- [ ] 4.3c OWNER DECISION 2026-10-24 ("agree with both"): protocol stays 1, and the CLIENT checks the bridge's shape:
+      every client of this wire (the CLI, volt-control, the relay's client side) requires `health.languages` and
+      `health.kinds` and refuses a bridge whose `health` lacks them by name ("this bridge predates this wire: update it"),
+      before any other op — red test first. With it the mixed-version cell refuses by name in BOTH directions; 4.3's rule
+      stays unchanged. PLC Assist is told to do the same check.
 - [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.
@@ -426,6 +431,12 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       `test/e2e/endpoints/create-then-refs.test.ts` — the receipt names the create and refs at once holds it at that
       version. No root fix without a reproduction; PLC Assist's next report on this release names the class
       (`unwalkedFolders`/`unreadable`) if it recurs.
+- [ ] 4.3d OWNER DECISION 2026-10-24 ("agree with both"): the canonical file layout stays; it becomes PART OF THE WIRE.
+      `wire.html` (generated where the layout comes from code) states exactly what a pushed text comes back as: LF line
+      endings, one blank line before each member and before the closing `END_…`, the member order, and every other rule
+      the writer applies, with one example per rule. A test pins that the writer's output equals the stated layout, so
+      the doc cannot drift. Pushing non-canonical text stays accepted; the fetched text is its canonical form. 4.3b is
+      then ticked against this rule; PLC Assist's edit tool compares against the canonical form.
 - [ ] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
       2,451-line FB (`C:UsersmarceAppDataLocalplcassist-parkolt-fidelityVltRwBig.pou.txt`, also `.lines.json`, and
       `VltRwCrlf.pou.txt` (CRLF+BOM) / `VltRwLf.pou.txt`) pushed as one `set` create, then `fetch onlyItems`: 80 of 2,451
