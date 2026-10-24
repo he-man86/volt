@@ -86,10 +86,10 @@ the blind one (task 1.1, section "Blind review"); the rest trace to
 
 | Before | After | Principle · evidence | Client changes |
 |---|---|---|---|
-| an unrecognised vendor severity word becomes `info` | **`severity` absent** when the vendor's word is not in the host's declared word table | C · `BuildModels.cs:30-40` | treat absent as "not classified"; `success` is unaffected |
-| `line`/`column` required; `0` when the vendor states no position | **optional, 1-based, absent when the vendor states none** | C · `TcObjectModel.Build.cs:192` (`Line = 0`), the CODESYS recording carries `line: 0` | test for presence, not for 0 |
+| an unrecognised vendor severity word becomes `info` | **`severity` absent** when the vendor's value is not in the host's declared table (CODESYS: keyed on `IMessage.Severity`'s numeric `[Flags]` value, one declared bit per row; TwinCAT: the pane token; task 2.7) | C · `BuildModels.cs:30-40` | treat absent as "not classified"; `success` is unaffected |
+| `line`/`column` required; `0` when the vendor states no position | **optional, 1-based, absent when the vendor states none** | C · `TcObjectModel.Build.cs:192` (`Line = 0`), the CODESYS recording carries `line: 0`; TwinCAT 4024 writes `(line)` and no column (task 2.6, live) | test for presence, not for 0 |
 | `duration` without a unit (F25) | **`durationMs`** | A | rename |
-| `success` from a different vendor signal on each (F25) | unchanged in this change; task 2.6 measures whether both vendors' signals agree with "no `error` diagnostic" and, if they do, makes that the one rule | — | none yet |
+| `success` from a different vendor signal on each (F25) | unchanged: each vendor's own signal. Task 2.6 measured that they do not agree with "no `error` diagnostic" (TwinCAT's compiler crashing writes an unshaped line), so that is no rule | C | never derive success from the diagnostics |
 
 ## 7. `grep` and the code tables
 

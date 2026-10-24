@@ -72,8 +72,57 @@ Ide.Twincat 714, Ide.Codesys 485, Repo.Gates 255; volt-cli `bun test test/unit` 
 
 **Step 2b**
 
-- [ ] 2.6 `build.success` vs "no `error` diagnostic" on both vendors over the e2e build cases: one rule if they agree.
-- [ ] 2.7 Each vendor's severity words seen in the corpora and recordings: the host's declared word table.
+- [x] 2.6 `build.success` vs "no `error` diagnostic" on both vendors over the e2e build cases: one rule if they agree.
+      **Measured over every recorded build answer** (LSP recordings `codesys.build.json` 5659, `twincat.build.json` 5613,
+      `twincat.build.new.json` 2524, `twincat-32.build.json` 39; corpus `expected-build.*` 5 + 1; transcripts 4 + 1;
+      `vendor-facts.twincat.json` 56). **CODESYS: agree 5668 / 5668** (by construction: `CodesysObjectModel.Build.cs:28`
+      derives success from the list). **TwinCAT: agree 8208 / 8234;** never `success: true` with an error, but 26
+      answers (14 fixtures, 12 of them again in the `.new` checkpoint) are `success: false` with NO error diagnostic:
+      `LastBuildInfo` says a project failed and the Output-pane parse found no error line. The 14: seven string
+      constants too long (`cc_string_{plain_long_init,escape_first,escape_middle,escape_last,hex_escape}_too_long`,
+      `cc_string_prefix_len_{1,2}`, `cc_wstring_init_too_long_2` — CODESYS: success with two warnings); four XADD
+      (`operand_xadd`, `atomic_xadd_{dint,int,dword}`), `cc5_new_in_expression`, `decl_bracket_init_no_assign_fb`
+      (CODESYS: errors). 0 occurrences in the six corpora. (The recorder keeps error and warning lines only,
+      `record-language.ts:351`; an info line cannot be the missing error.) **They disagree, so no one rule:** "no error
+      diagnostic" would report 14 failing TwinCAT builds as successes. `success` stays each vendor's own signal.
+      **The 14 are a capture loss, measured live** (gate 2a+2b, instance `wire-final-shape`, Project14 copy, a probe FB
+      instantiated in `PLC_PRG`, the Output panes read over COM): `s2 : STRING(2) := 'abcdef'` answers
+      `success:false, diagnostics:[]`, and the Build pane holds `Internal error:System.ArgumentOutOfRangeException: Length
+      cannot be less than zero.` + a .NET stack (`TypeChecker.CheckStringLiteralLength`), then `Compile complete -- 1
+      errors, 0 warnings`. TwinCAT's compiler CRASHES on these fixtures and says so in a line with no
+      `file(line) : error:` shape, so the parser (`TcObjectModel.Build.cs:285`) admits nothing: the IDE counts an error
+      the wire does not carry. (The same probe with `__XADD` on this ARM-target project gives a shaped `Internal Error
+      (ARM): RiscFrontEnd: Unknown operator`, so which crash shapes occur differs per target.) **Triage: niche: accepted
+      loss (0 occurrences in the corpora)** — counted over the six corpora: 0 `__XADD(`, 0 `__NEW(`, 0 string
+      initializers longer than their declared length, 0 multi-element FB-array `[(…), (…)]` initializers (29
+      single-element ones in pro2193, which compile on both vendors). Not worked on in this change; the recordings stay
+      as the IDE answered. 3.6 keeps `success` from `LastBuildInfo`, so such a build is never reported as passing.
+      **Positions (3.6, B7):** CODESYS states none — `line` 0 on all 6446 diagnostics, `column` 0 on the 20 wire-level
+      ones (DIALECT C27). TwinCAT: `line` ≥ 1 on 9569 (minimum 1: 1-based), 0 on 174 (a pane line with no position).
+      **Column, measured live** (same probe, an unknown identifier at column 13 of the body line): the pane line is
+      `…\VltProbe.TcPOU(5) : error: Identifier 'undefinedThing' not defined` — `(line)` only, no column, on all three
+      errors; the wire carries `column: 0`. The parser's optional `,col` group (`TcObjectModel.Build.cs:285`) and the
+      unit tests' `(3,1)` lines are a shape this XAE (3.1.4024.74) did not write. So TwinCAT 4024 states no column; 3.6
+      keeps reading the group and serves a column only where a pane states one. TwinCAT's `line` 5 there counts the
+      four declaration lines and then the body, with no `IMPLEMENTATION` line: Volt's text has that body line at 6.
+- [x] 2.7 Each vendor's severity words seen in the corpora and recordings: the host's declared word table.
+      **CODESYS:** the word is the enum name of `IMessage.Severity`, `_3S.CoDeSys.Core.Messages.Severity` (`[Flags]`,
+      `MessageStorage.dll`), read from the metadata of every installed version. 3.5.18.30, 3.5.21.40, 3.5.21.60 (x86):
+      `FatalError`=1, `Error`=2, `Warning`=4, `Information`=8, `Text`=16; **3.5.22.40 adds `SuppressedWarning`=32 and
+      `SuppressedInformation`=64.** Seen on the wire: error 5427, warning 999, info 20 (the info ones are build chrome:
+      "Build started", "Compile complete -- …"). **TwinCAT:** the Output-pane token the parser admits, ignoring case
+      (`TcObjectModel.Build.cs:285`): `error`, `warning`, `message` — closed by the regex; a line with another word is no
+      diagnostic. Seen: error 8790, warning 1102, info 41. **Declared tables:** CODESYS `FatalError`→error,
+      `Error`→error, `Warning`→warning, `Information`→info, `Text`→info; TwinCAT `error`→error, `warning`→warning,
+      `message`→info. **For the owner:** SP22's `SuppressedWarning` / `SuppressedInformation` — today's substring match
+      counts a suppressed warning as `warning`; declared, each is either a row or absent (unclassified).
+      **What the evidence does NOT show (gate 2a+2b):** the "seen" counts are the bridge's MAPPED words (the recorder
+      stores `error`/`warning` after `Severity.Of`, `record-language.ts:351`, and drops info), so they say nothing about
+      which CODESYS enum values occur. The enum is `[Flags]` and the driver reads `Severity.ToString()`
+      (`CodesysObjectModel.Build.cs:105`): a combined value prints `Warning, SuppressedWarning`, an undefined bit prints
+      a number, and neither is a single name. So the CODESYS table is keyed on the enum's NUMERIC value, not its
+      `ToString()`: one row per single declared bit as above, and a value that is not exactly one declared bit is
+      absent (unclassified), never substring-matched. Whether combined values occur is unmeasured (3.6 measures it).
 
 ## 3. Build, test-first (offline)
 
@@ -84,7 +133,10 @@ Ide.Twincat 714, Ide.Codesys 485, Repo.Gates 255; volt-cli `bun test test/unit` 
 - [ ] 3.4 `refs`/`fetch`: `code` on unreadable entries; `knownApplications` required with `knownItems`.
 - [ ] 3.5 `push`: `accepted` and `currentProjectVersion` deleted; lease as an error frame; `removed` in the receipt;
       `existing` on ITEM_EXISTS; `code` required.
-- [ ] 3.6 `build`: severity absent when unmapped; positions optional and 1-based; `durationMs`.
+- [ ] 3.6 `build`: severity absent when unmapped; positions optional and 1-based; `durationMs`. The CODESYS word table
+      reads `IMessage.Severity` as its numeric value (2.7); first measure on live 3.5.22.40 which values a build gives
+      (a suppressed warning included), raw values logged, before the table is written. TwinCAT keeps the `,col` group
+      and serves a column only where a pane states one (2.6: 4024 states none).
 - [ ] 3.7 `grep`: `name`.
 - [ ] 3.8 The CLI, `volt-control`, the relay and the VS Code extension read the new shape (their offline suites).
 - [ ] 3.9 OpenRPC generator: enums from the declarations, `ProgressFrame`, `BridgeErrorCode`/`ConflictCode`, the common
