@@ -47,6 +47,9 @@ type Expected = {
 	compiled: string[]
 }
 
+/** TwinCAT's closing line of a failed whole build, up to the OS's own (localized) words for the failure. */
+const FAILED_BUILD_LINE = "Error: The operation could not be completed."
+
 /** The CODESYS project the served IDE OPENED, by its file's base name (`CodesysTestProject.3.5.21.40`), read from the
  *  `ide.ps1` instance's record — not from the wire under test. */
 function openedCodesysProject(): string | undefined {
@@ -113,9 +116,12 @@ const TWINCAT: Expected = (() => {
 		// Measured 2026-10-17 (4024.74): Untitled1's task calls MAIN, which that PLC project does not hold (design §9) —
 		// an error on that task, as CODESYS names the same fault; nothing else, although the four PLC projects repeat
 		// PLC_PRG / MAIN / PlcTask.
+		// And the failed whole build's own closing line, naming no item (measured 2026-10-24 on the same XAE; carried since
+		// wire-final-shape 3.6). Its tail is the OS's words for E_FAIL, in the OS's language — `errorsOf` keeps the head.
 		buildErrors: [
 			`${plc(P14, "Untitled1")}/PlcTask.task :: Identifier 'MAIN' not defined`,
 			`${plc(P14, "Untitled1")}/PlcTask.task :: Program name, function or function block instance expected instead of 'MAIN'`,
+			`- :: ${FAILED_BUILD_LINE}`,
 		],
 		// The mains a task calls. Untitled1's task calls MAIN, so nothing calls its PLC_PRG, and a POU no task calls is not
 		// compiled on either vendor ("a POU no task calls is not compiled" below) — a fault in it is in no build.
@@ -262,7 +268,8 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 	/** A build's errors as `<item path> :: <message>` (`-` for none) — the name is compared, not only the message: a
 	 *  fault both vendors give must land on the same item on the wire. */
 	const errorsOf = (r: any): string[] =>
-		(r.diagnostics ?? []).filter((d: any) => d.severity === "error").map((d: any) => `${d.name ?? "-"} :: ${d.message}`).sort()
+		(r.diagnostics ?? []).filter((d: any) => d.severity === "error")
+			.map((d: any) => `${d.name ?? "-"} :: ${d.message.startsWith(FAILED_BUILD_LINE) ? FAILED_BUILD_LINE : d.message}`).sort()
 	/** The application a path lies in: the longest stated root it is under. */
 	const applicationOf = (path: string) =>
 		expected.applications.filter((a) => path.startsWith(`${a}/`)).sort((a, b) => b.length - a.length)[0]!

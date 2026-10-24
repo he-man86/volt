@@ -23,7 +23,7 @@ import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bu
 import { fixturePipeOrSkip } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
 import { REF_PREFIX, bindBridge, normalize, pushFresh, refsOf, sweep, type Answer, type Bridge } from "./table"
-import { drivenDiagnostics, fileOf, folderOf, inFolder, mainProgram, pathIn } from "../lib/main-program"
+import { drivenApplication, drivenDiagnostics, fileOf, folderOf, inFolder, mainProgram, pathIn } from "../lib/main-program"
 
 setDefaultTimeout(240_000)
 
@@ -44,11 +44,14 @@ function errorsOf(errs: string[], bare: string): string[] {
 	return errs.filter((e) => e.slice(0, e.indexOf(": ")).includes(bare))
 }
 
-/** The build's errors on the driven application (`drivenDiagnostics`): TwinCAT MultiProject's Untitled1 carries its
- *  own fault, which is no row's. */
+/** The driven application's build errors, that application built alone (`applications`, as `drivenBuild`): TwinCAT
+ *  MultiProject's Untitled1 carries its own fault, which is no row's, and a failed whole build closes with a line naming
+ *  no item that no filter can place. */
 async function errors(b: Bridge): Promise<string[]> {
-	const r = await b.call("build", {})
-	const own = drivenDiagnostics(r.diagnostics ?? [], (await refsOf(b)).applications)
+	const apps: string[] = (await refsOf(b)).applications ?? []
+	const driven = drivenApplication(apps)
+	const r = await b.call("build", apps.length > 1 && driven !== null ? { applications: [driven] } : {})
+	const own = drivenDiagnostics(r.diagnostics ?? [], apps)
 	return own.filter((d: any) => d.severity === "error").map((d: any) => `${d.name}: ${d.message}`).sort()
 }
 

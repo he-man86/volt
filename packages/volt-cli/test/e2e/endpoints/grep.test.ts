@@ -133,7 +133,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		expect(r.matches.filter((m: any) => m.name.endsWith(".library"))).toEqual([])
 		expect(r.notSearched.filter((n: any) => n.name.endsWith(".library"))).toEqual([])
 		for (const u of refs.unreadable.filter((x: any) => !x.name.endsWith(".library")))
-			expect(r.notSearched).toContainEqual({ name: u.name, reason: u.reason })
+			expect(r.notSearched).toContainEqual({ name: u.name, code: u.code, reason: u.reason })
 		expect(r.unwalkedFolders).toEqual(refs.unwalkedFolders)
 		expect(r.searched).toBe(Object.keys(refs.items).filter((p) => !p.endsWith(".library")).length)
 	})

@@ -8,21 +8,20 @@ import { landed } from "./workspace"
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
 import { PREFIX, applications, fetchItem, mainProgram, pushOps } from "./workspace"
-import { drivenDiagnostics } from "./main-program"
+import { drivenApplication, drivenDiagnostics } from "./main-program"
 
 /**
- * `build`, as the application the suite drives sees it: its diagnostics are the driven application's
- * (`drivenDiagnostics`), and it succeeded when the build did, or failed only on errors of another application. On a single-application fixture that is the
- * build itself. On TwinCAT MultiProject — the release cell — every build also reports Untitled1's own fault, which
- * `test/e2e/multi-application` pins; this is how the rest of the suite does not mistake it for its own.
+ * `build`, as the application the suite drives sees it: the driven application alone, by the wire's own `applications`
+ * (D46), so its verdict and its diagnostics are that application's. On TwinCAT MultiProject — the release cell — a whole
+ * build also fails on Untitled1's own fault (`test/e2e/multi-application` pins it), and TwinCAT then writes a failed
+ * build's line that names no item (`Error: The operation could not be completed…`, carried since wire-final-shape 3.6),
+ * which no filter can place in an application: so the suite builds what it drives instead of filtering a whole build.
  */
 export async function drivenBuild(): Promise<{ success: boolean; diagnostics: any[] }> {
-	const r = await bridge.build()
-	const all = r.diagnostics ?? []
-	const diagnostics = drivenDiagnostics(all, await applications())
-	const isError = (d: any) => d.severity === "error"
-	const elsewhere = !diagnostics.some(isError) && all.some(isError)
-	return { ...r, diagnostics, success: r.success || elsewhere }
+	const apps = await applications()
+	const driven = drivenApplication(apps)
+	const r = await bridge.build(apps.length > 1 && driven !== null ? { applications: [driven] } : {})
+	return { ...r, diagnostics: drivenDiagnostics(r.diagnostics ?? [], apps) }
 }
 
 /**
