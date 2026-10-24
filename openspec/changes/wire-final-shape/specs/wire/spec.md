@@ -47,3 +47,12 @@ position, and SHALL be absent when the bridge cannot place it there with certain
 #### Scenario: an error inside a method
 - **WHEN** the IDE reports an error on line 6 of a METHOD whose declaration has 4 lines
 - **THEN** the diagnostic's `line` is the line of the fetched text holding that method's second code line
+
+### Requirement: the canonical layout is part of the wire
+A fetched text SHALL be in the layout `wire.html#layout` states, row by row (LF line ends, the blank lines, the member
+order), and each row SHALL state what a push that breaks it does: `canonical` (accepted, fetched back in the layout),
+`kept` (accepted, fetched back as pushed) or `refused` (`INVALID_ST`, nothing written).
+
+#### Scenario: a push with CRLF line ends
+- **WHEN** a client pushes a text whose lines end in CRLF
+- **THEN** the push lands and the fetched text has LF line ends, otherwise unchanged

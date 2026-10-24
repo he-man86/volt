@@ -611,4 +611,10 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       Wire 6.5 → 7.5 (W1/W2, P3/P4 fixed; vendor symbols 33 → 17; uncoded throws 151 → 0).
 - [x] 5.1 `plcassist-note.md` final, sent to PLC Assist with the release. Final 2026-10-24 (main session, reviewed against
       the built shape); sent with the release-ready message after 5.2.
-- [ ] 5.2 The full release matrix once, green; docs match the code; archive.
+- [x] 5.2 The full release matrix once, green; docs match the code; archive.
+      **Done 2026-10-25:** `bun run release:matrix` at `63cb48b710` (clean tree), `result.json` green: codesys-3.5.18.30-64,
+      3.5.21.40-64, 3.5.21.60-32, 3.5.22.40-64 558 pass / 80 skip each, twincat-32 558 pass / 82 skip, transcripts
+      identical; vendor-parity 83 pass / 1 skip; mixed-version green (every verb refused by name both ways). Spec delta
+      checked against the built shape: the canonical-layout requirement (4.3d) was missing and is added. Gate: typecheck,
+      lint (0 errors), `bun run check` 16/16, Contracts 56, Engine 3221 (+1 skip), Cli 377, Connector 156, Ide.Twincat
+      728, Ide.Codesys 505, Repo.Gates 275, volt-cli `test/unit` 241.
